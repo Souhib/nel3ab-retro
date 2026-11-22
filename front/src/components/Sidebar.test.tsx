@@ -228,3 +228,33 @@ it("laisse « quitter » rendre la place plutôt que changer de page", () => {
   expect(props.onLeave).toHaveBeenCalled();
   expect(screen.getByText("les salles").getAttribute("href")).toBe("/");
 });
+
+describe("ce que la colonne dit d'elle-même (audit A11Y-10, A11Y-11, T02)", () => {
+  it("dit quel mode est choisi, et pas seulement par la bordure", () => {
+    show({ mode: "details" });
+    expect(document.querySelector("#mode-details")?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector("#mode-normal")?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("nomme le bouton qui replie la colonne autrement que « ✕ »", () => {
+    show({ onFold: vi.fn() });
+    expect(screen.getByRole("button", { name: "replier la colonne" })).toBeInTheDocument();
+  });
+
+  it("nomme la glissière du volume", () => {
+    // Au repos: le diagnostic de la liaison, qui lit la vidéo, n'est pas monté.
+    show({ idle: true, shot: { sound: { state: "running" }, padOnly: false } });
+    expect(screen.getByRole("slider", { name: "volume" })).toBeInTheDocument();
+  });
+
+  it("ne promet Échap qu'au clavier", () => {
+    show({ appareil: "clavier" });
+    expect(screen.getByText(/Échap ouvre le menu/)).toBeInTheDocument();
+  });
+
+  it("au doigt, parle du bouton « menu » et pas d'une touche absente", () => {
+    show({ appareil: "tactile" });
+    expect(screen.queryByText(/Échap/)).not.toBeInTheDocument();
+    expect(screen.getByText(/« menu » ouvre le menu/)).toBeInTheDocument();
+  });
+});

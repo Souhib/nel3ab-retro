@@ -33,6 +33,11 @@ export function Entrance({ onName }: { onName: (name: string) => void }) {
         </div>
 
         <div className="flex flex-col gap-2">
+          {/* Le placeholder seul nommait le champ, et il disparaît dès la
+              première lettre (audit A11Y-10). */}
+          <label htmlFor="name" className="sr-only">
+            ton nom
+          </label>
           <input
             id="name"
             autoFocus
@@ -40,7 +45,7 @@ export function Entrance({ onName }: { onName: (name: string) => void }) {
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             placeholder="ton nom"
-            className="border border-rule bg-panel px-3 py-2 text-fort text-text outline-none placeholder:text-faint focus:border-indigo"
+            className="border border-rule bg-panel px-3 py-2 text-fort text-text placeholder:text-faint focus:border-indigo"
           />
           <button
             type="submit"

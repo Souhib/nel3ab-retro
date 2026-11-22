@@ -45,6 +45,8 @@ await enterRoom(page);
 await wait(3500);
 await press(page, "#openMenu");
 await wait(1000);
+await press(page, "#ray-manettes");
+await wait(500);
 await press(page, "#item-bindings");
 await wait(1200);
 await page.screenshot({ path: `${out}/ui-touches.png` });

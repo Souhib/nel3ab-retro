@@ -49,7 +49,7 @@ try {
   // 5. Le panneau des touches. C'est une boîte de hauteur FIXE dont le contenu
   //    ne défile pas hors préparation: ce qui y grossit trop se coupe sans
   //    prévenir, et aucun essai ne le dirait. Il faut donc le regarder.
-  await nomme.evaluate(() => document.querySelector("#ray-reglages")?.click());
+  await nomme.evaluate(() => document.querySelector("#ray-manettes")?.click());
   await new Promise((done) => setTimeout(done, 500));
   await nomme.evaluate(() => document.querySelector("#item-bindings")?.click());
   await new Promise((done) => setTimeout(done, 1_200));

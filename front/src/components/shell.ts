@@ -11,7 +11,7 @@
  * `perRow`.
  */
 import { typingIn } from "../lib/typing";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MenuAction } from "../media/menupad";
 import { STEP, swipeFrom } from "../media/swipe";
 import type { XmbCategory, XmbItem } from "./Xmb";
@@ -67,17 +67,32 @@ const KEYS: Record<string, MenuAction> = {
   ArrowUp: "up",
   ArrowDown: "down",
   Enter: "confirm",
-  // Espace vaut A, et il doit passer par ICI.
-  //
-  // Sans cette ligne, Espace n'est pas reconnu, donc il ne reçoit pas le
-  // `preventDefault` plus bas et déclenche l'activation NATIVE du bouton qui a
-  // le focus du navigateur, c'est-à-dire une entrée que la croix ne désigne
-  // pas. Sur le rayon « jeux », ça lance un jeu, et lancer un jeu arrête la
-  // partie de tout le monde. Entrée était protégé, lui, uniquement parce qu'il
-  // figure dans cette table.
+  // Espace vaut A quand personne n'a le focus (voir `activeNatif`).
   " ": "confirm",
   Escape: "back",
 };
+
+/**
+ * Vrai quand le navigateur active lui-même cet élément sur Entrée ou Espace.
+ *
+ * # L'histoire de cette fonction
+ *
+ * Le menu prenait Entrée et Espace pour l'entrée sous le curseur, où que soit
+ * le focus. Une première correction avait ajouté Espace à la table parce que
+ * l'activation native du bouton focalisé lançait un jeu que la croix ne
+ * désignait pas. Elle traitait le symptôme: le focus et le curseur étaient
+ * deux choses, et Entrée sur « Échap reprend la partie » ouvrait encore le
+ * dossier GameCube sous le curseur (audit A11Y-02, 22 novembre 2026).
+ *
+ * Le curseur EST maintenant le focus (`useMenuDialogue`): l'entrée choisie a
+ * le focus, et l'activation native du bouton focalisé est exactement « valider
+ * l'entrée choisie ». Sur un autre bouton (le pied, une rubrique, une option du
+ * sélecteur), elle active ce bouton-là. Le menu ne garde Entrée et Espace que
+ * quand rien d'activable n'a le focus: la glissière, ou le document.
+ */
+export function activeNatif(cible: EventTarget | null): boolean {
+  return cible instanceof HTMLElement && cible.matches("button, a[href], summary, [role=button]");
+}
 
 /** Échange les deux axes.
  *
@@ -244,8 +259,12 @@ export function useShell(
     const press = (event: KeyboardEvent) => {
       if (paused) return;
       if (typingIn(event.target)) return;
+      // Un avis posé au-dessus du menu (une demande du chef, une erreur de
+      // lancement) garde ses touches: ses flèches ne déplacent pas la liste.
+      if (event.target instanceof Element && event.target.closest("[data-surcouche]")) return;
       const action = KEYS[event.key];
       if (action === undefined) return;
+      if (action === "confirm" && activeNatif(event.target)) return;
       event.preventDefault();
       act(action);
     };
@@ -279,6 +298,96 @@ export function useShell(
             cancel: abandon,
             previewing: open.preview === true,
           },
+  };
+}
+
+/**
+ * Le menu est un dialogue modal, et son curseur est le focus.
+ *
+ * # Pourquoi un `<dialog>`
+ *
+ * Le menu couvrait l'écran sans être modal: le focus restait sur le bouton
+ * « menu » caché dessous, et Tab passait d'abord par douze boutons de la
+ * colonne recouverte (audit A11Y-04, 22 novembre 2026). `showModal()` rend le
+ * reste de la page inerte, garde Tab dans le menu, et rend le focus à
+ * l'élément d'avant quand il se ferme. L'écran des touches le faisait déjà.
+ *
+ * # Le curseur est le focus
+ *
+ * Chaque fois que l'entrée choisie change, par la croix, la manette, la souris
+ * ou le doigt, elle reçoit le focus. Une seule entrée est dans l'ordre de
+ * tabulation (`tabIndex` 0, les autres -1): Tab va de l'entrée choisie au pied,
+ * et revient. Le clavier, la manette et un lecteur d'écran désignent donc la
+ * même chose.
+ *
+ * Le focus ne se déplace pas tant qu'un écran est ouvert par-dessus (`paused`)
+ * ou qu'un sélecteur a la main: chacun tient le sien.
+ *
+ * # Échap
+ *
+ * Le menu traite Échap lui-même (`back`: il remonte d'un dossier avant de
+ * fermer), et son `preventDefault` sur `keydown` empêche le dialogue de se
+ * fermer seul. Vérifié dans Chrome 151 le 22 novembre 2026: sans lui, la
+ * seconde demande de fermeture d'affilée n'est plus annulable et le dialogue
+ * se ferme. Le geste « retour » d'Android arrive par `cancel`, et fait la même
+ * chose qu'Échap. Si le navigateur ferme quand même, `onQuitte` remet la page
+ * d'accord avec lui.
+ */
+export function useMenuDialogue(
+  shell: Shell,
+  paused: boolean,
+  onQuitte: () => void,
+): {
+  ref: React.RefObject<HTMLDialogElement | null>;
+  id: string;
+  "aria-label": string;
+  onCancel: (event: React.SyntheticEvent<HTMLDialogElement>) => void;
+  onClose: () => void;
+} {
+  const ref = useRef<HTMLDialogElement>(null);
+  const parNous = useRef(false);
+
+  // Avant le premier effet, pour que l'entrée choisie soit focalisable: un
+  // dialogue fermé est `display: none`, et `focus()` n'y fait rien.
+  useLayoutEffect(() => {
+    const boite = ref.current;
+    if (!boite) return;
+    parNous.current = false;
+    if (!boite.open) boite.showModal();
+    return () => {
+      parNous.current = true;
+      if (boite.open) boite.close();
+    };
+  }, []);
+
+  const choisie = shell.items[shell.row]?.id ?? null;
+  const libre = shell.picking === null;
+  useEffect(() => {
+    if (paused || !libre) return;
+    const boite = ref.current;
+    if (!boite?.open) return;
+    const ici = document.activeElement;
+    // Le focus est dans un autre dialogue, ou sur un avis posé au-dessus du
+    // menu: on ne le lui prend pas.
+    if (ici && ici !== document.body && !boite.contains(ici)) return;
+    if (ici?.closest("[data-surcouche]")) return;
+    const cible =
+      (choisie === null ? null : boite.querySelector<HTMLElement>(`[id="item-${choisie}"]`)) ??
+      boite.querySelector<HTMLElement>("#closeMenu");
+    cible?.focus({ preventScroll: true });
+  }, [paused, libre, shell.ray, choisie]);
+
+  return {
+    ref,
+    id: "menu",
+    "aria-label": "menu de la salle",
+    onCancel: (event) => {
+      event.preventDefault();
+      if (!paused) shell.act("back");
+    },
+    onClose: () => {
+      if (!parNous.current) onQuitte();
+    },
   };
 }
 

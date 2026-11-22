@@ -41,7 +41,12 @@ export function Toggle({
 export function Volume({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="text-note uppercase tracking-[0.14em] text-faint">volume</span>
+      {/* Un `<label>` relié et plus un `<span>` voisin: la glissière était
+          lue « curseur 70 », sans nom (audit A11Y-10, seule violation axe
+          « critique » de la salle). */}
+      <label htmlFor="volume" className="text-note uppercase tracking-[0.14em] text-faint">
+        volume
+      </label>
       <input
         id="volume"
         type="range"

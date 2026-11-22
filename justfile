@@ -699,6 +699,52 @@ etats-navigateur-rouge:
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
         --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
 
+# Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
+#
+# Écrite le 22 novembre 2026 après l'audit d'accessibilité: Entrée sur un
+# bouton de la colonne partait au jeu comme START, Entrée sur « reprendre »
+# ouvrait le dossier sous le curseur du menu, le menu ne prenait pas le focus,
+# et sur un téléphone la moitié de ses rubriques sortait de l'écran. jsdom ne
+# voit rien de tout ça: il faut un vrai focus et une vraie activation. Chaque
+# étape a son jumeau, dont « Entrée dans la zone de jeu envoie START », lu dans
+# les trames que reçoit le banc (`focus.mjs`).
+#
+# Le même banc que `etats-navigateur`: la page COMMITTÉE, un salon et une salle
+# simulés sur un port de 5400 à 5499. Hors de `check`: Chrome, ffmpeg et une
+# minute.
+#
+#   just focus-navigateur                          toutes les étapes
+#   just focus-navigateur --etapes menu-modal      une seule
+#   just focus-navigateur --captures /tmp/focus    avec les captures
+focus-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node focus.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Le contrôle négatif du précédent: la page d'avant ce chantier (f4b90c5) doit
+# échouer sur le DÉFAUT de chaque étape, pas sur une précondition. Les jumeaux
+# (`entree-jeu`, `menu-entree-curseur`) n'y sont pas: ils passent sur les deux
+# pages, et c'est ce qu'ils doivent faire.
+focus-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show f4b90c5:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    cd spikes/m3-browser-drive
+    etapes=entree-colonne,entree-jeu-pro,menu-entree-focus,menu-modal,curseur-focus,aides-clavier,aides-manette,premiere-visite,rubriques,telephone,noms
+    node focus.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
 # (`systemctl start nel3ab-worker@1`), because the failure only exists against a
 # live stream: a decoder that is fed nothing cannot be caught refusing anything.

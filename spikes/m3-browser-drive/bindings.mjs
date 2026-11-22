@@ -41,7 +41,7 @@ const say = (ok, line) => {
 const openBindings = async () => {
   await press(page, "#openMenu");
   await wait(700);
-  await press(page, "#ray-reglages");
+  await press(page, "#ray-manettes");
   await wait(500);
   await press(page, "#item-bindings");
   await wait(600);

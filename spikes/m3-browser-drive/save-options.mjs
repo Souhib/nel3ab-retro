@@ -125,7 +125,7 @@ try {
   await page.waitForSelector("#item-shelf-gc");
   await page.$eval("#item-shelf-gc", node => node.click());
   await page.waitForFunction(index => {
-    const node = document.getElementById(`item-game${index}`); return node && !node.disabled;
+    const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
   }, {}, gc.index);
   await page.$eval(`#item-game${gc.index}`, node => node.click());
   await page.waitForSelector("#picker");
@@ -141,7 +141,7 @@ try {
   assert.ok(heldIdentity, "Menu did not refresh the missing identity");
   assert.ok(identityRequests > previousIdentityRequests);
   await page.$eval("#item-shelf-gc", node => node.click());
-  assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.disabled), true,
+  assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.getAttribute("aria-disabled") === "true"), true,
     "Save choices are interactive while the account is being checked");
   await page.$eval(`#item-game${gc.index}`, node => node.click());
   assert.equal(await page.$("#picker"), null, "Pending identity opened a changing save selection");
@@ -152,7 +152,7 @@ try {
   // Receiving the real identity can also load its controller settings and remount the room.
   await page.$eval("#item-shelf-gc", node => node.click());
   await page.waitForFunction(index => {
-    const node = document.getElementById(`item-game${index}`); return node && !node.disabled;
+    const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
   }, {}, gc.index);
   await page.$eval(`#item-game${gc.index}`, node => node.click());
   await page.waitForSelector("#pick-2");
@@ -171,7 +171,7 @@ try {
       assert.ok(heldSaves, "No catalogue request when reopening the menu");
       await page.$eval("#item-shelf-gc", node => node.click());
       const gc = fixtures.find(fixture => fixture.code === "gc");
-      assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.disabled), true, "Old choices are interactive while the refreshed catalogue is pending");
+      assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.getAttribute("aria-disabled") === "true"), true, "Old choices are interactive while the refreshed catalogue is pending");
       await page.$eval(`#item-game${gc.index}`, node => node.click());
       assert.equal(await page.$("#picker"), null, "A pending catalogue opened a changing selection");
       await page.keyboard.press("Escape");
@@ -182,7 +182,7 @@ try {
       await page.waitForSelector(`#item-shelf-${fixture.code}`);
       await page.$eval(`#item-shelf-${fixture.code}`, node => node.click());
       await page.waitForFunction(index => {
-        const node = document.getElementById(`item-game${index}`); return node && !node.disabled;
+        const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
       }, {}, fixture.index);
       await page.$eval(`#item-game${fixture.index}`, node => node.click());
       await page.waitForSelector("#picker");

@@ -297,6 +297,9 @@ function LookSwitch({ look, onLook }: { look: LobbyLook; onLook: (look: LobbyLoo
       id="lookSwitch"
       onClick={() => onLook(suivant.id)}
       title={suivant.note}
+      // « câbles » seul ne disait pas que le bouton change le dessin de
+      // l'écran (audit A11Y-10).
+      aria-label={`dessin suivant : ${suivant.label}`}
       className="text-note underline opacity-60 transition-opacity hover:opacity-100"
     >
       {suivant.label}
@@ -343,11 +346,12 @@ function NameTag({
       >
         <input
           id="newName"
+          aria-label="nouveau pseudo"
           autoFocus
           maxLength={NAME_MAX}
           value={typing}
           onChange={(event) => setTyping(event.target.value)}
-          className="min-w-0 flex-1 border border-rule bg-panel px-2 py-1 text-corps outline-none focus:border-indigo"
+          className="min-w-0 flex-1 border border-rule bg-panel px-2 py-1 text-corps focus:border-indigo"
         />
         <button type="submit" className="border border-indigo px-2 py-1 text-note text-indigo">
           garder

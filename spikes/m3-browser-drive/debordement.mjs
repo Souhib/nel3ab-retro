@@ -45,7 +45,7 @@ if (!(await page.evaluate(() => document.getElementById("menu") !== null))) {
   await page.keyboard.press("Escape");
   await attendre(1500);
 }
-await page.evaluate(() => document.querySelector("#ray-reglages")?.click());
+await page.evaluate(() => document.querySelector("#ray-manettes")?.click());
 await attendre(600);
 await page.evaluate(() => document.querySelector("#item-bindings")?.click());
 await attendre(1500);

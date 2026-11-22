@@ -147,9 +147,9 @@ for (const scheme of ["dark", "light"]) {
   const ecran = await page.evaluate(() => getComputedStyle(document.querySelector("#screen").parentElement).backgroundColor);
   noter(`image noire (${quoi})`, ecran === "rgb(0, 0, 0)", ecran);
   await page.evaluate(() => document.querySelector("#openMenu")?.click());
-  await exiger(page, "#ray-reglages", "V6 · menu");
-  await page.evaluate(() => document.querySelector("#ray-reglages")?.click());
-  await exiger(page, '#ray-reglages[data-selected="true"]', "V6 · réglages");
+  await exiger(page, "#ray-manettes", "V6 · menu");
+  await page.evaluate(() => document.querySelector("#ray-manettes")?.click());
+  await exiger(page, '#ray-manettes[data-selected="true"]', "V6 · manettes");
   await page.evaluate(() => document.querySelector("#item-bindings")?.click());
   await exiger(page, "dialog.n3-switch-setup[open]", "V6 · réglages Switch");
   await wait(400);

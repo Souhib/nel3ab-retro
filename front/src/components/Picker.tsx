@@ -30,6 +30,7 @@
  * couleurs de sa console ne peut pas s'arrêter à mi-chemin.
  */
 import { useEffect, useRef } from "react";
+import { piedDuSelecteur, type Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
 import type { Picking } from "./shell";
 
@@ -59,12 +60,27 @@ export type Costume = {
   veil?: string;
 };
 
-export function Picker({ picking, costume }: { picking: Picking | null; costume: Costume }) {
+export function Picker({
+  picking,
+  costume,
+  appareil = "clavier",
+}: {
+  picking: Picking | null;
+  costume: Costume;
+  /** Ce que la personne tient: « Entrée valider » ou « A valider ». */
+  appareil?: Appareil;
+}) {
   if (picking === null) return null;
   const { item } = picking;
+  const pied = piedDuSelecteur(appareil);
   return (
     <div
       id="picker"
+      // Un dialogue dans le menu: le reste du menu est inerte pendant ce temps
+      // (`inert` posé par la coque), et le focus suit le curseur du sélecteur.
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.label}
       className={cn(
         "n3-pop fixed inset-0 z-[70] flex justify-center p-6",
         // Quand il montre, il descend en bas et ne pose plus de voile: l'image
@@ -103,15 +119,20 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
           className="flex items-center justify-between pt-1 text-note"
           style={{ color: costume.dim }}
         >
-          <span>{item.slide ? "← → régler" : "↑ ↓ choisir"}</span>
+          <span>
+            {appareil === "tactile"
+              ? ""
+              : `${appareil === "manette" ? "croix" : item.slide ? "← →" : "↑ ↓"} ${item.slide ? "régler" : "choisir"}`}
+          </span>
           <span className="flex gap-3">
             <button
               type="button"
               id="pickerCancel"
               onClick={picking.cancel}
+              className="min-h-11 px-1"
               style={{ color: costume.dim }}
             >
-              B annuler
+              {pied.annuler}
             </button>
             <button
               type="button"
@@ -119,9 +140,10 @@ export function Picker({ picking, costume }: { picking: Picking | null; costume:
               // Enveloppé: un gestionnaire de clic passe l'événement en premier
               // argument, et `confirm` prendrait la souris pour un curseur.
               onClick={() => picking.confirm()}
+              className="min-h-11 px-1"
               style={{ color: costume.accentInk }}
             >
-              A valider
+              {pied.valider}
             </button>
           </span>
         </div>
@@ -137,10 +159,13 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
 
   // Le curseur reste visible: une liste plus longue que le panneau se défile
   // toute seule, sinon choisir la septième ambiance demande une souris.
+  //
+  // Et il a le focus: Entrée active l'option choisie par le navigateur, comme
+  // dans le menu, et un lecteur d'écran lit celle que la croix désigne.
   useEffect(() => {
-    list.current?.querySelector<HTMLElement>('[data-at="true"]')?.scrollIntoView({
-      block: "nearest",
-    });
+    const ici = list.current?.querySelector<HTMLElement>('[data-at="true"]');
+    ici?.scrollIntoView({ block: "nearest" });
+    ici?.focus({ preventScroll: true });
   }, [picking.cursor]);
 
   return (
@@ -153,6 +178,10 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
             type="button"
             id={`pick-${choice.id}`}
             data-at={here}
+            tabIndex={here ? 0 : -1}
+            // La valeur EN COURS, dite autrement que par « en cours » écrit à
+            // côté: le curseur a déjà le focus (audit A11Y-11).
+            aria-current={choice.id === picking.item.picked ? "true" : undefined}
             // `mousemove` et non `mouseenter`: le second se déclenche aussi quand
             // le panneau APPARAÎT sous un pointeur immobile, donc ouvrir le
             // sélecteur à la souris envoyait le curseur là où la souris se
@@ -197,6 +226,8 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
 /** Une valeur continue, qu'on pousse ou qu'on glisse. */
 function Slider({ picking, costume }: { picking: Picking; costume: Costume }) {
   const slide = picking.item.slide;
+  const piste = useRef<HTMLDivElement>(null);
+  useEffect(() => piste.current?.focus({ preventScroll: true }), []);
   if (!slide) return null;
   const span = Math.max(1e-9, slide.max - slide.min);
   const part = Math.min(1, Math.max(0, (picking.cursor - slide.min) / span));
@@ -215,13 +246,24 @@ function Slider({ picking, costume }: { picking: Picking; costume: Costume }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="font-mono text-large" style={{ color: costume.accentInk }}>
+      <p className="font-mono text-large" style={{ color: costume.accentInk }} aria-hidden="true">
         {slide.say(picking.cursor)}
       </p>
       {/* La piste. `setPointerCapture` pour que le glissement suive la souris
           même quand elle sort du panneau, ce qui arrive tout le temps au bord. */}
       <div
         id="pickerTrack"
+        ref={piste}
+        // Une vraie glissière pour le lecteur d'écran, et le focus du
+        // sélecteur: les flèches la règlent par le menu (`useShell`), Entrée
+        // valide puisque ce n'est pas un bouton.
+        role="slider"
+        tabIndex={0}
+        aria-label={picking.item.label}
+        aria-valuemin={slide.min}
+        aria-valuemax={slide.max}
+        aria-valuenow={picking.cursor}
+        aria-valuetext={slide.say(picking.cursor)}
         className="relative h-8 cursor-pointer touch-none"
         onPointerDown={(event) => {
           event.currentTarget.setPointerCapture(event.pointerId);

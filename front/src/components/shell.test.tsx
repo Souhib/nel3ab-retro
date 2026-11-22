@@ -80,3 +80,58 @@ it("Espace valide par la croix, et une touche inconnue ne fait rien", () => {
   expect(lettre.defaultPrevented).toBe(false);
   expect(choisi).toHaveBeenCalledOnce();
 });
+
+/* Le focus et le curseur sont une seule chose (audit A11Y-02, 22 novembre
+   2026). Avant, Entrée et Espace validaient l'entrée sous le curseur même
+   quand le focus était sur un autre bouton: sur « Échap reprend la partie »,
+   Entrée a ouvert le dossier GameCube. Le navigateur active maintenant le
+   bouton qui a le focus, et le menu ne garde Entrée que quand personne ne
+   l'a. */
+const unJeu = (choisi: () => void): XmbCategory[] => [
+  {
+    id: "jeux",
+    label: "Jeux",
+    icon: null,
+    items: [
+      { id: "gc", label: "GameCube", icon: null, onEnter: choisi },
+      { id: "wii", label: "Wii", icon: null, onEnter: vi.fn() },
+    ],
+  },
+];
+
+it("Entrée et Espace sur un bouton qui a le focus restent à ce bouton", () => {
+  const choisi = vi.fn();
+  renderHook(() => useShell(unJeu(choisi), 1, vi.fn()));
+  const reprendre = document.createElement("button");
+  document.body.append(reprendre);
+  for (const key of ["Enter", " "]) {
+    const appui = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+    act(() => reprendre.dispatchEvent(appui));
+    expect(appui.defaultPrevented, key).toBe(false);
+  }
+  expect(choisi).not.toHaveBeenCalled();
+  reprendre.remove();
+});
+
+it("Entrée sans bouton focalisé valide l'entrée sous le curseur", () => {
+  // Le jumeau: la croix et la manette valident toujours par ce chemin.
+  const choisi = vi.fn();
+  renderHook(() => useShell(unJeu(choisi), 1, vi.fn()));
+  const appui = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+  act(() => document.body.dispatchEvent(appui));
+  expect(appui.defaultPrevented).toBe(true);
+  expect(choisi).toHaveBeenCalledOnce();
+});
+
+it("les flèches conduisent le curseur même depuis un bouton du pied", () => {
+  // Le curseur revient là où sont les flèches: c'est ce qui rend le focus à la
+  // liste quand on est passé par Tab sur « reprendre ».
+  const { result } = renderHook(() => useShell(unJeu(vi.fn()), 1, vi.fn()));
+  const reprendre = document.createElement("button");
+  document.body.append(reprendre);
+  const bas = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+  act(() => reprendre.dispatchEvent(bas));
+  expect(bas.defaultPrevented).toBe(true);
+  expect(result.current.row).toBe(1);
+  reprendre.remove();
+});

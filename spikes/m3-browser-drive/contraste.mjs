@@ -285,6 +285,9 @@ for (const shell of ["ps3", "wii", "switch"]) {
   screens.push([`${shell} · menu jeux`, await page.evaluate(AUDIT)]);
   await rayon(page, "reglages", `${shell} · menu réglages`);
   screens.push([`${shell} · menu réglages`, await page.evaluate(AUDIT)]);
+  // « touches et manettes » vit sous « manettes » depuis le 22 novembre 2026.
+  await rayon(page, "manettes", `${shell} · menu manettes`);
+  screens.push([`${shell} · menu manettes`, await page.evaluate(AUDIT)]);
   await touches(page, `${shell} · touches`);
   screens.push([`${shell} · touches`, await page.evaluate(AUDIT)]);
   await page.close();
@@ -372,7 +375,7 @@ for (const [theme, scheme] of REGIES) {
   // aux couleurs fixes, et leurs inscriptions doivent se lire sur la page claire
   // comme sur la sombre.
   const panneau = await ouvrir({ "nel3ab:shell": "ps3", "nel3ab:theme": theme }, scheme);
-  await rayon(panneau, "reglages", `ps3 · touches · ${nom}`);
+  await rayon(panneau, "manettes", `ps3 · touches · ${nom}`);
   await touches(panneau, `ps3 · touches · ${nom}`);
   screens.push([`ps3 · touches · ${nom}`, await panneau.evaluate(AUDIT)]);
   await panneau.close();

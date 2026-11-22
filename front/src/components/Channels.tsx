@@ -22,11 +22,14 @@
  * Les couleurs sont celles de la console et ne suivent pas le thème.
  */
 import { useEffect, useRef, useState } from "react";
+import { piedDuMenu, type Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
-import { useShell, useSwipe } from "./shell";
+import { PlaceDesSurcouches } from "./Surcouche";
+import { Reperes } from "./Reperes";
+import { useMenuDialogue, useShell, useSwipe } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
 /** Quatre par ligne: au-delà, une chaîne n'est plus lisible depuis un canapé. */
@@ -85,20 +88,28 @@ const EMPTY_SLOTS = (held: number): number => {
 export function Channels({
   categories,
   onClose,
+  onQuitte = onClose,
   idle = false,
   footer,
   onPad,
   paused,
+  appareil = "clavier",
+  sortie,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
+  onQuitte?: () => void;
   idle?: boolean;
   footer?: React.ReactNode;
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
   paused?: boolean;
+  appareil?: Appareil;
+  /** Ce que fait la sortie: reprendre, fermer, ou remonter d'un dossier. */
+  sortie?: string;
 }) {
   const shell = useShell(categories, ACROSS, onClose, paused);
   const { category, items, ray, row } = shell;
+  const dialogue = useMenuDialogue(shell, paused ?? false, onQuitte);
   const grid = useRef<HTMLDivElement>(null);
   useEffect(() => {
     grid.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: "nearest" });
@@ -120,13 +131,10 @@ export function Channels({
   const drag = useSwipe(shell.act);
 
   return (
-    <div
-      id="menu"
+    <dialog
+      {...dialogue}
       {...drag}
-      className={cn(
-        "n3-enter fixed inset-0 z-50 flex flex-col",
-        shell.picking?.previewing ? "n3-peek" : "",
-      )}
+      className={cn("n3-menu n3-enter", shell.picking?.previewing ? "n3-peek" : "")}
       style={{
         touchAction: "none",
         color: INK,
@@ -136,153 +144,176 @@ export function Channels({
         backgroundSize: "44px 44px",
       }}
     >
-      <header className="flex items-baseline justify-center gap-6 px-8 pt-6 pb-2">
-        <span className="text-corps" style={{ color: INK_SOFT }}>
-          {category?.label ?? ""}
-          {items[row]?.group ? <span> · {items[row].group}</span> : null}
-        </span>
-        <span className="font-mono text-affiche tracking-tight" style={{ color: "#6b757d" }}>
-          {clock}
-        </span>
-        <span className="text-corps" style={{ color: INK_SOFT }}>
-          {footer}
-        </span>
-      </header>
+      <div className="absolute inset-0 flex flex-col" inert={shell.picking !== null}>
+        <header className="flex items-baseline justify-center gap-6 px-8 pt-6 pb-2">
+          <span className="text-corps" style={{ color: INK_SOFT }}>
+            {category?.label ?? ""}
+            {items[row]?.group ? <span> · {items[row].group}</span> : null}
+          </span>
+          <span className="font-mono text-affiche tracking-tight" style={{ color: "#6b757d" }}>
+            {clock}
+          </span>
+          <span className="text-corps" style={{ color: INK_SOFT }}>
+            {footer}
+          </span>
+        </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 py-6">
-        <div ref={grid} className="mx-auto my-auto grid max-w-6xl grid-cols-4 gap-5">
-          {items.map((item, index) => {
-            const here = index === row;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                id={`item-${item.id}`}
-                data-selected={here}
-                disabled={item.disabled}
-                onMouseEnter={() => shell.point(index)}
-                onClick={() => shell.choose(index)}
-                className={cn(
-                  "n3-pop relative flex min-h-[178px] flex-col items-center justify-center gap-3 overflow-hidden rounded-[12px] px-2 py-3 text-center",
-                  "transition-transform duration-200 ease-out",
-                  here && "scale-[1.06]",
-                )}
-                style={{
-                  animationDelay: `${Math.min(index, 11) * 45}ms`,
-                  background: CHANNEL,
-                  border: `2px solid ${here ? BLUE : EDGE}`,
-                  boxShadow: here
-                    ? `0 6px 18px rgba(38,164,221,.34), 0 0 0 4px rgba(38,164,221,.18)`
-                    : "0 2px 6px rgba(70,80,90,.22)",
-                }}
-              >
-                {/* Le vernis: la lumière du haut d'une chaîne. */}
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[12px]"
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 py-6">
+          <div ref={grid} className="mx-auto my-auto grid max-w-6xl grid-cols-4 gap-5">
+            {items.map((item, index) => {
+              const here = index === row;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  id={`item-${item.id}`}
+                  data-selected={here}
+                  tabIndex={here ? 0 : -1}
+                  aria-current={here ? "true" : undefined}
+                  aria-disabled={item.disabled ? "true" : undefined}
+                  onMouseEnter={() => shell.point(index)}
+                  onClick={() => shell.choose(index)}
+                  className={cn(
+                    "n3-pop relative flex min-h-[178px] flex-col items-center justify-center gap-3 overflow-hidden rounded-[12px] px-2 py-3 text-center",
+                    "transition-transform duration-200 ease-out",
+                    here && "scale-[1.06]",
+                  )}
                   style={{
-                    background:
-                      "linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 100%)",
+                    animationDelay: `${Math.min(index, 11) * 45}ms`,
+                    background: CHANNEL,
+                    border: `2px solid ${here ? BLUE : EDGE}`,
+                    boxShadow: here
+                      ? `0 6px 18px rgba(38,164,221,.34), 0 0 0 4px rgba(38,164,221,.18)`
+                      : "0 2px 6px rgba(70,80,90,.22)",
                   }}
-                />
-                {item.game ? (
-                  <Art
-                    index={item.game.index}
-                    name={item.label}
-                    has={item.game.art}
-                    console={item.game.console}
-                    width={228}
-                    className="rounded-[5px]"
+                >
+                  {/* Le vernis: la lumière du haut d'une chaîne. */}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[12px]"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 100%)",
+                    }}
                   />
-                ) : (
-                  <span className="relative flex h-12 w-12 opacity-35 [&>svg]:h-full [&>svg]:w-full">
-                    {item.icon}
-                  </span>
-                )}
-                {/* Une chaîne indisponible s'atténue par son ENCRE et non par
+                  {item.game ? (
+                    <Art
+                      index={item.game.index}
+                      name={item.label}
+                      has={item.game.art}
+                      console={item.game.console}
+                      width={228}
+                      className="rounded-[5px]"
+                    />
+                  ) : (
+                    <span className="relative flex h-12 w-12 opacity-35 [&>svg]:h-full [&>svg]:w-full">
+                      {item.icon}
+                    </span>
+                  )}
+                  {/* Une chaîne indisponible s'atténue par son ENCRE et non par
                     l'alpha: l'opacité entraînait la tuile entière, son vernis et
                     sa valeur avec elle. INK_SOFT tient 5,85:1 sur le blanc de
                     cette coque, mesuré le 12 septembre 2026. */}
-                <span
-                  className="relative line-clamp-2 text-fort leading-tight"
-                  style={{ color: item.disabled ? INK_SOFT : undefined }}
-                >
-                  {item.label}
-                </span>
-                {item.by ? (
                   <span
-                    className="relative max-w-full truncate text-note"
-                    style={{ color: INK_SOFT }}
+                    className="relative line-clamp-2 text-fort leading-tight"
+                    style={{ color: item.disabled ? INK_SOFT : undefined }}
                   >
-                    {item.by}
+                    {item.label}
                   </span>
-                ) : null}
-                {item.value ? (
-                  <span className="relative font-mono text-corps" style={{ color: BLUE_INK }}>
-                    {item.value}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-          {/* Les emplacements VIDES du tableau.
+                  {item.by ? (
+                    <span
+                      className="relative max-w-full truncate text-note"
+                      style={{ color: INK_SOFT }}
+                    >
+                      {item.by}
+                    </span>
+                  ) : null}
+                  {item.value ? (
+                    <span className="relative font-mono text-corps" style={{ color: BLUE_INK }}>
+                      {item.value}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+            {/* Les emplacements VIDES du tableau.
               Une chaîne qui n'existe pas laisse sa case, elle ne fait pas
               rétrécir le tableau: c'est ce qui distingue un tableau de chaînes
               d'une rangée de cartes qui flottent. Avec deux consoles, la grille
               se dessinait centrée sur deux cartes et ne ressemblait à rien.
               Ils ne sont ni cliquables ni comptés: la sélection indexe `items`,
               et ceux-ci viennent après. */}
-          {Array.from({ length: EMPTY_SLOTS(items.length) }, (_, at) => (
-            <span
-              key={`vide-${at}`}
-              aria-hidden="true"
-              className="aspect-[4/3] rounded-[10px] border border-white/70 bg-black/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
-            />
-          ))}
-        </div>
-        {items[row]?.hint ? (
-          <p className="mx-auto max-w-5xl pt-6 text-center text-corps" style={{ color: INK_SOFT }}>
-            {items[row].hint}
-          </p>
-        ) : null}
-      </div>
-
-      <footer
-        className="flex items-center gap-4 px-8 py-5"
-        style={{
-          background: "linear-gradient(180deg, #cfd6db 0%, #b9c2c9 100%)",
-          borderTop: `1px solid ${EDGE}`,
-        }}
-      >
-        <Round big label={idle ? "fermer" : "reprendre"} id="closeMenu" onClick={onClose} />
-        <div className="flex flex-1 justify-center gap-3">
-          {categories.map((choice, index) => (
-            <button
-              key={choice.id}
-              type="button"
-              id={`ray-${choice.id}`}
-              data-selected={index === ray}
-              onClick={() => shell.goTo(index)}
-              className="flex items-center gap-2 rounded-full px-5 py-2 text-corps transition-all duration-150"
-              style={{
-                background: CHANNEL,
-                border: `2px solid ${index === ray ? BLUE : EDGE}`,
-                // Le liseré garde le bleu vif — un élément d'interface n'a
-                // besoin que de 3:1 — mais le LIBELLÉ prend l'encre. Le même
-                // bleu servait aux deux, et le texte tombait à 2,82:1.
-                color: index === ray ? BLUE_INK : INK,
-                boxShadow: index === ray ? `0 0 0 3px rgba(38,164,221,.2)` : "none",
-              }}
+            {Array.from({ length: EMPTY_SLOTS(items.length) }, (_, at) => (
+              <span
+                key={`vide-${at}`}
+                aria-hidden="true"
+                className="aspect-[4/3] rounded-[10px] border border-white/70 bg-black/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
+              />
+            ))}
+          </div>
+          {items[row]?.hint ? (
+            <p
+              className="mx-auto max-w-5xl pt-6 text-center text-corps"
+              style={{ color: INK_SOFT }}
             >
-              <span className="flex h-5 w-5 opacity-60 [&>svg]:h-full [&>svg]:w-full">
-                {choice.icon}
-              </span>
-              {choice.label}
-            </button>
-          ))}
+              {items[row].hint}
+            </p>
+          ) : null}
         </div>
-        <span className="w-[92px]" />
-      </footer>
+
+        <footer
+          className="flex items-center gap-4 px-8 py-5"
+          style={{
+            background: "linear-gradient(180deg, #cfd6db 0%, #b9c2c9 100%)",
+            borderTop: `1px solid ${EDGE}`,
+          }}
+        >
+          <Round
+            big
+            label={sortie ?? (idle ? "fermer" : "reprendre")}
+            id="closeMenu"
+            onClick={onClose}
+          />
+          <div className="flex flex-1 justify-center gap-3">
+            {categories.map((choice, index) => (
+              <button
+                key={choice.id}
+                type="button"
+                id={`ray-${choice.id}`}
+                data-selected={index === ray}
+                aria-current={index === ray ? "true" : undefined}
+                tabIndex={-1}
+                onClick={() => shell.goTo(index)}
+                className="flex items-center gap-2 rounded-full px-5 py-2 text-corps transition-all duration-150"
+                style={{
+                  background: CHANNEL,
+                  border: `2px solid ${index === ray ? BLUE : EDGE}`,
+                  // Le liseré garde le bleu vif — un élément d'interface n'a
+                  // besoin que de 3:1 — mais le LIBELLÉ prend l'encre. Le même
+                  // bleu servait aux deux, et le texte tombait à 2,82:1.
+                  color: index === ray ? BLUE_INK : INK,
+                  boxShadow: index === ray ? `0 0 0 3px rgba(38,164,221,.2)` : "none",
+                }}
+              >
+                <span className="flex h-5 w-5 opacity-60 [&>svg]:h-full [&>svg]:w-full">
+                  {choice.icon}
+                </span>
+                {choice.label}
+              </button>
+            ))}
+          </div>
+          {/* Les touches de l'appareil qu'on tient (audit T02). Au doigt, rien
+            à nommer: on touche la chaîne. */}
+          <span
+            className="flex w-[180px] flex-col items-end gap-1 text-note"
+            style={{ color: INK_SOFT }}
+          >
+            {appareil === "tactile" ? null : (
+              <Reperes liste={piedDuMenu(appareil).filter((one) => one.fait !== "se déplacer")} />
+            )}
+          </span>
+        </footer>
+      </div>
 
       <Picker
         picking={shell.picking}
@@ -297,8 +328,10 @@ export function Channels({
           dim: INK_SOFT,
           veil: "rgba(90,100,110,.35)",
         }}
+        appareil={appareil}
       />
-    </div>
+      <PlaceDesSurcouches />
+    </dialog>
   );
 }
 

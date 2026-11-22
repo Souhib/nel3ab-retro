@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { arrange, SETTINGS } from "./settings";
+import { arrange, AVANCE, avecAvances, MANETTES, SETTINGS } from "./settings";
 
 const ids = (items: { id: string }[]) => items.map((one) => one.id);
 
@@ -15,7 +15,7 @@ describe("ranger les réglages", () => {
   });
 
   it("pose le sujet sur chaque entrée", () => {
-    expect(arrange([{ id: "volume" }])[0]?.group).toBe("son");
+    expect(arrange([{ id: "volume" }])[0]?.group).toBe("image et son");
   });
 
   it("garde une entrée inconnue, à la fin", () => {
@@ -48,5 +48,49 @@ describe("ranger les réglages", () => {
 
   it("ne nomme pas deux fois le même réglage", () => {
     expect(new Set(SETTINGS.map((one) => one.id)).size).toBe(SETTINGS.length);
+  });
+
+  it("ne garde aucun réglage de manette sous « réglages » (P12)", () => {
+    // Le défaut: « touches et manettes » était la dixième entrée sur quinze, et
+    // trois autres réglages de manette l'entouraient.
+    const reglages = new Set(SETTINGS.map((one) => one.id));
+    for (const one of MANETTES) expect(reglages.has(one.id), one.id).toBe(false);
+    expect(ids(arrange([{ id: "pad" }, { id: "bindings" }], MANETTES))).toEqual([
+      "bindings",
+      "pad",
+    ]);
+  });
+
+  it("montre au plus douze entrées à plat sous « réglages »", () => {
+    const tous = arrange(SETTINGS.map((one) => ({ id: one.id })));
+    expect(avecAvances(tous, false).length).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("le groupe avancé, replié", () => {
+  const tous = arrange(SETTINGS.map((one) => ({ id: one.id })).concat([{ id: "inconnu" }]));
+
+  it("cache les réglages avancés et garde l'entrée qui les déplie", () => {
+    const vus = ids(avecAvances(tous, false));
+    expect(vus).toContain("advanced");
+    expect(vus).not.toContain("deviceRate");
+    expect(vus).not.toContain("lipsync");
+    expect(vus).not.toContain("connexion");
+  });
+
+  it("les montre dépliés, juste après l'entrée qui les déplie", () => {
+    const vus = ids(avecAvances(tous, true));
+    const at = vus.indexOf("advanced");
+    expect(vus.slice(at + 1, at + 4)).toEqual(["deviceRate", "lipsync", "connexion"]);
+  });
+
+  it("ne replie jamais ce qui n'est pas avancé, même inconnu", () => {
+    // Le jumeau: un filtre trop large replierait tout ce qu'il ne connaît pas.
+    const vus = ids(avecAvances(tous, false));
+    expect(vus).toContain("inconnu");
+    expect(vus).toContain("volume");
+    expect(
+      avecAvances(tous, false).every((one) => one.group !== AVANCE || one.id === "advanced"),
+    ).toBe(true);
   });
 });

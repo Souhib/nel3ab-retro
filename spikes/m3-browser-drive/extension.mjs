@@ -62,7 +62,7 @@ const before = await page.evaluate(() => globalThis.__envoyes.length);
 // Le sélecteur de manette, dans la colonne.
 await press("#openMenu");
 await wait(700);
-await press("#ray-reglages");
+await press("#ray-manettes");
 await wait(500);
 await press("#item-pad");
 await wait(700);

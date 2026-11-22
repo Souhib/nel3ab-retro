@@ -17,11 +17,13 @@
  * Les couleurs sont celles de la console et ne suivent pas le thème.
  */
 import { useEffect } from "react";
+import { gestes, type Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
-import { useShell, useSwipe } from "./shell";
+import { PlaceDesSurcouches } from "./Surcouche";
+import { useMenuDialogue, useShell, useSwipe } from "./shell";
 import type { XmbCategory } from "./Xmb";
 
 const INK = "#2b2b2b";
@@ -53,19 +55,26 @@ const GAP = 22;
 export function Home({
   categories,
   onClose,
+  onQuitte = onClose,
   idle = false,
   footer,
   onPad,
   paused,
   who,
+  appareil = "clavier",
+  sortie,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
+  onQuitte?: () => void;
   idle?: boolean;
   footer?: React.ReactNode;
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
   paused?: boolean;
   who: string;
+  appareil?: Appareil;
+  /** Ce que fait la sortie: reprendre, fermer, ou remonter d'un dossier. */
+  sortie?: string;
 }) {
   // Une rangée: haut et bas changent de rayon, gauche et droite parcourent les
   // entrées. L'échange se fait dans la mécanique partagée pour que le clavier et
@@ -73,6 +82,8 @@ export function Home({
   const shell = useShell(categories, 1, onClose, paused, true);
   const { items, ray, row } = shell;
   const here = items[row];
+  const dialogue = useMenuDialogue(shell, paused ?? false, onQuitte);
+  const touches = gestes(appareil);
 
   useEffect(() => {
     onPad?.(shell.act);
@@ -82,175 +93,192 @@ export function Home({
   const drag = useSwipe(shell.act);
 
   return (
-    <div
-      id="menu"
+    <dialog
+      {...dialogue}
       {...drag}
-      className={cn(
-        "n3-enter fixed inset-0 z-50 flex flex-col overflow-hidden",
-        shell.picking?.previewing ? "n3-peek" : "",
-      )}
+      className={cn("n3-menu n3-enter", shell.picking?.previewing ? "n3-peek" : "")}
       style={{ background: INK, color: "#f2f2f2", touchAction: "none" }}
     >
-      <header className="flex items-center justify-between px-8 py-4">
-        <span className="flex items-center gap-3">
-          <span
-            className="flex h-10 w-10 items-center justify-center rounded-full text-fort font-semibold"
-            style={{ background: RED, color: "#fff" }}
-          >
-            {who.slice(0, 1).toUpperCase()}
+      <div className="absolute inset-0 flex flex-col" inert={shell.picking !== null}>
+        <header className="flex items-center justify-between px-8 py-4">
+          <span className="flex items-center gap-3">
+            <span
+              className="flex h-10 w-10 items-center justify-center rounded-full text-fort font-semibold"
+              style={{ background: RED, color: "#fff" }}
+            >
+              {who.slice(0, 1).toUpperCase()}
+            </span>
+            <span className="text-fort">{who}</span>
           </span>
-          <span className="text-fort">{who}</span>
-        </span>
-        <span className={cn("text-corps", DIM)}>{footer}</span>
-      </header>
+          <span className={cn("text-corps", DIM)}>{footer}</span>
+        </header>
 
-      {/* La file. Elle coulisse pour que la tuile choisie reste au même endroit,
+        {/* La file. Elle coulisse pour que la tuile choisie reste au même endroit,
           à un tiers de la largeur. */}
-      <div className="relative flex min-h-0 flex-1 items-center overflow-hidden">
-        <div
-          className="flex items-center transition-transform duration-300 ease-out"
-          style={{
-            paddingLeft: "33%",
-            gap: GAP,
-            transform: `translateX(${-row * (TILE_WIDTH + GAP)}px)`,
-          }}
-        >
-          {items.map((item, index) => {
-            const chosen = index === row;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                id={`item-${item.id}`}
-                data-selected={chosen}
-                disabled={item.disabled}
-                onMouseEnter={() => shell.point(index)}
-                onClick={() => shell.choose(index)}
-                className={cn(
-                  "relative flex shrink-0 flex-col items-center justify-center gap-3 rounded-[10px] transition-all duration-300 ease-out",
-                  // PAS d'opacité sur la tuile: elle entraîne tout ce qu'elle
-                  // contient, y compris la pastille du nombre de jeux, dont le
-                  // blanc sur rouge tient 4,80:1 à plein et tombe à 4,02:1 à
-                  // 0,90. Une tuile non choisie se distingue par sa taille et
-                  // son liseré, qui ne déteignent sur rien.
-                  chosen ? "n3-breathe" : "",
-                )}
-                style={{
-                  width: TILE_WIDTH,
-                  height: TILE_HEIGHT,
-                  background: TILE,
-                  overflow: "hidden",
-                  border: `2px solid ${chosen ? "#f2f2f2" : EDGE}`,
-                  transform: chosen ? "scale(1.16)" : "scale(1)",
-                  boxShadow: chosen ? "0 0 0 4px rgba(242,242,242,.18)" : "none",
-                }}
-              >
-                {item.game ? (
-                  <Art
-                    index={item.game.index}
-                    name={item.label}
-                    has={item.game.art}
-                    console={item.game.console}
-                    width={TILE_WIDTH}
-                  />
-                ) : (
-                  <span className="flex flex-col items-center gap-4 px-4">
-                    <span className="flex h-12 w-12 items-center justify-center [&>svg]:h-full [&>svg]:w-full">
-                      {item.icon}
+        <div className="relative flex min-h-0 flex-1 items-center overflow-hidden">
+          <div
+            className="flex items-center transition-transform duration-300 ease-out"
+            style={{
+              paddingLeft: "33%",
+              gap: GAP,
+              transform: `translateX(${-row * (TILE_WIDTH + GAP)}px)`,
+            }}
+          >
+            {items.map((item, index) => {
+              const chosen = index === row;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  id={`item-${item.id}`}
+                  data-selected={chosen}
+                  tabIndex={chosen ? 0 : -1}
+                  aria-current={chosen ? "true" : undefined}
+                  aria-disabled={item.disabled ? "true" : undefined}
+                  aria-label={item.value ? `${item.label}, ${item.value}` : item.label}
+                  onMouseEnter={() => shell.point(index)}
+                  onClick={() => shell.choose(index)}
+                  className={cn(
+                    "relative flex shrink-0 flex-col items-center justify-center gap-3 rounded-[10px] transition-all duration-300 ease-out",
+                    // PAS d'opacité sur la tuile: elle entraîne tout ce qu'elle
+                    // contient, y compris la pastille du nombre de jeux, dont le
+                    // blanc sur rouge tient 4,80:1 à plein et tombe à 4,02:1 à
+                    // 0,90. Une tuile non choisie se distingue par sa taille et
+                    // son liseré, qui ne déteignent sur rien.
+                    chosen ? "n3-breathe" : "",
+                  )}
+                  style={{
+                    width: TILE_WIDTH,
+                    height: TILE_HEIGHT,
+                    background: TILE,
+                    overflow: "hidden",
+                    border: `2px solid ${chosen ? "#f2f2f2" : EDGE}`,
+                    transform: chosen ? "scale(1.16)" : "scale(1)",
+                    boxShadow: chosen ? "0 0 0 4px rgba(242,242,242,.18)" : "none",
+                  }}
+                >
+                  {item.game ? (
+                    <Art
+                      index={item.game.index}
+                      name={item.label}
+                      has={item.game.art}
+                      console={item.game.console}
+                      width={TILE_WIDTH}
+                    />
+                  ) : (
+                    <span className="flex flex-col items-center gap-4 px-4">
+                      <span className="flex h-12 w-12 items-center justify-center [&>svg]:h-full [&>svg]:w-full">
+                        {item.icon}
+                      </span>
+                      <span
+                        className="text-center text-fort leading-snug"
+                        style={{ color: item.disabled ? "#b4b4b4" : undefined }}
+                      >
+                        {item.label}
+                      </span>
                     </span>
+                  )}
+                  {item.value ? (
                     <span
-                      className="text-center text-fort leading-snug"
-                      style={{ color: item.disabled ? "#b4b4b4" : undefined }}
+                      className="absolute top-1.5 right-1.5 rounded-full px-2 py-[2px] font-mono text-mini"
+                      style={{ background: RED, color: "#fff" }}
                     >
-                      {item.label}
+                      {item.value}
                     </span>
-                  </span>
-                )}
-                {item.value ? (
-                  <span
-                    className="absolute top-1.5 right-1.5 rounded-full px-2 py-[2px] font-mono text-mini"
-                    style={{ background: RED, color: "#fff" }}
-                  >
-                    {item.value}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Le nom de ce qu'on pointe, en grand, sous la file. */}
-      <div className="flex min-h-[132px] flex-col items-center justify-center gap-1 px-8">
-        {here?.group ? (
-          <p className={cn("text-note uppercase tracking-[0.18em]", DIM)}>{here.group}</p>
-        ) : null}
-        <p className="max-w-[80%] truncate text-center text-large">{here?.label ?? ""}</p>
-        {here?.by ? (
-          <p className={cn("max-w-[70%] truncate text-center text-corps", DIM)}>{here.by}</p>
-        ) : null}
-        {/* La phrase que l'éditeur a écrite sur le disque. `pre-line` parce que
+        {/* Le nom de ce qu'on pointe, en grand, sous la file. */}
+        <div className="flex min-h-[132px] flex-col items-center justify-center gap-1 px-8">
+          {here?.group ? (
+            <p className={cn("text-note uppercase tracking-[0.18em]", DIM)}>{here.group}</p>
+          ) : null}
+          <p className="max-w-[80%] truncate text-center text-large">{here?.label ?? ""}</p>
+          {here?.by ? (
+            <p className={cn("max-w-[70%] truncate text-center text-corps", DIM)}>{here.by}</p>
+          ) : null}
+          {/* La phrase que l'éditeur a écrite sur le disque. `pre-line` parce que
             ces textes ont été mis en page sur deux lignes et que la coupure est
             la leur. */}
-        {here?.note ? (
-          <p
-            className="max-w-[60%] text-center text-corps opacity-60"
-            style={{ whiteSpace: "pre-line" }}
-          >
-            {here.note}
-          </p>
-        ) : null}
-        {here?.hint ? (
-          <p className={cn("max-w-[70%] truncate text-center text-corps", DIM)}>{here.hint}</p>
-        ) : null}
-      </div>
-
-      <footer
-        className="flex items-center justify-between px-8 py-4"
-        style={{ borderTop: `1px solid ${EDGE}` }}
-      >
-        <span className="flex items-center gap-3">
-          {categories.map((choice, index) => (
-            <button
-              key={choice.id}
-              type="button"
-              id={`ray-${choice.id}`}
-              data-selected={index === ray}
-              onClick={() => shell.goTo(index)}
-              className="flex w-16 flex-col items-center gap-1.5 transition-all duration-150"
+          {here?.note ? (
+            <p
+              className="max-w-[60%] text-center text-corps opacity-60"
+              style={{ whiteSpace: "pre-line" }}
             >
-              <span
-                className="flex h-11 w-11 items-center justify-center rounded-full"
-                style={{
-                  background: index === ray ? "#f2f2f2" : "transparent",
-                  color: index === ray ? INK : "#9a9a9a",
-                  border: `1px solid ${index === ray ? "#f2f2f2" : EDGE}`,
-                }}
+              {here.note}
+            </p>
+          ) : null}
+          {here?.hint ? (
+            <p className={cn("max-w-[70%] truncate text-center text-corps", DIM)}>{here.hint}</p>
+          ) : null}
+        </div>
+
+        <footer
+          className="flex items-center justify-between px-8 py-4"
+          style={{ borderTop: `1px solid ${EDGE}` }}
+        >
+          <span className="flex items-center gap-3">
+            {categories.map((choice, index) => (
+              <button
+                key={choice.id}
+                type="button"
+                id={`ray-${choice.id}`}
+                data-selected={index === ray}
+                aria-current={index === ray ? "true" : undefined}
+                tabIndex={-1}
+                onClick={() => shell.goTo(index)}
+                className="flex w-16 flex-col items-center gap-1.5 transition-all duration-150"
               >
-                <span className="flex h-6 w-6 [&>svg]:h-full [&>svg]:w-full">{choice.icon}</span>
-              </span>
-              {/* Le NOM sous la pastille. Quatre ronds muets demandent de survoler
+                <span
+                  className="flex h-11 w-11 items-center justify-center rounded-full"
+                  style={{
+                    background: index === ray ? "#f2f2f2" : "transparent",
+                    color: index === ray ? INK : "#9a9a9a",
+                    border: `1px solid ${index === ray ? "#f2f2f2" : EDGE}`,
+                  }}
+                >
+                  <span className="flex h-6 w-6 [&>svg]:h-full [&>svg]:w-full">{choice.icon}</span>
+                </span>
+                {/* Le NOM sous la pastille. Quatre ronds muets demandent de survoler
                   pour savoir ce qu'ils ouvrent, ce qui ne marche ni à la manette ni
                   au doigt — c'est-à-dire dans les deux cas où cette coque sert.
                   L'infobulle `title` faisait ce travail et ne l'a jamais fait pour
                   personne. */}
-              <span
-                className="max-w-full truncate text-note"
-                style={{ color: index === ray ? "#f2f2f2" : "#9a9a9a" }}
-              >
-                {choice.label}
-              </span>
-            </button>
-          ))}
-        </span>
-
-        <span className="flex items-center gap-5 text-corps opacity-70">
-          <Pip letter="A" what="choisir" />
-          <span id="closeMenu" onClick={onClose} className="cursor-pointer">
-            <Pip letter="B" what={idle ? "fermer" : "reprendre"} />
+                <span
+                  className="max-w-full truncate text-note"
+                  style={{ color: index === ray ? "#f2f2f2" : "#9a9a9a" }}
+                >
+                  {choice.label}
+                </span>
+              </button>
+            ))}
           </span>
-        </span>
-      </footer>
+
+          {/* Les pastilles disent les touches de l'appareil qu'on tient: A et B
+            à la manette, Entrée et Échap au clavier, rien au doigt (audit
+            T02). La sortie est un vrai bouton: c'était un `<span>` cliquable
+            que le clavier ne pouvait pas atteindre (audit A11Y-10). */}
+          <span className="flex items-center gap-5 text-corps" style={{ color: "#c8c8c8" }}>
+            {appareil === "tactile" ? null : <Pip letter={touches.choisir} what="choisir" />}
+            <button
+              type="button"
+              id="closeMenu"
+              onClick={onClose}
+              className="flex min-h-11 items-center rounded-full px-2"
+            >
+              {appareil === "tactile" ? (
+                <span className="text-fort">{sortie ?? (idle ? "Fermer" : "Reprendre")}</span>
+              ) : (
+                <Pip letter={touches.retour} what={sortie ?? (idle ? "fermer" : "reprendre")} />
+              )}
+            </button>
+          </span>
+        </footer>
+      </div>
 
       <Picker
         picking={shell.picking}
@@ -264,21 +292,28 @@ export function Home({
           accentInk: "#fca5a5",
           dim: "#b4b4b4",
         }}
+        appareil={appareil}
       />
-    </div>
+      <PlaceDesSurcouches />
+    </dialog>
   );
 }
 
 /** Une pastille de bouton, comme la console en dessine en bas de ses écrans. */
 function Pip({ letter, what }: { letter: string; what: string }) {
+  // Une lettre tient dans un rond; « Entrée » et « Échap » demandent une
+  // pastille allongée, comme une touche.
   return (
     <span className="flex items-center gap-2">
-      <span
-        className="flex h-5 w-5 items-center justify-center rounded-full border text-note"
+      <kbd
+        className={cn(
+          "flex h-5 items-center justify-center border font-[inherit] text-note",
+          letter.length > 1 ? "rounded-full px-2" : "w-5 rounded-full",
+        )}
         style={{ borderColor: "#9a9a9a" }}
       >
         {letter}
-      </span>
+      </kbd>
       {what}
     </span>
   );

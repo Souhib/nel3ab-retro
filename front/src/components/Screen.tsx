@@ -15,17 +15,28 @@
  * qu'elle change quand la colonne se replie ou qu'on passe en plein écran, et
  * qu'aucun de ces deux gestes ne rend ce composant.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { place, type Fit } from "../lib/fit";
+import { ZONE_JEU } from "../lib/focus-jeu";
 
 export function Screen({
   canvasRef,
+  zoneRef,
+  jouable = false,
+  libelle = "Image du jeu",
   fit,
   picture,
   onSpace,
   onPrescale,
 }: {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  /** La zone de jeu, que la page focalise à l'entrée et en fermant le menu. */
+  zoneRef?: React.RefObject<HTMLDivElement | null>;
+  /** Vrai quand un jeu tourne: la zone entre alors dans la tabulation. Sans
+   * jeu, elle reste focalisable au clic mais Tab ne s'y arrête pas. */
+  jouable?: boolean;
+  /** Ce que la zone dit d'elle au lecteur d'écran. */
+  libelle?: string;
   /** Gardé bien que non utilisé ici: la page s'en sert pour poser l'écran de
    * chargement à la place de l'ancienne étiquette. Le retirer de la signature
    * obligerait l'appelant à savoir que cet écran ne s'en soucie plus. */
@@ -49,7 +60,16 @@ export function Screen({
    * des images. */
   onPrescale?: (times: number) => void;
 }) {
-  const room = useRef<HTMLDivElement>(null);
+  const room = useRef<HTMLDivElement | null>(null);
+  /* Une fonction stable: recréée à chaque rendu, React la rappellerait avec
+     `null` puis l'élément à chaque rendu de la page. */
+  const poser = useCallback(
+    (el: HTMLDivElement | null) => {
+      room.current = el;
+      if (zoneRef) zoneRef.current = el;
+    },
+    [zoneRef],
+  );
   const [space, setSpace] = useState({ width: 0, height: 0 });
   /* Par une référence: la fonction vient de la page et serait reconstruite à
      chaque rendu, ce qui reposerait l'observateur en boucle. */
@@ -79,7 +99,24 @@ export function Screen({
   return (
     // `bg-ecran`: le jeton de la régie, noir dans les deux thèmes (essayé par
     // `regie.test.ts` et `Screen.test.tsx`), plutôt qu'un noir écrit ici.
-    <div ref={room} className="relative flex min-h-0 flex-1 items-center justify-center bg-ecran">
+    /* La ZONE DE JEU: le seul endroit où le clavier pilote la manette
+       (`lib/focus-jeu`). Toute la boîte de l'image et pas la seule toile, pour
+       qu'un clic dans les bandes noires rende aussi le clavier au jeu. Un clic
+       focalise un élément qui a un `tabIndex`, même -1, dans les navigateurs
+       qui ne focalisent pas un bouton au clic (Safari): la partie revient
+       donc au clavier par le même geste partout.
+
+       `role="application"`: un lecteur d'écran y laisse passer les touches au
+       lieu de les prendre pour sa navigation. */
+    <div
+      ref={poser}
+      id="zone-jeu"
+      {...{ [ZONE_JEU]: "" }}
+      role="application"
+      aria-label={libelle}
+      tabIndex={jouable ? 0 : -1}
+      className="n3-zone-jeu relative flex min-h-0 flex-1 items-center justify-center bg-ecran"
+    >
       <canvas
         id="screen"
         ref={canvasRef}

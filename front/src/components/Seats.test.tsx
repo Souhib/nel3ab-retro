@@ -80,3 +80,33 @@ it("garde la couronne hors du cadre qui tronque le nom", () => {
   ).toBeNull();
   expect(prise?.querySelector(".truncate")?.textContent?.trim()).toBe("Yassine");
 });
+
+it("dit l'état de chaque prise dans son nom, et garde la sienne dans la tabulation", () => {
+  // Audit A11Y-11: « Manette 2 » sans « libre » ni « occupée », et la prise à
+  // soi `disabled`, donc absente de la tabulation et muette.
+  const onTake = vi.fn();
+  render(
+    <Seats
+      players={4}
+      busy={[true, false, true, true]}
+      mics={[false, false, false, false]}
+      names={new Map([[3, "Bo"]])}
+      mine={1}
+      displaced={false}
+      onTake={onTake}
+      onAsk={vi.fn()}
+    />,
+  );
+  const prise = (port: number) => document.querySelector<HTMLButtonElement>(`#port${port}`)!;
+  expect(prise(1).getAttribute("aria-label")).toBe("Manette 1, la tienne");
+  expect(prise(1).disabled).toBe(false);
+  expect(prise(1).getAttribute("aria-disabled")).toBe("true");
+  expect(prise(2).getAttribute("aria-label")).toBe("Manette 2, libre");
+  expect(prise(3).getAttribute("aria-label")).toBe("Manette 3, Bo");
+  expect(prise(4).getAttribute("aria-label")).toBe("Manette 4, tenue");
+  // Le jumeau: rester focalisable ne la rend pas cliquable.
+  prise(1).click();
+  expect(onTake).not.toHaveBeenCalled();
+  prise(2).click();
+  expect(onTake).toHaveBeenCalledWith(2);
+});

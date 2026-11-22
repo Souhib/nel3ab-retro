@@ -20,12 +20,16 @@
  * la règle non plus. Le dégradé et l'onde viennent quand même de la couleur du
  * thème, pour que les sept ambiances restent vraies.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
-import { useShell, useSwipe } from "./shell";
+import { PlaceDesSurcouches } from "./Surcouche";
+import { useMenuDialogue, useShell, useSwipe } from "./shell";
+import { phrase, piedDuMenu, type Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
+import { dispositionXmb } from "../lib/menu-xmb";
+import { Reperes, Touche } from "./Reperes";
 
 /** Une entrée dans la colonne d'un rayon. */
 export type XmbItem = {
@@ -124,9 +128,9 @@ export type XmbCategory = {
  * hiérarchie qui ne peut plus se multiplier par accident.
  */
 
-/** Où la croix se pose, en proportion de la hauteur. Un peu au-dessus du milieu,
- * comme sur la console: la colonne a besoin de plus de place que la rangée. */
-const CROSS = 0.4;
+/* Où la croix se pose, le pas entre deux rubriques et la hauteur d'une entrée
+   vivent dans `lib/menu-xmb`: ils dépendent de l'écran depuis que le menu doit
+   tenir sur un téléphone (audit M12). */
 
 /** Le masque qui fait DISPARAÎTRE une entrée sous la bande des rayons.
  *
@@ -144,7 +148,7 @@ const CROSS = 0.4;
  * peindre, et le décor reste entier.
  *
  * Les bornes sont des CONSTANTES, pas des pourcentages: la fenêtre de colonne
- * commence à `CROSS - 110px` et la bande à `CROSS - 34px`, toutes deux ancrées
+ * commence à `croix - 110px` et la bande à `croix - 34px`, toutes deux ancrées
  * au croisement. La bande occupe donc 76 à 148 px sous le haut de la fenêtre,
  * quelle que soit la hauteur de l'écran. Le fondu de douze pixels de chaque
  * côté évite la coupe nette, qui se lit comme un défaut d'affichage.
@@ -153,21 +157,34 @@ const BANDE =
   "linear-gradient(to bottom, #000 0, #000 66px, transparent 78px," +
   " transparent 146px, #000 158px, #000 100%)";
 
-/** Pas entre deux rayons et entre deux entrées, en pixels. */
-const ACROSS = 148;
-
-const DOWN = 74;
+/** La taille de la fenêtre, relue quand elle change (un téléphone qu'on
+ * tourne). Un état et non une lecture au rendu: tourner le téléphone ne rend
+ * pas le menu tout seul. */
+function useFenetre() {
+  const [taille, setTaille] = useState(() => ({ largeur: innerWidth, hauteur: innerHeight }));
+  useEffect(() => {
+    const lire = () => setTaille({ largeur: innerWidth, hauteur: innerHeight });
+    addEventListener("resize", lire);
+    return () => removeEventListener("resize", lire);
+  }, []);
+  return taille;
+}
 
 export function Xmb({
   categories,
   onClose,
+  onQuitte = onClose,
   idle = false,
   footer,
   onPad,
   paused,
+  appareil = "clavier",
+  sortie,
 }: {
   categories: XmbCategory[];
   onClose: () => void;
+  /** Fermer pour de bon, quand le navigateur a déjà fermé le dialogue. */
+  onQuitte?: () => void;
   idle?: boolean;
   footer?: React.ReactNode;
   /** Donne au menu de quoi recevoir la manette, et la lui rend en partant. */
@@ -176,9 +193,24 @@ export function Xmb({
    * Le menu reste affiché derrière, mais il ne doit plus rien recevoir: sinon
    * réassigner une flèche ferait aussi défiler la liste dessous. */
   paused?: boolean;
+  /** Ce que la personne tient: les aides le nomment (audit T02). */
+  appareil?: Appareil;
+  /** Ce que fait la sortie: reprendre, fermer, ou remonter d'un dossier. */
+  sortie?: string;
 }) {
   const shell = useShell(categories, 1, onClose, paused);
   const { items, ray, row } = shell;
+  const dialogue = useMenuDialogue(shell, paused ?? false, onQuitte);
+  const { largeur, hauteur } = useFenetre();
+  const d = dispositionXmb({
+    largeur,
+    hauteur,
+    nombre: categories.length,
+    choisi: ray,
+    tactile: appareil === "tactile",
+  });
+  const groupe = items[row]?.group;
+  const sortieDite = sortie ?? (idle ? "Fermer le menu" : "Reprendre la partie");
 
   /* La manette conduit la même croix que le clavier, par le même chemin. Le
      gestionnaire est reposé à chaque rendu parce qu'il ferme sur l'état courant;
@@ -198,227 +230,260 @@ export function Xmb({
   const drag = useSwipe(shell.act);
 
   return (
-    <div
-      id="menu"
+    <dialog
+      {...dialogue}
       {...drag}
       style={{ touchAction: "none" }}
-      className={cn(
-        "n3-enter fixed inset-0 z-50 overflow-hidden bg-ink",
-        shell.picking?.previewing ? "n3-peek" : "",
-      )}
+      className={cn("n3-menu n3-enter bg-ink", shell.picking?.previewing ? "n3-peek" : "")}
     >
-      <Backdrop />
+      {/* Inerte derrière un sélecteur: Tab reste dans le sélecteur. Une boîte
+          pleine et non `display: contents`: `.n3-peek` efface les enfants
+          directs par l'opacité, et une boîte sans boîte n'en a pas. */}
+      <div className="absolute inset-0" inert={shell.picking !== null}>
+        <Backdrop />
 
-      {/* La rangée des rayons est le PREMIER PLAN, et c'est ce que fait la
-          console: la barre est devant, le fond d'écran et la colonne passent
-          derrière. Sans `z-10` elle est peinte avant la colonne, donc dessous,
-          et l'entrée juste au-dessus du curseur recouvre le nom du rayon.
-          Vu sur une captation de vraie XMB, pas déduit: la barre y masque tout
-          ce qui la croise. */}
-      {/* La rangée des rayons. Elle glisse pour que le rayon choisi reste au
-          croisement, qui ne bouge jamais. */}
-      <div
-        className="pointer-events-none absolute z-10 left-[18%] transition-transform duration-200 ease-out"
-        style={{ top: `calc(${CROSS * 100}% - 34px)`, transform: `translateX(${-ray * ACROSS}px)` }}
-      >
-        {categories.map((choice, index) => (
-          <button
-            key={choice.id}
-            type="button"
-            id={`ray-${choice.id}`}
-            data-selected={index === ray}
-            onClick={() => shell.goTo(index)}
-            className={cn(
-              "pointer-events-auto absolute flex w-[120px] flex-col items-center gap-1 border-0 bg-transparent transition-all duration-200",
-              // La COULEUR seule dit ce qui n'est pas choisi, plus l'opacité.
-              // Les deux se cumulaient: `--muted` tient 5,95:1 à plein, et une
-              // moitié d'opacité par-dessus le fait tomber à 2,26:1. Deux
-              // mécanismes d'atténuation qui se multiplient donnent un résultat
-              // que ni l'un ni l'autre n'annonce.
-              index === ray ? "text-text" : "text-muted",
-            )}
-            style={{ left: `${index * ACROSS}px` }}
+        {/* Le sujet de l'entrée choisie et où on en est dans la liste, au-dessus
+            des rubriques. Il était collé au nom de la rubrique choisie, ce qui
+            n'allait plus quand les quatre noms se lisent: il débordait sur les
+            voisins. Couché, il n'y a pas la place au-dessus: la rubrique
+            choisie et l'entrée suffisent. La colonne est découpée par le bas:
+            sans « 3/14 », RIEN ne disait qu'il y avait d'autres entrées
+            dessous. */}
+        {!d.bas && (groupe || items.length > 1) ? (
+          <p
+            id="menuSujet"
+            className="absolute whitespace-nowrap text-note uppercase tracking-[0.14em] text-muted"
+            // Au-dessus de la fenêtre de la liste et non juste au-dessus de la
+            // rangée: les entrées d'avant le curseur s'y montrent, et la
+            // légende les chevauchait (vu sur la capture à 390 px).
+            style={{ top: d.croixY - 136, left: d.colonne.gauche }}
           >
-            <span
-              className={cn("transition-all duration-200", index === ray ? "h-12 w-12" : "h-8 w-8")}
-            >
-              {choice.icon}
-            </span>
-            <span
-              className={cn(
-                // Seul le rayon CHOISI porte son nom, comme sur la console.
-                //
-                // Les autres ont été nommés pendant une journée, pour qu'on sache
-                // ce que quatre icônes ouvrent. Ça se défend, et ce n'est pas ce
-                // menu-ci: le XMB dit où on est, pas ce qui existe ailleurs, et
-                // c'est le déplacement du croisement qui l'apprend. Nommer les
-                // quatre poussait la colonne hors de sa place pour leur laisser
-                // le passage.
-                //
-                // Ce que ça coûte, dit plutôt que tu: quelqu'un qui ouvre ce menu
-                // pour la première fois doit se promener pour découvrir les
-                // quatre rayons. C'est le prix de la forme, assumé.
-                "whitespace-nowrap text-note uppercase tracking-[0.2em] transition-opacity duration-200",
-                index === ray ? "opacity-100" : "opacity-0",
-              )}
-            >
-              {choice.label}
-              {index === ray && items[row]?.group ? (
-                <span className="text-muted"> · {items[row].group}</span>
-              ) : null}
-              {/* Où on en est dans la liste, et combien elle en compte.
-                  La colonne est découpée par le bas: sur un écran de 900 px de
-                  haut elle laisse voir sept entrées sur quatorze, et RIEN ne
-                  disait qu'il y en avait d'autres dessous. Le XMB ne met pas de
-                  barre de défilement, et ce n'est pas ce qu'on lui ajoute: un
-                  rang sur un total tient sur une ligne déjà présente, se lit de
-                  loin, et ne déplace pas la colonne d'un pixel. */}
-              {index === ray && items.length > 1 ? (
-                <span className="text-muted">{` · ${row + 1}/${items.length}`}</span>
-              ) : null}
-            </span>
-          </button>
-        ))}
-      </div>
+            {groupe ? `${groupe}` : ""}
+            {groupe && items.length > 1 ? " · " : ""}
+            {items.length > 1 ? `${row + 1}/${items.length}` : ""}
+          </p>
+        ) : null}
 
-      {/* La colonne du rayon choisi. Elle glisse pour que l'entrée choisie reste
-          juste sous le croisement. */}
-      <div
-        // Sous le croisement, à 18 %, comme la console.
-        //
-        // Elle a été poussée à 37 % pendant une journée pour régler une
-        // superposition avec la rangée des rayons. C'était traiter le symptôme:
-        // la superposition venait d'avoir rendu VISIBLES les libellés des rayons
-        // non choisis, ce que le XMB ne fait pas. Rendus à leur invisibilité, la
-        // colonne retrouve sa place et il n'y a plus rien à régler.
-        // BORNÉE, en haut et en bas.
-        //
-        // La colonne glissait sans fenêtre: les entrées au-dessus de la
-        // sélection remontaient dans la rangée des rayons (la rangée est en
-        // `z-10`, donc elle les masquait, mais elles étaient bien là), et
-        // celles du bas sortaient de l'écran sans que rien ne le dise. Sur
-        // 900 px de haut, une liste de quatorze entrées n'en montrait que
-        // sept, et l'indicateur « 3/14 » du rayon était le seul aveu.
-        //
-        // La fenêtre commence SOUS la rangée des rayons et descend jusqu'en
-        // bas. Elle découpe au lieu de superposer: ce qui sort est coupé net,
-        // ce qui est dedans est entier, et la colonne garde son glissement.
-        className="absolute left-[18%] w-[62%] overflow-hidden"
-        style={{
-          // La fenêtre commence AU-DESSUS du croisement et s'arrête AU-DESSUS
-          // du pied.
-          //
-          // Premier essai: elle commençait AU croisement, donc les entrées
-          // situées avant la sélection étaient coupées net. Un XMB en montre,
-          // et c'est ce qui donne le sentiment que la liste défile sous un
-          // curseur fixe plutôt que de commencer là où on est. Elles passent
-          // derrière la rangée des rayons, qui est en `z-10` et les masque:
-          // c'est voulu, pas un accident.
-          //
-          // En bas, 72 px de garde: la fenêtre descendait jusqu'au ras de
-          // l'écran et la dernière entrée percutait la légende du pied.
-          top: `calc(${CROSS * 100}% - 110px)`,
-          bottom: 72,
-          // La bande des rayons AVALE ce qui passe derrière elle.
-          maskImage: BANDE,
-          WebkitMaskImage: BANDE,
-        }}
-      >
+        {/* La rangée des rubriques est le PREMIER PLAN, et c'est ce que fait la
+            console: la barre est devant, le fond d'écran et la colonne passent
+            derrière. Sans `z-10` elle est peinte avant la colonne, donc dessous,
+            et l'entrée juste au-dessus du curseur recouvre le nom de la rubrique.
+            Large, elle glisse pour que la rubrique choisie reste au croisement;
+            étroite, elle reste fixe et partage l'écran en parts égales. */}
         <div
-          className="absolute inset-x-0 top-0 transition-transform duration-200 ease-out"
-          // 156 px: la distance entre le haut de la fenêtre et le croisement,
-          // soit (CROSS + 46) - (CROSS - 110). La sélection retombe donc
-          // exactement où elle était avant qu'il y ait une fenêtre.
-          style={{ transform: `translateY(${156 - row * DOWN}px)` }}
+          className="pointer-events-none absolute left-0 z-10 transition-transform duration-200 ease-out"
+          style={{ top: d.croixY - 34, transform: `translateX(${d.rangee}px)` }}
         >
-          {items.map((item, index) => {
-            const here = index === row;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                id={`item-${item.id}`}
-                data-selected={here}
-                disabled={item.disabled}
-                onClick={() => shell.choose(index)}
-                className="absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200"
-                // L'opacité en STYLE et non en classe: elle est CALCULÉE, et une
-                // classe Tailwind ne peut pas porter une valeur qui varie. Dans le
-                // même objet que la position, parce que deux attributs `style` sur
-                // un même élément ne sont pas une erreur en JSX: le second écrase
-                // le premier, en silence.
-                style={{
-                  top: `${index * DOWN}px`,
-                  height: `${DOWN}px`,
-                  // Plus d'opacité du tout sur une entrée: elle se distingue par
-                  // sa TAILLE et sa COULEUR, qui sont trois niveaux tous lisibles
-                  // — `--text` 16,40:1, `--muted` 5,95:1, `--faint` 4,50:1.
-                }}
-              >
-                {item.game ? (
-                  <Art
-                    index={item.game.index}
-                    name={item.label}
-                    has={item.game.art}
-                    console={item.game.console}
-                    width={here ? 90 : 72}
-                    className="rounded-[3px] transition-all duration-200"
-                  />
-                ) : (
-                  <span
-                    className={cn(
-                      "shrink-0 transition-all duration-200",
-                      here ? "h-9 w-9" : "h-7 w-7",
-                    )}
-                  >
-                    {item.icon}
-                  </span>
+          {categories.map((choice, index) => (
+            <button
+              key={choice.id}
+              type="button"
+              id={`ray-${choice.id}`}
+              data-selected={index === ray}
+              aria-current={index === ray ? "true" : undefined}
+              // Hors de la tabulation: les flèches y mènent, et le curseur, qui
+              // a le focus, est toujours une entrée de la liste.
+              tabIndex={-1}
+              onClick={() => shell.goTo(index)}
+              className={cn(
+                "pointer-events-auto absolute flex flex-col items-center gap-1 border-0 bg-transparent transition-all duration-200",
+                // La COULEUR seule dit ce qui n'est pas choisi, plus l'opacité.
+                // Les deux se cumulaient: `--muted` tient 5,95:1 à plein, et une
+                // moitié d'opacité par-dessus le fait tomber à 2,26:1.
+                index === ray ? "text-text" : "text-muted",
+              )}
+              style={{ left: `${index * d.pas}px`, width: d.rubrique }}
+            >
+              <span
+                className={cn(
+                  "transition-all duration-200",
+                  index === ray ? (d.bas ? "h-9 w-9" : "h-12 w-12") : "h-8 w-8",
                 )}
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span
-                    className={cn(
-                      "truncate",
-                      here ? "text-titre text-text" : "text-fort text-muted",
-                      item.disabled && "text-faint",
-                    )}
-                  >
-                    {item.label}
+              >
+                {choice.icon}
+              </span>
+              {/* Les QUATRE noms, et plus seulement celui de la rubrique
+                  choisie. Le XMB de la console ne nomme que la choisie, et ce
+                  menu l'avait suivi; quelqu'un qui l'ouvrait pour la première
+                  fois devait se promener pour découvrir ce qui existait, et
+                  « touches et manettes » passait inaperçu (audit T13). */}
+              <span
+                data-nom
+                className={cn(
+                  "whitespace-nowrap text-note uppercase transition-colors duration-200",
+                  d.etroit ? "tracking-[0.06em]" : "tracking-[0.2em]",
+                )}
+              >
+                {choice.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* La colonne de la rubrique choisie. Elle glisse pour que l'entrée
+            choisie reste juste sous le croisement.
+
+            BORNÉE, en haut et en bas: la fenêtre commence AU-DESSUS du
+            croisement (les entrées d'avant passent derrière la rangée, qui les
+            masque) et s'arrête au-dessus du pied. Ce qui sort est coupé net, ce
+            qui est dedans est entier, et la colonne garde son glissement. */}
+        <div
+          className="absolute overflow-hidden"
+          style={{
+            top: d.croixY - 110,
+            bottom: d.pied,
+            left: d.colonne.gauche,
+            width: d.colonne.largeur,
+            // La bande des rubriques AVALE ce qui passe derrière elle.
+            maskImage: BANDE,
+            WebkitMaskImage: BANDE,
+          }}
+        >
+          <div
+            role="group"
+            aria-label={shell.category?.label}
+            className="absolute inset-x-0 top-0 transition-transform duration-200 ease-out"
+            // 156 px: la distance entre le haut de la fenêtre et le croisement,
+            // plus 46 px. La sélection retombe donc juste sous la rangée.
+            style={{ transform: `translateY(${156 - row * d.rang}px)` }}
+          >
+            {items.map((item, index) => {
+              const here = index === row;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  id={`item-${item.id}`}
+                  data-selected={here}
+                  // Le curseur EST le focus: une seule entrée dans la
+                  // tabulation, celle qui est choisie (audit A11Y-02).
+                  tabIndex={here ? 0 : -1}
+                  aria-current={here ? "true" : undefined}
+                  // `aria-disabled` et non `disabled`: une entrée grisée reste
+                  // focalisable, sinon le curseur s'y poserait sans le focus,
+                  // et Entrée activerait l'entrée d'avant. Le choix l'ignore
+                  // (`useShell`), et son aide dit pourquoi.
+                  aria-disabled={item.disabled ? "true" : undefined}
+                  onClick={() => shell.choose(index)}
+                  className="absolute flex w-full items-center gap-4 border-0 bg-transparent px-2 text-left transition-all duration-200"
+                  style={{ top: `${index * d.rang}px`, height: `${d.rang}px` }}
+                >
+                  {item.game ? (
+                    <Art
+                      index={item.game.index}
+                      name={item.label}
+                      has={item.game.art}
+                      console={item.game.console}
+                      width={d.etroit ? (here ? 72 : 56) : here ? 90 : 72}
+                      className="shrink-0 rounded-[3px] transition-all duration-200"
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        "shrink-0 transition-all duration-200",
+                        here ? "h-9 w-9" : "h-7 w-7",
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                  )}
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    {/* Sur un téléphone, le nom court sur deux lignes au lieu
+                        d'être coupé: « GameC… » ne disait plus de quelle
+                        console il s'agissait (audit M12). */}
+                    <span
+                      data-libelle
+                      className={cn(
+                        d.etroit ? "line-clamp-2 break-words leading-snug" : "truncate",
+                        here
+                          ? d.etroit
+                            ? "text-fort text-text"
+                            : "text-titre text-text"
+                          : d.etroit
+                            ? "text-corps text-muted"
+                            : "text-fort text-muted",
+                        item.disabled && "text-faint",
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                    {here && (item.hint ?? item.by) ? (
+                      <span
+                        className={cn(
+                          "text-corps text-faint",
+                          d.etroit ? "line-clamp-2 leading-snug" : "truncate",
+                        )}
+                      >
+                        {item.by && item.hint
+                          ? `${item.by} · ${item.hint}`
+                          : (item.hint ?? item.by)}
+                      </span>
+                    ) : null}
                   </span>
-                  {here && (item.hint ?? item.by) ? (
-                    <span className="truncate text-corps text-faint">
-                      {item.by && item.hint ? `${item.by} · ${item.hint}` : (item.hint ?? item.by)}
+                  {item.value ? (
+                    <span
+                      className={cn(
+                        "shrink-0 font-mono text-corps",
+                        here ? "text-indigo" : "text-faint",
+                      )}
+                    >
+                      {item.value}
                     </span>
                   ) : null}
-                </span>
-                {item.value ? (
-                  <span
-                    className={cn(
-                      "shrink-0 font-mono text-corps",
-                      here ? "text-indigo" : "text-faint",
-                    )}
-                  >
-                    {item.value}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      <footer className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 px-8 py-5 text-corps text-faint">
-        <span>{footer}</span>
-        <span className="flex gap-4">
-          <span>← → rayon</span>
-          <span>↑ ↓ entrée</span>
-          <span>A choisit</span>
-          <button type="button" id="closeMenu" onClick={onClose} className="hover:text-indigo">
-            Échap {idle ? "ferme le menu" : "reprend la partie"}
+        {/* Le pied: les gestes de l'appareil qu'on tient, et une vraie sortie.
+            Il disait « ← → rayon · ↑ ↓ entrée · A choisit » à tout le monde:
+            au clavier, A ne choisit rien; au téléphone, il n'y a pas d'Échap
+            (audit T02, M12). */}
+        <footer
+          className={cn(
+            "absolute inset-x-0 bottom-0 flex gap-x-6 gap-y-2 px-6 text-corps text-faint",
+            appareil === "tactile"
+              ? d.bas
+                ? "items-center justify-between py-2"
+                : "flex-col items-stretch py-4"
+              : d.etroit
+                ? "flex-wrap items-center justify-end py-3"
+                : "items-center justify-between py-5",
+          )}
+        >
+          {!d.etroit && appareil !== "tactile" ? <span>{footer}</span> : null}
+          <span
+            className={cn(
+              "flex flex-wrap items-center gap-x-4 gap-y-1",
+              appareil === "tactile" && !d.bas ? "justify-center" : "",
+            )}
+          >
+            {appareil === "tactile" ? (
+              phrase(piedDuMenu(appareil))
+            ) : (
+              <Reperes liste={piedDuMenu(appareil).filter((one) => one.fait !== "retour")} />
+            )}
+          </span>
+          <button
+            type="button"
+            id="closeMenu"
+            onClick={onClose}
+            className={cn(
+              "flex items-center justify-center gap-2",
+              appareil === "tactile" ? "n3-action primary min-h-11" : "hover:text-indigo",
+            )}
+          >
+            {appareil === "tactile" ? null : (
+              <Touche>{appareil === "manette" ? "B" : "Échap"}</Touche>
+            )}
+            {sortieDite}
           </button>
-        </span>
-      </footer>
+        </footer>
+      </div>
       <Picker
         picking={shell.picking}
+        appareil={appareil}
         costume={{
           panel: "var(--panel)",
           ink: "var(--text)",
@@ -433,7 +498,8 @@ export function Xmb({
           dim: "var(--muted)",
         }}
       />
-    </div>
+      <PlaceDesSurcouches />
+    </dialog>
   );
 }
 

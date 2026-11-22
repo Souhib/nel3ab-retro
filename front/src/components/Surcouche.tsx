@@ -1,0 +1,42 @@
+/**
+ * Ce qui doit passer AU-DESSUS du menu ouvert.
+ *
+ * Le menu est un dialogue modal (`showModal`): il monte dans la couche du
+ * dessus du navigateur, et tout ce qui n'est pas DANS le dialogue devient
+ * inerte, peu importe son `z-index`. Trois avis de la page s'affichaient
+ * pourtant au-dessus du menu, en `z-index: 100`: la demande de reprise du rôle
+ * de chef (`Recovery`), l'erreur d'un lancement refusé, et l'état d'une
+ * préparation. L'erreur naît justement d'un choix fait dans le menu.
+ *
+ * Tant qu'un menu est ouvert, ces avis se rendent donc DANS le menu, à
+ * l'endroit qu'il leur réserve (`PlaceDesSurcouches`); sinon, à leur place
+ * habituelle. Le menu ignore les touches venues de cet endroit (`useShell`):
+ * une flèche sur « garder ma place » ne déplace pas la liste derrière.
+ *
+ * Ce que ça coûte: passer d'un endroit à l'autre remonte l'avis, comme tout
+ * changement de conteneur d'un portail React. Un avis ouvert pendant qu'on
+ * ouvre ou ferme le menu repart donc de son état initial.
+ */
+import { createContext, useContext, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+
+type Hote = { hote: HTMLElement | null; poser: (el: HTMLElement | null) => void };
+
+const Contexte = createContext<Hote>({ hote: null, poser: () => {} });
+
+export function HoteDesSurcouches({ children }: { children: React.ReactNode }) {
+  const [hote, poser] = useState<HTMLElement | null>(null);
+  const valeur = useMemo(() => ({ hote, poser }), [hote]);
+  return <Contexte.Provider value={valeur}>{children}</Contexte.Provider>;
+}
+
+export function Surcouche({ children }: { children: React.ReactNode }) {
+  const { hote } = useContext(Contexte);
+  return hote ? createPortal(children, hote) : <>{children}</>;
+}
+
+/** L'endroit, dans un menu ouvert, où les surcouches se rendent. */
+export function PlaceDesSurcouches() {
+  const { poser } = useContext(Contexte);
+  return <div data-surcouche="" ref={poser} />;
+}

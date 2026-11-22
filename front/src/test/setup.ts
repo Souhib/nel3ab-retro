@@ -23,3 +23,20 @@ if (!Element.prototype.scrollIntoView) {
 // lieu de le remplacer, et une recherche par texte trouve deux éléments ou le
 // mauvais. Le symptôme ressemble à un défaut du composant et n'en est pas un.
 afterEach(cleanup);
+
+// jsdom n'a pas `showModal` ni `close` sur `<dialog>`.
+//
+// Le menu en est un depuis le 22 novembre 2026 (audit A11Y-04), comme l'écran
+// des touches. Le remplaçant fait le minimum observable: l'attribut `open` et
+// l'événement `close`. Il ne rend RIEN inerte et ne garde pas Tab: ce qui en
+// dépend se vérifie dans un vrai navigateur (`just focus-navigateur`).
+if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    if (!this.hasAttribute("open")) return;
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  };
+}

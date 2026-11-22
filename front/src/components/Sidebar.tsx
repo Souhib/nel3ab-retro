@@ -29,6 +29,7 @@
  * porte bien ni l'un ni l'autre.
  */
 import { Canape } from "../bobine/Canape";
+import { ouvrirLeMenu, type Appareil } from "../lib/appareil";
 import type { Person } from "../client";
 import { cn } from "../lib/cn";
 import type { Snapshot } from "../media/session";
@@ -43,6 +44,7 @@ import { Signaler } from "./Signaler";
 export type Mode = "normal" | "details";
 
 export function Sidebar({
+  appareil = "clavier",
   idle,
   mode,
   onMode,
@@ -65,6 +67,8 @@ export function Sidebar({
   onTakeHalf,
   onFold,
 }: {
+  /** Ce que la personne tient: l'aide ne promet Échap qu'au clavier. */
+  appareil?: Appareil;
   idle: boolean;
   mode: Mode;
   onMode: (mode: Mode) => void;
@@ -122,6 +126,8 @@ export function Sidebar({
             id="foldColumn"
             onClick={onFold}
             title="replier la colonne"
+            // Le nom calculé était « ✕ », lu « multiplication » (audit A11Y-10).
+            aria-label="replier la colonne"
             className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-rule-bright"
           >
             ✕
@@ -133,6 +139,8 @@ export function Sidebar({
             type="button"
             id={`mode-${choice}`}
             onClick={() => onMode(choice)}
+            // Le mode choisi n'était dit que par la bordure indigo (A11Y-11).
+            aria-pressed={mode === choice}
             className={cn(
               "flex-1 border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors",
               mode === choice
@@ -287,7 +295,7 @@ export function Sidebar({
             {heldCount === 0
               ? "personne ne tient de manette"
               : `${heldCount} manette${heldCount > 1 ? "s" : ""} tenue${heldCount > 1 ? "s" : ""}`}
-            . Échap ouvre le menu.
+            . {ouvrirLeMenu(appareil)}
           </p>
 
           {idle ? null : (

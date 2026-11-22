@@ -93,7 +93,14 @@ import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
 import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
-import { arrange } from "./lib/settings";
+import { arrange, avecAvances, MANETTES } from "./lib/settings";
+import { appareilDe, pour } from "./lib/appareil";
+import { clavierAuJeu, clavierEnPause } from "./lib/focus-jeu";
+import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
+import { keyLabel, keyboardLayout } from "./media/describe";
+import { AideClavier } from "./components/AideClavier";
+import { Touche } from "./components/Reperes";
+import { HoteDesSurcouches, Surcouche } from "./components/Surcouche";
 import { useMe, useMenuIdentity, useRename } from "./lib/me";
 import {
   useLobby,
@@ -276,7 +283,7 @@ function Named({
   useEffect(() => rememberLobby(look), [look]);
 
   return (
-    <>
+    <HoteDesSurcouches>
       {entered === null ? (
         <Lobby
           room={room}
@@ -328,17 +335,20 @@ function Named({
           }}
         />
       )}
-      <Recovery
-        notice={recovery}
-        error={recoveryError}
-        onAction={recover}
-        pad={(handler) => padTo.current?.(handler)}
-        onClose={() => {
-          setRecovery(null);
-          setRecoveryError("");
-        }}
-      />
-    </>
+      {/* Au-dessus du menu quand il est ouvert: voir `Surcouche`. */}
+      <Surcouche>
+        <Recovery
+          notice={recovery}
+          error={recoveryError}
+          onAction={recover}
+          pad={(handler) => padTo.current?.(handler)}
+          onClose={() => {
+            setRecovery(null);
+            setRecoveryError("");
+          }}
+        />
+      </Surcouche>
+    </HoteDesSurcouches>
   );
 }
 
@@ -450,6 +460,9 @@ function Room({
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
   const [bindings, setBindings] = useState(false);
+  /** L'onglet où s'ouvre « touches et manettes »: la carte du clavier l'ouvre
+   * sur les touches, le menu sur la manette. */
+  const [ongletTouches, setOngletTouches] = useState<"pad" | "key">("pad");
   /** La préparation est-elle mise de côté par quelqu'un qui ne l'a pas lancée ?
    *
    * Locale, et surtout pas partagée: mettre le panneau de côté ne quitte pas la
@@ -508,6 +521,9 @@ function Room({
    * l'ordre alphabétique faisait tomber « Mario Kart Wii » entre deux Mario
    * Party. */
   const [folder, setFolder] = useState<string | null>(null);
+  /** Les réglages avancés, dépliés ou non. Repliés à chaque ouverture de la
+   * page: ils servent à chercher une panne, pas à jouer (audit P12). */
+  const [avances, setAvances] = useState(false);
   const [theme, setTheme] = useState(storedTheme);
   /** Ce que la colonne montre. Retenu, parce que quelqu'un qui veut les mesures
    * les veut encore au prochain chargement. */
@@ -776,11 +792,55 @@ function Room({
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
       if (typingIn(event.target)) return;
-      if (event.key === "Escape" && !menu && !bindings) setMenu(true);
+      if (event.key !== "Escape" || menu || bindings) return;
+      // Sans `preventDefault`, la fin de ce même appui est une « demande de
+      // fermeture » pour le navigateur, et le menu, ouvert en dialogue modal
+      // pendant l'événement, la recevait: il s'ouvrait et se refermait aussitôt
+      // (vu dans Chrome 151 le 22 novembre 2026, par `focus.mjs`).
+      event.preventDefault();
+      setMenu(true);
     };
     addEventListener("keydown", press);
     return () => removeEventListener("keydown", press);
   }, [menu, bindings]);
+
+  /* Le modèle de focus (`lib/focus-jeu`): le clavier du jeu vit dans la zone de
+     jeu, et partout ailleurs Entrée, Espace et les flèches font ce que fait le
+     navigateur (audit A11Y-01, 22 novembre 2026). */
+  const zone = useRef<HTMLDivElement>(null);
+  /** Le clavier joue-t-il en ce moment ? Relu quand le focus bouge, jamais à
+   * chaque image: le focus change sur un clic ou un Tab, pas à 60 Hz. */
+  const [auJeu, setAuJeu] = useState(() => clavierAuJeu(document.activeElement));
+  useEffect(() => {
+    const suivre = (event: FocusEvent) =>
+      setAuJeu(clavierAuJeu(event.type === "focusout" ? event.relatedTarget : event.target));
+    addEventListener("focusin", suivre);
+    addEventListener("focusout", suivre);
+    return () => {
+      removeEventListener("focusin", suivre);
+      removeEventListener("focusout", suivre);
+    };
+  }, []);
+  // À l'entrée, le focus va au jeu: au clavier, on joue sans cliquer l'image.
+  // Une salle au repos ouvre son menu, qui le prend à son tour.
+  const menuALEntree = useRef(menu);
+  useEffect(() => {
+    if (!menuALEntree.current) zone.current?.focus({ preventScroll: true });
+  }, []);
+  // Fermer le menu rend la main au jeu. Le dialogue a déjà rendu le focus à ce
+  // qui l'avait avant lui, souvent le bouton « menu » de la colonne; mais
+  // « reprendre la partie » veut dire jouer, et Entrée sur ce bouton rouvrirait
+  // le menu au lieu d'envoyer START. Sans partie, on laisse ce focus, sauf
+  // s'il est retombé sur le document parce que son bouton a disparu.
+  const menuAvant = useRef(menu);
+  useEffect(() => {
+    const ferme = menuAvant.current && !menu;
+    menuAvant.current = menu;
+    if (!ferme) return;
+    const ici = document.activeElement;
+    if (playing === true || ici === null || ici === document.body)
+      zone.current?.focus({ preventScroll: true });
+  }, [menu, playing]);
 
   useEffect(() => {
     if (booting === null) return;
@@ -855,6 +915,36 @@ function Room({
   }, [session, playing, bootingAt, suggestHalf]);
 
   const port = shot?.input.port ?? null;
+  /** Ce que la personne tient, pour que chaque aide nomme ses touches à elle:
+   * Entrée et Échap au clavier, A et B à la manette (audit T02). */
+  const appareil = appareilDe(shot?.input.padId ?? null, coarse);
+  /** Les touches imprimées sur le clavier de la personne, quand le navigateur
+   * sait les dire (Chrome); sinon les noms d'un clavier américain. */
+  const [disposition, setDisposition] = useState<Map<string, string> | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    void keyboardLayout().then((lue) => {
+      if (vivant) setDisposition(lue);
+    });
+    return () => {
+      vivant = false;
+    };
+  }, []);
+  /** La carte « Tu joues au clavier »: ouverte à la première visite. */
+  const [aideOuverte, setAideOuverte] = useState(() => !aideDejaVue());
+  const nomTouche = (code: string) => keyLabel(code, disposition);
+  const lignesClavier = !shot
+    ? []
+    : usesProInput(room?.game?.console)
+      ? aidePro(session?.input.switch.profile.keys ?? {}, room?.game?.console === "x360", nomTouche)
+      : aideDolphin(shot.input.keys, nomTouche);
+  // Une fois qu'on a joué, la carte est lue: elle reste ouverte pour cette
+  // visite, et la suivante commence repliée. Seulement au clavier: la carte
+  // n'existe pas pour une manette ni au doigt.
+  const aJoue = (shot?.input.pressed.length ?? 0) > 0;
+  useEffect(() => {
+    if (aJoue && appareil === "clavier") retenirAideVue(true);
+  }, [aJoue, appareil]);
   const learning = shot?.input.learning ?? null;
   const people = room?.people ?? [];
 
@@ -1270,17 +1360,20 @@ function Room({
                 id: `game${game.index}`,
                 label: game.name,
                 value: running ? "en cours" : armed === game.index ? "confirmer ?" : undefined,
+                // La touche de l'appareil qu'on tient. « entrée: » voulait dire
+                // la touche Entrée, alors que le pied du menu appelait
+                // « entrée » une ligne de la liste (audit T02).
                 hint: running
                   ? saves
-                    ? "entrée: le relancer sur une autre sauvegarde ou une autre manette"
+                    ? pour(appareil, "le relancer sur une autre sauvegarde ou une autre manette")
                     : "c'est ce qui tourne"
                   : !mine
                     ? (whyNotChoose ?? undefined)
                     : saves
-                      ? "entrée: choisir la sauvegarde, et lancer. Ça arrête la partie de tout le monde."
+                      ? `${pour(appareil, "choisir la sauvegarde, puis lancer")}. Ça arrête la partie de tout le monde.`
                       : armed === game.index
                         ? "encore une fois pour lancer, ailleurs pour annuler"
-                        : "entrée deux fois: ce disque n'a pas dit de quelle console il est",
+                        : `${pour(appareil, "lancer, deux fois")}: ce disque n'a pas dit de quelle console il est.`,
                 icon: <GameIcon className="h-full w-full" />,
                 game: {
                   index: game.index,
@@ -1338,6 +1431,112 @@ function Room({
                 },
               };
             }),
+    },
+    {
+      id: "manettes",
+      label: "manettes",
+      icon: <PadIcon className="h-full w-full" />,
+      // Une rubrique à elle. Régler sa manette demandait Échap, deux flèches,
+      // neuf flèches bas et Entrée: « touches et manettes » était la dixième
+      // entrée sur quinze des réglages, et trois autres réglages de manette
+      // l'entouraient (audit P12, 22 novembre 2026).
+      items: arrange(
+        [
+          {
+            id: "bindings",
+            // « touches » sous-vendait: cet écran règle aussi les manettes.
+            label: "touches et manettes",
+            // Le même titre que le dialogue qu'elle ouvre. Le profil clavier est
+            // nommé; les correspondances des manettes sont par modèle.
+            hint: `tester et changer tes touches, profil clavier « ${shot?.input.keyProfile ?? "défaut"} »`,
+            icon: <KeysIcon className="h-full w-full" />,
+            // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
+            // pour changer une touche est exactement ce qu'on ne veut pas.
+            onEnter: () => {
+              setOngletTouches("pad");
+              setBindings(true);
+            },
+          },
+          {
+            id: "pad",
+            // « appareil »: ce choix dit ce que le jeu voit (manette GameCube,
+            // Wiimote, guitare), pas quelle manette on tient (audit P12).
+            label: "appareil des jeux Wii",
+            value: padLabel(pad),
+            // La manette d'un jeu Wii est un RÉGLAGE, pas une décision de partie.
+            // Elle a vécu une journée dans le panneau de lancement, à côté de la
+            // sauvegarde: c'était le mauvais endroit. Une sauvegarde se choisit
+            // par partie, une manette se choisit une fois.
+            //
+            // Une seule des deux à la fois: elles lisent le même tuyau, et un jeu
+            // qui voit les deux compte deux manettes pour une personne. À deux
+            // joueurs, le premier occupe deux places et le second n'entre jamais.
+            // Deux choses changent d'un coup, et taire la seconde ferait croire à
+            // un réglage perdu: la manette que le jeu voit, ET le jeu de touches
+            // qu'on règle sous « touches ».
+            // Ce que ça coûte de changer, et ce n'est plus le même prix pour les
+            // trois. Passer du Nunchuk à la guitare ne relance rien: c'est la même
+            // Wiimote avec autre chose au bout, et Dolphin échange une extension
+            // en cours de partie. Aller vers la manette GameCube, ou en revenir,
+            // change d'APPAREIL et demande de repartir.
+            hint:
+              room?.game?.console === "wii"
+                ? pad === 0
+                  ? "Appareil présenté aux jeux Wii. Passer à la Wiimote relance le jeu."
+                  : "Extension de ta place. Entre Nunchuk et guitare, rien ne relance."
+                : "Appareil du prochain jeu Wii. Les profils clavier restent indépendants.",
+            icon: <PadIcon className="h-full w-full" />,
+            picks: PADS.map((one) => ({
+              id: String(one.id),
+              label: one.label,
+              hint: one.note,
+            })),
+            picked: String(pad),
+            // Relu dans la table, jamais deviné: la version d'avant faisait
+            // `id === "1" ? 1 : 0`, donc la guitare retombait sur la manette
+            // GameCube sans un mot.
+            onPick: (id: string) => {
+              const wanted = PADS.find((one) => String(one.id) === id)?.id;
+              if (wanted !== undefined) switchPad(wanted);
+            },
+          },
+          {
+            id: "touchpad",
+            label: "commandes tactiles",
+            value: touchLabel(touchPref),
+            hint: "Pour jouer au téléphone. Elle se fond avec le clavier et les manettes: on peut tenir les deux.",
+            icon: <PadIcon className="h-full w-full" />,
+            picks: TOUCHPADS.map((choice) => ({
+              id: choice.id,
+              label: choice.label,
+              hint: choice.note,
+            })),
+            picked: touchPref,
+            onPick: (id) => setTouchPref(id as typeof touchPref),
+          },
+          {
+            id: "padonly",
+            label: "télécommande sans vidéo",
+            value: padOnly ? "sans image" : "avec l'image",
+            hint: "Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus.",
+            icon: <PadIcon className="h-full w-full" />,
+            picks: [
+              { id: "avec", label: "avec l'image", hint: "le jeu s'affiche ici" },
+              {
+                id: "sans",
+                label: "manette seule",
+                hint: "ni image ni son sur cet appareil",
+              },
+            ],
+            picked: padOnly ? "sans" : "avec",
+            // Changer de mode reconstruit la session, donc la place tenue est
+            // rendue puis reprise. C'est visible, et c'est le prix de ne plus
+            // ouvrir la socket vidéo du tout.
+            onPick: (id) => onPadOnly(id === "sans"),
+          },
+        ],
+        MANETTES,
+      ),
     },
     {
       id: "salle",
@@ -1430,311 +1629,227 @@ function Room({
       id: "reglages",
       label: "réglages",
       icon: <SettingsIcon className="h-full w-full" />,
-      items: arrange([
-        {
-          id: "sound",
-          label: "son",
-          value: shot?.sound.state === "running" ? "activé" : "éteint",
-          hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
-          icon: <SoundIcon className="h-full w-full" />,
-          onEnter: () => void session?.sound.start(),
-        },
-        {
-          id: "half",
-          // « transporté » était du vocabulaire interne: personne ne dit ça
-          // d'une image. Ce qu'on choisit est la qualité qu'on REÇOIT.
-          label: "qualité reçue",
-          value: shot?.video.half ? "réduit" : "pleine taille",
-          // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
-          // combien ça coûte, et que ça ne regarde qu'elle.
-          //
-          // Les tailles viennent de l'image REÇUE, comme celles du réglage
-          // « image à l'écran », et non d'une table: les 1216×896 et 608×448
-          // écrits ici étaient ceux de Dolphin, et la Switch envoie du
-          // 1280×720. Le débit n'est plus chiffré, la page ne le mesure pas;
-          // « le quart » est ce qu'un quart de pixels coûte, sur toute console.
-          hint: half
-            ? `${sizes.half || "réduit"}, environ le quart du débit. Le choix est le tien seul.`
-            : `${sizes.full || "pleine taille"}. Réduis si l'image saccade.`,
-          icon: <ScreenIcon className="h-full w-full" />,
-          picks: [
-            {
-              id: "full",
-              label: "pleine taille",
-              hint: sizes.full || "toute l'image",
-            },
-            {
-              id: "half",
-              label: "réduit",
-              hint: sizes.half ? `${sizes.half} · le quart du débit` : "le quart du débit",
-            },
-          ],
-          picked: half ? "half" : "full",
-          onPick: (id) => {
-            const wanted = id === "half";
-            session?.video.setHalf(wanted);
-            setHalf(wanted);
+      // Les réglages pointus sont repliés derrière « réglages avancés »:
+      // `lib/settings`, `avecAvances`.
+      items: avecAvances(
+        arrange([
+          {
+            id: "sound",
+            label: "son",
+            value: shot?.sound.state === "running" ? "activé" : "éteint",
+            hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
+            icon: <SoundIcon className="h-full w-full" />,
+            onEnter: () => void session?.sound.start(),
           },
-        },
-        {
-          id: "touchpad",
-          label: "commandes tactiles",
-          value: touchLabel(touchPref),
-          hint: "Pour jouer au téléphone. Elle se fond avec le clavier et les manettes: on peut tenir les deux.",
-          icon: <PadIcon className="h-full w-full" />,
-          picks: TOUCHPADS.map((choice) => ({
-            id: choice.id,
-            label: choice.label,
-            hint: choice.note,
-          })),
-          picked: touchPref,
-          onPick: (id) => setTouchPref(id as typeof touchPref),
-        },
-        {
-          id: "padonly",
-          label: "télécommande sans vidéo",
-          value: padOnly ? "sans image" : "avec l'image",
-          hint: "Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus.",
-          icon: <PadIcon className="h-full w-full" />,
-          picks: [
-            { id: "avec", label: "avec l'image", hint: "le jeu s'affiche ici" },
-            {
-              id: "sans",
-              label: "manette seule",
-              hint: "ni image ni son sur cet appareil",
+          {
+            id: "half",
+            // « transporté » était du vocabulaire interne: personne ne dit ça
+            // d'une image. Ce qu'on choisit est la qualité qu'on REÇOIT.
+            label: "qualité reçue",
+            value: shot?.video.half ? "réduit" : "pleine taille",
+            // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
+            // combien ça coûte, et que ça ne regarde qu'elle.
+            //
+            // Les tailles viennent de l'image REÇUE, comme celles du réglage
+            // « image à l'écran », et non d'une table: les 1216×896 et 608×448
+            // écrits ici étaient ceux de Dolphin, et la Switch envoie du
+            // 1280×720. Le débit n'est plus chiffré, la page ne le mesure pas;
+            // « le quart » est ce qu'un quart de pixels coûte, sur toute console.
+            hint: half
+              ? `${sizes.half || "réduit"}, environ le quart du débit. Le choix est le tien seul.`
+              : `${sizes.full || "pleine taille"}. Réduis si l'image saccade.`,
+            icon: <ScreenIcon className="h-full w-full" />,
+            picks: [
+              {
+                id: "full",
+                label: "pleine taille",
+                hint: sizes.full || "toute l'image",
+              },
+              {
+                id: "half",
+                label: "réduit",
+                hint: sizes.half ? `${sizes.half} · le quart du débit` : "le quart du débit",
+              },
+            ],
+            picked: half ? "half" : "full",
+            onPick: (id) => {
+              const wanted = id === "half";
+              session?.video.setHalf(wanted);
+              setHalf(wanted);
             },
-          ],
-          picked: padOnly ? "sans" : "avec",
-          // Changer de mode reconstruit la session, donc la place tenue est
-          // rendue puis reprise. C'est visible, et c'est le prix de ne plus
-          // ouvrir la socket vidéo du tout.
-          onPick: (id) => onPadOnly(id === "sans"),
-        },
-        {
-          id: "fit",
-          label: "image à l'écran",
-          value: fitLabel(fit),
-          hint: "ce qu'on affiche, séparé de ce qu'on transporte",
-          icon: <ExpandIcon className="h-full w-full" />,
-          // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
-          // qu'il promet. Sans ça, deux choix qui rendent exactement la même
-          // image — ce qui arrive dès que la source est proche de l'écran — se
-          // présentent comme deux choix différents, et on croit que le réglage
-          // ne fait rien.
-          picks: FITS.map((choice) => {
-            const would = place(choice.id, picture, space);
-            const size =
-              would.width > 0 ? `${Math.round(would.width)}×${Math.round(would.height)}` : "";
-            return {
+          },
+          {
+            id: "fit",
+            label: "image à l'écran",
+            value: fitLabel(fit),
+            hint: "ce qu'on affiche, séparé de ce qu'on transporte",
+            icon: <ExpandIcon className="h-full w-full" />,
+            // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
+            // qu'il promet. Sans ça, deux choix qui rendent exactement la même
+            // image — ce qui arrive dès que la source est proche de l'écran — se
+            // présentent comme deux choix différents, et on croit que le réglage
+            // ne fait rien.
+            picks: FITS.map((choice) => {
+              const would = place(choice.id, picture, space);
+              const size =
+                would.width > 0 ? `${Math.round(would.width)}×${Math.round(would.height)}` : "";
+              return {
+                id: choice.id,
+                label: choice.label,
+                hint: size ? `${size} · ${choice.note}` : choice.note,
+              };
+            }),
+            picked: fit,
+            preview: true,
+            onPick: (id) => {
+              const found = FITS.find((choice) => choice.id === id);
+              if (found) setFit(found.id);
+            },
+          },
+          {
+            id: "volume",
+            label: "volume",
+            // À zéro, le son n'est pas joué en silence: il n'est plus envoyé du
+            // tout (`SoundStream.setMuted`). Le dire, pour qu'une liaison faible
+            // sache qu'elle vient de gagner 1,5 Mbit/s.
+            value: volume <= 0 ? "sourdine" : `${Math.round(volume * 100)}`,
+            hint: volume <= 0 ? "le son n'est plus envoyé" : pour(appareil, "ouvrir la glissière"),
+            icon: <VolumeIcon className="h-full w-full" />,
+            // En pour-cent et non en fraction: la glissière avance par crans
+            // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
+            // il faut l'arrondir à la souris.
+            slide: {
+              value: Math.round(volume * 100),
+              min: 0,
+              max: 100,
+              step: 5,
+              say: (at) => `${at} %`,
+              onSet: (at) => setVolume(at / 100),
+            },
+          },
+          {
+            id: "theme",
+            label: "couleurs",
+            value: themeLabel(theme),
+            hint: pour(appareil, "voir les trois"),
+            icon: <PaletteIcon className="h-full w-full" />,
+            picks: THEMES.map((choice) => ({
               id: choice.id,
               label: choice.label,
-              hint: size ? `${size} · ${choice.note}` : choice.note,
-            };
-          }),
-          picked: fit,
-          preview: true,
-          onPick: (id) => {
-            const found = FITS.find((choice) => choice.id === id);
-            if (found) setFit(found.id);
-          },
-        },
-        {
-          id: "volume",
-          label: "volume",
-          // À zéro, le son n'est pas joué en silence: il n'est plus envoyé du
-          // tout (`SoundStream.setMuted`). Le dire, pour qu'une liaison faible
-          // sache qu'elle vient de gagner 1,5 Mbit/s.
-          value: volume <= 0 ? "sourdine" : `${Math.round(volume * 100)}`,
-          hint: volume <= 0 ? "le son n'est plus envoyé" : "A pour ouvrir la glissière",
-          icon: <VolumeIcon className="h-full w-full" />,
-          // En pour-cent et non en fraction: la glissière avance par crans
-          // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
-          // il faut l'arrondir à la souris.
-          slide: {
-            value: Math.round(volume * 100),
-            min: 0,
-            max: 100,
-            step: 5,
-            say: (at) => `${at} %`,
-            onSet: (at) => setVolume(at / 100),
-          },
-        },
-        {
-          id: "theme",
-          label: "couleurs",
-          value: themeLabel(theme),
-          hint: "A pour voir les trois",
-          icon: <PaletteIcon className="h-full w-full" />,
-          picks: THEMES.map((choice) => ({
-            id: choice.id,
-            label: choice.label,
-            hint: choice.note,
-          })),
-          picked: theme,
-          onPick: (id) => {
-            const found = THEMES.find((choice) => choice.id === id);
-            if (found) setTheme(found.id);
-          },
-        },
-        {
-          id: "shell",
-          // Une entrée nommée « menu », dans un menu, est une devinette. Ce
-          // qu'elle choisit est le tableau de bord de quelle console.
-          label: "tableau de bord",
-          value: shellLabel(shell),
-          hint: "A pour voir les consoles",
-          icon: <LayoutIcon className="h-full w-full" />,
-          picks: SHELLS.map((choice) => ({
-            id: choice.id,
-            label: choice.label,
-          })),
-          picked: shell,
-          onPick: (id) => {
-            const found = SHELLS.find((choice) => choice.id === id);
-            if (found) setShell(found.id);
-          },
-        },
-        {
-          id: "pad",
-          label: "manette des jeux Wii",
-          value: padLabel(pad),
-          // La manette d'un jeu Wii est un RÉGLAGE, pas une décision de partie.
-          // Elle a vécu une journée dans le panneau de lancement, à côté de la
-          // sauvegarde: c'était le mauvais endroit. Une sauvegarde se choisit
-          // par partie, une manette se choisit une fois.
-          //
-          // Une seule des deux à la fois: elles lisent le même tuyau, et un jeu
-          // qui voit les deux compte deux manettes pour une personne. À deux
-          // joueurs, le premier occupe deux places et le second n'entre jamais.
-          // Deux choses changent d'un coup, et taire la seconde ferait croire à
-          // un réglage perdu: la manette que le jeu voit, ET le jeu de touches
-          // qu'on règle sous « touches ».
-          // Ce que ça coûte de changer, et ce n'est plus le même prix pour les
-          // trois. Passer du Nunchuk à la guitare ne relance rien: c'est la même
-          // Wiimote avec autre chose au bout, et Dolphin échange une extension
-          // en cours de partie. Aller vers la manette GameCube, ou en revenir,
-          // change d'APPAREIL et demande de repartir.
-          hint:
-            room?.game?.console === "wii"
-              ? pad === 0
-                ? "Appareil présenté aux jeux Wii. Passer à la Wiimote relance le jeu."
-                : "Extension de ta place. Entre Nunchuk et guitare, rien ne relance."
-              : "Appareil du prochain jeu Wii. Les profils clavier restent indépendants.",
-          icon: <PadIcon className="h-full w-full" />,
-          picks: PADS.map((one) => ({
-            id: String(one.id),
-            label: one.label,
-            hint: one.note,
-          })),
-          picked: String(pad),
-          // Relu dans la table, jamais deviné: la version d'avant faisait
-          // `id === "1" ? 1 : 0`, donc la guitare retombait sur la manette
-          // GameCube sans un mot.
-          onPick: (id: string) => {
-            const wanted = PADS.find((one) => String(one.id) === id)?.id;
-            if (wanted !== undefined) switchPad(wanted);
-          },
-        },
-        {
-          id: "bindings",
-          // « touches » sous-vendait: cet écran règle aussi les manettes.
-          label: "touches et manettes",
-          // Le profil clavier est nommé; les correspondances des manettes sont par modèle.
-          hint: `tester et réassigner · clavier ${shot?.input.keyProfile ?? "défaut"}`,
-          icon: <KeysIcon className="h-full w-full" />,
-          // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
-          // pour changer une touche est exactement ce qu'on ne veut pas.
-          onEnter: () => setBindings(true),
-        },
-        {
-          id: "deviceRate",
-          label: "fréquence de la carte son",
-          value: deviceRate ? "oui" : "non",
-          hint: "évite un rééchantillonnage, mais le tampon peut être plus long",
-          icon: <WaveIcon className="h-full w-full" />,
-          onEnter: () => setDeviceRate(!deviceRate),
-        },
-        {
-          id: "lipsync",
-          label: "image calée sur le son",
-          value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
-          hint: lipsync
-            ? "compensation ajustée au son ; elle ajoute aussi du retard aux commandes"
-            : "retarde l'image pour suivre le son, seulement sur cet écran",
-          icon: <SyncIcon className="h-full w-full" />,
-          onEnter: () => setLipsync(!lipsync),
-        },
-        {
-          id: "bare",
-          // Un nom, comme les autres. La phrase à l'impératif est le
-          // travail de l'aide, pas du titre.
-          label: "colonne de droite",
-          value: bare ? "repliée" : "visible",
-          hint: "rend toute la largeur à l'image (Ctrl)",
-          icon: <PanelIcon className="h-full w-full" />,
-          onEnter: () => setBare(!bare),
-        },
-        {
-          id: "columnWidth",
-          label: "largeur de la colonne",
-          value: `${column} px`,
-          hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
-          icon: <PanelIcon className="h-full w-full" />,
-          // La glissière du menu, parce que la poignée n'a pas de clavier:
-          // voir `ColumnHandle`. Au clavier et à la manette, c'est ici.
-          slide: {
-            value: column,
-            min: COLUMN.min,
-            // Relue à chaque rendu du menu: une fenêtre étroite ne permet pas
-            // la même largeur qu'un grand écran.
-            max: widest(window.innerWidth),
-            step: COLUMN.step,
-            say: (at) => `${at} px`,
-            onSet: (at) => {
-              setColumn(at);
-              rememberColumn(at);
+              hint: choice.note,
+            })),
+            picked: theme,
+            onPick: (id) => {
+              const found = THEMES.find((choice) => choice.id === id);
+              if (found) setTheme(found.id);
             },
           },
-        },
-        {
-          id: "fullscreen",
-          label: "plein écran",
-          value: fullscreen ? "oui" : "non",
-          icon: <ExpandIcon className="h-full w-full" />,
-          onEnter: toggleFullscreen,
-        },
-      ]),
-    },
-    {
-      id: "mesures",
-      label: "mesures",
-      icon: <MeasureIcon className="h-full w-full" />,
-      items: [
-        {
-          id: "images",
-          label: "images",
-          value: `${shot?.video.painted ?? 0} peintes`,
-          hint: `${(shot?.video.refreshHz ?? 0).toFixed(0)} Hz à l'écran, marge ${(shot?.video.slackMs ?? 0).toFixed(0)} ms`,
-          icon: <ScreenIcon className="h-full w-full" />,
-        },
-        {
-          id: "son",
-          label: "son",
-          value: shot?.sound.state ?? "absent",
-          hint:
-            shot?.soundGapMs == null
-              ? "aucun écart mesuré"
-              : `${Math.abs(shot.soundGapMs).toFixed(0)} ms ${shot.soundGapMs < 0 ? "devant" : "derrière"} l'image`,
-          icon: <SoundIcon className="h-full w-full" />,
-        },
-        {
-          id: "manette",
-          label: "manette",
-          value: port === null ? "aucune" : `port ${port}`,
-          hint: `${shot?.input.sent ?? 0} trames envoyées`,
-          icon: <PadIcon className="h-full w-full" />,
-        },
-      ],
+          {
+            id: "shell",
+            // Une entrée nommée « menu », dans un menu, est une devinette. Ce
+            // qu'elle choisit est le tableau de bord de quelle console.
+            label: "tableau de bord",
+            value: shellLabel(shell),
+            hint: pour(appareil, "voir les consoles"),
+            icon: <LayoutIcon className="h-full w-full" />,
+            picks: SHELLS.map((choice) => ({
+              id: choice.id,
+              label: choice.label,
+            })),
+            picked: shell,
+            onPick: (id) => {
+              const found = SHELLS.find((choice) => choice.id === id);
+              if (found) setShell(found.id);
+            },
+          },
+          {
+            id: "deviceRate",
+            label: "fréquence de la carte son",
+            value: deviceRate ? "oui" : "non",
+            hint: "évite un rééchantillonnage, mais le tampon peut être plus long",
+            icon: <WaveIcon className="h-full w-full" />,
+            onEnter: () => setDeviceRate(!deviceRate),
+          },
+          {
+            id: "lipsync",
+            label: "image calée sur le son",
+            value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
+            hint: lipsync
+              ? "compensation ajustée au son ; elle ajoute aussi du retard aux commandes"
+              : "retarde l'image pour suivre le son, seulement sur cet écran",
+            icon: <SyncIcon className="h-full w-full" />,
+            onEnter: () => setLipsync(!lipsync),
+          },
+          {
+            id: "bare",
+            // Un nom, comme les autres. La phrase à l'impératif est le
+            // travail de l'aide, pas du titre.
+            label: "colonne de droite",
+            value: bare ? "repliée" : "visible",
+            hint: "rend toute la largeur à l'image (Ctrl)",
+            icon: <PanelIcon className="h-full w-full" />,
+            onEnter: () => setBare(!bare),
+          },
+          {
+            id: "columnWidth",
+            label: "largeur de la colonne",
+            value: `${column} px`,
+            hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
+            icon: <PanelIcon className="h-full w-full" />,
+            // La glissière du menu, parce que la poignée n'a pas de clavier:
+            // voir `ColumnHandle`. Au clavier et à la manette, c'est ici.
+            slide: {
+              value: column,
+              min: COLUMN.min,
+              // Relue à chaque rendu du menu: une fenêtre étroite ne permet pas
+              // la même largeur qu'un grand écran.
+              max: widest(window.innerWidth),
+              step: COLUMN.step,
+              say: (at) => `${at} px`,
+              onSet: (at) => {
+                setColumn(at);
+                rememberColumn(at);
+              },
+            },
+          },
+          {
+            id: "fullscreen",
+            label: "plein écran",
+            value: fullscreen ? "oui" : "non",
+            icon: <ExpandIcon className="h-full w-full" />,
+            onEnter: toggleFullscreen,
+          },
+          {
+            id: "advanced",
+            label: "réglages avancés",
+            value: avances ? "affichés" : "3 de plus",
+            hint: avances
+              ? "fréquence de la carte son, image calée sur le son, état de la connexion"
+              : pour(
+                  appareil,
+                  "les afficher: fréquence de la carte son, image calée sur le son, état de la connexion",
+                ),
+            icon: <SettingsIcon className="h-full w-full" />,
+            onEnter: () => setAvances(!avances),
+          },
+          {
+            // La rubrique « mesures » en tenait une sur quatre, au même rang que
+            // « jeux », pour trois chiffres de diagnostic (audit T13). Ils sont
+            // ici, repliés, et le détail vit dans la colonne.
+            id: "connexion",
+            label: "état de la connexion",
+            value: `${shot?.video.painted ?? 0} images`,
+            hint: `${(shot?.video.refreshHz ?? 0).toFixed(0)} Hz à l'écran, ${port === null ? "sans manette" : `manette ${port}`}. ${pour(appareil, "voir le détail dans la colonne")}.`,
+            icon: <MeasureIcon className="h-full w-full" />,
+            onEnter: () => {
+              setMode("details");
+              setBare(false);
+              setMenu(false);
+            },
+          },
+        ]),
+        avances,
+      ),
     },
   ];
 
@@ -1778,6 +1893,15 @@ function Room({
       <main className="relative flex min-w-0 flex-1 flex-col">
         <Screen
           canvasRef={ref}
+          zoneRef={zone}
+          // Pas pendant un chargement: l'écran de chargement couvre l'image,
+          // et Tab s'arrêterait sur une zone qu'on ne voit pas.
+          jouable={playing === true && booting === null}
+          libelle={
+            port === null
+              ? "Image du jeu"
+              : "Zone de jeu. Au clavier, tes touches y pilotent ta manette."
+          }
           connected={shot?.video.connected ?? false}
           fit={fit}
           picture={shot?.video.picture ?? { width: 0, height: 0 }}
@@ -1809,6 +1933,31 @@ function Room({
             Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
             {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
           </button>
+        ) : null}
+        {/* Le clavier ne joue plus: le focus est sur la colonne. Sans le dire,
+            un clic sur un bouton de la colonne ressemblait à un jeu qui ne
+            répond plus (`lib/focus-jeu`, `clavierEnPause`). */}
+        {clavierEnPause({
+          partie: playing === true && booting === null,
+          place: port !== null,
+          appareil,
+          menu: menu || configuring,
+          auJeu,
+        }) ? (
+          <div
+            id="clavierEnPause"
+            className="regie-nuit absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-24px)] flex-wrap items-center gap-x-3 gap-y-1 border border-rule bg-panel px-3 py-2 text-corps text-muted"
+          >
+            <span>Tes touches vont à la page, pas au jeu.</span>
+            <button
+              type="button"
+              id="rejouerAuClavier"
+              onClick={() => zone.current?.focus({ preventScroll: true })}
+              className="flex min-h-9 items-center gap-2 text-indigo hover:underline"
+            >
+              Rejouer au clavier
+            </button>
+          </div>
         ) : null}
         {reduced ? (
           <div
@@ -1874,7 +2023,10 @@ function Room({
           <ControllerStatus
             visible={port !== null && !menu && !configuring}
             state={shot.input}
-            onConfigure={() => setBindings(true)}
+            onConfigure={() => {
+              setOngletTouches("pad");
+              setBindings(true);
+            }}
           />
         ) : null}
         {session && !onTouch && coarse ? (
@@ -2118,6 +2270,23 @@ function Room({
             />
           </Panel>
 
+          {/* Les touches du clavier, sans ouvrir de menu (audit T02): à qui
+              tient une place et joue au clavier. */}
+          {appareil === "clavier" && port !== null && lignesClavier.length > 0 ? (
+            <AideClavier
+              lignes={lignesClavier}
+              ouverte={aideOuverte}
+              onBascule={(ouverte) => {
+                setAideOuverte(ouverte);
+                retenirAideVue(!ouverte);
+              }}
+              onChanger={() => {
+                setOngletTouches("key");
+                setBindings(true);
+              }}
+            />
+          ) : null}
+
           {/* Le clip, à portée sans ouvrir le menu.
               Quarante-cinq secondes ne se demandent pas après coup: on appuie
               pendant que ça se passe, et poser un menu plein écran par-dessus le
@@ -2217,12 +2386,14 @@ function Room({
             type="button"
             id="openMenu"
             onClick={() => setMenu(true)}
-            className="border border-indigo/60 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/10"
+            className="flex items-center justify-center gap-2 border border-indigo/60 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/10"
           >
-            menu (Échap)
+            menu
+            {appareil === "clavier" ? <Touche>Échap</Touche> : null}
           </button>
 
           <Sidebar
+            appareil={appareil}
             idle={idle}
             owner={boss}
             mode={mode}
@@ -2260,6 +2431,13 @@ function Room({
             const common = {
               categories: rays,
               idle,
+              appareil,
+              // Le navigateur a fermé le dialogue lui-même (le geste « retour »
+              // d'Android répété sans autre geste entre deux): la page suit.
+              onQuitte: () => {
+                setFolder(null);
+                setMenu(false);
+              },
               onClose: () => {
                 // Retour: on remonte d'un ÉTAGE avant de fermer. Sortir du menu
                 // depuis l'intérieur d'un dossier obligerait à rouvrir et à
@@ -2279,35 +2457,51 @@ function Room({
               // à cet instant contredit ce qu'on vient de faire.
               footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : (room?.name ?? "salon")} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
-            if (shell === "wii") return <Channels key={String(idle)} {...common} />;
-            if (shell === "switch") return <Home key={String(idle)} {...common} who={name} />;
-            return <Xmb key={String(idle)} {...common} />;
+            // Dans un dossier, la sortie remonte d'abord aux consoles: le
+            // bouton le dit, au lieu de promettre « reprendre la partie ».
+            const sortie = folder === null ? undefined : "retour";
+            if (shell === "wii") return <Channels key={String(idle)} {...common} sortie={sortie} />;
+            if (shell === "switch")
+              return <Home key={String(idle)} {...common} who={name} sortie={sortie} />;
+            return (
+              <Xmb
+                key={String(idle)}
+                {...common}
+                sortie={folder === null ? undefined : "Retour aux consoles"}
+              />
+            );
           })()
         : null}
 
+      {/* Au-dessus du menu: l'erreur naît d'un lancement choisi dans le menu
+          (voir `Surcouche`). */}
       {preparationError ? (
-        <div className="n3-preparation-error" role="alert">
-          {preparationError}
-          <button type="button" onClick={() => setPreparationError("")}>
-            Fermer
-          </button>
-        </div>
+        <Surcouche>
+          <div className="n3-preparation-error" role="alert">
+            {preparationError}
+            <button type="button" onClick={() => setPreparationError("")}>
+              Fermer
+            </button>
+          </div>
+        </Surcouche>
       ) : null}
       {pendingSetup && (!setupPlayer || setupHidden) ? (
-        <div className="n3-preparation-watching" role="status">
-          Préparation de {setupGame?.name} · {pendingSetup.players.filter((p) => p.ready).length}/
-          {pendingSetup.players.length} joueurs prêts
-          {setupHidden ? (
-            <button
-              type="button"
-              id="resumePreparation"
-              className="n3-action"
-              onClick={() => setSetupHidden(false)}
-            >
-              Reprendre la préparation
-            </button>
-          ) : null}
-        </div>
+        <Surcouche>
+          <div className="n3-preparation-watching" role="status">
+            Préparation de {setupGame?.name} · {pendingSetup.players.filter((p) => p.ready).length}/
+            {pendingSetup.players.length} joueurs prêts
+            {setupHidden ? (
+              <button
+                type="button"
+                id="resumePreparation"
+                className="n3-action"
+                onClick={() => setSetupHidden(false)}
+              >
+                Reprendre la préparation
+              </button>
+            ) : null}
+          </div>
+        </Surcouche>
       ) : null}
       {configuring && shot && session && usesProInput(setupGame?.console ?? room?.game?.console) ? (
         <SwitchBindings
@@ -2323,6 +2517,7 @@ function Room({
         />
       ) : configuring && shot ? (
         <Bindings
+          onglet={ongletTouches}
           console={pendingSetup ? "wii" : (room?.game?.console ?? "gc")}
           held={pendingSetup ? setupChoice : pad}
           readOnly={Boolean(setupPlayer?.ready)}

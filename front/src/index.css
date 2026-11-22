@@ -387,7 +387,63 @@ body {
   background: none !important;
 }
 
-.n3-peek > *:not(#picker) {
+/* Les menus sont des dialogues modaux depuis le 22 novembre 2026 (audit
+   A11Y-04): `showModal()` rend le reste de la page inerte et garde Tab dedans.
+   Le navigateur pose sur un dialogue une marge, une bordure, un fond et une
+   taille maximale; un menu plein écran n'en veut aucun. Le fond reste celui de
+   chaque console, posé par sa coque, et le voile du navigateur est retiré: le
+   menu couvre déjà tout. */
+.n3-menu {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  color: var(--text);
+}
+.n3-menu::backdrop {
+  background: transparent;
+}
+
+/* Une touche dessinée dans une aide: « Entrée », « Échap », « A ». Le trait
+   prend la couleur du texte, donc le contraste de la légende qui l'entoure. */
+.n3-touche {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7em;
+  padding: 0 0.45em;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.86em;
+  line-height: 1.55;
+  white-space: nowrap;
+}
+
+/* Une entrée de menu a le focus en même temps que le curseur: l'anneau va
+   DEDANS. Dehors, la fenêtre de la liste le coupait sur les côtés et il ne
+   restait que deux traits au-dessus et au-dessous de l'entrée. */
+.n3-menu button[id^="item-"]:focus-visible {
+  outline-offset: calc(-1 * var(--focus-largeur));
+  border-radius: 6px;
+}
+
+/* La zone de jeu: l'anneau de focus DEDANS, sinon il sort de l'écran et la
+   colonne le coupe. Il ne se montre qu'au clavier (`:focus-visible`): un clic
+   sur l'image ne dessine rien. */
+.n3-zone-jeu:focus-visible {
+  outline-offset: calc(-1 * var(--focus-largeur));
+}
+
+/* Les avis posés au-dessus du menu (`Surcouche`) restent visibles: une erreur
+   de lancement ne doit pas s'effacer parce qu'on règle l'image. */
+.n3-peek > *:not(#picker):not([data-surcouche]) {
   opacity: 0 !important;
   pointer-events: none;
 }

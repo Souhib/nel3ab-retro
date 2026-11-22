@@ -31,6 +31,7 @@ import {
 } from "./pad";
 import { KEYS_STORED, PAD_PREFIX, push as pushBindings } from "../lib/bindings";
 import { roomReference } from "../lib/bindings";
+import { clavierAuJeu } from "../lib/focus-jeu";
 import { typingIn } from "../lib/typing";
 import {
   activated,
@@ -413,6 +414,7 @@ export class InputStream {
     addEventListener("keydown", this.onKeyDown);
     addEventListener("keyup", this.onKeyUp);
     addEventListener("blur", this.onBlur);
+    addEventListener("focusin", this.onFocusIn);
     this.timers.push(window.setInterval(this.pump, PAD_PERIOD_MS));
     this.timers.push(window.setInterval(this.ping, ECHO_EVERY_MS));
     this.animation = requestAnimationFrame(this.pumpOnRefresh);
@@ -470,6 +472,7 @@ export class InputStream {
     removeEventListener("keydown", this.onKeyDown);
     removeEventListener("keyup", this.onKeyUp);
     removeEventListener("blur", this.onBlur);
+    removeEventListener("focusin", this.onFocusIn);
     this.generation += 1;
     this.socket?.close();
     this.socket = null;
@@ -1145,6 +1148,12 @@ export class InputStream {
     // Un dialogue natif possède ses flèches, sa barre d'espace et sa tabulation.
     // La capture ci-dessus est la seule raison de lui prendre une touche.
     if (event.target instanceof Element && event.target.closest("dialog[open]")) return;
+    // Le clavier du jeu vit dans la zone de jeu (`lib/focus-jeu`). Ailleurs, la
+    // touche reste à la page: Entrée active le bouton qui a le focus au lieu de
+    // partir comme START, et une flèche fait défiler au lieu de pousser le stick
+    // (audit A11Y-01, 22 novembre 2026). Sans `preventDefault`, et sans
+    // l'ajouter aux touches tenues.
+    if (!clavierAuJeu(event.target)) return;
     if (
       (this.source ? this.source.handlesKey(event.code) : event.code in this.keys) ||
       event.code.startsWith("Arrow")
@@ -1162,6 +1171,15 @@ export class InputStream {
 
   private onBlur = (): void => {
     this.held.clear();
+  };
+
+  /** Le focus part vers un bouton ou un champ: ce qui était tenu se relâche,
+   * comme quand la fenêtre perd le focus. Une flèche tenue au moment d'un Tab
+   * ferait sinon marcher le personnage tant qu'on ne la lâche pas, alors que
+   * plus rien de ce qu'on tape n'arrive au jeu. Le focus qui ARRIVE dans la
+   * zone, lui, ne relâche rien. */
+  private onFocusIn = (event: FocusEvent): void => {
+    if (!clavierAuJeu(event.target)) this.held.clear();
   };
 
   private pumpOnRefresh = (): void => {

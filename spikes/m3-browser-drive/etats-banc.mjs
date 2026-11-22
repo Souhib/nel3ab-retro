@@ -43,6 +43,12 @@ const DEPART = {
   ouverte: true,
   redemarre: false,
   game: true,
+  // La console du jeu en cours: x360 (la manette Pro) ou gc (Dolphin). Ajouté
+  // pour le banc du focus, qui doit lire START dans les deux trames.
+  console: "x360",
+  // La trame que la salle demande: « dolphin » (13 octets) par défaut, ou
+  // « switch » (15 octets), que le worker annonce par « format switch ».
+  format: "dolphin",
 };
 
 export async function demarrerBanc({ port, page, flux }) {
@@ -53,19 +59,22 @@ export async function demarrerBanc({ port, page, flux }) {
   const AUS = unitesDe(readFileSync(flux));
   const state = { ...DEPART };
   const log = [];
+  /** Les changements de boutons reçus sur `/input` (voir `input`). */
+  const trames = [];
   const videos = new Set();
   const sounds = new Set();
   const inputs = new Set();
   const lobbies = new Set();
   const note = (texte) => log.push({ a: Date.now(), texte });
 
+  const LIBRARY = [
+    { index: 0, name: "Jeu du banc", console: "x360", art: false },
+    { index: 1, name: "Autre jeu du banc", console: "gc", art: false },
+  ];
   const room = () => ({
     name: "Salle 1",
-    game: state.game ? { index: 0, name: "Jeu du banc", console: "x360", art: false } : null,
-    library: [
-      { index: 0, name: "Jeu du banc", console: "x360", art: false },
-      { index: 1, name: "Autre jeu du banc", console: "gc", art: false },
-    ],
+    game: state.game ? (LIBRARY.find((one) => one.console === state.console) ?? LIBRARY[0]) : null,
+    library: LIBRARY,
     seats: [
       { port: 1, player: "banc", held: true },
       { port: 2, player: null, held: false },
@@ -105,7 +114,7 @@ export async function demarrerBanc({ port, page, flux }) {
             ouverte: state.ouverte,
             redemarre: state.redemarre,
             chemin: "/r/1/",
-            jeu: state.game ? "Jeu du banc" : null,
+            jeu: state.game ? room().game.name : null,
           },
         ]);
       }
@@ -223,10 +232,28 @@ export async function demarrerBanc({ port, page, flux }) {
   // l'écho de chaque aller-retour, comme le worker.
   function input(ws) {
     inputs.add(ws);
+    if (state.format === "switch") ws.send("format switch");
     ws.send(Buffer.from([4, 1, 1, 0, 1, 0, 0, 0, 0]));
+    let avant = null;
     ws.on("message", (m) => {
       const bytes = Buffer.from(m);
       if (bytes.length === 9 && bytes[0] === 0xe0 && state.video !== "silent") ws.send(bytes);
+      // Les boutons de chaque trame de manette, notés quand ils CHANGENT: la
+      // boucle envoie toutes les 4 ms, et un relevé complet ne dirait rien de
+      // plus. 13 octets pour Dolphin (seize bits en tête), 15 pour la trame
+      // Switch (« S », version, place, puis trente-deux bits).
+      // Le stick gauche horizontal avec, pour qu'une flèche se voie aussi.
+      const lu =
+        bytes.length === 13
+          ? { trame: "dolphin", boutons: bytes.readUInt16LE(0), x: bytes.readInt16LE(3) }
+          : bytes.length === 15 && bytes[0] === 0x53
+            ? { trame: "switch", boutons: bytes.readUInt32LE(3), x: bytes.readInt16LE(7) }
+            : null;
+      const signe = lu ? `${lu.trame}:${lu.boutons}:${lu.x}` : null;
+      if (lu && signe !== avant) {
+        avant = signe;
+        trames.push({ a: Date.now(), ...lu });
+      }
     });
     ws.on("close", () => inputs.delete(ws));
   }
@@ -275,6 +302,8 @@ export async function demarrerBanc({ port, page, flux }) {
         ws.send(`42["booting",${JSON.stringify({ game: "Autre jeu du banc", save: "partie neuve" })}]`);
     },
     journal: (depuis = 0) => log.filter((ligne) => ligne.a >= depuis),
+    /** Les boutons reçus depuis `depuis`, dans l'ordre d'arrivée. */
+    trames: (depuis = 0) => trames.filter((une) => une.a >= depuis),
     fermer: () =>
       new Promise((fini) => {
         for (const ws of [...videos, ...sounds, ...inputs, ...lobbies]) ws.terminate();

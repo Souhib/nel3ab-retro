@@ -429,7 +429,7 @@ http://localhost:${door} {
     await button(benoit, "fermer");
     await benoit.$eval("#openMenu", e => e.click());
     await benoit.$eval("#ray-salle", e => e.click());
-    assert.equal(await benoit.$eval("#item-close-game", e => e.disabled), false);
+    assert.equal(await benoit.$eval("#item-close-game", e => e.getAttribute("aria-disabled") === "true"), false);
     await benoit.$eval("#closeMenu", e => e.click());
     // Revenir jouer ne redonne pas le rôle perdu.
     await alice.$eval("#takePad", e => e.click());
@@ -537,7 +537,7 @@ http://localhost:${door} {
     const game = (await room()).game.index;
     await benoit.$eval("#openMenu", e => e.click());
     await benoit.$eval("#ray-salle", e => e.click());
-    assert.equal(await benoit.$eval("#item-close-game", e => e.disabled), true);
+    assert.equal(await benoit.$eval("#item-close-game", e => e.getAttribute("aria-disabled") === "true"), true);
     await benoit.$eval("#closeMenu", e => e.click());
     await alice.$eval("#watchOnly", e => e.click());
     await until(async () => JSON.stringify(await names()) === '[null,"Benoit",null,null]', "Le chef n'est pas devenu spectateur");
@@ -687,8 +687,8 @@ http://localhost:${door} {
     await button(alice, "Annuler le lancement");
     await alice.waitForSelector("#bindingsPanel", {hidden:true});
     await alice.$eval("#openMenu", e => e.click());
-    await alice.waitForSelector("#ray-reglages");
-    await alice.$eval("#ray-reglages", e => e.click());
+    await alice.waitForSelector("#ray-manettes");
+    await alice.$eval("#ray-manettes", e => e.click());
     await alice.$eval("#item-bindings", e => e.click());
     await alice.waitForSelector("#view-profiles");
     assert.equal(await alice.$(".n3-preparation-saved"), null, "Les profils n'éloignent pas les deux dessins");

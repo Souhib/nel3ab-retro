@@ -109,8 +109,23 @@ export function Seats({
                 id={`port${port}`}
                 data-state={isMine ? "mine" : held ? "busy" : "free"}
                 data-armed={isArmed}
-                aria-label={`Manette ${port}${name ? ` · ${name}` : ""}${isArmed ? " · reprendre ?" : ""}`}
-                disabled={isMine}
+                // L'état dans le nom: il n'était dit que par le dessin de la
+                // prise (audit A11Y-11). « tenue » et non « occupée » quand le
+                // salon ne nomme personne, comme le dessin.
+                aria-label={`Manette ${port}, ${
+                  isMine
+                    ? "la tienne"
+                    : name && held
+                      ? name
+                      : held
+                        ? isArmed
+                          ? "tenue, reclique pour la reprendre"
+                          : "tenue"
+                        : "libre"
+                }`}
+                // `aria-disabled` et non `disabled`: la tienne reste dans la
+                // tabulation, donc lisible. Le clic l'ignore (`click`).
+                aria-disabled={isMine ? "true" : undefined}
                 onClick={() => click(port)}
                 title={
                   isMine

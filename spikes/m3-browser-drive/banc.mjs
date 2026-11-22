@@ -42,7 +42,7 @@ await enterRoom(page);
 await wait(2500);
 await press("#openMenu");
 await wait(700);
-await press("#ray-reglages");
+await press("#ray-manettes");
 await wait(500);
 await press("#item-bindings");
 await wait(700);

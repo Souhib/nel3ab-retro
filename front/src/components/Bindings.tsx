@@ -13,6 +13,8 @@ import { Wiring } from "./Wiring";
 import { KeyboardWiring } from "./KeyboardWiring";
 
 export type BindingsProps = {
+  /** L'onglet ouvert à l'arrivée: la carte du clavier ouvre sur les touches. */
+  onglet?: "pad" | "key" | "profiles";
   preparation?: ReactNode;
   profiles?: ReactNode;
   readOnly?: boolean;
@@ -40,6 +42,7 @@ export function Bindings({
   readOnly = false,
   actions,
   console,
+  onglet = "pad",
   held,
   state,
   onPickKeys,
@@ -59,7 +62,7 @@ export function Bindings({
   const editor = useRef<HTMLElement>(null);
   const identity = identityOf(state);
   const physical = state.pads.find((one) => one.index === state.using);
-  const [tab, setTab] = useState<"pad" | "key" | "profiles">("pad");
+  const [tab, setTab] = useState<"pad" | "key" | "profiles">(onglet);
   const [selected, setSelected] = useState<ControlKey>("A");
   const [looking, setLooking] = useState<Pad>(console === "wii" ? held : 0);
   const [layout, setLayout] = useState<Map<string, string> | null>(null);

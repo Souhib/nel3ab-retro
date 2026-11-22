@@ -424,6 +424,17 @@ hash of the page this build produced. Comparing two builds byte for byte does
 not work: the minifier assigns short identifiers differently between runs of
 identical sources, measured here at three lines of a 350 kB file.
 
+**Amended 2026-11-22: the stamp reads git's list, not the directory.** A
+directory walk hashed an 83-byte vitest cache under `front/src/node_modules`,
+ignored by git: the stamp was right in one worktree and wrong in every clean
+copy of the same commit, so `just check` passed there and CI would have failed
+after the merge. The stamp's inputs are now the files git tracks or would track
+under the input paths (`git ls-files --cached --others --exclude-standard`).
+Untracked but not ignored files count, so a stamp written before `git add`
+still matches after the commit; a tracked file deleted from disk is not read;
+outside a git repository the stamp refuses instead of guessing.
+`front/stamp.test.mjs` pins this in a throwaway repository.
+
 ### D14 — Identity comes from the Tailscale proxy, not from a login form
 
 There is no signup, no password, no session cookie, and no plan to add one for a
@@ -746,6 +757,30 @@ guide tables (checked to name manifest consoles), the page's Wii-specific
 device screens, and the icons (checked to be one per console).
 
 
+**Amended 2026-11-22: title-id shapes, once per language.** The lobby still
+copied « 16 hex digits » in three modules: the catalogue dropped Sonic's title
+(`534507d6`), the profile listed no Xbox 360 save, and duplicate detection
+ignored Xbox 360 sidecars. A console's title-id shape is now written once per
+language and pinned by shared examples. Rust keeps `Console::valid_title`
+(`core/crates/emulator/src/disc.rs`); the lobby keeps
+`nel3ab_control.consoles.FORMES_TITRE` (switch and switch2: 16 hex digits
+ending in `000`; x360: 8 hex digits). Both test suites read
+`consoles/titres-vecteurs.json`: 32 vectors covering every manifest console,
+cross-family negatives (a Switch title refused for the Xbox 360 and the
+reverse), and Python-specific traps (full-width digits, `0x`, underscores,
+signs, whitespace, a trailing newline). Weighed: moving the shape into
+`consoles.json` (for example `title: {digits, suffix}`) would leave a single
+source. Not done here, because `valid_title` was outside that change and the
+Switch 2 `0400` prefix is a registration rule in `emulator::switch`, not a
+shape; it is step E8 of the engine plan (D27), with the case question for the
+owner. Hex case is still accepted on both sides; the lobby requires lower case
+where it reads names the worker writes (save folders, catalogue). The lobby
+also derives adapter save roots from the manifest: `form.config_env` maps to the
+lobby setting with the same name minus `NEL3AB_` (`xbox360_config`), and a test
+requires such a setting for every external console. The adapter scripts in
+`docker/*-room.py` still carry their own copies.
+
+
 ### D23: A game is named by its file name, 2026-11-21
 
 A page asked for a game by its position in a list sorted by name, on one byte.
@@ -862,6 +897,516 @@ Python test the same vector file, `core/crates/emulator/person-key-vectors.json`
 Limits: Switch saves are not linked to their game until the catalogue publishes
 the title identifier. Whether a save is in use is not shown, because testing its
 lock could make another room's launch fail.
+
+
+### D26: One régie for the room and the lobby: shared tokens, two themes that follow the system, 2026-11-22
+
+The room page had its own identity: #08080a, an indigo accent, and the device's
+font, measured as DejaVu Sans on lgf. The lobby pages used the graphite
+"régie", Anybody and Departure. The visual audit of 2026-11-22 found that
+moving from the lobby to the room felt like changing sites, and that one hue
+meant different things on different pages.
+
+**Tokens.** Colours live in one file, `front/src/regie.css`, in three layers:
+primitives (raw values); roles (fond, plaque, creux, survol, encre, legende,
+discret, trait, filet, signal, alerte, ok, p1 to p4 and their inks); component
+tokens (ecran, buttons, field, focus, state bar, radius 0). The lobby receives
+a byte-identical copy (`control/nel3ab_control/api/routes/regie.css`) through a
+`/*__REGIE__*/` marker replaced at startup, and `front/src/lib/regie.test.ts`
+compares the two copies. No page, component or preview may redeclare any token
+of the sheet: `regie.test.ts` checks `front/src` and the previews, and
+`control/tests/test_accueil.py` checks every served lobby page. Both read the
+token names from the sheet itself, because a hand-written list of five roles
+let a redeclared `--encre` through. Old Tailwind names (ink, panel, muted,
+indigo...) remain as aliases of the roles, to avoid a mass rename while other
+work touched the same components.
+
+**Two themes replace seven.** Several of the seven "ambiances" did not keep
+their promise, and none followed the system setting. Night is the default on
+bare `:root`. Day applies under `prefers-color-scheme: light` unless
+`data-theme="nuit"`, or explicitly with `data-theme="jour"`. The day block is
+written twice, because a rule inside `@media` cannot share a selector with one
+outside; a test requires the two copies to be identical, and requires the same
+pairing for any other day rule (the Bobine console, for instance), so the lobby,
+which reads no choice, gets it too. Stored legacy values map by the side they
+painted: instrument-sombre, phosphore and ambre to nuit; instrument-clair,
+indigo, famicom and gameboy to jour; anything else to auto. A test rejects any
+`data-theme` selector naming a theme that no longer exists. Rejected:
+`light-dark()`, which needs Safari 17.5 and cannot fall back inside a custom
+property; a script that sets the attribute from `matchMedia`, which would paint
+the wrong theme until the script runs.
+
+First frame: the page's module script runs after the document is parsed, so an
+explicit choice against the system painted the system's theme first (measured
+in headless Chrome on the built page: "nuit" on a light system still had the
+day background at the first animation frame in 5 loads of 6). Closed the same
+day by D35, whose classic head script sets `data-theme` before first paint.
+
+**Controls over the image.** `.regie-nuit` applies the night roles to a subtree,
+for controls floating over the always-black image. A custom property is
+computed where it is declared and inherited as a value, so every `:root` block
+that derives a token from a role is also declared on `.regie-nuit`; a test
+enforces it. The image area is painted by the `--ecran` token, black in both
+themes, and a test requires it.
+
+**One hue, one meaning.** The four player hues belong to players only. Each
+player has a flat colour, unchanged and equal to `media/players.ts`, and a
+per-theme ink for text, computed to at least 4.6:1 on every surface, including
+the player's own 12 % tint. Rooms are identified by their number, consoles by
+name and medium; violet only marks focus and selection. Drawn controllers are
+objects: their pressed colour is a fixed object colour on `[data-padmap]`, not
+the theme's signal, which fell to 2.06:1 on the Wiimote at night and 1.57:1 on
+the standard pad by day.
+
+**Fonts, and the policy they need.** The room embeds the lobby's Anybody (400,
+600 and 700 wide) and Departure woff2 files from their single location, read at
+build time and inlined as data URIs; `stamp.mjs` lists that folder as a page
+input. This requires `font-src 'self' data:` in the worker's
+Content-Security-Policy (`core/crates/transport/src/browser/page.rs`). Without
+it the policy falls back to `default-src 'self'`, which refuses `data:` fonts:
+the built page served with the old policy reported "Anybody 400 error" and fell
+back to system fonts. Vite sends no policy, which is why the first verification
+missed it. A font cannot execute; opening `data:` for fonts opens nothing else,
+and `default-src` still closes other origins. Two Rust tests pin both halves.
+Cost: 171,933 to 199,372 brotli bytes (budget 300,000). The policy lives in the
+worker binary, so the worker must be rebuilt for the fonts to load in service.
+
+**Digits.** The Anybody subsets have no `tnum` feature and proportional digits
+(checked with fontTools), so `font-variant-numeric: tabular-nums` does nothing
+on running text. Live numbers are written in `font-mono`, and `banc-visuel`
+checks that the bench values keep their width. Deferred: adding tabular digit
+glyphs and a `tnum` feature to the subsets with fontTools, as
+`tools/polices-accents.py` already modifies their accents; it changes files
+shared with the lobby.
+
+### D27: An engine manager for external rooms, 2026-11-22
+
+External rooms (Switch, Switch 2, Xbox 360) move to a shared lifecycle base,
+`moteurs/socle/`, plus one folder per engine, `moteurs/<engine>/`: a minimal
+card `moteur.json`, then an adapter module. The worker binary and every
+`form.script` path stay unchanged during the migration. Each console switches
+on its own, in the order Xbox 360, Switch 2, Switch. A console first gets a
+canary script, which the owner wires to one chosen room through its
+`script_env`; only after a real game on that room does the original path become
+a thin wrapper that calls `principal("<code>")` (step E2c for the Xbox 360).
+Steps E0 to E2b were built on `chantier/moteurs` and merged into
+`chantier/integration` on 2026-11-22; nothing is in `main`, and no room runs the
+canary.
+
+**A room never reads the manifest at launch.** D22's reasoning applies to
+adapters too: a wrong manifest must stop the gate, never every external room
+(rule 6). The base keeps its own hand-written console table (code, label,
+engine, script, script_env, config_env, players, extensions), and a test
+compares it with `consoles/consoles.json` in both directions. An AST test
+forbids any module a room loads from naming the manifest or `control/`, and a
+fresh-interpreter test checks which modules are loaded when `serve` starts.
+Comparing a card with the manifest (C1, C2, C8, C12) happens in a test module,
+`conformite.py`, never at launch. At launch a room reads three things: the
+base's table, which is code; its engine card; its configuration. `charger(code)`
+reads all three before anything else.
+
+**The golden test is the proof of identity.** `docker/test_salles_dore.py` runs
+every room script in a fresh `/usr/bin/python3`, with the worker's script path,
+a throwaway working directory and an environment built from scratch. A
+bootstrap replaces only standard-library entry points and records argv, the
+final error and the slot tree, for 50 scenarios. Every scenario runs three
+times: under the machine's account, under another account (1001:118), and on a
+copy of the files the scripts read. All three must equal `docker/dore/*.json`.
+The fake selector reports the closure of stdin only to a room that registered
+stdin, as a real selector does, because the worker stops a room by closing stdin
+and then waits without a timeout. The bootstrap refuses a script folder that
+would shadow a module it has already imported. Thirteen mutants must each be
+seen by their named scenario. A migration commit keeps `docker/dore/*.json`
+unchanged; a commit that changes them touches only `docker/dore/` and states
+why, and `just salles-dore-ecrire` refuses to run while any other file is
+modified.
+
+**Cards grow with their readers.** A card has five fields: name, executable,
+display (Wayland, or X11 through Xwayland), pad layout, and the reason for each
+deviation. Saves, caches and versions arrive with their first reader, because an
+unread field can be wrong without failing anything.
+
+Rejected:
+
+- reading the manifest at launch through `control/nel3ab_control/consoles.py`,
+  which contradicts D22;
+- an in-process golden test through `runpy`: it keeps the working directory at
+  `sys.path[0]`, so it passed a wrapper with a wrong import path that the
+  worker's launch refused (shown on a throwaway repository, and reproduced by a
+  test);
+- a full engine card in the first step;
+- changing the Xbox 360 path directly instead of a canary that nobody runs
+  until the owner wires one room.
+
+Costs. `serve` and its helpers exist in two copies until the Switch switches
+over. Two guards keep them equal: every golden scenario replayed with the
+base's `serve`, and an AST comparison of every copied function, `serve`
+included, statement by statement except for the one documented `launch = ...`
+line. The golden bench takes 5.4 to 5.9 s, measured on 2026-11-22 over four
+runs alternated with the previous layout (6.1 to 6.3 s), at load 4 to 5.6, so
+this is a ceiling. It runs in `check` with `moteurs-test`, by the owner's
+decision: until then no CI recipe tested the external adapters.
+
+Deployment. `deploy-check` reads the effective `Environment` of
+`nel3ab-worker@1` to `@3` without sudo (`deploy/salles-adaptateurs.sh`). It
+names every `NEL3AB_*_ADAPTER` override, and fails if the override points to a
+missing file or matches no console. A relative override is resolved from the
+unit's `WorkingDirectory`. Each wrapper is loaded with `charger(code)` under the
+`python3` that the unit gives the worker, with stdin closed: importing a wrapper
+alone loads neither the engine module nor its card. The check does not see
+`EnvironmentFile=`.
+
+### D28: Touch pad geometry is computed, not styled, 2026-11-22
+
+The on-screen pads placed their groups with CSS: corner anchors, a centred flex
+row, and `bottom: 140px` for the Switch tool row. A phone-sized audit on
+2026-11-22 found page gestures on top of game keys: a tap on R or Z hid the pad
+in portrait and L pressed START; in landscape the top of Y hid the pad; the
+Switch tool row covered L and L3. No test saw it: jsdom computes no layout, and
+the browser driver compared eight boxes among themselves. In Xbox 360 rooms the
+pad used Switch names. A review of the first fix found four more defects the
+same night: gestures on the picture while the letterbox bands were free; the
+gestures covering the room's closing notice (both layers at z-index 30, the pad
+later in the page); `padLabel(4)` saying "appareil 4 inconnu" on every ready
+player of a Switch preparation; inline Xbox letter colours at 1.05:1 on the
+light panel.
+
+Decision:
+
+- `front/src/lib/faces.ts` holds one face per manifest console, and a test
+  refuses a console without one. Pro inscriptions come from the
+  `switch-labels.ts` names; the ABXY diamond is read from the `padmap` drawings
+  (`diamondOf`), so the pad and the configurator cannot disagree.
+- `placePad(face, box, bands)` is pure. It returns a `Pose`: one rectangle per
+  piece, and `degraded`, which names in words what the pose could not hold, or
+  is `null`. Groups go into their letterbox band when they fit, and otherwise
+  hug the screen edge; short heights merge rows, short widths round the
+  palettes, then shrink the sticks in 4 px steps down to 80 px.
+- Page gestures take free slots inside the bands, at least 16 px from every game
+  key. When no slot keeps 16 px, the pose says so instead of silently taking the
+  least bad place.
+- Both pads render the pose through one component, `Pave`, which writes
+  `data-degradee` when the pose is degraded. CSS only styles.
+- The pad box has z-index 29, so room overlays at 30 painted before it (closing
+  notice, plug message) stay on top. Xbox letters sit on a fixed dark
+  background; page gestures use the opaque theme panel.
+
+Weighed:
+
+1. Keep CSS and fix the offsets. Rejected: a CSS position cannot be checked
+   without a browser, and pad groups had collided three times since 2026-08-18.
+2. The audit's single "•••" button opening a sheet. Deferred here, because it
+   adds a tap before sound can start on iOS and needed a sheet design. Adopted
+   the same day by D35, which leaves the pad one gesture (`GESTES = ["feuille"]`).
+3. Four 44 px d-pad buttons. Rejected: a 136 px cross plus the stick do not fit
+   the bottom band of a 375x667 phone, and fingers missed in the gaps. The cross
+   is one block read at the finger's angle.
+4. Raise the closing notice to z-40 in `App`. Not done: lowering the pad to 29
+   is local, and also lifts the plug message above the pad, which an alert
+   wants. Cost: the plug message covers L for its five seconds.
+5. A fully fixed dark pad in every theme. Rejected for plain keys, which hold
+   their contrast on every theme; only the coloured letters needed a fixed
+   background.
+
+Consequences. A vitest sweep covers 1,267 sizes from 260 to 1,440 px, four
+picture formats and three faces (15,204 poses), plus 50 real device sizes; it
+requires no overlap, 44 px targets, 12 px gesture clearance and no degraded
+pose. `just manette-garde` hit-tests every key with `elementFromPoint`, taps it
+for real, checks the closing notice above the pad and measures label contrast,
+at seven sizes in four rooms; it is part of `local`. Contrast over a bright
+picture is not required: the GameCube A falls to 2.79:1 on white. The pad knows
+only the side bands; using the top and bottom bands needs the placed picture
+height from `App`. Found while integrating the documentation, read in the code
+and not rerun: the guard's contrast loop still sets `data-theme` to the seven
+names D26 retired, which no selector matches any more, so it measures the
+system's theme seven times rather than night and day.
+
+### D29: One link state, computed in the media layer, shown in one place on the picture, 2026-11-22
+
+On 2026-11-21 the picture froze for twenty minutes while sound continued. The
+worker kept sending its 500 ms empty keep-alives, so the video socket stayed
+connected. Every page detector keyed on connection state, and three overlays
+disagreed: a full-page recovery screen, a boot screen, and a sidebar-only
+proposal. None of them fired. Four of the audit's ten critical findings were
+this one event, seen from four angles.
+
+**Decision.** A pure function in `front/src/media/liaison.ts` maps signals the
+page already has to exactly one of eleven link states. The signals: the time
+since any video message and the time since an image-carrying message, measured
+separately; the time since the last painted frame; socket open and down
+durations, with down time counted from the last proof of life (last message, or
+the open), not from the close; the last sound chunk and the last pad echo;
+`navigator.onLine` and tab visibility; the boot and game context; a fresh
+`/api/salles` probe. It keeps two memories, passed in and returned. A freeze is
+left after one second in which every reading saw an image younger than 500 ms,
+with at least two images per second; it never reads the measured source rate.
+A fallen room is left only on an image received after the fall, and a freeze
+survives a cut shorter than 3 s, so "Relancer l'image" does not flicker.
+
+`VeilleLiaison` (`media/veille.ts`) gathers the signals and runs the probe.
+Only a 2xx JSON list counts as "the site answers"; any other answer (Caddy's 502
+when the lobby is down) is "relay"; no answer within 2.5 s is "silent".
+"Closed" is believed only after two closed answers at least 2.5 s apart. The
+lobby reads the word printed by `systemctl is-active`, not only its exit code,
+exposes `Salle.redemarre` for `activating`, and `ouvrir()` never takes a slot
+that systemd is restarting. The session publishes the result in its 500 ms
+snapshot; React renders it once, inside `<main>`, anchored to the picture
+rectangle (`EtatSalle`), and announces changes on a single `role=status` line.
+Every overlay sits below the menus.
+
+Weighed:
+
+1. Deciding in React. Rejected: rule 8 keeps media logic out of components, and
+   the state must be testable without a DOM.
+2. A typed "capture stalled" message from the worker. Better evidence, and it
+   would let the lobby say "everyone" versus "only you". Deferred: the page
+   already had enough signals, and the change needed no protocol version.
+3. The lobby socket as evidence that the site answers. Rejected: socket.io
+   reports "connected" for up to 45 s after a Wi-Fi loss.
+4. A probe answer as evidence that the link carries the stream. Rejected: on
+   2026-09-22 a small request passed on a Wi-Fi that no longer carried the
+   stream. The wording states only what the probe saw.
+5. Gating the freeze exit on 90 % of the measured source rate (first version).
+   Rejected after review: that rate is a median of compositor-aligned capture
+   intervals, so a 45 fps game reads as 60 and never left the freeze.
+
+**Reduced-format proposal.** `fenetrePourProposition` returns one verdict per
+ten-second window: hold (a game is starting; the 30 s grace applies), ignore
+(closed, restarting, decoder, hidden tab, arrival, or a freeze during which
+every reading still had sound and pad echo; neither counted nor resetting the
+run), or count (everything else, cuts included). The first version held the
+proposal on every cut, and a link that stalled every 16 s was never offered the
+reduced format.
+
+Thresholds, with their rationale in the code: frozen at 2 s, banner at 5 s;
+resume after 1 s without a 500 ms gap; freeze kept across a cut shorter than
+3 s; freshness 1.5 s for messages and 2.5 s for echoes; "closed" confirmed after
+2.5 s (RestartSec is 2 s); end of arrival at 15 s. None was confronted with real
+Xenia or Eden pauses, nor with a Tailscale relay.
+
+Consequences: a closed room is announced about 3 s later than before. A
+whole-site outage that straddles two windows can still lead to a proposal,
+because from the page it looks like the page's own Wi-Fi. Caddy still redirects
+every gateway error under `/r/` to `/?salle=fermee`, and the lobby home does not
+read `redemarre` yet. The browser proof is `just etats-navigateur`, with
+`just etats-navigateur-rouge` requiring the two earlier pages to fail on each
+named defect.
+
+### D30: The game keyboard lives in a focusable game zone; room menus are modal dialogs whose cursor is the focus, 2026-11-22
+
+The accessibility audit of 2026-11-22 found two keyboard owners on the room
+page. The input loop listened on the whole window and called `preventDefault`
+on every bound key, so Enter on a column button reached the game as START and
+the button never activated. The menu shells kept their own cursor, separate
+from DOM focus, and took Enter and Space for the entry under that cursor: Enter
+on the focused "resume" button opened the GameCube folder. The full-screen menu
+was not modal: focus stayed on the hidden opener, and Tab walked through twelve
+covered column buttons.
+
+Decision:
+
+1. **One focus model** (`front/src/lib/focus-jeu.ts`). A key goes to the game
+   only when its target is inside `[data-zone-jeu]`, or when nothing holds focus.
+   The zone is the picture box rendered by `Screen`: focusable,
+   `role="application"`, `tabIndex` 0 during a game outside loading. The
+   browser keeps Tab, Enter, Space and the arrows everywhere else. A `focusin`
+   away from the zone releases held keys. The zone takes focus on room entry
+   and whenever the menu closes during a game. A pointer click on a one-shot
+   column button marked `data-rend-le-jeu` (seats, modes, clip, microphone)
+   returns focus to the zone; keyboard activation keeps focus on the button.
+   The zone's focus ring shows only on Tab arrival and clears on the first game
+   key.
+2. **Menus are `<dialog>` elements opened with `showModal()`**
+   (`useMenuDialogue` in `components/shell.ts`). The cursor is the focus, with a
+   roving tabindex: one entry has `tabIndex` 0 and carries `aria-current`;
+   disabled entries use `aria-disabled`, so the cursor never lands on an
+   unfocusable element. Enter and Space on a focused button are left to native
+   activation. The keydown that opens the menu calls `preventDefault`: Chrome
+   151 otherwise delivered that keypress's close request to the new dialog.
+   `cancel` (Android back) maps to "back".
+3. **Anything that must stay above an open menu renders through a portal** into
+   a slot inside the dialog (`components/Surcouche.tsx`): Recovery, the launch
+   error, the preparation status. The slot measures the shell footer and
+   exposes `--pied-menu`, so notices sit above the exit. Keys and Android back
+   that come from a notice never drive the menu, with two guards (`keydown` on
+   Escape, and `onCancel`), each owned by its own jsdom test. State that must
+   survive the portal remount lives in the parent.
+4. **The menu list never narrows below `LISTE_MIN`** (480 px) in the wide layout
+   (`lib/menu-xmb.ts`). Below 700 px, the categories split the width equally.
+
+Weighed:
+
+- Ignoring only Enter and Space on interactive targets (the audit's minimal
+  fix). Rejected: arrows and letters on a focused control would still drive the
+  game.
+- Strict zone-only ownership. Rejected: a click on plain text leaves focus on
+  `body`, and play would stop with nothing on screen to say why.
+- Marking `<main>` and `<aside>` inert, with `role="dialog"` on a positioned
+  div. It would keep `z-index` stacking and avoid the portal. Rejected: it
+  rebuilds by hand what `showModal()` already gives (inertness, focus trap,
+  focus restore, close requests), and the Bindings dialog already used
+  `showModal()`.
+- Returning focus to the zone after every column click. Rejected: a click that
+  opens something must leave focus to what it opened.
+
+Consequences. Outside the marked buttons, a click on a focusable column control
+keeps the keyboard on the page; the picture then says "Le jeu ne reçoit plus tes
+touches." with "Rendre les touches au jeu", in one top stack (`#avisDuHaut`).
+While a menu is open, `<main>` is inert: the spoken status line is silent and
+the seat-request banner cannot be answered. Loading and idle overlays are not
+modal on purpose, so the column stays usable during an outage. The keyboard
+card reads the seat's device: names from `controlsFor`, presence from the drawn
+plan in `EMULATED` (one frame, three readings, `docs/ecran-manettes.md`). jsdom
+has no `showModal`; the proof is `just focus-navigateur` (24 steps) and
+`just focus-navigateur-rouge`, and both browser recipes run in `local`.
+
+### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
+
+The UI audit counted five names for one seat (manette, place, prise, port, P1),
+three for the personal save and four for the light picture with two different
+costs. Engine and protocol words (socket, worker, running, Dolphin, Xenia)
+reached players.
+
+`front/src/lib/mots.ts` holds the player-facing terms and gestures (`PLACE`,
+`ENTREES`, `SORTIES`, `SAUVEGARDES`, `IMAGE`, and `LEXIQUE`, which lists them).
+The menu writes a gesture in lower case through `enMenu`, always from the same
+constant. `front/src/lib/mots.test.ts` extracts with the TypeScript compiler the
+strings it can recognise as visible: JSX text, attributes a browser shows,
+text-carrying props, menu items and notice arguments, constants whose use
+reaches one of those, array elements rendered through `.map`, and templates read
+twice (holes filled with "2" and with nothing). It rejects workshop words
+outside a `<MesuresTechniques>` subtree, retired synonyms and em dashes
+everywhere, and any lexicon phrase written as a literal outside `mots.ts`. The
+one exception is `saves.ts`, which the lobby reads byte for byte and a test ties
+to `SAUVEGARDES`.
+
+Weighed: a text grep, rejected because it would refuse comments and comparisons
+(`state === "running"`). The first extractor kept only upper-case constants,
+skipped arrays and replaced template holes by an ellipsis; the review found
+three visible strings it missed, and the widened extractor found a fourth.
+Runtime values (device names, server messages) remain invisible to it and go
+through lexicon functions tested on their own. Lobby pages (accueil, importer,
+profil) are not covered and were corrected by hand.
+
+Measured figures are shown only where they were measured. The light picture's
+"2,6 times less bandwidth" comes from one Dolphin race (2026-08-17), so other
+engines read "moins de débit" (`prixImageLegere(moteurDe(console))`).
+
+### D32: A preparation accepts a direct launch, the starter's own choice, and launching without an absent player, 2026-11-22
+
+Launching a game alone took seven actions and three confirmations of the same
+decision, and one seated player who did not answer blocked everybody.
+
+On the socket event `preparation`: `begin` accepts `direct: true` and launches
+at once when `Preparation.directe()` holds (the starter is the only player and
+the game offers one device); `launch` accepts `pad`, the starter's own device,
+confirmed by launching; `launch` accepts `sans_attendre: true`, allowed
+`ATTENTE_SANS` seconds (20 s, a chosen value, not measured) after the arrival of
+the latest absent player, on the lobby's monotonic clock. Absent players keep
+their seat with their chosen device, or the first allowed one. The page counts
+the same delay from when it sees each player arrive, so it never offers the
+gesture before the lobby would accept it. The `booting` announcement carries
+`starter`, and slot 2 is announced as « la sauvegarde de <prénom> », with
+elision rules shared by the page and the lobby through
+`front/src/test/elisions.json`.
+
+Rejected: counting the delay from the preparation's opening (first version), so
+that a player seated at 19 s could be launched without at 20 s.
+
+### D33: The room entry mode lives in the URL and follows the session, 2026-11-22
+
+`?entrer=jouer` and `?entrer=regarder` enter the room directly; the lobby cards
+and the invitation link use these addresses. Inside the room, the address
+follows the session's own intention (`InputStream.watching`), not the door used
+to enter: `entreeDeLaSession`, then `retenirEntree` with `history.replaceState`.
+Only the address changes, because changing the entry state would rebuild the
+session. A reload returns to the room as a player or a watcher; it does not
+guarantee the same seat, because the worker still hands the first free one.
+Leaving goes to `/` when a lobby is above (`sortieVers`).
+
+Rejected: writing the mode once, at entry (first version). A watcher who took a
+seat lost it on reload, and a player who gave theirs up took it back.
+
+### D34: Page wiring is held by a committed route bench, 2026-11-22
+
+Five mutants applied together to `App.tsx` left all unit tests and the type
+check green: the entry read from the URL, the address rewrite, the invitation
+link, the exit, and room closing. The browser routes that would have caught them
+lived outside the repository.
+
+`spikes/m3-browser-drive/parcours-banc.mjs` and `parcours.mjs` serve the
+committed page against a simulated room and lobby. The simulated room gives the
+first free seat to each input socket and frees it on close, with a settable
+owner, a preparation, boot announcements and `DELETE /api/salles/1`. Twelve
+steps, each with its twin, run as `just parcours-navigateur`, part of `local`,
+in 24 s. `just parcours-navigateur-rouge` is the negative control: the page
+before the work (528e870) must fail eleven steps on their defect, and the
+refused page (e851a64) exactly the four steps of its review defects. Pure
+functions carry the wiring that can be unit-tested (`lib/chef.ts`,
+`consoleDesTouches`, `sauvegardeAnnoncee`, `entreeDeLaSession`).
+
+Of ten defects reintroduced one by one into `App.tsx`, nine turn their step red.
+The tenth removes the address write at entry and is equivalent under a lobby,
+because the room rewrites the same address once started; it would show only on
+a page served alone, which the bench cannot serve yet.
+
+After a game upload, "Jouer maintenant" joins a room that is open or restarting
+(`aRejoindre`) instead of opening a second room on the shared GPU, and its label
+says what it does (`libelleJouer`), because the worker only reads its library at
+start-up.
+
+### D35: On a phone or tablet, the room column is a drawer, and page gestures live in a bottom sheet, 2026-11-22
+
+The mobile audit of 2026-11-22 found the column folded by default on phones. Its
+functions (seats, ask for a seat, report, link diagnosis, spectators, leave)
+existed nowhere else. Unfolded, it took half the width: the picture was 195 px
+wide and touch keys were off screen. Three page gestures (sound, menu, hide) sat
+among the game keys.
+
+Decision:
+
+- Below 900 px of width, or with a coarse pointer (`lib/disposition`, query
+  `(max-width: 899.98px), (pointer: coarse)`), the same `<aside id="side">` is
+  rendered inside a modal `<dialog id="tiroir">`: full width below 480 px, a
+  420 px right panel otherwise, never beside the picture. Its top bar
+  (`BarreDuTiroir`, "Revenir au jeu") is sticky. At 900 px the default 304 px
+  column still leaves two thirds of the window to the picture.
+- One pure function, `couchesDeLaSalle`, decides every overlay mount: the drawer
+  exists only in compact mode; the touch pad is unmounted under the drawer and
+  the sheet, which releases held keys; the standalone `•••` stays mounted under
+  the sheet so focus can return to it. "La salle" opens the drawer in compact
+  mode and unfolds the column otherwise (`ouvrirLaSalle`): a drawer flag set on
+  a wide screen used to unmount the pad and open nothing.
+- The pad keeps one page gesture, `•••`, placed by `placePad` (D28) at least
+  16 px from every game key. It opens a modal bottom sheet (`lib/feuille`,
+  `FeuilleDuBas`): sound, game menu, the room, show or hide the pad, fullscreen
+  or home-screen advice, report. A mouse press on `•••` does not take focus,
+  because the keyboard-paused notice used to appear under the pointer and
+  swallow the click. Without a pad, or under a full-picture overlay, a
+  standalone `•••` sits top right in the safe area.
+- A pad-only page is never veiled by loading: its loading clears when the lobby
+  announces the requested game (`suiteDuChargement`).
+- Fullscreen is offered wherever the API exists; home-screen advice only to
+  Apple devices without it. The page sets `viewport-fit=cover` and exposes
+  `--zone-*` tokens that the menus, the seat request, the recovery panel and the
+  Pro configurator honour.
+- A classic head script sets `data-theme` before first paint (closing D26's
+  first-frame gap). The worker's CSP already hashes every inline script
+  (`script_policy`), and its test now checks every script hash, not only the
+  first.
+
+Weighed: putting seats back in the XMB menu (gamepad-friendly, but two places
+for one gesture); a non-modal drawer, which would keep the seat-request banner
+live but loses the focus trap and inertness. Instead, a seat request or opening
+the menu closes the drawer and the sheet; the request lasts ten seconds and
+keeps your seat when unanswered.
+
+Proof: `just salle-telephone`, six phone and tablet sizes with simulated iPhone
+safe areas, then a desktop, on the built page served with the worker's policy;
+51 cases green, 24 red on the tree before review (fbb3bcc). Not tried on a real
+phone: home-screen launch, sound after a call, and Android fullscreen from the
+home screen remain open, as do an app manifest (it needs `manifest-src` in the
+worker's policy), a landscape lock and Wake Lock.
 
 
 ## Consequences

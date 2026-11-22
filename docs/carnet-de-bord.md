@@ -26568,6 +26568,1248 @@ division entière, donc 16 ms à 60 Hz (62,5 compositions par seconde) et 8 ms �
 gardée à côté. Ce n'est pas encore mesuré sur Sonic : la prochaine partie et
 son relevé le diront.
 
+### 22 novembre : une analyse de toute l'interface, et un gestionnaire de moteurs
+
+**La demande.** Le 21 novembre au soir, une fois la Xbox 360 jouable, le
+propriétaire a demandé deux choses. D'abord une analyse complète de
+l'interface, la page de salle comme les pages du salon, avec carte blanche
+pour la refaire. Ensuite un gestionnaire de moteurs : pouvoir ajouter ou
+changer un émulateur sans recopier tout le cycle de vie d'une salle. Les deux
+commençaient par un audit, et rien ne devait toucher une salle vivante.
+
+**L'audit de l'interface, sous six angles.** Six auditeurs ont regardé la même
+interface, chacun sous un angle : les parcours, le visuel, l'accessibilité, le
+téléphone, les états de panne et les textes. Ils ont travaillé sur des
+serveurs Vite privés, sans relais vers les salles et avec des réponses
+simulées, ou sur la page committée servie par un faux salon. Aucune salle n'a
+été ouverte. Ils ont rendu 113 constats : 10 critiques, 58 majeurs et 45
+mineurs, chacun avec sa preuve, sa capture et une recommandation. Chaque angle
+a aussi écrit sa « direction », ce qu'il ferait avec carte blanche.
+
+Quatre des dix constats critiques décrivent le même défaut, vu sous quatre
+angles : l'image figée du 21 novembre au soir, que la page n'avait jamais
+signalée. Les six autres : un menu invisible qui prenait le clavier pendant un
+chargement ; Entrée sur un bouton de la colonne partait au jeu comme START ;
+dans le menu, Entrée validait l'entrée sous le curseur et non le bouton qui
+avait le focus ; sur un iPhone tenu droit, taper R ou Z cachait la manette
+tactile ; tenu en travers, le haut de Y tombait sur « cacher » ; au clavier,
+le menu montrait les boutons d'une manette absente.
+
+**L'audit des moteurs.** Un auditeur a dressé la carte de tout ce qu'un
+émulateur touche dans le dépôt : 94 points d'intégration, du manifeste des
+consoles au salon, à la page, à la boîte noire et au déploiement, et 27
+lacunes. Exemple de lacune : la forme d'un identifiant de titre était écrite
+au moins dix fois, et la page profil ne connaissait pas les sauvegardes
+Xbox 360. Un concepteur a proposé un plan en 17 étapes, avec 13 questions pour
+le propriétaire.
+
+**Le plan relu pour le casser.** Un troisième agent a relu ce plan de façon
+adverse, c'est-à-dire en cherchant ce qui le ferait échouer plutôt qu'en le
+validant. Verdict : « à corriger avant exécution ». Le fond tenait : le test
+doré d'abord, une console à la fois en commençant par la Xbox 360, et un
+binaire du worker qui ne change pas pendant la migration. Mais il a trouvé
+trois points bloquants, chacun prouvé par un essai sur un faux dépôt jetable.
+Le socle prévu lisait le manifeste des consoles à chaque démarrage de salle,
+alors qu'un manifeste faux ne doit arrêter que la porte (ADR D22). Le test
+doré prévu tournait dans le processus de l'essai, par `runpy`, et ne voyait
+pas une enveloppe au chemin d'import faux. Et à deux étapes, le worker et
+l'adaptateur auraient lu la racine des parties à deux endroits. S'y ajoutaient
+14 points majeurs et 14 mineurs. Le plan corrigé garde l'ordre et compte 27
+étapes, de E0 à E16, plus petites.
+
+**Huit chantiers, en deux vagues.** Le travail a été découpé en huit
+chantiers. La première vague en a mené quatre en parallèle, chacun dans sa
+copie de travail et sur sa branche : le socle des moteurs, les lacunes du
+salon, la manette tactile et l'identité visuelle. Les quatre branches ont été
+fusionnées dans la nuit sur `chantier/integration`. La seconde vague a
+travaillé directement sur cette branche, l'un après l'autre : les états de
+liaison et l'image figée, le focus et le clavier, les parcours et le lexique,
+puis la salle au doigt. Chaque chantier a fini par une relecture adverse, et
+chaque relecture a trouvé des défauts que tous les essais laissaient passer.
+Les entrées qui suivent les racontent, dans cet ordre.
+
+Rien de tout cela n'est dans `main` ni en service à l'heure où ces lignes sont
+écrites. L'arbre de production n'a pas été touché.
+
+**Ce qui n'est pas gardé.** Les résultats bruts des audits, leurs captures et
+leurs scripts sont restés dans le dossier temporaire de la session, qui peut
+disparaître. Ce récit en garde les nombres et les constats qui ont changé le
+travail.
+
+### 22 novembre : le socle des moteurs, posé sans changer une seule salle
+
+**La demande.** Les salles Switch, Switch 2 et Xbox 360 lancent chacune leur
+émulateur par un script Python. Les trois scripts recopiaient le même cycle de
+vie : les manettes virtuelles, le conteneur, la capture de l'image, l'arrêt et
+la copie de sauvegarde. Ce chantier commence à les rassembler dans un dossier
+`moteurs/`. Le socle (`moteurs/socle/`) porte ce qui est commun. Chaque
+émulateur a son propre dossier, avec une fiche (`moteur.json`) puis son
+module. La règle d'or est qu'aucune salle ne doit voir la différence.
+Aujourd'hui, aucune ne la voit : le worker lance toujours les trois anciens
+scripts.
+
+**D'abord, figer ce que les salles font aujourd'hui.** Avant de déplacer quoi
+que ce soit, il fallait une preuve qui dise « rien n'a changé ». C'est le test
+doré (`docker/test_salles_dore.py`). « Doré » veut dire qu'on enregistre une
+fois la bonne réponse, puis qu'on exige la même à chaque fois. Le test lance
+le vrai script de chaque salle, sans Docker et sans carte graphique, et relève
+trois choses : chaque commande que le script aurait envoyée à Docker, argument
+par argument ; l'erreur finale, s'il y en a une ; l'arbre des fichiers laissés
+dans l'emplacement de sauvegarde. Il y a 50 scénarios. On y trouve les parties
+normales, un moteur qui s'arrête seul, des manettes qui manquent, une capture
+qui meurt trois fois, un emplacement qui garde l'écran d'une partie d'hier, et
+17 refus. Les défauts d'aujourd'hui y sont aussi, tels quels. Exemple : la
+salle Switch lance encore tout le cycle avec une image `.iso`, et le doré le
+garde. Le corriger sera une décision à part.
+
+**Un interpréteur neuf, et pas `runpy`.** La relecture du plan avait montré
+qu'un test lancé dans le processus de l'essai, par `runpy`, laisse passer une
+enveloppe qui cherche le socle au mauvais endroit, alors que le worker, lui,
+échoue. La raison : `runpy` garde le dossier courant en tête du chemin
+d'import, alors qu'un vrai lancement y met le dossier du script. Le banc lance
+donc chaque scénario dans un `python3` neuf, par une petite amorce. L'amorce
+remplace seulement quelques fonctions de la bibliothèque standard (lancer un
+programme, attendre, lire l'heure, lire le compte de l'utilisateur), puis
+exécute le vrai fichier. Un essai compare ce que voit le script par l'amorce
+et par un lancement direct : c'est la même chose. Une limite subsiste, et elle
+a maintenant son garde : l'amorce charge `json` ou `subprocess` avant le
+script. Un fichier `docker/json.py` casserait donc la vraie salle sans casser
+le banc. L'amorce refuse ce cas en le nommant.
+
+**Prouver que le test sait échouer.** Pour cela, on lui donne des mutants :
+des copies du code où l'on a glissé une faute exprès. Deux variables
+inversées, la copie de sauvegarde faite trop tôt, une place de manette en
+moins, une salle qui n'écoute plus l'ordre d'arrêt... Chaque mutant doit être
+vu par son scénario, et pour la raison attendue. Une faute d'import ne compte
+pas comme une détection. Il y en a treize.
+
+**Le socle ne lit pas le manifeste.** Le manifeste des consoles
+(`consoles/consoles.json`) change souvent, pour la page et le salon. L'ADR D22
+veut qu'un manifeste faux arrête la porte, et non une salle. Le socle ne le
+lit donc jamais quand une salle démarre. Il garde sa propre table des
+consoles, écrite à la main, et un essai la compare au manifeste dans les deux
+sens. Une console ajoutée d'un seul côté est nommée.
+
+**Deux copies tenues égales.** Le code commun a été recopié de
+`switch-room.py` ligne pour ligne, par extraction du fichier et non à la main.
+Les deux copies vivront ensemble jusqu'à la bascule de la Switch. Deux gardes
+les tiennent égales. Le test différentiel rejoue chaque scénario doré avec la
+copie du socle. Un autre essai compare l'arbre syntaxique de chaque fonction
+recopiée, c'est-à-dire sa structure une fois lue par Python, sans les
+commentaires.
+
+**Une fiche par moteur, avec cinq champs seulement.** Chaque fiche dit cinq
+choses : le nom du moteur, son exécutable, son affichage (Wayland, ou X11 par
+Xwayland), la disposition des manettes et la raison de chaque écart. La
+relecture avait prévenu qu'un champ que rien ne lit peut être faux sans
+qu'aucun essai n'échoue. Les autres champs (sauvegardes, caches, versions)
+viendront donc avec leur premier lecteur. Une série de conformité vérifie
+trois choses. D'abord, le nom de l'exécutable donne un processus que la boîte
+noire connaît : c'est le garde contre l'oubli d'`eden-cli` du 7 novembre.
+Ensuite, chaque console a sa fiche. Enfin, la liste des moteurs « en
+migration » n'est pas périmée. Chaque contrôle a un faux moteur, cassé exprès,
+qui doit le faire échouer.
+
+**Le canari de la Xbox 360.** Un canari est une seconde version qu'on fait
+prendre à une seule salle, choisie, avant de la donner à toutes.
+`docker/xbox360-room-socle.py` lance la Xbox 360 par le socle et le module de
+Xenia. Pour les 18 scénarios Xbox 360, il rend le même relevé que l'ancien
+script, au fichier près. Aucune salle ne le lance. Le propriétaire le
+branchera sur une salle par un ajout d'unité systemd, c'est-à-dire un petit
+fichier `.conf` posé à côté de l'unité. La procédure et l'essai à faire sont
+dans [La Xbox 360 dans la salle](xbox360.md). `deploy-check` voit ces ajouts :
+il nomme chaque adaptateur remplacé, et passe au rouge si le fichier visé a
+disparu, si la variable ne correspond à aucune console, ou si le canari, son
+module ou sa fiche ne se chargent pas avec le `python3` que l'unité donne
+vraiment au worker.
+
+**La relecture a trouvé quatre trous, et chacun avait des tests qui
+passaient.** Une relecture adverse a repris la branche avant fusion. Elle a
+trouvé un point bloquant et trois points majeurs. J'ai d'abord reproduit
+chacun par un essai rouge, puis je l'ai corrigé.
+
+- *Le doré dépendait du compte de la machine.* Quand Docker refuse le
+  conteneur, l'erreur cite la commande entière, `--user 1000:1000` compris. Le
+  banc remplaçait le compte dans les commandes, mais pas dans le texte de
+  l'erreur. Trois dorés gardaient donc `1000:1000`. `check` serait devenu
+  rouge sur toute machine où l'utilisateur n'est pas 1000, celle de la CI par
+  exemple. Le banc normalise maintenant la commande citée comme les autres.
+  Surtout, chaque scénario est rejoué sous un autre compte (1001:118) et doit
+  rendre le même doré. Le contrôle de fuites refuse aussi tout texte qui cite
+  encore le compte. Leçon : un test doré qui n'a tourné que sur une machine
+  n'est pas encore un test doré.
+- *Le faux sélecteur entendait un arrêt que la salle n'écoutait pas.* Le
+  worker arrête une salle en fermant son entrée standard (stdin), puis
+  l'attend sans limite de temps. Le faux de l'amorce rendait la fermeture même
+  à une salle qui n'avait pas inscrit stdin. Une salle sourde passait donc
+  tous les essais. En vrai, elle ne s'arrêterait jamais et ne copierait pas la
+  partie. Le faux ne rend plus la fermeture qu'à une salle qui l'écoute, et un
+  essai le compare à un vrai sélecteur. Piège au passage : un vrai sélecteur
+  refuse `/dev/null` (EPERM). L'essai lui donne donc un tube fermé, comme
+  celui du worker.
+- *La copie de `serve` n'était tenue que par ce que les scénarios montrent.*
+  Le garde sur l'arbre syntaxique couvrait six fonctions, mais pas `serve`.
+  Trois choses pouvaient donc changer dans le socle sans qu'aucun essai ne
+  rougisse : les délais (10 s pour les manettes, 60 s pour les relances de
+  capture) et le retrait de l'écran d'hier. `serve` est maintenant comparé
+  instruction par instruction, sauf la seule ligne qui diffère exprès. Un
+  nouveau scénario rend visible le retrait de l'écran d'hier.
+- *`deploy-check` importait l'enveloppe, pas le moteur.* Le module de Xenia et
+  sa fiche n'étaient lus qu'au démarrage d'une partie. Un module cassé passait
+  donc le contrôle, alors que la salle branchée aurait échoué. `charger(code)`
+  lit maintenant tout ce que la salle lit avant sa partie, et le contrôle
+  l'appelle.
+
+Six points plus petits ont suivi : un adaptateur donné par un chemin relatif
+se lit depuis le dossier du worker ; l'import d'une enveloppe ne peut plus
+avaler, par stdin, la liste des consoles suivantes ; l'amorce refuse le
+`docker/json.py` décrit plus haut ; un essai lancé comme le worker prouve que
+`principal` vérifie l'origine du socle ; un cache d'octets (`__pycache__`)
+réécrit par une salle vivante ne fait plus rougir le banc ; chaque suppression
+de ruff (`noqa`) dit maintenant sa raison.
+
+**Un compte faux de ma part.** Le premier compte rendu annonçait 18 scénarios
+Xbox 360 ; il y en avait 17. Le dix-huitième est celui de l'écran d'hier,
+ajouté pendant la relecture.
+
+**Ce que ça coûte.** Le banc doré prend 5,4 à 5,9 s. Je l'ai mesuré sur quatre
+lancements, alternés avec la version qui faisait ses passages l'un après
+l'autre (6,1 à 6,3 s). Un autre chantier pilotait un navigateur, charge 4 à
+5,6 : c'est un plafond, pas une mesure au repos. Avant la relecture, le banc
+prenait 3,8 s à une charge de 0,5. Il fait maintenant trois passages, contre
+deux, et treize mutants, contre neuf. Sur décision du propriétaire,
+`salles-dore` et `moteurs-test` entrent dans `check` : jusque-là, aucune
+recette de la CI n'éprouvait les adaptateurs des salles externes.
+
+**Un piège de ma part.** J'ai lancé `just moteurs-test | grep … && git
+commit`. Le code de sortie d'un tuyau est celui de sa dernière commande, ici
+`grep`. Ruff était rouge, et le commit est parti quand même. Je l'ai vu au
+commit suivant, et corrigé avant tout envoi. Leçon : une porte se lance seule,
+et on lit son propre code de sortie.
+
+**Ce qui n'est pas prouvé.**
+
+- Aucune vraie partie n'est passée par le canari : profil chargé, arrêt
+  propre, emplacement personnel repris, quatre manettes, son.
+- L'autre compte est simulé dans l'amorce. La CI distante n'a rien vu : la
+  branche n'est pas poussée.
+- `just deploy-check` complet n'a pas tourné : il demande sudo pour lire la
+  règle sudo. Seul son contrôle des salles a tourné sur la machine, en lecture
+  seule.
+- Le doré ne voit pas les délais eux-mêmes : seul l'arbre syntaxique tient les
+  deux copies de `serve` égales.
+
+**Ce qui reste.** Brancher le canari sur une salle et y jouer une partie, puis
+l'étape E2c, où l'enveloppe remplace l'ancien script Xbox 360. La Switch 2
+(E3) attend l'accord du propriétaire, puis viennent la Switch (E4a et E4b) et
+la configuration partagée (E5 et E6). Le contrôle de cadence C9 attend E12b.
+
+### 22 novembre : le salon apprend la Xbox 360
+
+La veille, la Xbox 360 est devenue jouable. L'audit des moteurs a montré que
+le salon (le service en Python qui sert l'accueil, la page de dépôt et le
+carnet de jeu) ne la connaissait qu'à moitié. Quatre trous venaient d'une même
+cause. La forme d'un identifiant de titre, le numéro qui désigne un jeu et qui
+nomme ses dossiers de sauvegarde, était recopiée à la main en « 16 chiffres
+hexadécimaux » dans trois modules du salon. Un titre Xbox 360 en a 8 :
+534507D6 pour Sonic.
+
+Ce qui en découlait :
+
+- le catalogue, la liste des jeux que les salles écrivent, jetait le titre de
+  Sonic ;
+- le carnet de jeu ne montrait aucune sauvegarde Xbox 360 : il ne connaissait
+  ni la configuration de son adaptateur, ni le dossier de sa partie
+  (`xenia/content`) ;
+- la recherche de doublons ne voyait pas un disque Xbox 360 déjà rangé, ni par
+  sa fiche ni par le catalogue. Deux fichiers du même jeu auraient partagé la
+  progression de chacun.
+
+La règle « la forme d'un titre appartient à la console, en un seul endroit »
+existait déjà, mais elle n'était tenue que dans le worker. Quand deux langages
+lisent la même règle, « un seul endroit » ne suffit pas. Chacun l'écrit donc
+une fois : le Rust dans `Console::valid_title`, le Python dans
+`nel3ab_control.consoles.FORMES_TITRE`. Un fichier d'exemples commun,
+`consoles/titres-vecteurs.json`, les tient ensemble : un essai de chaque
+langage le lit. Ses 32 exemples couvrent chaque console, y compris des jumeaux
+croisés (un titre Switch refusé pour la Xbox 360, et l'inverse) et les pièges
+propres à Python : les chiffres pleine chasse que `\d` accepte, et le `0x`, le
+tiret bas, le signe et les blancs que `int(titre, 16)` accepte. Remettre 16
+chiffres d'un seul côté fait échouer l'essai de ce côté, vérifié en Python
+puis en Rust. La casse reste acceptée des deux côtés, comme avant ; la
+question est posée au propriétaire, dans l'étape E8 du plan des moteurs. Le
+salon exige en plus les minuscules là où il lit un nom écrit par le worker.
+
+Chaque correction a d'abord échoué sur le code d'avant : le titre de Sonic
+donnait `None` au catalogue, un second disque de Sonic était rangé au lieu
+d'être refusé, et sa sauvegarde manquait au carnet. Le carnet ne liste plus
+les consoles à la main : il prend les consoles servies par un adaptateur dans
+le manifeste, et pour chacune le réglage qui porte le nom de la variable que
+lit le worker (`NEL3AB_XBOX360_CONFIG` devient `xbox360_config`).
+
+**Le piège.** Les réglages du salon ignorent un nom inconnu (`extra="ignore"`
+de pydantic-settings). Une fixture qui passait `xbox360_config=` avant que le
+réglage existe n'a donc rien dit : seule la lecture de
+`settings.xbox360_config` a échoué. Un réglage ajouté se vérifie en le lisant,
+pas en le passant.
+
+**Les autres trous comblés le même jour.**
+
+- La page de dépôt disait encore « GameCube, Wii et jeux Switch sont rangés
+  tout de suite ». La phrase vient maintenant des règles de l'import, et les
+  noms des consoles du manifeste, au lieu d'une copie dans `importer.mjs`.
+- La boîte noire suit Xwayland, le serveur X que Sway démarre pour Xenia.
+  Avant de prendre l'écran, elle lit le nom de l'affichage dans
+  `display.json`, le fichier que la salle écrit quand Sway est prêt, au lieu
+  de supposer `wayland-1`.
+- L'accueil n'écrit plus un texte qui ne change pas. L'audit d'accessibilité
+  avait compté 18 remplacements de texte en 11 secondes sur une liste
+  identique, dans une région vivante que les lecteurs d'écran surveillent. La
+  liste n'est plus cette région. Une ligne d'état dit en une phrase ce qui
+  change vraiment : une salle qui s'ouvre, se ferme ou change de jeu. L'essai
+  rejoue la vraie page dans jsdom : 17 mutations sur un tour identique avant,
+  0 après.
+- L'unité systemd du salon est comparée au manifeste et à celle des salles par
+  un essai.
+
+**Ce qui n'est pas prouvé.** Le nom Xwayland dans `/proc` vient du paquet de
+l'image : il n'a pas été vu pendant une partie. La capture par `display.json`
+n'a pas été vue sur une vraie chute. Aucun vrai lecteur d'écran n'a été
+écouté. Rien n'est en service avant la fusion et le redémarrage du salon et de
+la boîte noire ; le worker, lui, n'a pas besoin de ce chantier, où seul un
+essai Rust a changé.
+
+**Ce qui reste.** Les scripts `docker/*-room.py` gardent leur propre copie de
+la forme du titre, jusqu'à l'étape E8. La description du contrat (« Switch,
+seize chiffres ») a été corrigée le même jour par le chantier des parcours.
+
+### 22 novembre : la manette tactile se marchait dessus
+
+L'audit mobile a ouvert la salle dans un navigateur à la taille d'un
+téléphone. Il a tapé sur chaque touche de la manette dessinée à l'écran. Sur
+un iPhone tenu droit, taper R ou Z faisait disparaître la manette, et taper L
+mettait le jeu en pause.
+
+Pourquoi :
+
+- En portrait, la page centrait START, « son », « menu » et « cacher » sur la
+  ligne des gâchettes : environ 320 pixels de boutons sur 375.
+- Tenu en travers, le haut de Y tombait sur « cacher ».
+- Sur la manette Switch, la rangée « menu, son, masquer » était posée à 140
+  pixels du bas, quelle que soit la taille de l'écran. Elle mordait sur L et
+  sur le clic du stick.
+- Dans une salle Xbox 360, cette manette écrivait ZL, ZR, + et −. B était à
+  gauche de A, alors qu'il est à droite sur une Xbox.
+
+Aucun essai ne l'avait vu. jsdom, le faux navigateur des essais, ne calcule
+aucune position. Le pilote `touch.mjs` comparait huit boîtes entre elles, sans
+les gestes de page. Qu'une touche ait sa propre boîte ne prouve pas qu'un
+doigt l'atteint. Il faut demander au navigateur quel élément reçoit le point.
+
+**Ce qui a été fait.**
+
+- Les positions ne sont plus décidées par la feuille de style. Une fonction,
+  `placePad`, calcule un rectangle par touche à partir de la taille de l'écran
+  et de la largeur des bandes noires. Elle ne dépend d'aucun navigateur. Un
+  essai la fait tourner sur 1 267 tailles d'écran, quatre formats d'image et
+  trois manettes, soit 15 204 poses.
+- Une table, `lib/faces.ts`, dit la face de chaque console : quelles touches,
+  sous quels noms. La salle Xbox 360 écrit LB, LT, Back et Start, et range A
+  en bas. La place des quatre boutons est lue sur les dessins du
+  configurateur. L'inscription de chaque touche est le début de son nom dans
+  la table du configurateur. Les deux écrans ne peuvent plus se contredire.
+- La croix devient un seul bloc, lu à l'angle du doigt. Quatre boutons de 28
+  pixels laissaient le doigt tomber entre deux branches.
+- La fiche d'un jeu Switch annonçait une « manette GameCube ». Le code de la
+  manette Pro (4) n'était pas connu, et le nom retombait sur la GameCube. Elle
+  dit maintenant « manette Pro », ou « manette Xbox 360 ».
+
+**La relecture de la même nuit a trouvé quatre défauts dans cette première
+version.** Tous ont été mesurés.
+
+- En paysage avec une image 4:3, les gestes de page étaient posés en haut au
+  milieu de l'image, alors que les bandes noires avaient de la place. Ils vont
+  maintenant d'abord dans les bandes.
+- Ces gestes couvraient l'avis « la salle ferme dans 2 minutes » : taper son
+  centre ouvrait le menu. Les deux calques avaient le même rang d'empilement
+  (z-index 30), et le dernier écrit dans la page passait dessus. La manette
+  passe à 29, sous l'avis.
+- La première correction du nom disait « appareil 4 inconnu ». La préparation
+  d'un jeu Switch l'affichait pour chaque joueur prêt : un message de panne
+  sur le chemin normal. Le code 4 se nomme désormais « manette Pro ».
+- Dans le thème clair, les lettres en couleur de la Xbox reposaient sur un
+  fond clair. A tombait à 1,05 contre 1 de contraste, presque invisible. Elles
+  ont maintenant un fond sombre fixe. La garde a trouvé au passage les gestes
+  de page à 2,3 contre 1 dans les thèmes clairs : leur fond est devenu opaque.
+
+**Une garde dans un vrai navigateur.** `just manette-garde` sert les vrais
+composants par Vite, sans toucher aux salles. À sept tailles d'écran et dans
+quatre salles, elle vérifie que le centre et les quatre bords de chaque touche
+la reçoivent, qu'un vrai appui arrive au jeu, qu'aucun geste de page n'est à
+moins de 12 pixels d'une touche, que l'avis de fermeture reste au-dessus de la
+manette, et que chaque inscription se lit. Sur l'ancien code, elle échoue dans
+les 28 cas. Sur la première version, dans 24 cas. Sur la version corrigée,
+elle passe.
+
+**Deux essais passaient alors qu'ils étaient faux.**
+
+- Pour vérifier qu'une inscription tient dans sa touche, la garde comparait
+  d'abord la largeur que le bouton annonce pour son contenu (`scrollWidth`) à
+  sa largeur visible. Un mutant qui écrivait « cacher la manette » est passé :
+  le texte allait à la ligne et débordait en hauteur. La garde mesure
+  maintenant le texte lui-même.
+- Le balayage des tailles disait « plus de 2 000 tailles ». Il comptait des
+  poses, pas des tailles : 1 172 tailles à l'époque. Il ne descendait pas sous
+  320 pixels, et c'est là que la pose cassait : à 700 sur 260, START tombait
+  sur Y ; à 280 sur 653, l'écran extérieur d'un Galaxy Fold, L tombait sur R.
+  Il descend maintenant à 260 pixels et exige le compte exact.
+
+Une pose qui ne tient pas le dit maintenant. Avant, la manette prenait en
+silence la place la moins mauvaise : à 568 sur 260, elle posait « son » à 6
+pixels de L.
+
+**Ce qui n'est pas prouvé.**
+
+- Rien n'a été essayé sur un vrai téléphone.
+- La garde monte la manette seule, avec une copie de l'avis de fermeture, sans
+  le menu ni la colonne.
+- Le message de branchement a le même rang que l'avis. Il couvre maintenant L
+  pendant ses cinq secondes.
+- Sur une image très claire, les touches translucides perdent du contraste :
+  2,79 contre 1 pour le A de la GameCube sur du blanc. Ce n'est pas exigé.
+- Sur une tablette tenue en travers, sans bande noire, les touches de 44
+  pixels couvrent plus d'image qu'avant : 68 080 pixels carrés au lieu de
+  52 098 pour la GameCube en 1024 sur 768.
+
+**Trouvé en intégrant la documentation, lu dans le code et pas rejoué.** La
+garde mesure le contraste en posant `data-theme` sur les sept anciens noms de
+thème (`instrument-clair`, `phosphore`...). Depuis la régie du même jour, la
+feuille ne connaît plus que `nuit` et `jour` : ces noms ne correspondent plus
+à aucun sélecteur, et la page peint le thème que dicte le système du
+navigateur. Les « sept thèmes » de la garde mesurent donc un seul thème sept
+fois. Les lettres Xbox, sur leur fond fixe, n'en dépendent pas ; les
+inscriptions ordinaires n'ont été mesurées que dans un des deux thèmes. La
+garde doit poser `nuit` et `jour`.
+
+**Ce qui reste.** Le même jour, la salle au doigt a remplacé les trois gestes
+de page par un seul « ••• », et le chantier des parcours a nommé la manette
+Xbox 360 dans la préparation. Restent : supprimer les anciennes règles
+`.n3-switch-touch*` et les variables `--n3-key*` d'`index.css` ; utiliser les
+bandes du haut et du bas, ce qui demande la hauteur de l'image ; nommer les
+touches selon l'appareil de la place en salle Wii.
+
+### 22 novembre : une seule régie pour la salle et le salon
+
+Le salon (l'accueil, le dépôt de jeux, le carnet) avait une identité : un gris
+de matériel de studio qu'on appelle « graphite », deux polices embarquées,
+Anybody pour lire et Departure pour les lectures « machine », et des barres de
+couleur tirées d'une mire de télévision. La page de salle, celle où l'on passe
+la soirée, n'en avait pas. Elle était presque noire, avec un accent indigo, et
+elle écrivait dans la police de l'appareil : DejaVu Sans sur cette machine, ce
+serait SF sur un Mac et Roboto sur Android. Passer de l'accueil à la salle
+donnait l'impression de changer de site.
+
+**Ce qui a été fait.** Toutes les couleurs sont maintenant dans un seul
+fichier, `front/src/regie.css`. Un « jeton » est une variable CSS qui porte
+une couleur ou une taille. Le fichier les range en trois couches :
+
+- les primitives, des valeurs brutes sans sens (« graphite 900 ») ;
+- les rôles, qui disent à quoi sert une valeur (« fond », « plaque »,
+  « encre », « légende », « trait ») ;
+- les jetons de composant, qui nomment un usage précis (« fond du bouton
+  principal »).
+
+Seuls les rôles changent d'un thème à l'autre. Le salon reçoit une copie du
+fichier au démarrage, et un essai compare les deux copies octet pour octet.
+
+La salle embarque les quatre fichiers de police du salon. Ils sont lus à leur
+place, pour qu'il n'en existe qu'un exemplaire. Coût : la page compressée en
+brotli passe de 171 933 à 199 372 octets, pour un budget de 300 000.
+
+**Deux thèmes au lieu de sept.** Il y avait sept « ambiances ». Plusieurs ne
+tenaient pas leurs promesses : la console dessinée et le canapé ne changeaient
+pas de couleur. Aucune ne suivait le réglage clair ou sombre du téléphone. Il
+reste la régie de nuit (graphite) et la régie de jour (craie). Par défaut, la
+page suit le système, grâce à la règle CSS `prefers-color-scheme`. Un choix
+déjà enregistré dans le navigateur est gardé du côté où il peignait :
+« phosphore » devient la nuit, « famicom » le jour. La zone de l'image reste
+noire dans les deux thèmes.
+
+**Une teinte, un sens.** Le jaune était la salle 1 à l'accueil et le joueur 3
+dans la salle ; le cyan était la salle 2 et la Wii dans le carnet. Les quatre
+couleurs de joueur (rouge, bleu, jaune, vert) ne servent plus qu'aux joueurs.
+Une salle se reconnaît à son chiffre, une console à son nom et à la forme de
+sa tranche. Le violet ne dit plus que le focus du clavier et la sélection.
+
+**Les contrastes sont calculés, pas estimés.** Le rapport de contraste compare
+la luminosité d'un texte et de son fond. Les règles d'accessibilité du web
+(WCAG) demandent 4,5:1 pour un texte courant et 3:1 pour un trait qui n'est
+pas du texte. Un essai lit le fichier de jetons et calcule chaque paire
+réellement posée l'une sur l'autre, dans les deux thèmes.
+
+- Il a trouvé que l'aplat du joueur 3 (sa couleur pleine) tombait à 1,81:1 sur
+  le thème clair. Chaque joueur a donc maintenant deux jetons : l'aplat pour
+  les barres, et une « encre » de même teinte, plus claire ou plus foncée,
+  pour écrire « P1 » à « P4 ».
+- Le pilote de contraste a trouvé « en cours », écrit en violet sur une ligne
+  de menu teintée de violet : 4,36:1. Le violet de nuit a été éclairci.
+
+**Un essai qui passait sans rien voir.** Le pilote `contraste.mjs` mesure le
+contraste dans le vrai rendu du navigateur. Il avait trois trous :
+
+1. Il lisait les couleurs avec un motif qui n'acceptait que la forme
+   `rgb(...)`. Tailwind 4 écrit les couleurs avec transparence en
+   `oklab(...)`, une autre façon d'écrire une couleur, que le motif sautait.
+   Les titres de section, à 2,86:1, ne pouvaient donc pas le faire échouer.
+2. React écrit « P3 » en deux morceaux de texte d'un caractère chacun, et le
+   pilote ignorait les morceaux d'un caractère : les libellés de place
+   n'étaient jamais mesurés.
+3. Il lisait la couleur d'un texte de dessin SVG au mauvais endroit, et contre
+   le fond de la page plutôt que contre la forme dessinée sous lui.
+
+Les trois sont corrigés. Le pilote a été éprouvé par trois défauts
+réintroduits exprès, qui l'ont chacun fait échouer. Il peut aussi tourner
+contre un serveur Vite privé, avec des réponses simulées, sans toucher une
+salle vivante.
+
+**Corrections au passage.** Le dialogue des réglages Switch était collé dans
+le coin haut gauche : il manquait `margin: auto`. Sur téléphone, la légende de
+la jauge de l'accueil passait à un mot par ligne : la règle visait le mauvais
+élément de la grille. La préparation avait deux bords gauches.
+
+**La relecture : ce que le serveur de développement cachait.** Une relecture
+adverse a trouvé un défaut bloquant et deux régressions. Les trois venaient du
+même angle mort : tout avait été vérifié dans des conditions plus douces que
+la production.
+
+*Les polices ne chargeaient pas en production.* Le worker envoie avec la page
+une politique de sécurité du contenu (CSP) : la liste de ce que la page a le
+droit de charger. Elle ne disait rien des polices, donc sa règle par défaut
+s'appliquait, « seulement depuis cette machine ». Cette règle refuse une
+police incluse dans la page sous forme d'adresse `data:`. Toutes les
+vérifications avaient été faites dans Vite, le serveur de développement, qui
+n'envoie aucune politique. Servie avec la politique du worker, la page
+construite donnait « Anybody 400 error » et s'écrivait en Arial ou en DejaVu :
+27 418 octets de polices payés pour rien.
+
+- La politique autorise maintenant `font-src 'self' data:`, et rien d'autre.
+  Une police ne s'exécute pas.
+- Un essai Rust l'exige, et son jumeau vérifie que rien d'autre n'est ouvert.
+- La preuve dans un navigateur sert la page construite avec la politique LUE
+  dans le code Rust, avant et après : refusée avec l'ancienne, chargée avec la
+  nouvelle.
+
+La leçon : une page se vérifie sous les en-têtes de production, pas seulement
+sous le serveur de développement.
+
+*Les chiffres dansaient.* La page demande des chiffres de même largeur
+(`tabular-nums`, les « chiffres tabulaires »). Mais nos sous-ensembles
+d'Anybody n'ont pas la fonction qui les fournit (`tnum`) : un « 1 » y est plus
+étroit qu'un « 0 ». Mesuré dans le banc d'essai, « -0.11111 » faisait 53,50 px
+et « -0.88888 » 56,28 px : une valeur qui tremble à chaque image. Les valeurs
+vivantes du banc passent en police à chasse fixe, où chaque caractère a la
+même largeur, comme les mesures de la colonne et les valeurs des menus
+l'étaient déjà. Le pilote du banc vérifie maintenant que ces valeurs gardent
+leur largeur.
+
+*Une touche appuyée ne se voyait plus.* Sur les manettes dessinées, l'appui
+prenait la couleur de signal du thème. De nuit, le violet éclairci tombait à
+2,06:1 sur les touches de la Wiimote ; de jour, le violet foncé tombait à
+1,57:1 sur la manette standard. Le pilote du banc ne regardait que le système
+sombre, et l'aperçu du banc peignait sa carte en noir écrit en dur : sous un
+système clair, 64 textes tombaient à 1,07:1. Les manettes sont des objets :
+leur appui a repris ses couleurs d'avant, fixes. Le pilote mesure maintenant
+sous les deux réglages du système.
+
+**Ce qui n'était gardé qu'à moitié.**
+
+- L'essai du salon cherchait cinq rôles écrits à la main : un `--encre`
+  redéclaré dans une page passait. Il lit maintenant tous les jetons de la
+  feuille, et la page de salle fait le même contrôle.
+- `.regie-nuit` garde la nuit sous ce qui flotte sur l'image noire, et rien ne
+  vérifiait sa présence. Une variable CSS qui vaut `var(--encre)` est calculée
+  là où elle est déclarée, puis héritée toute faite. Déclarée sur la racine
+  seule, elle garde donc la valeur du jour sous `.regie-nuit` : une plaque
+  blanche sur l'image. Un essai exige maintenant `.regie-nuit` sur ces blocs,
+  et le pilote de contraste mesure le bouton « montrer (Ctrl) » sur l'image
+  dans les quatre régies.
+- Les coques Wii et Switch mesuraient trois fois le même écran sous trois
+  noms. Deux flèches à droite changent de rayon sur la PS3, mais avancent
+  d'une case dans la grille de la Wii ; le clic suivant visait un élément
+  absent, et ne faisait rien en silence. Le pilote choisit maintenant le rayon
+  par son bouton et refuse un écran absent.
+- Les trois corrections de mise en page n'étaient montrées que par des
+  captures. Un pilote les mesure (`just regie-visuel`), et chacune
+  réintroduite le fait échouer.
+- L'essai « la zone d'image reste noire » vérifiait un jeton que rien
+  n'employait : l'écran était peint par un noir écrit en dur. Il est
+  maintenant peint par le jeton, et un essai l'exige.
+- La console de Bobine visait encore deux anciens thèmes clairs : elle était
+  sombre sur la craie. Elle suit maintenant les deux portes du jour, et un
+  essai refuse tout sélecteur qui nomme un thème disparu.
+
+**Une affirmation fausse, mesurée.** Les commentaires disaient la page juste
+« avant tout script ». C'est vrai pour « comme l'appareil », pas pour un choix
+contre le système. Le script de la page est un module, lancé après la lecture
+du document. Mesuré dans Chrome sans écran sur la page construite, au premier
+rappel d'image, juste avant la première peinture : « nuit » sous un système
+clair y était encore en craie cinq fois sur six. Un petit script classique
+dans l'en-tête de la page devait le corriger ; ce fichier sortait du périmètre
+de ce chantier. Le chantier de la salle au doigt l'a écrit le même jour
+(entrée « 22 novembre : la salle au doigt »).
+
+**Ce qui n'est pas prouvé.**
+
+- Tout a été vu dans Chrome sans écran, sous Linux, avec des réponses simulées
+  et sans image de jeu. Rien n'a été vu dans Safari ni sur un vrai téléphone.
+- Le worker n'a pas été reconstruit : la politique a été éprouvée en servant
+  la page avec la règle lue dans son code, pas par le worker lui-même. Tant
+  qu'il n'est pas reconstruit et redémarré, la salle en service refusera les
+  polices et s'écrira en police du système.
+- Departure n'a pas de capitales accentuées : les étiquettes de section sont
+  donc en Anybody, pas en Departure comme le proposait la maquette de l'audit.
+- Les tirets, les flèches et les formes manquent à nos sous-ensembles
+  d'Anybody : ils viennent de la police suivante de la pile.
+
+**Ce qui reste.** Les chiffres tabulaires d'Anybody (ajouter la fonction
+`tnum` aux sous-ensembles, ou écrire chaque nombre vivant en chasse fixe) ;
+l'icône de l'onglet, encore indigo ; les rayons des composants et les dessins
+d'entrée ; le salon, qui ne lit pas le thème choisi dans la salle.
+
+### 22 novembre : la salle sait dire que l'image est figée
+
+Le 21 novembre au soir, l'image de Sonic est restée figée vingt minutes. Le
+son continuait, et la page n'a rien affiché.
+
+**Pourquoi rien.**
+
+- Tous les détecteurs de la page regardaient la connexion. Une socket est le
+  tuyau ouvert en permanence entre le navigateur et la salle. Elle peut rester
+  « ouverte » sans qu'aucune image n'y passe.
+- Quand l'émulateur n'a rien de neuf, la salle envoie toutes les 500 ms un
+  message vide : un signe de vie sans image. Ces messages gardaient la socket
+  vivante, et l'écran de reprise ne s'allumait que sur une socket coupée.
+- Le chiffre qui disait le gel (« dernière image ») existait, mais seulement
+  dans l'onglet DÉTAILS, replié, et absent d'un téléphone.
+
+**Ce qui a été fait.**
+
+- Un seul « état de liaison », calculé par une fonction pure dans la couche
+  média (`front/src/media/liaison.ts`). Une fonction pure rend toujours la
+  même réponse aux mêmes entrées et ne touche à rien : on la vérifie sans
+  navigateur.
+- Elle rend un état parmi onze : en marche, liaison irrégulière, image figée
+  côté salle, ma connexion coupée, salle injoignable, salle qui redémarre,
+  salle fermée, démarrage, arrivée, appareil qui n'affiche plus, onglet caché.
+- La distinction qui manquait : « la salle parle » (un message arrive, même
+  vide) n'est pas « une image arrive » (un message porte une image). L'image
+  est figée quand un jeu tourne, que la socket est ouverte, que les messages
+  vides arrivent, et qu'aucune image n'est arrivée depuis deux secondes.
+- L'état s'affiche à un seul endroit : sur l'image, plus sur toute la page. La
+  colonne reste là, avec les places, « quitter » et « signaler ».
+- Bobine porte le message : une phrase, un fait, un geste. Par exemple
+  « L'image ne bouge plus depuis 14 s. Le son arrive encore: le jeu tourne sur
+  la machine. », avec « Relancer l'image », qui rouvre la vidéo sans rendre la
+  place.
+- Une ligne invisible le dit aussi pour les lecteurs d'écran : c'est une
+  région vivante, une zone qu'un lecteur d'écran lit à voix haute quand son
+  texte change.
+
+**La relecture adverse : le message mentait de cinq façons.** Elle a reproduit
+chaque défaut dans un vrai navigateur, contre un banc qui imite la salle.
+
+1. *Un gel qui ne finissait jamais.* Pour sortir de l'état figé, la page
+   demandait une seconde d'images à 90 % de la cadence du jeu, une cadence
+   qu'elle mesure elle-même. Elle la mesure comme une médiane, la valeur du
+   milieu des écarts entre deux images, et ces écarts tombent sur les tics de
+   16,67 ms du compositeur, le programme qui assemble l'écran de la machine
+   (ici Sway). Un jeu à 45 images par seconde donne des écarts de 1, 1 et 2
+   tics, donc une médiane d'un tic : « 60 ». La page exigeait 54 images par
+   seconde, et restait « figée » pendant que l'image bougeait. Les jeux visés
+   à 40 images par seconde sur la Switch, et la Xbox 360, qui creuse à 45, y
+   tombaient après chaque chargement. Maintenant, on sort après une seconde
+   sans trou de plus d'une demi-seconde, le seuil que les joueurs sentent, et
+   la durée affichée ne monte plus pendant cette seconde. Leçon : un seuil
+   tiré d'une mesure doit survivre à la façon dont cette mesure est arrondie.
+2. *« L'image est revenue. » sans une image.* Une socket muette est fermée par
+   la page au bout de deux secondes. Sa fermeture remettait le compteur de
+   coupure à zéro, et la page passait une seconde par « en marche ».
+   Maintenant, la coupure part de la dernière preuve de vie, c'est-à-dire du
+   dernier message. Une salle tombée n'est revenue que sur une image arrivée
+   après sa chute.
+3. *Un 502 pris pour le site.* Pour séparer « la salle ne répond plus » de
+   « rien ne répond », la page demande la liste des salles au site : c'est une
+   sonde. Quand le salon est arrêté, le relais Caddy répond 502 (« Bad
+   Gateway » : le relais n'a pas pu joindre le service derrière lui). La page
+   en concluait « Le reste du site répond: ta connexion passe. », et proposait
+   « Signaler », qui passe justement par ce salon arrêté. « Ta connexion
+   passe » était en plus une cause supposée : le 22 septembre, une petite
+   requête passait très bien sur un Wi-Fi qui ne portait plus le flux.
+   Maintenant, seule une liste rendue en succès compte. La phrase dit le fait
+   observé, sans la cause, et « Signaler » n'apparaît que si le site a
+   répondu.
+4. *« Fermée » à chaque changement de jeu.* Le worker s'arrête à chaque
+   changement de jeu, et systemd le relance deux secondes plus tard. Pendant
+   ces deux secondes, `systemctl is-active` répond « activating » avec le même
+   code de sortie qu'une salle arrêtée. Le salon ne lisait que le code, et la
+   page affichait « La salle 1 est fermée. » avec « Les salles » pour seule
+   action. Le même défaut cachait pire : « ouvrir une salle » pendant ces deux
+   secondes reprenait l'emplacement de la salle 1, y posait le marqueur « sans
+   jeu », et la partie de tout le monde revenait sur le menu. Ce n'a pas été
+   observé en service : l'essai le montre sur un faux systemd. Le salon lit
+   maintenant le mot et dit « redémarre ». La page ne croit « fermée »
+   qu'après deux réponses espacées de deux secondes et demie.
+5. *La proposition de format réduit ne venait plus jamais.* Pour ne pas la
+   proposer pendant un gel de la salle, où le format réduit n'y change rien,
+   toute fenêtre qui avait vu un gel ou une coupure remettait le compte à zéro
+   et aveuglait la proposition quarante secondes. Or une liaison qui cale
+   passe justement par « la salle ne répond plus ». Les arrêts de 4 et 8,9 s
+   du 22 septembre, qui avaient servi à régler la proposition, n'en ouvraient
+   plus aucune. Maintenant, une coupure compte. Seules les fenêtres qui ne
+   disent rien de la liaison sont mises de côté, sans remettre le compte à
+   zéro : une salle qui se dit fermée ou en redémarrage, un onglet caché, un
+   gel pendant lequel le son ET l'écho de la manette ont continué.
+
+**Ce qui a encore résisté.**
+
+- *Une preuve qui ne pouvait pas échouer.* L'essai « vingt secondes de gel
+  sans proposition » gelait la page dix secondes après l'entrée. Or la
+  proposition ne peut rien dire avant cinquante secondes : trois fenêtres de
+  grâce, puis deux mauvaises. La page d'avant passait donc aussi. L'essai gèle
+  maintenant à 36 secondes, comme l'audit, et la page d'avant y échoue.
+- *Le banc lui-même mentait.* Il datait ses images en comptant les tirs d'une
+  minuterie de 16,7 ms, qui tire en réalité toutes les 17 ms environ.
+  L'horloge des images prenait 2 % de retard sur le vrai temps, et au bout de
+  six secondes l'horaire d'affichage cessait de peindre deux secondes : un
+  faux état « l'appareil n'affiche plus », sur la page d'avant comme sur la
+  nouvelle. Le banc tire maintenant ses tics de l'horloge. Leçon : une horloge
+  simulée doit suivre la vraie.
+- *Un contrôle négatif doit tomber au bon endroit.* Un contrôle négatif rejoue
+  l'essai sur une version qu'on sait fautive, pour vérifier qu'il la refuse.
+  Lancée sur une vieille page, une preuve peut échouer parce qu'un élément
+  récent manque, avant même d'atteindre le défaut. Chaque étape distingue
+  maintenant « défaut » et « précondition », et le contrôle négatif n'est
+  accepté que si la vieille page échoue sur le défaut.
+
+**Ce qui reste dans le dépôt.** `just etats-navigateur` sert la page committée
+à un faux salon et une fausse salle, avec un vrai flux vidéo fabriqué par
+ffmpeg. Il rejoue onze étapes, chacune avec son jumeau : le cas inverse, qui
+doit passer. `just etats-navigateur-rouge` exige que la page d'avant le
+chantier et la première version refusée échouent chacune sur le défaut nommé.
+Mais aussi : un seul garde de vingt secondes pour les deux boutons
+« Signaler » ; « La salle 1 ne répond pas. » à l'arrivée, puisqu'elle n'a
+jamais répondu ; la ligne parlée qui dit aussi un démarrage lent puis perdu ;
+le salon qui garde un « refusé » arrivé une seconde après « proposé ».
+
+**Les chiffres, sur le banc simulé** (vrai flux vidéo, en local, sans carte
+graphique) : le gel est dit 2,5 s après la dernière image ; un jeu qui repart
+à 45 ou 55 images par seconde sort du gel en 1,5 s dans les essais de la
+règle, en moins de 2,5 s dans le navigateur ; une salle vraiment fermée se dit
+fermée environ trois secondes plus tard qu'avant ; la page pèse environ 5,7 ko
+de plus une fois compressée.
+
+**Ce qui n'est pas prouvé.**
+
+- Rien n'a été rejoué contre un vrai worker, un vrai Xenia ou Eden, une vraie
+  salle, un relais Tailscale, un vrai téléphone, Safari ou VoiceOver. Le gel,
+  le silence, le 502 et le redémarrage sont simulés par le banc.
+- « activating » pendant les deux secondes de relance est le comportement
+  documenté de systemd, pas observé sur cette machine.
+- Le plancher de reprise (2 images par seconde, sans trou de 500 ms) n'a pas
+  été confronté aux chargements réels de Xenia et d'Eden. Un écran de
+  chargement qui tourne à 1 image par seconde après un arrêt resterait
+  « figé ». La durée de 3 s pendant laquelle un gel survit à une relance est
+  raisonnée sur quelques allers-retours à 300 ms, pas mesurée sur un relais.
+- La relecture affirmait qu'un spectateur qui se resynchronise sur un lien
+  lent passe par « figée ». Ce n'est ni prouvé ni réfuté ; la règle prudente a
+  été prise : un gel n'est mis de côté par la proposition que si le son ET
+  l'écho ont continué à chaque relevé.
+- Une panne du site entier (salle ET salon) qui chevauche deux fenêtres compte
+  encore pour la proposition : vue de la page, elle ressemble à un Wi-Fi qui
+  cale.
+
+**Ce qui reste à faire.** Caddy renvoie toujours toute erreur de passerelle
+sous `/r/` vers `/?salle=fermee`, et l'accueil ne lit pas encore
+« redémarre » : une salle qui redémarre y paraît fermée. Le worker n'annonce
+pas « ma capture ne produit plus », et le salon ne dit donc pas si le gel
+touche tout le monde ou seulement soi. Il n'y a ni « Relancer le jeu » pour le
+chef, ni signalement automatique. Le diagnostic de connexion reste dans la
+colonne ; l'avis de format réduit et l'avis de fermeture restent deux bandeaux
+à part ; les appels de la page au démarrage ne sont pas faits en parallèle, et
+n'ont aucun délai sur `/api/me` et les réglages.
+
+### 22 novembre : un seul focus, et des menus qui se conduisent au clavier
+
+**Ce qui n'allait pas.** L'audit d'accessibilité a mesuré, au clavier, quatre
+défauts qui se tenaient.
+
+- *Entrée sur un bouton de la colonne.* Sur « détails » ou sur « menu »,
+  Entrée n'activait rien. La boucle d'entrée la prenait pour le START du jeu.
+- *Entrée dans le menu.* Le menu validait l'entrée sous son curseur, même
+  quand un autre bouton avait le focus. Sur « Échap reprend la partie »,
+  Entrée a ouvert le dossier GameCube.
+- *Un menu plein écran qui n'était pas modal.* Le focus restait sur le bouton
+  caché dessous, et Tab passait d'abord par douze boutons invisibles de la
+  colonne.
+- *Des aides qui parlaient d'une manette absente.* Le menu disait « A
+  choisit » à tout le monde. Au clavier, la touche A ne choisit rien : elle
+  envoie Z au jeu.
+
+Et sur un écran de 390 px, « réglages » et « mesures » tombaient à 366 et 514
+px : le menu sortait du téléphone.
+
+Le focus est l'élément de la page qui reçoit le clavier, celui que Tab
+déplace. Le problème de fond : la page avait deux idées de qui possède le
+clavier. La boucle du jeu écoutait toute la fenêtre, et le menu avait un
+curseur à lui, distinct du focus.
+
+**Ce qui a été choisi.** Une seule règle, écrite dans
+`front/src/lib/focus-jeu.ts` : le clavier du jeu vit dans la zone de jeu, la
+boîte de l'image. Partout ailleurs, Tab, Entrée, Espace et les flèches font ce
+que fait le navigateur.
+
+- La zone est focalisable. Elle prend le focus à l'entrée dans la salle et à
+  chaque clic sur l'image, bandes noires comprises.
+- Quand personne n'a le focus, les touches vont aussi au jeu. Aucune commande
+  de la page ne les réclame.
+- Les trois menus sont des dialogues modaux, des `<dialog>` ouverts par
+  `showModal()`. Le navigateur rend le reste de la page inerte, garde Tab dans
+  le menu et rend le focus à la fermeture.
+- Dans le menu, le curseur est le focus. Une seule entrée est dans l'ordre de
+  Tab : c'est la tabulation tournante. Entrée et Espace activent donc le
+  bouton qui a le focus, et c'est l'entrée choisie.
+- Les aides suivent l'appareil : Entrée et Échap au clavier, A et B à la
+  manette, une phrase et un vrai bouton de 44 px au doigt.
+- Une carte « Tu joues au clavier » montre les touches à la première visite.
+  Elle les lit dans le profil actif, celui que la boucle applique.
+- Le menu nomme ses quatre rubriques : jeux, manettes, salle, réglages. Les
+  réglages pointus sont repliés sous « réglages avancés ».
+
+**Ce que la relecture a trouvé.** Une relecture adverse a rejoué les preuves
+dans une copie jetable, puis écrit ses propres sondes et ses propres mutants.
+Le noyau tenait dans Chrome. Le reste, non.
+
+1. *La tablette avait été cassée par la correction du téléphone.* En mode
+   large, la liste suivait la croix. À 768 px de large, une tablette en
+   portrait, « réglages » poussait la croix à 456 px, et la liste tombait dans
+   les 296 px de droite. Cinq libellés sur dix étaient coupés ; l'ancienne
+   page n'en coupait aucun. L'essai pur ne vérifiait que les rubriques, et le
+   pilote ne mesurait que la rubrique « jeux », à 390 et 844 px. Correction :
+   la liste garde au moins 480 px et recule vers la gauche quand la croix
+   avance trop. Leçon : une correction de mise en page se mesure à chaque
+   largeur qu'elle change, et dans chaque rubrique, pas seulement dans la
+   première.
+2. *Trois mutants du câblage passaient 1 025 essais et 14 étapes du
+   navigateur.* Le câblage est le code qui relie les fonctions pures à la
+   page : qui appelle quoi, et quand. Les trois mutants : le focus n'est plus
+   posé à l'entrée ; la zone est retirée de l'ordre de Tab ; la garde qui
+   laisse leurs touches aux avis posés dans le menu est retirée. Le premier
+   passait pour une raison qui mérite d'être retenue. Une page sans focus
+   donne aussi ses touches au jeu, et c'est voulu. « Entrée envoie START »
+   restait donc vrai avec ou sans le focus. Correction : les nouvelles étapes
+   lisent le focus lui-même. Leçon : les 16 mutants de la première version ne
+   touchaient que des fonctions pures ; il faut aussi muter le câblage.
+3. *La carte des touches parlait GameCube à qui tenait une Wiimote.* Elle
+   disait « Entrée → Start » et « S → X », là où le jeu lit + et 1. La règle
+   de [Touches et manettes](ecran-manettes.md) le disait pourtant : une trame,
+   trois lectures. Correction : la carte prend l'appareil de la place. Les
+   noms viennent de la lecture que le tableau des correspondances affiche
+   déjà, et la présence d'un bouton vient du dessin de l'appareil. La guitare
+   n'a donc ni croix gauche ni deuxième gâchette, et la Wiimote seule n'a ni C
+   ni Z.
+4. *Les avis posés dans le menu ouvert gênaient.* Sur un téléphone, l'avis
+   d'un lancement couvrait « Reprendre la partie », la seule sortie à l'écran.
+   Échap sur son bouton fermait le menu. Le portail qui fait passer l'avis
+   dans le menu remonte son contenu, et le panneau de reprise du rôle de chef
+   y perdait son état « occupé » : ses boutons se réactivaient pendant un
+   envoi. Corrections : le menu mesure son pied et pose les avis au-dessus ;
+   Échap et le geste retour sur un avis ne font rien au menu ; l'état
+   « occupé » vit chez le parent.
+5. *La sortie de la coque Switch sortait de l'écran sur téléphone.* Elle a
+   maintenant sa propre ligne, pleine largeur.
+
+La relecture a aussi relevé des défauts plus petits, tous corrigés.
+
+- *L'anneau de focus* longeait l'image pendant toute la partie. Il ne se
+  montre plus qu'à l'arrivée par Tab et s'efface à la première touche de jeu.
+- *Un clic de souris coupait la manette.* Après un clic sur une prise, un
+  mode, le clip ou le micro, la manette du clavier s'arrêtait. Ce clic rend
+  maintenant le clavier au jeu ; une activation au clavier garde son focus.
+- *L'avis du clavier était sous la proposition de format réduit.* Les avis du
+  haut forment maintenant une seule pile.
+- *« état de la connexion »* valait « 1234 images ». Il dit maintenant « en
+  marche » ou « image figée », et sur un téléphone son résumé s'ouvre dans le
+  menu au lieu de couper l'écran en deux.
+- *Les textes.* « Tes touches vont à la page » devient « Le jeu ne reçoit plus
+  tes touches ». « Rejouer au clavier » devient « Rendre les touches au jeu ».
+  Au doigt, « Touche » devient « Appuie ».
+- *Une manette qui attend sa configuration.* Après les cinq secondes de son
+  avis, rien ne le rappelait. L'entrée « touches et manettes » dit maintenant
+  « à configurer ».
+- *La porte.* Aucune porte ne lançait les preuves du navigateur.
+  `focus-navigateur` et `etats-navigateur` entrent dans `just`, pour six
+  minutes environ.
+
+**Ce qui a résisté pendant la reprise.**
+
+- *Deux gardes qui se cachent l'une l'autre.* Échap sur un avis est arrêté
+  deux fois : à l'appui de la touche, puis à la demande de fermeture du
+  dialogue. Dans Chrome, chacune suffit, et le mutant qui retire la première
+  passe donc le navigateur. Il fallait un essai jsdom par garde.
+- *L'essai de l'anneau ne regardait qu'après une touche de jeu.* Deux mutants
+  passaient : un anneau toujours posé, et un anneau jamais effacé. L'étape lit
+  maintenant l'anneau à trois moments : après Échap, pendant le jeu, puis à
+  l'arrivée par Tab suivie d'une touche.
+- *La garde de la manette tactile a échoué sur sa précondition.* Elle copie
+  dans `App.tsx` la classe de l'avis de fermeture. Quand la pile du haut a
+  pris la position, la copie n'avait plus le bon style, et la garde l'a dit au
+  lieu de passer en silence. Elle copie maintenant la pile et l'avis.
+- *Une ligne de code placée trop tôt.* La carte calculait ses lignes avant la
+  déclaration de l'appareil de la place, dans le même composant. JavaScript
+  refuse de lire une constante avant sa déclaration. Le calcul a été déplacé,
+  et le typage l'a confirmé.
+
+**Ce qui est prouvé, et ce qui ne l'est pas.** `just focus-navigateur` passe
+ses 24 étapes. `just focus-navigateur-rouge` exige que l'ancienne page
+(f4b90c5) échoue sur 15 défauts nommés, et la page relue (55047a9) sur 9. 13
+mutants du câblage sur 14 sont refusés par le navigateur ; le quatorzième
+l'est par jsdom. Tout a été vu dans Chrome seulement : ni Safari ni Firefox,
+ni VoiceOver ni NVDA, ni vrai téléphone, ni manette physique. Sur Safari pour
+macOS, trois points restent à voir : le retour du focus à la zone après un
+clic, sachant que Safari ne focalise pas un bouton au clic ; le suivi de Tab
+pour l'anneau ; `preventDefault` sur Échap. Le geste retour d'Android est
+simulé par un événement `cancel`. La largeur de 480 px a été vérifiée à 701,
+768 et 900 px avec les noms du banc ; un vrai titre de jeu long reste tronqué
+en mode large, comme avant. Le clic qui rend le clavier au jeu ne couvre que
+les boutons marqués ; un clic sur le volume ou la carte des touches laisse le
+focus à la colonne, et l'avis du haut le dit. Les pilotes de la salle vivante
+n'ont pas été relancés.
+
+**Ce qui reste.** Les coques Wii et Switch n'ont pas de vraie version pour
+téléphone : seule leur sortie est réparée et gardée. La demande de place est
+encore sous le menu, et inerte quand il est ouvert ; la ligne parlée aussi.
+Aucun bouton de la manette n'ouvre le menu. La carte des touches ne se marque
+pas « lue » toute seule dans les salles Switch et Xbox 360. Le plugin
+d'accessibilité d'oxlint n'est pas ajouté. [Touches et
+manettes](ecran-manettes.md) gagnerait une phrase : la carte lit `controlsFor`
+et `EMULATED`, donc un plan qui perd une pièce retire aussi sa ligne de la
+carte. Le tiret cadratin du libellé de la Xbox 360 dans les menus, relevé ici,
+a été remplacé par des parenthèses (« Xbox 360 (expérimental) ») par le
+chantier des parcours.
+
+### 22 novembre : les parcours et les mots
+
+**Ce qui n'allait pas.** L'audit avait compté sept gestes et trois
+confirmations pour lancer un jeu seul : ouvrir la salle, entrer, la console,
+le jeu, la sauvegarde, « Je suis prêt », « Lancer le jeu ». Les trois derniers
+disaient la même chose. Une préparation GameCube s'annonçait « Wii », une
+salle Xbox 360 « Switch · manette Pro ». La colonne montrait deux fois les
+places. Trois sorties portaient trois noms et menaient à deux pages. Personne
+ne pouvait inviter quelqu'un, ni fermer une salle depuis la page. Un même
+emplacement s'appelait manette, place, prise, port ou P1.
+
+**Un lexique, et un essai qui le tient.** `front/src/lib/mots.ts` réunit les
+mots que le joueur lit. Une place est l'emplacement 1 à 4, une manette est
+l'objet qu'on tient. Le chef choisit le jeu. Les trois sauvegardes s'appellent
+nouvelle partie, tout débloqué et ma sauvegarde ; les autres joueurs lisent
+« la sauvegarde de Bo ». On entre par « Rejoindre » ou « Regarder », on sort
+par « Quitter la salle ». L'image est complète ou légère. Le menu écrit ces
+gestes en minuscules, comme toutes ses entrées, mais il les tire du même
+fichier.
+
+`mots.test.ts` lit les sources de la page avec le compilateur TypeScript. Il
+en tire les chaînes qu'il sait reconnaître comme visibles : le texte entre les
+balises ; les attributs qu'un navigateur montre ; les entrées du menu et les
+avis ; les constantes dont une utilisation arrive à l'écran ; les tableaux que
+la page dessine. Une chaîne comparée dans le code (`state === "running"`)
+n'est pas visible, un commentaire non plus : c'est pour ça qu'on passe par le
+compilateur et pas par une recherche de texte.
+
+L'essai refuse les mots d'atelier (salon, worker, socket, running, port,
+prise, Xenia, Dolphin...), les anciens noms et le tiret cadratin. Il refuse
+aussi qu'un geste du lexique soit recopié en dur ailleurs que dans `mots.ts`.
+Les mots d'atelier restent permis sous `<MesuresTechniques>`, l'onglet
+« mesures » de la colonne, qui sert au propriétaire.
+
+Il ne voit pas tout. Une valeur qui n'existe qu'à l'exécution (le nom d'une
+manette, un message du serveur) lui échappe : celles-là passent par une
+fonction du lexique, essayée à part. Les pages du salon (accueil, dépôt,
+carnet) ne sont pas lues ; elles ont été corrigées à la main.
+
+**Lancer en un geste.** Seul à jouer sur un jeu à un seul appareil (GameCube,
+Switch, Xbox 360), choisir la sauvegarde lance le jeu : le salon ouvre la
+préparation et la lance dans la même demande. À plusieurs, le chef lance avec
+son propre choix, sans « Je suis prêt ». Si un joueur ne répond pas, le chef
+peut « Lancer sans attendre » vingt secondes après l'arrivée du dernier
+absent. L'absent garde sa place avec l'appareil qu'il avait choisi, ou le
+premier proposé. Vingt secondes est un choix, pas une mesure. Les deux
+panneaux de préparation lisent le même calcul (`lib/lancement.ts`), qui nomme
+la console du jeu préparé et l'appareil de la salle (« manette Xbox 360 ·
+prêt »).
+
+**La salle.** Les places tiennent en un bloc, avec « Prendre une place » ou
+« Rendre ma place ». Il reste une seule sortie, « Quitter la salle », qui mène
+aux autres salles. L'adresse porte l'entrée (`?entrer=jouer` ou
+`?entrer=regarder`) et suit ce que fait la session : un rechargement revient
+dans la salle, en joueur ou en spectateur. Il ne garantit pas la même place,
+car le worker donne la première libre. « Inviter quelqu'un » ouvre la feuille
+de partage du téléphone, ou copie le lien. Le chef peut « fermer la salle »
+depuis le menu. Les explications qui ne vivaient que dans une infobulle
+s'ouvrent avec un « ? », au doigt comme à la souris.
+
+**L'accueil du salon et le dépôt.** Chaque carte porte « Rejoindre » et
+« Regarder », qui entrent directement. « Ouvrir une autre salle » passe au
+second plan et dit qu'elle fait tourner un second jeu sur la même machine.
+« HORS SERVICE », qui se lisait comme une panne, devient « LIBRE ». Après un
+dépôt, le bouton dit ce qu'il fera, parce que le worker ne relit sa
+bibliothèque qu'au démarrage. Sans salle ouverte, « Jouer maintenant » en
+ouvre une, qui lit le jeu au démarrage. Avec une salle ouverte, ou qui
+redémarre, il s'appelle « Aller dans la salle 1 » et prévient : « Le jeu
+apparaîtra au prochain changement de jeu. »
+
+**La relecture adverse a refusé la première version, et elle avait raison.**
+
+- *Les pilotes de salle réelle étaient cassés.* `save-options.mjs` cherchait
+  « reprendre » et `saves.mjs` « neuve ». Cinq pilotes pressaient « Je suis
+  prêt » sur la page du chef, qui ne l'a plus. L'aide commune `launchPrepared`
+  attendait un panneau qui n'apparaît jamais quand un joueur seul lance
+  directement. Tous sont corrigés. `just save-options-test` passe, et l'ancien
+  pilote échoue sur la nouvelle page à l'endroit attendu. Les pilotes de
+  préparation vérifient maintenant, dans les trames que la page envoie au
+  salon, que le lancement du chef porte son appareil. Ceux qui demandent une
+  ROM et un émulateur n'ont pas été relancés.
+- *L'essai du lexique avait trois trous, visibles à l'écran.* Une constante en
+  minuscules : « Bo décide du jeu dans cette salle », dans le menu. Un tableau
+  dessiné par `.map` : « port » et un tiret cadratin dans le banc d'essai des
+  manettes. Un gabarit relu avec des points de suspension : « … manette…
+  libre… » ne ressemble à rien, et « 2 manettes libres » s'affichait.
+  L'extracteur lit maintenant les trois, et relit chaque gabarit deux fois,
+  ses trous remplis par « 2 » puis par rien. Il a aussitôt trouvé une
+  quatrième chaîne : « Reprendre la manette 2 », dans le panneau de reprise
+  d'une place.
+- *L'adresse ne suivait pas la place.* Entré pour regarder puis assis, un
+  rechargement rendait la place. Levé, il la reprenait avant l'ami à qui on la
+  laissait.
+- *Rien de commité ne tenait le câblage d'`App.tsx`.* Cinq mutants appliqués
+  ensemble laissaient les 1 105 essais verts : l'entrée lue dans l'adresse,
+  l'adresse réécrite, le lien d'invitation, la sortie, la fermeture. Les
+  quatorze parcours vérifiés dans Chromium vivaient dans un dossier de
+  captures, hors du dépôt.
+- *« Jouer maintenant » allumait une seconde salle.* Il en ouvrait une pendant
+  le redémarrage de la première, et menait dans une salle ouverte dont le menu
+  ne montrait pas le jeu déposé.
+- *Six relevés « rouge d'abord » cités dans le compte rendu n'existaient pas.*
+  Ils ont été refaits, mutant par mutant, et déposés à côté des captures de la
+  reprise.
+- *Les guides Switch étaient faux.* Le guide Switch et la note de reprise
+  Switch 2 parlaient encore de « partie neuve », de « reprendre » et de « Je
+  suis prêt » pour le chef.
+- *Plus petits :* « Après correspondance » au-dessus du schéma des touches ;
+  deux élisions fausses, devant un « y » suivi d'une voyelle et devant un
+  « h » ; deux boutons de 37 px au doigt ; un « s » seul à la ligne sous
+  « clip des 45 » ; le délai de « sans attendre » compté depuis l'ouverture et
+  non depuis l'arrivée ; le prix mesuré de l'image légère (2,6 fois moins de
+  débit, une course Dolphin du 17 août 2026) affiché aussi pour la Switch et
+  la Xbox 360, jamais mesurées. Ailleurs que sous Dolphin, la page dit
+  maintenant « moins de débit », sans chiffre.
+
+**Le banc des parcours.** `just parcours-navigateur` sert la page committée
+sur un banc simulé (`spikes/m3-browser-drive/parcours-banc.mjs`). Le banc
+simule une salle qui donne la première place libre à chaque socket d'entrée et
+la reprend à sa fermeture, un chef réglable, une préparation, les annonces de
+démarrage et `DELETE /api/salles/1`. Douze étapes, chacune avec son jumeau :
+l'entrée par l'adresse, le rechargement, l'adresse qui suit la place ;
+l'invitation, la sortie, la fermeture par le chef ; le verbe du chef et la
+reprise de son rôle ; les préparations GameCube et Xbox 360 ; « ma
+sauvegarde » pour qui lance ; les cibles au doigt et les places de
+l'avant-salle. Il dure 24 s et entre dans `just`. Son contrôle négatif, `just
+parcours-navigateur-rouge`, exige que la page d'avant le chantier échoue sur
+le défaut de onze étapes, et que la page refusée échoue sur les quatre défauts
+de la relecture, et seulement ceux-là.
+
+J'ai ensuite réintroduit un à un dix défauts dans `App.tsx`, reconstruit la
+page à part et lancé l'étape qui devait les voir : neuf rougissent sur leur
+défaut. Le dixième retire l'écriture de l'adresse en entrant, et ne change
+rien sous un salon : la salle réécrit la même adresse dès qu'elle a démarré.
+C'est un mutant équivalent ici. Il ne serait visible que sur une page servie
+seule, que le banc ne sait pas encore servir.
+
+**Les pièges.**
+
+- `\b` des expressions régulières de JavaScript ne connaît que l'ASCII :
+  « portée » aurait été refusé pour « port ». Les bornes de mot regardent
+  maintenant toutes les lettres.
+- Le pilote du focus rechargeait la page et attendait la porte de
+  l'avant-salle. Avec l'entrée dans l'adresse, la page rentre seule.
+- Le pilote de la préparation lisait « la » ligne d'état, et la nouvelle ligne
+  « En attente de … » passait devant.
+- Dans le banc, `innerText` rendait « AVANT DE JOUER · GAMECUBE » en
+  capitales, parce qu'il applique la feuille de style. L'étape lit maintenant
+  `textContent`.
+- Au téléphone, un clic sur « montrer » posé pendant le premier rendu de la
+  salle se perdait. L'aide redéplie la colonne jusqu'à voir la place.
+
+**Ce qui n'est pas prouvé.**
+
+- Rien n'a tourné contre une vraie salle, un vrai salon ni un vrai téléphone.
+  Le banc donne la première place libre, mais ne relie pas une préparation aux
+  places comme le vrai salon.
+- Les recettes de salle réelle (preparation-test, idle-room-test,
+  recovery-test, room-churn-test, resilience-test, network-room-test,
+  seat-migration-test, switch-room-test, saves-test) et les pilotes qui
+  lancent un jeu ont été mis à jour sans être relancés : ils demandent une ROM
+  et un émulateur. Seul `save-options-test` l'est. L'assertion « le lancement
+  du chef porte son appareil » n'a donc jamais vu une vraie trame de salon.
+- La fermeture de la salle n'est prouvée que contre le `DELETE` du banc. Après
+  « Lancer sans attendre », que la manette de l'absent marche dans le jeu n'a
+  pas été vérifié. La feuille de partage n'a pas été essayée sur un téléphone.
+- Le prix de l'image légère n'est vérifié qu'en essai unitaire : aucune étape
+  du banc ne lit le menu des réglages.
+
+**Ce qui reste.** Le code QR de l'invitation (il faudrait une dépendance ou un
+encodeur à prouver). Une barre commune à toutes les pages, et « Rejouer »
+depuis les fiches du carnet. Redemander la même place après un rechargement.
+« Prêt d'office » quand il n'y a qu'un choix. La charte tenue par la machine
+dans les pages du salon, où des phrases d'administration disent encore
+« redémarre le salon ». « Ouvrir une salle » sur l'accueil mène encore à
+l'avant-salle.
+
+### 22 novembre : la salle au doigt
+
+**Le problème.** Sur un téléphone, la colonne de droite était repliée
+d'office. Avec elle disparaissaient les places, la demande de place,
+« signaler », le diagnostic, les spectateurs et la sortie. Dépliée, elle
+prenait la moitié de l'écran : l'image tombait à 195 px de large et les
+touches sortaient de l'écran. Le plein écran levait une erreur sur iPhone.
+L'entrée de la salle coupait son haut en paysage. Le réglage des touches ne
+laissait que 76 px de contenu à un téléphone tenu en travers.
+
+**Ce qui a été choisi.** Sous 900 px de large, ou au doigt, la colonne devient
+un tiroir : un panneau posé par-dessus l'image, qu'on ouvre puis qu'on referme
+pour jouer. Pourquoi 900 : à cette largeur, une colonne de 304 px laisse
+encore les deux tiers de l'écran à l'image. Sous 480 px de large, le tiroir
+prend tout l'écran. Son haut reste collé pendant qu'on défile, avec un bouton
+« Revenir au jeu ». Sur un grand écran, la colonne reste à côté de l'image, et
+« La salle » la déplie au lieu d'ouvrir un tiroir.
+
+La manette à l'écran ne porte plus qu'un seul geste de page, « ••• ». Un geste
+de page agit sur la page et pas sur le jeu (son, menu, cacher). Ce bouton
+ouvre une feuille du bas, c'est-à-dire un panneau qui monte du bas de l'écran.
+Elle porte le son, le menu du jeu, la salle, la manette à l'écran, le plein
+écran ou l'écran d'accueil, et le signalement. Avant, trois gestes se tenaient
+parmi les touches, et un pouce mal posé faisait disparaître la manette. C'est
+la proposition de l'audit que le chantier de la manette avait laissée de côté.
+
+Ce qui se pose par-dessus l'image se décide en un seul endroit, une fonction
+essayée seule (`couchesDeLaSalle`) : le tiroir, la manette, le « ••• » seul et
+la colonne. Et le thème choisi est maintenant posé par un petit script
+classique dans l'en-tête de la page, avant la première image : le trou que le
+chantier de la régie avait mesuré est fermé.
+
+**Ce qui a résisté.**
+
+- Le premier « ••• » ouvrait la feuille, qui se refermait aussitôt. La cause :
+  un navigateur envoie l'événement de fermeture d'un dialogue plus tard que
+  l'ordre de fermeture. En développement, React ferme puis rouvre chaque
+  dialogue au montage, et l'événement de la fermeture du milieu arrivait après
+  la réouverture. Le même défaut empêchait le menu du jeu de s'ouvrir sous
+  Vite depuis des semaines, sans que personne le voie : les bancs servent la
+  page construite, où ce double passage n'existe pas. Leçon : un événement en
+  file peut arriver après que l'état a changé ; il faut relire l'état au
+  moment où il arrive.
+- La première mesure du réglage des touches passait sur la page cassée. Un
+  rectangle rendu par le navigateur (DOMRect) revient vide au pilote, et
+  « rien < 389 » est faux, donc la vérification ne voyait rien. Corrigé en
+  recopiant les nombres.
+- La mesure du thème au premier rappel d'image passait elle aussi sur
+  l'ancienne page. Elle lit maintenant au début du corps de la page :
+  l'ancienne page y est en craie quatre fois sur quatre.
+
+**La relecture adverse** a ensuite trouvé un défaut bloquant, trois majeurs et
+neuf mineurs. Les plus instructifs :
+
+- *Une marque verte dans un seul worktree.* Un worktree est une deuxième copie
+  de travail du même dépôt. La marque de la page est l'empreinte des fichiers
+  dont elle est construite, et elle parcourait les dossiers. Elle hachait donc
+  un cache de vitest de 83 octets, rangé sous `front/src/node_modules` par un
+  essai lancé depuis ce dossier, et ignoré par git. `just check` sortait 0
+  dans le worktree d'intégration. Sur une copie propre du même commit, la
+  marque était fausse, et la CI aurait été rouge après la fusion. La marque
+  lit maintenant la liste de git : les fichiers suivis, et ceux qui ne le sont
+  pas encore mais ne sont pas ignorés, puisqu'elle se pose avant le `git add`
+  d'un fichier neuf. Leçon : une empreinte ne doit compter que ce qu'un commit
+  peut emporter, et une porte verte se revérifie sur une copie propre.
+- *Un tiroir demandé là où il n'existe pas.* Sur un grand écran, avec la
+  manette à l'écran réglée sur « toujours », « La salle » posait l'état
+  « tiroir ouvert ». La manette se démontait, et aucun tiroir ne s'ouvrait,
+  puisqu'il n'en existe pas hors du mode compact. Il ne restait que la touche
+  Échap. Leçon : un état qui n'a de sens que dans une disposition se calcule
+  avec elle, en un seul endroit.
+- *Un clic volé entre l'appui et le relâché.* En vérifiant cette correction,
+  la garde a vu que le clic sur « ••• » n'arrivait pas. Le bouton prenait le
+  focus à l'appui. La page affichait alors l'avis « le jeu ne reçoit plus tes
+  touches » juste sous le pointeur, et le relâché tombait sur l'avis. Le
+  « ••• » ne prend plus le focus à la souris. Leçon : un appui qui déplace le
+  focus peut changer ce qui se trouve sous le pointeur avant le relâché. Seul
+  un vrai clic de navigateur le montre ; un `element.click()` l'aurait caché.
+- *Une page « manette seule » qui ne finissait jamais de charger.* Une telle
+  page n'affiche pas l'image : le téléphone sert seulement de manette. Or
+  l'écran de chargement attend une image peinte pour s'effacer. Il restait
+  donc posé, et la manette ne revenait qu'après soixante secondes et un
+  « abandonner ». Le défaut existait avant ce chantier, et le nouveau voile le
+  figeait. Ce chargement s'efface maintenant quand la salle annonce le jeu
+  demandé.
+- *Un faux salon qui répondait trop tôt.* Pour voir ce cas, la garde imite le
+  salon : une fausse socket répond à la poignée de main d'engine.io, la
+  bibliothèque qui porte les messages du salon. Sa première réponse partait
+  pendant l'envoi du client, avant qu'il soit prêt à l'entendre. La socket ne
+  passait donc jamais « connectée », et chaque annonce se perdait sans bruit.
+  La garde l'a vu parce que le cas jumeau, celui avec l'image, n'affichait pas
+  l'écran de chargement attendu. La réponse part maintenant après l'envoi,
+  comme d'un vrai serveur.
+- *Une garde qui exemptait ce qu'elle devait mesurer.* Le résumé du diagnostic
+  avait un plancher de 0 px, et seuls neuf sélecteurs étaient mesurés. Le
+  curseur du volume faisait 4 px de haut, et sept autres cibles moins de 44.
+  Le bouton qui referme le tiroir défilait avec lui, et la garde le ramenait à
+  l'écran avant de le mesurer. Elle mesure maintenant toutes les cibles du
+  tiroir, et ce bouton après avoir défilé jusqu'en bas.
+
+**Ce qui est mesuré.** La garde `just salle-telephone` vérifie six tailles de
+téléphone et de tablette, avec les zones sûres d'un iPhone simulées, puis un
+grand écran. Les zones sûres sont les marges qu'une encoche et la barre du
+système retirent aux bords. Le résultat : 51 cas verts sur l'arbre corrigé, et
+24 rouges sur l'arbre d'avant la relecture (fbb3bcc). Elle sert aussi la page
+construite avec la politique de sécurité du worker, et vérifie qu'aucun script
+n'y est refusé. Elle tourne en 112 s et entre dans la porte `local`, avec
+`just manette-garde` (48 s), mesurés le 22 novembre sur cette machine.
+
+**Ce qui n'est pas prouvé.**
+
+- Rien n'a été essayé sur un vrai téléphone. Les zones sûres sont simulées
+  avec des valeurs fixes. Restent à vérifier sur un appareil : l'ouverture
+  depuis l'écran d'accueil d'un iPhone, la reprise du son après un appel, les
+  mots de l'aide « Sur l'écran d'accueil » selon la version d'iOS, et le plein
+  écran d'un Android ouvert depuis son écran d'accueil.
+- Le retour du focus au « ••• » à la fermeture n'est prouvé que par l'essai de
+  la fonction ; la garde prouve seulement qu'il ne tombe plus sur le corps de
+  la page.
+- La politique servie par la garde est recalculée en JavaScript, avec le même
+  algorithme que le worker ; ce n'est pas la fonction Rust elle-même, dont
+  l'essai reste la preuve côté worker.
+- Le mode « mesures » du tiroir n'entre pas dans la mesure des 44 px.
+- Tant qu'elle est ouverte, la reprise de la salle couvre en partie le « ••• »
+  seul. C'est laissé ainsi, car elle attend une réponse urgente.
+- Le banc tourne sous Vite avec une fausse session média : il ne prouve rien
+  sur le flux.
+
+**Ce qui reste.** Pas de manifeste d'application (il faudrait autoriser
+`manifest-src` dans la politique du worker, et un essai sur Android), ni de
+verrou paysage, ni de Wake Lock. Pas de bandeau d'état unique au-dessus de
+l'image. Le menu XMB lit encore la taille de la fenêtre et non la zone sûre.
+Les dessins « câbles » et « plan » de l'avant-salle ne sont pas couverts par
+la garde, seul « classique » l'est. Le pilote `touch.mjs`, qui demande une
+salle vivante, n'a pas été relancé.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -27779,10 +29021,12 @@ s'en sert comme d'une proposition.
 **lsar, unar** : deux programmes libres qui listent et extraient la plupart
 des formats d'archive, dont 7z et rar.
 
-**Identifiant de titre (Switch)** : le numéro de seize chiffres hexadécimaux
-qui désigne un contenu Switch. Un jeu finit par `000`, sa mise à jour par
-`800`, un contenu additionnel porte le jeu plus 0x1000 et son numéro. La salle
-range les sauvegardes Switch sous ce numéro.
+**Identifiant de titre** : le numéro qui désigne un jeu. Sur la Switch, il a
+seize chiffres hexadécimaux : un jeu finit par `000`, sa mise à jour par
+`800`, un contenu additionnel porte le jeu plus 0x1000 et son numéro. Une
+Xbox 360 en écrit 8, lus dans l'en-tête du `default.xex` de son disque
+(534507D6 pour Sonic). Les salles rangent les sauvegardes de ces deux consoles
+sous ce numéro, en minuscules.
 
 **Clé d'en-tête** : la clé de 32 octets avec laquelle la console chiffre
 l'en-tête de chaque NCA. Elle vient des clés de la console de Souhib, dans le
@@ -27826,3 +29070,252 @@ Sous Linux, elle s'appuie sur GTK.
 
 **Xwayland** : un serveur X11 qui tourne comme une fenêtre d'un affichage
 Wayland, pour les programmes qui parlent X11.
+
+**Test doré** : un test qui enregistre une fois la bonne sortie, puis exige la
+même à chaque fois. Le doré des salles externes fige les commandes Docker,
+l'erreur finale et l'emplacement de sauvegarde de chaque scénario.
+
+**Amorce** : le petit programme qui prépare l'interpréteur, puis lance le vrai
+script. Celle du doré remplace seulement quelques fonctions de la bibliothèque
+standard.
+
+**Fermeture (d'un script)** : la liste des fichiers qu'un script lit vraiment.
+Le banc doré la recopie pour ses mutants et pour son passage sur une copie.
+
+**Interpréteur neuf** : un nouveau processus `python3`, qui n'hérite d'aucun
+module déjà chargé, comme celui que lance le worker.
+
+**Socle** : le code commun à tous les moteurs des salles externes, rangé dans
+`moteurs/socle/` : l'emplacement de sauvegarde, le plan d'un moteur, le cycle
+de la salle et la table des consoles externes.
+
+**Fiche moteur** : `moteurs/<moteur>/moteur.json`, ce qu'un émulateur déclare
+de lui-même : son nom, son exécutable, son affichage, la disposition de ses
+manettes et la raison de chaque écart. Un champ n'y entre qu'avec son premier
+lecteur.
+
+**Canari** : une nouvelle version donnée d'abord à une seule salle choisie,
+avant toutes les autres.
+
+**Ajout d'unité (drop-in)** : un fichier `.conf` posé dans
+`nel3ab-worker@N.service.d/`, qui change une seule salle sans toucher l'unité
+commune.
+
+**stdin** : l'entrée standard d'un programme. Le worker la ferme pour dire à
+une salle de s'arrêter.
+
+**Sélecteur** : l'outil de la bibliothèque standard Python qui attend qu'une
+entrée, ici stdin, ait quelque chose à lire. Il ne surveille que ce qu'on lui
+a inscrit.
+
+**Arbre syntaxique (AST)** : le code tel que Python le lit, sans les
+commentaires ni la mise en page. Deux fonctions de même arbre font la même
+chose.
+
+**uid, gid** : les numéros de l'utilisateur et de son groupe sous Linux.
+`1000:1000` est le premier compte créé sur la plupart des machines.
+
+**EPERM** : le refus « opération non permise » du noyau.
+
+**PLC0415** : la règle de ruff qui refuse un `import` dans le corps d'une
+fonction. Une salle lit tout son code au démarrage ; un import paresseux
+lirait, au moment de l'arrêt, une version plus récente de l'arbre.
+
+**Vecteurs (d'essai)** : des exemples d'entrée avec la réponse attendue,
+rangés dans un fichier que plusieurs essais lisent, ici un en Python et un en
+Rust. Si l'un des deux calculs change, son essai échoue sur l'exemple qui le
+montre.
+
+**Région vivante (aria-live, role="status")** : une partie de page que le
+navigateur signale aux lecteurs d'écran. Chaque texte qui y change peut être
+relu à voix haute. `role="status"` en est une, prévue pour une ligne d'état
+courte.
+
+**Lecteur d'écran** : le logiciel qui lit une page à voix haute pour une
+personne qui ne la voit pas. VoiceOver sur les appareils d'Apple, NVDA sous
+Windows.
+
+**jsdom** : une imitation de navigateur écrite en JavaScript, sans écran, où
+tournent les essais des composants sous Node. Elle ne calcule aucune position,
+n'a ni vrai focus ni dialogue modal.
+
+**Vite** : l'outil qui construit la page, et qui sert pendant le développement
+une version qui se recharge seule. Ce serveur de développement n'envoie pas la
+politique de sécurité du worker.
+
+**elementFromPoint** : la fonction du navigateur qui dit quel élément reçoit
+un appui à un endroit donné de l'écran.
+
+**Cible tactile** : la zone qu'un doigt doit toucher. 44 pixels de côté est le
+plancher usuel, celui de la règle WCAG 2.5.5 et du guide d'Apple.
+
+**Bande noire** : la marge noire à côté de l'image quand son format ne remplit
+pas l'écran.
+
+**Losange ABXY** : les quatre boutons d'action rangés en losange. Leur ordre
+change d'une console à l'autre : A en bas sur une Xbox, à droite sur une
+Switch.
+
+**Zone sûre** : la partie de l'écran qu'une encoche, une barre d'adresse ou la
+barre du système ne cache pas.
+
+**z-index** : le rang d'empilement d'un calque à l'écran. À rang égal, le
+dernier écrit dans la page passe dessus.
+
+**Rapport de contraste** : le rapport de luminosité entre un texte et son
+fond, par exemple 4,5 contre 1, écrit aussi 4,5:1. WCAG demande 4,5:1 pour un
+texte courant et 3:1 pour un trait qui n'est pas du texte.
+
+**Pose, pose dégradée** : la place que `placePad` calcule pour chaque touche
+de la manette tactile. Une pose dégradée est une disposition qu'elle n'a pas
+su rendre sans faute ; elle s'affiche quand même, et le dit.
+
+**Régie (de nuit, de jour)** : l'identité visuelle commune de la salle et du
+salon, en graphite la nuit et en craie le jour.
+
+**Jeton (de design)** : une variable CSS qui porte une couleur, une taille ou
+une durée, nommée par son usage.
+
+**Primitive, rôle** : la valeur brute d'un jeton (« graphite 900 »), et le
+sens qu'on lui donne (« fond », « encre »). Seuls les rôles changent d'un
+thème à l'autre.
+
+**Aplat, encre** : la couleur pleine d'un joueur pour une surface, et sa
+variante lisible pour du texte.
+
+**prefers-color-scheme** : le réglage clair ou sombre du système, que la page
+lit en CSS.
+
+**woff2** : le format compressé des fichiers de police du web.
+
+**oklab** : une façon d'écrire une couleur, que Tailwind 4 emploie pour les
+couleurs avec transparence.
+
+**CSP (Content Security Policy)** : la politique de sécurité du contenu, un
+en-tête envoyé avec une page qui liste ce qu'elle a le droit de charger et
+d'exécuter. Celle du worker n'exécute que les scripts dont l'empreinte est
+annoncée.
+
+**font-src** : la ligne de cette politique qui dit d'où une police peut venir.
+
+**Adresse data:** : une ressource écrite directement dans la page, au lieu
+d'être demandée au serveur.
+
+**Chiffres tabulaires (tnum)** : des chiffres de même largeur, pour qu'un
+nombre qui change ne bouge pas. `tnum` est le nom de la fonction d'une police
+qui les fournit.
+
+**Chasse fixe** : une police où chaque caractère a la même largeur.
+
+**État de liaison** : l'état unique que la page calcule pour dire ce qui
+arrive à l'image, parmi onze : en marche, image figée côté salle, salle qui
+redémarre, salle fermée, et les autres.
+
+**Message vide (keep-alive)** : le signe de vie que la salle envoie quand elle
+n'a pas d'image nouvelle.
+
+**Sonde** : une petite requête qui vérifie qu'un service répond.
+
+**Hystérésis** : une garde qui demande plus pour sortir d'un état que pour y
+entrer, pour qu'un état ne clignote pas.
+
+**Compositeur** : le programme qui assemble l'écran de la machine. Ici c'est
+Sway, qui compose à des tics réguliers.
+
+**Quantifié** : arrondi à une grille fixe, ici les tics de 16,67 ms du
+compositeur.
+
+**502 Bad Gateway** : la réponse d'un relais qui n'a pas pu joindre le service
+derrière lui.
+
+**Requête de conteneur** : une règle CSS qui lit la taille d'une boîte plutôt
+que celle de la fenêtre.
+
+**Relecture adverse** : une deuxième passe faite pour casser le travail plutôt
+que pour le valider.
+
+**Contrôle négatif** : la même vérification lancée contre une version qu'on
+sait fausse, pour prouver qu'elle sait échouer, et sur le bon défaut. Les
+recettes `*-rouge` en sont.
+
+**Mutant équivalent** : un défaut réintroduit qui ne change rien de visible
+dans les conditions de l'essai. Il ne prouve ni que l'essai est faible, ni que
+le code est juste.
+
+**Focus** : l'élément de la page qui reçoit le clavier. Tab le déplace, et un
+lecteur d'écran repart de là.
+
+**Anneau de focus** : le trait qui montre où est le focus.
+
+**Zone de jeu** : la boîte de l'image, seul endroit où le clavier pilote la
+manette.
+
+**Dialogue modal** : une fenêtre dans la page qui rend le reste inerte tant
+qu'elle est ouverte. En HTML, un `<dialog>` ouvert par `showModal()`.
+
+**Inerte** : ni cliquable, ni atteignable par Tab, ni lu par un lecteur
+d'écran.
+
+**Tabulation tournante (roving tabindex)** : un seul élément d'un groupe est
+dans l'ordre de Tab, et les flèches déplacent ce rôle d'un élément à l'autre.
+
+**Couche du dessus (top layer)** : l'étage où le navigateur pose les dialogues
+modaux, au-dessus de tout `z-index`.
+
+**Portail** : un composant React affiché ailleurs que chez son parent, par
+exemple dans un dialogue ouvert.
+
+**Câblage** : le code qui relie les fonctions pures à la page : qui appelle
+quoi, et quand.
+
+**role="application"** : dit au lecteur d'écran de laisser passer les touches
+à la page.
+
+**aria-current, aria-pressed, aria-disabled** : des attributs qui disent au
+lecteur d'écran, dans l'ordre, l'élément courant, un bouton enfoncé, et une
+commande grisée qui reste atteignable.
+
+**Lexique** : la liste des mots que la page emploie, un seul mot par chose,
+rangée dans `front/src/lib/mots.ts`.
+
+**Élision** : « d'Ami » au lieu de « de Ami ». La page et le salon élident
+devant une voyelle et devant un « y » suivi d'une consonne (« d'Yves »),
+jamais devant un « h ».
+
+**Feuille de partage** : la fenêtre du téléphone qui propose d'envoyer un lien
+par message ou par courriel.
+
+**replaceState** : la fonction du navigateur qui change l'adresse affichée
+sans recharger la page ni ajouter d'étape au bouton retour.
+
+**Tiroir** : un panneau posé par-dessus l'image, qu'on ouvre et qu'on referme.
+Sur un téléphone, la colonne de la salle en est un.
+
+**Feuille du bas** : un panneau qui monte du bas de l'écran. Celle de la salle
+s'ouvre par le « ••• » de la manette tactile.
+
+**Geste de page** : un bouton qui agit sur la page (son, menu, cacher la
+manette) et pas sur le jeu.
+
+**viewport-fit=cover** : le réglage qui laisse la page aller jusqu'aux bords
+de l'écran ; c'est elle qui se tient ensuite hors des zones sûres.
+
+**StrictMode** : un mode de développement de React qui passe deux fois sur
+chaque effet pour révéler les erreurs.
+
+**DOMRect** : le rectangle qu'un navigateur rend pour la place d'un élément.
+Envoyé tel quel à un pilote, il arrive vide.
+
+**CDP** : *Chrome DevTools Protocol*, le protocole qui pilote Chrome, celui
+que Puppeteer emploie.
+
+**Worktree** : une deuxième copie de travail du même dépôt git, sur une autre
+branche. Les chantiers y travaillent, pour ne jamais toucher l'arbre que la
+production lit.
+
+**Marque (de la page)** : l'empreinte des fichiers dont la page est
+construite, committée à côté d'elle pour voir une page qu'on a oublié de
+reconstruire.
+
+**engine.io** : la couche qui porte les messages de socket.io, la bibliothèque
+du salon ; elle commence chaque connexion par une poignée de main.

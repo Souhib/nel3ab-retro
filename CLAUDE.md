@@ -32,6 +32,11 @@ screen — the two live controller diagrams under `touches`. Read it before
 touching `lib/padmap.ts`, `lib/wiring.ts` or `components/Wiring.tsx`: the invariant
 it states (one frame, three readings) is not visible in any of them.
 
+The worker reads each external room's script, and all it imports, from the
+main working tree at every room start. Work in a separate git worktree; the main
+tree changes only by `git merge --ff-only` while no room container runs. The
+external rooms share `moteurs/socle/`, which never reads `consoles.json` (D27).
+
 ## The rules that matter
 
 ### 1. No rule without its reason — and the reason is measured
@@ -100,7 +105,7 @@ machine".
   tests. Type checking stopped before the browser exercised the missing menu
   refresh. Retain the fixture's callable interface, reintroduce the missing
   application action, and require the named behavioural failure. A failed build
-  is not that evidence.
+  is not that evidence. Browser proofs do it with `*-rouge` recipes.
 - **A negative twin for every positive assertion.** "Accepts 1..=4" is worthless
   without "rejects 0 and 5".
 - **Never assert behind a condition that can silently be false.** Assert the
@@ -418,6 +423,34 @@ machine".
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the
   wrapped tool does not use.
+- **Run a script as its real caller does, and keep a fake as strict as the
+  real thing.** On 2026-11-22, an in-process `runpy` golden test passed a
+  wrapper that the worker's fresh `python3` refused; golden files kept the
+  machine's `1000:1000`; a fake selector told a room that never listened that
+  stdin had closed; a fake lobby answered inside `send()` and lost every event.
+  `just salles-dore` runs each room fresh, under two accounts and on a copy.
+- **Measure the product, not a sign of it, and survive its rounding.**
+  Keep-alives kept a socket open through twenty minutes of frozen picture; a
+  Caddy 502 read as "the site answers"; `systemctl is-active` exits 3 both when
+  stopped and `activating`; a median of 16.67 ms ticks read a 45 fps game as
+  60. Time the images, count only a 2xx with its body, read the state word,
+  and date simulated frames from the wall clock, not from timer firings.
+- **A box does not prove what receives the point.** A touch key had its own
+  box while « cacher » lay over it. Hit-test with `elementFromPoint`, drive
+  real clicks rather than `element.click()`, and return numbers, not a DOMRect,
+  from `page.evaluate` (it arrives as `{}`). Name a sweep's unit and domain:
+  "2,000 sizes" counted poses, and never went below 320 px, where they broke.
+- **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
+  mutants passed over a thousand unit tests and every browser step. Assert the
+  state the wiring creates (`document.activeElement`, the URL). Two guards that
+  each suffice hide each other's mutant: give each its own test.
+- **The dev server and the built page differ both ways.** Vite sends no CSP,
+  so `data:` fonts loaded there and the worker refused them; a stale `close`
+  event under React StrictMode broke dialogs only in development. Verify under
+  the policy read from `page.rs`, and under both `prefers-color-scheme` values.
+- **Retiring a name means searching every consumer, drivers included.** On
+  2026-11-22, renamed saves broke five real-room drivers, and `manette-garde`
+  kept setting seven theme names that no selector matches any more.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 
@@ -436,8 +469,16 @@ binary, at the boundary.
 ### 7. A task is not done until CI is green — and CI cannot see the GPU
 
 Run **`just`** (which is `check` + `gpu-test` + `clip-audio-test` +
-`switch-saves-test` + `switch-capture-test` + `abri-test` + `deploy-check`) locally, then watch the run. A
+`switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` +
+`deploy-check` + `focus-navigateur` + `etats-navigateur` +
+`parcours-navigateur` + `salle-telephone` + `manette-garde`) locally, then
+watch the run. A
 failing early step means the later gates were **skipped, not passed**.
+
+The five browser proofs entered the local gate on 2026-11-22: jsdom has no
+layout, no modal dialog and no real focus. They need Chrome and ffmpeg, touch no
+live room, and took about nine minutes together. `check` gained `salles-dore`
+and `moteurs-test` the same day: no CI recipe tested the external adapters.
 
 The local gate also runs `switch-saves-test` and `switch-capture-test`. The adapter
 and capture now serve the main room; their filesystem and packet tests must not
@@ -458,7 +499,8 @@ Two halves, and neither covers the other:
   remote CI result. Never put `check` in the same command as `git push`: the push
   has to be a decision taken *after* reading the result. That rule exists because the output
   was ignored three times, the third after an earlier spurious red had taught
-  the eye to skip it.
+  the eye to skip it. Nor pipe a gate: on 2026-11-22, `just moteurs-test | grep
+  … && git commit` committed a ruff failure, because a pipe returns `grep`'s status.
 - **`just gpu-test`** covers the GPU paths CI structurally cannot prove. The runner has
   no GPU, so the dma-buf import, the compute pass and the encode are invisible
   to it — a green pipeline says nothing about the half of this project that
@@ -581,7 +623,9 @@ and commit the result, or the worker ships yesterday's page.
 the page that build produced (`front/stamp.mjs`, ADR D13). Do not replace that
 with a rebuild-and-diff: the minifier renames locals differently between runs of
 identical sources, so it goes red for no reason, and a check that is red for no
-reason is a check people learn to skip.
+reason is a check people learn to skip. Its inputs come from git's file list
+since 2026-11-22: a directory walk hashed an ignored vitest cache, and `check`
+was green in one worktree, red on a clean copy. Re-run a gate on a clean clone.
 
 Browser drivers against a temporary worker compare its served HTML hash with
 this artefact before exercising the page. Building the front end and running
@@ -593,6 +637,12 @@ The other half of the rule: **React must never end up on the frame path.** The
 media loop lives in `front/src/media/` as plain modules that own the canvas and
 paint on `requestAnimationFrame`. React reads a snapshot twice a second. A
 component that wants to read the picture is a component to rewrite as a module.
+
+Page conventions since 2026-11-22 (ADR D26 to D35): colours live in
+`front/src/regie.css`, and no page redeclares a token; the game keyboard lives
+in the game zone (`lib/focus-jeu.ts`); a full-screen layer is a `<dialog>`
+opened by `showModal()` whose cursor is the focus, and what must stay above it
+goes through `Surcouche`; visible words come from `lib/mots.ts`.
 
 ### 9. The logbook is part of the work, not a write-up afterwards
 
@@ -636,9 +686,19 @@ Markdown alone does not update the site.
 
 | | |
 |---|---|
-| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `abri-test` + `deploy-check`** |
+| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` + `deploy-check` + `focus-navigateur` + `etats-navigateur` + `parcours-navigateur` + `salle-telephone` + `manette-garde`** |
 | `just abri-test` | the encrypted NAS copy of the saves, restored from a throwaway repository (needs restic) |
-| `just check` | Rust + Python + page: the shared code-quality recipe used by CI |
+| `just check` | Rust + Python + page, with `salles-dore` and `moteurs-test`: the shared code-quality recipe used by CI |
+| `just salles-dore` | every external room script run as the worker runs it, under the machine's account, under another account and on a copy, compared with `docker/dore/*.json` (in `check`) |
+| `just salles-dore-ecrire` | rewrites the golden files and prints each changed line; refuses while any file outside `docker/dore/` is modified |
+| `just moteurs-test` | `moteurs/` under `/usr/bin/python3`, ruff with PLC0415 (no import inside a function) and format (in `check`) |
+| `just focus-navigateur` | focus, keyboard ownership and modal menus of the committed page in a real browser, against a simulated room and lobby (needs Chrome and ffmpeg) |
+| `just etats-navigateur` | the room's link states (frozen picture, silent socket, 502, restart, stalling link) against a simulated room and lobby with a real H.264 stream |
+| `just parcours-navigateur` | the room's routes: entry in the URL, reload, invite, exit, closing by the owner, preparation names |
+| `just salle-telephone` | the room on phones and tablets: drawer, bottom sheet, 44 px targets, safe areas, the built page under the worker's CSP |
+| `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast, in four rooms at seven sizes, served by Vite without relays |
+| `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
+| `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
 | `just front-build` | rebuilds the page into the worker's source tree, and stamps it |

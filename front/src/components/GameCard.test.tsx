@@ -96,3 +96,35 @@ it("la fiche d'un jeu GameCube garde la manette GameCube, et un code inconnu le 
   expect(container.textContent).toMatch(/appareil 7 inconnu/);
   expect(container.textContent).not.toMatch(/GameCube/);
 });
+
+it("en salle Pro, le réglage Wii passé en `kind` ne change pas l'appareil de la fiche", () => {
+  // `App` passe `kind={pad}`, le réglage Wii de 0 à 3, à la fiche de toute
+  // salle. Une salle Switch n'a qu'un appareil, la manette Pro: sans cette
+  // règle, la fiche dirait « appareil 1 inconnu » et perdrait ses repères.
+  const { container } = render(<GameCard game={proGame("switch")} kind={1} />);
+  expect(screen.getByText("Repères · manette Pro")).toBeInTheDocument();
+  expect(screen.getByText("ZR · gâchette droite")).toBeInTheDocument();
+  expect(container.textContent).not.toMatch(/inconnu|Wiimote/);
+});
+
+it("le jumeau Wii: là, `kind` choisit bien l'appareil de la fiche", () => {
+  render(
+    <GameCard
+      game={{
+        index: 2,
+        name: "Jeu Wii",
+        console: "wii",
+        guide: {
+          allowed: [1, 0],
+          source: "",
+          note: "",
+          actions: { "1": { A: "Sauter" }, "0": { A: "Courir" } },
+        },
+      }}
+      kind={1}
+    />,
+  );
+  expect(screen.getByText("Repères · Wiimote et Nunchuk")).toBeInTheDocument();
+  expect(screen.getByText("Sauter")).toBeInTheDocument();
+  expect(screen.queryByText("Courir")).toBeNull();
+});

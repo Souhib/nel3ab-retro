@@ -21,7 +21,7 @@ export type PleinEcran =
   | "api"
   /** Un appareil Apple sans l'API: l'écran d'accueil fait le même travail. */
   | "ecran-accueil"
-  /** Déjà ouverte depuis l'écran d'accueil: rien à proposer. */
+  /** Déjà ouverte depuis l'écran d'accueil, sans l'API: rien à proposer. */
   | "deja"
   /** Ni l'un ni l'autre: ne rien promettre. */
   | "aucun";
@@ -30,8 +30,11 @@ export type PleinEcran =
 export type Appareil = { api: boolean; installe: boolean; apple: boolean };
 
 export function pleinEcranPossible({ api, installe, apple }: Appareil): PleinEcran {
-  if (installe) return "deja";
+  // L'API d'abord: une page ouverte depuis l'écran d'accueil d'un Android
+  // garde ses barres du système, et l'API les retire encore. « deja » ne vaut
+  // que là où il n'y a rien d'autre à proposer (relecture du 22 novembre 2026).
   if (api) return "api";
+  if (installe) return "deja";
   if (apple) return "ecran-accueil";
   return "aucun";
 }

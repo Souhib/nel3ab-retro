@@ -62,7 +62,6 @@ export function Sidebar({
   onComplain,
   garde,
   onTakeHalf,
-  onFold,
 }: {
   /** Ce que la personne tient: l'aide ne promet Échap qu'au clavier. */
   appareil?: Appareil;
@@ -92,14 +91,10 @@ export function Sidebar({
    * elle vit sur l'image (`EtatSalle`), le seul endroit visible aussi sur un
    * téléphone, où la colonne est repliée d'office (audit E2). */
   onTakeHalf: () => void;
-  /** Fermer le tiroir de la colonne (`lib/disposition`). Un BOUTON et pas
-   * seulement Échap.
-   *
-   * Sur un téléphone il n'y a pas de touche Échap, donc la colonne visible n'a
-   * plus aucune sortie: elle prend la moitié de l'écran et rien ne la referme.
-   * Signalé le 18 août 2026, et c'est un piège que j'avais fabriqué en la
-   * repliant d'office sans laisser de porte dans l'autre sens. */
-  onFold?: () => void;
+  /* Le bouton qui referme le tiroir a quitté la colonne pour le haut du
+     tiroir (`BarreDuTiroir`), où il ne défile plus avec elle. Un BOUTON et
+     pas seulement Échap, depuis le 18 août 2026: sur un téléphone, il n'y a
+     pas de touche Échap. */
 }) {
   const watching = people.filter((person) => person.seat == null && person.seat_pending === false);
   const pending = people.filter((person) => person.seat == null && person.seat_pending !== false);
@@ -107,25 +102,6 @@ export function Sidebar({
   return (
     <>
       <div className="flex gap-1">
-        {onFold ? (
-          <button
-            type="button"
-            id="foldColumn"
-            onClick={onFold}
-            title="revenir au jeu"
-            // Le nom calculé était « ✕ », lu « multiplication » (audit A11Y-10).
-            // « Revenir au jeu » depuis que la colonne n'a ce bouton que dans
-            // son tiroir (22 novembre 2026): elle n'y est pas repliée, on la
-            // referme pour rejouer.
-            aria-label="revenir au jeu"
-            // Dans le coin de la colonne, et plus dans la rangée des deux
-            // modes: dans une colonne de téléphone (195 px), les trois
-            // boutons ne tenaient pas et « mesures » sortait du cadre.
-            className="absolute top-2 right-2 flex min-h-11 min-w-11 items-center justify-center border border-rule bg-panel text-corps text-faint transition-colors hover:border-rule-bright"
-          >
-            ✕
-          </button>
-        ) : null}
         {(["normal", "details"] as Mode[]).map((choice) => (
           <button
             key={choice}
@@ -146,7 +122,10 @@ export function Sidebar({
                 : "border-rule text-faint hover:border-rule-bright",
             )}
           >
-            {choice === "normal" ? "salle" : "mesures"}
+            {/* « essentiel » et plus « salle »: le tiroir entier s'appelle « La
+                salle », et un bouton « salle » à l'intérieur nommait un
+                quatrième endroit (relecture du 22 novembre 2026). */}
+            {choice === "normal" ? "essentiel" : "mesures"}
           </button>
         ))}
       </div>

@@ -21,12 +21,14 @@
  * le système, par `prefers-color-scheme`, pas ce script: avec « comme
  * l'appareil », la page est juste dès sa première image, script lancé ou non.
  *
- * Un choix CONTRE le système attend ce script, qui est un module lancé après la
- * lecture du document: sa première image peut porter le thème du système.
- * Mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans écran,
- * par le premier rappel d'image (juste avant la première peinture): « nuit »
- * sous un système clair y était encore en craie cinq fois sur six. Un script
- * classique dans l'en-tête de `index.html` le corrigerait.
+ * Un choix CONTRE le système ne peut pas attendre ce module, lancé après la
+ * lecture du document: sa première image portait le thème du système.
+ * Mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans écran:
+ * « nuit » sous un système clair y était encore en craie quatre fois sur
+ * quatre au début du corps. Depuis, un script CLASSIQUE de l'en-tête de
+ * `front/index.html` pose `data-theme` avant le corps, et
+ * `theme-en-tete.test.ts` le compare à `storedTheme()` pour chaque valeur.
+ * Ce module le repose ensuite, à l'identique.
  */
 export const THEMES = [
   { id: "auto", label: "comme l'appareil", note: "clair ou sombre selon le système" },

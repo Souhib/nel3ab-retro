@@ -147,9 +147,11 @@
 }
 
 /* ── Le tiroir de la colonne ─────────────────────────────────────────────
-   Tenu droit, il prend tout l'écran; tenu en travers ou sur une tablette, il
-   se pose à droite sur 420 px, assez pour les quatre places et leurs noms,
-   et laisse voir l'image à côté, assombrie. */
+   Sous 480 px de large, il prend tout l'écran; au-delà (un téléphone tenu en
+   travers, une tablette), il se pose à droite sur 420 px, assez pour les
+   quatre places et leurs noms, et laisse voir l'image à côté, assombrie. À
+   430 px de large, 420 px laissaient une bande de 10 px de jeu assombri, qui
+   n'était ni l'image ni le tiroir (relecture du 22 novembre 2026). */
 .n3-tiroir {
   position: fixed;
   inset: 0 0 0 auto;
@@ -165,6 +167,12 @@
   color: var(--encre);
   overflow: hidden;
 }
+@media (max-width: 480px) {
+  .n3-tiroir {
+    width: 100%;
+    border-left: 0;
+  }
+}
 .n3-tiroir > aside {
   box-sizing: border-box;
   height: 100%;
@@ -174,15 +182,66 @@
   padding: calc(12px + var(--zone-haut)) calc(12px + var(--zone-droite))
     calc(12px + var(--zone-bas)) 12px;
 }
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   .n3-tiroir > aside {
     padding-left: calc(12px + var(--zone-gauche));
   }
 }
-/* Le bouton qui referme, dans le coin, hors de l'encoche. */
-.n3-tiroir #foldColumn {
-  top: calc(8px + var(--zone-haut));
-  right: calc(8px + var(--zone-droite));
+
+/* Le haut du tiroir, collé pendant qu'on défile: son nom, et « Revenir au
+   jeu ». Les marges négatives le posent sur le bord du tiroir, sous
+   l'encoche, et son fond cache ce qui défile dessous. */
+.n3-tiroir-barre {
+  position: sticky;
+  top: calc(-12px - var(--zone-haut));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: calc(-12px - var(--zone-haut)) calc(-12px - var(--zone-droite)) 0 -12px;
+  padding: calc(8px + var(--zone-haut)) calc(12px + var(--zone-droite)) 8px 12px;
+  background: var(--plaque);
+  border-bottom: 1px solid var(--filet);
+}
+@media (max-width: 480px) {
+  .n3-tiroir-barre {
+    margin-left: calc(-12px - var(--zone-gauche));
+    padding-left: calc(12px + var(--zone-gauche));
+  }
+}
+.n3-tiroir-nom {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-fort);
+  font-weight: 600;
+}
+.n3-tiroir-barre .n3-action {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+/* Chaque cible du tiroir fait 44 px au moins, sans exception à tenir en
+   liste: mesurées le 22 novembre 2026, « menu » et « Inviter » faisaient
+   41 px, les deux modes 33, les « ? » 36 de large, le résumé du diagnostic
+   23 et le curseur du volume 4. Le tiroir ne s'ouvre qu'au doigt ou dans une
+   fenêtre étroite: la colonne d'un grand écran garde sa densité. */
+.n3-tiroir :is(button, select, a[href]) {
+  min-height: 44px;
+}
+.n3-tiroir .n3-aide-bouton {
+  min-width: 44px;
+}
+/* Le résumé garde son triangle: un `display: flex` l'effacerait. */
+.n3-tiroir summary {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding-block: 10px;
+}
+/* Le curseur du volume: une boîte de 44 px, sa piste de 4 px dessinée au
+   milieu, à la place de la bande pleine qu'il était. */
+.n3-tiroir input[type="range"] {
+  height: 44px;
+  background: linear-gradient(var(--rule), var(--rule)) no-repeat center / 100% 4px;
 }
 
 @media (prefers-reduced-motion: no-preference) {

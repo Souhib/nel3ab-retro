@@ -31,7 +31,7 @@ import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
 import { Ouverture } from "./components/Ouverture";
-import { attenteDemarrage, bootingStep } from "./lib/booting";
+import { attenteDemarrage, bootingStep, suiteDuChargement } from "./lib/booting";
 import { GardeSignalement } from "./lib/garde-signalement";
 import { FENETRE_VIDE, fenetrePourProposition, type Liaison } from "./media/liaison";
 import { Sidebar } from "./components/Sidebar";
@@ -93,18 +93,25 @@ import {
 } from "./lib/theme";
 import { FITS, fitLabel, place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
-import { useEnTiroir } from "./lib/disposition";
-import { entreesDeLaFeuille, nomDuPlus } from "./lib/feuille";
+import {
+  apresCtrl,
+  couchesDeLaSalle,
+  focusApresFermeture,
+  ouvrirLaSalle,
+  useEnTiroir,
+  voileSurImage,
+} from "./lib/disposition";
+import { entreesDeLaFeuille, nomDuPlus, OUVRE_LA_FEUILLE } from "./lib/feuille";
 import { lireAppareil, pleinEcranPossible } from "./lib/plein-ecran";
 import { armerReveilDuSon } from "./media/reveil-son";
 import { FeuilleDuBas } from "./components/FeuilleDuBas";
-import { TiroirSi } from "./components/Tiroir";
+import { BarreDuTiroir, TiroirSi } from "./components/Tiroir";
 import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
 import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
 import { arrange, avecAvances, MANETTES, selonAppareil } from "./lib/settings";
-import { appareilDe, pour } from "./lib/appareil";
+import { aideDeLaSalle, appareilDe, pour } from "./lib/appareil";
 import { clavierAuJeu, clavierEnPause, REND_LE_JEU, rendreAuJeuApresClic } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
 import { keyLabel, keyboardLayout } from "./media/describe";
@@ -523,9 +530,28 @@ function Room({
    * chargement, la colonne cacherait la partie qu'on vient rejoindre. */
   const [tiroir, setTiroir] = useState(false);
   const [feuille, setFeuille] = useState(false);
-  const basculerTiroir = useCallback(() => setTiroir((ouvert) => !ouvert), []);
+  /** Le tiroir VRAIMENT ouvert: jamais hors du mode compact. Un tiroir demandé
+   * sur un grand écran démontait la manette sans rien ouvrir (relecture du
+   * 22 novembre 2026). La même règle que `couchesDeLaSalle`, lue plus tôt. */
+  const tiroirOuvert = compact && tiroir;
+  // Une fenêtre agrandie au-delà de 900 px, tiroir ouvert, ne le garde pas
+  // pour la prochaine fois qu'elle rétrécit.
+  useEffect(() => {
+    if (!compact) setTiroir(false);
+  }, [compact]);
+  /** Ce que Ctrl lit au moment où elle est relâchée (`apresCtrl`). Une
+   * référence, parce que le menu et le réglage des touches sont déclarés plus
+   * bas et changent sans que l'écoute du clavier ait à se rebrancher. */
+  const pourCtrl = useRef({ tiroir: false, menu: false, feuille: false, touches: false });
+  const basculerTiroir = useCallback(() => {
+    const suite = apresCtrl(pourCtrl.current);
+    if (suite === null) return;
+    setTiroir(suite.tiroir);
+    setMenu(suite.menu);
+    setFeuille(suite.feuille);
+  }, []);
   // Ctrl seule replie la colonne à côté de l'image, et ouvre ou ferme le
-  // tiroir quand elle en est un.
+  // tiroir quand elle en est un, sans jamais l'empiler sur le menu.
   const { bare, setBare, fullscreen, toggleFullscreen } = useBare(
     coarse,
     compact ? basculerTiroir : undefined,
@@ -568,6 +594,7 @@ function Room({
    * s'il y en avait une, et s'alarmait en conséquence. */
   const playing = room === undefined ? null : room.game !== null;
   const [menu, setMenu] = useState(idle);
+  pourCtrl.current = { tiroir: tiroirOuvert, menu, feuille, touches: bindings };
   // Le menu, ou quelqu'un qui demande ta place, passent avant le tiroir et la
   // feuille: les deux sont des dialogues modaux, qui rendraient le menu ou la
   // demande inertes dessous. La demande ne dure que dix secondes.
@@ -871,7 +898,7 @@ function Room({
       if (typingIn(event.target)) return;
       // Le tiroir et la feuille se ferment eux-mêmes par Échap: leur
       // `preventDefault` ici les garderait ouverts.
-      if (event.key !== "Escape" || menu || bindings || tiroir || feuille) return;
+      if (event.key !== "Escape" || menu || bindings || tiroirOuvert || feuille) return;
       // Sans `preventDefault`, la fin de ce même appui est une « demande de
       // fermeture » pour le navigateur, et le menu, ouvert en dialogue modal
       // pendant l'événement, la recevait: il s'ouvrait et se refermait aussitôt
@@ -881,7 +908,7 @@ function Room({
     };
     addEventListener("keydown", press);
     return () => removeEventListener("keydown", press);
-  }, [menu, bindings, tiroir, feuille]);
+  }, [menu, bindings, tiroirOuvert, feuille]);
 
   /* Le modèle de focus (`lib/focus-jeu`): le clavier du jeu vit dans la zone de
      jeu, et partout ailleurs Entrée, Espace et les flèches font ce que fait le
@@ -941,6 +968,8 @@ function Room({
     return () => document.removeEventListener("click", clic);
   }, [enPartie]);
 
+  /** Le jeu que la salle dit faire tourner, par son nom comme `booting`. */
+  const jeuEnCours = room?.game?.name ?? null;
   useEffect(() => {
     if (booting === null) return;
     // L'instantané LU MAINTENANT, et surtout pas celui du rendu.
@@ -962,46 +991,38 @@ function Room({
     // cache, celui-là même que React vient de nous passer. Le lire ne corrigeait
     // donc rien, et la première version de ce correctif a échoué exactement de
     // la même façon que le défaut — mesuré, pas deviné.
-    const live = session?.video.stats();
-    if (!live) return;
-    // Deux conditions, et il en faut deux. Le flux doit avoir REDÉMARRÉ, sinon
-    // on compte les images de l'ancien jeu; et le nouveau doit avoir peint une
-    // trentaine d'images, parce que la toute première est parfois une image-clé
-    // restée dans le décodeur, et disparaître dessus ferait clignoter l'ancien
-    // jeu une demi-seconde.
-    // L'image doit avoir DISPARU, puis être revenue. Compter les images ne
-    // suffisait pas: changer de jeu arrête le worker en une seconde environ, et
-    // l'ancien flux en peint une soixantaine avant que sa socket ne tombe.
-    // L'écran s'effaçait donc en une demi-seconde, et on regardait « en attente
-    // de l'image » pendant les trente secondes de démarrage d'un jeu Wii.
+    const live = session?.video.stats() ?? null;
+    // Trois conditions, et il en faut trois. Le flux doit avoir REDÉMARRÉ, le
+    // nouveau doit peindre une trentaine d'images, et l'image ne doit plus
+    // être noire: c'est l'étape « première image » (`bootingStep`), et la
+    // règle vit avec elle dans `lib/booting` (`suiteDuChargement`).
     //
-    // Compter les reconnexions ne suffisait pas non plus: un simple hoquet en
-    // provoque une, et l'écran repartait pareil. Ce qui distingue un hoquet d'un
-    // changement de jeu est la DURÉE du noir — une seconde contre trente.
-    // Le redémarrage demandé doit être ARRIVÉ, et le nouveau flux doit peindre.
-    // Une trentaine d'images, parce que la première est parfois une image-clé
-    // restée dans le décodeur, et disparaître dessus ferait clignoter l'ancien
-    // jeu une demi-seconde.
-    // Trois conditions. Le flux doit avoir REDÉMARRÉ, le nouveau doit peindre,
-    // et l'image ne doit plus être noire.
+    // Compter les images seules ne suffisait pas: changer de jeu arrête le
+    // worker en une seconde environ, et l'ancien flux en peint une soixantaine
+    // avant que sa socket ne tombe. Compter les reconnexions non plus: un
+    // simple hoquet en provoque une. Et sans la troisième, mesurée le 31 août
+    // 2026, l'écran se retirait sur le démarrage de Dolphin: quatre secondes de
+    // noir sur Mario Kart Double Dash, aucune sur Mario Party 4. La sonde qui
+    // répond ne tourne QUE dans cette fenêtre; voir `video.sampleDark`.
     //
-    // La troisième vient de la mesure du 31 août 2026: sans elle, l'écran se
-    // retirait sur le démarrage de Dolphin — quatre secondes de noir sur Mario
-    // Kart Double Dash, aucune sur Mario Party 4, donc un défaut qui se montre
-    // un jeu sur deux. La sonde qui répond ne tourne QUE dans cette fenêtre,
-    // pour zéro coût pendant une partie; voir `video.sampleDark`.
-    if (!live.awaitingRestart && live.paintedSince > 30 && !live.dark) return setBooting(null);
-    // Et un plafond, pour le cas où rien n'arrive jamais: un changement de jeu
-    // refusé ne provoque aucune reconnexion.
+    // Le plafond de soixante secondes ne fait plus DISPARAÎTRE l'écran: il
+    // s'effaçait sur du noir, sans un mot. C'est le seul endroit où la page
+    // SAIT qu'elle a échoué, donc c'est là que la sortie est proposée.
     //
-    // L'écran ne DISPARAÎT plus à cet instant. Il s'effaçait sur du noir, sans
-    // un mot, ce qui remettait exactement dans l'état d'avant: regarder du
-    // noir sans savoir si c'est cassé. C'est le seul endroit où la page SAIT
-    // qu'elle a échoué, donc c'est là que la sortie doit être proposée.
-    if (performance.now() - booting.at > 60_000 && booting.stalled !== true) {
-      setBooting({ ...booting, stalled: true });
-    }
-  }, [booting, shot, session]);
+    // Une page « manette seule » n'a pas d'image: son chargement s'efface quand
+    // la salle annonce le jeu demandé, et ne retenait plus ses touches sans fin
+    // (relecture du 22 novembre 2026).
+    const suite = suiteDuChargement({
+      padOnly,
+      demande: booting.game,
+      enCours: jeuEnCours,
+      depuisMs: performance.now() - booting.at,
+      cale: booting.stalled === true,
+      image: live,
+    });
+    if (suite === "effacer") setBooting(null);
+    else if (suite === "caler") setBooting({ ...booting, stalled: true });
+  }, [booting, shot, session, padOnly, jeuEnCours]);
   useEffect(() => {
     applyTheme(theme);
     rememberTheme(theme);
@@ -1217,11 +1238,49 @@ function Room({
    * recouvraient la manette à l'écran avec son « ••• »: sur un téléphone, le
    * tiroir de la salle (places, signaler, quitter) devenait introuvable
    * pendant une panne (audit P4, E7). La manette n'est donc pas montée, et le
-   * « ••• » se pose seul, au-dessus de ces écrans. */
-  const voile =
-    (idle && !menu && !configuring) ||
-    booting !== null ||
-    (!padOnly && dire(liaison, salle(), moteurDe(room?.game?.console)).niveau === "rideau");
+   * « ••• » se pose seul, au-dessus de ces écrans.
+   *
+   * Pas pour une page « manette seule »: elle n'a ni image ni écran de
+   * chargement, et c'est elle qu'on tient pendant que le jeu démarre
+   * (`voileSurImage`). */
+  const voile = voileSurImage({
+    repos: idle && !menu && !configuring,
+    chargement: booting !== null,
+    rideau: dire(liaison, salle(), moteurDe(room?.game?.console)).niveau === "rideau",
+    padOnly,
+  });
+  /** Ce qui est monté par-dessus l'image, décidé en un seul endroit. */
+  const couches = couchesDeLaSalle({
+    compact,
+    tiroir,
+    feuille,
+    manette: session !== null && onTouch,
+    voile,
+    bare,
+  });
+  /* Le focus revient à ce qui a ouvert la feuille ou le tiroir.
+
+     Le « ••• » de la manette est démonté pendant que la feuille est ouverte
+     (le démontage relâche les touches tenues), donc le dialogue ne peut plus
+     lui rendre le focus: il tombait sur le document, et un lecteur d'écran
+     repartait du début de la page (relecture du 22 novembre 2026, WCAG
+     2.4.3). Seulement quand rien d'autre ne s'ouvre à la place: une entrée
+     de la feuille peut ouvrir le tiroir ou le menu. */
+  const coucheAvant = useRef(false);
+  useEffect(() => {
+    const ouverte = feuille || tiroirOuvert;
+    const fermee = coucheAvant.current && !ouverte;
+    coucheAvant.current = ouverte;
+    if (!fermee || menu) return;
+    const ici = document.activeElement;
+    const plus = document.querySelector<HTMLElement>(OUVRE_LA_FEUILLE);
+    const suite = focusApresFermeture({
+      perdu: ici === null || ici === document.body,
+      plus: plus !== null,
+    });
+    if (suite === "plus") plus?.focus({ preventScroll: true });
+    else if (suite === "jeu") zone.current?.focus({ preventScroll: true });
+  }, [feuille, tiroirOuvert, menu]);
   useEffect(() => {
     session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
     return () => session?.input.blockGameplay(false);
@@ -1778,8 +1837,10 @@ function Room({
           ? [
               {
                 id: "places",
-                label: "places et spectateurs",
-                hint: "prendre ou demander une place, signaler, quitter (Ctrl)",
+                // Le même nom que l'entrée de la feuille et que le tiroir:
+                // « places et spectateurs » nommait un quatrième endroit.
+                label: "la salle",
+                hint: aideDeLaSalle(appareil),
                 icon: <RoomIcon className="h-full w-full" />,
                 onEnter: () => {
                   setMenu(false);
@@ -2059,7 +2120,12 @@ function Room({
                       // Sans `picked`: aucun des deux n'est « en cours ».
                       picks: [
                         { id: "rester", label: "revenir au menu" },
-                        { id: "colonne", label: "tout le détail, dans la colonne" },
+                        {
+                          id: "colonne",
+                          label: compact
+                            ? "tout le détail, dans la salle"
+                            : "tout le détail, dans la colonne",
+                        },
                       ],
                       onPick: (choix: string) => {
                         if (choix !== "colonne") return;
@@ -2078,7 +2144,9 @@ function Room({
                       })
                         .slice(1)
                         .map((ligne) => `${ligne.nom}: ${ligne.valeur}`)
-                        .join(", ")}. ${pour(appareil, "voir le détail dans la colonne")}.`,
+                        .join(
+                          ", ",
+                        )}. ${pour(appareil, compact ? "voir le détail dans la salle" : "voir le détail dans la colonne")}.`,
                       onEnter: () => {
                         setMode("details");
                         if (compact) setTiroir(true);
@@ -2294,7 +2362,7 @@ function Room({
             feuille: « cacher » sans retour était un piège (18 août 2026).
             La manette n'est pas montée sous le tiroir ni sous la feuille: le
             démontage relâche ce qu'un doigt tenait encore (audit M6). */}
-        {compact && !(session && onTouch && !voile) && !tiroir && !feuille ? (
+        {couches.plusSeul ? (
           <button
             type="button"
             id="ouvrirFeuille"
@@ -2302,17 +2370,15 @@ function Room({
             data-alerte={soundOff ? "" : undefined}
             aria-label={nomDuPlus(soundOff)}
             aria-haspopup="dialog"
+            // Comme celui de la manette: un clic de souris laisse le clavier
+            // au jeu (`TouchPad`).
+            onMouseDown={(event) => event.preventDefault()}
             onClick={() => setFeuille(true)}
           >
             •••
           </button>
         ) : null}
-        {session &&
-        onTouch &&
-        !voile &&
-        !tiroir &&
-        !feuille &&
-        usesProInput(room?.game?.console) ? (
+        {session && couches.pave && usesProInput(room?.game?.console) ? (
           <SwitchTouchPad
             source={session.input.switch}
             console={room?.game?.console}
@@ -2322,7 +2388,7 @@ function Room({
             soundOff={soundOff}
             onFeuille={() => setFeuille(true)}
           />
-        ) : session && onTouch && !voile && !tiroir && !feuille ? (
+        ) : session && couches.pave ? (
           <TouchPad
             /* La largeur des bandes noires de chaque côté de l'image.
              *
@@ -2384,7 +2450,11 @@ function Room({
                   setMenu(true);
                   return;
                 case "salle":
-                  setTiroir(true);
+                  // Le tiroir sur un téléphone, la colonne dépliée sur un
+                  // grand écran: la manette à l'écran « toujours » y ouvre
+                  // aussi la feuille (`ouvrirLaSalle`).
+                  if ("tiroir" in ouvrirLaSalle(compact)) setTiroir(true);
+                  else setBare(false);
                   return;
                 case "manette":
                   setTouchPref(onTouch ? "off" : "on");
@@ -2463,7 +2533,7 @@ function Room({
             premier lancement d'une salle vide, le jeu n'est pas encore chargé
             côté worker, donc la salle est encore « au repos » pendant qu'il
             redémarre. */}
-        {booting ? (
+        {booting && !padOnly ? (
           <Booting
             game={booting.game}
             console={room?.library.find((one) => one.name === booting.game)?.console}
@@ -2510,7 +2580,7 @@ function Room({
             change (audit A11Y-03, A11Y-07, A11Y-09). */}
         <LigneParlee
           liaison={
-            booting
+            booting && !padOnly
               ? {
                   etat: "demarrage",
                   depuisMs: performance.now() - booting.at,
@@ -2536,8 +2606,8 @@ function Room({
           tiroir par-dessus l'image sous 900 px ou au doigt (`lib/disposition`),
           ouvert par la feuille du bas, par le menu ou par Ctrl. La même
           colonne, entière, dans les deux formes. */}
-      {(compact ? !tiroir : bare) ? null : (
-        <TiroirSi actif={compact} onFermer={() => setTiroir(false)}>
+      {couches.colonne === null ? null : (
+        <TiroirSi actif={couches.colonne === "tiroir"} onFermer={() => setTiroir(false)}>
           <aside
             id="side"
             /* La largeur choisie, et jamais plus de la moitié de la fenêtre:
@@ -2549,9 +2619,10 @@ function Room({
               !compact && "shrink-0 border-l border-rule px-3 py-3",
             )}
           >
-            {/* La place du bouton qui ferme le tiroir, posé dans son coin
-              (`Sidebar`): l'en-tête ne passe pas dessous. */}
-            <header className={cn("flex flex-col gap-0.5", compact && "pr-12")}>
+            {couches.colonne === "tiroir" ? (
+              <BarreDuTiroir onFermer={() => setTiroir(false)} />
+            ) : null}
+            <header className="flex flex-col gap-0.5">
               <span className="n3-marque">nel3ab</span>
               <h1 className="truncate text-fort font-medium">{room?.name ?? `salle ${salle()}`}</h1>
               <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
@@ -2746,7 +2817,6 @@ function Room({
               onSound={() => void session?.sound.start()}
               onLeave={onLeave}
               onTakeHalf={takeHalf}
-              onFold={compact ? () => setTiroir(false) : undefined}
               onComplain={complain}
               garde={garde.current}
             />

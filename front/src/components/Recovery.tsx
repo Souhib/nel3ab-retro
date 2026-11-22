@@ -84,7 +84,9 @@ export function Recovery({
       id="recovery"
       role="alert"
       aria-label="reprise de la salle"
-      className="fixed inset-x-3 top-6 z-[100] mx-auto flex max-w-lg flex-col gap-3 border border-indigo bg-panel p-5 text-fort text-text shadow-xl"
+      // Hors de l'encoche: la page va jusqu'aux bords depuis
+      // `viewport-fit=cover`, et 24 px tombaient sous une barre d'état de 47.
+      className="fixed top-[calc(var(--zone-haut)+1.5rem)] right-[calc(var(--zone-droite)+0.75rem)] left-[calc(var(--zone-gauche)+0.75rem)] z-[100] mx-auto flex max-w-lg flex-col gap-3 border border-indigo bg-panel p-5 text-fort text-text shadow-xl"
     >
       <strong>
         {notice?.asking

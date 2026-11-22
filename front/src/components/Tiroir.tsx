@@ -62,6 +62,27 @@ export function Tiroir({
   );
 }
 
+/**
+ * Le haut du tiroir: son nom, et le bouton qui rend le jeu.
+ *
+ * Collé en haut pendant qu'on défile. Le bouton était posé dans le coin de la
+ * colonne et défilait avec elle: descendu jusqu'à « quitter », il fallait
+ * remonter tout le tiroir pour revenir au jeu, et tenu droit le tiroir n'a pas
+ * de fond où toucher (relecture du 22 novembre 2026). Un mot plutôt que « ✕ »:
+ * on ne replie pas la salle, on retourne jouer, et « ✕ » se lisait
+ * « multiplication » (audit A11Y-10).
+ */
+export function BarreDuTiroir({ onFermer }: { onFermer: () => void }) {
+  return (
+    <div className="n3-tiroir-barre">
+      <p className="n3-tiroir-nom">La salle</p>
+      <button type="button" id="foldColumn" className="n3-action" onClick={onFermer}>
+        Revenir au jeu
+      </button>
+    </div>
+  );
+}
+
 /** Le tiroir quand la colonne en est un, rien autour sinon: la même colonne
  * dans les deux formes, écrite une seule fois (`App`). */
 export function TiroirSi({

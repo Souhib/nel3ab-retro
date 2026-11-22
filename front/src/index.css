@@ -490,7 +490,9 @@ body {
   padding: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
 }
 /* Les menus couvrent tout l'écran: leur fond va jusqu'aux bords, leur contenu
-   reste hors de l'encoche et de la barre du système. */
+   reste hors de l'encoche et de la barre du système. Le fond est celui du
+   dialogue (Home, Channels) ou un enfant posé hors de cette zone (le fond du
+   XMB): dedans, il s'arrêtait à la zone sûre. */
 .n3-menu-zone {
   inset: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
 }
@@ -2042,12 +2044,54 @@ body {
     padding: 6px 18px;
   }
 }
+/* Tenu en travers, le configurateur Pro (Switch, Xbox 360) et la préparation
+   d'une partie prennent tout l'écran eux aussi. Le premier gardait 92 % de la
+   hauteur et 20 px de marge, et la règle de la préparation
+   (`.n3-bindings:has(...)`, plus précise que `.n3-bindings`) laissait 32 px
+   sous le panneau: mesurés à 359 et 358 px sur 390 le 22 novembre 2026, avec
+   141 px de contenu pour une préparation Xbox 360. Après les règles qu'elle
+   remplace, à précision égale. */
+@media (max-height: 500px) {
+  .n3-bindings:has([data-preparing="true"]) {
+    height: 100dvh;
+  }
+  .n3-switch-setup {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    padding: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
+  }
+  .n3-switch-setup header,
+  .n3-switch-setup footer {
+    padding: 6px 18px;
+  }
+  .n3-switch-setup header .n3-eyebrow {
+    display: none;
+  }
+  .n3-switch-setup h2 {
+    font-size: var(--text-titre);
+  }
+  .n3-switch-body {
+    flex: 1;
+    padding: 12px 18px;
+  }
+}
 /* Plein écran, le panneau touche les bords: son contenu se tient hors des
    zones sûres, son fond va jusqu'au bout. */
 @media (max-width: 600px), (max-height: 500px) {
   .n3-bindings {
     box-sizing: border-box;
     padding: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
+  }
+}
+/* Les boutons du configurateur Pro, au doigt. */
+@media (pointer: coarse) {
+  .n3-switch-setup button {
+    min-height: 44px;
   }
 }
 /* Fermer, au doigt: 44 px, et jamais écrasé par un titre long. Mesuré à

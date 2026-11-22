@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   appareilDe,
+  aideDeLaSalle,
   ouvrirLeMenu,
   piedDuMenu,
   phrase,
@@ -89,5 +90,19 @@ describe("les aides des entrées et du sélecteur", () => {
     expect(ouvrirLeMenu("clavier")).toMatch(/Échap/);
     expect(ouvrirLeMenu("tactile")).not.toMatch(/Échap/);
     expect(ouvrirLeMenu("manette")).not.toMatch(/Échap/);
+  });
+});
+
+describe("l'aide de « la salle », dans le menu", () => {
+  it("nomme Ctrl au clavier, qui ouvre aussi le tiroir", () => {
+    expect(aideDeLaSalle("clavier")).toMatch(/Ctrl/);
+  });
+
+  it("ne nomme pas Ctrl au doigt ni à la manette, qui n'en ont pas", () => {
+    // Le jumeau: l'aide disait « (Ctrl) » sur un téléphone (relecture du
+    // 22 novembre 2026).
+    expect(aideDeLaSalle("tactile")).not.toMatch(/Ctrl/);
+    expect(aideDeLaSalle("manette")).not.toMatch(/Ctrl/);
+    expect(aideDeLaSalle("tactile")).toMatch(/place/);
   });
 });

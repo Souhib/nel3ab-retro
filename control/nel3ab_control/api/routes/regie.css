@@ -115,15 +115,15 @@
 }
 
 /* ── 2. Rôles: la régie de nuit, et le défaut ───────────────────────────
-   Sur `:root` nu autant que sur son attribut. Avant que le script pose
-   `data-theme`, la feuille ne connaît que le système: ce bloc peint un système
-   sombre ou qui ne dit rien. Le thème « comme l'appareil » est donc juste dès
-   la première image. Un choix CONTRE le système ne l'est pas: le script de la
-   page est un module, lancé après la lecture du document, et Chrome peint
-   souvent avant lui. Mesuré le 22 novembre 2026 sur la page construite, dans
-   Chrome sans écran, par le premier rappel d'image (juste avant la première
-   peinture): « nuit » sous un système clair y était encore en craie cinq fois
-   sur six. Rapports calculés par l'essai, sur la pire des quatre surfaces:
+   Sur `:root` nu autant que sur son attribut. Sans `data-theme`, la feuille
+   ne connaît que le système: ce bloc peint un système sombre ou qui ne dit
+   rien. Un choix CONTRE le système est posé avant le corps par le script
+   classique de l'en-tête de `front/index.html`: le module de la page, lancé
+   après la lecture du document, arrivait trop tard, et « nuit » sous un
+   système clair était encore en craie au début du corps quatre fois sur
+   quatre (mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans
+   écran; `theme-en-tete.test.ts`). Rapports calculés par l'essai, sur la pire
+   des quatre surfaces:
    encre 12,6:1, légende 5,79:1, discret 4,81:1, signal 5,89:1, trait 3,08:1.
 
    `.regie-nuit` pose la même régie sur un morceau de page, quel que soit le

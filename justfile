@@ -57,7 +57,14 @@ default: local
 # salle) laissaient tous les essais verts, et les parcours qui les auraient vus
 # vivaient hors du dépôt. Un banc du même genre (Chrome, ffmpeg, rien de
 # vivant), pour 24 s mesurées le 22 novembre.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur
+#
+# `salle-telephone` et `manette-garde` y entrent le même jour, après la
+# relecture de la salle au doigt: elles vivaient hors de toute porte alors que
+# trois bancs du même genre y étaient, et une régression de la manette ou du
+# tiroir passait sans bruit. Même prix de nature (Chrome, rien de vivant, Vite
+# sans relais sur 5446 et 5437), et mesuré le 22 novembre 2026 sur cette
+# machine: 112 s et 48 s.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -397,9 +404,9 @@ padmap-visuel:
 # 130 px, rien ne mord sur l'image, gestes compris ; l'avis de fermeture reste
 # au-dessus du pavé ; chaque inscription tient 4,5:1 dans les sept thèmes.
 # Écrite après l'audit du 22 novembre 2026, où taper R sur un iPhone cachait
-# la manette. Hors de `check` parce qu'elle demande Chrome. Vite sert la page
-# sans relais vers la salle, sur le port 5437 (MANETTE_GARDE_PORT pour un
-# autre).
+# la manette. Hors de `check` parce qu'elle demande Chrome; dans `local`. Vite
+# sert la page sans relais vers la salle, sur le port 5437 (MANETTE_GARDE_PORT
+# pour un autre).
 manette-garde out="/tmp/manette-garde":
     cd spikes/m3-browser-drive && node manette-garde.mjs {{out}}
 
@@ -414,9 +421,17 @@ manette-garde out="/tmp/manette-garde":
 # erreur; l'entrée de la salle tient en haut en paysage; le réglage des touches
 # prend tout l'écran tenu en travers; la page CONSTRUITE pose le thème choisi
 # avant sa première image. Écrite après l'audit du 22 novembre 2026 (P5, M6,
-# M8, M9, M10, M11, E2). Hors de `check` parce qu'elle demande Chrome. Vite
-# sert la page sans relais, avec une fausse session média
-# (`salle-telephone.session.ts`), sur le port 5446 (SALLE_TELEPHONE_PORT).
+# M8, M9, M10, M11, E2). Depuis sa relecture, le même jour: toutes les cibles
+# du tiroir à 44 px, le bouton qui le referme une fois défilé, le focus rendu,
+# la manette « toujours » sur un grand écran, Ctrl sous le menu, une page
+# « manette seule » pendant un chargement, la demande de place et la reprise
+# hors du « ••• » et de l'encoche, le fond du menu jusqu'aux bords, le
+# configurateur Pro et la préparation en paysage, et la page construite servie
+# avec la politique du worker. Un faux salon (une socket qui répond à la
+# poignée de main d'engine.io) lui laisse envoyer une annonce. Hors de `check`
+# parce qu'elle demande Chrome; dans `local`. Vite sert la page sans relais,
+# avec une fausse session média (`salle-telephone.session.ts`), sur le port
+# 5446 (SALLE_TELEPHONE_PORT).
 salle-telephone out="/tmp/salle-telephone":
     cd spikes/m3-browser-drive && node salle-telephone.mjs {{out}}
 

@@ -5,6 +5,7 @@ import { Preparation } from "./src/components/Preparation";
 import type { Preparation as Pending, Game } from "./src/client";
 import type { Pad } from "./src/lib/saves";
 import { Bindings } from "./src/components/Bindings";
+import { SwitchBindings } from "./src/components/SwitchBindings";
 import { Channels } from "./src/components/Channels";
 import { Home } from "./src/components/Home";
 import { InputStream } from "./src/media/input";
@@ -66,8 +67,32 @@ function Preview() {
 const categories = [{ id: "settings", label: "Réglages", icon: null,
   items: Array.from({ length: 14 }, (_, at) => ({ id: String(at), label: `Réglage ${at + 1}`, icon: null })),
 }];
+/** Le configurateur des salles Pro (Switch, Xbox 360), seul ou pendant une
+ * préparation: `?pro=switch` ou `?pro=x360`, et `&preparation`. */
+function PreviewPro({ console: kind }: { console: "switch" | "x360" }) {
+  const [stream] = useState(() => new InputStream((path) => path, () => {}, () => {}, true));
+  const preparing = new URLSearchParams(location.search).has("preparation");
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    stream.start();
+    if (preparing) Object.assign(stream, { receipt: "preview-one" });
+    return () => stream.stop();
+  }, [stream, preparing]);
+  const game: Game = { index: 0, name: kind === "x360" ? "Sonic Generations" : "Mario Kart 8 Deluxe", console: kind };
+  const pending: Pending = { id: "preview", game: 0, save: 0, starter: "preview-one", allowed: [4], players: [
+    { port: 1, claim: "preview-one", name: "Souhib", ready: false, pad: null },
+    { port: 2, claim: "preview-two", name: "Yassine", ready: false, pad: null },
+  ] };
+  return open ? (
+    <SwitchBindings source={stream.switch} input={stream} pending={preparing ? pending : null} game={game}
+      send={async () => {}} close={() => setOpen(false)} />
+  ) : <button type="button" onClick={() => setOpen(true)}>Ouvrir</button>;
+}
 const shell = new URLSearchParams(location.search).get("shell");
-createRoot(document.getElementById("root")!).render(shell === "wii"
+const pro = new URLSearchParams(location.search).get("pro");
+createRoot(document.getElementById("root")!).render(pro === "switch" || pro === "x360"
+  ? <PreviewPro console={pro} />
+  : shell === "wii"
   ? <Channels categories={categories} onClose={() => {}} />
   : shell === "switch" ? <Home categories={categories} onClose={() => {}} who="Aperçu" />
     : <Preview />);

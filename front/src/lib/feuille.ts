@@ -26,6 +26,10 @@ export function nomDuPlus(sonCoupe: boolean): string {
   return sonCoupe ? `Son coupé. ${nom}` : nom;
 }
 
+/** Les deux « ••• » qui ouvrent la feuille: celui de la manette à l'écran et
+ * celui qui se pose seul. Lu par la salle pour leur rendre le focus. */
+export const OUVRE_LA_FEUILLE = '[data-geste="feuille"], #ouvrirFeuille';
+
 export type IdEntree =
   | "son"
   | "menu"
@@ -58,9 +62,10 @@ export function entreesDeLaFeuille({
       ? {
           id: "son",
           titre: "Rallumer le son",
-          // L'interrupteur du côté de l'iPhone coupe le son de la page, et
-          // aucun code ne le voit: on le nomme plutôt que de le deviner.
-          detail: "Le son est coupé. Si rien ne sort, regarde le bouton silence du téléphone.",
+          // Sans l'interrupteur de l'iPhone: le déblocage de `media/sound.ts`
+          // fait sortir le son du canal de la sonnerie, et la phrase
+          // s'affichait aussi sur un ordinateur (relecture du 22 novembre 2026).
+          detail: "Le son est coupé. Touche ici pour le rallumer.",
           alerte: true,
         }
       : {
@@ -99,7 +104,7 @@ export function entreesDeLaFeuille({
     entrees.push({
       id: "ecran-accueil",
       titre: "Sur l'écran d'accueil",
-      detail: "Pour jouer sans la barre de Safari.",
+      detail: "Pour jouer sans la barre du navigateur.",
       alerte: false,
     });
   entrees.push({

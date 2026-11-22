@@ -49,9 +49,14 @@ export function Asked({
       // partie, d'un nombre nu (audit A11Y-09, 22 novembre 2026). La ligne
       // parlée de la salle (`LigneParlee`) dit la demande UNE fois, avec le
       // délai en mots et ce qui arrive sans réponse.
-      className="absolute inset-x-0 top-[calc(var(--zone-haut)+2rem)] z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-indigo bg-panel px-5 py-3"
+      // Sous le « ••• » qui se pose seul en haut à droite (10 px du bord,
+      // 44 px de haut): à 2rem, il mordait sur le coin du bandeau
+      // (relecture du 22 novembre 2026, 27x22 px à 390x844).
+      // Tenu droit, le texte prend sa ligne et les boutons la suivante: sur
+      // trois colonnes, « garder » débordait du bandeau à 390 px.
+      className="absolute inset-x-0 top-[calc(var(--zone-haut)+4rem)] z-40 mx-auto flex w-max max-w-[80%] flex-wrap items-center gap-x-4 gap-y-3 border border-indigo bg-panel px-5 py-3"
     >
-      <span className="flex flex-col">
+      <span className="flex basis-full flex-col sm:basis-auto">
         <span className="text-fort">
           <strong className="text-indigo">{from}</strong> demande ta place {port}
         </span>
@@ -67,7 +72,7 @@ export function Asked({
           type="button"
           id="giveSeat"
           onClick={() => onAnswer(true)}
-          className="border border-indigo px-3 py-1 text-corps text-indigo hover:bg-indigo/10"
+          className="border border-indigo px-3 py-1 text-corps text-indigo pointer-coarse:min-h-11 hover:bg-indigo/10"
         >
           la lui passer
         </button>
@@ -75,7 +80,7 @@ export function Asked({
           type="button"
           id="keepSeat"
           onClick={() => onAnswer(false)}
-          className="border border-rule px-3 py-1 text-corps text-muted hover:border-rule-bright"
+          className="border border-rule px-3 py-1 text-corps text-muted pointer-coarse:min-h-11 hover:border-rule-bright"
         >
           garder
         </button>

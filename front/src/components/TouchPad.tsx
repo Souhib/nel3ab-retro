@@ -414,6 +414,12 @@ export function Pave<K extends string>({
             aria-label={nomDuPlus(soundOff)}
             aria-haspopup="dialog"
             style={at(piece.rect)}
+            // Un clic de souris n'enlève pas le clavier au jeu: le focus pris
+            // ici faisait monter l'avis « le jeu ne reçoit plus tes touches »
+            // sous le pointeur, entre l'appui et le relâché, et le clic tombait
+            // sur l'avis (manette « toujours » sur un grand écran, relecture du
+            // 22 novembre 2026). Le dialogue rend ensuite le focus au jeu.
+            onMouseDown={(event) => event.preventDefault()}
             onClick={onFeuille}
           >
             {said.label}

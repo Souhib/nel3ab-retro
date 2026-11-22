@@ -47,3 +47,33 @@ export function attenteDemarrage(attenduS: number, stalled: boolean): "long" | "
   if (stalled) return "echec";
   return attenduS >= ATTENTE_LONGUE_S ? "long" : undefined;
 }
+
+/** Le plafond d'un chargement, en millisecondes: au-delà, la page cesse
+ * d'attendre et propose une sortie. */
+export const PLAFOND_CHARGEMENT_MS = 60_000;
+
+/** Ce que devient un chargement en cours, à chaque instantané.
+ *
+ * Extrait de l'effet d'`App` qui retire l'écran, pour la page « manette
+ * seule »: elle n'a pas d'image, donc rien ne peint jamais, et son chargement
+ * attendait sans fin. */
+export function suiteDuChargement(e: {
+  padOnly: boolean;
+  /** Le jeu demandé, tel que le salon le nomme. */
+  demande: string;
+  /** Le jeu que la salle dit faire tourner, `null` au repos. */
+  enCours: string | null;
+  depuisMs: number;
+  cale: boolean;
+  /** L'image telle que la vidéo la voit MAINTENANT, `null` sans session. */
+  image: Live | null;
+}): "effacer" | "caler" | "attendre" {
+  // Manette seule: le jeu demandé tourne, ou la page a cessé d'attendre. Il
+  // n'y a pas d'écran de chargement à tenir, seulement des touches à rendre.
+  if (e.padOnly)
+    return e.enCours === e.demande || e.depuisMs > PLAFOND_CHARGEMENT_MS ? "effacer" : "attendre";
+  if (e.image === null) return "attendre";
+  if (bootingStep(e.image) === "painting") return "effacer";
+  if (e.depuisMs > PLAFOND_CHARGEMENT_MS && !e.cale) return "caler";
+  return "attendre";
+}

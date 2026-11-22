@@ -238,12 +238,15 @@ export function Xmb({
       style={{ touchAction: "none" }}
       className={cn("n3-menu n3-enter bg-ink", shell.picking?.previewing ? "n3-peek" : "")}
     >
+      {/* Le fond va jusqu'aux bords, hors de la zone sûre: posé dedans, il
+          laissait une bande de fond uni sous l'encoche (relecture du
+          22 novembre 2026). Enfant direct du dialogue, `.n3-peek` l'efface
+          comme le reste. */}
+      <Backdrop />
       {/* Inerte derrière un sélecteur: Tab reste dans le sélecteur. Une boîte
           pleine et non `display: contents`: `.n3-peek` efface les enfants
           directs par l'opacité, et une boîte sans boîte n'en a pas. */}
       <div className="n3-menu-zone absolute inset-0" inert={shell.picking !== null}>
-        <Backdrop />
-
         {/* Le sujet de l'entrée choisie et où on en est dans la liste, au-dessus
             des rubriques. Il était collé au nom de la rubrique choisie, ce qui
             n'allait plus quand les quatre noms se lisent: il débordait sur les

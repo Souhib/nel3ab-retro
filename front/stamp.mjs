@@ -13,10 +13,16 @@
 //
 //   node stamp.mjs          writes the stamp beside the page
 //   node stamp.mjs --check   fails if the stamp does not match the sources
+//
+// The inputs are the files git tracks or would track under those paths, never
+// what happens to lie in the folder (`entreesDeLaPage`): a cache ignored by git
+// once made the stamp right in one worktree and wrong in every clean copy.
 import { createHash } from "node:crypto";
 import { brotliCompressSync, constants } from "node:zlib";
-import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = import.meta.dirname;
 const PAGE = join(ROOT, "..", "core", "crates", "worker", "src", "page", "index.html");
@@ -91,59 +97,96 @@ const INPUTS = [
  * paquet.
  */
 function bundled(path) {
-  return !/\.test\.[jt]sx?$/.test(path) && !path.includes(`${sep}test${sep}`);
+  return !/\.test\.[jt]sx?$/.test(path) && !`/${path}`.includes("/test/");
 }
 
-function* walk(path) {
-  if (statSync(path).isFile()) {
-    if (bundled(path)) yield path;
-    return;
-  }
-  for (const entry of readdirSync(path).sort()) yield* walk(join(path, entry));
-}
-
-const digest = createHash("sha256");
-for (const input of INPUTS) {
-  for (const file of walk(join(ROOT, input))) {
-    digest.update(relative(ROOT, file));
-    digest.update(readFileSync(file));
-  }
-}
-const sources = digest.digest("hex");
-
-// And the page itself, so reverting the artefact alone is caught too. Hashing
-// the OUTPUT against what this build produced is deterministic; it is only
-// comparing two separate BUILDS that is not.
-const built = readFileSync(PAGE);
-const page = createHash("sha256").update(built).digest("hex");
-const stamp = `sources ${sources}\npage    ${page}\n`;
-// Le poids, sur ce que le worker envoie vraiment.
-const weight = brotliCompressSync(built, {
-  params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
-}).length;
-if (weight > WEIGHT_MAX) {
-  console.error(
-    `La page pèse ${weight} octets en brotli, au-dessus du budget de ${WEIGHT_MAX}.`,
-  );
-  console.error("  Alléger, ou relever le budget en écrivant pourquoi dans stamp.mjs.");
-  process.exit(1);
-}
-
-if (process.argv.includes("--check")) {
-  const found = readFileSync(STAMP, "utf8");
-  if (found !== stamp) {
-    const [wantedSources, wantedPage] = found.trim().split("\n").map((line) => line.split(/\s+/)[1]);
-    console.error(
-      wantedSources !== sources
-        ? "Les sources de la page ont changé sans que la page soit reconstruite."
-        : wantedPage !== page
-          ? "La page compilée dans le worker n'est pas celle que cette construction a produite."
-          : "La page et sa marque ne concordent pas.",
+/** Les fichiers d'entrée de la page, relatifs à `root`, dans un ordre fixe.
+ *
+ * Ceux que git suit, plus ceux qu'il ne suit pas ENCORE mais n'ignore pas:
+ * exactement ce qu'un commit peut emporter. Le 22 novembre 2026, la marque
+ * parcourait les dossiers et hachait aussi un cache de vitest de 83 octets,
+ * `src/node_modules/.vite/vitest/.../results.json`, ignoré par git et présent
+ * dans un seul worktree. `just check` y sortait 0; sur une copie propre du même
+ * commit, la marque était fausse, et la CI l'aurait été après la fusion.
+ *
+ * Les fichiers non suivis comptent, parce que la marque se pose AVANT le
+ * `git add` d'un fichier neuf: sans eux, elle serait juste ici et fausse sur
+ * la CI, où le fichier est suivi. Un fichier suivi puis effacé ne compte plus,
+ * puisque la construction ne le lit pas.
+ *
+ * Hors d'un dépôt git, la marque refuse plutôt que de tout hacher: c'est
+ * tout hacher qui l'avait rendue fausse. */
+export function entreesDeLaPage(root = ROOT, inputs = INPUTS) {
+  let listed;
+  try {
+    listed = execFileSync(
+      "git",
+      ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", ...inputs],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );
-    console.error("  Lancer `just front-build` et committer le résultat.");
+  } catch (error) {
+    throw new Error(`la marque lit ses entrées par git, et git ne répond pas dans ${root}: ${error.message}`);
+  }
+  const files = new Set();
+  for (const path of listed.split("\0")) {
+    if (path === "" || !bundled(path)) continue;
+    const full = join(root, path);
+    if (existsSync(full) && statSync(full).isFile()) files.add(path);
+  }
+  // Par octets et non selon la langue: le même ordre sur toutes les machines.
+  return [...files].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/** L'empreinte des entrées: leur chemin et leur contenu. */
+export function empreinteDesSources(root = ROOT, inputs = INPUTS) {
+  const digest = createHash("sha256");
+  for (const path of entreesDeLaPage(root, inputs)) {
+    digest.update(path);
+    digest.update(readFileSync(join(root, path)));
+  }
+  return digest.digest("hex");
+}
+
+function main() {
+  const sources = empreinteDesSources();
+
+  // And the page itself, so reverting the artefact alone is caught too. Hashing
+  // the OUTPUT against what this build produced is deterministic; it is only
+  // comparing two separate BUILDS that is not.
+  const built = readFileSync(PAGE);
+  const page = createHash("sha256").update(built).digest("hex");
+  const stamp = `sources ${sources}\npage    ${page}\n`;
+  // Le poids, sur ce que le worker envoie vraiment.
+  const weight = brotliCompressSync(built, {
+    params: { [constants.BROTLI_PARAM_QUALITY]: 11 },
+  }).length;
+  if (weight > WEIGHT_MAX) {
+    console.error(
+      `La page pèse ${weight} octets en brotli, au-dessus du budget de ${WEIGHT_MAX}.`,
+    );
+    console.error("  Alléger, ou relever le budget en écrivant pourquoi dans stamp.mjs.");
     process.exit(1);
   }
-  console.log(`la page est à jour (${weight} o en brotli, budget ${WEIGHT_MAX})`);
-} else {
-  writeFileSync(STAMP, stamp);
+
+  if (process.argv.includes("--check")) {
+    const found = readFileSync(STAMP, "utf8");
+    if (found !== stamp) {
+      const [wantedSources, wantedPage] = found.trim().split("\n").map((line) => line.split(/\s+/)[1]);
+      console.error(
+        wantedSources !== sources
+          ? "Les sources de la page ont changé sans que la page soit reconstruite."
+          : wantedPage !== page
+            ? "La page compilée dans le worker n'est pas celle que cette construction a produite."
+            : "La page et sa marque ne concordent pas.",
+      );
+      console.error("  Lancer `just front-build` et committer le résultat.");
+      process.exit(1);
+    }
+    console.log(`la page est à jour (${weight} o en brotli, budget ${WEIGHT_MAX})`);
+  } else {
+    writeFileSync(STAMP, stamp);
+  }
 }
+
+// Lancé comme commande seulement: l'essai importe les deux fonctions sans rien écrire.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) main();

@@ -12,9 +12,17 @@ describe("ce que l'appareil permet", () => {
     expect(pleinEcranPossible({ api: false, installe: false, apple: true })).toBe("ecran-accueil");
   });
 
-  it("ne propose rien à une page déjà ouverte depuis l'écran d'accueil", () => {
+  it("ne propose rien à un iPhone déjà ouvert depuis l'écran d'accueil", () => {
     expect(pleinEcranPossible({ api: false, installe: true, apple: true })).toBe("deja");
-    expect(pleinEcranPossible({ api: true, installe: true, apple: false })).toBe("deja");
+  });
+
+  it("garde le plein écran d'un Android ouvert depuis l'écran d'accueil", () => {
+    // `mobile-web-app-capable` ouvre la salle en mode autonome, où les barres
+    // du système restent et où l'API marche: « deja » retirait l'entrée du
+    // menu et de la feuille (relecture du 22 novembre 2026). Le jumeau est
+    // l'essai du dessus: sans l'API, une page installée n'a rien à proposer.
+    expect(pleinEcranPossible({ api: true, installe: true, apple: false })).toBe("api");
+    expect(pleinEcranPossible({ api: true, installe: true, apple: true })).toBe("api");
   });
 
   it("ne promet rien à un navigateur sans API qui n'est pas un iPhone", () => {

@@ -97,6 +97,16 @@ export function ouvrirLeMenu(appareil: Appareil): string {
   return "Le bouton « menu » ouvre le menu.";
 }
 
+/** L'aide de l'entrée « la salle » du menu, en mode tiroir. */
+export function aideDeLaSalle(appareil: Appareil): string {
+  // Ctrl n'existe qu'au clavier: l'aide l'écrivait en dur, et un téléphone
+  // lisait « (Ctrl) » (relecture du 22 novembre 2026).
+  const quoi = "prendre ou demander une place, signaler, quitter";
+  return appareil === "clavier"
+    ? `${pour(appareil, quoi)}. En jeu, Ctrl seule l'ouvre aussi`
+    : pour(appareil, quoi);
+}
+
 /** Au doigt, pas de touche à dessiner: une phrase. « Glisse » dans une
  * pastille ressemblait à une touche qu'on chercherait sur le téléphone. */
 export function phrase(liste: readonly Repere[]): string {

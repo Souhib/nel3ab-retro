@@ -56,6 +56,27 @@ describe("la feuille du bas", () => {
     expect(titre(null)).toBeUndefined();
   });
 
+  it("dit comment rallumer le son, sans parler d'un interrupteur que la page contourne", () => {
+    // « regarde le bouton silence du téléphone » s'affichait aussi sur un
+    // ordinateur en fenêtre étroite, et contredisait `media/sound.ts`, dont le
+    // déblocage fait justement sortir le son du canal de la sonnerie
+    // (relecture du 22 novembre 2026).
+    const son = entreesDeLaFeuille({ ...TELEPHONE, sonCoupe: true }).find(
+      (one) => one.id === "son",
+    );
+    expect(son?.detail).not.toMatch(/silence|interrupteur|téléphone/);
+    expect(son?.detail).toMatch(/coupé/);
+    expect(son?.detail).toMatch(/Touche ici/);
+  });
+
+  it("ne nomme pas Safari pour l'écran d'accueil, qui vaut aussi pour Chrome sur iPhone", () => {
+    const accueil = entreesDeLaFeuille({ ...TELEPHONE, plein: "ecran-accueil" }).find(
+      (one) => one.id === "ecran-accueil",
+    );
+    expect(accueil?.detail).not.toMatch(/Safari/);
+    expect(accueil?.detail).toMatch(/barre/);
+  });
+
   it("n'écrit aucun mot que le lexique refuse", () => {
     const toutes = [true, false].flatMap((sonCoupe) =>
       (["montree", "cachee"] as const).flatMap((manette) =>

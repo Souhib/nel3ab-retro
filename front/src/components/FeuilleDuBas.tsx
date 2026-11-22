@@ -137,14 +137,21 @@ export function FeuilleDuBas({
           )}
         </div>
         {accueil ? (
-          /* Une vraie suite d'étapes: d'où la liste numérotée. Ce sont les
-             mots de Safari sur iOS 18; non vérifié sur un vrai iPhone. */
+          /* Une vraie suite d'étapes: d'où la liste numérotée. Sans nommer
+             Safari: Chrome et Firefox sur iPhone ont le même « Sur l'écran
+             d'accueil », et Partager peut vivre dans la barre ou sous un
+             « ••• » selon la version d'iOS. Non vérifié sur un vrai iPhone. */
           <ol id="aideEcranAccueil" className="n3-feuille-aide">
-            <li>Touche Partager, le carré avec une flèche, dans la barre de Safari.</li>
+            <li>
+              Touche Partager, le carré avec une flèche, dans la barre du navigateur ou sous son
+              «&nbsp;•••&nbsp;».
+            </li>
             <li>
               Choisis «&nbsp;Sur l&apos;écran d&apos;accueil&nbsp;», puis «&nbsp;Ajouter&nbsp;».
             </li>
-            <li>Ouvre la salle depuis sa nouvelle icône: la barre de Safari n&apos;y est plus.</li>
+            <li>
+              Ouvre la salle depuis sa nouvelle icône: la barre du navigateur n&apos;y est plus.
+            </li>
           </ol>
         ) : null}
       </div>

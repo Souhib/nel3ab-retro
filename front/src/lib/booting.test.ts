@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { ATTENTE_LONGUE_S, attenteDemarrage, bootingStep, STEPS, type Live } from "./booting";
+import {
+  ATTENTE_LONGUE_S,
+  attenteDemarrage,
+  bootingStep,
+  PLAFOND_CHARGEMENT_MS,
+  STEPS,
+  suiteDuChargement,
+  type Live,
+} from "./booting";
 
 /** Le déroulé RÉEL d'un changement de jeu, lu dans `media/video.ts`.
  *
@@ -58,5 +66,49 @@ describe("l'attente d'un démarrage, dite comme l'écran la montre", () => {
   });
   it("perdue dès que la page a cessé d'attendre, quelle que soit la durée", () => {
     expect(attenteDemarrage(3, true)).toBe("echec");
+  });
+});
+
+describe("ce que devient un chargement", () => {
+  const NOIR: Live = { connected: true, awaitingRestart: true, paintedSince: 0, dark: true };
+  const PEINT: Live = { connected: true, awaitingRestart: false, paintedSince: 60, dark: false };
+  const SUR_MARIO = {
+    padOnly: false,
+    demande: "Mario Kart",
+    enCours: "Mario Kart",
+    depuisMs: 2_000,
+    cale: false,
+    image: NOIR,
+  };
+
+  it("s'efface quand le nouveau jeu peint, comme l'étape « première image »", () => {
+    expect(suiteDuChargement({ ...SUR_MARIO, image: PEINT })).toBe("effacer");
+    // Le jumeau: le même jeu annoncé par la salle ne suffit pas à une page
+    // qui montre l'image; elle attend de la voir.
+    expect(suiteDuChargement(SUR_MARIO)).toBe("attendre");
+  });
+
+  it("s'efface pour une page « manette seule » dès que la salle fait tourner ce jeu", () => {
+    // Sans image, rien ne peint jamais: le chargement attendait sans fin, et
+    // seul « abandonner », après soixante secondes, rendait les touches.
+    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true, image: null })).toBe("effacer");
+    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true })).toBe("effacer");
+  });
+
+  it("attend encore, manette seule, tant que la salle fait tourner l'ancien jeu", () => {
+    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true, enCours: "Zelda" })).toBe("attendre");
+    // Au repos pendant le premier lancement d'une salle vide: le worker
+    // redémarre, et ce n'est pas encore le jeu demandé.
+    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true, enCours: null })).toBe("attendre");
+  });
+
+  it("cesse d'attendre au plafond, une seule fois, et s'efface en manette seule", () => {
+    const tard = { ...SUR_MARIO, enCours: "Zelda", depuisMs: PLAFOND_CHARGEMENT_MS + 1 };
+    expect(suiteDuChargement(tard)).toBe("caler");
+    expect(suiteDuChargement({ ...tard, cale: true })).toBe("attendre");
+    // Sans image, il n'y a pas d'écran pour proposer une sortie: les touches
+    // reviennent, et c'est la sortie.
+    expect(suiteDuChargement({ ...tard, padOnly: true })).toBe("effacer");
+    expect(suiteDuChargement({ ...tard, depuisMs: PLAFOND_CHARGEMENT_MS - 1 })).toBe("attendre");
   });
 });

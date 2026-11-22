@@ -552,7 +552,7 @@ de fermeture. Les autres calques (message de branchement, menu, colonne) n'y
 sont pas. Le message de branchement, à z-30, couvre maintenant L ou ZL pendant
 ses cinq secondes. Rien n'a été essayé sur un vrai téléphone. Les zones sûres
 valaient zéro tant que la page n'avait pas `viewport-fit=cover` ; elle l'a
-depuis le soir du 22 novembre, et `salle-telephone.mjs` les simule
+depuis le 22 novembre (commit a4d4595, 11 h 08 UTC), et `salle-telephone.mjs` les simule
 (`Emulation.setSafeAreaInsetsOverride`), sans encoche réelle. Le pilote de salle
 `touch.mjs` n'a pas été relancé : il demande une salle vivante ; la garde rejoue
 sa règle « rien sur l'image » sur le banc. Sur une image très claire, les
@@ -567,7 +567,7 @@ tient, et les groupes se collent au bord.
 
 ## Un seul geste de page, et la feuille du bas, 22 novembre 2026
 
-Le soir même, les trois gestes de page de la manette (son, menu, cacher) sont
+Le même jour (commit a4d4595, 11 h 08 UTC), les trois gestes de page de la manette (son, menu, cacher) sont
 devenus **un seul « ••• »**, qui ouvre la feuille du bas
 (`components/FeuilleDuBas.tsx`, contenu décidé par `lib/feuille.ts`). Elle porte
 le son, le menu du jeu, la salle (le tiroir de la colonne), cacher ou montrer
@@ -590,7 +590,22 @@ Ce qui n'est pas lisible dans le code :
 - **La manette n'est pas montée sous la feuille ni sous le tiroir.** Son
   démontage relâche ce qu'un doigt tenait encore. Sans manette à l'écran (une
   souris, une vraie manette), un « ••• » seul se pose en haut à droite, dans
-  les zones sûres.
+  les zones sûres. Ce qui est monté se décide en un seul endroit,
+  `couchesDeLaSalle` (`lib/disposition.ts`) : un tiroir n'existe qu'en mode
+  compact, et sur un grand écran, « La salle » déplie la colonne
+  (`ouvrirLaSalle`). Avant la relecture, une manette « toujours » sur un grand
+  écran disparaissait sous un tiroir qui ne s'ouvrait jamais.
+- **Un clic de souris sur le « ••• » ne prend pas le focus**
+  (`onMouseDown` qui l'empêche). Le focus pris faisait monter l'avis « le jeu
+  ne reçoit plus tes touches » sous le pointeur, entre l'appui et le relâché,
+  et le clic tombait sur l'avis : sur un grand écran, la manette « toujours »
+  pose son « ••• » en haut au milieu, là où vit cet avis. À la fermeture de la
+  feuille ou du tiroir, le focus revient au jeu, ou au « ••• » quand il était
+  tombé sur le document (`focusApresFermeture`).
+- **Une page « manette seule » ne voile pas sa manette pendant un
+  chargement** (`voileSurImage`) : sans image, rien ne peint, et l'écran de
+  chargement attendait sans fin. Son chargement s'efface quand la salle
+  annonce le jeu demandé (`suiteDuChargement`, `lib/booting.ts`).
 - **`manette-garde.mjs` attend un geste de page, et non trois**, et deux
   inscriptions de moins par thème. Rejouée sur le code d'avant, elle y trouve
   trois gestes et le dit.
@@ -598,7 +613,14 @@ Ce qui n'est pas lisible dans le code :
   (`spikes/m3-browser-drive/salle-telephone.mjs`) monte la vraie page avec une
   fausse session média et vérifie, à six tailles et avec les zones sûres d'un
   iPhone simulées, que le « ••• » ouvre la feuille, que la feuille ouvre le
-  tiroir, et que chaque fonction de la colonne s'y joint au doigt.
+  tiroir, et que chaque fonction de la colonne s'y joint au doigt. Depuis la
+  relecture du même jour, elle mesure aussi TOUTES les cibles du tiroir à
+  44 px, le bouton qui le referme une fois défilé jusqu'en bas, le focus rendu
+  à la fermeture, la manette « toujours » sur un grand écran, Ctrl sous le
+  menu, une page « manette seule » pendant un chargement annoncé par un faux
+  salon, la demande de place sous le « ••• », le configurateur Pro en
+  paysage, et la page construite servie avec la politique du worker. Chaque
+  nouveau cas a été vu rouge sur fbb3bcc.
 
 ## Accompagner le branchement, 6 septembre 2026
 

@@ -232,9 +232,11 @@ describe("ce que la colonne dit d'elle-même (audit A11Y-10, A11Y-11, T02)", () 
     expect(document.querySelector("#mode-normal")?.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("nomme le bouton qui referme le tiroir autrement que « ✕ »", () => {
-    show({ onFold: vi.fn() });
-    expect(screen.getByRole("button", { name: "revenir au jeu" })).toBeInTheDocument();
+  it("n'appelle pas un de ses modes « salle », le nom du tiroir entier", () => {
+    show({});
+    expect(screen.queryByRole("button", { name: "salle" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "essentiel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "mesures" })).toBeInTheDocument();
   });
 
   it("nomme la glissière du volume", () => {

@@ -450,7 +450,21 @@ machine".
   the policy read from `page.rs`, and under both `prefers-color-scheme` values.
 - **Retiring a name means searching every consumer, drivers included.** On
   2026-11-22, renamed saves broke five real-room drivers, and `manette-garde`
-  kept setting seven theme names that no selector matches any more.
+  kept setting seven theme names that no selector matches any more: it
+  measured one palette seven times. A guard that loops over variants requires
+  them to give different results (`--panel` differs between `nuit` and `jour`).
+- **The host never follows a link in a folder a container writes.** On
+  2026-11-22, the final review found the room scripts writing `docker logs`,
+  `exit.json` and the lock, and copying saves, through links an engine could
+  leave in its read-write slot; a defect from `main` that the socle had copied
+  faithfully, while the lobby had learnt it the day before. Open from a folder
+  descriptor with `O_NOFOLLOW` (`moteurs/socle/emplacement.py`), copy a link
+  as a link, and test a link for each host-written file with its ordinary
+  twin (ADR D36).
+- **A page and its lobby ship in order.** A page that sends a message an older
+  lobby refuses stops every room while the two differ. Restart the lobby
+  first, rebuild the worker second, and make the page survive the old answer
+  when it can (`lancerEnChef`).
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 
@@ -696,7 +710,7 @@ Markdown alone does not update the site.
 | `just etats-navigateur` | the room's link states (frozen picture, silent socket, 502, restart, stalling link) against a simulated room and lobby with a real H.264 stream |
 | `just parcours-navigateur` | the room's routes: entry in the URL, reload, invite, exit, closing by the owner, preparation names |
 | `just salle-telephone` | the room on phones and tablets: drawer, bottom sheet, 44 px targets, safe areas, the built page under the worker's CSP |
-| `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast, in four rooms at seven sizes, served by Vite without relays |
+| `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |

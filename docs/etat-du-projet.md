@@ -16,7 +16,7 @@ adverse. Ils portent 71 commits sur `chantier/integration`. Rien n'est dans
 `main`, rien n'est installé, et la CI distante n'a rien vu : la branche n'est
 pas poussée. Récit : [carnet](carnet-de-bord.md), entrée « 22 novembre : une
 analyse de toute l'interface, et un gestionnaire de moteurs » et les huit qui
-la suivent ; décisions : [ADR](adr/0001-architecture.md), D26 à D35, et les
+la suivent ; décisions : [ADR](adr/0001-architecture.md), D26 à D36, et les
 amendements du 22 novembre à D13 et D22.
 
 - **Moteurs.** Le socle commun des salles externes (`moteurs/socle/`), une
@@ -54,23 +54,47 @@ complet sur la branche finale : `gpu-test` n'y a pas été rapporté, et
 `deploy-check` complet demande sudo. Rien n'a été vu sur un vrai téléphone,
 dans Safari ni avec un lecteur d'écran. En intégrant
 la documentation, la boucle de contraste de `manette-garde` a été trouvée sur
-les sept anciens noms de thème, qui ne correspondent plus à aucun sélecteur
-depuis la régie : elle mesure un seul thème (entrée « 22 novembre : la manette
-tactile se marchait dessus »).
+les sept anciens noms de thème ; la vérification finale l'a corrigée (voir
+plus bas).
+
+**Après la vérification finale du 22 novembre.** Une dernière relecture de
+0b0e7d7 a trouvé neuf défauts majeurs et une trentaine de mineurs ; les
+corrections sont sur la même branche, chacune vue rouge d'abord. La plus
+grave venait de main : l'hôte suivait les liens symboliques qu'un moteur
+compromis pouvait laisser dans son emplacement, et écrivait ou copiait un
+fichier de l'hôte à leur place. Il ne suit plus aucun lien (D36), et le worker
+non plus pour `seats.tmp`. Une entrée directe venue d'un autre site repasse
+par l'avant-salle (D33). Récit et ce qui n'est pas prouvé : entrée « 22
+novembre : la vérification finale, et l'hôte qui suivait les liens du
+conteneur ». Restent ouverts, décrits et non corrigés : la sonde de la page
+interroge `/api/salles` toutes les 3 s pendant un gel, et cet appel peut
+dépasser sa patience de 2,5 s ; une salle qui redémarre en boucle est dite
+« redémarre » sans fin ; `deploy/salon-importable.sh` n'importe que
+`nel3ab_control.app` (défaut de main) ; la page pèse 27 % de plus que sur
+main en brotli, dont 27 139 octets de polices.
 
 **Ce qui attend le propriétaire, dans cet ordre.**
 
 1. Fusionner `chantier/integration` dans `main` par `git merge --ff-only`,
    quand aucune salle ne joue : le worker lit les scripts des salles dans
    l'arbre de production à chaque démarrage de salle.
-2. Reconstruire le worker de production (`core/target/release/nel3ab-worker`),
-   quand aucune salle n'est ouverte. La page et sa politique de sécurité sont
-   dans son binaire : tant qu'il n'est pas reconstruit, les salles servent la
-   page d'avant, et l'ancienne politique refuserait les polices de la nouvelle.
-3. Redémarrer le salon et la boîte noire par
-   `sudo bash deploy/mettre-en-service.sh`. Les unités n'ont pas changé ; le
-   script vérifie que le salon s'importe avant de le relancer, puis lance
-   `just deploy-check`.
+2. Redémarrer le salon et la boîte noire par
+   `sudo bash deploy/mettre-en-service.sh` (son étape 4). Les unités n'ont pas
+   changé ; le script vérifie que le salon s'importe avant de le relancer,
+   puis lance `just deploy-check`. Le salon AVANT le worker : la nouvelle page
+   lance le jeu du chef en un geste, ce qu'un salon d'avant refuse. Dans
+   l'ordre inverse, aucun jeu préparé ne partait pendant la fenêtre où la page
+   était neuve et le salon ancien. La page sait maintenant confirmer puis
+   relancer face à ce refus, mais l'ordre reste celui-ci. L'inverse, une
+   ancienne page devant le nouveau salon, fonctionne.
+3. Reconstruire le worker de production (`cargo build --release` dans
+   `core/`, qui produit `core/target/release/nel3ab-worker`), quand aucune
+   salle n'est ouverte. La page, sa politique de sécurité, la redirection
+   d'une entrée venue d'un autre site et l'écriture sans lien de `seats` sont
+   dans son binaire : chaque salle les prend à son prochain démarrage, donc à
+   son prochain changement de jeu. Tant qu'il n'est pas reconstruit, les
+   salles servent la page d'avant, et l'ancienne politique refuserait les
+   polices de la nouvelle.
 4. Valider en vraie partie : la salle écrite en Anybody, un lancement en un
    geste, Entrée sur un bouton de la colonne, un téléphone (tiroir, « ••• »,
    plein écran), le carnet de jeu d'un joueur Xbox 360, et `just boite-noire`

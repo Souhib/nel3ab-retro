@@ -26989,7 +26989,9 @@ feuille ne connaît plus que `nuit` et `jour` : ces noms ne correspondent plus
 navigateur. Les « sept thèmes » de la garde mesurent donc un seul thème sept
 fois. Les lettres Xbox, sur leur fond fixe, n'en dépendent pas ; les
 inscriptions ordinaires n'ont été mesurées que dans un des deux thèmes. La
-garde doit poser `nuit` et `jour`.
+garde doit poser `nuit` et `jour`. *Corrigé le même jour : voir l'entrée « 22
+novembre : la vérification finale, et l'hôte qui suivait les liens du
+conteneur ».*
 
 **Ce qui reste.** Le même jour, la salle au doigt a remplacé les trois gestes
 de page par un seul « ••• », et le chantier des parcours a nommé la manette
@@ -27809,6 +27811,151 @@ l'image. Le menu XMB lit encore la taille de la fenêtre et non la zone sûre.
 Les dessins « câbles » et « plan » de l'avant-salle ne sont pas couverts par
 la garde, seul « classique » l'est. Le pilote `touch.mjs`, qui demande une
 salle vivante, n'a pas été relancé.
+
+### 22 novembre : la vérification finale, et l'hôte qui suivait les liens du conteneur
+
+**Ce qui s'est passé.** Une dernière relecture a repris l'instantané 0b0e7d7
+de la branche d'intégration sous cinq angles : sécurité, salles, parcours,
+code et documentation. Elle a trouvé neuf défauts majeurs et une trentaine de
+mineurs. Cette entrée dit ce qui a été corrigé, comment chaque correction a
+d'abord été vue rouge, et ce qui reste.
+
+**Le plus grave venait de main.** Le conteneur d'un moteur (Switch, Switch 2,
+Xbox 360) monte son emplacement de sauvegarde en écriture, sous le compte de
+l'hôte. Un montage, c'est un dossier de l'hôte que le conteneur voit comme le
+sien. Supposons un moteur compromis : un jeu piégé déposé par quelqu'un qui a
+le droit d'importer, plus une faille de l'émulateur. Il ne peut rien lire hors
+de son montage, mais il peut y poser un lien symbolique, un nom qui renvoie
+vers un autre fichier, ici un fichier de l'hôte. Et l'hôte suivait ces liens :
+
+- à l'arrêt, il écrivait `docker logs`, donc un texte choisi par le
+  conteneur, dans `emulator.log`, et écrasait aussi les cibles de `exit.json`
+  et `pads.log` ;
+- au lancement suivant, il vidait la cible de `running.lock` ;
+- la copie des sauvegardes Xenia suivait les liens et ramenait dans le montage
+  des fichiers de l'hôte, que le conteneur lisait à la partie suivante ;
+- les profils Xenia, le profil de manette de Ryubing, la configuration et la
+  copie de la NAND de la Switch 2, et l'outil des sauvegardes faisaient de
+  même.
+
+Une ligne écrite dans un fichier qu'un shell de ce compte lit au démarrage
+s'exécute sur l'hôte : le confinement (`--network none`, `--cap-drop=ALL`)
+était contourné. Le salon avait appris cette leçon le 21 novembre pour ses
+dépôts de jeux (`O_NOFOLLOW`), et les salles ne l'avaient pas reprise.
+
+*La correction.* Le socle gagne trois primitives, recopiées à l'identique
+dans `switch-room.py` (un essai compare leur arbre syntaxique). Chaque dossier
+s'ouvre depuis le précédent par son descripteur, avec `O_NOFOLLOW` : un lien
+est refusé au lieu d'être suivi, même s'il apparaissait entre deux niveaux.
+Un fichier s'ouvre de même, et un tube nommé posé à sa place est refusé tout
+de suite au lieu de faire attendre l'hôte. Une copie garde un lien comme un
+lien : elle ne le lit jamais. Le chemin vers ce qu'on copie est vérifié avant :
+la copie se fait conteneur arrêté, donc aucun lien ne peut apparaître entre ce
+contrôle et elle. Le worker, lui, écrivait `seats.tmp` dans le dossier des
+manettes que le moteur voit aussi, pendant la partie : il retire maintenant
+le nom puis le crée avec `create_new`, qui ne suit jamais un lien.
+
+*Rouge d'abord.* Chaque fichier écrit par l'hôte reçoit un lien vers un témoin
+hors de l'emplacement, et son jumeau ordinaire doit rester écrit. Sur le code
+d'avant, 23 échecs dans `moteurs/socle/test_liens.py`, 15 dans
+`docker/test_switch_liens.py`, et l'essai Rust lisait « 1 3 » dans le fichier
+de l'hôte. Le banc doré ne bouge pas : aucune commande Docker n'a changé.
+
+*L'option écartée.* Ranger les journaux hors de l'arbre monté aurait été plus
+simple à raisonner, mais la boîte noire et les relevés les lisent dans
+l'emplacement : tout déplacer, c'était changer tous ces lecteurs le même jour.
+Refuser toute copie qui contient un lien a aussi été écarté : un jeu ou son
+environnement peut en créer un légitimement, et un refus à l'arrêt perdrait la
+copie d'après la partie.
+
+**Une entrée directe venue d'un autre site.** `?entrer=jouer` faisait prendre
+une place sans aucun geste. Comme la salle reconnaît la personne à son adresse
+dans le réseau privé, sans cookie, une page étrangère ouverte chez un membre
+pouvait l'asseoir à son nom. Le worker lit maintenant `Sec-Fetch-Site` : une
+navigation venue d'un autre site reçoit une redirection 303 vers la même
+adresse sans `entrer`, et passe par l'avant-salle, un clic de plus. Un
+rechargement, un lien ouvert depuis une autre application et un navigateur qui
+ne dit rien gardent l'entrée directe.
+
+**Une fenêtre de mise en service où personne ne lançait.** La nouvelle page
+n'a plus de bouton « Je suis prêt » pour le chef : son « Lancer » porte son
+choix. Un salon d'avant ignore ce choix et refuse le lancement. Entre la
+reconstruction du worker et le redémarrage du salon, aucun jeu préparé ne
+partait. Deux réponses : l'ordre de mise en service est inversé dans l'état
+du projet (salon d'abord, worker ensuite), et la page, face à ce refus précis,
+confirme le choix du chef puis relance, comme une page d'avant.
+
+**La garde de la manette ne mesurait qu'une régie.** Notée en intégrant la
+documentation, elle est corrigée : la boucle pose `nuit` puis `jour` et exige
+deux panneaux différents. Un mutant qui rend l'encre de nuit gris foncé
+passait l'ancienne garde, sortie 0 ; la nouvelle le voit dans les huit cas
+de contraste, puis repasse au vert sur l'arbre sain. Le pire contraste Switch
+sur un fond blanc passe de 17,82:1 à 6,91:1 : une autre palette est enfin
+mesurée.
+
+**Deux machines à états pour une liaison.** La colonne recalculait le gel et
+la coupure avec ses propres règles. Pendant la reprise qui suit un gel, le
+bandeau disait encore « image figée » et la colonne « aucune surcharge ». La
+colonne lit maintenant l'état de la liaison et le dit avec les mots du
+bandeau ; elle ne garde que ce que la liaison ne sait pas (file de décodage,
+réception, écran plus lent que le jeu).
+
+**Les mots.** Un même geste portait trois noms (« Passer en réduit »,
+« Essayer l'image légère »), le résumé de la connexion appelait « images
+reçues » les images peintes et « ta manette » une place, les commandes à
+l'écran avaient trois noms et le mode sans image deux, la sortie du menu
+quatre formes, et trois boutons neufs étaient en minuscules. Chaque nom est
+maintenant dans `lib/mots.ts` et dans le lexique, qui refuse sa copie écrite
+ailleurs. Une garde nouvelle refuse un nouveau bouton en minuscules ; dix-huit
+boutons d'avant la charte restent listés, parce qu'une vingtaine de pilotes
+lisent leurs textes et qu'aucun n'a été relancé pour eux.
+
+**Un chiffre mesuré ailleurs.** La colonne des mesures écrivait « 2,6 fois
+moins de débit » pour toutes les consoles, et le menu « 13,6 Mbit/s ». Les
+deux ont été mesurés dans une salle GameCube et Wii ; ailleurs, la page dit
+maintenant l'effet sans le chiffre. Une garde refuse ces chiffres hors de
+`mots.ts`.
+
+**Ce qui a été rangé sans changer de comportement.** La fonction `Room`
+d'`App.tsx` passe d'environ 2 600 à 2 450 lignes : le modèle de focus
+(`useFocusJeu`), le micro (`useMicro`), l'entrée « état de la connexion »
+(`lib/rayons.tsx`) et les dix gestes du réglage des touches (`puis`) sont
+sortis, et des expressions recopiées sont devenues des constantes. Le reste
+est du code mort retiré : 85 lignes de CSS de l'ancienne manette Switch (une
+garde refuse maintenant une classe que personne ne pose), une propriété
+`label` sans appelant, une fonction `enTiroir` que la page n'appelait pas et
+que ses essais copiaient.
+
+**Les petites phrases fausses.** Dans une salle au repos, la ligne lue par un
+lecteur d'écran annonçait « Première image reçue. » sans aucune image ; elle
+se tait maintenant tant qu'aucune n'est peinte. Une salle fermée proposait
+encore « Inviter quelqu'un », qui copiait son lien, et « Prendre une place »,
+qui ne faisait rien : les deux disparaissent, et le banc des états le vérifie.
+En paysage bas, « Rejoindre » tombait sous le pli de l'avant-salle : la fiche
+et les boutons se posent côte à côte, et la garde du téléphone mesure le bas
+du bouton aux trois tailles qui échouaient.
+
+**Ce qui n'est pas prouvé.**
+
+- Aucune vraie salle n'a tourné : les liens sont essayés avec un faux Docker
+  et des dossiers jetables. Le chemin `O_NOFOLLOW` dans un vrai conteneur, et
+  la reprise d'un emplacement où un moteur aurait créé un lien légitime,
+  attendent une partie réelle.
+- L'outil d'import des sauvegardes Switch n'a reçu que ses gardes les plus
+  directes (verrou, reçu, restauration, bancs renommés). Le module Rust des
+  sauvegardes débloquées et le chemin Dolphin n'ont pas été relus sous cet
+  angle.
+- La redirection de `?entrer=` n'a été vue que par l'essai du routeur, pas
+  derrière le vrai relais.
+- La page pèse 219 504 octets en brotli, contre 171 933 sur main, dont 27 139
+  pour les polices. À 400 kbit/s, 0,9 s de plus avant la première image : le
+  coût est écrit dans `stamp.mjs`, la décision de servir les polices à part
+  reste à prendre.
+
+**Ce qui reste.** La sonde du site qui interroge `/api/salles` pendant un gel
+peut attendre plus que sa propre patience ; une salle qui redémarre en boucle
+le dit sans fin ; `salon-importable.sh` n'importe pas tous les modules du
+salon. Tous trois sont décrits dans l'état du projet, aucun n'est corrigé.
 
 ## 12. Glossaire complet
 
@@ -29319,3 +29466,14 @@ reconstruire.
 
 **engine.io** : la couche qui porte les messages de socket.io, la bibliothèque
 du salon ; elle commence chaque connexion par une poignée de main.
+
+**Lien symbolique** : un nom de fichier qui renvoie vers un autre chemin.
+Ouvrir le lien ouvre sa cible, où qu'elle soit, sauf avec `O_NOFOLLOW`.
+
+**Montage (Docker)** : un dossier de l'hôte que le conteneur voit comme l'un
+des siens, par l'option `-v`. Ce que le conteneur y écrit, l'hôte le lit tel
+quel, liens compris.
+
+**Redirection 303** : une réponse HTTP qui dit au navigateur d'aller chercher
+une autre adresse ; la salle s'en sert pour retirer `entrer` d'une adresse
+venue d'un autre site.

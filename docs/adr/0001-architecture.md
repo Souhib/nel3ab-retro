@@ -1116,10 +1116,12 @@ for real, checks the closing notice above the pad and measures label contrast,
 at seven sizes in four rooms; it is part of `local`. Contrast over a bright
 picture is not required: the GameCube A falls to 2.79:1 on white. The pad knows
 only the side bands; using the top and bottom bands needs the placed picture
-height from `App`. Found while integrating the documentation, read in the code
-and not rerun: the guard's contrast loop still sets `data-theme` to the seven
-names D26 retired, which no selector matches any more, so it measures the
-system's theme seven times rather than night and day.
+height from `App`. Found while integrating the documentation: the guard's
+contrast loop still set `data-theme` to the seven names D26 retired, so it
+measured the system's theme seven times. Fixed in the final review of
+2026-11-22: it sets `nuit` then `jour` and requires two different `--panel`
+values. A mutant that darkens the night ink passed the old loop and fails all
+eight contrast cases of the new one.
 
 ### D29: One link state, computed in the media layer, shown in one place on the picture, 2026-11-22
 
@@ -1191,6 +1193,17 @@ every gateway error under `/r/` to `/?salle=fermee`, and the lobby home does not
 read `redemarre` yet. The browser proof is `just etats-navigateur`, with
 `just etats-navigateur-rouge` requiring the two earlier pages to fail on each
 named defect.
+
+Amended 2026-11-22 (final review). The column's « Ta connexion » summary kept a
+second state machine (`diagnose`), with its own freeze rule: during the
+recovery after a freeze, the banner still said « image figée » while the column
+said « aucune surcharge ». The column now reads the link state and says it with
+the banner's words (`diagnostic(liaison, …)`); `diagnose` keeps only what the
+link state does not know: the decode queue, reception pace, a screen slower
+than the game. A closed room no longer offers « Inviter quelqu'un » or
+« Prendre une place » (`etats.mjs`, `fermee-vraie`, with an open-room twin),
+and the spoken line no longer says « Première image reçue. » before any picture
+was painted.
 
 ### D30: The game keyboard lives in a focusable game zone; room menus are modal dialogs whose cursor is the focus, 2026-11-22
 
@@ -1292,6 +1305,18 @@ Measured figures are shown only where they were measured. The light picture's
 "2,6 times less bandwidth" comes from one Dolphin race (2026-08-17), so other
 engines read "moins de débit" (`prixImageLegere(moteurDe(console))`).
 
+Amended 2026-11-22 (final review). The measurement column still wrote « 2,6 »
+for every console and the pad-only hint « 13,6 Mbit/s » (a Dolphin p95 from
+three days of logs, commit 6e0fd98): both now go through `mots.ts`
+(`prixManetteSeule`), and a test refuses these figures anywhere else. One name
+per thing joined the lexicon: `IMAGE.passer`, `SORTIES_MENU` and `sortieDuMenu`
+for the three menu forms, `TACTILE` and `MANETTE_SEULE`; the old « en réduit »
+is refused like « format réduit ». A new guard refuses a new `<button>` whose
+written text starts in lower case (charter rule 5); eighteen older ones are
+listed with their reason, since about twenty browser drivers read some of
+those texts and none was rerun for them. The list can only shrink: an entry
+that no longer matches fails the test.
+
 ### D32: A preparation accepts a direct launch, the starter's own choice, and launching without an absent player, 2026-11-22
 
 Launching a game alone took seven actions and three confirmations of the same
@@ -1313,6 +1338,23 @@ elision rules shared by the page and the lobby through
 Rejected: counting the delay from the preparation's opening (first version), so
 that a player seated at 19 s could be launched without at 20 s.
 
+Amended 2026-11-22 (final review). A lobby from before this decision ignores
+`pad` and refuses a starter who has not confirmed (« Chaque joueur doit
+confirmer sa configuration. »); with a rebuilt worker in front of the old
+lobby, no prepared game could start, since the starter no longer has a « Je
+suis prêt » button. Two answers: the lobby restarts before the worker is
+rebuilt (the hand-off in `etat-du-projet.md`), and the page meets that exact
+refusal by confirming the starter's choice then launching again
+(`lancerEnChef`), as an older page did. Today's lobby has already confirmed
+that choice, so the second pass changes nothing there. « Sans attendre » does
+not exist in an old lobby, and its refusal is shown as is.
+
+A launch announcement on slot 2 (« ma sauvegarde ») was ignored, so a Wii
+device change relaunched on the previous launch's slot. The page now keeps 2
+only when it launched itself; for another person's launch it no longer knows
+the slot and says so, since `save: 2` from this page would open its own
+person's save (`sauvegardeRelancee`).
+
 ### D33: The room entry mode lives in the URL and follows the session, 2026-11-22
 
 `?entrer=jouer` and `?entrer=regarder` enter the room directly; the lobby cards
@@ -1326,6 +1368,16 @@ Leaving goes to `/` when a lobby is above (`sortieVers`).
 
 Rejected: writing the mode once, at entry (first version). A watcher who took a
 seat lost it on reload, and a player who gave theirs up took it back.
+
+Amended 2026-11-22 (final review, audit P9). The room knows a person by their
+private-network address, with no cookie: a foreign page open on a member's
+machine could navigate to `?entrer=jouer` and seat them without a gesture. The
+worker now answers a request whose `Sec-Fetch-Site` is `cross-site` or
+`same-site` with a 303 to the same address without `entrer` (a relative `?…`
+reference, so the path behind the relay is kept). A reload (`same-origin`), a
+link opened from another application (`none`) and a browser that sends no such
+header keep the direct entry. Proved by the router's test, not behind the real
+relay.
 
 ### D34: Page wiring is held by a committed route bench, 2026-11-22
 
@@ -1407,6 +1459,64 @@ safe areas, then a desktop, on the built page served with the worker's policy;
 phone: home-screen launch, sound after a call, and Android fullscreen from the
 home screen remain open, as do an app manifest (it needs `manifest-src` in the
 worker's policy), a landscape lock and Wake Lock.
+
+Amended 2026-11-22 (final review). Held in low landscape (height under 500 px),
+the antechamber puts its card and its two buttons side by side: in one column,
+« Rejoindre » ended at 438 px on a 390 px screen. `salle-telephone` now
+measures the bottom of `#enter` at every size; it failed at 844x390, 932x430
+and 667x375 before the change.
+
+### D36: The host never follows a link inside a folder a container writes, 2026-11-22
+
+Each engine container mounts its save slot read-write, under the host's own
+account (`-v {slot}:/run-data`, `--user` equal to the host user), and the
+worker shares the controller folder (`/pads`) the same way. The final review of
+the integration branch found that the host followed symbolic links there: a
+compromised engine (a trapped game plus an emulator flaw) could leave a link
+to a host file it cannot read, and the host would then write `docker logs`
+into it through `emulator.log`, overwrite it through `exit.json`, `pads.log`
+or `seats.tmp`, empty it through `running.lock`, or copy host files back into
+the mount through a save copy. The defect came from `main`; the socle had
+copied it faithfully.
+
+Decision:
+
+- Every file the host writes in a slot is opened from a descriptor of its
+  folder, each folder level opened from the previous one, all with
+  `O_NOFOLLOW` (`emplacement.ouvrir_sans_lien`, `dossier_sans_lien`). A link
+  is refused, even one that appeared between two levels; a named pipe is
+  refused at once instead of blocking the host (`O_NONBLOCK`, then only a
+  regular file is accepted).
+- A copy keeps a link as a link (`copytree(symlinks=True)`), and the path to
+  what it copies is checked first (`sans_lien`). Copies run with the engine
+  container stopped, before the launch or after `docker stop`, so no link can
+  appear between that check and the copy.
+- The three primitives live in `moteurs/socle/emplacement.py` and are copied
+  verbatim into `docker/switch-room.py`, which `switch2-room.py`,
+  `xbox360-room.py` and `switch-saves.py` load; `test_differentiel.py`
+  compares their syntax trees.
+- The worker removes `seats.tmp`, then creates it with `create_new`
+  (`O_CREAT | O_EXCL`), which never follows a link; `rename` replaces a link at
+  `seats` itself.
+
+Weighed:
+
+1. Keep host-written files outside the mounted tree (a sibling folder the
+   container cannot see). Simplest to reason about, and still the better end
+   state, but the black box and the measurement readers find `emulator.log` and
+   `exit.json` in the slot today: moving them means changing every reader at
+   once.
+2. Refuse any copy that contains a link. Rejected: a game or its runtime may
+   create one legitimately, and a refusal at stop would lose the post-game
+   copy.
+
+Proof: `moteurs/socle/test_liens.py` and `docker/test_switch_liens.py` place a
+link for each host-written file and require its target intact, with an
+ordinary twin still written; 23 and 15 failures on the code before, and the
+Rust test read « 1 3 » written into the host file. `just salles-dore` is
+unchanged: no Docker command moved. Not proven: a real container, and a slot
+where an engine created a legitimate link. The Switch save import, the Rust
+unlocked-save module and the Dolphin paths were not reviewed from this angle.
 
 
 ## Consequences

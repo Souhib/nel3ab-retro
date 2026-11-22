@@ -129,3 +129,53 @@ async def test_the_lobby_lists_the_library_without_asking_a_worker(tmp_path: Pat
     assert found.status_code == 200
     assert found.json()["games"][0]["key"] == "Melee.rvz"
     assert asked == [], "le salon a demandé la liste à un worker"
+
+
+def un_jeu(console: str, title_id: object) -> dict:
+    """Un catalogue d'un seul jeu inscrit, tel que le worker l'écrit."""
+    return {
+        "version": 1,
+        "scanned_ms": 1,
+        "roms": [
+            {
+                "name": "Un jeu",
+                "maker": None,
+                "about": None,
+                "art": False,
+                "console": console,
+                "key": "Un jeu.iso",
+                "title_id": title_id,
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    ("console", "title_id", "garde"),
+    [
+        # Sonic, tel que le worker l'écrit depuis le 21 novembre 2026: jeté
+        # jusqu'au 22, quand le salon exigeait 16 chiffres pour toute console.
+        ("x360", "534507d6", True),
+        ("switch", "0100bde00862a000", True),
+        ("switch2", "0400486024dec000", True),
+        # Les jumeaux: le titre d'une console n'est pas celui d'une autre.
+        ("x360", "0100bde00862a000", False),
+        ("switch", "534507d6", False),
+        ("gc", "0100bde00862a000", False),
+        ("?", "534507d6", False),
+        # Les minuscules du worker, comme avant: un nom de dossier de sauvegarde.
+        ("x360", "534507D6", False),
+        ("switch", "0100BDE00862A000", False),
+        # Une mise à jour, et ce qui n'est pas un texte.
+        ("switch", "0100bde00862a800", False),
+        ("x360", 0x534507D6, False),
+    ],
+)
+def test_the_title_is_kept_in_the_shape_of_its_own_console(
+    tmp_path: Path, console: str, title_id: object, garde: bool
+) -> None:
+    found = read_one(room(tmp_path, "1", un_jeu(console, title_id)), 1)
+
+    assert found is not None, "un titre mal formé ne fait jamais écarter le jeu"
+    (game,) = found.games
+    assert game.title_id == (title_id if garde else None)

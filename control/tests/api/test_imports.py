@@ -1019,3 +1019,58 @@ async def test_un_disque_reste_en_quarantaine_se_reexamine_avec_les_regles_du_jo
     # Le jumeau: une fois rangé, il a quitté la quarantaine et ne se réexamine plus.
     with pytest.raises(ValueError, match="plus en quarantaine"):
         reexaminer(imports.quarantaine, refait, imports.regles())
+
+
+@pytest.mark.parametrize(("titre", "etat"), [("534507D6", "doublon"), ("4D5307E6", "range")])
+async def test_un_disque_xbox_360_deja_inscrit_par_sa_fiche_est_un_doublon(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+    imports: ImportsController,
+    roms: Path,
+    titre: str,
+    etat: str,
+) -> None:
+    """Xenia range les sauvegardes par titre; le jumeau porte le titre d'un autre jeu."""
+    (roms / "xbox360").mkdir()
+    app.state.settings.rom_dir += f":{roms / 'xbox360'}"
+    (roms / "xbox360" / "Ancien Sonic.iso").write_bytes(b"jeu deja la")
+    (roms / "xbox360" / "Ancien Sonic.iso.nel3ab.json").write_bytes(
+        fiche_xbox360("Ancien Sonic", titre).octets
+    )
+
+    fini = await deposer(client, imports, disque_xbox360(0x534507D6), "Sonic the Hedgehog.iso")
+
+    [element] = fini["elements"]
+    assert element["etat"] == etat
+    assert ("xbox360/Ancien Sonic.iso" in element["message"]) == (etat == "doublon")
+    assert (roms / "xbox360" / "Sonic the Hedgehog.iso").exists() == (etat == "range")
+
+
+@pytest.mark.parametrize(
+    ("console", "titre", "etat"),
+    [
+        ("x360", "534507d6", "doublon"),
+        # Les jumeaux: aucun titre, et le même nombre sous une console qui n'a pas
+        # cette forme, que le catalogue écarte.
+        ("x360", None, "range"),
+        ("switch", "534507d6", "range"),
+    ],
+)
+async def test_un_titre_xbox_360_deja_au_catalogue_des_salles_est_un_doublon(
+    app: FastAPI,
+    client: httpx.AsyncClient,
+    imports: ImportsController,
+    roms: Path,
+    console: str,
+    titre: str | None,
+    etat: str,
+) -> None:
+    (roms / "xbox360").mkdir()
+    app.state.settings.rom_dir += f":{roms / 'xbox360'}"
+    ecrire_catalogue(app, "Ailleurs.iso", console=console, title_id=titre)
+
+    fini = await deposer(client, imports, disque_xbox360(0x534507D6), "Sonic the Hedgehog.iso")
+
+    [element] = fini["elements"]
+    assert element["etat"] == etat
+    assert ("« Ailleurs.iso »" in element["message"]) == (etat == "doublon")

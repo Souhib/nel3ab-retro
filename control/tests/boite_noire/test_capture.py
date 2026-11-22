@@ -28,19 +28,43 @@ RYUJINX = {
 }
 
 
-class FauxLanceur:
-    """Retient chaque commande et écrit une sortie reconnaissable."""
+#: Ce que `supervise.py` écrit dans `/run-data/display.json` quand Sway est prêt.
+AFFICHAGE = '{"display": "wayland-1", "pid": 4242}'
 
-    def __init__(self, codes: dict[str, int] | None = None) -> None:
+
+class FauxLanceur:
+    """Retient chaque commande et écrit une sortie reconnaissable.
+
+    Une lecture de `display.json` rend `affichage`, ou échoue comme `cat` sur un
+    fichier absent quand il vaut rien.
+    """
+
+    def __init__(
+        self, codes: dict[str, int] | None = None, affichage: str | None = AFFICHAGE
+    ) -> None:
         self.commandes: list[list[str]] = []
         self.codes = codes or {}
+        self.affichage = affichage
         self._verrou = threading.Lock()
 
     def __call__(self, argv: Sequence[str], sortie: Path, delai: float) -> int:
         with self._verrou:
             self.commandes.append(list(argv))
+        if argv[-1] == "/run-data/display.json":
+            if self.affichage is None:
+                sortie.write_text("cat: /run-data/display.json: No such file or directory\n")
+                return 1
+            sortie.write_text(self.affichage)
+            return 0
         sortie.write_text(f"sortie de {argv[0]} {argv[1]}\n")
         return self.codes.get(argv[1], 0)
+
+
+def ecrans(lanceur: FauxLanceur) -> list[list[str]]:
+    """Les commandes `grim` lancées dans un conteneur."""
+    return [
+        argv for argv in lanceur.commandes if argv[:2] == ["docker", "exec"] and "grim" in argv[-1]
+    ]
 
 
 def _capteur(tmp_path: Path, lanceur: FauxLanceur, debugfs: bool = False) -> Capteur:
@@ -137,8 +161,13 @@ def test_la_capture_garde_l_allocateur_le_worker_les_pages_et_l_ecran(
     (emulateur,) = [argv for argv in lanceur.commandes if argv[:2] == ["docker", "logs"]]
     assert emulateur[-1] == "nel3ab-switch-room-switch-kjwatM"
     assert (dossier / "emulateur.log").exists()
-    (ecran,) = [argv for argv in lanceur.commandes if argv[:2] == ["docker", "exec"]]
+    affichage, ecran = [argv for argv in lanceur.commandes if argv[:2] == ["docker", "exec"]]
+    assert affichage == [
+        *("docker", "exec", "nel3ab-switch-room-switch-kjwatM"),
+        *("cat", "/run-data/display.json"),
+    ]
     assert ecran[2] == "nel3ab-switch-room-switch-kjwatM"
+    assert ecran[-1].startswith("WAYLAND_DISPLAY=wayland-1 ")
     assert ecran[-1].endswith("nice -n 19 grim -t png -l 1 -")
     assert (dossier / "ecran.png").exists()
     meta = json.loads((dossier / "capture.json").read_text())
@@ -224,3 +253,48 @@ def test_une_capture_periodique_ne_prend_pas_l_ecran(tmp_path: Path, engine: str
     # Le journal de l'émulateur, lui, est pris à chaque capture: c'est là que
     # Ryujinx écrit « GPU processing thread is too slow ».
     assert (dossier / "emulateur.log").exists()
+
+
+@pytest.mark.parametrize("engine", ["switch", "x360"])
+def test_l_ecran_se_prend_sur_l_affichage_que_la_salle_a_ecrit(tmp_path: Path, engine: str) -> None:
+    """`wayland-1` était supposé: le nom vient de `display.json`, écrit par
+    `supervise.py` une fois Sway prêt, sous Wayland comme sous Xwayland."""
+    lanceur = FauxLanceur(affichage='{"display": "wayland-2", "pid": 4242}')
+    dossier = _capteur(tmp_path, lanceur).capturer(
+        "chute", {**RYUJINX, "moteur": engine}, QUAND, {}
+    )
+
+    (ecran,) = ecrans(lanceur)
+    assert ecran[-1].startswith("WAYLAND_DISPLAY=wayland-2 XDG_RUNTIME_DIR=/tmp/nel3ab-runtime ")
+    assert "wayland-1" not in ecran[-1]
+    assert (dossier / "ecran.png").exists()
+    codes = json.loads((dossier / "capture.json").read_text())["codes"]
+    assert (codes["affichage"], codes["ecran"]) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "affichage",
+    [
+        # Sway pas encore prêt, ou la salle déjà arrêtée: pas de fichier.
+        None,
+        "pas du json",
+        '["wayland-1"]',
+        '{"pid": 4242}',
+        # Un nom qui sortirait de la commande `sh -c` où il est posé.
+        '{"display": "wayland-1; rm -rf ~", "pid": 4242}',
+        '{"display": "../wayland-1", "pid": 4242}',
+    ],
+)
+def test_sans_affichage_lisible_l_ecran_n_est_pas_pris_et_la_capture_continue(
+    tmp_path: Path, affichage: str | None
+) -> None:
+    """Les jumeaux: `grim` sur un affichage supposé capturait un autre écran, ou rien."""
+    lanceur = FauxLanceur(affichage=affichage)
+    dossier = _capteur(tmp_path, lanceur).capturer("chute", RYUJINX, QUAND, {})
+
+    assert ecrans(lanceur) == []
+    assert not (dossier / "ecran.png").exists()
+    codes = json.loads((dossier / "capture.json").read_text())["codes"]
+    assert codes["affichage"] != 0
+    assert "ecran" not in codes
+    assert (dossier / "worker.log").exists(), "le reste de la capture est pris"

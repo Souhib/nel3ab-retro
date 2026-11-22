@@ -51,9 +51,13 @@ from nel3ab_control.consoles import CONSOLES
 MOTEURS = CONSOLES.processes()
 
 #: Ce qui entoure une partie et peut lui prendre du processeur ou de la mémoire
-#: vidéo: le worker, les deux enregistreurs de la capture Switch, le compositeur
-#: et le son.
-ENTOURAGE = ("nel3ab-worker", "nel3ab-wf-recor", "sway", "pulseaudio", "parec")
+#: vidéo: le worker, les deux enregistreurs de la capture Switch, le compositeur,
+#: le son, et le serveur X que Sway démarre pour Xenia (`NEL3AB_SWAY_X11`). Depuis
+#: le 21 novembre 2026, l'image d'une salle Xbox 360 passe par Xwayland avant
+#: Sway; il manquait ici, et un relevé ne disait rien de ce qu'il coûtait.
+#: `Xwayland` est le nom de l'exécutable que wlroots lance (paquet `xwayland`
+#: de l'image), donc celui que le noyau garde dans `comm`.
+ENTOURAGE = ("nel3ab-worker", "nel3ab-wf-recor", "sway", "Xwayland", "pulseaudio", "parec")
 
 #: Les interfaces réseau dont le débit se garde. Les ponts et les paires `veth`
 #: de Docker se comptent par dizaines sur cette machine et ne disent rien d'une

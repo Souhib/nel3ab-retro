@@ -32,6 +32,7 @@ cd control && NEL3AB_ROM_DIR=<celui de l'unité du salon> \
 | Clé des profils, hors dépôt | `~/.config/nel3ab/xenia-profils.cle` (0600) |
 | Image du conteneur | celle de la salle Switch, par son empreinte |
 | Parties | `~/.local/state/nel3ab/xbox360/<titre>/<emplacement>/` |
+| Ce que le carnet de jeu en montre | la taille et la date de `xenia/content` de l'emplacement personnel, le nom du jeu lu au catalogue (`/profil`, depuis le 22 novembre 2026) |
 
 La clé chiffre les fichiers `Account` des quatre profils (« Joueur 1 » à
 « Joueur 4 »), écrits avant le premier lancement pour que Xenia n'ouvre pas sa
@@ -68,8 +69,12 @@ majuscules, si l'image s'est arrêtée pendant que le jeu tournait. Une partie
 relancée dans le même emplacement range la précédente dans `history/`, à côté
 de l'emplacement : le relevé s'y applique de la même façon.
 
-La machine (processeur, carte, mémoire, Xenia par son nom `xenia_edge`) est
-relevée par la boîte noire, comme pour les autres consoles : `just boite-noire`.
+La machine (processeur, carte, mémoire, Xenia par son nom `xenia_edge`, et
+depuis le 22 novembre 2026 le serveur `Xwayland` de la salle parmi l'entourage)
+est relevée par la boîte noire, comme pour les autres consoles :
+`just boite-noire`. Sur une chute, elle prend l'image de l'affichage que la
+salle a écrit dans `display.json`, au lieu de supposer `wayland-1`. Ce chemin
+n'a pas encore été vu sur une vraie chute d'une salle Xbox 360.
 Ses heures sont celles de Paris, une heure de plus que l'UTC des journaux des
 salles en hiver.
 

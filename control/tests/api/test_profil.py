@@ -475,3 +475,119 @@ async def test_une_sauvegarde_switch_porte_le_nom_du_jeu_que_le_catalogue_publie
     assert vues[0]["console"]["code"] == "switch"
     catalogue = (await client.get("/api/catalogue")).json()
     assert [jeu["key"] for jeu in catalogue["games"]] == ["Mario Tennis Aces.xci"]
+
+
+def xbox360(settings: Settings, login: str, titre: str) -> Path:
+    """L'emplacement personnel Xbox 360, au chemin que `xbox360-room.py` lui donne.
+
+    La configuration est écrite là où la fixture `settings` la place, sans lire
+    le réglage: l'essai doit pouvoir échouer sur un salon qui ne le connaît pas.
+    """
+    racine = settings.personal_save_root.parent / "etat-xbox360"
+    (settings.personal_save_root.parent / "xbox360.json").write_text(
+        json.dumps({"state": str(racine)})
+    )
+    nom = dossier_personnel(login)
+    assert nom is not None
+    return racine / titre / nom
+
+
+def catalogue_sonic(settings: Settings, title_id: str | None = "534507d6") -> None:
+    (settings.salles_dir / "1").mkdir(parents=True)
+    (settings.salles_dir / "1" / NAME).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "scanned_ms": 1,
+                "roms": [
+                    {
+                        "name": "Sonic the Hedgehog",
+                        "maker": None,
+                        "about": None,
+                        "art": True,
+                        "console": "x360",
+                        "key": "Sonic the Hedgehog.iso",
+                        "title_id": title_id,
+                    }
+                ],
+            }
+        )
+    )
+
+
+async def test_une_sauvegarde_xbox_360_est_listee_et_porte_le_nom_de_son_jeu(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
+    """Jusqu'au 22 novembre 2026, le carnet ne connaissait que Dolphin et les deux Switch."""
+    alice = "alice@example.com"
+    catalogue_sonic(settings)
+    sonic = xbox360(settings, alice, "534507d6")
+    # Ce que `backup` de l'adaptateur garde: les profils et leurs parties.
+    partie = sonic / "xenia/content/E030000012345678/534507D6/00000001"
+    partie.mkdir(parents=True)
+    (partie / "SAVE").write_bytes(b"x" * 700)
+    # Ce qui n'est pas la partie: le journal et les captures d'écran de Xenia.
+    (sonic / "xenia-horodate.log").write_bytes(b"j" * 9000)
+    (sonic / "captures").mkdir()
+    (sonic / "captures/0001.png").write_bytes(b"p" * 9000)
+    (sonic / "xenia/cache_host").mkdir(parents=True)
+    (sonic / "xenia/cache_host/shaders.bin").write_bytes(b"c" * 9000)
+    for copie in ("20261121T201500-1", "20261121T213000-2"):
+        (sonic / "backups" / copie / "content").mkdir(parents=True)
+
+    vues = (await client.get("/api/me/sauvegardes", headers=ALICE)).json()
+
+    assert len(vues) == 1, vues
+    (vue,) = vues
+    assert (vue["titre"], vue["relie"], vue["console"]["code"]) == (
+        "Sonic the Hedgehog",
+        True,
+        "x360",
+    )
+    assert vue["console"]["label"] == "Xbox 360"
+    assert vue["sauvegarde"]["octets"] == 700
+    assert vue["sauvegarde"]["copies"] == 2
+
+
+async def test_sans_le_jeu_au_catalogue_la_sauvegarde_xbox_360_garde_son_titre(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
+    """Le jumeau du nom: un jeu retiré de la bibliothèque garde son identifiant."""
+    catalogue_sonic(settings, title_id=None)
+    (xbox360(settings, "alice@example.com", "534507d6") / "xenia/content").mkdir(parents=True)
+
+    (vue,) = (await client.get("/api/me/sauvegardes", headers=ALICE)).json()
+
+    assert (vue["titre"], vue["relie"], vue["console"]["code"]) == ("534507D6", False, "x360")
+
+
+@pytest.mark.parametrize(
+    "dossier",
+    [
+        # Le titre d'une autre console sous la racine Xbox 360, une écriture que
+        # l'adaptateur ne produit pas (il met le titre en minuscules), et un
+        # titre trop court.
+        "0100bde00862a000",
+        "534507D6",
+        "534507d",
+    ],
+)
+async def test_un_dossier_qui_n_a_pas_la_forme_d_un_titre_xbox_360_n_est_pas_liste(
+    client: httpx.AsyncClient, settings: Settings, dossier: str
+) -> None:
+    (xbox360(settings, "alice@example.com", dossier) / "xenia/content").mkdir(parents=True)
+
+    assert (await client.get("/api/me/sauvegardes", headers=ALICE)).json() == []
+
+
+async def test_un_titre_xbox_360_sous_la_racine_switch_n_est_pas_liste(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
+    """Le jumeau croisé: chaque racine n'accepte que la forme de sa console."""
+    (switch(settings, "alice@example.com", "534507d6") / "data/bis/user").mkdir(parents=True)
+
+    assert (await client.get("/api/me/sauvegardes", headers=ALICE)).json() == []
+
+
+def test_le_reglage_xbox_360_de_la_fixture_est_jetable(settings: Settings, tmp_path: Path) -> None:
+    assert settings.xbox360_config == tmp_path / "xbox360.json"

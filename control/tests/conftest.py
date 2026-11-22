@@ -58,6 +58,7 @@ def isolate_personal_state(
     monkeypatch.setenv("NEL3AB_PERSONAL_SAVE_ROOT", str(racine / "personal-saves"))
     monkeypatch.setenv("NEL3AB_SWITCH_CONFIG", str(racine / "switch.json"))
     monkeypatch.setenv("NEL3AB_SWITCH2_CONFIG", str(racine / "switch2.json"))
+    monkeypatch.setenv("NEL3AB_XBOX360_CONFIG", str(racine / "xbox360.json"))
     # Et les droits de dépôt et la quarantaine: un essai qui nomme un importeur
     # dans le vrai fichier donnerait ce droit pour de bon, et un envoi d'essai
     # poserait ses morceaux dans la vraie quarantaine.
@@ -119,6 +120,7 @@ def settings(tmp_path: Path) -> Settings:
         personal_save_root=tmp_path / "personal-saves",
         switch_config=tmp_path / "switch.json",
         switch2_config=tmp_path / "switch2.json",
+        xbox360_config=tmp_path / "xbox360.json",
         # La quarantaine et les dossiers de jeux, jetables eux aussi. Sans ces
         # deux lignes, un essai d'import écrirait sous ~/.local/state et
         # rangerait un faux jeu dans la VRAIE bibliothèque de la machine.

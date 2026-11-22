@@ -2,15 +2,18 @@
 
 # Où elles sont
 
-Trois racines, et seulement elles. Un parcours du dossier d'état entier
-tomberait sur les centaines de dossiers d'essai Switch 2 qu'il contient (408 le
-20 novembre 2026), et sur d'anciens emplacements migrés qui ne sont plus à
-personne.
+Une racine pour Dolphin, une par console servie par un adaptateur, et
+seulement elles. Un parcours du dossier d'état entier tomberait sur les
+centaines de dossiers d'essai Switch 2 qu'il contient (408 le 20 novembre
+2026), et sur d'anciens emplacements migrés qui ne sont plus à personne.
 
 - GameCube et Wii: `NEL3AB_PERSONAL_SAVE_ROOT/<clé du fichier>/joueur-…`
   (`core/crates/worker/src/main.rs`, chemin Dolphin);
-- Switch et Switch 2: `<state>/<titre>/joueur-…`, où `state` est lu dans la
-  configuration de l'adaptateur, comme le fait le worker (`unlocked::state_root`).
+- Switch, Switch 2 et Xbox 360: `<state>/<titre>/joueur-…`, où `state` est lu
+  dans la configuration de l'adaptateur, comme le fait le worker
+  (`unlocked::state_root`). Les consoles viennent du manifeste (`racines`), et
+  le titre a la forme de sa console (`consoles.FORMES_TITRE`), en minuscules
+  comme l'adaptateur l'écrit.
 
 Le nom `joueur-…` est recalculé par `personnes.dossier_personnel`, tenu par les
 vecteurs communs avec le Rust. Un ancien nom sans empreinte ne correspond jamais.
@@ -28,19 +31,24 @@ La partie elle-même, pas l'emplacement entier. Un emplacement Switch porte une
 copie complète du système émulé (452 Mo mesurés le 20 novembre 2026, pour
 0,26 Mo de partie). On mesure donc le sous-arbre que l'adaptateur sauvegarde
 lui-même: `data/bis/user` pour Ryubing (`switch-room.py`, `backup`), la NAND
-`home/.local/share/eden/nand` pour Eden (`switch2-room.py`). Pour Dolphin,
-l'emplacement entier, qui ne contient que la partie.
+`home/.local/share/eden/nand` pour Eden (`switch2-room.py`), `xenia/content`
+pour Xenia (`xbox360-room.py`), sans son journal, ses captures d'écran ni son
+cache de shaders. Pour Dolphin, l'emplacement entier, qui ne contient que la
+partie.
 """
 
 import json
 import os
 import re
 import stat
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from nel3ab_control.consoles import CONSOLES, Manifeste, titre_valide
 from nel3ab_control.personnes import dossier_personnel
+from nel3ab_control.settings import Settings
 
 #: Le plus d'entrées qu'un emplacement peut faire parcourir. Mesuré le 20 et le
 #: 21 novembre 2026: 355 fichiers dans l'emplacement Switch personnel le plus
@@ -52,14 +60,14 @@ ENTREES_MAX = 20_000
 #: Ce qu'on accepte de lire d'une configuration d'adaptateur, comme le worker.
 CONFIG_MAX = 65_536
 
-#: Un identifiant de titre Switch ou Switch 2: seize chiffres hexadécimaux.
-TITRE = re.compile(r"^[0-9a-f]{16}$")
-
-#: Le sous-arbre qui porte la partie, par moteur. Voir le docstring du module.
+#: Le sous-arbre qui porte la partie: celui de Dolphin, puis celui de chaque
+#: console servie par un adaptateur, par son code. Voir le docstring du module.
+#: Un essai exige une entrée pour chaque console externe du manifeste.
 PARTIE = {
     "dolphin": Path(),
     "switch": Path("data/bis/user"),
     "switch2": Path("home/.local/share/eden/nand"),
+    "x360": Path("xenia/content"),
 }
 
 
@@ -67,11 +75,11 @@ PARTIE = {
 class Trouvee:
     """Une sauvegarde personnelle sur le disque."""
 
-    #: « dolphin » (GameCube ou Wii, que le dossier seul ne distingue pas),
-    #: « switch » ou « switch2 ».
+    #: « dolphin » (GameCube ou Wii, que le dossier seul ne distingue pas), ou
+    #: le code de la console de l'adaptateur: « switch », « switch2 », « x360 ».
     famille: str
     #: Le nom du dossier du jeu: la clé du fichier pour Dolphin, le titre pour
-    #: la Switch.
+    #: une console d'adaptateur.
     jeu: str
     dossier: Path
 
@@ -128,8 +136,27 @@ def _enfants(racine: Path) -> list[str]:
         return []
 
 
-def trouver(login: str, dolphin: Path, switch: Path | None, switch2: Path | None) -> list[Trouvee]:
-    """Les sauvegardes personnelles de cette adresse, sous les trois racines."""
+def racines(settings: Settings, manifeste: Manifeste = CONSOLES) -> dict[str, Path | None]:
+    """Le dossier `state` de chaque console servie par un adaptateur, par son code.
+
+    Les consoles viennent du manifeste, et la configuration de chacune du
+    réglage qui porte le nom de sa variable (`Settings.configuration_adaptateur`).
+    Rien pour une console dont la configuration manque ou ne nomme aucun dossier.
+    """
+    return {
+        console.code: racine_adaptateur(settings.configuration_adaptateur(console.config_env))
+        for console in manifeste.consoles
+        if console.config_env is not None
+    }
+
+
+def trouver(login: str, dolphin: Path, adaptateurs: Mapping[str, Path | None]) -> list[Trouvee]:
+    """Les sauvegardes personnelles de cette adresse, sous Dolphin et chaque racine d'adaptateur.
+
+    `adaptateurs` est ce que rend `racines`. Sous chacune, seul compte un dossier
+    qui a la forme du titre de SA console: un titre Switch posé sous la racine
+    Xbox 360 n'est pas une partie Xbox 360.
+    """
     nom = dossier_personnel(login)
     if nom is None:
         return []
@@ -140,12 +167,16 @@ def trouver(login: str, dolphin: Path, switch: Path | None, switch2: Path | None
         dossier = dolphin / jeu / nom
         if _dossier(dolphin / jeu) and _dossier(dossier):
             trouvees.append(Trouvee("dolphin", jeu, dossier))
-    for famille, racine in (("switch", switch), ("switch2", switch2)):
+    for famille, racine in adaptateurs.items():
         if racine is None:
             continue
         for titre in _enfants(racine):
             dossier = racine / titre / nom
-            if TITRE.match(titre) and _dossier(racine / titre) and _dossier(dossier):
+            if (
+                titre_valide(famille, titre, minuscules=True)
+                and _dossier(racine / titre)
+                and _dossier(dossier)
+            ):
                 trouvees.append(Trouvee(famille, titre, dossier))
     return trouvees
 
@@ -210,7 +241,7 @@ def _versions(dossier: Path) -> int:
 
 
 def _copies(trouvee: Trouvee) -> int:
-    """Les copies que l'adaptateur Switch fait au début et à la fin d'une partie."""
+    """Les copies qu'un adaptateur fait au début et à la fin d'une partie, dans `backups`."""
     if trouvee.famille == "dolphin":
         return 0
     copies = trouvee.dossier / "backups"

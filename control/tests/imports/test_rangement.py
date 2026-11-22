@@ -3,6 +3,7 @@
 import dataclasses
 import errno
 import hashlib
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -492,3 +493,121 @@ def test_une_fiche_xbox_360_refuse_un_titre_d_une_autre_forme() -> None:
         fiche_xbox360("Sonic", "0100ABCDEF012000")
     with pytest.raises(ValueError, match="8 chiffres"):
         fiche_xbox360("Sonic", "")
+
+
+# ── Les titres inscrits par fiche, console par console ─────────────────────
+
+
+def poser_jeu(dossier: Path, nom: str, fiche: dict) -> None:
+    """Un jeu déjà dans la bibliothèque, avec la fiche écrite à côté de lui."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    (dossier / nom).write_bytes(b"jeu deja la")
+    (dossier / f"{nom}.nel3ab.json").write_text(json.dumps(fiche))
+
+
+@pytest.mark.parametrize(
+    ("fiche", "titre"),
+    [
+        # Sonic, inscrit par l'import depuis le 21 novembre 2026: ignoré
+        # jusqu'au 22, quand la recherche de doublons exigeait 16 chiffres.
+        ({"console": "x360", "name": "Sonic", "title": "534507D6"}, "534507d6"),
+        ({"console": "x360", "name": "Sonic", "title": "534507d6"}, "534507d6"),
+        ({"console": "switch", "name": "Tennis", "title": "0100BDE00862A000"}, "0100bde00862a000"),
+        ({"console": "switch2", "name": "Zelda", "title": "0400486024DEC000"}, "0400486024dec000"),
+    ],
+)
+def test_une_fiche_inscrit_le_titre_de_sa_console(tmp_path: Path, fiche: dict, titre: str) -> None:
+    poser_jeu(tmp_path / "roms" / "jeux", "Le jeu.iso", fiche)
+    bibliotheque = Bibliotheque([tmp_path / "roms" / "jeux"], tmp_path / "verrou")
+
+    inscrits = bibliotheque.inscrits()
+
+    assert list(inscrits) == [titre]
+    assert inscrits[titre].nom == fiche["name"]
+
+
+@pytest.mark.parametrize(
+    "fiche",
+    [
+        # Les jumeaux: le titre d'une console sous le nom d'une autre, une
+        # console sans titre, une mise à jour, et une fiche sans console, que le
+        # worker n'inscrit pas non plus (`emulator::switch::registered`).
+        {"console": "switch", "name": "Sonic", "title": "534507D6"},
+        {"console": "x360", "name": "Tennis", "title": "0100BDE00862A000"},
+        {"console": "gc", "name": "Melee", "title": "0100BDE00862A000"},
+        {"console": "switch", "name": "Tennis", "title": "0100BDE00862A800"},
+        {"name": "Tennis", "title": "0100BDE00862A000"},
+        {"console": "x360", "name": "Sonic", "title": 0x534507D6},
+    ],
+)
+def test_une_fiche_que_le_worker_n_inscrirait_pas_n_inscrit_rien(
+    tmp_path: Path, fiche: dict
+) -> None:
+    poser_jeu(tmp_path / "roms" / "jeux", "Le jeu.iso", fiche)
+
+    assert Bibliotheque([tmp_path / "roms" / "jeux"], tmp_path / "verrou").inscrits() == {}
+
+
+def test_un_second_disque_xbox_360_du_meme_titre_est_un_doublon(tmp_path: Path) -> None:
+    """Xenia range les sauvegardes par titre: deux fichiers partageraient la progression."""
+    from nel3ab_control.imports.rangement import fiche_xbox360
+
+    xbox = tmp_path / "roms" / "xbox360"
+    poser_jeu(xbox, "Sonic.iso", {"console": "x360", "name": "Sonic", "title": "534507D6"})
+    source = tmp_path / "quarantaine-fichier"
+    source.write_bytes(b"un autre fichier du meme jeu")
+    fd = os.open(source, os.O_RDONLY)
+    try:
+        with pytest.raises(Refus, match="titre 534507D6"):
+            Bibliotheque([xbox], tmp_path / "verrou").ranger(
+                fd,
+                xbox,
+                "Sonic the Hedgehog.iso",
+                sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+                jeu=None,
+                fiche=fiche_xbox360("Sonic the Hedgehog", "534507D6"),
+            )
+    finally:
+        os.close(fd)
+    assert sorted(p.name for p in xbox.iterdir()) == ["Sonic.iso", "Sonic.iso.nel3ab.json"]
+
+
+# ── Ce que la page de dépôt annonce comme rangé tout de suite ──────────────
+
+
+def test_ce_qui_se_range_tout_de_suite_suit_le_manifeste_et_l_import(
+    bibliotheque: tuple[str, Path],
+) -> None:
+    """La phrase de la page vient d'ici: écrite à la main, elle oubliait la Xbox 360."""
+    from nel3ab_control.imports.traitement import FICHE_ECRITE_PAR_L_IMPORT, rangees
+
+    rom_dir, _ = bibliotheque
+    assert rangees() == ["GameCube", "Wii", "Switch", "Xbox 360"]
+    # Le jumeau: la Switch 2 s'inscrit par fiche, que l'import n'écrit pas encore,
+    # et `decider` le dit avec un fichier dont il ne reproche rien d'autre.
+    assert "switch2" not in FICHE_ECRITE_PAR_L_IMPORT
+    assert decider(lu("switch2", "nup"), rom_dir).etat == "a-confirmer"
+    assert "à la main" in decider(lu("switch2", "nup"), rom_dir).message
+    # Une console retirée du manifeste disparaît aussi de la phrase.
+    sans = dataclasses.replace(
+        manifeste.CONSOLES,
+        consoles=tuple(one for one in manifeste.CONSOLES.consoles if one.code != "x360"),
+    )
+    assert rangees(sans) == ["GameCube", "Wii", "Switch"]
+
+
+@pytest.mark.parametrize(
+    "titre",
+    [
+        # Une mise à jour, un contenu additionnel, et un nombre trop grand pour
+        # seize chiffres: aucune fiche de jeu ne les porte.
+        JEU | 0x800,
+        JEU + 0x1001,
+        1 << 64,
+    ],
+)
+def test_une_fiche_switch_refuse_un_titre_qui_n_est_pas_celui_d_un_jeu(titre: int) -> None:
+    with pytest.raises(ValueError, match="jeu Switch"):
+        fiche_switch("Jeu", titre)
+    # Le jumeau: le jeu lui-même.
+    assert fiche_switch("Jeu", JEU).titre == f"{JEU:016x}"

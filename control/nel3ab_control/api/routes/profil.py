@@ -25,7 +25,7 @@ from nel3ab_control.catalogue import freshest
 from nel3ab_control.dependencies import CallerDep, PartiesDep, PeopleDep, SalonsDep, SettingsDep
 from nel3ab_control.parties import JeuJoue, Parties
 from nel3ab_control.personnes import empreinte
-from nel3ab_control.sauvegardes import mesurer, racine_adaptateur, trouver
+from nel3ab_control.sauvegardes import mesurer, racines, trouver
 from nel3ab_control.settings import Settings
 
 router = APIRouter(prefix="/api/me", tags=["profil"])
@@ -48,12 +48,7 @@ def _assembler(
     login: str, settings: Settings, parties: Parties, ouvertes: dict[str, float]
 ) -> Carnet:
     """Tout ce que le carnet lit sur le disque, sur un fil."""
-    trouvees = trouver(
-        login,
-        settings.personal_save_root,
-        racine_adaptateur(settings.switch_config),
-        racine_adaptateur(settings.switch2_config),
-    )
+    trouvees = trouver(login, settings.personal_save_root, racines(settings))
     catalogue = freshest(settings.salles_dir)
     jeux = (
         [

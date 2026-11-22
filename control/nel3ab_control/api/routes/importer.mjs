@@ -26,24 +26,27 @@ const LOGO_GB = [
 ];
 const LOGO_GBA = [0x24, 0xff, 0xae, 0x51, 0x69, 0x9a, 0xa2, 0x21];
 
-/** Le nom qu'une personne lit, pour chaque code de console. */
-export const CONSOLES = {
-  gc: "GameCube",
-  wii: "Wii",
-  switch: "Switch",
-  switch2: "Switch 2",
-  x360: "Xbox 360",
-  xbox: "Xbox",
-  nes: "NES",
-  n64: "Nintendo 64",
-  gb: "Game Boy",
-  gbc: "Game Boy Color",
-  gba: "Game Boy Advance",
-  ds: "Nintendo DS",
-  md: "Mega Drive",
-  ps1: "PlayStation",
-  ps2: "PlayStation 2",
-};
+/**
+ * Le nom qu'une personne lit, pour chaque code de console.
+ *
+ * Le salon le pose dans la page (`#noms-consoles`, par `importer.py`), tiré du
+ * manifeste des consoles et des consoles que l'identifiant reconnaît sans les
+ * servir (`destinations.noms`). Ce module en gardait sa propre copie jusqu'au
+ * 22 novembre 2026. Sans page, sous Node, ou avec un texte illisible: aucun
+ * nom, et la carte dit le code de la console.
+ */
+export function nomsConsoles(page = globalThis.document) {
+  const brut = page?.getElementById?.("noms-consoles")?.textContent;
+  if (!brut) return {};
+  try {
+    const lus = JSON.parse(brut);
+    return lus && typeof lus === "object" && !Array.isArray(lus) ? lus : {};
+  } catch {
+    return {};
+  }
+}
+
+export const CONSOLES = nomsConsoles();
 
 function egal(b, a, texte) {
   if (a + texte.length > b.length) return false;

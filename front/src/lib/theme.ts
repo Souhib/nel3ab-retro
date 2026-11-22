@@ -17,9 +17,15 @@
  * qui est affiché, ni l'image: la zone d'écran reste noire dans les deux.
  *
  * Le thème s'écrit sur `<html>`, pas dans un contexte React: la couleur de fond
- * doit être posée avant le premier rendu, sinon la page clignote au chargement.
- * Et c'est la FEUILLE qui suit le système, par `prefers-color-scheme`, pas ce
- * script: la page est donc juste dès sa première image, script lancé ou non.
+ * doit être posée avant le premier rendu de React. Et c'est la FEUILLE qui suit
+ * le système, par `prefers-color-scheme`, pas ce script: avec « comme
+ * l'appareil », la page est juste dès sa première image, script lancé ou non.
+ *
+ * Un choix CONTRE le système attend ce script, qui est un module lancé après la
+ * lecture du document: sa première image peut porter le thème du système.
+ * Mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans écran:
+ * « nuit » sous un système clair a peint sa première image en craie trois fois
+ * sur trois. Un script classique dans l'en-tête de `index.html` le corrigerait.
  */
 export const THEMES = [
   { id: "auto", label: "comme l'appareil", note: "clair ou sombre selon le système" },

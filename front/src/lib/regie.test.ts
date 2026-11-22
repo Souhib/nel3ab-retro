@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { PLAYER_COLOURS } from "../media/players";
 import { AA_TEXT, contrast, declarations, mix, resolve } from "./contrast";
+import { THEMES as CHOIX } from "./theme";
 
 /* Les modules de Node sont importés à l'exécution, comme dans
    `bobine/statique.test.tsx`: la page n'a pas les types de Node, et ne doit pas
@@ -294,6 +295,70 @@ describe("ce qui flotte sur l'image garde la régie de nuit", () => {
       expect(fautes).toEqual([]);
     });
   }
+});
+
+describe("les feuilles ne visent que les deux régies", () => {
+  /** Chaque feuille de la page et du salon, avec son texte sans commentaires. */
+  const FEUILLES = [
+    ...fs
+      .readdirSync(ici("../"), { recursive: true })
+      .filter((f) => f.endsWith(".css"))
+      .map((f) => [`src/${f}`, ici(`../${f}`)] as const),
+    ...["accueil.html", "importer.html", "profil.html", "bobine/bobine.css"].map(
+      (f) => [`salon/${f}`, ici(`../../../control/nel3ab_control/api/routes/${f}`)] as const,
+    ),
+  ].map(
+    ([nom, chemin]) =>
+      [nom, fs.readFileSync(chemin, "utf-8").replace(/\/\*[\s\S]*?\*\//g, "")] as const,
+  );
+  const SAVOIR = new Set<string>(CHOIX.map((choix) => choix.id));
+
+  it("aucun sélecteur ne nomme un thème qui n'existe plus", () => {
+    // Le 22 novembre 2026, les sept ambiances sont devenues deux régies, et
+    // bobine.css visait encore `instrument-clair` et `famicom` pour sa console:
+    // une règle qui ne s'appliquait plus à rien, et une console sombre sur la
+    // craie du jour.
+    expect(FEUILLES.map(([nom]) => nom)).toContain("src/bobine/bobine.css");
+    const morts = FEUILLES.flatMap(([nom, texte]) =>
+      [...texte.matchAll(/data-theme="([^"]+)"/g)]
+        .map((m) => m[1] ?? "")
+        .filter((id) => !SAVOIR.has(id))
+        .map((id) => `${nom}: ${id}`),
+    );
+    expect(morts).toEqual([]);
+  });
+
+  it("une règle de jour choisie a sa jumelle quand le système demande le jour", () => {
+    // Le jour a deux portes (`data-theme="jour"`, et le système clair sans
+    // choix de nuit). Une règle posée sur une seule ne vaut que pour la moitié
+    // de ceux qui sont en jour: le salon, qui ne lit aucun choix, ne passe que
+    // par la seconde.
+    const portes = (texte: string, porte: string) => {
+      const trouve = new Map<string, string>();
+      for (const [, tete = "", corps = ""] of texte.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        for (const selecteur of (tete.split(";").pop() ?? "").split(",").map((x) => x.trim())) {
+          if (selecteur.startsWith(porte)) {
+            trouve.set(selecteur.slice(porte.length).trim(), corps.replace(/\s+/g, " ").trim());
+          }
+        }
+      }
+      return trouve;
+    };
+    let paires = 0;
+    for (const [nom, texte] of FEUILLES) {
+      const choisi = portes(texte, ':root[data-theme="jour"]');
+      const systeme = portes(texte, ':root:not([data-theme="nuit"])');
+      if (systeme.size > 0) {
+        expect(texte, `${nom}: la porte du système vit sous sa requête`).toContain(
+          "@media (prefers-color-scheme: light)",
+        );
+      }
+      expect([...systeme].sort(), nom).toEqual([...choisi].sort());
+      paires += choisi.size;
+    }
+    // La précondition: au moins la régie elle-même a été lue.
+    expect(paires).toBeGreaterThan(0);
+  });
 });
 
 it("la copie du salon est celle de la page", () => {

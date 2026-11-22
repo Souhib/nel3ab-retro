@@ -19,39 +19,13 @@
   --bob-joue: #e2846f;
   --bob-led: #63d28f;
   --bob-fiche-couleur: var(--bob-cable);
-  /* Bras, jambes et antenne: assez clairs pour se voir sur le fond le plus
-     sombre, assez foncés pour se voir sur le crème du thème famicom. */
+  /* Bras, jambes et antenne: assez clairs pour se voir sur le graphite de la
+     régie de nuit, assez foncés pour se voir sur la craie de la régie de jour.
+     Bobine n'a plus de couleurs par thème: les trois ambiances monochromes qui
+     en avaient (phosphore, ambre, gameboy) n'existent plus depuis le
+     22 novembre 2026. */
   --bob-membre: #9a7446;
 }
-/* Les thèmes monochromes gardent leur promesse: une seule encre. */
-:root[data-theme="phosphore"] {
-  --bob-membre: #2f8f4e;
-  --bob-bois: #2f8f4e;
-  --bob-trait: #031a0b;
-  --bob-cable: #145c2c;
-  --bob-blanc: #b8f5c6;
-  --bob-joue: #2f8f4e;
-  --bob-led: #b8f5c6;
-}
-:root[data-theme="ambre"] {
-  --bob-membre: #b5761f;
-  --bob-bois: #b5761f;
-  --bob-trait: #1c1004;
-  --bob-cable: #6b4310;
-  --bob-blanc: #ffd79a;
-  --bob-joue: #b5761f;
-  --bob-led: #ffd79a;
-}
-:root[data-theme="gameboy"] {
-  --bob-membre: #306230;
-  --bob-bois: #8bac0f;
-  --bob-trait: #0f380f;
-  --bob-cable: #306230;
-  --bob-blanc: #9bbc0f;
-  --bob-joue: #8bac0f;
-  --bob-led: #0f380f;
-}
-
 .bob {
   display: block;
   overflow: visible;
@@ -687,10 +661,19 @@
   stroke: #4a4a58;
   stroke-width: 1.5;
 }
-:root[data-theme="instrument-clair"] .n3-console-boitier,
-:root[data-theme="famicom"] .n3-console-boitier {
+/* Claire sur la régie de jour: un boîtier #2a2a33 sur la craie se lisait
+   comme un trou. Elle visait `instrument-clair` et `famicom` jusqu'au
+   22 novembre 2026, qui n'existent plus; les deux portes du jour, le choix et
+   le système, portent la même règle (vérifié par `lib/regie.test.ts`). */
+:root[data-theme="jour"] .n3-console-boitier {
   fill: #e6e0d4;
   stroke: #5b5348;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="nuit"]) .n3-console-boitier {
+    fill: #e6e0d4;
+    stroke: #5b5348;
+  }
 }
 .n3-console-fente {
   fill: #07070b;

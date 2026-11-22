@@ -115,11 +115,16 @@
 }
 
 /* ── 2. Rôles: la régie de nuit, et le défaut ───────────────────────────
-   Sur `:root` nu autant que sur son attribut: c'est cette règle qui peint la
-   page avant tout script, et un défaut clair ferait clignoter du blanc le temps
-   du premier rendu chez qui a choisi la nuit. Rapports calculés par l'essai,
-   sur la pire des quatre surfaces: encre 12,6:1, légende 5,79:1, discret
-   4,81:1, signal 5,89:1, trait 3,08:1.
+   Sur `:root` nu autant que sur son attribut. Avant que le script pose
+   `data-theme`, la feuille ne connaît que le système: ce bloc peint un système
+   sombre ou qui ne dit rien. Le thème « comme l'appareil » est donc juste dès
+   la première image. Un choix CONTRE le système ne l'est pas: le script de la
+   page est un module, lancé après la lecture du document, et Chrome peint
+   parfois avant lui. Mesuré le 22 novembre 2026 sur la page construite, dans
+   Chrome sans écran: « nuit » sous un système clair a peint sa première image
+   en craie trois fois sur trois. Rapports calculés par l'essai, sur la pire
+   des quatre surfaces: encre 12,6:1, légende 5,79:1, discret 4,81:1, signal
+   5,89:1, trait 3,08:1.
 
    `.regie-nuit` pose la même régie sur un morceau de page, quel que soit le
    thème: ce qui flotte PAR-DESSUS l'image du jeu, qui reste noire de jour

@@ -20,7 +20,18 @@
 //   4. chaque cible fait au moins 44 px de côté, tient dans l'écran, et son
 //      inscription tient dans la cible ;
 //   5. en paysage, quand chaque groupe tient dans sa bande noire, aucune
-//      touche ne mord sur l'image.
+//      touche ne mord sur l'image ; quand la bande fait 130 px ou plus, aucun
+//      geste de page non plus (la règle du pilote de salle `touch.mjs`) ;
+//   6. l'avis de fermeture de la salle reste AU-DESSUS du pavé : son centre et
+//      ses quatre bords le reçoivent. Sa copie prend la classe écrite dans
+//      `App.tsx`, lue dans le fichier, pour ne pas vérifier un avis inventé ;
+//   7. dans les sept thèmes, chaque inscription du pavé contraste d'au moins
+//      4,5:1 avec le fond de sa touche posé sur le noir de la bande (3:1 pour
+//      un grand texte), son coupé compris ;
+//   8. aucune pose ne se dit dégradée (`data-degradee` sur la boîte du pavé).
+//
+// Trois jumeaux négatifs ouvrent la garde : un geste posé sur une touche, un
+// calque posé sur l'avis, une inscription gris foncé. Chacun doit être vu.
 //
 // Elle sert la page par Vite, avec une configuration écrite ici et SANS relais
 // vers la salle : rien ne part vers les ports vivants, et toute requête hors de
@@ -32,7 +43,7 @@
 // Port 5437 par défaut, ou MANETTE_GARDE_PORT. Sort en erreur au premier
 // constat rouge, après avoir tout parcouru.
 import { createRequire } from "node:module";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -64,6 +75,25 @@ const SIZES = [
   [768, 1024],
   [1024, 768],
 ];
+// Les sept thèmes d'`index.css` ; `null` est le thème par défaut
+// (instrument sombre), sans attribut.
+const THEMES = [null, "instrument-clair", "phosphore", "ambre", "indigo", "famicom", "gameboy"];
+// Le seuil de WCAG 1.4.3 : 4,5:1, ou 3:1 pour un texte de 24 px, ou de 18,66 px
+// en gras.
+const CONTRAST = 4.5;
+const CONTRAST_LARGE = 3;
+// La bande où `touch.mjs` exige que rien ne morde sur l'image, gestes compris.
+const TOUCH_MJS_BAR = 130;
+
+// L'avis de fermeture, tel que `App.tsx` l'écrit. Lu dans le fichier : une copie
+// recopiée à la main resterait verte quand l'avis change.
+const APP = readFileSync(join(FRONT, "src", "App.tsx"), "utf8");
+const NOTICE = /id="closingNotice"[\s\S]*?className="([^"]+)"/.exec(APP)?.[1];
+if (!NOTICE) {
+  console.log("RATÉ  l'avis de fermeture (#closingNotice) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
+  process.exit(1);
+}
+
 const ROOMS = [
   { name: "gc-43", pad: "gc", pw: 640, ph: 480 },
   { name: "gc-169", pad: "gc", pw: 854, ph: 480 },
@@ -195,21 +225,28 @@ function inspect({ GAME, PAGE, CLEARANCE, FLOOR, INSET }) {
   }
   const screen = document.getElementById("screen")?.getBoundingClientRect();
   const onPicture = [];
+  const pagesOnPicture = [];
   let covered = 0;
+  const area = (el) => {
+    const g = box(el);
+    const w = Math.max(0, Math.min(g.right, screen.right) - Math.max(g.left, screen.left));
+    const h = Math.max(0, Math.min(g.bottom, screen.bottom) - Math.max(g.top, screen.top));
+    return w * h;
+  };
   if (screen) {
     for (const game of games) {
-      const g = box(game);
-      const w = Math.max(0, Math.min(g.right, screen.right) - Math.max(g.left, screen.left));
-      const h = Math.max(0, Math.min(g.bottom, screen.bottom) - Math.max(g.top, screen.top));
-      if (w * h > 0) onPicture.push(label(game));
-      covered += w * h;
+      const a = area(game);
+      if (a > 0) onPicture.push(label(game));
+      covered += a;
     }
+    for (const page of pages) if (area(page) > 0) pagesOnPicture.push(label(page));
   }
   return {
     games: games.map(label),
     pages: pages.map(label),
     bad,
     onPicture,
+    pagesOnPicture,
     covered: Math.round(covered),
     bar: screen ? Math.round(screen.left) : null,
     widest: Math.round(Math.max(0, ...games.map((el) => box(el).width))),
@@ -224,6 +261,107 @@ function inspect({ GAME, PAGE, CLEARANCE, FLOOR, INSET }) {
         return { name: label(el), frame, x: r.left + r.width / 2, y: r.top + r.height / 2 };
       }),
   };
+}
+
+/** L'avis de fermeture posé avant le pavé, comme dans `App` : le reçoit-il ? */
+function notice({ NOTICE, INSET }) {
+  const label = (el) =>
+    el?.dataset?.touche ?? el?.dataset?.geste ?? (el?.id || el?.textContent?.trim() || el?.tagName);
+  const pad = document.querySelector(".n3-pave, #touchpad, .n3-switch-touch");
+  const main = document.querySelector("main");
+  if (!pad || !main) return ["pas de pavé ou pas de <main> où poser l'avis"];
+  const note = document.createElement("button");
+  note.type = "button";
+  note.id = "garde-avis";
+  note.className = NOTICE;
+  // Le même contenu que dans `App` : Bobine fait 44 px, le texte deux lignes.
+  note.innerHTML =
+    '<span class="float-left -mt-1 mr-3" aria-hidden="true" style="display:inline-block;width:44px;height:44px"></span>' +
+    "Personne n'a joué depuis un moment: la salle ferme dans 2 minutes. Touche une manette pour rester.";
+  main.insertBefore(note, pad);
+  const style = getComputedStyle(note);
+  const r = note.getBoundingClientRect();
+  const bad = [];
+  // La précondition : une classe non compilée laisserait un bouton nu en haut
+  // à gauche, et la vérification ne dirait rien de l'avis réel.
+  if (style.position !== "absolute" || style.zIndex !== "30" || r.width < 200)
+    bad.push(
+      `la copie de l'avis n'a pas le style de App (position ${style.position}, z ${style.zIndex}, ${Math.round(r.width)} px)`,
+    );
+  else {
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const points = {
+      centre: [cx, cy],
+      haut: [cx, r.top + INSET],
+      bas: [cx, r.bottom - INSET],
+      gauche: [r.left + INSET, cy],
+      droite: [r.right - INSET, cy],
+    };
+    for (const [where, [x, y]] of Object.entries(points)) {
+      const got = document.elementFromPoint(x, y);
+      if (got !== note && !note.contains(got)) bad.push(`l'avis de fermeture (${where}) est sous ${label(got)}`);
+    }
+  }
+  note.remove();
+  return bad;
+}
+
+/** Le contraste de chaque inscription du pavé, sur le noir et sur le blanc. */
+function contrast({ CONTRAST, CONTRAST_LARGE }) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ink = canvas.getContext("2d", { willReadFrequently: true });
+  // Le navigateur lit lui-même la couleur : `color(srgb …)`, `oklab(…)` et
+  // `rgba(…)` sortent tous en quatre octets.
+  const rgba = (css) => {
+    ink.clearRect(0, 0, 1, 1);
+    ink.fillStyle = "#000";
+    ink.fillStyle = css;
+    ink.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ink.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a: a / 255 };
+  };
+  const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const lum = (c) => 0.2126 * lin(c.r / 255) + 0.7152 * lin(c.g / 255) + 0.0722 * lin(c.b / 255);
+  const over = (top, bottom) => ({
+    r: top.r * top.a + bottom.r * (1 - top.a),
+    g: top.g * top.a + bottom.g * (1 - top.a),
+    b: top.b * top.a + bottom.b * (1 - top.a),
+    a: 1,
+  });
+  const ratio = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const out = [];
+  for (const el of document.querySelectorAll(
+    ".n3-pave button, .n3-pave [data-bras], #touchpad button, .n3-switch-touch button",
+  )) {
+    if (!el.textContent.trim()) continue;
+    // Les fonds du pavé, de la touche vers le haut, jusqu'à la salle.
+    const stack = [];
+    for (let n = el; n && n.tagName !== "MAIN"; n = n.parentElement) {
+      const c = rgba(getComputedStyle(n).backgroundColor);
+      if (c.a > 0) stack.push(c);
+    }
+    const style = getComputedStyle(el);
+    const fg = rgba(style.color);
+    const on = (backdrop) => [...stack].reverse().reduce((under, c) => over(c, under), backdrop);
+    const black = on({ r: 0, g: 0, b: 0, a: 1 });
+    const white = on({ r: 255, g: 255, b: 255, a: 1 });
+    const size = Number.parseFloat(style.fontSize);
+    const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
+    out.push({
+      name: el.dataset.touche ?? el.dataset.geste ?? (el.dataset.bras ? `croix ${el.dataset.bras}` : el.id),
+      text: el.textContent.trim(),
+      need: large ? CONTRAST_LARGE : CONTRAST,
+      black: ratio(over(fg, black), black),
+      white: ratio(over(fg, white), white),
+    });
+  }
+  return out;
 }
 
 /** Un vrai doigt sur une touche simple: arrive-t-elle au pavé, et elle seule ? */
@@ -273,6 +411,38 @@ try {
     const seen = flagged.some((line) => line.includes("leurre"));
     console.log(`${seen ? "ok  " : "RATÉ"}  la garde voit un geste posé exprès sur une touche`);
     if (!seen) failures.push("jumeau négatif: le leurre n'a pas été vu");
+
+    // Le jumeau de l'avis : un calque posé exprès au-dessus de lui doit être vu.
+    await page.evaluate(() => {
+      const cover = document.createElement("div");
+      cover.id = "garde-cache-avis";
+      Object.assign(cover.style, { position: "fixed", inset: "0", zIndex: "99" });
+      document.body.append(cover);
+    });
+    const hidden = await page.evaluate(notice, { NOTICE, INSET });
+    await page.evaluate(() => document.getElementById("garde-cache-avis")?.remove());
+    const coverSeen = hidden.some((line) => line.includes("garde-cache-avis"));
+    console.log(`${coverSeen ? "ok  " : "RATÉ"}  la garde voit un calque posé exprès sur l'avis de fermeture`);
+    if (!coverSeen) failures.push("jumeau négatif: le calque sur l'avis n'a pas été vu");
+
+    // Le jumeau du contraste : une inscription gris foncé sur le noir doit
+    // tomber sous le seuil.
+    await page.evaluate(() => {
+      const dim = document.createElement("button");
+      dim.dataset.geste = "leurre-terne";
+      dim.textContent = "terne";
+      Object.assign(dim.style, { color: "#333", background: "transparent" });
+      document.querySelector(".n3-pave, #touchpad, .n3-switch-touch")?.append(dim);
+    });
+    const dim = (await page.evaluate(contrast, { CONTRAST, CONTRAST_LARGE })).find(
+      (one) => one.name === "leurre-terne",
+    );
+    await page.evaluate(() => document.querySelector("[data-geste='leurre-terne']")?.remove());
+    const dimSeen = dim !== undefined && dim.black < dim.need;
+    console.log(
+      `${dimSeen ? "ok  " : "RATÉ"}  la garde voit une inscription terne (${dim ? dim.black.toFixed(2) : "?"}:1)`,
+    );
+    if (!dimSeen) failures.push("jumeau négatif: l'inscription terne n'a pas été vue");
     await page.close();
   }
 
@@ -303,11 +473,16 @@ try {
       const minimum = room.pad === "gc" ? 10 : 15;
       if (seen.games.length < minimum) bad.push(`${seen.games.length} touches trouvées, ${minimum} attendues au moins`);
       if (seen.pages.length !== 3) bad.push(`${seen.pages.length} gestes de page trouvés, 3 attendus`);
+      // Une pose dégradée le dit sur la boîte du pavé (`data-degradee`).
+      const degraded = await page.evaluate(() => document.querySelector(".n3-pave")?.dataset.degradee ?? null);
+      if (degraded !== null) bad.push(`la pose se dit dégradée : ${degraded}`);
       // Dans le noir quand le noir suffit : en paysage, si la bande est plus
       // large que le plus large des groupes (plus 6 px de chaque côté).
       const landscape = width > height;
       if (landscape && seen.bar !== null && seen.bar >= seen.widest + 12 && seen.onPicture.length)
         bad.push(`bande de ${seen.bar} px, et pourtant sur l'image: ${seen.onPicture.join(", ")}`);
+      if (landscape && seen.bar !== null && seen.bar >= TOUCH_MJS_BAR && seen.pagesOnPicture.length)
+        bad.push(`bande de ${seen.bar} px, et pourtant des gestes sur l'image: ${seen.pagesOnPicture.join(", ")}`);
       for (const key of seen.simple) {
         const { during, after } = await tap(page, key);
         const wanted = key.frame ?? key.name;
@@ -323,10 +498,63 @@ try {
           window.__garde.gestures.length = 0;
         });
       }
-      const line = `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${String(seen.games.length).padStart(2)} touches, bande ${String(seen.bar).padStart(3)} px, ${String(seen.covered).padStart(6)} px² sur l'image`;
+      // Après les appuis : l'avis est posé puis retiré, il ne gêne rien d'autre.
+      if (!errors.length) bad.push(...(await page.evaluate(notice, { NOTICE, INSET })));      const line = `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${String(seen.games.length).padStart(2)} touches, bande ${String(seen.bar).padStart(3)} px, ${String(seen.covered).padStart(6)} px² sur l'image`;
       console.log(line);
       for (const one of bad) console.log(`        ${one}`);
       report.push({ name, ...seen, bad });
+      if (bad.length) failures.push(name);
+      await page.close();
+    }
+  }
+
+  // Le contraste, dans chaque thème, son en marche puis coupé. À une seule
+  // taille : les couleurs ne dépendent pas de la place.
+  for (const room of ROOMS) {
+    for (const muet of [false, true]) {
+      const name = `${room.name}-contraste${muet ? "-muet" : ""}`;
+      const page = await browser.newPage();
+      await page.setViewport({ width: 844, height: 390, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      await page.setRequestInterception(true);
+      page.on("request", (request) => {
+        if (new URL(request.url()).origin !== BASE) request.abort();
+        else request.continue();
+      });
+      await page.goto(
+        `${BASE}/manette-garde.html?pad=${room.pad}&pw=${room.pw}&ph=${room.ph}${muet ? "&muet=1" : ""}`,
+        { waitUntil: "domcontentloaded" },
+      );
+      await page.waitForSelector("body[data-garde-pret]", { timeout: 20000 });
+      const bad = [];
+      let worstWhite = Infinity;
+      let measured = 0;
+      for (const theme of THEMES) {
+        await page.evaluate((theme) => {
+          if (theme) document.documentElement.dataset.theme = theme;
+          else delete document.documentElement.dataset.theme;
+        }, theme);
+        // Les touches ont une transition de 60 ms sur leur fond : lu pendant
+        // elle, le fond est un mélange des deux thèmes.
+        await new Promise((r) => setTimeout(r, 200));
+        if (theme === "instrument-clair" || theme === null)
+          await page.screenshot({ path: join(OUT, `${name}-${theme ?? "defaut"}.png`) });
+        const seen = await page.evaluate(contrast, { CONTRAST, CONTRAST_LARGE });
+        measured += seen.length;
+        for (const one of seen) {
+          worstWhite = Math.min(worstWhite, one.white);
+          if (one.black < one.need)
+            bad.push(
+              `${theme ?? "défaut"} : « ${one.text} » (${one.name}) à ${one.black.toFixed(2)}:1 sur le noir, ${one.need}:1 demandé`,
+            );
+        }
+      }
+      // La précondition : un pavé sans inscription passerait sans rien mesurer.
+      const minimum = THEMES.length * (room.pad === "gc" ? 15 : 19);
+      if (measured < minimum) bad.push(`${measured} inscriptions mesurées, ${minimum} attendues au moins`);
+      console.log(
+        `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${measured} inscriptions dans ${THEMES.length} thèmes ; sur un fond blanc, le pire est ${worstWhite.toFixed(2)}:1 (non exigé)`,
+      );
+      for (const one of bad) console.log(`        ${one}`);
       if (bad.length) failures.push(name);
       await page.close();
     }

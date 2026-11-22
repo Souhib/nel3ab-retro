@@ -12,7 +12,8 @@
  * le 22 novembre 2026. Un ancien composant ignore celles qu'il ne connaît pas,
  * ce qui permet de rejouer la garde sur l'ancien code et de la voir échouer.
  *
- * Paramètres : `pad` (code de console), `pw` et `ph` (taille de l'image).
+ * Paramètres : `pad` (code de console), `pw` et `ph` (taille de l'image),
+ * `muet=1` pour un son coupé (le geste « son » passe alors en alerte).
  */
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -29,6 +30,7 @@ import { Touch } from "../../front/src/media/touch";
 const query = new URLSearchParams(location.search);
 const code = query.get("pad") ?? "gc";
 const picture = { width: Number(query.get("pw") ?? 640), height: Number(query.get("ph") ?? 480) };
+const muet = query.get("muet") === "1";
 
 const touch = new Touch();
 const source = new SwitchInput();
@@ -101,7 +103,7 @@ function Salle() {
             source={source}
             console={code}
             bar={bar}
-            soundOff={false}
+            soundOff={muet}
             onMenu={tell("menu")}
             onLeave={tell("cacher")}
             onSound={tell("son")}
@@ -110,7 +112,7 @@ function Salle() {
           <TouchPad
             bar={bar}
             touch={touch}
-            soundOff={false}
+            soundOff={muet}
             onSound={tell("son")}
             onLeave={tell("cacher")}
             onMenu={tell("menu")}

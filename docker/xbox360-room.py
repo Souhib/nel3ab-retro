@@ -15,6 +15,7 @@ configuration nomme (`profile_key`), comme les clés de la Switch.
 
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import hashlib
 import hmac
@@ -32,6 +33,13 @@ spec = importlib.util.spec_from_file_location(
 )
 room = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(room)
+# Sous les mêmes noms que dans moteurs/xenia/adaptateur.py: `profiles` et
+# `backup` y sont recopiées telles quelles (test_adaptateur.py compare leur arbre).
+dossier_sans_lien, ouvrir_sans_lien, sans_lien = (
+    room.dossier_sans_lien,
+    room.ouvrir_sans_lien,
+    room.sans_lien,
+)
 
 TITLE = r"[0-9A-Fa-f]{8}"
 #: Les outils qui tournent DANS le conteneur: lanceur, horodatage, manettes.
@@ -115,15 +123,18 @@ def profiles(slot: Path, key: bytes) -> list[str]:
     Un profil existant porte déjà les sauvegardes de son joueur: le réécrire
     ne changerait que son nom, mais le laisser évite toute surprise.
     """
-    content = slot / "xenia" / "content"
     xuids = []
     for xuid, gamertag in PLAYERS:
         identifiant = f"{xuid:016X}"
-        dossier = content / identifiant / DASHBOARD / PROFILE_TYPE / identifiant
-        fichier = dossier / "Account"
-        if not fichier.exists():
-            dossier.mkdir(parents=True, exist_ok=True)
-            fichier.write_bytes(account(gamertag, key))
+        donnees = account(gamertag, key)
+        # Créé seulement s'il manque, sans suivre aucun lien: un lien posé à sa
+        # place compte comme un profil présent et n'est jamais écrit.
+        chemin = ("xenia", "content", identifiant, DASHBOARD, PROFILE_TYPE, identifiant)
+        with (
+            contextlib.suppress(FileExistsError),
+            ouvrir_sans_lien(slot, *chemin, "Account", mode="wb", neuf=True) as fichier,
+        ):
+            fichier.write(donnees)
         xuids.append(identifiant)
     return xuids
 
@@ -180,12 +191,14 @@ def launch(config: dict, rom: Path, slot: Path) -> room.EngineLaunch:
 
 def backup(slot: Path) -> Path | None:
     """Copie les sauvegardes des quatre profils avant et après la partie."""
-    source = slot / "xenia" / "content"
+    source = sans_lien(slot, "xenia", "content")
     if not source.exists():
         return None
-    target = slot / "backups" / f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{time.time_ns()}"
-    target.mkdir(parents=True)
-    shutil.copytree(source, target / "content")
+    copies = dossier_sans_lien(slot, "backups")
+    target = copies / f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{time.time_ns()}"
+    target.mkdir()
+    # Un lien de la partie est copié comme un lien: jamais lu, jamais suivi.
+    shutil.copytree(source, target / "content", symlinks=True)
     return target
 
 
@@ -196,7 +209,7 @@ def main() -> None:
     config = json.loads(Path(os.environ["NEL3AB_XBOX360_CONFIG"]).read_text())
     slot = Path(config["state"]).resolve() / title.lower() / choice
     slot.mkdir(parents=True, exist_ok=True)
-    with (slot / "running.lock").open("w") as lock:
+    with ouvrir_sans_lien(slot, "running.lock") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         plan = launch(config, Path(rom).resolve(), slot)
         backup(slot)

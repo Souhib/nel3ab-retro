@@ -143,6 +143,9 @@ def import_save(
     if sum(map(len, data.values())) > TOTAL_LIMIT:
         raise ValueError("Save exceeds the import limit")
     container = account_container(slot, title.lower())
+    # The container writes this tree: the banks it renames must not lead elsewhere.
+    for bank in ("0", "1"):
+        adapter.sans_lien(slot, *container.relative_to(slot).parts, bank)
     adapter.backup(slot)
     (slot / "unlocked.json").unlink(missing_ok=True)
     pending = slot / "import.pending"
@@ -159,20 +162,21 @@ def import_save(
         (container / bank).rename(replaced)
         (pending / bank).rename(container / bank)
     shutil.rmtree(pending)
-    (slot / "import.json").write_text(
-        json.dumps(
-            {
-                "title": title.lower(),
-                "archive": archive.name,
-                "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
-                "imported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "files": sorted(str(inner) for inner in data),
-                "source": source,
-                "description": note,
-            },
-            indent=2,
+    with adapter.ouvrir_sans_lien(slot, "import.json") as receipt:
+        receipt.write(
+            json.dumps(
+                {
+                    "title": title.lower(),
+                    "archive": archive.name,
+                    "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+                    "imported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "files": sorted(str(inner) for inner in data),
+                    "source": source,
+                    "description": note,
+                },
+                indent=2,
+            )
         )
-    )
     if unlocked:
         marker = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/save-unlocked.py"))
         marker["mark"](
@@ -189,16 +193,17 @@ def import_save(
 def restore(slot: Path, name: str) -> None:
     if Path(name).name != name or name in (".", ".."):
         raise ValueError("Choose a listed backup name")
-    source = slot / "backups" / name
-    if not source.is_dir() or source.is_symlink():
+    source = adapter.sans_lien(slot, "backups", name)
+    if not source.is_dir():
         raise ValueError("Unknown backup")
-    target = slot / "data/bis/user"
+    target = adapter.sans_lien(slot, "data", "bis", "user")
     adapter.backup(slot)
     (slot / "unlocked.json").unlink(missing_ok=True)
     pending = slot / "data/bis/user.restore"
     if pending.exists():
         raise ValueError("A previous restore needs inspection")
-    shutil.copytree(source, pending)
+    # A copy lies in the container's slot: its links are restored as links, never read.
+    shutil.copytree(source, pending, symlinks=True)
     previous = target.with_name(f"user.before-restore-{time.time_ns()}")
     target.rename(previous)
     try:
@@ -246,7 +251,7 @@ def main():
         return
     if args.action == "prepare":
         slot.mkdir(parents=True, exist_ok=True)
-    with (slot / "running.lock").open("a") as lock:
+    with adapter.ouvrir_sans_lien(slot, "running.lock") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:

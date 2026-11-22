@@ -28,6 +28,7 @@ qui calcule `launch` autrement.
 | La bibliothèque standard seulement | Le worker lance `python3` par le PATH de son unité, pas le venv du salon | `socle/test_regles.py` (import sous `/usr/bin/python3 -I -S`) |
 | Aucun import dans le corps d'une fonction | Un import paresseux lirait, au moment de l'arrêt, une version plus récente de l'arbre principal | ruff PLC0415 dans `just moteurs-test`, et `socle/test_regles.py` |
 | Une migration ne change aucune commande Docker | C'est ce qui permet de basculer sans reconstruire le worker | `just salles-dore` (`docker/test_salles_dore.py`), rejoué aussi sous un autre compte |
+| L'hôte ne suit aucun lien dans un emplacement | Le conteneur le monte en écriture sous le compte de l'hôte: un lien qu'il y laisse ferait écrire ou copier un fichier de l'hôte à sa place (22 novembre 2026) | `socle/test_liens.py`, `docker/test_switch_liens.py`, et l'arbre des quatre fonctions de `socle/emplacement.py` comparé à `docker/switch-room.py` |
 | Une enveloppe se vérifie avec son moteur et sa fiche | Importer l'enveloppe seule ne charge ni l'un ni l'autre: un module cassé passerait | `charger(code)` dans `socle/salle.py`, appelé par `principal` et par `deploy/salles-adaptateurs.sh` |
 
 ## Les commandes

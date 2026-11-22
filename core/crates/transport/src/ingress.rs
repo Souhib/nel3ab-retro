@@ -133,10 +133,26 @@ impl Connected {
 }
 
 /// Staged then renamed, so Ryubing never reads half a list.
+///
+/// The engine container mounts this folder read-write under the host's
+/// account, so a compromised engine could leave `seats.tmp` as a link to a
+/// host file: `fs::write` would follow it (review of 2026-11-22). The stale
+/// name is removed, then created with `create_new` (O_CREAT | O_EXCL), which
+/// never follows a link: a link recreated in between makes this write fail
+/// and the next one retry. `rename` replaces a link at `seats` itself.
 fn write_seats(root: &Path, seats: &[u8]) -> io::Result<()> {
+    use std::io::Write as _;
     let text: Vec<String> = seats.iter().map(u8::to_string).collect();
     let staged = root.join("seats.tmp");
-    std::fs::write(&staged, text.join(" ") + "\n")?;
+    match std::fs::remove_file(&staged) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(error),
+        _ => {}
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&staged)?
+        .write_all((text.join(" ") + "\n").as_bytes())?;
     std::fs::rename(staged, root.join("seats"))
 }
 
@@ -447,6 +463,31 @@ mod tests {
         assert_eq!(
             connected.update(&[true, false, true, false], gone),
             vec![1, 3]
+        );
+    }
+    #[test]
+    fn the_seats_file_is_never_written_through_a_link_the_engine_left() {
+        // The engine container mounts this folder read-write under the host's
+        // account (`-v {pads}:/pads`): it can leave `seats.tmp` as a link to a
+        // host file it cannot see. Found on 2026-11-22.
+        let root = tempfile::tempdir().unwrap();
+        let host = tempfile::tempdir().unwrap();
+        let witness = host.path().join("rc");
+        std::fs::write(&witness, "host content\n").unwrap();
+        std::os::unix::fs::symlink(&witness, root.path().join("seats.tmp")).unwrap();
+        let dangling = host.path().join("created");
+        std::os::unix::fs::symlink(&dangling, root.path().join("seats")).unwrap();
+        write_seats(root.path(), &[1, 3]).unwrap();
+        assert_eq!(std::fs::read_to_string(&witness).unwrap(), "host content\n");
+        assert!(!dangling.exists(), "a link at `seats` is replaced, never followed");
+        // The twin: the room's own file still says which seats are taken.
+        let seats = root.path().join("seats");
+        assert!(!seats.symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(std::fs::read_to_string(seats).unwrap(), "1 3\n");
+        write_seats(root.path(), &[2]).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("seats")).unwrap(),
+            "2\n"
         );
     }
     #[test]

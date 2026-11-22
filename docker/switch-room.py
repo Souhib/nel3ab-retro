@@ -7,17 +7,22 @@ Ryubing closes its window and flushes saves, then virtual controllers disappear.
 
 from __future__ import annotations
 
+import contextlib
+import errno
 import fcntl
 import json
 import os
 import re
 import selectors
 import shutil
+import stat
 import subprocess
 import sys
 import time
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
-from typing import NamedTuple
+from typing import IO, NamedTuple
 
 TOOLS = Path(__file__).resolve().parents[1] / "spikes/switch-room"
 
@@ -50,14 +55,14 @@ def initialise(template: Path, slot: Path) -> None:
 
 def backup(slot: Path) -> Path | None:
     """Copy a quiescent filesystem, including Ryubing's journal and metadata."""
-    source = slot / "data/bis/user"
+    source = sans_lien(slot, "data", "bis", "user")
     if not source.exists():
         return None
-    target = slot / "backups" / time.strftime("%Y%m%dT%H%M%S", time.gmtime())
-    target.parent.mkdir(exist_ok=True)
+    target = dossier_sans_lien(slot, "backups") / time.strftime("%Y%m%dT%H%M%S", time.gmtime())
     if target.exists():
         target = target.with_name(target.name + f"-{time.time_ns()}")
-    shutil.copytree(source, target)
+    # A link in the save is copied as a link: never read, never followed.
+    shutil.copytree(source, target, symlinks=True)
     return target
 
 
@@ -67,6 +72,112 @@ def backup(slot: Path) -> Path | None:
 #: point: ce texte vient du worker et sert à construire un chemin sous l'état
 #: des jeux, donc un `..` ou une barre y ouvrirait n'importe quel dossier.
 SLOT = r"^(neuve|debloquee|joueur-[a-z0-9][a-z0-9-]*)$"
+#: Le message d'un lien refusé, suivi du chemin où il se trouve.
+REFUS = "l'hôte ne suit aucun lien de l'emplacement"
+
+
+# L'hôte ne suit aucun lien dans un emplacement: le conteneur le monte en
+# écriture sous le compte de l'hôte, et un moteur compromis pourrait y laisser
+# un lien vers un fichier de l'hôte (relecture du 22 novembre 2026). Les quatre
+# fonctions suivantes sont celles de moteurs/socle/emplacement.py, à l'identique
+# (moteurs/socle/test_differentiel.py compare leur arbre).
+
+
+def descendre(racine: Path, parties: Sequence[str]) -> int:
+    """Le descripteur de `racine/parties`, chaque niveau créé s'il manque.
+
+    Chaque niveau s'ouvre depuis le précédent avec O_NOFOLLOW: un lien est
+    refusé (ELOOP) au lieu d'être suivi, même s'il apparaissait entre deux
+    niveaux. `racine` est l'emplacement, que l'hôte a créé et que le conteneur
+    ne peut pas remplacer: c'est la racine de son montage.
+    """
+    dossier = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(racine, dossier)
+    courant = racine
+    try:
+        for partie in parties:
+            if partie in ("", ".", "..") or "/" in partie:
+                raise ValueError(f"{partie!r} n'est pas un nom de dossier")
+            courant = courant / partie
+            with contextlib.suppress(FileExistsError):
+                os.mkdir(partie, dir_fd=fd)
+            try:
+                suivant = os.open(partie, dossier, dir_fd=fd)
+            except OSError as erreur:
+                if erreur.errno != errno.ELOOP:
+                    raise
+                raise OSError(erreur.errno, REFUS, str(courant)) from erreur
+            os.close(fd)
+            fd = suivant
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+@contextmanager
+def ouvrir_sans_lien(
+    racine: Path, *chemin: str, mode: str = "w", neuf: bool = False
+) -> Iterator[IO]:
+    """`racine/chemin` ouvert en écriture, ses dossiers créés, sans suivre aucun lien.
+
+    `neuf` refuse un fichier déjà là, lien compris (FileExistsError). Sinon le
+    fichier est vidé, comme `open("w")`. O_NONBLOCK: un tube nommé posé à sa
+    place est refusé tout de suite au lieu de faire attendre l'hôte, puis seul
+    un fichier ordinaire est accepté.
+    """
+    *parties, nom = chemin
+    lieu = racine.joinpath(*chemin)
+    drapeaux = os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
+    drapeaux |= os.O_EXCL if neuf else os.O_TRUNC
+    fd_dossier = descendre(racine, parties)
+
+    def depuis_le_dossier(_chemin: str, _drapeaux: int) -> int:
+        return os.open(nom, drapeaux, 0o666, dir_fd=fd_dossier)
+
+    try:
+        # `open` garde `lieu` comme nom du fichier, ce que les journaux montrent.
+        fichier = open(lieu, mode, opener=depuis_le_dossier)  # noqa: SIM115 -- fermé par le `with` plus bas
+    except OSError as erreur:
+        if erreur.errno != errno.ELOOP:
+            raise
+        raise OSError(erreur.errno, REFUS, str(lieu)) from erreur
+    finally:
+        os.close(fd_dossier)
+    with fichier:
+        if not stat.S_ISREG(os.fstat(fichier.fileno()).st_mode):
+            raise OSError(errno.EINVAL, "pas un fichier ordinaire", str(lieu))
+        os.set_blocking(fichier.fileno(), True)
+        yield fichier
+
+
+def dossier_sans_lien(racine: Path, *parties: str) -> Path:
+    """`racine/parties`, créé niveau par niveau, sans passer par aucun lien.
+
+    `racine` est créée si elle manque, comme le faisait `mkdir(parents=True)`:
+    son chemin appartient à l'hôte, le conteneur ne voit que son contenu.
+    """
+    racine.mkdir(parents=True, exist_ok=True)
+    os.close(descendre(racine, parties))
+    return racine.joinpath(*parties)
+
+
+def sans_lien(racine: Path, *parties: str) -> Path:
+    """`racine/parties`, refusé si un lien se trouve sur son chemin.
+
+    Pour une copie, que `shutil` fait par chemins: elle ne se fait que quand le
+    conteneur est arrêté (avant le lancement, ou dans `stop_engine` après
+    `docker stop`), donc aucun lien ne peut apparaître entre ce contrôle et la
+    copie. Un niveau absent arrête le contrôle: rien n'existe au-delà.
+    """
+    courant = racine
+    for partie in parties:
+        courant = courant / partie
+        if courant.is_symlink():
+            raise OSError(errno.ELOOP, REFUS, str(courant))
+        if not courant.exists():
+            break
+    return racine.joinpath(*parties)
 
 
 def main() -> None:
@@ -81,7 +192,7 @@ def main() -> None:
     root = Path(config["state"]).resolve()
     slot = root / title / choice
     slot.mkdir(parents=True, exist_ok=True)
-    with (slot / "running.lock").open("w") as lock:
+    with ouvrir_sans_lien(slot, "running.lock") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         initialise(Path(config["template"]), slot)
         backup(slot)
@@ -117,6 +228,16 @@ def update_mount(config: dict, slot: Path) -> list[str]:
     return ["-v", f"{root}:/run-data/updates:ro"]
 
 
+def linked(root: Path, path: Path) -> bool:
+    """Whether a link lies between `root` and `path`, `path` included."""
+    current = root
+    for part in path.relative_to(root).parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
+
+
 def cache_mounts(slot: Path) -> list[str]:
     """One shader and driver cache per game, shared by all its save slots.
 
@@ -133,24 +254,30 @@ def cache_mounts(slot: Path) -> list[str]:
         if shared.exists():
             continue
         # The fullest slot seeds the shared cache, once, rather than the emptiest.
+        # A slot is written by its container: a candidate reached through a
+        # link could be any folder of the host, so it is never a candidate.
         found = sorted(
-            (path for path in slot.parent.glob(pattern) if path.is_dir()),
+            (
+                path
+                for path in slot.parent.glob(pattern)
+                if path.is_dir() and not linked(slot.parent, path)
+            ),
             key=lambda path: sum(f.stat().st_size for f in path.rglob("*") if f.is_file()),
         )
         pending = slot.parent / f"{name}.pending"
         if pending.exists():
             shutil.rmtree(pending)
         if found:
-            shutil.copytree(found[-1], pending)
+            shutil.copytree(found[-1], pending, symlinks=True)
         else:
             pending.mkdir(parents=True)
         pending.rename(shared)
     # Docker would create a missing mount point as root inside the slot.
     for inside in (
-        slot / "data/games" / title / "cache",
-        slot / "home/.cache/mesa_shader_cache",
+        ("data", "games", title, "cache"),
+        ("home", ".cache", "mesa_shader_cache"),
     ):
-        inside.mkdir(parents=True, exist_ok=True)
+        dossier_sans_lien(slot, *inside)
     return [
         "-v",
         f"{slot.parent / 'cache'}:/run-data/data/games/{title}/cache",
@@ -267,9 +394,9 @@ class EngineLaunch(NamedTuple):
 
 
 def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
-    profile = slot / "data/profiles/controller/nel3ab.json"
-    profile.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(TOOLS / "ryubing-pro-controller.json", profile)
+    profile = ("data", "profiles", "controller", "nel3ab.json")
+    with ouvrir_sans_lien(slot, *profile, mode="wb") as stream:
+        stream.write((TOOLS / "ryubing-pro-controller.json").read_bytes())
     command = [
         "/emulator/publish/Ryujinx",
         "--no-gui",
@@ -434,7 +561,7 @@ def serve(
                     stdout=subprocess.DEVNULL,
                 )
                 try:
-                    with (slot / "pads.log").open("w") as log:
+                    with ouvrir_sans_lien(slot, "pads.log") as log:
                         run(
                             "docker",
                             "logs",
@@ -475,9 +602,10 @@ def stop_engine(engine: str, slot: Path, capture, snapshot=backup) -> None:
                 capture_output=True,
                 text=True,
             ).stdout
-            (slot / "exit.json").write_text(status)
+            with ouvrir_sans_lien(slot, "exit.json") as sortie:
+                sortie.write(status)
             snapshot(slot)
-            with (slot / "emulator.log").open("w") as log:
+            with ouvrir_sans_lien(slot, "emulator.log") as log:
                 run("docker", "logs", engine, stdout=log, stderr=subprocess.STDOUT)
         finally:
             run("docker", "rm", engine, stdout=subprocess.DEVNULL)

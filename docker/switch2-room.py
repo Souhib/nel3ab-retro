@@ -76,7 +76,7 @@ def configuration(slot: Path) -> Path:
         # SetEdenPath ignores a directory that does not exist. Without this,
         # a fresh slot silently saves under the engine's default app name
         # instead of the NAND that our backup reads (2026-11-07).
-        (slot / "home/.local/share/eden" / directory).mkdir(parents=True, exist_ok=True)
+        room.dossier_sans_lien(slot, "home", ".local", "share", "eden", directory)
         put(
             "Data%20Storage",
             directory + "_directory",
@@ -124,22 +124,23 @@ def configuration(slot: Path) -> Path:
     for index in range(8):
         put("Controls", f"player_{index}_connected", "true" if index == 0 else "false")
     slot.mkdir(parents=True, exist_ok=True)
-    target = slot / "emulator.ini"
-    with target.open("w") as stream:
+    with room.ouvrir_sans_lien(slot, "emulator.ini") as stream:
         ini.write(stream, space_around_delimiters=False)
-    return target
+    return slot / "emulator.ini"
 
 
 def backup(slot: Path) -> Path | None:
     """The caller holds the slot lock and waits for the emulator to exit first."""
-    source = slot / NAND
+    source = room.sans_lien(slot, *NAND.parts)
     if not source.exists():
         return None
-    target = slot / "backups" / f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{time.time_ns()}"
-    target.mkdir(parents=True)
-    shutil.copytree(source, target / "nand")
+    copies = room.dossier_sans_lien(slot, "backups")
+    target = copies / f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{time.time_ns()}"
+    target.mkdir()
+    # A link written by the container is copied as a link: never read, never followed.
+    shutil.copytree(source, target / "nand", symlinks=True)
     if (slot / "emulator.ini").exists():
-        shutil.copyfile(slot / "emulator.ini", target / "emulator.ini")
+        shutil.copyfile(slot / "emulator.ini", target / "emulator.ini", follow_symlinks=False)
     return target
 
 
@@ -192,7 +193,7 @@ def main() -> None:
     config = select_engine(json.loads(Path(os.environ["NEL3AB_SWITCH2_CONFIG"]).read_text()), title)
     slot = Path(config["state"]).resolve() / title / choice
     slot.mkdir(parents=True, exist_ok=True)
-    with (slot / "running.lock").open("w") as lock:
+    with room.ouvrir_sans_lien(slot, "running.lock") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         plan = launch(config, Path(rom).resolve(), slot)
         backup(slot)

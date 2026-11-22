@@ -160,10 +160,22 @@ class MemeTexte(unittest.TestCase):
     def test_les_fonctions_deplacees_telles_quelles_sont_identiques(self):
         origine = definitions(DEPOT / SWITCH)
         socle = {
+            **definitions(DEPOT / "moteurs/socle/emplacement.py"),
             **definitions(DEPOT / "moteurs/socle/lancement.py"),
             **definitions(DEPOT / "moteurs/socle/salle.py"),
         }
-        for nom in ("run", "pad_command", "cpu_pinning", "engine_environment", "EngineLaunch"):
+        for nom in (
+            "run",
+            "pad_command",
+            "cpu_pinning",
+            "engine_environment",
+            "EngineLaunch",
+            # Le 22 novembre 2026: l'hôte ne suit aucun lien de l'emplacement.
+            "descendre",
+            "ouvrir_sans_lien",
+            "dossier_sans_lien",
+            "sans_lien",
+        ):
             with self.subTest(fonction=nom):
                 self.assertEqual(ast.dump(socle[nom]), ast.dump(origine[nom]))
         # `stop_engine` perd seulement sa valeur par défaut (la copie de Ryubing).

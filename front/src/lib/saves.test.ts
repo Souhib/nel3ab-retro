@@ -12,7 +12,15 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PERSONAL, SLOTS, launchPicks, readUnlocked, slotFromPick } from "./saves";
+import {
+  PERSONAL,
+  SLOTS,
+  launchPicks,
+  padLabel,
+  readUnlocked,
+  slotFromPick,
+  type Pad,
+} from "./saves";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -85,4 +93,14 @@ describe("le panneau de lancement", () => {
     // commence après lui, et cet essai a signalé le changement.
     expect(slotFromPick("3")).toBeNull();
   });
+});
+
+it("ne nomme jamais la GameCube pour un appareil qu'elle ne connaît pas", () => {
+  // Le code 4 est la manette Pro d'une salle Switch ou Xbox 360. L'ancien repli
+  // l'appelait « manette GameCube » (audit du 22 novembre 2026).
+  expect(padLabel(4 as Pad)).not.toMatch(/GameCube/);
+  expect(padLabel(4 as Pad)).toBe("appareil 4 inconnu");
+  // Le jumeau: les quatre codes connus gardent leur nom.
+  expect(padLabel(0)).toBe("manette GameCube");
+  expect(padLabel(3)).toBe("Wiimote seule");
 });

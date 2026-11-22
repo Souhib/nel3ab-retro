@@ -85,9 +85,14 @@ export function rememberPad(pad: Pad): void {
   }
 }
 
-/** Ce qu'on affiche pour une manette. */
+/** Ce qu'on affiche pour un appareil de la trame Dolphin.
+ *
+ * Un code inconnu se dit inconnu. Jusqu'au 22 novembre 2026, il retombait sur
+ * « manette GameCube », et la fiche d'un jeu Switch, dont l'appareil est la
+ * manette Pro (code 4), annonçait une manette GameCube. Pour nommer un appareil
+ * selon la salle, voir `deviceLabel` (lib/faces). */
 export function padLabel(pad: Pad): string {
-  return PADS.find((one) => one.id === pad)?.label ?? "manette GameCube";
+  return PADS.find((one) => one.id === pad)?.label ?? `appareil ${pad} inconnu`;
 }
 
 /** Ce que le panneau de lancement propose, et ce qu'un choix veut dire.

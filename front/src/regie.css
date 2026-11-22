@@ -120,11 +120,11 @@
    sombre ou qui ne dit rien. Le thème « comme l'appareil » est donc juste dès
    la première image. Un choix CONTRE le système ne l'est pas: le script de la
    page est un module, lancé après la lecture du document, et Chrome peint
-   parfois avant lui. Mesuré le 22 novembre 2026 sur la page construite, dans
-   Chrome sans écran: « nuit » sous un système clair a peint sa première image
-   en craie trois fois sur trois. Rapports calculés par l'essai, sur la pire
-   des quatre surfaces: encre 12,6:1, légende 5,79:1, discret 4,81:1, signal
-   5,89:1, trait 3,08:1.
+   souvent avant lui. Mesuré le 22 novembre 2026 sur la page construite, dans
+   Chrome sans écran, par le premier rappel d'image (juste avant la première
+   peinture): « nuit » sous un système clair y était encore en craie cinq fois
+   sur six. Rapports calculés par l'essai, sur la pire des quatre surfaces:
+   encre 12,6:1, légende 5,79:1, discret 4,81:1, signal 5,89:1, trait 3,08:1.
 
    `.regie-nuit` pose la même régie sur un morceau de page, quel que soit le
    thème: ce qui flotte PAR-DESSUS l'image du jeu, qui reste noire de jour

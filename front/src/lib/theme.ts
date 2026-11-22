@@ -23,9 +23,10 @@
  *
  * Un choix CONTRE le système attend ce script, qui est un module lancé après la
  * lecture du document: sa première image peut porter le thème du système.
- * Mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans écran:
- * « nuit » sous un système clair a peint sa première image en craie trois fois
- * sur trois. Un script classique dans l'en-tête de `index.html` le corrigerait.
+ * Mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans écran,
+ * par le premier rappel d'image (juste avant la première peinture): « nuit »
+ * sous un système clair y était encore en craie cinq fois sur six. Un script
+ * classique dans l'en-tête de `index.html` le corrigerait.
  */
 export const THEMES = [
   { id: "auto", label: "comme l'appareil", note: "clair ou sombre selon le système" },

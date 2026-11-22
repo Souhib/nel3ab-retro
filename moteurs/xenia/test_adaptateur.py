@@ -12,6 +12,7 @@ import ast
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -356,6 +357,45 @@ class Principal(unittest.TestCase):
         salle.verifier_origine(str(DEPOT / CANARI))
         with self.assertRaisesRegex(RuntimeError, "le socle chargé vient de"):
             salle.verifier_origine("/opt/autre/docker/xbox360-room-socle.py")
+
+    def test_principal_refuse_un_socle_venu_d_un_autre_depot(self):
+        """Un vrai lancement, pas un appel de la fonction: une copie du canari hors du
+        dépôt, dont le socle est trouvé plus tôt sur le chemin (PYTHONPATH vers le
+        vrai dépôt). principal doit refuser avant le titre, la fiche et la partie."""
+        with tempfile.TemporaryDirectory() as temporaire:
+            copie = Path(temporaire) / "autre/docker" / Path(CANARI).name
+            copie.parent.mkdir(parents=True)
+            shutil.copy2(DEPOT / CANARI, copie)
+            fins = {}
+            for nom, script in (("copie", copie), ("canari", DEPOT / CANARI)):
+                fins[nom] = subprocess.run(  # noqa: S603 -- l'interpréteur système, le canari
+                    [
+                        "/usr/bin/python3",
+                        str(script),
+                        str(Path(temporaire) / "Sonic.iso"),
+                        "0100abcdef012000",
+                        "neuve",
+                        temporaire,
+                    ],
+                    cwd=temporaire,
+                    env={
+                        "PATH": "/usr/bin:/bin",
+                        "HOME": temporaire,
+                        "PYTHONPATH": str(DEPOT),
+                        "PYTHONDONTWRITEBYTECODE": "1",
+                    },
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+        self.assertEqual(fins["copie"].returncode, 1)
+        self.assertIn(
+            f"RuntimeError: le socle chargé vient de {DEPOT}, "
+            f"l'enveloppe de {copie.resolve().parents[1]}",
+            fins["copie"].stderr,
+        )
+        # Le jumeau: le vrai canari, même PYTHONPATH, passe l'origine et va jusqu'au titre.
+        self.assertIn("ValueError: Invalid Xbox 360 title or save slot", fins["canari"].stderr)
 
     def test_un_module_de_moteur_incomplet_est_refuse_avant_toute_partie(self):
         incomplet = SimpleNamespace(TITRE=adaptateur.TITRE, choisir=adaptateur.choisir)

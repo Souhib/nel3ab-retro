@@ -109,8 +109,22 @@ def environnement(racine: Path, scenario: Scenario) -> dict[str, str]:
     }
 
 
-def lancer(scenario: Scenario, script: str, depot: Path = DEPOT) -> dict:
-    """Exécute `script` du dépôt `depot` sur ce scénario et rend le relevé normalisé."""
+def compte(identite: tuple[int, int] | None) -> tuple[int, int]:
+    """Le compte que le script voit: celui de la machine, ou celui de la consigne."""
+    return (os.getuid(), os.getgid()) if identite is None else identite
+
+
+def lancer(
+    scenario: Scenario,
+    script: str,
+    depot: Path = DEPOT,
+    identite: tuple[int, int] | None = None,
+) -> dict:
+    """Exécute `script` du dépôt `depot` sur ce scénario et rend le relevé normalisé.
+
+    `identite` fait voir au script un autre compte (uid, gid) que celui de la
+    machine: le doré ne doit pas en dépendre, la CI tourne sous un autre.
+    """
     with tempfile.TemporaryDirectory(prefix="dore-") as temporaire:
         base = Path(temporaire)
         racine, banc = base / "r", base / "banc"
@@ -135,6 +149,7 @@ def lancer(scenario: Scenario, script: str, depot: Path = DEPOT) -> dict:
                     "capture_meurt": scenario.capture_meurt,
                     "tours": scenario.tours,
                     "echec_moteur": scenario.echec_moteur,
+                    "identite": identite,
                 }
             )
         )
@@ -167,7 +182,9 @@ def lancer(scenario: Scenario, script: str, depot: Path = DEPOT) -> dict:
             "flux": {"stdout": fini.stdout, "stderr": fini.stderr},
             "arbre": arbre(racine, remplacements(racine, depot)),
         }
-        return normaliser(releve, remplacements(racine, depot), brut["commande_refusee"])
+        return normaliser(
+            releve, remplacements(racine, depot), compte(identite), brut["commande_refusee"]
+        )
 
 
 def remplacements(racine: Path, depot: Path) -> list[tuple[str, str]]:
@@ -215,6 +232,7 @@ def arbre(racine: Path, paires: list[tuple[str, str]]) -> list[str]:
 def normaliser(
     releve: dict,
     paires: list[tuple[str, str]],
+    identite: tuple[int, int] | None = None,
     refusee: list[str] | None = None,
 ) -> dict:
     """Chemins, utilisateur et groupe remplacés par leur nom, partout dans le relevé.
@@ -223,7 +241,7 @@ def normaliser(
     l'amorce: son message la cite en entier, et elle passe par la même
     normalisation que les autres commandes.
     """
-    uid, gid = str(os.getuid()), str(os.getgid())
+    uid, gid = (str(valeur) for valeur in compte(identite))
 
     def argument(precedent: str | None, valeur: str) -> str:
         valeur = remplacer(valeur, paires)
@@ -269,13 +287,18 @@ def normaliser(
 PERSONNEL = re.compile(r"(?:^|[\s:=,'\"(\[])/home/")
 
 
-def fuites(releve: dict) -> list[str]:
-    """Chaque texte du relevé qui nomme encore un dossier personnel de la machine."""
+def fuites(releve: dict, identite: tuple[int, int] | None = None) -> list[str]:
+    """Chaque texte du relevé qui nomme encore un dossier personnel de la machine,
+    ou le compte (`uid:gid`) que le script a vu: le doré dépendrait alors de la
+    machine. Le 22 novembre 2026, trois messages d'erreur gardaient `1000:1000`."""
+    uid, gid = compte(identite)
+    # Bornée par des non-chiffres: `0:0` ne doit pas se lire dans `00:00`.
+    du_compte = re.compile(rf"(?<![0-9]){uid}:{gid}(?![0-9])")
     trouves = []
 
     def parcourir(valeur: object) -> None:
         if isinstance(valeur, str):
-            if PERSONNEL.search(valeur):
+            if PERSONNEL.search(valeur) or du_compte.search(valeur):
                 trouves.append(valeur)
         elif isinstance(valeur, dict):
             for element in valeur.values():

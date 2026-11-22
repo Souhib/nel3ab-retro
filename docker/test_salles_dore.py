@@ -49,11 +49,23 @@ DEPOT = banc.DEPOT
 ERREURS_D_IMPORT = ("ImportError", "ModuleNotFoundError", "SyntaxError")
 
 
-def executer(paires: list[tuple[str, str]], depot: Path = DEPOT) -> dict[tuple[str, str], dict]:
+#: Un autre compte que celui de cette machine (1000:1000), pour le passage qui
+#: prouve que le doré n'en dépend pas. 1001 est l'uid habituel du runner hébergé
+#: de GitHub; ce n'est pas vérifié ici, rien n'a été poussé.
+AUTRE_COMPTE = (1001, 118)
+
+
+def executer(
+    paires: list[tuple[str, str]],
+    depot: Path = DEPOT,
+    identite: tuple[int, int] | None = None,
+) -> dict[tuple[str, str], dict]:
     """Chaque (scénario, script), en parallèle: un interpréteur neuf par lancement."""
     with ThreadPoolExecutor(max_workers=min(16, os.cpu_count() or 2)) as executeur:
         futurs = {
-            (nom, script): executeur.submit(banc.lancer, scenarios.TOUS[nom], script, depot)
+            (nom, script): executeur.submit(
+                banc.lancer, scenarios.TOUS[nom], script, depot, identite
+            )
             for nom, script in paires
         }
         return {cle: futur.result() for cle, futur in futurs.items()}
@@ -257,6 +269,8 @@ IMPORT_ATTENDU = {"canari x360: l'enveloppe cherche le socle au mauvais endroit"
 
 RELEVES: dict[tuple[str, str], dict] = {}
 COPIE: dict[tuple[str, str], dict] = {}
+#: Chaque scénario relancé sous `AUTRE_COMPTE`.
+AUTRE: dict[tuple[str, str], dict] = {}
 
 
 MASQUE: list[int] = []
@@ -267,6 +281,7 @@ def setUpModule() -> None:
     # celui du shell (0002 ici) changerait les modes relevés d'une machine à l'autre.
     MASQUE.append(os.umask(0o022))
     RELEVES.update(executer(toutes_les_paires()))
+    AUTRE.update(executer(toutes_les_paires(), identite=AUTRE_COMPTE))
     with tempfile.TemporaryDirectory(prefix="fermeture-") as temporaire:
         copie = banc.copier_fermeture(Path(temporaire) / "depot")
         COPIE.update(executer(toutes_les_paires(), copie))
@@ -353,10 +368,30 @@ class Dore(unittest.TestCase):
                 self.assertEqual(sum(a.startswith("SWITCH_REFRESH_HZ=") for a in argv), 1)
                 self.assertIn("DISPLAY_BACKEND=wayland", argv)
 
+    def test_sous_un_autre_compte_chaque_scenario_rend_le_meme_dore(self):
+        """La CI ne tourne pas sous le compte de cette machine. Le 22 novembre 2026,
+        trois messages d'erreur gardaient `'--user', '1000:1000'`: tout autre compte
+        aurait rendu `check` rouge."""
+        self.assertNotEqual(AUTRE_COMPTE, (os.getuid(), os.getgid()))
+        self.assertEqual(set(AUTRE), set(RELEVES))
+        for (nom, script), releve in AUTRE.items():
+            with self.subTest(scenario=nom, script=script):
+                self.assertEqual(banc.fuites(releve, AUTRE_COMPTE), [])
+                self.assertEqual(releve, banc.lire_dore(nom))
+
     def test_aucun_releve_ne_nomme_un_dossier_personnel(self):
         for (nom, script), releve in RELEVES.items():
             with self.subTest(scenario=nom, script=script):
                 self.assertEqual(banc.fuites(releve), [])
+
+    def test_le_compte_de_la_machine_qui_fuit_est_nomme(self):
+        """Le jumeau du contrôle de fuites: un compte resté tel quel dans une erreur."""
+        uid, gid = AUTRE_COMPTE
+        erreur = f"CalledProcessError: Command '['docker', '--user', '{uid}:{gid}']'"
+        self.assertEqual(banc.fuites({"erreur": erreur}, AUTRE_COMPTE), [erreur])
+        # Et pas un faux positif: `0:0` ne se lit pas dans une heure.
+        self.assertEqual(banc.fuites({"heure": "2026-11-22T00:00:00"}, (0, 0)), [])
+        self.assertEqual(banc.fuites({"compte": "--user=0:0"}, (0, 0)), ["--user=0:0"])
 
     def test_un_chemin_personnel_qui_fuit_est_nomme(self):
         """Le jumeau: un moteur configuré sous /home/ apparaît dans la commande."""
@@ -441,6 +476,7 @@ class LancementCommeLeWorker(unittest.TestCase):
                             "capture_meurt": False,
                             "tours": 3,
                             "echec_moteur": False,
+                            "identite": None,
                         }
                     )
                 )

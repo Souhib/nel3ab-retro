@@ -6,8 +6,9 @@ Le banc (`banc.py`) la lance dans un interpréteur neuf, comme le worker lance
 un adaptateur (`external.rs`: `python3 <script> <rom> <titre> <emplacement>
 <runtime>`). Elle remplace seulement des points d'entrée de la bibliothèque
 standard: `subprocess.run`, `subprocess.Popen`, `selectors.DefaultSelector`,
-`time.sleep`, `time.monotonic`, `time.gmtime`, `time.time_ns` et `os.stat` pour
-le seul nœud de rendu. Puis elle exécute le VRAI chemin du script. Elle ne
+`time.sleep`, `time.monotonic`, `time.gmtime`, `time.time_ns`, `os.stat` pour
+le seul nœud de rendu, et `os.getuid` et `os.getgid` quand la consigne donne
+un autre compte. Puis elle exécute le VRAI chemin du script. Elle ne
 connaît donc aucun nom interne d'un adaptateur, et passe telle quelle avant et
 après une migration.
 
@@ -178,6 +179,12 @@ def principal() -> int:
         return vrai_stat(chemin, *args, **kwargs)
 
     os.umask(0o022)
+    if consigne["identite"] is not None:
+        # Un autre compte que celui de la machine, comme le runner de la CI: le
+        # banc vérifie que le doré n'en dépend pas.
+        uid, gid = consigne["identite"]
+        os.getuid = lambda: uid
+        os.getgid = lambda: gid
     subprocess.run = docker.run
     subprocess.Popen = docker.popen
     selectors.DefaultSelector = selecteur(consigne, horloge)

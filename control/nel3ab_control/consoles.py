@@ -6,6 +6,10 @@ reconnaît à leur processus, les rôles dont elle capture l'écran, les console
 qu'une préparation accepte, les appareils qu'elle propose, la préparation à un
 seul joueur et le verrou « une seule Switch sur la machine ».
 
+Il porte aussi la forme de l'identifiant de titre de chaque console
+(`FORMES_TITRE`), que le manifeste ne décrit pas: le catalogue, les sauvegardes
+et le rangement la lisent ici plutôt que de la recopier.
+
 Avant le 21 novembre 2026, ces listes étaient écrites à la main à sept endroits.
 L'oubli d'`eden-cli` dans l'une d'elles a fait voir Zelda au repos le 7 novembre,
 et autorisé pendant la partie des lectures qui coupent l'image.
@@ -282,6 +286,67 @@ def lire(chemin: Path = MANIFESTE) -> Manifeste:
                 "processus : la boîte noire verrait ses parties au repos"
             )
     return Manifeste(engines=moteurs, consoles=consoles)
+
+
+#: Les chiffres d'un identifiant de titre. Écrits un par un, en ASCII: `\d` et
+#: `str.isdigit` acceptent aussi les chiffres pleine chasse, et `int(titre, 16)`
+#: accepte `0x`, un signe, un tiret bas et des blancs (voir les vecteurs).
+HEXADECIMAL = frozenset("0123456789abcdefABCDEF")
+
+
+@dataclass(frozen=True)
+class FormeTitre:
+    """La forme d'un identifiant de titre: tant de chiffres hexadécimaux, et une fin imposée."""
+
+    chiffres: int
+    #: Ce par quoi le titre doit finir, ou rien.
+    fin: str = ""
+
+    def accepte(self, titre: str) -> bool:
+        return (
+            len(titre) == self.chiffres
+            and all(caractere in HEXADECIMAL for caractere in titre)
+            and titre.endswith(self.fin)
+        )
+
+
+#: La forme du titre de chaque console qui en porte un, écrite ICI et nulle part
+#: ailleurs dans le salon. Le worker écrit la même règle une fois, dans
+#: `Console::valid_title` (`core/crates/emulator/src/disc.rs`), et les deux essais
+#: lisent les mêmes exemples, `consoles/titres-vecteurs.json`.
+#:
+#: Une Switch écrit 16 chiffres, dont les trois derniers à zéro pour un jeu de
+#: base (une mise à jour finit par 800). Une Xbox 360 en écrit 8, lus dans
+#: l'en-tête de son `default.xex`. Les consoles de Dolphin n'en ont pas: le disque
+#: répond lui-même. Le préfixe `0400` d'un jeu Switch 2 n'est pas une forme de
+#: titre: le worker le vérifie à la lecture d'une fiche (`emulator::switch`).
+#:
+#: Avant le 22 novembre 2026, la forme était recopiée dans le catalogue, les
+#: sauvegardes et le rangement, en 16 chiffres partout: le titre d'un jeu Xbox 360
+#: (`534507d6`) était jeté par le catalogue et ignoré par la recherche de doublons.
+FORMES_TITRE: dict[str, FormeTitre] = {
+    "switch": FormeTitre(16, "000"),
+    "switch2": FormeTitre(16, "000"),
+    "x360": FormeTitre(8),
+}
+
+
+def forme_titre(code: str) -> FormeTitre | None:
+    """La forme du titre de cette console, ou rien pour une console sans titre."""
+    return FORMES_TITRE.get(code)
+
+
+def titre_valide(code: str, titre: object, *, minuscules: bool = False) -> bool:
+    """Vrai pour un identifiant que cette console peut porter.
+
+    `minuscules` exige en plus l'écriture du worker: c'est celle des dossiers de
+    sauvegarde et du catalogue, qu'il écrit en minuscules. Ailleurs, la casse est
+    acceptée comme le fait le Rust; la question est reportée.
+    """
+    forme = FORMES_TITRE.get(code)
+    if forme is None or not isinstance(titre, str):
+        return False
+    return forme.accepte(titre) and (not minuscules or titre == titre.lower())
 
 
 #: Le manifeste du dépôt, lu une fois à l'import.

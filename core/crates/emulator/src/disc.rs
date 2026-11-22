@@ -792,6 +792,91 @@ mod tests {
         assert!(!Console::Unknown.valid_title("0100BDE00862A000"));
     }
 
+    /// Les titres que le salon relit aussi (`control/tests/test_titres.py`).
+    ///
+    /// Le salon écrit la même règle en Python (`nel3ab_control.consoles`), pour
+    /// garder le titre d'un jeu au catalogue, relier une sauvegarde à son jeu et
+    /// refuser un doublon. Une règle recopiée diverge sans bruit: le 22 novembre
+    /// 2026, le salon exigeait encore 16 chiffres et jetait le titre de Sonic.
+    const TITLE_VECTORS: &str = include_str!("../../../../consoles/titres-vecteurs.json");
+
+    /// Chaque vecteur que `valid_title` ne suit pas, nommé. « ? » est la réponse
+    /// d'un disque muet: `Console::Unknown`, que `from_code` ne rend jamais.
+    fn title_disagreements(vectors: &serde_json::Value) -> Vec<String> {
+        let Some(list) = vectors["vecteurs"].as_array() else {
+            return vec!["le fichier n'a pas de liste « vecteurs »".into()];
+        };
+        let mut found = Vec::new();
+        for vector in list {
+            let code = vector["console"].as_str().unwrap_or("");
+            let (Some(title), Some(valid)) = (vector["titre"].as_str(), vector["valide"].as_bool())
+            else {
+                found.push(format!("{vector}: « titre » ou « valide » absent"));
+                continue;
+            };
+            let console = if code == "?" {
+                Console::Unknown
+            } else if let Some(console) = Console::from_code(code) {
+                console
+            } else {
+                found.push(format!("{code}: aucune variante de Console"));
+                continue;
+            };
+            let said = console.valid_title(title);
+            if said != valid {
+                found.push(format!("{code} {title:?}: vecteur {valid}, crate {said}"));
+            }
+        }
+        found
+    }
+
+    #[test]
+    fn the_title_vectors_shared_with_the_salon_hold() -> Result<(), Box<dyn std::error::Error>> {
+        let vectors: serde_json::Value = serde_json::from_str(TITLE_VECTORS)?;
+        let list = vectors["vecteurs"].as_array().ok_or("vecteurs absents")?;
+        // Une boucle sur une liste lue commence par affirmer que la liste n'est
+        // pas vide: sinon elle passe sans rien vérifier.
+        assert!(list.len() >= 20, "{} vecteurs seulement", list.len());
+        // Chaque console a ses vecteurs, et chacune qui porte un titre en a un
+        // accepté: un fichier qui l'oublierait ne la lierait plus au salon.
+        for console in Console::KNOWN {
+            let mine: Vec<&serde_json::Value> = list
+                .iter()
+                .filter(|v| v["console"].as_str() == Some(console.code()))
+                .collect();
+            assert!(!mine.is_empty(), "{}: aucun vecteur", console.code());
+            let accepted = mine.iter().any(|v| v["valide"].as_bool() == Some(true));
+            assert_eq!(
+                accepted,
+                console.registration() == Registration::Sidecar,
+                "{}: un titre accepté si et seulement si la console s'inscrit par fiche",
+                console.code()
+            );
+        }
+        assert_eq!(title_disagreements(&vectors), Vec::<String>::new());
+        Ok(())
+    }
+
+    /// Le jumeau: un contrôle qui ne verrait rien passerait aussi le test du
+    /// dessus. Un vecteur changé au seul fichier est nommé, et lui seul.
+    #[test]
+    fn a_title_vector_changed_on_one_side_is_named() -> Result<(), Box<dyn std::error::Error>> {
+        let mut vectors: serde_json::Value = serde_json::from_str(TITLE_VECTORS)?;
+        let list = vectors["vecteurs"]
+            .as_array_mut()
+            .ok_or("vecteurs absents")?;
+        let sonic = list
+            .iter_mut()
+            .find(|v| v["console"] == "x360" && v["titre"] == "534507D6")
+            .ok_or("le vecteur de Sonic manque")?;
+        sonic["valide"] = serde_json::Value::Bool(false);
+        assert_eq!(
+            title_disagreements(&vectors),
+            ["x360 \"534507D6\": vecteur false, crate true"]
+        );
+        Ok(())
+    }
+
     #[test]
     fn registered_switch2_reaches_the_catalogue_without_a_dolphin_header()
     -> Result<(), Box<dyn std::error::Error>> {

@@ -82,6 +82,9 @@
 
   /* ── Les canaux ─────────────────────────────────────────────────── */
   .salles { display: flex; flex-direction: column; gap: .6rem; flex: 1; }
+  /* Lue par un lecteur d'écran, pas montrée: les cartes disent déjà la même chose. */
+  .annonce { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
   /* Les trois canaux se PARTAGENT la hauteur. Une seule bande fine en haut
      d'un écran de télévision laissait un demi-mètre de vide mort en dessous,
@@ -288,7 +291,11 @@
       <span class="rail-fait" id="horloge">--:--:--</span>
     </div>
 
-    <div class="salles" id="salles" aria-live="polite"></div>
+    <!-- La liste n'est pas une région vivante: réécrite toutes les cinq secondes,
+         elle se faisait relire sans changer (A11Y-08, audit du 21 novembre 2026).
+         Ce qui change vraiment est dit en une phrase, dans la ligne d'annonce. -->
+    <div class="salles" id="salles"></div>
+    <p class="annonce" id="annonce" role="status"></p>
 
     <div class="ouvrir">
       <span class="bobine-accueil" id="bobine" aria-hidden="true"><!--BOBINE:fiche:salue--></span>
@@ -319,8 +326,50 @@
   const mot = document.getElementById("mot");
   const bouton = document.getElementById("ouvrir");
   const perdu = document.getElementById("perdu");
+  const annonce = document.getElementById("annonce");
+
+  /** Écrit un texte seulement s'il change.
+   *
+   * Réécrire le même texte remplace quand même son noeud. Le 21 novembre 2026,
+   * l'audit d'accessibilité a compté 18 remplacements en 11 s sur une liste
+   * identique, quand elle était une région `aria-live`: autant d'occasions pour
+   * un lecteur d'écran de la relire. */
+  function ecrire(noeud, texte) {
+    if (noeud.textContent !== texte) noeud.textContent = texte;
+  }
+
+  /** Pareil pour un attribut: le même attribut réécrit est une mutation de plus. */
+  function poser(noeud, nom, valeur) {
+    if (noeud.getAttribute(nom) !== valeur) noeud.setAttribute(nom, valeur);
+  }
+
+  /** Ce que la liste montrait au tour d'avant, par numéro de salle. Rien avant le
+   * premier dessin: la page qui s'ouvre se lit, elle ne s'annonce pas. */
+  let vues = null;
+
+  /** Ce qui a changé depuis le tour d'avant, en phrases: ouverte, fermée, autre jeu. */
+  function changements(salles) {
+    const dites = [];
+    for (const salle of salles) {
+      const avant = vues?.get(salle.numero);
+      if (!avant) continue;
+      if (salle.ouverte && !avant.ouverte) {
+        dites.push(`la salle ${salle.numero} vient de s'ouvrir`);
+      } else if (!salle.ouverte && avant.ouverte) {
+        dites.push(`la salle ${salle.numero} s'est fermée`);
+      } else if (salle.ouverte && (salle.jeu ?? null) !== avant.jeu) {
+        dites.push(salle.jeu
+          ? `la salle ${salle.numero} passe à ${salle.jeu}`
+          : `la salle ${salle.numero} revient à son menu`);
+      }
+    }
+    vues = new Map(salles.map(salle => [salle.numero, { ouverte: salle.ouverte, jeu: salle.jeu ?? null }]));
+    return dites;
+  }
 
   function dessiner(salles) {
+    const dites = changements(salles);
+    if (dites.length > 0) annonce.textContent = dites.join(". ");
     // Seules les salles OUVERTES sont montrées. Trois cases dont deux vides
     // donnaient à croire que la machine tient trois salles en permanence; il
     // n'en tourne aucune tant que personne n'en ouvre une, et c'est le but.
@@ -371,11 +420,11 @@
       for (const partie of vieilles.values()) partie.remove();
     }
 
-    document.getElementById("antenne").textContent =
-      `${ouvertes.length} / ${salles.length} CANAUX EN ANTENNE`;
+    ecrire(document.getElementById("antenne"),
+      `${ouvertes.length} / ${salles.length} CANAUX EN ANTENNE`);
 
     bouton.disabled = libres === 0;
-    bouton.textContent = ouvertes.length === 0 ? "ouvrir la première salle" : "ouvrir une salle";
+    ecrire(bouton, ouvertes.length === 0 ? "ouvrir la première salle" : "ouvrir une salle");
     if (!mot.dataset.refus) {
       const reste = libres === 0
         ? `les ${salles.length} salles sont ouvertes, rejoins-en une`
@@ -386,9 +435,9 @@
       // Switch est prise ne dit pas s'il reste une salle à ouvrir. Le message
       // sur la Switch effaçait le nombre de places libres au moment précis où
       // ce nombre décide si on peut ouvrir la sienne.
-      mot.textContent = salles.some(salle => salle.switch)
+      ecrire(mot, salles.some(salle => salle.switch)
         ? `${reste} · la Switch est prise`
-        : reste;
+        : reste);
     }
   }
 
@@ -432,9 +481,9 @@
   }
 
   function remplirEteint(noeud, salle) {
-    noeud.querySelector(".canal-mot").textContent = `salle ${salle.numero}`;
-    noeud.querySelector(".canal-chiffre").textContent = String(salle.numero);
-    noeud.querySelector(".eteint-mot").textContent = "HORS SERVICE";
+    ecrire(noeud.querySelector(".canal-mot"), `salle ${salle.numero}`);
+    ecrire(noeud.querySelector(".canal-chiffre"), String(salle.numero));
+    ecrire(noeud.querySelector(".eteint-mot"), "HORS SERVICE");
   }
 
   function carte(salle) {
@@ -492,27 +541,27 @@
     return `${Math.floor(minutes / 60)}H${String(minutes % 60).padStart(2, "0")}`;
   }
 
-  /** Ce qui CHANGE dans une carte, sans refaire la carte. */
+  /** Ce qui CHANGE dans une carte, sans refaire la carte, et seulement s'il change. */
   function remplir(noeud, salle) {
-    noeud.href = salle.chemin;
+    poser(noeud, "href", salle.chemin);
     // Le pilote lit « salle N » dans le texte de la carte: le chiffre seul
     // ne suffirait pas, et un lecteur d'écran ne dirait qu'un nombre.
-    noeud.setAttribute("aria-label", `salle ${salle.numero}`);
+    poser(noeud, "aria-label", `salle ${salle.numero}`);
     // « salle N » en toutes lettres, et visible: un chiffre nu ne dit pas
     // « 1 de quoi ». Le pilote du salon le lit dans le texte de la carte.
-    noeud.querySelector(".canal-mot").textContent = `salle ${salle.numero}`;
-    noeud.querySelector(".canal-chiffre").textContent = String(salle.numero);
+    ecrire(noeud.querySelector(".canal-mot"), `salle ${salle.numero}`);
+    ecrire(noeud.querySelector(".canal-chiffre"), String(salle.numero));
 
     // Le jeu en toutes lettres, et c'est la plus grosse ligne de la page:
     // c'est la seule chose qu'on vient lire de loin.
     const jeu = noeud.querySelector(".jeu");
-    jeu.textContent = salle.jeu ?? "sur son menu";
-    jeu.dataset.menu = salle.jeu ? "non" : "oui";
+    ecrire(jeu, salle.jeu ?? "sur son menu");
+    poser(jeu, "data-menu", salle.jeu ? "non" : "oui");
 
     const gens = salle.gens ?? [];
     const ligne = noeud.querySelector(".gens");
-    ligne.textContent = gens.length === 0 ? "personne pour l'instant" : gens.join(" · ");
-    ligne.dataset.vide = gens.length === 0 ? "oui" : "non";
+    ecrire(ligne, gens.length === 0 ? "personne pour l'instant" : gens.join(" · "));
+    poser(ligne, "data-vide", gens.length === 0 ? "oui" : "non");
 
     // La jauge dit COMBIEN de personnes sont là. Surtout pas qui tient
     // quelle manette: `/api/salles` rend une liste de pseudos sans numéro
@@ -522,8 +571,8 @@
     // une mesure, ce qui est exactement ce que le schéma refuse.
     const antenne = noeud.querySelector(".antenne");
     const depuis = salle.ouverte_depuis;
-    antenne.textContent = depuis == null ? "" : `EN ANTENNE DEPUIS ${duree(depuis)}`;
-    antenne.hidden = depuis == null;
+    ecrire(antenne, depuis == null ? "" : `EN ANTENNE DEPUIS ${duree(depuis)}`);
+    if (antenne.hidden !== (depuis == null)) antenne.hidden = depuis == null;
 
     const cases = noeud.querySelectorAll(".jauge span");
     cases.forEach((c, i) => {
@@ -535,7 +584,7 @@
         c.dataset.claque = "oui";
         setTimeout(() => { c.dataset.claque = "non"; }, 400);
       }
-      c.dataset.plein = plein;
+      poser(c, "data-plein", plein);
     });
     const mot = noeud.querySelector(".jauge-mot");
     // Elle se NOMME, sinon quatre traits ne disent rien. Et elle compte des
@@ -551,7 +600,7 @@
       bouts.push(`${salle.places} MANETTE${s} LIBRE${s}`);
     }
     if (salle.switch) bouts.push("SWITCH");
-    mot.textContent = bouts.join(" · ");
+    ecrire(mot, bouts.join(" · "));
   }
 
   /** Combien de tours de suite le salon n'a rien rendu. */

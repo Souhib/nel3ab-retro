@@ -81,7 +81,8 @@ Quelques mots reviennent partout.
   `~/.local/state/nel3ab/switch2/<titre>/<emplacement>/`. La NAND est la
   mémoire persistante de la console émulée. L'adaptateur la copie dans
   `backups/` après la sortie du moteur. Depuis le 10 novembre, « reprendre »
-  et « partie neuve » visent l'emplacement personnel du compte qui lance.
+  et « partie neuve » visent l'emplacement personnel du compte qui lance. Ils
+  s'appellent « ma sauvegarde » et « nouvelle partie » depuis le 22 novembre.
   Depuis le 21 novembre, la copie chiffrée horaire vers le NAS (restic)
   couvre aussi la Switch 2.
 - La boîte noire reconnaît `eden-cli` depuis le 7 novembre, sous le rôle
@@ -100,7 +101,9 @@ Sources : étude, l. 767 à 795 ; ADR, « Switch 2 experimental adapter »
    « Switch 2 ». La fiche du jeu garde la mention expérimentale.
 2. Celui qui lance reçoit la seule manette, la place 1. Les autres pages
    regardent. Une demande de seconde manette est refusée.
-3. Choisir « reprendre » ou « partie neuve ». Zelda n'a pas d'option « tout
+3. Choisir « ma sauvegarde » ou « nouvelle partie » (noms du 22 novembre
+   2026 ; avant : « reprendre » et « partie neuve »). Seul à jouer, ce choix
+   lance le jeu sans panneau de préparation. Zelda n'a pas d'option « tout
    débloqué » : aucun import complet n'a été qualifié (carnet, l. 20338
    à 20358).
 4. Le moteur met 14 à 15 secondes à donner sa première image (carnet,

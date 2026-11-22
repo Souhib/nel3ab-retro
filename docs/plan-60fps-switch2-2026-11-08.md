@@ -1108,7 +1108,9 @@ commandes et vérification des paquets reçus. Rapport :
 
 La séparation des sauvegardes est installée pour les quatre consoles. Zelda
 retrouve la progression du compte par « reprendre ». « Partie neuve » crée
-maintenant un nouveau départ personnel. Le pilote privé devra donc conserver
+maintenant un nouveau départ personnel. (Le 22 novembre 2026, ces deux choix
+ont pris les noms « ma sauvegarde » et « nouvelle partie » ; seul à jouer, le
+choix lance le jeu sans panneau de préparation.) Le pilote privé devra donc conserver
 explicitement sa propre progression et vérifier sa scène après ce changement.
 La demi-série ancienne reste exclue. Une nouvelle comparaison complète part du
 cache appris pendant cette partie, puis prépare la variante depuis cette copie

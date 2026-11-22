@@ -1,8 +1,14 @@
 # Jouer à la Switch dans la salle
 
+**Noms et lancement changés le 22 novembre 2026.** Les trois sauvegardes
+s'appellent maintenant « nouvelle partie », « tout débloqué » et « ma
+sauvegarde » (avant: « partie neuve » et « reprendre »). Les autres joueurs
+lisent « la sauvegarde de Bo ». Le lancement est décrit plus bas, au
+paragraphe de la préparation.
+
 **Complément installé le 10 novembre 2026.** Pour un compte connecté,
-« partie neuve » crée sa partie personnelle et conserve la précédente dans
-l'historique. « Reprendre » rouvre cette progression dans n'importe quelle salle.
+« nouvelle partie » crée sa partie personnelle et conserve la précédente dans
+l'historique. « Ma sauvegarde » rouvre cette progression dans n'importe quelle salle.
 L'identité du compte décide du dossier, jamais le pseudo.
 « Tout débloqué » reste un emplacement partagé ; il n'apparaît que si un reçu
 d'import et les fichiers qu'il nomme sont présents. La même règle couvre
@@ -11,7 +17,7 @@ ne devient pas automatiquement un import complet.
 
 La progression Zelda de Souhib a été copiée dans son compte après fermeture,
 avec ses fichiers vérifiés et l'original conservé. Pour la continuer, choisir
-« reprendre ». Un clic sur « partie neuve » crée désormais un nouveau départ.
+« ma sauvegarde ». Un clic sur « nouvelle partie » crée désormais un nouveau départ.
 Neuf imports existants sont déclarés disponibles ; Zelda et les jeux dont
 l'import complet n'est pas établi gardent seulement les choix ordinaires.
 Pour Dolphin, les parties personnelles suivent le compte entre salles ;
@@ -39,10 +45,19 @@ l'[étude Switch](etude-switch-2026-09-07.md) ; les travaux communs à la salle
 sont indexés dans l'[état du projet](etat-du-projet.md).
 
 La Switch apparaît dans le même catalogue que la GameCube et la Wii. Le chef
-choisit un jeu et son emplacement de sauvegarde. Chaque joueur assis reçoit
-l'écran de préparation : tester sa manette, charger ou enregistrer son profil,
-puis choisir « Je suis prêt ». Le chef lance quand toutes les places présentes
-ont confirmé. Une personne qui regarde ne bloque pas le lancement.
+choisit un jeu et son emplacement de sauvegarde.
+
+Depuis le 22 novembre 2026, le lancement tient en un geste par personne. Seul
+à jouer, le chef lance le jeu en choisissant la sauvegarde: la Switch ne
+propose qu'un appareil, la manette Pro, et il n'y a rien d'autre à choisir. À
+plusieurs, chaque autre joueur assis reçoit l'écran de préparation : tester sa
+manette, charger ou enregistrer son profil, puis choisir « Je suis prêt ». Le
+chef n'a pas ce bouton : il lance avec son propre choix, « Lancer le jeu », dès
+que les autres ont confirmé. Si un joueur ne répond pas, le chef peut « Lancer
+sans attendre » vingt secondes après l'arrivée du dernier absent ; l'absent
+garde sa place avec l'appareil choisi, ou le premier proposé. Une personne qui
+regarde ne bloque pas le lancement. Avant cette date, le chef confirmait aussi
+« Je suis prêt » et un absent bloquait tout le monde.
 
 Les profils Switch sont personnels, synchronisés comme les touches clavier.
 Une perte du salon conserve les modifications en attente dans le navigateur.

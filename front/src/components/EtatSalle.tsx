@@ -14,6 +14,7 @@
  */
 import { useEffect, useRef } from "react";
 import { Bobine } from "../bobine/Bobine";
+import type { GardeSignalement } from "../lib/garde-signalement";
 import { dire, type Action } from "../lib/liaison-mots";
 import type { Liaison } from "../media/liaison";
 import { Signaler } from "./Signaler";
@@ -34,6 +35,7 @@ export function EtatSalle({
   onReessayer,
   onQuitter,
   onSignaler,
+  garde,
   onReduire,
   onGarder,
   onPropositionVue,
@@ -54,6 +56,8 @@ export function EtatSalle({
   onQuitter: () => void;
   /** Poser un repère au journal, avec les deux dernières minutes. */
   onSignaler: () => Promise<void>;
+  /** Le garde de vingt secondes de la page, le même que celui de la colonne. */
+  garde: GardeSignalement;
   onReduire: () => void;
   onGarder: () => void;
   /** La proposition de format réduit vient d'être AFFICHÉE. C'est le seul
@@ -79,7 +83,13 @@ export function EtatSalle({
         );
       case "signaler":
         return (
-          <Signaler key={action} id="signalerEtat" variante="bandeau" onComplain={onSignaler} />
+          <Signaler
+            key={action}
+            id="signalerEtat"
+            variante="bandeau"
+            garde={garde}
+            onComplain={onSignaler}
+          />
         );
       case "reessayer":
         return (
@@ -198,7 +208,13 @@ export function EtatSalle({
       <div
         id="arrivee"
         data-etat={liaison.etat}
-        data-perdue={liaison.etat === "arrivee" ? liaison.perdue : undefined}
+        data-perdue={
+          liaison.etat === "arrivee"
+            ? liaison.perdue
+            : liaison.etat === "injoignable"
+              ? true
+              : undefined
+        }
         className="n3-etat-rideau regie-nuit"
       >
         {carte(96)}

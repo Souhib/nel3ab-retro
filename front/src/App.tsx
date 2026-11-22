@@ -27,8 +27,9 @@ import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
 import { Ouverture } from "./components/Ouverture";
-import { bootingStep } from "./lib/booting";
-import { retenirProposition, type Liaison } from "./media/liaison";
+import { attenteDemarrage, bootingStep } from "./lib/booting";
+import { GardeSignalement } from "./lib/garde-signalement";
+import { FENETRE_VIDE, fenetrePourProposition, type Liaison } from "./media/liaison";
 import { Sidebar } from "./components/Sidebar";
 import { ColumnHandle } from "./components/ColumnHandle";
 import { Recovery } from "./components/Recovery";
@@ -650,6 +651,9 @@ function Room({
   /** Ce qui décide de proposer le format réduit, et de ne le proposer qu'une
    * fois. La page voit la dégradation avant la personne qui la subit. */
   const rough = useRef(new Struggling());
+  /** Le garde de vingt secondes du signalement, UN pour la page: la colonne et
+   * le bandeau de l'image le lisent tous les deux (`lib/garde-signalement`). */
+  const garde = useRef(new GardeSignalement());
   const [suggestHalf, setSuggestHalf] = useState(false);
   /** « proposé » est-il déjà parti pour CETTE proposition ? Le journal ne
    * l'écrit qu'à l'affichage (audit E3), et une seule fois même si un gel la
@@ -697,12 +701,19 @@ function Room({
       previous.current = now;
       opened.current = performance.now();
       if (worthWriting(taken)) sending.current.vitals(taken);
-      // Une fenêtre qui a vu autre chose que la liaison ne compte pas: un jeu
-      // qui démarre, un gel de la salle, une coupure, un onglet caché
-      // (`retenirProposition`). Le 22 novembre 2026, l'audit a vu le format
-      // réduit proposé pour un gel de la salle et juste après une coupure (E4).
-      const vus = alive.current?.veille.prendreVus() ?? new Set();
-      if (bootingNow.current !== null || retenirProposition(vus)) rough.current.hold();
+      // Un jeu qui démarre tient la proposition trente secondes, comme avant.
+      // Une fenêtre qui ne dit rien de la liaison (un gel de la salle pendant
+      // lequel le son passait, une salle qui redémarre, un onglet caché) ne
+      // compte ni pour ni contre. Une coupure COMPTE: c'est la liaison qui
+      // cale, le cas pour lequel la proposition existe (`fenetrePourProposition`,
+      // relecture du 22 novembre 2026).
+      const fenetre = alive.current?.veille.prendreFenetre() ?? FENETRE_VIDE;
+      const poids = bootingNow.current !== null ? "tenir" : fenetrePourProposition(fenetre);
+      if (poids === "ignorer") {
+        rough.current.ignore();
+        return;
+      }
+      if (poids === "tenir") rough.current.hold();
       // « proposé » ne part PLUS d'ici: une proposition décidée n'est pas une
       // proposition vue. Il part de l'affichage (`EtatSalle`).
       if (rough.current.saw(taken)) {
@@ -1972,6 +1983,7 @@ function Room({
             onReessayer={() => session?.relancerImage()}
             onQuitter={onLeave}
             onSignaler={complain}
+            garde={garde.current}
             onReduire={takeHalf}
             onGarder={() => {
               rough.current.settled();
@@ -2040,7 +2052,20 @@ function Room({
         {/* La ligne parlée: montée dès l'entrée, vide, et seul son texte
             change (audit A11Y-03, A11Y-07, A11Y-09). */}
         <LigneParlee
-          liaison={booting ? { etat: "demarrage", depuisMs: 0 } : liaison}
+          liaison={
+            booting
+              ? {
+                  etat: "demarrage",
+                  depuisMs: performance.now() - booting.at,
+                  // Ce que l'écran de chargement montre, dit aussi en mots:
+                  // la lenteur à vingt secondes, puis l'échec (audit A11Y-07).
+                  attente: attenteDemarrage(
+                    (performance.now() - booting.at) / 1000,
+                    booting.stalled ?? false,
+                  ),
+                }
+              : liaison
+          }
           salle={salle()}
           demande={asked}
           delai={room?.ask_lasts ?? 10}
@@ -2218,6 +2243,7 @@ function Room({
             onTakeHalf={takeHalf}
             onFold={coarse ? () => setBare(true) : undefined}
             onComplain={complain}
+            garde={garde.current}
           />
         </aside>
       )}

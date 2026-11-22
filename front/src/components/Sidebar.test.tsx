@@ -12,6 +12,7 @@
  */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GardeSignalement } from "../lib/garde-signalement";
 import { Sidebar } from "./Sidebar";
 
 function show(overrides: Record<string, unknown> = {}) {
@@ -33,6 +34,7 @@ function show(overrides: Record<string, unknown> = {}) {
     onPlay: vi.fn(),
     onLeave: vi.fn(),
     onComplain: vi.fn().mockResolvedValue(undefined),
+    garde: new GardeSignalement(),
     onTakeHalf: vi.fn(),
     ...overrides,
   };

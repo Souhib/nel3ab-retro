@@ -755,7 +755,7 @@ export class VideoStream {
       if (this.socket !== socket) return;
       // Une socket qui n'a jamais ouvert garde l'instant où l'on a commencé à
       // l'attendre: une salle qui refuse est coupée depuis qu'on la demande.
-      if (this.connected || this.downSince === null) this.downSince = performance.now();
+      this.downSince = this.coupeeDepuis();
       this.connected = false;
       this.openedAt = null;
       // Le format a pu changer SOUS la page: changer de jeu change la taille de
@@ -811,6 +811,25 @@ export class VideoStream {
     };
   }
 
+  /**
+   * Depuis quand la vidéo est coupée, au moment où une socket tombe.
+   *
+   * Une socket OUVERTE est coupée depuis sa dernière preuve de vie: son
+   * dernier message, ou son ouverture si elle n'a rien dit. Pas depuis
+   * l'instant où elle se ferme. Le chien de garde ferme une socket muette au
+   * bout de deux secondes: compter de là faisait repartir la coupure de zéro,
+   * la page passait une seconde par « en marche » et disait « L'image est
+   * revenue. » sans une image (relecture adverse du 22 novembre 2026).
+   *
+   * Une socket qui n'a jamais ouvert garde l'instant où l'on a commencé à
+   * l'attendre.
+   */
+  private coupeeDepuis(): number {
+    if (!this.connected) return this.downSince ?? performance.now();
+    const vie = Math.max(this.lastMessage ?? -Infinity, this.openedAt ?? -Infinity);
+    return Number.isFinite(vie) ? vie : performance.now();
+  }
+
   /** Closes a socket, and does not trust it to close. */
   private giveUp(socket: WebSocket | null): void {
     if (socket === null) return;
@@ -820,7 +839,7 @@ export class VideoStream {
       socket.onclose = null;
       socket.onmessage = null;
       socket.onerror = null;
-      if (this.connected || this.downSince === null) this.downSince = performance.now();
+      this.downSince = this.coupeeDepuis();
       this.connected = false;
       this.openedAt = null;
       this.connect();

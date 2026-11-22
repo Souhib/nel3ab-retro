@@ -17,6 +17,7 @@ avec de quoi comprendre.
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
+from typing import Literal
 
 import anyio
 import httpx
@@ -35,6 +36,9 @@ SALLES: tuple[int, ...] = (1, 2, 3)
 
 #: Le marqueur qui dit au worker « ouverte, mais sans jeu ».
 SANS_JEU = "game-closed"
+
+#: Ce que systemd dit d'une salle. Trois valeurs et pas deux: voir `unite`.
+EtatUnite = Literal["ouverte", "redemarre", "fermee"]
 
 
 def unite(numero: int) -> str:
@@ -173,12 +177,14 @@ class SallesController:
         """
         salles = []
         for numero in SALLES:
-            ouverte = await self.ouverte(numero)
+            etat = await self.unite(numero)
+            ouverte = etat == "ouverte"
             jeu, switch = await self._joue(numero) if ouverte else (None, False)
             salles.append(
                 Salle(
                     numero=numero,
                     ouverte=ouverte,
+                    redemarre=etat == "redemarre",
                     chemin=chemin(numero),
                     jeu=jeu,
                     switch=switch,
@@ -276,20 +282,35 @@ class SallesController:
             return None
         return sum(1 for tenue in places if tenue is None)
 
-    async def ouverte(self, numero: int) -> bool:
-        """Cette salle tourne-t-elle ?
+    async def unite(self, numero: int) -> EtatUnite:
+        """Ce que systemd dit de cette salle: elle tourne, il la relance, ou rien.
 
         SANS sudo, et c'est délibéré: lire un état ne demande aucun droit, et
         tout ce qui passe par sudo est une ligne de plus qu'un service joignable
         par le réseau peut faire tourner en tant que root.
+
+        Le MOT, et pas seulement le code. Le worker sort à chaque changement de
+        jeu, et `Restart=always` le relance deux secondes plus tard
+        (`RestartSec=2`, `deploy/nel3ab-worker@.service`). Pendant ces deux
+        secondes, `is-active` répond « activating » avec le code 3, le même
+        qu'une unité arrêtée. Lire le code seul disait la salle fermée: la page
+        d'un joueur affichait « La salle 1 est fermée. » à chaque changement de
+        jeu, et « ouvrir une salle » pouvait reprendre cet emplacement, y poser
+        le marqueur « sans jeu » et faire revenir la partie sur son menu
+        (relecture du 22 novembre 2026). « deactivating » reste une salle
+        fermée: c'est aussi l'état d'une salle qu'on ferme, et la page ne croit
+        une salle fermée qu'après deux réponses espacées (`front/src/media/veille.ts`).
         """
-        code, _ = await self._lancer(["systemctl", "is-active", unite(numero)])
-        return code == 0
+        code, dit = await self._lancer(["systemctl", "is-active", unite(numero)])
+        if code == 0:
+            return "ouverte"
+        return "redemarre" if dit.strip() == "activating" else "fermee"
 
     async def ouvrir(self) -> Salle:
         """Allume le premier emplacement libre, ou refuse."""
         for numero in SALLES:
-            if await self.ouverte(numero):
+            # Une salle que systemd relance n'est PAS libre: voir `unite`.
+            if await self.unite(numero) != "fermee":
                 continue
             self._preparer(numero)
             code, dit = await self._lancer(["sudo", "-n", "systemctl", "start", unite(numero)])

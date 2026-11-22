@@ -8,21 +8,35 @@
  *
  * # La sonde du site
  *
- * Quand la vidéo tombe, une seule question distingue « la salle ne répond
- * plus » de « rien ne répond »: le reste du site répond-il, MAINTENANT ? La
- * socket du salon ne le dit pas: après une coupure du Wi-Fi, elle se croit
- * ouverte jusqu'à son délai de 45 s (25 s d'intervalle, 20 s d'attente). Une
- * requête qui revient, elle, le prouve. `/api/salles` répond en plus si la
- * salle est ouverte, ce qui sépare une salle fermée d'une salle qui redémarre
- * (audit P10).
+ * Quand la vidéo tombe, la page demande `/api/salles`. La socket du salon ne
+ * suffit pas: après une coupure du Wi-Fi, elle se croit ouverte jusqu'à son
+ * délai de 45 s (25 s d'intervalle, 20 s d'attente).
+ *
+ * Ce que la réponse prouve, et rien de plus:
+ * - une liste en 2xx: le salon répond. Pas « ta connexion passe »: le
+ *   22 septembre 2026, une petite requête passait très bien sur un Wi-Fi qui
+ *   ne portait plus le flux;
+ * - toute autre réponse: quelque chose a répondu, pas le site. Un 502 du relais
+ *   quand le salon est arrêté en est une, et la première version la prenait
+ *   pour « le reste du site répond » (relecture du 22 novembre 2026);
+ * - rien dans le délai: rien ne répond.
+ *
+ * Le salon dit aussi si la salle tourne, redémarre ou est fermée. « Fermée »
+ * n'est cru qu'après deux réponses espacées (`FERMEE_CONFIRMEE_MS`): le worker
+ * SORT à chaque changement de jeu et systemd le relance deux secondes plus
+ * tard, et un salon d'avant le champ `redemarre` disait « fermée » pendant ces
+ * deux secondes.
  */
 import {
+  ECHO_FRAIS_MS,
+  FRAIS_MS,
   lireLiaison,
   MEMOIRE_VIDE,
-  FRAIS_MS,
   type Etat,
+  type Fenetre,
   type Liaison,
   type Memoire,
+  type Signaux,
 } from "./liaison";
 
 /** Ce que la veille lit des flux, tel que leurs relevés le donnent. */
@@ -36,7 +50,6 @@ export type Flux = {
     sincePaintedMs: number | null;
     painted: number;
     units: number;
-    sourceHz: number;
     sinceStartedMs: number | null;
     awaitingRestart: boolean;
   };
@@ -80,13 +93,29 @@ export const SONDE_PATIENCE_MS = 2500;
  * sondes manquées et une marge. */
 export const SONDE_FRAICHE_MS = 8000;
 
-type Reponse = { a: number; repond: boolean; ouverte: boolean | null };
+/** Combien de temps une salle doit rester « fermée » d'une réponse à l'autre
+ * avant qu'on la dise fermée, en millisecondes.
+ *
+ * 2,5 s, plus que `RestartSec=2` de l'unité du worker
+ * (`deploy/nel3ab-worker@.service`), qui relance la salle à chaque changement
+ * de jeu. Les sondes partent toutes les trois secondes, donc la deuxième
+ * réponse tombe après la relance. Une vraie salle fermée se dit donc environ
+ * trois secondes plus tard qu'avant, et une salle qui redémarre ne se dit plus
+ * jamais fermée. */
+export const FERMEE_CONFIRMEE_MS = 2500;
+
+type Reponse = { a: number; site: "repond" | "relais" | "muet"; salle: Signaux["salle"] };
 
 export class VeilleLiaison {
   private readonly monde: Monde;
   private memoire: Memoire = MEMOIRE_VIDE;
   private contexte: Contexte = { jeu: null, demarrageA: null, proposer: false };
   private vus = new Set<Etat>();
+  /** Le gel vu dans la fenêtre: `null` sans gel, sinon vrai tant que chaque
+   * relevé figé avait encore le son et l'écho. */
+  private gelSalle: boolean | null = null;
+  /** La première réponse « fermée » de la série en cours. */
+  private fermeeVueA: number | null = null;
   /** Depuis quand l'onglet est visible: `-Infinity` s'il l'était à l'arrivée. */
   private visibleA: number | null;
   private sondeA: number | null = null;
@@ -120,6 +149,9 @@ export class VeilleLiaison {
     const muette = !v.connected || v.sinceHeardMs === null || v.sinceHeardMs >= FRAIS_MS;
     const attend = !flux.padOnly && this.contexte.jeu !== false && this.visibleA !== null;
     if (muette && attend) this.sonder(now);
+    // La vidéo parle: une série de « fermée » d'avant ne compte plus pour la
+    // prochaine chute.
+    if (!muette) this.fermeeVueA = null;
     const frais = this.reponse !== null && now - this.reponse.a < SONDE_FRAICHE_MS;
     const lu = lireLiaison(
       {
@@ -140,20 +172,27 @@ export class VeilleLiaison {
           peinteDepuisMs: v.sincePaintedMs,
           peintes: v.painted,
           recues: v.units,
-          sourceHz: v.sourceHz,
           demarreeDepuisMs: v.sinceStartedMs,
           attendRedemarrage: v.awaitingRestart,
         },
         sonDepuisMs: flux.sound.sinceChunkMs,
         manetteDepuisMs: flux.input.sinceHeardMs,
-        site: frais && this.reponse ? (this.reponse.repond ? "repond" : "muet") : null,
-        salleOuverte: frais && this.reponse ? this.reponse.ouverte : null,
+        site: frais && this.reponse ? this.reponse.site : null,
+        salle: frais && this.reponse ? this.reponse.salle : null,
       },
       this.memoire,
       now,
     );
     this.memoire = lu.memoire;
     this.vus.add(lu.liaison.etat);
+    if (lu.liaison.etat === "figee") {
+      const continus =
+        flux.sound.sinceChunkMs !== null &&
+        flux.sound.sinceChunkMs < FRAIS_MS &&
+        flux.input.sinceHeardMs !== null &&
+        flux.input.sinceHeardMs < ECHO_FRAIS_MS;
+      this.gelSalle = (this.gelSalle ?? true) && continus;
+    }
     this.derniere = lu.liaison;
     return lu.liaison;
   }
@@ -163,12 +202,14 @@ export class VeilleLiaison {
     return this.derniere;
   }
 
-  /** Les états vus depuis la dernière fois, et on repart de zéro. Lu par la
-   * proposition de format réduit, toutes les dix secondes. */
-  prendreVus(): ReadonlySet<Etat> {
-    const vus = this.vus;
+  /** Ce que la fenêtre a vu depuis la dernière fois, et on repart de zéro. Lu
+   * par la proposition de format réduit, toutes les dix secondes
+   * (`fenetrePourProposition`). */
+  prendreFenetre(): Fenetre {
+    const fenetre = { vus: this.vus, gelSalle: this.gelSalle === true };
     this.vus = new Set();
-    return vus;
+    this.gelSalle = null;
+    return fenetre;
   }
 
   private sonder(now: number): void {
@@ -177,9 +218,15 @@ export class VeilleLiaison {
     this.sondeA = now;
     this.enVol = true;
     const numero = this.monde.salle();
-    const fin = (reponse: Omit<Reponse, "a">) => {
+    const fin = (site: Reponse["site"], dite: Signaux["salle"] | "fermee?") => {
       this.enVol = false;
-      this.reponse = { a: this.monde.now(), ...reponse };
+      const a = this.monde.now();
+      let salle: Signaux["salle"] = dite === "fermee?" ? null : dite;
+      if (dite === "fermee?") {
+        this.fermeeVueA ??= a;
+        if (a - this.fermeeVueA >= FERMEE_CONFIRMEE_MS) salle = "fermee";
+      } else this.fermeeVueA = null;
+      this.reponse = { a, site, salle };
     };
     let signal: AbortSignal | undefined;
     try {
@@ -190,17 +237,18 @@ export class VeilleLiaison {
     this.monde
       .fetch("/api/salles", { cache: "no-store", signal })
       .then(async (answer) => {
-        // Une réponse, quelle qu'elle soit, prouve que la liaison passe.
-        if (!answer.ok) return fin({ repond: true, ouverte: null });
-        const liste: unknown = await answer.json().catch(() => null);
-        const trouvee = Array.isArray(liste)
-          ? (liste as { numero?: unknown; ouverte?: unknown }[]).find((s) => s?.numero === numero)
-          : undefined;
-        fin({
-          repond: true,
-          ouverte: typeof trouvee?.ouverte === "boolean" ? trouvee.ouverte : null,
-        });
+        const liste: unknown = answer.ok ? await answer.json().catch(() => null) : null;
+        // Seule une LISTE en 2xx est le site. Un 502 du relais, un portail
+        // Wi-Fi ou une page d'erreur ont répondu, mais pas lui.
+        if (!Array.isArray(liste)) return fin("relais", null);
+        const trouvee = (
+          liste as { numero?: unknown; ouverte?: unknown; redemarre?: unknown }[]
+        ).find((s) => s?.numero === numero);
+        if (trouvee?.redemarre === true) return fin("repond", "redemarre");
+        if (trouvee?.ouverte === true) return fin("repond", "ouverte");
+        if (trouvee?.ouverte === false) return fin("repond", "fermee?");
+        return fin("repond", null);
       })
-      .catch(() => fin({ repond: false, ouverte: null }));
+      .catch(() => fin("muet", null));
   }
 }

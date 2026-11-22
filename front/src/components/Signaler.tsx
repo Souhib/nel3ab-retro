@@ -8,19 +8,14 @@
  * de la partie.
  *
  * Sorti de la colonne le 22 novembre 2026: le bandeau d'une image figée porte
- * aussi « Signaler », et une seule copie de ce garde vaut mieux que deux qui
- * finiraient par ne pas désarmer au même moment.
+ * aussi « Signaler ». Le garde de vingt secondes n'est PAS ici: il vit dans
+ * `lib/garde-signalement`, un par page, et les deux boutons le lisent. Tenu
+ * dans chaque bouton, il laissait la colonne armée après un clic sur le
+ * bandeau, et le bandeau se réarmait à chaque remontage (relecture adverse).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { cn } from "../lib/cn";
-
-/** Combien de temps le bouton reste désarmé, en millisecondes.
- *
- * La même valeur que le garde du salon, qui refuse un deuxième repère avant
- * vingt secondes. Deux repères si rapprochés porteraient de toute façon presque
- * la même trace: chacun emporte les deux minutes qui précèdent.
- */
-export const COMPLAIN_EVERY = 20_000;
+import type { GardeSignalement } from "../lib/garde-signalement";
 
 /** Les mots du bouton, selon où il vit: la colonne garde les siens, le
  * bandeau parle en casse de phrase, comme ses autres actions. */
@@ -36,23 +31,26 @@ const MOTS = {
 
 export function Signaler({
   onComplain,
+  garde,
   id = "complain",
   variante = "colonne",
 }: {
   onComplain: () => Promise<void>;
+  /** Le garde de la page, partagé par tous les boutons « Signaler ». */
+  garde: GardeSignalement;
   id?: string;
   variante?: keyof typeof MOTS;
 }) {
-  /** Vrai depuis le clic, remis à faux quand le salon accepterait un autre
-   * repère. Deux durées et pas une: le remerciement est court parce qu'il ne
-   * doit pas rester en travers de la partie, mais le bouton reste désarmé
-   * aussi longtemps que le serveur refuse.
+  /** Vrai depuis un repère accepté, d'ici ou de l'autre bouton, et jusqu'à ce
+   * que le salon en accepte un autre. Deux durées et pas une: le remerciement
+   * est court parce qu'il ne doit pas rester en travers de la partie, mais le
+   * bouton reste désarmé aussi longtemps que le serveur refuse.
    *
    * Sans ça, le bouton dit « noté » à quatre secondes alors que le salon vient
    * de jeter le repère, et un contrôle qui annonce ce qu'il n'a pas fait est
    * pire qu'un contrôle absent. */
+  const held = useSyncExternalStore(garde.abonner, garde.tenu);
   const [said, setSaid] = useState(false);
-  const [held, setHeld] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const mots = MOTS[variante];
@@ -62,12 +60,6 @@ export function Signaler({
     const thanks = window.setTimeout(() => setSaid(false), 3000);
     return () => window.clearTimeout(thanks);
   }, [said]);
-
-  useEffect(() => {
-    if (!held) return;
-    const guard = window.setTimeout(() => setHeld(false), COMPLAIN_EVERY);
-    return () => window.clearTimeout(guard);
-  }, [held]);
 
   return (
     <>
@@ -80,7 +72,7 @@ export function Signaler({
           try {
             await onComplain();
             setSaid(true);
-            setHeld(true);
+            garde.tenir();
           } catch (reason) {
             setError(
               reason instanceof Error ? reason.message : "Signalement non confirmé. Réessaie.",

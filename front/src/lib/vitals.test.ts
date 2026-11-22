@@ -629,4 +629,32 @@ describe("proposer le format réduit", () => {
 
     expect(repropose).toBe(false);
   });
+
+  /* La relecture du 22 novembre 2026: chaque fenêtre qui avait vu un gel ou une
+     coupure appelait `hold()`, qui remet le compte à zéro et aveugle la
+     proposition quarante secondes. Une liaison qui cale toutes les seize
+     secondes ne se voyait plus jamais rien proposer. */
+  it("une fenêtre ignorée ne compte ni pour ni contre: deux mauvaises autour proposent", () => {
+    const watching = settledIn();
+    expect(watching.saw(freeze)).toBe(false);
+    watching.ignore();
+    expect(watching.saw(freeze)).toBe(true);
+  });
+
+  it("jumeau: tenir, lui, remet le compte à zéro et attend", () => {
+    const watching = settledIn();
+    expect(watching.saw(freeze)).toBe(false);
+    watching.hold();
+    expect(watching.saw(freeze)).toBe(false);
+    expect(watching.saw(freeze)).toBe(false);
+  });
+
+  it("une fenêtre ignorée pendant le démarrage use quand même la grâce", () => {
+    // Le temps passe: une page restée sur un onglet caché pendant ses trente
+    // premières secondes n'a pas à attendre trente secondes de plus.
+    const watching = new Struggling();
+    for (let fenetre = 0; fenetre < GRACE_WINDOWS; fenetre++) watching.ignore();
+    expect(watching.saw(freeze)).toBe(false);
+    expect(watching.saw(freeze)).toBe(true);
+  });
 });

@@ -647,6 +647,58 @@ test:
 gpu-test:
     cd core && sg render -c 'cargo test -p nel3ab-encoder --features gpu-tests'
 
+# Les états de la salle dans un vrai navigateur, contre un banc simulé.
+#
+# Écrite après le 21 novembre 2026: l'image est restée figée vingt minutes, le
+# son continuait, et la page n'a rien dit. La règle vit dans une fonction pure
+# (`front/src/media/liaison.ts`), mais la relecture adverse du lendemain a
+# trouvé cinq défauts qu'elle ne voyait qu'avec une vraie page: un jeu qui
+# repart à 45 images par seconde restait « figé », une socket muette faisait
+# dire « L'image est revenue. », un 502 passait pour le site, une salle qui
+# redémarre se disait fermée, une liaison qui cale ne se voyait plus rien
+# proposer. Chaque étape en rejoue un avec son jumeau (`etats.mjs`).
+#
+# Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert. Un
+# salon et une salle simulés, sur un port de 5400 à 5499: aucune salle vivante,
+# aucun émulateur. Le flux est un vrai H.264, fabriqué ici par ffmpeg plutôt
+# que committé (1,6 Mo). Hors de `check`: Chrome, ffmpeg et cinq minutes.
+#
+#   just etats-navigateur                          toutes les étapes
+#   just etats-navigateur --etapes gel-dit         une seule
+#   just etats-navigateur --captures /tmp/etats    avec les captures
+etats-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node etats.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Le contrôle négatif du précédent: les pages d'avant doivent échouer sur le
+# DÉFAUT de chaque étape, pas sur une précondition. 8b58526 est la page d'avant
+# le chantier, e5d6edf celle que la relecture a refusée. Une étape qui passe
+# sur l'une d'elles ne prouve rien.
+etats-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show 8b58526:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    git show e5d6edf:core/crates/worker/src/page/index.html > "$dossier/refusee.html"
+    cd spikes/m3-browser-drive
+    node etats.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale \
+        --rouge-attendu gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale
+    node etats.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
+        --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
+        --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
+
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
 # (`systemctl start nel3ab-worker@1`), because the failure only exists against a
 # live stream: a decoder that is fed nothing cannot be caught refusing anything.

@@ -49,6 +49,7 @@ export const NOM_ETAT: Record<Liaison["etat"], string> = {
   decodeur: "affichage arrêté",
   coupee: "coupée",
   injoignable: "salle muette",
+  redemarre: "salle qui redémarre",
   fermee: "salle fermée",
   demarrage: "démarrage",
   arrivee: "arrivée",
@@ -111,17 +112,51 @@ export function dire(liaison: Liaison, salle: number): Dit {
             // porte la seule autre sortie (audit E6).
             actions: ["reessayer", "quitter"],
           };
-    case "injoignable":
+    case "injoignable": {
+      // Le fait que la sonde a vu, et lui seul. « ta connexion passe » a été
+      // retiré: c'était une cause supposée, et une petite requête passe aussi
+      // sur un Wi-Fi qui ne porte plus le flux (22 septembre 2026).
+      const detail =
+        liaison.site === "repond"
+          ? "Le reste du site répond. La page réessaie toute seule."
+          : liaison.site === "relais"
+            ? "Le reste du site ne répond pas non plus. La page réessaie toute seule."
+            : "La page réessaie toute seule.";
+      // « Signaler » passe par le salon: le proposer quand la sonde n'a pas vu
+      // le site répondre promettrait un repère qui ne partira pas.
+      const actions: Action[] =
+        liaison.site === "repond" ? ["reessayer", "signaler", "quitter"] : ["reessayer", "quitter"];
+      if (liaison.arrivee)
+        // Elle n'a encore jamais répondu à cette page: « ne répond plus »
+        // serait faux. Le rideau garde ses étapes, aucune n'est faite.
+        return {
+          niveau: "rideau",
+          pose: "loupe",
+          titre: `La salle ${salle} ne répond pas.`,
+          detail,
+          actions,
+          etapes: [
+            { texte: "la salle répond", fait: false },
+            { texte: "première image", fait: false },
+          ],
+        };
       return {
         niveau: "bandeau",
         pose: "loupe",
         titre: `La salle ${salle} ne répond plus.`,
-        detail: liaison.siteRepond
-          ? "Le reste du site répond: ta connexion passe. La page réessaie toute seule."
-          : "La page réessaie toute seule.",
-        actions: liaison.siteRepond
-          ? ["reessayer", "signaler", "quitter"]
-          : ["reessayer", "quitter"],
+        detail,
+        actions,
+      };
+    }
+    case "redemarre":
+      // Le salon le dit de systemd: le worker est sorti (un changement de jeu,
+      // un plantage) et sera relancé. Pas « fermée », et rien à faire.
+      return {
+        niveau: liaison.arrivee ? "rideau" : "bandeau",
+        pose: "marche",
+        titre: `La salle ${salle} redémarre.`,
+        detail: "La page la rejoint dès qu'elle répond.",
+        actions: ["quitter"],
       };
     case "fermee":
       return {
@@ -185,14 +220,28 @@ function parlee(liaison: Liaison, salle: number): string {
       return liaison.cause === "reseau"
         ? "Ton appareil n'a plus de réseau."
         : "Rien ne répond. Vérifie ta connexion.";
-    case "injoignable":
-      return liaison.siteRepond
-        ? `La salle ${salle} ne répond plus. Le reste du site répond.`
+    case "injoignable": {
+      const titre = liaison.arrivee
+        ? `La salle ${salle} ne répond pas.`
         : `La salle ${salle} ne répond plus.`;
+      return liaison.site === "repond"
+        ? `${titre} Le reste du site répond.`
+        : liaison.site === "relais"
+          ? `${titre} Le reste du site ne répond pas non plus.`
+          : titre;
+    }
+    case "redemarre":
+      return `La salle ${salle} redémarre.`;
     case "fermee":
       return `La salle ${salle} est fermée.`;
     case "demarrage":
-      return "Le jeu démarre.";
+      // Ce que l'écran de chargement montre, dit aussi pour qui ne le voit
+      // pas (audit A11Y-07): la lenteur, puis l'échec et sa sortie.
+      return liaison.attente === "echec"
+        ? "La salle n'a pas rendu d'image. Tu peux arrêter d'attendre."
+        : liaison.attente === "long"
+          ? "Le jeu met plus longtemps que d'habitude."
+          : "Le jeu démarre.";
     case "arrivee":
       return liaison.perdue
         ? "L'image n'arrive pas."

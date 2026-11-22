@@ -37,6 +37,7 @@ import { ConnectionDiagnostic } from "./ConnectionDiagnostic";
 import { Crown } from "./Crown";
 import { Instruments } from "./Instruments";
 import { Volume } from "./Settings";
+import type { GardeSignalement } from "../lib/garde-signalement";
 import { Signaler } from "./Signaler";
 
 export type Mode = "normal" | "details";
@@ -60,6 +61,7 @@ export function Sidebar({
   onPlay,
   onLeave,
   onComplain,
+  garde,
   onTakeHalf,
   onFold,
 }: {
@@ -91,6 +93,8 @@ export function Sidebar({
    * quelqu'un qui jouait. Ce bouton pose un repère à l'instant exact, avec ce
    * que la page voyait à ce moment-là. */
   onComplain: () => Promise<void>;
+  /** Le garde de vingt secondes de la page, partagé avec le bandeau de l'image. */
+  garde: GardeSignalement;
   /** Basculer en format réduit, depuis le diagnostic replié.
    *
    * La PROPOSITION de format réduit a quitté la colonne le 22 novembre 2026:
@@ -295,7 +299,7 @@ export function Sidebar({
           {!idle && shot && !shot.padOnly ? (
             <ConnectionDiagnostic video={shot.video} onReduce={onTakeHalf} />
           ) : null}
-          <Signaler onComplain={onComplain} />
+          <Signaler onComplain={onComplain} garde={garde} />
         </>
       ) : (
         <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>

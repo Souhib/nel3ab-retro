@@ -676,6 +676,51 @@ async def test_the_page_says_when_it_offered_the_reduced_format(
     assert dite["salle"]["jeu"] == "Super Smash Bros Melee"
 
 
+async def test_an_answer_right_after_the_offer_is_written_too(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """« proposé » part quand la proposition s'AFFICHE, depuis le 22 novembre
+    2026, et elle s'affiche sur l'image, téléphone compris. Quelqu'un qui répond
+    en moins de cinq secondes perdait son « refusé »: la cadence était tenue par
+    événement, et le journal lisait une proposition ignorée."""
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "kkkk1111"})
+    await page.emit("qualite", {"quoi": "proposé"})
+    await asyncio.sleep(0.2)
+    await page.emit("qualite", {"quoi": "refusé"})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert [line["choix"] for line in lines if line["quoi"] == "qualité"] == ["proposé", "refusé"]
+
+
+async def test_the_same_word_twice_in_a_row_is_still_held_back(
+    served: tuple[str, RoomController], tmp_path: Path
+) -> None:
+    """Le jumeau: la cadence par mot borne toujours une page qui répète."""
+    url, _rooms = served
+
+    page = socketio.AsyncClient()
+    await page.connect(url, socketio_path="/socket.io", auth={"visite": "llll2222"})
+    await page.emit("qualite", {"quoi": "proposé"})
+    await asyncio.sleep(0.2)
+    await page.emit("qualite", {"quoi": "proposé"})
+    await asyncio.sleep(0.3)
+    await page.disconnect()
+    await asyncio.sleep(0.2)
+
+    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
+    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
+
+    assert [line["choix"] for line in lines if line["quoi"] == "qualité"] == ["proposé"]
+
+
 async def test_a_word_the_page_invented_is_not_written(
     served: tuple[str, RoomController], tmp_path: Path
 ) -> None:

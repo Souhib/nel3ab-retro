@@ -17,10 +17,16 @@ class FauxSysteme:
         self,
         allumees: Sequence[int] = (),
         refuse: bool = False,
+        relancees: Sequence[int] = (),
         depuis: Mapping[int, float] | None = None,
         horloge: Callable[[], float] = time.monotonic,
     ) -> None:
         self.allumees = set(allumees)
+        #: Les salles que systemd est en train de relancer: le worker est sorti
+        #: (un changement de jeu, un plantage) et `RestartSec` court encore.
+        #: `systemctl is-active` dit alors « activating », avec le code 3, comme
+        #: pour une unité arrêtée: seul le mot les distingue.
+        self.relancees = set(relancees)
         self.refuse = refuse
         #: Depuis combien de SECONDES chaque salle tourne. Absente d'ici, une
         #: salle répond comme une unité qui n'a jamais démarré.
@@ -34,7 +40,9 @@ class FauxSysteme:
         self.commandes.append(list(commande))
         numero = int(commande[-1].split("@")[1])
         if "is-active" in commande:
-            return (0, "active") if numero in self.allumees else (3, "inactive")
+            if numero in self.allumees:
+                return 0, "active"
+            return (3, "activating") if numero in self.relancees else (3, "inactive")
         if "show" in commande:
             # systemd rend des MICROSECONDES d'horloge monotone prises au
             # démarrage de l'unité, et `0` pour une unité jamais démarrée.

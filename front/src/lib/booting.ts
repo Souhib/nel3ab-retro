@@ -34,3 +34,16 @@ export function bootingStep({ connected, awaitingRestart, paintedSince, dark }: 
   if (awaitingRestart && connected) return "asked";
   return "waiting";
 }
+
+/** Au-delà de ce nombre de secondes, un démarrage « met plus longtemps que
+ * d'habitude » et l'écran offre ses sorties. Vingt secondes, la valeur que
+ * l'écran de chargement utilisait déjà seul; elle vit ici pour que la ligne
+ * parlée dise la même chose au même moment (audit A11Y-07). */
+export const ATTENTE_LONGUE_S = 20;
+
+/** Où en est l'attente d'un démarrage, telle que l'écran la montre: normale,
+ * longue, ou perdue (`stalled`, le plafond de soixante secondes de la page). */
+export function attenteDemarrage(attenduS: number, stalled: boolean): "long" | "echec" | undefined {
+  if (stalled) return "echec";
+  return attenduS >= ATTENTE_LONGUE_S ? "long" : undefined;
+}

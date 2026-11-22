@@ -14,7 +14,6 @@ function flux(video: Partial<Flux["video"]> = {}, rest: Partial<Omit<Flux, "vide
       sincePaintedMs: 16,
       painted: 1000,
       units: 1000,
-      sourceHz: 60,
       sinceStartedMs: 300_000,
       awaitingRestart: false,
       ...video,
@@ -47,27 +46,32 @@ const attendre = () => new Promise((wake) => setTimeout(wake, 0));
 
 describe("la sonde du site", () => {
   it("ne demande rien tant que l'image arrive", async () => {
-    const fetch = vi.fn().mockResolvedValue(salles(true));
+    const fetch = vi.fn(() => Promise.resolve(salles(true)));
     const { v } = veille(fetch);
     v.lire(flux());
     await attendre();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("demande la liste des salles dès que la vidéo tombe, et dit « fermée » si elle l'est", async () => {
-    const fetch = vi.fn().mockResolvedValue(salles(false));
-    const { v } = veille(fetch);
+  it("demande la liste des salles dès que la vidéo tombe, et dit « fermée » si elle le reste", async () => {
+    const fetch = vi.fn(() => Promise.resolve(salles(false)));
+    const { v, horloge } = veille(fetch);
     expect(v.lire(tombee()).etat).toBe("injoignable");
     await attendre();
     expect(fetch).toHaveBeenCalledWith("/api/salles", expect.anything());
+    // Une seule réponse « fermée » ne suffit plus (`FERMEE_CONFIRMEE_MS`).
+    expect(v.lire(tombee()).etat).toBe("injoignable");
+    horloge.t += SONDE_EVERY_MS;
+    v.lire(tombee());
+    await attendre();
     expect(v.lire(tombee()).etat).toBe("fermee");
   });
 
   it("jumeau: une salle ouverte qui ne répond pas reste « injoignable », site joignable", async () => {
-    const { v } = veille(vi.fn().mockResolvedValue(salles(true)));
+    const { v } = veille(vi.fn(() => Promise.resolve(salles(true))));
     v.lire(tombee());
     await attendre();
-    expect(v.lire(tombee())).toMatchObject({ etat: "injoignable", siteRepond: true });
+    expect(v.lire(tombee())).toMatchObject({ etat: "injoignable", site: "repond" });
   });
 
   it("une sonde sans réponse veut dire que rien ne répond", async () => {
@@ -78,7 +82,7 @@ describe("la sonde du site", () => {
   });
 
   it("ne sonde pas plus d'une fois toutes les trois secondes", async () => {
-    const fetch = vi.fn().mockResolvedValue(salles(true));
+    const fetch = vi.fn(() => Promise.resolve(salles(true)));
     const { v, horloge } = veille(fetch);
     for (let i = 0; i < 6; i++) {
       v.lire(tombee());
@@ -93,7 +97,10 @@ describe("la sonde du site", () => {
   });
 
   it("oublie une réponse trop vieille plutôt que de la croire encore", async () => {
-    const { v, horloge } = veille(vi.fn().mockResolvedValue(salles(false)));
+    const { v, horloge } = veille(vi.fn(() => Promise.resolve(salles(false))));
+    v.lire(tombee());
+    await attendre();
+    horloge.t += SONDE_EVERY_MS;
     v.lire(tombee());
     await attendre();
     expect(v.lire(tombee()).etat).toBe("fermee");
@@ -108,22 +115,22 @@ describe("la sonde du site", () => {
 
 describe("ce que la veille a vu entre deux relevés", () => {
   it("rend les états vus, puis repart de zéro", () => {
-    const { v } = veille(vi.fn().mockResolvedValue(salles(true)));
+    const { v } = veille(vi.fn(() => Promise.resolve(salles(true))));
     v.lire(flux());
     v.lire(flux({ sinceHeardMs: 100, sinceUnitMs: 9000, sincePaintedMs: 9000 }));
-    expect([...v.prendreVus()].sort()).toEqual(["figee", "ok"]);
-    expect([...v.prendreVus()]).toEqual([]);
+    expect([...v.prendreFenetre().vus].sort()).toEqual(["figee", "ok"]);
+    expect([...v.prendreFenetre().vus]).toEqual([]);
   });
 });
 
 describe("le contexte que la page lui donne", () => {
   it("un démarrage demandé passe avant tout le reste", () => {
-    const { v, horloge } = veille(vi.fn().mockResolvedValue(salles(true)));
+    const { v, horloge } = veille(vi.fn(() => Promise.resolve(salles(true))));
     v.dire({ jeu: true, demarrageA: horloge.t - 4000, proposer: false });
     expect(v.lire(tombee())).toEqual({ etat: "demarrage", depuisMs: 4000 });
   });
   it("une salle sans jeu n'attend pas d'image", () => {
-    const { v } = veille(vi.fn().mockResolvedValue(salles(true)));
+    const { v } = veille(vi.fn(() => Promise.resolve(salles(true))));
     v.dire({ jeu: false, demarrageA: null, proposer: false });
     expect(v.lire(tombee()).etat).toBe("ok");
   });

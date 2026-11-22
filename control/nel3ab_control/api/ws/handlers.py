@@ -224,11 +224,24 @@ COMPLAINT_EVERY = 20.0
 
 #: Ce qu'une page a le droit de dire sur la qualité, et à quel rythme.
 #:
-#: Trois mots et cinq secondes. La page ne propose le format réduit qu'après deux
-#: mauvaises fenêtres, soit vingt secondes au plus tôt; ce garde est là pour qu'une
-#: page modifiée ne puisse pas écrire une ligne par image.
+#: Trois mots et cinq secondes PAR MOT. La page ne propose le format réduit
+#: qu'après deux mauvaises fenêtres, soit vingt secondes au plus tôt; ce garde
+#: est là pour qu'une page modifiée ne puisse pas écrire une ligne par image.
+#:
+#: Par mot depuis le 22 novembre 2026. « proposé » part quand la proposition
+#: s'AFFICHE, sur l'image, téléphone compris; quelqu'un qui répond en moins de
+#: cinq secondes perdait son « refusé » ou son « accepté », et le journal lisait
+#: une proposition ignorée. Le débit reste borné: trois lignes par cinq secondes
+#: au plus, quatre clés au plus dans la session.
 QUALITY_EVERY = 5.0
 QUALITY_WORDS = ("proposé", "accepté", "refusé")
+
+
+def _mot_de_qualite(data: object) -> str:
+    """Le mot qui découpe la cadence de `qualite`, dans un ensemble fini."""
+    quoi = data.get("quoi") if isinstance(data, dict) else None
+    return quoi if isinstance(quoi, str) and quoi in QUALITY_WORDS else "autre"
+
 
 #: Ce qu'une page a le droit de dire de sa sourdine, et à quel rythme.
 #:
@@ -254,7 +267,9 @@ SOUND_WORDS = ("coupé", "remis")
 ROOM_EVERY = 0.5
 
 
-def not_too_often(gap: float) -> Callable[[Handler], Handler]:
+def not_too_often(
+    gap: float, par: Callable[[object], str] | None = None
+) -> Callable[[Handler], Handler]:
     """Refuse un message qui arrive trop tôt après le précédent accepté.
 
     Un décorateur plutôt qu'un appel dans chaque corps, parce que c'est
@@ -269,13 +284,18 @@ def not_too_often(gap: float) -> Callable[[Handler], Handler]:
     Le comptage se fait AVANT que le gestionnaire regarde la charge utile. Un
     message mal formé consomme donc le tour de celui qui l'envoie, ce qui est le
     bon sens: ça coûte à l'émetteur plutôt qu'au salon.
+
+    `par` découpe la cadence d'un même événement, par exemple par mot: voir
+    `qualite`. Sa valeur entre dans la clé, donc elle doit rester dans un
+    ensemble fini, sans quoi la session grossirait d'une clé par message.
     """
 
     def wrap(handler: Handler) -> Handler:
-        key = f"last_{handler.__name__}"
+        base = f"last_{handler.__name__}"
 
         @wraps(handler)
         async def guarded(sid: str, data: object = None) -> object:
+            key = base if par is None else f"{base}_{par(data)}"
             session = await sio.get_session(sid)
             now = monotonic()
             if too_soon(session.get(key), now, gap):
@@ -642,7 +662,7 @@ async def plainte(sid: str, data: dict[str, Any]) -> dict[str, Any]:
 
 
 @sio.event
-@not_too_often(QUALITY_EVERY)
+@not_too_often(QUALITY_EVERY, par=_mot_de_qualite)
 async def qualite(sid: str, data: dict[str, Any]) -> None:
     """« La page a proposé le format réduit », « on l'a pris », « on l'a refusé ».
 

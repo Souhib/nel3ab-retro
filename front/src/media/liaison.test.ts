@@ -3,8 +3,9 @@ import {
   FIGEE_BANDEAU_MS,
   FIGEE_MS,
   lireLiaison,
+  FENETRE_VIDE,
+  fenetrePourProposition,
   MEMOIRE_VIDE,
-  retenirProposition,
   type Etat,
   type Liaison,
   type Memoire,
@@ -27,7 +28,7 @@ function signaux(
     sonDepuisMs: 20,
     manetteDepuisMs: 300,
     site: null,
-    salleOuverte: null,
+    salle: null,
     ...rest,
     video: {
       connectee: true,
@@ -38,7 +39,6 @@ function signaux(
       peinteDepuisMs: 16,
       peintes: 18_000,
       recues: 18_000,
-      sourceHz: 60,
       demarreeDepuisMs: 300_000,
       attendRedemarrage: false,
       ...video,
@@ -142,11 +142,16 @@ describe("l'image figée côté salle (le 21 novembre 2026)", () => {
     const apres = signaux({
       video: { entenduDepuisMs: 100, imageRecueDepuisMs: 530, recues: 18_001 },
     });
+    const duree = (l: Liaison) => (l as Extract<Liaison, { etat: "figee" }>).depuisMs;
     const vu = pas(isolee, 500);
     expect(vu.etat).toBe("figee");
-    // La durée affichée continue: l'image isolée n'efface pas le gel.
-    expect((vu as Extract<Liaison, { etat: "figee" }>).depuisMs).toBeGreaterThanOrEqual(10_500);
-    expect(pas(apres, 500).etat).toBe("figee");
+    // L'image isolée n'efface pas le gel: la durée ne repart pas de zéro. Elle
+    // s'arrête le temps d'un relevé, celui d'une reprise qui commence (voir
+    // `figee`, relecture du 22 novembre 2026), puis continue.
+    expect(duree(vu)).toBeGreaterThanOrEqual(10_000);
+    const ensuite = pas(apres, 500);
+    expect(ensuite.etat).toBe("figee");
+    expect(duree(ensuite)).toBeGreaterThanOrEqual(11_000);
     expect(pas(apres, 500).etat).toBe("figee");
   });
 
@@ -222,7 +227,7 @@ describe("ma connexion coupée", () => {
   it("jumeau: le site répond, donc c'est la salle", () => {
     const salle = signaux({
       site: "repond",
-      salleOuverte: true,
+      salle: "ouverte",
       video: { connectee: false, coupeeDepuisMs: 3000, ouverteDepuisMs: null },
     });
     expect(etat(salle)).toBe("injoignable");
@@ -237,30 +242,30 @@ describe("la salle injoignable, et la salle fermée", () => {
     });
 
   it("dit que le reste du site répond quand la sonde l'a vu", () => {
-    expect(lire(tombee({ site: "repond", salleOuverte: true })).liaison).toMatchObject({
+    expect(lire(tombee({ site: "repond", salle: "ouverte" })).liaison).toMatchObject({
       etat: "injoignable",
-      siteRepond: true,
+      site: "repond",
     });
   });
   it("ne suppose rien tant que la sonde n'a pas répondu", () => {
     expect(lire(tombee({ site: null })).liaison).toMatchObject({
       etat: "injoignable",
-      siteRepond: false,
+      site: null,
     });
   });
   it("jumeau: un hoquet de moins d'une seconde ne montre rien", () => {
-    expect(etat(tombee({ site: "repond", salleOuverte: true }, 600))).toBe("ok");
+    expect(etat(tombee({ site: "repond", salle: "ouverte" }, 600))).toBe("ok");
   });
   it("une salle que le site dit fermée est fermée", () => {
-    expect(etat(tombee({ site: "repond", salleOuverte: false }))).toBe("fermee");
+    expect(etat(tombee({ site: "repond", salle: "fermee" }))).toBe("fermee");
   });
   it("jumeau: une salle ouverte qui ne répond pas n'est pas fermée", () => {
-    expect(etat(tombee({ site: "repond", salleOuverte: true }))).not.toBe("fermee");
+    expect(etat(tombee({ site: "repond", salle: "ouverte" }))).not.toBe("fermee");
   });
   it("une socket ouverte qui n'entend plus rien est une salle qui ne répond pas", () => {
     const muette = signaux({
       site: "repond",
-      salleOuverte: true,
+      salle: "ouverte",
       video: { entenduDepuisMs: 1800, imageRecueDepuisMs: 1800, peinteDepuisMs: 1800 },
     });
     expect(etat(muette)).toBe("injoignable");
@@ -318,7 +323,7 @@ describe("l'arrivée dans la salle", () => {
     const refus = (coupee: number) =>
       arrivee(
         { connectee: false, coupeeDepuisMs: coupee, ouverteDepuisMs: null },
-        { site: "repond", salleOuverte: true },
+        { site: "repond", salle: "ouverte" },
       );
     expect(etat(refus(5500))).toBe("injoignable");
     expect(etat(refus(4000))).toBe("arrivee");
@@ -326,7 +331,7 @@ describe("l'arrivée dans la salle", () => {
   it("devient « salle fermée » si le site la dit fermée", () => {
     const fermee = arrivee(
       { connectee: false, coupeeDepuisMs: 6000, ouverteDepuisMs: null },
-      { site: "repond", salleOuverte: false },
+      { site: "repond", salle: "fermee" },
     );
     expect(etat(fermee)).toBe("fermee");
   });
@@ -373,22 +378,21 @@ describe("l'onglet caché, la page-manette et la salle sans jeu", () => {
   });
 });
 
-describe("ce qui retient la proposition de format réduit", () => {
-  it("tout ce qui n'est pas la liaison: gel, coupure, arrivée, démarrage, onglet caché", () => {
-    for (const vu of [
-      "figee",
-      "decodeur",
-      "coupee",
-      "injoignable",
-      "fermee",
-      "demarrage",
-      "arrivee",
-      "cachee",
-    ] as Etat[])
-      expect(retenirProposition(new Set([vu])), vu).toBe(true);
+describe("ce que la proposition de format réduit fait d'une fenêtre", () => {
+  // Les cas détaillés, et la raison du changement, sont dans
+  // `liaison-relecture.test.ts`.
+  it("un démarrage la tient, ce que la salle dit d'elle-même l'ignore", () => {
+    expect(fenetrePourProposition({ vus: new Set<Etat>(["demarrage"]), gelSalle: false })).toBe(
+      "tenir",
+    );
+    expect(fenetrePourProposition({ vus: new Set<Etat>(["fermee"]), gelSalle: false })).toBe(
+      "ignorer",
+    );
   });
   it("jumeau: une fenêtre qui n'a vu que la salle en marche ou irrégulière compte", () => {
-    expect(retenirProposition(new Set<Etat>(["ok", "irreguliere"]))).toBe(false);
-    expect(retenirProposition(new Set<Etat>())).toBe(false);
+    expect(
+      fenetrePourProposition({ vus: new Set<Etat>(["ok", "irreguliere"]), gelSalle: false }),
+    ).toBe("compter");
+    expect(fenetrePourProposition(FENETRE_VIDE)).toBe("compter");
   });
 });

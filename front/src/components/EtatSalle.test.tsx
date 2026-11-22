@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GardeSignalement } from "../lib/garde-signalement";
 import type { Liaison } from "../media/liaison";
 import { EtatSalle } from "./EtatSalle";
 import { LigneParlee } from "./LigneParlee";
@@ -13,6 +14,7 @@ function montrer(liaison: Liaison) {
     onReessayer: vi.fn(),
     onQuitter: vi.fn(),
     onSignaler: vi.fn().mockResolvedValue(undefined),
+    garde: new GardeSignalement(),
     onReduire: vi.fn(),
     onGarder: vi.fn(),
     onPropositionVue: vi.fn(),
@@ -62,7 +64,12 @@ describe("les pannes, chacune avec son geste", () => {
   });
 
   it("la salle injoignable propose de réessayer tout de suite", () => {
-    const { onReessayer } = montrer({ etat: "injoignable", siteRepond: true, depuisMs: 4000 });
+    const { onReessayer } = montrer({
+      etat: "injoignable",
+      site: "repond",
+      arrivee: false,
+      depuisMs: 4000,
+    });
     fireEvent.click(screen.getByRole("button", { name: "Réessayer" }));
     expect(onReessayer).toHaveBeenCalledTimes(1);
   });
@@ -93,6 +100,28 @@ describe("l'arrivée", () => {
   });
 });
 
+describe("la salle qui refuse l'arrivée, et la salle qui redémarre", () => {
+  it("l'arrivée refusée garde le rideau, ses étapes, et ses deux sorties", () => {
+    montrer({ etat: "injoignable", site: "repond", arrivee: true, depuisMs: 6000 });
+    const rideau = document.querySelector("#arrivee");
+    expect(rideau).not.toBeNull();
+    expect(screen.getByText("La salle 1 ne répond pas.")).toBeVisible();
+    expect(screen.getByText("la salle répond")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Réessayer" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Quitter la salle" })).toBeEnabled();
+  });
+  it("jumeau: en cours de partie, un bandeau sur l'image qui « ne répond plus »", () => {
+    montrer({ etat: "injoignable", site: "repond", arrivee: false, depuisMs: 6000 });
+    expect(document.querySelector("#arrivee")).toBeNull();
+    expect(screen.getByText("La salle 1 ne répond plus.")).toBeVisible();
+  });
+  it("la salle qui redémarre ne propose pas la liste des salles", () => {
+    montrer({ etat: "redemarre", arrivee: false });
+    expect(screen.getByText("La salle 1 redémarre.")).toBeVisible();
+    expect(document.querySelector("#lesSalles")).toBeNull();
+  });
+});
+
 describe("la proposition de format réduit (E3)", () => {
   it("se note « proposée » une seule fois, quand elle est affichée", () => {
     const { onPropositionVue, onReduire, rerender } = montrer({ etat: "irreguliere" });
@@ -105,6 +134,7 @@ describe("la proposition de format réduit (E3)", () => {
         onReessayer={vi.fn()}
         onQuitter={vi.fn()}
         onSignaler={vi.fn()}
+        garde={new GardeSignalement()}
         onReduire={onReduire}
         onGarder={vi.fn()}
         onPropositionVue={onPropositionVue}
@@ -143,6 +173,22 @@ describe("la ligne parlée", () => {
     expect(ligne).toHaveTextContent("L'image ne bouge plus. Le son arrive encore.");
     rerender(<LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} />);
     expect(ligne).toHaveTextContent("L'image est revenue.");
+  });
+
+  it("dit une seule fois qu'un démarrage traîne, puis qu'il est perdu (A11Y-07)", () => {
+    const ligne = (liaison: Liaison) => (
+      <LigneParlee liaison={liaison} salle={1} demande={null} delai={10} />
+    );
+    const { rerender } = render(ligne({ etat: "demarrage", depuisMs: 1000 }));
+    expect(screen.getByRole("status")).toHaveTextContent("Le jeu démarre.");
+    rerender(ligne({ etat: "demarrage", depuisMs: 21_000, attente: "long" }));
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Le jeu met plus longtemps que d'habitude.");
+    const noeud = status.firstChild;
+    rerender(ligne({ etat: "demarrage", depuisMs: 30_000, attente: "long" }));
+    expect(status.firstChild).toBe(noeud);
+    rerender(ligne({ etat: "demarrage", depuisMs: 61_000, attente: "echec" }));
+    expect(status).toHaveTextContent("La salle n'a pas rendu d'image. Tu peux arrêter d'attendre.");
   });
 
   it("annonce une demande de manette une fois, sans décompte", () => {

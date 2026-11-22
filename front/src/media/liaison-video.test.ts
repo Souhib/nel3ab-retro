@@ -217,3 +217,55 @@ it("jumeau: relancer une image déjà peinte ne fait pas croire à une arrivée"
   expect(video.stats().sinceStartedMs).toBeGreaterThanOrEqual(5000);
   video.stop();
 });
+
+/* La relecture du 22 novembre 2026: une socket ouverte et MUETTE, fermée par le
+   chien de garde, remettait la coupure à zéro. La page passait une seconde par
+   « en marche » et disait « L'image est revenue. » sans une image. */
+it("une socket muette que le chien de garde ferme est coupée depuis son dernier message", () => {
+  const video = ouverte();
+  images(30);
+  // Plus rien: le chien de garde (2 s) ferme la socket.
+  const muette = last();
+  vi.advanceTimersByTime(2600);
+  expect(muette.close).toHaveBeenCalled();
+  muette.onclose();
+  const stats = video.stats();
+  expect(stats.connected).toBe(false);
+  expect(stats.downForMs).toBeGreaterThanOrEqual(2500);
+  video.stop();
+});
+
+it("jumeau: une socket saine que la salle ferme est coupée depuis la fermeture", () => {
+  const video = ouverte();
+  images(30);
+  last().onclose();
+  expect(video.stats().downForMs).toBeLessThan(100);
+  video.stop();
+});
+
+it("une socket muette qui ne se ferme même pas compte depuis son dernier message", () => {
+  const video = ouverte();
+  images(30);
+  // Le chien de garde ferme, la fermeture ne répond jamais: au bout de
+  // CLOSING_LIMIT, la page abandonne la socket elle-même.
+  vi.advanceTimersByTime(3600);
+  const stats = video.stats();
+  expect(stats.connected).toBe(false);
+  expect(stats.downForMs).toBeGreaterThanOrEqual(3500);
+  video.stop();
+});
+
+it("une socket rouverte qui se tait compte depuis son ouverture, pas depuis toujours", () => {
+  const video = ouverte();
+  images(30);
+  last().onclose();
+  vi.advanceTimersByTime(600);
+  // La reconnexion s'ouvre, puis se ferme sans avoir rien dit.
+  last().onopen();
+  vi.advanceTimersByTime(400);
+  last().onclose();
+  const downFor = video.stats().downForMs ?? -1;
+  expect(downFor).toBeGreaterThanOrEqual(400);
+  expect(downFor).toBeLessThan(600);
+  video.stop();
+});

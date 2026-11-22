@@ -1,5 +1,5 @@
-import { expect, it } from "vitest";
-import { bootingStep, STEPS, type Live } from "./booting";
+import { describe, expect, it } from "vitest";
+import { ATTENTE_LONGUE_S, attenteDemarrage, bootingStep, STEPS, type Live } from "./booting";
 
 /** Le déroulé RÉEL d'un changement de jeu, lu dans `media/video.ts`.
  *
@@ -49,4 +49,14 @@ it("la demande reste « envoyée » tant que la socket n'est pas tombée", () =>
   // Le jumeau négatif: une socket vivante SANS demande en cours n'est pas une
   // demande envoyée, sinon l'étape 1 se rallumerait à chaque hoquet.
   expect(bootingStep({ ...DEROULE[0]!.live, awaitingRestart: false })).not.toBe("asked");
+});
+
+describe("l'attente d'un démarrage, dite comme l'écran la montre", () => {
+  it("devient longue à vingt secondes, pas avant", () => {
+    expect(attenteDemarrage(ATTENTE_LONGUE_S, false)).toBe("long");
+    expect(attenteDemarrage(ATTENTE_LONGUE_S - 1, false)).toBeUndefined();
+  });
+  it("perdue dès que la page a cessé d'attendre, quelle que soit la durée", () => {
+    expect(attenteDemarrage(3, true)).toBe("echec");
+  });
 });

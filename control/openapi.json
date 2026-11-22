@@ -1552,6 +1552,12 @@
             "title": "Ouverte",
             "description": "Vrai quand son worker tourne."
           },
+          "redemarre": {
+            "type": "boolean",
+            "title": "Redemarre",
+            "description": "Vrai quand systemd relance son worker: il est sorti, pour un changement de jeu ou un plantage, et revient dans deux secondes. Une salle qui redémarre n'est pas ouverte, et pas fermée non plus: une page qui la voit tomber ne doit pas la dire fermée.",
+            "default": false
+          },
           "chemin": {
             "type": "string",
             "title": "Chemin",

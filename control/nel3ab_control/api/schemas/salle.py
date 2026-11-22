@@ -25,6 +25,15 @@ class Salle(BaseModel):
 
     numero: int = Field(ge=1, description="Le numéro de la salle, celui de son unité.")
     ouverte: bool = Field(description="Vrai quand son worker tourne.")
+    redemarre: bool = Field(
+        default=False,
+        description=(
+            "Vrai quand systemd relance son worker: il est sorti, pour un "
+            "changement de jeu ou un plantage, et revient dans deux secondes. "
+            "Une salle qui redémarre n'est pas ouverte, et pas fermée non "
+            "plus: une page qui la voit tomber ne doit pas la dire fermée."
+        ),
+    )
     chemin: str = Field(
         description="Sous quelle adresse la rejoindre, par exemple `/r/1/`.",
     )

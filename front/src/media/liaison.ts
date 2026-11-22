@@ -18,9 +18,12 @@
  * vérifie qu'un soir de panne. Elle vit dans la couche média et jamais dans
  * React (règle 8): la session la calcule deux fois par seconde, React affiche.
  *
- * La seule mémoire est celle du gel, passée en argument et rendue: sortir d'un
- * gel demande une seconde de vraie cadence, sinon l'image isolée qui arrivait
- * toutes les 35 s le 21 novembre ferait clignoter le message.
+ * Deux mémoires seulement, passées en argument et rendues. Celle du gel: en
+ * sortir demande une seconde d'images sans trou, sinon l'image isolée qui
+ * arrivait toutes les 35 s le 21 novembre ferait clignoter le message. Et celle
+ * de la salle tombée: on n'en sort que sur une image, sinon une socket rouverte
+ * et muette ferait dire « L'image est revenue. » sans une image (relecture du
+ * 22 novembre 2026).
  *
  * # Ce qu'elle ne suppose pas
  *
@@ -64,8 +67,6 @@ export type Signaux = {
     peintes: number;
     /** Messages portant une image, reçus depuis que ce flux existe. */
     recues: number;
-    /** La cadence de la source, zéro tant qu'elle n'est pas mesurée. */
-    sourceHz: number;
     /** Depuis quand la page attend une image de cette salle. */
     demarreeDepuisMs: number | null;
     /** La page a demandé un autre jeu et l'ancien flux n'est pas encore tombé. */
@@ -75,10 +76,16 @@ export type Signaux = {
   sonDepuisMs: number | null;
   /** Depuis le dernier message de la socket manette, `null` sans socket. */
   manetteDepuisMs: number | null;
-  /** Ce que la dernière sonde du site a vu, tant qu'elle est fraîche. */
-  site: "repond" | "muet" | null;
-  /** La salle est-elle ouverte, d'après le site ? `null` si on ne sait pas. */
-  salleOuverte: boolean | null;
+  /** Ce que la dernière sonde du site a vu, tant qu'elle est fraîche.
+   *
+   * « repond »: une liste de salles en 2xx, donc le salon répond. « relais »:
+   * une réponse, mais pas celle du site (un 502 du relais quand le salon est
+   * arrêté, un portail Wi-Fi). « muet »: rien n'est revenu dans le délai. */
+  site: "repond" | "relais" | "muet" | null;
+  /** Ce que le salon dit de la salle, `null` si on ne sait pas. « fermee »
+   * n'arrive ici que CONFIRMÉE par deux sondes (`veille.ts`): une seule réponse
+   * « fermée » tombe aussi pendant les deux secondes d'un redémarrage. */
+  salle: "ouverte" | "redemarre" | "fermee" | null;
 };
 
 export type Liaison =
@@ -98,9 +105,27 @@ export type Liaison =
     }
   | { etat: "decodeur"; depuisMs: number }
   | { etat: "coupee"; cause: "reseau" | "silence"; depuisMs: number }
-  | { etat: "injoignable"; siteRepond: boolean; depuisMs: number }
+  | {
+      etat: "injoignable";
+      /** Ce que la sonde a vu du reste du site, `null` tant qu'elle n'a rien dit. */
+      site: "repond" | "relais" | null;
+      /** Pendant l'arrivée: la salle n'a encore jamais répondu à cette page. */
+      arrivee: boolean;
+      depuisMs: number;
+    }
+  | {
+      etat: "redemarre";
+      /** Pendant l'arrivée, l'état se pose sur le rideau. */
+      arrivee: boolean;
+    }
   | { etat: "fermee" }
-  | { etat: "demarrage"; depuisMs: number }
+  | {
+      etat: "demarrage";
+      depuisMs: number;
+      /** Ce que l'écran de chargement montre déjà: un démarrage qui traîne, ou
+       * perdu. Posé par la page, qui tient l'écran (`lib/booting`). */
+      attente?: "long" | "echec";
+    }
   | {
       etat: "arrivee";
       /** « salle »: la socket n'est pas encore ouverte; « image »: elle l'est. */
@@ -114,17 +139,24 @@ export type Liaison =
 
 export type Etat = Liaison["etat"];
 
-/** Ce que la fonction retient d'un appel à l'autre: le gel, et sa reprise. */
+/** Ce que la fonction retient d'un appel à l'autre. */
 export type Memoire = {
+  /** Le gel, et sa reprise. */
   figee: null | {
     /** L'instant où l'image s'est arrêtée. */
     depuis: number;
     /** Depuis quand les images reviennent, et combien il en était arrivé. */
     reprise: null | { a: number; recues: number };
+    /** Le dernier relevé qui a vu l'image encore arrêtée: la durée dite
+     * s'arrête là pendant une reprise. */
+    vuA: number;
   };
+  /** La salle tombée: depuis la dernière preuve de vie. On n'en sort que sur
+   * une image arrivée APRÈS, ou sur un gel quand la salle répond sans image. */
+  tombee: null | { depuis: number };
 };
 
-export const MEMOIRE_VIDE: Memoire = { figee: null };
+export const MEMOIRE_VIDE: Memoire = { figee: null, tombee: null };
 
 /** Sous ce délai, une coupure ne se montre pas, en millisecondes.
  *
@@ -148,9 +180,10 @@ export const FIGEE_MS = 2000;
 /** À partir de quand la pastille devient un bandeau avec ses actions, en
  * millisecondes.
  *
- * Cinq secondes. Les gels que Hyde a SENTIS duraient 4 et 8,9 s (soirées de
- * septembre 2026): à cinq secondes la personne l'a remarqué, et un bandeau
- * plus tôt couvrirait un chargement de jeu qui se tait trois secondes. */
+ * Cinq secondes. Les gels qu'un joueur a SENTIS le 22 septembre 2026 duraient
+ * 4 et 8,9 s (carnet, « Un gel de page n'est pas un gel de salle »): à cinq
+ * secondes la personne l'a remarqué, et un bandeau plus tôt couvrirait un
+ * chargement de jeu qui se tait trois secondes. */
 export const FIGEE_BANDEAU_MS = 5000;
 
 /** Un message, son ou image, plus vieux que ça ne compte plus, en ms.
@@ -165,15 +198,37 @@ export const FRAIS_MS = 1500;
  * manqués et une demi-seconde de marge. */
 export const ECHO_FRAIS_MS = 2500;
 
-/** Ce qu'une reprise doit tenir avant qu'on sorte du gel: une seconde, à 90 %
- * de la cadence du jeu au moins. Le 21 novembre, une image arrivait toutes les
- * 35 s; une seule ne doit pas effacer le message. */
+/** Ce qu'une reprise doit tenir avant qu'on sorte du gel: une seconde sans
+ * trou senti. Le 21 novembre, une image arrivait toutes les 35 s; une seule ne
+ * doit pas effacer le message.
+ *
+ * La première version demandait en plus 90 % de `sourceHz`. C'était faux, et la
+ * relecture adverse l'a reproduit dans un navigateur: `sourceHz` est la MÉDIANE
+ * des écarts entre instants de capture, et ces instants tombent sur les tics de
+ * 16,67 ms du compositeur. Un jeu à 45 images par seconde donne des écarts de
+ * 1, 1 et 2 tics, une médiane d'un tic, donc « 60 »: la page exigeait 54 images
+ * par seconde et restait figée pendant que l'image bougeait. */
 export const REPRISE_MS = 1000;
-export const REPRISE_PART = 0.9;
-/** La cadence supposée quand la source n'est pas encore mesurée: 20 images
- * par seconde, sous les 25 et 30 des jeux les plus lents de la bibliothèque et
- * six cents fois l'image isolée du 21 novembre. */
-export const REPRISE_HZ_PLANCHER = 20;
+
+/** L'écart entre deux images au-delà duquel une reprise recommence, en ms.
+ * Le seuil de ce que les joueurs sentent (`FREEZE_MS`, `lib/vitals`). */
+const FREEZE_GAP_MS = 500;
+
+/** Le moins d'images par seconde qu'une reprise peut compter, et c'est une
+ * conséquence plutôt qu'un réglage: un flux sans aucun trou de `FREEZE_GAP_MS`
+ * envoie au moins deux images par seconde. Le compte sert à ne pas
+ * croire un relevé chanceux: les relevés tombent toutes les 500 ms, et une
+ * image isolée lue juste après son arrivée ne doit rien prouver. */
+export const REPRISE_HZ_PLANCHER = 1000 / FREEZE_GAP_MS;
+
+/** Combien de temps un gel survit à une coupure, en millisecondes.
+ *
+ * Trois secondes, trois fois la grâce. « Relancer l'image » ferme la socket et
+ * en ouvre une autre: TCP, TLS et la mise à niveau WebSocket font quelques
+ * allers-retours, soit environ une seconde à 300 ms d'aller-retour par un
+ * relais. Le message ne doit ni basculer sur « la salle ne répond plus » ni
+ * revenir à « en marche » pendant ce temps. Pas mesuré sur un vrai relais. */
+export const COUPURE_GEL_MS = 3000;
 
 /** Des images arrivent mais aucune n'est peinte depuis ce délai, en ms: c'est
  * l'appareil. Le même seuil que le chien de garde du décodeur
@@ -200,7 +255,7 @@ const recent = (ms: number | null, limite: number): boolean => ms !== null && ms
 const age = (ms: number | null): number => ms ?? Number.POSITIVE_INFINITY;
 
 /**
- * L'état de la liaison, et la mémoire du gel pour l'appel suivant.
+ * L'état de la liaison, et la mémoire pour l'appel suivant.
  *
  * L'ordre des règles est l'ordre de ce qui l'emporte: un onglet caché ne voit
  * rien, un appareil sans réseau ne peut rien recevoir, un démarrage annoncé
@@ -211,32 +266,40 @@ export function lireLiaison(
   memoire: Memoire,
   maintenant: number,
 ): { liaison: Liaison; memoire: Memoire } {
-  const rend = (liaison: Liaison, gel: Memoire["figee"] = null) => ({
-    liaison,
-    memoire: { figee: gel },
-  });
+  const rend = (liaison: Liaison, garde: Memoire = MEMOIRE_VIDE) => ({ liaison, memoire: garde });
   const v = s.video;
 
   if (!s.visible) return rend({ etat: "cachee" });
-  if (!s.enLigne) return rend({ etat: "coupee", cause: "reseau", depuisMs: age(v.coupeeDepuisMs) });
+  const down = !v.connectee || !recent(v.entenduDepuisMs, FRAIS_MS);
+  const downFor = v.connectee ? age(v.entenduDepuisMs) : age(v.coupeeDepuisMs);
+  /** La salle tombée, retenue depuis sa dernière preuve de vie. */
+  const tombeeDepuis = memoire.tombee?.depuis ?? maintenant - downFor;
+  if (!s.enLigne)
+    return rend(
+      { etat: "coupee", cause: "reseau", depuisMs: age(v.coupeeDepuisMs) },
+      // Retenue comme une salle tombée: le réseau revenu, seule une image
+      // dira que l'image est revenue.
+      { figee: memoire.figee, tombee: { depuis: tombeeDepuis } },
+    );
   if (s.manetteSeule) return rend({ etat: "ok" });
   if (s.demarrageDepuisMs !== null || v.attendRedemarrage)
     return rend({ etat: "demarrage", depuisMs: s.demarrageDepuisMs ?? 0 });
   if (s.jeu === false) return rend({ etat: "ok" });
 
-  const down = !v.connectee || !recent(v.entenduDepuisMs, FRAIS_MS);
-  const downFor = v.connectee ? age(v.entenduDepuisMs) : age(v.coupeeDepuisMs);
-  const salleTombee = (): Liaison =>
+  const salleTombee = (arrivee: boolean, depuisMs: number): Liaison =>
     s.site === "muet"
-      ? { etat: "coupee", cause: "silence", depuisMs: downFor }
-      : s.site === "repond" && s.salleOuverte === false
+      ? { etat: "coupee", cause: "silence", depuisMs }
+      : s.site === "repond" && s.salle === "fermee"
         ? { etat: "fermee" }
-        : { etat: "injoignable", siteRepond: s.site === "repond", depuisMs: downFor };
+        : s.site === "repond" && s.salle === "redemarre"
+          ? { etat: "redemarre", arrivee }
+          : { etat: "injoignable", site: s.site, arrivee, depuisMs };
 
   // L'arrivée: rien n'a encore été peint. Parler de panne serait faux tant
   // que la salle n'a pas eu le temps de répondre.
   if (v.peintes === 0) {
-    if (down && downFor >= ARRIVEE_INJOIGNABLE_MS && s.site !== null) return rend(salleTombee());
+    if (down && downFor >= ARRIVEE_INJOIGNABLE_MS && s.site !== null)
+      return rend(salleTombee(true, downFor));
     return rend({
       etat: "arrivee",
       etape: v.connectee ? "image" : "salle",
@@ -247,13 +310,30 @@ export function lireLiaison(
   }
 
   if (down) {
-    // Le gel survit à la seconde où l'on relance l'image: la socket se ferme
-    // puis se rouvre, et le message ne doit pas clignoter.
-    if (downFor < GRACE_MS)
-      return memoire.figee
-        ? rend(figee(s, memoire.figee.depuis, maintenant), memoire.figee)
-        : rend({ etat: "ok" });
-    return rend(salleTombee());
+    // Le gel survit à la relance de l'image: la socket se ferme puis se
+    // rouvre, et le message ne doit ni clignoter ni changer de cause.
+    const gel = memoire.figee;
+    if (gel && downFor < COUPURE_GEL_MS) {
+      const garde = { ...gel, reprise: null, vuA: maintenant };
+      return rend(figee(s, garde, maintenant), { figee: garde, tombee: memoire.tombee });
+    }
+    if (downFor < GRACE_MS && memoire.tombee === null) return rend({ etat: "ok" });
+    // Le gel est GARDÉ à travers la chute: une socket rouverte qui n'apporte
+    // pas d'image le retrouve, au lieu de passer par « en marche ».
+    return rend(salleTombee(false, maintenant - tombeeDepuis), {
+      figee: gel,
+      tombee: { depuis: tombeeDepuis },
+    });
+  }
+
+  // La salle parle de nouveau. Une salle tombée n'est revenue que sur une
+  // IMAGE arrivée après sa chute: un message vide sur une socket rouverte dit
+  // seulement qu'elle répond. Sans image au bout de deux secondes, c'est un gel.
+  if (memoire.tombee) {
+    const imageApres =
+      v.imageRecueDepuisMs !== null && v.imageRecueDepuisMs < maintenant - memoire.tombee.depuis;
+    if (!imageApres && memoire.figee === null && age(v.ouverteDepuisMs) < FIGEE_MS)
+      return rend(salleTombee(false, maintenant - memoire.tombee.depuis), memoire);
   }
 
   // La socket est ouverte et la salle parle. L'image bouge-t-elle ?
@@ -261,14 +341,22 @@ export function lireLiaison(
   if (memoire.figee) {
     const reprise = reprendre(s, memoire.figee.reprise, maintenant);
     if (reprise === "sortie") return suite(s);
-    const garde = { depuis: memoire.figee.depuis, reprise };
-    return rend(figee(s, garde.depuis, maintenant), garde);
+    const gel = {
+      depuis: memoire.figee.depuis,
+      reprise,
+      vuA: reprise === null ? maintenant : memoire.figee.vuA,
+    };
+    return rend(figee(s, gel, maintenant), { figee: gel, tombee: null });
   }
   if (calme >= FIGEE_MS) {
     // La durée DITE est le temps depuis la dernière image, pas depuis la
     // reconnexion ou le retour sur l'onglet: c'est ce que la personne a vu.
-    const debut = maintenant - (v.imageRecueDepuisMs ?? calme);
-    return rend(figee(s, debut, maintenant), { depuis: debut, reprise: null });
+    const gel = {
+      depuis: maintenant - (v.imageRecueDepuisMs ?? calme),
+      reprise: null,
+      vuA: maintenant,
+    };
+    return rend(figee(s, gel, maintenant), { figee: gel, tombee: null });
   }
   return suite(s);
 }
@@ -284,14 +372,17 @@ function suite(s: Signaux): { liaison: Liaison; memoire: Memoire } {
   )
     return {
       liaison: { etat: "decodeur", depuisMs: age(v.peinteDepuisMs) },
-      memoire: { figee: null },
+      memoire: MEMOIRE_VIDE,
     };
-  if (s.proposer) return { liaison: { etat: "irreguliere" }, memoire: { figee: null } };
-  return { liaison: { etat: "ok" }, memoire: { figee: null } };
+  if (s.proposer) return { liaison: { etat: "irreguliere" }, memoire: MEMOIRE_VIDE };
+  return { liaison: { etat: "ok" }, memoire: MEMOIRE_VIDE };
 }
 
-function figee(s: Signaux, depuis: number, maintenant: number): Liaison {
-  const depuisMs = Math.max(0, maintenant - depuis);
+/** L'état figé. Pendant une reprise, la durée s'arrête au dernier relevé qui
+ * a vu l'image arrêtée: une image qui bouge ne doit pas faire monter la
+ * pastille au bandeau, ni le compteur au-delà de ce que la personne a vu. */
+function figee(s: Signaux, gel: NonNullable<Memoire["figee"]>, maintenant: number): Liaison {
+  const depuisMs = Math.max(0, (gel.reprise === null ? maintenant : gel.vuA) - gel.depuis);
   return {
     etat: "figee",
     depuisMs,
@@ -302,8 +393,10 @@ function figee(s: Signaux, depuis: number, maintenant: number): Liaison {
 }
 
 /** La reprise d'un gel: rien tant que les images ne reviennent pas, une
- * reprise qui commence, ou la sortie quand elle a tenu une seconde à la
- * cadence du jeu. Une image qui tarde plus d'une demi-seconde la remet à zéro. */
+ * reprise qui commence, ou la sortie quand elle a tenu une seconde sans trou.
+ * Un relevé qui voit une image de plus d'une demi-seconde la remet à zéro, et
+ * le compte (`REPRISE_HZ_PLANCHER`) refuse une image isolée lue au bon moment.
+ * Aucune cadence de la source n'entre ici: voir `REPRISE_MS`. */
 function reprendre(
   s: Signaux,
   avant: { a: number; recues: number } | null,
@@ -312,27 +405,48 @@ function reprendre(
   if (!recent(s.video.imageRecueDepuisMs, FREEZE_GAP_MS)) return null;
   if (avant === null) return { a: maintenant, recues: s.video.recues };
   const duree = maintenant - avant.a;
-  const hz = s.video.sourceHz > 0 ? s.video.sourceHz : REPRISE_HZ_PLANCHER;
-  const voulu = REPRISE_PART * hz * (duree / 1000);
+  const voulu = REPRISE_HZ_PLANCHER * (duree / 1000);
   return duree >= REPRISE_MS && s.video.recues - avant.recues >= voulu ? "sortie" : avant;
 }
 
-/** L'écart entre deux images au-delà duquel une reprise recommence, en ms.
- * Le seuil de ce que les joueurs sentent (`FREEZE_MS`, `lib/vitals`). */
-const FREEZE_GAP_MS = 500;
+/** Ce qu'une fenêtre de dix secondes a vu, tel que la veille le rend. */
+export type Fenetre = {
+  vus: ReadonlySet<Etat>;
+  /** Un gel a été vu, et à CHAQUE relevé figé le son et l'écho de la manette
+   * arrivaient encore. Faux s'il n'y a pas eu de gel. */
+  gelSalle: boolean;
+};
+
+export const FENETRE_VIDE: Fenetre = { vus: new Set(), gelSalle: false };
 
 /**
- * La fenêtre de dix secondes doit-elle compter pour la proposition de format
- * réduit ?
+ * Que fait la proposition de format réduit de cette fenêtre de dix secondes ?
  *
- * Non, dès qu'elle a vu autre chose que la salle en marche: un gel de la
- * salle, une coupure, une arrivée, un démarrage, un appareil qui ne décode
- * plus ou un onglet caché. Aucune de ces fenêtres ne dit si la LIAISON porte
- * le plein format, et toutes ressemblent à une mauvaise liaison pour `rough`.
- * Le 22 novembre 2026, l'audit a vu la proposition sortir douze secondes après
- * un gel, puis juste après une coupure (E4).
+ * « tenir »: un jeu démarre, la proposition attend trente secondes de plus
+ * (`Struggling.hold`), comme avant. « ignorer »: la fenêtre ne dit rien de la
+ * liaison, elle ne compte ni pour ni contre (`Struggling.ignore`). « compter »:
+ * elle compte, bonne ou mauvaise.
+ *
+ * Ce qui est ignoré: ce que la salle dit d'elle-même (fermée, redémarre),
+ * l'appareil qui ne décode plus, l'onglet caché, l'arrivée, et un gel pendant
+ * lequel le son et l'écho ont continué. Le 21 novembre 2026, le son et la
+ * manette passaient pendant tout le gel: la liaison portait, la capture non.
+ *
+ * Ce qui COMPTE, et la première version se trompait là: une coupure, et un gel
+ * sans le son ou sans l'écho. Une liaison qui cale ressemble exactement à ça
+ * vue d'ici, et c'est le cas pour lequel la proposition existe: les arrêts de
+ * 4 et 8,9 s du 22 septembre 2026 ne touchaient qu'une page. Qu'une petite
+ * requête au site passe ne prouve rien, elle passe aussi sur un Wi-Fi qui ne
+ * porte plus le flux. La première version appelait `hold()` pour chacune de
+ * ces fenêtres: le compte repartait de zéro et la page restait aveugle
+ * quarante secondes, donc une liaison qui cale toutes les seize secondes ne se
+ * voyait plus jamais rien proposer (relecture du 22 novembre 2026).
  */
-export function retenirProposition(vus: ReadonlySet<Etat>): boolean {
-  for (const vu of vus) if (vu !== "ok" && vu !== "irreguliere") return true;
-  return false;
+export function fenetrePourProposition(fenetre: Fenetre): "tenir" | "ignorer" | "compter" {
+  const vus = fenetre.vus;
+  if (vus.has("demarrage")) return "tenir";
+  for (const vu of ["fermee", "redemarre", "decodeur", "cachee", "arrivee"] as const)
+    if (vus.has(vu)) return "ignorer";
+  if (vus.has("figee") && fenetre.gelSalle) return "ignorer";
+  return "compter";
 }

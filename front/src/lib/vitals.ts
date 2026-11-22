@@ -540,6 +540,25 @@ export class Struggling {
     this.inARow = 0;
   }
 
+  /** Cette fenêtre ne dit rien de la liaison: elle ne compte ni pour ni contre.
+   *
+   * Un gel de la salle pendant lequel le son passait, une salle qui redémarre,
+   * un onglet caché (`fenetrePourProposition`, `media/liaison.ts`). Le compte
+   * des mauvaises fenêtres reste où il était, et le temps passe: une grâce en
+   * cours s'use, un silence après refus avance.
+   *
+   * Pas `hold()`, qui remet le compte à zéro et aveugle la proposition trente
+   * secondes de plus. La première version l'appelait pour toute coupure, et
+   * une liaison qui cale toutes les seize secondes ne se voyait plus jamais
+   * rien proposer (relecture du 22 novembre 2026). */
+  ignore(): void {
+    if (this.held > 0) {
+      this.held -= 1;
+      return;
+    }
+    if (this.refused) this.since += 1;
+  }
+
   /** Le relevé d'une fenêtre. Rend vrai quand il faut proposer. */
   saw(sample: Vitals): boolean {
     if (this.held > 0) {

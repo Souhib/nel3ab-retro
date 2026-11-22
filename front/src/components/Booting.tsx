@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { Chargement } from "../bobine/Chargement";
 import { supportDe } from "../bobine/support";
-import { STEPS, type Step } from "../lib/booting";
+import { attenteDemarrage, STEPS, type Step } from "../lib/booting";
 
 /* Le type et la liste vivent avec la fonction qui les CALCULE, pas avec l'écran
    qui les affiche. Deux listes d'étapes finiraient par ne plus être d'accord,
@@ -65,7 +65,7 @@ export function Booting({
     );
     return () => window.clearInterval(battement);
   }, [game]);
-  const perdu = stalled || waited >= 20;
+  const perdu = attenteDemarrage(waited, stalled) !== undefined;
 
   return (
     <div

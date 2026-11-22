@@ -310,3 +310,42 @@ async def test_sans_lecteur_la_liste_ne_dit_pas_les_places(reglages: Settings) -
     etat = await SallesController(reglages, FauxSysteme(allumees=[1])).etat()
 
     assert etat[0].places is None
+
+
+async def test_une_salle_que_systemd_relance_est_dite_en_redemarrage(reglages: Settings) -> None:
+    """Le worker SORT à chaque changement de jeu, et systemd le relance deux
+    secondes plus tard. Pendant ces deux secondes, `is-active` dit « activating »
+    avec un code non nul: la liste disait « fermée », et la page d'un joueur
+    affichait « La salle 1 est fermée. » à chaque changement de jeu (relecture
+    du 22 novembre 2026)."""
+    salles = SallesController(reglages, FauxSysteme(relancees=[1]))
+
+    etat = await salles.etat()
+
+    assert (etat[0].ouverte, etat[0].redemarre) == (False, True)
+
+
+async def test_jumeau_une_salle_arretee_n_est_pas_en_redemarrage(reglages: Settings) -> None:
+    salles = SallesController(reglages, FauxSysteme(allumees=[2]))
+
+    etat = await salles.etat()
+
+    assert [(s.numero, s.ouverte, s.redemarre) for s in etat] == [
+        (1, False, False),
+        (2, True, False),
+        (3, False, False),
+    ]
+
+
+async def test_ouvrir_ne_prend_pas_une_salle_qui_redemarre(reglages: Settings) -> None:
+    """Sinon « ouvrir une salle » pendant les deux secondes d'un changement de
+    jeu posait le marqueur « sans jeu » dans la salle 1, puis la démarrait: elle
+    revenait sur son menu et la partie de tout le monde était perdue."""
+    systeme = FauxSysteme(relancees=[1])
+    salles = SallesController(reglages, systeme)
+
+    salle = await salles.ouvrir()
+
+    assert salle.numero == 2
+    assert not (reglages.salles_dir / "1" / "game-closed").exists()
+    assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@1"] not in systeme.commandes

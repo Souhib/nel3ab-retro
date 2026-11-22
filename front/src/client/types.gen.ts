@@ -780,6 +780,12 @@ export type Salle = {
      */
     ouverte: boolean;
     /**
+     * Redemarre
+     *
+     * Vrai quand systemd relance son worker: il est sorti, pour un changement de jeu ou un plantage, et revient dans deux secondes. Une salle qui redémarre n'est pas ouverte, et pas fermée non plus: une page qui la voit tomber ne doit pas la dire fermée.
+     */
+    redemarre?: boolean;
+    /**
      * Chemin
      *
      * Sous quelle adresse la rejoindre, par exemple `/r/1/`.

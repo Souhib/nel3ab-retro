@@ -51,8 +51,10 @@ describe("la feuille du bas", () => {
   it("cache ou montre la manette selon son état, et n'en parle pas à la souris", () => {
     const titre = (manette: EtatFeuille["manette"]) =>
       entreesDeLaFeuille({ ...TELEPHONE, manette }).find((one) => one.id === "manette")?.titre;
-    expect(titre("montree")).toBe("Cacher la manette");
-    expect(titre("cachee")).toBe("Montrer la manette");
+    // Les commandes à l'écran ont un seul nom (`TACTILE`): « la manette » est
+    // l'objet qu'on tient (lexique, vérification finale du 22 novembre 2026).
+    expect(titre("montree")).toBe("Cacher les commandes tactiles");
+    expect(titre("cachee")).toBe("Montrer les commandes tactiles");
     expect(titre(null)).toBeUndefined();
   });
 

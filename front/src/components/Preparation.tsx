@@ -6,6 +6,7 @@ import {
   ATTENTE_SANS_MS,
   choixAppareil,
   gestesDuLancement,
+  lancerEnChef,
   ligneJoueur,
   nomAppareil,
   titrePreparation,
@@ -63,17 +64,27 @@ export function Preparation({
   const console = game?.console;
   const gestes = gestesDuLancement(pending, moi, attendu, console);
   const attend = starter && gestes.principal?.actif === false && gestes.sansAttendre === null;
-  const act = async (action: Record<string, unknown>) => {
+  const run = async (geste: () => Promise<void>) => {
     setWorking(true);
     setNotice("");
     try {
-      await send({ ...action, id: pending.id });
+      await geste();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : SANS_REPONSE);
     } finally {
       setWorking(false);
     }
   };
+  const act = (action: Record<string, unknown>) => run(() => send({ ...action, id: pending.id }));
+  /** Le lancement du chef, compris aussi d'un salon d'avant (`lancerEnChef`). */
+  const lancer = (sansAttendre: boolean) =>
+    run(() =>
+      lancerEnChef(send, {
+        id: pending.id,
+        pad: selected,
+        ...(sansAttendre ? { sans_attendre: true as const } : {}),
+      }),
+    );
   return (
     <section className="n3-preparation" aria-label="Préparation du lancement">
       <div className="n3-preparation-heading">
@@ -142,7 +153,7 @@ export function Preparation({
                 id="launchPrepared"
                 className="n3-action primary"
                 disabled={!gestes.principal.actif || working}
-                onClick={() => void act({ action: "launch", pad: selected })}
+                onClick={() => void lancer(false)}
               >
                 {gestes.principal.label}
               </button>
@@ -165,7 +176,7 @@ export function Preparation({
                 id="launchWithout"
                 className="n3-action"
                 disabled={working}
-                onClick={() => void act({ action: "launch", pad: selected, sans_attendre: true })}
+                onClick={() => void lancer(true)}
               >
                 {gestes.sansAttendre.label}
               </button>

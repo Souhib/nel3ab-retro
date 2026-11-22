@@ -1,4 +1,11 @@
 @import "tailwindcss";
+
+/* Un téléphone tenu en travers: peu de hauteur, de la largeur à revendre.
+   L'avant-salle y pose sa fiche et ses deux boutons côte à côte, sinon
+   « Rejoindre » tombait sous le pli (vérification finale du 22 novembre 2026,
+   `salle-telephone.mjs`). 500 px: un téléphone en travers fait de 320 à 440 px
+   de haut, une tablette en travers 768 et plus. */
+@custom-variant paysage-bas (@media (max-height: 500px) and (orientation: landscape));
 @import "./regie.css";
 
 /*
@@ -1906,92 +1913,6 @@ body {
   }
   .n3-switch-body {
     padding: 14px;
-  }
-}
-
-.n3-switch-touch {
-  position: absolute;
-  inset: auto 0 10px;
-  z-index: 30;
-  display: flex;
-  justify-content: space-between;
-  padding: 8px;
-  gap: 16px;
-  pointer-events: none;
-}
-.n3-switch-touch-side {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(35px, 48px));
-  gap: 5px;
-  pointer-events: auto;
-}
-.n3-switch-touch button {
-  /* 44 px de haut, et pas 38.
-     Mesuré le 12 septembre 2026: les touches faisaient 35 par 38 pixels avec
-     3 px d'écart sous 420 px de large, c'est-à-dire sur les téléphones, le seul
-     endroit où cette manette sert. Le plancher usuel d'une cible tactile est
-     44 px. La HAUTEUR est gratuite ici, le pad étant collé en bas de l'écran.
-     La LARGEUR ne l'est pas: huit colonnes de 44 px demanderaient 352 px rien
-     que de touches, plus les écarts, sur un écran qui en fait 400. Elle reste
-     donc à 35 px, et c'est une limite assumée, pas un oubli. */
-  min-height: 44px;
-  border: 1px solid #8294b3;
-  border-radius: 12px;
-  background: #17233cd9;
-  color: #edf4ff;
-  touch-action: none;
-  user-select: none;
-  font-size: var(--text-corps);
-}
-/* Le puits d'un stick: il occupe les quatre cases qu'occupaient les quatre
-   boutons de direction, en 2 sur 2, donc la grille ne bouge pas d'un pixel. */
-.n3-switch-touch-well {
-  grid-column: span 2;
-  grid-row: span 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #8294b3;
-  border-radius: 50%;
-  background: #17233cd9;
-  touch-action: none;
-  user-select: none;
-}
-.n3-switch-touch-knob {
-  width: 42%;
-  height: 42%;
-  border-radius: 50%;
-  border: 1px solid #8294b3;
-  background: #536e9c;
-  /* Court, parce que le rond doit suivre le pouce et non le poursuivre. */
-  transition: transform 60ms linear;
-  pointer-events: none;
-}
-.n3-switch-touch button:active {
-  background: #536e9c;
-}
-.n3-switch-touch-tools {
-  position: absolute;
-  bottom: 140px;
-  left: 8px;
-  display: flex;
-  gap: 6px;
-  pointer-events: auto;
-}
-.n3-switch-touch-tools button {
-  padding: 0 10px;
-}
-@media (max-width: 420px) {
-  .n3-switch-touch {
-    gap: 10px;
-    padding: 4px;
-  }
-  .n3-switch-touch-side {
-    grid-template-columns: repeat(4, 35px);
-    /* 6 px et non 3: l'écart sépare deux cibles voisines, et c'est lui qui
-       décide des appuis à côté. Il coûte 18 px de large en tout, ce que le
-       calcul ci-dessus laisse. */
-    gap: 6px;
   }
 }
 

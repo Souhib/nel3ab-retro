@@ -71,6 +71,9 @@ export const ENTREES = {
 /** Un geste du lexique, écrit comme une entrée du menu: en minuscules. */
 export const enMenu = (geste: string): string => geste.charAt(0).toLowerCase() + geste.slice(1);
 
+/** Un mot du lexique, écrit comme un bouton: avec sa majuscule (charte, règle 5). */
+export const enBouton = (mot: string): string => mot.charAt(0).toUpperCase() + mot.slice(1);
+
 /** Qui choisit le jeu. */
 export const chefChoisit = (nom: string): string => `${nom} choisit le jeu.`;
 
@@ -123,6 +126,10 @@ export const IMAGE = {
   reglage: "qualité de l'image",
   complete: "image complète",
   legere: "image légère",
+  /** Le geste qui y passe. Le bandeau disait « Passer en réduit » et le
+   * diagnostic « Essayer l'image légère » (vérification finale du 22 novembre
+   * 2026). */
+  passer: "Passer en image légère",
 } as const;
 
 /** Ce que l'image légère coûte en moins, dit seulement là où on l'a mesuré.
@@ -137,6 +144,30 @@ export function prixImageLegere(moteur: string | null | undefined): string {
   return moteur === "dolphin" ? "environ 2,6 fois moins de débit" : "moins de débit";
 }
 
+/** Ce que la manette seule rend au wifi, dit seulement là où on l'a mesuré.
+ *
+ * 13,6 Mbit/s est le p95 d'un flux par appareil, lu sur trois jours de journal
+ * d'une salle GameCube et Wii (commit 6e0fd98, 19 août 2026). Aucune salle
+ * Switch ni Xbox 360 n'a ce relevé: ailleurs, l'effet sans le chiffre
+ * (CLAUDE.md, règle 1, vérification finale du 22 novembre 2026). */
+export function prixManetteSeule(moteur: string | null | undefined): string {
+  return moteur === "dolphin"
+    ? "mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus"
+    : "c'est autant de wifi et de batterie rendus";
+}
+
+/** Les commandes dessinées à l'écran d'un téléphone, sous un seul nom.
+ *
+ * Le menu disait « commandes tactiles », la feuille du bas « Cacher la manette »
+ * à côté de « Pour jouer avec une vraie manette. », et le pavé « Manette
+ * tactile » (vérification finale du 22 novembre 2026). « Manette » est l'objet
+ * qu'on tient. */
+export const TACTILE = "commandes tactiles";
+
+/** Le mode où un téléphone sert seulement de manette, sans image ni son. Le
+ * menu l'appelait aussi « télécommande sans vidéo ». */
+export const MANETTE_SEULE = "manette seule";
+
 /** Les sorties, chacune sous un seul nom (audit P8). */
 export const SORTIES = {
   /** La seule sortie de la salle: elle mène aux autres salles. */
@@ -144,6 +175,26 @@ export const SORTIES = {
   /** Le lien vers la liste des salles, depuis l'avant-salle. */
   autres: "autres salles",
 } as const;
+
+/** La sortie du menu, sous un seul nom dans ses trois formes.
+ *
+ * Le menu XMB disait « Fermer le menu » et « Reprendre la partie », l'accueil
+ * et les chaînes « Fermer » et « reprendre », et la page leur passait deux
+ * textes différents pour remonter aux consoles (vérification finale du
+ * 22 novembre 2026). Un bouton l'écrit avec sa majuscule, une pastille en
+ * minuscules (`enMenu`). */
+export const SORTIES_MENU = {
+  fermer: "Fermer le menu",
+  reprendre: "Reprendre la partie",
+  remonter: "Retour aux consoles",
+} as const;
+
+/** Ce que fait la sortie du menu: remonter d'un dossier, fermer un menu sans
+ * partie, ou reprendre la partie. */
+export function sortieDuMenu({ dossier, idle }: { dossier: boolean; idle: boolean }): string {
+  if (dossier) return SORTIES_MENU.remonter;
+  return idle ? SORTIES_MENU.fermer : SORTIES_MENU.reprendre;
+}
 
 /** Les phrases du lexique qui ne s'écrivent qu'ici: `mots.test.ts` refuse la
  * même phrase écrite en dur dans une autre source. `saves.ts` garde les trois
@@ -154,8 +205,12 @@ export const LEXIQUE: readonly string[] = [
   ...Object.values(ENTREES),
   ...Object.values(SORTIES),
   ...Object.values(SAUVEGARDES),
+  ...Object.values(SORTIES_MENU),
+  TACTILE,
+  MANETTE_SEULE,
   IMAGE.complete,
   IMAGE.legere,
+  IMAGE.passer,
 ];
 
 /** Quand une demande reste sans réponse.
@@ -232,7 +287,11 @@ export const ATELIER: readonly { motif: RegExp; mot: string; raison: string }[] 
 
 /** Les anciens noms, remplacés par un mot du lexique. Refusés partout. */
 export const REMPLACES: readonly { motif: RegExp; mot: string; raison: string }[] = [
-  { motif: /format réduit/i, mot: "format réduit", raison: `dire « ${IMAGE.legere} »` },
+  {
+    motif: /format réduit|\ben réduit\b/i,
+    mot: "format réduit",
+    raison: `dire « ${IMAGE.legere} »`,
+  },
   {
     motif: /format plein|pleine taille/i,
     mot: "pleine taille",

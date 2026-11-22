@@ -10,7 +10,12 @@
 import { describe, expect, it } from "vitest";
 
 import manifest from "../../../consoles/consoles.json";
-import { chainesDe, montagesHorsDuPli, type Chaine } from "../test/chaines-visibles";
+import {
+  boutonsEnMinuscule,
+  chainesDe,
+  montagesHorsDuPli,
+  type Chaine,
+} from "../test/chaines-visibles";
 import elisions from "../test/elisions.json";
 import {
   chefAbsent,
@@ -24,6 +29,7 @@ import {
   placeN,
   placesLibres,
   prixImageLegere,
+  prixManetteSeule,
   SAUVEGARDES,
 } from "./mots";
 import { SLOTS } from "./saves";
@@ -138,6 +144,9 @@ describe("les anciens noms", () => {
   it("refuse chacun, et laisse passer le nom du lexique", () => {
     const refuses = [
       "Ton lien ne suivait pas: l'image est passée en format réduit.",
+      // L'ancien nom sans « format »: le bouton de la proposition le gardait
+      // (vérification finale du 22 novembre 2026).
+      "Passer en réduit",
       "revenir en pleine taille",
       "qualité reçue",
       "partie neuve",
@@ -154,6 +163,8 @@ describe("les anciens noms", () => {
     for (const texte of refuses) expect(fautes(texte), texte).not.toEqual([]);
     for (const texte of [
       "image légère",
+      "Passer en image légère",
+      "Le débit est réduit de moitié.",
       "image complète",
       "qualité de l'image",
       "nouvelle partie",
@@ -303,6 +314,90 @@ describe("un geste du lexique ne s'écrit qu'à travers lui", () => {
         (c) => `${c.fichier}:${c.ligne} « ${c.texte} »`,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("un chiffre mesuré ne s'écrit qu'à côté de sa mesure", () => {
+  // Les deux prix de l'image ont été mesurés dans une salle GameCube et Wii.
+  // `prixImageLegere` et `prixManetteSeule` les disent là seulement; la
+  // colonne des mesures écrivait encore « 2,6 » pour toutes les consoles, et
+  // le menu « 13,6 Mbit/s » (vérification finale du 22 novembre 2026).
+  const CHIFFRES = /\b2,6 fois\b|\b13,6 Mbit/u;
+
+  it("trouve le chiffre écrit en dur, et pas celui qui passe par mots.ts", () => {
+    const vus = (source: string) =>
+      chainesDe("essai.tsx", source).filter((c) => CHIFFRES.test(c.texte));
+    expect(vus(`const A = () => <p title="environ 2,6 fois moins de débit" />;`)).toHaveLength(1);
+    expect(vus(`const A = () => <p>{"mesuré à 13,6 Mbit/s"}</p>;`)).toHaveLength(1);
+    expect(vus(`const A = ({ m }) => <p title={prixImageLegere(m)} />;`)).toEqual([]);
+  });
+
+  it("aucune source de la page ne l'écrit hors de mots.ts", () => {
+    expect(
+      chaines
+        .filter((c) => c.fichier !== "lib/mots.ts" && CHIFFRES.test(c.texte))
+        .map((c) => `${c.fichier}:${c.ligne} « ${c.texte} »`),
+    ).toEqual([]);
+  });
+
+  it("le dit dans une salle GameCube et Wii, et sans chiffre ailleurs", () => {
+    expect(prixManetteSeule("dolphin")).toContain("13,6 Mbit/s");
+    for (const moteur of ["ryubing", "eden", "xenia", null, undefined])
+      expect(prixManetteSeule(moteur), String(moteur)).not.toMatch(/[0-9]/);
+  });
+});
+
+describe("un bouton commence par une majuscule", () => {
+  // Charte, règle 5. « garder », « revenir en image complète » et « menu »
+  // étaient en minuscules (vérification finale du 22 novembre 2026).
+  it("trouve le bouton en minuscules, et pas celui qui suit la charte", () => {
+    const vus = (source: string) => boutonsEnMinuscule("essai.tsx", source).map((b) => b.texte);
+    expect(vus(`const A = () => <button type="button">\n  garder\n</button>;`)).toEqual(["garder"]);
+    expect(vus(`const A = () => <button>Garder</button>;`)).toEqual([]);
+    // Un texte calculé passe par le lexique, et une étiquette n'est pas un bouton.
+    expect(vus(`const A = () => <button>{enMenu(PLACE.prendre)}</button>;`)).toEqual([]);
+    expect(vus(`const A = () => <span>garder</span>;`)).toEqual([]);
+    expect(
+      vus(`const A = () => <MesuresTechniques><button>p95</button></MesuresTechniques>;`),
+    ).toEqual([]);
+  });
+
+  /** Les boutons en minuscules d'AVANT la charte, par fichier et par texte.
+   * Le prix de les corriger tous d'un coup: une vingtaine de pilotes de
+   * navigateur lisent ou cliquent certains de ces textes (`spikes/
+   * m3-browser-drive`), et aucun n'a été relancé pour ce changement. La garde
+   * refuse donc tout NOUVEAU bouton en minuscules, et cette liste ne peut que
+   * raccourcir: une entrée qui ne correspond plus à rien fait échouer l'essai.
+   * Relevé le 22 novembre 2026. */
+  const AVANT_LA_CHARTE = [
+    "App.tsx « montrer (Ctrl) »",
+    "App.tsx « passer »",
+    "components/Booting.tsx « ouvrir le menu »",
+    "components/Booting.tsx « arrêter d&apos;attendre »",
+    "components/Entrance.tsx « entrer »",
+    "components/Lobby.tsx « affichage : »",
+    "components/Lobby.tsx « garder »",
+    "components/Lobby.tsx « annuler »",
+    "components/Lobby.tsx « changer de pseudo »",
+    "components/Lobby.tsx « ce n'est pas toi ? »",
+    "components/Recovery.tsx « reprendre maintenant »",
+    "components/Recovery.tsx « annuler »",
+    "components/Recovery.tsx « je suis là, garder »",
+    "components/Recovery.tsx « lui passer »",
+    "components/Recovery.tsx « fermer »",
+    "components/Sidebar.tsx « activer le son »",
+    "components/Swap.tsx « la lui passer »",
+    "components/Swap.tsx « garder »",
+  ];
+
+  it("aucun nouveau bouton de la page n'est en minuscules", () => {
+    const vus = sources
+      .filter(({ fichier }) => !(fichier in FICHIERS_TECHNIQUES))
+      .flatMap(({ fichier, source }) => boutonsEnMinuscule(fichier, source))
+      .map((b) => `${b.fichier} « ${b.texte} »`);
+    expect(vus.filter((b) => !AVANT_LA_CHARTE.includes(b))).toEqual([]);
+    // Le jumeau: chaque exception d'avant existe encore, sinon elle se retire.
+    expect(AVANT_LA_CHARTE.filter((b) => !vus.includes(b))).toEqual([]);
   });
 });
 

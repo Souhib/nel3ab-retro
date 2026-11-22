@@ -28,6 +28,7 @@ import type { MenuAction } from "../media/menupad";
 import { Art } from "./Art";
 import { Picker } from "./Picker";
 import { PlaceDesSurcouches } from "./Surcouche";
+import { enMenu, sortieDuMenu } from "../lib/mots";
 import { Reperes } from "./Reperes";
 import { useMenuDialogue, useShell, useSwipe } from "./shell";
 import type { XmbCategory } from "./Xmb";
@@ -270,7 +271,7 @@ export function Channels({
         >
           <Round
             big
-            label={sortie ?? (idle ? "fermer" : "reprendre")}
+            label={enMenu(sortie ?? sortieDuMenu({ dossier: false, idle }))}
             id="closeMenu"
             onClick={onClose}
           />

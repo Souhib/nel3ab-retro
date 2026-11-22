@@ -414,6 +414,21 @@ async def test_le_carnet_est_servi_sans_identite_et_sans_rien_demander_ailleurs(
         assert route in page
 
 
+async def test_le_carnet_ne_nomme_pas_le_service_quand_il_se_tait(
+    client: httpx.AsyncClient,
+) -> None:
+    """La charte de la page (front/src/lib/mots.ts): l'effet, puis l'action.
+
+    « Le salon ne répond pas. » nommait un programme que le visiteur ne connaît
+    pas; la page de la salle l'avait retiré, le carnet le gardait (vérification
+    finale du 22 novembre 2026).
+    """
+    page = (await client.get("/profil", headers={})).text
+    assert "salon ne répond" not in page
+    # Le jumeau: le message existe toujours, en mots du visiteur.
+    assert "Pas de réponse. Recharge la page dans un instant." in page
+
+
 async def test_l_accueil_mene_au_carnet_les_visiteurs_identifies(client: httpx.AsyncClient) -> None:
     page = (await client.get("/")).text
     assert 'href="/profil"' in page

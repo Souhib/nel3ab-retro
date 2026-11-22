@@ -25,6 +25,7 @@ import { Picker } from "./Picker";
 import { PlaceDesSurcouches } from "./Surcouche";
 import { useMenuDialogue, useShell, useSwipe } from "./shell";
 import type { XmbCategory } from "./Xmb";
+import { enMenu, sortieDuMenu } from "../lib/mots";
 
 const INK = "#2b2b2b";
 const TILE = "#3a3a3a";
@@ -84,6 +85,8 @@ export function Home({
   const here = items[row];
   const dialogue = useMenuDialogue(shell, paused ?? false, onQuitte);
   const touches = gestes(appareil);
+  /** La sortie, sous le nom que la page donne aux trois formes du menu. */
+  const sortieDite = sortie ?? sortieDuMenu({ dossier: false, idle });
 
   useEffect(() => {
     onPad?.(shell.act);
@@ -277,9 +280,9 @@ export function Home({
               className="flex min-h-11 items-center justify-center rounded-full px-2 max-[699px]:flex-1 max-[699px]:border max-[699px]:border-[#9a9a9a]"
             >
               {appareil === "tactile" ? (
-                <span className="text-fort">{sortie ?? (idle ? "Fermer" : "Reprendre")}</span>
+                <span className="text-fort">{sortieDite}</span>
               ) : (
-                <Pip letter={touches.retour} what={sortie ?? (idle ? "fermer" : "reprendre")} />
+                <Pip letter={touches.retour} what={enMenu(sortieDite)} />
               )}
             </button>
           </span>

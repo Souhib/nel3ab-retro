@@ -62,6 +62,8 @@ export function Sidebar({
   onComplain,
   garde,
   onTakeHalf,
+  moteur = null,
+  salle = 1,
 }: {
   /** Ce que la personne tient: l'aide ne promet Échap qu'au clavier. */
   appareil?: Appareil;
@@ -91,6 +93,10 @@ export function Sidebar({
    * elle vit sur l'image (`EtatSalle`), le seul endroit visible aussi sur un
    * téléphone, où la colonne est repliée d'office (audit E2). */
   onTakeHalf: () => void;
+  /** Le moteur de la console du jeu, pour les mesures (`Instruments`). */
+  moteur?: string | null;
+  /** Le numéro de la salle, que le diagnostic dit avec les mots du bandeau. */
+  salle?: number;
   /* Le bouton qui referme le tiroir a quitté la colonne pour le haut du
      tiroir (`BarreDuTiroir`), où il ne défile plus avec elle. Un BOUTON et
      pas seulement Échap, depuis le 18 août 2026: sur un téléphone, il n'y a
@@ -216,7 +222,13 @@ export function Sidebar({
           )}
 
           {!idle && shot && !shot.padOnly ? (
-            <ConnectionDiagnostic video={shot.video} onReduce={onTakeHalf} />
+            <ConnectionDiagnostic
+              video={shot.video}
+              liaison={shot.liaison}
+              salle={salle}
+              moteur={moteur}
+              onReduce={onTakeHalf}
+            />
           ) : null}
           <Signaler onComplain={onComplain} garde={garde} />
         </>
@@ -224,7 +236,7 @@ export function Sidebar({
         <div id="stats">
           <MesuresTechniques>
             {shot ? (
-              <Instruments shot={shot} />
+              <Instruments shot={shot} moteur={moteur} />
             ) : (
               <p className="text-corps text-faint">Pas encore de mesures.</p>
             )}

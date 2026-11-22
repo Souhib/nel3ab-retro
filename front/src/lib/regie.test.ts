@@ -18,7 +18,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_COLOURS } from "../media/players";
-import { AA_TEXT, contrast, declarations, mix, resolve } from "./contrast";
+import { AA_TEXT, contrast, declarations, mix, resolve } from "../test/contrast";
 import { THEMES as CHOIX } from "./theme";
 
 /* Les modules de Node sont importés à l'exécution, comme dans

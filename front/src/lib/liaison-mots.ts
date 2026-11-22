@@ -14,7 +14,8 @@
  */
 import type { Pose } from "../bobine/Bobine";
 import type { Liaison } from "../media/liaison";
-import { prixImageLegere } from "./mots";
+import { placeN, prixImageLegere } from "./mots";
+import { ROUGH_IN_A_ROW, VITALS_EVERY } from "./vitals";
 
 /** Les gestes qu'un état propose, nommés par ce qu'ils font. */
 export type Action =
@@ -95,7 +96,9 @@ export function dire(liaison: Liaison, salle: number, moteur: string | null = nu
         niveau: "bandeau",
         pose: "essuie",
         titre: "L'image arrive, mais ton appareil ne l'affiche plus.",
-        detail: "Relancer l'image repart d'une image complète.",
+        // « entière » et pas « complète »: le lexique garde « image complète »
+        // pour la qualité de l'image (vérification finale du 22 novembre 2026).
+        detail: "Relancer l'image repart d'une image entière.",
         actions: ["relancer", "signaler"],
       };
     case "coupee":
@@ -200,7 +203,9 @@ export function dire(liaison: Liaison, salle: number, moteur: string | null = nu
       return {
         niveau: "proposition",
         pose: "repos",
-        titre: "Ton image saute depuis vingt secondes.",
+        // La durée vient des deux constantes qui la font, pas d'un nombre
+        // recopié (vérification finale du 22 novembre 2026).
+        titre: `Ton image saute depuis ${(ROUGH_IN_A_ROW * VITALS_EVERY) / 1000} secondes.`,
         // Le chiffre n'est dit que là où il a été mesuré (`prixImageLegere`).
         detail: `L'image légère demande ${prixImageLegere(moteur)}.`,
         actions: ["reduire", "garder"],
@@ -262,8 +267,17 @@ function parlee(liaison: Liaison, salle: number): string {
  *
  * Le retour à la normale se dit lui aussi, une fois: sans lui, la dernière
  * annonce resterait « l'image ne bouge plus » pour qui n'a pas l'écran sous les
- * yeux. Rien quand tout allait déjà bien, ni pour un onglet caché. */
-export function phraseLiaison(avant: Liaison, apres: Liaison, salle: number): string {
+ * yeux. Rien quand tout allait déjà bien, ni pour un onglet caché.
+ *
+ * `peintes` est le nombre d'images que la page a peintes: une salle au repos
+ * sort de l'arrivée sans aucune, et « Première image reçue. » y était faux
+ * (vérification finale du 22 novembre 2026). */
+export function phraseLiaison(
+  avant: Liaison,
+  apres: Liaison,
+  salle: number,
+  peintes: number,
+): string {
   const dit = parlee(apres, salle);
   if (dit !== "" || apres.etat === "cachee") return dit;
   switch (avant.etat) {
@@ -272,7 +286,7 @@ export function phraseLiaison(avant: Liaison, apres: Liaison, salle: number): st
     case "irreguliere":
       return "";
     case "arrivee":
-      return "Première image reçue.";
+      return peintes > 0 ? "Première image reçue." : "";
     case "demarrage":
       return "Le jeu a démarré.";
     default:
@@ -311,8 +325,14 @@ export function resumeConnexion(
 ): LigneResume[] {
   return [
     { nom: "état", valeur: NOM_ETAT[liaison.etat] },
-    { nom: "images reçues", valeur: faits.images.toLocaleString("fr-FR").replace(/\s/gu, " ") },
+    // Les images PEINTES, pas reçues: ce compteur se fige justement quand
+    // l'image arrive et que l'appareil ne l'affiche plus (état « decodeur »).
+    {
+      nom: "images affichées",
+      valeur: faits.images.toLocaleString("fr-FR").replace(/\s/gu, " "),
+    },
     { nom: "ton écran", valeur: `${Math.round(faits.hz)} images par seconde` },
-    { nom: "ta manette", valeur: faits.port === null ? "aucune" : `la ${faits.port}` },
+    // L'emplacement 1 à 4 est une place; la manette est l'objet qu'on tient.
+    { nom: "ta place", valeur: faits.port === null ? "aucune" : placeN(faits.port) },
   ];
 }

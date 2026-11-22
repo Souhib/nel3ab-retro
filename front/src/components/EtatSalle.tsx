@@ -16,7 +16,7 @@ import { useEffect, useRef } from "react";
 import { Bobine } from "../bobine/Bobine";
 import type { GardeSignalement } from "../lib/garde-signalement";
 import { dire, type Action } from "../lib/liaison-mots";
-import { SORTIES } from "../lib/mots";
+import { enBouton, IMAGE, SORTIES } from "../lib/mots";
 import type { Liaison } from "../media/liaison";
 import { Signaler } from "./Signaler";
 import "./etat-salle.css";
@@ -125,7 +125,7 @@ export function EtatSalle({
         // salles depuis là (voir `lib/base`).
         return (
           <a key={action} href="/" id="lesSalles" className="n3-action primary">
-            Les salles
+            {enBouton(SORTIES.autres)}
           </a>
         );
       case "reduire":
@@ -137,7 +137,7 @@ export function EtatSalle({
             className="n3-action primary"
             onClick={onReduire}
           >
-            Passer en réduit
+            {IMAGE.passer}
           </button>
         );
       case "garder":

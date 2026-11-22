@@ -17,6 +17,7 @@
  * tête: c'est la seule entrée qui répare quelque chose.
  */
 import type { PleinEcran } from "./plein-ecran";
+import { TACTILE } from "./mots";
 
 /** Le nom du « ••• », lu à voix haute: le son coupé y est dit en mots, la
  * pastille rouge seule ne se lisant pas. Un seul texte pour le « ••• » de la
@@ -82,13 +83,13 @@ export function entreesDeLaFeuille({
       manette === "montree"
         ? {
             id: "manette",
-            titre: "Cacher la manette",
+            titre: `Cacher les ${TACTILE}`,
             detail: "Pour jouer avec une vraie manette.",
             alerte: false,
           }
         : {
             id: "manette",
-            titre: "Montrer la manette",
+            titre: `Montrer les ${TACTILE}`,
             detail: "Les touches à l'écran.",
             alerte: false,
           },

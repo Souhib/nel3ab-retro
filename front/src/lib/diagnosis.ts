@@ -1,31 +1,17 @@
 import { MAX_BACKLOG, type VideoStats } from "../media/video";
-import { FIGEE_MS } from "../media/liaison";
+import type { Liaison } from "../media/liaison";
+import { dire, NOM_ETAT } from "./liaison-mots";
 import { SHORT_RATE } from "./vitals";
 
 export type Diagnosis = { title: string; detail: string; reduce: boolean };
 
-/** Reuses the media loop's decisions. A relay alone cannot diagnose a bad link. */
+/** Ce que seule la colonne sait de la vidéo: la file de décodage, l'allure de
+ * réception et un écran plus lent que le jeu. Un relais seul ne prouve pas un
+ * mauvais lien. */
 export function diagnose(video: VideoStats): Diagnosis {
-  if (!video.connected)
-    return {
-      title: "Reconnexion en cours",
-      detail: "Le lien vidéo est coupé. La page réessaie automatiquement.",
-      reduce: false,
-    };
-  // Avant « en préparation »: une relance pendant un gel remet `paintedSince`
-  // à zéro, et la salle n'a rien préparé. Le 21 novembre 2026, ce résumé
-  // disait « aucune surcharge détectée » pendant vingt minutes d'image figée.
-  if (
-    !video.awaitingRestart &&
-    video.painted > 0 &&
-    video.sinceUnitMs !== null &&
-    video.sinceUnitMs >= FIGEE_MS
-  )
-    return {
-      title: "Image figée",
-      detail: `Plus aucune image depuis ${Math.round(video.sinceUnitMs / 1000)} s, alors que la liaison reste ouverte. L'image légère n'y changerait rien.`,
-      reduce: false,
-    };
+  // La coupure et le gel ne se décident plus ici: c'est l'état de la liaison
+  // (`diagnostic`, plus bas). Ce résumé gardait sa propre règle du gel depuis
+  // le 21 novembre 2026, et la colonne pouvait contredire le bandeau.
   if (video.awaitingRestart || video.paintedSince === 0)
     return {
       title: "Image en préparation",
@@ -67,6 +53,31 @@ export function diagnose(video: VideoStats): Diagnosis {
     title: "Aucune surcharge détectée",
     detail:
       "Ce relevé ne garantit pas l’absence de saccades. Un signalement garde les deux dernières minutes de mesures.",
+    reduce: false,
+  };
+}
+
+/** Ce que la colonne dit de la connexion.
+ *
+ * L'état de la liaison vient de `media/liaison`, la seule machine à états de la
+ * page, et se dit avec les mots du bandeau (`dire`): la colonne et l'image ne
+ * peuvent plus se contredire, par exemple pendant la reprise qui suit un gel,
+ * où le bandeau dit encore « image figée » (vérification finale du
+ * 22 novembre 2026). En marche, onglet caché ou image irrégulière, la colonne
+ * ajoute ce que la liaison ne sait pas (`diagnose`). */
+export function diagnostic(
+  liaison: Liaison,
+  video: VideoStats,
+  salle: number,
+  moteur: string | null = null,
+): Diagnosis {
+  if (liaison.etat === "ok" || liaison.etat === "cachee" || liaison.etat === "irreguliere")
+    return diagnose(video);
+  const dit = dire(liaison, salle, moteur);
+  const detail = [dit.titre, dit.detail].filter((texte) => texte !== undefined && texte !== "");
+  return {
+    title: NOM_ETAT[liaison.etat],
+    detail: detail.length > 0 ? detail.join(" ") : "En attente des premières images du jeu.",
     reduce: false,
   };
 }

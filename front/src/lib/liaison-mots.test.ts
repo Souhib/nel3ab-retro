@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Liaison } from "../media/liaison";
 import { dire, NOM_ETAT, phraseDemande, phraseLiaison, resumeConnexion } from "./liaison-mots";
+import { fautes, IMAGE } from "./mots";
+import { ROUGH_IN_A_ROW, VITALS_EVERY } from "./vitals";
 
 const figee = (
   depuisMs: number,
@@ -167,34 +169,48 @@ describe("l'arrivée a ses vraies étapes, et une fin", () => {
 
 describe("la ligne parlée", () => {
   it("dit chaque changement d'état en phrase", () => {
-    expect(phraseLiaison({ etat: "ok" }, figee(3000, true, "pastille"), 1)).toBe(
+    expect(phraseLiaison({ etat: "ok" }, figee(3000, true, "pastille"), 1, 1)).toBe(
       "L'image ne bouge plus. Le son arrive encore.",
     );
-    expect(phraseLiaison(figee(9000), { etat: "ok" }, 1)).toBe("L'image est revenue.");
+    expect(phraseLiaison(figee(9000), { etat: "ok" }, 1, 1)).toBe("L'image est revenue.");
   });
   it("jumeau: une durée qui avance ne change pas la phrase", () => {
-    const a = phraseLiaison({ etat: "ok" }, figee(3000, true, "pastille"), 1);
-    const b = phraseLiaison({ etat: "ok" }, figee(14_000, true, "bandeau"), 1);
+    const a = phraseLiaison({ etat: "ok" }, figee(3000, true, "pastille"), 1, 1);
+    const b = phraseLiaison({ etat: "ok" }, figee(14_000, true, "bandeau"), 1, 1);
     expect(a).toBe(b);
   });
+  it("ne dit « Première image reçue. » que si une image a été peinte", () => {
+    // Une salle au repos sort de l'arrivée sans aucune image: la phrase était
+    // fausse pour un lecteur d'écran (vérification finale du 22 novembre 2026).
+    const arrivee: Liaison = {
+      etat: "arrivee",
+      etape: "image",
+      depuisMs: 900,
+      perdue: false,
+      salleRepond: true,
+    };
+    expect(phraseLiaison(arrivee, { etat: "ok" }, 1, 0)).toBe("");
+    // Le jumeau: en jeu, la même sortie avec des images peintes le dit.
+    expect(phraseLiaison(arrivee, { etat: "ok" }, 1, 177)).toBe("Première image reçue.");
+  });
   it("jumeau: rien à dire quand tout va bien depuis le début, ni d'un onglet caché", () => {
-    expect(phraseLiaison({ etat: "ok" }, { etat: "ok" }, 1)).toBe("");
-    expect(phraseLiaison({ etat: "ok" }, { etat: "cachee" }, 1)).toBe("");
+    expect(phraseLiaison({ etat: "ok" }, { etat: "ok" }, 1, 1)).toBe("");
+    expect(phraseLiaison({ etat: "ok" }, { etat: "cachee" }, 1, 1)).toBe("");
   });
   it("dit un démarrage qui traîne, puis un démarrage perdu, une fois chacun (A11Y-07)", () => {
     const debut: Liaison = { etat: "demarrage", depuisMs: 2000 };
     const long: Liaison = { etat: "demarrage", depuisMs: 25_000, attente: "long" };
     const echec: Liaison = { etat: "demarrage", depuisMs: 61_000, attente: "echec" };
-    expect(phraseLiaison({ etat: "ok" }, debut, 1)).toBe("Le jeu démarre.");
-    expect(phraseLiaison(debut, long, 1)).toBe("Le jeu met plus longtemps que d'habitude.");
-    expect(phraseLiaison(long, echec, 1)).toBe(
+    expect(phraseLiaison({ etat: "ok" }, debut, 1, 1)).toBe("Le jeu démarre.");
+    expect(phraseLiaison(debut, long, 1, 1)).toBe("Le jeu met plus longtemps que d'habitude.");
+    expect(phraseLiaison(long, echec, 1, 1)).toBe(
       "La salle n'a pas rendu d'image. Tu peux arrêter d'attendre.",
     );
   });
   it("la salle qui redémarre, puis l'image qui revient", () => {
     const redemarre: Liaison = { etat: "redemarre", arrivee: false };
-    expect(phraseLiaison({ etat: "ok" }, redemarre, 1)).toBe("La salle 1 redémarre.");
-    expect(phraseLiaison(redemarre, { etat: "ok" }, 1)).toBe("L'image est revenue.");
+    expect(phraseLiaison({ etat: "ok" }, redemarre, 1, 1)).toBe("La salle 1 redémarre.");
+    expect(phraseLiaison(redemarre, { etat: "ok" }, 1, 1)).toBe("L'image est revenue.");
   });
   it("annonce une demande de manette une fois, avec le délai en mots", () => {
     expect(phraseDemande({ from: "Lina", port: 2 }, 10)).toBe(
@@ -214,8 +230,8 @@ describe("le vocabulaire tenu", () => {
         dit.titre,
         dit.detail ?? "",
         ...(dit.etapes ?? []).map((e) => e.texte),
-        phraseLiaison({ etat: "ok" }, l, 1),
-        phraseLiaison(l, { etat: "ok" }, 1),
+        phraseLiaison({ etat: "ok" }, l, 1, 1),
+        phraseLiaison(l, { etat: "ok" }, 1, 1),
         NOM_ETAT[l.etat],
       ];
     });
@@ -228,10 +244,27 @@ describe("le vocabulaire tenu", () => {
       else expect(dit.titre.length, l.etat).toBeGreaterThan(0);
     }
   });
+  it("garde « image complète » pour la qualité de l'image, et elle seule", () => {
+    // Le lexique réserve « image complète » à la qualité (`IMAGE.complete`);
+    // une relance repart d'une image-clé, entière (vérification finale du
+    // 22 novembre 2026).
+    const dit = dire({ etat: "decodeur", depuisMs: 4000 }, 1);
+    expect(dit.detail).toBe("Relancer l'image repart d'une image entière.");
+    for (const texte of textes()) expect(texte, texte).not.toContain(IMAGE.complete);
+  });
+  it("dit la durée d'une image qui saute avec les constantes qui la font", () => {
+    // Deux fenêtres mauvaises de suite, à une fenêtre toutes les dix secondes:
+    // la durée écrite en dur aurait menti au premier réglage changé
+    // (vérification finale du 22 novembre 2026).
+    expect(dire({ etat: "irreguliere" }, 1).titre).toBe(
+      `Ton image saute depuis ${(ROUGH_IN_A_ROW * VITALS_EVERY) / 1000} secondes.`,
+    );
+  });
   it("aucun mot d'atelier, aucun tiret cadratin", () => {
-    for (const texte of textes()) {
-      expect(texte).not.toMatch(/—|salon|worker|socket|running|\bport\b|prise|xenia|serveur/i);
-    }
+    // La garde de la charte elle-même, et pas une copie de ses motifs: la copie
+    // avait divergé (« prise » sans borne aurait refusé « les places sont
+    // prises »).
+    expect(textes().flatMap((texte) => fautes(texte).map((f) => `${texte}: ${f.mot}`))).toEqual([]);
   });
   it("des phrases de moins de soixante-dix caractères", () => {
     for (const texte of textes())
@@ -252,9 +285,13 @@ describe("le résumé de la connexion", () => {
   it("dit l'état par son nom, puis les faits en mots", () => {
     const lignes = resumeConnexion({ etat: "ok" }, faits);
     expect(lignes[0]).toEqual({ nom: "état", valeur: "en marche" });
-    expect(lignes).toContainEqual({ nom: "images reçues", valeur: "1 234" });
+    // Le compteur est celui des images PEINTES: il se fige quand l'image arrive
+    // mais que l'appareil ne l'affiche plus. Et l'emplacement est une place, la
+    // manette est l'objet qu'on tient (lexique, vérification finale du
+    // 22 novembre 2026).
+    expect(lignes).toContainEqual({ nom: "images affichées", valeur: "1 234" });
     expect(lignes).toContainEqual({ nom: "ton écran", valeur: "60 images par seconde" });
-    expect(lignes).toContainEqual({ nom: "ta manette", valeur: "la 2" });
+    expect(lignes).toContainEqual({ nom: "ta place", valeur: "place 2" });
   });
 
   it("le jumeau: une image figée et une page sans manette se disent", () => {
@@ -267,12 +304,15 @@ describe("le résumé de la connexion", () => {
     };
     const lignes = resumeConnexion(fige, { ...faits, port: null });
     expect(lignes[0]?.valeur).toBe("image figée");
-    expect(lignes).toContainEqual({ nom: "ta manette", valeur: "aucune" });
+    expect(lignes).toContainEqual({ nom: "ta place", valeur: "aucune" });
   });
 
-  it("sans mot d'atelier", () => {
-    for (const l of TOUS)
-      for (const ligne of resumeConnexion(l, faits))
-        expect(`${ligne.nom} ${ligne.valeur}`).not.toMatch(/—|socket|\bHz\b|worker|serveur/i);
+  it("sans mot d'atelier ni unité", () => {
+    const lignes = TOUS.flatMap((l) =>
+      resumeConnexion(l, faits).map((ligne) => `${ligne.nom} ${ligne.valeur}`),
+    );
+    expect(lignes.flatMap((ligne) => fautes(ligne).map((f) => `${ligne}: ${f.mot}`))).toEqual([]);
+    // Le résumé dit « images par seconde »: « 60 Hz » était la plainte d'origine.
+    for (const ligne of lignes) expect(ligne).not.toMatch(/\bHz\b/);
   });
 });

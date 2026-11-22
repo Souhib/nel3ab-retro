@@ -2,7 +2,7 @@
  * Le panneau de lancement: le bon nom de console, le bon appareil, et un geste
  * par personne (audit P6, T03, T04, 22 novembre 2026).
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Preparation } from "../client";
 import {
@@ -12,9 +12,11 @@ import {
   consoleDesTouches,
   enUneListe,
   gestesDuLancement,
+  lancerEnChef,
   ligneJoueur,
   retenirArrivees,
   sauvegardeAnnoncee,
+  sauvegardeRelancee,
   titrePreparation,
 } from "./lancement";
 
@@ -181,6 +183,71 @@ describe("la sauvegarde annoncée au chargement", () => {
     );
     // Un salon d'avant n'envoie pas `starter`: son mot reste.
     expect(sauvegardeAnnoncee({ save: "reprendre", saveSlot: 2 }, AMI)).toBe("reprendre");
+  });
+});
+
+describe("le lancement du chef devant un salon d'avant", () => {
+  // Pendant une mise en service, la page peut être neuve et le salon ancien.
+  // Ce salon ignore le `pad` du lancement et refuse un chef qui n'a pas
+  // confirmé: le chef, qui n'a plus de bouton « Je suis prêt », ne pouvait
+  // lancer aucun jeu (vérification finale du 22 novembre 2026).
+  const ANCIEN_REFUS = "Chaque joueur doit confirmer sa configuration.";
+
+  it("confirme le choix du chef puis relance, comme une page d'avant", async () => {
+    let pret = false;
+    const send = vi.fn(async (action: Record<string, unknown>) => {
+      if (action.action === "choose") pret = action.ready === true;
+      if (action.action === "launch" && !pret) throw new Error(ANCIEN_REFUS);
+    });
+    await lancerEnChef(send, { id: "p", pad: 2 });
+    expect(send.mock.calls.map(([a]) => a)).toEqual([
+      { action: "launch", id: "p", pad: 2 },
+      { action: "choose", id: "p", pad: 2, ready: true },
+      { action: "launch", id: "p", pad: 2 },
+    ]);
+  });
+
+  it("jumeau: un salon d'aujourd'hui lance du premier coup", async () => {
+    const send = vi.fn(async () => {});
+    await lancerEnChef(send, { id: "p", pad: 1 });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("jumeau: un autre refus, ou « sans attendre », se dit tel quel", async () => {
+    const autre = vi.fn(async () => {
+      throw new Error("Attends encore 3 s : un joueur se prépare peut-être.");
+    });
+    await expect(lancerEnChef(autre, { id: "p", pad: 1 })).rejects.toThrow("Attends encore");
+    expect(autre).toHaveBeenCalledTimes(1);
+    const sans = vi.fn(async () => {
+      throw new Error(ANCIEN_REFUS);
+    });
+    await expect(lancerEnChef(sans, { id: "p", pad: 1, sans_attendre: true })).rejects.toThrow(
+      ANCIEN_REFUS,
+    );
+    expect(sans).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("la sauvegarde d'une relance", () => {
+  // Une annonce « ma sauvegarde » était ignorée: la page relançait alors un
+  // changement d'appareil Wii sur l'emplacement du lancement d'AVANT, une
+  // partie neuve si c'en était une (vérification finale du 22 novembre 2026).
+  it("retient « ma sauvegarde » quand cette page a lancé", () => {
+    expect(sauvegardeRelancee({ saveSlot: 2, starter: AMI }, AMI)).toBe(2);
+  });
+
+  it("ne relance pas sa propre sauvegarde pour celle d'un autre", () => {
+    // `save: 2` désigne la sauvegarde de qui lance: depuis la page de Bo, il
+    // ouvrirait celle de Bo et pas celle d'Ami. La page ne sait plus, et le dit.
+    expect(sauvegardeRelancee({ saveSlot: 2, starter: AMI }, BO)).toBeNull();
+    expect(sauvegardeRelancee({ saveSlot: 2 }, AMI)).toBeNull();
+  });
+
+  it("garde les deux emplacements de la salle, et rien sans annonce", () => {
+    expect(sauvegardeRelancee({ saveSlot: 0, starter: AMI }, BO)).toBe(0);
+    expect(sauvegardeRelancee({ saveSlot: 1 }, null)).toBe(1);
+    expect(sauvegardeRelancee({}, AMI)).toBeUndefined();
   });
 });
 

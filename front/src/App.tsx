@@ -14,7 +14,7 @@ import { typingIn } from "./lib/typing";
 import { base, salle, under } from "./lib/base";
 import { Crown } from "./components/Crown";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Room as RoomState } from "./client";
+import { closeSalle, type Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
 import { GameCard } from "./components/GameCard";
 import { setupGameKey } from "./lib/setups";
@@ -25,8 +25,10 @@ import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { ControllerStatus } from "./components/ControllerStatus";
 import { manetteAConfigurer } from "./lib/plug";
-import { NOM_ETAT, dire, resumeConnexion } from "./lib/liaison-mots";
+import { dire } from "./lib/liaison-mots";
 import { ETROIT_SOUS } from "./lib/menu-xmb";
+import { entreeConnexion } from "./lib/rayons";
+import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
@@ -49,7 +51,6 @@ import {
   KeysIcon,
   LayoutIcon,
   LeaveIcon,
-  MeasureIcon,
   PadIcon,
   PaletteIcon,
   PanelIcon,
@@ -107,12 +108,11 @@ import { armerReveilDuSon } from "./media/reveil-son";
 import { FeuilleDuBas } from "./components/FeuilleDuBas";
 import { BarreDuTiroir, TiroirSi } from "./components/Tiroir";
 import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
-import { useBindings, useRoomReference } from "./lib/bindings";
+import { publishProfile, useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
-import { publishProfile } from "./lib/bindings";
 import { arrange, avecAvances, MANETTES, selonAppareil } from "./lib/settings";
 import { aideDeLaSalle, appareilDe, pour } from "./lib/appareil";
-import { clavierAuJeu, clavierEnPause, REND_LE_JEU, rendreAuJeuApresClic } from "./lib/focus-jeu";
+import { clavierEnPause, useFocusJeu } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
 import { keyLabel, keyboardLayout } from "./media/describe";
 import { AideClavier } from "./components/AideClavier";
@@ -132,12 +132,14 @@ import {
   Trailing,
   TRAIL_EVERY,
   vitals,
+  VITALS_EVERY,
   worthWriting,
   type Trail,
   type Vitals,
 } from "./lib/vitals";
+import type { ControlKey } from "./media/pad";
 import type { Session, Snapshot } from "./media/session";
-import { clipLabel } from "./lib/clip";
+import { clipAide, clipLabel, micAide } from "./lib/clip";
 import { SwitchBindings } from "./components/SwitchBindings";
 import { CONSOLES, launchable, moteurDe, preparable, usesProInput } from "./lib/consoles";
 import {
@@ -162,10 +164,14 @@ import {
   enMenu,
   placeN,
   prixImageLegere,
+  prixManetteSeule,
+  MANETTE_SEULE,
   SORTIES,
+  sortieDuMenu,
+  TACTILE,
 } from "./lib/mots";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
-import { consoleDesTouches, sauvegardeAnnoncee } from "./lib/lancement";
+import { consoleDesTouches, sauvegardeAnnoncee, sauvegardeRelancee } from "./lib/lancement";
 import {
   entreeDeLAdresse,
   entreeDeLaSession,
@@ -174,10 +180,8 @@ import {
   sortieVers,
   type Entree,
 } from "./lib/entree";
-import { closeSalle } from "./client";
 import { Aide } from "./components/Aide";
 import { Inviter } from "./components/Inviter";
-import { clipAide, micAide } from "./lib/clip";
 import { useSession, useSnapshot } from "./lib/useSession";
 
 /**
@@ -421,15 +425,6 @@ function Named({
   );
 }
 
-/** À quel rythme la page dit ce qu'elle voit, en millisecondes.
- *
- * Dix secondes. Assez fin pour dater une saccade à la fenêtre près, assez large
- * pour qu'une soirée de quatre joueurs tienne dans quelques centaines de
- * kilo-octets. Une seconde donnerait soixante fois plus de lignes sans rien dire
- * de plus: ce qui intéresse ici est la forme d'une minute, pas d'une image.
- */
-const VITALS_EVERY = 10_000;
-
 /** Combien de tours de trace fine séparent deux relevés envoyés.
  *
  * Un seul minuteur pour les deux cadences, plutôt que deux qui dériveraient
@@ -575,12 +570,6 @@ function Room({
    * tant que cette personne n'est pas prête, exactement comme avant. */
   const [setupHidden, setSetupHidden] = useState(false);
   const [preparationError, setPreparationError] = useState("");
-  /** Combien d'images ont été peintes, lisible sans redéclencher d'effet.
-   *
-   * L'annonce venue du salon a besoin de ce nombre au moment où elle arrive. Le
-   * prendre dans les dépendances rebrancherait les fonctions de la salle deux
-   * fois par seconde, au rythme de l'instantané, pour une valeur qu'on ne fait
-   * que lire. */
   /* L'attente d'une image (arrivée, coupure, gel) ne se mesure plus ici: la
      couche média calcule un seul état de liaison (`media/liaison.ts`), qui
      distingue aussi « pas ENCORE d'image » de « plus d'image ». Ce rendu
@@ -686,6 +675,8 @@ function Room({
    * relancerait le flux à chaque changement d'étape. */
   const bootingNow = useRef(booting);
   bootingNow.current = booting;
+  /** Un jeu tourne et a fini de démarrer: la partie, au sens de la page. */
+  const enPartie = playing === true && booting === null;
   /** L'emplacement sur lequel CETTE page a lancé le jeu en cours.
    *
    * Sert à une seule chose: relancer pour changer de manette ne doit pas
@@ -698,12 +689,6 @@ function Room({
    * `null` quand ce n'est pas nous qui avons lancé: on ne devine pas.
    */
   const [ranWith, setRanWith] = useState<Slot | null>(null);
-  /** Le jeu qui attend une confirmation. Changer de jeu arrête la partie de tout
-   * le monde, donc la première entrée arme et la seconde lance. */
-  /** Sur quelle sauvegarde le prochain jeu démarrera.
-   *
-   * Retenu dans le navigateur, comme les autres réglages: quelqu'un qui joue en
-   * soirée sur les parties débloquées y rejouera le lendemain. */
 
   const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
   useEffect(() => {
@@ -761,6 +746,14 @@ function Room({
   const closingSoon = closingIn > 0 && !closingHidden ? closingIn : null;
   /** L'état de la liaison, tel que la couche média l'a calculé. */
   const liaison: Liaison = shot?.liaison ?? { etat: "ok" };
+  /** La salle est fermée: la colonne ne propose plus ni place, ni invitation,
+   * ni chef. « Inviter » copiait le lien d'une salle fermée, et « Prendre une
+   * place » ne faisait rien (vérification finale du 22 novembre 2026). */
+  const salleFermee = liaison.etat === "fermee";
+  /** Le nom de la salle, ou son numéro tant que le salon ne l'a pas dit. */
+  const nomSalle = room?.name ?? `salle ${salle()}`;
+  /** Où mène la sortie: les autres salles sous un salon, `null` servie seule. */
+  const sortie = sortieVers(location.pathname);
 
   /* Le relevé qui part au salon toutes les dix secondes.
      Par des références et non par des dépendances: `shot` change deux fois par
@@ -772,7 +765,7 @@ function Room({
   /** Un jeu tourne et ne démarre plus: c'est seulement là qu'attendre une image
    * est un gel. Une salle sans jeu, ou un jeu qui charge, n'en envoie pas. */
   const inGame = useRef(false);
-  inGame.current = playing === true && booting === null;
+  inGame.current = enPartie;
   const sending = useRef(tell);
   sending.current = tell;
   const previous = useRef<Snapshot | null>(null);
@@ -913,60 +906,7 @@ function Room({
   /* Le modèle de focus (`lib/focus-jeu`): le clavier du jeu vit dans la zone de
      jeu, et partout ailleurs Entrée, Espace et les flèches font ce que fait le
      navigateur (audit A11Y-01, 22 novembre 2026). */
-  const zone = useRef<HTMLDivElement>(null);
-  /** Le clavier joue-t-il en ce moment ? Relu quand le focus bouge, jamais à
-   * chaque image: le focus change sur un clic ou un Tab, pas à 60 Hz. */
-  const [auJeu, setAuJeu] = useState(() => clavierAuJeu(document.activeElement));
-  useEffect(() => {
-    const suivre = (event: FocusEvent) =>
-      setAuJeu(clavierAuJeu(event.type === "focusout" ? event.relatedTarget : event.target));
-    addEventListener("focusin", suivre);
-    addEventListener("focusout", suivre);
-    return () => {
-      removeEventListener("focusin", suivre);
-      removeEventListener("focusout", suivre);
-    };
-  }, []);
-  // À l'entrée, le focus va au jeu: au clavier, on joue sans cliquer l'image.
-  // Une salle au repos ouvre son menu, qui le prend à son tour.
-  const menuALEntree = useRef(menu);
-  useEffect(() => {
-    if (!menuALEntree.current) zone.current?.focus({ preventScroll: true });
-  }, []);
-  // Fermer le menu rend la main au jeu. Le dialogue a déjà rendu le focus à ce
-  // qui l'avait avant lui, souvent le bouton « menu » de la colonne; mais
-  // « reprendre la partie » veut dire jouer, et Entrée sur ce bouton rouvrirait
-  // le menu au lieu d'envoyer START. Sans partie, on laisse ce focus, sauf
-  // s'il est retombé sur le document parce que son bouton a disparu.
-  const menuAvant = useRef(menu);
-  useEffect(() => {
-    const ferme = menuAvant.current && !menu;
-    menuAvant.current = menu;
-    if (!ferme) return;
-    const ici = document.activeElement;
-    if (playing === true || ici === null || ici === document.body)
-      zone.current?.focus({ preventScroll: true });
-  }, [menu, playing]);
-  // Un clic de souris sur un bouton ponctuel de la colonne (une prise, un
-  // mode, le clip, le micro) rend le clavier au jeu: c'était le geste le plus
-  // courant d'une partie, et il coupait la manette (`rendreAuJeuApresClic`).
-  // Sur le document et en remontée: le bouton a déjà fait son travail.
-  const enPartie = playing === true && booting === null;
-  useEffect(() => {
-    const clic = (event: MouseEvent) => {
-      const cible = event.target instanceof Element ? event.target : null;
-      if (
-        rendreAuJeuApresClic({
-          pointeur: event.detail > 0,
-          partie: enPartie,
-          ponctuel: cible?.closest(`[${REND_LE_JEU}]`) != null,
-        })
-      )
-        zone.current?.focus({ preventScroll: true });
-    };
-    document.addEventListener("click", clic);
-    return () => document.removeEventListener("click", clic);
-  }, [enPartie]);
+  const { zone, auJeu } = useFocusJeu({ menu, playing, enPartie });
 
   /** Le jeu que la salle dit faire tourner, par son nom comme `booting`. */
   const jeuEnCours = room?.game?.name ?? null;
@@ -1098,7 +1038,8 @@ function Room({
       (told) => {
         if (told.solo === true) session?.input.prepareSoloPlayer();
         else if (told.solo === false) session?.input.watchOnly();
-        if (told.saveSlot === 0 || told.saveSlot === 1) setRanWith(told.saveSlot);
+        const relance = sauvegardeRelancee(told, session?.input.attribution());
+        if (relance !== undefined) setRanWith(relance);
         const chosen = told.pads?.[session?.input.attribution() ?? ""];
         if (chosen !== undefined && [0, 1, 2, 3].includes(chosen)) {
           const kind = chosen as Pad;
@@ -1280,7 +1221,8 @@ function Room({
     });
     if (suite === "plus") plus?.focus({ preventScroll: true });
     else if (suite === "jeu") zone.current?.focus({ preventScroll: true });
-  }, [feuille, tiroirOuvert, menu]);
+    // `zone` est la même référence d'un rendu à l'autre (`useFocusJeu`).
+  }, [feuille, tiroirOuvert, menu, zone]);
   useEffect(() => {
     session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
     return () => session?.input.blockGameplay(false);
@@ -1306,39 +1248,8 @@ function Room({
     clip.ask();
   };
 
-  /** Le micro, pour mêler sa voix aux clips. Record only: rien n'est rejoué. */
-  const [micDevice, setMicDevice] = useState<string>("");
-  const [micDevices, setMicDevices] = useState<{ id: string; label: string }[]>([]);
-  const refreshMics = () => {
-    void session?.mic.devices().then(setMicDevices);
-  };
-  useEffect(() => {
-    refreshMics();
-    // Les noms ne se révèlent qu'APRÈS l'autorisation du micro; on ne relance
-    // pas la liste ici, seulement quand le micro s'ouvre.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
-  const toggleMic = () => {
-    const mic = session?.mic;
-    if (!mic) return;
-    // L'état VIVANT, pas l'instantané: celui-ci peut être en retard d'une
-    // demi-seconde, et décider « couper » sur un état périmé ne coupe rien.
-    if (mic.status() === "on") {
-      mic.stop();
-      session?.refresh();
-      return;
-    }
-    void mic.start(micDevice === "" ? null : micDevice).then((ok) => {
-      if (ok) refreshMics();
-      session?.refresh();
-    });
-  };
-  const pickMic = (id: string) => {
-    setMicDevice(id);
-    if (session?.mic.status() === "on") {
-      void session?.mic.start(id === "" ? null : id).then(() => session?.refresh());
-    }
-  };
+  /** Le micro, pour mêler sa voix aux clips (`lib/micro`). */
+  const { micDevice, micDevices, toggleMic, pickMic } = useMicro(session);
 
   const switchPad = (wanted: Pad) => {
     if (wanted === pad) return;
@@ -1357,9 +1268,7 @@ function Room({
         .prepare({ action: "begin", game: game.index, key: game.key, save: ranWith ?? 0 })
         .then(() => setMenu(false))
         .catch((error) =>
-          setPreparationError(
-            error instanceof Error ? error.message : "La préparation n'a pas pu commencer.",
-          ),
+          setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
         );
       return;
     }
@@ -1434,6 +1343,14 @@ function Room({
   const shown =
     folder === null ? (room?.library ?? []) : (shelves.find((s) => s.code === folder)?.games ?? []);
 
+  /** Le détail de la connexion, dans la colonne: le tiroir sur un téléphone,
+   * la colonne dépliée ailleurs (`ouvrirLaSalle`). */
+  const voirDetail = () => {
+    setMode("details");
+    if ("tiroir" in ouvrirLaSalle(compact)) setTiroir(true);
+    else setBare(false);
+    setMenu(false);
+  };
   const rays: XmbCategory[] = [
     {
       id: "jeux",
@@ -1694,9 +1611,9 @@ function Room({
           },
           {
             id: "touchpad",
-            label: "commandes tactiles",
+            label: TACTILE,
             value: touchLabel(touchPref),
-            hint: "Pour jouer au téléphone. Elle se fond avec le clavier et les manettes: on peut tenir les deux.",
+            hint: "Pour jouer au téléphone. Elles se fondent avec le clavier et les manettes: on peut tenir les deux.",
             icon: <PadIcon className="h-full w-full" />,
             picks: TOUCHPADS.map((choice) => ({
               id: choice.id,
@@ -1708,17 +1625,14 @@ function Room({
           },
           {
             id: "padonly",
-            label: "télécommande sans vidéo",
-            value: padOnly ? "sans image" : "avec l'image",
-            hint: "Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus.",
+            // Un seul nom pour ce mode, ici comme sur l'écran qu'il montre.
+            label: MANETTE_SEULE,
+            value: padOnly ? "oui" : "non",
+            hint: `Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : ${prixManetteSeule(moteurDe(room?.game?.console))}.`,
             icon: <PadIcon className="h-full w-full" />,
             picks: [
-              { id: "avec", label: "avec l'image", hint: "le jeu s'affiche ici" },
-              {
-                id: "sans",
-                label: "manette seule",
-                hint: "ni image ni son sur cet appareil",
-              },
+              { id: "avec", label: "non, avec l'image", hint: "le jeu s'affiche ici" },
+              { id: "sans", label: "oui, sans image", hint: "ni image ni son sur cet appareil" },
             ],
             picked: padOnly ? "sans" : "avec",
             // Changer de mode reconstruit la session, donc la place tenue est
@@ -1793,7 +1707,7 @@ function Room({
         // Fermer la SALLE, et pas seulement le jeu: l'API existait, aucun
         // bouton ne l'appelait (audit P14). Pour le chef, et seulement sous un
         // salon: servie seule, la page n'a pas de liste où revenir.
-        ...(canClose && sortieVers(location.pathname) !== null
+        ...(canClose && sortie !== null
           ? [
               {
                 id: "close-room",
@@ -1801,7 +1715,7 @@ function Room({
                 hint: "Arrête la partie de tous et libère la carte graphique. Les sauvegardes sont conservées.",
                 icon: <RoomIcon className="h-full w-full" />,
                 picks: [
-                  { id: "close", label: "fermer la salle", hint: room?.name ?? `salle ${salle()}` },
+                  { id: "close", label: "fermer la salle", hint: nomSalle },
                   { id: "cancel", label: "continuer à jouer" },
                 ],
                 onPick: (id: string) => {
@@ -1868,7 +1782,7 @@ function Room({
           label: enMenu(SORTIES.quitter),
           // « retour à l'accueil » désignait deux pages différentes (audit P8).
           hint:
-            sortieVers(location.pathname) === null
+            sortie === null
               ? "retour à l'entrée de la salle. La partie continue sans toi."
               : "vers les autres salles. La partie continue sans toi.",
           icon: <LeaveIcon className="h-full w-full" />,
@@ -2088,74 +2002,16 @@ function Room({
                 icon: <SettingsIcon className="h-full w-full" />,
                 onEnter: () => setAvances(!avances),
               },
-              {
-                // La rubrique « mesures » en tenait une sur quatre, au même rang que
-                // « jeux », pour trois chiffres de diagnostic (audit T13). Ils sont
-                // ici, repliés, et le détail vit dans la colonne.
-                id: "connexion",
-                label: "état de la connexion",
-                // L'état par son nom, et non un compte d'images: le nom promettait
-                // un état (relecture du 22 novembre 2026).
-                value: NOM_ETAT[liaison.etat],
-                ...(appareil === "tactile" || window.innerWidth < ETROIT_SOUS
-                  ? {
-                      // Sur un téléphone, le détail dans la colonne coupait
-                      // l'écran en deux moitiés de 195 px: le résumé s'ouvre
-                      // dans le menu, et la colonne reste un choix.
-                      hint: pour(appareil, "voir le résumé"),
-                      details: (
-                        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-corps">
-                          {resumeConnexion(liaison, {
-                            images: shot?.video.painted ?? 0,
-                            hz: shot?.video.refreshHz ?? 0,
-                            port,
-                          }).map((ligne) => (
-                            <div key={ligne.nom} className="contents">
-                              <dt className="text-muted">{ligne.nom}</dt>
-                              <dd>{ligne.valeur}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      ),
-                      // Sans `picked`: aucun des deux n'est « en cours ».
-                      picks: [
-                        { id: "rester", label: "revenir au menu" },
-                        {
-                          id: "colonne",
-                          label: compact
-                            ? "tout le détail, dans la salle"
-                            : "tout le détail, dans la colonne",
-                        },
-                      ],
-                      onPick: (choix: string) => {
-                        if (choix !== "colonne") return;
-                        setMode("details");
-                        // Sur un téléphone, la colonne est le tiroir.
-                        if (compact) setTiroir(true);
-                        else setBare(false);
-                        setMenu(false);
-                      },
-                    }
-                  : {
-                      hint: `${resumeConnexion(liaison, {
-                        images: shot?.video.painted ?? 0,
-                        hz: shot?.video.refreshHz ?? 0,
-                        port,
-                      })
-                        .slice(1)
-                        .map((ligne) => `${ligne.nom}: ${ligne.valeur}`)
-                        .join(
-                          ", ",
-                        )}. ${pour(appareil, compact ? "voir le détail dans la salle" : "voir le détail dans la colonne")}.`,
-                      onEnter: () => {
-                        setMode("details");
-                        if (compact) setTiroir(true);
-                        else setBare(false);
-                        setMenu(false);
-                      },
-                    }),
-                icon: <MeasureIcon className="h-full w-full" />,
-              },
+              entreeConnexion({
+                liaison,
+                images: shot?.video.painted ?? 0,
+                hz: shot?.video.refreshHz ?? 0,
+                port,
+                appareil,
+                compact,
+                etroit: window.innerWidth < ETROIT_SOUS,
+                voirDetail,
+              }),
             ],
             { tiroir: compact, pleinEcran: plein === "api" },
           ),
@@ -2192,6 +2048,8 @@ function Room({
           height: Math.min(space.height, posee.height),
         }
       : null;
+  /** La largeur d'une bande noire à côté de l'image, où se pose la manette. */
+  const bande = Math.max(0, (space.width - posee.width) / 2);
   const takeHalf = () => {
     session?.video.setHalf(true);
     setHalf(true);
@@ -2199,6 +2057,23 @@ function Room({
     setSuggestHalf(false);
     sending.current.quality("accepté");
   };
+  /** Un geste du réglage des touches, suivi d'un `refresh`: ce sont des
+   * changements locaux et immédiats, et attendre le prochain instantané ferait
+   * clignoter l'écran une demi-seconde plus tard. */
+  const puis =
+    <A extends unknown[]>(geste: (...args: A) => void) =>
+    (...args: A) => {
+      geste(...args);
+      session?.refresh();
+    };
+  /** La console et l'appareil que l'écran des touches règle: ceux du jeu
+   * préparé pendant une préparation (`consoleDesTouches`). */
+  const consoleTouches = consoleDesTouches(
+    pendingSetup !== null,
+    setupGame?.console,
+    room?.game?.console,
+  );
+  const tenu = pendingSetup ? setupChoice : pad;
 
   return (
     <div className="flex h-full">
@@ -2208,7 +2083,7 @@ function Room({
           zoneRef={zone}
           // Pas pendant un chargement: l'écran de chargement couvre l'image,
           // et Tab s'arrêterait sur une zone qu'on ne voit pas.
-          jouable={playing === true && booting === null}
+          jouable={enPartie}
           libelle={
             port === null
               ? "Image du jeu"
@@ -2220,14 +2095,6 @@ function Room({
           onSpace={setSpace}
           onPrescale={(times) => session?.video.setPrescale(times)}
         />
-        {/* Ce qu'on voit quand cet appareil ne sert que de manette.
-            Un écran noir se lit comme une panne, et c'en est une pour qui a
-            oublié avoir choisi ce mode. La toile reste montée derrière: elle
-            appartient à la boucle média, qui la tient par une référence, et la
-            démonter reviendrait à mettre React sur le chemin des images. */}
-        {/* Le format a été réduit tout seul: on le DIT, et on laisse revenir.
-            Réduire en silence ferait chercher pourquoi l'image est devenue
-            moins nette, ce qui est exactement le temps qu'on essaie de rendre. */}
         {/* Les avis du HAUT de l'image, en une pile: ils s'empilent au lieu de
             se couvrir. Le bas est déjà pris par la proposition et la pastille
             de la liaison (`EtatSalle`) et par l'avis du format réduit; l'avis
@@ -2276,7 +2143,7 @@ function Room({
               d'abord, en mots de joueur: « la page » était un mot d'atelier,
               et « Rejouer » se lisait « recommencer ». */}
           {clavierEnPause({
-            partie: playing === true && booting === null,
+            partie: enPartie,
             place: port !== null,
             appareil,
             menu: menu || configuring,
@@ -2298,6 +2165,9 @@ function Room({
             </div>
           ) : null}
         </div>
+        {/* L'image est passée en image légère toute seule: on le DIT, et on laisse revenir.
+            Réduire en silence ferait chercher pourquoi l'image est devenue
+            moins nette, ce qui est exactement le temps qu'on essaie de rendre. */}
         {reduced ? (
           <div
             id="reducedNotice"
@@ -2313,7 +2183,7 @@ function Room({
                 onClick={() => setReduced(false)}
                 className="border border-rule px-2 py-0.5 text-note text-muted hover:border-rule-bright"
               >
-                garder
+                Garder
               </button>
               <button
                 type="button"
@@ -2326,18 +2196,23 @@ function Room({
                 }}
                 className="border border-indigo px-2 py-0.5 text-note text-indigo"
               >
-                revenir en image complète
+                Revenir en {IMAGE.complete}
               </button>
             </div>
           </div>
         ) : null}
+        {/* Ce qu'on voit quand cet appareil ne sert que de manette.
+            Un écran noir se lit comme une panne, et c'en est une pour qui a
+            oublié avoir choisi ce mode. La toile reste montée derrière: elle
+            appartient à la boucle média, qui la tient par une référence, et la
+            démonter reviendrait à mettre React sur le chemin des images. */}
         {padOnly ? (
           <div
             id="padOnlyNotice"
             className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-ink px-6 text-center"
           >
             <span className="font-mono text-note uppercase tracking-[0.16em] text-faint">
-              manette seule
+              {MANETTE_SEULE}
             </span>
             <p className="max-w-[42ch] text-corps leading-relaxed text-muted">
               Cet appareil ne décode ni l&apos;image ni le son. Il envoie les boutons et il vibre,
@@ -2351,9 +2226,6 @@ function Room({
             </p>
           </div>
         ) : null}
-        {/* La manette à l'écran, par-dessus l'image et sous le menu.
-            Montée seulement quand elle sert: cent boutons invisibles au-dessus
-            d'une partie jouée au clavier intercepteraient des clics. */}
         {/* Les gestes de PAGE d'un téléphone vivent dans la feuille du bas,
             ouverte par un seul « ••• » (`FeuilleDuBas`, audit M1, M2, P5). Avec
             la manette à l'écran, le « ••• » est l'une de ses pièces, placé loin
@@ -2378,11 +2250,14 @@ function Room({
             •••
           </button>
         ) : null}
+        {/* La manette à l'écran, par-dessus l'image et sous le menu.
+            Montée seulement quand elle sert: cent boutons invisibles au-dessus
+            d'une partie jouée au clavier intercepteraient des clics. */}
         {session && couches.pave && usesProInput(room?.game?.console) ? (
           <SwitchTouchPad
             source={session.input.switch}
             console={room?.game?.console}
-            bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
+            bar={bande}
             // Le son coupé se voit aussi sur la manette Pro: en salle Xbox
             // 360, rien ne le disait (audit M10).
             soundOff={soundOff}
@@ -2398,7 +2273,7 @@ function Room({
              * entre des boutons posés sur du noir et des boutons posés sur les
              * pieds du personnage. Quand il n'y a pas de bande, elle retombe sur
              * les coins. */
-            bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
+            bar={bande}
             touch={session.input.touch}
             soundOff={soundOff}
             onFeuille={() => setFeuille(true)}
@@ -2431,7 +2306,7 @@ function Room({
         ) : null}
         {feuille ? (
           <FeuilleDuBas
-            titre={`${room?.name ?? `salle ${salle()}`}${room?.game ? ` · ${room.game.name}` : ""}`}
+            titre={`${nomSalle}${room?.game ? ` · ${room.game.name}` : ""}`}
             entrees={entreesDeLaFeuille({
               sonCoupe: soundOff,
               manette: coarse || onTouch ? (onTouch ? "montree" : "cachee") : null,
@@ -2596,6 +2471,7 @@ function Room({
           salle={salle()}
           demande={asked}
           delai={room?.ask_lasts ?? 10}
+          peintes={shot?.video.painted ?? 0}
         />
       </main>
 
@@ -2624,7 +2500,7 @@ function Room({
             ) : null}
             <header className="flex flex-col gap-0.5">
               <span className="n3-marque">nel3ab</span>
-              <h1 className="truncate text-fort font-medium">{room?.name ?? `salle ${salle()}`}</h1>
+              <h1 className="truncate text-fort font-medium">{nomSalle}</h1>
               <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
               <p id="seat" className="text-corps text-faint">
                 {name}
@@ -2636,13 +2512,13 @@ function Room({
               ne se montre que quand le worker dit que le chef ne joue plus
               (`repriseDuRole`): proposée à tous, c'était la première action offerte à
               un nouveau venu (audit T12). */}
-            {boss ? (
+            {boss && !salleFermee ? (
               <p className="flex items-center gap-1 text-corps text-muted">
                 <Crown />
                 {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
               </p>
             ) : null}
-            {boss && repriseDuRole(role, login !== null) ? (
+            {boss && !salleFermee && repriseDuRole(role, login !== null) ? (
               <div className="flex flex-col gap-1">
                 <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
                 <button
@@ -2672,20 +2548,24 @@ function Room({
                 onTake={(chosen) => session?.input.take(chosen)}
                 onAsk={(chosen) => onRecover(chosen)}
               />
-              <button
-                type="button"
-                id={port !== null ? "watchOnly" : "takePad"}
-                data-rend-le-jeu=""
-                onClick={() => (port !== null ? session?.input.watchOnly() : session?.input.play())}
-                /* 44 px de haut au doigt, comme le « ? » d'aide: mesuré à
-                 37 px sur un téléphone (relecture du 22 novembre 2026). */
-                className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors pointer-coarse:min-h-11 hover:border-indigo hover:text-indigo"
-              >
-                {port !== null ? PLACE.rendre : PLACE.prendre}
-              </button>
+              {salleFermee ? null : (
+                <button
+                  type="button"
+                  id={port !== null ? "watchOnly" : "takePad"}
+                  data-rend-le-jeu=""
+                  onClick={() =>
+                    port !== null ? session?.input.watchOnly() : session?.input.play()
+                  }
+                  /* 44 px de haut au doigt, comme le « ? » d'aide: mesuré à
+                   37 px sur un téléphone (relecture du 22 novembre 2026). */
+                  className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors pointer-coarse:min-h-11 hover:border-indigo hover:text-indigo"
+                >
+                  {port !== null ? PLACE.rendre : PLACE.prendre}
+                </button>
+              )}
             </Panel>
 
-            <Inviter lien={lienDInvitation(location.origin, base())} />
+            {salleFermee ? null : <Inviter lien={lienDInvitation(location.origin, base())} />}
 
             {/* Les touches du clavier, sans ouvrir de menu (audit T02): à qui
               tient une place et joue au clavier. */}
@@ -2800,7 +2680,7 @@ function Room({
               onClick={() => setMenu(true)}
               className="flex items-center justify-center gap-2 border border-indigo/60 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/10"
             >
-              menu
+              Menu
               {appareil === "clavier" ? <Touche>Échap</Touche> : null}
             </button>
 
@@ -2819,6 +2699,8 @@ function Room({
               onTakeHalf={takeHalf}
               onComplain={complain}
               garde={garde.current}
+              moteur={moteurDe(room?.game?.console)}
+              salle={salle()}
             />
           </aside>
         </TiroirSi>
@@ -2828,7 +2710,7 @@ function Room({
           Avec, cliquer « Choisir un jeu » dans une salle au repos faisait
           disparaître le panneau sans monter le menu — écran noir, aucune
           commande, jusqu'à l'arrivée du premier instantané. La bascule
-          « télécommande sans vidéo » reconstruit la session, donc elle
+          « manette seule » reconstruit la session, donc elle
           faisait s'évaporer le menu sous les doigts pour la même raison.
           Les entrées lisent déjà l'instantané en optionnel, avec un repli. */}
       {menu
@@ -2860,21 +2742,17 @@ function Room({
               // Un lancement en cours passe AVANT le repos: la salle est encore
               // vide le temps que le worker redémarre, et lui dire « aucun jeu »
               // à cet instant contredit ce qu'on vient de faire.
-              footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : (room?.name ?? `salle ${salle()}`)} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
+              footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : nomSalle} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
             // Dans un dossier, la sortie remonte d'abord aux consoles: le
-            // bouton le dit, au lieu de promettre « reprendre la partie ».
-            const sortie = folder === null ? undefined : "retour";
-            if (shell === "wii") return <Channels key={String(idle)} {...common} sortie={sortie} />;
+            // bouton le dit, au lieu de promettre « reprendre la partie ». Un
+            // seul nom pour les trois formes (`sortieDuMenu`).
+            const sortieMenu = sortieDuMenu({ dossier: folder !== null, idle });
+            if (shell === "wii")
+              return <Channels key={String(idle)} {...common} sortie={sortieMenu} />;
             if (shell === "switch")
-              return <Home key={String(idle)} {...common} who={name} sortie={sortie} />;
-            return (
-              <Xmb
-                key={String(idle)}
-                {...common}
-                sortie={folder === null ? undefined : "Retour aux consoles"}
-              />
-            );
+              return <Home key={String(idle)} {...common} who={name} sortie={sortieMenu} />;
+            return <Xmb key={String(idle)} {...common} sortie={sortieMenu} />;
           })()
         : null}
 
@@ -2911,7 +2789,7 @@ function Room({
           </div>
         </Surcouche>
       ) : null}
-      {configuring && shot && session && usesProInput(setupGame?.console ?? room?.game?.console) ? (
+      {configuring && shot && session && configuringSwitch ? (
         <SwitchBindings
           source={session.input.switch}
           input={session.input}
@@ -2926,16 +2804,10 @@ function Room({
       ) : configuring && shot ? (
         <Bindings
           onglet={ongletTouches}
-          console={consoleDesTouches(
-            pendingSetup !== null,
-            setupGame?.console,
-            room?.game?.console,
-          )}
-          held={pendingSetup ? setupChoice : pad}
+          console={consoleTouches}
+          held={tenu}
           readOnly={Boolean(setupPlayer?.ready)}
-          actions={
-            (setupGame ?? room?.game)?.guide?.actions[String(pendingSetup ? setupChoice : pad)]
-          }
+          actions={(setupGame ?? room?.game)?.guide?.actions[String(tenu)]}
           preparation={
             pendingSetup && session ? (
               <Preparation
@@ -2971,18 +2843,9 @@ function Room({
               </section>
             ) : undefined
           }
-          onPickKeys={(chosen) => {
-            session?.input.pickKeys(chosen);
-            session?.refresh();
-          }}
-          onNewKeys={(chosen) => {
-            session?.input.newKeys(chosen);
-            session?.refresh();
-          }}
-          onForgetKeys={(chosen) => {
-            session?.input.forgetKeys(chosen);
-            session?.refresh();
-          }}
+          onPickKeys={puis((chosen: string) => session?.input.pickKeys(chosen))}
+          onNewKeys={puis((chosen: string) => session?.input.newKeys(chosen))}
+          onForgetKeys={puis((chosen: string) => session?.input.forgetKeys(chosen))}
           /* Le bouton n'existe que pour celui qui tient la salle. Le service
              vérifie l'adresse de son côté: cacher un bouton n'est pas une
              règle, c'est du confort. */
@@ -3001,43 +2864,16 @@ function Room({
               : undefined
           }
           state={shot.input}
-          // Chaque action est suivie d'un `refresh`: ce sont des changements
-          // locaux et immédiats, et attendre le prochain instantané ferait
-          // clignoter l'écran une demi-seconde plus tard.
-          onUse={(index) => {
-            session?.input.useP(index);
-            session?.refresh();
-          }}
-          onCapture={(control, source, sign) => {
-            session?.input.beginCapture(control, source, sign);
-            session?.refresh();
-          }}
-          onCancel={() => {
-            session?.input.cancelCapture();
-            session?.refresh();
-          }}
-          onLearn={() => {
-            session?.input.beginLesson(
-              consoleDesTouches(pendingSetup !== null, setupGame?.console, room?.game?.console),
-              pendingSetup ? setupChoice : pad,
-            );
-            session?.refresh();
-          }}
-          onSkip={() => {
-            session?.input.skipLessonStep();
-            session?.refresh();
-          }}
-          onResetPad={() => {
-            session?.input.resetPad(
-              consoleDesTouches(pendingSetup !== null, setupGame?.console, room?.game?.console),
-              pendingSetup ? setupChoice : pad,
-            );
-            session?.refresh();
-          }}
-          onResetKeys={() => {
-            session?.input.resetKeys();
-            session?.refresh();
-          }}
+          // Chaque action est suivie d'un `refresh` (`puis`).
+          onUse={puis((index: number | null) => session?.input.useP(index))}
+          onCapture={puis((control: ControlKey, source: "pad" | "key", sign?: 1 | -1) =>
+            session?.input.beginCapture(control, source, sign),
+          )}
+          onCancel={puis(() => session?.input.cancelCapture())}
+          onLearn={puis(() => session?.input.beginLesson(consoleTouches, tenu))}
+          onSkip={puis(() => session?.input.skipLessonStep())}
+          onResetPad={puis(() => session?.input.resetPad(consoleTouches, tenu))}
+          onResetKeys={puis(() => session?.input.resetKeys())}
           onClose={() => {
             session?.input.cancelCapture();
             setBindings(false);

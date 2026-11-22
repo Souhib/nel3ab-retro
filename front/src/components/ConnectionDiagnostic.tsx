@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
 import { readMyConnection } from "../client";
-import { diagnose } from "../lib/diagnosis";
+import { diagnostic } from "../lib/diagnosis";
+import type { Liaison } from "../media/liaison";
 import type { VideoStats } from "../media/video";
 import { IMAGE } from "../lib/mots";
 
 export function ConnectionDiagnostic({
   video,
+  liaison,
+  salle,
+  moteur = null,
   onReduce,
 }: {
   video: VideoStats;
+  /** L'état de la liaison, le même que celui du bandeau (`lib/diagnosis`). */
+  liaison: Liaison;
+  salle: number;
+  moteur?: string | null;
   onReduce: () => void;
 }) {
   const [route, setRoute] = useState("unknown");
@@ -36,7 +44,7 @@ export function ConnectionDiagnostic({
       window.clearInterval(timer);
     };
   }, []);
-  const diagnosis = diagnose(video);
+  const diagnosis = diagnostic(liaison, video, salle, moteur);
   return (
     <details id="connection-diagnostic" className="border-t border-rule pt-2 text-corps">
       <summary className="cursor-pointer">Ta connexion · {diagnosis.title.toLowerCase()}</summary>
@@ -58,7 +66,7 @@ export function ConnectionDiagnostic({
         </p>
         {diagnosis.reduce ? (
           <button type="button" className="n3-action" onClick={onReduce}>
-            Essayer l’image légère
+            {IMAGE.passer}
           </button>
         ) : null}
       </div>

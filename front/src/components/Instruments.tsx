@@ -3,7 +3,7 @@ import { FIGEE_MS } from "../media/liaison";
 import { NOM_ETAT } from "../lib/liaison-mots";
 import type { Snapshot } from "../media/session";
 import { Panel, Readout } from "./Readout";
-import { etatDuSon } from "../lib/mots";
+import { etatDuSon, prixImageLegere } from "../lib/mots";
 
 /**
  * What the room is doing, in numbers.
@@ -22,7 +22,15 @@ const RIEN = "–";
  * « jamais ». */
 const duree = (ms: number | null) => (ms === null ? RIEN : (ms / 1000).toFixed(1));
 
-export function Instruments({ shot }: { shot: Snapshot }) {
+export function Instruments({
+  shot,
+  moteur = null,
+}: {
+  shot: Snapshot;
+  /** Le moteur de la console du jeu: le prix de l'image légère n'est un
+   * chiffre que là où il a été mesuré (`mots.prixImageLegere`). */
+  moteur?: string | null;
+}) {
   const { video, sound, input, liaison } = shot;
   const cadence = video.heldRefreshes;
   const even = cadence.p05 === cadence.p95;
@@ -122,7 +130,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           value={video.half ? "légère" : "complète"}
           unit={`${video.picture.width}×${video.picture.height}`}
           tone="faint"
-          hint="Le worker encode la même image deux fois et chacun choisit. L'image légère demande environ 2,6 fois moins de débit."
+          hint={`Le worker encode la même image deux fois et chacun choisit. L'image légère demande ${prixImageLegere(moteur)}.`}
         />
         <Readout
           label="jetées avant leur tour"

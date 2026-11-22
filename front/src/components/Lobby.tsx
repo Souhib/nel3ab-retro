@@ -188,14 +188,17 @@ export function Lobby({
        l'on ne peut pas défiler. Mesuré le 22 novembre 2026 sur un téléphone
        tenu en travers: « autres salles » commençait à -25 px en 844 sur 390,
        à -33 px en 667 sur 375 (audit M9). */
-    <div className="flex min-h-full flex-col items-center p-6">
-      <div className="my-auto flex w-full max-w-md flex-col gap-5">
-        {entete}
+    <div className="flex min-h-full flex-col items-center p-6 paysage-bas:px-6 paysage-bas:py-3">
+      {/* Tenu en travers, la fiche et les commandes côte à côte: en colonne,
+          « Rejoindre » finissait à 438 px sur un écran de 390 (vérification
+          finale du 22 novembre 2026). */}
+      <div className="my-auto flex w-full max-w-md flex-col gap-5 paysage-bas:grid paysage-bas:max-w-3xl paysage-bas:grid-cols-[3fr_2fr] paysage-bas:items-start paysage-bas:gap-x-5 paysage-bas:gap-y-3">
+        <div className="paysage-bas:col-span-2">{entete}</div>
 
         <section
           id="room"
           data-look="classique"
-          className="flex flex-col gap-3 border border-rule bg-panel p-4"
+          className="flex flex-col gap-3 border border-rule bg-panel p-4 paysage-bas:row-span-2"
         >
           <div className="flex items-baseline justify-between gap-3">
             <h1 className="truncate text-titre font-medium tracking-tight">{room?.name ?? "…"}</h1>

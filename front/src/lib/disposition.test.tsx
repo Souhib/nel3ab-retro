@@ -1,31 +1,16 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { REQUETE_TIROIR, TIROIR_SOUS, enTiroir, useEnTiroir } from "./disposition";
+import { REQUETE_TIROIR, TIROIR_SOUS, useEnTiroir } from "./disposition";
 
 describe("la colonne en tiroir", () => {
-  it("passe en tiroir sous 900 px de large, même à la souris", () => {
-    expect(enTiroir(TIROIR_SOUS - 1, false)).toBe(true);
-    expect(enTiroir(390, false)).toBe(true);
-  });
-
-  it("reste à côté de l'image à 900 px et plus, à la souris", () => {
-    // Le jumeau: une règle qui mettrait tout en tiroir passerait l'essai
-    // d'au-dessus.
-    expect(enTiroir(TIROIR_SOUS, false)).toBe(false);
-    expect(enTiroir(1440, false)).toBe(false);
-  });
-
-  it("passe en tiroir au doigt, quelle que soit la largeur", () => {
-    expect(enTiroir(1024, true)).toBe(true);
-    expect(enTiroir(2560, true)).toBe(true);
-  });
-
-  it("dit la même chose au navigateur que la fonction", () => {
-    // La requête est ce que le hook écoute: si elle disait 800 ou oubliait le
-    // pointeur grossier, la fonction testée au-dessus ne serait pas la règle
-    // appliquée.
-    expect(REQUETE_TIROIR).toContain(`(max-width: ${TIROIR_SOUS - 0.02}px)`);
-    expect(REQUETE_TIROIR).toContain("(pointer: coarse)");
+  it("demande au navigateur: sous 900 px de large, OU au doigt", () => {
+    // La requête elle-même, et pas une copie de la règle: une fonction pure
+    // `enTiroir` était essayée ici sans que la page l'appelle, et des
+    // sous-chaînes laissaient passer « et » à la place de « ou » (vérification
+    // finale du 22 novembre 2026). Le vrai comportement est prouvé par
+    // `salle-telephone.mjs`, dans un vrai navigateur.
+    expect(REQUETE_TIROIR).toBe("(max-width: 899.98px), (pointer: coarse)");
+    expect(TIROIR_SOUS).toBe(900);
   });
 });
 

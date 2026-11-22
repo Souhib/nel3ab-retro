@@ -28,6 +28,7 @@ import { PlaceDesSurcouches } from "./Surcouche";
 import { useMenuDialogue, useShell, useSwipe } from "./shell";
 import { phrase, piedDuMenu, type Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
+import { sortieDuMenu } from "../lib/mots";
 import { compteUtile, dispositionXmb } from "../lib/menu-xmb";
 import { Reperes, Touche } from "./Reperes";
 
@@ -212,7 +213,7 @@ export function Xmb({
   const groupe = items[row]?.group;
   /** « 3/14 » seulement quand des entrées sont cachées sous le bas de la liste. */
   const compte = compteUtile(d, hauteur, items.length) ? `${row + 1}/${items.length}` : "";
-  const sortieDite = sortie ?? (idle ? "Fermer le menu" : "Reprendre la partie");
+  const sortieDite = sortie ?? sortieDuMenu({ dossier: false, idle });
 
   /* La manette conduit la même croix que le clavier, par le même chemin. Le
      gestionnaire est reposé à chaque rendu parce qu'il ferme sur l'état courant;

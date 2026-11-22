@@ -48,17 +48,20 @@ it("ne décrit pas la salle au repos comme une connexion vidéo coupée", async 
 });
 
 it("décrit une coupure quand un jeu devrait envoyer de la vidéo", async () => {
+  // Avec l'état de la liaison et les mots du bandeau: la colonne ne recalcule
+  // plus la coupure (vérification finale du 22 novembre 2026).
   const shot = {
     padOnly: false,
     sound: { state: "suspended" },
     video: { connected: false, picture: { width: 0, height: 0 } },
+    liaison: { etat: "coupee", cause: "silence", depuisMs: 3000 },
   };
   await act(async () => {
     show({ idle: false, shot });
   });
-  expect(document.querySelector("#connection-diagnostic")).toHaveTextContent(
-    "reconnexion en cours",
-  );
+  const diagnostic = document.querySelector("#connection-diagnostic");
+  expect(diagnostic).toHaveTextContent("Ta connexion · coupée");
+  expect(diagnostic).toHaveTextContent("Rien ne répond: ni la salle, ni le reste du site.");
 });
 
 describe("le bouton « ça saccade »", () => {

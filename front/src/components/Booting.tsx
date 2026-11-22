@@ -30,7 +30,6 @@ export function Booting({
   game,
   save,
   step,
-  label = "chargement",
   stalled = false,
   console: code,
   onMenu,
@@ -41,9 +40,6 @@ export function Booting({
   console?: string | null;
   save?: string;
   step: Step;
-  /** Ce qu'on attend. « chargement » pour un changement de jeu, autre chose
-   * pour une première arrivée: les étapes sont les mêmes, la raison non. */
-  label?: string;
   /** Vrai quand la page a cessé d'attendre: plus rien n'arrivera tout seul. */
   stalled?: boolean;
   onMenu?: () => void;
@@ -81,7 +77,11 @@ export function Booting({
       className="regie-nuit absolute inset-0 flex flex-col items-center justify-center gap-6 bg-ecran"
     >
       <div className="flex flex-col items-center gap-2">
-        <span className="font-mono text-note uppercase tracking-[0.3em] text-faint">{label}</span>
+        <span className="font-mono text-note uppercase tracking-[0.3em] text-faint">
+          {/* Un changement de jeu, seul cas restant: la première arrivée a son
+              rideau (`EtatSalle`) depuis le 22 novembre 2026. */}
+          chargement
+        </span>
         <h2 className="max-w-[70vw] truncate text-center text-large text-text">{game}</h2>
         {/* Sur quelle sauvegarde on part. Le choix se fait juste avant, puis
             l'écran devient noir pour une dizaine de secondes: sans ce rappel, la

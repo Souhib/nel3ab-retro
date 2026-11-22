@@ -198,7 +198,7 @@ describe("une socket muette, fermée par le chien de garde, puis rouverte muette
     ].map((vu) => vu.etat);
     expect(etats).toEqual(Array(7).fill("injoignable"));
     for (let i = 1; i < s.vus.length; i++)
-      expect(phraseLiaison(s.vus[i - 1], s.vus[i], 1)).not.toBe("L'image est revenue.");
+      expect(phraseLiaison(s.vus[i - 1], s.vus[i], 1, 1)).not.toBe("L'image est revenue.");
   });
 
   it("une socket rouverte qui n'apporte que des messages vides ne dit pas « revenue »", () => {
@@ -218,7 +218,7 @@ describe("une socket muette, fermée par le chien de garde, puis rouverte muette
       }),
     );
     expect(vu.etat).not.toBe("ok");
-    expect(phraseLiaison(s.vus[0], vu, 1)).not.toBe("L'image est revenue.");
+    expect(phraseLiaison(s.vus[0], vu, 1, 1)).not.toBe("L'image est revenue.");
   });
 
   it("jumeau: une image arrivée sur la socket rouverte, c'est revenu, et c'est dit", () => {
@@ -237,7 +237,7 @@ describe("une socket muette, fermée par le chien de garde, puis rouverte muette
       }),
     );
     expect(vu.etat).toBe("ok");
-    expect(phraseLiaison(s.vus[0], vu, 1)).toBe("L'image est revenue.");
+    expect(phraseLiaison(s.vus[0], vu, 1, 1)).toBe("L'image est revenue.");
   });
 });
 
@@ -268,7 +268,7 @@ describe("« Relancer l'image » pendant un gel, avec une poignée de main de 1,
       }),
     );
     expect(ouverte.etat).toBe("figee");
-    expect(phraseLiaison(s.vus[2], ouverte, 1)).not.toBe("L'image est revenue.");
+    expect(phraseLiaison(s.vus[2], ouverte, 1, 1)).not.toBe("L'image est revenue.");
   });
 
   it("jumeau: une socket qui ne se rouvre pas au bout de 3 s n'est plus un gel", () => {

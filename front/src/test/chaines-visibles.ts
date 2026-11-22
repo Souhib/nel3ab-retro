@@ -344,3 +344,40 @@ export function montagesHorsDuPli(
   visiter(arbre);
   return dehors;
 }
+
+/** Les boutons dont le texte écrit directement commence par une minuscule.
+ *
+ * La charte veut une majuscule à un bouton et des minuscules à une étiquette
+ * (règle 5). Le premier texte JSX enfant d'un `<button>` est jugé; un texte
+ * calculé (`{…}`) passe par le lexique, qui a ses propres formes. Les mesures
+ * techniques en sont exemptées, comme des mots d'atelier. */
+export function boutonsEnMinuscule(
+  fichier: string,
+  source: string,
+): { fichier: string; ligne: number; texte: string }[] {
+  const arbre = ts.createSourceFile(
+    fichier,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const trouves: { fichier: string; ligne: number; texte: string }[] = [];
+  const visiter = (noeud: ts.Node) => {
+    if (ts.isJsxElement(noeud) && nomDeBalise(noeud) === "button" && !sousLePli(noeud)) {
+      const premier = noeud.children.find((enfant) => !ts.isJsxText(enfant) || enfant.text.trim());
+      if (premier && ts.isJsxText(premier)) {
+        const texte = premier.text.replace(/\s+/g, " ").trim();
+        if (/^\p{Ll}/u.test(texte))
+          trouves.push({
+            fichier,
+            ligne: arbre.getLineAndCharacterOfPosition(premier.getStart()).line + 1,
+            texte,
+          });
+      }
+    }
+    ts.forEachChild(noeud, visiter);
+  };
+  visiter(arbre);
+  return trouves;
+}

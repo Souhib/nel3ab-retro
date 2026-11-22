@@ -23,7 +23,7 @@ import type { Participant, Preparation } from "../client";
 import { consoleName } from "./consoles";
 import { deviceLabel } from "./faces";
 import { de } from "./mots";
-import { padLabel, slotLabel } from "./saves";
+import { padLabel, slotLabel, type Slot } from "./saves";
 
 /** Après combien de temps le chef peut lancer sans un joueur.
  *
@@ -98,6 +98,53 @@ export function sauvegardeAnnoncee(
 ): string {
   const mienne = annonce.saveSlot === 2 && moi != null && annonce.starter === moi;
   return mienne ? slotLabel(2) : annonce.save;
+}
+
+/** La sauvegarde qu'un changement d'appareil Wii relancera, d'après l'annonce
+ * d'un lancement.
+ *
+ * « Ma sauvegarde » (2) est celle de qui lance: le salon la résout par la
+ * session qui envoie `begin`. Elle n'est donc la bonne que si cette page a
+ * lancé; depuis une autre page, relancer 2 ouvrirait la sauvegarde d'une autre
+ * personne. `null`: la page ne sait pas, et demande de passer par la
+ * bibliothèque. `undefined`: l'annonce n'en dit rien, la page garde ce qu'elle
+ * savait. */
+export function sauvegardeRelancee(
+  annonce: { saveSlot?: number; starter?: string },
+  moi: string | null | undefined,
+): Slot | null | undefined {
+  if (annonce.saveSlot === 0 || annonce.saveSlot === 1) return annonce.saveSlot;
+  if (annonce.saveSlot !== 2) return undefined;
+  return moi != null && annonce.starter === moi ? 2 : null;
+}
+
+/** Ce qu'un salon d'avant le 22 novembre 2026 répond à un chef qui lance sans
+ * avoir confirmé: il ignore le `pad` du lancement. */
+const REFUS_SANS_CONFIRMATION = "Chaque joueur doit confirmer sa configuration.";
+
+/** Le lancement du chef, compris aussi par un salon d'avant.
+ *
+ * Pendant une mise en service, la page (servie par le worker reconstruit) peut
+ * être neuve et le salon encore ancien. Ce salon refuse un chef qui n'a pas
+ * confirmé, et le chef n'a plus de bouton « Je suis prêt »: aucun jeu préparé
+ * ne se lançait (vérification finale du 22 novembre 2026). Face à ce refus,
+ * la page confirme le choix du chef puis relance, comme une page d'avant. Un
+ * salon d'aujourd'hui a déjà confirmé ce choix au premier lancement: le second
+ * passage ne change rien chez lui, et son refus se redit tel quel.
+ *
+ * « Sans attendre » n'existe pas chez un salon d'avant: son refus se dit. */
+export async function lancerEnChef(
+  send: (action: Record<string, unknown>) => Promise<void>,
+  lancement: { id: string | undefined; pad: number; sans_attendre?: true },
+): Promise<void> {
+  try {
+    await send({ action: "launch", ...lancement });
+  } catch (error) {
+    const ancien = error instanceof Error && error.message === REFUS_SANS_CONFIRMATION;
+    if (!ancien || lancement.sans_attendre) throw error;
+    await send({ action: "choose", id: lancement.id, pad: lancement.pad, ready: true });
+    await send({ action: "launch", ...lancement });
+  }
 }
 
 /** L'en-tête: la console du jeu préparé, jamais une console écrite en dur. */

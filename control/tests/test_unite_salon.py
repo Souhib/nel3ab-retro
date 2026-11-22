@@ -97,9 +97,14 @@ def test_une_console_retiree_de_l_unite_du_salon_est_nommee() -> None:
 
     vus = desaccords(salon, salles)
 
+    # L'attendu vient du manifeste: une liste écrite en dur ferait échouer ce
+    # jumeau pour une mauvaise raison le jour où une console devient jouable
+    # (vérification finale du 22 novembre 2026).
+    jouables = [one.folder for one in CONSOLES.consoles if one.playable]
+    assert "xbox360" in jouables, "la console retirée n'est plus jouable: le jumeau ne prouve rien"
+    restants = [dossier for dossier in jouables if dossier != "xbox360"]
     assert vus == [
-        "dossiers du salon ['gc', 'wii', 'switch', 'switch2'], consoles jouables "
-        "['gc', 'wii', 'switch', 'switch2', 'xbox360']",
+        f"dossiers du salon {restants}, consoles jouables {jouables}",
         "le salon et les salles ne balaient pas la même liste de dossiers",
     ]
 

@@ -22,6 +22,7 @@ import { deviceLabel } from "../lib/faces";
 import {
   ATTENTE_SANS_MS,
   gestesDuLancement,
+  lancerEnChef,
   ligneJoueur,
   titrePreparation,
 } from "../lib/lancement";
@@ -65,17 +66,28 @@ export function SwitchBindings({
   const gestes = pending
     ? gestesDuLancement(pending, input.attribution(), attendu, game?.console)
     : null;
-  const act = async (action: Record<string, unknown>) => {
+  const run = async (geste: () => Promise<void>) => {
     setBusy(true);
     setNotice("");
     try {
-      await send({ ...action, id: pending?.id });
+      await geste();
     } catch (e) {
       setNotice(e instanceof Error ? e.message : SANS_REPONSE);
     } finally {
       setBusy(false);
     }
   };
+  const act = (action: Record<string, unknown>) => run(() => send({ ...action, id: pending?.id }));
+  /** Le lancement du chef, compris aussi d'un salon d'avant (`lancerEnChef`).
+   * La manette Pro est l'appareil 4. */
+  const lancer = (sansAttendre: boolean) =>
+    run(() =>
+      lancerEnChef(send, {
+        id: pending?.id,
+        pad: 4,
+        ...(sansAttendre ? { sans_attendre: true as const } : {}),
+      }),
+    );
   const edit = (change: () => void) => {
     try {
       change();
@@ -401,7 +413,7 @@ export function SwitchBindings({
               <button
                 id="launchPrepared"
                 disabled={busy || Boolean(source.capturing) || !gestes.principal.actif}
-                onClick={() => void act({ action: "launch", pad: 4 })}
+                onClick={() => void lancer(false)}
               >
                 {gestes.principal.label}
               </button>
@@ -410,7 +422,7 @@ export function SwitchBindings({
                   id="launchWithout"
                   disabled={busy}
                   title={gestes.sansAttendre.note}
-                  onClick={() => void act({ action: "launch", pad: 4, sans_attendre: true })}
+                  onClick={() => void lancer(true)}
                 >
                   {gestes.sansAttendre.label}
                 </button>

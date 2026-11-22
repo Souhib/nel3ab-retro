@@ -20,19 +20,25 @@ export function LigneParlee({
   salle,
   demande,
   delai,
+  peintes,
 }: {
   liaison: Liaison;
   salle: number;
   demande: { from: string; port: number } | null;
   /** Le délai de réponse à une demande, en secondes. */
   delai: number;
+  /** Les images peintes par la page, lues quand l'état change (`phraseLiaison`). */
+  peintes: number;
 }) {
   const [dit, setDit] = useState("");
   const avant = useRef<Liaison>({ etat: "ok" });
+  // Lu au changement d'état, jamais en dépendance: il avance à chaque image.
+  const images = useRef(peintes);
+  images.current = peintes;
   // La clé de l'état sans ses durées: c'est elle qui décide s'il y a du neuf.
   const cle = JSON.stringify({ ...liaison, depuisMs: undefined, niveau: undefined });
   useEffect(() => {
-    const phrase = phraseLiaison(avant.current, liaison, salle);
+    const phrase = phraseLiaison(avant.current, liaison, salle, images.current);
     avant.current = liaison;
     if (phrase !== "") setDit(phrase);
     // `liaison` change deux fois par seconde par ses durées; seule sa clé

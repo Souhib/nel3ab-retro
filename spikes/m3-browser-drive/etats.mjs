@@ -283,9 +283,19 @@ const ETAPES = {
     const page = await nouvelle(PC);
     await entrer(page);
     await sleep(2000);
+    // La colonne d'une salle fermée gardait « Inviter quelqu'un », qui copiait
+    // le lien de la salle fermée, et « Prendre une place », qui ne faisait rien
+    // (vérification finale du 22 novembre 2026). Le jumeau d'abord: salle
+    // ouverte, l'invitation et la place sont là.
+    const gestes = () =>
+      page.evaluate(() => ["#inviter", "#takePad, #watchOnly"].filter((s) => document.querySelector(s) !== null));
+    const ouverte = await gestes();
+    if (ouverte.length !== 2) throw new Precondition(`salle ouverte sans ses deux gestes: ${ouverte}`);
     banc.regler({ video: "drop", ouverte: false, redemarre: false });
     const fermee = await jusqua(page, (v) => v.texte.includes("La salle 1 est fermée."), 9000);
     if (fermee.apres === null) throw new Defaut(`une salle fermée n'est pas dite fermée en 9 s: ${fermee.vu.texte}`);
+    const restes = await gestes();
+    if (restes.length > 0) throw new Defaut(`la salle fermée propose encore ${restes.join(" et ")}`);
     await capture(page, "fermee");
     await page.close();
   },

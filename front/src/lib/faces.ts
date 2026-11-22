@@ -43,6 +43,7 @@ import type { SwitchButton } from "../media/switch";
 import { SWITCH_PRO, XBOX_360, type PadMap } from "./padmap";
 import { PADS, PRO_PAD } from "./saves";
 import { labels as switchLabels, xboxLabels } from "./switch-labels";
+import { enBouton, TACTILE } from "./mots";
 
 /** La trame qu'un pavé écrit : celle de Dolphin, ou celle de la manette Pro. */
 export type Frame = "dolphin" | "pro";
@@ -160,7 +161,7 @@ function diamond(map: PadMap, inked: boolean): Groupe<SwitchButton> {
 export const DOLPHIN_FACE: DolphinFace = {
   frame: "dolphin",
   name: "manette GameCube",
-  title: "Manette tactile",
+  title: enBouton(TACTILE),
   left: {
     rows: [[{ key: "L", label: "L", spoken: "gâchette gauche", forme: "palette" }]],
     // La croix au-dessus du stick : elle sert surtout dans les menus, le stick

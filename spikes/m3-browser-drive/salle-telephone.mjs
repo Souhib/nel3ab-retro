@@ -792,6 +792,15 @@ try {
         if (!b) bad.push(`${s} est absent de l'entrée`);
         else if (b.top < zone.top - 0.5) bad.push(`${s} commence à ${Math.round(b.top)} px, au-dessus du bord`);
       }
+      // Le bouton principal tient dans l'écran sans défiler. En paysage bas,
+      // « Rejoindre » tombait sous le pli, à 393-438 px pour 390 de haut
+      // (vérification finale du 22 novembre 2026). Le jumeau est la mesure du
+      // haut juste au-dessus : resserrer ne doit pas couper le haut.
+      const entrer = await page.evaluate(boite, "#enter");
+      const hauteur = await page.evaluate(() => innerHeight);
+      if (!entrer) bad.push("#enter est absent de l'entrée");
+      else if (entrer.bottom > hauteur + 0.5)
+        bad.push(`#enter finit à ${Math.round(entrer.bottom)} px, sous le bas de l'écran (${hauteur} px)`);
       bad.push(...(await page.evaluate(etat)));
     } catch (error) {
       bad.push(`l'entrée ne se montre pas : ${error.message}`);

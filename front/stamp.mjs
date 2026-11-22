@@ -53,6 +53,15 @@ const STAMP = join(ROOT, "..", "core", "crates", "worker", "src", "page", "SOURC
  * d'avant. La page pesait 149 617 octets ce jour-là, à 383 octets du plafond,
  * et l'interface de la salle avait du travail devant elle.
  *
+ * Le 22 novembre 2026, après les huit chantiers de l'intégration, la page pèse
+ * 219 504 octets, contre 171 933 sur main: 27 % de plus en une branche. Les
+ * quatre polices du salon, embarquées en base64 (`src/index.css`), en font
+ * 27 139; le code environ 16 500 et la feuille environ 2 700 (mesures de la
+ * vérification finale, brotli qualité 11). À 400 kbit/s, la différence vaut
+ * 0,9 s de plus avant la première image; à 20 Mbit/s, 19 ms. Le plafond ne
+ * bouge pas. Servir les polices par le salon avec un cache long est une piste,
+ * pas une décision: une salle servie seule retomberait sur la police de repli.
+ *
  * Ce que ce garde protège ne change pas, et c'est pourquoi il reste: il rend
  * une DÉRIVE visible. En août, la page avait grossi de 25 % en trois jours sans
  * que personne s'en aperçoive. Un plafond qu'on relève en écrivant pourquoi

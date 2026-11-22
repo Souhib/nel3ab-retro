@@ -34,11 +34,6 @@ export const TIROIR_SOUS = 900;
  * zoom) compte encore comme étroit, sans attraper 900. */
 export const REQUETE_TIROIR = `(max-width: ${TIROIR_SOUS - 0.02}px), (pointer: coarse)`;
 
-/** La règle, en fonction pure: ce que la requête dit, pour un essai. */
-export function enTiroir(largeur: number, grossier: boolean): boolean {
-  return grossier || largeur < TIROIR_SOUS;
-}
-
 /** Vrai quand la colonne doit être un tiroir. Suit la fenêtre: tourner une
  * tablette ou rétrécir une fenêtre change la forme sans recharger. */
 export function useEnTiroir(): boolean {

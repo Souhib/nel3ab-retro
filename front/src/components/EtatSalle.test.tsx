@@ -60,7 +60,7 @@ describe("les pannes, chacune avec son geste", () => {
   it("la salle fermée renvoie à la liste des salles", () => {
     montrer({ etat: "fermee" });
     expect(screen.getByText("La salle 1 est fermée.")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Les salles" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Autres salles" })).toHaveAttribute("href", "/");
   });
 
   it("la salle injoignable propose de réessayer tout de suite", () => {
@@ -141,20 +141,22 @@ describe("la proposition de format réduit (E3)", () => {
       />,
     );
     expect(onPropositionVue).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Passer en réduit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Passer en image légère" }));
     expect(onReduire).toHaveBeenCalledTimes(1);
   });
 
   it("jumeau: une proposition cachée par un gel n'est pas notée", () => {
     const { onPropositionVue } = montrer(gel(9000, "bandeau"));
-    expect(screen.queryByRole("button", { name: "Passer en réduit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Passer en image légère" })).toBeNull();
     expect(onPropositionVue).not.toHaveBeenCalled();
   });
 });
 
 describe("la ligne parlée", () => {
   it("existe dès le départ, vide, polie et atomique", () => {
-    render(<LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} />);
+    render(
+      <LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} peintes={1} />,
+    );
     const ligne = screen.getByRole("status");
     expect(ligne).toHaveAttribute("aria-atomic", "true");
     expect(ligne).toHaveTextContent("");
@@ -162,22 +164,40 @@ describe("la ligne parlée", () => {
 
   it("dit le changement d'état, et ne se réécrit pas quand seule la durée avance", () => {
     const { rerender } = render(
-      <LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} />,
+      <LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} peintes={1} />,
     );
-    rerender(<LigneParlee liaison={gel(3000, "pastille")} salle={1} demande={null} delai={10} />);
+    rerender(
+      <LigneParlee
+        liaison={gel(3000, "pastille")}
+        salle={1}
+        demande={null}
+        delai={10}
+        peintes={1}
+      />,
+    );
     const ligne = screen.getByRole("status");
     expect(ligne).toHaveTextContent("L'image ne bouge plus. Le son arrive encore.");
     const noeud = ligne.firstChild;
-    rerender(<LigneParlee liaison={gel(14_000, "bandeau")} salle={1} demande={null} delai={10} />);
+    rerender(
+      <LigneParlee
+        liaison={gel(14_000, "bandeau")}
+        salle={1}
+        demande={null}
+        delai={10}
+        peintes={1}
+      />,
+    );
     expect(ligne.firstChild).toBe(noeud);
     expect(ligne).toHaveTextContent("L'image ne bouge plus. Le son arrive encore.");
-    rerender(<LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} />);
+    rerender(
+      <LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} peintes={1} />,
+    );
     expect(ligne).toHaveTextContent("L'image est revenue.");
   });
 
   it("dit une seule fois qu'un démarrage traîne, puis qu'il est perdu (A11Y-07)", () => {
     const ligne = (liaison: Liaison) => (
-      <LigneParlee liaison={liaison} salle={1} demande={null} delai={10} />
+      <LigneParlee liaison={liaison} salle={1} demande={null} delai={10} peintes={1} />
     );
     const { rerender } = render(ligne({ etat: "demarrage", depuisMs: 1000 }));
     expect(screen.getByRole("status")).toHaveTextContent("Le jeu démarre.");
@@ -193,7 +213,7 @@ describe("la ligne parlée", () => {
 
   it("annonce une demande de manette une fois, sans décompte", () => {
     const { rerender } = render(
-      <LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} />,
+      <LigneParlee liaison={{ etat: "ok" }} salle={1} demande={null} delai={10} peintes={1} />,
     );
     rerender(
       <LigneParlee
@@ -201,6 +221,7 @@ describe("la ligne parlée", () => {
         salle={1}
         demande={{ from: "Lina", port: 2 }}
         delai={10}
+        peintes={1}
       />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(

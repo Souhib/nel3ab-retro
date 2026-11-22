@@ -23,6 +23,8 @@
  * aussi l'état d'une page qui vient de s'ouvrir.
  */
 
+import { useEffect, useRef, useState, type RefObject } from "react";
+
 /** L'attribut posé sur la zone de jeu. Un attribut et pas un `id`: un pilote
  * ou un essai peut le poser sur son propre élément. */
 export const ZONE_JEU = "data-zone-jeu";
@@ -117,3 +119,83 @@ export function rendreAuJeuApresClic({
 
 /** L'attribut des boutons ponctuels de la colonne (`rendreAuJeuApresClic`). */
 export const REND_LE_JEU = "data-rend-le-jeu";
+
+/**
+ * Le modèle de focus, branché sur la salle: la zone de jeu, et si le clavier y
+ * joue en ce moment. Sorti d'`App.tsx`, dont la fonction `Room` faisait 2600
+ * lignes (vérification finale du 22 novembre 2026); le comportement est le même,
+ * effet pour effet.
+ *
+ * - le focus suivi sur le document, jamais à chaque image;
+ * - à l'entrée, le focus va au jeu, sauf si la salle ouvre son menu;
+ * - fermer le menu rend la main au jeu pendant une partie, ou quand le focus
+ *   est retombé sur le document;
+ * - un clic de souris sur un bouton ponctuel de la colonne rend le clavier au
+ *   jeu (`rendreAuJeuApresClic`).
+ */
+export function useFocusJeu({
+  menu,
+  playing,
+  enPartie,
+}: {
+  menu: boolean;
+  /** Un jeu tourne (`true`), aucun (`false`), ou la salle n'a pas encore parlé. */
+  playing: boolean | null;
+  /** Un jeu tourne et a fini de démarrer. */
+  enPartie: boolean;
+}): { zone: RefObject<HTMLDivElement | null>; auJeu: boolean } {
+  const zone = useRef<HTMLDivElement>(null);
+  /** Le clavier joue-t-il en ce moment ? Relu quand le focus bouge, jamais à
+   * chaque image: le focus change sur un clic ou un Tab, pas à 60 Hz. */
+  const [auJeu, setAuJeu] = useState(() => clavierAuJeu(document.activeElement));
+  useEffect(() => {
+    const suivre = (event: FocusEvent) =>
+      setAuJeu(clavierAuJeu(event.type === "focusout" ? event.relatedTarget : event.target));
+    addEventListener("focusin", suivre);
+    addEventListener("focusout", suivre);
+    return () => {
+      removeEventListener("focusin", suivre);
+      removeEventListener("focusout", suivre);
+    };
+  }, []);
+  // À l'entrée, le focus va au jeu: au clavier, on joue sans cliquer l'image.
+  // Une salle au repos ouvre son menu, qui le prend à son tour.
+  const menuALEntree = useRef(menu);
+  useEffect(() => {
+    if (!menuALEntree.current) zone.current?.focus({ preventScroll: true });
+  }, []);
+  // Fermer le menu rend la main au jeu. Le dialogue a déjà rendu le focus à ce
+  // qui l'avait avant lui, souvent le bouton « menu » de la colonne; mais
+  // « reprendre la partie » veut dire jouer, et Entrée sur ce bouton rouvrirait
+  // le menu au lieu d'envoyer START. Sans partie, on laisse ce focus, sauf
+  // s'il est retombé sur le document parce que son bouton a disparu.
+  const menuAvant = useRef(menu);
+  useEffect(() => {
+    const ferme = menuAvant.current && !menu;
+    menuAvant.current = menu;
+    if (!ferme) return;
+    const ici = document.activeElement;
+    if (playing === true || ici === null || ici === document.body)
+      zone.current?.focus({ preventScroll: true });
+  }, [menu, playing]);
+  // Un clic de souris sur un bouton ponctuel de la colonne (une prise, un
+  // mode, le clip, le micro) rend le clavier au jeu: c'était le geste le plus
+  // courant d'une partie, et il coupait la manette (`rendreAuJeuApresClic`).
+  // Sur le document et en remontée: le bouton a déjà fait son travail.
+  useEffect(() => {
+    const clic = (event: MouseEvent) => {
+      const cible = event.target instanceof Element ? event.target : null;
+      if (
+        rendreAuJeuApresClic({
+          pointeur: event.detail > 0,
+          partie: enPartie,
+          ponctuel: cible?.closest(`[${REND_LE_JEU}]`) != null,
+        })
+      )
+        zone.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("click", clic);
+    return () => document.removeEventListener("click", clic);
+  }, [enPartie]);
+  return { zone, auJeu };
+}

@@ -35,6 +35,9 @@ import { GAMECUBE, SWITCH_PRO, XBOX_360, mirrorX, type PadMap } from "./padmap";
 import { labels as switchLabels, xboxLabels } from "./switch-labels";
 
 /** Les touches simples d'une face, par nom de trame. */
+/** Les touches d'une manette Pro dont le pavé dit un nom à voix haute. */
+const PARLEES = ["L", "LS", "MINUS", "PLUS", "R", "RS", "ZL", "ZR"];
+
 function keysOf(face: Face): Map<string, { label: string; spoken?: string }> {
   const found = new Map<string, { label: string; spoken?: string }>();
   for (const cote of [face.left, face.right]) {
@@ -89,9 +92,13 @@ describe("les noms des touches", () => {
     expect(keys.get("ZR")?.label).toBe("RT");
     expect(keys.get("MINUS")?.label).toBe("Back");
     expect(keys.get("PLUS")?.label).toBe("Start");
-    // Une seule source pour le pavé et le configurateur: `xboxLabels`.
-    for (const [key, one] of keys)
-      if (one.spoken) expect(one.spoken, key).toBe(xboxLabels[key as "A"]);
+    // Une seule source pour le pavé et le configurateur: `xboxLabels`. La
+    // précondition d'abord: sans elle, un pavé qui perdrait tous ses noms dits
+    // laisserait la boucle vide et l'essai vert (vérification finale du
+    // 22 novembre 2026).
+    const parlees = [...keys].filter(([, one]) => one.spoken !== undefined);
+    expect(parlees.map(([key]) => key).sort()).toEqual(PARLEES);
+    for (const [key, one] of parlees) expect(one.spoken, key).toBe(xboxLabels[key as "A"]);
     expect(face.names).toBe(xboxLabels);
     const said = [...keys.values()].map((one) => `${one.label} ${one.spoken ?? ""}`).join(" ");
     expect(said).not.toMatch(/ZL|ZR|[+−]/);
@@ -105,8 +112,9 @@ describe("les noms des touches", () => {
     expect(keys.get("ZL")?.label).toBe("ZL");
     expect(keys.get("PLUS")?.label).toBe("+");
     expect(keys.get("MINUS")?.label).toBe("−");
-    for (const [key, one] of keys)
-      if (one.spoken) expect(one.spoken, key).toBe(switchLabels[key as "A"]);
+    const parlees = [...keys].filter(([, one]) => one.spoken !== undefined);
+    expect(parlees.map(([key]) => key).sort()).toEqual(PARLEES);
+    for (const [key, one] of parlees) expect(one.spoken, key).toBe(switchLabels[key as "A"]);
     const said = [...keys.values()].map((one) => one.label).join(" ");
     expect(said).not.toMatch(/LB|LT|Back|Start/);
     expect(faceOf("switch2")).toBe(SWITCH_FACE);

@@ -402,7 +402,8 @@ padmap-visuel:
 # cette touche, un vrai appui arrive au pavé sous son nom, et aucun geste de
 # page n'est à moins de 12 px d'une touche de jeu. Avec une bande noire de
 # 130 px, rien ne mord sur l'image, gestes compris ; l'avis de fermeture reste
-# au-dessus du pavé ; chaque inscription tient 4,5:1 dans les sept thèmes.
+# au-dessus du pavé ; chaque inscription tient 4,5:1 dans les deux régies,
+# nuit et jour, qui doivent donner deux panneaux différents.
 # Écrite après l'audit du 22 novembre 2026, où taper R sur un iPhone cachait
 # la manette. Hors de `check` parce qu'elle demande Chrome; dans `local`. Vite
 # sert la page sans relais vers la salle, sur le port 5437 (MANETTE_GARDE_PORT

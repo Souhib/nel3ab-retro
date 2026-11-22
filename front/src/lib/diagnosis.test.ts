@@ -1,5 +1,7 @@
 import { expect, it } from "vitest";
-import { diagnose } from "./diagnosis";
+import { diagnose, diagnostic } from "./diagnosis";
+import { dire } from "./liaison-mots";
+import type { Liaison } from "../media/liaison";
 import { VideoStream } from "../media/video";
 const sample = () => ({
   ...new VideoStream(document.createElement("canvas"), (p) => p).stats(),
@@ -9,7 +11,6 @@ const sample = () => ({
 
 it("distingue l'attente, le décodage et la réception sans réduire les autres joueurs", () => {
   const video = sample();
-  expect(diagnose({ ...video, connected: false }).title).toContain("Reconnexion");
   expect(diagnose({ ...video, paintedSince: 0 }).reduce).toBe(false);
   expect(diagnose({ ...video, backlog: 10 }).title).toContain("Décodage");
   expect(diagnose({ ...video, backlog: 9 }).title).not.toContain("Décodage");
@@ -50,17 +51,48 @@ it("un écran qui suit le jeu, ou plus rapide que lui, ne déclenche rien", () =
   );
 });
 
-it("dit l'image figée quand la liaison reste ouverte et qu'aucune image n'arrive", () => {
-  // Le 21 novembre 2026, le résumé disait « aucune surcharge détectée » pendant
-  // vingt minutes d'image figée (audit, P1 et E1).
-  const gel = { ...sample(), painted: 4000, sinceHeardMs: 200, sinceUnitMs: 14_000 };
-  const said = diagnose(gel);
-  expect(said.title).toBe("Image figée");
-  expect(said.detail).toContain("14 s");
-  expect(said.reduce).toBe(false);
-});
-
 it("jumeau: une image arrivée il y a un instant n'est pas un gel", () => {
   const vit = { ...sample(), painted: 4000, sinceHeardMs: 16, sinceUnitMs: 16 };
   expect(diagnose(vit).title).not.toBe("Image figée");
+});
+
+// La colonne et le bandeau lisent la même machine à états (`media/liaison`).
+// Avant, la colonne recalculait le gel et la coupure avec ses propres règles,
+// et les deux pouvaient se contredire: pendant la reprise après un gel, le
+// bandeau disait encore « image figée » et la colonne « aucune surcharge »
+// (vérification finale du 22 novembre 2026).
+const figee: Liaison = {
+  etat: "figee",
+  depuisMs: 9000,
+  son: true,
+  manette: true,
+  niveau: "bandeau",
+};
+
+it("la colonne dit l'état de la liaison, avec les mots du bandeau", () => {
+  // L'image repart déjà, mais la liaison n'est pas encore sortie du gel.
+  const repart = { ...sample(), painted: 4000, sinceHeardMs: 16, sinceUnitMs: 16 };
+  const dit = diagnostic(figee, repart, 1);
+  expect(dit.title).toBe("image figée");
+  expect(dit.detail).toContain(dire(figee, 1).titre);
+  expect(dit.reduce).toBe(false);
+  const decodeur = diagnostic({ etat: "decodeur", depuisMs: 5000 }, sample(), 1);
+  expect(decodeur.title).toBe("affichage arrêté");
+  expect(decodeur.detail).toContain("ton appareil ne l'affiche plus");
+  const coupee = diagnostic({ etat: "coupee", cause: "reseau", depuisMs: 3000 }, sample(), 2);
+  expect(coupee.title).toBe("coupée");
+  expect(diagnostic({ etat: "fermee" }, sample(), 2).detail).toContain("La salle 2 est fermée.");
+});
+
+it("jumeau: une liaison en marche garde ce que seule la colonne sait", () => {
+  const video = sample();
+  expect(diagnostic({ etat: "ok" }, { ...video, backlog: 10 }, 1).title).toContain("Décodage");
+  expect(diagnostic({ etat: "ok" }, { ...video, overloaded: true }, 1).reduce).toBe(true);
+  expect(diagnostic({ etat: "irreguliere" }, { ...video, overloaded: true }, 1).title).toContain(
+    "Réception",
+  );
+  expect(diagnostic({ etat: "ok" }, video, 1).title).toBe("Aucune surcharge détectée");
+  // Un gel que la liaison ne voit pas (pas encore, ou plus) ne se dit pas ici.
+  const gel = { ...video, painted: 4000, sinceHeardMs: 200, sinceUnitMs: 14_000 };
+  expect(diagnostic({ etat: "ok" }, gel, 1).title).not.toBe("Image figée");
 });

@@ -456,6 +456,17 @@ export const GRACE_WINDOWS = 3;
  */
 export const ROUGH_IN_A_ROW = 2;
 
+/** À quel rythme la page dit ce qu'elle voit, en millisecondes.
+ *
+ * Dix secondes. Assez fin pour dater une saccade à la fenêtre près, assez large
+ * pour qu'une soirée de quatre joueurs tienne dans quelques centaines de
+ * kilo-octets. Une seconde donnerait soixante fois plus de lignes sans rien dire
+ * de plus: ce qui intéresse ici est la forme d'une minute, pas d'une image.
+ *
+ * Ici et non dans `App.tsx` depuis le 22 novembre 2026: la phrase d'une image
+ * qui saute en tire sa durée (`liaison-mots`). */
+export const VITALS_EVERY = 10_000;
+
 /** À partir de quand on REVIENT à la charge après un refus: un gel de deux
  * secondes, quatre fois le seuil ordinaire.
  *

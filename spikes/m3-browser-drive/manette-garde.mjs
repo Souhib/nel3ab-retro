@@ -25,9 +25,11 @@
 //   6. l'avis de fermeture de la salle reste AU-DESSUS du pavé : son centre et
 //      ses quatre bords le reçoivent. Sa copie prend la classe écrite dans
 //      `App.tsx`, lue dans le fichier, pour ne pas vérifier un avis inventé ;
-//   7. dans les sept thèmes, chaque inscription du pavé contraste d'au moins
-//      4,5:1 avec le fond de sa touche posé sur le noir de la bande (3:1 pour
-//      un grand texte), son coupé compris ;
+//   7. dans les deux régies, nuit et jour, chaque inscription du pavé
+//      contraste d'au moins 4,5:1 avec le fond de sa touche posé sur le noir
+//      de la bande (3:1 pour un grand texte), son coupé compris. Les deux
+//      régies doivent donner deux `--panel` différents, sinon une seule a été
+//      mesurée ;
 //   8. aucune pose ne se dit dégradée (`data-degradee` sur la boîte du pavé).
 //
 // Trois jumeaux négatifs ouvrent la garde : un geste posé sur une touche, un
@@ -75,9 +77,14 @@ const SIZES = [
   [768, 1024],
   [1024, 768],
 ];
-// Les sept thèmes d'`index.css` ; `null` est le thème par défaut
-// (instrument sombre), sans attribut.
-const THEMES = [null, "instrument-clair", "phosphore", "ambre", "indigo", "famicom", "gameboy"];
+// Les deux régies de `regie.css`, posées par `data-theme` comme le fait la page.
+//
+// La liste nommait encore les sept anciens thèmes, qu'aucun sélecteur ne lit
+// depuis la régie. Chrome sans écran se dit en mode clair : les sept valeurs
+// donnaient la régie de jour, et la nuit n'était jamais mesurée. Un mutant qui
+// rendait l'encre de nuit gris foncé passait la garde (vérification finale du
+// 22 novembre 2026).
+const THEMES = ["nuit", "jour"];
 // Le seuil de WCAG 1.4.3 : 4,5:1, ou 3:1 pour un texte de 24 px, ou de 18,66 px
 // en gras.
 const CONTRAST = 4.5;
@@ -524,7 +531,7 @@ try {
     }
   }
 
-  // Le contraste, dans chaque thème, son en marche puis coupé. À une seule
+  // Le contraste, dans chaque régie, son en marche puis coupé. À une seule
   // taille : les couleurs ne dépendent pas de la place.
   for (const room of ROOMS) {
     for (const muet of [false, true]) {
@@ -544,23 +551,24 @@ try {
       const bad = [];
       let worstWhite = Infinity;
       let measured = 0;
+      const panneaux = new Set();
       for (const theme of THEMES) {
-        await page.evaluate((theme) => {
-          if (theme) document.documentElement.dataset.theme = theme;
-          else delete document.documentElement.dataset.theme;
+        const panneau = await page.evaluate((theme) => {
+          document.documentElement.dataset.theme = theme;
+          return getComputedStyle(document.documentElement).getPropertyValue("--panel").trim();
         }, theme);
+        panneaux.add(panneau);
         // Les touches ont une transition de 60 ms sur leur fond : lu pendant
         // elle, le fond est un mélange des deux thèmes.
         await new Promise((r) => setTimeout(r, 200));
-        if (theme === "instrument-clair" || theme === null)
-          await page.screenshot({ path: join(OUT, `${name}-${theme ?? "defaut"}.png`) });
+        await page.screenshot({ path: join(OUT, `${name}-${theme}.png`) });
         const seen = await page.evaluate(contrast, { CONTRAST, CONTRAST_LARGE });
         measured += seen.length;
         for (const one of seen) {
           worstWhite = Math.min(worstWhite, one.white);
           if (one.black < one.need)
             bad.push(
-              `${theme ?? "défaut"} : « ${one.text} » (${one.name}) à ${one.black.toFixed(2)}:1 sur le noir, ${one.need}:1 demandé`,
+              `${theme} : « ${one.text} » (${one.name}) à ${one.black.toFixed(2)}:1 sur le noir, ${one.need}:1 demandé`,
             );
         }
       }
@@ -569,8 +577,12 @@ try {
       // un seul « ••• » (22 novembre 2026).
       const minimum = THEMES.length * (room.pad === "gc" ? 13 : 17);
       if (measured < minimum) bad.push(`${measured} inscriptions mesurées, ${minimum} attendues au moins`);
+      // La seconde précondition : deux régies qui donnent le même panneau sont
+      // une seule régie mesurée deux fois.
+      if (panneaux.size !== THEMES.length)
+        bad.push(`${THEMES.length} régies posées, ${panneaux.size} panneau(x) différent(s) : ${[...panneaux].join(", ")}`);
       console.log(
-        `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${measured} inscriptions dans ${THEMES.length} thèmes ; sur un fond blanc, le pire est ${worstWhite.toFixed(2)}:1 (non exigé)`,
+        `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${measured} inscriptions dans ${THEMES.length} régies (${[...panneaux].join(" et ")}) ; sur un fond blanc, le pire est ${worstWhite.toFixed(2)}:1 (non exigé)`,
       );
       for (const one of bad) console.log(`        ${one}`);
       if (bad.length) failures.push(name);

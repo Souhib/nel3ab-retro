@@ -43,7 +43,9 @@ function Gauge({ mark, tag, digits }: { mark: string; tag: string; digits: numbe
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <Tag>{tag}</Tag>
-        <span className="n3-value text-corps tabular-nums text-bright">{(0).toFixed(digits)}</span>
+        <span className="n3-value font-mono text-corps tabular-nums text-bright">
+          {(0).toFixed(digits)}
+        </span>
       </span>
     </div>
   );
@@ -94,7 +96,10 @@ export function Bench({
           <Tag>horodatage</Tag>
           {/* Le seul chiffre qui dit si la manette parle ENCORE. Figé, elle est
               muette même si tout le reste a l'air juste. */}
-          <span className="n3-value text-corps tabular-nums text-bright" data-gauge="stamp">
+          <span
+            className="n3-value font-mono text-corps tabular-nums text-bright"
+            data-gauge="stamp"
+          >
             0
           </span>
         </span>

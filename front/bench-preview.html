@@ -4,9 +4,12 @@
     <meta charset="utf-8" />
     <title>Aperçu du banc d'essai</title>
     <style>
-      html { background: #08080a; }
-      body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; }
-      .card { border: 1px solid #1e1e25; background: #0e0e11; padding: 14px; max-width: 560px; }
+      /* Les rôles de la régie, pas des couleurs en dur: la page suit le
+         système depuis le 22 novembre 2026, et une carte restée #0e0e11 sous
+         un texte de jour tombait à 1,07:1 (just banc-visuel). */
+      html { background: var(--fond); }
+      body { margin: 0; padding: 16px; font-family: var(--police-texte); }
+      .card { border: 1px solid var(--filet); background: var(--plaque); padding: 14px; max-width: 560px; }
     </style>
   </head>
   <body>

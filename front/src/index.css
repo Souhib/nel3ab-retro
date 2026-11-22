@@ -211,8 +211,15 @@ body {
      SANS son accent sous une vingtaine de pixels (relevé au carnet de jeu le
      21 novembre 2026). Désactiver le calage des contours rend l'accent. */
   text-rendering: geometricPrecision;
-  /* Des nombres qui ne gigotent pas en changeant: un afficheur qui danse est un
-     afficheur que personne ne lit. */
+  /* Des chiffres de même largeur, là où la police en a. Les sous-ensembles
+     Anybody n'ont PAS la fonction `tnum` (vérifié le 22 novembre 2026 avec
+     fontTools: aucune fonction dans leur table GSUB, et dix chasses de chiffre
+     différentes), si bien que cette règle ne fait rien sur le texte courant.
+     Elle vaut pour les replis du système et pour `font-mono`. Un nombre qui
+     change sous les yeux (une mesure, un compteur, un horodatage) s'écrit donc
+     en `font-mono`, comme `Readout` et les valeurs des menus: un afficheur qui
+     danse est un afficheur que personne ne lit. `just banc-visuel` mesure la
+     largeur des valeurs du banc avec des chiffres différents. */
   font-variant-numeric: tabular-nums;
 }
 
@@ -415,10 +422,23 @@ body {
 }
 
 /* Les manettes du configurateur sont des OBJETS : elles gardent leurs couleurs
-   d'objet sur toutes les ambiances. Seul l'appui prend l'accent de la page,
-   avec un anneau, un halo et un léger enfoncement, pour ne pas reposer sur la
-   couleur seule. Les matières de chaque manette sont plus bas, par plan. */
+   d'objet dans les deux régies, y compris leur appui. Un appui se voit par un
+   aplat, un anneau, un halo et un léger enfoncement, pour ne pas reposer sur
+   la couleur seule. Les matières de chaque manette sont plus bas, par plan.
+
+   L'appui a SA couleur, et ne suit plus l'accent de la page. Jusqu'au
+   21 novembre 2026, il prenait l'indigo de l'ambiance sombre, #7c6ce0, avec un
+   anneau #e8e8ee et une encre #08080a, et `just banc-visuel` le trouvait à 3:1
+   au moins sur chaque manette. Le 22 novembre, ces trois valeurs sont devenues
+   le signal, l'encre et le fond de la régie: de nuit, le violet plus clair
+   tombait à 2,06:1 sur les touches de la Wiimote; de jour, le violet foncé
+   avec son anneau graphite tombait à 1,57:1 sur la manette standard. Les
+   valeurs d'avant sont donc gardées ici, en couleurs d'objet. Une manette qui
+   porte déjà ce violet (la GameCube) déclare la sienne plus bas. */
 [data-padmap] {
+  --pad-lit: #7c6ce0;
+  --pad-lit-ring: #e8e8ee;
+  --pad-lit-ink: #08080a;
   --pad-shell-top: #4b5161;
   --pad-shell-bottom: #1c2028;
   --pad-sheen: 0.32;
@@ -566,22 +586,23 @@ body {
   stroke: var(--faint);
   stroke-width: 0.3;
 }
-/* La couleur de l'appui est celle de l'accent, sauf sur une coque qui la porte
-   déjà : sur la GameCube violette, un bouton indigo ne se voyait pas. Aucune
-   teinte ne tranche à la fois sur ce violet et sur sa croix gris clair ; son
-   appui y a donc un anneau sombre, qui se voit là où l'aplat ne se voit pas. */
+/* La couleur de l'appui est celle de la manette (plus haut), sauf sur une
+   coque qui porte déjà ce violet : sur la GameCube, un bouton violet ne se
+   voyait pas. Aucune teinte ne tranche à la fois sur ce violet et sur sa croix
+   gris clair ; son appui y a donc un anneau sombre, qui se voit là où l'aplat
+   ne se voit pas. */
 [data-padmap] [data-lit="oui"] .n3-cap {
-  fill: var(--pad-lit, var(--indigo));
-  stroke: var(--pad-lit-ring, var(--text));
+  fill: var(--pad-lit);
+  stroke: var(--pad-lit-ring);
   stroke-width: 0.6;
-  filter: drop-shadow(0 0 1.2px var(--pad-lit, var(--indigo)));
+  filter: drop-shadow(0 0 1.2px var(--pad-lit));
 }
 [data-padmap] [data-lit="oui"] text:not(.n3-callout) {
-  fill: var(--pad-lit-ink, var(--ink));
+  fill: var(--pad-lit-ink);
 }
 [data-padmap] [data-lit="oui"] .n3-glyph,
 [data-padmap] [data-lit="oui"] .n3-stick-grip {
-  stroke: var(--pad-lit-ink, var(--ink));
+  stroke: var(--pad-lit-ink);
 }
 [data-padmap] [data-flush] .n3-cap {
   stroke: none;

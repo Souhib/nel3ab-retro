@@ -93,3 +93,89 @@ it("le son coupé se voit sur son geste", () => {
   const { container } = poser();
   expect(container.querySelector("#wakeSound")?.hasAttribute("data-alerte")).toBe(true);
 });
+
+it("le son qui joue ne s'alerte pas", () => {
+  // Le jumeau négatif de l'essai d'au-dessus: un pavé qui alerterait toujours
+  // le passerait.
+  const touch = new Touch();
+  const { container } = render(
+    <TouchPad
+      bar={0}
+      touch={touch}
+      soundOff={false}
+      onSound={vi.fn()}
+      onLeave={vi.fn()}
+      onMenu={vi.fn()}
+    />,
+  );
+  expect(container.querySelector("#wakeSound")?.hasAttribute("data-alerte")).toBe(false);
+});
+
+/* Ce qui relâche sans que le doigt se lève.
+ *
+ * Un appel entrant annule les pointeurs (`pointercancel`), le navigateur peut
+ * reprendre la capture (`lostpointercapture`), et quitter l'onglet n'envoie
+ * aucun `pointerup`. Sans relâchement, la touche reste tenue pour toujours. */
+
+it("une annulation de pointeur relâche la touche tenue", () => {
+  const { container, touch } = poser();
+  const a = container.querySelector("#touch-A") as HTMLElement;
+  fireEvent.pointerDown(a, { pointerId: 4 });
+  expect((touch.reading()?.buttons ?? 0) & BUTTON.A).toBe(BUTTON.A);
+  fireEvent.pointerCancel(a, { pointerId: 4 });
+  expect(touch.reading()).toBeNull();
+});
+
+it("une capture perdue relâche la touche tenue", () => {
+  const { container, touch } = poser();
+  const a = container.querySelector("#touch-A") as HTMLElement;
+  fireEvent.pointerDown(a, { pointerId: 5 });
+  expect((touch.reading()?.buttons ?? 0) & BUTTON.A).toBe(BUTTON.A);
+  fireEvent.lostPointerCapture(a, { pointerId: 5 });
+  expect(touch.reading()).toBeNull();
+});
+
+it("une annulation ou une capture perdue relâche aussi la croix", () => {
+  const { container, touch } = poser();
+  const croix = container.querySelector("#touch-croix") as HTMLElement;
+  croix.getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0 }) as DOMRect;
+  fireEvent.pointerDown(croix, { clientX: 50, clientY: 5, pointerId: 6 });
+  expect(touch.reading()?.buttons).toBe(BUTTON.D_UP);
+  fireEvent.pointerCancel(croix, { pointerId: 6 });
+  expect(touch.reading()).toBeNull();
+  expect(croix.hasAttribute("data-up")).toBe(false);
+  fireEvent.pointerDown(croix, { clientX: 95, clientY: 50, pointerId: 7 });
+  expect(touch.reading()?.buttons).toBe(BUTTON.D_RIGHT);
+  fireEvent.lostPointerCapture(croix, { pointerId: 7 });
+  expect(touch.reading()).toBeNull();
+  expect(croix.hasAttribute("data-right")).toBe(false);
+});
+
+it("quitter l'onglet relâche une touche tenue, et la croix éteint sa branche", () => {
+  const { container, touch } = poser();
+  fireEvent.pointerDown(container.querySelector("#touch-B") as HTMLElement, { pointerId: 8 });
+  expect((touch.reading()?.buttons ?? 0) & BUTTON.B).toBe(BUTTON.B);
+  window.dispatchEvent(new Event("blur"));
+  expect(touch.reading()).toBeNull();
+  const croix = container.querySelector("#touch-croix") as HTMLElement;
+  croix.getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0 }) as DOMRect;
+  fireEvent.pointerDown(croix, { clientX: 50, clientY: 95, pointerId: 9 });
+  expect(croix.hasAttribute("data-down")).toBe(true);
+  document.dispatchEvent(new Event("visibilitychange"));
+  expect(touch.reading()).toBeNull();
+  expect(croix.hasAttribute("data-down")).toBe(false);
+});
+
+it("la croix se nomme une fois, et ses flèches dessinées restent muettes", () => {
+  // Un lecteur d'écran lisait « triangle noir pointant vers le haut » quatre
+  // fois sous « croix directionnelle ». Les branches sont du dessin.
+  const { container } = poser();
+  const croix = container.querySelector("#touch-croix") as HTMLElement;
+  expect(croix.getAttribute("aria-label")).toBe("croix directionnelle");
+  const bras = [...croix.querySelectorAll("[data-bras]")];
+  expect(bras).toHaveLength(4);
+  for (const one of bras)
+    expect(one.getAttribute("aria-hidden"), one.textContent ?? "").toBe("true");
+});

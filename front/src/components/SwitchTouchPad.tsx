@@ -18,7 +18,7 @@ import { Pave } from "./TouchPad";
 export function SwitchTouchPad({
   source,
   console: code,
-  bar = 0,
+  bar,
   soundOff = false,
   onMenu,
   onLeave,
@@ -26,10 +26,16 @@ export function SwitchTouchPad({
 }: {
   source: SwitchInput;
   /** La console de la salle, pour nommer les touches comme sa manette. Une
-   * salle Pro inconnue retombe sur la manette Pro de la Switch. */
-  console?: string;
-  /** La largeur d'une bande noire à côté de l'image, en pixels. */
-  bar?: number;
+   * salle Pro inconnue retombe sur la manette Pro de la Switch.
+   *
+   * Obligatoire, même `undefined` : une salle Xbox 360 ne parle Xbox que par
+   * cette prop, et un appel qui l'oublierait retomberait en silence sur les
+   * noms Switch. Sans point d'interrogation, il ne compile plus. */
+  console: string | undefined;
+  /** La largeur d'une bande noire à côté de l'image, en pixels. Obligatoire
+   * pour la même raison : oubliée, elle vaudrait zéro et les touches iraient
+   * sur l'image. */
+  bar: number;
   soundOff?: boolean;
   onMenu: () => void;
   onLeave: () => void;

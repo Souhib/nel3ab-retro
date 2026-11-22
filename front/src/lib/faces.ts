@@ -13,8 +13,12 @@
  *
  * Ici, les noms prononcés d'une salle Pro viennent de `switch-labels`, la table
  * que lit le configurateur, et la place des quatre boutons vient des dessins
- * relevés sur photo (`padmap`). Une seule vérité pour les deux écrans : un essai
- * vérifie que le losange tactile d'une Xbox met bien A en bas, comme son dessin.
+ * relevés sur photo (`padmap`). L'inscription d'une touche est le début de son
+ * nom (« LB » de « LB · bouton d'épaule gauche ») ; seuls les clics de stick
+ * ont une inscription à eux, L3 et R3 sur une Switch, LS et RS sur une Xbox,
+ * parce que leur nom est une phrase. Un essai vérifie que le losange tactile
+ * d'une Xbox met bien A en bas, comme son dessin, et un autre que chaque
+ * inscription est bien le début de son nom.
  *
  * # Ce qu'une face ne dit pas
  *
@@ -30,14 +34,14 @@
  * versions d'avant le faisaient, et les mesures du 22 novembre 2026 ont trouvé
  * L sous START, R et Z sous « cacher », Y sous « cacher » en paysage, et la
  * rangée d'outils de la manette Switch posée sur L et L3. Un calcul se vérifie
- * sur des centaines de tailles sans navigateur ; la garde
- * `spikes/m3-browser-drive/manette-garde.mjs` vérifie ensuite ce que le
- * navigateur en fait.
+ * sans navigateur sur 1 267 tailles d'écran, quatre formats d'image et trois
+ * faces (`faces.test.ts`) ; la garde `spikes/m3-browser-drive/manette-garde.mjs`
+ * vérifie ensuite ce que le navigateur en fait.
  */
 import type { ButtonName } from "../media/pad";
 import type { SwitchButton } from "../media/switch";
 import { SWITCH_PRO, XBOX_360, type PadMap } from "./padmap";
-import { PADS } from "./saves";
+import { PADS, PRO_PAD } from "./saves";
 import { labels as switchLabels, xboxLabels } from "./switch-labels";
 
 /** La trame qu'un pavé écrit : celle de Dolphin, ou celle de la manette Pro. */
@@ -188,18 +192,29 @@ export const DOLPHIN_FACE: DolphinFace = {
   },
 };
 
-/** Ce qui change d'une manette Pro à l'autre : les inscriptions et le losange. */
+/** L'inscription d'une touche Pro : le début de son nom, avant « · ».
+ *
+ * « LB · bouton d'épaule gauche » s'inscrit LB, « + · pause » s'inscrit +,
+ * « Back » s'inscrit Back. Écrite à part, une seconde table aurait pu dire LB
+ * pendant que le configurateur disait autre chose. */
+export function inscription(name: string): string {
+  return name.split(" · ")[0] ?? name;
+}
+
+/** Ce qui change d'une manette Pro à l'autre : les noms, les clics de stick et
+ * le losange. */
 function proFace(
   name: string,
   title: string,
   map: PadMap,
   names: Readonly<Record<string, string>>,
-  short: Record<"ZL" | "L" | "MINUS" | "LS" | "R" | "ZR" | "RS" | "PLUS", string>,
+  sticks: Record<"LS" | "RS", string>,
   inked: boolean,
 ): ProFace {
-  const key = (k: keyof typeof short, forme: Forme): Touche<SwitchButton> => ({
+  type Rangee = "ZL" | "L" | "MINUS" | "LS" | "R" | "ZR" | "RS" | "PLUS";
+  const key = (k: Rangee, forme: Forme): Touche<SwitchButton> => ({
     key: k,
-    label: short[k],
+    label: k === "LS" || k === "RS" ? sticks[k] : inscription(names[k] ?? k),
     spoken: names[k],
     forme,
   });
@@ -229,11 +244,11 @@ function proFace(
 
 /** La manette Pro d'une salle Switch ou Switch 2. */
 export const SWITCH_FACE: ProFace = proFace(
-  "manette Pro",
+  PRO_PAD.label,
   "Manette Switch tactile",
   SWITCH_PRO,
   switchLabels,
-  { ZL: "ZL", L: "L", MINUS: "−", LS: "L3", R: "R", ZR: "ZR", RS: "R3", PLUS: "+" },
+  { LS: "L3", RS: "R3" },
   false,
 );
 
@@ -243,7 +258,7 @@ export const XBOX_FACE: ProFace = proFace(
   "Manette Xbox 360 tactile",
   XBOX_360,
   xboxLabels,
-  { ZL: "LT", L: "LB", MINUS: "Back", LS: "LS", R: "RB", ZR: "RT", RS: "RS", PLUS: "Start" },
+  { LS: "LS", RS: "RS" },
   true,
 );
 
@@ -267,7 +282,7 @@ export function missingFaces(codes: readonly string[]): string[] {
 }
 
 /** L'appareil que la trame Pro présente au jeu, dans les fiches et le manifeste. */
-export const PRO_DEVICE = 4;
+export const PRO_DEVICE: number = PRO_PAD.id;
 
 /**
  * Le nom d'un appareil, dans une salle donnée. Rien pour un code qu'elle ne
@@ -329,6 +344,17 @@ export type Piece<K extends string> =
   | { kind: "stick"; side: "l" | "r"; rect: Rect }
   | { kind: "geste"; geste: Geste; rect: Rect };
 
+/** Une pose : les pièces, et ce qu'elle n'a pas su tenir.
+ *
+ * `degraded` vaut `null` quand tout tient : aucune pièce sur une autre, rien
+ * hors de l'écran, chaque geste de page à `CLEAR` pixels au moins de toute
+ * touche. Sinon il dit en mots la première faute. Le pavé s'affiche quand
+ * même : une manette imparfaite vaut mieux que pas de manette, mais elle ne le
+ * fait plus en silence. Avant le 22 novembre 2026, le repli des gestes prenait
+ * la place la moins mauvaise sans le dire, à 6 px de L sur un écran de 568 sur
+ * 260. */
+export type Pose<K extends string> = { pieces: Piece<K>[]; degraded: string | null };
+
 /** Les trois gestes de la PAGE, jamais du jeu. */
 export type Geste = "son" | "menu" | "cacher";
 export const GESTES: readonly Geste[] = ["son", "menu", "cacher"];
@@ -345,12 +371,30 @@ export const GESTES: readonly Geste[] = ["son", "menu", "cacher"];
  *   en demande 12 ; quatre de plus pour qu'un arrondi ou une police plus large
  *   ne fasse pas rougir la garde à 11,5.
  * - `MARGIN`, 12 : le bord de l'écran, où le doigt glisse hors du verre.
- * - `GESTE_W`, 80 : « CACHER » en capitales espacées déborde de 72 px (vu sur
- *   les captures de la garde, le 22 novembre 2026).
  * - `BAND_PAD`, 4 : ce qu'un groupe rangé dans une bande noire garde de
  *   chaque côté. Les quatre boutons de la GameCube font 148 px au plancher de
  *   44 ; la bande d'un iPhone de 812 sur 375 tenu en travers en fait 156. À 6
  *   px, le groupe sortait de la bande et mordait de 4 px sur l'image.
+ * - `ROW_GAP`, 8, et `KEY_GAP`, 6 : entre deux rangées, et entre deux touches
+ *   d'une rangée. Ce sont des choix d'aspect, pas des mesures au doigt : la
+ *   garde vise un point à 3 px de chaque bord, et tout écart positif lui
+ *   suffit. `KEY_GAP` est aussi l'écart minimal accepté entre deux groupes
+ *   (voir `STICK_FLOOR`). À 6, la rangée ZL L fait 138 px, et les deux rangées
+ *   du haut tiennent côte à côte dès 296 px de large.
+ * - `GESTE_W`, 72 : « CACHER » en capitales espacées mesure 60,1 px dans
+ *   Chrome avec la police sans empattement de repli, 53,2 px en chasse fixe
+ *   (thèmes phosphore, ambre, gameboy), mesuré le 22 novembre 2026. 72 laisse
+ *   5 px de chaque côté, bordure comprise. La première version disait que 72
+ *   débordait ; la garde, rejouée à 72 le même jour, est restée verte.
+ * - `GESTE_GAP`, 4 : entre deux gestes de page. Un doigt qui tombe entre les
+ *   deux déclenche un geste de page au lieu d'un autre, les deux se défont. À 4,
+ *   deux gestes tiennent côte à côte dans la bande de 156 px d'un iPhone de 812
+ *   sur 375 tenu en travers avec une image 4:3 : 4 + 72 + 4 + 72 + 4.
+ * - `STICK_FLOOR`, 80 : le plus petit puits (ou croix) que la pose accepte
+ *   quand deux groupes du bas se rencontrent. Il ne sert que sous 276 px de
+ *   large : à 260, le stick GameCube et les quatre boutons (148 px) ne laissent
+ *   que 82 px (balayage du 22 novembre 2026). C'est moins que le puits d'avant
+ *   cette date, 88 px au plus petit.
  */
 export const SIZES = {
   FLOOR: 44,
@@ -359,34 +403,92 @@ export const SIZES = {
   BAND_PAD: 4,
   ROW_GAP: 8,
   KEY_GAP: 6,
-  GESTE_W: 80,
-  GESTE_GAP: 8,
+  GESTE_W: 72,
+  GESTE_GAP: 4,
+  STICK_FLOOR: 80,
 } as const;
 
 const clamp = (low: number, value: number, high: number) => Math.max(low, Math.min(high, value));
 
-/** La taille d'une touche simple, et celle d'un stick ou de la croix. */
+/** La taille d'une touche simple, et celle d'un stick ou de la croix.
+ *
+ * - Une touche fait 11,5 % du petit côté, entre 44 et 56 px. Le facteur place
+ *   le plancher à 383 px de petit côté : tout téléphone tenu droit a des
+ *   touches de 44 px (390 donne 44), un grand téléphone en travers 49 (430), et
+ *   une tablette atteint 56 dès 487. Le plafond est un choix, pas une mesure :
+ *   à 56, les quatre boutons de la GameCube font déjà 184 px.
+ * - Un stick fait 29 % du petit côté, entre 96 et 136 px. Le puits d'avant le
+ *   22 novembre 2026 faisait deux fois clamp(44 px, 15vmin, 68 px), soit 30 %
+ *   entre 88 et 136 : la même course à un pour cent près. Le plancher monte à
+ *   96 parce que la croix prend la même taille et que ses branches font un
+ *   tiers du bloc, 32 px.
+ */
 export function unitsFor(box: { width: number; height: number }): { key: number; stick: number } {
   const smaller = Math.min(box.width, box.height);
   return {
     key: clamp(SIZES.FLOOR, Math.floor(smaller * 0.115), 56),
-    // Le puits d'avant faisait deux fois clamp(44, 15vmin, 68) : la même course.
     stick: clamp(96, Math.floor(smaller * 0.29), 136),
   };
 }
 
-const widthOf = (touche: Touche<string>, key: number) =>
+/** La largeur d'une touche simple. Une palette se rétrécit en rond quand les
+ * rangées des deux côtés se rencontreraient (écran de 280 px de large). */
+const widthOf = (touche: Touche<string>, key: number, narrow: boolean) =>
   touche.forme === "palette"
-    ? Math.round(key * 1.5)
+    ? narrow
+      ? key
+      : Math.round(key * 1.5)
     : touche.forme === "large"
       ? Math.round(key * 1.6)
       : key;
 
-/** Les bords qui se touchent ou se recouvrent, à `gap` près. */
+/** La distance entre deux rectangles : zéro quand ils se touchent ou se recouvrent. */
 export function gapBetween(a: Rect, b: Rect): number {
   const dx = Math.max(0, b.x - (a.x + a.w), a.x - (b.x + b.w));
   const dy = Math.max(0, b.y - (a.y + a.h), a.y - (b.y + b.h));
   return Math.hypot(dx, dy);
+}
+
+const overlaps = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+/** Le nom d'une pièce, pour dire une faute. */
+export function pieceName(piece: Piece<string>): string {
+  switch (piece.kind) {
+    case "touche":
+      return piece.touche.key;
+    case "geste":
+      return piece.geste;
+    case "stick":
+      return `stick-${piece.side}`;
+    case "croix":
+      return "croix";
+  }
+}
+
+/** Une pièce de jeu et le groupe qui l'a posée : deux groupes doivent rester à
+ * `KEY_GAP` l'un de l'autre, deux touches d'un même groupe se suivent. */
+type Posee<K extends string> = { piece: Piece<K>; group: number };
+
+/** La première faute entre pièces de jeu, ou `null`. */
+function gameFault<K extends string>(placed: Posee<K>[], W: number, H: number): string | null {
+  for (const { piece } of placed) {
+    const r = piece.rect;
+    if (r.x < 0 || r.y < 0 || r.x + r.w > W || r.y + r.h > H)
+      return `${pieceName(piece)} sort de l'écran`;
+  }
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i];
+      const b = placed[j];
+      if (!a || !b) continue;
+      if (overlaps(a.piece.rect, b.piece.rect))
+        return `${pieceName(a.piece)} recouvre ${pieceName(b.piece)}`;
+      if (a.group !== b.group && gapBetween(a.piece.rect, b.piece.rect) < SIZES.KEY_GAP)
+        return `${pieceName(a.piece)} touche ${pieceName(b.piece)}`;
+    }
+  }
+  return null;
 }
 
 /**
@@ -397,71 +499,73 @@ export function gapBetween(a: Rect, b: Rect): number {
  * utilisé sous le pouce). Un groupe qui tient dans sa bande, quatre pixels de
  * chaque côté compris, s'y centre ; sinon il se colle au bord de l'écran, pour
  * mordre sur l'image le moins possible. Quand la hauteur manque pour empiler
- * les deux groupes sous les rangées, le second passe à côté du premier.
+ * les deux groupes sous les rangées, le second passe à côté du premier ; quand
+ * elle manque même pour un seul, les rangées d'un côté se mettent sur une seule
+ * ligne. Quand la largeur manque, les palettes deviennent rondes, puis les
+ * sticks rétrécissent jusqu'à `STICK_FLOOR`.
  *
- * Les gestes de page prennent la première place libre à 16 px de toute touche :
- * en rangée en haut au milieu, puis sous les rangées, puis en bas, puis au
- * milieu de l'écran ; en colonne au milieu si aucune rangée ne tient.
+ * Les gestes de page vont d'abord dans les bandes noires, s'il y reste de la
+ * place à 16 px de toute touche ; puis en rangée en haut au milieu, sous les
+ * rangées, en bas, au milieu de l'écran, et en colonne si aucune rangée ne
+ * tient.
  */
 export function placePad<K extends string>(
   face: FaceOf<Frame, K>,
   box: { width: number; height: number },
   bands: { left: number; right: number },
-): Piece<K>[] {
+): Pose<K> {
   const W = box.width;
   const H = box.height;
-  const { key: u, stick: s } = unitsFor(box);
-  const { MARGIN, BAND_PAD, ROW_GAP, KEY_GAP } = SIZES;
-  const pieces: Piece<K>[] = [];
+  const units = unitsFor(box);
+  const u = units.key;
+  const { MARGIN, BAND_PAD, ROW_GAP, KEY_GAP, STICK_FLOOR } = SIZES;
 
-  const sideOf = (cote: Cote<K>, which: "left" | "right") => {
-    const band = which === "left" ? bands.left : bands.right;
-    const fits = (w: number) => w + 2 * BAND_PAD <= band;
-    const xOf = (w: number) =>
-      fits(w)
-        ? which === "left"
-          ? (band - w) / 2
-          : W - band + (band - w) / 2
-        : which === "left"
-          ? MARGIN
-          : W - MARGIN - w;
+  const band = (which: "left" | "right") => (which === "left" ? bands.left : bands.right);
+  const fits = (which: "left" | "right", w: number) => w + 2 * BAND_PAD <= band(which);
+  const xOf = (which: "left" | "right", w: number) =>
+    fits(which, w)
+      ? which === "left"
+        ? (band(which) - w) / 2
+        : W - band(which) + (band(which) - w) / 2
+      : which === "left"
+        ? MARGIN
+        : W - MARGIN - w;
 
-    /* Les rangées du haut. */
-    let y = MARGIN;
-    const rowRects: Rect[] = [];
-    for (const row of cote.rows) {
-      const widths = row.map((touche) => widthOf(touche, u));
-      const total = widths.reduce((sum, w) => sum + w, 0) + KEY_GAP * (row.length - 1);
-      let x = xOf(total);
-      row.forEach((touche, i) => {
-        const rect = { x, y, w: widths[i] ?? u, h: u };
-        pieces.push({ kind: "touche", touche, rect });
-        x += (widths[i] ?? u) + KEY_GAP;
-      });
-      rowRects.push({ x: xOf(total), y, w: total, h: u });
-      y += u + ROW_GAP;
+  /* La taille d'un groupe : un stick ou la croix font `stick`, les boutons
+   * prennent le plus grand pas qui tient dans la bande, sans descendre sous le
+   * plancher ; sinon le pas ordinaire, au bord de l'écran. */
+  const sized = (which: "left" | "right", groupe: Groupe<K>, stick: number) => {
+    if (groupe.kind !== "boutons") return { w: stick, h: stick, cell: stick };
+    const extra = groupe.cells.some((one) => one.big) ? 8 : 0;
+    const span = (cell: number) => 3 * cell + extra + 2 * groupe.spacing;
+    let cell = u;
+    if (!fits(which, span(u)) && band(which) > 0) {
+      const room = Math.floor((band(which) - 2 * BAND_PAD - extra - 2 * groupe.spacing) / 3);
+      if (room >= SIZES.FLOOR) cell = room;
     }
-    const top = cote.rows.length ? y - ROW_GAP : 0;
+    return { w: span(cell), h: span(cell), cell };
+  };
 
-    /* Les deux groupes du bas. */
-    const sized = (groupe: Groupe<K>) => {
-      if (groupe.kind !== "boutons") return { w: s, h: s, cell: s };
-      // Le plus grand pas qui tient dans la bande, sans descendre sous le
-      // plancher ; sinon le pas ordinaire, au bord de l'écran.
-      const extra = groupe.cells.some((one) => one.big) ? 8 : 0;
-      const span = (cell: number) => 3 * cell + extra + 2 * groupe.spacing;
-      let cell = u;
-      if (!fits(span(u)) && band > 0) {
-        const room = Math.floor((band - 2 * BAND_PAD - extra - 2 * groupe.spacing) / 3);
-        if (room >= SIZES.FLOOR) cell = room;
-      }
-      return { w: span(cell), h: span(cell), cell };
-    };
-    const lower = sized(cote.lower);
-    const lowerRect = { x: xOf(lower.w), y: H - MARGIN - lower.h, w: lower.w, h: lower.h };
+  /* Les rangées d'un côté : sur une seule ligne quand la pile ne tient pas en
+   * hauteur au-dessus du groupe du bas. Les rangées suivantes vont vers le
+   * milieu de l'écran, comme START vers le centre d'une GameCube. */
+  const rowsOf = (cote: Cote<K>, which: "left" | "right", stick: number): Touche<K>[][] => {
+    const n = cote.rows.length;
+    const lower = sized(which, cote.lower, stick);
+    const stack = n * u + (n - 1) * ROW_GAP;
+    if (n > 1 && MARGIN + stack + ROW_GAP > H - MARGIN - lower.h)
+      return [which === "left" ? cote.rows.flat() : [...cote.rows].reverse().flat()];
+    return cote.rows;
+  };
+
+  const layout = (narrow: boolean, stick: number) => {
+    const placed: Posee<K>[] = [];
+    let group = 0;
     const put = (groupe: Groupe<K>, rect: Rect, cell: number) => {
-      if (groupe.kind === "croix") pieces.push({ kind: "croix", groupe, rect });
-      else if (groupe.kind === "stick") pieces.push({ kind: "stick", side: groupe.side, rect });
+      group += 1;
+      if (groupe.kind === "croix") placed.push({ group, piece: { kind: "croix", groupe, rect } });
+      else if (groupe.kind === "stick")
+        placed.push({ group, piece: { kind: "stick", side: groupe.side, rect } });
       else {
         const big = groupe.cells.some((one) => one.big) ? 8 : 0;
         // Les colonnes et les rangées qui portent le gros bouton sont plus larges.
@@ -469,13 +573,8 @@ export function placePad<K extends string>(
         const bigRow = groupe.cells.find((one) => one.big)?.row;
         const sizeCol = (c: number) => cell + (c === bigCol ? big : 0);
         const sizeRow = (r: number) => cell + (r === bigRow ? big : 0);
-        const startCol = (c: number) =>
-          Array.from({ length: c }, (_, i) => sizeCol(i) + groupe.spacing).reduce(
-            (a, b) => a + b,
-            0,
-          );
-        const startRow = (r: number) =>
-          Array.from({ length: r }, (_, i) => sizeRow(i) + groupe.spacing).reduce(
+        const start = (size: (i: number) => number, upTo: number) =>
+          Array.from({ length: upTo }, (_, i) => size(i) + groupe.spacing).reduce(
             (a, b) => a + b,
             0,
           );
@@ -483,55 +582,203 @@ export function placePad<K extends string>(
           const w = sizeCol(one.col);
           const h = sizeRow(one.row);
           const side = one.big ? cell + big : cell;
-          pieces.push({
-            kind: "touche",
-            touche: one.touche,
-            rect: {
-              x: rect.x + startCol(one.col) + (w - side) / 2,
-              y: rect.y + startRow(one.row) + (h - side) / 2,
-              w: side,
-              h: side,
+          placed.push({
+            group,
+            piece: {
+              kind: "touche",
+              touche: one.touche,
+              rect: {
+                x: rect.x + start(sizeCol, one.col) + (w - side) / 2,
+                y: rect.y + start(sizeRow, one.row) + (h - side) / 2,
+                w: side,
+                h: side,
+              },
             },
           });
         }
       }
     };
-    put(cote.lower, lowerRect, lower.cell);
-    if (cote.upper) {
-      const upper = sized(cote.upper);
-      const stacked = {
-        x: xOf(upper.w),
-        y: lowerRect.y - ROW_GAP - upper.h,
-        w: upper.w,
-        h: upper.h,
-      };
-      // Empilé s'il reste loin des rangées, à côté du groupe du bas sinon.
-      const clash = rowRects.some((row) => gapBetween(row, stacked) < ROW_GAP);
-      const beside = {
-        x: which === "left" ? lowerRect.x + lowerRect.w + ROW_GAP : lowerRect.x - ROW_GAP - upper.w,
-        y: H - MARGIN - upper.h,
-        w: upper.w,
-        h: upper.h,
-      };
-      put(cote.upper, clash ? beside : stacked, upper.cell);
-    }
-    return { top };
+
+    const sideOf = (cote: Cote<K>, which: "left" | "right") => {
+      /* Les rangées du haut. */
+      let y = MARGIN;
+      const rowRects: Rect[] = [];
+      for (const row of rowsOf(cote, which, stick)) {
+        group += 1;
+        const widths = row.map((touche) => widthOf(touche, u, narrow));
+        const total = widths.reduce((sum, w) => sum + w, 0) + KEY_GAP * (row.length - 1);
+        let x = xOf(which, total);
+        row.forEach((touche, i) => {
+          const w = widths[i] ?? u;
+          placed.push({ group, piece: { kind: "touche", touche, rect: { x, y, w, h: u } } });
+          x += w + KEY_GAP;
+        });
+        rowRects.push({ x: xOf(which, total), y, w: total, h: u });
+        y += u + ROW_GAP;
+      }
+      const top = rowRects.length ? y - ROW_GAP : 0;
+
+      /* Les deux groupes du bas. */
+      const lower = sized(which, cote.lower, stick);
+      const lowerRect = { x: xOf(which, lower.w), y: H - MARGIN - lower.h, w: lower.w, h: lower.h };
+      put(cote.lower, lowerRect, lower.cell);
+      if (cote.upper) {
+        const upper = sized(which, cote.upper, stick);
+        const stacked = {
+          x: xOf(which, upper.w),
+          y: lowerRect.y - ROW_GAP - upper.h,
+          w: upper.w,
+          h: upper.h,
+        };
+        // Empilé s'il reste loin des rangées, à côté du groupe du bas sinon.
+        const clash = rowRects.some((row) => gapBetween(row, stacked) < ROW_GAP);
+        const beside = {
+          x:
+            which === "left"
+              ? lowerRect.x + lowerRect.w + ROW_GAP
+              : lowerRect.x - ROW_GAP - upper.w,
+          y: H - MARGIN - upper.h,
+          w: upper.w,
+          h: upper.h,
+        };
+        put(cote.upper, clash ? beside : stacked, upper.cell);
+      }
+      return top;
+    };
+
+    const top = Math.max(sideOf(face.left, "left"), sideOf(face.right, "right"));
+    return { placed, top };
   };
 
-  const left = sideOf(face.left, "left");
-  const right = sideOf(face.right, "right");
+  /* La plus grande pose sans faute : palettes larges d'abord, puis rondes, et
+   * à chaque fois le plus grand stick qui laisse les groupes à distance. */
+  const sticks: number[] = [];
+  for (let stick = units.stick; stick > STICK_FLOOR; stick -= 4) sticks.push(stick);
+  sticks.push(STICK_FLOOR);
+  let chosen = layout(true, STICK_FLOOR);
+  let fault = gameFault(chosen.placed, W, H);
+  search: for (const narrow of [false, true]) {
+    for (const stick of sticks) {
+      const pose = layout(narrow, stick);
+      if (gameFault(pose.placed, W, H) === null) {
+        chosen = pose;
+        fault = null;
+        break search;
+      }
+    }
+  }
+  const pieces = chosen.placed.map((one) => one.piece);
+  const gestures = placeGestes(
+    pieces.map((piece) => piece.rect),
+    W,
+    H,
+    bands,
+    chosen.top,
+  );
+  for (const [i, rect] of gestures.rects.entries()) {
+    const geste = GESTES[i];
+    if (geste) pieces.push({ kind: "geste", geste, rect });
+  }
+  return { pieces, degraded: fault ?? gestures.degraded };
+}
 
-  /* Les gestes de page, là où ils restent loin de toute touche.
-   *
-   * En rangée d'abord, puis en colonne quand la rangée ne trouve pas de place :
-   * sur un écran presque carré, le milieu est étroit mais haut. */
-  const { GESTE_W, GESTE_GAP, CLEAR, FLOOR } = SIZES;
-  const span = GESTES.length * GESTE_W + (GESTES.length - 1) * GESTE_GAP;
-  const tall = GESTES.length * FLOOR + (GESTES.length - 1) * GESTE_GAP;
-  const games = pieces.map((piece) => piece.rect);
-  const below = Math.max(left.top, right.top) + CLEAR;
-  const row = (y: number) => ({ x: (W - span) / 2, y, w: span, h: FLOOR, column: false });
-  const column = (y: number) => ({ x: (W - GESTE_W) / 2, y, w: GESTE_W, h: tall, column: true });
+/**
+ * Les trois gestes de page, loin de toute touche de jeu.
+ *
+ * D'abord dans les bandes noires : le 22 novembre 2026, les poser en haut au
+ * milieu de l'image alors que les bandes étaient libres a mis « menu » sur
+ * l'avis de fermeture de la salle et rougi le pilote `touch.mjs`, qui exige que
+ * rien ne morde sur l'image quand la bande fait 130 px ou plus. Les trois vont
+ * ensemble dans une place qui les tient tous ; sinon ils se partagent les places
+ * des deux bandes, la plus grande d'abord, et se lisent de gauche à droite.
+ */
+function placeGestes(
+  games: Rect[],
+  W: number,
+  H: number,
+  bands: { left: number; right: number },
+  top: number,
+): { rects: Rect[]; degraded: string | null } {
+  const { GESTE_W: gw, GESTE_GAP: gap, CLEAR, FLOOR, MARGIN, BAND_PAD } = SIZES;
+  const room = (rect: Rect) =>
+    rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= W && rect.y + rect.h <= H
+      ? Math.min(Infinity, ...games.map((game) => gapBetween(rect, game)))
+      : -1;
+  const all = (rects: Rect[]) => rects.every((rect) => room(rect) >= CLEAR);
+
+  /* Les places libres de chaque bande : les hauteurs où aucune touche ne passe
+   * à moins de CLEAR de l'intérieur de la bande. */
+  type Slot = { side: number; x0: number; x1: number; y0: number; y1: number; cols: number };
+  const slots: Slot[] = [];
+  for (const [side, which] of (["left", "right"] as const).entries()) {
+    const wide = which === "left" ? bands.left : bands.right;
+    const x0 = which === "left" ? BAND_PAD : W - wide + BAND_PAD;
+    const x1 = which === "left" ? wide - BAND_PAD : W - BAND_PAD;
+    const cols = Math.floor((x1 - x0 + gap) / (gw + gap));
+    if (cols < 1) continue;
+    const near = games
+      .filter((g) => g.x < x1 + CLEAR && x0 - CLEAR < g.x + g.w)
+      .sort((a, b) => a.y - b.y);
+    let y: number = MARGIN;
+    for (const g of [...near, { x: 0, y: H - MARGIN + CLEAR, w: 0, h: 0 }]) {
+      const end = g.y - CLEAR;
+      if (end - y >= FLOOR) slots.push({ side, x0, x1, y0: y, y1: end, cols });
+      y = Math.max(y, g.y + g.h + CLEAR);
+    }
+  }
+  const capacity = (slot: Slot) =>
+    slot.cols * Math.floor((slot.y1 - slot.y0 + gap) / (FLOOR + gap));
+  /* `n` gestes dans une place : en lignes centrées, la place centrée aussi. */
+  const fill = (slot: Slot, n: number) => {
+    const cols = Math.min(slot.cols, n);
+    const rows = Math.ceil(n / cols);
+    const height = rows * FLOOR + (rows - 1) * gap;
+    const y0 = slot.y0 + (slot.y1 - slot.y0 - height) / 2;
+    const out: { side: number; rect: Rect }[] = [];
+    for (let i = 0; i < n; i++) {
+      const row = Math.floor(i / cols);
+      const inRow = Math.min(cols, n - row * cols);
+      const width = inRow * gw + (inRow - 1) * gap;
+      const x0 = slot.x0 + (slot.x1 - slot.x0 - width) / 2;
+      out.push({
+        side: slot.side,
+        rect: { x: x0 + (i % cols) * (gw + gap), y: y0 + row * (FLOOR + gap), w: gw, h: FLOOR },
+      });
+    }
+    return out;
+  };
+  const inBands = (): Rect[] | null => {
+    const whole = slots.find((slot) => capacity(slot) >= GESTES.length);
+    let taken: { side: number; rect: Rect }[] = [];
+    if (whole) taken = fill(whole, GESTES.length);
+    else {
+      // La plus grande place d'abord ; à égalité, la bande droite, comme avant.
+      const order = [...slots].sort((a, b) => capacity(b) - capacity(a) || b.side - a.side);
+      for (const slot of order) {
+        const left = GESTES.length - taken.length;
+        if (left <= 0) break;
+        taken = [...taken, ...fill(slot, Math.min(left, capacity(slot)))];
+      }
+    }
+    if (taken.length < GESTES.length) return null;
+    // De gauche à droite et de haut en bas : son, menu, cacher.
+    const rects = taken
+      .sort((a, b) => a.side - b.side || a.rect.y - b.rect.y || a.rect.x - b.rect.x)
+      .map((one) => one.rect);
+    return all(rects) ? rects : null;
+  };
+  const banded = inBands();
+  if (banded) return { rects: banded, degraded: null };
+
+  /* Sinon au milieu, en rangée puis en colonne : sur un écran presque carré,
+   * le milieu est étroit mais haut. */
+  const span = GESTES.length * gw + (GESTES.length - 1) * gap;
+  const tall = GESTES.length * FLOOR + (GESTES.length - 1) * gap;
+  const below = top + CLEAR;
+  const row = (y: number) =>
+    GESTES.map((_, i) => ({ x: (W - span) / 2 + i * (gw + gap), y, w: gw, h: FLOOR }));
+  const column = (y: number) =>
+    GESTES.map((_, i) => ({ x: (W - gw) / 2, y: y + i * (FLOOR + gap), w: gw, h: FLOOR }));
   const candidates = [
     row(MARGIN),
     row(below),
@@ -541,22 +788,13 @@ export function placePad<K extends string>(
     column(below),
     column((H - tall) / 2),
   ];
-  const room = (rect: Rect) =>
-    rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= W && rect.y + rect.h <= H
-      ? Math.min(...games.map((game) => gapBetween(rect, game)))
-      : -1;
-  const chosen =
-    candidates.find((rect) => room(rect) >= CLEAR) ??
-    candidates.reduce((best, rect) => (room(rect) > room(best) ? rect : best));
-  GESTES.forEach((geste, i) => {
-    const step = i * (FLOOR + GESTE_GAP);
-    pieces.push({
-      kind: "geste",
-      geste,
-      rect: chosen.column
-        ? { x: chosen.x, y: chosen.y + step, w: GESTE_W, h: FLOOR }
-        : { x: chosen.x + i * (GESTE_W + GESTE_GAP), y: chosen.y, w: GESTE_W, h: FLOOR },
-    });
-  });
-  return pieces;
+  const good = candidates.find(all);
+  if (good) return { rects: good, degraded: null };
+  // Aucune place ne tient : la moins mauvaise, et la pose le DIT.
+  const worst = (rects: Rect[]) => Math.min(...rects.map(room));
+  const least = candidates.reduce((best, rects) => (worst(rects) > worst(best) ? rects : best));
+  return {
+    rects: least,
+    degraded: `les gestes de page sont à ${Math.max(0, worst(least)).toFixed(1)} px d'une touche, ${CLEAR} demandés`,
+  };
 }

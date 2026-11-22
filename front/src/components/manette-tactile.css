@@ -14,7 +14,14 @@
   right: env(safe-area-inset-right, 0px);
   bottom: env(safe-area-inset-bottom, 0px);
   left: env(safe-area-inset-left, 0px);
-  z-index: 30;
+  /* Sous les calques de la salle qui valent z-30 et viennent AVANT elle dans
+   * la page : l'avis de fermeture et le message de branchement. À égalité, le
+   * dernier peint gagnait, et taper le centre de l'avis ouvrait le menu du jeu
+   * (revue du 22 novembre 2026). Un avis qui dit que la salle ferme passe avant
+   * la manette ; personne ne joue quand il s'affiche, puisqu'il naît de
+   * l'inactivité. Le menu (z-50) reste au-dessus, l'avis de format réduit
+   * (z-20) reste dessous. */
+  z-index: 29;
   pointer-events: none;
   touch-action: none;
   user-select: none;
@@ -96,6 +103,20 @@
   background: #8b7bd8b3;
 }
 
+/* Les lettres en couleur d'une Xbox : sur un fond sombre FIXE, comme la
+   console. Posées sur le fond du thème, le jaune de Y et le vert de A tombaient
+   à 1,22:1 et 1,05:1 dans le thème instrument clair (revue du 22 novembre
+   2026). Sur ce fond posé sur le noir de la bande, la plus pâle des quatre, le
+   bleu de X, garde 5,9:1. */
+.n3-pave-touche[data-encre] {
+  border-color: #3a3e48;
+  background: #16181dd9;
+  color: var(--lettre);
+}
+.n3-pave-touche[data-encre]:active {
+  background: #3a3e48;
+}
+
 /* Le puits d'un stick, toujours rond : la course se calcule sur sa largeur,
    et un puits ovale saturait avant son bord dessiné (mesuré le 22 novembre
    2026 sur le pavé Switch, 76 sur 94 px). */
@@ -167,10 +188,14 @@
 
 /* Un geste de la PAGE et non du jeu : plus terne, en capitales, jamais sous
    un pouce qui joue. Le son reste rouge tant que rien ne joue. */
+/* Le fond est le panneau du thème, OPAQUE : `--faint` y tient 4,5:1 dans les
+   sept thèmes (index.css, 2 septembre 2026), mais pas sur un panneau clair
+   rendu transparent au-dessus du noir. À 72 %, les gestes tombaient à 2,3:1
+   dans les quatre thèmes clairs (garde du 22 novembre 2026). */
 .n3-pave-geste {
   border: 1px solid var(--rule);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  background: var(--panel);
   color: var(--faint);
   font-size: var(--text-note);
   letter-spacing: 0.08em;

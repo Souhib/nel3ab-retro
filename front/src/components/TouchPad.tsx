@@ -156,10 +156,20 @@ function Croix<K extends string>({
       onLostPointerCapture={rest}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <span data-bras="up">▲</span>
-      <span data-bras="left">◀</span>
-      <span data-bras="right">▶</span>
-      <span data-bras="down">▼</span>
+      {/* Du dessin : le groupe se nomme « croix directionnelle », et un lecteur
+          d'écran lisait sinon quatre triangles noirs. */}
+      <span data-bras="up" aria-hidden="true">
+        ▲
+      </span>
+      <span data-bras="left" aria-hidden="true">
+        ◀
+      </span>
+      <span data-bras="right" aria-hidden="true">
+        ▶
+      </span>
+      <span data-bras="down" aria-hidden="true">
+        ▼
+      </span>
     </div>
   );
 }
@@ -320,7 +330,7 @@ export function Pave<K extends string>({
     return () => watch.disconnect();
   }, []);
 
-  const pieces = useMemo(
+  const pose = useMemo(
     () =>
       placePad(face, size, {
         left: Math.max(0, bar - inset.left),
@@ -339,8 +349,12 @@ export function Pave<K extends string>({
       data-forme={touche.forme}
       data-long={touche.forme === "rond" && touche.label.length > 3 ? "" : undefined}
       data-teinte={touche.teinte}
+      data-encre={touche.ink === undefined ? undefined : ""}
       aria-label={touche.spoken}
-      style={{ ...at(rect), color: touche.ink }}
+      // La couleur de la lettre passe par une variable : la feuille la pose sur
+      // un fond sombre fixe, lisible dans tous les thèmes. Écrite en `color`,
+      // elle tombait à 1,05:1 sur le fond clair du thème instrument clair.
+      style={{ ...at(rect), ...(touche.ink ? { "--lettre": touche.ink } : {}) }}
       onPointerDown={(event) => {
         event.preventDefault();
         event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -402,8 +416,17 @@ export function Pave<K extends string>({
   };
 
   return (
-    <div ref={root} id={id} className="n3-pave" role="group" aria-label={face.title}>
-      {pieces.map(draw)}
+    <div
+      ref={root}
+      id={id}
+      className="n3-pave"
+      role="group"
+      aria-label={face.title}
+      // Une pose qui n'a pas tout tenu le dit, pour les pilotes et les outils
+      // du navigateur : la manette s'affiche quand même.
+      data-degradee={pose.degraded ?? undefined}
+    >
+      {pose.pieces.map(draw)}
     </div>
   );
 }

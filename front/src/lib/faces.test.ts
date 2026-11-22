@@ -22,8 +22,10 @@ import {
   diamondOf,
   faceOf,
   gapBetween,
+  inscription,
   missingFaces,
   placePad,
+  unitsFor,
   type Face,
   type Piece,
   type Rect,
@@ -278,13 +280,91 @@ const PICTURES = [
   { width: 640, height: 480 },
   { width: 854, height: 480 },
   { width: 1280, height: 720 },
+  { width: 1280, height: 960 },
+];
+
+/**
+ * Les boîtes que la manette doit tenir, et pourquoi ces bornes.
+ *
+ * - 260 px sur le petit côté : un téléphone de 568 sur 320 tenu en travers,
+ *   barres du navigateur affichées, en garde à peu près 260 (relevé de la
+ *   revue du 22 novembre 2026, 700 sur 260, où START tombait sur Y).
+ * - 280 px de large en portrait : l'écran extérieur d'un Galaxy Fold, 280 sur
+ *   653, où L tombait sur R le même jour.
+ * - 560 px sur le grand côté : le plus petit téléphone en fait 568.
+ * - 2,8 pour 1 au plus : 844 sur 390 avec la barre d'onglets de Safari donne
+ *   environ 844 sur 300, soit 2,81. Au-delà, ce n'est plus un écran qu'on
+ *   tient.
+ */
+const GRID: [number, number][] = [];
+for (let width = 260; width <= 1440; width += 31) {
+  for (let height = 260; height <= 1440; height += 29) {
+    const short = Math.min(width, height);
+    const long = Math.max(width, height);
+    if (short >= 260 && long >= 560 && long / short <= 2.82) GRID.push([width, height]);
+  }
+}
+const GRID_SIZES = 1267;
+
+/** Des écrans réels, avec et sans les barres du navigateur. */
+const REAL: [number, number][] = [
+  [320, 568],
+  [568, 320],
+  [568, 260],
+  [360, 640],
+  [640, 360],
+  [640, 280],
+  [360, 740],
+  [740, 360],
+  [740, 300],
+  [360, 800],
+  [800, 360],
+  [800, 320],
+  [375, 667],
+  [667, 375],
+  [667, 325],
+  [375, 553],
+  [390, 664],
+  [375, 812],
+  [812, 375],
+  [812, 300],
+  [390, 844],
+  [844, 390],
+  [844, 340],
+  [844, 300],
+  [393, 852],
+  [852, 393],
+  [412, 915],
+  [915, 412],
+  [414, 896],
+  [896, 414],
+  [430, 932],
+  [932, 430],
+  [932, 380],
+  [430, 740],
+  [732, 338],
+  [700, 260],
+  [280, 653],
+  [653, 280],
+  [300, 600],
+  [768, 1024],
+  [1024, 768],
+  [820, 1180],
+  [1180, 820],
+  [1024, 1366],
+  [1366, 1024],
+  [600, 960],
+  [960, 600],
+  [507, 1024],
+  [694, 1024],
+  [438, 1180],
 ];
 
 describe("la place des touches", () => {
   it("la vérification voit une pose fautive", () => {
     // Le jumeau négatif de la vérification: la faute exacte du 22 novembre
     // 2026, « cacher » posé sur R, doit être nommée.
-    const pieces = placePad(DOLPHIN_FACE, { width: 390, height: 844 }, { left: 0, right: 0 });
+    const { pieces } = placePad(DOLPHIN_FACE, { width: 390, height: 844 }, { left: 0, right: 0 });
     const r = pieces.find((piece) => piece.kind === "touche" && piece.touche.key === "R");
     const hide = pieces.find((piece) => piece.kind === "geste" && piece.geste === "cacher");
     if (!r || !hide) throw new Error("R ou « cacher » manque à la pose");
@@ -295,35 +375,55 @@ describe("la place des touches", () => {
     expect(faults(pieces, { width: 390, height: 844 })).toEqual([]);
   });
 
-  it("à toutes les tailles d'écran, rien ne se recouvre et les gestes restent à distance", () => {
+  it("à toutes les tailles d'écran prises en charge, rien ne se recouvre et les gestes restent à distance", () => {
     const failures: string[] = [];
     let cases = 0;
     for (const face of [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE]) {
-      for (let width = 320; width <= 1440; width += 31) {
-        for (let height = 320; height <= 1440; height += 29) {
-          // Au-delà de 2,4 pour 1, ce n'est plus un écran qu'on tient. Sous
-          // 480 px sur le plus grand côté non plus: le plus petit téléphone en
-          // fait 568, et un pavé Pro de dix-huit touches de 44 px ne tient pas
-          // dans 444 sur 320 (mesuré le 22 novembre 2026, ce n'est pas visé).
-          const ratio = Math.max(width, height) / Math.min(width, height);
-          if (ratio > 2.4 || Math.max(width, height) < 480) continue;
-          for (const picture of PICTURES) {
-            const box = { width, height };
-            const found = faults(placePad<string>(face, box, bandsFor(box, picture)), box);
-            cases += 1;
-            if (found.length)
-              failures.push(
-                `${face.title} ${width}x${height} ${picture.width}x${picture.height}: ${found[0]}`,
-              );
-          }
+      for (const [width, height] of GRID) {
+        for (const picture of PICTURES) {
+          const box = { width, height };
+          const pose = placePad<string>(face, box, bandsFor(box, picture));
+          // L'oracle indépendant d'abord, puis l'accord de la pose avec lui:
+          // une pose qui se dirait dégradée sans faute, ou l'inverse, est fausse.
+          const found = faults(pose.pieces, box);
+          if (pose.degraded !== null) found.push(`pose dégradée: ${pose.degraded}`);
+          cases += 1;
+          if (found.length)
+            failures.push(
+              `${face.title} ${width}x${height} ${picture.width}x${picture.height}: ${found[0]}`,
+            );
         }
       }
     }
-    expect(cases).toBeGreaterThan(2000);
+    // Le compte exact : une grille qui rétrécirait en silence passerait encore.
+    expect(GRID.length).toBe(GRID_SIZES);
+    expect(cases).toBe(GRID_SIZES * 3 * PICTURES.length);
     expect(failures.slice(0, 10)).toEqual([]);
   });
 
-  it("en paysage avec de larges bandes, la GameCube joue dans le noir", () => {
+  it("aux tailles d'écrans réels, barres du navigateur comprises, rien ne se recouvre", () => {
+    const failures: string[] = [];
+    for (const face of [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE]) {
+      for (const [width, height] of REAL) {
+        for (const picture of PICTURES) {
+          const box = { width, height };
+          const pose = placePad<string>(face, box, bandsFor(box, picture));
+          const found = faults(pose.pieces, box);
+          if (pose.degraded !== null) found.push(`pose dégradée: ${pose.degraded}`);
+          if (found.length)
+            failures.push(
+              `${face.title} ${width}x${height} ${picture.width}x${picture.height}: ${found[0]}`,
+            );
+        }
+      }
+    }
+    expect(failures.slice(0, 10)).toEqual([]);
+  });
+
+  it("en paysage avec de larges bandes, la GameCube joue dans le noir, gestes de page compris", () => {
+    // Les gestes aussi : le pilote `touch.mjs` compte « #touchpad button », et
+    // la première version du 22 novembre 2026 posait son, menu et cacher en haut
+    // au milieu de l'image alors que les bandes étaient libres.
     for (const box of [
       { width: 844, height: 390 },
       { width: 932, height: 430 },
@@ -333,14 +433,13 @@ describe("la place des touches", () => {
       // La précondition, affirmée: sans bande, l'essai ne dirait rien.
       expect(bands.left).toBeGreaterThan(150);
       const picture = { x: bands.left, w: box.width - 2 * bands.left };
-      const onPicture = placePad(DOLPHIN_FACE, box, bands)
-        .filter((piece) => piece.kind !== "geste")
-        .filter(
-          (piece) =>
-            piece.rect.x < picture.x + picture.w && picture.x < piece.rect.x + piece.rect.w,
-        );
+      const { pieces } = placePad(DOLPHIN_FACE, box, bands);
+      expect(pieces.filter((piece) => piece.kind === "geste")).toHaveLength(3);
+      const onPicture = pieces.filter(
+        (piece) => piece.rect.x < picture.x + picture.w && picture.x < piece.rect.x + piece.rect.w,
+      );
       expect(
-        onPicture.map((piece) => piece.kind),
+        onPicture.map((piece) => (piece.kind === "geste" ? piece.geste : piece.kind)),
         `${box.width}x${box.height}`,
       ).toEqual([]);
     }
@@ -353,12 +452,113 @@ describe("la place des touches", () => {
     const bands = bandsFor(box, { width: 1280, height: 720 });
     expect(bands.left).toBeGreaterThan(70);
     expect(bands.left).toBeLessThan(80);
-    const pieces = placePad(SWITCH_FACE, box, bands);
+    const { pieces } = placePad(SWITCH_FACE, box, bands);
     const stick = pieces.find((piece) => piece.kind === "stick" && piece.side === "l");
     expect(stick?.rect.x).toBe(SIZES.MARGIN);
     // Et avec une bande assez large, le même stick s'y centre.
-    const wide = placePad(SWITCH_FACE, box, { left: 200, right: 200 });
+    const wide = placePad(SWITCH_FACE, box, { left: 200, right: 200 }).pieces;
     const centred = wide.find((piece) => piece.kind === "stick" && piece.side === "l");
     expect(centred && centred.rect.x + centred.rect.w / 2).toBe(100);
+  });
+
+  it("une boîte trop petite donne une pose dégradée qui dit sa faute", () => {
+    // 240 sur 240: aucune des trois faces n'y tient. La pose est rendue quand
+    // même, et elle le dit, au lieu de choisir en silence la moins mauvaise.
+    for (const face of [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE]) {
+      const box = { width: 240, height: 240 };
+      const pose = placePad<string>(face, box, { left: 0, right: 0 });
+      // La faute des TOUCHES, pas celle des gestes: c'est elle qui compte ici.
+      expect(pose.degraded, face.title).toMatch(/recouvre|touche [A-Z]|sort de l'écran/);
+      expect(faults(pose.pieces, box).length, face.title).toBeGreaterThan(0);
+      expect(pose.pieces.filter((piece) => piece.kind === "geste")).toHaveLength(3);
+    }
+    // Le jumeau: une taille ordinaire n'est pas dégradée.
+    expect(
+      placePad(SWITCH_FACE, { width: 390, height: 844 }, { left: 0, right: 0 }).degraded,
+    ).toBeNull();
+  });
+
+  it("à 280 px de large, les palettes s'arrondissent et les sticks gardent leur taille", () => {
+    // L'écran extérieur d'un Galaxy Fold: ZL L et R ZR, en palettes de 66 px,
+    // se recouvraient au milieu (revue du 22 novembre 2026). Les palettes
+    // deviennent rondes; les sticks, eux, n'ont aucune raison de rétrécir.
+    const box = { width: 280, height: 653 };
+    const { pieces, degraded } = placePad(SWITCH_FACE, box, { left: 0, right: 0 });
+    expect(degraded).toBeNull();
+    const width = (key: string) =>
+      pieces.find((piece) => piece.kind === "touche" && piece.touche.key === key)?.rect.w;
+    expect(width("L")).toBe(unitsFor(box).key);
+    const stick = pieces.find((piece) => piece.kind === "stick" && piece.side === "l");
+    expect(stick?.rect.w).toBe(unitsFor(box).stick);
+    // Le jumeau: là où la place suffit, la palette reste une palette.
+    const wide = placePad(SWITCH_FACE, { width: 390, height: 844 }, { left: 0, right: 0 });
+    expect(
+      wide.pieces.find((piece) => piece.kind === "touche" && piece.touche.key === "L")?.rect.w,
+    ).toBe(66);
+  });
+
+  it("sous 276 px de large, le stick GameCube rétrécit juste assez pour laisser les boutons", () => {
+    // 270 demande 92 px, 260 demande 80: deux tailles, pour qu'un repli tout
+    // fait sur le plancher ne passe pas pour une recherche.
+    for (const width of [260, 270]) {
+      const box = { width, height: 600 };
+      const { pieces, degraded } = placePad(DOLPHIN_FACE, box, { left: 0, right: 0 });
+      expect(degraded).toBeNull();
+      const stick = pieces.find((piece) => piece.kind === "stick");
+      const b = pieces.find((piece) => piece.kind === "touche" && piece.touche.key === "B");
+      if (!stick || !b) throw new Error("stick ou B manque à la pose");
+      expect(stick.rect.w, `${width}`).toBeLessThan(unitsFor(box).stick);
+      expect(stick.rect.w, `${width}`).toBeGreaterThanOrEqual(SIZES.STICK_FLOOR);
+      const gap = gapBetween(stick.rect, b.rect);
+      expect(gap, `${width}`).toBeGreaterThanOrEqual(SIZES.KEY_GAP);
+      // Et pas plus qu'il ne faut: quatre pixels de stick en plus le collent
+      // aux boutons.
+      expect(gap, `${width}`).toBeLessThan(SIZES.KEY_GAP + 4);
+    }
+  });
+
+  it("des gestes de page qui ne trouvent pas leur place le disent", () => {
+    // 568 sur 260, la Switch: les touches tiennent, et la première version
+    // posait alors les gestes à 6 px de L, sans rien dire. Dans une boîte où
+    // les touches tiennent mais pas les gestes, la faute doit les nommer.
+    const box = { width: 330, height: 330 };
+    const pose = placePad<string>(SWITCH_FACE, box, { left: 0, right: 0 });
+    const games = pose.pieces.filter((piece) => piece.kind !== "geste");
+    // La précondition: les touches de jeu, seules, ne se recouvrent pas.
+    expect(faults(games, box)).toEqual([]);
+    expect(pose.degraded).toMatch(/gestes de page sont à [0-9.]+ px d'une touche, 16 demandés/);
+  });
+});
+
+describe("les inscriptions des touches Pro", () => {
+  it("chaque inscription est le début du nom du configurateur, sauf les clics de stick", () => {
+    for (const face of [SWITCH_FACE, XBOX_FACE]) {
+      let compared = 0;
+      for (const [key, one] of keysOf(face)) {
+        const name = face.names[key];
+        if (name === undefined) throw new Error(`${face.title}: ${key} n'a pas de nom`);
+        if (key === "LS" || key === "RS") continue;
+        expect(one.label, `${face.title} ${key}`).toBe(inscription(name));
+        compared += 1;
+      }
+      // Les huit touches des rangées sans les deux clics, et les quatre boutons.
+      expect(compared, face.title).toBe(10);
+    }
+    expect(inscription("LB · bouton d'épaule gauche")).toBe("LB");
+    expect(inscription("Back")).toBe("Back");
+  });
+
+  it("les clics de stick ont une inscription courte, propre à chaque manette", () => {
+    const at = (face: Face, key: string) => keysOf(face).get(key)?.label;
+    expect([at(SWITCH_FACE, "LS"), at(SWITCH_FACE, "RS")]).toEqual(["L3", "R3"]);
+    expect([at(XBOX_FACE, "LS"), at(XBOX_FACE, "RS")]).toEqual(["LS", "RS"]);
+  });
+
+  it("aucune inscription ne dépasse cinq caractères", () => {
+    // Le garde-fou de la dérivation: un nom sans « · » serait écrit en entier
+    // sur une touche de 44 px. « Start » en fait cinq.
+    for (const face of [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE])
+      for (const [key, one] of keysOf(face))
+        expect(one.label.length, `${face.title} ${key}`).toBeLessThanOrEqual(5);
   });
 });

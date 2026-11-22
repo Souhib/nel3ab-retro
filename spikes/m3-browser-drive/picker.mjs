@@ -92,9 +92,11 @@ check(
 // séparés par une pression.
 await press("#item-theme");
 await wait(500);
-await press("#pick-famicom");
+// « jour » et non plus « famicom »: depuis le 22 novembre 2026, les thèmes
+// sont « comme l'appareil », « nuit » et « jour » (`front/src/lib/theme.ts`).
+await press("#pick-jour");
 await wait(600);
-check((await theme()) === "famicom", `cliquer une ligne valide CETTE ligne (${await theme()})`);
+check((await theme()) === "jour", `cliquer une ligne valide CETTE ligne (${await theme()})`);
 
 // ── Une glissière: le volume.
 const volumeOf = () => page.evaluate(() => globalThis.nel3abTest.volume?.() ?? null);

@@ -1,0 +1,28 @@
+{
+ "commandes": [],
+ "erreur": "ValueError: Invalid title in engines_by_title",
+ "sortie": 1,
+ "flux": {
+  "stdout": "",
+  "stderr": ""
+ },
+ "arbre": [
+  "f 644 d376ac626d457a74 config.json",
+  "d 755 cwd/",
+  "d 755 home/",
+  "d 755 moteurs/",
+  "d 755 moteurs/eglantine/",
+  "d 755 moteurs/eglantine/usr/",
+  "d 755 moteurs/eglantine/usr/bin/",
+  "f 644 7a24204135f141ef moteurs/eglantine/usr/bin/eden-cli",
+  "d 755 moteurs/lichii/",
+  "d 755 moteurs/lichii/usr/",
+  "d 755 moteurs/lichii/usr/bin/",
+  "f 644 7a24204135f141ef moteurs/lichii/usr/bin/eden-cli",
+  "d 755 roms/",
+  "f 644 cb051a31f5cfa907 roms/jeu.nup",
+  "d 755 salles/",
+  "d 755 salles/1/",
+  "d 755 salles/1/room-switch-k3y9q2xw/"
+ ]
+}

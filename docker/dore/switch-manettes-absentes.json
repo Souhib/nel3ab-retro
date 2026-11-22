@@ -1,0 +1,147 @@
+{
+ "commandes": [
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads",
+    "--label",
+    "nel3ab.room-root=@TMP@/salles/1",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=FOWNER",
+    "--group-add",
+    "@GID@",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=32",
+    "--device=/dev/uinput",
+    "-v",
+    "/dev/input:/dev/input",
+    "-v",
+    "@TMP@/salles/1/room-switch-k3y9q2xw:/run-data",
+    "-v",
+    "@DEPOT@/spikes/switch-room:/probe:ro",
+    "-e",
+    "HOST_UID=@UID@",
+    "-e",
+    "NEL3AB_PAD_LABEL=nel3ab room-switch-k3y9q2xw",
+    "-e",
+    "NEL3AB_PAD_LAYOUT=switch",
+    "sha256:5a1e0000000000000000000000000000000000000000000000000000000000d0",
+    "python3",
+    "/probe/pads.py"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "stop",
+    "--timeout",
+    "5",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stderr": "STDOUT",
+    "stdout": "fichier:@TMP@/state/0100abcdef012000/neuve/pads.log"
+   },
+   "argv": [
+    "docker",
+    "logs",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "rm",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  }
+ ],
+ "erreur": "RuntimeError: Virtual controllers did not start",
+ "sortie": 1,
+ "flux": {
+  "stdout": "",
+  "stderr": ""
+ },
+ "arbre": [
+  "f 644 a19b5bc0e525dc38 config.json",
+  "d 755 cwd/",
+  "d 755 gabarit/",
+  "f 644 44136fa355b3678a gabarit/Config.json",
+  "d 755 gabarit/bis/",
+  "d 755 gabarit/bis/user/",
+  "d 755 gabarit/bis/user/save/",
+  "d 755 gabarit/bis/user/save/0000000000000001/",
+  "d 755 gabarit/bis/user/save/0000000000000001/0/",
+  "f 644 97c840f1bbbbbe44 gabarit/bis/user/save/0000000000000001/0/save7.dat",
+  "d 755 gabarit/bis/user/save/0000000000000001/1/",
+  "f 644 97c840f1bbbbbe44 gabarit/bis/user/save/0000000000000001/1/save7.dat",
+  "f 644 9499605f9e2fbb15 gabarit/bis/user/save/0000000000000001/ExtraData0",
+  "d 755 home/",
+  "d 755 moteurs/",
+  "d 755 moteurs/ryubing/",
+  "d 755 moteurs/ryubing/publish/",
+  "f 644 7a24204135f141ef moteurs/ryubing/publish/Ryujinx",
+  "d 755 roms/",
+  "f 644 cb051a31f5cfa907 roms/jeu.xci",
+  "d 755 salles/",
+  "d 755 salles/1/",
+  "d 770 salles/1/room-switch-k3y9q2xw/",
+  "d 755 state/",
+  "d 755 state/0100abcdef012000/",
+  "d 755 state/0100abcdef012000/cache/",
+  "d 755 state/0100abcdef012000/mesa/",
+  "d 755 state/0100abcdef012000/neuve/",
+  "d 755 state/0100abcdef012000/neuve/backups/",
+  "d 755 state/0100abcdef012000/neuve/backups/20261122T000000/",
+  "d 755 state/0100abcdef012000/neuve/backups/20261122T000000/save/",
+  "d 755 state/0100abcdef012000/neuve/backups/20261122T000000/save/0000000000000001/",
+  "d 755 state/0100abcdef012000/neuve/backups/20261122T000000/save/0000000000000001/0/",
+  "d 755 state/0100abcdef012000/neuve/backups/20261122T000000/save/0000000000000001/1/",
+  "f 644 9499605f9e2fbb15 state/0100abcdef012000/neuve/backups/20261122T000000/save/0000000000000001/ExtraData0",
+  "d 755 state/0100abcdef012000/neuve/data/",
+  "f 644 44136fa355b3678a state/0100abcdef012000/neuve/data/Config.json",
+  "d 755 state/0100abcdef012000/neuve/data/bis/",
+  "d 755 state/0100abcdef012000/neuve/data/bis/user/",
+  "d 755 state/0100abcdef012000/neuve/data/bis/user/save/",
+  "d 755 state/0100abcdef012000/neuve/data/bis/user/save/0000000000000001/",
+  "d 755 state/0100abcdef012000/neuve/data/bis/user/save/0000000000000001/0/",
+  "d 755 state/0100abcdef012000/neuve/data/bis/user/save/0000000000000001/1/",
+  "f 644 9499605f9e2fbb15 state/0100abcdef012000/neuve/data/bis/user/save/0000000000000001/ExtraData0",
+  "d 755 state/0100abcdef012000/neuve/data/games/",
+  "d 755 state/0100abcdef012000/neuve/data/games/0100abcdef012000/",
+  "d 755 state/0100abcdef012000/neuve/data/games/0100abcdef012000/cache/",
+  "d 755 state/0100abcdef012000/neuve/data/profiles/",
+  "d 755 state/0100abcdef012000/neuve/data/profiles/controller/",
+  "f 644 aa9bd7304aca94b6 state/0100abcdef012000/neuve/data/profiles/controller/nel3ab.json",
+  "d 755 state/0100abcdef012000/neuve/home/",
+  "d 755 state/0100abcdef012000/neuve/home/.cache/",
+  "d 755 state/0100abcdef012000/neuve/home/.cache/mesa_shader_cache/",
+  "f 644 5f7cf50f9e572f30 state/0100abcdef012000/neuve/pads.log",
+  "f 644 e3b0c44298fc1c14 state/0100abcdef012000/neuve/running.lock"
+ ]
+}

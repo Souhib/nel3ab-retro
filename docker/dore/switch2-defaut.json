@@ -1,0 +1,343 @@
+{
+ "commandes": [
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads",
+    "--label",
+    "nel3ab.room-root=@TMP@/salles/1",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=FOWNER",
+    "--group-add",
+    "@GID@",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=32",
+    "--device=/dev/uinput",
+    "-v",
+    "/dev/input:/dev/input",
+    "-v",
+    "@TMP@/salles/1/room-switch-k3y9q2xw:/run-data",
+    "-v",
+    "@DEPOT@/spikes/switch-room:/probe:ro",
+    "-e",
+    "HOST_UID=@UID@",
+    "-e",
+    "NEL3AB_PAD_LABEL=nel3ab room-switch-k3y9q2xw",
+    "-e",
+    "NEL3AB_PAD_LAYOUT=switch",
+    "nel3ab/switch-prototype:2026-09-08-recovery",
+    "python3",
+    "/probe/pads.py"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "run",
+    "-d",
+    "--name",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "--label",
+    "nel3ab.room-root=@TMP@/salles/1",
+    "--network",
+    "none",
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges",
+    "--pids-limit=512",
+    "--user",
+    "@UID@:@GID@",
+    "--group-add",
+    "44",
+    "--device=/dev/dri/renderD128",
+    "--shm-size=8g",
+    "-e",
+    "DISPLAY_BACKEND=wayland",
+    "-e",
+    "SWITCH_COMPOSITOR=sway",
+    "-e",
+    "SWITCH_REFRESH_HZ=120",
+    "-e",
+    "NEL3AB_SEATS_FILE=/pads/seats",
+    "-e",
+    "EDEN_NX2_SPLIT=0",
+    "-e",
+    "EDEN_NX2_FENCE_BATCH=1",
+    "-e",
+    "EDEN_NX2_FRAMES_AHEAD=1",
+    "-e",
+    "EDEN_NX2_NO_MESH=1",
+    "-v",
+    "@TMP@/moteurs/eglantine:/emulator:ro",
+    "-v",
+    "@TMP@/state/0400123456789000/neuve:/run-data",
+    "-v",
+    "@DEPOT@/spikes/switch-room:/probe:ro",
+    "-v",
+    "@TMP@/salles/1/room-switch-k3y9q2xw:/pads",
+    "-v",
+    "@TMP@/roms/jeu.nup:/game/input.nup:ro",
+    "-v",
+    "@TMP@/state/0400123456789000/cache/eglantine-216d3e2943:/run-data/home/.cache",
+    "--device",
+    "/dev/input/event0",
+    "nel3ab/switch-prototype:2026-09-08-recovery",
+    "bash",
+    "/probe/runtime.sh",
+    "/usr/bin/env",
+    "LD_LIBRARY_PATH=/emulator/usr/lib",
+    "/emulator/usr/bin/eden-cli",
+    "-c",
+    "/run-data/emulator.ini",
+    "-f",
+    "-g",
+    "/game/input.nup"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{.State.Running}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True"
+   },
+   "argv": [
+    "docker",
+    "exec",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "python3",
+    "/probe/capture_control.py",
+    "stop"
+   ]
+  },
+  {
+   "appel": "Popen",
+   "options": {},
+   "argv": [
+    "/usr/bin/docker",
+    "exec",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "python3",
+    "/probe/capture.py"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{.State.Running}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{.State.Running}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "False"
+   },
+   "argv": [
+    "/usr/bin/docker",
+    "exec",
+    "nel3ab-switch-room-switch-k3y9q2xw",
+    "python3",
+    "/probe/capture_control.py",
+    "stop"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "stop",
+    "--timeout",
+    "40",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "capture_output": "True",
+    "check": "True",
+    "text": "True"
+   },
+   "argv": [
+    "docker",
+    "inspect",
+    "-f",
+    "{{json .State}}",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stderr": "STDOUT",
+    "stdout": "fichier:@TMP@/state/0400123456789000/neuve/emulator.log"
+   },
+   "argv": [
+    "docker",
+    "logs",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "rm",
+    "nel3ab-switch-room-switch-k3y9q2xw"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "stop",
+    "--timeout",
+    "5",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stderr": "STDOUT",
+    "stdout": "fichier:@TMP@/state/0400123456789000/neuve/pads.log"
+   },
+   "argv": [
+    "docker",
+    "logs",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  },
+  {
+   "appel": "run",
+   "options": {
+    "check": "True",
+    "stdout": "DEVNULL"
+   },
+   "argv": [
+    "docker",
+    "rm",
+    "nel3ab-switch-room-switch-k3y9q2xw-pads"
+   ]
+  }
+ ],
+ "erreur": null,
+ "sortie": 0,
+ "flux": {
+  "stdout": "",
+  "stderr": ""
+ },
+ "arbre": [
+  "f 644 52b8aab108f56acc config.json",
+  "d 755 cwd/",
+  "d 755 home/",
+  "d 755 moteurs/",
+  "d 755 moteurs/eglantine/",
+  "d 755 moteurs/eglantine/usr/",
+  "d 755 moteurs/eglantine/usr/bin/",
+  "f 644 7a24204135f141ef moteurs/eglantine/usr/bin/eden-cli",
+  "d 755 moteurs/lichii/",
+  "d 755 moteurs/lichii/usr/",
+  "d 755 moteurs/lichii/usr/bin/",
+  "f 644 7a24204135f141ef moteurs/lichii/usr/bin/eden-cli",
+  "d 755 roms/",
+  "f 644 cb051a31f5cfa907 roms/jeu.nup",
+  "d 755 salles/",
+  "d 755 salles/1/",
+  "d 770 salles/1/room-switch-k3y9q2xw/",
+  "f 644 25e2eda0ec9763b5 salles/1/room-switch-k3y9q2xw/devices.json",
+  "d 755 state/",
+  "d 755 state/0400123456789000/",
+  "d 755 state/0400123456789000/cache/",
+  "d 755 state/0400123456789000/cache/eglantine-216d3e2943/",
+  "d 755 state/0400123456789000/neuve/",
+  "d 755 state/0400123456789000/neuve/backups/",
+  "d 755 state/0400123456789000/neuve/backups/20261122T000000-1795305600000000001/",
+  "f 644 1aec1f754de82d45 state/0400123456789000/neuve/backups/20261122T000000-1795305600000000001/emulator.ini",
+  "d 755 state/0400123456789000/neuve/backups/20261122T000000-1795305600000000001/nand/",
+  "d 755 state/0400123456789000/neuve/backups/20261122T000000-1795305600000000002/",
+  "f 644 1aec1f754de82d45 state/0400123456789000/neuve/backups/20261122T000000-1795305600000000002/emulator.ini",
+  "d 755 state/0400123456789000/neuve/backups/20261122T000000-1795305600000000002/nand/",
+  "f 644 9e0d33c0a8aff950 state/0400123456789000/neuve/display.json",
+  "f 644 1aec1f754de82d45 state/0400123456789000/neuve/emulator.ini",
+  "f 644 8eb5c78a634595b0 state/0400123456789000/neuve/emulator.log",
+  "f 644 4bc69646f1644ff9 state/0400123456789000/neuve/exit.json",
+  "d 755 state/0400123456789000/neuve/home/",
+  "d 755 state/0400123456789000/neuve/home/.local/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/eden/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/eden/dump/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/eden/load/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/eden/nand/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/eden/sdmc/",
+  "d 755 state/0400123456789000/neuve/home/.local/share/eden/tas/",
+  "f 644 5f7cf50f9e572f30 state/0400123456789000/neuve/pads.log",
+  "f 644 e3b0c44298fc1c14 state/0400123456789000/neuve/running.lock"
+ ]
+}

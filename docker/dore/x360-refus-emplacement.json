@@ -1,0 +1,25 @@
+{
+ "commandes": [],
+ "erreur": "ValueError: Invalid Xbox 360 title or save slot",
+ "sortie": 1,
+ "flux": {
+  "stdout": "",
+  "stderr": ""
+ },
+ "arbre": [
+  "f 600 d65df89f702eec58 cle-des-profils",
+  "f 644 bb1ba52ca14090ba config.json",
+  "d 755 cwd/",
+  "d 755 home/",
+  "d 755 moteurs/",
+  "d 755 moteurs/xenia/",
+  "d 755 moteurs/xenia/usr/",
+  "d 755 moteurs/xenia/usr/bin/",
+  "f 644 7a24204135f141ef moteurs/xenia/usr/bin/xenia_edge",
+  "d 755 roms/",
+  "f 644 cb051a31f5cfa907 roms/Sonic.iso",
+  "d 755 salles/",
+  "d 755 salles/1/",
+  "d 755 salles/1/room-switch-k3y9q2xw/"
+ ]
+}

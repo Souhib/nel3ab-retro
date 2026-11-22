@@ -514,7 +514,42 @@ boite-noire *args:
 # partait avec une marque périmée.
 #
 # Vérifier en dernier veut dire vérifier ce qui sera commité.
-check: fmt-check lint test control front readouts-check contract-check front-check
+#
+# `salles-dore` y entre le 22 novembre 2026, sur décision du propriétaire: les
+# adaptateurs des salles externes n'étaient éprouvés par aucune recette de
+# `check`, donc par aucune CI. Il demande `/usr/bin/python3`, ni Docker ni carte.
+check: fmt-check lint test control salles-dore front readouts-check contract-check front-check
+
+# Les commandes Docker de chaque salle externe, figées scénario par scénario.
+#
+# Chaque scénario lance le VRAI script de la salle dans un `/usr/bin/python3`
+# neuf, comme le worker, et compare ses commandes, son erreur et l'arbre de son
+# emplacement à `docker/dore/<scénario>.json`. Une migration d'adaptateur doit
+# les garder inchangés. Mesuré le 22 novembre 2026: 49 scénarios, deux passages
+# et cinq mutants en 2,8 s sur cette machine.
+salles-dore:
+    python3 docker/test_salles_dore.py
+    cd control && uv run ruff check --config pyproject.toml ../docker/test_salles_dore.py ../docker/dore
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/test_salles_dore.py ../docker/dore
+
+# Réécrit le doré et affiche chaque ligne qui change.
+#
+# Refuse tant qu'un autre fichier est modifié dans l'arbre: un commit qui change
+# le doré ne fait que ça, avec sa raison. Sans ce refus, une migration qui casse
+# une commande se « réparerait » en réécrivant le doré dans le même commit.
+salles-dore-ecrire:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    autres=$( {
+        git status --porcelain --untracked-files=no -- . ':(exclude)docker/dore'
+        git status --porcelain --untracked-files=all -- docker moteurs spikes/switch-room spikes/xbox360 ':(exclude)docker/dore'
+    } | sort -u)
+    if [ -n "$autres" ]; then
+        echo "refusé: d'autres fichiers que docker/dore/ sont modifiés. Les committer d'abord, ou les mettre de côté:"
+        printf '%s\n' "$autres" | sed 's/^/    /'
+        exit 1
+    fi
+    python3 docker/test_salles_dore.py --ecrire
 
 # Auto-fix pass for development. Mirrors `poe fix`.
 # Le formatage automatique, des DEUX côtés.

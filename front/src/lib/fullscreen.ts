@@ -10,6 +10,7 @@
  * plein écran au chargement sans qu'il l'ait demandé, et les navigateurs le
  * refusent de toute façon hors d'un geste.
  */
+import { basculerPleinEcran, enPleinEcran } from "./plein-ecran";
 import { typingIn } from "./typing";
 import { useCallback, useEffect, useState } from "react";
 
@@ -37,7 +38,12 @@ function stored(coarse: boolean): boolean {
   }
 }
 
-export function useBare(coarse = false): {
+export function useBare(
+  coarse = false,
+  /** Ce que fait Ctrl seule quand la colonne n'est pas à côté de l'image: sur
+   * une fenêtre étroite, elle ouvre et ferme le tiroir (`lib/disposition`). */
+  onCtrl?: () => void,
+): {
   bare: boolean;
   setBare: (bare: boolean) => void;
   fullscreen: boolean;
@@ -55,17 +61,25 @@ export function useBare(coarse = false): {
     }
   }, []);
 
+  // Par `basculerPleinEcran`, qui ne lève jamais: sur un iPhone l'API manque,
+  // et l'appel direct levait « requestFullscreen is not a function » avant la
+  // promesse, hors de portée du `.catch` (audit M8). La page ne propose de
+  // toute façon le plein écran que là où il existe (`lib/plein-ecran`).
   const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void document.documentElement.requestFullscreen().catch(() => {});
+    void basculerPleinEcran();
   }, []);
 
   // Le navigateur peut sortir du plein écran sans nous demander (Échap), donc on
-  // écoute plutôt que de tenir un compte de notre côté.
+  // écoute plutôt que de tenir un compte de notre côté. Sous les deux noms: un
+  // iPad ne connaît que la forme préfixée.
   useEffect(() => {
-    const change = () => setFullscreen(document.fullscreenElement !== null);
+    const change = () => setFullscreen(enPleinEcran());
     document.addEventListener("fullscreenchange", change);
-    return () => document.removeEventListener("fullscreenchange", change);
+    document.addEventListener("webkitfullscreenchange", change);
+    return () => {
+      document.removeEventListener("fullscreenchange", change);
+      document.removeEventListener("webkitfullscreenchange", change);
+    };
   }, []);
 
   // Ctrl seule, appuyée puis relâchée sans rien d'autre, replie et déplie. Pas
@@ -82,7 +96,10 @@ export function useBare(coarse = false): {
       alone = event.key === "Control" && !event.repeat ? !typingIn(event.target) : false;
     };
     const up = (event: KeyboardEvent) => {
-      if (event.key === "Control" && alone) setBare(!bare);
+      if (event.key === "Control" && alone) {
+        if (onCtrl) onCtrl();
+        else setBare(!bare);
+      }
       alone = false;
     };
     const cancel = () => {
@@ -100,7 +117,7 @@ export function useBare(coarse = false): {
       removeEventListener("wheel", cancel);
       removeEventListener("blur", cancel);
     };
-  }, [bare, setBare]);
+  }, [bare, setBare, onCtrl]);
 
   return { bare, setBare, fullscreen, toggleFullscreen };
 }

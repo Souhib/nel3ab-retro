@@ -22,9 +22,10 @@
  * Les deux pouces tiennent les coins du bas : le stick à gauche, les quatre
  * boutons à droite, comme sur la console. La croix monte au-dessus du stick,
  * parce qu'elle sert surtout dans les menus. Les gâchettes sont aux coins du
- * haut, là où les index tombent. Les gestes de la PAGE (son, menu, cacher)
- * prennent la première place libre à 16 px de toute touche de jeu : un geste de
- * page sous un pouce qui joue fait perdre la partie.
+ * haut, là où les index tombent. Un seul geste de la PAGE reste parmi les
+ * touches, le « ••• » qui ouvre la feuille du bas (`FeuilleDuBas`); il prend la
+ * première place libre à 16 px de toute touche de jeu : un geste de page sous
+ * un pouce qui joue fait perdre la partie.
  *
  * # Elle ne repasse pas par React
  *
@@ -57,6 +58,7 @@ import {
   type Rect,
   type Touche,
 } from "../lib/faces";
+import { nomDuPlus } from "../lib/feuille";
 import "./manette-tactile.css";
 
 /** Le rayon du stick GameCube, en pixels d'écran.
@@ -260,11 +262,17 @@ function Puits({
   );
 }
 
-/** Ce que chaque geste de page affiche, et son identifiant pour les pilotes. */
-const GESTE: Record<Geste, { id: string; label: string; title: string }> = {
-  son: { id: "wakeSound", label: "son", title: "démarrer le son, et le tester par un bip" },
-  menu: { id: "showColumn", label: "menu", title: "ouvrir le menu du jeu" },
-  cacher: { id: "hideTouch", label: "cacher", title: "cacher la manette à l'écran" },
+/** Ce que chaque geste de page affiche, et son identifiant pour les pilotes.
+ *
+ * Trois jusqu'au 22 novembre 2026 (son, menu, cacher, sous les identifiants
+ * `wakeSound`, `showColumn` et `hideTouch`); un seul depuis, qui ouvre la
+ * feuille du bas où les trois vivent, avec la salle, le plein écran et le
+ * signalement. */
+const GESTE: Record<Geste, { id: string; label: string }> = {
+  // Trois points pleins, centrés sur la ligne: les points de suspension
+  // tombaient au pied de la pastille et se voyaient à peine (capture du
+  // 22 novembre 2026). Le nom dit ce qu'il ouvre (`nomDuPlus`).
+  feuille: { id: "ouvrirFeuille", label: "•••" },
 };
 
 /** Le pavé commun : il mesure, place et pose. Les deux manettes le partagent. */
@@ -276,9 +284,7 @@ export function Pave<K extends string>({
   stickOf,
   idOf,
   soundOff,
-  onSound,
-  onMenu,
-  onLeave,
+  onFeuille,
   id,
 }: {
   face: FaceOf<Frame, K>;
@@ -290,10 +296,10 @@ export function Pave<K extends string>({
   stickOf: (side: "l" | "r") => StickSpec;
   /** L'identifiant d'une touche, pour les pilotes qui la cherchent. */
   idOf?: (key: K) => string;
+  /** Le son ne joue pas: le « ••• » le montre, pour les deux manettes. */
   soundOff: boolean;
-  onSound: () => void;
-  onMenu: () => void;
-  onLeave: () => void;
+  /** Ouvrir la feuille du bas. */
+  onFeuille: () => void;
   id?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -395,7 +401,6 @@ export function Pave<K extends string>({
         );
       case "geste": {
         const said = GESTE[piece.geste];
-        const action = piece.geste === "son" ? onSound : piece.geste === "menu" ? onMenu : onLeave;
         return (
           <button
             key={piece.geste}
@@ -403,10 +408,13 @@ export function Pave<K extends string>({
             id={said.id}
             className="n3-pave-geste"
             data-geste={piece.geste}
-            data-alerte={piece.geste === "son" && soundOff ? "" : undefined}
-            title={said.title}
+            data-alerte={soundOff ? "" : undefined}
+            // Le nom dit le son coupé: la pastille rouge seule ne se lit pas
+            // à voix haute, et ne se distingue pas sans les couleurs.
+            aria-label={nomDuPlus(soundOff)}
+            aria-haspopup="dialog"
             style={at(piece.rect)}
-            onClick={action}
+            onClick={onFeuille}
           >
             {said.label}
           </button>
@@ -436,9 +444,7 @@ export function TouchPad({
   bar,
   touch,
   soundOff,
-  onSound,
-  onLeave,
-  onMenu,
+  onFeuille,
 }: {
   /** La largeur d'une bande noire à côté de l'image, en pixels.
    *
@@ -454,17 +460,10 @@ export function TouchPad({
    * raisons qu'aucun code ne distingue : un geste que le navigateur n'a pas
    * accepté, ou le petit interrupteur sur le côté du téléphone. */
   soundOff: boolean;
-  /** Rallumer le son. Le tapotement est lui-même le geste que le navigateur
-   * attend, donc c'est le chemin le plus court qui existe. */
-  onSound: () => void;
-  /** Cacher la manette. */
-  onLeave: () => void;
-  /** Ouvrir le menu du jeu.
-   *
-   * Le MENU et non la colonne: la colonne est repliée d'office sur un
-   * téléphone, et le menu s'ouvre sinon par Échap. Trouvé en écrivant le
-   * pilote, qui cherchait un bouton qui n'existait pas. */
-  onMenu: () => void;
+  /** Ouvrir la feuille du bas: le son, le menu du jeu, la salle, cacher la
+   * manette, le plein écran, signaler. Le tapotement sur « ••• » est lui-même un
+   * geste, donc il rallume aussi un son coupé (`media/reveil-son`). */
+  onFeuille: () => void;
 }) {
   const radius = useRef(stickRadius());
 
@@ -495,9 +494,7 @@ export function TouchPad({
       release={(key) => touch.release(key)}
       idOf={(key) => `touch-${key}`}
       soundOff={soundOff}
-      onSound={onSound}
-      onMenu={onMenu}
-      onLeave={onLeave}
+      onFeuille={onFeuille}
       stickOf={() => ({
         id: "touchStick",
         label: "stick",

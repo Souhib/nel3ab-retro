@@ -107,3 +107,24 @@ export function avecAvances<T extends { id: string; group?: string }>(
 ): T[] {
   return items.filter((item) => ouvert || item.group !== AVANCE || item.id === "advanced");
 }
+
+/**
+ * Les réglages que l'appareil garde.
+ *
+ * Quand la colonne est un tiroir (`lib/disposition`), elle n'a ni repli ni
+ * largeur à régler: « colonne de droite » et sa largeur disparaissent, et le
+ * rayon « salle » du menu ouvre le tiroir. Le plein écran n'est proposé que là où
+ * l'API existe: sur un iPhone, l'entrée promettait un plein écran qui
+ * n'arrivait jamais (audit M8), et la feuille du bas y propose l'écran
+ * d'accueil.
+ */
+export function selonAppareil<T extends { id: string }>(
+  items: T[],
+  { tiroir, pleinEcran }: { tiroir: boolean; pleinEcran: boolean },
+): T[] {
+  return items.filter((item) => {
+    if (item.id === "bare" || item.id === "columnWidth") return !tiroir;
+    if (item.id === "fullscreen") return pleinEcran;
+    return true;
+  });
+}

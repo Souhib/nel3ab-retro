@@ -239,6 +239,19 @@ export class SoundStream {
     return this.context?.state === "running";
   }
 
+  /** Reprendre sans geste, au retour sur la page (`reveil-son`).
+   *
+   * Sans le déblocage de `start`: hors d'un geste, iOS refuse le média muet,
+   * et `unlocked` noterait un refus qui n'en est pas un. Un contexte qui n'a
+   * jamais été créé reste à créer par un geste. */
+  reprendre(): void {
+    const context = this.context;
+    if (context === null || context.state === "running" || context.state === "closed") return;
+    void context.resume().catch(() => {
+      // Refusé hors d'un geste: le prochain geste s'en charge.
+    });
+  }
+
   /** Les deux gestes qui débloquent le son sur iOS. Sans effet ailleurs.
    *
    * # Pourquoi le fichier a été abandonné

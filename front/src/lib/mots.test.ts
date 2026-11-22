@@ -178,7 +178,7 @@ describe("le parcours des chaînes visibles", () => {
     expect(chaines.length).toBeGreaterThan(800);
     const textes = new Set(chaines.map((c) => c.texte));
     // Un texte JSX, une entrée de menu (propriété), un attribut, un avis.
-    for (const attendu of ["Choisir un jeu", "touches et manettes", "replier la colonne"])
+    for (const attendu of ["Choisir un jeu", "touches et manettes", "revenir au jeu"])
       expect(textes, attendu).toContain(attendu);
   });
 

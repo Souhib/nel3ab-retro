@@ -144,7 +144,7 @@ export function Channels({
         backgroundSize: "44px 44px",
       }}
     >
-      <div className="absolute inset-0 flex flex-col" inert={shell.picking !== null}>
+      <div className="n3-menu-zone absolute inset-0 flex flex-col" inert={shell.picking !== null}>
         <header className="flex items-baseline justify-center gap-6 px-8 pt-6 pb-2">
           <span className="text-corps" style={{ color: INK_SOFT }}>
             {category?.label ?? ""}

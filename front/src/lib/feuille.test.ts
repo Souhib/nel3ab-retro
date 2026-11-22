@@ -1,0 +1,72 @@
+import { describe, expect, it } from "vitest";
+import { entreesDeLaFeuille, type EtatFeuille } from "./feuille";
+import { fautes } from "./mots";
+
+const TELEPHONE: EtatFeuille = {
+  sonCoupe: false,
+  manette: "montree",
+  plein: "api",
+  pleinActif: false,
+};
+const ids = (etat: EtatFeuille) => entreesDeLaFeuille(etat).map((entree) => entree.id);
+
+describe("la feuille du bas", () => {
+  it("porte chaque geste de page d'un téléphone, et la salle", () => {
+    expect(ids(TELEPHONE)).toEqual(["son", "menu", "salle", "manette", "plein-ecran", "signaler"]);
+  });
+
+  it("met le son coupé en tête, en alerte, et le dit", () => {
+    const [son] = entreesDeLaFeuille({ ...TELEPHONE, sonCoupe: true });
+    expect(son?.id).toBe("son");
+    expect(son?.alerte).toBe(true);
+    expect(son?.titre).toBe("Rallumer le son");
+    // Le jumeau: un son qui joue ne s'alerte pas, et propose un essai.
+    const [joue] = entreesDeLaFeuille(TELEPHONE);
+    expect(joue?.alerte).toBe(false);
+    expect(joue?.titre).toBe("Tester le son");
+  });
+
+  it("propose l'écran d'accueil à un iPhone, et pas le plein écran", () => {
+    expect(ids({ ...TELEPHONE, plein: "ecran-accueil" })).toContain("ecran-accueil");
+    expect(ids({ ...TELEPHONE, plein: "ecran-accueil" })).not.toContain("plein-ecran");
+    // Le jumeau: un téléphone qui a l'API n'a pas besoin du conseil.
+    expect(ids(TELEPHONE)).not.toContain("ecran-accueil");
+  });
+
+  it("ne promet ni l'un ni l'autre quand rien ne tiendrait", () => {
+    for (const plein of ["deja", "aucun"] as const) {
+      expect(ids({ ...TELEPHONE, plein })).not.toContain("plein-ecran");
+      expect(ids({ ...TELEPHONE, plein })).not.toContain("ecran-accueil");
+    }
+  });
+
+  it("dit quitter le plein écran quand on y est", () => {
+    const titre = (pleinActif: boolean) =>
+      entreesDeLaFeuille({ ...TELEPHONE, pleinActif }).find((one) => one.id === "plein-ecran")
+        ?.titre;
+    expect(titre(true)).toBe("Quitter le plein écran");
+    expect(titre(false)).toBe("Plein écran");
+  });
+
+  it("cache ou montre la manette selon son état, et n'en parle pas à la souris", () => {
+    const titre = (manette: EtatFeuille["manette"]) =>
+      entreesDeLaFeuille({ ...TELEPHONE, manette }).find((one) => one.id === "manette")?.titre;
+    expect(titre("montree")).toBe("Cacher la manette");
+    expect(titre("cachee")).toBe("Montrer la manette");
+    expect(titre(null)).toBeUndefined();
+  });
+
+  it("n'écrit aucun mot que le lexique refuse", () => {
+    const toutes = [true, false].flatMap((sonCoupe) =>
+      (["montree", "cachee"] as const).flatMap((manette) =>
+        (["api", "ecran-accueil"] as const).flatMap((plein) =>
+          entreesDeLaFeuille({ sonCoupe, manette, plein, pleinActif: false }),
+        ),
+      ),
+    );
+    for (const entree of toutes) {
+      expect(fautes(entree.titre), entree.titre).toEqual([]);
+      expect(fautes(entree.detail), entree.detail).toEqual([]);
+    }
+  });
+});

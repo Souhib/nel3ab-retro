@@ -99,7 +99,7 @@ export function Home({
       className={cn("n3-menu n3-enter", shell.picking?.previewing ? "n3-peek" : "")}
       style={{ background: INK, color: "#f2f2f2", touchAction: "none" }}
     >
-      <div className="absolute inset-0 flex flex-col" inert={shell.picking !== null}>
+      <div className="n3-menu-zone absolute inset-0 flex flex-col" inert={shell.picking !== null}>
         <header className="flex items-center justify-between px-8 py-4">
           <span className="flex items-center gap-3">
             <span

@@ -362,17 +362,34 @@ mod tests {
         use sha2::Digest as _;
 
         let page = include_str!("../../../worker/src/page/index.html");
-        let open = page.find("<script").expect("la page a un script en ligne");
-        let head = page[open..].find('>').expect("la balise se ferme");
-        let close = page[open + head + 1..]
-            .find("</script>")
-            .expect("le script se ferme");
-        let body = &page[open + head + 1..open + head + 1 + close];
-        let expected = base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(body));
-
+        let policy = script_policy(page);
+        // CHAQUE script, et pas seulement le premier. Depuis le 22 novembre
+        // 2026, la page en porte deux: le thème posé dans l'en-tête avant la
+        // première image, puis le module. Vérifier le premier seul laissait le
+        // module sans essai, et il est ce qui fait tourner toute la salle.
+        let mut rest = page;
+        let mut seen = 0;
+        while let Some(open) = rest.find("<script") {
+            let head = rest[open..].find('>').expect("la balise se ferme");
+            let close = rest[open + head + 1..]
+                .find("</script>")
+                .expect("le script se ferme");
+            let body = &rest[open + head + 1..open + head + 1 + close];
+            let expected =
+                base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(body));
+            assert!(
+                policy.contains(&expected),
+                "l'empreinte du script n° {} n'est pas annoncée",
+                seen + 1
+            );
+            seen += 1;
+            rest = &rest[open + head + 1 + close..];
+        }
+        // La précondition: une page sans le script de l'en-tête passerait sans
+        // rien vérifier de lui.
         assert!(
-            script_policy(page).contains(&expected),
-            "l'empreinte annoncée n'est pas celle du script servi"
+            seen >= 2,
+            "{seen} script(s) dans la page, 2 attendus au moins"
         );
     }
 

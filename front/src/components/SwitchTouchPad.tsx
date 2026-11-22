@@ -20,9 +20,7 @@ export function SwitchTouchPad({
   console: code,
   bar,
   soundOff = false,
-  onMenu,
-  onLeave,
-  onSound,
+  onFeuille,
 }: {
   source: SwitchInput;
   /** La console de la salle, pour nommer les touches comme sa manette. Une
@@ -36,10 +34,12 @@ export function SwitchTouchPad({
    * pour la même raison : oubliée, elle vaudrait zéro et les touches iraient
    * sur l'image. */
   bar: number;
+  /** Le son ne joue pas. Le pavé Pro ne le montrait nulle part avant le
+   * 22 novembre 2026: en salle Xbox 360, rien ne disait la partie muette
+   * (audit M10). */
   soundOff?: boolean;
-  onMenu: () => void;
-  onLeave: () => void;
-  onSound: () => void;
+  /** Ouvrir la feuille du bas (`FeuilleDuBas`). */
+  onFeuille: () => void;
 }) {
   useEffect(() => {
     const release = () => {
@@ -65,9 +65,7 @@ export function SwitchTouchPad({
       press={(key) => source.touched.add(key)}
       release={(key) => source.touched.delete(key)}
       soundOff={soundOff}
-      onSound={onSound}
-      onMenu={onMenu}
-      onLeave={onLeave}
+      onFeuille={onFeuille}
       stickOf={(side) => {
         const [x, y] = axes(side);
         return {

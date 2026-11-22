@@ -28,7 +28,7 @@ check(await page.$("#touchpad") !== null, "la manette apparaît toute seule sur 
 check(await page.$("#touch-A") !== null, "avec ses boutons");
 check(
   await page.$("aside") === null,
-  "la colonne est repliée d'office: elle prend la moitié d'un écran tenu en travers",
+  "la colonne n'est pas posée à côté de l'image: elle est un tiroir, fermé à l'arrivée",
 );
 check(await page.$("#unbare") === null, "et ses boutons de coin ne doublent pas Z et R");
 
@@ -37,20 +37,26 @@ check(await page.$("#unbare") === null, "et ses boutons de coin ne doublent pas 
 // est définitif pour la visite.
 const press = (css) => page.evaluate((s) => document.querySelector(s)?.click(), css);
 
-await press("#hideTouch");
-await new Promise((r) => setTimeout(r, 500));
-check(await page.$("#touchpad") === null, "« cacher » cache bien la manette");
-check(await page.$("#showTouch") !== null, "et laisse une porte pour la rappeler");
+// Depuis le 22 novembre 2026, les gestes de page passent par la feuille du
+// bas, ouverte par le « ••• » de la manette (`FeuilleDuBas`).
+const sheet = async (entry) => {
+  await press("#ouvrirFeuille");
+  await new Promise((r) => setTimeout(r, 500));
+  await press(`[data-entree="${entry}"]`);
+  await new Promise((r) => setTimeout(r, 500));
+};
 
-await press("#showTouch");
-await new Promise((r) => setTimeout(r, 500));
+await sheet("manette");
+check(await page.$("#touchpad") === null, "« cacher la manette » cache bien la manette");
+check(await page.$("#ouvrirFeuille") !== null, "et laisse une porte pour la rappeler");
+
+await sheet("manette");
 check(await page.$("#touchpad") !== null, "la manette revient");
 
-// Le menu du jeu s'ouvre depuis la manette. C'est le seul chemin sur un
-// téléphone: le bouton qui l'ouvre vit dans la colonne, la colonne est repliée
-// d'office, et Échap n'existe pas.
-await press("#showColumn");
-await new Promise((r) => setTimeout(r, 1200));
+// Le menu du jeu s'ouvre depuis la manette. Sur un téléphone, Échap n'existe
+// pas: c'est le « ••• », puis « Menu du jeu ».
+await sheet("menu");
+await new Promise((r) => setTimeout(r, 700));
 check(await page.$("#menu") !== null, "le menu du jeu s'ouvre depuis la manette");
 // Refermé aussitôt: un menu ouvert avale les appuis, et les essais qui suivent
 // vérifient justement que les appuis arrivent au JEU.
@@ -79,9 +85,7 @@ const groups = await page.evaluate(() => {
     "touch-R",
     "touch-Z",
     "touch-START",
-    "wakeSound",
-    "showColumn",
-    "hideTouch",
+    "ouvrirFeuille",
   ]
     .map(box)
     .filter(Boolean);
@@ -179,8 +183,8 @@ const chosen = () =>
   page.evaluate(
     () => document.querySelector('[id^="item-"][data-selected="true"]')?.id ?? null,
   );
-await press("#showColumn");
-await new Promise((r) => setTimeout(r, 1200));
+await sheet("menu");
+await new Promise((r) => setTimeout(r, 700));
 const wasOn = await chosen();
 check(wasOn !== null, `le menu s'ouvre au doigt (${wasOn})`);
 
@@ -200,16 +204,12 @@ check(nowOn !== wasOn, `le glissement change l'entrée choisie (${wasOn} → ${n
 await press("#closeMenu");
 await new Promise((r) => setTimeout(r, 800));
 
-// Et la colonne, dépliée depuis le menu, se referme sans Échap.
-await press("#showColumn");
-await new Promise((r) => setTimeout(r, 800));
-await page.evaluate(() => {
-  const item = document.getElementById("item-bare");
-  if (item) item.click();
-});
-await new Promise((r) => setTimeout(r, 800));
-await press("#closeMenu");
+// Et la colonne, ouverte en tiroir depuis la feuille, se referme sans Échap.
+await sheet("salle");
+check(await page.$("#tiroir #side") !== null, "la salle s'ouvre en tiroir depuis la feuille");
+await press("#foldColumn");
 await new Promise((r) => setTimeout(r, 600));
+check(await page.$("#side") === null, "et se referme par son bouton, sans Échap");
 
 // Et sur un ordinateur, elle ne s'invite pas.
 //

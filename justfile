@@ -403,6 +403,23 @@ padmap-visuel:
 manette-garde out="/tmp/manette-garde":
     cd spikes/m3-browser-drive && node manette-garde.mjs {{out}}
 
+# La salle sur téléphone et tablette, sur l'arbre de travail.
+#
+# À 375x667, 390x844, 430x932, 844x390, 932x430 et 768x1024, au doigt et avec
+# les zones sûres d'un iPhone simulées, puis à 1440x900 à la souris: un seul
+# « ••• » ouvre la feuille du bas, la feuille ouvre le tiroir de la salle, et
+# chaque fonction de la colonne s'y joint au doigt (places, demander,
+# signaler, diagnostic, spectateurs, quitter); rien ne déborde ni ne se
+# recouvre; sans API plein écran, la feuille propose l'écran d'accueil sans
+# erreur; l'entrée de la salle tient en haut en paysage; le réglage des touches
+# prend tout l'écran tenu en travers; la page CONSTRUITE pose le thème choisi
+# avant sa première image. Écrite après l'audit du 22 novembre 2026 (P5, M6,
+# M8, M9, M10, M11, E2). Hors de `check` parce qu'elle demande Chrome. Vite
+# sert la page sans relais, avec une fausse session média
+# (`salle-telephone.session.ts`), sur le port 5446 (SALLE_TELEPHONE_PORT).
+salle-telephone out="/tmp/salle-telephone":
+    cd spikes/m3-browser-drive && node salle-telephone.mjs {{out}}
+
 # Le banc d'essai, regardé et mesuré.
 #
 # Ici et pas dans `check` pour la même raison que l'aperçu des plans: ce qui se

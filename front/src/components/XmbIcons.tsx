@@ -305,3 +305,24 @@ export function WandIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Signaler: un fanion planté, pour « note cet instant ». */
+export function FlagIcon({ className }: IconProps) {
+  return (
+    <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M14 40V9" strokeLinecap="round" />
+      <path d="M14 10h20l-5 7 5 7H14" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** L'écran d'accueil: un téléphone, et une case qui s'y pose. */
+export function HomeScreenIcon({ className }: IconProps) {
+  return (
+    <svg viewBox={box} className={className} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="14" y="6" width="20" height="36" rx="3" />
+      <rect x="20" y="16" width="8" height="8" />
+      <path d="M22 37h4" strokeLinecap="round" />
+    </svg>
+  );
+}

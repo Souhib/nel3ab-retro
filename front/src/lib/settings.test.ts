@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { arrange, AVANCE, avecAvances, MANETTES, SETTINGS } from "./settings";
+import { arrange, AVANCE, avecAvances, MANETTES, selonAppareil, SETTINGS } from "./settings";
 
 const ids = (items: { id: string }[]) => items.map((one) => one.id);
 
@@ -92,5 +92,39 @@ describe("le groupe avancé, replié", () => {
     expect(
       avecAvances(tous, false).every((one) => one.group !== AVANCE || one.id === "advanced"),
     ).toBe(true);
+  });
+});
+
+describe("les réglages selon l'appareil", () => {
+  const tous = SETTINGS.map((one) => ({ id: one.id }));
+
+  it("retire le repli et la largeur de la colonne quand elle est un tiroir", () => {
+    const vus = ids(selonAppareil(tous, { tiroir: true, pleinEcran: true }));
+    expect(vus).not.toContain("bare");
+    expect(vus).not.toContain("columnWidth");
+  });
+
+  it("garde le repli et la largeur à côté de l'image", () => {
+    // Le jumeau: la colonne d'un grand écran se règle comme avant.
+    const vus = ids(selonAppareil(tous, { tiroir: false, pleinEcran: true }));
+    expect(vus).toContain("bare");
+    expect(vus).toContain("columnWidth");
+  });
+
+  it("ne propose le plein écran que là où il existe", () => {
+    // Audit M8: sur un iPhone, l'entrée promettait un plein écran qui
+    // n'arrivait jamais.
+    expect(ids(selonAppareil(tous, { tiroir: true, pleinEcran: false }))).not.toContain(
+      "fullscreen",
+    );
+    expect(ids(selonAppareil(tous, { tiroir: true, pleinEcran: true }))).toContain("fullscreen");
+  });
+
+  it("ne retire rien d'autre", () => {
+    const vus = ids(selonAppareil(tous, { tiroir: true, pleinEcran: false }));
+    const attendus = tous
+      .map((one) => one.id)
+      .filter((id) => !["bare", "columnWidth", "fullscreen"].includes(id));
+    expect(vus).toEqual(attendus);
   });
 });

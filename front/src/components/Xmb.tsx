@@ -241,7 +241,7 @@ export function Xmb({
       {/* Inerte derrière un sélecteur: Tab reste dans le sélecteur. Une boîte
           pleine et non `display: contents`: `.n3-peek` efface les enfants
           directs par l'opacité, et une boîte sans boîte n'en a pas. */}
-      <div className="absolute inset-0" inert={shell.picking !== null}>
+      <div className="n3-menu-zone absolute inset-0" inert={shell.picking !== null}>
         <Backdrop />
 
         {/* Le sujet de l'entrée choisie et où on en est dans la liste, au-dessus

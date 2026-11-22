@@ -13,7 +13,7 @@ import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
 import { base, salle, under } from "./lib/base";
 import { Crown } from "./components/Crown";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
 import { GameCard } from "./components/GameCard";
@@ -25,7 +25,7 @@ import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { ControllerStatus } from "./components/ControllerStatus";
 import { manetteAConfigurer } from "./lib/plug";
-import { NOM_ETAT, resumeConnexion } from "./lib/liaison-mots";
+import { NOM_ETAT, dire, resumeConnexion } from "./lib/liaison-mots";
 import { ETROIT_SOUS } from "./lib/menu-xmb";
 import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
@@ -93,11 +93,17 @@ import {
 } from "./lib/theme";
 import { FITS, fitLabel, place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
+import { useEnTiroir } from "./lib/disposition";
+import { entreesDeLaFeuille, nomDuPlus } from "./lib/feuille";
+import { lireAppareil, pleinEcranPossible } from "./lib/plein-ecran";
+import { armerReveilDuSon } from "./media/reveil-son";
+import { FeuilleDuBas } from "./components/FeuilleDuBas";
+import { TiroirSi } from "./components/Tiroir";
 import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
 import { useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
-import { arrange, avecAvances, MANETTES } from "./lib/settings";
+import { arrange, avecAvances, MANETTES, selonAppareil } from "./lib/settings";
 import { appareilDe, pour } from "./lib/appareil";
 import { clavierAuJeu, clavierEnPause, REND_LE_JEU, rendreAuJeuApresClic } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
@@ -335,18 +341,22 @@ function Named({
   return (
     <HoteDesSurcouches>
       {entered === null ? (
-        <Lobby
-          room={room}
-          name={name}
-          login={login}
-          failed={isError}
-          look={look}
-          onLook={setLook}
-          onEnter={onEnter}
-          onWatch={onWatch}
-          onForget={onForget}
-          onRename={(chosen) => rename.mutate(chosen)}
-        />
+        /* Hors des zones sûres: depuis `viewport-fit=cover`, la page va
+           jusque sous l'encoche, et l'avant-salle n'a pas d'image à y mettre. */
+        <div className="n3-zones h-full">
+          <Lobby
+            room={room}
+            name={name}
+            login={login}
+            failed={isError}
+            look={look}
+            onLook={setLook}
+            onEnter={onEnter}
+            onWatch={onWatch}
+            onForget={onForget}
+            onRename={(chosen) => rename.mutate(chosen)}
+          />
+        </div>
       ) : (
         <Room
           name={name}
@@ -506,7 +516,23 @@ function Room({
   };
 }) {
   const coarse = useRef(looksLikeAPhone()).current;
-  const { bare, setBare, fullscreen, toggleFullscreen } = useBare(coarse);
+  /** Sous 900 px ou au doigt, la colonne est un tiroir par-dessus l'image, et
+   * les gestes de page passent par la feuille du bas (`lib/disposition`). */
+  const compact = useEnTiroir();
+  /** Le tiroir et la feuille, ouverts ou non. Jamais retenus: rouverte au
+   * chargement, la colonne cacherait la partie qu'on vient rejoindre. */
+  const [tiroir, setTiroir] = useState(false);
+  const [feuille, setFeuille] = useState(false);
+  const basculerTiroir = useCallback(() => setTiroir((ouvert) => !ouvert), []);
+  // Ctrl seule replie la colonne à côté de l'image, et ouvre ou ferme le
+  // tiroir quand elle en est un.
+  const { bare, setBare, fullscreen, toggleFullscreen } = useBare(
+    coarse,
+    compact ? basculerTiroir : undefined,
+  );
+  /** Ce que l'appareil permet: plein écran, écran d'accueil, ou rien. Lu une
+   * fois: ni l'API ni l'écran d'accueil ne changent pendant une visite. */
+  const plein = useRef(pleinEcranPossible(lireAppareil())).current;
   /** La largeur de la colonne, choisie entre deux bornes: voir `lib/column`. */
   const [column, setColumn] = useState(storedColumn);
   const [volume, setVolume] = useState(START_VOLUME);
@@ -542,6 +568,14 @@ function Room({
    * s'il y en avait une, et s'alarmait en conséquence. */
   const playing = room === undefined ? null : room.game !== null;
   const [menu, setMenu] = useState(idle);
+  // Le menu, ou quelqu'un qui demande ta place, passent avant le tiroir et la
+  // feuille: les deux sont des dialogues modaux, qui rendraient le menu ou la
+  // demande inertes dessous. La demande ne dure que dix secondes.
+  useEffect(() => {
+    if (!menu && asked === null) return;
+    setTiroir(false);
+    setFeuille(false);
+  }, [menu, asked]);
   const checkingIdentity = useMenuIdentity(menu);
   const [unlockedSaves, setUnlockedSaves] = useState<readonly boolean[] | null>(null);
   useEffect(() => {
@@ -686,6 +720,9 @@ function Room({
   useRoomReference(() => alive.current?.input.refreshRoomKeys());
   const clip = useClip();
   const shot = useSnapshot(session);
+  /** Le son ne joue pas. Lu à la cadence de l'instantané, deux fois par
+   * seconde, comme tout ce que la page affiche. */
+  const soundOff = shot ? shot.sound.state !== "running" : false;
   // Le compte à rebours de fermeture, dit par le worker dans le message de
   // salle. Masqué d'un clic, et RÉARMÉ quand le compte s'efface: une salle
   // sauvée puis redélaissée doit prévenir de nouveau.
@@ -804,25 +841,12 @@ function Room({
    * N'importe quel geste fait l'affaire, et le premier appui sur la manette à
    * l'écran en est un: on écoute une fois, on démarre, on se retire. Le bouton
    * de la colonne reste, pour qui aurait refusé au premier tour. */
+  // On réessaie tant que ça n'a pas PRIS, et l'écoute RESTE: une coupure
+  // d'iOS (un appel, une autre application) se relance au geste suivant
+  // (`media/reveil-son`, audit M10). Elle s'arrêtait au premier succès.
   useEffect(() => {
     if (!session) return;
-    // On réessaie tant que ça n'a pas PRIS, et pas seulement une fois.
-    //
-    // Ce que `start` demande n'est pas ce que le navigateur accorde. Sur iOS le
-    // premier essai échoue souvent, et se retirer après lui laissait le son
-    // coupé pour toute la visite sans que rien ne le dise. On écoute donc
-    // jusqu'à ce que le contexte joue vraiment.
-    const kinds = ["pointerup", "touchend", "click", "keydown"];
-    const wake = () => {
-      void session.sound.start().then(() => {
-        if (!session.sound.running()) return;
-        for (const kind of kinds) window.removeEventListener(kind, wake);
-      });
-    };
-    for (const kind of kinds) window.addEventListener(kind, wake, { passive: true });
-    return () => {
-      for (const kind of kinds) window.removeEventListener(kind, wake);
-    };
+    return armerReveilDuSon(session.sound);
   }, [session]);
 
   useEffect(() => session?.sound.setVolume(volume), [session, volume]);
@@ -845,7 +869,9 @@ function Room({
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
       if (typingIn(event.target)) return;
-      if (event.key !== "Escape" || menu || bindings) return;
+      // Le tiroir et la feuille se ferment eux-mêmes par Échap: leur
+      // `preventDefault` ici les garderait ouverts.
+      if (event.key !== "Escape" || menu || bindings || tiroir || feuille) return;
       // Sans `preventDefault`, la fin de ce même appui est une « demande de
       // fermeture » pour le navigateur, et le menu, ouvert en dialogue modal
       // pendant l'événement, la recevait: il s'ouvrait et se refermait aussitôt
@@ -855,7 +881,7 @@ function Room({
     };
     addEventListener("keydown", press);
     return () => removeEventListener("keydown", press);
-  }, [menu, bindings]);
+  }, [menu, bindings, tiroir, feuille]);
 
   /* Le modèle de focus (`lib/focus-jeu`): le clavier du jeu vit dans la zone de
      jeu, et partout ailleurs Entrée, Espace et les flèches font ce que fait le
@@ -1186,6 +1212,16 @@ function Room({
     pendingSetup?.key ? game.key === pendingSetup.key : game.index === pendingSetup?.game,
   );
   const configuringSwitch = usesProInput(setupGame?.console ?? room?.game?.console);
+  /** Un écran couvre toute l'image: la salle au repos, un chargement, ou le
+   * rideau d'une arrivée sans image. Personne n'y joue, et ces écrans
+   * recouvraient la manette à l'écran avec son « ••• »: sur un téléphone, le
+   * tiroir de la salle (places, signaler, quitter) devenait introuvable
+   * pendant une panne (audit P4, E7). La manette n'est donc pas montée, et le
+   * « ••• » se pose seul, au-dessus de ces écrans. */
+  const voile =
+    (idle && !menu && !configuring) ||
+    booting !== null ||
+    (!padOnly && dire(liaison, salle(), moteurDe(room?.game?.console)).niveau === "rideau");
   useEffect(() => {
     session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
     return () => session?.input.blockGameplay(false);
@@ -1643,8 +1679,10 @@ function Room({
       //
       // Elles y montraient qui tient quoi, et permettaient de s'asseoir ou de
       // demander sa manette à quelqu'un. La COLONNE fait déjà exactement ça, y
-      // compris les deux clics pour reprendre une place tenue par un fantôme —
-      // et elle est visible en permanence, là où il fallait ouvrir un menu.
+      // compris les deux clics pour reprendre une place tenue par un fantôme.
+      // Elle n'est pas « visible en permanence » partout, comme ce commentaire
+      // l'a cru: sur un téléphone, elle est un tiroir fermé (audit P5). Ce
+      // rayon l'ouvre donc, sous 900 px ou au doigt (« places et spectateurs »).
       //
       // Deux endroits pour un même geste, c'est deux endroits à tenir d'accord.
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
@@ -1734,6 +1772,22 @@ function Room({
         //
         // Déplacé, pas dupliqué: deux endroits pour un même geste sont deux
         // endroits à tenir d'accord, et c'est la leçon des quatre places.
+        // Le tiroir de la colonne, quand elle en est un: les places, demander
+        // celle d'un autre, signaler, le diagnostic, les spectateurs.
+        ...(compact
+          ? [
+              {
+                id: "places",
+                label: "places et spectateurs",
+                hint: "prendre ou demander une place, signaler, quitter (Ctrl)",
+                icon: <RoomIcon className="h-full w-full" />,
+                onEnter: () => {
+                  setMenu(false);
+                  setTiroir(true);
+                },
+              },
+            ]
+          : []),
         {
           id: "watch",
           label: enMenu(watchingNow ? PLACE.prendre : PLACE.rendre),
@@ -1768,267 +1822,276 @@ function Room({
       // Les réglages pointus sont repliés derrière « réglages avancés »:
       // `lib/settings`, `avecAvances`.
       items: avecAvances(
-        arrange([
-          {
-            id: "sound",
-            label: "son",
-            value: shot?.sound.state === "running" ? "activé" : "éteint",
-            hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
-            icon: <SoundIcon className="h-full w-full" />,
-            onEnter: () => void session?.sound.start(),
-          },
-          {
-            id: "half",
-            // « transporté » était du vocabulaire interne: personne ne dit ça
-            // d'une image. Ce qu'on choisit est la qualité qu'on REÇOIT.
-            label: IMAGE.reglage,
-            value: shot?.video.half ? "légère" : "complète",
-            // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
-            // combien ça coûte, et que ça ne regarde qu'elle.
-            //
-            // Les tailles viennent de l'image REÇUE, comme celles du réglage
-            // « image à l'écran », et non d'une table: les 1216×896 et 608×448
-            // écrits ici étaient ceux de Dolphin, et la Switch envoie du
-            // 1280×720. Un seul prix, et seulement là où il a été mesuré
-            // (`prixImageLegere`): la page disait ici « le quart » et ailleurs
-            // « 2,6 fois moins » (audit T11), et donnait le chiffre d'une
-            // course Dolphin à une salle Switch (relecture du 22 novembre).
-            hint: half
-              ? `${sizes.half || IMAGE.legere}, ${prixImage}. Ne change que ton écran.`
-              : `${sizes.full || IMAGE.complete}. Passe en image légère si l'image saccade.`,
-            icon: <ScreenIcon className="h-full w-full" />,
-            picks: [
+        arrange(
+          selonAppareil(
+            [
               {
-                id: "full",
-                label: IMAGE.complete,
-                hint: sizes.full || "toute l'image",
+                id: "sound",
+                label: "son",
+                value: shot?.sound.state === "running" ? "activé" : "éteint",
+                hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
+                icon: <SoundIcon className="h-full w-full" />,
+                onEnter: () => void session?.sound.start(),
               },
               {
                 id: "half",
-                label: IMAGE.legere,
-                hint: sizes.half ? `${sizes.half} · ${prixImage}` : prixImage,
+                // « transporté » était du vocabulaire interne: personne ne dit ça
+                // d'une image. Ce qu'on choisit est la qualité qu'on REÇOIT.
+                label: IMAGE.reglage,
+                value: shot?.video.half ? "légère" : "complète",
+                // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
+                // combien ça coûte, et que ça ne regarde qu'elle.
+                //
+                // Les tailles viennent de l'image REÇUE, comme celles du réglage
+                // « image à l'écran », et non d'une table: les 1216×896 et 608×448
+                // écrits ici étaient ceux de Dolphin, et la Switch envoie du
+                // 1280×720. Un seul prix, et seulement là où il a été mesuré
+                // (`prixImageLegere`): la page disait ici « le quart » et ailleurs
+                // « 2,6 fois moins » (audit T11), et donnait le chiffre d'une
+                // course Dolphin à une salle Switch (relecture du 22 novembre).
+                hint: half
+                  ? `${sizes.half || IMAGE.legere}, ${prixImage}. Ne change que ton écran.`
+                  : `${sizes.full || IMAGE.complete}. Passe en image légère si l'image saccade.`,
+                icon: <ScreenIcon className="h-full w-full" />,
+                picks: [
+                  {
+                    id: "full",
+                    label: IMAGE.complete,
+                    hint: sizes.full || "toute l'image",
+                  },
+                  {
+                    id: "half",
+                    label: IMAGE.legere,
+                    hint: sizes.half ? `${sizes.half} · ${prixImage}` : prixImage,
+                  },
+                ],
+                picked: half ? "half" : "full",
+                onPick: (id) => {
+                  const wanted = id === "half";
+                  session?.video.setHalf(wanted);
+                  setHalf(wanted);
+                },
               },
-            ],
-            picked: half ? "half" : "full",
-            onPick: (id) => {
-              const wanted = id === "half";
-              session?.video.setHalf(wanted);
-              setHalf(wanted);
-            },
-          },
-          {
-            id: "fit",
-            label: "image à l'écran",
-            value: fitLabel(fit),
-            hint: "Comment l'image remplit ta fenêtre. Ne change pas ce que tu reçois.",
-            icon: <ExpandIcon className="h-full w-full" />,
-            // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
-            // qu'il promet. Sans ça, deux choix qui rendent exactement la même
-            // image — ce qui arrive dès que la source est proche de l'écran — se
-            // présentent comme deux choix différents, et on croit que le réglage
-            // ne fait rien.
-            picks: FITS.map((choice) => {
-              const would = place(choice.id, picture, space);
-              const size =
-                would.width > 0 ? `${Math.round(would.width)}×${Math.round(would.height)}` : "";
-              return {
-                id: choice.id,
-                label: choice.label,
-                hint: size ? `${size} · ${choice.note}` : choice.note,
-              };
-            }),
-            picked: fit,
-            preview: true,
-            onPick: (id) => {
-              const found = FITS.find((choice) => choice.id === id);
-              if (found) setFit(found.id);
-            },
-          },
-          {
-            id: "volume",
-            label: "volume",
-            // À zéro, le son n'est pas joué en silence: il n'est plus envoyé du
-            // tout (`SoundStream.setMuted`). Le dire, pour qu'une liaison faible
-            // sache qu'elle vient de gagner 1,5 Mbit/s.
-            value: volume <= 0 ? "sourdine" : `${Math.round(volume * 100)}`,
-            hint: volume <= 0 ? "le son n'est plus envoyé" : pour(appareil, "ouvrir la glissière"),
-            icon: <VolumeIcon className="h-full w-full" />,
-            // En pour-cent et non en fraction: la glissière avance par crans
-            // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
-            // il faut l'arrondir à la souris.
-            slide: {
-              value: Math.round(volume * 100),
-              min: 0,
-              max: 100,
-              step: 5,
-              say: (at) => `${at} %`,
-              onSet: (at) => setVolume(at / 100),
-            },
-          },
-          {
-            id: "theme",
-            label: "couleurs",
-            value: themeLabel(theme),
-            hint: pour(appareil, "voir les trois"),
-            icon: <PaletteIcon className="h-full w-full" />,
-            picks: THEMES.map((choice) => ({
-              id: choice.id,
-              label: choice.label,
-              hint: choice.note,
-            })),
-            picked: theme,
-            onPick: (id) => {
-              const found = THEMES.find((choice) => choice.id === id);
-              if (found) setTheme(found.id);
-            },
-          },
-          {
-            id: "shell",
-            // Une entrée nommée « menu », dans un menu, est une devinette. Ce
-            // qu'elle choisit est le tableau de bord de quelle console.
-            label: "tableau de bord",
-            value: shellLabel(shell),
-            hint: pour(appareil, "voir les consoles"),
-            icon: <LayoutIcon className="h-full w-full" />,
-            picks: SHELLS.map((choice) => ({
-              id: choice.id,
-              label: choice.label,
-            })),
-            picked: shell,
-            onPick: (id) => {
-              const found = SHELLS.find((choice) => choice.id === id);
-              if (found) setShell(found.id);
-            },
-          },
-          {
-            id: "deviceRate",
-            label: "son sans conversion",
-            value: deviceRate ? "oui" : "non",
-            hint: "Peut réduire un grésillement. Peut ajouter un peu de retard.",
-            icon: <WaveIcon className="h-full w-full" />,
-            onEnter: () => setDeviceRate(!deviceRate),
-          },
-          {
-            id: "lipsync",
-            label: "image calée sur le son",
-            value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
-            hint: lipsync
-              ? "compensation ajustée au son ; elle ajoute aussi du retard aux commandes"
-              : "retarde l'image pour suivre le son, seulement sur cet écran",
-            icon: <SyncIcon className="h-full w-full" />,
-            onEnter: () => setLipsync(!lipsync),
-          },
-          {
-            id: "bare",
-            // Un nom, comme les autres. La phrase à l'impératif est le
-            // travail de l'aide, pas du titre.
-            label: "colonne de droite",
-            value: bare ? "repliée" : "visible",
-            hint: "rend toute la largeur à l'image (Ctrl)",
-            icon: <PanelIcon className="h-full w-full" />,
-            onEnter: () => setBare(!bare),
-          },
-          {
-            id: "columnWidth",
-            label: "largeur de la colonne",
-            value: `${column} px`,
-            hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
-            icon: <PanelIcon className="h-full w-full" />,
-            // La glissière du menu, parce que la poignée n'a pas de clavier:
-            // voir `ColumnHandle`. Au clavier et à la manette, c'est ici.
-            slide: {
-              value: column,
-              min: COLUMN.min,
-              // Relue à chaque rendu du menu: une fenêtre étroite ne permet pas
-              // la même largeur qu'un grand écran.
-              max: widest(window.innerWidth),
-              step: COLUMN.step,
-              say: (at) => `${at} px`,
-              onSet: (at) => {
-                setColumn(at);
-                rememberColumn(at);
+              {
+                id: "fit",
+                label: "image à l'écran",
+                value: fitLabel(fit),
+                hint: "Comment l'image remplit ta fenêtre. Ne change pas ce que tu reçois.",
+                icon: <ExpandIcon className="h-full w-full" />,
+                // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
+                // qu'il promet. Sans ça, deux choix qui rendent exactement la même
+                // image — ce qui arrive dès que la source est proche de l'écran — se
+                // présentent comme deux choix différents, et on croit que le réglage
+                // ne fait rien.
+                picks: FITS.map((choice) => {
+                  const would = place(choice.id, picture, space);
+                  const size =
+                    would.width > 0 ? `${Math.round(would.width)}×${Math.round(would.height)}` : "";
+                  return {
+                    id: choice.id,
+                    label: choice.label,
+                    hint: size ? `${size} · ${choice.note}` : choice.note,
+                  };
+                }),
+                picked: fit,
+                preview: true,
+                onPick: (id) => {
+                  const found = FITS.find((choice) => choice.id === id);
+                  if (found) setFit(found.id);
+                },
               },
-            },
-          },
-          {
-            id: "fullscreen",
-            label: "plein écran",
-            value: fullscreen ? "oui" : "non",
-            icon: <ExpandIcon className="h-full w-full" />,
-            onEnter: toggleFullscreen,
-          },
-          {
-            id: "advanced",
-            label: "réglages avancés",
-            value: avances ? "affichés" : "3 de plus",
-            hint: avances
-              ? "son sans conversion, image calée sur le son, état de la connexion"
-              : pour(
-                  appareil,
-                  "les afficher: son sans conversion, image calée sur le son, état de la connexion",
-                ),
-            icon: <SettingsIcon className="h-full w-full" />,
-            onEnter: () => setAvances(!avances),
-          },
-          {
-            // La rubrique « mesures » en tenait une sur quatre, au même rang que
-            // « jeux », pour trois chiffres de diagnostic (audit T13). Ils sont
-            // ici, repliés, et le détail vit dans la colonne.
-            id: "connexion",
-            label: "état de la connexion",
-            // L'état par son nom, et non un compte d'images: le nom promettait
-            // un état (relecture du 22 novembre 2026).
-            value: NOM_ETAT[liaison.etat],
-            ...(appareil === "tactile" || window.innerWidth < ETROIT_SOUS
-              ? {
-                  // Sur un téléphone, le détail dans la colonne coupait
-                  // l'écran en deux moitiés de 195 px: le résumé s'ouvre
-                  // dans le menu, et la colonne reste un choix.
-                  hint: pour(appareil, "voir le résumé"),
-                  details: (
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-corps">
-                      {resumeConnexion(liaison, {
+              {
+                id: "volume",
+                label: "volume",
+                // À zéro, le son n'est pas joué en silence: il n'est plus envoyé du
+                // tout (`SoundStream.setMuted`). Le dire, pour qu'une liaison faible
+                // sache qu'elle vient de gagner 1,5 Mbit/s.
+                value: volume <= 0 ? "sourdine" : `${Math.round(volume * 100)}`,
+                hint:
+                  volume <= 0 ? "le son n'est plus envoyé" : pour(appareil, "ouvrir la glissière"),
+                icon: <VolumeIcon className="h-full w-full" />,
+                // En pour-cent et non en fraction: la glissière avance par crans
+                // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
+                // il faut l'arrondir à la souris.
+                slide: {
+                  value: Math.round(volume * 100),
+                  min: 0,
+                  max: 100,
+                  step: 5,
+                  say: (at) => `${at} %`,
+                  onSet: (at) => setVolume(at / 100),
+                },
+              },
+              {
+                id: "theme",
+                label: "couleurs",
+                value: themeLabel(theme),
+                hint: pour(appareil, "voir les trois"),
+                icon: <PaletteIcon className="h-full w-full" />,
+                picks: THEMES.map((choice) => ({
+                  id: choice.id,
+                  label: choice.label,
+                  hint: choice.note,
+                })),
+                picked: theme,
+                onPick: (id) => {
+                  const found = THEMES.find((choice) => choice.id === id);
+                  if (found) setTheme(found.id);
+                },
+              },
+              {
+                id: "shell",
+                // Une entrée nommée « menu », dans un menu, est une devinette. Ce
+                // qu'elle choisit est le tableau de bord de quelle console.
+                label: "tableau de bord",
+                value: shellLabel(shell),
+                hint: pour(appareil, "voir les consoles"),
+                icon: <LayoutIcon className="h-full w-full" />,
+                picks: SHELLS.map((choice) => ({
+                  id: choice.id,
+                  label: choice.label,
+                })),
+                picked: shell,
+                onPick: (id) => {
+                  const found = SHELLS.find((choice) => choice.id === id);
+                  if (found) setShell(found.id);
+                },
+              },
+              {
+                id: "deviceRate",
+                label: "son sans conversion",
+                value: deviceRate ? "oui" : "non",
+                hint: "Peut réduire un grésillement. Peut ajouter un peu de retard.",
+                icon: <WaveIcon className="h-full w-full" />,
+                onEnter: () => setDeviceRate(!deviceRate),
+              },
+              {
+                id: "lipsync",
+                label: "image calée sur le son",
+                value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
+                hint: lipsync
+                  ? "compensation ajustée au son ; elle ajoute aussi du retard aux commandes"
+                  : "retarde l'image pour suivre le son, seulement sur cet écran",
+                icon: <SyncIcon className="h-full w-full" />,
+                onEnter: () => setLipsync(!lipsync),
+              },
+              {
+                id: "bare",
+                // Un nom, comme les autres. La phrase à l'impératif est le
+                // travail de l'aide, pas du titre.
+                label: "colonne de droite",
+                value: bare ? "repliée" : "visible",
+                hint: "rend toute la largeur à l'image (Ctrl)",
+                icon: <PanelIcon className="h-full w-full" />,
+                onEnter: () => setBare(!bare),
+              },
+              {
+                id: "columnWidth",
+                label: "largeur de la colonne",
+                value: `${column} px`,
+                hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
+                icon: <PanelIcon className="h-full w-full" />,
+                // La glissière du menu, parce que la poignée n'a pas de clavier:
+                // voir `ColumnHandle`. Au clavier et à la manette, c'est ici.
+                slide: {
+                  value: column,
+                  min: COLUMN.min,
+                  // Relue à chaque rendu du menu: une fenêtre étroite ne permet pas
+                  // la même largeur qu'un grand écran.
+                  max: widest(window.innerWidth),
+                  step: COLUMN.step,
+                  say: (at) => `${at} px`,
+                  onSet: (at) => {
+                    setColumn(at);
+                    rememberColumn(at);
+                  },
+                },
+              },
+              {
+                id: "fullscreen",
+                label: "plein écran",
+                value: fullscreen ? "oui" : "non",
+                icon: <ExpandIcon className="h-full w-full" />,
+                onEnter: toggleFullscreen,
+              },
+              {
+                id: "advanced",
+                label: "réglages avancés",
+                value: avances ? "affichés" : "3 de plus",
+                hint: avances
+                  ? "son sans conversion, image calée sur le son, état de la connexion"
+                  : pour(
+                      appareil,
+                      "les afficher: son sans conversion, image calée sur le son, état de la connexion",
+                    ),
+                icon: <SettingsIcon className="h-full w-full" />,
+                onEnter: () => setAvances(!avances),
+              },
+              {
+                // La rubrique « mesures » en tenait une sur quatre, au même rang que
+                // « jeux », pour trois chiffres de diagnostic (audit T13). Ils sont
+                // ici, repliés, et le détail vit dans la colonne.
+                id: "connexion",
+                label: "état de la connexion",
+                // L'état par son nom, et non un compte d'images: le nom promettait
+                // un état (relecture du 22 novembre 2026).
+                value: NOM_ETAT[liaison.etat],
+                ...(appareil === "tactile" || window.innerWidth < ETROIT_SOUS
+                  ? {
+                      // Sur un téléphone, le détail dans la colonne coupait
+                      // l'écran en deux moitiés de 195 px: le résumé s'ouvre
+                      // dans le menu, et la colonne reste un choix.
+                      hint: pour(appareil, "voir le résumé"),
+                      details: (
+                        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-corps">
+                          {resumeConnexion(liaison, {
+                            images: shot?.video.painted ?? 0,
+                            hz: shot?.video.refreshHz ?? 0,
+                            port,
+                          }).map((ligne) => (
+                            <div key={ligne.nom} className="contents">
+                              <dt className="text-muted">{ligne.nom}</dt>
+                              <dd>{ligne.valeur}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ),
+                      // Sans `picked`: aucun des deux n'est « en cours ».
+                      picks: [
+                        { id: "rester", label: "revenir au menu" },
+                        { id: "colonne", label: "tout le détail, dans la colonne" },
+                      ],
+                      onPick: (choix: string) => {
+                        if (choix !== "colonne") return;
+                        setMode("details");
+                        // Sur un téléphone, la colonne est le tiroir.
+                        if (compact) setTiroir(true);
+                        else setBare(false);
+                        setMenu(false);
+                      },
+                    }
+                  : {
+                      hint: `${resumeConnexion(liaison, {
                         images: shot?.video.painted ?? 0,
                         hz: shot?.video.refreshHz ?? 0,
                         port,
-                      }).map((ligne) => (
-                        <div key={ligne.nom} className="contents">
-                          <dt className="text-muted">{ligne.nom}</dt>
-                          <dd>{ligne.valeur}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  ),
-                  // Sans `picked`: aucun des deux n'est « en cours ».
-                  picks: [
-                    { id: "rester", label: "revenir au menu" },
-                    { id: "colonne", label: "tout le détail, dans la colonne" },
-                  ],
-                  onPick: (choix: string) => {
-                    if (choix !== "colonne") return;
-                    setMode("details");
-                    setBare(false);
-                    setMenu(false);
-                  },
-                }
-              : {
-                  hint: `${resumeConnexion(liaison, {
-                    images: shot?.video.painted ?? 0,
-                    hz: shot?.video.refreshHz ?? 0,
-                    port,
-                  })
-                    .slice(1)
-                    .map((ligne) => `${ligne.nom}: ${ligne.valeur}`)
-                    .join(", ")}. ${pour(appareil, "voir le détail dans la colonne")}.`,
-                  onEnter: () => {
-                    setMode("details");
-                    setBare(false);
-                    setMenu(false);
-                  },
-                }),
-            icon: <MeasureIcon className="h-full w-full" />,
-          },
-        ]),
+                      })
+                        .slice(1)
+                        .map((ligne) => `${ligne.nom}: ${ligne.valeur}`)
+                        .join(", ")}. ${pour(appareil, "voir le détail dans la colonne")}.`,
+                      onEnter: () => {
+                        setMode("details");
+                        if (compact) setTiroir(true);
+                        else setBare(false);
+                        setMenu(false);
+                      },
+                    }),
+                icon: <MeasureIcon className="h-full w-full" />,
+              },
+            ],
+            { tiroir: compact, pleinEcran: plein === "api" },
+          ),
+        ),
         avances,
       ),
     },
@@ -2106,7 +2169,7 @@ function Room({
             arrive à l'image. */}
         <div
           id="avisDuHaut"
-          className="pointer-events-none absolute inset-x-3 top-4 z-30 flex flex-col items-center gap-2"
+          className="pointer-events-none absolute top-[calc(var(--zone-haut)+1rem)] right-[calc(var(--zone-droite)+0.75rem)] left-[calc(var(--zone-gauche)+0.75rem)] z-30 flex flex-col items-center gap-2"
         >
           {/* Une manette branchée ou débranchée, cinq secondes (choix du
               7 septembre 2026). Dans la pile depuis le 22 novembre: posée à
@@ -2170,7 +2233,7 @@ function Room({
         {reduced ? (
           <div
             id="reducedNotice"
-            className="absolute inset-x-0 bottom-4 z-20 mx-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
+            className="absolute inset-x-0 bottom-[calc(var(--zone-bas)+1rem)] z-20 mx-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
           >
             <p className="text-corps leading-relaxed text-bright">
               Ta connexion ne suivait pas : passage en image légère.
@@ -2223,32 +2286,43 @@ function Room({
         {/* La manette à l'écran, par-dessus l'image et sous le menu.
             Montée seulement quand elle sert: cent boutons invisibles au-dessus
             d'une partie jouée au clavier intercepteraient des clics. */}
-        {/* Cachée, elle laisse une porte pour revenir.
-            « Cacher » sans retour est un piège: sur un téléphone il n'y a ni
-            Échap ni menu atteignable une fois la colonne repliée, donc le geste
-            était définitif pour la visite. Signalé le 18 août 2026. */}
-        {session && !onTouch && coarse ? (
+        {/* Les gestes de PAGE d'un téléphone vivent dans la feuille du bas,
+            ouverte par un seul « ••• » (`FeuilleDuBas`, audit M1, M2, P5). Avec
+            la manette à l'écran, le « ••• » est l'une de ses pièces, placé loin
+            des touches par `placePad`; sans elle, il se pose seul en haut à
+            droite, dans les zones sûres. Cachée, la manette revient par la
+            feuille: « cacher » sans retour était un piège (18 août 2026).
+            La manette n'est pas montée sous le tiroir ni sous la feuille: le
+            démontage relâche ce qu'un doigt tenait encore (audit M6). */}
+        {compact && !(session && onTouch && !voile) && !tiroir && !feuille ? (
           <button
             type="button"
-            id="showTouch"
-            onClick={() => setTouchPref("on")}
-            className="regie-nuit absolute bottom-3 left-3 z-30 rounded-full border border-rule bg-panel/70 px-4 py-2 text-note uppercase tracking-[0.14em] text-faint"
+            id="ouvrirFeuille"
+            className="n3-plus regie-nuit"
+            data-alerte={soundOff ? "" : undefined}
+            aria-label={nomDuPlus(soundOff)}
+            aria-haspopup="dialog"
+            onClick={() => setFeuille(true)}
           >
-            manette
+            •••
           </button>
         ) : null}
-        {session && onTouch && usesProInput(room?.game?.console) ? (
+        {session &&
+        onTouch &&
+        !voile &&
+        !tiroir &&
+        !feuille &&
+        usesProInput(room?.game?.console) ? (
           <SwitchTouchPad
             source={session.input.switch}
             console={room?.game?.console}
             bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
-            onMenu={() => setMenu(true)}
-            onLeave={() => setTouchPref("off")}
-            onSound={() => {
-              void session.sound.start();
-            }}
+            // Le son coupé se voit aussi sur la manette Pro: en salle Xbox
+            // 360, rien ne le disait (audit M10).
+            soundOff={soundOff}
+            onFeuille={() => setFeuille(true)}
           />
-        ) : session && onTouch ? (
+        ) : session && onTouch && !voile && !tiroir && !feuille ? (
           <TouchPad
             /* La largeur des bandes noires de chaque côté de l'image.
              *
@@ -2260,22 +2334,16 @@ function Room({
              * les coins. */
             bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
             touch={session.input.touch}
-            soundOff={shot ? shot.sound.state !== "running" : false}
-            onSound={() => {
-              // Démarrer PUIS biper, dans cet ordre et dans le même geste: le
-              // bip ne sort de rien tant que le contexte n'a pas repris.
-              void session.sound.start().then(() => session.sound.beep());
-            }}
-            onLeave={() => setTouchPref("off")}
-            onMenu={() => setMenu(true)}
+            soundOff={soundOff}
+            onFeuille={() => setFeuille(true)}
           />
         ) : null}
-        {bare && !onTouch ? (
+        {bare && !onTouch && !compact ? (
           /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre
-             permanente par-dessus l'image rendrait le repli inutile.
-             Pas quand la manette à l'écran est là: elle porte les mêmes gestes,
-             et ces deux boutons-ci tombaient pile sur Z et R. */
-          <div className="regie-nuit absolute top-2 right-2 flex gap-1 opacity-30 transition-opacity hover:opacity-100">
+             permanente par-dessus l'image rendrait le repli inutile. Seulement
+             quand la colonne est à côté de l'image: en tiroir, le « ••• » fait
+             ce travail. */
+          <div className="regie-nuit absolute top-[calc(var(--zone-haut)+0.5rem)] right-[calc(var(--zone-droite)+0.5rem)] flex gap-1 opacity-30 transition-opacity hover:opacity-100">
             <button
               type="button"
               id="unbare"
@@ -2284,14 +2352,52 @@ function Room({
             >
               montrer (Ctrl)
             </button>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="border border-rule bg-panel px-2 py-1 text-note text-muted"
-            >
-              {fullscreen ? "fenêtre" : "plein écran"}
-            </button>
+            {plein === "api" ? (
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="border border-rule bg-panel px-2 py-1 text-note text-muted"
+              >
+                {fullscreen ? "fenêtre" : "plein écran"}
+              </button>
+            ) : null}
           </div>
+        ) : null}
+        {feuille ? (
+          <FeuilleDuBas
+            titre={`${room?.name ?? `salle ${salle()}`}${room?.game ? ` · ${room.game.name}` : ""}`}
+            entrees={entreesDeLaFeuille({
+              sonCoupe: soundOff,
+              manette: coarse || onTouch ? (onTouch ? "montree" : "cachee") : null,
+              plein,
+              pleinActif: fullscreen,
+            })}
+            onEntree={(id) => {
+              setFeuille(false);
+              switch (id) {
+                case "son":
+                  // Démarrer PUIS biper, dans cet ordre et dans le même geste:
+                  // le bip ne sort de rien tant que le contexte n'a pas repris.
+                  void session?.sound.start().then(() => session.sound.beep());
+                  return;
+                case "menu":
+                  setMenu(true);
+                  return;
+                case "salle":
+                  setTiroir(true);
+                  return;
+                case "manette":
+                  setTouchPref(onTouch ? "off" : "on");
+                  return;
+                case "plein-ecran":
+                  toggleFullscreen();
+                  return;
+              }
+            }}
+            onFermer={() => setFeuille(false)}
+            garde={garde.current}
+            onComplain={complain}
+          />
         ) : null}
         {asked ? (
           <AskedBanner
@@ -2423,216 +2529,229 @@ function Room({
         />
       </main>
 
-      {bare ? null : <ColumnHandle width={column} onWidth={setColumn} onSettle={rememberColumn} />}
-      {bare ? null : (
-        <aside
-          id="side"
-          /* La largeur choisie, et jamais plus de la moitié de la fenêtre:
+      {bare || compact ? null : (
+        <ColumnHandle width={column} onWidth={setColumn} onSettle={rememberColumn} />
+      )}
+      {/* À côté de l'image sur un grand écran, repliée par Ctrl; dans un
+          tiroir par-dessus l'image sous 900 px ou au doigt (`lib/disposition`),
+          ouvert par la feuille du bas, par le menu ou par Ctrl. La même
+          colonne, entière, dans les deux formes. */}
+      {(compact ? !tiroir : bare) ? null : (
+        <TiroirSi actif={compact} onFermer={() => setTiroir(false)}>
+          <aside
+            id="side"
+            /* La largeur choisie, et jamais plus de la moitié de la fenêtre:
              une largeur retenue sur un grand écran ne doit pas écraser le jeu
-             sur un petit. */
-          style={{ width: column, maxWidth: "50vw" }}
-          className="relative flex shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
-        >
-          {/* La place du bouton qui replie la colonne, posé dans son coin au
-              téléphone (`Sidebar`): l'en-tête ne passe pas dessous. */}
-          <header className={cn("flex flex-col gap-0.5", coarse && "pr-12")}>
-            <span className="n3-marque">nel3ab</span>
-            <h1 className="truncate text-fort font-medium">{room?.name ?? `salle ${salle()}`}</h1>
-            <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
-            <p id="seat" className="text-corps text-faint">
-              {name}
-              {port === null ? " · tu regardes" : ` · ${placeN(port)}`}
-            </p>
-          </header>
+             sur un petit. Dans le tiroir, c'est lui qui décide. */
+            style={compact ? undefined : { width: column, maxWidth: "50vw" }}
+            className={cn(
+              "relative flex flex-col gap-3 overflow-y-auto bg-panel",
+              !compact && "shrink-0 border-l border-rule px-3 py-3",
+            )}
+          >
+            {/* La place du bouton qui ferme le tiroir, posé dans son coin
+              (`Sidebar`): l'en-tête ne passe pas dessous. */}
+            <header className={cn("flex flex-col gap-0.5", compact && "pr-12")}>
+              <span className="n3-marque">nel3ab</span>
+              <h1 className="truncate text-fort font-medium">{room?.name ?? `salle ${salle()}`}</h1>
+              <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
+              <p id="seat" className="text-corps text-faint">
+                {name}
+                {port === null ? " · tu regardes" : ` · ${placeN(port)}`}
+              </p>
+            </header>
 
-          {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du rôle
+            {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du rôle
               ne se montre que quand le worker dit que le chef ne joue plus
               (`repriseDuRole`): proposée à tous, c'était la première action offerte à
               un nouveau venu (audit T12). */}
-          {boss ? (
-            <p className="flex items-center gap-1 text-corps text-muted">
-              <Crown />
-              {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
-            </p>
-          ) : null}
-          {boss && repriseDuRole(role, login !== null) ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
-              <button
-                id="recoverOwner"
-                type="button"
-                className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
-                onClick={() => onRecover(null)}
-              >
-                Prendre le rôle de chef
-              </button>
-            </div>
-          ) : null}
-          {/* Les places en UN bloc (audit P7): la rangée des quatre places,
+            {boss ? (
+              <p className="flex items-center gap-1 text-corps text-muted">
+                <Crown />
+                {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
+              </p>
+            ) : null}
+            {boss && repriseDuRole(role, login !== null) ? (
+              <div className="flex flex-col gap-1">
+                <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
+                <button
+                  id="recoverOwner"
+                  type="button"
+                  className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
+                  onClick={() => onRecover(null)}
+                >
+                  Prendre le rôle de chef
+                </button>
+              </div>
+            ) : null}
+            {/* Les places en UN bloc (audit P7): la rangée des quatre places,
               puis le geste de prendre ou rendre la sienne. La liste « joueurs »
               de la colonne répétait les mêmes noms trois cents pixels plus
               bas. */}
-          <Panel title="places">
-            <Seats
-              ownerSeat={boss?.seat}
-              players={shot?.input.players ?? 4}
-              busy={occupied}
-              mics={shot?.input.mics ?? []}
-              names={names}
-              premieres={premieres}
-              mine={port}
-              displaced={shot?.input.displaced ?? false}
-              onTake={(chosen) => session?.input.take(chosen)}
-              onAsk={(chosen) => onRecover(chosen)}
-            />
-            <button
-              type="button"
-              id={port !== null ? "watchOnly" : "takePad"}
-              data-rend-le-jeu=""
-              onClick={() => (port !== null ? session?.input.watchOnly() : session?.input.play())}
-              /* 44 px de haut au doigt, comme le « ? » d'aide: mesuré à
+            <Panel title="places">
+              <Seats
+                ownerSeat={boss?.seat}
+                players={shot?.input.players ?? 4}
+                busy={occupied}
+                mics={shot?.input.mics ?? []}
+                names={names}
+                premieres={premieres}
+                mine={port}
+                displaced={shot?.input.displaced ?? false}
+                onTake={(chosen) => session?.input.take(chosen)}
+                onAsk={(chosen) => onRecover(chosen)}
+              />
+              <button
+                type="button"
+                id={port !== null ? "watchOnly" : "takePad"}
+                data-rend-le-jeu=""
+                onClick={() => (port !== null ? session?.input.watchOnly() : session?.input.play())}
+                /* 44 px de haut au doigt, comme le « ? » d'aide: mesuré à
                  37 px sur un téléphone (relecture du 22 novembre 2026). */
-              className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors pointer-coarse:min-h-11 hover:border-indigo hover:text-indigo"
-            >
-              {port !== null ? PLACE.rendre : PLACE.prendre}
-            </button>
-          </Panel>
+                className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors pointer-coarse:min-h-11 hover:border-indigo hover:text-indigo"
+              >
+                {port !== null ? PLACE.rendre : PLACE.prendre}
+              </button>
+            </Panel>
 
-          <Inviter lien={lienDInvitation(location.origin, base())} />
+            <Inviter lien={lienDInvitation(location.origin, base())} />
 
-          {/* Les touches du clavier, sans ouvrir de menu (audit T02): à qui
+            {/* Les touches du clavier, sans ouvrir de menu (audit T02): à qui
               tient une place et joue au clavier. */}
-          {appareil === "clavier" && port !== null && lignesClavier.length > 0 ? (
-            <AideClavier
-              lignes={lignesClavier}
-              ouverte={aideOuverte}
-              onBascule={(ouverte) => {
-                setAideOuverte(ouverte);
-                retenirAideVue(!ouverte);
-              }}
-              onChanger={() => {
-                setOngletTouches("key");
-                setBindings(true);
-              }}
-            />
-          ) : null}
+            {appareil === "clavier" && port !== null && lignesClavier.length > 0 ? (
+              <AideClavier
+                lignes={lignesClavier}
+                ouverte={aideOuverte}
+                onBascule={(ouverte) => {
+                  setAideOuverte(ouverte);
+                  retenirAideVue(!ouverte);
+                }}
+                onChanger={() => {
+                  setOngletTouches("key");
+                  setBindings(true);
+                }}
+              />
+            ) : null}
 
-          {/* Le clip, à portée sans ouvrir le menu.
+            {/* Le clip, à portée sans ouvrir le menu.
               Quarante-cinq secondes ne se demandent pas après coup: on appuie
               pendant que ça se passe, et poser un menu plein écran par-dessus le
               jeu qu'on voulait garder est le mauvais moment. C'est ce qui l'a
               fait descendre du menu vers ici.
               Un seul bouton pour deux gestes — demander, puis enregistrer —
               parce que c'est une seule chose du point de vue de la personne. */}
-          <Aide texte={clipAide(clip.state)} sujet="le clip">
-            <button
-              type="button"
-              id="clip"
-              // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
-              data-rend-le-jeu=""
-              onClick={takeClip}
-              disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
-              title={clipAide(clip.state)}
-              className={cn(
-                "flex min-h-11 flex-1 items-center justify-between gap-2 border px-3 py-2 text-corps transition-colors",
-                clip.state.phase === "fait"
-                  ? "border-good/60 text-good hover:bg-good/10"
-                  : clip.state.phase === "raté"
-                    ? "border-alert/60 text-alert"
-                    : "border-rule text-muted hover:border-rule-bright hover:text-text",
-                (clip.state.phase === "en cours" || clip.state.phase === "attendre") &&
-                  "cursor-not-allowed",
-              )}
-            >
-              <span className="flex items-center gap-2">
-                <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
-                  <ScreenIcon className="h-full w-full" />
+            <Aide texte={clipAide(clip.state)} sujet="le clip">
+              <button
+                type="button"
+                id="clip"
+                // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
+                data-rend-le-jeu=""
+                onClick={takeClip}
+                disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
+                title={clipAide(clip.state)}
+                className={cn(
+                  "flex min-h-11 flex-1 items-center justify-between gap-2 border px-3 py-2 text-corps transition-colors",
+                  clip.state.phase === "fait"
+                    ? "border-good/60 text-good hover:bg-good/10"
+                    : clip.state.phase === "raté"
+                      ? "border-alert/60 text-alert"
+                      : "border-rule text-muted hover:border-rule-bright hover:text-text",
+                  (clip.state.phase === "en cours" || clip.state.phase === "attendre") &&
+                    "cursor-not-allowed",
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                    <ScreenIcon className="h-full w-full" />
+                  </span>
+                  {clipLabel(clip.state)}
                 </span>
-                {clipLabel(clip.state)}
-              </span>
-              {clip.state.phase === "fait" ? (
-                <span className="font-mono text-note">{Math.round(clip.state.bytes / 1e6)} Mo</span>
-              ) : null}
-            </button>
-          </Aide>
+                {clip.state.phase === "fait" ? (
+                  <span className="font-mono text-note">
+                    {Math.round(clip.state.bytes / 1e6)} Mo
+                  </span>
+                ) : null}
+              </button>
+            </Aide>
 
-          {/* Le micro, pour que les clips portent aussi la voix. Record only:
+            {/* Le micro, pour que les clips portent aussi la voix. Record only:
               rien n'est rejoué, la voix part seulement vers le worker et
               revient mêlée au son au prochain clip. */}
-          <Aide texte={micAide(shot?.mic)} sujet="le micro">
+            <Aide texte={micAide(shot?.mic)} sujet="le micro">
+              <button
+                type="button"
+                id="mic"
+                data-rend-le-jeu=""
+                onClick={toggleMic}
+                title={micAide(shot?.mic)}
+                className={cn(
+                  "flex min-h-11 flex-1 items-center gap-2 border px-3 py-2 text-corps transition-colors",
+                  shot?.mic === "on"
+                    ? "border-good/60 text-good hover:bg-good/10"
+                    : shot?.mic === "refused"
+                      ? "border-alert/60 text-alert"
+                      : "border-rule text-muted hover:border-rule-bright hover:text-text",
+                )}
+              >
+                <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                  <WaveIcon className="h-full w-full" />
+                </span>
+                {shot?.mic === "on"
+                  ? "micro ouvert"
+                  : shot?.mic === "asking"
+                    ? "micro…"
+                    : shot?.mic === "refused"
+                      ? "micro refusé"
+                      : "micro pour les clips"}
+              </button>
+            </Aide>
+
+            {micDevices.length > 0 ? (
+              <select
+                id="micDevice"
+                value={micDevice}
+                onChange={(event) => pickMic(event.target.value)}
+                title="choisir le micro"
+                className="border border-rule bg-transparent px-2 py-2 text-note text-corps"
+              >
+                <option value="">micro par défaut</option>
+                {micDevices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
             <button
               type="button"
-              id="mic"
-              data-rend-le-jeu=""
-              onClick={toggleMic}
-              title={micAide(shot?.mic)}
-              className={cn(
-                "flex min-h-11 flex-1 items-center gap-2 border px-3 py-2 text-corps transition-colors",
-                shot?.mic === "on"
-                  ? "border-good/60 text-good hover:bg-good/10"
-                  : shot?.mic === "refused"
-                    ? "border-alert/60 text-alert"
-                    : "border-rule text-muted hover:border-rule-bright hover:text-text",
-              )}
+              id="openMenu"
+              onClick={() => setMenu(true)}
+              className="flex items-center justify-center gap-2 border border-indigo/60 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/10"
             >
-              <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
-                <WaveIcon className="h-full w-full" />
-              </span>
-              {shot?.mic === "on"
-                ? "micro ouvert"
-                : shot?.mic === "asking"
-                  ? "micro…"
-                  : shot?.mic === "refused"
-                    ? "micro refusé"
-                    : "micro pour les clips"}
+              menu
+              {appareil === "clavier" ? <Touche>Échap</Touche> : null}
             </button>
-          </Aide>
 
-          {micDevices.length > 0 ? (
-            <select
-              id="micDevice"
-              value={micDevice}
-              onChange={(event) => pickMic(event.target.value)}
-              title="choisir le micro"
-              className="border border-rule bg-transparent px-2 py-2 text-note text-corps"
-            >
-              <option value="">micro par défaut</option>
-              {micDevices.map((device) => (
-                <option key={device.id} value={device.id}>
-                  {device.label}
-                </option>
-              ))}
-            </select>
-          ) : null}
-
-          <button
-            type="button"
-            id="openMenu"
-            onClick={() => setMenu(true)}
-            className="flex items-center justify-center gap-2 border border-indigo/60 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/10"
-          >
-            menu
-            {appareil === "clavier" ? <Touche>Échap</Touche> : null}
-          </button>
-
-          <Sidebar
-            appareil={appareil}
-            idle={idle}
-            owner={boss}
-            mode={mode}
-            onMode={setMode}
-            people={people}
-            shot={shot}
-            volume={volume}
-            onVolume={setVolume}
-            onSound={() => void session?.sound.start()}
-            onLeave={onLeave}
-            onTakeHalf={takeHalf}
-            onFold={coarse ? () => setBare(true) : undefined}
-            onComplain={complain}
-            garde={garde.current}
-          />
-        </aside>
+            <Sidebar
+              appareil={appareil}
+              idle={idle}
+              owner={boss}
+              mode={mode}
+              onMode={setMode}
+              people={people}
+              shot={shot}
+              volume={volume}
+              onVolume={setVolume}
+              onSound={() => void session?.sound.start()}
+              onLeave={onLeave}
+              onTakeHalf={takeHalf}
+              onFold={compact ? () => setTiroir(false) : undefined}
+              onComplain={complain}
+              garde={garde.current}
+            />
+          </aside>
+        </TiroirSi>
       )}
 
       {/* SANS `&& shot`: le menu ne dépend pas de l'image.

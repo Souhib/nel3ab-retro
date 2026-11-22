@@ -49,7 +49,7 @@ export function Asked({
       // partie, d'un nombre nu (audit A11Y-09, 22 novembre 2026). La ligne
       // parlée de la salle (`LigneParlee`) dit la demande UNE fois, avec le
       // délai en mots et ce qui arrive sans réponse.
-      className="absolute inset-x-0 top-8 z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-indigo bg-panel px-5 py-3"
+      className="absolute inset-x-0 top-[calc(var(--zone-haut)+2rem)] z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-indigo bg-panel px-5 py-3"
     >
       <span className="flex flex-col">
         <span className="text-fort">

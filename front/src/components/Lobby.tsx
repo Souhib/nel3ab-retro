@@ -183,8 +183,13 @@ export function Lobby({
   }
 
   return (
-    <div className="flex h-full items-center justify-center p-6">
-      <div className="flex w-full max-w-md flex-col gap-5">
+    /* `min-h-full` et `my-auto` plutôt que `h-full` et un centrage: centrée
+       dans une boîte plus petite qu'elle, la fiche débordait par le HAUT, où
+       l'on ne peut pas défiler. Mesuré le 22 novembre 2026 sur un téléphone
+       tenu en travers: « autres salles » commençait à -25 px en 844 sur 390,
+       à -33 px en 667 sur 375 (audit M9). */
+    <div className="flex min-h-full flex-col items-center p-6">
+      <div className="my-auto flex w-full max-w-md flex-col gap-5">
         {entete}
 
         <section

@@ -9,8 +9,9 @@
  * cette page ne prouve donc rien sur eux.
  *
  * Les props passées aux deux pavés sont celles d'aujourd'hui ET celles d'avant
- * le 22 novembre 2026. Un ancien composant ignore celles qu'il ne connaît pas,
- * ce qui permet de rejouer la garde sur l'ancien code et de la voir échouer.
+ * le 22 novembre 2026 (`onFeuille` depuis le « ••• », `onSound`, `onMenu` et
+ * `onLeave` avant lui). Un composant ignore celles qu'il ne connaît pas, ce qui
+ * permet de rejouer la garde sur l'ancien code et de la voir échouer.
  *
  * Paramètres : `pad` (code de console), `pw` et `ph` (taille de l'image),
  * `muet=1` pour un son coupé (le geste « son » passe alors en alerte).
@@ -104,6 +105,7 @@ function Salle() {
             console={code}
             bar={bar}
             soundOff={muet}
+            onFeuille={tell("feuille")}
             onMenu={tell("menu")}
             onLeave={tell("cacher")}
             onSound={tell("son")}
@@ -113,6 +115,7 @@ function Salle() {
             bar={bar}
             touch={touch}
             soundOff={muet}
+            onFeuille={tell("feuille")}
             onSound={tell("son")}
             onLeave={tell("cacher")}
             onMenu={tell("menu")}

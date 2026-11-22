@@ -244,6 +244,8 @@ préparation, pour ne pas faire tester un appareil différent de celui confirmé
 | `front/src/components/TouchPad.tsx` | Pavé tactile commun (`Pave`), manette Dolphin |
 | `front/src/components/SwitchTouchPad.tsx` | Manette Pro tactile, nommée selon la console |
 | `spikes/m3-browser-drive/manette-garde.mjs` | Garde navigateur de la manette tactile (`just manette-garde`) |
+| `front/src/lib/feuille.ts`, `components/FeuilleDuBas.tsx` | Le « ••• » et la feuille du bas : les gestes de page d'un téléphone |
+| `spikes/m3-browser-drive/salle-telephone.mjs` | Garde navigateur de la salle au doigt : feuille, tiroir, zones sûres (`just salle-telephone`) |
 
 Les essais géométriques vérifient que les centres ne sont pas avalés par une
 autre pièce et que les pièces restent dans leur enveloppe déclarée. Cette
@@ -486,7 +488,9 @@ que l'aspect.
   tient ; sinon ils se partagent les deux bandes. Sur un iPhone de 844 sur 390
   avec une image 4:3, « son » se range entre L et la croix, « menu » et
   « cacher » entre START et les boutons. Sans bande assez large, ils vont en
-  haut au milieu, puis sous les rangées, puis en bas.
+  haut au milieu, puis sous les rangées, puis en bas. **Remplacé le même
+  jour** : il ne reste qu'un geste, « ••• » (voir la section suivante). La
+  règle de place est la même, pour un seul.
 
 La première version posait les gestes en haut au milieu de l'image même quand
 les bandes étaient libres. Le contrôle « rien ne mord sur l'image » du pilote
@@ -546,8 +550,10 @@ direction à l'autre sans lever. Ses quatre flèches sont du dessin
 que la salle, avec la même largeur de bande que `App`, plus une copie de l'avis
 de fermeture. Les autres calques (message de branchement, menu, colonne) n'y
 sont pas. Le message de branchement, à z-30, couvre maintenant L ou ZL pendant
-ses cinq secondes. Rien n'a été essayé sur un vrai téléphone : les zones sûres
-valent zéro tant que la page n'a pas `viewport-fit=cover`. Le pilote de salle
+ses cinq secondes. Rien n'a été essayé sur un vrai téléphone. Les zones sûres
+valaient zéro tant que la page n'avait pas `viewport-fit=cover` ; elle l'a
+depuis le soir du 22 novembre, et `salle-telephone.mjs` les simule
+(`Emulation.setSafeAreaInsetsOverride`), sans encoche réelle. Le pilote de salle
 `touch.mjs` n'a pas été relancé : il demande une salle vivante ; la garde rejoue
 sa règle « rien sur l'image » sur le banc. Sur une image très claire, les
 touches translucides perdent du contraste : 2,79:1 au pire pour le A de la
@@ -558,6 +564,41 @@ même que `--faint` vise sur le panneau. Les touches de
 n'y a pas de bande noire (68 080 px² contre 52 098 pour la GameCube en 1024 sur
 768). Sur un téléphone en 16:9, les bandes font 76 à 84 px : aucun stick n'y
 tient, et les groupes se collent au bord.
+
+## Un seul geste de page, et la feuille du bas, 22 novembre 2026
+
+Le soir même, les trois gestes de page de la manette (son, menu, cacher) sont
+devenus **un seul « ••• »**, qui ouvre la feuille du bas
+(`components/FeuilleDuBas.tsx`, contenu décidé par `lib/feuille.ts`). Elle porte
+le son, le menu du jeu, la salle (le tiroir de la colonne), cacher ou montrer
+la manette, le plein écran ou l'écran d'accueil, et le signalement.
+
+Ce qui n'est pas lisible dans le code :
+
+- **`GESTES` vaut `["feuille"]`**, et `GESTE_W` 56 px. `placePad` sait toujours
+  en placer plusieurs : le compte vient de ce tableau. Un retour de « son » ou
+  « cacher » parmi les touches remettrait une cible de page sous les pouces ;
+  `TouchPad.test.tsx` refuse les trois anciens identifiants.
+- **Le son coupé se voit sur le « ••• »** des deux manettes : bordure en
+  alerte, pastille, et « Son coupé. » au début de son nom accessible
+  (`nomDuPlus`). `App` passe enfin `soundOff` à `SwitchTouchPad` : en salle
+  Xbox 360, rien ne le disait (audit M10). L'écoute qui relance le son
+  (`media/reveil-son.ts`) reste posée après le premier succès : un appel ou
+  une autre application coupe le contexte sur iOS, et le geste suivant le
+  relance. Ce dernier point est déduit du code et de la documentation, pas
+  vérifié sur un iPhone.
+- **La manette n'est pas montée sous la feuille ni sous le tiroir.** Son
+  démontage relâche ce qu'un doigt tenait encore. Sans manette à l'écran (une
+  souris, une vraie manette), un « ••• » seul se pose en haut à droite, dans
+  les zones sûres.
+- **`manette-garde.mjs` attend un geste de page, et non trois**, et deux
+  inscriptions de moins par thème. Rejouée sur le code d'avant, elle y trouve
+  trois gestes et le dit.
+- **La salle entière est gardée ailleurs** : `just salle-telephone`
+  (`spikes/m3-browser-drive/salle-telephone.mjs`) monte la vraie page avec une
+  fausse session média et vérifie, à six tailles et avec les zones sûres d'un
+  iPhone simulées, que le « ••• » ouvre la feuille, que la feuille ouvre le
+  tiroir, et que chaque fonction de la colonne s'y joint au doigt.
 
 ## Accompagner le branchement, 6 septembre 2026
 

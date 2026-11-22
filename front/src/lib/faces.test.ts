@@ -363,15 +363,16 @@ const REAL: [number, number][] = [
 describe("la place des touches", () => {
   it("la vérification voit une pose fautive", () => {
     // Le jumeau négatif de la vérification: la faute exacte du 22 novembre
-    // 2026, « cacher » posé sur R, doit être nommée.
+    // 2026, un geste de page (« cacher », ce jour-là) posé sur R, doit être
+    // nommée.
     const { pieces } = placePad(DOLPHIN_FACE, { width: 390, height: 844 }, { left: 0, right: 0 });
     const r = pieces.find((piece) => piece.kind === "touche" && piece.touche.key === "R");
-    const hide = pieces.find((piece) => piece.kind === "geste" && piece.geste === "cacher");
-    if (!r || !hide) throw new Error("R ou « cacher » manque à la pose");
+    const page = pieces.find((piece) => piece.kind === "geste" && piece.geste === "feuille");
+    if (!r || !page) throw new Error("R ou « ••• » manque à la pose");
     const moved = pieces.map((piece) =>
-      piece === hide ? { ...hide, rect: { ...r.rect } } : piece,
+      piece === page ? { ...page, rect: { ...r.rect } } : piece,
     );
-    expect(faults(moved, { width: 390, height: 844 })).toContain("R recouvre cacher");
+    expect(faults(moved, { width: 390, height: 844 })).toContain("R recouvre feuille");
     expect(faults(pieces, { width: 390, height: 844 })).toEqual([]);
   });
 
@@ -434,7 +435,7 @@ describe("la place des touches", () => {
       expect(bands.left).toBeGreaterThan(150);
       const picture = { x: bands.left, w: box.width - 2 * bands.left };
       const { pieces } = placePad(DOLPHIN_FACE, box, bands);
-      expect(pieces.filter((piece) => piece.kind === "geste")).toHaveLength(3);
+      expect(pieces.filter((piece) => piece.kind === "geste")).toHaveLength(1);
       const onPicture = pieces.filter(
         (piece) => piece.rect.x < picture.x + picture.w && picture.x < piece.rect.x + piece.rect.w,
       );
@@ -470,7 +471,7 @@ describe("la place des touches", () => {
       // La faute des TOUCHES, pas celle des gestes: c'est elle qui compte ici.
       expect(pose.degraded, face.title).toMatch(/recouvre|touche [A-Z]|sort de l'écran/);
       expect(faults(pose.pieces, box).length, face.title).toBeGreaterThan(0);
-      expect(pose.pieces.filter((piece) => piece.kind === "geste")).toHaveLength(3);
+      expect(pose.pieces.filter((piece) => piece.kind === "geste")).toHaveLength(1);
     }
     // Le jumeau: une taille ordinaire n'est pas dégradée.
     expect(
@@ -521,7 +522,10 @@ describe("la place des touches", () => {
     // 568 sur 260, la Switch: les touches tiennent, et la première version
     // posait alors les gestes à 6 px de L, sans rien dire. Dans une boîte où
     // les touches tiennent mais pas les gestes, la faute doit les nommer.
-    const box = { width: 330, height: 330 };
+    // 256 sur 376 depuis que le seul « ••• » reste (22 novembre 2026): la boîte
+    // de 330 sur 330 qui refusait trois gestes en tient un. Trouvée par un
+    // balayage de 200 à 1200 px, où elle fait partie des 534 cas de ce genre.
+    const box = { width: 256, height: 376 };
     const pose = placePad<string>(SWITCH_FACE, box, { left: 0, right: 0 });
     const games = pose.pieces.filter((piece) => piece.kind !== "geste");
     // La précondition: les touches de jeu, seules, ne se recouvrent pas.

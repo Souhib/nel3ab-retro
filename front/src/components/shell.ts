@@ -348,7 +348,7 @@ export function useMenuDialogue(
   id: string;
   "aria-label": string;
   onCancel: (event: React.SyntheticEvent<HTMLDialogElement>) => void;
-  onClose: () => void;
+  onClose: (event: React.SyntheticEvent<HTMLDialogElement>) => void;
 } {
   const ref = useRef<HTMLDialogElement>(null);
   const parNous = useRef(false);
@@ -394,8 +394,14 @@ export function useMenuDialogue(
       if (document.activeElement?.closest("[data-surcouche]")) return;
       if (!paused) shell.act("back");
     },
-    onClose: () => {
-      if (!parNous.current) onQuitte();
+    // Seulement si le dialogue est VRAIMENT fermé quand l'événement arrive.
+    // Le navigateur l'envoie plus tard que `close()`: en développement, React
+    // referme puis rouvre le menu au montage, et l'événement de la fermeture
+    // du milieu arrivait après la réouverture, avec `parNous` déjà remis à
+    // faux. Le menu ne s'ouvrait jamais sous Vite (`dialogue-fermeture.test`,
+    // 22 novembre 2026).
+    onClose: (event) => {
+      if (!parNous.current && !event.currentTarget.open) onQuitte();
     },
   };
 }

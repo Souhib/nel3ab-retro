@@ -92,7 +92,8 @@ export function Sidebar({
    * elle vit sur l'image (`EtatSalle`), le seul endroit visible aussi sur un
    * téléphone, où la colonne est repliée d'office (audit E2). */
   onTakeHalf: () => void;
-  /** Replier la colonne. Un BOUTON et pas seulement Échap.
+  /** Fermer le tiroir de la colonne (`lib/disposition`). Un BOUTON et pas
+   * seulement Échap.
    *
    * Sur un téléphone il n'y a pas de touche Échap, donc la colonne visible n'a
    * plus aucune sortie: elle prend la moitié de l'écran et rien ne la referme.
@@ -111,9 +112,12 @@ export function Sidebar({
             type="button"
             id="foldColumn"
             onClick={onFold}
-            title="replier la colonne"
+            title="revenir au jeu"
             // Le nom calculé était « ✕ », lu « multiplication » (audit A11Y-10).
-            aria-label="replier la colonne"
+            // « Revenir au jeu » depuis que la colonne n'a ce bouton que dans
+            // son tiroir (22 novembre 2026): elle n'y est pas repliée, on la
+            // referme pour rejouer.
+            aria-label="revenir au jeu"
             // Dans le coin de la colonne, et plus dans la rangée des deux
             // modes: dans une colonne de téléphone (195 px), les trois
             // boutons ne tenaient pas et « mesures » sortait du cadre.

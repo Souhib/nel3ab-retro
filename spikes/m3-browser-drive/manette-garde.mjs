@@ -485,7 +485,10 @@ try {
       // avait plus, sa croix comptant pour quatre.
       const minimum = room.pad === "gc" ? 10 : 15;
       if (seen.games.length < minimum) bad.push(`${seen.games.length} touches trouvées, ${minimum} attendues au moins`);
-      if (seen.pages.length !== 3) bad.push(`${seen.pages.length} gestes de page trouvés, 3 attendus`);
+      // Un seul geste de page depuis le 22 novembre 2026: le « ••• » qui ouvre
+      // la feuille du bas, où vivent son, menu et cacher (`lib/feuille`).
+      // Rejouée sur le code d'avant, la garde y trouve trois gestes et le dit.
+      if (seen.pages.length !== 1) bad.push(`${seen.pages.length} gestes de page trouvés, 1 attendu`);
       // Une pose dégradée le dit sur la boîte du pavé (`data-degradee`).
       const degraded = await page.evaluate(() => document.querySelector(".n3-pave")?.dataset.degradee ?? null);
       if (degraded !== null) bad.push(`la pose se dit dégradée : ${degraded}`);
@@ -562,7 +565,9 @@ try {
         }
       }
       // La précondition : un pavé sans inscription passerait sans rien mesurer.
-      const minimum = THEMES.length * (room.pad === "gc" ? 15 : 19);
+      // Deux de moins depuis que « son », « menu » et « cacher » sont devenus
+      // un seul « ••• » (22 novembre 2026).
+      const minimum = THEMES.length * (room.pad === "gc" ? 13 : 17);
       if (measured < minimum) bad.push(`${measured} inscriptions mesurées, ${minimum} attendues au moins`);
       console.log(
         `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${measured} inscriptions dans ${THEMES.length} thèmes ; sur un fond blanc, le pire est ${worstWhite.toFixed(2)}:1 (non exigé)`,

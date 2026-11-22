@@ -22,17 +22,13 @@ afterEach(() => {
 
 function poser() {
   const touch = new Touch();
-  const onLeave = vi.fn();
-  const onMenu = vi.fn();
-  const onSound = vi.fn();
-  const view = render(
-    <TouchPad bar={0} touch={touch} soundOff onSound={onSound} onLeave={onLeave} onMenu={onMenu} />,
-  );
+  const onFeuille = vi.fn();
+  const view = render(<TouchPad bar={0} touch={touch} soundOff onFeuille={onFeuille} />);
   for (const el of view.container.querySelectorAll<HTMLElement>("[data-touche]")) {
     el.setPointerCapture = vi.fn();
     el.hasPointerCapture = () => true;
   }
-  return { ...view, touch, onLeave, onMenu, onSound };
+  return { ...view, touch, onFeuille };
 }
 
 /** Le rectangle qu'une pièce a reçu, lu dans son style. */
@@ -42,25 +38,36 @@ function rect(el: Element | null) {
   return { x: n(el.style.left), y: n(el.style.top), w: n(el.style.width), h: n(el.style.height) };
 }
 
-it("taper R tient R, et ne cache pas la manette", () => {
+it("taper R tient R, et n'ouvre aucun geste de page", () => {
   // La faute du 22 novembre 2026: « cacher » posé sur R, en portrait.
-  const { container, touch, onLeave, onMenu } = poser();
+  const { container, touch, onFeuille } = poser();
   const r = container.querySelector("#touch-R") as HTMLElement;
   fireEvent.pointerDown(r, { pointerId: 1 });
   expect((touch.reading()?.buttons ?? 0) & BUTTON.R).toBe(BUTTON.R);
   fireEvent.pointerUp(r, { pointerId: 1 });
   expect(touch.reading()).toBeNull();
-  expect(onLeave).not.toHaveBeenCalled();
-  expect(onMenu).not.toHaveBeenCalled();
-  // Le jumeau: « cacher » cache bien.
-  fireEvent.click(container.querySelector("#hideTouch") as HTMLElement);
-  expect(onLeave).toHaveBeenCalledTimes(1);
+  expect(onFeuille).not.toHaveBeenCalled();
+  // Le jumeau: le « ••• » ouvre bien la feuille.
+  fireEvent.click(container.querySelector("#ouvrirFeuille") as HTMLElement);
+  expect(onFeuille).toHaveBeenCalledTimes(1);
+});
+
+it("un seul geste de page reste parmi les touches, le « ••• »", () => {
+  // Son, menu et cacher vivent dans la feuille du bas depuis le 22 novembre
+  // 2026. Un retour de l'un d'eux parmi les touches remettrait une cible de
+  // page sous les pouces.
+  const { container } = poser();
+  const gestes = [...container.querySelectorAll<HTMLElement>("[data-geste]")];
+  expect(gestes.map((one) => one.dataset.geste)).toEqual(["feuille"]);
+  expect(gestes[0]?.textContent).toBe("•••");
+  for (const ancien of ["#wakeSound", "#showColumn", "#hideTouch"])
+    expect(container.querySelector(ancien), ancien).toBeNull();
 });
 
 it("aucun geste de page ne touche L, Z, R ou START à 390 sur 844", () => {
   const { container } = poser();
   const gestes = [...container.querySelectorAll("[data-geste]")].map(rect);
-  expect(gestes).toHaveLength(3);
+  expect(gestes).toHaveLength(1);
   for (const id of ["#touch-L", "#touch-Z", "#touch-R", "#touch-START"]) {
     const key = rect(container.querySelector(id));
     for (const geste of gestes) {
@@ -89,9 +96,11 @@ it("la croix d'un seul bloc tient la direction du doigt, puis la lâche", () => 
   expect(touch.reading()).toBeNull();
 });
 
-it("le son coupé se voit sur son geste", () => {
+it("le son coupé se voit sur le « ••• », et se dit dans son nom", () => {
   const { container } = poser();
-  expect(container.querySelector("#wakeSound")?.hasAttribute("data-alerte")).toBe(true);
+  const plus = container.querySelector("#ouvrirFeuille");
+  expect(plus?.hasAttribute("data-alerte")).toBe(true);
+  expect(plus?.getAttribute("aria-label")).toMatch(/^Son coupé\./);
 });
 
 it("le son qui joue ne s'alerte pas", () => {
@@ -99,16 +108,11 @@ it("le son qui joue ne s'alerte pas", () => {
   // le passerait.
   const touch = new Touch();
   const { container } = render(
-    <TouchPad
-      bar={0}
-      touch={touch}
-      soundOff={false}
-      onSound={vi.fn()}
-      onLeave={vi.fn()}
-      onMenu={vi.fn()}
-    />,
+    <TouchPad bar={0} touch={touch} soundOff={false} onFeuille={vi.fn()} />,
   );
-  expect(container.querySelector("#wakeSound")?.hasAttribute("data-alerte")).toBe(false);
+  const plus = container.querySelector("#ouvrirFeuille");
+  expect(plus?.hasAttribute("data-alerte")).toBe(false);
+  expect(plus?.getAttribute("aria-label")).not.toMatch(/coupé/);
 });
 
 /* Ce qui relâche sans que le doigt se lève.

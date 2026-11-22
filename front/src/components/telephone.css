@@ -1,0 +1,207 @@
+/* La salle au doigt: le « ••• », la feuille du bas et le tiroir de la colonne.
+ *
+ * Tout ce qui touche un bord se tient hors des zones sûres, par les jetons
+ * `--zone-*` d'index.css (`env(safe-area-inset-*)`, qui ne vaut quelque chose
+ * que depuis `viewport-fit=cover`). Les cibles font 44 px au moins: le
+ * plancher usuel d'une cible au doigt (WCAG 2.5.5, Apple). */
+
+/* ── Le « ••• » seul, quand la manette à l'écran n'est pas montée ──────────
+   En haut à droite, là où la salle posait ses boutons de coin. Le « ••• » de la
+   manette, lui, est placé par `placePad` avec les touches. */
+.n3-plus {
+  position: absolute;
+  top: calc(var(--zone-haut) + 10px);
+  right: calc(var(--zone-droite) + 10px);
+  /* Au-dessus de la salle au repos (30) et du rideau d'arrivée (40): c'est la
+     seule porte vers le tiroir pendant une panne. Sous le menu, qui est un
+     dialogue dans la couche du dessus. */
+  z-index: 45;
+  min-width: 56px;
+  min-height: 44px;
+}
+
+/* ── La feuille du bas ─────────────────────────────────────────────────── */
+.n3-feuille {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: none;
+  max-height: calc(100dvh - var(--zone-haut) - 12px);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--encre);
+  overflow: visible;
+}
+.n3-feuille::backdrop,
+.n3-tiroir::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+.n3-feuille-boite {
+  box-sizing: border-box;
+  width: min(100%, 760px);
+  max-height: calc(100dvh - var(--zone-haut) - 12px);
+  margin-inline: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--plaque);
+  border-top: 2px solid var(--trait);
+  padding: 10px calc(14px + var(--zone-droite)) calc(14px + var(--zone-bas))
+    calc(14px + var(--zone-gauche));
+}
+@media (min-width: 761px) {
+  .n3-feuille-boite {
+    border-inline: 2px solid var(--trait);
+  }
+}
+.n3-feuille-tete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.n3-feuille-bob {
+  flex-shrink: 0;
+  display: flex;
+}
+.n3-feuille-nom {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-fort);
+  font-weight: 600;
+}
+.n3-feuille-tete .n3-action {
+  min-height: 44px;
+}
+.n3-feuille-entrees {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 6px;
+}
+.n3-feuille-entree {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 2px solid var(--filet);
+  border-radius: var(--rayon);
+  background: var(--creux);
+  color: var(--encre);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.n3-feuille-entree:hover,
+.n3-feuille-entree:active {
+  border-color: var(--trait);
+  background: var(--survol);
+}
+.n3-feuille-entree:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
+  outline-offset: 2px;
+}
+.n3-feuille-entree:disabled {
+  color: var(--discret);
+}
+.n3-feuille-entree[data-alerte] {
+  border-color: var(--alerte);
+}
+.n3-feuille-icone {
+  display: flex;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  color: var(--legende);
+}
+.n3-feuille-entree[data-alerte] .n3-feuille-icone {
+  color: var(--alerte);
+}
+.n3-feuille-texte {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.n3-feuille-titre {
+  font-size: var(--text-fort);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.n3-feuille-detail {
+  color: var(--legende);
+  font-size: var(--text-note);
+  line-height: 1.35;
+}
+.n3-feuille-aide {
+  margin: 10px 0 0;
+  padding: 12px 12px 12px 34px;
+  border-left: var(--barre-etat) solid var(--signal);
+  background: var(--creux);
+  font-size: var(--text-corps);
+  line-height: 1.5;
+  list-style: decimal;
+}
+
+/* ── Le tiroir de la colonne ─────────────────────────────────────────────
+   Tenu droit, il prend tout l'écran; tenu en travers ou sur une tablette, il
+   se pose à droite sur 420 px, assez pour les quatre places et leurs noms,
+   et laisse voir l'image à côté, assombrie. */
+.n3-tiroir {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(100%, 420px);
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--filet);
+  background: var(--plaque);
+  color: var(--encre);
+  overflow: hidden;
+}
+.n3-tiroir > aside {
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: calc(12px + var(--zone-haut)) calc(12px + var(--zone-droite))
+    calc(12px + var(--zone-bas)) 12px;
+}
+@media (max-width: 420px) {
+  .n3-tiroir > aside {
+    padding-left: calc(12px + var(--zone-gauche));
+  }
+}
+/* Le bouton qui referme, dans le coin, hors de l'encoche. */
+.n3-tiroir #foldColumn {
+  top: calc(8px + var(--zone-haut));
+  right: calc(8px + var(--zone-droite));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .n3-feuille[open] .n3-feuille-boite {
+    animation: n3-monte 160ms ease-out;
+  }
+  .n3-tiroir[open] {
+    animation: n3-glisse 160ms ease-out;
+  }
+}
+@keyframes n3-monte {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+}
+@keyframes n3-glisse {
+  from {
+    transform: translateX(32px);
+    opacity: 0.4;
+  }
+}

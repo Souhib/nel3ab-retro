@@ -42,3 +42,18 @@ it("F, a Ctrl combination, a click or Ctrl in a text field fold nothing", () => 
   press("keyup", "Control", field);
   expect(bare()).toBe("false");
 });
+
+it("the fullscreen toggle throws nothing where the API does not exist, as on an iPhone", () => {
+  // Audit M8, 22 November 2026: `requestFullscreen` is missing on an iPhone
+  // and the old toggle threw « is not a function » before any promise, so
+  // `.catch` caught nothing. jsdom has no fullscreen API either.
+  expect(typeof document.documentElement.requestFullscreen).toBe("undefined");
+  let toggle: (() => void) | null = null;
+  function Grab() {
+    toggle = useBare(true).toggleFullscreen;
+    return null;
+  }
+  render(<Grab />);
+  expect(toggle).not.toBeNull();
+  expect(() => toggle?.()).not.toThrow();
+});

@@ -355,9 +355,15 @@ export type Piece<K extends string> =
  * 260. */
 export type Pose<K extends string> = { pieces: Piece<K>[]; degraded: string | null };
 
-/** Les trois gestes de la PAGE, jamais du jeu. */
-export type Geste = "son" | "menu" | "cacher";
-export const GESTES: readonly Geste[] = ["son", "menu", "cacher"];
+/** Le geste de la PAGE, jamais du jeu: le « ••• » qui ouvre la feuille du bas.
+ *
+ * Il y en avait trois jusqu'au 22 novembre 2026: son, menu, cacher. Trois
+ * cibles de page parmi les touches, c'est trois occasions de perdre la partie
+ * d'un pouce mal posé; et le plein écran, la salle et le signalement n'avaient
+ * pas de place du tout. Ils vivent tous dans la feuille (`lib/feuille`).
+ * La pose sait toujours en placer plusieurs: le compte vient de ce tableau. */
+export type Geste = "feuille";
+export const GESTES: readonly Geste[] = ["feuille"];
 
 /**
  * Les mesures du pavé, en pixels.
@@ -381,15 +387,15 @@ export const GESTES: readonly Geste[] = ["son", "menu", "cacher"];
  *   suffit. `KEY_GAP` est aussi l'écart minimal accepté entre deux groupes
  *   (voir `STICK_FLOOR`). À 6, la rangée ZL L fait 138 px, et les deux rangées
  *   du haut tiennent côte à côte dès 296 px de large.
- * - `GESTE_W`, 72 : « CACHER » en capitales espacées mesure 60,1 px dans
- *   Chrome avec la police sans empattement de repli, 53,2 px en chasse fixe
- *   (thèmes phosphore, ambre, gameboy), mesuré le 22 novembre 2026. 72 laisse
- *   5 px de chaque côté, bordure comprise. La première version disait que 72
- *   débordait ; la garde, rejouée à 72 le même jour, est restée verte.
- * - `GESTE_GAP`, 4 : entre deux gestes de page. Un doigt qui tombe entre les
- *   deux déclenche un geste de page au lieu d'un autre, les deux se défont. À 4,
- *   deux gestes tiennent côte à côte dans la bande de 156 px d'un iPhone de 812
- *   sur 375 tenu en travers avec une image 4:3 : 4 + 72 + 4 + 72 + 4.
+ * - `GESTE_W`, 56 : le « ••• » n'a qu'un signe, et la largeur porte en plus la
+ *   pastille du son coupé dans son coin. 56 sur 44 reste au-dessus du plancher
+ *   dans les deux sens. C'était 72 tant que « CACHER » en capitales (60,1 px
+ *   mesurés dans Chrome le 22 novembre 2026) devait y tenir.
+ * - `GESTE_GAP`, 4 : entre deux gestes de page, quand il y en a plusieurs. Un
+ *   doigt qui tombe entre les deux déclenche un geste de page au lieu d'un
+ *   autre, les deux se défont. Choisi quand il y en avait trois (deux tenaient
+ *   côte à côte dans une bande de 156 px); gardé pour qu'un second geste,
+ *   s'il revenait, ait sa règle.
  * - `STICK_FLOOR`, 80 : le plus petit puits (ou croix) que la pose accepte
  *   quand deux groupes du bas se rencontrent. Il ne sert que sous 276 px de
  *   large : à 260, le stick GameCube et les quatre boutons (148 px) ne laissent
@@ -403,7 +409,7 @@ export const SIZES = {
   BAND_PAD: 4,
   ROW_GAP: 8,
   KEY_GAP: 6,
-  GESTE_W: 72,
+  GESTE_W: 56,
   GESTE_GAP: 4,
   STICK_FLOOR: 80,
 } as const;
@@ -683,12 +689,12 @@ export function placePad<K extends string>(
 }
 
 /**
- * Les trois gestes de page, loin de toute touche de jeu.
+ * Les gestes de page (aujourd'hui le seul « ••• »), loin de toute touche de jeu.
  *
  * D'abord dans les bandes noires : le 22 novembre 2026, les poser en haut au
  * milieu de l'image alors que les bandes étaient libres a mis « menu » sur
  * l'avis de fermeture de la salle et rougi le pilote `touch.mjs`, qui exige que
- * rien ne morde sur l'image quand la bande fait 130 px ou plus. Les trois vont
+ * rien ne morde sur l'image quand la bande fait 130 px ou plus. Ils vont
  * ensemble dans une place qui les tient tous ; sinon ils se partagent les places
  * des deux bandes, la plus grande d'abord, et se lisent de gauche à droite.
  */
@@ -761,7 +767,7 @@ function placeGestes(
       }
     }
     if (taken.length < GESTES.length) return null;
-    // De gauche à droite et de haut en bas : son, menu, cacher.
+    // De gauche à droite et de haut en bas, dans l'ordre de `GESTES`.
     const rects = taken
       .sort((a, b) => a.side - b.side || a.rect.y - b.rect.y || a.rect.x - b.rect.x)
       .map((one) => one.rect);

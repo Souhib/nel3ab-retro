@@ -470,6 +470,31 @@ body {
   }
 }
 
+/* Les zones sûres: ce qu'une encoche, des coins arrondis ou la barre du
+ * système retirent à chaque bord d'un téléphone.
+ *
+ * Lues dans `env()`, qui ne vaut quelque chose que depuis `viewport-fit=cover`
+ * (index.html, 22 novembre 2026): avant, la page était tenue hors des bords
+ * par le navigateur, et la manette à l'écran lisait des zones qui valaient
+ * toujours zéro (audit M16). Tout ce qui touche un bord passe par ces jetons
+ * plutôt que par `env()` direct, pour qu'un essai puisse les remplacer. */
+:root {
+  --zone-haut: env(safe-area-inset-top, 0px);
+  --zone-droite: env(safe-area-inset-right, 0px);
+  --zone-bas: env(safe-area-inset-bottom, 0px);
+  --zone-gauche: env(safe-area-inset-left, 0px);
+}
+
+/* Une page qui touche les bords se tient hors des zones sûres. */
+.n3-zones {
+  padding: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
+}
+/* Les menus couvrent tout l'écran: leur fond va jusqu'aux bords, leur contenu
+   reste hors de l'encoche et de la barre du système. */
+.n3-menu-zone {
+  inset: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
+}
+
 /* Les tailles de la manette à l'écran.
  *
  * En `vmin` avec des bornes, parce que la première version plaçait ses groupes
@@ -1974,4 +1999,65 @@ body {
   font-size: var(--text-corps);
   font-weight: 400;
   color: var(--legende);
+}
+
+/* Le réglage des touches sur un téléphone tenu en travers (audit M11).
+ *
+ * La forme plein écran ne venait que sous 600 px de LARGE. Tenu en travers,
+ * un téléphone a la largeur mais pas la hauteur: mesuré le 22 novembre 2026 à
+ * 844 sur 390, le panneau faisait 342 px de haut, son en-tête 139, et il
+ * restait 76 px au contenu. Sous 500 px de haut, il prend donc tout l'écran,
+ * l'en-tête se réduit au titre, et le contenu défile. */
+@media (max-height: 500px) {
+  .n3-bindings {
+    width: 100%;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .n3-bindings-header {
+    align-items: center;
+    padding: 8px 18px 6px;
+  }
+  .n3-bindings-header .n3-eyebrow,
+  .n3-bindings-header p {
+    display: none;
+  }
+  .n3-bindings-header h2 {
+    font-size: var(--text-titre);
+  }
+  .n3-bindings-tabs {
+    padding-inline: 18px;
+  }
+  .n3-bindings-tabs button {
+    padding-block: 8px;
+  }
+  .n3-bindings-local {
+    display: none;
+  }
+  .n3-bindings-content {
+    padding: 12px 18px;
+  }
+  .n3-bindings-footer {
+    padding: 6px 18px;
+  }
+}
+/* Plein écran, le panneau touche les bords: son contenu se tient hors des
+   zones sûres, son fond va jusqu'au bout. */
+@media (max-width: 600px), (max-height: 500px) {
+  .n3-bindings {
+    box-sizing: border-box;
+    padding: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
+  }
+}
+/* Fermer, au doigt: 44 px, et jamais écrasé par un titre long. Mesuré à
+   26 sur 38 px sur un téléphone tenu droit le 22 novembre 2026. */
+.n3-close {
+  flex-shrink: 0;
+}
+@media (pointer: coarse) {
+  .n3-close {
+    width: 44px;
+    height: 44px;
+  }
 }

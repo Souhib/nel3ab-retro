@@ -5,14 +5,7 @@ import { SwitchInput } from "../media/switch";
 
 function poser(source: SwitchInput) {
   const { container } = render(
-    <SwitchTouchPad
-      source={source}
-      console="switch"
-      bar={0}
-      onMenu={vi.fn()}
-      onLeave={vi.fn()}
-      onSound={vi.fn()}
-    />,
+    <SwitchTouchPad source={source} console="switch" bar={0} onFeuille={vi.fn()} />,
   );
   const puits = container.querySelector("#switchStickL") as HTMLElement;
   puits.setPointerCapture = vi.fn();
@@ -58,14 +51,7 @@ function pieces(container: HTMLElement) {
 
 it("dans une salle Xbox 360, le pavé dit LB, LT, Back et Start, et range A en bas", () => {
   const { container } = render(
-    <SwitchTouchPad
-      source={new SwitchInput()}
-      console="x360"
-      bar={0}
-      onMenu={vi.fn()}
-      onLeave={vi.fn()}
-      onSound={vi.fn()}
-    />,
+    <SwitchTouchPad source={new SwitchInput()} console="x360" bar={0} onFeuille={vi.fn()} />,
   );
   const at = pieces(container);
   expect(at.get("L")?.text).toBe("LB");
@@ -84,14 +70,7 @@ it("dans une salle Xbox 360, le pavé dit LB, LT, Back et Start, et range A en b
 it("dans une salle Switch, le pavé garde ZL et + , et range A à droite", () => {
   // Le jumeau négatif: les noms et la place Xbox ne fuient pas ici.
   const { container } = render(
-    <SwitchTouchPad
-      source={new SwitchInput()}
-      console="switch"
-      bar={0}
-      onMenu={vi.fn()}
-      onLeave={vi.fn()}
-      onSound={vi.fn()}
-    />,
+    <SwitchTouchPad source={new SwitchInput()} console="switch" bar={0} onFeuille={vi.fn()} />,
   );
   const at = pieces(container);
   expect(at.get("ZL")?.text).toBe("ZL");
@@ -106,14 +85,7 @@ it("dans une salle Switch, le pavé garde ZL et + , et range A à droite", () =>
 it("taper LB écrit L sur la trame, et le relâcher l'efface", () => {
   const source = new SwitchInput();
   const { container } = render(
-    <SwitchTouchPad
-      source={source}
-      console="x360"
-      bar={0}
-      onMenu={vi.fn()}
-      onLeave={vi.fn()}
-      onSound={vi.fn()}
-    />,
+    <SwitchTouchPad source={source} console="x360" bar={0} onFeuille={vi.fn()} />,
   );
   const lb = pieces(container).get("L")?.el as HTMLElement;
   lb.setPointerCapture = vi.fn();
@@ -131,9 +103,7 @@ function salle(source: SwitchInput, soundOff = false) {
       console="switch"
       bar={0}
       soundOff={soundOff}
-      onMenu={vi.fn()}
-      onLeave={vi.fn()}
-      onSound={vi.fn()}
+      onFeuille={vi.fn()}
     />,
   );
   for (const el of view.container.querySelectorAll<HTMLElement>("[data-touche]")) {
@@ -198,10 +168,10 @@ it("quitter l'onglet relâche les touches et les sticks de la manette Pro", () =
   expect(source.pushed.size).toBe(0);
 });
 
-it("le son coupé se voit sur le geste « son » de la manette Pro, et seulement alors", () => {
+it("le son coupé se voit sur le « ••• » de la manette Pro, et seulement alors", () => {
   const coupe = salle(new SwitchInput(), true);
-  expect(coupe.container.querySelector("#wakeSound")?.hasAttribute("data-alerte")).toBe(true);
+  expect(coupe.container.querySelector("#ouvrirFeuille")?.hasAttribute("data-alerte")).toBe(true);
   coupe.unmount();
   const joue = salle(new SwitchInput(), false);
-  expect(joue.container.querySelector("#wakeSound")?.hasAttribute("data-alerte")).toBe(false);
+  expect(joue.container.querySelector("#ouvrirFeuille")?.hasAttribute("data-alerte")).toBe(false);
 });

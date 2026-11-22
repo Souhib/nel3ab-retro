@@ -27,6 +27,13 @@ const MOTS = {
     tenu: "déjà signalé",
   },
   bandeau: { pret: "Signaler", envoi: "Envoi…", fait: "Signalé", tenu: "Déjà signalé" },
+  /** La feuille du bas d'un téléphone: une entrée comme ses voisines. */
+  feuille: {
+    pret: "Signaler un problème",
+    envoi: "Envoi…",
+    fait: "Signalement enregistré",
+    tenu: "Déjà signalé",
+  },
 } as const;
 
 export function Signaler({
@@ -34,12 +41,18 @@ export function Signaler({
   garde,
   id = "complain",
   variante = "colonne",
+  detail,
+  icone,
 }: {
   onComplain: () => Promise<void>;
   /** Le garde de la page, partagé par tous les boutons « Signaler ». */
   garde: GardeSignalement;
   id?: string;
   variante?: keyof typeof MOTS;
+  /** La ligne sous le titre, dans la feuille du bas seulement. */
+  detail?: string;
+  /** Le dessin de l'entrée, dans la feuille du bas seulement. */
+  icone?: React.ReactNode;
 }) {
   /** Vrai depuis un repère accepté, d'ici ou de l'autre bouton, et jusqu'à ce
    * que le salon en accepte un autre. Deux durées et pas une: le remerciement
@@ -82,18 +95,43 @@ export function Signaler({
           }
         }}
         disabled={held || pending}
+        data-entree={variante === "feuille" ? "signaler" : undefined}
         className={
-          variante === "bandeau"
-            ? "n3-action"
-            : cn(
-                "border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors",
-                said && "border-good text-good",
-                held && !said && "border-rule text-faint",
-                !held && "border-rule text-faint hover:border-alert hover:text-alert",
-              )
+          variante === "feuille"
+            ? "n3-feuille-entree"
+            : variante === "bandeau"
+              ? "n3-action"
+              : cn(
+                  // 44 px de haut au doigt: mesuré à 33 dans le tiroir d'un
+                  // téléphone (`salle-telephone.mjs`, 22 novembre 2026).
+                  "border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors pointer-coarse:min-h-11",
+                  said && "border-good text-good",
+                  held && !said && "border-rule text-faint",
+                  !held && "border-rule text-faint hover:border-alert hover:text-alert",
+                )
         }
       >
-        {pending ? mots.envoi : said ? mots.fait : held ? mots.tenu : mots.pret}
+        {variante === "feuille" ? (
+          <>
+            <span className="n3-feuille-icone" aria-hidden="true">
+              {icone}
+            </span>
+            <span className="n3-feuille-texte">
+              <span className="n3-feuille-titre">
+                {pending ? mots.envoi : said ? mots.fait : held ? mots.tenu : mots.pret}
+              </span>
+              {detail ? <span className="n3-feuille-detail">{detail}</span> : null}
+            </span>
+          </>
+        ) : pending ? (
+          mots.envoi
+        ) : said ? (
+          mots.fait
+        ) : held ? (
+          mots.tenu
+        ) : (
+          mots.pret
+        )}
       </button>
       {error ? (
         <p role="alert" className="text-corps text-alert">

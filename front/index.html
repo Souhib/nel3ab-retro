@@ -2,7 +2,20 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover`: la page va jusqu'aux bords d'un téléphone à
+         encoche, et c'est elle qui se tient hors des zones sûres, par les
+         jetons `--zone-*` d'index.css. Sans lui, `env(safe-area-inset-*)`
+         valait zéro partout et les marges écrites pour l'encoche ne servaient
+         à rien (audit mobile, 22 novembre 2026). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Ajoutée à l'écran d'accueil d'un iPhone, la salle s'ouvre sans la barre
+         de Safari: c'est le plein écran que Safari refuse à la page (audit M8,
+         `lib/plein-ecran`). La barre d'état passe en transparence, d'où les
+         zones sûres. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="nel3ab" />
     <!-- The room's mark, inline: the worker serves one file and has no static
          file server, so a favicon at its own URL would be a 404 on every load. -->
     <link
@@ -10,6 +23,37 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2308080a'/%3E%3Crect x='3' y='5' width='10' height='6' rx='1' fill='none' stroke='%237c6ce0'/%3E%3C/svg%3E"
     />
     <title>nel3ab</title>
+    <!-- Le thème choisi, posé AVANT la première image. Le script de la page est
+         un module, lancé seulement après la lecture de tout le document: un
+         choix contre le système s'y peignait d'abord aux couleurs du système
+         (mesuré le 22 novembre 2026 sur la page construite: « nuit » sous un
+         système clair commençait en craie, quatre chargements sur quatre).
+         Un script classique dans l'en-tête tourne avant le corps. Il refait
+         `storedTheme()` (src/lib/theme.ts) et un essai les compare valeur par
+         valeur (`theme-en-tete.test.ts`). La politique du worker nomme chaque
+         script par son empreinte (`script_policy`): il n'y a rien à ouvrir. -->
+    <script>
+      (function () {
+        var choix = "auto";
+        var anciens = {
+          "instrument-sombre": "nuit",
+          phosphore: "nuit",
+          ambre: "nuit",
+          "instrument-clair": "jour",
+          indigo: "jour",
+          famicom: "jour",
+          gameboy: "jour",
+        };
+        try {
+          var lu = localStorage.getItem("nel3ab:theme");
+          if (lu === "auto" || lu === "nuit" || lu === "jour") choix = lu;
+          else if (lu !== null && Object.prototype.hasOwnProperty.call(anciens, lu)) choix = anciens[lu];
+        } catch (refus) {
+          choix = "auto";
+        }
+        document.documentElement.dataset.theme = choix;
+      })();
+    </script>
   </head>
   <body>
     <!-- Ce qu'on voit avant que le script ait tourné, au lieu d'une page

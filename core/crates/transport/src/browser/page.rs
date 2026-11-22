@@ -395,7 +395,7 @@ mod tests {
     /// `font-src`, la règle retombe sur `default-src 'self'`, qui refuse une
     /// adresse `data:`: le 22 novembre 2026, la page construite servie avec la
     /// politique d'avant donnait « Anybody 400 error » dans `document.fonts`, et
-    /// la salle s'écrivait en Arial ou en DejaVu malgré 27 418 octets de
+    /// la salle s'écrivait en Arial ou en `DejaVu` malgré 27 418 octets de
     /// polices payés au brotli. Vite n'envoie aucune politique: le défaut ne s'y
     /// voyait pas.
     #[test]

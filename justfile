@@ -225,6 +225,11 @@ deploy-check:
     # dans son propre environnement Python, où manquait une dépendance du matin.
     # On importe donc le salon avec l'interpréteur que systemd lance vraiment.
     if ! bash deploy/salon-importable.sh; then faux=1; fi
+    # Les salles, de la même façon: un ajout d'unité peut remplacer l'adaptateur
+    # d'une console (le canari du socle, docs/xbox360.md). Il est nommé tant qu'il
+    # existe, et rouge si son fichier n'existe plus. Chaque adaptateur est importé
+    # avec le python3 que le PATH de l'unité donne au worker.
+    if ! bash deploy/salles-adaptateurs.sh; then faux=1; fi
     if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et tournent avec son code"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.

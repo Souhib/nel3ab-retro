@@ -24,7 +24,7 @@ export function Entrance({ onName }: { onName: (name: string) => void }) {
         }}
       >
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-mini uppercase tracking-[0.3em] text-indigo">nel3ab</span>
+          <span className="n3-marque">nel3ab</span>
           <h1 className="text-large font-medium tracking-tight">Qui joue&nbsp;?</h1>
           <p className="text-corps text-muted">
             Quatre manettes, une machine, une image. Ton nom sert à ce qu'une place puisse dire qui

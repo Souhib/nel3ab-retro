@@ -13,7 +13,7 @@ import { useState } from "react";
 import type { Room } from "../client";
 import { NAME_MAX } from "../lib/name";
 import { cn } from "../lib/cn";
-import { PLAYER_COLOURS } from "../media/players";
+import { PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
 import { LobbyPlan } from "./LobbyPlan";
@@ -96,13 +96,7 @@ export function Lobby({
   const entete = (
     <header className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3">
-        <span
-          className={cn(
-            "font-mono text-mini uppercase tracking-[0.3em]",
-            peint ? "" : "text-indigo",
-          )}
-          style={peint ? { color: marque } : undefined}
-        >
+        <span className="n3-marque" style={peint ? { color: marque } : undefined}>
           nel3ab
         </span>
         <span className="flex items-baseline gap-3">
@@ -256,8 +250,13 @@ export function Lobby({
                       dépôt regarde le plus souvent. Aucun garde ne l'avait vu
                       parce qu'aucun garde ne regardait cette page. Le carnet
                       écrivait déjà la règle pour les sept thèmes: on atténue en
-                      changeant d'encre, pas en baissant l'alpha. */}
-                    <span className="font-mono text-mini" style={{ color: colour }}>
+                      changeant d'encre, pas en baissant l'alpha.
+                      Et l'encre du JOUEUR, pas son aplat: l'aplat du joueur 3
+                      tombait à 1,81:1 sur le thème clair (22 novembre 2026). */}
+                    <span
+                      className="font-machine text-mini"
+                      style={{ color: PLAYER_INKS[seat.port - 1] ?? PLAYER_INKS[0] }}
+                    >
                       P{seat.port}
                     </span>
                     <span className={cn("truncate text-corps", taken ? "text-text" : "text-faint")}>

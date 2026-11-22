@@ -1551,7 +1551,7 @@ function Room({
           id: "theme",
           label: "couleurs",
           value: themeLabel(theme),
-          hint: "A pour voir les sept",
+          hint: "A pour voir les trois",
           icon: <PaletteIcon className="h-full w-full" />,
           picks: THEMES.map((choice) => ({
             id: choice.id,
@@ -1835,7 +1835,7 @@ function Room({
             type="button"
             id="showTouch"
             onClick={() => setTouchPref("on")}
-            className="absolute bottom-3 left-3 z-30 rounded-full border border-rule bg-panel/70 px-4 py-2 text-note uppercase tracking-[0.14em] text-faint"
+            className="regie-nuit absolute bottom-3 left-3 z-30 rounded-full border border-rule bg-panel/70 px-4 py-2 text-note uppercase tracking-[0.14em] text-faint"
           >
             manette
           </button>
@@ -1876,7 +1876,7 @@ function Room({
              permanente par-dessus l'image rendrait le repli inutile.
              Pas quand la manette à l'écran est là: elle porte les mêmes gestes,
              et ces deux boutons-ci tombaient pile sur Z et R. */
-          <div className="absolute top-2 right-2 flex gap-1 opacity-30 transition-opacity hover:opacity-100">
+          <div className="regie-nuit absolute top-2 right-2 flex gap-1 opacity-30 transition-opacity hover:opacity-100">
             <button
               type="button"
               id="unbare"
@@ -1933,9 +1933,7 @@ function Room({
           className="flex shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
         >
           <header className="flex flex-col gap-0.5">
-            <span className="font-mono text-corps uppercase tracking-[0.3em] text-indigo">
-              nel3ab
-            </span>
+            <span className="n3-marque">nel3ab</span>
             <h1 className="truncate text-fort font-medium">{room?.name ?? "salon"}</h1>
             <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
             <p id="seat" className="text-corps text-faint">

@@ -1,45 +1,72 @@
 /**
- * Six ambiances, et celle qu'on garde.
+ * Deux régies, et l'appareil qui choisit entre elles.
  *
- * Un thème ne change que des couleurs et une famille de caractères. Il ne touche
- * ni la disposition, ni ce qui est affiché, ni quoi que ce soit par-dessus
- * l'image: la zone d'écran reste noire dans tous. C'est ce qui permet d'en
- * proposer six sans risquer la boucle d'affichage.
+ * La salle porte la régie du salon (`src/regie.css`): la régie de nuit, en
+ * graphite, et la régie de jour, en craie. Sans choix, la page suit le réglage
+ * clair ou sombre du système; un choix explicite l'emporte et se garde dans le
+ * navigateur.
+ *
+ * Il y en avait sept jusqu'au 22 novembre 2026. Plusieurs ne tenaient pas leurs
+ * promesses (la console et le canapé ne changeaient pas de couleur, des boutons
+ * se coupaient en phosphore), chaque nouveau composant devait penser à sept
+ * palettes, et aucune ne suivait le système: une personne en mode clair sur
+ * son téléphone recevait une page noire. La nostalgie reste dans les menus de
+ * console, qui sont des costumes et pas des thèmes.
+ *
+ * Un thème ne change que des couleurs. Il ne touche ni la disposition, ni ce
+ * qui est affiché, ni l'image: la zone d'écran reste noire dans les deux.
  *
  * Le thème s'écrit sur `<html>`, pas dans un contexte React: la couleur de fond
  * doit être posée avant le premier rendu, sinon la page clignote au chargement.
+ * Et c'est la FEUILLE qui suit le système, par `prefers-color-scheme`, pas ce
+ * script: la page est donc juste dès sa première image, script lancé ou non.
  */
 export const THEMES = [
-  {
-    id: "instrument-sombre",
-    label: "instrument sombre",
-    note: "l'appareil de mesure, et le défaut",
-  },
-  { id: "instrument-clair", label: "instrument clair", note: "le même, de jour" },
-  { id: "phosphore", label: "phosphore", note: "terminal à tube, vert P1" },
-  { id: "ambre", label: "ambre", note: "le même tube, monochrome chaud" },
-  { id: "indigo", label: "indigo", note: "le plastique de la console" },
-  { id: "famicom", label: "famicom", note: "crème et rouge, 1983" },
-  { id: "gameboy", label: "game boy", note: "les quatre verts de 1989" },
+  { id: "auto", label: "comme l'appareil", note: "clair ou sombre selon le système" },
+  { id: "nuit", label: "régie de nuit", note: "graphite, pour une pièce sombre" },
+  { id: "jour", label: "régie de jour", note: "craie, pour une pièce éclairée" },
 ] as const;
 
 export type Theme = (typeof THEMES)[number]["id"];
 
-const DEFAULT: Theme = "instrument-sombre";
+const DEFAULT: Theme = "auto";
 const REMEMBERED = "nel3ab:theme";
+
+/** Les sept ambiances d'avant, rangées du côté où elles peignaient.
+ *
+ * Un choix déjà fait se garde: quelqu'un qui avait pris un fond clair le
+ * retrouve clair. Tout le reste, valeur inconnue ou stockage bricolé, retombe
+ * sur l'appareil plutôt que sur la nuit: deviner un côté pour une valeur
+ * qu'on ne connaît pas serait imposer un choix que personne n'a fait. */
+const ANCIENS: Readonly<Record<string, Theme>> = {
+  "instrument-sombre": "nuit",
+  phosphore: "nuit",
+  ambre: "nuit",
+  "instrument-clair": "jour",
+  indigo: "jour",
+  famicom: "jour",
+  gameboy: "jour",
+};
 
 const known = (value: string | null): value is Theme => THEMES.some((theme) => theme.id === value);
 
 export function storedTheme(): Theme {
   try {
     const found = localStorage.getItem(REMEMBERED);
-    return known(found) ? found : DEFAULT;
+    if (known(found)) return found;
+    return (
+      (found !== null && Object.hasOwn(ANCIENS, found) ? ANCIENS[found] : undefined) ?? DEFAULT
+    );
   } catch {
     return DEFAULT;
   }
 }
 
-/** Pose le thème sur le document. Appelé avant React, puis à chaque changement. */
+/** Pose le thème sur le document. Appelé avant React, puis à chaque changement.
+ *
+ * `auto` est posé lui aussi, plutôt que d'effacer l'attribut: la feuille ne
+ * force ni la nuit ni le jour pour cette valeur, et un pilote qui lit
+ * `data-theme` voit ce qui a été choisi au lieu d'un vide. */
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
 }

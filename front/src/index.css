@@ -1,160 +1,124 @@
 @import "tailwindcss";
+@import "./regie.css";
 
 /*
  * Un instrument, pas une vitrine.
  *
- * L'image EST le produit: tout ce qui l'entoure est un cadre mince qui doit
- * ressembler à un appareil de mesure, parce que c'est ce que cette salle est.
- * Le cadre de jeu reste discret. Les menus et le configurateur peuvent
- * représenter la matière des consoles: ils sont ouverts pour choisir et
- * comprendre les commandes, sans ajouter de travail à la peinture du jeu.
+ * L'image EST le produit: tout ce qui l'entoure est la régie d'une petite
+ * chaîne privée, et cette page porte la MÊME régie que le salon. Les couleurs,
+ * les caractères et les deux thèmes viennent de `regie.css`, partagé avec
+ * l'accueil, le dépôt et le carnet; ce fichier ne choisit plus aucune couleur
+ * de page, il les emploie.
  *
- * Un seul accent, et il est mérité: l'indigo de la console qu'on émule.
+ * Avant le 22 novembre 2026, la salle avait sa propre identité: noir #08080a,
+ * accent indigo, police du système (DejaVu Sans sur cette machine, SF sur un
+ * Mac, Roboto sur Android), et sept ambiances dont plusieurs ne tenaient pas
+ * leurs promesses. Passer de l'accueil à la salle donnait l'impression de
+ * changer de site.
  *
- * Deux thèmes, et les mêmes règles dans les deux. Les jetons sont des variables
- * CSS ordinaires posées sur `:root`, et `@theme inline` les fait suivre par les
- * classes Tailwind au lieu de figer une valeur à la construction. Sans `inline`,
- * une classe garderait la couleur du thème compilé et changer d'attribut ne
- * ferait rien.
+ * Les menus et le configurateur peuvent représenter la matière des consoles:
+ * ils sont ouverts pour choisir et comprendre les commandes, sans ajouter de
+ * travail à la peinture du jeu. Ce sont des costumes, pas des thèmes.
  */
 
 /*
- * Les thèmes, un jeu de variables chacun.
+ * Les caractères de la régie, embarqués dans la page.
  *
- * Un thème ne change que des COULEURS et une famille de caractères. Il ne change
- * ni la disposition, ni ce qui est affiché, et surtout rien par-dessus l'image:
- * la zone d'écran reste noire dans tous, bandes comprises, parce que des bandes
- * claires autour d'une image 4:3 tirent l'oeil vers les bords.
+ * Les MÊMES fichiers que le salon (`control/.../routes/polices`), lus à la
+ * construction et inclus en `data:` par le greffon qui produit un fichier
+ * unique: la page ne fait aucune requête de police, et ne dépend plus des
+ * caractères de l'appareil. Coût mesuré au brotli le 22 novembre 2026: voir
+ * `stamp.mjs`, qui compte ces fichiers parmi les entrées de la page.
  *
- * C'est ce qui rend le choix bon marché: six ambiances pour une soixantaine de
- * lignes, et aucune ne peut toucher la boucle d'affichage.
+ * Anybody 700 est la coupe LARGE du salon (classe de chasse 7), celle des
+ * titres de jeux et des chiffres de salle. La 600 et la 400 sont de chasse
+ * normale. Le 500 demandé par quelques composants retombe sur la 400, le 550
+ * sur la 600, selon la règle d'appariement des graisses.
  */
-
-/* Instrument clair. L'appareil de mesure, de jour. */
-:root[data-theme="instrument-clair"] {
-  --ink: #ffffff;
-  --panel: #f6f6f8;
-  --rule: #e2e2e8;
-  --rule-bright: #c8c8d2;
-  --text: #16161c;
-  --muted: #56565f;
-  --faint: #70707a;
-  --indigo: #5540c9;
-  --indigo-dim: #b3a9ec;
-  --alert: #c22f3d;
-  --good: #0a7a45;
-  --chrome: var(--font-sans);
-  color-scheme: light;
+@font-face {
+  font-family: "Anybody";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../control/nel3ab_control/api/routes/polices/anybody-courant400.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "Anybody";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../control/nel3ab_control/api/routes/polices/anybody-texte600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Anybody";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../control/nel3ab_control/api/routes/polices/anybody-large700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Departure";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../control/nel3ab_control/api/routes/polices/departure-regie.woff2") format("woff2");
 }
 
-/* Instrument sombre, et le défaut.
+/*
+ * Les anciens noms, gardés comme alias des rôles de la régie.
  *
- * Sur `:root` nu autant que sur son attribut: c'est cette règle-là qui peint la
- * page avant que le script ait tourné, et un défaut clair y ferait clignoter du
- * blanc une image le temps du premier rendu. */
+ * Une trentaine de composants écrivent `text-muted`, `border-rule` ou
+ * `bg-panel`, et plusieurs chantiers les touchent en même temps. Les renommer
+ * tous d'un coup aurait été une source de conflits pour rien: ces noms pointent
+ * désormais sur les rôles, et le code neuf emploie les noms de la régie
+ * (`text-legende`, `border-filet`, `bg-plaque`). `indigo` est le signal violet,
+ * réservé au focus et à la sélection; le nom reste le temps que les composants
+ * migrent.
+ *
+ * Reposés sur `.regie-nuit`: un alias calculé sur la racine garderait la
+ * valeur de la racine, et `bg-panel` resterait clair par-dessus l'image.
+ */
 :root,
-:root[data-theme="instrument-sombre"] {
-  --ink: #08080a;
-  --panel: #0e0e11;
-  --rule: #1e1e25;
-  --rule-bright: #2c2c36;
-  --text: #e8e8ee;
-  --muted: #8b8b98;
-  --faint: #797988;
-  --indigo: #7c6ce0;
-  --indigo-dim: #4a4090;
-  --alert: #ff7a7a;
-  --good: #6ee7a8;
-  --chrome: var(--font-sans);
-  color-scheme: dark;
-}
-
-/* Phosphore. Un terminal à tube, vert P1, tout en chasse fixe. */
-:root[data-theme="phosphore"] {
-  --ink: #050a07;
-  --panel: #0a1510;
-  --rule: #16291d;
-  --rule-bright: #245c3c;
-  --text: #86f5a8;
-  --muted: #4fae74;
-  --faint: #388d5b;
-  --indigo: #5cff9d;
-  --indigo-dim: #1c5c38;
-  --alert: #ff8a6b;
-  --good: #5cff9d;
-  --chrome: var(--font-mono);
-  color-scheme: dark;
-}
-
-/* Ambre. Le même tube en monochrome chaud, plus doux pour les yeux. */
-:root[data-theme="ambre"] {
-  --ink: #0a0704;
-  --panel: #150e06;
-  --rule: #2c1d0c;
-  --rule-bright: #5a3d14;
-  --text: #ffb642;
-  --muted: #bd8130;
-  --faint: #a57025;
-  --indigo: #ffd48a;
-  --indigo-dim: #6b4715;
-  --alert: #ff6b5a;
-  --good: #cfe06a;
-  --chrome: var(--font-mono);
-  color-scheme: dark;
-}
-
-/* Indigo. Le violet du plastique de la console qu'on émule, sur gris clair. */
-:root[data-theme="indigo"] {
-  --ink: #f3f2f8;
-  --panel: #e8e6f3;
-  --rule: #cec9e5;
-  --rule-bright: #a79fd2;
-  --text: #1c1932;
-  --muted: #575074;
-  --faint: #6a638b;
-  --indigo: #4b3aa6;
-  --indigo-dim: #b7aee2;
-  --alert: #b32a3a;
-  --good: #1f6d4a;
-  --chrome: var(--font-sans);
-  color-scheme: light;
-}
-
-/* Famicom. Crème et rouge, 1983. */
-:root[data-theme="famicom"] {
-  --ink: #f8f2e4;
-  --panel: #efe5d1;
-  --rule: #dbccae;
-  --rule-bright: #bda880;
-  --text: #2a2018;
-  --muted: #6a5943;
-  --faint: #736552;
-  --indigo: #c1272d;
-  --indigo-dim: #e8b3b0;
-  --alert: #a01f24;
-  --good: #2f6d43;
-  --chrome: var(--font-sans);
-  color-scheme: light;
-}
-
-/* Game Boy. Les quatre verts de l'écran à cristaux liquides de 1989. */
-:root[data-theme="gameboy"] {
-  --ink: #dfeec4;
-  --panel: #cfe2ae;
-  --rule: #a8c586;
-  --rule-bright: #7fa066;
-  --text: #0f2a18;
-  --muted: #35573b;
-  --faint: #4e6746;
-  --indigo: #2c6b3d;
-  --indigo-dim: #9dc084;
-  --alert: #8c2f22;
-  --good: #2c6b3d;
-  --chrome: var(--font-mono);
-  color-scheme: light;
+.regie-nuit {
+  --ink: var(--fond);
+  --panel: var(--plaque);
+  --rule: var(--filet);
+  --rule-bright: var(--trait);
+  --text: var(--encre);
+  --muted: var(--legende);
+  --faint: var(--discret);
+  --indigo: var(--signal);
+  --indigo-dim: color-mix(in srgb, var(--signal) 35%, var(--plaque));
+  --alert: var(--alerte);
+  --good: var(--ok);
 }
 
 @theme inline {
+  /* Les rôles de la régie, en classes: `bg-plaque`, `text-legende`... */
+  --color-fond: var(--fond);
+  --color-plaque: var(--plaque);
+  --color-creux: var(--creux);
+  --color-survol: var(--survol);
+  --color-encre: var(--encre);
+  --color-legende: var(--legende);
+  --color-discret: var(--discret);
+  --color-trait: var(--trait);
+  --color-filet: var(--filet);
+  --color-signal: var(--signal);
+  --color-alerte: var(--alerte);
+  --color-ok: var(--ok);
+  --color-ecran: var(--ecran);
+  --color-p1: var(--p1);
+  --color-p2: var(--p2);
+  --color-p3: var(--p3);
+  --color-p4: var(--p4);
+  --color-p1-encre: var(--p1-encre);
+  --color-p2-encre: var(--p2-encre);
+  --color-p3-encre: var(--p3-encre);
+  --color-p4-encre: var(--p4-encre);
+
+  /* Les anciens noms (voir plus haut). */
   --color-ink: var(--ink);
   --color-panel: var(--panel);
   --color-rule: var(--rule);
@@ -166,28 +130,22 @@
   --color-indigo-dim: var(--indigo-dim);
   --color-alert: var(--alert);
   --color-good: var(--good);
+  /* `text-bright` était écrit dans six composants sans qu'aucun jeton ne
+     l'ait jamais déclaré (audit visuel du 22 novembre 2026, V10): le texte
+     héritait sa couleur par hasard. L'intention, « le texte le plus vif »,
+     est l'encre. */
+  --color-bright: var(--encre);
 
-  --font-chrome: var(--chrome);
-  /* `--faint` a été relevé dans les SEPT thèmes le 2 septembre 2026.
-   *
-   * Il valait entre 3,04:1 et 3,93:1 selon le thème — le troisième niveau de la
-   * rampe n'était lisible dans aucun. Ce n'est pas une opacité qui l'abîmait: la
-   * couleur elle-même était trop pâle, et un pilote qui mesure le contraste
-   * EFFECTIF dans le rendu a trouvé 196 textes sous le seuil, tous sur ce jeton.
-   *
-   * Ce qu'on lisait avec: l'état des quatre manettes dans la colonne — « libre »,
-   * « toi », le nom de qui la tient — c'est-à-dire ce qu'on regarde le plus
-   * souvent de toute la page.
-   *
-   * Chaque valeur garde la TEINTE et la SATURATION d'origine; seule la clarté
-   * bouge, jusqu'à 4,5:1 sur le PIRE des deux fonds du thème. Le pire, et pas
-   * `--ink`: un premier passage visait le fond de la page et laissait la colonne
-   * à 4,38:1, parce qu'elle est peinte sur `--panel`, un ton plus clair. Un
-   * seuil visé sur la mauvaise surface est un seuil qu'on croit tenir. La rampe reste
-   * donc à trois niveaux — texte, --muted, --faint — mais les trois se lisent.
-   *
-   * Ce qui décore plutôt que d'informer a ses propres jetons, `--rule` et
-   * `--rule-bright`, et n'est pas concerné.
+  --font-chrome: var(--police-texte);
+  --font-machine: var(--police-machine);
+  /* La rampe de texte a trois niveaux: encre, légende, discret (`--faint`
+   * dans l'ancien vocabulaire). Le 2 septembre 2026, ce troisième niveau valait
+   * entre 3,04:1 et 3,93:1 selon le thème, et un pilote qui mesure le contraste
+   * EFFECTIF dans le rendu avait trouvé 196 textes sous le seuil, tous sur ce
+   * jeton: l'état des quatre manettes dans la colonne, ce qu'on regarde le plus.
+   * La leçon tient toujours: le seuil se vise sur la PIRE surface, pas sur le
+   * fond de la page. `regie.test.ts` la calcule désormais sur quatre surfaces,
+   * survol compris (au moins 4,81:1 la nuit, 4,97:1 le jour).
    */
   /* L'échelle de texte. Sept paliers nommés, là où il y avait SEIZE tailles
    * et deux vocabulaires (`text-[12px]` et `text-xs`).
@@ -231,7 +189,11 @@
    * DejaVu Serif et DejaVu Sans Mono. Le salon porte déjà ce garde-fou dans son
    * jeton `--machine`; le front ne l'avait pas. */
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, "DejaVu Sans Mono", monospace;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Anybody, comme au salon. Avant le 22 novembre 2026 cette pile commençait
+     par `ui-sans-serif, system-ui`: mesuré dans Chrome sur cette machine, le
+     texte de la salle était en DejaVu Sans, et il aurait été en SF sur un Mac
+     ou en Roboto sur Android. */
+  --font-sans: var(--police-texte);
 }
 
 html,
@@ -242,9 +204,13 @@ body,
 
 body {
   margin: 0;
-  background: var(--ink);
-  color: var(--text);
-  font-family: var(--chrome);
+  background: var(--fond);
+  color: var(--encre);
+  font-family: var(--police-texte);
+  /* Sans lui, Chrome sous Linux dessine le « é » des sous-ensembles Anybody
+     SANS son accent sous une vingtaine de pixels (relevé au carnet de jeu le
+     21 novembre 2026). Désactiver le calage des contours rend l'accent. */
+  text-rendering: geometricPrecision;
   /* Des nombres qui ne gigotent pas en changeant: un afficheur qui danse est un
      afficheur que personne ne lit. */
   font-variant-numeric: tabular-nums;
@@ -253,11 +219,49 @@ body {
 /* Le seul endroit où une barre de défilement apparaît, et elle reste discrète. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--rule-bright) transparent;
+  scrollbar-color: var(--trait) transparent;
 }
 
-/* Les formulaires natifs suivent le thème: chaque palette déclare son
-   `color-scheme`, sinon un `<input type="range">` reste sombre sur fond clair. */
+/* Un seul anneau de focus pour toute la page, celui du salon: le signal, sur
+   3 px. Avant, chaque zone avait le sien (2 px indigo dans le panneau des
+   touches, 3 px turquoise dans les réglages Switch, l'anneau du navigateur
+   ailleurs) et un champ n'avait qu'une bordure de 1 px qui changeait de teinte.
+   Les règles plus précises plus bas gardent leur décalage, pas leur couleur. */
+:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Le mot-marque, le même qu'au salon: NEL3AB en Departure, espacé de 0,34 em,
+   en encre. Il était indigo et en chasse fixe du système dans la salle, en
+   capitales Departure à l'accueil: deux marques pour un même service. */
+.n3-marque {
+  font-family: var(--police-machine);
+  font-size: var(--text-corps);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--encre);
+}
+
+/* L'étiquette de section de la colonne et des mesures. Un seul style là où il
+   y en avait deux: « manettes » en 11 px et « joueurs » en 15 px, tous deux en
+   indigo à 70 % d'opacité, c'est-à-dire entre 2,74:1 et 3,57:1 selon
+   l'ambiance (audit d'accessibilité du 22 novembre 2026, A11Y-05). En légende
+   pleine, sans alpha: au moins 5,79:1 sur la plaque dans les deux thèmes.
+
+   Anybody et pas Departure, contrairement à la maquette de l'audit:
+   Departure n'a ni « É » ni « È », et « séance » s'écrirait avec une lettre
+   tirée d'une autre police. Une lettre d'une autre police au milieu d'un mot
+   se lit comme une panne. */
+.n3-etiquette {
+  font-family: var(--police-texte);
+  font-size: var(--text-note);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--legende);
+}
 
 /*
  * Les mouvements des menus.
@@ -548,7 +552,9 @@ body {
 [data-padmap] text {
   fill: var(--part-ink);
   font-family: var(--font-chrome);
-  font-weight: 700;
+  /* 600 et non 700: la 700 d'Anybody est la coupe LARGE, faite pour les
+     titres, et une lettre de bouton élargie déborderait de son capuchon. */
+  font-weight: 600;
   pointer-events: none;
 }
 [data-padmap] text.n3-callout {
@@ -623,10 +629,10 @@ body {
   max-height: none;
   margin: auto;
   padding: 0;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--rule-bright);
-  border-radius: 20px;
+  color: var(--encre);
+  background: var(--plaque);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
   box-shadow: 0 32px 120px #0009;
   overflow: hidden;
 }
@@ -647,12 +653,15 @@ body {
   gap: 20px;
   padding: 25px 30px 20px;
 }
+/* Le surtitre du panneau prend le style des étiquettes de section, en
+   légende: l'indigo y décorait, et le violet est réservé au focus et à la
+   sélection. */
 .n3-eyebrow {
   display: block;
-  color: var(--indigo);
-  font-size: var(--text-mini);
+  color: var(--legende);
+  font-size: var(--text-note);
   font-weight: 600;
-  letter-spacing: 0.17em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 7px;
 }
@@ -667,20 +676,38 @@ body {
   font-size: var(--text-corps);
   margin-top: 8px;
 }
+/* La croix est DESSINÉE, et le « × » du bouton ne sert plus qu'au texte.
+   Dans Anybody, le signe de multiplication est un petit signe d'opération:
+   à 26 px il mesurait une dizaine de pixels, là où le repli du système en
+   dessinait le double. Le nom du bouton est son `aria-label`. */
 .n3-close {
+  position: relative;
   display: grid;
   place-content: center;
   width: 38px;
   height: 38px;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  font-size: var(--text-large);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon-rond);
+  font-size: 0;
   line-height: 1;
-  color: var(--muted);
+  color: var(--legende);
+}
+.n3-close::before,
+.n3-close::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.n3-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 .n3-close:hover {
-  border-color: var(--indigo);
-  color: var(--text);
+  border-color: var(--encre);
+  color: var(--encre);
 }
 .n3-bindings-tabs {
   display: flex;
@@ -762,8 +789,8 @@ body {
   color: var(--muted);
 }
 .n3-reading-choice > span {
-  border: 1px solid var(--rule);
-  border-radius: 4px;
+  border: 1px solid var(--filet);
+  border-radius: var(--rayon);
   padding: 1px 5px;
   color: var(--faint);
   /* Le plancher du panneau des touches était à 10 px, alors que la page part
@@ -785,13 +812,13 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border: 1px solid var(--rule);
-  border-radius: 13px;
+  border: 1px solid var(--filet);
+  border-radius: var(--rayon);
   padding: 14px 10px 12px;
   background: radial-gradient(
     ellipse at 50% 80%,
-    color-mix(in srgb, var(--indigo) 6%, var(--ink)),
-    var(--ink) 75%
+    color-mix(in srgb, var(--encre) 6%, var(--fond)),
+    var(--fond) 75%
   );
 }
 .n3-controller figcaption {
@@ -813,9 +840,9 @@ body {
   flex-direction: column;
   gap: 12px;
   padding: 20px;
-  border: 1px solid var(--rule-bright);
-  border-radius: 13px;
-  background: var(--ink);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  background: var(--fond);
 }
 .n3-command-editor h3 {
   font-size: var(--text-affiche);
@@ -846,9 +873,11 @@ body {
   padding-top: 12px;
   font-size: var(--text-note);
 }
+/* Les deux boutons de la régie: le cadre, et le plein en craie sur graphite.
+   Le plein était indigo; le violet ne dit plus que le focus et la sélection. */
 .n3-action {
-  border: 1px solid var(--rule-bright);
-  border-radius: 7px;
+  border: 2px solid var(--bouton-cadre-trait);
+  border-radius: var(--rayon);
   padding: 9px 13px;
   font-size: var(--text-corps);
   line-height: 1.5;
@@ -856,30 +885,34 @@ body {
   white-space: nowrap;
 }
 .n3-action:hover {
-  border-color: var(--indigo);
-  background: color-mix(in srgb, var(--indigo) 5%, transparent);
+  border-color: var(--encre);
+  background: var(--survol);
 }
 .n3-action.primary {
-  background: var(--indigo);
-  border-color: var(--indigo);
-  color: var(--ink);
+  background: var(--bouton-plein-fond);
+  border-color: var(--bouton-plein-fond);
+  color: var(--bouton-plein-encre);
   font-weight: 600;
+}
+.n3-action.primary:hover {
+  background: var(--bouton-plein-survol);
+  border-color: var(--bouton-plein-survol);
 }
 .n3-bindings button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 .n3-bindings :is(button, input, select, summary):focus-visible {
-  outline: 2px solid var(--indigo);
+  outline: var(--focus-largeur) solid var(--focus);
   outline-offset: 4px;
 }
 .n3-bindings select,
 .n3-bindings input {
   min-width: 0;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--rule-bright);
-  border-radius: 7px;
+  color: var(--encre);
+  background: var(--champ-fond);
+  border: 1px solid var(--champ-trait);
+  border-radius: var(--rayon);
   padding: 8px 10px;
   font-size: var(--text-corps);
 }
@@ -914,7 +947,7 @@ body {
   justify-content: space-between;
   text-align: left;
   padding: 10px;
-  border-radius: 6px;
+  border-radius: var(--rayon);
   font-size: var(--text-corps);
 }
 .n3-mapping-list button[aria-pressed="true"] {
@@ -930,9 +963,9 @@ body {
   gap: 12px;
   margin: 18px 0;
   padding: 16px;
-  border: 1px solid var(--indigo);
-  background: var(--ink);
-  border-radius: 10px;
+  border: 1px solid var(--signal);
+  background: var(--fond);
+  border-radius: var(--rayon);
 }
 .n3-capture-banner > div {
   flex: 1;
@@ -968,7 +1001,7 @@ body {
   gap: 16px;
   border-top: 1px solid var(--rule);
   padding: 14px 30px;
-  background: var(--ink);
+  background: var(--fond);
 }
 .n3-bindings-footer > span {
   color: var(--muted);
@@ -989,7 +1022,7 @@ body {
   cursor: pointer;
 }
 .n3-keyboard-test:focus-visible {
-  outline: 2px solid var(--indigo);
+  outline: var(--focus-largeur) solid var(--focus);
   outline-offset: 2px;
 }
 .n3-keyboard-caps {
@@ -1044,7 +1077,7 @@ body {
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--rayon);
   padding: 8px 10px;
   font-family: var(--font-mono);
   font-size: var(--text-corps);
@@ -1052,10 +1085,13 @@ body {
 .n3-binding-cell > span:last-child {
   color: var(--faint);
 }
-.n3-binding-cell:hover,
+.n3-binding-cell:hover {
+  border-color: var(--trait);
+  background: var(--survol);
+}
 .n3-binding-cell[data-capturing="true"] {
-  border-color: var(--indigo);
-  background: var(--ink);
+  border-color: var(--signal);
+  background: var(--fond);
 }
 .n3-profiles {
   max-width: 610px;
@@ -1363,7 +1399,7 @@ body {
 }
 .n3-preparation a {
   text-decoration: underline;
-  color: var(--indigo);
+  color: var(--encre);
 }
 .n3-preparation-players {
   display: grid;
@@ -1371,14 +1407,18 @@ body {
      colonnes laissaient deux cases vides et deux cases étirées. */
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
-  margin: 14px 0;
+  /* `margin-block` et non `margin`: la même spécificité que
+     `.n3-preparation > *` plus haut, mais plus loin dans le fichier, donc un
+     `margin: 14px 0` remettait la marge horizontale à zéro et collait les cases
+     au bord gauche, 151 px à gauche du titre (audit visuel, V9). */
+  margin-block: 14px;
 }
 .n3-preparation-players > div {
   display: grid;
   gap: 3px;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--filet);
   padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--rayon);
 }
 .n3-preparation-players > div[data-ready="true"] {
   border-color: var(--good);
@@ -1399,7 +1439,7 @@ body {
   align-items: end;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 10px 0;
+  margin-block: 10px;
 }
 .n3-preparation-choice label {
   display: grid;
@@ -1409,11 +1449,11 @@ body {
 }
 .n3-preparation select,
 .n3-preparation input {
-  background: var(--ink);
-  color: var(--text);
-  border: 1px solid var(--rule-bright);
+  background: var(--champ-fond);
+  color: var(--encre);
+  border: 1px solid var(--champ-trait);
   padding: 9px 12px;
-  border-radius: 7px;
+  border-radius: var(--rayon);
   font-size: var(--text-corps);
   min-width: 0;
 }
@@ -1429,8 +1469,8 @@ body {
 }
 .n3-game-action {
   padding: 12px;
-  border: 1px solid var(--indigo);
-  border-radius: 8px;
+  border: 2px solid var(--trait);
+  border-radius: var(--rayon);
   display: grid;
   gap: 5px;
 }
@@ -1451,11 +1491,15 @@ body {
   transform: translateX(-50%);
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--rule-bright);
-  border-radius: 12px;
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
   padding: 18px;
   font-size: var(--text-corps);
   max-width: 90vw;
+}
+/* Une erreur dit son état par la barre de gauche, comme au salon. */
+.n3-preparation-error {
+  border-left: var(--barre-etat) solid var(--alerte);
 }
 .n3-preparation-error button {
   margin-left: 15px;
@@ -1563,13 +1607,24 @@ body {
   font-weight: 600;
 }
 
-/* Switch settings share the room's modal lifecycle; long mappings scroll,
-   while confirmation remains visible on a phone. */
+/* Les réglages Switch partagent le cycle de vie modal de la salle; une longue
+   liste défile, la confirmation reste visible sur un téléphone.
+
+   `margin: auto`, et c'est le défaut de V6 (audit visuel): le reset de
+   Tailwind pose `margin: 0` sur `dialog`, et `.n3-bindings` le reprenait,
+   celui-ci non. Mesuré à 1440 par 900 avant la correction: left 0, top 0,
+   le dialogue collé dans le coin haut gauche de tout écran plus large que
+   980 px.
+
+   Sa palette marine (#111b2a) et son focus turquoise (#83e0cd) étaient
+   codés en dur: il prend maintenant les jetons de la régie, comme le
+   panneau des touches. */
 .n3-switch-setup {
-  color: #edf4fc;
-  background: #111b2a;
-  border: 1px solid #60748f;
-  border-radius: 18px;
+  margin: auto;
+  color: var(--encre);
+  background: var(--plaque);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
   width: min(980px, calc(100% - 20px));
   max-height: 92dvh;
   padding: 0;
@@ -1580,7 +1635,7 @@ body {
   overflow: hidden;
 }
 .n3-switch-setup::backdrop {
-  background: #030712cc;
+  background: #030308b8;
 }
 .n3-switch-setup header,
 .n3-switch-setup footer {
@@ -1590,7 +1645,7 @@ body {
   gap: 12px;
   padding: 20px;
   flex-shrink: 0;
-  border-bottom: 1px solid #42536c;
+  border-bottom: 1px solid var(--filet);
 }
 .n3-switch-setup h2 {
   font-size: var(--text-large);
@@ -1605,17 +1660,20 @@ body {
 }
 .n3-switch-setup p {
   margin: 12px 0;
-  color: #bdccdf;
+  color: var(--legende);
 }
 .n3-switch-setup button,
 .n3-switch-setup select,
 .n3-switch-setup input:not([hidden]) {
   color: inherit;
-  background: #25344a;
-  border: 1px solid #5b708c;
-  border-radius: 8px;
+  background: var(--champ-fond);
+  border: 1px solid var(--champ-trait);
+  border-radius: var(--rayon);
   padding: 9px 12px;
   max-width: 100%;
+}
+.n3-switch-setup button:hover:not(:disabled) {
+  border-color: var(--encre);
 }
 .n3-switch-setup button:disabled,
 .n3-switch-setup fieldset:disabled {
@@ -1633,11 +1691,11 @@ body {
 }
 .n3-switch-keytest {
   padding: 15px;
-  border: 1px dashed #83e0cd;
-  border-radius: 10px;
+  border: 1px dashed var(--trait);
+  border-radius: var(--rayon);
 }
 .n3-switch-setup :focus-visible {
-  outline: 3px solid #83e0cd;
+  outline: var(--focus-largeur) solid var(--focus);
   outline-offset: 2px;
 }
 .n3-switch-setup summary {
@@ -1651,12 +1709,12 @@ body {
   gap: 10px;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #40516a;
+  border-bottom: 1px solid var(--filet);
 }
 .n3-switch-heads {
   padding: 4px 0;
   font-size: var(--text-corps);
-  color: #9bacc4;
+  color: var(--legende);
 }
 .n3-switch-binding > div {
   display: flex;
@@ -1669,8 +1727,9 @@ body {
   overflow-wrap: anywhere;
   text-align: left;
 }
+/* La touche qu'on attend est SÉLECTIONNÉE: le signal, en fond léger. */
 .n3-switch-binding[data-waiting="true"] {
-  background: #3a3423;
+  background: color-mix(in srgb, var(--signal) 16%, var(--plaque));
 }
 .n3-switch-setup pre {
   white-space: pre-wrap;
@@ -1780,5 +1839,5 @@ body {
   margin-top: 3px;
   font-size: var(--text-corps);
   font-weight: 400;
-  color: #b6c5dc;
+  color: var(--legende);
 }

@@ -12,6 +12,9 @@ faux moteur cassé exprès pour chaque contrôle.
 - C2: chaque console externe jouable a sa fiche; hors migration, son module et
   une enveloppe qui appelle `principal("<code>")` au chemin `form.script`.
   Attrape une console sans moteur, une enveloppe qui lance une autre console.
+- C8: le lanceur du conteneur nomme le même exécutable que la fiche (pour
+  Xenia, la valeur par défaut de `NEL3AB_XENIA` dans xenia.sh). Attrape la
+  troisième copie du nom qui dériverait seule.
 - C12: `EN_MIGRATION` ne nomme que des moteurs encore servis par un ancien
   adaptateur. Attrape une entrée périmée, qui laisserait un moteur « non
   couvert » en silence.
@@ -19,6 +22,7 @@ faux moteur cassé exprès pour chaque contrôle.
 
 import ast
 import json
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -33,6 +37,13 @@ EN_MIGRATION: dict[str, str] = {
     "ryubing": "docker/switch-room.py",
     "eden": "docker/switch2-room.py",
     "xenia": "docker/xbox360-room.py",
+}
+
+
+#: Les lanceurs de conteneur qui nomment eux-mêmes l'exécutable du moteur, et le
+#: motif qui le lit. Ryubing et Eden le reçoivent de leur adaptateur.
+LANCEURS: dict[str, tuple[str, re.Pattern[str]]] = {
+    "xenia": ("spikes/xbox360/xenia.sh", re.compile(r"\$\{NEL3AB_XENIA:-/emulator/([^}]+)\}")),
 }
 
 
@@ -99,6 +110,16 @@ def c2_consoles(depot: Path = DEPOT, en_migration: Mapping[str, str] = EN_MIGRAT
     return ecarts
 
 
+def c8_lanceurs(depot: Path = DEPOT) -> list[str]:
+    ecarts = []
+    for moteur, (script, motif) in sorted(LANCEURS.items()):
+        lue = fiche.lire(depot / "moteurs" / moteur / "moteur.json")
+        nommes = motif.findall((depot / script).read_text(encoding="utf-8"))
+        if nommes != [str(lue.executable)]:
+            ecarts.append(f"C8 {moteur}: {script} lance {nommes}, la fiche {lue.executable}")
+    return ecarts
+
+
 def c12_migration(depot: Path = DEPOT, en_migration: Mapping[str, str] = EN_MIGRATION) -> list[str]:
     scripts = {c["engine"]: c["form"]["script"] for c in externes(manifeste(depot))}
     ecarts = []
@@ -116,9 +137,10 @@ def c12_migration(depot: Path = DEPOT, en_migration: Mapping[str, str] = EN_MIGR
 
 
 def ecarts(depot: Path = DEPOT, en_migration: Mapping[str, str] = EN_MIGRATION) -> list[str]:
-    """Tous les écarts de C1, C2 et C12."""
+    """Tous les écarts de C1, C2, C8 et C12."""
     return [
         *c1_fiches(depot),
         *c2_consoles(depot, en_migration),
+        *c8_lanceurs(depot),
         *c12_migration(depot, en_migration),
     ]

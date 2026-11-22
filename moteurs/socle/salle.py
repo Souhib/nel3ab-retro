@@ -1,5 +1,13 @@
 """Le cycle de vie d'une salle externe: manettes, moteur, capture, arrêt.
 
+`principal` est ce qu'une enveloppe appelle (`principal("x360")`). Elle refait
+les trois `main()` d'aujourd'hui, dans leur ordre: titre et emplacement
+vérifiés, configuration lue, emplacement verrouillé, préparation du moteur,
+première copie, puis `serve`. Elle ne lit que trois fichiers: la table des
+consoles du socle (du code), la fiche du moteur et sa configuration. Jamais
+`consoles/consoles.json`: un manifeste faux arrêterait sinon toutes les salles
+externes (ADR D22, règle 6).
+
 `serve` et `stop_engine` sont déplacés de `docker/switch-room.py`, qui garde sa
 propre copie jusqu'à la bascule de la Switch. Deux différences seulement, et
 `test_differentiel.py` prouve qu'elles ne changent aucune commande:
@@ -18,16 +26,86 @@ de l'arrêt une version plus récente de l'arbre principal.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import selectors
 import subprocess
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
-from moteurs.socle.lancement import TOOLS, EngineLaunch, cpu_pinning, pad_command, run
+from moteurs.socle import consoles, emplacement, fiche
+from moteurs.socle.lancement import DEPOT, TOOLS, EngineLaunch, cpu_pinning, pad_command, run
+
+#: Ce qu'un module de moteur fournit au socle (moteurs/<moteur>/adaptateur.py).
+INTERFACE = ("TITRE", "choisir", "preparer", "backup")
+
+
+@dataclass(frozen=True)
+class Contexte:
+    """Ce que le socle sait d'une partie quand il demande au moteur de la préparer."""
+
+    console: consoles.Console
+    fiche: fiche.Fiche
+    #: La configuration de la console, après `choisir` (un moteur par titre).
+    config: dict
+    rom: Path
+    titre: str
+    emplacement: Path
+    #: Le dossier runtime que le worker a créé pour cette salle.
+    pads: Path
+
+
+def charger_adaptateur(moteur: str) -> ModuleType:
+    """Le module du moteur, chargé AVANT toute partie avec tout ce qu'il importe."""
+    module = importlib.import_module(f"moteurs.{moteur}.adaptateur")
+    manquants = [nom for nom in INTERFACE if not hasattr(module, nom)]
+    if manquants:
+        raise TypeError(f"moteurs/{moteur}/adaptateur.py ne fournit pas {manquants}")
+    return module
+
+
+def verifier_origine(script: str) -> None:
+    """L'enveloppe lancée et ce socle viennent du même dépôt.
+
+    L'enveloppe ajoute son dépôt EN FIN de chemin d'import, pour que la
+    bibliothèque standard passe toujours avant. Un autre paquet `moteurs`
+    installé plus tôt sur le chemin serait donc pris à sa place, en silence.
+    """
+    depot = Path(script).resolve().parents[1]
+    if depot != DEPOT:
+        raise RuntimeError(f"le socle chargé vient de {DEPOT}, l'enveloppe de {depot}")
+
+
+def principal(
+    code: str, argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
+) -> None:
+    """La salle de la console `code`, avec les arguments du worker (external.rs)."""
+    if argv is None:
+        verifier_origine(sys.argv[0])
+        argv = sys.argv[1:]
+    environ = os.environ if environ is None else environ
+    console = consoles.externe(code)
+    lue = fiche.lire(DEPOT / "moteurs" / console.engine / "moteur.json")
+    module = charger_adaptateur(console.engine)
+    rom, titre, choix, pads = argv
+    if not module.TITRE.fullmatch(titre) or not emplacement.valide(choix):
+        raise ValueError(f"Invalid {console.label} title or save slot")
+    config = module.choisir(json.loads(Path(environ[console.config_env]).read_text()), titre)
+    slot = emplacement.chemin(config["state"], titre, choix)
+    with emplacement.tenu(slot):
+        contexte = Contexte(
+            console, lue, config, Path(rom).resolve(), titre, slot, Path(pads).resolve()
+        )
+        # Tout contrôle et toute écriture du moteur AVANT la première copie: le
+        # banc doré l'a vu, une copie faite plus tôt ne contient pas la même chose.
+        plan = module.preparer(contexte)
+        module.backup(slot)
+        serve(config, contexte.rom, slot, contexte.pads, plan, module.backup)
 
 
 def serve(

@@ -52,6 +52,7 @@ FERMETURE = (
     "docker/switch-room.py",
     "docker/switch2-room.py",
     "docker/xbox360-room.py",
+    "docker/xbox360-room-socle.py",
     "moteurs",
     "spikes/switch-room/ryubing-pro-controller.json",
     "spikes/switch-room/latence/adaptateur-sonde.py",

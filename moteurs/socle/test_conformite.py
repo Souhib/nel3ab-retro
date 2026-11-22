@@ -27,6 +27,9 @@ class FauxDepot:
         (racine / "docker").mkdir()
         for script in conformite.EN_MIGRATION.values():
             shutil.copy(DEPOT / script, racine / script)
+        for script, _motif in conformite.LANCEURS.values():
+            (racine / script).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(DEPOT / script, racine / script)
         return racine
 
     def __exit__(self, *_exception) -> None:
@@ -112,6 +115,30 @@ class C2(unittest.TestCase):
             # Le jumeau: la bonne enveloppe passe.
             (racine / "docker/xbox360-room.py").write_text(ENVELOPPE.format(code="x360"))
             self.assertEqual(conformite.c2_consoles(racine, hors), [])
+
+
+class C8(unittest.TestCase):
+    def test_le_lanceur_de_xenia_nomme_l_executable_de_sa_fiche(self):
+        self.assertEqual(conformite.c8_lanceurs(), [])
+
+    def test_une_fiche_modifiee_seule_est_nommee(self):
+        with FauxDepot() as racine:
+            changer_fiche(racine, "xenia", executable="usr/bin/xenia_canary")
+            self.assertEqual(
+                conformite.c8_lanceurs(racine),
+                [
+                    "C8 xenia: spikes/xbox360/xenia.sh lance ['usr/bin/xenia_edge'], "
+                    "la fiche usr/bin/xenia_canary"
+                ],
+            )
+
+    def test_un_lanceur_modifie_seul_est_nomme(self):
+        with FauxDepot() as racine:
+            lanceur = racine / "spikes/xbox360/xenia.sh"
+            texte = lanceur.read_text(encoding="utf-8")
+            lanceur.write_text(texte.replace("usr/bin/xenia_edge}", "usr/bin/xenia}"))
+            (ecart,) = conformite.c8_lanceurs(racine)
+            self.assertIn("lance ['usr/bin/xenia']", ecart)
 
 
 class C12(unittest.TestCase):

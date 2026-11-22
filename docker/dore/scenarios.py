@@ -272,7 +272,8 @@ SCRIPTS: dict[str, tuple[str, ...]] = {
     **{s.nom: ("docker/switch-room.py",) for s in SCENARIOS_SWITCH},
     SONDE.nom: ("spikes/switch-room/latence/adaptateur-sonde.py",),
     **{s.nom: ("docker/switch2-room.py",) for s in SCENARIOS_SWITCH2},
-    **{s.nom: ("docker/xbox360-room.py",) for s in SCENARIOS_X360},
+    # Le canari doit rendre exactement le doré de l'ancien script.
+    **{s.nom: ("docker/xbox360-room.py", "docker/xbox360-room-socle.py") for s in SCENARIOS_X360},
 }
 
 TOUS = {s.nom: s for s in [*SCENARIOS_SWITCH, SONDE, *SCENARIOS_SWITCH2, *SCENARIOS_X360]}

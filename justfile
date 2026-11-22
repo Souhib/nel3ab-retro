@@ -1301,11 +1301,15 @@ switch-capture-test:
 # plan de lancement, lanceur du conteneur avec un faux Xenia, lecteur de
 # cadence. Ce qui reste à prouver se voit au premier lancement réel (profil
 # chargé, plein écran, manettes, son) dans le journal de l'emplacement.
+# Le module moteurs/xenia et le canari docker/xbox360-room-socle.py, qu'aucune
+# salle ne lance tant que le propriétaire ne l'a pas branché (docs/xbox360.md).
 xbox360-test:
     python3 -m unittest discover -s docker -p 'test_xbox360_*.py'
     python3 -m unittest discover -s spikes/xbox360 -p 'test_*.py'
-    cd control && uv run ruff check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
-    cd control && uv run ruff format --check --config pyproject.toml ../docker/xbox360-room.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
+    /usr/bin/python3 -B -m unittest moteurs.xenia.test_adaptateur
+    cd control && uv run ruff check --config pyproject.toml ../docker/xbox360-room.py ../docker/xbox360-room-socle.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py
+    cd control && uv run ruff check --config pyproject.toml --extend-select PLC0415 ../moteurs/xenia
+    cd control && uv run ruff format --check --config pyproject.toml ../docker/xbox360-room.py ../docker/xbox360-room-socle.py ../docker/test_xbox360_room.py ../spikes/xbox360/horodate.py ../spikes/xbox360/releve.py ../spikes/xbox360/test_releve.py ../spikes/xbox360/test_xenia_sh.py ../moteurs/xenia
 
 # Relit une partie Xbox 360 jouée: images par seconde du jeu, par fenêtre de
 # 5 s, depuis le journal horodaté que xenia.sh écrit dans l'emplacement, puis

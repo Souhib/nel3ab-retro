@@ -110,7 +110,14 @@ class Regles(unittest.TestCase):
     def test_il_y_a_des_modules_a_verifier(self):
         noms = {nom_de_module(c) for c in modules_charges_par_une_salle()}
         self.assertTrue(
-            {"moteurs.socle.salle", "moteurs.socle.lancement", "moteurs.socle.consoles"} <= noms,
+            {
+                "moteurs.socle.salle",
+                "moteurs.socle.lancement",
+                "moteurs.socle.consoles",
+                "moteurs.socle.fiche",
+                "moteurs.xenia.adaptateur",
+            }
+            <= noms,
             noms,
         )
 

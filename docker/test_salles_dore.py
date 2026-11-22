@@ -130,7 +130,7 @@ def muter(mutant: Mutant) -> dict:
 def verifier(mutant: Mutant) -> None:
     releve = muter(mutant)
     erreur = releve["erreur"] or ""
-    if erreur.startswith(ERREURS_D_IMPORT):
+    if erreur.startswith(ERREURS_D_IMPORT) and mutant.nom not in IMPORT_ATTENDU:
         raise MutantNonValableError(f"{mutant.nom}: erreur d'import, pas une détection: {erreur}")
     if releve == banc.lire_dore(mutant.scenario):
         raise MutantNonValableError(f"{mutant.nom}: {mutant.scenario} rend encore son doré")
@@ -200,7 +200,57 @@ MUTANTS = (
         "docker/switch-room.py",
         lambda releve: arrets(releve)[0].endswith("-pads"),
     ),
+    # Les mêmes fautes sur le chemin du canari: elles prouvent qu'il sert bien le
+    # socle et le module Xenia, et pas l'ancien script.
+    Mutant(
+        "canari x360: deux variables du moteur dans l'autre ordre",
+        "moteurs/xenia/adaptateur.py",
+        '        "-e",\n'
+        '        f"NEL3AB_CAPTURES_S={captures}",\n'
+        "        # Xwayland, et pas de plein écran imposé par Sway: voir supervise.py.\n"
+        '        *(["-e", "NEL3AB_SWAY_X11=1"] if lue.display == "x11" else []),\n',
+        '        *(["-e", "NEL3AB_SWAY_X11=1"] if lue.display == "x11" else []),\n'
+        '        "-e",\n'
+        '        f"NEL3AB_CAPTURES_S={captures}",\n',
+        "x360-captures",
+        "docker/xbox360-room-socle.py",
+        sway_avant_captures,
+    ),
+    Mutant(
+        "canari x360: la disposition de la Switch dans la fiche",
+        "moteurs/xenia/moteur.json",
+        '"pad_layout": "xbox",',
+        '"pad_layout": "switch",',
+        "x360-captures",
+        "docker/xbox360-room-socle.py",
+        lambda releve: "NEL3AB_PAD_LAYOUT=switch" in docker_run(releve, assistant=True),
+    ),
+    Mutant(
+        "canari x360: le socle arrête les manettes avant le moteur",
+        "moteurs/socle/salle.py",
+        "        try:\n            if started_engine:\n",
+        "        try:\n"
+        "            if started_helper:\n"
+        '                run("docker", "stop", "--timeout", "5", helper)\n'
+        "            if started_engine:\n",
+        "x360-captures",
+        "docker/xbox360-room-socle.py",
+        lambda releve: arrets(releve)[0].endswith("-pads"),
+    ),
+    Mutant(
+        "canari x360: l'enveloppe cherche le socle au mauvais endroit",
+        "docker/xbox360-room-socle.py",
+        "DEPOT = Path(__file__).resolve().parents[1]\n",
+        "DEPOT = Path(__file__).resolve().parents[2]\n",
+        "x360-captures",
+        "docker/xbox360-room-socle.py",
+        # Le seul mutant où l'erreur d'import EST la différence attendue: c'est
+        # ce que le worker verrait.
+        lambda releve: releve["erreur"] == "ModuleNotFoundError: No module named 'moteurs'",
+    ),
 )
+#: Les mutants dont la différence attendue est justement une erreur d'import.
+IMPORT_ATTENDU = {"canari x360: l'enveloppe cherche le socle au mauvais endroit"}
 
 
 # --- Les essais -----------------------------------------------------------------------

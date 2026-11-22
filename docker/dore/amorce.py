@@ -191,6 +191,7 @@ def principal() -> int:
     sys.path[0] = os.path.dirname(os.path.realpath(script))
     sys.argv = [script, *arguments]
     erreur = None
+    refusee = None
     code = 0
     try:
         runpy.run_path(script, run_name="__main__")
@@ -200,7 +201,16 @@ def principal() -> int:
         # Toute fin, import manqué compris: le worker la verrait aussi.
         erreur = f"{type(exception).__name__}: {exception}"
         code = 1
-    Path(consigne["journal"]).write_text(json.dumps({"commandes": journal, "erreur": erreur}))
+        if isinstance(exception, subprocess.CalledProcessError) and isinstance(
+            exception.cmd, list | tuple
+        ):
+            # Son message cite la commande entière: le banc la normalise argument
+            # par argument, comme les autres (compte et chemins). Une commande
+            # en texte reste telle quelle, et le contrôle de fuites la verrait.
+            refusee = [str(valeur) for valeur in exception.cmd]
+    Path(consigne["journal"]).write_text(
+        json.dumps({"commandes": journal, "erreur": erreur, "commande_refusee": refusee})
+    )
     return code
 
 

@@ -167,7 +167,7 @@ def lancer(scenario: Scenario, script: str, depot: Path = DEPOT) -> dict:
             "flux": {"stdout": fini.stdout, "stderr": fini.stderr},
             "arbre": arbre(racine, remplacements(racine, depot)),
         }
-        return normaliser(releve, remplacements(racine, depot))
+        return normaliser(releve, remplacements(racine, depot), brut["commande_refusee"])
 
 
 def remplacements(racine: Path, depot: Path) -> list[tuple[str, str]]:
@@ -212,8 +212,17 @@ def arbre(racine: Path, paires: list[tuple[str, str]]) -> list[str]:
     return lignes
 
 
-def normaliser(releve: dict, paires: list[tuple[str, str]]) -> dict:
-    """Chemins, utilisateur et groupe remplacés par leur nom, partout dans le relevé."""
+def normaliser(
+    releve: dict,
+    paires: list[tuple[str, str]],
+    refusee: list[str] | None = None,
+) -> dict:
+    """Chemins, utilisateur et groupe remplacés par leur nom, partout dans le relevé.
+
+    `refusee` est la commande d'une `CalledProcessError` finale, notée à part par
+    l'amorce: son message la cite en entier, et elle passe par la même
+    normalisation que les autres commandes.
+    """
     uid, gid = str(os.getuid()), str(os.getgid())
 
     def argument(precedent: str | None, valeur: str) -> str:
@@ -226,22 +235,26 @@ def normaliser(releve: dict, paires: list[tuple[str, str]]) -> dict:
             return "HOST_UID=@UID@"
         return valeur
 
-    commandes = []
-    for commande in releve["commandes"]:
-        argv = commande["argv"]
-        commandes.append(
-            {
-                "appel": commande["appel"],
-                "options": {
-                    nom: remplacer(valeur, paires) for nom, valeur in commande["options"].items()
-                },
-                "argv": [
-                    argument(argv[position - 1] if position else None, valeur)
-                    for position, valeur in enumerate(argv)
-                ],
-            }
-        )
+    def commande(argv: list[str]) -> list[str]:
+        return [
+            argument(argv[position - 1] if position else None, valeur)
+            for position, valeur in enumerate(argv)
+        ]
+
+    commandes = [
+        {
+            "appel": appel["appel"],
+            "options": {nom: remplacer(valeur, paires) for nom, valeur in appel["options"].items()},
+            "argv": commande(appel["argv"]),
+        }
+        for appel in releve["commandes"]
+    ]
     erreur = releve["erreur"]
+    if refusee is not None:
+        citee = str(refusee)
+        if erreur is None or erreur.count(citee) != 1:
+            raise AmorceCasseeError(f"la commande refusée n'est pas citée une fois: {erreur}")
+        erreur = erreur.replace(citee, str(commande(refusee)))
     return {
         **releve,
         "commandes": commandes,

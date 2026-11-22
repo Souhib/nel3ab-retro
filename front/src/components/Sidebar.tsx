@@ -147,7 +147,7 @@ export function Sidebar({
       {mode === "normal" ? (
         <>
           <section className="flex flex-col gap-2 border-t border-rule pt-2">
-            <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">joueurs</span>
+            <span className="n3-etiquette">joueurs</span>
             {Array.from({ length: players }, (_, slot) => slot + 1).map((port) => {
               const held = busy[port - 1] ?? false;
               const isMine = port === mine;
@@ -192,9 +192,7 @@ export function Sidebar({
             aria-label="spectateurs"
             className="flex flex-col gap-2 border-t border-rule pt-2"
           >
-            <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">
-              spectateurs · {watching.length}
-            </span>
+            <span className="n3-etiquette">spectateurs · {watching.length}</span>
             {watching.length ? <Canape noms={watching.map((person) => person.name)} /> : null}
             {watching.length ? (
               watching.map((person) => (
@@ -269,7 +267,7 @@ export function Sidebar({
           </section>
 
           <section className="flex flex-col gap-1 border-t border-rule pt-2">
-            <span className="text-corps uppercase tracking-[0.2em] text-indigo/70">son</span>
+            <span className="n3-etiquette">son</span>
             {shot?.sound.state === "running" ? (
               <Volume value={volume} onChange={onVolume} />
             ) : (

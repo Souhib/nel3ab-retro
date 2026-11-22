@@ -51,7 +51,7 @@ export function Readout({
 export function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-rule pt-2">
-      <h2 className="mb-1 text-mini uppercase tracking-[0.2em] text-indigo/70">{title}</h2>
+      <h2 className="n3-etiquette mb-1">{title}</h2>
       {children}
     </section>
   );

@@ -22,7 +22,7 @@
  * avec l'ambiance reviendrait à repeindre le joueur 1 en vert.
  */
 import type { Fiche } from "../bobine/Branchement";
-import { ARMING_COLOUR, PLAYER_COLOURS } from "../media/players";
+import { ARMING_COLOUR, PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 
 export type SocketState = "free" | "busy" | "mine" | "arming";
 
@@ -86,12 +86,25 @@ export function Socket({
           <path d="M 16 48 L 16 35 A 20 20 0 0 1 56 35 L 56 48 Z" fill={portColour} />
         </g>
       ) : null}
+      {/* Le libellé est du TEXTE posé sur la colonne, pas un morceau de la
+          prise: il prend l'encre du joueur, qui change avec le thème, et la
+          légende quand la prise est libre. Écrit dans l'aplat (`colour`),
+          « P1 » ne tenait que 4,08:1 même la nuit (contraste.mjs, 22 novembre
+          2026), et « P3 » tombait à 1,81:1 le jour. */}
       <text
         x="36"
         y="78"
         textAnchor="middle"
-        fill={plugged ? colour : "#8a8a98"}
-        style={{ font: "600 11px ui-monospace, monospace" }}
+        fill={
+          armed
+            ? "var(--alerte)"
+            : plugged
+              ? (PLAYER_INKS[port - 1] ?? PLAYER_INKS[0])
+              : "var(--legende)"
+        }
+        style={{
+          font: armed ? "600 11px var(--police-texte)" : "400 11px var(--police-machine)",
+        }}
       >
         {armed ? "PRENDRE ?" : `P${port}`}
       </text>

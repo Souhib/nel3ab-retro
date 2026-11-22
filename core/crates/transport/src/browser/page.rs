@@ -140,10 +140,15 @@ pub(super) fn script_policy(page: &str) -> String {
 /// Stricte parce que la page peut se le permettre: un fichier unique, sans
 /// ressource externe, avec ses styles et son script à l'intérieur. Tout ce qui
 /// viendrait d'ailleurs est refusé, y compris une image.
+///
+/// `font-src 'self' data:` parce que les polices de la régie sont incluses
+/// dans la page en `data:` depuis le 22 novembre 2026 (ADR D26). Une police
+/// ne s'exécute pas; l'ouvrir aux adresses `data:` n'ouvre rien d'autre, et
+/// `default-src` ferme toujours les polices venues d'une autre origine.
 pub(super) fn policy_headers(page: &str) -> String {
     format!(
         "Content-Security-Policy: default-src 'self'; script-src {}; \
-         style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
+         style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; \
          connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'\r\n{HARDENING}",
         script_policy(page)
     )
@@ -384,6 +389,40 @@ mod tests {
         // Un saut de ligne au milieu couperait la réponse en deux.
         assert!(headers.ends_with("\r\n"));
         assert!(!headers.contains("\n\n"));
+    }
+
+    /// Les polices de la régie sont DANS la page, en `data:font/woff2`. Sans
+    /// `font-src`, la règle retombe sur `default-src 'self'`, qui refuse une
+    /// adresse `data:`: le 22 novembre 2026, la page construite servie avec la
+    /// politique d'avant donnait « Anybody 400 error » dans `document.fonts`, et
+    /// la salle s'écrivait en Arial ou en `DejaVu` malgré 27 418 octets de
+    /// polices payés au brotli. Vite n'envoie aucune politique: le défaut ne s'y
+    /// voyait pas.
+    #[test]
+    fn the_policy_lets_the_embedded_fonts_load() {
+        let headers = policy_headers("<html><script>x</script></html>");
+
+        assert!(headers.contains("font-src 'self' data:;"), "{headers}");
+    }
+
+    /// Le jumeau: ouvrir les polices ne doit rien ouvrir d'autre. Une police
+    /// venue d'ailleurs serait une requête vers un tiers à chaque ouverture, et
+    /// `default-src` reste ce qui ferme tout le reste.
+    #[test]
+    fn opening_the_fonts_opens_nothing_else() {
+        let headers = policy_headers("<html><script>x</script></html>");
+
+        assert!(headers.contains("default-src 'self';"), "{headers}");
+        let fonts = headers
+            .split(';')
+            .find(|rule| rule.trim_start().starts_with("font-src"))
+            .expect("une règle font-src");
+        assert_eq!(fonts.trim(), "font-src 'self' data:", "{headers}");
+        for loose in ["*", "https:", "http:", "blob:"] {
+            assert!(!fonts.contains(loose), "font-src ouvre {loose}: {headers}");
+        }
+        // Et les scripts restent fermés au `data:`.
+        assert!(!headers.contains("script-src 'self' data:"), "{headers}");
     }
 
     /// La lecture d'avant cherchait « gzip » n'importe où dans le texte de la

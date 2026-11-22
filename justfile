@@ -397,6 +397,15 @@ manette-garde out="/tmp/manette-garde":
 banc-visuel:
     cd spikes/m3-browser-drive && node banc-visuel.mjs /tmp/banc-visuel.png
 
+# La mise en page que l'audit visuel du 22 novembre 2026 a corrigée: le
+# dialogue Switch centré, la légende de la jauge de l'accueil sur un téléphone,
+# les cases de la préparation sous leur titre, et l'image noire dans les deux
+# régies. Hors de `check` pour la même raison que le banc: jsdom ne pose rien.
+# Son propre Vite sans relais, l'accueil assemblé par les modules du salon:
+# aucune salle ni aucun salon n'est touché.
+regie-visuel:
+    cd spikes/m3-browser-drive && node regie-mise-en-page.mjs
+
 # Le même écran, mais contre la VRAIE salle et sa page déployée.
 #
 # Les deux ne regardent pas la même chose et c'est le point: `banc-visuel` voit
@@ -1143,8 +1152,9 @@ browser-steal:
 # nothing. A test that only checked "the game changed" would pass just as well on
 # a page that switched on the first click, and what is being confirmed is the end
 # of everybody else's game.
-# Le contraste EFFECTIF de chaque texte: trois coques, puis le SÉLECTEUR sur
-# les sept ambiances.
+# Le contraste EFFECTIF de chaque texte: trois coques, puis les deux régies
+# (nuit et jour, chacune suivie par le système puis choisie contre lui), avec
+# le sélecteur, le panneau des touches et les commandes posées sur l'image.
 #
 # Ici et pas dans `check` parce qu'il faut un vrai rendu: l'opacité s'accumule
 # sur les ancêtres, le fond vient du premier ancêtre qui en peint un, et le
@@ -1152,12 +1162,15 @@ browser-steal:
 # septembre 2026 il a trouvé 196 textes sous le seuil, dont l'état des quatre
 # manettes dans la colonne — ce qu'on regarde le plus souvent de la page.
 #
-# Les sept ambiances ne tournent que sur la coque PS3, et c'est délibéré: les
-# coques Wii et Switch peignent des couleurs de console EN DUR et ne bougent
-# pas d'une ambiance à l'autre. Le sélecteur, lui, n'était visité par aucun
-# écran alors que c'est lui qui empilait cinq opacités brutes.
+# Les régies ne tournent que sur la coque PS3, et c'est délibéré: les coques
+# Wii et Switch peignent des couleurs de console EN DUR et ne bougent pas d'un
+# thème à l'autre. Le sélecteur, lui, n'était visité par aucun écran alors que
+# c'est lui qui empilait cinq opacités brutes.
 #
-# N'ARRÊTE PAS la partie: il ouvre le menu, il ne lance rien.
+# N'ARRÊTE PAS la partie: il ouvre le menu, il ne lance rien. Pour les sources
+# de l'arbre de travail sans aucune salle: un Vite SANS relais
+# (`vite.planche.config.ts`), puis `node contraste.mjs http://127.0.0.1:<port>/
+# --simule`, qui répond lui-même aux API et coupe toute autre requête.
 browser-contraste:
     cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8110/
 

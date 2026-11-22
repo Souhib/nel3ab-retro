@@ -46,6 +46,71 @@ export function contrast(one: string, other: string): number {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
+/** Une couleur posée à `alpha` sur une autre, telle que l'oeil la reçoit. */
+export function mix(top: string, bottom: string, alpha: number): string {
+  const front = parse(top);
+  const back = parse(bottom);
+  return `#${front
+    .map((s, i) => Math.round(s * alpha + (back[i] ?? 0) * (1 - alpha)))
+    .map((v) => v.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+/**
+ * Les déclarations `--nom: valeur` des règles d'une feuille qui portent EXACTEMENT
+ * ce sélecteur, fusionnées dans l'ordre de la feuille.
+ *
+ * Écrit pour `src/regie.css`, qui ne contient que des règles plates et une
+ * règle sous `@media`: les commentaires sont retirés d'abord, puis chaque bloc
+ * sans accolade intérieure est lu. Le sélecteur est comparé espaces resserrés,
+ * pour qu'une liste écrite sur deux lignes se retrouve.
+ */
+export function declarations(css: string, selector: string): Map<string, string> {
+  const tight = (text: string) =>
+    text
+      .replace(/\s+/g, " ")
+      .replace(/\s*,\s*/g, ", ")
+      .trim();
+  const wanted = tight(selector);
+  const found = new Map<string, string>();
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const rule of bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (tight(rule[1] ?? "") !== wanted) continue;
+    for (const line of (rule[2] ?? "").matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+      found.set(line[1] ?? "", (line[2] ?? "").trim());
+    }
+  }
+  return found;
+}
+
+/**
+ * La couleur `#rrggbb` qu'un jeton finit par valoir, en suivant ses `var()`.
+ *
+ * Les portées sont lues dans l'ordre, comme la cascade le ferait pour un thème:
+ * d'abord le bloc du thème, puis la racine. Un nom absent ou une valeur qui
+ * n'est pas une couleur pleine LÈVE une erreur: rendre `undefined` ferait
+ * calculer un contraste sur rien, et un essai qui passe sur rien ne prouve rien.
+ */
+export function resolve(name: string, ...scopes: Map<string, string>[]): string {
+  const seen = new Set<string>();
+  let current = name;
+  for (;;) {
+    if (seen.has(current)) throw new Error(`boucle de jetons autour de ${current}`);
+    seen.add(current);
+    const value = scopes.find((scope) => scope.has(current))?.get(current);
+    if (value === undefined) throw new Error(`jeton inconnu: ${current}`);
+    const reference = /^var\(\s*(--[\w-]+)\s*\)$/.exec(value);
+    if (reference) {
+      current = reference[1] ?? "";
+      continue;
+    }
+    const hex = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(value);
+    if (!hex) throw new Error(`${current} ne vaut pas une couleur pleine: ${value}`);
+    const digits = (hex[1] ?? "").toLowerCase();
+    return digits.length === 3 ? `#${[...digits].map((d) => d + d).join("")}` : `#${digits}`;
+  }
+}
+
 /**
  * L'opacité minimale à laquelle ce texte tient le seuil sur ce fond.
  *
@@ -56,16 +121,7 @@ export function contrast(one: string, other: string): number {
  * s'effondre bien plus vite que sur du sombre.
  */
 export function dimFloor(text: string, background: string, target = AA_TEXT): number | null {
-  const front = parse(text);
-  const back = parse(background);
-  const at = (alpha: number) =>
-    contrast(
-      `#${front
-        .map((s, i) => Math.round(s * alpha + (back[i] ?? 0) * (1 - alpha)))
-        .map((v) => v.toString(16).padStart(2, "0"))
-        .join("")}`,
-      background,
-    );
+  const at = (alpha: number) => contrast(mix(text, background, alpha), background);
   if (at(1) < target) return null;
   let low = 0;
   let high = 1;

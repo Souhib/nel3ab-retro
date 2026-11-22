@@ -38,7 +38,15 @@ export default defineConfig({
     // Le manifeste des consoles vit à la racine du dépôt, hors de `front/`, et
     // la page l'importe (ADR D22). Sans cette entrée, le serveur de
     // développement refuserait de le servir; la construction, elle, le lit.
-    fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../consoles"] },
+    // Les polices aussi: ce sont les fichiers du salon, que `index.css` lit sur
+    // place pour qu'il n'en existe qu'une copie.
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        "../consoles",
+        "../control/nel3ab_control/api/routes/polices",
+      ],
+    },
     proxy: {
       // The control plane: the room, the seats and the lobby.
       "/api": { target: "http://127.0.0.1:8200", changeOrigin: false },

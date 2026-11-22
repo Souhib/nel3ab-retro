@@ -65,7 +65,8 @@ try {
     const ground = document.createElement("div");
     ground.style.background = "var(--ink)";
     document.body.append(ground);
-    for (const theme of ["instrument-sombre", "instrument-clair", "phosphore", "ambre", "indigo", "famicom", "gameboy"]) {
+    // Les deux régies depuis le 22 novembre 2026 (`front/src/regie.css`).
+    for (const theme of ["nuit", "jour"]) {
       document.documentElement.dataset.theme = theme;
       for (const piece of document.querySelectorAll("[data-part]")) {
         const cap = piece.querySelector(".n3-cap");
@@ -82,13 +83,22 @@ try {
         piece.dataset.lit = "non";
       }
     }
-    document.documentElement.dataset.theme = "instrument-sombre";
+    document.documentElement.dataset.theme = "nuit";
     ground.remove();
     return ratios;
   });
-  assert.ok(contrast.length > 100, "la mesure doit lire les vrais boutons");
+  // Par thème: à sept thèmes, « plus de 100 » en tout valait une quinzaine
+  // par thème; à deux, il faut le dire par thème, sinon un thème qui ne lirait
+  // rien passerait sur les mesures de l'autre. 50 relevés par thème le
+  // 22 novembre 2026.
+  for (const theme of ["nuit", "jour"]) {
+    assert.ok(
+      contrast.filter((one) => one.theme === theme).length > 40,
+      `la mesure doit lire les vrais boutons (${theme})`,
+    );
+  }
   assert.deepEqual(contrast.filter((one) => !Number.isFinite(one.ratio) || one.ratio < one.need), []);
-  console.log(`Contraste des inscriptions: minimum ${Math.min(...contrast.map((one) => one.ratio)).toFixed(2)}:1, sept thèmes, deux états`);
+  console.log(`Contraste des inscriptions: minimum ${Math.min(...contrast.map((one) => one.ratio)).toFixed(2)}:1, deux thèmes, deux états`);
   await shot("bureau");
   await page.click('[data-part="B"][role="button"]');
   assert.equal(await page.$eval("#command", (node) => node.value), "B");
@@ -142,9 +152,9 @@ try {
   assert.equal(await page.$eval("#newKeys", (node) => node.disabled), true);
   await page.click("#view-schema");
   for (const value of ["1", "2", "0"]) { await page.select("#reading", value); await shot(`lecture-${value}`); }
-  await page.evaluate(() => document.documentElement.dataset.theme = "instrument-clair");
+  await page.evaluate(() => document.documentElement.dataset.theme = "jour");
   await shot("clair");
-  await page.evaluate(() => document.documentElement.dataset.theme = "instrument-sombre");
+  await page.evaluate(() => document.documentElement.dataset.theme = "nuit");
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true });
   await shot("telephone");
   assert.equal(await page.$eval(".n3-bindings-content", (node) => node.scrollWidth <= node.clientWidth + 1), true);

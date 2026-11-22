@@ -59,7 +59,13 @@ const WEIGHT_MAX = 300_000;
  * Le manifeste des consoles en fait partie depuis le 21 novembre 2026: la page
  * l'importe hors de `front/` (ADR D22). Sans lui ici, changer une console dans
  * le fichier laisserait la page compilée avec l'ancienne liste, et l'empreinte
- * resterait verte. */
+ * resterait verte.
+ *
+ * Les polices du salon depuis le 22 novembre 2026, pour la même raison: la page
+ * les embarque depuis `control/.../routes/polices` (`src/index.css`), et une
+ * police re-sous-ensemblée côté salon doit rendre la page périmée. Le dossier
+ * entier, licences comprises: elles ne partent pas dans la page, mais un
+ * fichier de plus dans l'empreinte coûte moins qu'une police oubliée. */
 const INPUTS = [
   "src",
   "index.html",
@@ -67,6 +73,7 @@ const INPUTS = [
   "vite.config.ts",
   "tsconfig.app.json",
   "../consoles/consoles.json",
+  "../control/nel3ab_control/api/routes/polices",
 ];
 
 /** Ce qui ne part JAMAIS dans la page, et n'a donc rien à faire dans l'empreinte.

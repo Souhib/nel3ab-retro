@@ -3,6 +3,8 @@ import {
   LOBBIES,
   SHELLS,
   THEMES,
+  applyTheme,
+  rememberTheme,
   rememberPadOnly,
   showsTouchPad,
   storedPadOnly,
@@ -44,6 +46,60 @@ describe("le choix retenu", () => {
   it("applique la même règle aux ambiances", () => {
     localStorage.setItem("nel3ab:theme", "une ambiance qui n'existe pas");
     expect(THEMES.some((choice) => choice.id === storedTheme())).toBe(true);
+  });
+});
+
+describe("les deux régies, et le système", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("suit l'appareil quand rien n'a été choisi", () => {
+    // Une personne en mode clair sur son téléphone recevait une page noire:
+    // le défaut était « instrument sombre », quoi que dise le système.
+    expect(storedTheme()).toBe("auto");
+  });
+
+  it("propose exactement trois choix: l'appareil, la nuit, le jour", () => {
+    expect(THEMES.map((choice) => choice.id)).toEqual(["auto", "nuit", "jour"]);
+  });
+
+  it("garde un choix déjà fait dans l'ancien vocabulaire, du bon côté", () => {
+    // Le cas réel: sept ambiances ont existé jusqu'au 22 novembre 2026, et
+    // chaque navigateur garde la sienne. Quelqu'un qui avait choisi un fond
+    // clair le retrouve clair, quelqu'un qui avait choisi un fond sombre le
+    // retrouve sombre: un choix fait n'est pas effacé par une mise à jour.
+    const sombres = ["instrument-sombre", "phosphore", "ambre"];
+    const clairs = ["instrument-clair", "indigo", "famicom", "gameboy"];
+    for (const ancien of sombres) {
+      localStorage.setItem("nel3ab:theme", ancien);
+      expect(storedTheme(), ancien).toBe("nuit");
+    }
+    for (const ancien of clairs) {
+      localStorage.setItem("nel3ab:theme", ancien);
+      expect(storedTheme(), ancien).toBe("jour");
+    }
+  });
+
+  it("rend le choix tel quel quand il est déjà dans le nouveau vocabulaire", () => {
+    for (const id of ["auto", "nuit", "jour"] as const) {
+      rememberTheme(id);
+      expect(storedTheme()).toBe(id);
+    }
+  });
+
+  it("retombe sur l'appareil, et non sur la nuit, devant n'importe quoi d'autre", () => {
+    // Le jumeau négatif de la table ci-dessus: une valeur inconnue ne doit pas
+    // être prise pour un ancien thème sombre.
+    for (const bricole of ["", "INSTRUMENT-CLAIR", "clair", "dark", "nuit "]) {
+      localStorage.setItem("nel3ab:theme", bricole);
+      expect(storedTheme(), JSON.stringify(bricole)).toBe("auto");
+    }
+  });
+
+  it("pose le choix sur <html>, où la feuille le lit avant le premier rendu", () => {
+    applyTheme("jour");
+    expect(document.documentElement.dataset.theme).toBe("jour");
+    applyTheme("auto");
+    expect(document.documentElement.dataset.theme).toBe("auto");
   });
 });
 

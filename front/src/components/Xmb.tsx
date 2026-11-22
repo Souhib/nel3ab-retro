@@ -424,9 +424,11 @@ export function Xmb({
           ink: "var(--text)",
           edge: "var(--rule-bright)",
           accent: "var(--indigo)",
-          // Mesuré sur les SEPT ambiances: --indigo sur --panel va de 4,62:1
-          // (gameboy) à 14,41:1 (phosphore), donc il porte du texte partout.
-          // --muted va de 5,38:1 (famicom) à 6,77:1 (phosphore).
+          // Sur la plaque des deux régies (couleurs de regie.css, rapports
+          // calculés le 22 novembre 2026): --indigo, le signal, tient 6,35:1
+          // la nuit et 8,55:1 le jour, donc il porte du texte; --muted, la
+          // légende, 6,25:1 et 7,41:1. `lib/regie.test.ts` exige 4,5:1 sur
+          // chaque surface.
           accentInk: "var(--indigo)",
           dim: "var(--muted)",
         }}
@@ -440,8 +442,7 @@ export function Xmb({
  *
  * C'est la seule décoration de tout le projet, et elle est assumée: la règle qui
  * l'interdit ailleurs protège l'image du jeu, et il n'y a pas d'image ici. Les
- * couleurs viennent du thème, donc l'onde est verte en phosphore et crème en
- * famicom.
+ * couleurs viennent de la régie, donc l'onde suit la nuit et le jour.
  */
 function Backdrop() {
   return (

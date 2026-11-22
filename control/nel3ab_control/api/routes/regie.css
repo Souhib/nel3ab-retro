@@ -1,0 +1,232 @@
+/*
+ * LA RÉGIE. Les jetons communs à la salle et au salon.
+ *
+ * Une seule identité pour les deux: la salle passait pour un autre site
+ * (noir #08080a, accent indigo, police du système) dès qu'on y entrait depuis
+ * l'accueil. Ce fichier est la source; le salon en reçoit une copie,
+ * `control/nel3ab_control/api/routes/regie.css`, que `src/lib/regie.test.ts`
+ * compare octet pour octet.
+ *
+ * Trois couches, et une règle par couche:
+ *   1. les PRIMITIVES sont des valeurs brutes, sans sens. On ne les emploie pas
+ *      dans un composant, sauf pour un objet dessiné qui garde ses couleurs
+ *      d'objet (une manette, une carte mémoire);
+ *   2. les RÔLES donnent un sens à une primitive, et c'est la seule couche qui
+ *      change d'un thème à l'autre;
+ *   3. les jetons de COMPOSANT nomment un usage précis à partir des rôles.
+ *
+ * Deux thèmes: la régie de nuit et la régie de jour. Sans choix, la page suit
+ * le système (`prefers-color-scheme`); un choix posé sur `<html data-theme>`
+ * l'emporte. Chaque paire texte sur surface est CALCULÉE par
+ * `src/lib/regie.test.ts`, dans les deux thèmes: les rapports écrits ici sont
+ * ceux de cet essai, pas une estimation.
+ *
+ * Une teinte, un sens. Le rouge, le bleu, le jaune et le vert appartiennent aux
+ * quatre joueurs, et à eux seuls: une salle se reconnaît à son chiffre, une
+ * console à son nom et à son support. Le violet est le signal du focus et de la
+ * sélection, la seule teinte qu'aucun joueur n'occupe. Le corail dit une
+ * alerte et le vert clair un succès, toujours avec un mot à côté.
+ *
+ * La zone d'image reste noire dans les deux thèmes: des bandes claires autour
+ * d'une image 4:3 tirent l'oeil vers les bords.
+ */
+
+/* ── 1. Primitives ─────────────────────────────────────────────────────── */
+:root {
+  /* Graphite de matériel de studio, ni bleu nuit ni noir pur. */
+  --graphite-950: #101216;
+  --graphite-900: #15171b;
+  --graphite-850: #1e2126;
+  --graphite-800: #24272d;
+  --graphite-700: #2b313a;
+  --graphite-600: #4f5660;
+  --graphite-550: #5b626c;
+  --graphite-500: #6b727b;
+  --graphite-450: #8b939c;
+  --graphite-400: #9aa2ab;
+  /* Craie: le blanc cassé du texte de nuit, et les fonds de jour. */
+  --craie-50: #eef0f2;
+  --craie-100: #f2f3f5;
+  --craie-200: #e9ecef;
+  --craie-300: #e4e7eb;
+  --craie-400: #d5d9df;
+  --blanc: #ffffff;
+  --noir: #000000;
+  /* #a494ff et non #9d8cff: « en cours », écrit en signal sur la ligne
+     choisie d'un menu teintée du signal à 18 %, tombait à 4,36:1
+     (contraste.mjs, 22 novembre 2026). Même teinte, clarté relevée. */
+  --violet-300: #a494ff;
+  --violet-700: #4b3aa6;
+  --corail-300: #ff8f6b;
+  --rouge-700: #b3261e;
+  --vert-300: #63d488;
+  --vert-800: #1b6b3e;
+
+  /* Les quatre joueurs. Ces aplats sont ceux de `src/media/players.ts`, que
+     l'essai compare, et ils ne changent pas avec le thème: tous les jeux qui
+     ont demandé « lequel es-tu ? » ont répondu dans ces couleurs-là. */
+  --joueur-1: #d9534f;
+  --joueur-2: #4a86d9;
+  --joueur-3: #d9b64a;
+  --joueur-4: #4aab5c;
+  /* Leurs encres, pour écrire « P1 » à « P4 ». Même teinte et même
+     saturation que l'aplat, seule la clarté bouge, jusqu'à 4,6:1 sur la PIRE
+     surface: fond, plaque, creux, survol, et la case du joueur teintée à 12 %.
+     L'aplat du joueur 3 tombait à 1,81:1 sur le thème clair (audit du
+     22 novembre 2026). */
+  --joueur-1-nuit: #e0726e;
+  --joueur-2-nuit: #6397de;
+  --joueur-3-nuit: #d9b64a;
+  --joueur-4-nuit: #4aab5c;
+  --joueur-1-jour: #c02e2a;
+  --joueur-2-jour: #2765bb;
+  --joueur-3-jour: #7b631a;
+  --joueur-4-jour: #32733e;
+
+  /* Les caractères, embarqués dans chaque page et servis par cette machine:
+     Anybody pour tout ce qui se lit, Departure pour les lectures machine.
+     Departure n'a que 45 glyphes (capitales sans accent, chiffres, quelques
+     signes): rien qui porte une minuscule ou un accent ne s'y écrit. Les
+     replis nomment DejaVu, parce que cette machine n'a que DejaVu et qu'un
+     générique seul y retombait sur une proportionnelle. */
+  --police-texte: "Anybody", "Helvetica Neue", Arial, "DejaVu Sans", sans-serif;
+  --police-machine: "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
+
+  /* Espacements, sur une grille de 4. */
+  --espace-1: 4px;
+  --espace-2: 8px;
+  --espace-3: 12px;
+  --espace-4: 16px;
+  --espace-5: 24px;
+  --espace-6: 32px;
+  --espace-7: 48px;
+  --espace-8: 64px;
+
+  /* Mouvement: répondre, entrer, et le « claque » d'une fiche. */
+  --duree-repondre: 120ms;
+  --duree-entrer: 240ms;
+  --duree-claque: 380ms;
+
+  /* Les quatre joueurs comme rôles: leurs aplats ne dépendent d'aucun thème. */
+  --p1: var(--joueur-1);
+  --p2: var(--joueur-2);
+  --p3: var(--joueur-3);
+  --p4: var(--joueur-4);
+}
+
+/* ── 2. Rôles: la régie de nuit, et le défaut ───────────────────────────
+   Sur `:root` nu autant que sur son attribut. Avant que le script pose
+   `data-theme`, la feuille ne connaît que le système: ce bloc peint un système
+   sombre ou qui ne dit rien. Le thème « comme l'appareil » est donc juste dès
+   la première image. Un choix CONTRE le système ne l'est pas: le script de la
+   page est un module, lancé après la lecture du document, et Chrome peint
+   souvent avant lui. Mesuré le 22 novembre 2026 sur la page construite, dans
+   Chrome sans écran, par le premier rappel d'image (juste avant la première
+   peinture): « nuit » sous un système clair y était encore en craie cinq fois
+   sur six. Rapports calculés par l'essai, sur la pire des quatre surfaces:
+   encre 12,6:1, légende 5,79:1, discret 4,81:1, signal 5,89:1, trait 3,08:1.
+
+   `.regie-nuit` pose la même régie sur un morceau de page, quel que soit le
+   thème: ce qui flotte PAR-DESSUS l'image du jeu, qui reste noire de jour
+   comme de nuit. Un bouton de la régie de jour posé sur du noir serait du
+   gris foncé sur du gris. */
+:root,
+:root[data-theme="nuit"],
+.regie-nuit {
+  color-scheme: dark;
+  --fond: var(--graphite-900);
+  --plaque: var(--graphite-850);
+  --creux: var(--graphite-950);
+  --survol: var(--graphite-800);
+  --encre: var(--craie-50);
+  --legende: var(--graphite-400);
+  --discret: var(--graphite-450);
+  --trait: var(--graphite-500);
+  --filet: var(--graphite-700);
+  --signal: var(--violet-300);
+  --alerte: var(--corail-300);
+  --ok: var(--vert-300);
+  --p1-encre: var(--joueur-1-nuit);
+  --p2-encre: var(--joueur-2-nuit);
+  --p3-encre: var(--joueur-3-nuit);
+  --p4-encre: var(--joueur-4-nuit);
+}
+
+/* ── La régie de jour, quand le système la demande ──────────────────────
+   Sauf si la nuit a été choisie. Le même bloc est écrit juste en dessous
+   pour le choix explicite: une règle sous `@media` ne peut pas partager son
+   sélecteur avec une règle qui n'y est pas, et `light-dark()` aurait exclu
+   les Safari d'avant 17.5. L'essai exige que les deux copies soient
+   identiques. Pire surface: encre 14,47:1, légende 5,98:1, discret 4,97:1,
+   signal 6,9:1, trait 3,92:1. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="nuit"]) {
+    color-scheme: light;
+    --fond: var(--craie-100);
+    --plaque: var(--blanc);
+    --creux: var(--craie-300);
+    --survol: var(--craie-200);
+    --encre: var(--graphite-900);
+    --legende: var(--graphite-600);
+    --discret: var(--graphite-550);
+    --trait: var(--graphite-500);
+    --filet: var(--craie-400);
+    --signal: var(--violet-700);
+    --alerte: var(--rouge-700);
+    --ok: var(--vert-800);
+    --p1-encre: var(--joueur-1-jour);
+    --p2-encre: var(--joueur-2-jour);
+    --p3-encre: var(--joueur-3-jour);
+    --p4-encre: var(--joueur-4-jour);
+  }
+}
+
+/* ── La régie de jour, choisie ───────────────────────────────────────── */
+:root[data-theme="jour"] {
+  color-scheme: light;
+  --fond: var(--craie-100);
+  --plaque: var(--blanc);
+  --creux: var(--craie-300);
+  --survol: var(--craie-200);
+  --encre: var(--graphite-900);
+  --legende: var(--graphite-600);
+  --discret: var(--graphite-550);
+  --trait: var(--graphite-500);
+  --filet: var(--craie-400);
+  --signal: var(--violet-700);
+  --alerte: var(--rouge-700);
+  --ok: var(--vert-800);
+  --p1-encre: var(--joueur-1-jour);
+  --p2-encre: var(--joueur-2-jour);
+  --p3-encre: var(--joueur-3-jour);
+  --p4-encre: var(--joueur-4-jour);
+}
+
+/* ── 3. Composants ─────────────────────────────────────────────────────
+   Ce qu'un composant pose, nommé par son usage. Ils pointent sur des rôles,
+   donc ils suivent le thème sans être réécrits. Reposés sur `.regie-nuit`,
+   pour qu'un bouton plein y suive les rôles de nuit et non ceux de la page. */
+:root,
+.regie-nuit {
+  /* L'image du jeu: noire dans les deux thèmes, bandes comprises. */
+  --ecran: var(--noir);
+  /* Le bouton principal: craie pleine sur graphite la nuit, graphite plein
+     sur craie le jour. Le « ouvrir une salle » de l'accueil. */
+  --bouton-plein-fond: var(--encre);
+  --bouton-plein-encre: var(--fond);
+  --bouton-plein-survol: var(--legende);
+  /* Le bouton secondaire: un cadre de 2 px, sans fond. */
+  --bouton-cadre-trait: var(--trait);
+  --bouton-cadre-encre: var(--encre);
+  --champ-fond: var(--creux);
+  --champ-trait: var(--trait);
+  /* Le focus: le signal, assez épais pour se voir de loin. */
+  --focus: var(--signal);
+  --focus-largeur: 3px;
+  /* Une barre d'état de 6 px à gauche dit un état: signal, alerte ou joueur. */
+  --barre-etat: 6px;
+  /* Rayon nul partout. Seuls les objets ronds (prises, têtes) prennent 50 %,
+     et les manettes dessinées gardent leurs rayons d'objet. */
+  --rayon: 0;
+  --rayon-rond: 50%;
+}

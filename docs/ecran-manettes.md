@@ -164,9 +164,13 @@ code :
   dépasser ; une branche `flush` (croix, barre de grattage) n'a pas de
   logement à elle. `padmap-qc.mjs` vérifie les trois dans un vrai navigateur.
 - **La couleur d'appui est déclarée par manette** (`--pad-lit`, son encre et
-  son anneau). L'accent de la page sert par défaut ; la GameCube violette a la
-  sienne, avec un anneau sombre, parce qu'aucune teinte ne tranchait à la fois
-  sur son violet et sur sa croix grise.
+  son anneau). Par défaut, c'est une couleur d'objet fixe sur `[data-padmap]`
+  (#7c6ce0, anneau #e8e8ee, encre #08080a), qui ne suit pas le thème de la
+  page. Le 22 novembre 2026, le repli sur le signal de la régie faisait tomber
+  une touche appuyée à 2,06:1 sur la Wiimote de nuit et à 1,57:1 sur la
+  manette standard de jour. La GameCube violette a la sienne, avec un anneau
+  sombre, parce qu'aucune teinte ne tranchait à la fois sur son violet et sur
+  sa croix grise.
 - **Le contour fin de la coque suit l'ambiance.** C'est lui qui sépare une
   manette noire d'une carte sombre, ou une manette blanche d'une carte claire.
 - **Ce qui n'est plus mesuré** : le bord d'une touche noire sur une coque
@@ -261,7 +265,12 @@ et photographie ordinateur, téléphone et apprentissage.
 contrastes. Il doit sortir en erreur si un texte ou un trait échoue. Depuis le
 21 novembre 2026, il mesure la silhouette de chaque manette contre la page et
 chaque touche appuyée contre son logement ou la coque, et non plus le bord des
-touches au repos.
+touches au repos. Depuis le 22 novembre 2026, il le fait sous un système
+sombre puis sous un système clair, puisque la page suit ce réglage, et il
+vérifie que les valeurs du banc gardent leur largeur quand leurs chiffres
+changent. Il sert l'aperçu avec `vite.planche.config.ts`, sans relais vers
+les salles, ou contre un Vite sans relais déjà lancé dont on lui passe
+l'adresse.
 
 `just padmap-visuel` monte toutes les manettes dans l'aperçu (le vrai
 composant) et vérifie leur géométrie dans un navigateur. Pour regarder une

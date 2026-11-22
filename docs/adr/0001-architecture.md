@@ -2354,3 +2354,19 @@ frame. Measured the same evening: 12.5 minutes under X11 with no
 `capture_quiet`, a median of 60 delivered frames a second, a 1280x720
 immediate-mode swapchain with no menu bar, and Xwayland at 4 CPU seconds in
 14 minutes. One game, one player.
+
+**Amended 2026-11-22: no longer marked experimental.** At the owner's request,
+after the 12.5-minute Sonic game under X11 of 2026-11-21. `consoles/consoles.json`
+sets `experimental: false` for `x360`, and `Console::experimental()` now
+matches the Switch 2 only. The flag had four readers: the page's folder label
+(« (expérimental) »), the crate's const fn checked against the manifest (D22),
+the lobby's `ConsoleVue.experimental` on `/api/me/sauvegardes` (not displayed)
+and the importer's console view (read by nothing). Nothing greyed a menu or
+refused a launch because of it; that is `playable`. The note repeated the
+status in words, so it was rewritten, and a page test refuses the word in any
+manifest label or note: the status lives in the flag alone. The note was then
+cut to 41 characters (« gâchettes tout ou rien, à-coups possibles »): at
+90 characters the rendered menu truncated it just before the unproven part.
+Unchanged: no lock; two Xbox 360 rooms together, or one beside a Switch room,
+have not been measured. Weighed: keeping the mark until a four-player evening.
+The owner chose one game; `docs/xbox360.md` lists what that game does not prove.

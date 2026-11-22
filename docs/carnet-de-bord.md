@@ -27957,6 +27957,61 @@ peut attendre plus que sa propre patience ; une salle qui redémarre en boucle
 le dit sans fin ; `salon-importable.sh` n'importe pas tous les modules du
 salon. Tous trois sont décrits dans l'état du projet, aucun n'est corrigé.
 
+### 22 novembre : la Xbox 360 devient une console ordinaire
+
+**La demande.** Le 21 novembre au soir, le propriétaire a joué douze minutes
+et demie à Sonic sous X11 sans que l'image se fige. Le lendemain, il demande
+que la Xbox 360 ne soit plus présentée comme expérimentale. La Switch 2, elle,
+garde sa mention.
+
+**Ce que la mention changeait.** Un seul champ du manifeste des consoles
+(`consoles/consoles.json`), `experimental`, lu à quatre endroits :
+
+- la page ajoutait « (expérimental) » au nom du dossier dans le menu des jeux
+  (`front/src/lib/consoles.ts`) ;
+- le worker le recopie dans une fonction Rust, `Console::experimental()`, que
+  l'essai `the_manifest_and_the_enum_agree` compare au fichier ; rien d'autre
+  dans le worker ne la lit ;
+- le salon le transmet au carnet de jeu de chaque personne
+  (`/api/me/sauvegardes`, champ `experimental`), que la page n'affiche pas ;
+- l'import le recopie dans sa propre vue des consoles, que rien ne lit.
+
+Aucun menu n'était grisé et aucun lancement refusé à cause de cette mention :
+le grisage vient du champ `playable`, vrai pour la Xbox 360 depuis le
+21 novembre.
+
+**Le piège trouvé en chemin.** La note de la console, la petite phrase sous son
+nom dans le menu, commençait par « expérimentale : ». Changer le champ seul
+aurait rendu le nom juste et laissé la note fausse. Un essai de la page refuse
+maintenant le mot dans tout nom et toute note du manifeste : le statut ne vit
+que dans le champ.
+
+**Le second piège, vu dans le vrai menu.** La première nouvelle note faisait
+90 caractères (« manettes Xbox 360, gâchettes tout ou rien ; sauvegarde des
+places 2 à 4 pas encore essayée »). La relecture l'a regardée dans le menu
+rendu : elle y était coupée juste avant ce qui n'est pas prouvé. Elle devient
+« gâchettes tout ou rien, à-coups possibles », 41 caractères, plus courte que
+celle de la Switch (44). Elle dit ce que le joueur sent : les gâchettes, et les
+à-coups mesurés le 21 novembre (des fenêtres à 45 images par seconde, des
+arrêts d'une seconde aux transitions). La coupure dépend de la largeur en
+pixels de chaque menu ; aucun seuil en caractères n'a été mesuré, donc aucun
+garde chiffré n'est ajouté. Les sauvegardes des places 2 à 4, jamais essayées,
+restent écrites dans le manifeste et dans le mode d'emploi.
+
+**Les essais, vus rouges avant la correction.** Un essai par couche, et
+chaque fois la Switch 2 comme jumeau négatif : en Rust, la liste des consoles
+marquées valait `[Switch2, Xbox360]` ; au salon, `['switch2', 'x360']`, et le
+carnet de jeu renvoyait `experimental: true` pour une sauvegarde de Sonic ;
+dans la page, le menu disait « Xbox 360 (expérimental) ». Puis trois défauts
+réintroduits un à la fois : la mention remise dans le seul manifeste rougit
+les trois couches ; remise dans le seul code Rust, elle rougit l'essai Rust ;
+l'ancienne note remise seule rougit l'essai de la page.
+
+**Ce qui n'est pas prouvé.** Ce changement ne joue aucune partie : il change
+ce que la salle dit. Une partie, un joueur : seule la sauvegarde du profil
+Joueur 1 a été vue écrite ; deux salles Xbox 360 ensemble n'ont jamais été
+mesurées, et aucun verrou n'est décidé.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -29477,3 +29532,6 @@ quel, liens compris.
 **Redirection 303** : une réponse HTTP qui dit au navigateur d'aller chercher
 une autre adresse ; la salle s'en sert pour retirer `entrer` d'une adresse
 venue d'un autre site.
+
+**Note (d'une console)** : la phrase courte du manifeste des consoles qui
+s'affiche sous le nom d'une console dans le menu des jeux.

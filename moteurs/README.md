@@ -15,7 +15,10 @@ vie. Ce dossier le rassemble, en deux parties:
 La migration se fait une console à la fois, dans l'ordre Xbox 360, Switch 2,
 puis Switch. Tant qu'une console n'a pas basculé, son script d'origine reste
 celui que le worker lance, et le socle garde des copies de son code
-(`serve`, `pad_command`...) que `socle/test_differentiel.py` tient égales.
+(`serve`, `pad_command`...) que `socle/test_differentiel.py` tient égales de
+deux façons: chaque scénario doré rejoué avec le `serve` du socle, et l'arbre
+syntaxique de chaque fonction recopiée, `serve` compris, hors la seule ligne
+qui calcule `launch` autrement.
 
 ## Les règles, et ce qui les vérifie
 
@@ -24,7 +27,8 @@ celui que le worker lance, et le socle garde des copies de son code
 | Une salle ne lit jamais `consoles/consoles.json` ni rien sous `control/` | Un manifeste faux arrêterait toutes les salles externes, alors que l'ADR D22 veut qu'il arrête la porte | `socle/test_regles.py`, et `socle/test_consoles.py` qui compare la table au manifeste dans les deux sens |
 | La bibliothèque standard seulement | Le worker lance `python3` par le PATH de son unité, pas le venv du salon | `socle/test_regles.py` (import sous `/usr/bin/python3 -I -S`) |
 | Aucun import dans le corps d'une fonction | Un import paresseux lirait, au moment de l'arrêt, une version plus récente de l'arbre principal | ruff PLC0415 dans `just moteurs-test`, et `socle/test_regles.py` |
-| Une migration ne change aucune commande Docker | C'est ce qui permet de basculer sans reconstruire le worker | `just salles-dore` (`docker/test_salles_dore.py`) |
+| Une migration ne change aucune commande Docker | C'est ce qui permet de basculer sans reconstruire le worker | `just salles-dore` (`docker/test_salles_dore.py`), rejoué aussi sous un autre compte |
+| Une enveloppe se vérifie avec son moteur et sa fiche | Importer l'enveloppe seule ne charge ni l'un ni l'autre: un module cassé passerait | `charger(code)` dans `socle/salle.py`, appelé par `principal` et par `deploy/salles-adaptateurs.sh` |
 
 ## Les commandes
 

@@ -121,9 +121,12 @@ l'utilise** : le worker lance toujours `docker/xbox360-room.py`, le chemin
 
 Ce qui est prouvé sans carte ni Docker : pour chacun des dix-huit scénarios
 Xbox 360 du banc doré, les deux scripts lancent les mêmes commandes Docker et
-laissent le même emplacement, au fichier près (`just salles-dore`). Ce qui ne
-l'est pas : qu'une vraie partie se passe bien par le canari. C'est l'essai qui
-suit, à faire par le propriétaire, sur une seule salle.
+laissent le même emplacement, au fichier près (`just salles-dore`), sous le
+compte de cette machine comme sous un autre. Les deux s'arrêtent quand le
+worker ferme leur entrée standard, et le banc nommerait une salle qui ne
+l'écoute plus. Ce qui ne l'est pas : qu'une vraie partie se passe bien par le
+canari. C'est l'essai qui suit, à faire par le propriétaire, sur une seule
+salle.
 
 ### Brancher une salle choisie
 
@@ -148,7 +151,10 @@ environnement (`script_env` du manifeste).
 
 Tant que l'ajout existe, `just deploy-check` le nomme
 (`nel3ab-worker@N: NEL3AB_XBOX360_ADAPTER remplace l'adaptateur`). Il passe au
-rouge si le fichier visé n'existe plus.
+rouge si le fichier visé n'existe plus, ou si le canari, le module de Xenia ou
+sa fiche ne se chargent pas avec le `python3` de l'unité. Un chemin relatif se
+lit depuis le `WorkingDirectory` de l'unité, comme le worker le lit ; un chemin
+absolu évite toute ambiguïté.
 
 ### L'essai, sur la salle N
 

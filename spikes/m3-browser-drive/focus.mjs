@@ -16,6 +16,18 @@
 // Chaque étape en rejoue un, avec son jumeau: une correction qui couperait le
 // clavier du jeu passerait sinon pour un progrès.
 //
+// La relecture adverse du même jour a trouvé que trois mutants du CÂBLAGE de
+// la page passaient les quatorze premières étapes: pas de focus à l'entrée,
+// zone hors de la tabulation, garde des avis retirée. Elle a aussi mesuré des
+// défauts que ces étapes ne regardaient pas: une liste écrasée sur une
+// tablette, des libellés coupés à 320 px, la sortie de la Switch hors de
+// l'écran, un avis posé sur la sortie du menu, un anneau permanent sur l'image,
+// le clavier perdu après un clic sur la colonne, la carte des touches qui
+// parlait GameCube à la Wiimote. Les étapes `entree-sans-clic`, `tab-retour`,
+// `surcouche`, `tablette`, `coques-telephone`, `anneau`, `clic-colonne`,
+// `avis-haut`, `carte-wii` et `connexion-telephone` en viennent, et
+// `just focus-navigateur-rouge` exige qu'elles rougissent sur la page relue.
+//
 // Chaque échec dit s'il porte sur le DÉFAUT nommé ou sur une PRÉCONDITION, comme
 // `etats.mjs`: une page d'avant qui tombe sur une précondition ne prouve pas que
 // l'étape sait rougir.
@@ -47,6 +59,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const PC = { width: 1440, height: 900 };
 const TELEPHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 const TRAVERS = { width: 844, height: 390, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+const TABLETTE = { width: 768, height: 1024, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+const PETIT = { width: 320, height: 568, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+const MOYEN = { width: 360, height: 740, isMobile: true, hasTouch: true, deviceScaleFactor: 3 };
+/** Les quatre rubriques du menu, par leur identifiant (`ray-…`). */
+const RUBRIQUES = ["jeux", "manettes", "salle", "reglages"];
 const START_DOLPHIN = 1 << 7;
 const PLUS_SWITCH = 1 << 9;
 
@@ -85,21 +102,29 @@ function manetteSimulee() {
   Object.defineProperty(navigator, "getGamepads", { value: () => [pad, null, null, null] });
 }
 
-async function nouvelle(vue, { console: jeu = "gc", format = "dolphin", manette = false, vierge = true } = {}) {
+async function nouvelle(
+  vue,
+  { console: jeu = "gc", format = "dolphin", manette = false, vierge = true, stockage = {}, appareil = null } = {},
+) {
   banc.reinitialiser();
-  banc.regler({ console: jeu, format });
+  banc.regler({ console: jeu, format, appareil });
   const page = await browser.newPage();
   await page.setViewport(vue);
-  await page.evaluateOnNewDocument((vierge) => {
-    try {
-      if (vierge && !sessionStorage.getItem("banc-focus")) {
-        localStorage.clear();
-        sessionStorage.setItem("banc-focus", "1");
-      }
-      localStorage.setItem("nel3ab:name", "banc");
-      localStorage.setItem("nel3ab:banc", "1");
-    } catch {}
-  }, vierge);
+  await page.evaluateOnNewDocument(
+    (vierge, stockage) => {
+      try {
+        if (vierge && !sessionStorage.getItem("banc-focus")) {
+          localStorage.clear();
+          sessionStorage.setItem("banc-focus", "1");
+        }
+        localStorage.setItem("nel3ab:name", "banc");
+        localStorage.setItem("nel3ab:banc", "1");
+        for (const [cle, valeur] of Object.entries(stockage)) localStorage.setItem(cle, valeur);
+      } catch {}
+    },
+    vierge,
+    stockage,
+  );
   if (manette) await page.evaluateOnNewDocument(manetteSimulee);
   page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
   await page.goto(banc.url, { waitUntil: "domcontentloaded" });
@@ -109,8 +134,13 @@ async function nouvelle(vue, { console: jeu = "gc", format = "dolphin", manette 
 
 const peintes = (page) => page.evaluate(() => globalThis.nel3abTest?.counters?.().painted ?? 0);
 
-async function entrer(page) {
-  await page.click("#enter");
+/** Entre dans la salle. `clavier`: par Entrée sur le bouton, sans aucun clic,
+ * comme une personne qui n'a pas touché la souris. */
+async function entrer(page, { clavier = false } = {}) {
+  if (clavier) {
+    await page.focus("#enter");
+    await page.keyboard.press("Enter");
+  } else await page.click("#enter");
   const debut = Date.now();
   while ((await peintes(page)) < 30) {
     if (Date.now() - debut > 20000) throw new Precondition("la page n'a pas peint 30 images en 20 s");
@@ -165,6 +195,54 @@ async function ouvrirMenu(page) {
   if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
     throw new Precondition("Échap n'a pas ouvert le menu");
   await sleep(300);
+}
+
+/** L'entrée choisie du menu, par son identifiant. */
+const choisie = (page) =>
+  page.evaluate(
+    () => [...document.querySelectorAll("#menu [id^=item-]")].find((el) => el.dataset.selected === "true")?.id ?? null,
+  );
+
+/** Maj+Tab jusqu'à la zone de jeu, au plus `fois` appuis. Rend le nombre
+ * d'appuis, ou `null` si la zone n'a jamais eu le focus. */
+async function tabArriereJusquALaZone(page, fois = 25) {
+  for (let i = 0; i < fois; i += 1) {
+    await page.keyboard.down("Shift");
+    await page.keyboard.press("Tab");
+    await page.keyboard.up("Shift");
+    if ((await actif(page)).dansZone) return i + 1;
+  }
+  return null;
+}
+
+/** Ce qui est coupé ou hors de l'écran dans la liste de chaque rubrique. */
+async function coupesDesRubriques(page) {
+  const toutes = [];
+  for (const id of RUBRIQUES) {
+    if ((await page.$(`#ray-${id}`)) === null) throw new Precondition(`pas de rubrique « ${id} »`);
+    await page.click(`#ray-${id}`);
+    await sleep(350);
+    const lu = await page.evaluate(() => {
+      const W = innerWidth;
+      const entrees = [...document.querySelectorAll("#menu [id^=item-]")];
+      return {
+        n: entrees.length,
+        coupes: entrees
+          .map((el) => el.querySelector("[data-libelle]"))
+          .filter((el) => el && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1))
+          .map((el) => el.textContent),
+        dehors: entrees
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.left < -1 || r.right > W + 1;
+          })
+          .map((el) => el.id),
+      };
+    });
+    if (lu.n === 0) throw new Precondition(`la rubrique « ${id} » n'a aucune entrée`);
+    toutes.push({ rubrique: id, ...lu });
+  }
+  return toutes.filter((r) => r.coupes.length || r.dehors.length);
 }
 
 async function centre(page, selecteur) {
@@ -461,9 +539,12 @@ const ETAPES = {
   },
 
   /** M12: sur un téléphone, les rubriques tiennent dans l'écran, les noms sont
-   * entiers et la sortie est un vrai bouton de 44 px. */
+   * entiers dans les QUATRE rubriques et la sortie est un vrai bouton de 44 px.
+   * La première version ne mesurait que « jeux », à 390 et 844 px: à 320 px,
+   * « appareil des jeux Wii » et « commandes tactiles » restaient coupés dans
+   * « manettes » (relecture du 22 novembre 2026). */
   async "telephone"() {
-    for (const vue of [TELEPHONE, TRAVERS]) {
+    for (const vue of [PETIT, MOYEN, TELEPHONE, TRAVERS]) {
       const page = await nouvelle(vue);
       await entrer(page);
       await page.keyboard.press("Escape");
@@ -477,25 +558,351 @@ const ETAPES = {
           const r = el.getBoundingClientRect();
           return { id: el.id, gauche: Math.round(r.left), droite: Math.round(r.right) };
         });
-        const coupes = [...document.querySelectorAll("#menu [id^=item-] [data-libelle]")]
-          .filter((el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
-          .map((el) => el.textContent);
         const sortie = document.querySelector("#closeMenu")?.getBoundingClientRect();
         return {
           W,
           dehors: rayons.filter((r) => r.gauche < 0 || r.droite > W),
-          coupes,
           sortie: sortie ? { h: Math.round(sortie.height), w: Math.round(sortie.width) } : null,
           texte: document.querySelector("#closeMenu")?.textContent ?? "",
         };
       });
       if (lu.dehors.length) throw new Defaut(`à ${lu.W} px, des rubriques sortent de l'écran: ${JSON.stringify(lu.dehors)}`);
-      if (lu.coupes.length) throw new Defaut(`à ${lu.W} px, des libellés sont coupés: ${JSON.stringify(lu.coupes)}`);
       if (!lu.sortie || lu.sortie.h < 44 || lu.sortie.w < 44)
         throw new Defaut(`à ${lu.W} px, la sortie fait ${JSON.stringify(lu.sortie)}, sous 44 px`);
       if (!/Reprendre/.test(lu.texte)) throw new Defaut(`à ${lu.W} px, la sortie dit « ${lu.texte} »`);
+      const coupes = await coupesDesRubriques(page);
+      await capture(page, "menu-telephone-reglages");
+      if (coupes.length) throw new Defaut(`à ${lu.W} px, des libellés sont coupés: ${JSON.stringify(coupes)}`);
       await page.close();
     }
+  },
+
+  /** Une tablette en portrait (de 700 à 900 px): la liste ne se tasse pas
+   * contre le bord droit quand la croix avance. Sur la première version,
+   * « réglages » à 768 px tombait dans 296 px et coupait cinq libellés; la page
+   * d'avant n'en coupait aucun (relecture du 22 novembre 2026). */
+  async "tablette"() {
+    for (const vue of [{ width: 701, height: 900 }, TABLETTE, { width: 900, height: 700 }]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await ouvrirMenu(page);
+      const coupes = await coupesDesRubriques(page);
+      await capture(page, "menu-reglages");
+      if (coupes.length) throw new Defaut(`à ${vue.width} px, ${JSON.stringify(coupes)}`);
+      await page.close();
+    }
+  },
+
+  /** Les coques Wii et Switch sur un téléphone: la sortie est entière dans
+   * l'écran et fait 44 px. La sortie de la Switch « Reprendre » sortait à
+   * droite (x 324 à 430 sur 390). */
+  async "coques-telephone"() {
+    for (const coque of ["switch", "wii"]) {
+      const page = await nouvelle(TELEPHONE, { stockage: { "nel3ab:shell": coque } });
+      await entrer(page);
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition(`Échap n'a pas ouvert le menu ${coque}`);
+      await sleep(400);
+      await capture(page, `menu-${coque}`);
+      const sortie = await page.evaluate(() => {
+        const el = document.querySelector("#closeMenu");
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        const ici = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return {
+          gauche: Math.round(r.left),
+          droite: Math.round(r.right),
+          h: Math.round(r.height),
+          w: Math.round(r.width),
+          libre: Boolean(ici && el.contains(ici)),
+          W: innerWidth,
+          H: innerHeight,
+          bas: Math.round(r.bottom),
+        };
+      });
+      if (sortie === null) throw new Precondition(`pas de sortie dans la coque ${coque}`);
+      if (sortie.gauche < 0 || sortie.droite > sortie.W || sortie.bas > sortie.H)
+        throw new Defaut(`coque ${coque}: la sortie sort de l'écran ${JSON.stringify(sortie)}`);
+      if (sortie.h < 44 || sortie.w < 44) throw new Defaut(`coque ${coque}: la sortie fait ${sortie.w}x${sortie.h}`);
+      if (!sortie.libre) throw new Defaut(`coque ${coque}: la sortie est couverte`);
+      await page.close();
+    }
+  },
+
+  /** Le câblage de l'entrée: entré au clavier, sans aucun clic, le focus est
+   * dans la zone de jeu et Entrée y vaut START. Le mutant « pas de focus à
+   * l'entrée » passait les 14 étapes de la première version, parce qu'une page
+   * sans focus donne aussi ses touches au jeu: d'où la lecture du focus. */
+  async "entree-sans-clic"() {
+    const page = await nouvelle(PC);
+    await entrer(page, { clavier: true });
+    const ici = await actif(page);
+    if (!ici.dansZone) throw new Defaut(`entré au clavier, le focus est sur ${ici.tag}#${ici.id}, pas dans la zone de jeu`);
+    const depuis = Date.now();
+    await page.keyboard.down("Enter");
+    await sleep(250);
+    await page.keyboard.up("Enter");
+    await sleep(250);
+    if ((recus(depuis) & START_DOLPHIN) === 0) throw new Defaut("Entrée, sans aucun clic, n'a pas envoyé START");
+    await page.close();
+  },
+
+  /** La zone est dans l'ordre de Tab pendant une partie, et en sort pendant un
+   * chargement, où l'écran de chargement la couvre. Le mutant `tabIndex={-1}`
+   * passait les 14 étapes de la première version. */
+  async "tab-retour"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await page.focus("#mode-details");
+    const fois = await tabArriereJusquALaZone(page);
+    if (fois === null) throw new Defaut("Maj+Tab depuis la colonne n'atteint jamais la zone de jeu");
+    const tab = await page.$eval("[data-zone-jeu]", (el) => el.tabIndex);
+    if (tab !== 0) throw new Defaut(`la zone a le focus par Tab mais tabIndex vaut ${tab}`);
+    // Le jumeau: pendant un chargement, Tab ne s'arrête pas sur une zone cachée.
+    banc.annoncerDemarrage();
+    if (!(await attendre(page, () => document.querySelector("[data-zone-jeu]")?.tabIndex === -1, 5000)))
+      throw new Defaut("pendant un chargement, la zone de jeu reste dans l'ordre de Tab");
+    await page.focus("#mode-details");
+    if ((await tabArriereJusquALaZone(page)) !== null)
+      throw new Defaut("pendant un chargement, Maj+Tab s'arrête encore sur la zone de jeu");
+    await page.close();
+  },
+
+  /** Les avis posés au-dessus du menu (`Surcouche`): l'avis d'un lancement est
+   * DANS le menu ouvert, visible, ne couvre pas la sortie, et garde ses touches:
+   * ni une flèche ni Échap sur son bouton ne conduisent le menu. Aucun essai ne
+   * citait `Surcouche` dans la première version, et le mutant qui retirait la
+   * garde `[data-surcouche]` passait. */
+  async "surcouche"() {
+    for (const vue of [PC, TELEPHONE]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await ouvrirMenu(page);
+      if ((await page.$("#ray-salle")) === null) throw new Precondition("pas de rubrique « salle »");
+      await page.click("#ray-salle");
+      await sleep(300);
+      if ((await page.$("#item-close-game")) === null) throw new Precondition("pas d'entrée « fermer le jeu »");
+      await page.click("#item-close-game");
+      if (!(await attendre(page, () => document.querySelector("#pick-close") !== null)))
+        throw new Precondition("le sélecteur de « fermer le jeu » ne s'ouvre pas");
+      await page.click("#pick-close");
+      if (!(await attendre(page, () => document.querySelector(".n3-preparation-error") !== null, 4000)))
+        throw new Precondition("aucun avis après « fermer le jeu »");
+      await sleep(300);
+      await capture(page, "surcouche");
+      const lu = await page.evaluate(() => {
+        const avis = document.querySelector(".n3-preparation-error");
+        const r = avis.getBoundingClientRect();
+        const dessus = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        const sortie = document.querySelector("#closeMenu");
+        const s = sortie?.getBoundingClientRect();
+        const surSortie = s ? document.elementFromPoint(s.x + s.width / 2, s.y + s.height / 2) : null;
+        const bouton = avis.querySelector("button");
+        return {
+          dansMenu: Boolean(avis.closest("#menu")),
+          visible: Boolean(dessus && avis.contains(dessus)),
+          sortieLibre: Boolean(surSortie && sortie?.contains(surSortie)),
+          bouton: Math.round(bouton?.getBoundingClientRect().height ?? 0),
+        };
+      });
+      if (!lu.dansMenu) throw new Defaut("l'avis n'est pas dans le menu ouvert: le dialogue modal le rend inerte");
+      if (!lu.visible) throw new Defaut("l'avis est couvert par le menu");
+      if (!lu.sortieLibre) throw new Defaut(`à ${vue.width} px, l'avis couvre la sortie du menu`);
+      if (lu.bouton < 44) throw new Defaut(`à ${vue.width} px, le bouton de l'avis fait ${lu.bouton} px de haut`);
+      // Les touches de l'avis lui restent.
+      const avant = await choisie(page);
+      if (avant === null) throw new Precondition("aucune entrée choisie dans « salle »");
+      const rang = await page.$$eval("#menu [id^=item-]", (els, id) => els.findIndex((el) => el.id === id), avant);
+      const fleche = rang > 0 ? "ArrowUp" : "ArrowDown";
+      await page.focus(".n3-preparation-error button");
+      await page.keyboard.press(fleche);
+      await sleep(250);
+      if ((await choisie(page)) !== avant) throw new Defaut("une flèche sur le bouton de l'avis a déplacé le curseur du menu");
+      await page.keyboard.press("Escape");
+      await sleep(400);
+      if (!(await menuOuvert(page))) throw new Defaut("Échap sur le bouton de l'avis a fermé le menu");
+      // Le geste « retour » d'Android arrive par l'événement `cancel` du
+      // dialogue, sans touche: le même, le focus sur l'avis.
+      const retour = () =>
+        page.evaluate(() => document.querySelector("#menu")?.dispatchEvent(new Event("cancel", { cancelable: true })));
+      await retour();
+      await sleep(400);
+      if (!(await menuOuvert(page))) throw new Defaut("le geste retour, le focus sur l'avis, a fermé le menu");
+      // Le jumeau: la même flèche, sur l'entrée choisie, déplace le curseur.
+      await page.focus(`#${avant}`);
+      await page.keyboard.press(fleche);
+      await sleep(250);
+      if ((await choisie(page)) === avant) throw new Defaut("une flèche sur l'entrée choisie ne déplace plus le curseur");
+      // Et le geste retour, le focus sur une entrée, ferme le menu.
+      await retour();
+      if (!(await attendre(page, () => document.querySelector("#menu") === null)))
+        throw new Defaut("le geste retour, le focus sur une entrée, ne ferme plus le menu");
+      await page.close();
+    }
+  },
+
+  /** L'anneau de focus ne reste pas sur l'image pendant une partie: il dit où
+   * arrive Tab, puis s'efface à la première touche de jeu. Sur la première
+   * version, un trait de 3 px longeait l'image toute la partie après Échap. */
+  async "anneau"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#menu") === null)))
+      throw new Precondition("Échap n'a pas fermé le menu");
+    if (!(await actif(page)).dansZone) throw new Precondition("la fermeture n'a pas rendu le focus au jeu");
+    const trait = () => page.$eval("[data-zone-jeu]", (el) => getComputedStyle(el).outlineStyle);
+    // Rendu par Échap, le focus revient au jeu sans anneau: on y retourne pour
+    // jouer, pas pour chercher où est le focus.
+    const rendu = await trait();
+    if (rendu !== "none") throw new Defaut(`rendu au jeu par Échap, la zone porte un anneau (${rendu})`);
+    await page.keyboard.down("ArrowRight");
+    await sleep(300);
+    await page.keyboard.up("ArrowRight");
+    const pendant = await trait();
+    await capture(page, "anneau-pendant-partie");
+    if (pendant !== "none") throw new Defaut(`l'anneau de focus (${pendant}) reste sur l'image pendant la partie`);
+    // Le jumeau: arrivé par Tab, l'anneau se montre...
+    await page.focus("#mode-details");
+    if ((await tabArriereJusquALaZone(page)) === null) throw new Precondition("Maj+Tab n'atteint pas la zone");
+    const parTab = await trait();
+    if (parTab === "none") throw new Defaut("arrivé par Tab, la zone de jeu ne montre aucun anneau");
+    // ... puis s'efface à la première touche qui joue.
+    await page.keyboard.down("ArrowRight");
+    await sleep(300);
+    await page.keyboard.up("ArrowRight");
+    const joue = await trait();
+    if (joue !== "none") throw new Defaut(`arrivé par Tab, l'anneau (${joue}) reste après une touche de jeu`);
+    await page.close();
+  },
+
+  /** Un clic de souris sur un bouton ponctuel de la colonne rend le clavier au
+   * jeu: c'était le geste le plus courant d'une partie (une prise, un mode),
+   * et il coupait la manette jusqu'au prochain clic sur l'image. */
+  async "clic-colonne"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    for (const id of ["#mode-details", "#mode-normal", "#port2"]) {
+      if ((await page.$(id)) === null) throw new Precondition(`pas de bouton ${id}`);
+      await page.mouse.click(...(await centre(page, id)));
+      await sleep(250);
+      const depuis = Date.now();
+      await appuyer(page, "ArrowRight");
+      await sleep(150);
+      if (!banc.trames(depuis).some((une) => une.x > 0))
+        throw new Defaut(`après un clic sur ${id}, la flèche ne pousse plus le stick`);
+    }
+    // Le jumeau: au clavier, le focus reste sur le bouton qu'on active.
+    await page.focus("#mode-details");
+    await appuyer(page, "Enter");
+    await sleep(250);
+    const ici = await actif(page);
+    if (ici.id !== "mode-details") throw new Defaut(`Entrée au clavier sur « détails » a mis le focus sur ${ici.tag}#${ici.id}`);
+    await page.close();
+  },
+
+  /** « état de la connexion » sur un téléphone: le résumé s'ouvre dans le
+   * menu, et la colonne ne coupe pas l'écran en deux moitiés de 195 px. La
+   * valeur dit l'état, pas un compte d'images (relecture du 22 novembre 2026). */
+  async "connexion-telephone"() {
+    const ouvrir = async (vue) => {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition("Échap n'a pas ouvert le menu");
+      await sleep(300);
+      await page.click("#ray-reglages");
+      await sleep(300);
+      if ((await page.$("#item-connexion")) === null) {
+        if ((await page.$("#item-advanced")) === null) throw new Precondition("pas de « réglages avancés »");
+        // Un clic du DOM: l'entrée peut être sous le bas de la fenêtre de la
+        // liste, qui la coupe, et un clic aux coordonnées tomberait à côté.
+        await page.$eval("#item-advanced", (el) => el.click());
+        await sleep(300);
+      }
+      if ((await page.$("#item-connexion")) === null) throw new Precondition("pas d'entrée « état de la connexion »");
+      // `data-valeur` depuis la relecture; avant, la valeur était le dernier
+      // enfant de l'entrée.
+      const valeur = await page.$eval(
+        "#item-connexion",
+        (el) => (el.querySelector("[data-valeur]") ?? el.lastElementChild)?.textContent?.trim() ?? "",
+      );
+      if (/images?$/.test(valeur)) throw new Defaut(`la valeur de « état de la connexion » est un compte: « ${valeur} »`);
+      await page.$eval("#item-connexion", (el) => el.click());
+      await sleep(400);
+      return page;
+    };
+    const tel = await ouvrir(TELEPHONE);
+    const lu = await tel.evaluate(() => ({
+      menu: document.querySelector("#menu") !== null,
+      resume: document.querySelector("#picker dl")?.textContent ?? null,
+      colonne: Math.round(document.querySelector("aside")?.getBoundingClientRect().width ?? 0),
+    }));
+    await capture(tel, "connexion");
+    if (!lu.menu || lu.resume === null)
+      throw new Defaut(`sur un téléphone, « état de la connexion » n'ouvre pas son résumé dans le menu (${JSON.stringify(lu)})`);
+    if (!/en marche/.test(lu.resume)) throw new Defaut(`le résumé ne dit pas l'état: « ${lu.resume} »`);
+    await tel.close();
+    // Le jumeau: sur un ordinateur, le détail s'ouvre dans la colonne.
+    const pc = await ouvrir(PC);
+    if (!(await attendre(pc, () => document.querySelector("#stats") !== null && document.querySelector("#menu") === null)))
+      throw new Defaut("sur un ordinateur, « état de la connexion » n'ouvre plus le détail dans la colonne");
+    await pc.close();
+  },
+
+  /** La carte des touches d'une salle Wii nomme les boutons de l'appareil de
+   * la place. À la Wiimote, la première version disait « Entrée → Start » et
+   * « S → X », là où le jeu lit + et 1 (relecture du 22 novembre 2026). */
+  async "carte-wii"() {
+    const lire = async (options) => {
+      const page = await nouvelle(PC, options);
+      await entrer(page);
+      if (!(await attendre(page, () => document.querySelector("#aideClavier dl") !== null, 4000)))
+        throw new Precondition("pas de carte des touches");
+      await sleep(300);
+      const paires = await page.$$eval("#aideClavier dl > div", (els) =>
+        els.map((el) => [el.querySelector("dt")?.textContent?.trim(), el.querySelector("dd")?.textContent?.trim()]),
+      );
+      if (options.console === "wii") await capture(page, "carte-wii");
+      await page.close();
+      return new Map(paires.map(([touche, fait]) => [fait, touche]));
+    };
+    const wiimote = await lire({ console: "wii", appareil: 1 });
+    if (wiimote.get("bouton +") !== "Entrée" || wiimote.get("1") !== "S")
+      throw new Defaut(`à la Wiimote, la carte dit ${JSON.stringify([...wiimote])}`);
+    if (wiimote.has("Start") || wiimote.has("X"))
+      throw new Defaut(`à la Wiimote, la carte parle encore GameCube: ${JSON.stringify([...wiimote])}`);
+    // Le jumeau: une salle GameCube garde Start et X.
+    const gc = await lire({ console: "gc" });
+    if (gc.get("Start") !== "Entrée" || gc.get("X") !== "S")
+      throw new Defaut(`en GameCube, la carte dit ${JSON.stringify([...gc])}`);
+  },
+
+  /** L'avis « le jeu ne reçoit plus tes touches » ne se pose pas en bas de
+   * l'image, où vivent déjà la proposition, la pastille de liaison et l'avis du
+   * format réduit: la proposition, plus tard dans le DOM, pouvait couvrir son
+   * bouton. */
+  async "avis-haut"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await page.focus("#mode-details");
+    if (!(await attendre(page, () => document.querySelector("#clavierEnPause") !== null)))
+      throw new Precondition("l'avis de pause ne s'affiche pas");
+    const lu = await page.evaluate(() => {
+      const zone = document.querySelector("[data-zone-jeu]").getBoundingClientRect();
+      const avis = document.querySelector("#clavierEnPause").getBoundingClientRect();
+      const bouton = document.querySelector("#clavierEnPause button");
+      const b = bouton.getBoundingClientRect();
+      const ici = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+      return { milieu: zone.top + zone.height / 2, bas: avis.bottom, libre: bouton.contains(ici), texte: bouton.textContent };
+    });
+    await capture(page, "avis-haut");
+    if (lu.bas > lu.milieu) throw new Defaut(`l'avis descend à ${Math.round(lu.bas)} px, sous le milieu de l'image (${Math.round(lu.milieu)})`);
+    if (!lu.libre) throw new Defaut("le bouton de l'avis est couvert");
+    await page.close();
   },
 
   /** A11Y-10 et A11Y-11: les contrôles de la colonne ont un nom et un état. */

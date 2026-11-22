@@ -135,3 +135,53 @@ it("les flèches conduisent le curseur même depuis un bouton du pied", () => {
   expect(result.current.row).toBe(1);
   reprendre.remove();
 });
+
+/**
+ * Un avis posé dans le menu (`Surcouche`) garde ses touches.
+ *
+ * Aucun essai ne citait `[data-surcouche]` dans la première version: le mutant
+ * qui retirait la garde passait les 1 025 essais (relecture du 22 novembre
+ * 2026). Et Échap sur le bouton de l'avis fermait le menu, par l'événement
+ * `cancel` du dialogue, parce que la garde rendait la main sans
+ * `preventDefault`.
+ */
+it("une flèche et Échap venues d'un avis posé dans le menu ne conduisent pas le menu", () => {
+  const fermer = vi.fn();
+  const { result } = renderHook(() => useShell(unJeu(vi.fn()), 1, fermer));
+  const place = document.createElement("div");
+  place.setAttribute("data-surcouche", "");
+  const masquer = document.createElement("button");
+  place.append(masquer);
+  document.body.append(place);
+  const bas = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+  act(() => masquer.dispatchEvent(bas));
+  expect(result.current.row).toBe(0);
+  expect(bas.defaultPrevented).toBe(false);
+  // Échap: rien pour le menu, et la demande de fermeture du dialogue est
+  // annulée dès le `keydown`.
+  const echap = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+  act(() => masquer.dispatchEvent(echap));
+  expect(fermer).not.toHaveBeenCalled();
+  expect(echap.defaultPrevented).toBe(true);
+  place.remove();
+});
+
+it("le jumeau: la même flèche et le même Échap sur un bouton du menu le conduisent", () => {
+  const fermer = vi.fn();
+  const { result } = renderHook(() => useShell(unJeu(vi.fn()), 1, fermer));
+  const entree = document.createElement("button");
+  document.body.append(entree);
+  act(() =>
+    entree.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+    ),
+  );
+  expect(result.current.row).toBe(1);
+  act(() =>
+    entree.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    ),
+  );
+  expect(fermer).toHaveBeenCalledOnce();
+  entree.remove();
+});

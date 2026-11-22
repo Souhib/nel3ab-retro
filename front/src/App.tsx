@@ -23,6 +23,9 @@ import { Bindings } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { ControllerStatus } from "./components/ControllerStatus";
+import { manetteAConfigurer } from "./lib/plug";
+import { NOM_ETAT, resumeConnexion } from "./lib/liaison-mots";
+import { ETROIT_SOUS } from "./lib/menu-xmb";
 import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
@@ -95,7 +98,7 @@ import { cn } from "./lib/cn";
 import { publishProfile } from "./lib/bindings";
 import { arrange, avecAvances, MANETTES } from "./lib/settings";
 import { appareilDe, pour } from "./lib/appareil";
-import { clavierAuJeu, clavierEnPause } from "./lib/focus-jeu";
+import { clavierAuJeu, clavierEnPause, REND_LE_JEU, rendreAuJeuApresClic } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
 import { keyLabel, keyboardLayout } from "./media/describe";
 import { AideClavier } from "./components/AideClavier";
@@ -231,6 +234,9 @@ function Named({
   const yieldSeat = useRef<(() => void) | null>(null);
   const [recovery, setRecovery] = useState<RecoveryNotice | null>(null);
   const [recoveryError, setRecoveryError] = useState("");
+  /** Une réponse de reprise en vol. Ici et non dans `Recovery`: le panneau se
+   * remonte en passant dans le menu ouvert (`Surcouche`). */
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
 
   /** Cette page ne sert-elle que de manette.
    *
@@ -340,6 +346,8 @@ function Named({
         <Recovery
           notice={recovery}
           error={recoveryError}
+          busy={recoveryBusy}
+          onBusy={setRecoveryBusy}
           onAction={recover}
           pad={(handler) => padTo.current?.(handler)}
           onClose={() => {
@@ -841,6 +849,26 @@ function Room({
     if (playing === true || ici === null || ici === document.body)
       zone.current?.focus({ preventScroll: true });
   }, [menu, playing]);
+  // Un clic de souris sur un bouton ponctuel de la colonne (une prise, un
+  // mode, le clip, le micro) rend le clavier au jeu: c'était le geste le plus
+  // courant d'une partie, et il coupait la manette (`rendreAuJeuApresClic`).
+  // Sur le document et en remontée: le bouton a déjà fait son travail.
+  const enPartie = playing === true && booting === null;
+  useEffect(() => {
+    const clic = (event: MouseEvent) => {
+      const cible = event.target instanceof Element ? event.target : null;
+      if (
+        rendreAuJeuApresClic({
+          pointeur: event.detail > 0,
+          partie: enPartie,
+          ponctuel: cible?.closest(`[${REND_LE_JEU}]`) != null,
+        })
+      )
+        zone.current?.focus({ preventScroll: true });
+    };
+    document.addEventListener("click", clic);
+    return () => document.removeEventListener("click", clic);
+  }, [enPartie]);
 
   useEffect(() => {
     if (booting === null) return;
@@ -933,11 +961,6 @@ function Room({
   /** La carte « Tu joues au clavier »: ouverte à la première visite. */
   const [aideOuverte, setAideOuverte] = useState(() => !aideDejaVue());
   const nomTouche = (code: string) => keyLabel(code, disposition);
-  const lignesClavier = !shot
-    ? []
-    : usesProInput(room?.game?.console)
-      ? aidePro(session?.input.switch.profile.keys ?? {}, room?.game?.console === "x360", nomTouche)
-      : aideDolphin(shot.input.keys, nomTouche);
   // Une fois qu'on a joué, la carte est lue: elle reste ouverte pour cette
   // visite, et la suivante commence repliée. Seulement au clavier: la carte
   // n'existe pas pour une manette ni au doigt.
@@ -1059,6 +1082,15 @@ function Room({
   /** La manette que les jeux Wii présentent. Un réglage, pas une décision de
    * partie: voir `lib/saves`. */
   const [pad, setPad] = useState<Pad>(storedPad);
+  /** La carte du clavier, lue dans le profil actif et nommée pour l'appareil
+   * de la place (`lib/aide-clavier`). Après `pad`, qu'elle lit. */
+  const lignesClavier = !shot
+    ? []
+    : usesProInput(room?.game?.console)
+      ? aidePro(session?.input.switch.profile.keys ?? {}, room?.game?.console === "x360", nomTouche)
+      : // L'appareil que la place présente au jeu: dans une salle Wii, la même
+        // trame se lit Wiimote ou guitare (`lib/aide-clavier`).
+        aideDolphin(shot.input.keys, nomTouche, { console: room?.game?.console ?? "gc", pad });
   useEffect(() => {
     if (shot?.input.device !== undefined) setPad(shot.input.device);
   }, [shot?.input.device]);
@@ -1448,7 +1480,16 @@ function Room({
             label: "touches et manettes",
             // Le même titre que le dialogue qu'elle ouvre. Le profil clavier est
             // nommé; les correspondances des manettes sont par modèle.
-            hint: `tester et changer tes touches, profil clavier « ${shot?.input.keyProfile ?? "défaut"} »`,
+            // Une manette qui attend ses correspondances le dit ici aussi:
+            // l'avis de branchement s'efface au bout de cinq secondes (P12).
+            ...(shot && manetteAConfigurer(shot.input)
+              ? {
+                  value: "à configurer",
+                  hint: "la manette branchée attend ses correspondances: ouvre pour la configurer",
+                }
+              : {
+                  hint: `tester et changer tes touches, profil clavier « ${shot?.input.keyProfile ?? "défaut"} »`,
+                }),
             icon: <KeysIcon className="h-full w-full" />,
             // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
             // pour changer une touche est exactement ce qu'on ne veut pas.
@@ -1838,14 +1879,57 @@ function Room({
             // ici, repliés, et le détail vit dans la colonne.
             id: "connexion",
             label: "état de la connexion",
-            value: `${shot?.video.painted ?? 0} images`,
-            hint: `${(shot?.video.refreshHz ?? 0).toFixed(0)} Hz à l'écran, ${port === null ? "sans manette" : `manette ${port}`}. ${pour(appareil, "voir le détail dans la colonne")}.`,
+            // L'état par son nom, et non un compte d'images: le nom promettait
+            // un état (relecture du 22 novembre 2026).
+            value: NOM_ETAT[liaison.etat],
+            ...(appareil === "tactile" || window.innerWidth < ETROIT_SOUS
+              ? {
+                  // Sur un téléphone, le détail dans la colonne coupait
+                  // l'écran en deux moitiés de 195 px: le résumé s'ouvre
+                  // dans le menu, et la colonne reste un choix.
+                  hint: pour(appareil, "voir le résumé"),
+                  details: (
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-corps">
+                      {resumeConnexion(liaison, {
+                        images: shot?.video.painted ?? 0,
+                        hz: shot?.video.refreshHz ?? 0,
+                        port,
+                      }).map((ligne) => (
+                        <div key={ligne.nom} className="contents">
+                          <dt className="text-muted">{ligne.nom}</dt>
+                          <dd>{ligne.valeur}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ),
+                  // Sans `picked`: aucun des deux n'est « en cours ».
+                  picks: [
+                    { id: "rester", label: "revenir au menu" },
+                    { id: "colonne", label: "tout le détail, dans la colonne" },
+                  ],
+                  onPick: (choix: string) => {
+                    if (choix !== "colonne") return;
+                    setMode("details");
+                    setBare(false);
+                    setMenu(false);
+                  },
+                }
+              : {
+                  hint: `${resumeConnexion(liaison, {
+                    images: shot?.video.painted ?? 0,
+                    hz: shot?.video.refreshHz ?? 0,
+                    port,
+                  })
+                    .slice(1)
+                    .map((ligne) => `${ligne.nom}: ${ligne.valeur}`)
+                    .join(", ")}. ${pour(appareil, "voir le détail dans la colonne")}.`,
+                  onEnter: () => {
+                    setMode("details");
+                    setBare(false);
+                    setMenu(false);
+                  },
+                }),
             icon: <MeasureIcon className="h-full w-full" />,
-            onEnter: () => {
-              setMode("details");
-              setBare(false);
-              setMenu(false);
-            },
           },
         ]),
         avances,
@@ -1916,49 +2000,76 @@ function Room({
         {/* Le format a été réduit tout seul: on le DIT, et on laisse revenir.
             Réduire en silence ferait chercher pourquoi l'image est devenue
             moins nette, ce qui est exactement le temps qu'on essaie de rendre. */}
-        {/* La salle va fermer faute d'activité. En haut, parce que c'est la
-            seule chose qui vaille qu'on quitte le jeu des yeux, et cliquable
-            pour disparaître: un message qu'on ne peut pas faire taire finit par
-            être contourné en fermant l'onglet. */}
-        {closingSoon !== null ? (
-          <button
-            type="button"
-            id="closingNotice"
-            onClick={() => setClosingHidden(true)}
-            className="absolute inset-x-0 top-4 z-30 mx-auto max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
-          >
-            <span className="float-left -mt-1 mr-3" aria-hidden="true">
-              <Bobine pose="dort" taille={44} />
-            </span>
-            Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
-            {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
-          </button>
-        ) : null}
-        {/* Le clavier ne joue plus: le focus est sur la colonne. Sans le dire,
-            un clic sur un bouton de la colonne ressemblait à un jeu qui ne
-            répond plus (`lib/focus-jeu`, `clavierEnPause`). */}
-        {clavierEnPause({
-          partie: playing === true && booting === null,
-          place: port !== null,
-          appareil,
-          menu: menu || configuring,
-          auJeu,
-        }) ? (
-          <div
-            id="clavierEnPause"
-            className="regie-nuit absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-24px)] flex-wrap items-center gap-x-3 gap-y-1 border border-rule bg-panel px-3 py-2 text-corps text-muted"
-          >
-            <span>Tes touches vont à la page, pas au jeu.</span>
+        {/* Les avis du HAUT de l'image, en une pile: ils s'empilent au lieu de
+            se couvrir. Le bas est déjà pris par la proposition et la pastille
+            de la liaison (`EtatSalle`) et par l'avis du format réduit; l'avis
+            du clavier y était posé aussi, et la proposition, plus tard dans le
+            DOM, pouvait couvrir son bouton (relecture du 22 novembre 2026).
+            `pointer-events-none` sur la pile seule: un clic à côté des avis
+            arrive à l'image. */}
+        <div
+          id="avisDuHaut"
+          className="pointer-events-none absolute inset-x-3 top-4 z-30 flex flex-col items-center gap-2"
+        >
+          {/* Une manette branchée ou débranchée, cinq secondes (choix du
+              7 septembre 2026). Dans la pile depuis le 22 novembre: posée à
+              part en haut à gauche, elle passait sous l'avis du clavier. */}
+          {shot ? (
+            <ControllerStatus
+              visible={port !== null && !menu && !configuring}
+              state={shot.input}
+              onConfigure={() => {
+                setOngletTouches("pad");
+                setBindings(true);
+              }}
+            />
+          ) : null}
+          {/* La salle va fermer faute d'activité. En haut, parce que c'est la
+              seule chose qui vaille qu'on quitte le jeu des yeux, et cliquable
+              pour disparaître: un message qu'on ne peut pas faire taire finit
+              par être contourné en fermant l'onglet. */}
+          {closingSoon !== null ? (
             <button
               type="button"
-              id="rejouerAuClavier"
-              onClick={() => zone.current?.focus({ preventScroll: true })}
-              className="flex min-h-9 items-center gap-2 text-indigo hover:underline"
+              id="closingNotice"
+              onClick={() => setClosingHidden(true)}
+              className="pointer-events-auto w-full max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
             >
-              Rejouer au clavier
+              <span className="float-left -mt-1 mr-3" aria-hidden="true">
+                <Bobine pose="dort" taille={44} />
+              </span>
+              Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
+              {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
             </button>
-          </div>
-        ) : null}
+          ) : null}
+          {/* Le clavier ne joue plus: le focus est sur la colonne. Sans le
+              dire, un clic sur un bouton de la colonne ressemblait à un jeu qui
+              ne répond plus (`lib/focus-jeu`, `clavierEnPause`). L'effet
+              d'abord, en mots de joueur: « la page » était un mot d'atelier,
+              et « Rejouer » se lisait « recommencer ». */}
+          {clavierEnPause({
+            partie: playing === true && booting === null,
+            place: port !== null,
+            appareil,
+            menu: menu || configuring,
+            auJeu,
+          }) ? (
+            <div
+              id="clavierEnPause"
+              className="regie-nuit pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border border-rule bg-panel px-3 py-2 text-corps text-muted"
+            >
+              <span>Le jeu ne reçoit plus tes touches.</span>
+              <button
+                type="button"
+                id="rejouerAuClavier"
+                onClick={() => zone.current?.focus({ preventScroll: true })}
+                className="flex min-h-11 items-center gap-2 text-indigo hover:underline"
+              >
+                Rendre les touches au jeu
+              </button>
+            </div>
+          ) : null}
+        </div>
         {reduced ? (
           <div
             id="reducedNotice"
@@ -2019,16 +2130,6 @@ function Room({
             « Cacher » sans retour est un piège: sur un téléphone il n'y a ni
             Échap ni menu atteignable une fois la colonne repliée, donc le geste
             était définitif pour la visite. Signalé le 18 août 2026. */}
-        {shot ? (
-          <ControllerStatus
-            visible={port !== null && !menu && !configuring}
-            state={shot.input}
-            onConfigure={() => {
-              setOngletTouches("pad");
-              setBindings(true);
-            }}
-          />
-        ) : null}
         {session && !onTouch && coarse ? (
           <button
             type="button"
@@ -2297,6 +2398,8 @@ function Room({
           <button
             type="button"
             id="clip"
+            // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
+            data-rend-le-jeu=""
             onClick={takeClip}
             disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
             title={
@@ -2336,6 +2439,7 @@ function Room({
           <button
             type="button"
             id="mic"
+            data-rend-le-jeu=""
             onClick={toggleMic}
             title={
               shot?.mic === "on"
@@ -2479,8 +2583,11 @@ function Room({
         <Surcouche>
           <div className="n3-preparation-error" role="alert">
             {preparationError}
+            {/* « Masquer » et non « Fermer »: l'avis le plus courant dit
+                « Fermeture du jeu en cours… », et deux « fermer » de sens
+                différent se suivaient. */}
             <button type="button" onClick={() => setPreparationError("")}>
-              Fermer
+              Masquer
             </button>
           </div>
         </Surcouche>

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Recovery } from "./Recovery";
 import type { RecoveryNotice } from "../lib/room";
@@ -136,4 +137,48 @@ it("la manette ne confirme pas une reprise avant la fin du délai", async () => 
   act(() => vi.advanceTimersByTime(20_000));
   await act(async () => recus.at(-1)!("confirm"));
   expect(action).toHaveBeenCalledWith({ action: "finish", id: "one" });
+});
+
+/**
+ * L'envoi en vol survit au déplacement du panneau.
+ *
+ * Le panneau passe dans le menu quand on l'ouvre (`Surcouche`), et un portail
+ * qui change de conteneur REMONTE son contenu. Son état « occupé » vivait dans
+ * le panneau: il revenait à faux pendant qu'une réponse était en vol, et les
+ * boutons se réactivaient, ce qui ouvrait un double envoi (relecture du
+ * 22 novembre 2026). L'état vit donc chez le parent.
+ */
+it("garde ses boutons inactifs après un remontage, tant qu'une réponse est en vol", async () => {
+  let finir: () => void = () => {};
+  const action = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finir = resolve;
+      }),
+  );
+  function Parent({ cle }: { cle: string }) {
+    const [occupe, setOccupe] = useState(false);
+    return (
+      <Recovery
+        key={cle}
+        notice={{ ...notice, asking: false }}
+        error=""
+        onAction={action}
+        onClose={() => {}}
+        busy={occupe}
+        onBusy={setOccupe}
+      />
+    );
+  }
+  const { rerender } = render(<Parent cle="page" />);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "lui passer" })));
+  expect(screen.getByRole("button", { name: "lui passer" })).toBeDisabled();
+  // Le menu s'ouvre: le panneau change de conteneur, donc se remonte.
+  rerender(<Parent cle="menu" />);
+  expect(screen.getByRole("button", { name: "lui passer" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "je suis là, garder" })).toBeDisabled();
+  // Le jumeau: la réponse arrivée, ils reviennent.
+  await act(async () => finir());
+  expect(screen.getByRole("button", { name: "lui passer" })).toBeEnabled();
+  expect(action).toHaveBeenCalledTimes(1);
 });

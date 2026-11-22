@@ -16,13 +16,32 @@
  * relira la carte pour vérifier.
  *
  * Deux trames, deux profils: la trame Dolphin pour la GameCube et la Wii, la
- * trame Pro pour la Switch et la Xbox 360. Le nom des commandes suit la
- * manette de la salle: « Start » sur une GameCube, « + » sur une Switch,
+ * trame Pro pour la Switch et la Xbox 360. Le nom des commandes suit ce que
+ * la place présente au jeu: « Start » sur une GameCube, « + » sur une Switch,
  * « Start » et « LB » sur une Xbox.
+ *
+ * # Une trame, trois lectures
+ *
+ * Dans une salle Wii, la trame Dolphin se lit comme une manette GameCube, une
+ * Wiimote ou une guitare (docs/ecran-manettes.md). La première version de la
+ * carte ne connaissait que la GameCube: à la Wiimote, elle disait « Entrée →
+ * Start » et « S → X », là où le jeu lit + et 1 (relecture du 22 novembre
+ * 2026). La carte prend donc l'appareil de la place:
+ *
+ * - les NOMS viennent de `controlsFor`, la lecture que le tableau des
+ *   correspondances affiche déjà, flèche finale retirée;
+ * - un BOUTON n'est dit que si le plan dessiné de l'appareil (`EMULATED`) a
+ *   une pièce à sa clé: la guitare n'a ni croix gauche ni deuxième gâchette,
+ *   la Wiimote seule n'a ni C ni Z;
+ * - les deux STICKS sont toujours lus par Dolphin (stick, Nunchuk ou
+ *   inclinaison; stick C ou pointeur), sauf la guitare, dont le vibrato ne lit
+ *   que le stick C poussé à droite (`emulator::config::guitar_binds`).
  */
-import type { KeyProfile } from "../media/pad";
+import { controlsFor, type ControlKey, type KeyProfile } from "../media/pad";
 import type { SwitchTarget } from "../media/switch";
 import { inscription } from "./faces";
+import { EMULATED, GAMECUBE } from "./padmap";
+import type { Pad } from "./saves";
 import { labels as switchLabels, xboxLabels } from "./switch-labels";
 
 /** Une ligne de la carte: les touches, et ce qu'elles font dans le jeu. */
@@ -45,21 +64,54 @@ function stick(codes: (string | undefined)[], nom: Nom, fait: string): Ligne | n
 
 const ou = (codes: string[], nom: Nom) => codes.map(nom).join(" ou ");
 
+/** « + » seul devient « bouton + »: un signe isolé se lisait à peine à côté de
+ * sa touche (capture de la relecture du 22 novembre 2026). */
+const lisible = (fait: string) => (/^[+−-]$/u.test(fait) ? `bouton ${fait}` : fait);
+
+/** Ce que la place présente au jeu, pour une salle Dolphin. */
+export type Lecture = { console: string; pad: Pad };
+
+/** La guitare ne lit du stick C que le vibrato, poussé à droite
+ * (`Guitar/Whammy/Bar = Axis C X +` dans `guitar_binds`). */
+const GUITARE = 2;
+
 /** Pour la trame Dolphin: GameCube et Wii, qui partagent le profil. */
-export function aideDolphin(keys: KeyProfile, nom: Nom): Ligne[] {
+export function aideDolphin(
+  keys: KeyProfile,
+  nom: Nom,
+  lecture: Lecture = { console: "gc", pad: 0 },
+): Ligne[] {
+  // Une manette GameCube reste une manette GameCube, même dans une salle Wii.
+  const pad: Pad = lecture.console === "wii" ? lecture.pad : 0;
+  const plan = lecture.console === "wii" ? (EMULATED[pad] ?? GAMECUBE) : GAMECUBE;
+  const pieces = new Set(plan.parts.map((part) => part.key));
+  const noms = new Map<string, string>(
+    controlsFor(lecture.console, pad).map((one) => [one.key, one.label]),
+  );
+  /** « stick → » devient « stick »: la ligne porte les quatre directions.
+   * « gâchette L » devient « L »: la carte range deux paires par ligne, et le
+   * mot long passait sur deux lignes. */
+  const dit = (commande: ControlKey) =>
+    lisible(
+      (noms.get(commande) ?? commande).replace(/\s*[←↑→↓]$/u, "").replace(/^gâchette\s+/u, ""),
+    );
   const entrees = Object.entries(keys);
   const boutons = (name: string) =>
-    entrees
-      .filter(([, action]) => action.kind === "button" && action.name === name)
-      .map(([code]) => code);
+    pieces.has(name)
+      ? entrees
+          .filter(([, action]) => action.kind === "button" && action.name === name)
+          .map(([code]) => code)
+      : [];
   const gachette = (side: "L" | "R") =>
-    entrees
-      .filter(
-        ([, action]) =>
-          (action.kind === "trigger" && action.side === side) ||
-          (action.kind === "button" && action.name === side),
-      )
-      .map(([code]) => code);
+    pieces.has(side)
+      ? entrees
+          .filter(
+            ([, action]) =>
+              (action.kind === "trigger" && action.side === side) ||
+              (action.kind === "button" && action.name === side),
+          )
+          .map(([code]) => code)
+      : [];
   const sens = (axe: "x" | "y" | "cx" | "cy", signe: 1 | -1) =>
     entrees.find(
       ([, action]) => action.kind === "stick" && action.stick === axe && action.sign === signe,
@@ -69,27 +121,23 @@ export function aideDolphin(keys: KeyProfile, nom: Nom): Ligne[] {
   // partie, et la carte les pose sur sa première ligne.
   const start = boutons("START");
   const lignes: (Ligne | null)[] = [
-    stick([sens("y", 1), sens("x", -1), sens("y", -1), sens("x", 1)], nom, "stick"),
-    start.length ? { touches: ou(start, nom), fait: "Start" } : null,
+    stick([sens("y", 1), sens("x", -1), sens("y", -1), sens("x", 1)], nom, dit("x")),
+    start.length ? { touches: ou(start, nom), fait: dit("START") } : null,
   ];
-  for (const [commande, fait] of [
-    ["A", "A"],
-    ["B", "B"],
-    ["X", "X"],
-    ["Y", "Y"],
-    ["Z", "Z"],
-  ] as const) {
+  for (const commande of ["A", "B", "X", "Y", "Z"] as const) {
     const codes = boutons(commande);
-    lignes.push(codes.length ? { touches: ou(codes, nom), fait } : null);
+    lignes.push(codes.length ? { touches: ou(codes, nom), fait: dit(commande) } : null);
   }
   for (const side of ["L", "R"] as const) {
     const codes = gachette(side);
-    lignes.push(codes.length ? { touches: ou(codes, nom), fait: side } : null);
+    lignes.push(codes.length ? { touches: ou(codes, nom), fait: dit(side) } : null);
   }
-  const croix = ["D_UP", "D_LEFT", "D_DOWN", "D_RIGHT"].map((name) => boutons(name)[0]);
-  lignes.push(stick(croix, nom, "croix"));
+  const croix = (["D_UP", "D_LEFT", "D_DOWN", "D_RIGHT"] as const).map((name) => boutons(name)[0]);
+  lignes.push(stick(croix, nom, dit("D_UP")));
   lignes.push(
-    stick([sens("cy", 1), sens("cx", -1), sens("cy", -1), sens("cx", 1)], nom, "stick C"),
+    pad === GUITARE
+      ? stick([sens("cx", 1)], nom, dit("cx"))
+      : stick([sens("cy", 1), sens("cx", -1), sens("cy", -1), sens("cx", 1)], nom, dit("cx")),
   );
   return lignes.filter((ligne): ligne is Ligne => ligne !== null);
 }
@@ -106,7 +154,7 @@ export function aidePro(
   ];
   for (const cible of ["PLUS", "A", "B", "X", "Y", "L", "R", "ZL", "ZR", "MINUS"] as const) {
     const code = keys[cible];
-    lignes.push(code ? { touches: nom(code), fait: inscription(noms[cible]) } : null);
+    lignes.push(code ? { touches: nom(code), fait: lisible(inscription(noms[cible])) } : null);
   }
   lignes.push(stick([keys.UP, keys.LEFT, keys.DOWN, keys.RIGHT], nom, "croix"));
   lignes.push(stick([keys["ry+"], keys["rx-"], keys["ry-"], keys["rx+"]], nom, "stick droit"));

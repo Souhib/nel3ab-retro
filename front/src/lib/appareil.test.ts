@@ -56,7 +56,7 @@ describe("le pied du menu", () => {
   });
 
   it("au doigt, se dit en une phrase et pas en touches dessinées", () => {
-    expect(phrase(piedDuMenu("tactile"))).toBe("Glisse pour te déplacer, touche pour choisir.");
+    expect(phrase(piedDuMenu("tactile"))).toBe("Glisse pour te déplacer, appuie pour choisir.");
     expect(phrase([])).toBe("");
   });
 
@@ -71,7 +71,9 @@ describe("les aides des entrées et du sélecteur", () => {
   it("disent la touche de l'appareil", () => {
     expect(pour("clavier", "ouvrir la glissière")).toBe("Entrée pour ouvrir la glissière");
     expect(pour("manette", "ouvrir la glissière")).toBe("A pour ouvrir la glissière");
-    expect(pour("tactile", "ouvrir la glissière")).toBe("Touche pour ouvrir la glissière");
+    // « Touche » voulait dire une touche du clavier partout ailleurs dans la
+    // page (relecture du 22 novembre 2026).
+    expect(pour("tactile", "ouvrir la glissière")).toBe("Appuie pour ouvrir la glissière");
   });
 
   it("valident et annulent avec les mots de l'appareil", () => {

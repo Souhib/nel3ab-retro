@@ -138,6 +138,9 @@ export function Sidebar({
             key={choice}
             type="button"
             id={`mode-${choice}`}
+            // Ponctuel: un clic de souris rend le clavier au jeu
+            // (`lib/focus-jeu`, `rendreAuJeuApresClic`).
+            data-rend-le-jeu=""
             onClick={() => onMode(choice)}
             // Le mode choisi n'était dit que par la bordure indigo (A11Y-11).
             aria-pressed={mode === choice}

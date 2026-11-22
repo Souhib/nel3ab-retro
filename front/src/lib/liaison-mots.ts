@@ -287,3 +287,27 @@ export function phraseDemande(
   if (demande === null) return "";
   return `${demande.from} demande ta manette ${demande.port}. Tu as ${Math.ceil(secondes)} secondes pour répondre. Sans réponse, tu la gardes.`;
 }
+
+/** Une ligne du résumé de la connexion. */
+export type LigneResume = { nom: string; valeur: string };
+
+/**
+ * Le résumé de « état de la connexion », l'entrée du menu qui a remplacé la
+ * rubrique « mesures ».
+ *
+ * Son nom promettait un état et sa valeur disait « 1234 images », son aide
+ * « 60 Hz à l'écran » (relecture du 22 novembre 2026). L'état d'abord, par son
+ * nom (`NOM_ETAT`), puis les faits que la page mesure, en mots. Le détail
+ * complet, avec les compteurs, reste dans la colonne.
+ */
+export function resumeConnexion(
+  liaison: Liaison,
+  faits: { images: number; hz: number; port: number | null },
+): LigneResume[] {
+  return [
+    { nom: "état", valeur: NOM_ETAT[liaison.etat] },
+    { nom: "images reçues", valeur: faits.images.toLocaleString("fr-FR").replace(/\s/gu, " ") },
+    { nom: "ton écran", valeur: `${Math.round(faits.hz)} images par seconde` },
+    { nom: "ta manette", valeur: faits.port === null ? "aucune" : `la ${faits.port}` },
+  ];
+}

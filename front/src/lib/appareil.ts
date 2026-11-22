@@ -42,7 +42,9 @@ export type Gestes = {
 const GESTES: Record<Appareil, Gestes> = {
   clavier: { choisir: "Entrée", retour: "Échap", deplacer: "↑ ↓ ← →" },
   manette: { choisir: "A", retour: "B", deplacer: "croix" },
-  tactile: { choisir: "Touche", retour: "", deplacer: "Glisse" },
+  // « Appuie » et non « Touche »: partout ailleurs, « touche » veut dire une
+  // touche du clavier (relecture du 22 novembre 2026).
+  tactile: { choisir: "Appuie", retour: "", deplacer: "Glisse" },
 };
 
 export function gestes(appareil: Appareil): Gestes {
@@ -76,7 +78,7 @@ export function piedDuMenu(appareil: Appareil): Repere[] {
   ];
 }
 
-/** « Entrée pour ouvrir la glissière », « A pour… », « Touche pour… ». */
+/** « Entrée pour ouvrir la glissière », « A pour… », « Appuie pour… ». */
 export function pour(appareil: Appareil, quoi: string): string {
   return `${gestes(appareil).choisir} pour ${quoi}`;
 }

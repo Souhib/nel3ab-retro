@@ -28,7 +28,7 @@ import { PlaceDesSurcouches } from "./Surcouche";
 import { useMenuDialogue, useShell, useSwipe } from "./shell";
 import { phrase, piedDuMenu, type Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
-import { dispositionXmb } from "../lib/menu-xmb";
+import { compteUtile, dispositionXmb } from "../lib/menu-xmb";
 import { Reperes, Touche } from "./Reperes";
 
 /** Une entrée dans la colonne d'un rayon. */
@@ -210,6 +210,8 @@ export function Xmb({
     tactile: appareil === "tactile",
   });
   const groupe = items[row]?.group;
+  /** « 3/14 » seulement quand des entrées sont cachées sous le bas de la liste. */
+  const compte = compteUtile(d, hauteur, items.length) ? `${row + 1}/${items.length}` : "";
   const sortieDite = sortie ?? (idle ? "Fermer le menu" : "Reprendre la partie");
 
   /* La manette conduit la même croix que le clavier, par le même chemin. Le
@@ -249,7 +251,7 @@ export function Xmb({
             choisie et l'entrée suffisent. La colonne est découpée par le bas:
             sans « 3/14 », RIEN ne disait qu'il y avait d'autres entrées
             dessous. */}
-        {!d.bas && (groupe || items.length > 1) ? (
+        {!d.bas && (groupe || compte) ? (
           <p
             id="menuSujet"
             className="absolute whitespace-nowrap text-note uppercase tracking-[0.14em] text-muted"
@@ -258,9 +260,9 @@ export function Xmb({
             // légende les chevauchait (vu sur la capture à 390 px).
             style={{ top: d.croixY - 136, left: d.colonne.gauche }}
           >
-            {groupe ? `${groupe}` : ""}
-            {groupe && items.length > 1 ? " · " : ""}
-            {items.length > 1 ? `${row + 1}/${items.length}` : ""}
+            {groupe ?? ""}
+            {groupe && compte ? " · " : ""}
+            {compte}
           </p>
         ) : null}
 
@@ -407,21 +409,45 @@ export function Xmb({
                     >
                       {item.label}
                     </span>
-                    {here && (item.hint ?? item.by) ? (
-                      <span
-                        className={cn(
-                          "text-corps text-faint",
-                          d.etroit ? "line-clamp-2 leading-snug" : "truncate",
-                        )}
-                      >
-                        {item.by && item.hint
-                          ? `${item.by} · ${item.hint}`
-                          : (item.hint ?? item.by)}
-                      </span>
-                    ) : null}
+                    {/* Étroit, la valeur passe sous le nom au lieu de lui
+                        prendre la droite: à 320 px, « appareil des jeux Wii »
+                        et « commandes tactiles » restaient coupés malgré leurs
+                        deux lignes (relecture du 22 novembre 2026). Sur
+                        l'entrée choisie, elle partage la ligne de l'aide, pour
+                        que l'entrée garde sa hauteur de deux lignes plus deux. */}
+                    {(() => {
+                      const aide =
+                        item.by && item.hint ? `${item.by} · ${item.hint}` : (item.hint ?? item.by);
+                      const valeur = d.etroit ? item.value : undefined;
+                      if (!here) {
+                        return valeur ? (
+                          <span data-valeur className="truncate font-mono text-corps text-faint">
+                            {valeur}
+                          </span>
+                        ) : null;
+                      }
+                      if (!aide && !valeur) return null;
+                      return (
+                        <span
+                          className={cn(
+                            "text-corps text-faint",
+                            d.etroit ? "line-clamp-2 leading-snug" : "truncate",
+                          )}
+                        >
+                          {valeur ? (
+                            <span data-valeur className="font-mono text-indigo">
+                              {valeur}
+                            </span>
+                          ) : null}
+                          {valeur && aide ? " · " : ""}
+                          {aide}
+                        </span>
+                      );
+                    })()}
                   </span>
-                  {item.value ? (
+                  {item.value && !d.etroit ? (
                     <span
+                      data-valeur
                       className={cn(
                         "shrink-0 font-mono text-corps",
                         here ? "text-indigo" : "text-faint",

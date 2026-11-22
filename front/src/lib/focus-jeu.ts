@@ -74,3 +74,46 @@ export function clavierEnPause({
 }): boolean {
   return partie && place && appareil === "clavier" && !menu && !auJeu;
 }
+
+/**
+ * L'anneau de focus de la zone reste-t-il après cette touche ?
+ *
+ * L'anneau dit où Tab vient d'arriver. Pendant une partie, il longeait l'image
+ * d'un trait de 3 px, alors que ce projet protège justement l'image de ce qui
+ * tire l'oeil (relecture du 22 novembre 2026). Il se pose donc à l'arrivée par
+ * Tab (`Screen`) et s'efface à la première touche qui joue. Tab et les touches
+ * qui ne jouent pas seules (Maj, Ctrl, Alt, Cmd) le gardent: elles annoncent un
+ * déplacement du focus, pas une partie.
+ */
+export function anneauApresTouche(code: string): boolean {
+  return code === "Tab" || /^(Shift|Control|Alt|Meta)(Left|Right)?$/.test(code);
+}
+
+/**
+ * Rendre le clavier au jeu après ce clic ?
+ *
+ * Le prix de la règle d'un seul focus: un clic de souris sur une prise ou sur
+ * un mode de la colonne y laissait le focus (Chrome et Firefox le donnent au
+ * bouton cliqué, Safari non), et les flèches ne poussaient plus le stick jusqu'à
+ * un clic sur l'image. Après un geste PONCTUEL fait au pointeur pendant une
+ * partie, le focus revient donc à la zone. Une activation au clavier garde son
+ * focus: la personne a choisi ce bouton. Un bouton qui OUVRE quelque chose (le
+ * menu, les touches) n'est pas ponctuel: l'écran ouvert prend le focus.
+ */
+export function rendreAuJeuApresClic({
+  pointeur,
+  partie,
+  ponctuel,
+}: {
+  /** Le clic vient d'un pointeur (`MouseEvent.detail > 0`), pas d'Entrée. */
+  pointeur: boolean;
+  /** Un jeu tourne, hors chargement. */
+  partie: boolean;
+  /** Le bouton porte `data-rend-le-jeu`. */
+  ponctuel: boolean;
+}): boolean {
+  return pointeur && partie && ponctuel;
+}
+
+/** L'attribut des boutons ponctuels de la colonne (`rendreAuJeuApresClic`). */
+export const REND_LE_JEU = "data-rend-le-jeu";

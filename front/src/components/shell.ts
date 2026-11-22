@@ -261,7 +261,13 @@ export function useShell(
       if (typingIn(event.target)) return;
       // Un avis posé au-dessus du menu (une demande du chef, une erreur de
       // lancement) garde ses touches: ses flèches ne déplacent pas la liste.
-      if (event.target instanceof Element && event.target.closest("[data-surcouche]")) return;
+      // Échap non plus ne ferme pas le menu: sans `preventDefault`, il
+      // devenait une demande de fermeture du dialogue (`cancel`), qui le
+      // fermait quand même (relecture du 22 novembre 2026).
+      if (event.target instanceof Element && event.target.closest("[data-surcouche]")) {
+        if (event.key === "Escape") event.preventDefault();
+        return;
+      }
       const action = KEYS[event.key];
       if (action === undefined) return;
       if (action === "confirm" && activeNatif(event.target)) return;
@@ -383,6 +389,9 @@ export function useMenuDialogue(
     "aria-label": "menu de la salle",
     onCancel: (event) => {
       event.preventDefault();
+      // Le geste « retour » d'Android, le focus sur un avis: l'avis garde la
+      // main, comme pour Échap au clavier.
+      if (document.activeElement?.closest("[data-surcouche]")) return;
       if (!paused) shell.act("back");
     },
     onClose: () => {

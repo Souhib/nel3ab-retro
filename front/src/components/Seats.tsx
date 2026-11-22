@@ -107,16 +107,21 @@ export function Seats({
                 key={port}
                 type="button"
                 id={`port${port}`}
+                // Ponctuel: un clic de souris rend le clavier au jeu
+                // (`lib/focus-jeu`, `rendreAuJeuApresClic`).
+                data-rend-le-jeu=""
                 data-state={isMine ? "mine" : held ? "busy" : "free"}
                 data-armed={isArmed}
                 // L'état dans le nom: il n'était dit que par le dessin de la
                 // prise (audit A11Y-11). « tenue » et non « occupée » quand le
-                // salon ne nomme personne, comme le dessin.
+                // salon ne nomme personne, comme le dessin. Nommée, elle dit
+                // qui la tient et ce que fait un clic: « Bo » seul ne disait
+                // ni l'un ni l'autre (relecture du 22 novembre 2026).
                 aria-label={`Manette ${port}, ${
                   isMine
                     ? "la tienne"
                     : name && held
-                      ? name
+                      ? `tenue par ${name}, demander`
                       : held
                         ? isArmed
                           ? "tenue, reclique pour la reprendre"

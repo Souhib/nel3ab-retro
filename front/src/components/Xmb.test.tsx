@@ -154,7 +154,7 @@ describe("les rubriques et le pied", () => {
     expect(sortie.textContent).toBe("Reprendre la partie");
     // Pas de touche dessinée au doigt: une phrase.
     const pied = $("dialog#menu footer")!;
-    expect(pied.textContent).toContain("Glisse pour te déplacer, touche pour choisir.");
+    expect(pied.textContent).toContain("Glisse pour te déplacer, appuie pour choisir.");
     expect(pied.querySelector("kbd")).toBeNull();
     fireEvent.click(sortie);
     expect(onClose).toHaveBeenCalledOnce();

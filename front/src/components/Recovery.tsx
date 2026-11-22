@@ -9,6 +9,8 @@ export function Recovery({
   onAction,
   onClose,
   pad,
+  busy: busyParent,
+  onBusy,
 }: {
   notice: RecoveryNotice | null;
   error: string;
@@ -20,9 +22,17 @@ export function Recovery({
    * mètres de l'écran, chez quelqu'un qui tient une manette et pas une souris.
    * Sans ça, la seule façon de dire « je suis là » était de trouver un pointeur. */
   pad?: (handler: ((action: MenuAction) => void) | null) => void;
+  /** Une réponse est en vol. Tenu par le PARENT quand il le donne: ce panneau
+   * passe dans le menu ouvert (`Surcouche`), et un portail qui change de
+   * conteneur remonte son contenu. Un état local revenait alors à faux pendant
+   * l'envoi, et les boutons se réactivaient (relecture du 22 novembre 2026). */
+  busy?: boolean;
+  onBusy?: (busy: boolean) => void;
 }) {
   const [left, setLeft] = useState(0);
-  const [busy, setBusy] = useState(false);
+  const [busyIci, setBusyIci] = useState(false);
+  const busy = onBusy ? (busyParent ?? false) : busyIci;
+  const setBusy = onBusy ?? setBusyIci;
   useEffect(() => {
     if (!notice || notice.reason) return;
     const until = performance.now() + (notice?.remaining ?? 0) * 1000;

@@ -102,7 +102,9 @@ it("dit l'état de chaque prise dans son nom, et garde la sienne dans la tabulat
   expect(prise(1).disabled).toBe(false);
   expect(prise(1).getAttribute("aria-disabled")).toBe("true");
   expect(prise(2).getAttribute("aria-label")).toBe("Manette 2, libre");
-  expect(prise(3).getAttribute("aria-label")).toBe("Manette 3, Bo");
+  // Qui la tient, et ce qu'un clic fait: « Bo » seul ne disait ni l'un ni
+  // l'autre (relecture du 22 novembre 2026).
+  expect(prise(3).getAttribute("aria-label")).toBe("Manette 3, tenue par Bo, demander");
   expect(prise(4).getAttribute("aria-label")).toBe("Manette 4, tenue");
   // Le jumeau: rester focalisable ne la rend pas cliquable.
   prise(1).click();

@@ -217,8 +217,11 @@ export function Home({
           ) : null}
         </div>
 
+        {/* Sous 700 px, la sortie passe sur sa propre ligne, pleine largeur:
+            à côté des quatre pastilles, « Reprendre » sortait de l'écran par la
+            droite (x 324 à 430 sur 390 px, relecture du 22 novembre 2026). */}
         <footer
-          className="flex items-center justify-between px-8 py-4"
+          className="flex flex-wrap items-center justify-between gap-y-3 px-8 py-4 max-[699px]:px-4"
           style={{ borderTop: `1px solid ${EDGE}` }}
         >
           <span className="flex items-center gap-3">
@@ -262,13 +265,16 @@ export function Home({
             à la manette, Entrée et Échap au clavier, rien au doigt (audit
             T02). La sortie est un vrai bouton: c'était un `<span>` cliquable
             que le clavier ne pouvait pas atteindre (audit A11Y-10). */}
-          <span className="flex items-center gap-5 text-corps" style={{ color: "#c8c8c8" }}>
+          <span
+            className="flex items-center gap-5 text-corps max-[699px]:w-full max-[699px]:justify-between"
+            style={{ color: "#c8c8c8" }}
+          >
             {appareil === "tactile" ? null : <Pip letter={touches.choisir} what="choisir" />}
             <button
               type="button"
               id="closeMenu"
               onClick={onClose}
-              className="flex min-h-11 items-center rounded-full px-2"
+              className="flex min-h-11 items-center justify-center rounded-full px-2 max-[699px]:flex-1 max-[699px]:border max-[699px]:border-[#9a9a9a]"
             >
               {appareil === "tactile" ? (
                 <span className="text-fort">{sortie ?? (idle ? "Fermer" : "Reprendre")}</span>

@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { dispositionXmb, ETROIT_SOUS } from "./menu-xmb";
+import { compteUtile, dispositionXmb, entreesVisibles, ETROIT_SOUS, LISTE_MIN } from "./menu-xmb";
 
 const rubriques = (d: ReturnType<typeof dispositionXmb>, nombre: number) =>
   Array.from({ length: nombre }, (_, at) => ({
@@ -26,12 +26,52 @@ describe("la rangée des rubriques", () => {
             expect(r.gauche, `${largeur} px, rubrique ${choisi}`).toBeGreaterThanOrEqual(0);
             expect(r.droite, `${largeur} px, rubrique ${choisi}`).toBeLessThanOrEqual(largeur);
           }
-          // La liste commence sous la rubrique choisie, et tient dans l'écran.
-          if (!d.etroit) expect(d.colonne.gauche).toBe(d.rangee + choisi * d.pas);
-          expect(d.colonne.gauche + d.colonne.largeur).toBeLessThanOrEqual(largeur);
+          // La liste tient dans l'écran.
+          expect(d.colonne.gauche).toBeGreaterThanOrEqual(16);
+          expect(d.colonne.gauche + d.colonne.largeur).toBeLessThanOrEqual(largeur - 16);
         }
       }
     }
+  });
+
+  it("garde à la liste la largeur d'un libellé entier, même quand la croix avance", () => {
+    // Le défaut mesuré à la relecture du 22 novembre 2026: à 768 px (une
+    // tablette en portrait), « réglages » faisait avancer la croix à 456 px et
+    // la liste, qui la suivait, tombait dans les 296 px de droite. Cinq
+    // libellés sur dix y étaient coupés; l'ancienne page, à 476 px, n'en
+    // coupait aucun.
+    for (let largeur = ETROIT_SOUS; largeur <= 2560; largeur += 1) {
+      for (let choisi = 0; choisi < 4; choisi += 1) {
+        const d = dispositionXmb({ largeur, hauteur: 900, nombre: 4, choisi, tactile: false });
+        expect(d.colonne.largeur, `${largeur} px, rubrique ${choisi}`).toBeGreaterThanOrEqual(
+          Math.min(LISTE_MIN, largeur - 32),
+        );
+      }
+    }
+  });
+
+  it("pose la liste sous la rubrique choisie tant que la place le permet", () => {
+    // Le jumeau du précédent: une correction qui collerait la liste au bord
+    // gauche partout passerait sinon. Sur un grand écran, la liste reste sous
+    // la rubrique choisie, quelle qu'elle soit.
+    for (const largeur of [1280, 1440, 1920, 2560]) {
+      for (let choisi = 0; choisi < 4; choisi += 1) {
+        const d = dispositionXmb({ largeur, hauteur: 900, nombre: 4, choisi, tactile: false });
+        expect(d.colonne.gauche, `${largeur} px, rubrique ${choisi}`).toBe(
+          d.rangee + choisi * d.pas,
+        );
+      }
+    }
+    // Et à 768 px, « jeux » garde la sienne: seule la croix qui avance trop
+    // décroche la liste.
+    const jeux = dispositionXmb({
+      largeur: 768,
+      hauteur: 1024,
+      nombre: 4,
+      choisi: 0,
+      tactile: false,
+    });
+    expect(jeux.colonne.gauche).toBe(jeux.rangee);
   });
 
   it("ne glisse pas sur un téléphone: la rangée reste au bord quelle que soit la choisie", () => {
@@ -101,5 +141,23 @@ describe("la liste et le pied", () => {
     expect(visibles).toBeGreaterThanOrEqual(3);
     // Le jumeau: à la croix de 40 %, il n'en tenait que deux.
     expect(Math.floor((390 - d.pied - (Math.round(390 * 0.4) + 46)) / d.rang)).toBeLessThan(3);
+  });
+});
+
+describe("le compte des entrées", () => {
+  it("se tait quand toute la liste tient à l'écran", () => {
+    // « 1/2 » flottait seul au-dessus des rubriques, pour une liste qu'on
+    // voyait en entier (relecture du 22 novembre 2026).
+    const d = dispositionXmb({ largeur: 1440, hauteur: 900, nombre: 4, choisi: 2, tactile: false });
+    expect(compteUtile(d, 900, 2)).toBe(false);
+  });
+
+  it("le jumeau: parle quand des entrées sont cachées sous le bas de la liste", () => {
+    const d = dispositionXmb({ largeur: 1440, hauteur: 900, nombre: 4, choisi: 0, tactile: false });
+    expect(compteUtile(d, 900, 14)).toBe(true);
+    // Le seuil exact: autant d'entrées que de places, puis une de plus.
+    const places = entreesVisibles(d, 900);
+    expect(compteUtile(d, 900, places)).toBe(false);
+    expect(compteUtile(d, 900, places + 1)).toBe(true);
   });
 });

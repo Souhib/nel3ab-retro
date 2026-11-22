@@ -49,6 +49,10 @@ const DEPART = {
   // La trame que la salle demande: « dolphin » (13 octets) par défaut, ou
   // « switch » (15 octets), que le worker annonce par « format switch ».
   format: "dolphin",
+  // L'appareil que la place présente à un jeu Wii (« pad N », comme le
+  // worker): 0 GameCube, 1 Wiimote et Nunchuk, 2 guitare, 3 Wiimote seule.
+  // Nul: rien d'annoncé. Ajouté pour la carte des touches d'une salle Wii.
+  appareil: null,
 };
 
 export async function demarrerBanc({ port, page, flux }) {
@@ -70,6 +74,7 @@ export async function demarrerBanc({ port, page, flux }) {
   const LIBRARY = [
     { index: 0, name: "Jeu du banc", console: "x360", art: false },
     { index: 1, name: "Autre jeu du banc", console: "gc", art: false },
+    { index: 2, name: "Jeu Wii du banc", console: "wii", art: false },
   ];
   const room = () => ({
     name: "Salle 1",
@@ -233,6 +238,7 @@ export async function demarrerBanc({ port, page, flux }) {
   function input(ws) {
     inputs.add(ws);
     if (state.format === "switch") ws.send("format switch");
+    if (state.appareil !== null) ws.send(`pad ${state.appareil}`);
     ws.send(Buffer.from([4, 1, 1, 0, 1, 0, 0, 0, 0]));
     let avant = null;
     ws.on("message", (m) => {

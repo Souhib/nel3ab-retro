@@ -2,6 +2,16 @@ import type { InputState } from "../media/input";
 import { identify } from "../media/families";
 
 export type PlugNotice = { title: string; detail: string; configure: boolean };
+
+/** Une manette branchée qui attend ses correspondances: ni disposition
+ * standard, ni profil. La même règle sert l'avis de branchement, qui s'efface
+ * au bout de cinq secondes, et l'entrée « touches et manettes » du menu, qui
+ * le rappelle ensuite (audit P12). */
+export function manetteAConfigurer(
+  state: Pick<InputState, "padId" | "padLayout" | "profile">,
+): boolean {
+  return Boolean(state.padId) && state.padLayout !== "standard" && !state.profile;
+}
 /** Follows the device model, not the browser index, which changes on replug. */
 export class PlugHistory {
   private seen = new Set<string>();
@@ -16,7 +26,7 @@ export class PlugHistory {
     if (id) {
       const returning = id !== this.previous && this.seen.has(id);
       this.seen.add(id);
-      const configure = state.padLayout !== "standard" && !state.profile;
+      const configure = manetteAConfigurer(state);
       this.notice = {
         title: `${identify(id, state.padLayout ?? "").name} ${returning ? "reconnectée" : "connectée"}`,
         detail: state.profile

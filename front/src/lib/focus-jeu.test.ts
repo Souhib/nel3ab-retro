@@ -7,7 +7,13 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 
-import { clavierAuJeu, clavierEnPause, ZONE_JEU } from "./focus-jeu";
+import {
+  anneauApresTouche,
+  clavierAuJeu,
+  clavierEnPause,
+  rendreAuJeuApresClic,
+  ZONE_JEU,
+} from "./focus-jeu";
 
 function salle() {
   document.body.innerHTML = `
@@ -93,5 +99,44 @@ describe("dire que le clavier ne joue plus", () => {
     expect(clavierEnPause({ ...joue, appareil: "manette" })).toBe(false);
     expect(clavierEnPause({ ...joue, appareil: "tactile" })).toBe(false);
     expect(clavierEnPause({ ...joue, menu: true })).toBe(false);
+  });
+});
+
+/**
+ * L'anneau de focus de la zone: il dit où arrive Tab, puis s'efface quand on
+ * joue. La relecture du 22 novembre 2026 l'a vu longer l'image pendant toute
+ * une partie au clavier, après Échap puis Échap.
+ */
+describe("l'anneau de la zone de jeu", () => {
+  it("s'efface à la première touche de jeu", () => {
+    for (const touche of ["ArrowRight", "Enter", "KeyX", "Space"])
+      expect(anneauApresTouche(touche), touche).toBe(false);
+  });
+
+  it("le jumeau: reste pour Tab et pour une touche qui ne joue pas seule", () => {
+    for (const touche of ["Tab", "ShiftLeft", "ShiftRight", "AltLeft", "ControlLeft", "MetaLeft"])
+      expect(anneauApresTouche(touche), touche).toBe(true);
+  });
+});
+
+/**
+ * Un clic de souris sur un bouton ponctuel de la colonne rend le clavier au
+ * jeu. Le prix de la règle d'un seul focus était là: après un clic sur une
+ * prise ou un mode, les flèches restaient à la colonne (relecture du
+ * 22 novembre 2026).
+ */
+describe("rendre le clavier au jeu après un clic", () => {
+  const jeu = { pointeur: true, partie: true, ponctuel: true };
+
+  it("après un clic de souris sur un bouton ponctuel, pendant une partie", () => {
+    expect(rendreAuJeuApresClic(jeu)).toBe(true);
+  });
+
+  it("jamais au clavier, hors partie, ni pour un bouton qui ouvre quelque chose", () => {
+    // Au clavier, la personne a choisi ce bouton: le focus lui reste.
+    expect(rendreAuJeuApresClic({ ...jeu, pointeur: false })).toBe(false);
+    expect(rendreAuJeuApresClic({ ...jeu, partie: false })).toBe(false);
+    // « menu », « changer les touches »: ils ouvrent un écran qui prend le focus.
+    expect(rendreAuJeuApresClic({ ...jeu, ponctuel: false })).toBe(false);
   });
 });

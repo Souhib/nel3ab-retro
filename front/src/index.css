@@ -435,9 +435,15 @@ body {
 }
 
 /* La zone de jeu: l'anneau de focus DEDANS, sinon il sort de l'écran et la
-   colonne le coupe. Il ne se montre qu'au clavier (`:focus-visible`): un clic
-   sur l'image ne dessine rien. */
+   colonne le coupe. Il ne se montre qu'à l'arrivée par Tab (`data-anneau`,
+   posé par `Screen`) et s'efface à la première touche qui joue
+   (`anneauApresTouche`): `:focus-visible` seul le laissait longer l'image
+   toute la partie après Échap puis Échap (relecture du 22 novembre 2026). */
 .n3-zone-jeu:focus-visible {
+  outline: none;
+}
+.n3-zone-jeu[data-anneau]:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
   outline-offset: calc(-1 * var(--focus-largeur));
 }
 
@@ -1577,10 +1583,28 @@ body {
 /* Une erreur dit son état par la barre de gauche, comme au salon. */
 .n3-preparation-error {
   border-left: var(--barre-etat) solid var(--alerte);
+  /* Le texte et son bouton côte à côte: un bouton de 44 px posé dans la ligne
+     étirait l'interligne du texte. */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-block: 8px;
+  width: max-content;
 }
 .n3-preparation-error button {
-  margin-left: 15px;
+  flex-shrink: 0;
   text-decoration: underline;
+  /* 44 px: c'est un bouton qu'on touche du doigt, sur un menu de téléphone. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+}
+/* Dans un menu ouvert, les avis du bas se posent au-dessus de son pied
+   (`PlaceDesSurcouches` mesure `--pied-menu`): à 20 px du bord, ils
+   couvraient le bouton « Reprendre la partie » d'un téléphone. */
+.n3-menu [data-surcouche] :is(.n3-preparation-error, .n3-preparation-watching) {
+  bottom: calc(var(--pied-menu, 0px) + 12px);
 }
 @media (max-width: 650px) {
   .n3-preparation {

@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { place, type Fit } from "../lib/fit";
-import { ZONE_JEU } from "../lib/focus-jeu";
+import { anneauApresTouche, ZONE_JEU } from "../lib/focus-jeu";
 
 export function Screen({
   canvasRef,
@@ -88,6 +88,40 @@ export function Screen({
     });
     watch.observe(box);
     return () => watch.disconnect();
+  }, []);
+
+  /* L'anneau de focus: posé à l'arrivée par Tab, retiré à la première touche
+     qui joue ou au départ du focus (`anneauApresTouche`). Un attribut posé
+     directement, et non un état: React n'a rien à rendre pour un trait. */
+  useEffect(() => {
+    const zone = room.current;
+    if (!zone) return;
+    let parTab = false;
+    const touche = (event: KeyboardEvent) => {
+      parTab = event.key === "Tab";
+    };
+    const pointeur = () => {
+      parTab = false;
+    };
+    const arrive = () => {
+      if (parTab) zone.setAttribute("data-anneau", "");
+    };
+    const part = () => zone.removeAttribute("data-anneau");
+    const joue = (event: KeyboardEvent) => {
+      if (!anneauApresTouche(event.code)) zone.removeAttribute("data-anneau");
+    };
+    document.addEventListener("keydown", touche, true);
+    document.addEventListener("pointerdown", pointeur, true);
+    zone.addEventListener("focus", arrive);
+    zone.addEventListener("blur", part);
+    zone.addEventListener("keydown", joue);
+    return () => {
+      document.removeEventListener("keydown", touche, true);
+      document.removeEventListener("pointerdown", pointeur, true);
+      zone.removeEventListener("focus", arrive);
+      zone.removeEventListener("blur", part);
+      zone.removeEventListener("keydown", joue);
+    };
   }, []);
 
   const at = place(fit, picture, space);

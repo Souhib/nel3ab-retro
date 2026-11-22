@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Liaison } from "../media/liaison";
-import { dire, NOM_ETAT, phraseDemande, phraseLiaison } from "./liaison-mots";
+import { dire, NOM_ETAT, phraseDemande, phraseLiaison, resumeConnexion } from "./liaison-mots";
 
 const figee = (
   depuisMs: number,
@@ -223,5 +223,42 @@ describe("le vocabulaire tenu", () => {
     for (const texte of textes())
       for (const phrase of texte.split(/(?<=[.:])\s+/))
         expect(phrase.length, phrase).toBeLessThan(70);
+  });
+});
+
+/**
+ * « état de la connexion », l'entrée du menu qui a remplacé la rubrique
+ * « mesures ». Son nom promettait un état et sa valeur disait « 1234 images »,
+ * son aide « 60 Hz à l'écran » (relecture du 22 novembre 2026). La valeur est
+ * maintenant le nom de l'état, et le résumé dit les mêmes faits en mots.
+ */
+describe("le résumé de la connexion", () => {
+  const faits = { images: 1234, hz: 59.94, port: 2 as number | null };
+
+  it("dit l'état par son nom, puis les faits en mots", () => {
+    const lignes = resumeConnexion({ etat: "ok" }, faits);
+    expect(lignes[0]).toEqual({ nom: "état", valeur: "en marche" });
+    expect(lignes).toContainEqual({ nom: "images reçues", valeur: "1 234" });
+    expect(lignes).toContainEqual({ nom: "ton écran", valeur: "60 images par seconde" });
+    expect(lignes).toContainEqual({ nom: "ta manette", valeur: "la 2" });
+  });
+
+  it("le jumeau: une image figée et une page sans manette se disent", () => {
+    const fige: Liaison = {
+      etat: "figee",
+      depuisMs: 4000,
+      son: true,
+      manette: true,
+      niveau: "pastille",
+    };
+    const lignes = resumeConnexion(fige, { ...faits, port: null });
+    expect(lignes[0]?.valeur).toBe("image figée");
+    expect(lignes).toContainEqual({ nom: "ta manette", valeur: "aucune" });
+  });
+
+  it("sans mot d'atelier", () => {
+    for (const l of TOUS)
+      for (const ligne of resumeConnexion(l, faits))
+        expect(`${ligne.nom} ${ligne.valeur}`).not.toMatch(/—|socket|\bHz\b|worker|serveur/i);
   });
 });

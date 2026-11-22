@@ -93,6 +93,14 @@ if (!NOTICE) {
   console.log("RATÉ  l'avis de fermeture (#closingNotice) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
   process.exit(1);
 }
+// Depuis le 22 novembre 2026, l'avis vit dans la pile des avis du haut de
+// l'image (`#avisDuHaut`), qui le place: c'est elle qui porte la position et
+// le z-index. La garde copie donc les deux, telles que `App.tsx` les écrit.
+const PILE = /id="avisDuHaut"[\s\S]*?className="([^"]+)"/.exec(APP)?.[1];
+if (!PILE) {
+  console.log("RATÉ  la pile des avis (#avisDuHaut) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
+  process.exit(1);
+}
 
 const ROOMS = [
   { name: "gc-43", pad: "gc", pw: 640, ph: 480 },
@@ -263,8 +271,9 @@ function inspect({ GAME, PAGE, CLEARANCE, FLOOR, INSET }) {
   };
 }
 
-/** L'avis de fermeture posé avant le pavé, comme dans `App` : le reçoit-il ? */
-function notice({ NOTICE, INSET }) {
+/** L'avis de fermeture posé avant le pavé, dans sa pile, comme dans `App` : le
+ * reçoit-il ? */
+function notice({ NOTICE, PILE, INSET }) {
   const label = (el) =>
     el?.dataset?.touche ?? el?.dataset?.geste ?? (el?.id || el?.textContent?.trim() || el?.tagName);
   const pad = document.querySelector(".n3-pave, #touchpad, .n3-switch-touch");
@@ -278,8 +287,12 @@ function notice({ NOTICE, INSET }) {
   note.innerHTML =
     '<span class="float-left -mt-1 mr-3" aria-hidden="true" style="display:inline-block;width:44px;height:44px"></span>' +
     "Personne n'a joué depuis un moment: la salle ferme dans 2 minutes. Touche une manette pour rester.";
-  main.insertBefore(note, pad);
-  const style = getComputedStyle(note);
+  const pile = document.createElement("div");
+  pile.id = "garde-pile";
+  pile.className = PILE;
+  pile.append(note);
+  main.insertBefore(pile, pad);
+  const style = getComputedStyle(pile);
   const r = note.getBoundingClientRect();
   const bad = [];
   // La précondition : une classe non compilée laisserait un bouton nu en haut
@@ -303,7 +316,7 @@ function notice({ NOTICE, INSET }) {
       if (got !== note && !note.contains(got)) bad.push(`l'avis de fermeture (${where}) est sous ${label(got)}`);
     }
   }
-  note.remove();
+  pile.remove();
   return bad;
 }
 
@@ -419,7 +432,7 @@ try {
       Object.assign(cover.style, { position: "fixed", inset: "0", zIndex: "99" });
       document.body.append(cover);
     });
-    const hidden = await page.evaluate(notice, { NOTICE, INSET });
+    const hidden = await page.evaluate(notice, { NOTICE, PILE, INSET });
     await page.evaluate(() => document.getElementById("garde-cache-avis")?.remove());
     const coverSeen = hidden.some((line) => line.includes("garde-cache-avis"));
     console.log(`${coverSeen ? "ok  " : "RATÉ"}  la garde voit un calque posé exprès sur l'avis de fermeture`);
@@ -499,7 +512,7 @@ try {
         });
       }
       // Après les appuis : l'avis est posé puis retiré, il ne gêne rien d'autre.
-      if (!errors.length) bad.push(...(await page.evaluate(notice, { NOTICE, INSET })));      const line = `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${String(seen.games.length).padStart(2)} touches, bande ${String(seen.bar).padStart(3)} px, ${String(seen.covered).padStart(6)} px² sur l'image`;
+      if (!errors.length) bad.push(...(await page.evaluate(notice, { NOTICE, PILE, INSET })));      const line = `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${String(seen.games.length).padStart(2)} touches, bande ${String(seen.bar).padStart(3)} px, ${String(seen.covered).padStart(6)} px² sur l'image`;
       console.log(line);
       for (const one of bad) console.log(`        ${one}`);
       report.push({ name, ...seen, bad });

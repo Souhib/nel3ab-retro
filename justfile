@@ -40,7 +40,17 @@ default: local
 # 10h31, lu sur les mtime des deux copies), la porte est restée verte, et la
 # dérive a été retrouvée à la main. Un contrôle que rien n'appelle ne protège
 # de rien.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check
+#
+# `focus-navigateur` et `etats-navigateur` y entrent le 22 novembre 2026. Ce
+# sont les seules preuves du focus, du clavier et des états de la liaison dans
+# un vrai navigateur (jsdom n'a ni dialogue modal ni focus réel), et la
+# relecture du chantier du focus a trouvé que rien ne les lançait: une
+# régression passait la porte sans bruit. Elles demandent Chrome (puppeteer) et
+# ffmpeg, déjà exigé par `clip-audio-test`, et servent la page committée sur un
+# port de 5400 à 5499, sans rien de vivant. Leur prix, mesuré le jour même:
+# 1 min 25 s et 4 min 35 s, dont près de trois minutes pour les deux étapes de
+# `etats-navigateur` qui attendent une proposition de format réduit.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -710,8 +720,9 @@ etats-navigateur-rouge:
 # les trames que reçoit le banc (`focus.mjs`).
 #
 # Le même banc que `etats-navigateur`: la page COMMITTÉE, un salon et une salle
-# simulés sur un port de 5400 à 5499. Hors de `check`: Chrome, ffmpeg et une
-# minute.
+# simulés sur un port de 5400 à 5499. Hors de `check`, que la CI partage: Chrome,
+# ffmpeg et une minute et demie. Dans `local` depuis la relecture du
+# 22 novembre 2026: une preuve que rien n'appelle ne garde rien.
 #
 #   just focus-navigateur                          toutes les étapes
 #   just focus-navigateur --etapes menu-modal      une seule
@@ -731,6 +742,15 @@ focus-navigateur *args:
 # échouer sur le DÉFAUT de chaque étape, pas sur une précondition. Les jumeaux
 # (`entree-jeu`, `menu-entree-curseur`) n'y sont pas: ils passent sur les deux
 # pages, et c'est ce qu'ils doivent faire.
+#
+# Puis la page de la première version (55047a9), que sa relecture du même jour
+# a trouvée fausse: liste écrasée sur une tablette, libellés coupés à 320 px,
+# sortie de la Switch hors de l'écran, avis du menu sur la sortie, anneau
+# permanent sur l'image, clavier perdu après un clic sur la colonne, avis du
+# clavier sous la proposition. Chaque étape ajoutée par la relecture doit y
+# échouer sur son défaut. `entree-sans-clic` et `tab-retour` passent sur
+# 55047a9, qui avait déjà ce câblage: elles rougissent sur f4b90c5 et contre
+# les mutants qui le retirent (carnet, 22 novembre 2026).
 focus-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -740,9 +760,13 @@ focus-navigateur-rouge:
         -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
     git show f4b90c5:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    git show 55047a9:core/crates/worker/src/page/index.html > "$dossier/relue.html"
     cd spikes/m3-browser-drive
-    etapes=entree-colonne,entree-jeu-pro,menu-entree-focus,menu-modal,curseur-focus,aides-clavier,aides-manette,premiere-visite,rubriques,telephone,noms
+    etapes=entree-colonne,entree-jeu-pro,menu-entree-focus,menu-modal,curseur-focus,aides-clavier,aides-manette,premiere-visite,rubriques,telephone,noms,entree-sans-clic,tab-retour,surcouche,coques-telephone
     node focus.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    etapes=telephone,tablette,coques-telephone,surcouche,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
+    node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

@@ -32,6 +32,7 @@ cd control && NEL3AB_ROM_DIR=<celui de l'unité du salon> \
 | Clé des profils, hors dépôt | `~/.config/nel3ab/xenia-profils.cle` (0600) |
 | Image du conteneur | celle de la salle Switch, par son empreinte |
 | Parties | `~/.local/state/nel3ab/xbox360/<titre>/<emplacement>/` |
+| Ce que le carnet de jeu en montre | la taille et la date de `xenia/content` de l'emplacement personnel, le nom du jeu lu au catalogue (`/profil`, depuis le 22 novembre 2026) |
 
 La clé chiffre les fichiers `Account` des quatre profils (« Joueur 1 » à
 « Joueur 4 »), écrits avant le premier lancement pour que Xenia n'ouvre pas sa

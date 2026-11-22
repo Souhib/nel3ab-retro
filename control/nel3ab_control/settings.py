@@ -120,6 +120,13 @@ class Settings(BaseSettings):
         default=Path.home() / ".config/nel3ab/switch2.json",
         description="Pareil pour l'adaptateur Switch 2.",
     )
+    xbox360_config: Path = Field(
+        default=Path.home() / ".config/nel3ab/xbox360.json",
+        description=(
+            "Pareil pour l'adaptateur Xbox 360. Absent jusqu'au 22 novembre 2026: le "
+            "carnet de jeu ne montrait aucune sauvegarde Xbox 360."
+        ),
+    )
     boite_noire_dir: Path = Field(
         default=Path.home() / ".local/state/nel3ab/boite-noire",
         description=(
@@ -344,6 +351,28 @@ class Settings(BaseSettings):
             "navigateur de se déclarer propriétaire."
         ),
     )
+
+    def configuration_adaptateur(self, config_env: str) -> Path:
+        """La configuration d'un adaptateur, nommée par la variable que lit le worker.
+
+        Le manifeste nomme cette variable (`form.config_env`), et le réglage du
+        salon porte le même nom sans son préfixe: `NEL3AB_XBOX360_CONFIG` est
+        `xbox360_config`. Une variable sans réglage lève `LookupError`: une
+        console ajoutée au manifeste sans le sien doit se voir à l'essai, pas
+        faire disparaître ses sauvegardes du carnet.
+        """
+        prefixe = self.model_config.get("env_prefix", "")
+        champ = config_env.removeprefix(prefixe).lower()
+        if (
+            not config_env.startswith(prefixe)
+            or not champ.endswith("_config")
+            or champ not in type(self).model_fields
+        ):
+            raise LookupError(f"le salon n'a aucun réglage pour {config_env}")
+        valeur = getattr(self, champ)
+        if not isinstance(valeur, Path):
+            raise LookupError(f"{champ} n'est pas un chemin")
+        return valeur
 
     def is_admin(self, login: str) -> bool:
         """Cette adresse est-elle celle de `admin` ?

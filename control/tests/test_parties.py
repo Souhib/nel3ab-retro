@@ -16,6 +16,7 @@ import pytest
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.tablee import Tablee
 from nel3ab_control.api.ws.handlers import _joueur
+from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.parties import Fin, JeuJoue, Parties, Sauvegarde, sauvegarde_de
 from nel3ab_control.personnes import empreinte
 from nel3ab_control.settings import Settings
@@ -69,7 +70,14 @@ def test_personal_state_is_isolated() -> None:
         reglages.imports_dir,
     ):
         assert not dossier.is_relative_to(vrai), dossier
-    assert not reglages.switch_config.is_relative_to(Path.home() / ".config/nel3ab")
+    # La configuration de CHAQUE adaptateur du manifeste, pas une liste écrite
+    # ici: celle de la Xbox 360, ajoutée le 22 novembre 2026, aurait sinon pu
+    # lire le vrai dossier d'état d'un essai qui construit ses propres réglages.
+    adaptateurs = [one.config_env for one in CONSOLES.consoles if one.config_env]
+    assert len(adaptateurs) == 3, adaptateurs
+    for variable in adaptateurs:
+        chemin = reglages.configuration_adaptateur(variable)
+        assert not chemin.is_relative_to(Path.home() / ".config/nel3ab"), variable
 
 
 def test_une_place_tenue_ecrit_son_debut_puis_sa_fin_et_sa_duree(

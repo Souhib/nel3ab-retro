@@ -46,6 +46,20 @@ pub(super) fn serve_missing(mut stream: TcpStream) {
     let _ = stream.flush();
 }
 
+/// Renvoie le navigateur à `location`, une référence relative à l'adresse
+/// demandée (`Route::SansEntrer`).
+pub(super) fn serve_see_other(mut stream: TcpStream, location: &str) {
+    if super::head::consume(&mut stream).is_err() {
+        return;
+    }
+    let response = format!(
+        "HTTP/1.1 303 See Other\r\nLocation: {location}\r\nContent-Length: 0\r\n\
+         Cache-Control: no-store\r\nConnection: close\r\n\r\n"
+    );
+    let _ = stream.write_all(response.as_bytes());
+    let _ = stream.flush();
+}
+
 /// Dit « pas encore », pour une question dont la réponse n'existe pas d'abord.
 ///
 /// La taille de l'image n'est connue qu'une fois l'émulateur démarré. Répondre

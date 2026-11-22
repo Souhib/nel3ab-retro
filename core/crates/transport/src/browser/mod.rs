@@ -61,7 +61,9 @@ mod route;
 mod stream;
 
 use pad::input_thread;
-use page::{Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_unready};
+use page::{
+    Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_see_other, serve_unready,
+};
 use route::{Route, classify};
 use stream::{
     MicSeats, Queued, Viewer, carries_key_frame, deliver, mic_thread, sound_thread, video_thread,
@@ -1652,6 +1654,7 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
             None => serve_missing(stream),
         },
         Some(Route::Page { packing }) => serve_page(stream, page, packing),
+        Some(Route::SansEntrer { location }) => serve_see_other(stream, &location),
         None => {}
     }
 }

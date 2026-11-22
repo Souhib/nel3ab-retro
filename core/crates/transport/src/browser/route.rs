@@ -103,6 +103,51 @@ pub(super) enum Route {
         /// La compression que ce client a dite accepter.
         packing: Packing,
     },
+    /// Une entrée directe (`?entrer=`) demandée par une navigation venue d'un
+    /// autre site: la page est renvoyée à la même adresse sans `entrer`.
+    SansEntrer {
+        /// Les autres paramètres, en référence relative (`?a=1`): le chemin
+        /// reste celui que le navigateur voit, derrière le relais compris.
+        location: String,
+    },
+}
+
+/// L'adresse sans `entrer`, quand une navigation venue d'un autre site le
+/// demande; `None` sinon.
+///
+/// La salle reconnaît la personne par son adresse dans le réseau privé, sans
+/// cookie ni jeton: une page étrangère ouverte chez un membre pouvait donc
+/// naviguer vers `?entrer=jouer` et l'asseoir à son nom, sans un geste (audit
+/// P9). Le navigateur dit d'où vient la navigation (`Sec-Fetch-Site`):
+/// `cross-site` et `same-site` repassent par l'avant-salle, un clic de plus.
+/// Un rechargement (`same-origin`), un lien ouvert depuis une autre
+/// application (`none`) et un navigateur qui ne dit rien gardent l'entrée
+/// directe: ce dernier cas ne se distingue pas, et le refuser casserait les
+/// liens d'invitation des navigateurs anciens.
+///
+/// `head` garde sa casse: les autres paramètres repartent tels quels.
+pub(super) fn sans_entrer_d_ailleurs(head: &str) -> Option<String> {
+    let site = head.lines().find_map(|line| {
+        let (nom, valeur) = line.split_once(':')?;
+        nom.trim()
+            .eq_ignore_ascii_case("sec-fetch-site")
+            .then(|| valeur.trim().to_ascii_lowercase())
+    })?;
+    if site != "cross-site" && site != "same-site" {
+        return None;
+    }
+    let cible = head.lines().next()?.split_whitespace().nth(1)?;
+    let (_, requete) = cible.split_once('?')?;
+    let parties: Vec<&str> = requete.split('&').collect();
+    let entrer = |partie: &&str| *partie == "entrer" || partie.starts_with("entrer=");
+    if !parties.iter().any(entrer) {
+        return None;
+    }
+    let autres: Vec<&str> = parties
+        .into_iter()
+        .filter(|partie| !entrer(partie) && !partie.is_empty())
+        .collect();
+    Some(format!("?{}", autres.join("&")))
 }
 
 /// Whether a handshake came from a page this server itself served.
@@ -184,6 +229,11 @@ pub(super) fn classify(stream: &TcpStream) -> Option<Route> {
                 return None;
             }
             return Some(Route::Clip);
+        }
+        // Avant la page: une entrée directe venue d'un autre site repasse par
+        // l'avant-salle (`sans_entrer_d_ailleurs`).
+        if let Some(location) = sans_entrer_d_ailleurs(&String::from_utf8_lossy(&head)) {
+            return Some(Route::SansEntrer { location });
         }
         let packing = Packing::wanted(&text);
         return Some(art_from(&text).map_or(Route::Page { packing }, Route::Art));
@@ -442,10 +492,64 @@ mod tests {
             Some(Route::Formats) => "formats",
             Some(Route::Art(_)) => "art",
             Some(Route::Clip) => "clip",
+            Some(Route::SansEntrer { .. }) => "sans-entrer",
             None => "none",
         };
         client.join().unwrap();
         got
+    }
+
+    /// `?entrer=jouer` faisait prendre une place sans aucun geste: une page
+    /// étrangère ouverte chez un membre pouvait naviguer vers la salle et
+    /// l'asseoir à son nom (audit P9, vérification finale du 22 novembre
+    /// 2026). Venue d'un autre site, l'entrée directe tombe; d'un lien ouvert
+    /// depuis une autre application (`none`) ou d'un rechargement
+    /// (`same-origin`), elle reste.
+    #[test]
+    fn une_entree_directe_venue_d_un_autre_site_passe_par_l_avant_salle() {
+        let demande = |cible: &str, site: Option<&str>| {
+            let entete = site.map_or_else(String::new, |s| format!("Sec-Fetch-Site: {s}\r\n"));
+            format!("GET {cible} HTTP/1.1\r\nHost: x\r\n{entete}\r\n")
+        };
+        for site in ["cross-site", "same-site", "Cross-Site"] {
+            assert_eq!(
+                sans_entrer_d_ailleurs(&demande("/?entrer=jouer", Some(site))),
+                Some("?".to_owned()),
+                "{site}"
+            );
+        }
+        // Les autres paramètres restent, dans leur casse.
+        assert_eq!(
+            sans_entrer_d_ailleurs(&demande(
+                "/?Vue=Plan&entrer=regarder&b=2",
+                Some("cross-site")
+            )),
+            Some("?Vue=Plan&b=2".to_owned())
+        );
+        // Les jumeaux: un rechargement, un lien d'une autre application, un
+        // navigateur qui ne dit rien, et une adresse sans `entrer`.
+        for (cible, site) in [
+            ("/?entrer=jouer", Some("same-origin")),
+            ("/?entrer=jouer", Some("none")),
+            ("/?entrer=jouer", None),
+            ("/?entrerx=1", Some("cross-site")),
+            ("/", Some("cross-site")),
+        ] {
+            assert_eq!(
+                sans_entrer_d_ailleurs(&demande(cible, site)),
+                None,
+                "{cible} {site:?}"
+            );
+        }
+        // Et par le vrai routeur, avec son jumeau.
+        assert_eq!(
+            seen(demande("/?entrer=jouer", Some("cross-site")).as_bytes()),
+            "sans-entrer"
+        );
+        assert_eq!(
+            seen(demande("/?entrer=jouer", Some("same-origin")).as_bytes()),
+            "page"
+        );
     }
 
     /// The positive case, and its negative twins.

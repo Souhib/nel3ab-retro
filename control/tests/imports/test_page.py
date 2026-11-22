@@ -13,6 +13,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import anyio
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -262,3 +263,90 @@ def test_le_trousseau_nomme_range_et_colore_chaque_personne_toujours_pareil() ->
     assert all(r["prise"] in (1, 2, 3, 4) for r in rendus)
     assert rendus[0]["prise"] == rendus[0]["prise_encore"], "la même adresse, la même couleur"
     assert sorted(rendus, key=lambda r: r["rang"])[0]["nom"] == "config", "la configuration d'abord"
+
+
+# ── Les noms des consoles et ce qui se range, venus du manifeste ──────────────
+
+NOMS = Path(__file__).with_name("noms_module.mjs")
+MODULE = Path(__file__).resolve().parents[2] / "nel3ab_control/api/routes/importer.mjs"
+
+
+def noms_de_la_page(page: str) -> str:
+    """Le texte de l'élément `#noms-consoles`, tel que le navigateur le lira."""
+    prise = re.search(
+        r'<script type="application/json" id="noms-consoles">(.*?)</script>', page, re.DOTALL
+    )
+    assert prise, "la page ne porte pas les noms des consoles"
+    return prise.group(1)
+
+
+async def test_la_page_dit_ce_qui_se_range_d_apres_le_manifeste(client: httpx.AsyncClient) -> None:
+    """« GameCube, Wii et jeux Switch » était écrit à la main, et périmé dès que
+    la Xbox 360 a été rangée par l'import, le 21 novembre 2026."""
+    # Le texte tel qu'il se lit, sans les retours à la ligne du source.
+    page = " ".join((await client.get("/importer")).text.split())
+
+    assert "GameCube, Wii et jeux Switch" not in page
+    assert "Les jeux GameCube, Wii, Switch et Xbox 360 sont rangés tout de suite" in page
+    # Le jumeau: la Switch 2 s'inscrit encore à la main, elle reste de côté.
+    assert "Switch 2 sont" not in page and "Switch 2 et" not in page
+
+
+async def test_la_page_porte_les_noms_du_manifeste_et_le_module_n_en_recopie_aucun(
+    client: httpx.AsyncClient,
+) -> None:
+    from nel3ab_control.imports.destinations import noms
+
+    page = (await client.get("/importer")).text
+    lus = json.loads(noms_de_la_page(page))
+
+    assert lus == noms()
+    assert lus["x360"] == "Xbox 360"
+    assert lus["switch2"] == "Switch 2"
+    assert lus["n64"] == "Nintendo 64", "les consoles reconnues sans être servies aussi"
+    module = MODULE.read_text(encoding="utf-8")
+    for nom in lus.values():
+        assert f'"{nom}"' not in module, f"{nom} est encore recopié dans importer.mjs"
+
+
+def test_un_nom_qui_fermerait_le_script_est_echappe() -> None:
+    from nel3ab_control.api.routes.importer import noms_en_json
+
+    texte = noms_en_json({"x": "</script><script>alert(1)</script>"})
+
+    assert "</" not in texte
+    assert json.loads(texte) == {"x": "</script><script>alert(1)</script>"}
+
+
+@AVEC_NODE
+async def test_le_module_lit_les_noms_de_la_page_servie(client: httpx.AsyncClient) -> None:
+    from nel3ab_control.imports.destinations import noms
+
+    texte = noms_de_la_page((await client.get("/importer")).text)
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(NOMS)], input=json.dumps([texte, None, "{", "[1, 2]", ""]).encode()
+        )
+    lus, absent, casse, liste, vide = json.loads(sortie.stdout)
+
+    assert lus == noms()
+    # Les jumeaux: sans élément ou avec un texte faux, aucun nom inventé; la carte
+    # dit alors le code de la console.
+    assert absent == casse == liste == vide == {}
+
+
+@pytest.mark.parametrize(
+    ("mots", "phrase"),
+    [
+        (["GameCube", "Wii", "Switch", "Xbox 360"], "GameCube, Wii, Switch et Xbox 360"),
+        (["GameCube", "Wii"], "GameCube et Wii"),
+        (["GameCube"], "GameCube"),
+        # Un manifeste sans console rangée n'arrête pas le salon à son démarrage.
+        ([], "d'aucune console"),
+    ],
+)
+def test_la_liste_des_consoles_se_dit_comme_une_phrase(mots: list[str], phrase: str) -> None:
+    from nel3ab_control.api.routes.importer import enumerer
+
+    assert enumerer(mots) == phrase

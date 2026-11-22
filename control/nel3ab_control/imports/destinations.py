@@ -97,6 +97,17 @@ def console(code: str | None, source: manifeste.Manifeste = manifeste.CONSOLES) 
     return None
 
 
+def noms(source: manifeste.Manifeste = manifeste.CONSOLES) -> dict[str, str]:
+    """Le nom qu'une personne lit pour chaque code: le manifeste, puis les reconnues.
+
+    La page de dépôt les reçoit d'ici (`importer.py`) pour nommer la console
+    qu'elle estime avant l'envoi. Elle en gardait sa propre copie jusqu'au
+    22 novembre 2026.
+    """
+    lus = {code: nom for code, nom in RECONNUES.items() if source.console(code) is None}
+    return {**{one.code: one.label for one in source.consoles}, **lus}
+
+
 def libelle(code: str | None) -> str:
     """Le nom qu'une personne lit, ou « console inconnue »."""
     trouvee = console(code)

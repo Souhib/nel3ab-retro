@@ -572,6 +572,30 @@ def test_un_second_disque_xbox_360_du_meme_titre_est_un_doublon(tmp_path: Path) 
     assert sorted(p.name for p in xbox.iterdir()) == ["Sonic.iso", "Sonic.iso.nel3ab.json"]
 
 
+# ── Ce que la page de dépôt annonce comme rangé tout de suite ──────────────
+
+
+def test_ce_qui_se_range_tout_de_suite_suit_le_manifeste_et_l_import(
+    bibliotheque: tuple[str, Path],
+) -> None:
+    """La phrase de la page vient d'ici: écrite à la main, elle oubliait la Xbox 360."""
+    from nel3ab_control.imports.traitement import FICHE_ECRITE_PAR_L_IMPORT, rangees
+
+    rom_dir, _ = bibliotheque
+    assert rangees() == ["GameCube", "Wii", "Switch", "Xbox 360"]
+    # Le jumeau: la Switch 2 s'inscrit par fiche, que l'import n'écrit pas encore,
+    # et `decider` le dit avec un fichier dont il ne reproche rien d'autre.
+    assert "switch2" not in FICHE_ECRITE_PAR_L_IMPORT
+    assert decider(lu("switch2", "nup"), rom_dir).etat == "a-confirmer"
+    assert "à la main" in decider(lu("switch2", "nup"), rom_dir).message
+    # Une console retirée du manifeste disparaît aussi de la phrase.
+    sans = dataclasses.replace(
+        manifeste.CONSOLES,
+        consoles=tuple(one for one in manifeste.CONSOLES.consoles if one.code != "x360"),
+    )
+    assert rangees(sans) == ["GameCube", "Wii", "Switch"]
+
+
 @pytest.mark.parametrize(
     "titre",
     [

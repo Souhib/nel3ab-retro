@@ -17,6 +17,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from nel3ab_control import consoles as manifeste
 from nel3ab_control.imports import archives
 from nel3ab_control.imports.destinations import EXTENSIONS, console, destination, dossiers
 from nel3ab_control.imports.empreinte import empreinte_rapide, lecteur_fd
@@ -110,10 +111,9 @@ def decider(
             f"{trouvee.libelle} reconnue, pas encore jouable: la salle n'a pas {manque}.",
         )
     if trouvee.inscription == "sidecar":
-        if trouvee.code == "switch":
-            return _switch(trouve, rom_dir, switch, inscrits or {})
-        if trouvee.code == "x360":
-            return _xbox360(trouve, rom_dir)
+        par_l_import = FICHE_ECRITE_PAR_L_IMPORT.get(trouvee.code)
+        if par_l_import is not None:
+            return par_l_import(trouve, rom_dir, switch, inscrits or {})
         return Decision(
             "a-confirmer",
             f"{trouvee.libelle}: l'identifiant de titre et le nom s'inscrivent à la main "
@@ -241,6 +241,34 @@ def _switch_lu(lu: Contenu, rom_dir: str, inscrits: Mapping[str, Inscrit]) -> De
             "(réglage NEL3AB_ROM_DIR du salon).",
         )
     return Decision("range", VISIBLE, dossier)
+
+
+#: Les consoles inscrites par fiche dont l'import écrit lui-même la fiche, et ce
+#: qui décide pour chacune. Une autre console inscrite par fiche attend une
+#: fiche écrite à la main. La page de dépôt lit cette table, par `rangees`, pour
+#: dire ce qui se range tout de suite: sa phrase écrite à la main l'a oublié
+#: pour la Xbox 360 le 21 novembre 2026.
+FICHE_ECRITE_PAR_L_IMPORT: dict[
+    str, Callable[[Identification, str, Lecture | None, Mapping[str, Inscrit]], Decision]
+] = {
+    "switch": lambda trouve, rom_dir, lu, inscrits: _switch(trouve, rom_dir, lu, inscrits),
+    "x360": lambda trouve, rom_dir, _lu, _inscrits: _xbox360(trouve, rom_dir),
+}
+
+
+def rangees(source: manifeste.Manifeste = manifeste.CONSOLES) -> list[str]:
+    """Le nom des consoles dont un jeu peut être rangé dès son dépôt, dans l'ordre du manifeste.
+
+    Celles que `decider` peut ranger: jouables, et lues par Dolphin ou inscrites
+    par une fiche que l'import écrit lui-même. Un jeu Switch le demande avec la
+    clé d'en-tête de la console; sans elle, il reste « à confirmer ».
+    """
+    return [
+        one.label
+        for one in source.consoles
+        if one.playable
+        and (one.registration == "dolphin-header" or one.code in FICHE_ECRITE_PAR_L_IMPORT)
+    ]
 
 
 def _switch_sans_cle(trouve: Identification, raison: str) -> Decision:

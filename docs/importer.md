@@ -103,6 +103,10 @@ la Xbox 360 (`nel3ab_control.consoles.FORMES_TITRE`, tenu aux mêmes exemples qu
 le worker par `consoles/titres-vecteurs.json`). Il ne remplace jamais un
 fichier existant.
 
+La phrase de la page qui dit ce qui se range tout de suite, et le nom de chaque
+console sur une carte, viennent du manifeste des consoles et des règles de
+l'import : ils ne sont plus écrits à la main dans la page.
+
 ## La Switch
 
 Un jeu Switch n'entre dans la salle qu'avec une fiche `<fichier>.nel3ab.json`

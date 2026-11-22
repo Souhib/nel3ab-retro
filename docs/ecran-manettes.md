@@ -531,7 +531,9 @@ valent zéro tant que la page n'a pas `viewport-fit=cover`. Le pilote de salle
 `touch.mjs` n'a pas été relancé : il demande une salle vivante ; la garde rejoue
 sa règle « rien sur l'image » sur le banc. Sur une image très claire, les
 touches translucides perdent du contraste : 2,79:1 au pire pour le A de la
-GameCube sur du blanc, 3,67:1 pour le X d'une Xbox (non exigé). Les touches de
+GameCube sur du blanc, 3,67:1 pour le B d'une Xbox (non exigé). Sur le noir,
+le plus juste est le geste « son » : 4,50:1 dans le thème par défaut, le seuil
+même que `--faint` vise sur le panneau. Les touches de
 44 px couvrent plus d'image qu'avant sur une tablette tenue en travers, où il
 n'y a pas de bande noire (68 080 px² contre 52 098 pour la GameCube en 1024 sur
 768). Sur un téléphone en 16:9, les bandes font 76 à 84 px : aucun stick n'y

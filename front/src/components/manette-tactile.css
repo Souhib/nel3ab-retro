@@ -106,8 +106,8 @@
 /* Les lettres en couleur d'une Xbox : sur un fond sombre FIXE, comme la
    console. Posées sur le fond du thème, le jaune de Y et le vert de A tombaient
    à 1,22:1 et 1,05:1 dans le thème instrument clair (revue du 22 novembre
-   2026). Sur ce fond posé sur le noir de la bande, la plus pâle des quatre, le
-   bleu de X, garde 5,9:1. */
+   2026). Sur ce fond posé sur le noir de la bande, la plus sombre des quatre,
+   le rouge de B, garde 5,96:1 (garde du même jour). */
 .n3-pave-touche[data-encre] {
   border-color: #3a3e48;
   background: #16181dd9;

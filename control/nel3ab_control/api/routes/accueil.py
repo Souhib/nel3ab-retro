@@ -59,10 +59,22 @@ def faces() -> str:
     return "\n".join(regles)
 
 
+def regie() -> str:
+    """Les jetons de la régie, communs à la salle et aux pages du salon.
+
+    `regie.css` est la copie de `front/src/regie.css`, que
+    `front/src/lib/regie.test.ts` compare octet pour octet. Une page la pose par
+    ``/*__REGIE__*/`` dans son ``<style>``, avant ses propres règles: les deux
+    thèmes, nuit et jour, et le système qui choisit entre eux.
+    """
+    return (Path(__file__).parent / "regie.css").read_text(encoding="utf-8")
+
+
 PAGE = bobine.garnir(
     (Path(__file__).parent / "accueil.html")
     .read_text(encoding="utf-8")
     .replace("/*__POLICES__*/", faces())
+    .replace("/*__REGIE__*/", regie())
 )
 
 

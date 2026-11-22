@@ -10,17 +10,17 @@
 
      Chaque jeu joué est une tranche rangée sur une planche, comme les
      boîtiers et les cartouches qu'on alignait sous la télévision. La
-     tranche s'épaissit avec le temps de jeu, sa bande de couleur dit la
-     console. Une sauvegarde à soi est une carte mémoire posée devant, avec
-     sa date et ses versions. Un jeu joué chez quelqu'un d'autre est une
+     tranche s'épaissit avec le temps de jeu, et sa forme dit le support:
+     un boîtier de disque, une cartouche striée, une carte. Une sauvegarde
+     à soi est une carte mémoire posée devant, avec sa date et ses versions. Un jeu joué chez quelqu'un d'autre est une
      tranche sans carte: la partie s'est écrite dans SA sauvegarde. Le temps
      total roule une fois sur un compteur mécanique, celui des
      magnétoscopes.
 
-     Même régie que l'accueil (graphite, Anybody, Departure), parce que ce
-     sont deux pages du même salon. Departure n'a que des capitales, des
-     chiffres et quelques signes: tout ce qui porte un accent ou une
-     minuscule est en Anybody.
+     Même régie que l'accueil et la salle (`front/src/regie.css`, posée au
+     démarrage du salon): graphite la nuit, craie le jour. Departure n'a
+     que des capitales, des chiffres et quelques signes: tout ce qui porte
+     un accent ou une minuscule est en Anybody.
 
      Seules `transform` et `opacity` bougent, et `prefers-reduced-motion`
      arrête tout en bas de cette feuille. Aucune requête ne sort de la
@@ -28,30 +28,34 @@
      ───────────────────────────────────────────────────────────────── */
   /*__POLICES__*/
   /*__BOBINE__*/
+  /*__REGIE__*/
 
+  /* L'étagère, les boîtiers, le compteur et les cartes mémoire sont des
+     OBJETS: ils gardent leurs couleurs d'objet dans les deux thèmes, comme
+     les manettes dessinées de la salle, et prennent pour cela les primitives
+     de la régie plutôt que ses rôles. Un boîtier sombre se lit sur la craie
+     comme sur le graphite; un texte de page posé dessus, non. */
   :root {
-    --fond: #15171b;
-    --plaque: #1e2126;
-    --creux: #101216;
-    --craie: #eef0f2;
-    --legende: #9aa2ab;
-    --trait: #6b727b;
     --bois: #6d4f2f;
     --bois-clair: #8a6a43;
     --bois-ombre: #3c2a17;
-    --alerte: #ff8f6b;
-    /* Les bandes de console, dans l'ordre du manifeste (`rang`): les barres
-       EBU de l'accueil, puis deux de plus. Une console ajoutée prend la
-       couleur suivante sans toucher la page. */
-    --c0: #b9a4ff;
-    --c1: #57d3f0;
-    --c2: #ff6b5b;
-    --c3: #63d488;
-    --c4: #f2e14b;
-    --c5: #d06fd0;
-    --c6: #eef0f2;
-    --titre: "Anybody", "Helvetica Neue", Arial, sans-serif;
-    --machine: "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
+    --objet: #2c3038;
+    --objet-encre: var(--craie-50);
+    --objet-legende: var(--graphite-400);
+    /* Les bandes de console, une par `rang` du manifeste. Elles étaient sept
+       teintes (violet, cyan, corail, vert, jaune, magenta, craie): le cyan
+       était aussi la salle 2 de l'accueil, le corail de la Switch voisinait
+       le rouge du joueur 1. Une teinte, un sens: les quatre couleurs de
+       joueur ne servent qu'aux joueurs. La console se lit à son nom sur la
+       fiche, et le support à la forme de la tranche et au motif de sa
+       bande. Le script lit encore `--c0` à `--c6`. */
+    --c0: var(--objet-encre);
+    --c1: var(--objet-encre);
+    --c2: var(--objet-encre);
+    --c3: var(--objet-encre);
+    --c4: var(--objet-encre);
+    --c5: var(--objet-encre);
+    --c6: var(--objet-encre);
   }
   * { box-sizing: border-box; }
   /* `geometricPrecision`: sans lui, Chrome sous Linux dessine le « é » des
@@ -61,26 +65,29 @@
      contours sur la grille rend l'accent. */
   body {
     margin: 0; min-height: 100vh;
-    background: var(--fond); color: var(--craie);
+    background: var(--fond); color: var(--encre);
     text-rendering: geometricPrecision;
-    font: 400 17px/1.5 var(--titre);
+    font: 400 17px/1.5 var(--police-texte);
     padding: clamp(1rem, 2.5vh, 2rem) clamp(1rem, 3vw, 3rem);
   }
   .carnet { width: 100%; max-width: 1200px; margin-inline: auto;
             display: flex; flex-direction: column; gap: clamp(1.6rem, 4vh, 2.8rem); }
   a { color: inherit; }
-  :focus-visible { outline: 3px solid var(--craie); outline-offset: 3px; }
+  :focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
 
   /* ── Le rail, comme à l'accueil ─────────────────────────────────── */
   .rail { display: flex; align-items: baseline; gap: 1.2rem; flex-wrap: wrap;
           border-bottom: 2px solid var(--trait); padding-bottom: .7rem; }
-  .marque { font-family: var(--machine); letter-spacing: .34em; font-size: clamp(15px, 1.5vw, 19px); }
-  .rail-fait { font-family: var(--machine); letter-spacing: .14em; color: var(--legende);
+  /* En capitales, comme à l'accueil et dans la salle: sans elles, la police
+     machine n'ayant pas de minuscules, le mot s'écrivait dans le repli. */
+  .marque { font-family: var(--police-machine); letter-spacing: .34em; font-size: clamp(15px, 1.5vw, 19px);
+            text-transform: uppercase; }
+  .rail-fait { font-family: var(--police-machine); letter-spacing: .14em; color: var(--legende);
                font-size: clamp(13px, 1.2vw, 16px); }
   .rail a { margin-left: auto; color: var(--legende); text-decoration: none; }
-  .rail a:hover { color: var(--craie); }
+  .rail a:hover { color: var(--encre); }
 
-  .etiquette { font: 700 clamp(13px, 1.2vw, 15px)/1.2 var(--titre); letter-spacing: .2em;
+  .etiquette { font: 700 clamp(13px, 1.2vw, 15px)/1.2 var(--police-texte); letter-spacing: .2em;
                text-transform: uppercase; color: var(--legende); margin: 0 0 .9rem; }
   .legende { color: var(--legende); font-size: clamp(14px, 1.3vw, 16px); margin: 0; }
 
@@ -95,14 +102,14 @@
                    width: 18px; height: 18px; background: var(--plaque);
                    border-left: 2px solid var(--trait); border-bottom: 2px solid var(--trait);
                    transform: rotate(45deg); }
-  .bulle h1 { font: 700 clamp(24px, 3.4vw, 40px)/1.1 var(--titre); margin: 0 0 .3rem;
+  .bulle h1 { font: 700 clamp(24px, 3.4vw, 40px)/1.1 var(--police-texte); margin: 0 0 .3rem;
               overflow-wrap: anywhere; }
   @keyframes bulle { from { opacity: 0; transform: translateY(8px) scale(.96); } }
 
   /* ── Le compteur mécanique ──────────────────────────────────────── */
   .compteur { background: var(--creux); border: 2px solid var(--trait); padding: 1.1rem clamp(.8rem, 2vw, 1.4rem); }
   .tambours { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-              font: 400 clamp(38px, 8vw, 84px)/1 var(--machine); }
+              font: 400 clamp(38px, 8vw, 84px)/1 var(--police-machine); }
   /* Une fenêtre d'un chiffre, et derrière elle un rouleau de vingt: le
      tambour fait un tour complet avant de s'arrêter sur le sien. */
   .tambour { --pas: 1.12em; display: inline-block; height: var(--pas); width: .78em; overflow: hidden;
@@ -113,12 +120,12 @@
   .rouleau { display: flex; flex-direction: column; text-align: center;
              transform: translateY(calc(var(--cran, 0) * var(--pas) * -1));
              transition: transform calc(900ms + var(--rang, 0) * 160ms) cubic-bezier(.22, .9, .3, 1.04); }
-  .rouleau span { height: var(--pas); line-height: var(--pas); color: var(--craie); }
+  .rouleau span { height: var(--pas); line-height: var(--pas); color: var(--objet-encre); }
   .tambour[data-unite] { width: auto; background: none; border: 0; }
   .unite { font-size: .36em; letter-spacing: .1em; color: var(--legende); padding: 0 .35em 0 .15em;
            align-self: flex-end; margin-bottom: .2em; }
   .totaux { margin: .8rem 0 0; color: var(--legende); }
-  .totaux strong { color: var(--craie); font-weight: 600; }
+  .totaux strong { color: var(--encre); font-weight: 600; }
 
   /* ── L'étagère ──────────────────────────────────────────────────── */
   /* Les rangées ont toutes la même hauteur, et la planche est un dégradé
@@ -132,14 +139,14 @@
                  var(--bois-clair) calc(var(--rangee) - var(--planche)) calc(var(--rangee) - var(--planche) + 3px),
                  var(--bois) calc(var(--rangee) - var(--planche) + 3px) calc(var(--rangee) - 4px),
                  var(--bois-ombre) calc(var(--rangee) - 4px) var(--rangee)),
-               linear-gradient(90deg, var(--creux), #181b20 50%, var(--creux));
+               linear-gradient(90deg, var(--graphite-950), #181b20 50%, var(--graphite-950));
              border-left: 6px solid var(--bois-ombre); border-right: 6px solid var(--bois-ombre); }
   .case { height: var(--rangee); padding: 0 6px var(--planche) 0; display: flex; align-items: flex-end;
           position: relative; }
   .tranche { --bande: var(--c6); --epaisseur: 28px; --haut: 232px;
              position: relative; width: var(--epaisseur); height: var(--haut);
              display: flex; flex-direction: column; align-items: center;
-             padding: 0; border: 0; cursor: pointer; color: var(--craie);
+             padding: 0; border: 0; cursor: pointer; color: var(--objet-encre);
              background: linear-gradient(90deg, #2a2e35, #363b44 40%, #2a2e35);
              box-shadow: inset 0 0 0 1px #0b0c0f;
              border-radius: 3px 3px 1px 1px;
@@ -147,7 +154,9 @@
              animation: range .55s cubic-bezier(.2, .8, .3, 1.1) both;
              animation-delay: calc(240ms + var(--rang, 0) * 55ms); }
   .tranche:hover, .tranche[aria-expanded="true"] { transform: translateY(-10px); }
-  .tranche[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--craie); }
+  /* La tranche prise est SÉLECTIONNÉE: le signal, dans sa valeur de nuit
+     puisque le boîtier reste sombre dans les deux thèmes. */
+  .tranche[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--violet-300); }
   /* Un boîtier de disque: grand, coins arrondis. Une cartouche: plus
      courte, le haut strié pour les doigts. Une carte: petite et mince. */
   .tranche[data-media="cartridge"] { --haut: 184px; border-radius: 6px 6px 2px 2px;
@@ -157,66 +166,72 @@
   .tranche[data-chez="oui"] { background: repeating-linear-gradient(135deg, #23272e 0 6px, #2b3038 6px 12px);
                               box-shadow: inset 0 0 0 1px var(--trait); }
   .tranche-bande { width: 100%; height: 14px; background: var(--bande); border-radius: 3px 3px 0 0; flex: none; }
-  .tranche[data-media="cartridge"] .tranche-bande { margin-top: 22px; border-radius: 0; }
+  /* Le motif de la bande redit le support, pour qui ne compare pas les
+     hauteurs: plein pour un disque, rayé pour une cartouche, pointillé pour
+     une carte. */
+  .tranche[data-media="cartridge"] .tranche-bande { margin-top: 22px; border-radius: 0;
+    background: repeating-linear-gradient(90deg, var(--bande) 0 4px, transparent 4px 7px); }
+  .tranche[data-media="card"] .tranche-bande {
+    background: radial-gradient(circle, var(--bande) 0 2px, transparent 2.5px) 0 0 / 7px 7px; }
   .tranche-titre { writing-mode: vertical-rl; transform: rotate(180deg); flex: 1; min-height: 0;
                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-                   font: 600 clamp(11px, calc(var(--epaisseur) * .36), 15px)/1 var(--titre);
+                   font: 600 clamp(11px, calc(var(--epaisseur) * .36), 15px)/1 var(--police-texte);
                    padding: 8px 0; letter-spacing: .02em; }
   /* La carte mémoire glissée devant la tranche: il y a une sauvegarde à soi. */
   /* Une petite carte mémoire appuyée contre le bas de la tranche: un coin
      coupé, une étiquette claire. Assez grande pour se voir à côté d'une
      tranche mince. */
   .tranche-carte { position: absolute; bottom: -4px; right: -9px; width: 22px; height: 28px;
-                   transform: rotate(8deg); background: #2c3038;
+                   transform: rotate(8deg); background: var(--objet);
                    border-top: 5px solid var(--bande);
                    clip-path: polygon(0 0, 68% 0, 100% 24%, 100% 100%, 0 100%); z-index: 1; }
   .tranche-carte::after { content: ""; position: absolute; left: 4px; right: 5px; top: 5px; height: 8px;
-                          background: var(--craie); }
+                          background: var(--objet-encre); }
   .tranche-enCours { position: absolute; top: 20px; right: 4px; width: 7px; height: 7px; border-radius: 50%;
                      background: #63d28f; animation: diode 1.6s ease-in-out infinite; }
   @keyframes range { from { opacity: 0; transform: translateY(-36px) rotate(-5deg); } }
   @keyframes diode { 50% { opacity: .25; } }
-  .etagere-vide { width: 100%; align-self: center; padding: 2.4rem 0; text-align: center; color: var(--legende); }
+  .etagere-vide { width: 100%; align-self: center; padding: 2.4rem 0; text-align: center; color: var(--objet-legende); }
 
   /* La fiche d'un jeu, sous l'étagère, quand on prend sa tranche. */
-  .fiche { margin-top: 1rem; background: var(--plaque); border-left: 6px solid var(--bande, var(--trait));
+  .fiche { margin-top: 1rem; background: var(--plaque); border-left: var(--barre-etat) solid var(--encre);
            padding: 1rem 1.2rem; animation: glisse .35s cubic-bezier(.2, .8, .3, 1) both; }
   .fiche[hidden] { display: none; }
-  .fiche h3 { font: 700 clamp(20px, 2.6vw, 30px)/1.15 var(--titre); margin: 0 0 .2rem; overflow-wrap: anywhere; }
+  .fiche h3 { font: 700 clamp(20px, 2.6vw, 30px)/1.15 var(--police-texte); margin: 0 0 .2rem; overflow-wrap: anywhere; }
   .fiche ul { margin: .6rem 0 0; padding-left: 1.1rem; }
   .fiche li { margin: .15rem 0; }
-  .console-mot { font-family: var(--machine); letter-spacing: .14em; color: var(--legende); font-size: 13px; }
+  .console-mot { font-family: var(--police-machine); letter-spacing: .14em; color: var(--legende); font-size: 13px; }
   @keyframes glisse { from { opacity: 0; transform: translateY(10px); } }
 
   /* ── Les cartes mémoire ─────────────────────────────────────────── */
   .cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 14px; }
   /* Le contour d'une carte mémoire GameCube: un coin coupé, une encoche
      à droite, et l'étiquette collée au milieu. */
-  .carte { --bande: var(--c6); position: relative; background: #2c3038; min-height: 168px;
+  .carte { --bande: var(--c6); position: relative; background: var(--objet); min-height: 168px;
            padding: 14px 16px 14px 18px; display: flex; flex-direction: column; gap: .35rem;
            clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 62%, calc(100% - 7px) 66%, calc(100% - 7px) 78%, 100% 82%, 100% 100%, 0 100%);
            border-top: 8px solid var(--bande);
            animation: glisse .45s cubic-bezier(.2, .8, .3, 1) both;
            animation-delay: calc(400ms + var(--rang, 0) * 70ms); }
-  .carte-etiquette { background: var(--craie); color: #15171b; padding: .45rem .6rem; }
-  .carte-etiquette strong { display: block; font: 700 16px/1.2 var(--titre); overflow-wrap: anywhere; }
+  .carte-etiquette { background: var(--objet-encre); color: var(--graphite-900); padding: .45rem .6rem; }
+  .carte-etiquette strong { display: block; font: 700 16px/1.2 var(--police-texte); overflow-wrap: anywhere; }
   .carte-etiquette span { font-size: 13px; }
-  .carte p { margin: 0; font-size: 14px; color: var(--legende); }
-  .carte p strong { color: var(--craie); font-weight: 600; }
+  .carte p { margin: 0; font-size: 14px; color: var(--objet-legende); }
+  .carte p strong { color: var(--objet-encre); font-weight: 600; }
   .cartes-vide { color: var(--legende); }
 
   /* ── Les dernières parties: un relevé de bande ──────────────────── */
   .parties { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--trait); }
   .parties li { display: grid; grid-template-columns: minmax(92px, 9rem) 1fr auto; gap: .2rem 1rem;
-                padding: .65rem 0; border-bottom: 1px solid #2b3038; align-items: baseline; }
-  .partie-quand { font-family: var(--machine); font-size: 13px; letter-spacing: .06em; color: var(--legende); }
+                padding: .65rem 0; border-bottom: 1px solid var(--filet); align-items: baseline; }
+  .partie-quand { font-family: var(--police-machine); font-size: 13px; letter-spacing: .06em; color: var(--legende); }
   .partie-jeu { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .partie-jeu small { display: block; font-weight: 400; color: var(--legende); font-size: 14px; }
-  .partie-duree { font-family: var(--machine); font-size: 14px; text-align: right; white-space: nowrap; }
+  .partie-duree { font-family: var(--police-machine); font-size: 14px; text-align: right; white-space: nowrap; }
   .partie-duree[data-inconnue="oui"] { color: var(--legende); }
-  #plus { margin-top: 1rem; font: 600 16px var(--titre); padding: .6rem 1.2rem; min-height: 48px;
-          background: transparent; color: var(--craie); border: 2px solid var(--trait); cursor: pointer; }
-  #plus:hover { border-color: var(--craie); }
+  #plus { margin-top: 1rem; font: 600 16px var(--police-texte); padding: .6rem 1.2rem; min-height: 48px;
+          background: transparent; color: var(--encre); border: 2px solid var(--trait); cursor: pointer; }
+  #plus:hover { border-color: var(--encre); }
   #plus[hidden] { display: none; }
 
   .sans-identite[hidden], .avec-identite[hidden] { display: none; }

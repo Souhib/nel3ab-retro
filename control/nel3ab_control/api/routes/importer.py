@@ -17,7 +17,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from nel3ab_control.api.routes import bobine
-from nel3ab_control.api.routes.accueil import faces
+from nel3ab_control.api.routes.accueil import faces, regie
 
 router = APIRouter(tags=["importer"])
 
@@ -32,7 +32,7 @@ def assembler() -> str:
     une chaîne du script serait sinon remplacée par un dessin.
     """
     page = (DOSSIER / "importer.html").read_text(encoding="utf-8")
-    page = bobine.garnir(page.replace("/*__POLICES__*/", faces()))
+    page = bobine.garnir(page.replace("/*__POLICES__*/", faces()).replace("/*__REGIE__*/", regie()))
     return page.replace("/*__SCRIPT__*/", SCRIPT.read_text(encoding="utf-8"))
 
 

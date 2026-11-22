@@ -22,35 +22,27 @@
      elle aurait pu habiller n'importe quel tableau de bord.
      ───────────────────────────────────────────────────────────────── */
   /*__POLICES__*/
+  /* La régie: graphite la nuit, craie le jour, et le système qui choisit.
+     Les jetons sont ceux de la salle (`front/src/regie.css`), recopiés et
+     posés ici au démarrage du salon: une seule identité pour les deux.
 
-  :root {
-    /* Graphite neutre de matériel de studio. Ni bleu nuit, ni noir pur. */
-    --fond: #15171b;
-    --plaque: #1e2126;
-    --creux: #101216;
-    --craie: #eef0f2;
-    --legende: #9aa2ab;
-    /* Mesuré: #3a4048 ne tenait que 1,54:1 sur la plaque, très en dessous
-       des 3:1 exigés d'un élément non textuel. Ce n'est pas un détail: ce
-       trait dessine les segments VIDES de la jauge, et un segment vide
-       invisible fait disparaître l'échelle. On verrait un remplissage sans
-       savoir « sur combien ». Celui-ci tient 3,32:1 sur la plaque. */
-    --trait: #6b727b;
-    /* Les trois canaux prennent trois barres EBU. Une salle garde SA
-       couleur: le canal 2 est cyan même quand il est le seul allumé. */
-    --canal-1: #f2e14b;
-    --canal-2: #57d3f0;
-    --canal-3: #63d488;
-    --alerte: #ff8f6b;
-    --titre: "Anybody", "Helvetica Neue", Arial, sans-serif;
-    --machine: "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
-  }
+     Le trait (`--trait`) dessine le cadre de la jauge: un élément non
+     textuel doit tenir 3:1, et l'ancien #3a4048 ne tenait que 1,54:1 sur la
+     plaque. Un cadre invisible fait disparaître l'échelle: on verrait un
+     remplissage sans savoir « sur combien ».
+
+     Une teinte, un sens. Les trois canaux portaient trois barres EBU (jaune,
+     cyan, vert): le jaune était la salle 1 ici et le joueur 3 dans la salle,
+     le vert la salle 3 et le joueur 4. Une salle se reconnaît désormais à son
+     chiffre, en Anybody large; la mire EBU reste l'image « hors antenne », et
+     elle seule. */
+  /*__REGIE__*/
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh;
     display: flex; flex-direction: column;
-    background: var(--fond); color: var(--craie);
-    font: 400 18px/1.5 var(--titre);
+    background: var(--fond); color: var(--encre);
+    font: 400 18px/1.5 var(--police-texte);
     padding: clamp(1rem, 2.5vh, 2rem) clamp(1rem, 3vw, 3rem);
   }
   .page { width: 100%; max-width: 1400px; margin-inline: auto; flex: 1;
@@ -61,23 +53,23 @@
     display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
     border-bottom: 2px solid var(--trait); padding-bottom: .7rem;
   }
-  .marque { font-family: var(--machine); font-size: clamp(15px, 1.5vw, 19px);
+  .marque { font-family: var(--police-machine); font-size: clamp(15px, 1.5vw, 19px);
             letter-spacing: .34em; text-transform: uppercase; }
-  .rail-fait { font-family: var(--machine); font-size: clamp(13px, 1.2vw, 16px);
+  .rail-fait { font-family: var(--police-machine); font-size: clamp(13px, 1.2vw, 16px);
                color: var(--legende); letter-spacing: .12em; }
   /* L'horloge est une PREUVE DE VIE, pas une décoration: elle avance tant
      que le salon répond, elle se fige et grise quand il se tait. Une
      valeur plutôt qu'une animation, donc elle survit à
      prefers-reduced-motion, qui ne doit jamais retirer une information. */
-  #horloge { font-family: var(--machine); font-variant-numeric: tabular-nums;
+  #horloge { font-family: var(--police-machine); font-variant-numeric: tabular-nums;
              margin-left: auto; font-size: clamp(15px, 1.6vw, 21px); letter-spacing: .08em; }
   #horloge[data-perdue="oui"] { color: var(--legende); }
   /* Le carnet de jeu, pour qui le salon reconnaît. Caché sans identité: un
      carnet anonyme serait vide, et un lien vers une page vide se lit comme
      une panne. En capitales: la police machine n'a pas de minuscules. */
-  #carnet { font-family: var(--machine); font-size: clamp(13px, 1.2vw, 16px); letter-spacing: .12em;
-            color: var(--craie); text-decoration: none; border-bottom: 2px solid var(--canal-2); }
-  #carnet:hover, #carnet:focus-visible { color: var(--canal-2); }
+  #carnet { font-family: var(--police-machine); font-size: clamp(13px, 1.2vw, 16px); letter-spacing: .12em;
+            color: var(--encre); text-decoration: none; border-bottom: 2px solid var(--trait); }
+  #carnet:hover, #carnet:focus-visible { border-bottom-color: var(--encre); }
   #carnet[hidden] { display: none; }
 
   /* ── Les canaux ─────────────────────────────────────────────────── */
@@ -90,23 +82,22 @@
      et les canaux éteints n'ont presque rien à dire. */
   a.salle { flex: 2.2; min-height: clamp(120px, 18vh, 260px); }
   .eteint { flex: 1; min-height: clamp(72px, 9vh, 130px); }
+  /* La barre de gauche dit un ÉTAT: craie pour un canal à l'antenne, signal
+     pour celui qu'on désigne, trait pour un canal éteint. */
   a.salle {
-    --canal: var(--canal-1);
     position: relative; display: grid; align-items: center;
     grid-template-columns: clamp(76px, 9vw, 136px) 1fr auto;
     gap: clamp(1rem, 2.5vw, 2.4rem);
     padding: clamp(.9rem, 1.8vh, 1.5rem) clamp(1rem, 2vw, 1.8rem);
     background: var(--plaque); color: inherit; text-decoration: none;
-    border: 0; border-left: 6px solid var(--canal);
+    border: 0; border-left: var(--barre-etat) solid var(--encre);
     animation: entre .32s steps(4, end) both;
     animation-delay: calc(var(--rang, 0) * 70ms);
   }
-  a.salle[data-canal="2"] { --canal: var(--canal-2); }
-  a.salle[data-canal="3"] { --canal: var(--canal-3); }
   /* Pas de soulèvement ni d'ombre portée: sur un pupitre de régie, le
      canal sélectionné s'ÉCLAIRE, il ne décolle pas de la table. */
-  a.salle:hover, a.salle:focus-visible { background: #262a30; }
-  a.salle:focus-visible { outline: 3px solid var(--craie); outline-offset: -3px; }
+  a.salle:hover, a.salle:focus-visible { background: var(--survol); border-left-color: var(--signal); }
+  a.salle:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: -3px; }
   @keyframes entre { from { opacity: 0; } }
 
   /* Un canal ÉTEINT reste à sa place: la machine a trois emplacements, et
@@ -117,11 +108,11 @@
     grid-template-columns: clamp(76px, 9vw, 136px) 1fr;
     gap: clamp(1rem, 2.5vw, 2.4rem);
     padding: clamp(.9rem, 1.8vh, 1.5rem) clamp(1rem, 2vw, 1.8rem);
-    border-left: 6px solid var(--trait);
+    border-left: var(--barre-etat) solid var(--trait);
     background: var(--creux); color: var(--legende);
   }
   .eteint .canal-chiffre { color: var(--trait); }
-  .eteint-mot { font-family: var(--machine); font-size: clamp(13px, 1.3vw, 17px);
+  .eteint-mot { font-family: var(--police-machine); font-size: clamp(13px, 1.3vw, 17px);
                 letter-spacing: .18em; }
 
   .numero { display: flex; flex-direction: column; gap: .25rem; }
@@ -129,27 +120,27 @@
      affichée, et le pilote du salon cherche « salle N » tel quel. En
      Anybody et non en Departure, dont le sous-ensemble n'a que les
      capitales et les chiffres. */
-  .canal-mot { font-family: var(--titre); font-weight: 400;
+  .canal-mot { font-family: var(--police-texte); font-weight: 400;
                font-size: clamp(12px, 1.1vw, 15px); letter-spacing: .16em;
                color: var(--legende); white-space: nowrap; }
-  .canal-chiffre { font-family: var(--titre); font-weight: 700;
+  .canal-chiffre { font-family: var(--police-texte); font-weight: 700;
                    font-size: clamp(40px, 6.4vw, 96px); line-height: .82;
-                   color: var(--canal); font-variant-numeric: tabular-nums; }
+                   color: var(--encre); font-variant-numeric: tabular-nums; }
   .corps { min-width: 0; }
   /* RÈGLE TENUE COMME UNE CONTRAINTE: le nom du jeu est la plus grosse
      ligne de TEXTE de la page. C'est la seule chose qu'on vient lire. */
-  .jeu { font-family: var(--titre); font-weight: 700;
+  .jeu { font-family: var(--police-texte); font-weight: 700;
          font-size: clamp(24px, 3.2vw, 44px); line-height: 1.08;
          letter-spacing: -.01em; overflow-wrap: anywhere; }
   /* Sans jeu, « sur son menu » cesse d'être la plus grosse ligne de la
      page: la règle veut que le JEU domine, pas son absence. */
   .jeu[data-menu="oui"] { color: var(--legende); font-weight: 400;
                           font-size: clamp(18px, 1.9vw, 26px); }
-  .gens { font-size: clamp(15px, 1.5vw, 20px); color: var(--craie); margin-top: .25em; }
+  .gens { font-size: clamp(15px, 1.5vw, 20px); color: var(--encre); margin-top: .25em; }
   .gens[data-vide="oui"] { color: var(--legende); }
   /* Depuis quand la salle est en antenne. En légende et sous les présents:
      c'est ce qu'on lit APRÈS avoir décidé d'entrer, jamais ce qui fait entrer. */
-  .antenne { font-family: var(--machine); font-size: 12px; letter-spacing: .1em;
+  .antenne { font-family: var(--police-machine); font-size: 12px; letter-spacing: .1em;
     color: var(--legende); margin-top: .45em; }
 
   /* La jauge: QUATRE segments fixes, remplis de gauche à droite par le nombre
@@ -178,23 +169,24 @@
      2026. `justify-content: flex-end` n'avait plus d'objet une fois les
      segments extensibles, donc il part avec la largeur fixe.
 
-     Les COULEURS ne bougent pas: le cadre garde `--trait` à 3,32:1 sur la
-     plaque, les segments vides `#2b313a` à 3,08:1, les pleins la couleur du
-     canal. Ces valeurs sont des rapports couleur contre couleur, que la largeur
-     ne change pas; la décision mesurée du carnet reste donc entière. */
+     Le CADRE porte l'échelle: `--trait`, au moins 3,08:1 sur toutes les
+     surfaces des deux thèmes (calculé par `front/src/lib/regie.test.ts`). */
   .jauge { display: flex; gap: 3px;
            border: 2px solid var(--trait); padding: 3px; }
-  /* Le segment VIDE doit se voir: mesuré, #2b313a ne tenait que 1,23:1 sur
-     la plaque, donc l'échelle disparaissait et la jauge ne disait plus « sur
-     combien ». Celui-ci tient 3,08:1, seuil du non textuel, sans redevenir
-     un cadre ajouré. */
+  /* Vide, le segment est un CREUX dans la piste, plein il est en craie: les
+     deux se séparent à plus de 14:1 dans les deux thèmes, et le cadre dit
+     « sur combien ». Le 22 novembre 2026, le vide valait encore #2b313a, une
+     valeur de nuit qu'aucun thème de jour n'aurait suivie. */
   .jauge span { flex: 1; min-width: 13px; height: clamp(26px, 4vh, 50px);
-                background: #2b313a; }
-  .jauge span[data-plein="oui"] { background: var(--canal); }
-  .jauge-mot { font-family: var(--machine); font-size: 12px; letter-spacing: .1em;
+                background: var(--creux); }
+  /* Plein: la craie. La jauge compte des PERSONNES, pas des joueurs à leur
+     place (le salon ne sait pas qui tient quelle manette): elle ne prend donc
+     aucune des quatre couleurs de joueur. */
+  .jauge span[data-plein="oui"] { background: var(--encre); }
+  .jauge-mot { font-family: var(--police-machine); font-size: 12px; letter-spacing: .1em;
                color: var(--legende); margin-top: .35rem; text-align: right; }
-  .marque-switch { font-family: var(--machine); font-size: 12px; letter-spacing: .12em;
-                   color: var(--fond); background: var(--canal); padding: 2px 7px; }
+  .marque-switch { font-family: var(--police-machine); font-size: 12px; letter-spacing: .12em;
+                   color: var(--fond); background: var(--encre); padding: 2px 7px; }
 
   /* ── Hors antenne: la mire prend toute la page ──────────────────── */
   .vide { flex: 1; display: grid; place-items: center; position: relative;
@@ -217,7 +209,7 @@
   .vide-bloc { position: relative; text-align: center;
                padding: clamp(1.5rem, 4vh, 2.6rem) clamp(1.5rem, 4vw, 3rem);
                background: var(--fond); border: 2px solid var(--trait); }
-  .vide-titre { font-family: var(--machine); font-size: clamp(22px, 3.4vw, 46px);
+  .vide-titre { font-family: var(--police-machine); font-size: clamp(22px, 3.4vw, 46px);
                 letter-spacing: .22em; margin: 0 0 .5rem; }
   .vide-mot { margin: 0 auto; max-width: 48ch; color: var(--legende);
               font-size: clamp(15px, 1.6vw, 20px); }
@@ -226,19 +218,20 @@
   .ouvrir { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap;
             border-top: 2px solid var(--trait); padding-top: 1rem; }
   button#ouvrir {
-    font: 700 clamp(16px, 1.7vw, 21px) var(--titre); letter-spacing: .02em;
+    font: 700 clamp(16px, 1.7vw, 21px) var(--police-texte); letter-spacing: .02em;
     min-height: 56px; padding: .7rem 1.8rem;
-    border: 2px solid var(--craie); border-radius: 0;
-    background: var(--craie); color: var(--fond); cursor: pointer;
+    border: 2px solid var(--bouton-plein-fond); border-radius: var(--rayon);
+    background: var(--bouton-plein-fond); color: var(--bouton-plein-encre); cursor: pointer;
   }
-  button#ouvrir:hover:not(:disabled) { background: var(--canal-1); border-color: var(--canal-1); }
+  button#ouvrir:hover:not(:disabled) { background: var(--bouton-plein-survol);
+                                       border-color: var(--bouton-plein-survol); }
   button#ouvrir:disabled { cursor: not-allowed; background: transparent;
                            color: var(--legende); border-color: var(--trait); }
   .mot, .perdu { font-size: clamp(14px, 1.4vw, 18px); color: var(--legende); }
   /* Le lien vers le dépôt de jeux. Caché tant que le salon n'a pas dit que
      cette personne peut importer: l'API reste la seule garde, ce lien évite
      seulement de montrer une porte fermée à tout le monde. */
-  a.importer { margin-left: auto; color: var(--craie); font-size: clamp(14px, 1.4vw, 18px);
+  a.importer { margin-left: auto; color: var(--encre); font-size: clamp(14px, 1.4vw, 18px);
                text-underline-offset: .2em; }
   a.importer[hidden] { display: none; }
   .mot[data-refus="oui"], .perdu { color: var(--alerte); }
@@ -247,13 +240,18 @@
   .retour[hidden] { display: none; }
   .retour { display: block; width: 100%; margin: 0 0 .4rem; padding: 1rem 1.2rem;
             border: 0; border-left: 6px solid var(--alerte); background: var(--creux);
-            color: var(--craie); font: inherit; font-size: clamp(15px, 1.5vw, 19px);
+            color: var(--encre); font: inherit; font-size: clamp(15px, 1.5vw, 19px);
             text-align: left; cursor: pointer; }
-  :focus-visible { outline: 3px solid var(--craie); outline-offset: 3px; }
+  :focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
 
   @media (max-width: 620px) {
     a.salle { grid-template-columns: clamp(56px, 14vw, 76px) 1fr; }
-    .jauge { grid-column: 1 / -1; flex-direction: row; }
+    /* Le CONTENEUR de la jauge prend toute la largeur, pas la jauge: c'est
+       lui l'enfant de la grille. La règle visait `.jauge`, qui ne l'est pas,
+       et ne s'appliquait donc à rien: la légende passait à un mot par ligne
+       dans une colonne de 56 px (audit visuel du 22 novembre 2026, V8). */
+    a.salle > .corps + div { grid-column: 1 / -1; }
+    .jauge { flex-direction: row; }
     .jauge span { width: 100%; height: 10px; }
     .jauge-mot { text-align: left; }
   }

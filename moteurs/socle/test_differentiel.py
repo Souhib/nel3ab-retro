@@ -6,7 +6,12 @@ tiennent égales:
 - chaque scénario doré des trois consoles, rejoué par `differentiel.py` dans un
   interpréteur neuf avec le `serve` du socle, rend son doré;
 - les fonctions déplacées telles quelles ont le même arbre syntaxique dans les
-  deux fichiers, ce qui couvre aussi les branches qu'aucun scénario ne prend.
+  deux fichiers, ce qui couvre aussi les branches qu'aucun scénario ne prend;
+- `serve` aussi, instruction par instruction, hors la seule affectation de
+  `launch` qui diffère exprès. Le 22 novembre 2026, les délais (10 s pour les
+  manettes, 60 s pour les relances de capture) et le retrait du `display.json`
+  d'hier pouvaient changer dans le socle seul sans qu'aucun essai ne rougisse:
+  aucun scénario ne les rend visibles.
 
 Et le jumeau: un socle modifié exprès est vu, donc le script d'essai sert bien
 le `serve` du socle et pas celui d'origine.
@@ -105,12 +110,50 @@ class MemesCommandes(unittest.TestCase):
 
 
 def definitions(chemin: Path) -> dict[str, ast.AST]:
-    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    return definitions_du_texte(chemin.read_text(encoding="utf-8"))
+
+
+def definitions_du_texte(texte: str) -> dict[str, ast.AST]:
     return {
         noeud.name: noeud
-        for noeud in arbre.body
+        for noeud in ast.parse(texte).body
         if isinstance(noeud, ast.FunctionDef | ast.ClassDef)
     }
+
+
+def affecte_launch(noeud: ast.AST) -> bool:
+    """L'écart documenté de `serve`: le plan se calcule autrement, à la même place."""
+    return isinstance(noeud, ast.Assign) and [ast.dump(cible) for cible in noeud.targets] == [
+        ast.dump(ast.Name("launch", ast.Store()))
+    ]
+
+
+def ecarts_de_serve(socle: str, origine: str) -> list[str]:
+    """Ce qui distingue le `serve` du socle de celui de switch-room.py, hors l'écart
+    documenté: les noms des paramètres, puis chaque instruction de son corps.
+
+    Les annotations et les valeurs par défaut diffèrent exprès (`launch` et
+    `snapshot` exigés): elles ne sont pas comparées. L'affectation de `launch` est
+    masquée seulement si elle est unique et à la même place des deux côtés.
+    """
+    nouveau, ancien = definitions_du_texte(socle)["serve"], definitions_du_texte(origine)["serve"]
+    ecarts = []
+    if [a.arg for a in nouveau.args.args] != [a.arg for a in ancien.args.args]:
+        ecarts.append("paramètres")
+    masques = [
+        [position for position, noeud in enumerate(corps) if affecte_launch(noeud)]
+        for corps in (nouveau.body, ancien.body)
+    ]
+    if masques[0] != masques[1] or len(masques[0]) != 1:
+        ecarts.append(f"affectations de launch aux places {masques[0]} et {masques[1]}")
+    if len(nouveau.body) != len(ancien.body):
+        ecarts.append(f"{len(nouveau.body)} instructions contre {len(ancien.body)}")
+    for position, (a, b) in enumerate(zip(nouveau.body, ancien.body, strict=False)):
+        if position in masques[0] and position in masques[1]:
+            continue
+        if ast.dump(a) != ast.dump(b):
+            ecarts.append(f"instruction {position + 1}, ligne {a.lineno} du socle")
+    return ecarts
 
 
 class MemeTexte(unittest.TestCase):
@@ -132,6 +175,35 @@ class MemeTexte(unittest.TestCase):
             [a.arg for a in socle["stop_engine"].args.args],
             [a.arg for a in origine["stop_engine"].args.args],
         )
+
+    def test_serve_est_le_meme_hors_l_ecart_documente(self):
+        self.assertEqual(
+            ecarts_de_serve(
+                (DEPOT / "moteurs/socle/salle.py").read_text(encoding="utf-8"),
+                (DEPOT / SWITCH).read_text(encoding="utf-8"),
+            ),
+            [],
+        )
+
+    def test_un_serve_qui_derive_dans_le_socle_seul_est_nomme(self):
+        """Les jumeaux: trois écarts qu'aucun scénario doré ne rend visibles, et une
+        seconde affectation de `launch` que le masque ne doit pas couvrir."""
+        socle = (DEPOT / "moteurs/socle/salle.py").read_text(encoding="utf-8")
+        origine = (DEPOT / SWITCH).read_text(encoding="utf-8")
+        for nom, avant, apres in (
+            ("délai des manettes", "time.monotonic() + 10\n", "time.monotonic() + 5\n"),
+            ("fenêtre des relances", "now - at < 60]", "now - at < 20]"),
+            ("écran d'hier gardé", '(slot / "display.json").unlink(missing_ok=True)\n', "\n"),
+            # Le masque ne couvre qu'UNE affectation de launch, à sa place.
+            (
+                "plan affecté deux fois",
+                "    uid, gid = str(",
+                "    launch = launch\n    uid, gid = str(",
+            ),
+        ):
+            with self.subTest(ecart=nom):
+                self.assertEqual(socle.count(avant), 1)
+                self.assertNotEqual(ecarts_de_serve(socle.replace(avant, apres), origine), [])
 
     def test_une_fonction_qui_derive_est_nommee(self):
         """Le jumeau: le même garde sur un `pad_command` changé d'un seul côté."""

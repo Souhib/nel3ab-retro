@@ -193,5 +193,5 @@ for (const scheme of ["dark", "light"]) {
 await browser.close();
 vite?.kill("SIGTERM");
 const faux = resultats.filter((r) => !r.ok).length;
-console.log(`\n  ${faux === 0 ? "PASS" : `FAIL — ${faux} mesure(s) hors des bornes`} (${resultats.length} mesures)`);
+console.log(`\n  ${faux === 0 ? "PASS" : `FAIL: ${faux} mesure(s) hors des bornes`} (${resultats.length} mesures)`);
 process.exit(faux === 0 ? 0 : 1);

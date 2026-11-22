@@ -192,14 +192,14 @@ const jitter = await page.evaluate(() => {
 });
 // La précondition d'abord: aucune valeur trouvée rendrait un vert vide.
 if (jitter.count === 0) {
-  console.log("  RATÉ — aucune valeur `.n3-value` dans le banc: l'écran n'est pas celui qu'on croit");
+  console.log("  RATÉ: aucune valeur `.n3-value` dans le banc: l'écran n'est pas celui qu'on croit");
   failed += 1;
 } else if (jitter.out.length) {
-  console.log(`  RATÉ — ${jitter.out.length} valeur(s) sur ${jitter.count} changent de largeur avec leurs chiffres`);
+  console.log(`  RATÉ: ${jitter.out.length} valeur(s) sur ${jitter.count} changent de largeur avec leurs chiffres`);
   for (const j of jitter.out.slice(0, 4)) console.log(`    ${j.widths.join(" / ")} px  (${j.font})`);
   failed += jitter.out.length;
 } else {
-  console.log(`  ok — les ${jitter.count} valeurs gardent leur largeur, quels que soient leurs chiffres`);
+  console.log(`  ok: les ${jitter.count} valeurs gardent leur largeur, quels que soient leurs chiffres`);
 }
 
 if (thin.length) {

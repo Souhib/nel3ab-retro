@@ -37,3 +37,78 @@ it("le centre du puits ne pousse rien: une zone morte, comme une vraie manette",
   expect(source.pushed.get("lx")).toBe(0);
   expect(source.pushed.get("ly")).toBe(0);
 });
+
+/** Les pièces du pavé, par ce qu'elles portent écrit, avec leur place. */
+function pieces(container: HTMLElement) {
+  const n = (v: string) => Number.parseFloat(v);
+  return new Map(
+    [...container.querySelectorAll<HTMLElement>("[data-touche]")].map((el) => [
+      el.dataset.touche ?? "",
+      { text: el.textContent ?? "", x: n(el.style.left), y: n(el.style.top), el },
+    ]),
+  );
+}
+
+it("dans une salle Xbox 360, le pavé dit LB, LT, Back et Start, et range A en bas", () => {
+  const { container } = render(
+    <SwitchTouchPad
+      source={new SwitchInput()}
+      console="x360"
+      onMenu={vi.fn()}
+      onLeave={vi.fn()}
+      onSound={vi.fn()}
+    />,
+  );
+  const at = pieces(container);
+  expect(at.get("L")?.text).toBe("LB");
+  expect(at.get("ZL")?.text).toBe("LT");
+  expect(at.get("MINUS")?.text).toBe("Back");
+  expect(at.get("PLUS")?.text).toBe("Start");
+  expect(container.textContent).not.toMatch(/ZL|ZR|[+−]/);
+  // A en bas et Y en haut, dans la même colonne; X à gauche, B à droite.
+  const [a, b, x, y] = ["A", "B", "X", "Y"].map((key) => at.get(key));
+  expect(a?.x).toBe(y?.x);
+  expect(a?.y).toBeGreaterThan(y?.y ?? Infinity);
+  expect(b?.x).toBeGreaterThan(x?.x ?? Infinity);
+  expect(b?.y).toBe(x?.y);
+});
+
+it("dans une salle Switch, le pavé garde ZL et + , et range A à droite", () => {
+  // Le jumeau négatif: les noms et la place Xbox ne fuient pas ici.
+  const { container } = render(
+    <SwitchTouchPad
+      source={new SwitchInput()}
+      console="switch"
+      onMenu={vi.fn()}
+      onLeave={vi.fn()}
+      onSound={vi.fn()}
+    />,
+  );
+  const at = pieces(container);
+  expect(at.get("ZL")?.text).toBe("ZL");
+  expect(at.get("PLUS")?.text).toBe("+");
+  expect(container.textContent).not.toMatch(/LB|LT|Back|Start/);
+  const [a, b, x, y] = ["A", "B", "X", "Y"].map((key) => at.get(key));
+  expect(a?.x).toBeGreaterThan(y?.x ?? Infinity);
+  expect(a?.y).toBe(y?.y);
+  expect(b?.y).toBeGreaterThan(x?.y ?? Infinity);
+});
+
+it("taper LB écrit L sur la trame, et le relâcher l'efface", () => {
+  const source = new SwitchInput();
+  const { container } = render(
+    <SwitchTouchPad
+      source={source}
+      console="x360"
+      onMenu={vi.fn()}
+      onLeave={vi.fn()}
+      onSound={vi.fn()}
+    />,
+  );
+  const lb = pieces(container).get("L")?.el as HTMLElement;
+  lb.setPointerCapture = vi.fn();
+  fireEvent.pointerDown(lb, { pointerId: 3 });
+  expect([...source.touched]).toEqual(["L"]);
+  fireEvent.pointerUp(lb, { pointerId: 3 });
+  expect(source.touched.size).toBe(0);
+});

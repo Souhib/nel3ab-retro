@@ -1,0 +1,182 @@
+/* La manette à l'écran.
+ *
+ * Les POSITIONS ne sont pas ici : `placePad` (lib/faces) les calcule en pixels
+ * et le composant les pose en style. Cette feuille ne dit que l'aspect. Les
+ * deux ne se mélangent plus depuis le 22 novembre 2026, quand une position
+ * décidée en CSS (« bottom: 140px ») a posé la rangée d'outils de la manette
+ * Switch sur L et sur le clic du stick.
+ *
+ * La boîte suit les zones sûres : une encoche ou une barre d'adresse ne cache
+ * aucune touche. `env()` vaut zéro partout ailleurs. */
+.n3-pave {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
+  right: env(safe-area-inset-right, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: env(safe-area-inset-left, 0px);
+  z-index: 30;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.n3-pave > * {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Une touche simple. Translucide : sans bande noire, elle est posée sur
+   l'image, et le jeu doit rester lisible dessous. */
+.n3-pave-touche {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--rule-bright) 70%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-corps);
+  line-height: 1;
+  transition:
+    background-color 60ms linear,
+    border-color 60ms linear;
+}
+.n3-pave-touche[data-forme="palette"] {
+  border-radius: 14px;
+  font-size: var(--text-fort);
+  letter-spacing: 0.08em;
+}
+.n3-pave-touche[data-forme="large"] {
+  border-radius: 999px;
+  font-size: var(--text-note);
+  letter-spacing: 0.12em;
+}
+/* « Start » et « Back » dans un rond de 44 px : plus petit, sans espacement. */
+.n3-pave-touche[data-long] {
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.n3-pave-touche:active {
+  border-color: var(--indigo);
+  background: color-mix(in srgb, var(--indigo) 45%, transparent);
+}
+
+/* La couleur de la console, pour les trois touches qui en ont une : A est vert
+   et B rouge sur une GameCube, et une main qui y a joué les vise à la couleur
+   avant de lire la lettre. Z est mauve. */
+.n3-pave-touche[data-teinte="a"] {
+  border-color: #5ac26ab3;
+  background: #2f6b39b3;
+  color: #d9f2de;
+}
+.n3-pave-touche[data-teinte="a"]:active {
+  background: #5ac26ab3;
+}
+.n3-pave-touche[data-teinte="b"] {
+  border-color: #d1545eb3;
+  background: #6b2f35b3;
+  color: #f6dcde;
+}
+.n3-pave-touche[data-teinte="b"]:active {
+  background: #d1545eb3;
+}
+.n3-pave-touche[data-teinte="z"] {
+  border-color: #8b7bd8b3;
+  background: #3a3270cc;
+  color: #ded8f7;
+}
+.n3-pave-touche[data-teinte="z"]:active {
+  background: #8b7bd8b3;
+}
+
+/* Le puits d'un stick, toujours rond : la course se calcule sur sa largeur,
+   et un puits ovale saturait avant son bord dessiné (mesuré le 22 novembre
+   2026 sur le pavé Switch, 76 sur 94 px). */
+.n3-pave-puits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--rule-bright) 70%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.n3-pave-bouton {
+  width: 48%;
+  height: 48%;
+  border: 1px solid color-mix(in srgb, var(--indigo) 70%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--indigo) 40%, transparent);
+  pointer-events: none;
+  /* Court, parce que le rond doit suivre le pouce et non le poursuivre. */
+  transition: transform 60ms linear;
+}
+
+/* La croix : un seul bloc, quatre branches dessinées. Une branche s'allume
+   par l'attribut que le composant pose, sans rendu React. */
+.n3-pave-croix {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.n3-pave-croix > span {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34%;
+  height: 34%;
+  border: 1px solid color-mix(in srgb, var(--rule-bright) 70%, transparent);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  color: var(--text);
+  font-size: var(--text-note);
+  pointer-events: none;
+}
+.n3-pave-croix > [data-bras="up"] {
+  top: 0;
+  left: 33%;
+  border-radius: 8px 8px 2px 2px;
+}
+.n3-pave-croix > [data-bras="down"] {
+  bottom: 0;
+  left: 33%;
+  border-radius: 2px 2px 8px 8px;
+}
+.n3-pave-croix > [data-bras="left"] {
+  left: 0;
+  top: 33%;
+  border-radius: 8px 2px 2px 8px;
+}
+.n3-pave-croix > [data-bras="right"] {
+  right: 0;
+  top: 33%;
+  border-radius: 2px 8px 8px 2px;
+}
+.n3-pave-croix[data-up] > [data-bras="up"],
+.n3-pave-croix[data-down] > [data-bras="down"],
+.n3-pave-croix[data-left] > [data-bras="left"],
+.n3-pave-croix[data-right] > [data-bras="right"] {
+  border-color: var(--indigo);
+  background: color-mix(in srgb, var(--indigo) 45%, transparent);
+}
+
+/* Un geste de la PAGE et non du jeu : plus terne, en capitales, jamais sous
+   un pouce qui joue. Le son reste rouge tant que rien ne joue. */
+.n3-pave-geste {
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  color: var(--faint);
+  font-size: var(--text-note);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.n3-pave-geste[data-alerte] {
+  border-color: var(--alert);
+  color: var(--alert);
+}

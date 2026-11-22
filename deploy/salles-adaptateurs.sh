@@ -75,6 +75,12 @@ for salle in $salles; do
     done
     while read -r code script variable; do
         remplace=$(valeur "$variable" "$environnement")
+        # Le worker passe la valeur telle quelle à python3 (main.rs), qui lit un
+        # chemin relatif depuis le WorkingDirectory de l'unité, pas d'ici.
+        case "$remplace" in
+            "" | /*) ;;
+            *) remplace="$dossier/$remplace" ;;
+        esac
         if [ -n "$remplace" ]; then
             if [ ! -f "$remplace" ]; then
                 echo "  $unite: $variable vise un fichier absent ($remplace): aucun jeu $code ne démarrerait"
@@ -86,7 +92,9 @@ for salle in $salles; do
         else
             script="$depot/$script"
         fi
-        # L'environnement d'un service: rien du shell, sauf ce que l'unité pose.
+        # L'environnement d'un service: rien du shell, sauf ce que l'unité pose,
+        # et pas l'entrée de cette boucle: un module qui lit stdin à l'import
+        # avalerait sinon la liste des consoles suivantes.
         # Une enveloppe du socle ne charge le module de son moteur et sa fiche
         # que dans `principal`: on les charge donc aussi, par `charger`, sans
         # lancer de partie, et on vérifie que le socle vient du même dépôt.
@@ -103,7 +111,7 @@ if getattr(getattr(module, "principal", None), "__module__", None) == "moteurs.s
     salle = sys.modules["moteurs.socle.salle"]
     salle.verifier_origine(chemin)
     salle.charger(code)
-' "$script" "$code" 2>&1); then
+' "$script" "$code" 2>&1 </dev/null); then
             echo "  $unite: $script ne s'importe pas avec $python:"
             printf '%s\n' "$sortie" | tail -3 | sed 's/^/      /'
             faux=1

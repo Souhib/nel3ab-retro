@@ -240,6 +240,44 @@ def test_un_canari_dont_la_fiche_est_fausse_est_rouge(tmp_path: Path) -> None:
     assert "FicheInvalideError" in fini.stdout
 
 
+def test_une_enveloppe_qui_lit_stdin_n_avale_pas_les_consoles_suivantes(tmp_path: Path) -> None:
+    """L'import hérite de l'entrée de la boucle, la liste des consoles: un module qui lit
+    stdin à l'import l'avalait, et les consoles suivantes n'étaient plus vérifiées."""
+    gourmande = tmp_path / "gourmande.py"
+    gourmande.write_text("import sys\nsys.stdin.read()\n")
+    absent = tmp_path / "absent.py"
+
+    fini = salles(
+        unite(tmp_path, f"NEL3AB_SWITCH_ADAPTER={gourmande}", f"NEL3AB_XBOX360_ADAPTER={absent}"),
+        tmp_path,
+    )
+
+    assert fini.returncode == 1, fini.stdout
+    assert f"NEL3AB_XBOX360_ADAPTER vise un fichier absent ({absent})" in fini.stdout
+
+
+def test_un_chemin_relatif_se_lit_depuis_le_dossier_du_worker(tmp_path: Path) -> None:
+    """Le worker passe la valeur telle quelle à python3, qui la lit depuis le
+    WorkingDirectory de l'unité (core/), pas depuis la racine du dépôt."""
+    canari = copie_du_canari(tmp_path / "depot")
+    core = tmp_path / "depot/core"
+    core.mkdir()
+
+    juste = salles(unite(tmp_path, "NEL3AB_XBOX360_ADAPTER=../docker/xbox360-room-socle.py"), core)
+    faux = salles(unite(tmp_path, "NEL3AB_XBOX360_ADAPTER=docker/xbox360-room-socle.py"), core)
+
+    assert canari.exists()
+    assert juste.returncode == 0, juste.stdout + juste.stderr
+    assert juste.stdout == (
+        "  nel3ab-worker@1: NEL3AB_XBOX360_ADAPTER remplace l'adaptateur x360 par "
+        f"{core}/../docker/xbox360-room-socle.py\n"
+    )
+    # Le jumeau: juste depuis la racine du dépôt, faux pour le worker.
+    assert faux.returncode == 1
+    assert f"vise un fichier absent ({core}/docker/xbox360-room-socle.py)" in faux.stdout
+    assert "remplace l'adaptateur" not in faux.stdout
+
+
 def test_deploy_check_appelle_le_controle_des_salles() -> None:
     """Un contrôle que rien n'appelle ne protège de rien (justfile, 13 septembre 2026)."""
     recettes = (DEPOT / "justfile").read_text(encoding="utf-8").split("\ndeploy-check:\n", 1)[1]

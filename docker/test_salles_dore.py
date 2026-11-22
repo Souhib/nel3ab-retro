@@ -164,6 +164,12 @@ def sway_avant_captures(releve: dict) -> bool:
 SOURDE = "SalleSourdeError: le worker a fermé stdin, la salle ne l'a pas lu"
 #: La ligne qui fait entendre au cycle de la salle l'arrêt demandé par le worker.
 ECOUTE = "    selector.register(sys.stdin, selectors.EVENT_READ)\n"
+#: La ligne qui retire l'écran d'une partie précédente avant le nouveau moteur.
+OUBLI = '        (slot / "display.json").unlink(missing_ok=True)\n'
+
+
+def ecran_d_hier_garde(releve: dict) -> bool:
+    return any(ligne.endswith("/neuve/display.json") for ligne in releve["arbre"])
 
 
 MUTANTS = (
@@ -213,6 +219,15 @@ MUTANTS = (
         "switch-neuve",
         "docker/switch-room.py",
         lambda releve: releve["erreur"] == SOURDE,
+    ),
+    Mutant(
+        "switch: l'écran d'hier n'est plus retiré",
+        "docker/switch-room.py",
+        OUBLI,
+        "",
+        "x360-ecran-d-hier",
+        "docker/xbox360-room.py",
+        ecran_d_hier_garde,
     ),
     Mutant(
         "x360: la disposition de la Switch",
@@ -280,6 +295,15 @@ MUTANTS = (
         "x360-captures",
         "docker/xbox360-room-socle.py",
         lambda releve: releve["erreur"] == SOURDE,
+    ),
+    Mutant(
+        "canari x360: le socle ne retire plus l'écran d'hier",
+        "moteurs/socle/salle.py",
+        OUBLI,
+        "",
+        "x360-ecran-d-hier",
+        "docker/xbox360-room-socle.py",
+        ecran_d_hier_garde,
     ),
     Mutant(
         "canari x360: l'enveloppe cherche le socle au mauvais endroit",

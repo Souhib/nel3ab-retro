@@ -1,0 +1,9 @@
+{
+  "name": "ryubing",
+  "executable": "publish/Ryujinx",
+  "display": "wayland",
+  "pad_layout": "switch",
+  "why": {
+    "pad_layout": "Le profil de manette de Ryubing (spikes/switch-room/ryubing-pro-controller.json) attend X et Y échangés : la disposition switch de pads.py les échange."
+  }
+}

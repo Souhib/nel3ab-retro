@@ -1,0 +1,9 @@
+{
+  "name": "eden",
+  "executable": "usr/bin/eden-cli",
+  "display": "wayland",
+  "pad_layout": "switch",
+  "why": {
+    "pad_layout": "La disposition par défaut des manettes virtuelles. L'emulator.ini écrit par docker/switch2-room.py range lui-même X et Y (boutons 3 et 2)."
+  }
+}

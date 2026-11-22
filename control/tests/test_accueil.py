@@ -79,7 +79,14 @@ def test_la_liste_des_jetons_vient_de_la_feuille() -> None:
     regie = (Path(regie_module.__file__).with_name("regie.css")).read_text(encoding="utf-8")
     jetons = _jetons_de_la_regie(regie)
 
-    for attendu in ("--fond", "--encre", "--signal", "--p3-encre", "--bouton-plein-fond", "--ecran"):
+    for attendu in (
+        "--fond",
+        "--encre",
+        "--signal",
+        "--p3-encre",
+        "--bouton-plein-fond",
+        "--ecran",
+    ):
         assert attendu in jetons, attendu
     # `--color-fond` n'est pas `--fond`: le nom se lit entier.
     assert "--color-fond" not in jetons

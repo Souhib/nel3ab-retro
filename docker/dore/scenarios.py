@@ -170,6 +170,16 @@ def xbox360_profil_existant(racine: Path) -> dict:
     return config
 
 
+def xbox360_ecran_d_hier(racine: Path) -> dict:
+    """L'emplacement garde le `display.json` d'une partie d'hier. La salle doit le
+    retirer avant de lancer le moteur: sinon elle prendrait l'ancien compositeur pour
+    le nouveau, prêt. Avec un conteneur refusé, rien ne le réécrit, et son retrait se
+    voit dans l'arbre (moteurs-critique, revue du 22 novembre 2026)."""
+    config = xbox360(racine)
+    ecrire(racine / "state" / SONIC / "neuve/display.json", b'{"WAYLAND_DISPLAY": "wayland-0"}')
+    return config
+
+
 # --- Les cas communs aux trois consoles -----------------------------------------------
 
 
@@ -253,6 +263,9 @@ SCENARIOS_X360 = [
         XB, nom="x360-profil-existant", preparer=xbox360_profil_existant, emplacement="debloquee"
     ),
     replace(XB, nom="x360-joueur", emplacement="joueur-ami"),
+    # Le serve d'aujourd'hui (switch-room.py) sert aussi la Switch et la Switch 2:
+    # ce scénario passe par lui, par le socle du canari et par le différentiel.
+    replace(XB, nom="x360-ecran-d-hier", preparer=xbox360_ecran_d_hier, echec_moteur=True),
     *communs(XB),
     replace(XB, nom="x360-refus-titre", titre=SWITCH),
     replace(XB, nom="x360-refus-emplacement", emplacement="joueur-../x"),

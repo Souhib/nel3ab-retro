@@ -447,7 +447,7 @@ export class SwitchInput implements InputSource {
   import(text: string): void {
     if (text.length > 100_000) throw new Error("Le fichier est trop grand.");
     const profile = readSwitchProfile(JSON.parse(text));
-    if (!profile) throw new Error("Ce fichier n’est pas un profil Switch valide.");
+    if (!profile) throw new Error("Ce fichier n’est pas un profil de manette valide.");
     this.profile = profile;
     this.releaseBeforePlay();
     if (!this.persist()) throw new Error(this.message);

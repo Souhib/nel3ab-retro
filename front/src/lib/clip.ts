@@ -104,3 +104,30 @@ export function clipLabel(state: ClipState): string {
       return "clip des 45 s";
   }
 }
+
+/** Ce que fait le bouton du clip, en une phrase visible.
+ *
+ * Ces phrases vivaient dans un `title`, qu'aucun téléphone n'affiche et que le
+ * focus du clavier ne montre pas (audit T10, 22 novembre 2026). Elles
+ * s'ouvrent maintenant sous le bouton, à la demande (`components/Aide`). */
+export function clipAide(state: ClipState): string {
+  switch (state.phase) {
+    case "en cours":
+      return "La salle prépare le fichier.";
+    case "attendre":
+      return "Deux clips ne peuvent pas se suivre d'aussi près.";
+    case "fait":
+      return "Le bouton l'enregistre. Tu peux ensuite le partager.";
+    case "raté":
+      return state.why;
+    default:
+      return "Les 45 dernières secondes de la partie, en un fichier vidéo.";
+  }
+}
+
+/** Ce que fait le micro, en une phrase visible. Même raison que `clipAide`. */
+export function micAide(etat: string | undefined): string {
+  if (etat === "on") return "Ta voix entre dans les clips. Le bouton coupe le micro.";
+  if (etat === "refused") return "Le navigateur a refusé le micro. Autorise-le dans ses réglages.";
+  return "Ta voix dans les clips. Elle n'est jamais rejouée aux autres.";
+}

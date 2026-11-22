@@ -21,6 +21,7 @@ import type { Trail, Vitals } from "./vitals";
 import { onBench, VISIT } from "./visit";
 import { under } from "./base";
 import { salle } from "./base";
+import { SANS_REPONSE } from "./mots";
 
 export const ROOM_KEY = ["room"] as const;
 
@@ -72,7 +73,7 @@ export function useRoom() {
         // back as an object with nothing in it. Without this line the page
         // showed an empty library and four empty seats, and blamed nobody.
         if (!Array.isArray(answer?.library) || !Array.isArray(answer?.seats)) {
-          throw new Error("ce n'est pas un salon");
+          throw new Error("la réponse ne décrit pas une salle");
         }
         return answer;
       } catch {
@@ -137,7 +138,10 @@ export type Lobby = {
 export type Booting = {
   game: string;
   save: string;
-  saveSlot?: 0 | 1;
+  saveSlot?: 0 | 1 | 2;
+  /** L'attribution de qui a lancé: celui-là lit « ma sauvegarde », les autres
+   * « la sauvegarde de … » (audit T06). Absente d'un salon d'avant. */
+  starter?: string;
   pads?: Record<string, number>;
   /** Choisi par le salon pour cette connexion lors d'un lancement solo. */
   solo?: boolean;
@@ -271,7 +275,7 @@ export function useLobby(
   }, [key, client, padOnly]);
 
   const request = async (event: string, data: Record<string, unknown>) => {
-    if (!socket.current?.connected) throw new Error("Le salon ne répond pas.");
+    if (!socket.current?.connected) throw new Error(SANS_REPONSE);
     const answer = (await socket.current.timeout(5000).emitWithAck(event, data)) as {
       ok?: boolean;
       error?: string;

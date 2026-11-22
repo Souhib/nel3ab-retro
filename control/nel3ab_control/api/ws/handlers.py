@@ -741,7 +741,23 @@ async def disconnect(sid: str) -> None:
 #: `front/src/lib/saves.ts` et compare, parce que deux libellés qui se
 #: contredisent donneraient à celui qui lance et à ceux qui regardent deux
 #: versions différentes du même écran.
-SAVES = ("partie neuve", "tout débloqué", "reprendre")
+SAVES = ("nouvelle partie", "tout débloqué", "ma sauvegarde")
+
+
+def de(nom: str) -> str:
+    """« de Bo », « d'Ami »: la même élision que `front/src/lib/mots.ts`."""
+    return f"d'{nom}" if nom[:1].lower() in "aeiouyhàâäéèêëîïôöùûü" and nom else f"de {nom}"
+
+
+def annonce_de(slot: int, nom: str) -> str:
+    """L'emplacement tel que les AUTRES le lisent sur leur écran de chargement.
+
+    « ma sauvegarde » est le mot de celui qui lance. Les autres lisaient
+    « sur « reprendre » » sans savoir à qui elle était (audit T06, 22 novembre
+    2026): ils lisent maintenant « la sauvegarde de Bo ». Le nom est celui que
+    le salon tient pour la session, jamais un texte envoyé par la page.
+    """
+    return f"la sauvegarde {de(nom)}" if slot == 2 else SAVES[slot]
 
 
 @sio.event
@@ -810,7 +826,7 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     # à zéro son compteur d'images, donc allonger son attente.
     await sio.emit(
         "booting",
-        {"game": game, "save": SAVES[slot], "saveSlot": slot},
+        {"game": game, "save": annonce_de(slot, str(session["name"])), "saveSlot": slot},
         room=piece(salle),
         skip_sid=sid,
     )
@@ -829,7 +845,17 @@ def allowed_devices(console: str, guide: GameGuide | None) -> list[int]:
 
 @sio.event
 async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
-    """Chaque joueur confirme son choix ; l'initiateur lance quand tous sont prêts."""
+    """Chaque joueur confirme son choix ; l'initiateur lance quand tous sont prêts.
+
+    Trois raccourcis depuis l'audit P6 du 22 novembre 2026, où lancer un jeu seul
+    demandait sept gestes et trois confirmations de la même décision:
+
+    - `begin` avec `direct`: seul à jouer, sur un jeu qui ne propose qu'un
+      appareil, le choix de la sauvegarde lance le jeu (`Preparation.directe`);
+    - `launch` avec `pad`: le chef confirme son propre appareil en lançant;
+    - `launch` avec `sans_attendre`: après `ATTENTE_SANS`, le chef lance sans
+      les joueurs qui n'ont pas confirmé. Ils gardent leur place.
+    """
     from nel3ab_control.api.controllers.preparation import Participant, Preparation
     from nel3ab_control.worker import launch_prepared
 
@@ -858,7 +884,74 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
         port = rooms.seat_of(sid)
         seat = next((s for s in room.seats if s.port == port), None)
         if seat is None or seat.claim is None:
-            return {"error": "Attends que ta manette soit attribuée, puis réessaie."}
+            return {"error": "Attends que ta place soit attribuée, puis réessaie."}
+        place, attribution = seat.port, seat.claim
+
+        async def lancer(pending: Preparation, pads: list[int]) -> None:
+            """Le lancement lui-même, après que la préparation a dit oui.
+
+            Une seule copie pour les deux chemins: le bouton « Lancer » et le
+            lancement direct d'un joueur seul. Deux copies auraient fini par ne
+            plus annoncer la même chose aux autres.
+            """
+            # Le jeu tel que la bibliothèque le porte MAINTENANT: par sa
+            # clé, sa position a pu changer depuis le début.
+            game = next((g for g in room.library if pending.names(g)), None)
+            if game is None:
+                raise ValueError(
+                    "Ce jeu n'est plus dans la bibliothèque de la salle. Rouvre le menu."
+                )
+            if pending.save == 1 and not await rooms.unlocked_available(game.index):
+                raise ValueError(
+                    "La sauvegarde tout débloqué n'est plus disponible. "
+                    "Choisis un autre emplacement."
+                )
+            # L'identité vient de la SESSION, que le proxy a établie, et
+            # pas de ce que la page raconte: c'est elle qui décide dans
+            # quel dossier la partie sera écrite. Vide quand aucun proxy
+            # n'est devant, et le worker retombe alors sur la partie neuve.
+            # La clé part au worker, qui la résout contre SA bibliothèque.
+            # Un worker qui n'en publie pas encore reçoit la position.
+            if not await launch_prepared(
+                rooms.settings.worker_control,
+                place,
+                attribution,
+                game.index,
+                pending.save,
+                pads,
+                [s.claim or "-" for s in room.seats],
+                session["login"] or "",
+                key=game.key,
+            ):
+                raise ValueError(
+                    "La salle n'a pas accepté le lancement. La préparation reste ouverte."
+                )
+            # Au journal des parties, APRÈS l'accord du worker: un
+            # lancement refusé n'a choisi la sauvegarde de personne.
+            rooms.tablee.lance(_joueur(session), session["name"], jeu_joue(game), pending.save)
+            journal.write(
+                "changement",
+                **_who(sid, session),
+                jeu=game.name,
+                sauvegarde=SAVES[pending.save],
+                salle=_room_now(rooms, people),
+            )
+            await sio.emit(
+                "booting",
+                {
+                    "game": game.name,
+                    "save": annonce_de(pending.save, str(session["name"])),
+                    "saveSlot": pending.save,
+                    # Celui qui a lancé lit « ma sauvegarde », les autres « la
+                    # sauvegarde de … »: la page compare avec sa propre place.
+                    "starter": pending.starter,
+                    "pads": {p.claim: p.pad for p in pending.players},
+                    **({"soloStarter": sid} if CONSOLES.solo(game.console) else {}),
+                },
+                room=piece(salle),
+            )
+            rooms.preparation = None
+
         try:
             if action == "begin":
                 if await may_decide(rooms.settings.worker_control, seat.port) is not True:
@@ -926,6 +1019,19 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                         if s.claim and (not solo or s.claim == seat.claim)
                     ],
                 )
+                pending = rooms.preparation
+                if data.get("direct") is True and pending.directe():
+                    pending.choose(seat.claim, pending.allowed[0], True)
+                    try:
+                        await lancer(pending, pending.launch(seat.claim))
+                    except ValueError:
+                        # Le jeu n'a pas pu partir: la préparation reste
+                        # ouverte, et elle se montre avec son bouton, comme
+                        # avant ce raccourci. Ce qui l'a refusé s'y redira.
+                        await broadcast(rooms, people, journal, bool(session.get("banc")))
+                        raise
+                    await broadcast(rooms, people, journal, bool(session.get("banc")))
+                    return {"ok": True, "lance": True}
             else:
                 pending = rooms.preparation
                 if pending is None or data.get("id") != pending.id:
@@ -943,63 +1049,14 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                         raise ValueError("Seule la personne qui prépare peut annuler le lancement.")
                     rooms.preparation = None
                 elif action == "launch":
-                    # Le jeu tel que la bibliothèque le porte MAINTENANT: par sa
-                    # clé, sa position a pu changer depuis le début.
-                    game = next((g for g in room.library if pending.names(g)), None)
-                    if game is None:
-                        raise ValueError(
-                            "Ce jeu n'est plus dans la bibliothèque de la salle. Rouvre le menu."
-                        )
-                    if pending.save == 1 and not await rooms.unlocked_available(game.index):
-                        raise ValueError(
-                            "La sauvegarde tout débloqué n'est plus disponible. "
-                            "Choisis un autre emplacement."
-                        )
-                    pads = pending.launch(seat.claim)
-                    # L'identité vient de la SESSION, que le proxy a établie, et
-                    # pas de ce que la page raconte: c'est elle qui décide dans
-                    # quel dossier la partie sera écrite. Vide quand aucun proxy
-                    # n'est devant, et le worker retombe alors sur la partie neuve.
-                    # La clé part au worker, qui la résout contre SA bibliothèque.
-                    # Un worker qui n'en publie pas encore reçoit la position.
-                    if not await launch_prepared(
-                        rooms.settings.worker_control,
-                        seat.port,
-                        seat.claim,
-                        game.index,
-                        pending.save,
-                        pads,
-                        [s.claim or "-" for s in room.seats],
-                        session["login"] or "",
-                        key=game.key,
+                    pad = data.get("pad")
+                    sans_attendre = data.get("sans_attendre")
+                    if (pad is not None and type(pad) is not int) or (
+                        sans_attendre is not None and type(sans_attendre) is not bool
                     ):
-                        raise ValueError(
-                            "Le worker n'a pas accepté le lancement. La préparation reste ouverte."
-                        )
-                    # Au journal des parties, APRÈS l'accord du worker: un
-                    # lancement refusé n'a choisi la sauvegarde de personne.
-                    rooms.tablee.lance(
-                        _joueur(session), session["name"], jeu_joue(game), pending.save
-                    )
-                    journal.write(
-                        "changement",
-                        **_who(sid, session),
-                        jeu=game.name,
-                        sauvegarde=SAVES[pending.save],
-                        salle=_room_now(rooms, people),
-                    )
-                    await sio.emit(
-                        "booting",
-                        {
-                            "game": game.name,
-                            "save": SAVES[pending.save],
-                            "saveSlot": pending.save,
-                            "pads": {p.claim: p.pad for p in pending.players},
-                            **({"soloStarter": sid} if CONSOLES.solo(game.console) else {}),
-                        },
-                        room=piece(salle),
-                    )
-                    rooms.preparation = None
+                        raise ValueError("Choisis un type de manette puis confirme.")
+                    pads = pending.launch(seat.claim, pad=pad, sans_attendre=sans_attendre is True)
+                    await lancer(pending, pads)
                 else:
                     raise ValueError("Cette action de préparation est inconnue.")
         except ValueError as error:

@@ -1081,7 +1081,7 @@ async def test_only_the_one_who_decides_can_announce(
     # cette moitié, un gestionnaire qui refuserait TOUT satisferait le test.
     await owner.emit("booting", {"jeu": 0, "sauvegarde": 0})
     await asyncio.sleep(0.4)
-    assert told == [{"game": "Super Smash Bros Melee", "save": "partie neuve", "saveSlot": 0}]
+    assert told == [{"game": "Super Smash Bros Melee", "save": "nouvelle partie", "saveSlot": 0}]
 
     await owner.disconnect()
     await other.disconnect()
@@ -1422,7 +1422,10 @@ async def test_old_page_and_reconnection_do_not_become_false_spectators(served, 
 
 
 @pytest.mark.parametrize("login", ["first+player@example.com", "first-player@example.com"])
-@pytest.mark.parametrize("slot,label", [(0, "partie neuve"), (2, "reprendre")])
+#: Le salon garde le PRÉNOM du nom que le proxy annonce (`identity`): « same
+#: nickname » devient « same ». Les autres lisent la sauvegarde de qui a lancé,
+#: et plus « reprendre », qui ne disait pas à qui (audit T06).
+@pytest.mark.parametrize("slot,label", [(0, "nouvelle partie"), (2, "la sauvegarde de same")])
 async def test_lancer_sur_sa_propre_sauvegarde_annonce_le_bon_emplacement(
     served: tuple[str, RoomController],
     monkeypatch: pytest.MonkeyPatch,
@@ -1731,3 +1734,95 @@ async def test_a_new_name_does_not_rename_somebody_else(
 
     await renaming.disconnect()
     await other.disconnect()
+
+
+@pytest.mark.parametrize("assis", [1, 2])
+async def test_seul_a_jouer_le_choix_de_sauvegarde_lance_le_jeu(
+    served: tuple[str, RoomController],
+    monkeypatch: pytest.MonkeyPatch,
+    assis: int,
+) -> None:
+    """Audit P6, 22 novembre 2026: sept gestes pour lancer un jeu seul.
+
+    Choisir la sauvegarde ouvrait une préparation, puis il fallait « Je suis
+    prêt » et « Lancer le jeu »: trois confirmations de la même décision. Seul
+    à jouer, sur un jeu qui ne propose qu'un appareil, `direct` lance tout de
+    suite, et l'annonce part aux autres comme pour un lancement ordinaire.
+
+    Le jumeau: à deux joueurs, `direct` ne lance rien et la préparation reste
+    ouverte. Un raccourci qui lancerait sans demander à l'autre lui prendrait
+    sa décision.
+    """
+    from nel3ab_control.api.ws import handlers
+
+    url, rooms = served
+    claims = ["d" * 32 + "-1", "e" * 32 + "-2"]
+    launches: list[str] = []
+
+    async def worker(stream: SocketStream) -> None:
+        async with stream:
+            line = b""
+            while b"\n" not in line:
+                line += await stream.receive(320)
+            command = line.decode().strip()
+            if command == "seats":
+                tenues = claims[:assis] + ["-"] * (4 - assis)
+                await stream.send((" ".join(tenues) + "\n").encode())
+            elif command.startswith("decides"):
+                await stream.send(b"yes\n")
+            elif command.startswith("launch"):
+                launches.append(command)
+                await stream.send(b"ok\n")
+            else:
+                await stream.send(b"ok\n")
+
+    async def catalog(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "current": None,
+                "roms": [{"name": "Super Smash Bros Melee", "console": "gc", "art": False}],
+            },
+        )
+
+    monkeypatch.setattr(handlers, "ROOM_EVERY", 0)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(catalog)) as client:
+        monkeypatch.setattr(rooms, "_client", client)
+        async with await anyio.create_tcp_listener(
+            local_host="127.0.0.1", local_port=0
+        ) as listener:
+            port = listener.extra(SocketAttribute.local_address)[1]  # noqa: S610
+            rooms.settings.worker_control = f"127.0.0.1:{port}"
+            async with anyio.create_task_group() as group:
+                group.start_soon(listener.serve, worker)
+                player, other = socketio.AsyncClient(), socketio.AsyncClient()
+                annonces: asyncio.Queue[dict] = asyncio.Queue()
+                other.on("booting", annonces.put_nowait)
+                try:
+                    await player.connect(url, auth={"name": "Souhib"})
+                    await other.connect(url, auth={"name": "Yassine"})
+                    await player.call("seat", {"port": 1, "claim": claims[0]})
+                    if assis == 2:
+                        await other.call("seat", {"port": 2, "claim": claims[1]})
+
+                    ouvert = await player.call(
+                        "preparation",
+                        {"action": "begin", "game": 0, "save": 0, "direct": True},
+                    )
+                    if assis == 1:
+                        assert ouvert == {"ok": True, "lance": True}
+                        assert len(launches) == 1, launches
+                        assert rooms.preparation is None
+                        async with asyncio.timeout(3):
+                            annonce = await annonces.get()
+                        assert annonce["save"] == "nouvelle partie"
+                        assert annonce["starter"] == claims[0]
+                    else:
+                        assert ouvert == {"ok": True}
+                        assert launches == []
+                        assert rooms.preparation is not None
+                        assert [p.port for p in rooms.preparation.players] == [1, 2]
+                finally:
+                    await player.disconnect()
+                    await other.disconnect()
+                    group.cancel_scope.cancel()

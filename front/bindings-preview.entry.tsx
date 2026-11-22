@@ -50,7 +50,7 @@ function Preview() {
       actions={preparing ? game.guide?.actions[String(selected)] : undefined}
       preparation={preparing ? <Preparation pending={pending} game={game} input={stream} state={state} selected={selected} onSelect={(kind) => { setSelected(kind); refresh(); }} send={async action => {
         if (action.action === "choose") setPending(p => ({ ...p, players: p.players.map(one => one.port === 1 ? { ...one, ready: Boolean(action.ready), pad: Number(action.pad) } : one) }));
-        if (action.action === "launch") Object.assign(window, { previewLaunched: true });
+        if (action.action === "launch") Object.assign(window, { previewLaunched: true, previewLaunch: action });
         if (action.action === "cancel") setOpen(false);
       }} /> : undefined}
       onCapture={(key, source, sign) => act(() => stream.beginCapture(key, source, sign))}

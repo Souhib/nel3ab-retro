@@ -130,7 +130,7 @@
     {
       "code": "x360",
       "label": "Xbox 360",
-      "note": "expérimentale : Xenia Edge, quatre manettes de type Xbox 360",
+      "note": "expérimentale : quatre manettes Xbox 360, ralentissements possibles",
       "players": 4,
       "engine": "xenia",
       "form": {

@@ -30,7 +30,7 @@ export const CONSOLES: readonly { code: string; label: string; note: string }[] 
     code: one.code,
     // « expérimental » vient du drapeau, pas du nom: le salon et le worker lisent
     // le même nom, et un nom qui porte un statut finit par mentir sur lui.
-    label: one.experimental ? `${one.label} — expérimental` : one.label,
+    label: one.experimental ? `${one.label} (expérimental)` : one.label,
     note: one.note,
   })),
   // Un disque dont l'outil n'a pas su dire la console. Il a quand même son

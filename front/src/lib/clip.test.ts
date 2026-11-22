@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { aSecondLater, askForClip, clipLabel, nameFrom, type ClipState } from "./clip";
+import {
+  aSecondLater,
+  askForClip,
+  clipAide,
+  clipLabel,
+  micAide,
+  nameFrom,
+  type ClipState,
+} from "./clip";
 
 /** Une réponse du worker, sans worker. */
 const answers = (
@@ -132,5 +140,28 @@ describe("le nom du fichier", () => {
     // n'ouvre.
     expect(nameFrom(null)).toMatch(/\.mp4$/);
     expect(nameFrom("attachment")).toMatch(/\.mp4$/);
+  });
+});
+
+describe("l'aide visible (audit T10)", () => {
+  it("dit ce que fait chaque état, et l'échec avec sa raison", () => {
+    const dites = [
+      clipAide({ phase: "prêt" }),
+      clipAide({ phase: "en cours" }),
+      clipAide({ phase: "attendre", seconds: 12 }),
+      clipAide({ phase: "fait", url: "", name: "", bytes: 0 }),
+    ];
+    expect(new Set(dites).size).toBe(dites.length);
+    expect(dites[0]).toContain("45 dernières secondes");
+    expect(clipAide({ phase: "raté", why: "la salle a répondu 500" })).toBe(
+      "la salle a répondu 500",
+    );
+  });
+
+  it("dit le micro ouvert, refusé, ou à ouvrir, chacun autrement", () => {
+    const dites = [micAide("on"), micAide("refused"), micAide("off"), micAide(undefined)];
+    expect(dites[2]).toBe(dites[3]);
+    expect(new Set(dites.slice(0, 3)).size).toBe(3);
+    expect(micAide("refused")).toContain("refusé");
   });
 });

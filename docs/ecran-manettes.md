@@ -447,9 +447,15 @@ pas lisible dans le code :
   pour un jeu Xbox. `padLabel`, qui ne connaît pas la salle, nomme le code 4
   « manette Pro » (`PRO_PAD`) et dit « appareil N inconnu » pour un code que
   personne ne présente. Une première version disait « appareil 4 inconnu », et
-  la préparation d'un jeu Switch l'affichait pour chaque joueur prêt. La
-  préparation d'un jeu Xbox 360 dit encore « manette Pro · prêt » : il lui
-  faudrait passer sa console à `deviceLabel`.
+  la préparation d'un jeu Switch l'affichait pour chaque joueur prêt. Depuis
+  le 22 novembre 2026, les deux panneaux de préparation (`Preparation` et
+  `SwitchBindings`) lisent `lib/lancement.ts`, qui passe la console à
+  `deviceLabel` : une salle Xbox 360 dit « manette Xbox 360 · prêt », et
+  l'en-tête nomme la console du jeu préparé (« Avant de jouer · GameCube »)
+  au lieu de « Wii » ou « Switch · manette Pro » écrits en dur. Pendant une
+  préparation, `App` passe aussi à `Bindings` la console du jeu préparé, et
+  plus « wii » : une préparation GameCube n'affiche plus le sélecteur de
+  lecture des jeux Wii.
 - **`SwitchTouchPad` exige `console` et `bar`**, même `undefined` pour la
   console. Une salle Xbox 360 ne parle Xbox que par cette prop : oubliée dans
   `App`, elle retomberait en silence sur les noms Switch. Elle ne compile plus.

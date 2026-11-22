@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { readMyConnection } from "../client";
 import { diagnose } from "../lib/diagnosis";
 import type { VideoStats } from "../media/video";
+import { IMAGE } from "../lib/mots";
 
 export function ConnectionDiagnostic({
   video,
@@ -42,21 +43,22 @@ export function ConnectionDiagnostic({
       <div className="grid gap-2 pt-2">
         <p>{diagnosis.detail}</p>
         {video.halfDenied ? (
-          <p>Le format réduit est indisponible pour la taille d’image de ce jeu.</p>
+          <p>L’image légère n’existe pas pour la taille d’image de ce jeu.</p>
         ) : null}
         <p className="text-faint">
           {route === "direct"
-            ? "Trajet Tailscale direct."
+            ? "Trajet direct jusqu’à la salle."
             : route === "relay"
-              ? "Trajet via un relais Tailscale. Cela ne suffit pas à expliquer une saccade."
-              : "Trajet Tailscale non disponible."}
+              ? "Trajet par un relais. Cela ne suffit pas à expliquer une saccade."
+              : "Trajet inconnu pour l’instant."}
         </p>
         <p className="text-faint">
-          Format {video.half ? "réduit" : "plein"} · {video.picture.width} × {video.picture.height}
+          {video.half ? IMAGE.legere : IMAGE.complete} · {video.picture.width} ×{" "}
+          {video.picture.height}
         </p>
         {diagnosis.reduce ? (
           <button type="button" className="n3-action" onClick={onReduce}>
-            Essayer le format réduit
+            Essayer l’image légère
           </button>
         ) : null}
       </div>

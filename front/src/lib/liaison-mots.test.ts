@@ -184,7 +184,7 @@ describe("la ligne parlée", () => {
   });
   it("annonce une demande de manette une fois, avec le délai en mots", () => {
     expect(phraseDemande({ from: "Lina", port: 2 }, 10)).toBe(
-      "Lina demande ta manette 2. Tu as 10 secondes pour répondre. Sans réponse, tu la gardes.",
+      "Lina demande ta place 2. Tu as 10 secondes pour répondre. Sans réponse, tu la gardes.",
     );
     expect(phraseDemande(null, 10)).toBe("");
   });

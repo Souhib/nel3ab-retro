@@ -14,6 +14,7 @@
  */
 import type { Pose } from "../bobine/Bobine";
 import type { Liaison } from "../media/liaison";
+import { IMAGE } from "./mots";
 
 /** Les gestes qu'un état propose, nommés par ce qu'ils font. */
 export type Action =
@@ -197,7 +198,7 @@ export function dire(liaison: Liaison, salle: number): Dit {
         niveau: "proposition",
         pose: "repos",
         titre: "Ton image saute depuis vingt secondes.",
-        detail: "Le format réduit demande environ 2,6 fois moins de débit.",
+        detail: `L'image légère demande ${IMAGE.prix}.`,
         actions: ["reduire", "garder"],
       };
   }
@@ -249,7 +250,7 @@ function parlee(liaison: Liaison, salle: number): string {
           ? "La salle répond. Première image attendue."
           : `Connexion à la salle ${salle}.`;
     case "irreguliere":
-      return "Ton image saute. Le format réduit est proposé.";
+      return "Ton image saute. L'image légère est proposée.";
   }
 }
 
@@ -275,7 +276,7 @@ export function phraseLiaison(avant: Liaison, apres: Liaison, salle: number): st
   }
 }
 
-/** Une demande de manette, dite UNE fois et en mots.
+/** Une demande de place, dite UNE fois et en mots.
  *
  * L'ancien bandeau était une alerte assertive qui réécrivait « 9 s », « 8 s »…
  * chaque seconde: dix interruptions de suite en pleine partie (audit A11Y-09).
@@ -285,7 +286,7 @@ export function phraseDemande(
   secondes: number,
 ): string {
   if (demande === null) return "";
-  return `${demande.from} demande ta manette ${demande.port}. Tu as ${Math.ceil(secondes)} secondes pour répondre. Sans réponse, tu la gardes.`;
+  return `${demande.from} demande ta place ${demande.port}. Tu as ${Math.ceil(secondes)} secondes pour répondre. Sans réponse, tu la gardes.`;
 }
 
 /** Une ligne du résumé de la connexion. */

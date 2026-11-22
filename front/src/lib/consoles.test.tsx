@@ -29,7 +29,7 @@ it("garde les noms d'étagère d'avant pour les quatre consoles", () => {
     "GameCube",
     "Wii",
     "Switch",
-    "Switch 2 — expérimental",
+    "Switch 2 (expérimental)",
   ]);
   expect(consoleLabel("?")).toBe("à classer");
   expect(consoleLabel("nes")).toBe("nes");

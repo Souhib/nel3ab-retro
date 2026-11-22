@@ -263,7 +263,7 @@ export function LobbyPlan({
                   ? ""
                   : room.library.length === 0
                     ? "bibliothèque vide"
-                    : `bibliothèque — ${room.library.length} jeux`}
+                    : `bibliothèque · ${room.library.length} jeux`}
               </p>
             </div>
 
@@ -285,7 +285,7 @@ export function LobbyPlan({
                   <span className="font-sans" style={{ color: CHALK }}>
                     {noms(aLaPorte)}
                   </span>
-                  {" — place pas encore annoncée"}
+                  {", place pas encore annoncée"}
                 </span>
               </p>
             ) : null}

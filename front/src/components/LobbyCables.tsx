@@ -274,10 +274,10 @@ export function LobbyCables({
 
       <p id="people" className="mx-auto w-full max-w-[1180px] text-note" style={{ color: SOURDE }}>
         {watchers.length === 0
-          ? "personne ne regarde sans manette"
+          ? "personne ne regarde"
           : `${watchers.map((person) => person.name).join(", ")} ${
               watchers.length > 1 ? "regardent" : "regarde"
-            } sans manette`}
+            }`}
       </p>
     </div>
   );

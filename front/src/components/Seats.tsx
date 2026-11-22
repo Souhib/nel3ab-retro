@@ -1,9 +1,13 @@
 /**
- * Les quatre prises, et qui est assis dedans.
+ * Les quatre places, et qui est assis dessus.
  *
- * Les noms sont rapprochés des attributions lues chez le worker. Une prise
+ * Le dessin est une prise, et c'est voulu: on y branche sa manette. Le MOT est
+ * « place » (audit T05, `lib/mots`): « prise », « port » et « manette 2 »
+ * désignaient la même chose à trois endroits.
+ *
+ * Les noms sont rapprochés des attributions lues chez le worker. Une place
  * sans nom connu ne reçoit pas de faux prénom ni de libellé « occupée ».
- * Le dessin conserve l'occupation pour prendre ou demander la bonne manette.
+ * Le dessin conserve l'occupation pour prendre ou demander la bonne place.
  */
 import { useEffect, useState } from "react";
 import { Branchement, useBranchements } from "../bobine/Branchement";
@@ -117,15 +121,15 @@ export function Seats({
                 // salon ne nomme personne, comme le dessin. Nommée, elle dit
                 // qui la tient et ce que fait un clic: « Bo » seul ne disait
                 // ni l'un ni l'autre (relecture du 22 novembre 2026).
-                aria-label={`Manette ${port}, ${
+                aria-label={`Place ${port}, ${
                   isMine
                     ? "la tienne"
                     : name && held
-                      ? `tenue par ${name}, demander`
+                      ? `prise par ${name}, demander`
                       : held
                         ? isArmed
-                          ? "tenue, reclique pour la reprendre"
-                          : "tenue"
+                          ? "prise, touche-la encore pour la reprendre"
+                          : "prise"
                         : "libre"
                 }`}
                 // `aria-disabled` et non `disabled`: la tienne reste dans la
@@ -136,10 +140,10 @@ export function Seats({
                   isMine
                     ? "c'est la tienne"
                     : names.has(port)
-                      ? `demander sa manette à ${names.get(port)}`
+                      ? `demander sa place à ${names.get(port)}`
                       : held
-                        ? "personne ne répond sur cette prise: reclique pour la reprendre"
-                        : "prendre cette manette"
+                        ? "personne ne répond sur cette place : touche-la encore pour la reprendre"
+                        : "prendre cette place"
                 }
                 className={cn(
                   "relative cursor-pointer border-0 bg-transparent p-0 leading-none",
@@ -199,17 +203,24 @@ export function Seats({
           })}
         </div>
       </div>
+      {/* Ce qu'un toucher fait, ÉCRIT: le `title` des places ne s'affiche ni
+          au doigt ni au clavier (audit T10). */}
       {displaced ? (
         <p id="displaced" className="text-note text-alert">
-          quelqu'un a repris ta manette. Choisis une prise libre ou demande une manette.
+          Quelqu&apos;un a repris ta place. Choisis une place libre, ou demande la sienne à un
+          joueur.
         </p>
-      ) : mine === null ? (
+      ) : armed !== null ? (
+        <p className="text-note text-alert">
+          Personne ne répond sur cette place : touche-la encore pour la reprendre.
+        </p>
+      ) : (
         <p className="text-note text-faint">
-          {armed === null
-            ? "clique une prise libre, ou demande la sienne à quelqu'un"
-            : "personne ne répond dessus: reclique pour la reprendre"}
+          {mine === null
+            ? "Choisis une place libre. Une place prise se demande à son joueur."
+            : `Tu es à la place ${mine}. Une place prise se demande à son joueur.`}
         </p>
-      ) : null}
+      )}
     </div>
   );
 }

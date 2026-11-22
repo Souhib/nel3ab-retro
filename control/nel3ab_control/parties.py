@@ -82,8 +82,8 @@ class Fin(StrEnum):
 class Sauvegarde(StrEnum):
     """Dans quelle sauvegarde une partie s'écrit, d'après qui l'a lancée."""
 
-    #: La sauvegarde personnelle de la personne qui a lancé (« partie neuve » et
-    #: « reprendre » d'un compte identifié, ADR du 10 novembre 2026).
+    #: La sauvegarde personnelle de la personne qui a lancé (« nouvelle partie »
+    #: et « ma sauvegarde » d'un compte identifié, ADR du 10 novembre 2026).
     LANCEUR = "lanceur"
     #: « Tout débloqué », commune à tout le monde.
     COMMUNE = "commune"
@@ -96,7 +96,7 @@ class Sauvegarde(StrEnum):
 
 #: Les emplacements tels que la préparation les code, et leur nom dans la ligne.
 #: Les mêmes trois que `handlers.SAVES`, dans le même ordre.
-EMPLACEMENTS = ("partie neuve", "tout débloqué", "reprendre")
+EMPLACEMENTS = ("nouvelle partie", "tout débloqué", "ma sauvegarde")
 
 
 def sauvegarde_de(emplacement: int | None, login: str | None) -> Sauvegarde:

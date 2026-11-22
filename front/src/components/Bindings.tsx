@@ -530,7 +530,7 @@ export function Bindings({
                             <tr key={one.key}>
                               <td>{one.label}</td>
                               <td>{keyCell(one.key, one.label)}</td>
-                              {actions ? <td>{actions[one.key] ?? "—"}</td> : null}
+                              {actions ? <td>{actions[one.key] ?? "–"}</td> : null}
                             </tr>,
                           ];
                           if (isStick(one.key)) {
@@ -539,7 +539,7 @@ export function Bindings({
                               <tr key={`${one.key}-negative`}>
                                 <td>{label === one.label ? `${label} · sens opposé` : label}</td>
                                 <td>{keyCell(one.key, `${label} · sens opposé`, -1)}</td>
-                                {actions ? <td>{actions[one.key] ?? "—"}</td> : null}
+                                {actions ? <td>{actions[one.key] ?? "–"}</td> : null}
                               </tr>,
                             );
                           }
@@ -677,7 +677,7 @@ export function Bindings({
                                 : "Publication impossible. Tes réglages personnels sont conservés.",
                             );
                           } catch {
-                            setNotice("Publication impossible. Réessaie quand le salon répond.");
+                            setNotice("Publication impossible. Réessaie dans un instant.");
                           } finally {
                             setPublishing(false);
                           }
@@ -729,7 +729,10 @@ export function Bindings({
             {busy
               ? "Assignation en cours · aucune commande envoyée au jeu"
               : preparation
-                ? "Teste tes commandes, puis confirme avec « Je suis prêt »."
+                ? // Pour tous: le chef lance avec son choix, les autres
+                  // confirment le leur (`lib/lancement`). « Je suis prêt »
+                  // n'existe plus pour le chef.
+                  "Teste tes commandes avant le lancement. Rien n'est envoyé au jeu."
                 : "Appliqué dans ce navigateur · aucun redémarrage de la partie"}
           </span>
           {state.capturing?.source === "key" ? (

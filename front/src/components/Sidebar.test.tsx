@@ -21,17 +21,10 @@ function show(overrides: Record<string, unknown> = {}) {
     mode: "normal" as const,
     onMode: vi.fn(),
     people: [],
-    players: 4,
-    busy: [false, false, false, false],
-    names: new Map<number, string>(),
-    mine: null,
     shot: null,
     volume: 0.7,
     onVolume: vi.fn(),
     onSound: vi.fn(),
-    seated: false,
-    onWatch: vi.fn(),
-    onPlay: vi.fn(),
     onLeave: vi.fn(),
     onComplain: vi.fn().mockResolvedValue(undefined),
     garde: new GardeSignalement(),
@@ -138,10 +131,10 @@ describe("les personnes dans la salle", () => {
     expect(screen.getByLabelText("chef de la salle")).toBeInTheDocument();
     expect(screen.queryByText(/occupée|occupé/)).not.toBeInTheDocument();
   });
-  it("le droit administrateur n'invente pas un chef sur une place libre", () => {
-    show({ owner: { name: "Souhib", id: "one", seat: 2 }, busy: [false, false, false, false] });
-    expect(screen.queryByLabelText("chef de la salle")).not.toBeInTheDocument();
-  });
+  // « le droit administrateur n'invente pas un chef sur une place libre » vit
+  // dans `Seats.test.tsx`: la liste « joueurs » de la colonne, qui portait sa
+  // couronne, est partie (audit P7). Gardé ici, l'essai serait vert sans rien
+  // pouvoir rater.
   // Le chef se reconnaît par son repère depuis que l'état ne porte plus
   // d'adresse. Deux repères nuls ne désignent pas la même personne: sans la
   // garde, `null === null` couronnerait chaque anonyme.
@@ -164,9 +157,7 @@ it("ne présente pas un joueur sans attribution confirmée comme un spectateur o
       { name: "Alice", id: "alice", seat: null, seat_pending: true },
       { name: "Benoit", id: "benoit", seat: null, seat_pending: false },
     ],
-    busy: [true, false, false, false],
   });
-  expect(screen.getAllByText("personne")).toHaveLength(3);
   expect(screen.getByLabelText("spectateurs")).toHaveTextContent("Benoit");
   expect(screen.getByLabelText("spectateurs")).not.toHaveTextContent("Alice");
   expect(screen.getByLabelText("attributions en attente")).toHaveTextContent("Alice");
@@ -207,26 +198,31 @@ it("ne rappelle rien quand la salle est sur son menu", () => {
   expect(screen.queryByText(/sauvegarder/i)).toBeNull();
 });
 
-it("ramène à la liste des salles, à la racine du domaine", () => {
-  // Une adresse ABSOLUE: le salon est le même pour toutes les salles et vit à
-  // la racine, alors que la page, elle, est servie sous `/r/<n>/`. Relative,
-  // ce lien mènerait à `/r/1/`, c'est-à-dire nulle part ailleurs qu'ici.
-  show();
-
-  const lien = screen.getByText("les salles");
-
-  expect(lien.getAttribute("href")).toBe("/");
+it("n'a qu'une sortie, nommée sans ambiguïté (audit P8)", () => {
+  // « quitter » ramenait à l'avant-salle, « les salles » à la liste: deux
+  // sorties voisines pour deux pages. La sortie unique appelle `onLeave`, qui
+  // mène aux autres salles (`lib/entree`, `sortieVers`).
+  const props = show();
+  fireEvent.click(screen.getByRole("button", { name: "Quitter la salle" }));
+  expect(props.onLeave).toHaveBeenCalledOnce();
+  // Le jumeau: plus de second lien vers la liste, ni de « quitter » nu.
+  expect(document.querySelector("#backToLobby")).toBeNull();
+  expect(screen.queryByText("les salles")).toBeNull();
+  expect(screen.queryByRole("button", { name: "quitter" })).toBeNull();
 });
 
-it("laisse « quitter » rendre la place plutôt que changer de page", () => {
-  // Le jumeau: les deux boutons voisins ne font pas la même chose, et confondre
-  // les deux ferait perdre sa manette à qui voulait juste voir la liste.
-  const props = show();
+it("ne répète plus les places: elles vivent dans un seul bloc (audit P7)", () => {
+  show({ people: [{ name: "Yassine", id: "two", seat: 2 }] });
+  expect(screen.queryByText("joueurs")).toBeNull();
+  expect(screen.queryByText(/P2/)).toBeNull();
+  // Ni le bouton qui prend ou rend une place: il est avec les places.
+  expect(document.querySelector("#takePad, #watchOnly")).toBeNull();
+});
 
-  fireEvent.click(screen.getByText("quitter"));
-
-  expect(props.onLeave).toHaveBeenCalled();
-  expect(screen.getByText("les salles").getAttribute("href")).toBe("/");
+it("range les mesures sous les mesures techniques", () => {
+  show({ mode: "details" });
+  expect(screen.getByRole("button", { name: "mesures" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "mesures techniques" })).toBeInTheDocument();
 });
 
 describe("ce que la colonne dit d'elle-même (audit A11Y-10, A11Y-11, T02)", () => {

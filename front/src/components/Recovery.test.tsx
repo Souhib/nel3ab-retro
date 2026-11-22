@@ -80,12 +80,12 @@ it("une demande terminée et une coupure ne laissent aucun bouton de reprise", (
   rerender(
     <Recovery
       notice={null}
-      error="Le salon ne répond pas."
+      error="Pas de réponse. Réessaie dans un instant."
       onAction={vi.fn()}
       onClose={() => {}}
     />,
   );
-  expect(screen.getByText("Le salon ne répond pas.")).toBeVisible();
+  expect(screen.getByText("Pas de réponse. Réessaie dans un instant.")).toBeVisible();
   expect(screen.queryByRole("button", { name: "reprendre maintenant" })).toBeNull();
 });
 

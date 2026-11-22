@@ -19,9 +19,11 @@ function show(ready = false, pending = false, pads: Gamepad[] = []) {
   vi.spyOn(input, "attribution").mockReturnValue("claim-1");
   const block = vi.spyOn(input, "blockGameplay");
   const send = vi.fn().mockResolvedValue(undefined);
+  // Benoît lance: la page vue ici est celle d'un joueur qui confirme son choix.
+  // Le chef, lui, lance avec son choix en un geste (voir plus bas).
   const preparation = {
     id: "launch-1",
-    starter: "claim-1",
+    starter: "claim-2",
     save: 0,
     players: [
       { claim: "claim-1", port: 1, name: "Alice", ready, pad: 4 },
@@ -59,7 +61,7 @@ it("saves and restores a named personal profile without marking the player ready
   fireEvent.click(screen.getByText("Charger"));
   expect(input.switch.profile.keys.A).toBe("KeyX");
   expect(send).not.toHaveBeenCalled();
-  expect(screen.getByText("Lancer le jeu")).toBeDisabled();
+  expect(screen.queryByText("Lancer le jeu")).toBeNull();
   fireEvent.click(screen.getByText("Je suis prêt"));
   expect(send).toHaveBeenCalledWith({ id: "launch-1", action: "choose", pad: 4, ready: true });
 });
@@ -67,7 +69,7 @@ it("a ready player must withdraw confirmation before changing a profile", () => 
   const { send } = show(true, true);
   expect(screen.getByText("Enregistrer")).toBeDisabled();
   expect(screen.getByText("Charger")).toBeDisabled();
-  expect(screen.getByText("Lancer le jeu")).toBeDisabled();
+  expect(screen.queryByText("Lancer le jeu")).toBeNull();
   fireEvent.click(screen.getByText("Modifier ma configuration"));
   expect(send).toHaveBeenCalledWith({ id: "launch-1", action: "choose", pad: 4, ready: false });
 });
@@ -159,4 +161,71 @@ it("an Xbox 360 room draws an Xbox 360 pad and lights A at the bottom", () => {
   const y = container.querySelector('[data-padmap="xbox360"] [data-part="Y"]');
   const at = (part: Element | null) => Number(part?.querySelector("circle")?.getAttribute("cy"));
   expect(at(a)).toBeGreaterThan(at(y));
+});
+
+/** Le panneau de préparation d'une salle Pro, pour un jeu de `console`. */
+function prepare(console: string, qui = "claim-2") {
+  const input = new InputStream((p) => p, vi.fn(), vi.fn());
+  vi.spyOn(input, "attribution").mockReturnValue(qui);
+  const send = vi.fn().mockResolvedValue(undefined);
+  const preparation = {
+    id: "launch-2",
+    starter: "claim-1",
+    save: 0,
+    allowed: [4],
+    players: [
+      { claim: "claim-1", port: 1, name: "Alice", ready: false, pad: null },
+      { claim: "claim-2", port: 2, name: "Benoit", ready: true, pad: 4 },
+    ],
+  } as Preparation;
+  const game = {
+    index: 0,
+    name: "Un jeu",
+    console,
+    guide: {
+      allowed: [4],
+      source: "https://exemple.invalid/manuel",
+      note: "Le manuel.",
+      actions: {},
+    },
+  };
+  const view = render(
+    <SwitchBindings
+      input={input}
+      source={input.switch}
+      pending={preparation}
+      game={game}
+      send={send}
+      close={vi.fn()}
+    />,
+  );
+  return { send, ...view };
+}
+
+it("une salle Xbox 360 parle Xbox 360, pas Switch (audit T03)", () => {
+  const { container } = prepare("x360");
+  const texte = container.textContent ?? "";
+  expect(texte).toContain("Avant de jouer · Xbox 360");
+  expect(texte).toContain("manette Xbox 360 · prêt");
+  expect(screen.getByRole("heading", { name: "Mes profils Xbox 360" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Commandes du jeu" })).toBeVisible();
+  expect(texte).not.toMatch(/Switch|manette Pro|Nintendo/);
+});
+
+it("le jumeau: une salle Switch garde la manette Pro", () => {
+  const { container } = prepare("switch");
+  const texte = container.textContent ?? "";
+  expect(texte).toContain("Avant de jouer · Switch");
+  expect(texte).toContain("manette Pro · prêt");
+  expect(screen.getByRole("heading", { name: "Mes profils Switch" })).toBeVisible();
+  expect(texte).toContain("Home, Capture et le gyroscope ne sont pas disponibles.");
+});
+
+it("le chef d'une salle Pro lance en un geste (audit P6)", () => {
+  const { send } = prepare("x360", "claim-1");
+  expect(screen.queryByText("Je suis prêt")).toBeNull();
+  const lancer = screen.getByRole("button", { name: "Lancer le jeu" });
+  expect(lancer).toBeEnabled();
+  fireEvent.click(lancer);
+  expect(send).toHaveBeenCalledWith({ id: "launch-2", action: "launch", pad: 4 });
 });

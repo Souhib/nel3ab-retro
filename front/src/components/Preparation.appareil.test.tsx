@@ -55,3 +55,45 @@ it("le jumeau Wii: chaque place garde le nom de son appareil", () => {
   expect(ligne([1, 0, 2, 3], 1)).toBe("Wiimote et Nunchuk · prêt");
   expect(ligne([1, 0, 2, 3], 0)).toBe("manette GameCube · prêt");
 });
+
+/** Le texte du panneau rendu pour un jeu de cette console. */
+function panneau(console: string, pad: number, allowed: number[]): string {
+  const pending: Pending = {
+    id: "manche",
+    game: 0,
+    save: 0,
+    starter: "alice",
+    allowed,
+    players: [{ port: 1, claim: "alice", name: "Alice", pad, ready: true }],
+  };
+  const input = new InputStream((s) => s, vi.fn(), vi.fn());
+  vi.spyOn(input, "attribution").mockReturnValue("benoit");
+  const { container } = render(
+    <Preparation
+      pending={pending}
+      game={{ index: 0, name: "Un jeu", console }}
+      input={input}
+      state={input.state()}
+      selected={pad as 0}
+      onSelect={vi.fn()}
+      send={vi.fn().mockResolvedValue(undefined)}
+    />,
+  );
+  return container.textContent ?? "";
+}
+
+it("une préparation GameCube s'annonce GameCube, pas Wii (audit T04)", () => {
+  const texte = panneau("gc", 0, [0]);
+  expect(texte).toContain("Avant de jouer · GameCube");
+  expect(texte).not.toContain("· Wii");
+  // Le jumeau: une préparation Wii reste une préparation Wii.
+  expect(panneau("wii", 1, [1, 0])).toContain("Avant de jouer · Wii");
+});
+
+it("un joueur prêt d'une salle Xbox 360 a la manette Xbox 360 (audit T03)", () => {
+  const texte = panneau("x360", 4, [4]);
+  expect(texte).toContain("manette Xbox 360 · prêt");
+  expect(texte).not.toMatch(/manette Pro|Switch/);
+  // Le jumeau: une salle Switch garde la manette Pro.
+  expect(panneau("switch", 4, [4])).toContain("manette Pro · prêt");
+});

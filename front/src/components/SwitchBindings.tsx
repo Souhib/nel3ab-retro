@@ -14,7 +14,16 @@ import {
 } from "../media/switch";
 import { labels as switchLabels, physical, keyName, xboxLabels } from "../lib/switch-labels";
 import { slotLabel, type Slot } from "../lib/saves";
+import { SANS_REPONSE } from "../lib/mots";
 import { SWITCH_PRO, XBOX_360 } from "../lib/padmap";
+import { consoleName } from "../lib/consoles";
+import { deviceLabel } from "../lib/faces";
+import {
+  ATTENTE_SANS_MS,
+  gestesDuLancement,
+  ligneJoueur,
+  titrePreparation,
+} from "../lib/lancement";
 import { PadMapView } from "./PadMap";
 
 export function SwitchBindings({
@@ -49,14 +58,19 @@ export function SwitchBindings({
   const me = pending?.players.find((p) => p.claim === input.attribution());
   const ready = me?.ready ?? false;
   const starter = pending?.starter === input.attribution();
-  const allReady = Boolean(pending?.players.length && pending.players.every((p) => p.ready));
+  /** Depuis quand cette page voit la préparation: le délai avant « Lancer sans
+   * attendre », compté comme dans `Preparation`. */
+  const [vueA] = useState(() => Date.now());
+  const gestes = pending
+    ? gestesDuLancement(pending, input.attribution(), Date.now() - vueA, game?.console)
+    : null;
   const act = async (action: Record<string, unknown>) => {
     setBusy(true);
     setNotice("");
     try {
       await send({ ...action, id: pending?.id });
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Le salon ne répond pas.");
+      setNotice(e instanceof Error ? e.message : SANS_REPONSE);
     } finally {
       setBusy(false);
     }
@@ -120,6 +134,11 @@ export function SwitchBindings({
   // lettres et sa propre manette: A en bas, LB et LT, Back et Start.
   const xbox = game?.console === "x360";
   const labels = xbox ? xboxLabels : switchLabels;
+  /** Le nom de la console et de sa manette, lus dans le manifeste et la table
+   * des faces. Ils étaient écrits « Switch · manette Pro » pour toutes les
+   * salles Pro, Xbox 360 comprise (audit T03, 22 novembre 2026). */
+  const nomConsole = consoleName(game?.console) ?? (xbox ? "Xbox 360" : "Switch");
+  const nomManette = deviceLabel(4, game?.console) ?? (xbox ? "manette Xbox 360" : "manette Pro");
   const binding = (target: SwitchTarget) => {
     const value = SWITCH_BUTTONS.includes(target as SwitchButton)
       ? device?.buttons[target as SwitchButton]
@@ -134,7 +153,7 @@ export function SwitchBindings({
     <dialog
       ref={dialog}
       className="n3-switch-setup"
-      aria-label="Touches et manettes Switch"
+      aria-label={`Touches et manettes ${nomConsole}`}
       onCancel={(e) => {
         e.preventDefault();
         if (source.capturing) edit(() => source.cancel());
@@ -144,7 +163,9 @@ export function SwitchBindings({
       <header>
         <div>
           <span className="n3-eyebrow">
-            {pending ? "Avant de jouer · " : ""}Switch · manette Pro
+            {pending
+              ? titrePreparation(game?.console ?? undefined)
+              : `${nomConsole} · ${nomManette}`}
           </span>
           <h2>{pending ? game?.name : "Touches et manettes"}</h2>
         </div>
@@ -160,15 +181,19 @@ export function SwitchBindings({
         {pending ? (
           <section className="n3-preparation">
             <p>
-              Sauvegarde : {slotLabel(pending.save as Slot)}. Chacun teste ses commandes, charge son
-              profil puis confirme.
+              Sauvegarde : {slotLabel(pending.save as Slot)}. Chacun teste ses commandes et charge
+              son profil.
             </p>
             <div className="n3-preparation-players">
               {pending.players.map((p) => (
                 <div key={p.claim} data-ready={p.ready}>
                   <span>P{p.port}</span>
                   <strong>{p.name ?? ""}</strong>
-                  <small>{p.ready ? "Manette Pro · prêt" : "prépare ses commandes"}</small>
+                  <small>
+                    {p.claim === pending.starter && !p.ready
+                      ? "lance le jeu"
+                      : ligneJoueur(p, game?.console ?? undefined)}
+                  </small>
                 </div>
               ))}
             </div>
@@ -229,8 +254,8 @@ export function SwitchBindings({
               Les commandes restent dans ce panneau.
             </div>
           </div>
-          <section aria-label="Mes profils Switch">
-            <h3>Mes profils Switch</h3>
+          <section aria-label={`Mes profils ${nomConsole}`}>
+            <h3>Mes profils {nomConsole}</h3>
             <p>
               Conservés avec tes réglages personnels. Sans identité, ils restent dans ce navigateur.
             </p>
@@ -243,7 +268,7 @@ export function SwitchBindings({
                   edit(() => {
                     source.save(name);
                     source.message =
-                      "Profil enregistré. La synchronisation personnelle reprend dès que le salon répond.";
+                      "Profil enregistré. Il rejoint tes réglages personnels dès que la salle répond.";
                   })
                 }
               >
@@ -273,7 +298,7 @@ export function SwitchBindings({
                   );
                   const link = document.createElement("a");
                   link.href = url;
-                  link.download = "nel3ab-switch-profil.json";
+                  link.download = `nel3ab-profil-${game?.console ?? "switch"}.json`;
                   link.click();
                   setTimeout(() => URL.revokeObjectURL(url), 1000);
                 }}
@@ -352,32 +377,60 @@ export function SwitchBindings({
             <p>
               {guide.note}{" "}
               <a href={guide.source} target="_blank" rel="noreferrer">
-                Commandes du jeu · Nintendo
+                Commandes du jeu
               </a>
             </p>
           ) : null}
-          <p>Home, Capture et le gyroscope ne sont pas disponibles.</p>
+          {/* Ce que la trame Pro ne porte pas: seize boutons et quatre axes,
+              ni HOME, ni Capture, ni gyroscope (`media/switch.ts`), et donc ni
+              le bouton Guide d'une manette Xbox 360. Une phrase sur la Switch
+              lue dans une salle Xbox nommait des boutons qui n'y existent pas. */}
+          <p>
+            {xbox
+              ? "Le bouton Guide n'est pas disponible."
+              : "Home, Capture et le gyroscope ne sont pas disponibles."}
+          </p>
         </fieldset>
         <p role="status">{notice || source.message}</p>
       </div>
-      {pending ? (
+      {pending && gestes?.principal ? (
         <footer>
-          <button
-            disabled={busy || Boolean(source.capturing)}
-            onClick={() => void act({ action: "choose", pad: 4, ready: !ready })}
-          >
-            {ready ? "Modifier ma configuration" : "Je suis prêt"}
-          </button>
-          {starter ? (
-            <button
-              id="launchPrepared"
-              disabled={busy || !allReady}
-              onClick={() => void act({ action: "launch" })}
-            >
-              Lancer le jeu
-            </button>
+          {gestes.principal.quoi === "lancer" ? (
+            <>
+              <button
+                id="launchPrepared"
+                disabled={busy || Boolean(source.capturing) || !gestes.principal.actif}
+                onClick={() => void act({ action: "launch", pad: 4 })}
+              >
+                {gestes.principal.label}
+              </button>
+              {gestes.sansAttendre ? (
+                <button
+                  id="launchWithout"
+                  disabled={busy}
+                  title={gestes.sansAttendre.note}
+                  onClick={() => void act({ action: "launch", pad: 4, sans_attendre: true })}
+                >
+                  {gestes.sansAttendre.label}
+                </button>
+              ) : null}
+              <span>
+                {gestes.sansAttendre?.note ??
+                  (gestes.attente
+                    ? `${gestes.attente} Sans réponse au bout de ${Math.round(ATTENTE_SANS_MS / 1000)} s, tu pourras lancer sans attendre.`
+                    : "")}
+              </span>
+            </>
           ) : (
-            <span>Le lancement attend la confirmation du chef.</span>
+            <>
+              <button
+                disabled={busy || Boolean(source.capturing)}
+                onClick={() => void act({ action: "choose", pad: 4, ready: !ready })}
+              >
+                {gestes.principal.label}
+              </button>
+              <span>{gestes.attente ?? "Le chef lance le jeu quand chacun est prêt."}</span>
+            </>
           )}
         </footer>
       ) : null}

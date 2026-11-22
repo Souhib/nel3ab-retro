@@ -29,12 +29,15 @@ try {
   await page.$eval("details.n3-diagnostics summary", node => node.click());
 
  const text = async label => page.locator(`::-p-aria(${label})`).click();
+ // Plusieurs lignes d'état depuis le 22 novembre 2026: l'attente du chef
+ // (« En attente de Yassine. ») précède celle des profils. On cherche la
+ // phrase dans toutes, pas dans la première.
  assert.equal(await page.$eval('#launchPrepared', e=>e.disabled), true);
  await page.screenshot({path: `${output}/bureau.png`});
  await page.locator('.n3-preparation-saved summary').click();
  await page.type('[aria-label="Nom du nouveau profil de manette"]', 'Kart · DualSense');
  await text('Enregistrer un nouveau profil');
- await page.waitForFunction(()=>document.querySelector('[role="status"]')?.textContent.includes('enregistré'));
+ await page.waitForFunction(()=>[...document.querySelectorAll('[role="status"]')].some(e=>e.textContent.includes('enregistré')));
  await page.select('[aria-label="Ma configuration pour ce jeu"]', '0');
  await text('Charger');
  await page.waitForFunction(()=>document.querySelector('[aria-label="Ma configuration pour ce jeu"]').value === '1');
@@ -43,15 +46,18 @@ try {
  await page.locator('.n3-preparation-saved summary').click();
  await page.select('[aria-label="Profil personnel de manette"]', 'Kart · DualSense');
  await text('Charger');
- await page.waitForFunction(()=>document.querySelector('[role="status"]')?.textContent.includes('chargé'));
- await text('Je suis prêt');
- await page.waitForFunction(()=>document.querySelector('[aria-label="Ma configuration pour ce jeu"]').disabled);
+ await page.waitForFunction(()=>[...document.querySelectorAll('[role="status"]')].some(e=>e.textContent.includes('chargé')));
+ // Le chef lance avec son choix, en un geste (audit P6, 22 novembre 2026):
+ // « Je suis prêt » puis « Lancer le jeu » confirmaient la même décision.
+ assert.equal(await page.evaluate(()=>[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Je suis prêt')),false,
+  'le chef ne doit plus avoir « Je suis prêt »');
  assert.equal(await page.$eval('#launchPrepared',e=>e.disabled),true);
+ await page.waitForFunction(()=>document.body.textContent.includes('En attente de Yassine.'));
  await page.evaluate(()=>window.previewReady());
  await page.waitForFunction(()=>!document.querySelector('#launchPrepared').disabled);
  await text('Lancer le jeu');
- assert.equal(await page.evaluate(()=>window.previewLaunched),true);
- await text('Modifier ma configuration');
+ assert.deepEqual(await page.evaluate(()=>window.previewLaunch),{action:'launch',pad:1,id:'preview'},
+  'le lancement porte le choix du chef');
  await text('Supprimer');
  assert.equal(await page.$$eval('[aria-label="Profil personnel de manette"] option',n=>n.length),2);
  await text('Confirmer la suppression');
@@ -72,5 +78,5 @@ try {
   assert.ok(visible,'le choix de commande doit rester accessible en bas du défilement');
  }
  assert.deepEqual(errors,[]);
- console.log('OK · profils enregistrés/rechargés/supprimés, choix individuels, attente collective, défilement téléphone et paysage');
+ console.log('OK · profils enregistrés/rechargés/supprimés, lancement du chef en un geste, attente collective, défilement téléphone et paysage');
 } finally { await browser.close(); }

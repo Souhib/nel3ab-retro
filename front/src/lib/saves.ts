@@ -7,7 +7,7 @@
  * Rien n'est retenu d'une soirée à l'autre, et c'est voulu. Le choix se fait au
  * lancement, sur le jeu qu'on lance, donc un souvenir ne ferait que décider en
  * silence à la place de quelqu'un qui a le panneau sous les yeux. Le curseur
- * part sur « partie neuve »: quelqu'un qui découvre un jeu doit le découvrir, et
+ * part sur « nouvelle partie »: quelqu'un qui découvre un jeu doit le découvrir, et
  * tout débloquer est un choix plutôt qu'un état où on se retrouve.
  */
 
@@ -15,13 +15,17 @@
 export type Slot = 0 | 1 | 2;
 
 export const SLOTS: readonly { id: Slot; label: string; note: string }[] = [
-  { id: 0, label: "partie neuve", note: "rien de débloqué, comme à la sortie du jeu" },
-  { id: 1, label: "tout débloqué", note: "personnages, circuits, coupes, modes" },
+  { id: 0, label: "nouvelle partie", note: "rien de débloqué, comme à la sortie du jeu" },
+  // Une note qui vaut pour tous les jeux: « personnages, circuits, coupes »
+  // se lisait aussi sous Mario Party (audit T06).
   {
-    id: 2,
-    label: "reprendre",
-    note: "ta partie personnelle, dans cette salle comme dans une autre",
+    id: 1,
+    label: "tout débloqué",
+    note: "tout ce que le jeu permet de débloquer, commun à la salle",
   },
+  // « reprendre » ne disait pas à qui; « ma sauvegarde » le dit, et les autres
+  // lisent « la sauvegarde de … » (le salon, `handlers.annonce_de`).
+  { id: 2, label: "ma sauvegarde", note: "ta progression, dans cette salle comme dans une autre" },
 ] as const;
 
 /** L'emplacement personnel, qui n'existe que si le salon sait qui tu es.
@@ -96,10 +100,10 @@ export const PRO_PAD = { id: 4, label: "manette Pro" } as const;
  * GameCube », et la fiche d'un jeu Switch, dont l'appareil est la manette Pro
  * (code 4), annonçait une manette GameCube. La première correction disait
  * « appareil 4 inconnu », ce que la préparation d'un jeu Switch affichait alors
- * pour chaque joueur prêt. Le code 4 se nomme donc ici ; une salle Xbox 360 dit
- * encore « manette Pro » tant que l'écran ne passe pas sa console à
- * `deviceLabel` (lib/faces), qui la nomme « manette Xbox 360 ». Un code que
- * personne ne présente reste inconnu, et le dit. */
+ * pour chaque joueur prêt. Le code 4 se nomme donc ici. Un écran qui connaît la
+ * salle passe par `deviceLabel` (lib/faces), qui nomme la manette d'une Xbox 360
+ * « manette Xbox 360 »: la préparation le fait depuis le 22 novembre 2026
+ * (`lib/lancement`). Un code que personne ne présente reste inconnu, et le dit. */
 export function padLabel(pad: number): string {
   if (pad === PRO_PAD.id) return PRO_PAD.label;
   return PADS.find((one) => one.id === pad)?.label ?? `appareil ${pad} inconnu`;
@@ -157,5 +161,5 @@ export async function readUnlocked(url: string | URL): Promise<readonly boolean[
 
 /** Ce qu'on affiche pour un emplacement. */
 export function slotLabel(slot: Slot): string {
-  return SLOTS.find((s) => s.id === slot)?.label ?? "partie neuve";
+  return SLOTS.find((s) => s.id === slot)?.label ?? SLOTS[0].label;
 }

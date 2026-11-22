@@ -23,7 +23,7 @@ export function diagnose(video: VideoStats): Diagnosis {
   )
     return {
       title: "Image figée",
-      detail: `Plus aucune image depuis ${Math.round(video.sinceUnitMs / 1000)} s, alors que la liaison reste ouverte. Le format réduit n'y changerait rien.`,
+      detail: `Plus aucune image depuis ${Math.round(video.sinceUnitMs / 1000)} s, alors que la liaison reste ouverte. L'image légère n'y changerait rien.`,
       reduce: false,
     };
   if (video.awaitingRestart || video.paintedSince === 0)
@@ -38,7 +38,7 @@ export function diagnose(video: VideoStats): Diagnosis {
       detail:
         video.halfDenied || video.half
           ? "Cet appareil accumule des images à décoder. Ferme les onglets lourds."
-          : "Cet appareil accumule des images à décoder. Ferme les onglets lourds ou essaie le format réduit.",
+          : "Cet appareil accumule des images à décoder. Ferme les onglets lourds ou essaie l'image légère.",
       reduce: !video.half && !video.halfDenied,
     };
   if (video.overloaded)
@@ -47,7 +47,7 @@ export function diagnose(video: VideoStats): Diagnosis {
       detail:
         video.halfDenied || video.half
           ? "La marge vidéo ne suffit plus. Rapproche-toi du Wi-Fi ou utilise un câble."
-          : "La marge vidéo ne suffit plus. Essaie le format réduit, rapproche-toi du Wi-Fi ou utilise un câble.",
+          : "La marge vidéo ne suffit plus. Essaie l'image légère, rapproche-toi du Wi-Fi ou utilise un câble.",
       reduce: !video.half && !video.halfDenied,
     };
   // Après la réception: une liaison qui rame explique plus qu'un écran lent.

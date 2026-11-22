@@ -136,12 +136,19 @@ const peintes = (page) => page.evaluate(() => globalThis.nel3abTest?.counters?.(
 
 /** Entre dans la salle. `clavier`: par Entrée sur le bouton, sans aucun clic,
  * comme une personne qui n'a pas touché la souris. */
-async function entrer(page, { clavier = false } = {}) {
-  if (clavier) {
-    await page.focus("#enter");
-    await page.keyboard.press("Enter");
-  } else await page.click("#enter");
-  const debut = Date.now();
+async function entrer(page, { clavier = false, depuis = null } = {}) {
+  // Depuis le 22 novembre 2026, l'adresse porte l'entrée (`?entrer=jouer`,
+  // audit P9): un rechargement revient dans la salle sans repasser par
+  // l'avant-salle. On ne passe la porte que s'il y en a une.
+  if ((await page.$("#enter")) !== null) {
+    if (clavier) {
+      await page.focus("#enter");
+      await page.keyboard.press("Enter");
+    } else await page.click("#enter");
+  }
+  // `depuis`: une page entrée seule au chargement a pu envoyer sa première
+  // trame avant cet appel; on compte depuis le rechargement.
+  const debut = depuis ?? Date.now();
   while ((await peintes(page)) < 30) {
     if (Date.now() - debut > 20000) throw new Precondition("la page n'a pas peint 30 images en 20 s");
     await sleep(100);
@@ -498,9 +505,10 @@ const ETAPES = {
     // Le jumeau: repliée une fois, elle reste repliée à la visite suivante.
     await page.click("#aideClavier summary");
     await sleep(200);
+    const recharge = Date.now();
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#enter", { timeout: 15000 });
-    await entrer(page);
+    await page.waitForSelector("#enter, #screen", { timeout: 15000 });
+    await entrer(page, { depuis: recharge });
     const revue = await page.evaluate(() => document.querySelector("#aideClavier")?.hasAttribute("open") ?? null);
     if (revue !== false) throw new Defaut(`repliée puis rechargée, la carte vaut ${revue}`);
     await page.close();

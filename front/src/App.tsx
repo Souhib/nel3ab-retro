@@ -11,7 +11,8 @@ import { Bobine } from "./bobine/Bobine";
 import { Console } from "./bobine/Console";
 import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
-import { salle, under } from "./lib/base";
+import { base, salle, under } from "./lib/base";
+import { Crown } from "./components/Crown";
 import { useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
@@ -139,6 +140,18 @@ import {
   type Slot,
 } from "./lib/saves";
 import { useClip } from "./lib/useClip";
+import { IMAGE, SANS_REPONSE, chefAbsent, chefChoisit, placeN } from "./lib/mots";
+import {
+  adresseAvec,
+  entreeDeLAdresse,
+  lienDInvitation,
+  sortieVers,
+  type Entree,
+} from "./lib/entree";
+import { closeSalle } from "./client";
+import { Aide } from "./components/Aide";
+import { Inviter } from "./components/Inviter";
+import { clipAide, micAide } from "./lib/clip";
 import { useSession, useSnapshot } from "./lib/useSession";
 
 /**
@@ -163,7 +176,23 @@ export default function App() {
    * Trois états et non un booléen, parce que « regarder » se décide AVANT que la
    * session existe. Construite en joueur puis corrigée après, elle prendrait une
    * manette le temps d'un aller-retour et l'aurait affiché à toute la salle. */
-  const [entered, setEntered] = useState<null | "play" | "watch">(null);
+  //
+  // Lu dans l'adresse depuis le 22 novembre 2026 (audit P9): `?entrer=jouer`
+  // et `?entrer=regarder` entrent directement. L'accueil des salles et le lien
+  // d'invitation y mènent, et un rechargement revient dans la salle au lieu de
+  // l'avant-salle, qui rendait la place.
+  const [entered, setEntered] = useState<Entree | null>(() => entreeDeLAdresse(location.search));
+  /** Entrer ou sortir, et l'écrire dans l'adresse sans créer d'étape
+   * d'historique: « retour » mène à la page d'avant la salle, pas à
+   * l'avant-salle de la même salle. */
+  const entrer = (mode: Entree | null) => {
+    setEntered(mode);
+    try {
+      history.replaceState(history.state, "", adresseAvec(location.href, mode));
+    } catch {
+      // Une adresse qu'on ne peut pas réécrire laisse l'état en mémoire.
+    }
+  };
   /** La personne a choisi d'entrer sans attendre le site. Voir `Ouverture`. */
   const [sansAttendre, setSansAttendre] = useState(false);
 
@@ -189,12 +218,18 @@ export default function App() {
       login={identified}
       publishes={me?.publishes ?? false}
       entered={entered}
-      onEnter={() => setEntered("play")}
-      onWatch={() => setEntered("watch")}
-      onLeave={() => setEntered(null)}
+      onEnter={() => entrer("play")}
+      onWatch={() => entrer("watch")}
+      onLeave={() => {
+        // Une seule sortie, vers les autres salles (audit P8). Servie seule,
+        // sans salon au-dessus, la page revient à son avant-salle.
+        const vers = sortieVers(location.pathname);
+        if (vers === null) entrer(null);
+        else location.assign(vers);
+      }}
       onForget={() => {
         forgetName();
-        setEntered(null);
+        entrer(null);
         setLocal("");
       }}
     />
@@ -273,7 +308,7 @@ function Named({
       if (result.port !== null && result.claim !== null)
         takeSeat.current?.(result.port, result.claim);
     } catch (error) {
-      setRecoveryError(error instanceof Error ? error.message : "Le salon ne répond pas.");
+      setRecoveryError(error instanceof Error ? error.message : SANS_REPONSE);
     }
   };
   /* Le dessin de l'écran d'ENTRÉE, retenu comme la coquille et pour la même
@@ -423,7 +458,8 @@ function Room({
   /** Vrai quand cette page ne sert que de manette: ni image, ni son. */
   padOnly: boolean;
   onPadOnly: (only: boolean) => void;
-  /** Sortir de la salle et revenir à l'écran d'accueil. */
+  /** Quitter la salle: vers les autres salles, ou vers l'avant-salle quand la
+   * page est servie seule (`lib/entree`, `sortieVers`). */
   onLeave: () => void;
   announceSeat: (port: number | null, claim: string | null) => void;
   asked: Asked | null;
@@ -1023,7 +1059,12 @@ function Room({
         session?.video.expectRestart();
         setBooting({
           game: told.game,
-          save: told.save,
+          // Le salon écrit « la sauvegarde de Bo » pour tout le monde; celui
+          // qui a lancé lit son propre mot, « ma sauvegarde » (audit T06).
+          save:
+            told.saveSlot === 2 && told.starter === session?.input.attribution()
+              ? slotLabel(2)
+              : told.save,
           at: performance.now(),
         });
         // Le menu et le dossier se ferment, comme sur le chemin local.
@@ -1349,12 +1390,14 @@ function Room({
                       game: game.index,
                       key: game.key,
                       save: slot ?? 0,
+                      // Seul à jouer, sur un jeu à un seul appareil, le salon
+                      // lance tout de suite: choisir la sauvegarde suffit
+                      // (audit P6). Sinon la préparation s'ouvre, comme avant.
+                      direct: true,
                     })
                     .then(() => setMenu(false))
                     .catch((error: unknown) =>
-                      setPreparationError(
-                        error instanceof Error ? error.message : "Le salon ne répond pas.",
-                      ),
+                      setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
                     );
                   return;
                 }
@@ -1594,12 +1637,15 @@ function Room({
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
       // passage en spectateur, et la sortie.
       items: ([] as XmbItem[]).concat([
-        ...(boss && login && boss.moi !== true
+        // Seulement quand le chef ne joue plus (`away`, que le worker décide):
+        // proposé à tous et tout le temps, c'était la première action offerte
+        // à un nouveau venu, celle de prendre la place de l'hôte (audit T12).
+        ...(boss && login && away
           ? [
               {
                 id: "recover-owner",
-                label: "reprendre le rôle de chef",
-                hint: `${boss.name} sera prévenu. Reprise possible après 20 s sans réponse, à confirmer.`,
+                label: "prendre le rôle de chef",
+                hint: `${chefAbsent(boss.name)} ${boss.name} sera prévenu.`,
                 icon: <RoomIcon className="h-full w-full" />,
                 onEnter: () => {
                   setMenu(false);
@@ -1628,8 +1674,40 @@ function Room({
                     .closeGame(room.game.index)
                     .then(() => setPreparationError("Fermeture du jeu en cours…"))
                     .catch((error: unknown) =>
+                      setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
+                    );
+                },
+              },
+            ]
+          : []),
+        // Fermer la SALLE, et pas seulement le jeu: l'API existait, aucun
+        // bouton ne l'appelait (audit P14). Pour le chef, et seulement sous un
+        // salon: servie seule, la page n'a pas de liste où revenir.
+        ...(canClose && sortieVers(location.pathname) !== null
+          ? [
+              {
+                id: "close-room",
+                label: "fermer la salle",
+                hint: "Arrête la partie de tous et libère la carte graphique. Les sauvegardes sont conservées.",
+                icon: <RoomIcon className="h-full w-full" />,
+                picks: [
+                  { id: "close", label: "fermer la salle", hint: room?.name ?? `salle ${salle()}` },
+                  { id: "cancel", label: "continuer à jouer" },
+                ],
+                onPick: (id: string) => {
+                  if (id !== "close") return;
+                  void closeSalle({ path: { numero: salle() }, throwOnError: true })
+                    .then(() => location.assign("/"))
+                    .catch((error: unknown) =>
+                      // Le client généré rejette avec le corps de la réponse,
+                      // `{ detail }`, et non avec une `Error`.
                       setPreparationError(
-                        error instanceof Error ? error.message : "Le salon ne répond pas.",
+                        typeof error === "object" &&
+                          error !== null &&
+                          "detail" in error &&
+                          typeof error.detail === "string"
+                          ? `La salle n'a pas fermé : ${error.detail}.`
+                          : "La salle n'a pas pu fermer. Réessaie.",
                       ),
                     );
                 },
@@ -1645,11 +1723,11 @@ function Room({
         // endroits à tenir d'accord, et c'est la leçon des quatre places.
         {
           id: "watch",
-          label: watchingNow ? "reprendre une manette" : "regarder sans manette",
-          value: watchingNow ? "spectateur" : undefined,
+          label: watchingNow ? "prendre une place" : "rendre ma place",
+          value: watchingNow ? "tu regardes" : undefined,
           hint: watchingNow
             ? "la première place libre"
-            : "rend ta place à la salle, l'image et le son continuent",
+            : "tu regardes, l'image et le son continuent",
           icon: <WatchIcon className="h-full w-full" />,
           onEnter: () => {
             if (watchingNow) session?.input.play();
@@ -1660,7 +1738,11 @@ function Room({
         {
           id: "leave",
           label: "quitter la salle",
-          hint: "retour à l'accueil, la partie continue sans toi",
+          // « retour à l'accueil » désignait deux pages différentes (audit P8).
+          hint:
+            sortieVers(location.pathname) === null
+              ? "retour à l'entrée de la salle. La partie continue sans toi."
+              : "vers les autres salles. La partie continue sans toi.",
           icon: <LeaveIcon className="h-full w-full" />,
           onEnter: onLeave,
         },
@@ -1686,30 +1768,31 @@ function Room({
             id: "half",
             // « transporté » était du vocabulaire interne: personne ne dit ça
             // d'une image. Ce qu'on choisit est la qualité qu'on REÇOIT.
-            label: "qualité reçue",
-            value: shot?.video.half ? "réduit" : "pleine taille",
+            label: IMAGE.reglage,
+            value: shot?.video.half ? "légère" : "complète",
             // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
             // combien ça coûte, et que ça ne regarde qu'elle.
             //
             // Les tailles viennent de l'image REÇUE, comme celles du réglage
             // « image à l'écran », et non d'une table: les 1216×896 et 608×448
             // écrits ici étaient ceux de Dolphin, et la Switch envoie du
-            // 1280×720. Le débit n'est plus chiffré, la page ne le mesure pas;
-            // « le quart » est ce qu'un quart de pixels coûte, sur toute console.
+            // 1280×720. Un seul prix, celui qui a été mesuré (`IMAGE.prix`):
+            // la page disait ici « le quart » et ailleurs « 2,6 fois moins »
+            // (audit T11).
             hint: half
-              ? `${sizes.half || "réduit"}, environ le quart du débit. Le choix est le tien seul.`
-              : `${sizes.full || "pleine taille"}. Réduis si l'image saccade.`,
+              ? `${sizes.half || IMAGE.legere}, ${IMAGE.prix}. Ne change que ton écran.`
+              : `${sizes.full || IMAGE.complete}. Passe en image légère si l'image saccade.`,
             icon: <ScreenIcon className="h-full w-full" />,
             picks: [
               {
                 id: "full",
-                label: "pleine taille",
+                label: IMAGE.complete,
                 hint: sizes.full || "toute l'image",
               },
               {
                 id: "half",
-                label: "réduit",
-                hint: sizes.half ? `${sizes.half} · le quart du débit` : "le quart du débit",
+                label: IMAGE.legere,
+                hint: sizes.half ? `${sizes.half} · ${IMAGE.prix}` : IMAGE.prix,
               },
             ],
             picked: half ? "half" : "full",
@@ -1723,7 +1806,7 @@ function Room({
             id: "fit",
             label: "image à l'écran",
             value: fitLabel(fit),
-            hint: "ce qu'on affiche, séparé de ce qu'on transporte",
+            hint: "Comment l'image remplit ta fenêtre. Ne change pas ce que tu reçois.",
             icon: <ExpandIcon className="h-full w-full" />,
             // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
             // qu'il promet. Sans ça, deux choix qui rendent exactement la même
@@ -1805,9 +1888,9 @@ function Room({
           },
           {
             id: "deviceRate",
-            label: "fréquence de la carte son",
+            label: "son sans conversion",
             value: deviceRate ? "oui" : "non",
-            hint: "évite un rééchantillonnage, mais le tampon peut être plus long",
+            hint: "Peut réduire un grésillement. Peut ajouter un peu de retard.",
             icon: <WaveIcon className="h-full w-full" />,
             onEnter: () => setDeviceRate(!deviceRate),
           },
@@ -1865,10 +1948,10 @@ function Room({
             label: "réglages avancés",
             value: avances ? "affichés" : "3 de plus",
             hint: avances
-              ? "fréquence de la carte son, image calée sur le son, état de la connexion"
+              ? "son sans conversion, image calée sur le son, état de la connexion"
               : pour(
                   appareil,
-                  "les afficher: fréquence de la carte son, image calée sur le son, état de la connexion",
+                  "les afficher: son sans conversion, image calée sur le son, état de la connexion",
                 ),
             icon: <SettingsIcon className="h-full w-full" />,
             onEnter: () => setAvances(!avances),
@@ -2076,7 +2159,7 @@ function Room({
             className="absolute inset-x-0 bottom-4 z-20 mx-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
           >
             <p className="text-corps leading-relaxed text-bright">
-              Ton lien ne suivait pas: l&apos;image est passée en format réduit.
+              Ta connexion ne suivait pas : passage en image légère.
             </p>
             <div className="flex justify-center gap-2">
               <button
@@ -2085,7 +2168,7 @@ function Room({
                 onClick={() => setReduced(false)}
                 className="border border-rule px-2 py-0.5 text-note text-muted hover:border-rule-bright"
               >
-                d&apos;accord
+                garder
               </button>
               <button
                 type="button"
@@ -2098,7 +2181,7 @@ function Room({
                 }}
                 className="border border-indigo px-2 py-0.5 text-note text-indigo"
               >
-                revenir en pleine taille
+                revenir en image complète
               </button>
             </div>
           </div>
@@ -2333,30 +2416,48 @@ function Room({
              une largeur retenue sur un grand écran ne doit pas écraser le jeu
              sur un petit. */
           style={{ width: column, maxWidth: "50vw" }}
-          className="flex shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
+          className="relative flex shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule bg-panel px-3 py-3"
         >
-          <header className="flex flex-col gap-0.5">
+          {/* La place du bouton qui replie la colonne, posé dans son coin au
+              téléphone (`Sidebar`): l'en-tête ne passe pas dessous. */}
+          <header className={cn("flex flex-col gap-0.5", coarse && "pr-12")}>
             <span className="n3-marque">nel3ab</span>
-            <h1 className="truncate text-fort font-medium">{room?.name ?? "salon"}</h1>
+            <h1 className="truncate text-fort font-medium">{room?.name ?? `salle ${salle()}`}</h1>
             <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
             <p id="seat" className="text-corps text-faint">
               {name}
-              {port === null ? " · sans manette" : ` · manette ${port}`}
+              {port === null ? " · tu regardes" : ` · ${placeN(port)}`}
             </p>
           </header>
 
-          {boss ? <p className="text-corps text-muted">Chef : {boss.name}</p> : null}
-          {boss && login && boss.moi !== true ? (
-            <button
-              id="recoverOwner"
-              type="button"
-              className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
-              onClick={() => onRecover(null)}
-            >
-              chef absent ? reprendre le rôle
-            </button>
+          {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du rôle
+              ne se montre que quand le worker dit que le chef ne joue plus
+              (`away`): proposée à tous, c'était la première action offerte à
+              un nouveau venu (audit T12). */}
+          {boss ? (
+            <p className="flex items-center gap-1 text-corps text-muted">
+              <Crown />
+              {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
+            </p>
           ) : null}
-          <Panel title="manettes">
+          {boss && login && away ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
+              <button
+                id="recoverOwner"
+                type="button"
+                className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
+                onClick={() => onRecover(null)}
+              >
+                Prendre le rôle de chef
+              </button>
+            </div>
+          ) : null}
+          {/* Les places en UN bloc (audit P7): la rangée des quatre places,
+              puis le geste de prendre ou rendre la sienne. La liste « joueurs »
+              de la colonne répétait les mêmes noms trois cents pixels plus
+              bas. */}
+          <Panel title="places">
             <Seats
               ownerSeat={boss?.seat}
               players={shot?.input.players ?? 4}
@@ -2369,7 +2470,18 @@ function Room({
               onTake={(chosen) => session?.input.take(chosen)}
               onAsk={(chosen) => onRecover(chosen)}
             />
+            <button
+              type="button"
+              id={port !== null ? "watchOnly" : "takePad"}
+              data-rend-le-jeu=""
+              onClick={() => (port !== null ? session?.input.watchOnly() : session?.input.play())}
+              className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
+            >
+              {port !== null ? "Rendre ma place" : "Prendre une place"}
+            </button>
           </Panel>
+
+          <Inviter lien={lienDInvitation(location.origin, base())} />
 
           {/* Les touches du clavier, sans ouvrir de menu (audit T02): à qui
               tient une place et joue au clavier. */}
@@ -2395,79 +2507,69 @@ function Room({
               fait descendre du menu vers ici.
               Un seul bouton pour deux gestes — demander, puis enregistrer —
               parce que c'est une seule chose du point de vue de la personne. */}
-          <button
-            type="button"
-            id="clip"
-            // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
-            data-rend-le-jeu=""
-            onClick={takeClip}
-            disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
-            title={
-              clip.state.phase === "fait"
-                ? "l'enregistrer, puis le partager"
-                : clip.state.phase === "attendre"
-                  ? "deux clips ne peuvent pas se suivre d'aussi près"
+          <Aide texte={clipAide(clip.state)} sujet="le clip">
+            <button
+              type="button"
+              id="clip"
+              // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
+              data-rend-le-jeu=""
+              onClick={takeClip}
+              disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
+              title={clipAide(clip.state)}
+              className={cn(
+                "flex min-h-11 flex-1 items-center justify-between gap-2 border px-3 py-2 text-corps transition-colors",
+                clip.state.phase === "fait"
+                  ? "border-good/60 text-good hover:bg-good/10"
                   : clip.state.phase === "raté"
-                    ? clip.state.why
-                    : "les quarante-cinq dernières secondes, en un fichier"
-            }
-            className={cn(
-              "flex items-center justify-between gap-2 border px-3 py-2 text-corps transition-colors",
-              clip.state.phase === "fait"
-                ? "border-good/60 text-good hover:bg-good/10"
-                : clip.state.phase === "raté"
-                  ? "border-alert/60 text-alert"
-                  : "border-rule text-muted hover:border-rule-bright hover:text-text",
-              (clip.state.phase === "en cours" || clip.state.phase === "attendre") &&
-                "cursor-not-allowed",
-            )}
-          >
-            <span className="flex items-center gap-2">
-              <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
-                <ScreenIcon className="h-full w-full" />
+                    ? "border-alert/60 text-alert"
+                    : "border-rule text-muted hover:border-rule-bright hover:text-text",
+                (clip.state.phase === "en cours" || clip.state.phase === "attendre") &&
+                  "cursor-not-allowed",
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                  <ScreenIcon className="h-full w-full" />
+                </span>
+                {clipLabel(clip.state)}
               </span>
-              {clipLabel(clip.state)}
-            </span>
-            {clip.state.phase === "fait" ? (
-              <span className="font-mono text-note">{Math.round(clip.state.bytes / 1e6)} Mo</span>
-            ) : null}
-          </button>
+              {clip.state.phase === "fait" ? (
+                <span className="font-mono text-note">{Math.round(clip.state.bytes / 1e6)} Mo</span>
+              ) : null}
+            </button>
+          </Aide>
 
           {/* Le micro, pour que les clips portent aussi la voix. Record only:
               rien n'est rejoué, la voix part seulement vers le worker et
               revient mêlée au son au prochain clip. */}
-          <button
-            type="button"
-            id="mic"
-            data-rend-le-jeu=""
-            onClick={toggleMic}
-            title={
-              shot?.mic === "on"
-                ? "couper le micro"
-                : shot?.mic === "refused"
-                  ? "le micro a été refusé par le navigateur"
-                  : "enregistrer ta voix dans les clips"
-            }
-            className={cn(
-              "flex items-center gap-2 border px-3 py-2 text-corps transition-colors",
-              shot?.mic === "on"
-                ? "border-good/60 text-good hover:bg-good/10"
-                : shot?.mic === "refused"
-                  ? "border-alert/60 text-alert"
-                  : "border-rule text-muted hover:border-rule-bright hover:text-text",
-            )}
-          >
-            <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
-              <WaveIcon className="h-full w-full" />
-            </span>
-            {shot?.mic === "on"
-              ? "micro ouvert"
-              : shot?.mic === "asking"
-                ? "micro…"
-                : shot?.mic === "refused"
-                  ? "micro refusé"
-                  : "micro"}
-          </button>
+          <Aide texte={micAide(shot?.mic)} sujet="le micro">
+            <button
+              type="button"
+              id="mic"
+              data-rend-le-jeu=""
+              onClick={toggleMic}
+              title={micAide(shot?.mic)}
+              className={cn(
+                "flex min-h-11 flex-1 items-center gap-2 border px-3 py-2 text-corps transition-colors",
+                shot?.mic === "on"
+                  ? "border-good/60 text-good hover:bg-good/10"
+                  : shot?.mic === "refused"
+                    ? "border-alert/60 text-alert"
+                    : "border-rule text-muted hover:border-rule-bright hover:text-text",
+              )}
+            >
+              <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                <WaveIcon className="h-full w-full" />
+              </span>
+              {shot?.mic === "on"
+                ? "micro ouvert"
+                : shot?.mic === "asking"
+                  ? "micro…"
+                  : shot?.mic === "refused"
+                    ? "micro refusé"
+                    : "micro pour les clips"}
+            </button>
+          </Aide>
 
           {micDevices.length > 0 ? (
             <select
@@ -2503,17 +2605,10 @@ function Room({
             mode={mode}
             onMode={setMode}
             people={people}
-            players={shot?.input.players ?? 4}
-            busy={occupied}
-            names={names}
-            mine={port}
             shot={shot}
             volume={volume}
             onVolume={setVolume}
             onSound={() => void session?.sound.start()}
-            seated={port !== null}
-            onWatch={() => session?.input.watchOnly()}
-            onPlay={() => session?.input.play()}
             onLeave={onLeave}
             onTakeHalf={takeHalf}
             onFold={coarse ? () => setBare(true) : undefined}
@@ -2559,7 +2654,7 @@ function Room({
               // Un lancement en cours passe AVANT le repos: la salle est encore
               // vide le temps que le worker redémarre, et lui dire « aucun jeu »
               // à cet instant contredit ce qu'on vient de faire.
-              footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : (room?.name ?? "salon")} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
+              footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : (room?.name ?? `salle ${salle()}`)} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
             };
             // Dans un dossier, la sortie remonte d'abord aux consoles: le
             // bouton le dit, au lieu de promettre « reprendre la partie ».
@@ -2625,7 +2720,7 @@ function Room({
       ) : configuring && shot ? (
         <Bindings
           onglet={ongletTouches}
-          console={pendingSetup ? "wii" : (room?.game?.console ?? "gc")}
+          console={pendingSetup ? (setupGame?.console ?? "wii") : (room?.game?.console ?? "gc")}
           held={pendingSetup ? setupChoice : pad}
           readOnly={Boolean(setupPlayer?.ready)}
           actions={
@@ -2713,7 +2808,7 @@ function Room({
           }}
           onLearn={() => {
             session?.input.beginLesson(
-              pendingSetup ? "wii" : (room?.game?.console ?? "gc"),
+              pendingSetup ? (setupGame?.console ?? "wii") : (room?.game?.console ?? "gc"),
               pendingSetup ? setupChoice : pad,
             );
             session?.refresh();
@@ -2724,7 +2819,7 @@ function Room({
           }}
           onResetPad={() => {
             session?.input.resetPad(
-              pendingSetup ? "wii" : (room?.game?.console ?? "gc"),
+              pendingSetup ? (setupGame?.console ?? "wii") : (room?.game?.console ?? "gc"),
               pendingSetup ? setupChoice : pad,
             );
             session?.refresh();

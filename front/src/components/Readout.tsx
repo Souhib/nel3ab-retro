@@ -25,9 +25,16 @@ export function Readout({
    * texte. Un pilote qui cherche par position se casse au prochain ajout. */
   id?: string;
 }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-[3px]" title={hint}>
-      <span className="text-note uppercase tracking-[0.14em] text-faint">{label}</span>
+  const ligne = (
+    <>
+      <span className="text-note uppercase tracking-[0.14em] text-faint">
+        {label}
+        {hint ? (
+          <span aria-hidden="true" className="ml-1 normal-case text-faint">
+            ?
+          </span>
+        ) : null}
+      </span>
       <span className="flex items-baseline gap-1">
         <span
           id={id}
@@ -43,8 +50,21 @@ export function Readout({
         </span>
         {unit ? <span className="font-mono text-mini text-faint">{unit}</span> : null}
       </span>
-    </div>
+    </>
   );
+  // Une aide s'ouvre à la demande, au doigt comme à la souris: elle ne vivait
+  // que dans un `title`, qu'un téléphone n'affiche jamais (audit T10). Le
+  // `title` reste pour la souris.
+  if (hint)
+    return (
+      <details className="py-[3px]" title={hint}>
+        <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          {ligne}
+        </summary>
+        <p className="pt-1 text-note leading-relaxed text-muted">{hint}</p>
+      </details>
+    );
+  return <div className="flex items-baseline justify-between gap-3 py-[3px]">{ligne}</div>;
 }
 
 /** A titled group of readouts, ruled off from the next. */

@@ -20,7 +20,10 @@ it("n'est plus une alerte assertive qui relit un nombre chaque seconde (A11Y-09)
 it("jumeau: la question et ses deux réponses restent lisibles et atteignables", () => {
   const answer = vi.fn();
   render(<Asked from="Lina" port={2} lasts={10} onAnswer={answer} onExpire={vi.fn()} />);
-  expect(screen.getByText(/demande ta manette 2/)).toBeVisible();
+  expect(screen.getByText(/demande ta place 2/)).toBeVisible();
+  // Ce qui arrive sans réponse, écrit: il ne vivait que dans un `title`, qu'un
+  // téléphone n'affiche pas (audit T10).
+  expect(screen.getByText("Sans réponse, tu gardes ta place.")).toBeVisible();
   screen.getByRole("button", { name: "garder" }).click();
   expect(answer).toHaveBeenCalledWith(false);
 });

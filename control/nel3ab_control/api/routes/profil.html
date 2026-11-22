@@ -457,7 +457,7 @@
     const lieu = $("cartes");
     lieu.replaceChildren();
     if (emplacements.length === 0) {
-      lieu.append(el("p", "cartes-vide", "Aucune sauvegarde à toi pour l'instant. Lance un jeu sur « ta sauvegarde » et elle apparaîtra ici."));
+      lieu.append(el("p", "cartes-vide", "Aucune sauvegarde à toi pour l'instant. Lance un jeu sur « ma sauvegarde » et elle apparaîtra ici."));
       return;
     }
     emplacements.forEach((un, rang) => {
@@ -492,7 +492,7 @@
     mienne: () => "ta sauvegarde",
     du_lanceur: (p) => `chez ${p.lance_par ?? "quelqu'un"}, dans sa sauvegarde`,
     commune: () => "sauvegarde commune « tout débloqué »",
-    neuve: () => "partie neuve partagée",
+    neuve: () => "nouvelle partie partagée",
     inconnue: () => "sauvegarde inconnue",
   };
 

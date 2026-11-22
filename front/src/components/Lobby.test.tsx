@@ -183,7 +183,8 @@ it.each([
   const onLook = vi.fn();
   poserLook(ou, onLook);
   const bouton = document.querySelector("#lookSwitch");
-  expect(bouton?.textContent).toBe(libelle);
+  // « câbles » seul ne disait pas que le lien change le dessin (audit T07).
+  expect(bouton?.textContent).toBe(`affichage : ${libelle}`);
   fireEvent.click(bouton!);
   expect(onLook).toHaveBeenCalledWith(vers);
 });

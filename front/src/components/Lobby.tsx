@@ -17,17 +17,12 @@ import { PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
 import { LobbyPlan } from "./LobbyPlan";
+import { placesLibres, SORTIES } from "../lib/mots";
+import { salonAuDessus } from "../lib/entree";
 
-/** Le salon est-il au-dessus de cette page ?
- *
- * Derrière le proxy, une salle est servie sous `/r/N/` et la racine porte la
- * liste des salles. Servie EN DIRECT par le worker, la même page est déjà la
- * racine: un retour y rechargerait la salle qu'on voulait quitter. On ne montre
- * donc le retour que lorsqu'il mène quelque part, plutôt que d'afficher un
- * bouton qui ment. C'est la même règle que partout ici: pas de commande qui
- * ressemble à une commande sans en être une.
- */
-export const salonAuDessus = (chemin: string): boolean => /^\/r\/[1-9]\d*\//.test(chemin);
+/* `salonAuDessus` vit dans `lib/entree`, avec la sortie qu'il décide. Réexporté
+   ici pour les essais et les pilotes qui le lisaient dans ce fichier. */
+export { salonAuDessus } from "../lib/entree";
 
 export function Lobby({
   room,
@@ -110,7 +105,7 @@ export function Lobby({
                 peint ? "opacity-70 hover:opacity-100" : "text-faint hover:text-indigo",
               )}
             >
-              toutes les salles
+              {SORTIES.autres}
             </a>
           ) : null}
         </span>
@@ -159,9 +154,14 @@ export function Lobby({
         className={cn("text-note leading-relaxed", peint ? "" : "text-faint")}
         style={peinture ? { color: peinture.sourde } : undefined}
       >
+        {/* Ce que fait le bouton, et rien d'autre: l'avertissement sur le
+            changement de jeu arrivait ici avant le contexte qui le rend utile,
+            et le menu le donne déjà (audit T07). */}
         {failed
-          ? "Le salon ne répond pas: tu peux jouer, mais les places n'afficheront pas de nom."
-          : "Entrer prend une manette s'il en reste une, sinon tu regardes. Changer de jeu arrête la partie de tout le monde."}
+          ? "Les noms des joueurs ne s'affichent pas pour l'instant. Tu peux jouer quand même."
+          : free === 0 && seats.length > 0
+            ? `Les ${seats.length} places sont prises. Entre pour regarder : une place peut se libérer.`
+            : "Tu prends la première place libre. Tu pourras en changer dans la salle."}
       </p>
     </div>
   );
@@ -195,11 +195,7 @@ export function Lobby({
           <div className="flex items-baseline justify-between gap-3">
             <h1 className="truncate text-titre font-medium tracking-tight">{room?.name ?? "…"}</h1>
             <span className={cn("font-mono text-note", free > 0 ? "text-good" : "text-alert")}>
-              {seats.length === 0
-                ? ""
-                : free > 0
-                  ? `${free} manette${free > 1 ? "s" : ""} libre${free > 1 ? "s" : ""}`
-                  : "salle pleine"}
+              {seats.length === 0 ? "" : free > 0 ? placesLibres(free) : "salle pleine"}
             </span>
           </div>
 
@@ -302,7 +298,7 @@ function LookSwitch({ look, onLook }: { look: LobbyLook; onLook: (look: LobbyLoo
       aria-label={`dessin suivant : ${suivant.label}`}
       className="text-note underline opacity-60 transition-opacity hover:opacity-100"
     >
-      {suivant.label}
+      affichage : {suivant.label}
     </button>
   );
 }

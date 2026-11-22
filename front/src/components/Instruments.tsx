@@ -3,6 +3,7 @@ import { FIGEE_MS } from "../media/liaison";
 import { NOM_ETAT } from "../lib/liaison-mots";
 import type { Snapshot } from "../media/session";
 import { Panel, Readout } from "./Readout";
+import { etatDuSon } from "../lib/mots";
 
 /**
  * What the room is doing, in numbers.
@@ -12,9 +13,14 @@ import { Panel, Readout } from "./Readout";
  * be wrong. They are folded away by default: a person who is playing wants the
  * picture, and a person who is diagnosing wants all of them at once.
  */
-/** Une durée en secondes à un chiffre après la virgule, ou un tiret pour
- * « jamais »: une absence ne s'écrit pas comme un zéro. */
-const duree = (ms: number | null) => (ms === null ? "—" : (ms / 1000).toFixed(1));
+/** Ce qu'une mesure absente affiche: un tiret demi-cadratin, jamais un zéro.
+ * Une absence ne s'écrit pas comme une mesure, et le tiret cadratin est refusé
+ * partout par les règles du dépôt (`lib/mots.test.ts`). */
+const RIEN = "–";
+
+/** Une durée en secondes à un chiffre après la virgule, ou `RIEN` pour
+ * « jamais ». */
+const duree = (ms: number | null) => (ms === null ? RIEN : (ms / 1000).toFixed(1));
 
 export function Instruments({ shot }: { shot: Snapshot }) {
   const { video, sound, input, liaison } = shot;
@@ -79,7 +85,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         <Readout label="écran" value={video.refreshHz.toFixed(0)} unit="Hz" tone="faint" />
         <Readout
           label="source"
-          value={video.sourceHz > 0 ? video.sourceHz.toFixed(0) : "—"}
+          value={video.sourceHz > 0 ? video.sourceHz.toFixed(0) : RIEN}
           unit="Hz"
           tone="faint"
           hint="Lu sur les instants de capture, donc c'est la cadence du JEU. Un jeu PAL donne 50, et une liaison lente ne la fait pas baisser. Un tiret tant qu'il n'y a pas trente images pour la mesurer."
@@ -89,7 +95,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
             liaison, qui le dit aussi sur l'image (`media/liaison.ts`). */}
         <Readout
           label="dernière image"
-          value={video.sinceArrivalMs === null ? "—" : video.sinceArrivalMs.toFixed(0)}
+          value={video.sinceArrivalMs === null ? RIEN : video.sinceArrivalMs.toFixed(0)}
           unit={
             video.sinceArrivalMs !== null && video.sinceArrivalMs >= FIGEE_MS ? "ms · figée" : "ms"
           }
@@ -109,12 +115,14 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           tone={video.gapMs.p95 > 33 ? "alert" : "normal"}
           hint="16,7 ms est régulier. Un p95 bien au-dessus veut dire que les images arrivent par paquets."
         />
+        {/* Les tailles écrites en dur (608×448, 1216×896) étaient celles de
+            Dolphin, fausses pour une Switch: l'image reçue dit la sienne. */}
         <Readout
-          label="format"
-          value={video.half ? "réduit" : "plein"}
-          unit={video.half ? "608×448" : "1216×896"}
+          label="image"
+          value={video.half ? "légère" : "complète"}
+          unit={`${video.picture.width}×${video.picture.height}`}
           tone="faint"
-          hint="Le worker encode la même image deux fois et chacun choisit. Le format réduit demande environ 2,6 fois moins de débit."
+          hint="Le worker encode la même image deux fois et chacun choisit. L'image légère demande environ 2,6 fois moins de débit."
         />
         <Readout
           label="jetées avant leur tour"
@@ -133,7 +141,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         <Readout
           label="retard ajouté"
           value={video.addedMs}
-          unit={`ms, ancré sur ${video.fastestLag === null ? "—" : video.fastestLag.toFixed(0)}`}
+          unit={`ms, ancré sur ${video.fastestLag === null ? RIEN : video.fastestLag.toFixed(0)}`}
           tone={video.addedMs > 100 ? "alert" : "faint"}
           hint="Ce que la page attend avant de peindre, pour absorber une liaison irrégulière. Le nombre d'ancrage est l'écart entre l'horloge de la page et celle de la capture pour l'image arrivée le plus vite: il n'a pas de sens seul, seules ses variations comptent. Zéro de retard sur une bonne liaison. Deux incidents de cette semaine se jouaient dessus."
         />
@@ -187,7 +195,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
       <Panel title="son">
         <Readout
           label="état"
-          value={sound.state}
+          value={etatDuSon(sound.state)}
           tone={sound.state === "running" ? "good" : "faint"}
         />
         <Readout label="joué" value={sound.playedSeconds.toFixed(1)} unit="s" />
@@ -235,7 +243,7 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         />
         <Readout
           label="retard sur l'image"
-          value={shot.soundGapMs === null ? "—" : shot.soundGapMs.toFixed(0)}
+          value={shot.soundGapMs === null ? RIEN : shot.soundGapMs.toFixed(0)}
           unit={
             shot.soundGapMs === null
               ? ""

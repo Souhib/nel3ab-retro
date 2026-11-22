@@ -17,12 +17,15 @@
 /**
  * La colonne, en deux modes.
  *
- * **Normal**: qui joue, qui regarde, le son. Ce qu'on veut savoir pendant une
- * soirée à quatre, et rien d'autre.
+ * **Salle**: qui regarde, le son, la sortie. Les places vivent juste au-dessus,
+ * en un seul bloc (`App`, audit P7): la liste « joueurs » qui suivait répétait
+ * les mêmes noms trois cents pixels plus bas, et poussait « signaler un
+ * problème » sous la ligne de flottaison.
  *
- * **Détails**: les mesures. Elles ont expliqué quatre blocages différents et
- * elles restent à un clic, mais les avoir en permanence sous les yeux fait une
- * colonne que personne ne lit.
+ * **Mesures**: les mesures techniques. Elles ont expliqué quatre blocages
+ * différents et elles restent à un clic, mais les avoir en permanence sous les
+ * yeux fait une colonne que personne ne lit. Leurs mots d'atelier n'ont le
+ * droit d'exister que là (`MesuresTechniques`, `lib/mots.test.ts`).
  *
  * Les réglages n'y sont plus: ils vivent dans le menu, qui est fait pour ça. Une
  * colonne qui porte à la fois l'état de la salle et sept boutons de réglage ne
@@ -32,11 +35,12 @@ import { Canape } from "../bobine/Canape";
 import { ouvrirLeMenu, type Appareil } from "../lib/appareil";
 import type { Person } from "../client";
 import { cn } from "../lib/cn";
+import { SORTIES } from "../lib/mots";
 import type { Snapshot } from "../media/session";
-import { PLAYER_COLOURS } from "../media/players";
 import { ConnectionDiagnostic } from "./ConnectionDiagnostic";
 import { Crown } from "./Crown";
 import { Instruments } from "./Instruments";
+import { MesuresTechniques } from "./MesuresTechniques";
 import { Volume } from "./Settings";
 import type { GardeSignalement } from "../lib/garde-signalement";
 import { Signaler } from "./Signaler";
@@ -50,17 +54,10 @@ export function Sidebar({
   onMode,
   owner,
   people,
-  players,
-  busy,
-  names,
-  mine,
   shot,
   volume,
   onVolume,
   onSound,
-  seated: iAmSeated,
-  onWatch,
-  onPlay,
   onLeave,
   onComplain,
   garde,
@@ -74,21 +71,11 @@ export function Sidebar({
   onMode: (mode: Mode) => void;
   owner?: Person | null;
   people: Person[];
-  players: number;
-  busy: boolean[];
-  names: Map<number, string>;
-  mine: number | null;
   shot: Snapshot | null;
   volume: number;
   onVolume: (volume: number) => void;
   onSound: () => void;
-  /** Vrai quand cette page tient une manette en ce moment. */
-  seated: boolean;
-  /** Rendre sa place et continuer à regarder. */
-  onWatch: () => void;
-  /** Reprendre la première place libre. */
-  onPlay: () => void;
-  /** Sortir de la salle. */
+  /** Quitter la salle: la seule sortie, vers les autres salles (audit P8). */
   onLeave: () => void;
   /** « Ça saccade, maintenant. »
    *
@@ -113,7 +100,6 @@ export function Sidebar({
    * repliant d'office sans laisser de porte dans l'autre sens. */
   onFold?: () => void;
 }) {
-  const heldCount = busy.filter(Boolean).length;
   const watching = people.filter((person) => person.seat == null && person.seat_pending === false);
   const pending = people.filter((person) => person.seat == null && person.seat_pending !== false);
 
@@ -128,7 +114,10 @@ export function Sidebar({
             title="replier la colonne"
             // Le nom calculé était « ✕ », lu « multiplication » (audit A11Y-10).
             aria-label="replier la colonne"
-            className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-rule-bright"
+            // Dans le coin de la colonne, et plus dans la rangée des deux
+            // modes: dans une colonne de téléphone (195 px), les trois
+            // boutons ne tenaient pas et « mesures » sortait du cadre.
+            className="absolute top-2 right-2 flex min-h-11 min-w-11 items-center justify-center border border-rule bg-panel text-corps text-faint transition-colors hover:border-rule-bright"
           >
             ✕
           </button>
@@ -144,62 +133,22 @@ export function Sidebar({
             onClick={() => onMode(choice)}
             // Le mode choisi n'était dit que par la bordure indigo (A11Y-11).
             aria-pressed={mode === choice}
+            // En casse normale et sans interlettrage: en capitales espacées,
+            // « MESURES » sortait d'une colonne de téléphone (195 px).
             className={cn(
-              "flex-1 border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors",
+              "min-w-0 flex-1 border px-2 py-1 text-corps transition-colors",
               mode === choice
                 ? "border-indigo text-indigo"
                 : "border-rule text-faint hover:border-rule-bright",
             )}
           >
-            {choice === "normal" ? "salle" : "détails"}
+            {choice === "normal" ? "salle" : "mesures"}
           </button>
         ))}
       </div>
 
       {mode === "normal" ? (
         <>
-          <section className="flex flex-col gap-2 border-t border-rule pt-2">
-            <span className="n3-etiquette">joueurs</span>
-            {Array.from({ length: players }, (_, slot) => slot + 1).map((port) => {
-              const held = busy[port - 1] ?? false;
-              const isMine = port === mine;
-              const who = names.get(port);
-              return (
-                <div key={port} className="flex items-baseline gap-2">
-                  {/* Une pastille de la couleur du port, la même que sur la
-                      prise: c'est ce qui relie un nom à un personnage à
-                      l'écran. */}
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{
-                      background: held ? PLAYER_COLOURS[port - 1] : "transparent",
-                      border: held ? "none" : "1px solid var(--rule-bright)",
-                    }}
-                  />
-                  <span className="font-mono text-corps text-faint">P{port}</span>
-                  <span
-                    className={cn(
-                      "truncate text-fort",
-                      isMine ? "text-indigo" : held ? "text-text" : "text-faint",
-                    )}
-                  >
-                    {held || isMine
-                      ? who
-                        ? `${who}${isMine ? " (toi)" : ""}`
-                        : "\u00a0"
-                      : "personne"}
-                    {who && held && owner?.seat === port ? (
-                      <>
-                        {" "}
-                        <Crown />
-                      </>
-                    ) : null}
-                  </span>
-                </div>
-              );
-            })}
-          </section>
-
           <section
             aria-label="spectateurs"
             className="flex flex-col gap-2 border-t border-rule pt-2"
@@ -235,48 +184,25 @@ export function Sidebar({
               {pending.map((person) => (
                 <p key={person.id ?? person.name}>
                   {person.name} {owner?.id && owner.id === person.id ? <Crown /> : null}
-                  {" · manette à confirmer"}
+                  {" · place à confirmer"}
                 </p>
               ))}
-              <p>Si vous jouez déjà, rechargez votre page pour retrouver votre nom.</p>
+              <p>Si tu joues déjà, recharge la page pour retrouver ton nom.</p>
             </section>
           ) : null}
 
-          {/* Rendre sa place, ou sortir. Ici plutôt que seulement dans le
-              menu: quelqu'un qui veut céder sa manette le veut tout de suite, et
-              le menu couvre l'écran. */}
-          <section className="flex gap-1 border-t border-rule pt-2">
-            <button
-              type="button"
-              id={iAmSeated ? "watchOnly" : "takePad"}
-              onClick={iAmSeated ? onWatch : onPlay}
-              className="flex-1 border border-rule px-2 py-1 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
-            >
-              {iAmSeated ? "rendre la manette" : "prendre une manette"}
-            </button>
-            <button
-              type="button"
-              id="leaveRoom"
-              onClick={onLeave}
-              className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-indigo hover:text-indigo"
-            >
-              quitter
-            </button>
-            {/* Vers la LISTE des salles, à la racine du domaine.
-                Une adresse absolue, et non relative au préfixe de cette salle:
-                le salon est le même pour toutes et vit à la racine. Voir
-                `lib/base`, qui explique quelles adresses se préfixent.
-                « Quitter » ne fait que rendre la place et revenir à l'accueil de
-                CETTE salle; d'ici, on ne pouvait pas retourner en choisir une
-                autre sans réécrire l'adresse à la main. */}
-            <a
-              href="/"
-              id="backToLobby"
-              className="border border-rule px-2 py-1 text-corps text-faint transition-colors hover:border-indigo hover:text-indigo"
-            >
-              les salles
-            </a>
-          </section>
+          {/* UNE sortie, nommée sans ambiguïté (audit P8). « quitter » ramenait à
+              l'avant-salle de la même salle, « les salles » à la liste, et le
+              menu promettait « retour à l'accueil » pour la première. Prendre
+              ou rendre sa place vit maintenant avec les places. */}
+          <button
+            type="button"
+            id="leaveRoom"
+            onClick={onLeave}
+            className="border border-rule px-2 py-1.5 text-left text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
+          >
+            {SORTIES.quitter}
+          </button>
 
           <section className="flex flex-col gap-1 border-t border-rule pt-2">
             <span className="n3-etiquette">son</span>
@@ -294,11 +220,10 @@ export function Sidebar({
             )}
           </section>
 
+          {/* Le compte des manettes tenues est parti: les places, juste
+              au-dessus, le montrent déjà (audit P7). L'aide du menu reste. */}
           <p className="border-t border-rule pt-2 text-corps leading-relaxed text-faint">
-            {heldCount === 0
-              ? "personne ne tient de manette"
-              : `${heldCount} manette${heldCount > 1 ? "s" : ""} tenue${heldCount > 1 ? "s" : ""}`}
-            . {ouvrirLeMenu(appareil)}
+            {ouvrirLeMenu(appareil)}
           </p>
 
           {idle ? null : (
@@ -313,7 +238,15 @@ export function Sidebar({
           <Signaler onComplain={onComplain} garde={garde} />
         </>
       ) : (
-        <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
+        <div id="stats">
+          <MesuresTechniques>
+            {shot ? (
+              <Instruments shot={shot} />
+            ) : (
+              <p className="text-corps text-faint">Pas encore de mesures.</p>
+            )}
+          </MesuresTechniques>
+        </div>
       )}
     </>
   );

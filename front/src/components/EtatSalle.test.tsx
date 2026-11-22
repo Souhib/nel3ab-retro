@@ -204,7 +204,7 @@ describe("la ligne parlée", () => {
       />,
     );
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Lina demande ta manette 2. Tu as 10 secondes pour répondre. Sans réponse, tu la gardes.",
+      "Lina demande ta place 2. Tu as 10 secondes pour répondre. Sans réponse, tu la gardes.",
     );
     act(() => vi.advanceTimersByTime(3000));
     expect(screen.getByRole("status").textContent).not.toMatch(/\b7\b/);

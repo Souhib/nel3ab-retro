@@ -515,10 +515,24 @@ boite-noire *args:
 #
 # Vérifier en dernier veut dire vérifier ce qui sera commité.
 #
-# `salles-dore` y entre le 22 novembre 2026, sur décision du propriétaire: les
-# adaptateurs des salles externes n'étaient éprouvés par aucune recette de
-# `check`, donc par aucune CI. Il demande `/usr/bin/python3`, ni Docker ni carte.
-check: fmt-check lint test control salles-dore front readouts-check contract-check front-check
+# `salles-dore` et `moteurs-test` y entrent le 22 novembre 2026, sur décision du
+# propriétaire: les adaptateurs des salles externes n'étaient éprouvés par
+# aucune recette de `check`, donc par aucune CI. Ils demandent `/usr/bin/python3`,
+# ni Docker ni carte.
+check: fmt-check lint test control salles-dore moteurs-test front readouts-check contract-check front-check
+
+# Le socle des salles externes et ses modules de moteur (moteurs/README.md).
+#
+# Sous `/usr/bin/python3`, l'interpréteur que le worker lance, et pas sous le
+# venv du salon: une dépendance qui n'existe que là-bas passerait ici sinon.
+# `test_regles.py` importe en plus chaque module sous `-I -S`. PLC0415 refuse
+# un import dans le corps d'une fonction: une salle lit tout son code au
+# démarrage, et un import paresseux lirait au moment de l'arrêt une version
+# plus récente de l'arbre principal.
+moteurs-test:
+    /usr/bin/python3 -B -m unittest discover -s moteurs -t . -p 'test_*.py'
+    cd control && uv run ruff check --config pyproject.toml --extend-select PLC0415 ../moteurs
+    cd control && uv run ruff format --check --config pyproject.toml ../moteurs
 
 # Les commandes Docker de chaque salle externe, figées scénario par scénario.
 #

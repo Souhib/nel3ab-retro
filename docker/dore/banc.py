@@ -52,12 +52,13 @@ FERMETURE = (
     "docker/switch-room.py",
     "docker/switch2-room.py",
     "docker/xbox360-room.py",
+    "moteurs",
     "spikes/switch-room/ryubing-pro-controller.json",
     "spikes/switch-room/latence/adaptateur-sonde.py",
 )
 #: Les dossiers d'où les scripts chargent du code: le banc n'y écrit rien, pas
 #: même un cache d'octets (`test_le_banc_n_ecrit_rien_dans_le_depot`).
-LUS = ("docker", "spikes/switch-room/latence")
+LUS = ("docker", "moteurs", "spikes/switch-room/latence")
 
 
 @dataclass(frozen=True)

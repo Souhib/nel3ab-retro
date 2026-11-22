@@ -20,12 +20,18 @@ try {
   const page = await browser.newPage();
   await page.goto(SALON, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(
-    () => document.querySelectorAll("a.salle, .vide").length > 0,
+    () => document.querySelectorAll("article.salle, .vide").length > 0,
     { timeout: 15_000 },
   );
 
-  const cartes = await page.$$eval("a.salle", elements =>
-    elements.map(element => ({ texte: element.innerText, href: element.getAttribute("href") })));
+  // La carte n'est plus un lien entier: elle porte « Rejoindre » et
+  // « Regarder », qui entrent directement (audit P13, 22 novembre 2026).
+  const cartes = await page.$$eval("article.salle", elements =>
+    elements.map(element => ({
+      texte: element.innerText,
+      href: element.querySelector("a.regarder")?.getAttribute("href")?.replace(/\?.*$/, "") ?? null,
+      rejoindre: element.querySelector("a.rejoindre")?.getAttribute("href") ?? null,
+    })));
 
   assert.equal(cartes.length, ouvertes.length,
     `la page montre ${cartes.length} salles, le salon en déclare ${ouvertes.length} ouvertes`);
@@ -59,12 +65,14 @@ try {
         assert.match(carte.texte, /EN ANTENNE DEPUIS (?:MOINS DE 1 MIN|\d+ MIN|\d+H\d\d)/,
           `la carte ne dit pas depuis quand la salle tourne: ${carte.texte}`);
       }
+      assert.equal(carte.rejoindre, `${salle.chemin}?entrer=jouer`,
+        `« Rejoindre » ne mène pas dans la salle: ${carte.rejoindre}`);
       if (salle.places == null) {
-        assert.doesNotMatch(carte.texte, /MANETTE/,
+        assert.doesNotMatch(carte.texte, /PLACES? LIBRE/,
           `la carte invente des places libres: ${carte.texte}`);
       } else {
         const pluriel = salle.places > 1 ? "S" : "";
-        const attenduPlaces = `${salle.places} MANETTE${pluriel} LIBRE${pluriel}`;
+        const attenduPlaces = `${salle.places} PLACE${pluriel} LIBRE${pluriel}`;
         assert.ok(carte.texte.includes(attenduPlaces),
           `la carte ne dit pas « ${attenduPlaces} »: ${carte.texte}`);
       }
@@ -111,7 +119,7 @@ try {
   const ancienne = ouvertes.filter(s => s.ouverte_depuis != null).length;
   const comptees = ouvertes.filter(s => s.places != null).length;
   console.log(`${ancienne}/${ouvertes.length} salle(s) disent depuis quand elles tournent, `
-    + `${comptees}/${ouvertes.length} disent leurs manettes libres`);
+    + `${comptees}/${ouvertes.length} disent leurs places libres`);
   console.log(`l'accueil montre ${cartes.length} salle(s) ouverte(s) sur ${attendu.length} `
     + `emplacements, le bouton dit « ${bouton.texte} », et le retour d'une salle `
     + "fermée s'annonce puis se ferme d'un clic");

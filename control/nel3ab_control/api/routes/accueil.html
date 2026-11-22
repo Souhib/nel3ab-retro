@@ -83,24 +83,41 @@
      ce qui était le défaut principal de la page précédente. */
   /* Le canal À L'ANTENNE domine: une régie donne le grand écran au direct,
      et les canaux éteints n'ont presque rien à dire. */
-  a.salle { flex: 2.2; min-height: clamp(120px, 18vh, 260px); }
+  article.salle { flex: 2.2; min-height: clamp(120px, 18vh, 260px); }
   .eteint { flex: 1; min-height: clamp(72px, 9vh, 130px); }
   /* La barre de gauche dit un ÉTAT: craie pour un canal à l'antenne, signal
      pour celui qu'on désigne, trait pour un canal éteint. */
-  a.salle {
+  /* La carte d'une salle ouverte. Elle était un LIEN entier vers l'avant-salle,
+     sans un mot d'action, et le seul bouton plein de la page était « ouvrir
+     une salle » (audit P13, 22 novembre 2026). Elle porte maintenant deux
+     verbes, « Rejoindre » et « Regarder », qui entrent directement: deux
+     liens ne peuvent pas vivre dans un troisième, d'où l'article. */
+  article.salle {
     position: relative; display: grid; align-items: center;
     grid-template-columns: clamp(76px, 9vw, 136px) 1fr auto;
     gap: clamp(1rem, 2.5vw, 2.4rem);
     padding: clamp(.9rem, 1.8vh, 1.5rem) clamp(1rem, 2vw, 1.8rem);
-    background: var(--plaque); color: inherit; text-decoration: none;
+    background: var(--plaque); color: inherit;
     border: 0; border-left: var(--barre-etat) solid var(--encre);
     animation: entre .32s steps(4, end) both;
     animation-delay: calc(var(--rang, 0) * 70ms);
   }
   /* Pas de soulèvement ni d'ombre portée: sur un pupitre de régie, le
      canal sélectionné s'ÉCLAIRE, il ne décolle pas de la table. */
-  a.salle:hover, a.salle:focus-visible { background: var(--survol); border-left-color: var(--signal); }
-  a.salle:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: -3px; }
+  article.salle:hover, article.salle:focus-within { background: var(--survol); border-left-color: var(--signal); }
+  /* Les deux verbes. « Rejoindre » est le plein de la page: c'est ce qu'on
+     vient faire. 56 px de haut, la même cible que l'ancien bouton. */
+  .verbes { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: .6rem; }
+  .verbes a {
+    display: inline-flex; align-items: center; min-height: 48px; padding: .5rem 1.4rem;
+    font: 700 clamp(15px, 1.5vw, 19px) var(--police-texte); text-decoration: none;
+    border: 2px solid var(--bouton-plein-fond); border-radius: var(--rayon);
+  }
+  .verbes a.rejoindre { background: var(--bouton-plein-fond); color: var(--bouton-plein-encre); }
+  .verbes a.rejoindre:hover { background: var(--bouton-plein-survol); border-color: var(--bouton-plein-survol); }
+  .verbes a.regarder { background: transparent; color: var(--encre); }
+  .verbes a.regarder:hover { background: var(--survol); }
+  .verbes a[hidden] { display: none; }
   @keyframes entre { from { opacity: 0; } }
 
   /* Un canal ÉTEINT reste à sa place: la machine a trois emplacements, et
@@ -135,8 +152,8 @@
   .jeu { font-family: var(--police-texte); font-weight: 700;
          font-size: clamp(24px, 3.2vw, 44px); line-height: 1.08;
          letter-spacing: -.01em; overflow-wrap: anywhere; }
-  /* Sans jeu, « sur son menu » cesse d'être la plus grosse ligne de la
-     page: la règle veut que le JEU domine, pas son absence. */
+  /* Sans jeu, « aucun jeu pour l'instant » cesse d'être la plus grosse ligne
+     de la page: la règle veut que le JEU domine, pas son absence. */
   .jeu[data-menu="oui"] { color: var(--legende); font-weight: 400;
                           font-size: clamp(18px, 1.9vw, 26px); }
   .gens { font-size: clamp(15px, 1.5vw, 20px); color: var(--encre); margin-top: .25em; }
@@ -230,6 +247,15 @@
                                        border-color: var(--bouton-plein-survol); }
   button#ouvrir:disabled { cursor: not-allowed; background: transparent;
                            color: var(--legende); border-color: var(--trait); }
+  /* Une salle est déjà ouverte: en ouvrir une autre allume un second jeu sur
+     la même carte graphique et sépare le groupe. Le bouton passe au second
+     plan, en cadre, et la ligne d'à côté dit ce qu'il coûte (audit P13). */
+  button#ouvrir[data-secondaire="oui"]:not(:disabled) {
+    background: transparent; color: var(--encre); border-color: var(--trait);
+    font-size: clamp(14px, 1.4vw, 18px); min-height: 48px;
+  }
+  button#ouvrir[data-secondaire="oui"]:hover:not(:disabled) { background: var(--survol);
+                                                             border-color: var(--encre); }
   .mot, .perdu { font-size: clamp(14px, 1.4vw, 18px); color: var(--legende); }
   /* Le lien vers le dépôt de jeux. Caché tant que le salon n'a pas dit que
      cette personne peut importer: l'API reste la seule garde, ce lien évite
@@ -248,12 +274,14 @@
   :focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
 
   @media (max-width: 620px) {
-    a.salle { grid-template-columns: clamp(56px, 14vw, 76px) 1fr; }
+    article.salle { grid-template-columns: clamp(56px, 14vw, 76px) 1fr; }
     /* Le CONTENEUR de la jauge prend toute la largeur, pas la jauge: c'est
        lui l'enfant de la grille. La règle visait `.jauge`, qui ne l'est pas,
        et ne s'appliquait donc à rien: la légende passait à un mot par ligne
        dans une colonne de 56 px (audit visuel du 22 novembre 2026, V8). */
-    a.salle > .corps + div { grid-column: 1 / -1; }
+    article.salle > .corps + div { grid-column: 1 / -1; }
+    .verbes { grid-column: 1 / -1; }
+    .verbes a { flex: 1 1 0; justify-content: center; }
     .jauge { flex-direction: row; }
     .jauge span { width: 100%; height: 10px; }
     .jauge-mot { text-align: left; }
@@ -297,7 +325,7 @@
 
     <div class="ouvrir">
       <span class="bobine-accueil" id="bobine" aria-hidden="true"><!--BOBINE:fiche:salue--></span>
-      <button id="ouvrir" type="button">ouvrir une salle</button>
+      <button id="ouvrir" type="button">Ouvrir une salle</button>
       <span class="mot" id="mot"></span>
       <span class="perdu" id="perdu" hidden>la liste ne se met plus à jour</span>
       <a class="importer" id="importer" href="/importer" hidden>déposer un jeu</a>
@@ -402,7 +430,7 @@
         // Un emplacement change de NATURE quand il s'ouvre ou se ferme: on ne
         // transforme pas un lien en bloc éteint, on remplace le noeud.
         const bonType = noeud
-          && (salle.ouverte ? noeud.tagName === "A" : noeud.tagName !== "A");
+          && (salle.ouverte ? noeud.tagName === "ARTICLE" : noeud.tagName !== "ARTICLE");
         if (noeud && bonType) {
           (salle.ouverte ? remplir : remplirEteint)(noeud, salle);
           vieilles.delete(cle);
@@ -422,20 +450,27 @@
       `${ouvertes.length} / ${salles.length} CANAUX EN ANTENNE`);
 
     bouton.disabled = libres === 0;
-    ecrire(bouton, ouvertes.length === 0 ? "ouvrir la première salle" : "ouvrir une salle");
+    // « Rejoindre » d'abord: ouvrir une AUTRE salle passe au second plan dès
+    // qu'une salle tourne, et dit ce qu'elle coûte (audit P13).
+    poser(bouton, "data-secondaire", ouvertes.length === 0 ? "non" : "oui");
+    ecrire(bouton, ouvertes.length === 0 ? "Ouvrir la première salle" : "Ouvrir une autre salle");
     if (!mot.dataset.refus) {
       const reste = libres === 0
         ? `les ${salles.length} salles sont ouvertes, rejoins-en une`
         : libres === salles.length
           ? "aucune salle n'est ouverte, donc rien ne tourne"
           : `${libres} salle${libres > 1 ? "s" : ""} encore disponible${libres > 1 ? "s" : ""}`;
+      // Ce qu'ouvrir une AUTRE salle coûte, dit à côté du bouton (audit P13).
+      const cout = ouvertes.length > 0 && libres > 0
+        ? ". Une autre salle fait tourner un second jeu sur la même machine."
+        : "";
       // Les deux faits comptent, et l'un n'annule pas l'autre: savoir que la
       // Switch est prise ne dit pas s'il reste une salle à ouvrir. Le message
       // sur la Switch effaçait le nombre de places libres au moment précis où
       // ce nombre décide si on peut ouvrir la sienne.
-      ecrire(mot, salles.some(salle => salle.switch)
+      ecrire(mot, (salles.some(salle => salle.switch)
         ? `${reste} · la Switch est prise`
-        : reste);
+        : reste) + cout);
     }
   }
 
@@ -454,7 +489,7 @@
     // Le pilote du salon vérifie cette phrase: « Aucune salle ouverte ».
     dit.textContent =
       "Aucune salle ouverte. Rien ne tourne sur le serveur, "
-      + "donc rien ne consomme. Ouvre un canal et choisis ton jeu.";
+      + "donc rien ne consomme. Ouvre une salle et choisis ton jeu.";
     dedans.append(titre, dit);
     bloc.append(dedans);
     return bloc;
@@ -481,11 +516,14 @@
   function remplirEteint(noeud, salle) {
     ecrire(noeud.querySelector(".canal-mot"), `salle ${salle.numero}`);
     ecrire(noeud.querySelector(".canal-chiffre"), String(salle.numero));
-    ecrire(noeud.querySelector(".eteint-mot"), "HORS SERVICE");
+    // « HORS SERVICE » se lisait comme une panne: l'emplacement est libre,
+    // simplement éteint (audit P13). En capitales: la police machine n'a pas
+    // de minuscules.
+    ecrire(noeud.querySelector(".eteint-mot"), "LIBRE");
   }
 
   function carte(salle) {
-    const carte = document.createElement("a");
+    const carte = document.createElement("article");
     carte.className = "salle";
     carte.dataset.salle = String(salle.numero);
     carte.dataset.canal = String(salle.numero);
@@ -516,7 +554,19 @@
     mot.className = "jauge-mot";
     droite.append(jauge, mot);
 
-    carte.append(numero, corps, droite);
+    // Les deux verbes, qui entrent directement (`?entrer=`, lu par la page de
+    // la salle): l'avant-salle répétait ce que la carte montre déjà (P9).
+    const verbes = document.createElement("div");
+    verbes.className = "verbes";
+    const rejoindre = document.createElement("a");
+    rejoindre.className = "rejoindre";
+    rejoindre.textContent = "Rejoindre";
+    const regarder = document.createElement("a");
+    regarder.className = "regarder";
+    regarder.textContent = "Regarder";
+    verbes.append(rejoindre, regarder);
+
+    carte.append(numero, corps, droite, verbes);
     remplir(carte, salle);
     return carte;
   }
@@ -541,10 +591,19 @@
 
   /** Ce qui CHANGE dans une carte, sans refaire la carte, et seulement s'il change. */
   function remplir(noeud, salle) {
-    poser(noeud, "href", salle.chemin);
+    poser(noeud.querySelector("a.rejoindre"), "href", `${salle.chemin}?entrer=jouer`);
+    poser(noeud.querySelector("a.regarder"), "href", `${salle.chemin}?entrer=regarder`);
+    // Une salle pleine ne propose pas de rejoindre: on y regarde, et une place
+    // peut se libérer. `places` absent: le salon ne sait pas, on laisse entrer.
+    const pleine = salle.places === 0;
+    if (noeud.querySelector("a.rejoindre").hidden !== pleine) {
+      noeud.querySelector("a.rejoindre").hidden = pleine;
+    }
     // Le pilote lit « salle N » dans le texte de la carte: le chiffre seul
     // ne suffirait pas, et un lecteur d'écran ne dirait qu'un nombre.
     poser(noeud, "aria-label", `salle ${salle.numero}`);
+    poser(noeud.querySelector("a.rejoindre"), "aria-label", `Rejoindre la salle ${salle.numero}`);
+    poser(noeud.querySelector("a.regarder"), "aria-label", `Regarder la salle ${salle.numero}`);
     // « salle N » en toutes lettres, et visible: un chiffre nu ne dit pas
     // « 1 de quoi ». Le pilote du salon le lit dans le texte de la carte.
     ecrire(noeud.querySelector(".canal-mot"), `salle ${salle.numero}`);
@@ -553,7 +612,7 @@
     // Le jeu en toutes lettres, et c'est la plus grosse ligne de la page:
     // c'est la seule chose qu'on vient lire de loin.
     const jeu = noeud.querySelector(".jeu");
-    ecrire(jeu, salle.jeu ?? "sur son menu");
+    ecrire(jeu, salle.jeu ?? "aucun jeu pour l'instant");
     poser(jeu, "data-menu", salle.jeu ? "non" : "oui");
 
     const gens = salle.gens ?? [];
@@ -586,16 +645,17 @@
     });
     const mot = noeud.querySelector(".jauge-mot");
     // Elle se NOMME, sinon quatre traits ne disent rien. Et elle compte des
-    // personnes, pas des manettes: le salon ne sait pas qui tient quoi.
+    // personnes, pas des places: le salon ne sait pas qui tient quoi.
     const bouts = [gens.length === 0 ? "PERSONNE"
       : `${gens.length} PRESENT${gens.length > 1 ? "S" : ""}`];
-    // Les manettes LIBRES, qui ne valent pas « quatre moins les présents »:
+    // Les places LIBRES, qui ne valent pas « quatre moins les présents »:
     // on peut regarder une partie sans en tenir une. Absentes quand la salle
-    // n'a pas répondu, parce que « 4 MANETTES LIBRES » sur une salle pleine y
-    // enverrait du monde pour rien.
+    // n'a pas répondu, parce que « 4 PLACES LIBRES » sur une salle pleine y
+    // enverrait du monde pour rien. « place » et non plus « manette »: le mot
+    // de la salle (`front/src/lib/mots.ts`, audit T05).
     if (typeof salle.places === "number") {
       const s = salle.places > 1 ? "S" : "";
-      bouts.push(`${salle.places} MANETTE${s} LIBRE${s}`);
+      bouts.push(`${salle.places} PLACE${s} LIBRE${s}`);
     }
     if (salle.switch) bouts.push("SWITCH");
     ecrire(mot, bouts.join(" · "));

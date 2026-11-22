@@ -8,7 +8,7 @@ try {
   await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 2 });
   await page.goto("http://127.0.0.1:8200/", { waitUntil: "networkidle0" });
   await page.waitForFunction(
-    () => document.querySelectorAll("a.salle, .vide").length > 0,
+    () => document.querySelectorAll("article.salle, .vide").length > 0,
     { timeout: 15_000 },
   );
   // Le temps que la cascade d'apparition se pose.

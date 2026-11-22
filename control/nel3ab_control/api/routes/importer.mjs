@@ -243,6 +243,33 @@ function attendre(ms) {
   return new Promise((fin) => setTimeout(fin, ms));
 }
 
+/**
+ * Où aller jouer après un dépôt (audit P14, 22 novembre 2026).
+ *
+ * Une salle ouverte ne relit pas sa bibliothèque avant son prochain changement
+ * de jeu: elle ne montre donc pas tout de suite le jeu rangé. Une salle qu'on
+ * OUVRE le lit au démarrage. Sans salle ouverte, on en ouvre une; avec une
+ * salle ouverte, on la rejoint plutôt que d'en allumer une seconde sur la même
+ * carte graphique, et la page le dit (`.pied`). Rend l'adresse où aller, avec
+ * `?entrer=jouer`, et la raison d'un refus.
+ *
+ * `demander` est `fetch`, remplacé dans l'essai.
+ */
+export async function ouJouer(demander = fetch) {
+  try {
+    const liste = await demander("/api/salles", { cache: "no-store" });
+    const salles = liste.ok ? await lireJson(liste) : [];
+    const ouverte = Array.isArray(salles) ? salles.find((salle) => salle.ouverte && !salle.redemarre) : null;
+    if (ouverte) return { vers: `${ouverte.chemin}?entrer=jouer`, ouverte: true };
+    const ouvre = await demander("/api/salles", { method: "POST" });
+    const dit = await lireJson(ouvre);
+    if (ouvre.ok && typeof dit.chemin === "string") return { vers: `${dit.chemin}?entrer=jouer`, ouverte: false };
+    return { vers: null, refus: dit.detail ?? "la salle n'a pas voulu s'ouvrir" };
+  } catch {
+    return { vers: null, refus: "pas de réponse, réessaie dans un instant" };
+  }
+}
+
 /** Un morceau par XMLHttpRequest: c'est le seul à dire où en est l'envoi. */
 function envoyerMorceau(url, corps, progres) {
   const xhr = new XMLHttpRequest();
@@ -279,6 +306,14 @@ class Carte {
     this.mesures = [];
     this.ici("pause").addEventListener("click", () => this.basculer());
     this.ici("annuler").addEventListener("click", () => this.annuler());
+    this.ici("jouer").addEventListener("click", async () => {
+      const bouton = this.ici("jouer");
+      bouton.disabled = true;
+      const ou = await ouJouer();
+      if (ou.vers) return location.assign(ou.vers);
+      bouton.disabled = false;
+      this.dire(ou.refus, true);
+    });
   }
 
   pose(nom) {
@@ -491,6 +526,8 @@ class Carte {
     const range = envoi.elements.some((e) => e.etat === "range");
     const reconnu = envoi.elements.some((e) => e.console);
     this.pose(range ? "range" : reconnu ? "reconnu" : "rate");
+    // Un jeu rangé se joue: le dépôt finit sur l'action, pas sur une phrase.
+    this.ici("jouer").hidden = !range;
     this.dire(envoi.elements.length > 1 ? `${envoi.elements.length} fichiers dans l'archive` : "");
   }
 

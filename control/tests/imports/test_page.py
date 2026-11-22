@@ -350,3 +350,56 @@ def test_la_liste_des_consoles_se_dit_comme_une_phrase(mots: list[str], phrase: 
     from nel3ab_control.api.routes.importer import enumerer
 
     assert enumerer(mots) == phrase
+
+
+# ── Le dépôt finit sur « Jouer maintenant » (audit P14) ───────────────────────
+
+JOUER = Path(__file__).with_name("jouer_module.mjs")
+
+
+@AVEC_NODE
+async def test_jouer_maintenant_rejoint_une_salle_ouverte_sinon_en_ouvre_une() -> None:
+    """La page disait « visible à la prochaine ouverture de salle », sans bouton.
+
+    Avec une salle ouverte, on la rejoint: en allumer une seconde séparerait le
+    groupe sur la même carte graphique. Sans salle, on en ouvre une, qui lit sa
+    bibliothèque au démarrage et montre donc le jeu rangé. Le jumeau: un refus
+    d'ouvrir ne mène nulle part et dit pourquoi.
+    """
+    ouverte = {"numero": 1, "ouverte": True, "redemarre": False, "chemin": "/r/1/"}
+    fermee = {"numero": 2, "ouverte": False, "redemarre": False, "chemin": "/r/2/"}
+    cas = [
+        {"salles": {"status": 200, "corps": [fermee, ouverte]}, "ouvre": None},
+        {
+            "salles": {"status": 200, "corps": [fermee]},
+            "ouvre": {"status": 201, "corps": {"chemin": "/r/2/"}},
+        },
+        {
+            "salles": {"status": 200, "corps": [fermee]},
+            "ouvre": {"status": 409, "corps": {"detail": "les deux emplacements sont pris"}},
+        },
+    ]
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process([NODE, str(JOUER)], input=json.dumps(cas).encode())
+    rejoint, ouvre, refuse = json.loads(sortie.stdout)
+
+    assert rejoint["vers"] == "/r/1/?entrer=jouer"
+    assert rejoint["faites"] == ["GET /api/salles"], (
+        "une salle ouverte ne doit pas en ouvrir une autre"
+    )
+    assert ouvre["vers"] == "/r/2/?entrer=jouer"
+    assert ouvre["faites"] == ["GET /api/salles", "POST /api/salles"]
+    assert refuse["vers"] is None
+    assert refuse["refus"] == "les deux emplacements sont pris"
+
+
+async def test_un_jeu_range_propose_de_jouer(client: httpx.AsyncClient) -> None:
+    """Le bouton existe dans le modèle de carte, caché tant que rien n'est rangé."""
+    page = (await client.get("/importer")).text
+    assert (
+        '<button type="button" class="jouer" data-ici="jouer" hidden>Jouer maintenant</button>'
+        in page
+    )
+    module = MODULE.read_text(encoding="utf-8")
+    assert 'this.ici("jouer").hidden = !range;' in module

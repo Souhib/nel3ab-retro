@@ -199,3 +199,76 @@ async def test_le_salon_ne_redeclare_pas_ses_propres_couleurs_de_page(
         page = (await client.get(chemin, headers={})).text
         assert regie in page, chemin
         assert _redeclares(page.replace(regie, ""), jetons) == [], chemin
+
+
+async def _dernier_tour(client: httpx.AsyncClient, tours: list[list[dict]]) -> dict:
+    """Ce que la vraie page montre après le dernier tour de sondage."""
+    page = (await client.get("/")).text
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(RUNNER)],
+            input=json.dumps({"page": page, "tours": tours}).encode(),
+            check=False,
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    return json.loads(sortie.stdout)[-1]
+
+
+@AVEC_JSDOM
+async def test_rejoindre_passe_avant_ouvrir_une_salle(client: httpx.AsyncClient) -> None:
+    """Audit P13, 22 novembre 2026.
+
+    La carte d'une salle ouverte n'avait aucun mot d'action, et le seul bouton
+    plein de la page était « ouvrir une salle »: un ami qui en ouvrait une
+    deuxième par erreur allumait un second émulateur sur la carte graphique
+    commune et séparait le groupe. Chaque carte porte « Rejoindre » et
+    « Regarder », qui entrent directement (`?entrer=`), et l'ouverture passe au
+    second plan en disant ce qu'elle coûte.
+    """
+    trois = {**salles(60)[1], "numero": 3, "chemin": "/r/3/"}
+    tour = [*salles(60, deux_ouverte=True), trois]
+    fin = await _dernier_tour(client, [tour, tour])
+
+    assert [c["salle"] for c in fin["cartes"]] == ["1", "2"]
+    un = fin["cartes"][0]
+    assert un["rejoindre"] == "/r/1/?entrer=jouer"
+    assert un["regarder"] == "/r/1/?entrer=regarder"
+    assert un["rejoindreCache"] is False
+    assert "Rejoindre" in un["texte"]
+    assert "3 PLACES LIBRES" in un["texte"]
+    assert "MANETTE" not in un["texte"]
+    # La salle 2 tourne sans jeu: on le dit, sans « sur son menu ».
+    assert "aucun jeu pour l'instant" in fin["cartes"][1]["texte"]
+    assert fin["ouvrir"]["texte"] == "Ouvrir une autre salle"
+    assert fin["ouvrir"]["secondaire"] == "oui"
+    assert "second jeu" in fin["ouvrir"]["mot"]
+
+
+@AVEC_JSDOM
+async def test_sans_salle_ouverte_ouvrir_reste_le_geste_principal(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le jumeau: rien à rejoindre, l'ouverture redevient le bouton plein."""
+    vide = [
+        {**salle, "ouverte": False, "places": None, "ouverte_depuis": None} for salle in salles(0)
+    ]
+    fin = await _dernier_tour(client, [vide, vide])
+
+    assert fin["cartes"] == []
+    assert fin["ouvrir"]["texte"] == "Ouvrir la première salle"
+    assert fin["ouvrir"]["secondaire"] == "non"
+
+
+@AVEC_JSDOM
+async def test_une_salle_pleine_se_regarde_et_un_emplacement_libre_ne_se_lit_pas_comme_une_panne(
+    client: httpx.AsyncClient,
+) -> None:
+    """« HORS SERVICE » se lisait comme une panne; une salle pleine proposait d'entrer."""
+    pleine = [{**salles(60)[0], "places": 0}, salles(60)[1]]
+    fin = await _dernier_tour(client, [pleine, pleine])
+
+    assert fin["cartes"][0]["rejoindreCache"] is True
+    assert fin["cartes"][0]["regarder"] == "/r/1/?entrer=regarder"
+    assert fin["eteints"] and all("LIBRE" in bloc for bloc in fin["eteints"])
+    assert not any("HORS SERVICE" in bloc for bloc in fin["eteints"])

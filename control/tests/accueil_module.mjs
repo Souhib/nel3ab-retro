@@ -57,10 +57,26 @@ for (let tour = 1; tour < tours.length; tour += 1) {
   observateur.disconnect();
   rendus.push({ mutations: vus, annonce: annonce?.textContent ?? null });
 }
+const bouton = window.document.getElementById("ouvrir");
 rendus.push({
   vivante: liste.getAttribute("aria-live"),
   role: annonce?.getAttribute("role") ?? null,
   texte: liste.textContent,
+  // Ce que la page propose après le dernier tour: les verbes de chaque carte
+  // ouverte, les emplacements éteints, et le bouton d'ouverture (audit P13).
+  cartes: [...liste.querySelectorAll("article.salle")].map((carte) => ({
+    salle: carte.dataset.salle,
+    rejoindre: carte.querySelector("a.rejoindre")?.getAttribute("href") ?? null,
+    rejoindreCache: carte.querySelector("a.rejoindre")?.hidden ?? null,
+    regarder: carte.querySelector("a.regarder")?.getAttribute("href") ?? null,
+    texte: carte.textContent,
+  })),
+  eteints: [...liste.querySelectorAll(".eteint")].map((bloc) => bloc.textContent),
+  ouvrir: {
+    texte: bouton?.textContent ?? null,
+    secondaire: bouton?.dataset.secondaire ?? null,
+    mot: window.document.getElementById("mot")?.textContent ?? null,
+  },
 });
 window.close();
 process.stdout.write(JSON.stringify(rendus));

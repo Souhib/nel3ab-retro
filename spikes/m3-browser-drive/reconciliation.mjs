@@ -23,17 +23,17 @@ try {
   browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
   const page = await browser.newPage();
   await page.goto(SALON, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.querySelector("a.salle") !== null, { timeout: 15_000 });
+  await page.waitForFunction(() => document.querySelector("article.salle") !== null, { timeout: 15_000 });
 
   // La cascade: le CSS lit `--rang`, que personne ne posait.
-  const rang = await page.$eval("a.salle", (e) => e.style.getPropertyValue("--rang"));
+  const rang = await page.$eval("article.salle", (e) => e.style.getPropertyValue("--rang"));
   assert.notEqual(rang, "", "la carte n'a pas de `--rang`: la cascade est morte");
 
-  await page.$eval("a.salle", (e) => { e.dataset.temoin = "pose"; });
+  await page.$eval("article.salle", (e) => { e.dataset.temoin = "pose"; });
   // Deux tours de sondage pleins (la page relit toutes les cinq secondes).
   await dors(11_500);
 
-  const apres = await page.$eval("a.salle", (e) => e.dataset.temoin ?? "perdu");
+  const apres = await page.$eval("article.salle", (e) => e.dataset.temoin ?? "perdu");
   assert.equal(apres, "pose",
     "la carte a été REFAITE entre deux tours: le témoin a disparu");
   console.log(`la carte a survécu à deux tours de sondage (--rang = ${rang})`);
@@ -42,7 +42,7 @@ try {
   // fermée doit voir sa carte partir, sinon la page mentirait dans l'autre sens.
   await fetch(new URL(`api/salles/${ouverte.numero}`, SALON), { method: "DELETE" });
   ouverte = null;
-  await page.waitForFunction(() => document.querySelector("a.salle") === null, { timeout: 20_000 });
+  await page.waitForFunction(() => document.querySelector("article.salle") === null, { timeout: 20_000 });
   console.log("et elle disparaît quand la salle se ferme");
 } finally {
   if (ouverte) await fetch(new URL(`api/salles/${ouverte.numero}`, SALON), { method: "DELETE" }).catch(() => {});

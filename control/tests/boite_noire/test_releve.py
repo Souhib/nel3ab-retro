@@ -210,6 +210,39 @@ def test_un_processus_etranger_n_entre_pas_dans_le_releve(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize(
+    ("comm", "suivi"),
+    [
+        # Le serveur X que Sway démarre pour Xenia depuis le 21 novembre 2026
+        # (`NEL3AB_SWAY_X11`): l'image de la salle Xbox 360 passe par lui.
+        ("Xwayland", True),
+        ("sway", True),
+        # Les jumeaux: un autre serveur X, et un nom voisin, ne sont pas suivis.
+        ("Xorg", False),
+        ("Xwayland-test", False),
+    ],
+)
+def test_l_entourage_suit_le_serveur_x_de_la_salle_xbox_360(
+    tmp_path: Path, comm: str, suivi: bool
+) -> None:
+    machine = Machine(tmp_path)
+    proche = 800
+    _ecrire(machine.r.proc / str(proche) / "comm", f"{comm}\n")
+    _ecrire(machine.r.proc / str(proche) / "stat", _stat(proche, comm, 0))
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    releveur.prendre()
+    _ecrire(machine.r.proc / str(proche) / "stat", _stat(proche, comm, 12))
+    machine.avancer(1)
+    horloge.t += 1.0
+
+    entourage = releveur.prendre()["entourage"]
+
+    assert (comm in entourage) is suivi, entourage
+    assert entourage.get(comm, {}).get("cpu_pct") == (12.0 if suivi else None)
+    assert "nel3ab-worker" in entourage, "le reste de l'entourage est toujours là"
+
+
+@pytest.mark.parametrize(
     ("comm", "role"),
     [
         ("eden-cli", "switch2"),

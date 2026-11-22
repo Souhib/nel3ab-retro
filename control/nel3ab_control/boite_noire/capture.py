@@ -5,7 +5,9 @@
 - un profil `perf` des fils les plus occupés de l'émulateur, pendant dix secondes;
 - le compte des objets GPU créés pendant ces mêmes dix secondes;
 - le journal du worker et les mesures des pages des trois dernières minutes;
-- pour une chute dans une salle Switch, l'image affichée à cet instant;
+- pour une chute dans une salle servie par un adaptateur (Switch, Switch 2,
+  Xbox 360), l'image affichée à cet instant, sur l'affichage que la salle a
+  écrit dans `display.json`;
 - seulement si on le demande, l'allocateur de la mémoire vidéo et les objets GPU
   de chaque processus: le 14 septembre 2026, chaque lecture de ces fichiers du
   debugfs a arrêté l'image d'une partie en cours pendant une centaine de ms.
@@ -30,6 +32,7 @@ qu'une boîte noire arrêtée.
 """
 
 import json
+import re
 import subprocess  # lancer perf, journalctl et docker est le travail de ce module
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -59,6 +62,25 @@ Lanceur = Callable[[Sequence[str], Path, float], int]
 
 #: Combien de temps de journaux on garde avec une capture.
 AVANT = timedelta(minutes=3)
+
+#: Où la salle dit le nom de son affichage, dans son conteneur. `supervise.py`
+#: l'écrit une fois Sway prêt, sous Wayland comme sous Xwayland: c'est l'affichage
+#: de Sway, que `grim` lit, et les fenêtres X de Xenia y sont composées.
+AFFICHAGE = "/run-data/display.json"
+
+#: La forme d'un nom d'affichage Wayland. Il est posé dans une commande `sh -c`:
+#: tout autre texte est refusé plutôt qu'échappé.
+NOM_AFFICHAGE = re.compile(r"wayland-[0-9]{1,4}")
+
+
+def affichage(texte: str) -> str | None:
+    """Le nom de l'affichage que `display.json` donne, ou rien."""
+    try:
+        lu = json.loads(texte)
+    except ValueError:
+        return None
+    nom = lu.get("display") if isinstance(lu, dict) else None
+    return nom if isinstance(nom, str) and NOM_AFFICHAGE.fullmatch(nom) else None
 
 
 def lancer(argv: Sequence[str], sortie: Path, delai: float) -> int:
@@ -220,15 +242,7 @@ class Capteur:
             and moteur.get("moteur") in CONSOLES.roles_with_a_screen()
             and moteur.get("conteneur")
         ):
-            codes["ecran"] = self._lanceur(
-                [
-                    *("docker", "exec", str(moteur["conteneur"]), "sh", "-c"),
-                    "WAYLAND_DISPLAY=wayland-1 XDG_RUNTIME_DIR=/tmp/nel3ab-runtime "
-                    "nice -n 19 grim -t png -l 1 -",
-                ],
-                dossier / "ecran.png",
-                15,
-            )
+            self._ecran(str(moteur["conteneur"]), dossier, codes)
 
         (dossier / "capture.json").write_text(
             json.dumps(
@@ -248,6 +262,36 @@ class Capteur:
             encoding="utf-8",
         )
         return dossier
+
+    def _ecran(self, conteneur: str, dossier: Path, codes: dict[str, int]) -> None:
+        """L'image de l'affichage que la salle a écrit, et rien sans lui.
+
+        `wayland-1` était supposé jusqu'au 22 novembre 2026. Un affichage lu
+        plutôt que supposé ne capture jamais l'écran d'un autre compositeur; un
+        affichage illisible laisse la capture sans image, avec son code.
+        """
+        lu = dossier / "affichage.json"
+        codes["affichage"] = self._lanceur(
+            ["docker", "exec", conteneur, "cat", AFFICHAGE], lu, self._secondes
+        )
+        if codes["affichage"] != 0:
+            return
+        try:
+            nom = affichage(lu.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            nom = None
+        if nom is None:
+            codes["affichage"] = -1
+            return
+        codes["ecran"] = self._lanceur(
+            [
+                *("docker", "exec", conteneur, "sh", "-c"),
+                f"WAYLAND_DISPLAY={nom} XDG_RUNTIME_DIR=/tmp/nel3ab-runtime "
+                "nice -n 19 grim -t png -l 1 -",
+            ],
+            dossier / "ecran.png",
+            15,
+        )
 
     def _pages(self, dossier: Path, quand: datetime) -> None:
         if self._journal_salon is None:

@@ -67,7 +67,22 @@ const groups = await page.evaluate(() => {
     const r = el.getBoundingClientRect();
     return { id, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
   };
-  return ["touchStick", "touch-D_UP", "touch-D_DOWN", "touch-A", "touch-Y", "touch-L", "touch-R", "touch-START"]
+  // La croix est un seul bloc depuis le 22 novembre 2026 (`touch-croix`). Les
+  // gestes de page sont comptés aussi : « cacher » était posé sur R ce jour-là.
+  // La garde complète est `manette-garde.mjs`, sur l'arbre de travail.
+  return [
+    "touchStick",
+    "touch-croix",
+    "touch-A",
+    "touch-Y",
+    "touch-L",
+    "touch-R",
+    "touch-Z",
+    "touch-START",
+    "wakeSound",
+    "showColumn",
+    "hideTouch",
+  ]
     .map(box)
     .filter(Boolean);
 });

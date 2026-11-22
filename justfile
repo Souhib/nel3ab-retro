@@ -371,6 +371,21 @@ saves-test:
 padmap-visuel:
     cd spikes/m3-browser-drive && node padmap-visuel.mjs
 
+# La garde de la manette tactile, sur l'arbre de travail.
+#
+# À sept tailles d'écran et dans quatre salles (GameCube en 4:3 et 16:9,
+# Switch, Xbox 360), le centre et les quatre bords de chaque touche reçoivent
+# cette touche, un vrai appui arrive au pavé sous son nom, et aucun geste de
+# page n'est à moins de 12 px d'une touche de jeu. Avec une bande noire de
+# 130 px, rien ne mord sur l'image, gestes compris ; l'avis de fermeture reste
+# au-dessus du pavé ; chaque inscription tient 4,5:1 dans les sept thèmes.
+# Écrite après l'audit du 22 novembre 2026, où taper R sur un iPhone cachait
+# la manette. Hors de `check` parce qu'elle demande Chrome. Vite sert la page
+# sans relais vers la salle, sur le port 5437 (MANETTE_GARDE_PORT pour un
+# autre).
+manette-garde out="/tmp/manette-garde":
+    cd spikes/m3-browser-drive && node manette-garde.mjs {{out}}
+
 # Le banc d'essai, regardé et mesuré.
 #
 # Ici et pas dans `check` pour la même raison que l'aperçu des plans: ce qui se

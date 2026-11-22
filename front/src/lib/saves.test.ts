@@ -12,7 +12,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PERSONAL, SLOTS, launchPicks, readUnlocked, slotFromPick } from "./saves";
+import { PERSONAL, SLOTS, launchPicks, padLabel, readUnlocked, slotFromPick } from "./saves";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -85,4 +85,19 @@ describe("le panneau de lancement", () => {
     // commence après lui, et cet essai a signalé le changement.
     expect(slotFromPick("3")).toBeNull();
   });
+});
+
+it("ne nomme jamais la GameCube pour un appareil qu'elle ne connaît pas", () => {
+  // Le code 4 est la manette Pro, le seul appareil des salles Switch, Switch 2
+  // et Xbox 360 (consoles.json). L'ancien repli l'appelait « manette GameCube »
+  // (audit du 22 novembre 2026). La première correction disait « appareil 4
+  // inconnu », un message de panne sur le chemin normal : la préparation d'un
+  // jeu Switch l'affichait pour chaque joueur prêt (revue du même jour).
+  expect(padLabel(4)).toBe("manette Pro");
+  expect(padLabel(4)).not.toMatch(/GameCube|inconnu/);
+  // Le jumeau: un code que personne ne présente reste inconnu, et le dit.
+  expect(padLabel(7)).toBe("appareil 7 inconnu");
+  // Et les quatre codes Wii gardent leur nom.
+  expect(padLabel(0)).toBe("manette GameCube");
+  expect(padLabel(3)).toBe("Wiimote seule");
 });

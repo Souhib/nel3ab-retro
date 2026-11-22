@@ -231,6 +231,10 @@ préparation, pour ne pas faire tester un appareil différent de celui confirmé
 | `front/src/media/lesson.ts` | Capture, étapes, repos et collecte des ports du modèle |
 | `front/src/media/profile.ts` | Validation des profils chargés |
 | `front/src/lib/bindings.ts` | Semis, copie en attente et envois au service |
+| `front/src/lib/faces.ts` | Faces des manettes tactiles, place des touches à l'écran, nom d'un appareil par salle |
+| `front/src/components/TouchPad.tsx` | Pavé tactile commun (`Pave`), manette Dolphin |
+| `front/src/components/SwitchTouchPad.tsx` | Manette Pro tactile, nommée selon la console |
+| `spikes/m3-browser-drive/manette-garde.mjs` | Garde navigateur de la manette tactile (`just manette-garde`) |
 
 Les essais géométriques vérifient que les centres ne sont pas avalés par une
 autre pièce et que les pièces restent dans leur enveloppe déclarée. Cette
@@ -390,6 +394,150 @@ la préparation à la place du joueur.
 temporaires, y compris un retour de vibration refusé. Le parcours entre consoles
 se rejoue avec `just switch-room-test`, décrit dans la [note Switch](switch-room.md).
 Un bouton lu sur le périphérique Linux ne prouve pas son action dans chaque jeu.
+
+## La manette tactile et ses faces, 22 novembre 2026
+
+Cette section parle de la manette dessinée **sur l'écran de jeu** d'un
+téléphone, pas des dessins du configurateur. Les deux partagent désormais leurs
+noms et la place des quatre boutons.
+
+**Ce qui était faux.** L'audit mobile du 22 novembre a tapé au centre de R sur
+un iPhone tenu droit : la manette a disparu, parce que « cacher » était posé
+sur R. Taper Z faisait pareil, et taper L appuyait sur START. En paysage, le
+haut de Y tombait sur « cacher ». La rangée « menu, son, masquer » de la
+manette Switch, posée à `bottom: 140px`, mordait sur L, ZL et le clic du stick.
+Dans une salle Xbox 360, cette manette écrivait ZL, ZR, + et −, rangeait B à
+gauche de A, et sa croix était une grille où « gauche » se trouvait à droite
+de « haut ».
+
+**Une face par console.** `front/src/lib/faces.ts` décrit chaque manette
+tactile : quelles touches, sous quels noms, dans quel ordre. La GameCube et la
+Wii partagent la face Dolphin. La Switch et la Switch 2 ont la manette Pro. La
+Xbox 360 écrit LB, LT, RB, RT, Back et Start, et range A en bas. Ce qui n'est
+pas lisible dans le code :
+
+- **Les noms d'une salle Pro viennent de `switch-labels.ts`**, la table que lit
+  le configurateur (`SwitchBindings`). L'inscription d'une touche est le début
+  de son nom, avant « · » (`inscription`) : « LB · bouton d'épaule gauche »
+  s'inscrit LB. Seuls les clics de stick ont une inscription à eux (L3 et R3,
+  LS et RS), parce que leur nom est une phrase. Un essai vérifie chaque
+  inscription contre son nom, un autre qu'aucune ne dépasse cinq caractères.
+  Le choix de la table par console reste écrit une seconde fois dans
+  `SwitchBindings` (`xbox ? xboxLabels : switchLabels`) ; il peut lire
+  `faceOf(console)` à la place.
+- **Le losange des quatre boutons est lu sur le dessin** (`diamondOf`, sur
+  `XBOX_360` et `SWITCH_PRO`), pas recopié. Un essai retourne le dessin de
+  gauche à droite et vérifie que le losange se retourne aussi.
+- **Une salle Wii garde les noms de la GameCube.** Elle présente un appareil
+  par place, et le pavé ne le connaît pas. Nommer ses touches comme une Wiimote
+  mentirait à qui joue avec la manette GameCube.
+- **Un essai exige une face pour chaque console du manifeste**, et son jumeau
+  refuse une console inconnue, même un nom comme `toString`.
+- **Le nom d'un appareil.** La fiche d'un jeu le nomme selon la salle
+  (`deviceLabel`) : « manette Pro » pour un jeu Switch, « manette Xbox 360 »
+  pour un jeu Xbox. `padLabel`, qui ne connaît pas la salle, nomme le code 4
+  « manette Pro » (`PRO_PAD`) et dit « appareil N inconnu » pour un code que
+  personne ne présente. Une première version disait « appareil 4 inconnu », et
+  la préparation d'un jeu Switch l'affichait pour chaque joueur prêt. La
+  préparation d'un jeu Xbox 360 dit encore « manette Pro · prêt » : il lui
+  faudrait passer sa console à `deviceLabel`.
+- **`SwitchTouchPad` exige `console` et `bar`**, même `undefined` pour la
+  console. Une salle Xbox 360 ne parle Xbox que par cette prop : oubliée dans
+  `App`, elle retomberait en silence sur les noms Switch. Elle ne compile plus.
+
+**La place des touches est un calcul pur.** `placePad` rend une pose : un
+rectangle par pièce, et `degraded`, qui dit en mots ce que la pose n'a pas su
+tenir (`null` quand tout tient). `TouchPad` et `SwitchTouchPad` posent ces
+rectangles par le même composant `Pave`, qui écrit `data-degradee` sur sa boîte
+quand la pose est dégradée. La feuille `components/manette-tactile.css` ne dit
+que l'aspect.
+
+- Chaque côté est une pile : des rangées en haut (gâchettes, puis −, + et
+  clics des sticks), deux groupes en bas (le plus utilisé sous le pouce). Un
+  groupe qui tient dans sa bande noire s'y range ; sinon il se colle au bord de
+  l'écran.
+- Quand la hauteur manque (568 sur 260, un petit téléphone en travers avec les
+  barres du navigateur), les rangées d'un côté passent sur une seule ligne.
+  Quand la largeur manque, les palettes deviennent rondes (280 px, l'écran
+  extérieur d'un Galaxy Fold), puis les sticks rétrécissent jusqu'à 80 px (sous
+  276 px de large).
+- **Les gestes de page vont d'abord dans les bandes noires**, là où il reste
+  une place à 16 px de toute touche. Les trois vont ensemble si une place les
+  tient ; sinon ils se partagent les deux bandes. Sur un iPhone de 844 sur 390
+  avec une image 4:3, « son » se range entre L et la croix, « menu » et
+  « cacher » entre START et les boutons. Sans bande assez large, ils vont en
+  haut au milieu, puis sous les rangées, puis en bas.
+
+La première version posait les gestes en haut au milieu de l'image même quand
+les bandes étaient libres. Le contrôle « rien ne mord sur l'image » du pilote
+`touch.mjs` serait devenu rouge, et taper le centre de l'avis de fermeture de
+la salle ouvrait le menu du jeu.
+
+Les mesures et leurs raisons sont écrites dans `SIZES` et `unitsFor` : 44 px au
+moins pour une cible, 16 px entre un geste de page et une touche (l'audit en
+demande 12), 4 px de marge dans une bande (les quatre boutons de la GameCube
+font 148 px et la bande d'un iPhone de 812 sur 375 en fait 156), 72 px pour un
+geste (« CACHER » mesure 60,1 px), 4 px entre deux gestes (deux tiennent côte à
+côte dans cette bande de 156 px).
+
+**Au-dessus et en dessous.** La boîte du pavé est en `z-index: 29`, sous les
+calques de la salle à 30 qui viennent avant elle : l'avis de fermeture et le
+message de branchement. Un avis qui dit que la salle ferme passe avant la
+manette ; il naît de l'inactivité, donc personne ne joue quand il s'affiche.
+Le menu (50) reste au-dessus, l'avis de format réduit (20) dessous.
+
+**Lisible dans les sept thèmes.** Les lettres en couleur d'une Xbox reposent
+sur un fond sombre fixe : sur le fond clair du thème instrument clair, A
+tombait à 1,05:1 et Y à 1,22:1. Les gestes de page ont le panneau du thème
+pour fond, opaque : `--faint` y tient 4,5:1 dans chaque thème, mais pas sur un
+panneau clair rendu transparent au-dessus du noir (2,3:1 mesuré).
+
+**La croix est un seul bloc.** Quatre boutons de 28 px laissaient le doigt
+tomber entre deux branches. Le bloc se lit à l'angle du doigt (`crossFrom`) :
+chaque direction couvre 120 degrés, les diagonales sont les 30 degrés où deux
+directions se recouvrent, et le centre est mort. Un doigt peut glisser d'une
+direction à l'autre sans lever. Ses quatre flèches sont du dessin
+(`aria-hidden`) ; le groupe se nomme « croix directionnelle ».
+
+**Les preuves.**
+
+- `faces.test.ts` balaie 1 267 tailles d'écran (de 260 px de petit côté à
+  1 440, jusqu'à 2,8 pour 1), quatre formats d'image et trois faces, soit
+  15 204 poses, plus cinquante tailles d'écrans réels avec et sans les barres
+  du navigateur. Rien ne se recouvre, rien ne sort de l'écran, aucune cible
+  sous 44 px, aucun geste à moins de 12 px d'une touche, et aucune pose ne se
+  dit dégradée. Une pose fautive fabriquée exprès (« cacher » sur R) doit être
+  nommée, et une boîte de 240 sur 240 doit donner une pose dégradée.
+- `just manette-garde` lance `spikes/m3-browser-drive/manette-garde.mjs`. Vite
+  sert les vrais composants sans relais vers une salle. À sept tailles et dans
+  quatre salles, la garde vérifie que le centre et un point à 3 px de chaque
+  bord de chaque touche la reçoivent (`elementFromPoint`), qu'un vrai appui de
+  doigt arrive au pavé sous son nom sans déclencher de geste, qu'aucun geste de
+  page n'est à moins de 12 px d'une touche, qu'aucune inscription ne sort de sa
+  touche, qu'avec une bande de 130 px rien ne mord sur l'image, gestes compris,
+  et que l'avis de fermeture, copié avec la classe lue dans `App.tsx`, reçoit
+  son centre et ses bords. Dans les sept thèmes, chaque inscription doit tenir
+  4,5:1 sur le noir de la bande. Trois jumeaux négatifs ouvrent la garde.
+- Sur les pavés d'avant le 22 novembre, la garde échoue dans les 28 cas. Sur la
+  première version de cette branche, elle échoue dans 24 cas (gestes sur
+  l'image, avis recouvert, lettres Xbox et gestes illisibles en thème clair).
+
+**Ce qui n'est pas prouvé.** La garde monte le pavé seul, dans la même boîte
+que la salle, avec la même largeur de bande que `App`, plus une copie de l'avis
+de fermeture. Les autres calques (message de branchement, menu, colonne) n'y
+sont pas. Le message de branchement, à z-30, couvre maintenant L ou ZL pendant
+ses cinq secondes. Rien n'a été essayé sur un vrai téléphone : les zones sûres
+valent zéro tant que la page n'a pas `viewport-fit=cover`. Le pilote de salle
+`touch.mjs` n'a pas été relancé : il demande une salle vivante ; la garde rejoue
+sa règle « rien sur l'image » sur le banc. Sur une image très claire, les
+touches translucides perdent du contraste : 2,79:1 au pire pour le A de la
+GameCube sur du blanc, 3,67:1 pour le B d'une Xbox (non exigé). Sur le noir,
+le plus juste est le geste « son » : 4,50:1 dans le thème par défaut, le seuil
+même que `--faint` vise sur le panneau. Les touches de
+44 px couvrent plus d'image qu'avant sur une tablette tenue en travers, où il
+n'y a pas de bande noire (68 080 px² contre 52 098 pour la GameCube en 1024 sur
+768). Sur un téléphone en 16:9, les bandes font 76 à 84 px : aucun stick n'y
+tient, et les groupes se collent au bord.
 
 ## Accompagner le branchement, 6 septembre 2026
 

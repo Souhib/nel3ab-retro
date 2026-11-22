@@ -1,61 +1,437 @@
 /**
  * La manette à l'écran, pour jouer depuis un téléphone.
  *
- * # La première version se marchait dessus
+ * # Une seule façon de poser les touches, pour toutes les consoles
  *
- * Elle plaçait ses groupes à des distances FIXES du bord: la croix à 176 pixels
- * de la gauche, les quatre boutons à 32 de la droite. Sur un ordinateur ça
- * tenait; sur un vrai téléphone tenu en travers, vu le 18 août 2026, la zone de
- * jeu ne faisait que quelques centaines de pixels et les deux groupes se
- * recouvraient au milieu de l'image, par-dessus le texte du jeu.
+ * `Pave` mesure sa boîte, demande à `placePad` (lib/faces) un rectangle par
+ * pièce, et les pose en position absolue. `TouchPad` (GameCube, Wii) et
+ * `SwitchTouchPad` (Switch, Switch 2, Xbox 360) ne diffèrent que par la trame
+ * qu'ils écrivent et la face qu'ils montrent.
  *
- * Tout est donc dimensionné en `vmin` maintenant, avec des bornes: un bouton ne
- * descend jamais sous 34 pixels — la taille d'un doigt — et ne dépasse jamais 56,
- * où il deviendrait une cible pour la souris. Les groupes sont ancrés aux QUATRE
- * COINS, et le milieu reste libre parce que c'est là qu'est le jeu.
+ * Les versions d'avant le 22 novembre 2026 posaient leurs groupes en CSS, aux
+ * coins. Mesuré ce jour-là sur un iPhone tenu droit : START et « cacher »
+ * étaient posés sur L, Z et R, si bien que taper R cachait la manette et taper
+ * L mettait le jeu en pause. En paysage, le haut de Y tombait sur « cacher ».
+ * La première version, le 18 août 2026, se marchait déjà dessus au milieu de
+ * l'image. Une position calculée se vérifie sur des centaines de tailles sans
+ * navigateur (`faces.test.ts`), et la garde `manette-garde.mjs` vérifie ce
+ * que le navigateur en fait.
  *
  * # Ce qu'elle dessine, et pourquoi là
  *
- * Les deux pouces tiennent les coins du bas: le stick à gauche, les quatre
- * boutons à droite, comme sur la console. La croix directionnelle monte à gauche
- * au-dessus du stick, parce qu'elle ne sert presque jamais en jeu et souvent
- * dans les menus, et que le pouce gauche atteint les deux. Les gâchettes sont
- * aux coins du haut, là où les index tombent.
+ * Les deux pouces tiennent les coins du bas : le stick à gauche, les quatre
+ * boutons à droite, comme sur la console. La croix monte au-dessus du stick,
+ * parce qu'elle sert surtout dans les menus. Les gâchettes sont aux coins du
+ * haut, là où les index tombent. Les gestes de la PAGE (son, menu, cacher)
+ * prennent la première place libre à 16 px de toute touche de jeu : un geste de
+ * page sous un pouce qui joue fait perdre la partie.
  *
  * # Elle ne repasse pas par React
  *
- * Les événements de pointeur écrivent dans le module `media/touch`, que la
- * boucle d'entrée lit cent fois par seconde. Rien ici ne provoque de rendu en
- * jouant: un rendu par appui ferait exactement ce que ce projet interdit depuis
- * le début, remettre React sur le chemin des commandes.
+ * Les événements de pointeur écrivent dans le module `media/touch` (ou dans
+ * `SwitchInput`), que la boucle d'entrée lit cent fois par seconde. Rien ici ne
+ * provoque de rendu en jouant : un rendu par appui remettrait React sur le
+ * chemin des commandes. Seul un changement de taille de la boîte rend le pavé.
  *
  * # Les détails qui font la différence entre jouable et pénible
  *
  * - `touch-action: none` partout, sinon un glissement du pouce fait défiler la
- *   page au lieu de pousser le stick;
- * - la capture du pointeur sur le stick, pour que le doigt puisse sortir du
- *   cercle sans que le mouvement s'arrête net;
- * - `pointercancel` relâche, parce qu'un appel entrant ou une notification
- *   annule les pointeurs et laisserait sinon un bouton enfoncé pour toujours;
- * - aucun retour visuel calculé en JavaScript: l'état pressé est du CSS
- *   (`:active`), donc il coûte zéro rendu.
+ *   page au lieu de pousser le stick ;
+ * - la capture du pointeur, pour que le doigt puisse sortir d'une touche sans
+ *   que l'appui s'arrête net ;
+ * - `pointercancel` et la perte de capture relâchent, parce qu'un appel entrant
+ *   annule les pointeurs et laisserait sinon un bouton enfoncé pour toujours ;
+ * - l'état pressé d'une touche est du CSS (`:active`), donc il coûte zéro rendu.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ButtonName } from "../media/pad";
-import { clusterKeys, stickFrom, type Touch } from "../media/touch";
+import { stickFrom, type Touch } from "../media/touch";
+import {
+  DOLPHIN_FACE,
+  crossFrom,
+  placePad,
+  type FaceOf,
+  type Frame,
+  type Geste,
+  type Piece,
+  type Rect,
+  type Touche,
+} from "../lib/faces";
+import "./manette-tactile.css";
 
-/** Le rayon du stick, en pixels d'écran.
+/** Le rayon du stick GameCube, en pixels d'écran.
  *
  * Lu une fois au montage plutôt que calculé en CSS, parce que la conversion des
- * coordonnées du pointeur en position de stick en a besoin comme d'un nombre. Le
- * `clamp` reproduit ce que ferait la feuille de style: un pouce a besoin d'au
- * moins 44 pixels de course, et au-delà de 68 le stick mange l'image.
+ * coordonnées du pointeur en position de stick en a besoin comme d'un nombre. Un
+ * pouce a besoin d'au moins 44 pixels de course, et au-delà de 68 le stick
+ * demande un geste plus long que le puits dessiné.
  */
 function stickRadius(): number {
   const smaller = Math.min(window.innerWidth, window.innerHeight);
   return Math.max(44, Math.min(68, smaller * 0.17));
 }
 
+const at = (rect: Rect): React.CSSProperties => ({
+  left: rect.x,
+  top: rect.y,
+  width: rect.w,
+  height: rect.h,
+});
+
+/** Les quatre directions d'une croix, dans l'ordre où on les lit. */
+const DIRECTIONS = ["up", "down", "left", "right"] as const;
+
+/** Une croix d'un seul bloc, lue à l'angle du doigt.
+ *
+ * Quatre boutons de 28 px laissaient le doigt tomber entre deux branches. Le
+ * bloc se vise partout, donne les diagonales, et suit un doigt qui glisse d'une
+ * direction à l'autre. Les branches allumées sont écrites dans le style, pas
+ * dans un état : c'est du dessin. */
+function Croix<K extends string>({
+  rect,
+  keys,
+  press,
+  release,
+  id,
+}: {
+  rect: Rect;
+  keys: Record<(typeof DIRECTIONS)[number], K>;
+  press: (key: K) => void;
+  release: (key: K) => void;
+  id?: string;
+}) {
+  const block = useRef<HTMLDivElement>(null);
+  const held = useRef(new Set<K>());
+
+  const set = (wanted: Set<K>) => {
+    for (const key of held.current) if (!wanted.has(key)) release(key);
+    for (const key of wanted) if (!held.current.has(key)) press(key);
+    held.current = wanted;
+    const el = block.current;
+    if (el) for (const way of DIRECTIONS) el.toggleAttribute(`data-${way}`, wanted.has(keys[way]));
+  };
+  const read = (event: React.PointerEvent) => {
+    const box = block.current?.getBoundingClientRect();
+    if (!box) return;
+    const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    const ways = crossFrom(centre, { x: event.clientX, y: event.clientY }, box.width / 2);
+    set(new Set(DIRECTIONS.filter((way) => ways[way]).map((way) => keys[way])));
+  };
+  const rest = () => set(new Set());
+  // Par une référence, comme le puits: l'écoute est posée une fois, et lâche
+  // avec les `press` et `release` du dernier rendu.
+  const restRef = useRef(rest);
+  restRef.current = rest;
+  // Un onglet qu'on quitte lâche la croix, et un démontage aussi.
+  useEffect(() => {
+    const drop = () => restRef.current();
+    window.addEventListener("blur", drop);
+    document.addEventListener("visibilitychange", drop);
+    return () => {
+      window.removeEventListener("blur", drop);
+      document.removeEventListener("visibilitychange", drop);
+      drop();
+    };
+  }, []);
+  return (
+    <div
+      ref={block}
+      id={id}
+      className="n3-pave-croix"
+      data-touche="croix"
+      role="group"
+      aria-label="croix directionnelle"
+      style={at(rect)}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        read(event);
+      }}
+      onPointerMove={(event) => {
+        if (event.buttons === 0 && event.pointerType === "mouse") return;
+        if (event.currentTarget.hasPointerCapture?.(event.pointerId) ?? true) read(event);
+      }}
+      onPointerUp={rest}
+      onPointerCancel={rest}
+      onLostPointerCapture={rest}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      {/* Du dessin : le groupe se nomme « croix directionnelle », et un lecteur
+          d'écran lisait sinon quatre triangles noirs. */}
+      <span data-bras="up" aria-hidden="true">
+        ▲
+      </span>
+      <span data-bras="left" aria-hidden="true">
+        ◀
+      </span>
+      <span data-bras="right" aria-hidden="true">
+        ▶
+      </span>
+      <span data-bras="down" aria-hidden="true">
+        ▼
+      </span>
+    </div>
+  );
+}
+
+/** Ce qu'un stick fait de la poussée du pouce : la trame qu'il écrit, et sa course. */
+export type StickSpec = {
+  id: string;
+  label: string;
+  /** La course du stick, en pixels, pour un puits de cette taille. */
+  radius: (box: DOMRect) => number;
+  onPush: (x: number, y: number) => void;
+  onRest: () => void;
+};
+
+/** Le puits d'un stick, poussé au pouce.
+ *
+ * Par des références et non par un état : la valeur est relue à chaque
+ * mouvement du doigt, et rendre la page à chaque pixel ferait ramer ce qu'on
+ * essaie de conduire. Le rond qui suit le pouce est écrit directement dans son
+ * style. */
+function Puits({
+  rect,
+  side,
+  spec: { id, label, radius, onPush, onRest },
+}: {
+  rect: Rect;
+  side: "l" | "r";
+  spec: StickSpec;
+}) {
+  const well = useRef<HTMLDivElement>(null);
+  const knob = useRef<HTMLDivElement>(null);
+  const rest = () => {
+    onRest();
+    if (knob.current) knob.current.style.transform = "translate(0px, 0px)";
+  };
+  const restRef = useRef(rest);
+  restRef.current = rest;
+  // Un onglet qu'on quitte lâche le stick. Sans ça, partir en tenant une
+  // direction laisse le personnage courir tout seul.
+  useEffect(() => {
+    const drop = () => restRef.current();
+    window.addEventListener("blur", drop);
+    document.addEventListener("visibilitychange", drop);
+    return () => {
+      window.removeEventListener("blur", drop);
+      document.removeEventListener("visibilitychange", drop);
+      drop();
+    };
+  }, []);
+  const move = (event: React.PointerEvent) => {
+    const box = well.current?.getBoundingClientRect();
+    if (!box) return;
+    const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    const reach = radius(box);
+    const pushed = stickFrom(centre, { x: event.clientX, y: event.clientY }, reach);
+    onPush(pushed.x, pushed.y);
+    if (knob.current) {
+      // `stickFrom` rend `y` vers le HAUT, comme une manette ; l'écran compte
+      // vers le bas, d'où le signe remis pour le dessin.
+      const drawn = Math.min(reach, box.width / 2) * 0.5;
+      knob.current.style.transform = `translate(${pushed.x * drawn}px, ${-pushed.y * drawn}px)`;
+    }
+  };
+  return (
+    <div
+      ref={well}
+      id={id}
+      className="n3-pave-puits"
+      data-touche={`stick-${side}`}
+      role="group"
+      aria-label={label}
+      style={at(rect)}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        move(event);
+      }}
+      onPointerMove={(event) => {
+        if (event.buttons === 0 && event.pointerType === "mouse") return;
+        move(event);
+      }}
+      onPointerUp={rest}
+      onPointerCancel={rest}
+      onLostPointerCapture={rest}
+    >
+      <div ref={knob} className="n3-pave-bouton" />
+    </div>
+  );
+}
+
+/** Ce que chaque geste de page affiche, et son identifiant pour les pilotes. */
+const GESTE: Record<Geste, { id: string; label: string; title: string }> = {
+  son: { id: "wakeSound", label: "son", title: "démarrer le son, et le tester par un bip" },
+  menu: { id: "showColumn", label: "menu", title: "ouvrir le menu du jeu" },
+  cacher: { id: "hideTouch", label: "cacher", title: "cacher la manette à l'écran" },
+};
+
+/** Le pavé commun : il mesure, place et pose. Les deux manettes le partagent. */
+export function Pave<K extends string>({
+  face,
+  bar,
+  press,
+  release,
+  stickOf,
+  idOf,
+  soundOff,
+  onSound,
+  onMenu,
+  onLeave,
+  id,
+}: {
+  face: FaceOf<Frame, K>;
+  /** La largeur d'une bande noire à côté de l'image, en pixels de la salle. */
+  bar: number;
+  press: (key: K) => void;
+  release: (key: K) => void;
+  /** Ce que fait chaque stick du pavé. */
+  stickOf: (side: "l" | "r") => StickSpec;
+  /** L'identifiant d'une touche, pour les pilotes qui la cherchent. */
+  idOf?: (key: K) => string;
+  soundOff: boolean;
+  onSound: () => void;
+  onMenu: () => void;
+  onLeave: () => void;
+  id?: string;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  // Ce que les zones sûres retirent à gauche et à droite: la bande se mesure
+  // depuis le bord de la salle, les touches depuis le bord de cette boîte.
+  const [inset, setInset] = useState({ left: 0, right: 0 });
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const outer = el.parentElement?.getBoundingClientRect();
+      // jsdom ne mesure rien : la fenêtre sert alors de boîte.
+      if (r.width > 0 && r.height > 0)
+        setSize((was) =>
+          was.width === r.width && was.height === r.height
+            ? was
+            : { width: r.width, height: r.height },
+        );
+      if (outer && outer.width > 0) {
+        const left = Math.max(0, r.left - outer.left);
+        const right = Math.max(0, outer.right - r.right);
+        setInset((was) => (was.left === left && was.right === right ? was : { left, right }));
+      }
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+
+  const pose = useMemo(
+    () =>
+      placePad(face, size, {
+        left: Math.max(0, bar - inset.left),
+        right: Math.max(0, bar - inset.right),
+      }),
+    [face, size, bar, inset],
+  );
+
+  const key = (touche: Touche<K>, rect: Rect) => (
+    <button
+      key={touche.key}
+      type="button"
+      id={idOf?.(touche.key)}
+      className="n3-pave-touche"
+      data-touche={touche.key}
+      data-forme={touche.forme}
+      data-long={touche.forme === "rond" && touche.label.length > 3 ? "" : undefined}
+      data-teinte={touche.teinte}
+      data-encre={touche.ink === undefined ? undefined : ""}
+      aria-label={touche.spoken}
+      // La couleur de la lettre passe par une variable : la feuille la pose sur
+      // un fond sombre fixe, lisible dans tous les thèmes. Écrite en `color`,
+      // elle tombait à 1,05:1 sur le fond clair du thème instrument clair.
+      style={{ ...at(rect), ...(touche.ink ? { "--lettre": touche.ink } : {}) }}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        press(touche.key);
+      }}
+      onPointerUp={() => release(touche.key)}
+      onPointerCancel={() => release(touche.key)}
+      onLostPointerCapture={() => release(touche.key)}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      {touche.label}
+    </button>
+  );
+
+  const draw = (piece: Piece<K>) => {
+    switch (piece.kind) {
+      case "touche":
+        return key(piece.touche, piece.rect);
+      case "croix":
+        return (
+          <Croix
+            key="croix"
+            id={idOf ? "touch-croix" : undefined}
+            rect={piece.rect}
+            keys={piece.groupe}
+            press={press}
+            release={release}
+          />
+        );
+      case "stick":
+        return (
+          <Puits
+            key={`stick-${piece.side}`}
+            side={piece.side}
+            rect={piece.rect}
+            spec={stickOf(piece.side)}
+          />
+        );
+      case "geste": {
+        const said = GESTE[piece.geste];
+        const action = piece.geste === "son" ? onSound : piece.geste === "menu" ? onMenu : onLeave;
+        return (
+          <button
+            key={piece.geste}
+            type="button"
+            id={said.id}
+            className="n3-pave-geste"
+            data-geste={piece.geste}
+            data-alerte={piece.geste === "son" && soundOff ? "" : undefined}
+            title={said.title}
+            style={at(piece.rect)}
+            onClick={action}
+          >
+            {said.label}
+          </button>
+        );
+      }
+    }
+  };
+
+  return (
+    <div
+      ref={root}
+      id={id}
+      className="n3-pave"
+      role="group"
+      aria-label={face.title}
+      // Une pose qui n'a pas tout tenu le dit, pour les pilotes et les outils
+      // du navigateur : la manette s'affiche quand même.
+      data-degradee={pose.degraded ?? undefined}
+    >
+      {pose.pieces.map(draw)}
+    </div>
+  );
+}
+
+/** La manette de la trame Dolphin: GameCube, et Wii par ses correspondances. */
 export function TouchPad({
   bar,
   touch,
@@ -75,9 +451,8 @@ export function TouchPad({
   /** Vrai quand le navigateur ne joue toujours rien.
    *
    * Montré plutôt que deviné: sur un iPhone, le son peut rester coupé pour deux
-   * raisons qu'aucun code ne distingue — un geste que le navigateur n'a pas
-   * accepté, ou le petit interrupteur sur le côté du téléphone. Dire « il n'y a
-   * pas de son » laisse au moins chercher du bon côté. */
+   * raisons qu'aucun code ne distingue : un geste que le navigateur n'a pas
+   * accepté, ou le petit interrupteur sur le côté du téléphone. */
   soundOff: boolean;
   /** Rallumer le son. Le tapotement est lui-même le geste que le navigateur
    * attend, donc c'est le chemin le plus court qui existe. */
@@ -86,25 +461,17 @@ export function TouchPad({
   onLeave: () => void;
   /** Ouvrir le menu du jeu.
    *
-   * Le MENU et non la colonne, et la nuance compte. Le bouton qui ouvre le menu
-   * vit dans la colonne, la colonne est repliée d'office sur un téléphone, et le
-   * menu s'ouvre sinon par Échap: il était donc simplement inatteignable. Or
-   * c'est lui qui porte tout, y compris de quoi déplier la colonne.
-   *
-   * Trouvé en écrivant le pilote, qui cherchait un bouton qui n'existait pas. */
+   * Le MENU et non la colonne: la colonne est repliée d'office sur un
+   * téléphone, et le menu s'ouvre sinon par Échap. Trouvé en écrivant le
+   * pilote, qui cherchait un bouton qui n'existait pas. */
   onMenu: () => void;
 }) {
-  const knob = useRef<HTMLDivElement>(null);
-  const well = useRef<HTMLDivElement>(null);
   const radius = useRef(stickRadius());
 
   // Un onglet qu'on quitte lâche tout. Sans ça, passer sur une autre
-  // application en tenant une direction laisse le personnage courir.
+  // application en tenant A laisse le personnage courir.
   useEffect(() => {
-    const drop = () => {
-      touch.releaseAll();
-      if (knob.current) knob.current.style.transform = "translate(0px, 0px)";
-    };
+    const drop = () => touch.releaseAll();
     const resize = () => {
       radius.current = stickRadius();
     };
@@ -119,310 +486,25 @@ export function TouchPad({
     };
   }, [touch]);
 
-  const hold = (button: ButtonName) => ({
-    onPointerDown: (event: React.PointerEvent) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      touch.press(button);
-    },
-    onPointerUp: () => touch.release(button),
-    onPointerCancel: () => touch.release(button),
-    onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
-  });
-
-  const move = (event: React.PointerEvent) => {
-    const box = well.current?.getBoundingClientRect();
-    if (!box) return;
-    const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
-    const pushed = stickFrom(centre, { x: event.clientX, y: event.clientY }, radius.current);
-    touch.push(pushed.x, pushed.y);
-    if (knob.current) {
-      // Le pouce voit où il pousse. Écrit directement dans le style plutôt que
-      // par un état: c'est du dessin, pas de la donnée.
-      const reach = radius.current * 0.55;
-      knob.current.style.transform = `translate(${pushed.x * reach}px, ${-pushed.y * reach}px)`;
-    }
-  };
-
-  /** Assez large pour tenir un groupe de touches sans mordre sur l'image.
-   *
-   * Cent trente pixels: la largeur d'un stick plus sa marge. En dessous, les
-   * boutons déborderaient de la bande et on gagnerait un demi-recouvrement au
-   * lieu d'aucun, ce qui est pire que de les assumer aux coins. */
-  const roomy = bar >= 130;
-
-  const rest = () => {
-    touch.push(0, 0);
-    if (knob.current) knob.current.style.transform = "translate(0px, 0px)";
-  };
-
-  /* Les groupes se rangent DANS les bandes noires quand il y en a, et aux coins
-     sinon. `left`/`right` sont donc des positions calculées et non des classes:
-     la largeur de la bande n'est connue qu'à l'exécution. */
-  /* Les bords, zones sûres comprises.
-   *
-   * Un téléphone tenu en travers met sa barre d'adresse en haut et son encoche
-   * sur un côté, et un bouton collé au bord tombe dessous: signalé sur un
-   * iPhone, les gâchettes étaient à moitié sous la barre. `env(safe-area-inset-*)`
-   * est ce que le navigateur promet de laisser libre, et vaut zéro partout
-   * ailleurs, donc l'écart ne coûte rien à un ordinateur.
-   *
-   * Quatorze pixels en plus du haut: assez pour que le doigt ait la place de
-   * poser sans viser le bord, pas assez pour que les gâchettes descendent dans
-   * l'image. */
-  const group = clusterKeys(bar);
-  // Centré sur ce que le groupe MESURE, et pas sur une largeur supposée: voir
-  // `Cluster.width`, où la constante d'avant est racontée.
-  const side = roomy ? Math.max(6, (bar - group.width) / 2) : 8;
-  const leftAt = `calc(env(safe-area-inset-left, 0px) + ${side}px)`;
-  const rightAt = `calc(env(safe-area-inset-right, 0px) + ${side}px)`;
-  const topAt = "calc(env(safe-area-inset-top, 0px) + 14px)";
-
-  /* Les quatre boutons sont le groupe le plus LARGE: trois colonnes, là où le
-     stick n'en fait qu'une et la croix trois petites. À la taille par défaut il
-     fait cent soixante-quatre pixels et la bande d'un téléphone en fait cent
-     quarante, donc B dépassait sur l'image — attrapé par le pilote, pas à l'oeil.
-     On le redimensionne sur la bande quand elle décide. */
-  const cluster: React.CSSProperties = roomy ? group.style : {};
-
   return (
-    <div
+    <Pave<ButtonName>
       id="touchpad"
-      className="pointer-events-none absolute inset-0 z-30 select-none"
-      style={{ touchAction: "none" }}
-    >
-      {/* BANDE GAUCHE, de haut en bas: la gâchette, la croix, le stick.
-          Le pouce gauche les atteint toutes les trois sans lâcher le téléphone. */}
-      <div className="pointer-events-auto absolute" style={{ left: leftAt, top: topAt }}>
-        <Key name="L" label="L" shoulder hold={hold} />
-      </div>
-
-      <div
-        className="pointer-events-auto absolute grid grid-cols-3 grid-rows-3 gap-0.5"
-        style={{ left: leftAt, bottom: "calc(var(--n3-stick) * 2 + 1.5rem)" }}
-      >
-        <Key at="col-start-2" name="D_UP" label="▲" small hold={hold} />
-        <Key at="col-start-1 row-start-2" name="D_LEFT" label="◀" small hold={hold} />
-        <Key at="col-start-3 row-start-2" name="D_RIGHT" label="▶" small hold={hold} />
-        <Key at="col-start-2 row-start-3" name="D_DOWN" label="▼" small hold={hold} />
-      </div>
-
-      <div
-        ref={well}
-        id="touchStick"
-        className="pointer-events-auto absolute bottom-3 flex items-center justify-center rounded-full border border-rule-bright/60 bg-ink/60"
-        style={{
-          left: leftAt,
-          width: "calc(var(--n3-stick) * 2)",
-          height: "calc(var(--n3-stick) * 2)",
-          touchAction: "none",
-        }}
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          move(event);
-        }}
-        onPointerMove={(event) => {
-          if (event.buttons === 0 && event.pointerType === "mouse") return;
-          move(event);
-        }}
-        onPointerUp={rest}
-        onPointerCancel={rest}
-      >
-        <div
-          ref={knob}
-          className="rounded-full border border-indigo/70 bg-indigo/40 transition-transform duration-75"
-          style={{ width: "var(--n3-stick)", height: "var(--n3-stick)" }}
-        />
-      </div>
-
-      {/* BANDE DROITE: les gâchettes en haut, les quatre boutons en bas. */}
-      {/* Les gâchettes, dessinées comme sur la console: L et R sont des palettes
-          larges, et Z une petite touche mauve posée contre R. Sur une vraie
-          manette Z est violet et se trouve au-dessus de R, sous l'index droit;
-          ici elle est à côté, faute de troisième doigt. */}
-      <div
-        className="pointer-events-auto absolute flex items-start gap-1.5"
-        style={{ right: rightAt, top: topAt }}
-      >
-        <Key name="Z" label="Z" tint="z" pill hold={hold} />
-        <Key name="R" label="R" shoulder hold={hold} />
-      </div>
-
-      {/* La géométrie de la console: A gros au milieu, B en bas à gauche de lui,
-          X à sa droite, Y au-dessus. La première version les mettait en croix
-          régulière, ce qu'aucune main n'a appris. */}
-      <div
-        /* Des colonnes qui suivent leur CONTENU et non trois parts égales:
-           `grid-cols-3` donne à chaque colonne la largeur de la plus large, donc
-           celle du gros bouton A, et le groupe faisait cent cinquante-cinq
-           pixels dans une bande de cent quarante. Mesuré, pas deviné. */
-        className="pointer-events-auto absolute bottom-3 grid grid-cols-[auto_auto_auto] grid-rows-3 gap-1"
-        style={{ right: rightAt, ...cluster }}
-      >
-        <Key at="col-start-2 row-start-1" name="Y" label="Y" hold={hold} />
-        <Key at="col-start-2 row-start-2" name="A" label="A" big tint="a" hold={hold} />
-        <Key at="col-start-3 row-start-2" name="X" label="X" hold={hold} />
-        <Key at="col-start-1 row-start-3" name="B" label="B" tint="b" hold={hold} />
-      </div>
-
-      {/* Start et les deux gestes de la page.
-          Dans la bande droite quand il y en a une, en haut au milieu sinon: ils
-          ne se cherchent qu'une fois, et ils ne doivent jamais tomber sous un
-          pouce qui joue. */}
-      <div
-        className="pointer-events-auto absolute flex items-center gap-2"
-        style={
-          roomy
-            ? {
-                right: rightAt,
-                top: `calc(${topAt} + var(--n3-key) + 0.75rem)`,
-                flexDirection: "column",
-              }
-            : { top: topAt, left: "50%", transform: "translateX(-50%)" }
-        }
-      >
-        <Key name="START" label="START" wide hold={hold} />
-        {/* Empilés dans la bande, côte à côte sinon: deux pastilles l'une à
-            côté de l'autre font cent trente pixels de large, et la bande d'un
-            téléphone en fait cent quarante. Mesuré: la seconde mordait de
-            dix-sept pixels sur l'image. */}
-        <div className={roomy ? "flex flex-col gap-2" : "flex gap-2"}>
-          {/* Toujours là, et pas seulement quand le son est coupé.
-              Rouge tant que rien ne joue, terne ensuite. Le taper démarre le son
-              ET fait un bip franc: s'il s'entend, la sortie fonctionne et le
-              problème est dans le flux; s'il ne s'entend pas alors que la page
-              dit jouer, c'est le téléphone. Une question fermée à la place d'une
-              conversation. */}
-          <button
-            type="button"
-            id="wakeSound"
-            onClick={onSound}
-            title="démarrer le son, et le tester par un bip"
-            className={`rounded-full border px-3 text-note uppercase tracking-[0.14em] ${
-              soundOff ? "border-alert text-alert" : "border-rule text-faint"
-            }`}
-            style={{ height: "var(--n3-key)", touchAction: "none" }}
-          >
-            son
-          </button>
-          <Small id="showColumn" label="menu" onClick={onMenu} />
-          <Small id="hideTouch" label="cacher" onClick={onLeave} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Un bouton de manette, dessiné et tenu.
- *
- * L'état pressé vient de `:active`, donc appuyer ne provoque aucun rendu. C'est
- * la moitié invisible de « React ne touche pas au chemin des commandes ».
- */
-/** Ce qu'une synthèse vocale doit dire de chaque touche.
- *
- * Lu dans l'arbre d'accessibilité de Chrome le 19 août 2026: les quinze boutons
- * de la page en cours de partie avaient tous un nom, mais quatre s'appelaient
- * d'un glyphe de flèche, que la synthèse lit mal ou pas du tout, et trois d'une
- * lettre qui ne veut rien dire hors du contexte d'une manette GameCube.
- *
- * Seules celles qui en ont besoin sont ici. « A », « B », « X », « Y » et
- * « START » se lisent déjà comme ce qu'elles sont, et leur inventer une phrase
- * les rendrait plus longues à entendre sans les rendre plus claires. */
-const SPOKEN: Partial<Record<ButtonName, string>> = {
-  D_UP: "croix directionnelle, haut",
-  D_DOWN: "croix directionnelle, bas",
-  D_LEFT: "croix directionnelle, gauche",
-  D_RIGHT: "croix directionnelle, droite",
-  L: "gâchette gauche",
-  R: "gâchette droite",
-  Z: "bouton Z",
-};
-
-function Key({
-  name,
-  label,
-  at = "",
-  big = false,
-  small = false,
-  wide = false,
-  shoulder = false,
-  pill = false,
-  tint,
-  hold,
-}: {
-  name: ButtonName;
-  label: string;
-  at?: string;
-  big?: boolean;
-  small?: boolean;
-  wide?: boolean;
-  /** Une palette large collée au bord du haut, comme L et R sur la console. */
-  shoulder?: boolean;
-  /** Une petite touche allongée, comme Z. */
-  pill?: boolean;
-  /** La couleur de la console, pour les trois boutons qui en ont une.
-   *
-   * A est vert et B est rouge sur une GameCube, et une main qui a joué dessus
-   * les vise à la couleur avant de lire la lettre. Les autres restent neutres,
-   * comme sur la vraie manette: teinter les quatre ferait un arc-en-ciel qui
-   * n'aide personne. */
-  tint?: "a" | "b" | "z";
-  hold: (button: ButtonName) => Record<string, unknown>;
-}) {
-  const size = big
-    ? { width: "var(--n3-key-big)", height: "var(--n3-key-big)" }
-    : small
-      ? { width: "var(--n3-key-small)", height: "var(--n3-key-small)" }
-      : { width: "var(--n3-key)", height: "var(--n3-key)" };
-  return (
-    <button
-      type="button"
-      id={`touch-${name}`}
-      aria-label={SPOKEN[name]}
-      {...hold(name)}
-      className={`${at} flex items-center justify-center border font-mono transition-colors ${
-        shoulder
-          ? "rounded-[14px] text-fort tracking-[0.1em]"
-          : pill
-            ? "rounded-[10px] text-corps"
-            : "rounded-full text-corps"
-      } ${
-        tint === "a"
-          ? "border-[#5ac26a]/70 bg-[#2f6b39]/70 text-[#d9f2de] active:bg-[#5ac26a]/70"
-          : tint === "b"
-            ? "border-[#d1545e]/70 bg-[#6b2f35]/70 text-[#f6dcde] active:bg-[#d1545e]/70"
-            : tint === "z"
-              ? "border-[#8b7bd8]/70 bg-[#3a3270]/80 text-[#ded8f7] active:bg-[#8b7bd8]/70"
-              : "border-rule-bright/70 bg-panel/80 text-text active:border-indigo active:bg-indigo/40"
-      }`}
-      style={{
-        ...(shoulder
-          ? { height: "calc(var(--n3-key) * 0.86)", width: "calc(var(--n3-key) * 1.9)" }
-          : pill
-            ? { height: "calc(var(--n3-key) * 0.86)", width: "calc(var(--n3-key) * 0.95)" }
-            : wide
-              ? { height: "var(--n3-key)", padding: "0 0.9rem" }
-              : size),
-        touchAction: "none",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-/** Un geste de la PAGE et non de la manette: plus petit, plus terne, et sans
- * capture de pointeur. Les distinguer à l'oeil évite de cacher la manette en
- * visant Start. */
-function Small({ id, label, onClick }: { id: string; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      id={id}
-      onClick={onClick}
-      className="rounded-full border border-rule px-3 text-note uppercase tracking-[0.14em] text-faint"
-      style={{ height: "var(--n3-key)", touchAction: "none" }}
-    >
-      {label}
-    </button>
+      face={DOLPHIN_FACE}
+      bar={bar}
+      press={(key) => touch.press(key)}
+      release={(key) => touch.release(key)}
+      idOf={(key) => `touch-${key}`}
+      soundOff={soundOff}
+      onSound={onSound}
+      onMenu={onMenu}
+      onLeave={onLeave}
+      stickOf={() => ({
+        id: "touchStick",
+        label: "stick",
+        radius: () => radius.current,
+        onPush: (x, y) => touch.push(x, y),
+        onRest: () => touch.push(0, 0),
+      })}
+    />
   );
 }

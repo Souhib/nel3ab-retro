@@ -85,9 +85,24 @@ export function rememberPad(pad: Pad): void {
   }
 }
 
-/** Ce qu'on affiche pour une manette. */
-export function padLabel(pad: Pad): string {
-  return PADS.find((one) => one.id === pad)?.label ?? "manette GameCube";
+/** L'appareil de la trame Pro : la manette des salles Switch, Switch 2 et Xbox
+ * 360, le seul que leur manifeste propose (`devices: [4]` dans consoles.json).
+ * Hors de `PADS`, qui liste les choix d'une place Wii. */
+export const PRO_PAD = { id: 4, label: "manette Pro" } as const;
+
+/** Ce qu'on affiche pour un appareil, sans savoir de quelle salle.
+ *
+ * Jusqu'au 22 novembre 2026, un code hors de `PADS` retombait sur « manette
+ * GameCube », et la fiche d'un jeu Switch, dont l'appareil est la manette Pro
+ * (code 4), annonçait une manette GameCube. La première correction disait
+ * « appareil 4 inconnu », ce que la préparation d'un jeu Switch affichait alors
+ * pour chaque joueur prêt. Le code 4 se nomme donc ici ; une salle Xbox 360 dit
+ * encore « manette Pro » tant que l'écran ne passe pas sa console à
+ * `deviceLabel` (lib/faces), qui la nomme « manette Xbox 360 ». Un code que
+ * personne ne présente reste inconnu, et le dit. */
+export function padLabel(pad: number): string {
+  if (pad === PRO_PAD.id) return PRO_PAD.label;
+  return PADS.find((one) => one.id === pad)?.label ?? `appareil ${pad} inconnu`;
 }
 
 /** Ce que le panneau de lancement propose, et ce qu'un choix veut dire.

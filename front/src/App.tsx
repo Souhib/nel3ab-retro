@@ -1843,6 +1843,8 @@ function Room({
         {session && onTouch && usesProInput(room?.game?.console) ? (
           <SwitchTouchPad
             source={session.input.switch}
+            console={room?.game?.console}
+            bar={Math.max(0, (space.width - place(fit, picture, space).width) / 2)}
             onMenu={() => setMenu(true)}
             onLeave={() => setTouchPref("off")}
             onSound={() => {

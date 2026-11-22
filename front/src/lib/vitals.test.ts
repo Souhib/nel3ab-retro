@@ -13,6 +13,7 @@ import {
   GRACE_WINDOWS,
   PAD_NAME_MAX,
   QUIET_WINDOWS,
+  rough,
   Struggling,
   Trailing,
   vitals,
@@ -51,6 +52,13 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       halfDenied: false,
       sourceHz: 60,
       sinceArrivalMs: 16,
+      sinceHeardMs: 16,
+      sinceUnitMs: 16,
+      units: 0,
+      sincePaintedMs: 16,
+      sinceOpenedMs: 60_000,
+      downForMs: null,
+      sinceStartedMs: 60_000,
       refreshHz: 240,
       backlog: 2,
       addedMs: 0,
@@ -59,6 +67,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
     sound: {
       state: "running",
       chunks: 0,
+      sinceChunkMs: null,
       gaps: 0,
       playedSeconds: 0,
       leadMs: 90,
@@ -95,12 +104,14 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       pads: [],
       using: null,
       roundTripMs: null,
+      sinceHeardMs: null,
       ...rest.input,
     },
     soundGapMs: null,
     soundSyncMs: 0,
     mic: "off",
     padOnly: false,
+    liaison: { etat: "ok" },
   };
 }
 
@@ -504,6 +515,43 @@ describe("proposer le format réduit", () => {
     }
     expect(watching.saw(freeze)).toBe(false);
     expect(watching.saw(freeze)).toBe(true);
+  });
+
+  it("ne prend pas un gel de la salle pour une liaison qui rame", () => {
+    // Le 22 novembre 2026, l'audit des états a vu la proposition sortir douze
+    // secondes après un gel de la salle (E4): la fenêtre n'avait reçu qu'une
+    // image isolée, donc `rough` la trouvait mauvaise. Le format réduit ne
+    // change rien à une capture arrêtée.
+    const gel = vitals(
+      snap({
+        shown: 1,
+        painted: 1,
+        gapMs: { p50: 17, p95: 20, max: 35_000 },
+        sinceArrivalMs: 9000,
+      }),
+      null,
+      10_000,
+      undefined,
+      true,
+    );
+    expect(gel.attente).toBe(9000);
+    expect(rough(gel)).toBe(false);
+  });
+
+  it("jumeau: une liaison qui rame, images qui arrivent, reste une mauvaise fenêtre", () => {
+    const rame = vitals(
+      snap({
+        shown: 400,
+        painted: 400,
+        gapMs: { p50: 17, p95: 120, max: 900 },
+        sinceArrivalMs: 16,
+      }),
+      null,
+      10_000,
+      undefined,
+      true,
+    );
+    expect(rough(rame)).toBe(true);
   });
 
   it("ne propose rien à qui est déjà en format réduit", () => {

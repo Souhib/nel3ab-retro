@@ -36,6 +36,7 @@
  * événements, et ne connaît ni la toile ni le décodeur.
  */
 import type { Snapshot } from "../media/session";
+import { FIGEE_MS } from "../media/liaison";
 
 /** Combien de temps la trace fine remonte, en millisecondes.
  *
@@ -487,8 +488,16 @@ export function forcedDrops(sample: Vitals): number {
 }
 
 /** Cette fenêtre s'est-elle mal passée: l'image s'est-elle arrêtée, ou n'est-elle
- * pas arrivée assez vite ? */
+ * pas arrivée assez vite ?
+ *
+ * Pas quand la fenêtre se termine sur une image arrêtée depuis plus d'un gel de
+ * salle (`FIGEE_MS`, deux secondes): c'est un ARRÊT, pas une irrégularité, et
+ * l'état de liaison dit de quel côté (`media/liaison.ts`). Le 22 novembre
+ * 2026, l'audit a vu la proposition sortir douze secondes après un gel de la
+ * salle (E4): une seule image isolée dans la fenêtre suffisait à la juger
+ * mauvaise, et le format réduit ne change rien à une capture arrêtée. */
 export function rough(sample: Vitals): boolean {
+  if (sample.attente >= FIGEE_MS) return false;
   const rate = sample.vues / Math.max(sample.s, 1);
   return sample.arrivées[2] >= FREEZE_MS || (sample.jeuHz > 0 && rate < SHORT_RATE * sample.jeuHz);
 }

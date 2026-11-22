@@ -29,7 +29,6 @@
  * porte bien ni l'un ni l'autre.
  */
 import { Canape } from "../bobine/Canape";
-import { useEffect, useState } from "react";
 import type { Person } from "../client";
 import { cn } from "../lib/cn";
 import type { Snapshot } from "../media/session";
@@ -38,6 +37,7 @@ import { ConnectionDiagnostic } from "./ConnectionDiagnostic";
 import { Crown } from "./Crown";
 import { Instruments } from "./Instruments";
 import { Volume } from "./Settings";
+import { Signaler } from "./Signaler";
 
 export type Mode = "normal" | "details";
 
@@ -60,9 +60,7 @@ export function Sidebar({
   onPlay,
   onLeave,
   onComplain,
-  suggestHalf,
   onTakeHalf,
-  onKeepFull,
   onFold,
 }: {
   idle: boolean;
@@ -93,13 +91,12 @@ export function Sidebar({
    * quelqu'un qui jouait. Ce bouton pose un repère à l'instant exact, avec ce
    * que la page voyait à ce moment-là. */
   onComplain: () => Promise<void>;
-  /** Vrai quand la liaison a raté deux fenêtres d'affilée et que cette page
-   * n'est pas déjà en format réduit. */
-  suggestHalf: boolean;
-  /** Basculer en format réduit. */
+  /** Basculer en format réduit, depuis le diagnostic replié.
+   *
+   * La PROPOSITION de format réduit a quitté la colonne le 22 novembre 2026:
+   * elle vit sur l'image (`EtatSalle`), le seul endroit visible aussi sur un
+   * téléphone, où la colonne est repliée d'office (audit E2). */
   onTakeHalf: () => void;
-  /** Garder la pleine taille, et ne plus se faire proposer. */
-  onKeepFull: () => void;
   /** Replier la colonne. Un BOUTON et pas seulement Échap.
    *
    * Sur un téléphone il n'y a pas de touche Échap, donc la colonne visible n'a
@@ -295,144 +292,14 @@ export function Sidebar({
             </p>
           )}
 
-          {suggestHalf ? <Rough onTake={onTakeHalf} onKeep={onKeepFull} /> : null}
-
           {!idle && shot && !shot.padOnly ? (
             <ConnectionDiagnostic video={shot.video} onReduce={onTakeHalf} />
           ) : null}
-          <Complain onComplain={onComplain} />
+          <Signaler onComplain={onComplain} />
         </>
       ) : (
         <div id="stats">{shot ? <Instruments shot={shot} /> : null}</div>
       )}
     </>
-  );
-}
-
-/**
- * Le bouton qui pose un repère dans le journal.
- *
- * Il DIT qu'il a compris, et c'est la moitié de son intérêt: un bouton de
- * signalement sans retour se presse cinq fois de suite par quelqu'un qui n'est
- * pas sûr d'avoir cliqué, et le journal reçoit cinq repères là où il en fallait
- * un. Le retour dure trois secondes, assez pour être lu sans rester en travers
- * de la partie.
- */
-/** Combien de temps le bouton reste désarmé, en millisecondes.
- *
- * La même valeur que le garde du salon, qui refuse un deuxième repère avant
- * vingt secondes. Deux repères si rapprochés porteraient de toute façon presque
- * la même trace: chacun emporte les deux minutes qui précèdent.
- */
-const COMPLAIN_EVERY = 20_000;
-
-function Complain({ onComplain }: { onComplain: () => Promise<void> }) {
-  /** Vrai depuis le clic, remis à faux quand le salon accepterait un autre
-   * repère. Deux durées et pas une: le remerciement est court parce qu'il ne
-   * doit pas rester en travers de la partie, mais le bouton reste désarmé
-   * aussi longtemps que le serveur refuse.
-   *
-   * Sans ça, le bouton dit « noté » à quatre secondes alors que le salon vient
-   * de jeter le repère, et un contrôle qui annonce ce qu'il n'a pas fait est
-   * pire qu'un contrôle absent. */
-  const [said, setSaid] = useState(false);
-  const [held, setHeld] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!said) return;
-    const thanks = window.setTimeout(() => setSaid(false), 3000);
-    return () => window.clearTimeout(thanks);
-  }, [said]);
-
-  useEffect(() => {
-    if (!held) return;
-    const guard = window.setTimeout(() => setHeld(false), COMPLAIN_EVERY);
-    return () => window.clearTimeout(guard);
-  }, [held]);
-
-  return (
-    <>
-      <button
-        type="button"
-        id="complain"
-        onClick={async () => {
-          setPending(true);
-          setError("");
-          try {
-            await onComplain();
-            setSaid(true);
-            setHeld(true);
-          } catch (reason) {
-            setError(
-              reason instanceof Error ? reason.message : "Signalement non confirmé. Réessaie.",
-            );
-          } finally {
-            setPending(false);
-          }
-        }}
-        disabled={held || pending}
-        className={cn(
-          "border px-2 py-1 text-corps uppercase tracking-[0.14em] transition-colors",
-          said && "border-good text-good",
-          held && !said && "border-rule text-faint",
-          !held && "border-rule text-faint hover:border-alert hover:text-alert",
-        )}
-      >
-        {pending
-          ? "envoi…"
-          : said
-            ? "signalement enregistré"
-            : held
-              ? "déjà signalé"
-              : "signaler un problème"}
-      </button>
-      {error ? (
-        <p role="alert" className="text-corps text-alert">
-          {error}
-        </p>
-      ) : null}
-    </>
-  );
-}
-
-/**
- * « Ton image saute. Tu veux la version légère ? »
- *
- * Posée là où la personne regarde déjà les places, et pas en travers de
- * l'image: une bannière qui recouvre le jeu au moment où le jeu va mal est une
- * bannière qui agace.
- *
- * Deux boutons et pas un. Refuser doit être aussi facile qu'accepter, parce que
- * quelqu'un peut préférer une image nette avec quelques saccades à une image
- * molle sans aucune, et parce qu'un refus est ce qui fait taire la proposition.
- */
-function Rough({ onTake, onKeep }: { onTake: () => void; onKeep: () => void }) {
-  return (
-    <div id="rough" className="flex flex-col gap-2 border border-alert/60 bg-panel p-2">
-      <p className="text-corps leading-relaxed text-muted">
-        Ton image saute depuis vingt secondes. Le format réduit demande environ 2,6 fois moins de
-        débit.
-      </p>
-      <div className="flex gap-1">
-        <button
-          type="button"
-          id="takeHalf"
-          onClick={onTake}
-          className="flex-1 border border-alert px-2 py-1 text-corps uppercase tracking-[0.14em] text-alert transition-colors hover:bg-alert/10"
-        >
-          passer en réduit
-        </button>
-        <button
-          type="button"
-          id="keepFull"
-          onClick={onKeep}
-          className="border border-rule px-2 py-1 text-corps uppercase tracking-[0.14em] text-faint transition-colors hover:border-rule-bright"
-        >
-          non merci
-        </button>
-      </div>
-    </div>
   );
 }

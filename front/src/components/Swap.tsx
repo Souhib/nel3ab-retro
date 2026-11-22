@@ -44,14 +44,11 @@ export function Asked({
   return (
     <div
       id="asked"
-      // Annoncé, et c'est le seul message de la page qui doit l'être.
-      //
-      // Cette bannière apparaît, compte dix secondes, puis disparaît. Quelqu'un
-      // qui ne regarde pas l'écran à cet instant précis rate la question et perd
-      // sa manette par défaut. `assertive` plutôt que `polite`: dix secondes ne
-      // laissent pas le temps d'attendre une pause dans la lecture.
-      role="alert"
-      aria-live="assertive"
+      // Plus une alerte assertive. Le bandeau entier l'était, et il réécrivait
+      // « 9 s », « 8 s »… chaque seconde: dix interruptions de suite en pleine
+      // partie, d'un nombre nu (audit A11Y-09, 22 novembre 2026). La ligne
+      // parlée de la salle (`LigneParlee`) dit la demande UNE fois, avec le
+      // délai en mots et ce qui arrive sans réponse.
       className="absolute inset-x-0 top-8 z-40 mx-auto flex w-max max-w-[80%] items-center gap-4 border border-indigo bg-panel px-5 py-3"
     >
       <span className="text-fort">
@@ -60,6 +57,7 @@ export function Asked({
       <span
         className="font-mono text-corps tabular-nums text-faint"
         title="sans réponse, il ne se passe rien"
+        aria-hidden="true"
       >
         {left} s
       </span>

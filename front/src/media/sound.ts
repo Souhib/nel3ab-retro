@@ -63,6 +63,12 @@ export type SoundStats = {
    * WebKit. */
   output: number;
   chunks: number;
+  /** Depuis le dernier morceau de son REÇU, joué ou non, ou `null` sans son.
+   *
+   * Reçu et pas joué: un iPhone interrompu par un appel suspend son contexte,
+   * mais la salle continue d'envoyer, et c'est ce qui dit « le jeu tourne »
+   * pendant une image figée (`liaison.ts`). */
+  sinceChunkMs: number | null;
   gaps: number;
   playedSeconds: number;
   leadMs: number;
@@ -149,6 +155,7 @@ export class SoundStream {
   private lead = LEAD_MIN;
   private gapsSeen = 0;
   private chunks = 0;
+  private lastChunk: number | null = null;
   private gaps = 0;
   private played = 0;
   private readonly lags = new Window(240);
@@ -342,6 +349,7 @@ export class SoundStream {
       gain: this.volumeNow(),
       output: (this.context?.outputLatency ?? 0) * 1000,
       chunks: this.chunks,
+      sinceChunkMs: this.lastChunk === null ? null : performance.now() - this.lastChunk,
       gaps: this.gaps,
       playedSeconds: this.played,
       leadMs: this.lead * 1000,
@@ -407,10 +415,12 @@ export class SoundStream {
   }
 
   private onChunk(event: MessageEvent<ArrayBuffer>): void {
-    const context = this.context;
-    if (context === null || context.state !== "running" || this.gain === null) return;
     const message = new Uint8Array(event.data);
     if (message.length <= 8) return; // a keep-alive, carrying no sound
+    // Daté AVANT de savoir si on le joue: voir `sinceChunkMs`.
+    this.lastChunk = performance.now();
+    const context = this.context;
+    if (context === null || context.state !== "running" || this.gain === null) return;
 
     const capturedMs = Number(new DataView(event.data).getBigUint64(0, true)) / 1000;
     this.lags.push(performance.now() - capturedMs);

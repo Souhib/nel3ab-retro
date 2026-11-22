@@ -49,3 +49,18 @@ it("un écran qui suit le jeu, ou plus rapide que lui, ne déclenche rien", () =
     "Réception",
   );
 });
+
+it("dit l'image figée quand la liaison reste ouverte et qu'aucune image n'arrive", () => {
+  // Le 21 novembre 2026, le résumé disait « aucune surcharge détectée » pendant
+  // vingt minutes d'image figée (audit, P1 et E1).
+  const gel = { ...sample(), painted: 4000, sinceHeardMs: 200, sinceUnitMs: 14_000 };
+  const said = diagnose(gel);
+  expect(said.title).toBe("Image figée");
+  expect(said.detail).toContain("14 s");
+  expect(said.reduce).toBe(false);
+});
+
+it("jumeau: une image arrivée il y a un instant n'est pas un gel", () => {
+  const vit = { ...sample(), painted: 4000, sinceHeardMs: 16, sinceUnitMs: 16 };
+  expect(diagnose(vit).title).not.toBe("Image figée");
+});

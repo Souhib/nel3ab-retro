@@ -11,7 +11,7 @@ import { Bobine } from "./bobine/Bobine";
 import { Console } from "./bobine/Console";
 import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
-import { under } from "./lib/base";
+import { salle, under } from "./lib/base";
 import { useEffect, useRef, useState } from "react";
 import type { Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
@@ -24,7 +24,11 @@ import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { ControllerStatus } from "./components/ControllerStatus";
 import { Booting } from "./components/Booting";
+import { EtatSalle } from "./components/EtatSalle";
+import { LigneParlee } from "./components/LigneParlee";
+import { Ouverture } from "./components/Ouverture";
 import { bootingStep } from "./lib/booting";
+import { retenirProposition, type Liaison } from "./media/liaison";
 import { Sidebar } from "./components/Sidebar";
 import { ColumnHandle } from "./components/ColumnHandle";
 import { Recovery } from "./components/Recovery";
@@ -149,10 +153,21 @@ export default function App() {
    * session existe. Construite en joueur puis corrigée après, elle prendrait une
    * manette le temps d'un aller-retour et l'aurait affiché à toute la salle. */
   const [entered, setEntered] = useState<null | "play" | "watch">(null);
+  /** La personne a choisi d'entrer sans attendre le site. Voir `Ouverture`. */
+  const [sansAttendre, setSansAttendre] = useState(false);
 
-  // Rien tant que l'identité n'a pas répondu: afficher le formulaire une demi
-  // seconde avant de le retirer se lit comme un défaut.
-  if (isPending || settled.isPending) return null;
+  // Pas le formulaire tant que l'identité n'a pas répondu: l'afficher une demi
+  // seconde avant de le retirer se lit comme un défaut. Mais plus une page
+  // blanche non plus: le 22 novembre 2026, un site muet la laissait vide sans
+  // limite (audit E8). L'écran d'ouverture le dit, puis a une fin.
+  if (!sansAttendre && (isPending || settled.isPending))
+    return (
+      <Ouverture
+        salle={salle()}
+        onReessayer={() => window.location.reload()}
+        onEntrer={() => setSansAttendre(true)}
+      />
+    );
 
   const identified = me?.login ?? null;
   const name = identified ? me!.name : local;
@@ -447,22 +462,11 @@ function Room({
    * prendre dans les dépendances rebrancherait les fonctions de la salle deux
    * fois par seconde, au rythme de l'instantané, pour une valeur qu'on ne fait
    * que lire. */
-  /** Depuis combien de millisecondes l'image ne bouge plus.
-   *
-   * Mesuré plutôt que déduit d'un compteur de reconnexions: ce qui distingue un
-   * hoquet d'un changement de jeu est la durée du noir, une seconde contre
-   * trente. Remis à zéro dès qu'une image arrive. */
-  const darkSince = useRef<number | null>(null);
-  /** A-t-on DÉJÀ peint une image depuis que cette session existe ?
-   *
-   * Sans cette mémoire, « il n'y a pas d'image » et « il n'y a pas ENCORE eu
-   * d'image » se confondent. À chaque entrée normale dans une salle, la page
-   * passe forcément un moment sans image — le temps d'ouvrir la socket et
-   * d'attendre la première image-clé — et elle annonçait « Connexion à la salle
-   * interrompue », c'est-à-dire une panne, sur le tout premier écran qu'un
-   * invité voit de la salle. La réaction naturelle est de recharger, ce qui
-   * rend sa place et recommence l'attente. */
-  const everPainted = useRef(false);
+  /* L'attente d'une image (arrivée, coupure, gel) ne se mesure plus ici: la
+     couche média calcule un seul état de liaison (`media/liaison.ts`), qui
+     distingue aussi « pas ENCORE d'image » de « plus d'image ». Ce rendu
+     mesurait le noir sur la CONNEXION, et le gel du 21 novembre 2026, socket
+     ouverte, passait entre ses mailles. */
   const idle = room?.game === null;
   /** Une partie tourne-t-elle ? `null` tant que le salon n'a pas répondu.
    *
@@ -621,27 +625,8 @@ function Room({
     if (closingIn === 0) setClosingHidden(false);
   }, [closingIn]);
   const closingSoon = closingIn > 0 && !closingHidden ? closingIn : null;
-  {
-    // DEPUIS QUAND la salle n'envoie plus rien, et non « combien de temps
-    // accumulé »: additionner à chaque rendu fait dépendre la mesure du rythme
-    // des rendus, qui s'arrête dans un onglet en arrière-plan. Un instant retenu
-    // reste vrai même si personne ne regarde pendant une minute.
-    //
-    // Sur la CONNEXION et pas sur le compteur d'images: un jeu qui affiche un
-    // écran noir peint quand même.
-    const live = shot === null || (shot.video.connected && shot.video.paintedSince > 0);
-    if (shot !== null && shot.video.paintedSince > 0) everPainted.current = true;
-    if (live) darkSince.current = null;
-    else darkSince.current ??= performance.now();
-  }
-  /* Une session NEUVE n'a rien peint: la bascule « télécommande sans vidéo »
-     reconstruit la session, et l'arrivée qui suit est une arrivée comme une
-     autre — pas la reprise d'une image qu'on aurait perdue. */
-  useEffect(() => {
-    everPainted.current = false;
-  }, [session]);
-  /** Depuis combien de temps il n'y a plus d'image, en millisecondes. */
-  const darkFor = darkSince.current === null ? 0 : performance.now() - darkSince.current;
+  /** L'état de la liaison, tel que la couche média l'a calculé. */
+  const liaison: Liaison = shot?.liaison ?? { etat: "ok" };
 
   /* Le relevé qui part au salon toutes les dix secondes.
      Par des références et non par des dépendances: `shot` change deux fois par
@@ -666,6 +651,10 @@ function Room({
    * fois. La page voit la dégradation avant la personne qui la subit. */
   const rough = useRef(new Struggling());
   const [suggestHalf, setSuggestHalf] = useState(false);
+  /** « proposé » est-il déjà parti pour CETTE proposition ? Le journal ne
+   * l'écrit qu'à l'affichage (audit E3), et une seule fois même si un gel la
+   * cache puis la rend. */
+  const proposalTold = useRef(false);
   /** Le temps que l'onglet a passé caché. Un onglet caché ne peint plus, et son
    * relevé ressemble sinon à celui d'une vidéo cassée. */
   const hidden = useRef(new HiddenTime(document.visibilityState === "hidden", performance.now()));
@@ -708,11 +697,17 @@ function Room({
       previous.current = now;
       opened.current = performance.now();
       if (worthWriting(taken)) sending.current.vitals(taken);
-      // Un jeu qui démarre n'envoie pas d'image, et ce n'est pas un gel.
-      if (bootingNow.current !== null) rough.current.hold();
+      // Une fenêtre qui a vu autre chose que la liaison ne compte pas: un jeu
+      // qui démarre, un gel de la salle, une coupure, un onglet caché
+      // (`retenirProposition`). Le 22 novembre 2026, l'audit a vu le format
+      // réduit proposé pour un gel de la salle et juste après une coupure (E4).
+      const vus = alive.current?.veille.prendreVus() ?? new Set();
+      if (bootingNow.current !== null || retenirProposition(vus)) rough.current.hold();
+      // « proposé » ne part PLUS d'ici: une proposition décidée n'est pas une
+      // proposition vue. Il part de l'affichage (`EtatSalle`).
       if (rough.current.saw(taken)) {
+        proposalTold.current = false;
         setSuggestHalf(true);
-        sending.current.quality("proposé");
       }
     }, TRAIL_EVERY);
     return () => window.clearInterval(timer);
@@ -841,6 +836,12 @@ function Room({
     applyTheme(theme);
     rememberTheme(theme);
   }, [theme]);
+  // Ce que la couche média ne peut pas savoir seule: un jeu tourne-t-il, un
+  // changement de jeu est-il en cours, le format réduit est-il proposé.
+  const bootingAt = booting?.at ?? null;
+  useEffect(() => {
+    session?.contexte({ jeu: playing, demarrageA: bootingAt, proposer: suggestHalf });
+  }, [session, playing, bootingAt, suggestHalf]);
 
   const port = shot?.input.port ?? null;
   const learning = shot?.input.learning ?? null;
@@ -1726,6 +1727,41 @@ function Room({
     },
   ];
 
+  /** Un repère au journal, avec les deux dernières minutes. Le même pour la
+   * colonne et pour le bandeau d'état: deux copies finiraient par ne pas
+   * emporter la même trace. */
+  const complain = async () => {
+    const now = sample();
+    if (now) {
+      await sending.current.complain({
+        ...now,
+        fin: trail.current.trail(performance.now()),
+      });
+    } else {
+      throw new Error("Les mesures ne sont pas encore disponibles.");
+    }
+  };
+  /** Où l'image est posée dans `<main>`: le même calcul que l'écran, centré
+   * comme lui. Les états s'y posent, et laissent libres les bandes noires où
+   * vit la manette à l'écran. `null` tant que l'image n'a pas de taille. */
+  const posee = place(fit, picture, space);
+  const cadre =
+    picture.width > 0 && space.width > 0 && posee.width > 0
+      ? {
+          top: Math.max(0, (space.height - posee.height) / 2),
+          left: Math.max(0, (space.width - posee.width) / 2),
+          width: Math.min(space.width, posee.width),
+          height: Math.min(space.height, posee.height),
+        }
+      : null;
+  const takeHalf = () => {
+    session?.video.setHalf(true);
+    setHalf(true);
+    rough.current.settled();
+    setSuggestHalf(false);
+    sending.current.quality("accepté");
+  };
+
   return (
     <div className="flex h-full">
       <main className="relative flex min-w-0 flex-1 flex-col">
@@ -1922,6 +1958,93 @@ function Room({
             </button>
           </div>
         ) : null}
+
+        {/* L'état de la salle, à UN seul endroit: ici, sur l'image, et jamais
+            sur toute la page. La colonne reste vivante pendant une panne, avec
+            les places, « quitter » et « signaler » (audit P4, E7). Rien pour
+            une page-manette, qui n'a pas d'image à attendre. */}
+        {booting === null && !padOnly ? (
+          <EtatSalle
+            liaison={liaison}
+            salle={salle()}
+            cadre={cadre}
+            onRelancer={() => session?.relancerImage()}
+            onReessayer={() => session?.relancerImage()}
+            onQuitter={onLeave}
+            onSignaler={complain}
+            onReduire={takeHalf}
+            onGarder={() => {
+              rough.current.settled();
+              setSuggestHalf(false);
+              sending.current.quality("refusé");
+            }}
+            onPropositionVue={() => {
+              if (proposalTold.current) return;
+              proposalTold.current = true;
+              sending.current.quality("proposé");
+            }}
+          />
+        ) : null}
+
+        {/* L'écran de chargement d'un changement de jeu, dans la zone de
+            l'image lui aussi, et SOUS le menu: son bouton « ouvrir le menu »
+            ouvrait un menu invisible (audit P2, E5).
+
+            SANS `!idle`, et c'est la correction du 12 septembre 2026: au tout
+            premier lancement d'une salle vide, le jeu n'est pas encore chargé
+            côté worker, donc la salle est encore « au repos » pendant qu'il
+            redémarre. */}
+        {booting ? (
+          <Booting
+            game={booting.game}
+            console={room?.library.find((one) => one.name === booting.game)?.console}
+            save={booting.save}
+            stalled={booting.stalled ?? false}
+            onMenu={() => setMenu(true)}
+            onGiveUp={() => {
+              setBooting(null);
+              setMenu(true);
+            }}
+            step={bootingStep(
+              // Pas d'instantané: la demande vient de partir, donc « envoyée ».
+              shot?.video ?? {
+                connected: true,
+                awaitingRestart: true,
+                paintedSince: 0,
+                dark: true,
+              },
+            )}
+          />
+        ) : null}
+
+        {idle && !menu && !configuring ? (
+          <div
+            className="regie-nuit absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ecran text-text"
+            id="idle-room"
+          >
+            {/* La console vide, et Bobine qui attend à côté. Dans la zone de
+                l'image et plus sur toute la page: la colonne reste visible. */}
+            <div className="n3-chargement" aria-hidden="true">
+              <div className="n3-chargement-bob">
+                <Bobine pose="repos" taille={64} />
+              </div>
+              <Console support="cartouche" diode="eteinte" avale={false} />
+            </div>
+            <h2 className="text-titre font-semibold">Aucun jeu en cours</h2>
+            <button type="button" className="n3-action primary" onClick={() => setMenu(true)}>
+              Choisir un jeu
+            </button>
+          </div>
+        ) : null}
+
+        {/* La ligne parlée: montée dès l'entrée, vide, et seul son texte
+            change (audit A11Y-03, A11Y-07, A11Y-09). */}
+        <LigneParlee
+          liaison={booting ? { etat: "demarrage", depuisMs: 0 } : liaison}
+          salle={salle()}
+          demande={asked}
+          delai={room?.ask_lasts ?? 10}
+        />
       </main>
 
       {bare ? null : <ColumnHandle width={column} onWidth={setColumn} onSettle={rememberColumn} />}
@@ -2092,135 +2215,12 @@ function Room({
             onWatch={() => session?.input.watchOnly()}
             onPlay={() => session?.input.play()}
             onLeave={onLeave}
-            suggestHalf={suggestHalf}
-            onTakeHalf={() => {
-              session?.video.setHalf(true);
-              setHalf(true);
-              rough.current.settled();
-              setSuggestHalf(false);
-              sending.current.quality("accepté");
-            }}
-            onKeepFull={() => {
-              rough.current.settled();
-              setSuggestHalf(false);
-              sending.current.quality("refusé");
-            }}
+            onTakeHalf={takeHalf}
             onFold={coarse ? () => setBare(true) : undefined}
-            onComplain={async () => {
-              const now = sample();
-              if (now) {
-                await sending.current.complain({
-                  ...now,
-                  fin: trail.current.trail(performance.now()),
-                });
-              } else {
-                throw new Error("Les mesures ne sont pas encore disponibles.");
-              }
-            }}
+            onComplain={complain}
           />
         </aside>
       )}
-
-      {idle && !menu && !configuring ? (
-        <div
-          className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink"
-          id="idle-room"
-        >
-          {/* La console vide, et Bobine qui attend à côté. */}
-          <div className="n3-chargement" aria-hidden="true">
-            <div className="n3-chargement-bob">
-              <Bobine pose="repos" taille={64} />
-            </div>
-            <Console support="cartouche" diode="eteinte" avale={false} />
-          </div>
-          <h2>Aucun jeu en cours</h2>
-          <button type="button" className="n3-action primary" onClick={() => setMenu(true)}>
-            Choisir un jeu
-          </button>
-        </div>
-      ) : null}
-
-      {/* L'écran de chargement prend AUSSI la place de l'ancienne étiquette
-          « en attente de l'image », qui ne disait rien d'utile. La salle s'arrête
-          pour toutes sortes de raisons — quelqu'un d'autre change de jeu, le
-          worker est relancé — et dans tous ces cas ce qu'on veut lire est ce qui
-          arrive, avec le nom du jeu.
-
-          Sept centièmes de seconde de noir avant de le montrer: plus court ne se
-          voit pas, et un hoquet ne doit pas faire clignoter un écran plein. Rien
-          pour une page-manette, qui n'a pas d'image à attendre. */}
-      {/* Première arrivée: rien n'a ENCORE été peint, donc parler de panne
-          serait faux. Mêmes étapes que le chargement, et le nom du jeu qui
-          tourne, pour que l'attente ressemble à ce qu'elle est. */}
-      {playing === true &&
-      !everPainted.current &&
-      booting === null &&
-      darkFor > 700 &&
-      shot &&
-      !shot.padOnly ? (
-        <Booting
-          label="connexion à la salle"
-          game={room?.game?.name ?? "la salle"}
-          console={room?.game?.console}
-          step={bootingStep(shot.video)}
-          onMenu={() => setMenu(true)}
-        />
-      ) : null}
-
-      {playing === true &&
-      everPainted.current &&
-      booting === null &&
-      darkFor > 700 &&
-      shot &&
-      !shot.padOnly ? (
-        <div
-          id="video-recovery"
-          role="status"
-          className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ink p-6 text-center"
-        >
-          <h2>
-            {shot.video.connected ? "Récupération de l’image" : "Connexion à la salle interrompue"}
-          </h2>
-          <p>La page réessaie automatiquement. Ta connexion ou le serveur peuvent être en cause.</p>
-          {darkFor > 15_000 ? (
-            <button type="button" className="n3-action" onClick={() => window.location.reload()}>
-              Recharger la page
-            </button>
-          ) : null}
-          <button type="button" className="n3-action" onClick={() => setMenu(true)}>
-            Ouvrir le menu
-          </button>
-        </div>
-      ) : null}
-
-      {/* SANS `!idle`, et c'est la correction du 12 septembre 2026: au tout
-          premier lancement d'une salle vide, le jeu n'est pas encore chargé
-          côté worker, donc la salle est encore « au repos » pendant qu'il
-          redémarre. L'écran de chargement ne s'affichait donc qu'APRÈS coup, et
-          entre-temps le menu annonçait « aucun jeu » à quelqu'un qui venait
-          justement d'en choisir un. */}
-      {booting ? (
-        <Booting
-          game={booting.game}
-          console={room?.library.find((one) => one.name === booting.game)?.console}
-          save={booting.save}
-          stalled={booting.stalled ?? false}
-          onMenu={() => setMenu(true)}
-          onGiveUp={() => {
-            setBooting(null);
-            setMenu(true);
-          }}
-          step={bootingStep(
-            // Pas d'instantané: la demande vient de partir, donc « envoyée ».
-            shot?.video ?? {
-              connected: true,
-              awaitingRestart: true,
-              paintedSince: 0,
-              dark: true,
-            },
-          )}
-        />
-      ) : null}
 
       {/* SANS `&& shot`: le menu ne dépend pas de l'image.
           Avec, cliquer « Choisir un jeu » dans une salle au repos faisait

@@ -1,4 +1,5 @@
 import { MAX_BACKLOG, type VideoStats } from "../media/video";
+import { FIGEE_MS } from "../media/liaison";
 import { SHORT_RATE } from "./vitals";
 
 export type Diagnosis = { title: string; detail: string; reduce: boolean };
@@ -9,6 +10,20 @@ export function diagnose(video: VideoStats): Diagnosis {
     return {
       title: "Reconnexion en cours",
       detail: "Le lien vidéo est coupé. La page réessaie automatiquement.",
+      reduce: false,
+    };
+  // Avant « en préparation »: une relance pendant un gel remet `paintedSince`
+  // à zéro, et la salle n'a rien préparé. Le 21 novembre 2026, ce résumé
+  // disait « aucune surcharge détectée » pendant vingt minutes d'image figée.
+  if (
+    !video.awaitingRestart &&
+    video.painted > 0 &&
+    video.sinceUnitMs !== null &&
+    video.sinceUnitMs >= FIGEE_MS
+  )
+    return {
+      title: "Image figée",
+      detail: `Plus aucune image depuis ${Math.round(video.sinceUnitMs / 1000)} s, alors que la liaison reste ouverte. Le format réduit n'y changerait rien.`,
       reduce: false,
     };
   if (video.awaitingRestart || video.paintedSince === 0)

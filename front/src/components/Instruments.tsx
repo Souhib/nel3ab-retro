@@ -1,4 +1,6 @@
 import { VISIT } from "../lib/visit";
+import { FIGEE_MS } from "../media/liaison";
+import { NOM_ETAT } from "../lib/liaison-mots";
 import type { Snapshot } from "../media/session";
 import { Panel, Readout } from "./Readout";
 
@@ -10,13 +12,60 @@ import { Panel, Readout } from "./Readout";
  * be wrong. They are folded away by default: a person who is playing wants the
  * picture, and a person who is diagnosing wants all of them at once.
  */
+/** Une durée en secondes à un chiffre après la virgule, ou un tiret pour
+ * « jamais »: une absence ne s'écrit pas comme un zéro. */
+const duree = (ms: number | null) => (ms === null ? "—" : (ms / 1000).toFixed(1));
+
 export function Instruments({ shot }: { shot: Snapshot }) {
-  const { video, sound, input } = shot;
+  const { video, sound, input, liaison } = shot;
   const cadence = video.heldRefreshes;
   const even = cadence.p05 === cadence.p95;
 
   return (
     <div className="flex flex-col gap-3 text-corps">
+      {/* Ce que l'état de liaison lit, et ce qu'il en conclut. Les mêmes
+          chiffres que `media/liaison.ts`: un gel se lit ici en secondes
+          pendant qu'il dure, et la conclusion est écrite en mots. */}
+      <Panel title="liaison">
+        <Readout
+          label="état"
+          value={NOM_ETAT[liaison.etat]}
+          tone={liaison.etat === "ok" ? "good" : liaison.etat === "cachee" ? "faint" : "alert"}
+        />
+        <Readout
+          label="socket vidéo"
+          value={video.connected ? duree(video.sinceOpenedMs) : duree(video.downForMs)}
+          unit={video.connected ? "s ouverte" : "s coupée"}
+          tone={video.connected ? "faint" : "alert"}
+        />
+        <Readout
+          label="dernier message"
+          value={duree(video.sinceHeardMs)}
+          unit="s"
+          tone="faint"
+          hint="Vide compris: la salle en envoie un toutes les 500 ms quand elle n'a pas d'image. Il dit qu'elle est là, rien de plus."
+        />
+        <Readout
+          label="dernière image reçue"
+          value={duree(video.sinceUnitMs)}
+          unit={`s · ${video.units} reçues`}
+          tone={video.sinceUnitMs !== null && video.sinceUnitMs >= FIGEE_MS ? "alert" : "faint"}
+          hint="Avant tout décodage: une image jetée parce que l'onglet est caché compte quand même comme arrivée."
+        />
+        <Readout
+          label="dernière image peinte"
+          value={duree(video.sincePaintedMs)}
+          unit="s"
+          tone="faint"
+        />
+        <Readout
+          label="attente d'image"
+          value={duree(video.sinceStartedMs)}
+          unit="s depuis le départ du flux"
+          tone="faint"
+        />
+      </Panel>
+
       <Panel title="image">
         <Readout label="arrivées" value={video.shown} />
         <Readout label="peintes" value={video.painted} />
@@ -35,12 +84,17 @@ export function Instruments({ shot }: { shot: Snapshot }) {
           tone="faint"
           hint="Lu sur les instants de capture, donc c'est la cadence du JEU. Un jeu PAL donne 50, et une liaison lente ne la fait pas baisser. Un tiret tant qu'il n'y a pas trente images pour la mesurer."
         />
+        {/* Un MOT en plus de la couleur: la couleur seule ne porte pas une
+            alerte (WCAG 1.4.1, audit A11Y-03). Le même seuil que l'état de
+            liaison, qui le dit aussi sur l'image (`media/liaison.ts`). */}
         <Readout
           label="dernière image"
           value={video.sinceArrivalMs === null ? "—" : video.sinceArrivalMs.toFixed(0)}
-          unit="ms"
+          unit={
+            video.sinceArrivalMs !== null && video.sinceArrivalMs >= FIGEE_MS ? "ms · figée" : "ms"
+          }
           tone={video.sinceArrivalMs !== null && video.sinceArrivalMs > 500 ? "alert" : "faint"}
-          hint="Depuis combien de temps la dernière image est arrivée. Au-delà d'une demi-seconde pendant une partie, l'image est figée: le 21 novembre 2026, Sonic continuait de tourner pendant que plus rien n'arrivait ici."
+          hint="Depuis combien de temps la dernière image est arrivée. Au-delà de deux secondes pendant une partie, l'image est figée."
         />
         <Readout
           label="latence ajoutée"
@@ -139,6 +193,13 @@ export function Instruments({ shot }: { shot: Snapshot }) {
         <Readout label="joué" value={sound.playedSeconds.toFixed(1)} unit="s" />
         <Readout label="coupures" value={sound.gaps} tone={sound.gaps > 0 ? "alert" : "faint"} />
         <Readout label="morceaux reçus" value={sound.chunks} tone="faint" />
+        <Readout
+          label="dernier morceau"
+          value={duree(sound.sinceChunkMs)}
+          unit="s"
+          tone="faint"
+          hint="Reçu, joué ou non. Un son qui arrive pendant une image figée dit que le jeu tourne."
+        />
         {/* Le « transit le plus rapide » n'est plus montré. C'était
             `performance.now()` moins l'horodatage du relais, deux horloges sans
             origine commune: sur la Switch il affichait moins 788 millions de
@@ -204,6 +265,13 @@ export function Instruments({ shot }: { shot: Snapshot }) {
                   : "good"
           }
           hint="Le temps qu'un message met à partir d'ici, atteindre la salle et revenir. Mesuré sur une seule horloge, donc il ne suppose rien. C'est la part de la latence qui vient de TA liaison : grand ici veut dire que ça vient de chez toi, petit avec une image qui saccade veut dire que ça vient d'ailleurs."
+        />
+        <Readout
+          label="dernier message de la salle"
+          value={duree(input.sinceHeardMs)}
+          unit="s"
+          tone="faint"
+          hint="L'écho part chaque seconde. Un écho qui revient pendant une image figée dit que la salle entend encore ta manette."
         />
         <Readout label="trames envoyées" value={input.sent} tone="faint" />
         <Readout

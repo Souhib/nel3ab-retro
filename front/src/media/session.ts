@@ -11,7 +11,9 @@ import { InputStream, type InputState } from "./input";
 import { MicStream, type MicState } from "./mic";
 import { SoundStream, type SoundStats } from "./sound";
 import { VideoStream, type VideoStats } from "./video";
-import { socketUnder } from "../lib/base";
+import type { Liaison } from "./liaison";
+import { VeilleLiaison, type Contexte } from "./veille";
+import { salle, socketUnder } from "../lib/base";
 
 export type Snapshot = {
   video: VideoStats;
@@ -30,6 +32,11 @@ export type Snapshot = {
    * peindre. C'est la même faute que l'absence affichée comme un zéro, et ce
    * projet l'a déjà commise quatre fois. */
   padOnly: boolean;
+  /** L'état de la liaison, calculé ici et nulle part ailleurs (`liaison.ts`).
+   *
+   * Dans l'instantané, donc au rythme où React lit: deux fois par seconde.
+   * La page n'a qu'à l'afficher, à un seul endroit. */
+  liaison: Liaison;
 };
 
 /** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
@@ -44,6 +51,8 @@ export class Session {
   readonly sound: SoundStream;
   readonly input: InputStream;
   readonly mic: MicStream;
+  /** Ce qui calcule l'état de la liaison. Voir `veille.ts`. */
+  readonly veille: VeilleLiaison;
 
   private listeners = new Set<() => void>();
   private snapshot: Snapshot;
@@ -77,12 +86,40 @@ export class Session {
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
     this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching, inputSource);
     this.mic = new MicStream(socketUrl, () => this.input.attribution());
+    this.veille = new VeilleLiaison({
+      now: () => performance.now(),
+      enLigne: () => navigator.onLine !== false,
+      visible: () => document.visibilityState !== "hidden",
+      salle,
+      fetch: (url, init) => fetch(url, init),
+    });
     this.snapshot = this.read();
+  }
+
+  /** L'onglet change d'état: la veille le note tout de suite, pour ne pas
+   * compter comme un gel le temps qu'une image met à revenir. */
+  private readonly regarder = (): void => {
+    this.veille.regarder();
+    this.refresh();
+  };
+
+  /** Ce que la page sait et que les flux ignorent: le jeu, un démarrage, la
+   * proposition de format réduit. Voir `veille.ts`. */
+  contexte(contexte: Contexte): void {
+    this.veille.dire(contexte);
+    this.refresh();
+  }
+
+  /** « Relancer l'image »: une socket vidéo neuve, la place gardée. */
+  relancerImage(): void {
+    this.video.relancer();
+    this.refresh();
   }
 
   start(): void {
     if (!this.padOnly) this.video.start();
     this.input.start();
+    document.addEventListener("visibilitychange", this.regarder);
     this.ticker = window.setInterval(() => {
       this.snapshot = this.read();
       for (const listener of this.listeners) listener();
@@ -90,6 +127,7 @@ export class Session {
   }
 
   stop(): void {
+    document.removeEventListener("visibilitychange", this.regarder);
     if (this.ticker !== null) window.clearInterval(this.ticker);
     this.video.stop();
     this.sound.stop();
@@ -140,14 +178,17 @@ export class Session {
     // facultatif ; activé, il suit l'horaire audio qui peut redescendre.
     if (this.lipsync) this.setLipsync(true);
     const video = this.video.stats();
+    const sound = this.sound.stats();
+    const input = this.input.state();
     return {
       video,
-      sound: this.sound.stats(),
-      input: this.input.state(),
+      sound,
+      input,
       mic: this.mic.status(),
       soundGapMs: this.sound.gapAgainst(this.video.presentationOffsetMs()),
       soundSyncMs: this.video.compensationMs(),
       padOnly: this.padOnly,
+      liaison: this.veille.lire({ video, sound, input, padOnly: this.padOnly }),
     };
   }
 }
@@ -217,6 +258,7 @@ export function exposeNothingYet(): void {
     wedgeDecoder: () => false,
     stallDecoder: () => false,
     seat: () => null,
+    liaison: () => null,
     soundGap: () => null,
     room: () => ({ mine: 0, watching: false }),
     padList: () => [],
@@ -315,6 +357,9 @@ export function exposeForTests(session: Session): void {
     wedgeDecoder: () => session.video.wedgeDecoder(),
     stallDecoder: () => session.video.stallDecoder(),
     seat: () => session.getSnapshot().input.port,
+    /** L'état de liaison que la page affiche: un pilote vérifie le MÊME
+     * chiffre que l'écran, pas une seconde lecture des compteurs. */
+    liaison: () => session.getSnapshot().liaison,
     soundGap: () => session.getSnapshot().soundGapMs,
     /** The room as this page understands it, so a test can say "this page never
      * got a pad" instead of failing for something that is not a defect. */

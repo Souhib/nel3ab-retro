@@ -106,6 +106,11 @@ export function sourceRate(gaps: number, medianGapMs: number): number {
   return gaps < SOURCE_GAPS_NEEDED || medianGapMs <= 0 ? 0 : 1000 / medianGapMs;
 }
 
+/** Depuis combien de millisecondes, ou `null` pour « jamais ». */
+function ecoule(at: number | null): number | null {
+  return at === null ? null : performance.now() - at;
+}
+
 export type VideoStats = {
   painted: number;
   shown: number;
@@ -174,6 +179,32 @@ export type VideoStats = {
    * `gapMs` ne comptent qu'entre deux images reçues, donc rien tant que la
    * suivante n'est pas là. */
   sinceArrivalMs: number | null;
+  /** Depuis le dernier message de la salle, message vide compris, ou `null`.
+   *
+   * Un message vide part toutes les 500 ms quand la salle n'a rien d'autre à
+   * dire: il prouve qu'elle est là, et rien de plus. C'est la moitié de ce qui
+   * distingue un gel de la salle d'une liaison morte (`liaison.ts`). */
+  sinceHeardMs: number | null;
+  /** Depuis le dernier message qui portait une IMAGE, décodée ou non, ou `null`.
+   *
+   * Pas `sinceArrivalMs`, qui ne compte que ce qui entre au décodeur: un
+   * onglet caché ou un décodeur qui attend son image-clé jettent les images
+   * avant lui, et la salle n'y est pour rien. L'autre moitié de la distinction. */
+  sinceUnitMs: number | null;
+  /** Messages portant une image, reçus depuis que ce flux existe. */
+  units: number;
+  /** Depuis la dernière image peinte, ou `null` avant la première. */
+  sincePaintedMs: number | null;
+  /** Depuis l'ouverture de la socket actuelle, `null` quand elle est fermée. */
+  sinceOpenedMs: number | null;
+  /** Depuis quand la vidéo est coupée, `null` quand elle est ouverte.
+   *
+   * Compté dès le départ du flux, avant la première ouverture: une salle qui
+   * refuse dès l'arrivée est coupée depuis qu'on la demande, pas « depuis
+   * toujours ». */
+  downForMs: number | null;
+  /** Depuis quand ce flux attend des images, `null` quand il est arrêté. */
+  sinceStartedMs: number | null;
   refreshHz: number;
   backlog: number;
   fastestLag: number | null;
@@ -283,6 +314,16 @@ export class VideoStream {
   private decoderGoneSince: number | null = null;
   private shownAt: number | null = null;
   private lastArrival: number | null = null;
+  /** Le dernier message, vide compris. Séparé de `lastHeard`, que le chien de
+   * garde remet à zéro quand il abandonne une socket. */
+  private lastMessage: number | null = null;
+  /** Le dernier message qui portait une image, et combien il y en a eu. */
+  private lastUnit: number | null = null;
+  private units = 0;
+  private lastPainted: number | null = null;
+  private openedAt: number | null = null;
+  private downSince: number | null = null;
+  private startedAt: number | null = null;
   private lastAsk = 0;
 
   private painted = 0;
@@ -326,6 +367,8 @@ export class VideoStream {
     if (this.active) return;
     this.active = true;
     this.awaiting = false;
+    this.startedAt = performance.now();
+    this.downSince = this.startedAt;
     // Demander d'abord ce que la salle sait produire, et ne le demander que si
     // ça peut changer quelque chose. Le plein format existe toujours.
     if (this.half) void this.checkFormat();
@@ -407,6 +450,9 @@ export class VideoStream {
     if (this.reconnectIn !== null) window.clearTimeout(this.reconnectIn);
     this.reconnectIn = null;
     this.connected = false;
+    this.openedAt = null;
+    this.downSince = null;
+    this.startedAt = null;
     this.canvas.getContext("2d")?.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.awaiting = false;
     this.offset = null;
@@ -490,6 +536,13 @@ export class VideoStream {
       halfDenied: this.deniedHalf,
       sourceHz: sourceRate(this.sourceGaps.length, this.sourceGaps.at(0.5)),
       sinceArrivalMs: this.lastArrival === null ? null : performance.now() - this.lastArrival,
+      sinceHeardMs: ecoule(this.lastMessage),
+      sinceUnitMs: ecoule(this.lastUnit),
+      units: this.units,
+      sincePaintedMs: ecoule(this.lastPainted),
+      sinceOpenedMs: this.connected ? ecoule(this.openedAt) : null,
+      downForMs: this.connected ? null : ecoule(this.downSince),
+      sinceStartedMs: ecoule(this.startedAt),
       refreshHz: 1000 / this.refreshPeriod(),
       backlog: this.decoder?.decodeQueueSize ?? 0,
       fastestLag: this.lags.fastest(),
@@ -620,14 +673,42 @@ export class VideoStream {
     // réduit même sur un bon lien, sans un mot. Trouvé par l'audit du
     // 5 septembre 2026, sur le correctif de la veille.
     if (remember) rememberHalf(half);
-    // L'horaire aussi: la taille change, donc le temps de décodage change, et
-    // garder le calage de l'ancien flux ferait passer les premières images du
-    // nouveau pour des retards.
+    this.lastArrival = null;
+    this.rebranche();
+  }
+
+  /**
+   * « Relancer l'image »: une socket vidéo neuve et un décodeur neuf, et rien
+   * d'autre.
+   *
+   * La place tient par la socket de la MANETTE, que ceci ne touche pas: c'est
+   * ce qui rend le geste sûr pendant une partie, là où recharger la page rend
+   * sa place. Le worker fabrique une image-clé pour toute page qui arrive, donc
+   * un décodeur coincé ou une socket qui n'apporte plus d'image repartent de là.
+   *
+   * L'heure de la dernière image est GARDÉE: si la salle est toujours figée,
+   * la page doit continuer de dire depuis quand, pas repartir de zéro.
+   */
+  relancer(): void {
+    if (!this.active) return;
+    // Une arrivée qu'on relance repart pour une attente entière: sinon
+    // « Réessayer », au bout de quinze secondes, retombait aussitôt sur
+    // « l'image n'arrive pas » (`ARRIVEE_LIMITE_MS`, `liaison.ts`).
+    if (this.painted === 0) this.startedAt = performance.now();
+    this.reconnects += 1;
+    this.paintedAtConnect = this.painted;
+    this.rebranche();
+  }
+
+  /** Ferme la socket et le décodeur, puis rouvre. Commun au changement de
+   * format et à la relance. */
+  private rebranche(): void {
+    // L'horaire aussi: garder le calage de l'ancien flux ferait passer les
+    // premières images du nouveau pour des retards.
     this.offset = null;
     this.lags.clear();
     this.gaps.clear();
     this.sourceGaps.clear();
-    this.lastArrival = null;
     this.lastCaptured = null;
     const old = this.socket;
     this.socket = null;
@@ -635,6 +716,9 @@ export class VideoStream {
       old.onclose = null;
       old.close();
     }
+    this.connected = false;
+    this.openedAt = null;
+    this.downSince = performance.now();
     this.decoder?.close();
     this.decoder = null;
     this.decoderGoneSince = null;
@@ -661,13 +745,19 @@ export class VideoStream {
     socket.onopen = () => {
       this.connected = true;
       this.lastHeard = performance.now();
+      this.openedAt = this.lastHeard;
+      this.downSince = null;
       // A game can change while the lobby is unavailable. Read capability
       // from the new worker connection, including for a full-format viewer.
       void this.checkFormat();
     };
     socket.onclose = () => {
       if (this.socket !== socket) return;
+      // Une socket qui n'a jamais ouvert garde l'instant où l'on a commencé à
+      // l'attendre: une salle qui refuse est coupée depuis qu'on la demande.
+      if (this.connected || this.downSince === null) this.downSince = performance.now();
       this.connected = false;
+      this.openedAt = null;
       // Le format a pu changer SOUS la page: changer de jeu change la taille de
       // l'image, et le demi-format n'existe pas pour toutes les tailles.
       //
@@ -730,7 +820,9 @@ export class VideoStream {
       socket.onclose = null;
       socket.onmessage = null;
       socket.onerror = null;
+      if (this.connected || this.downSince === null) this.downSince = performance.now();
       this.connected = false;
+      this.openedAt = null;
       this.connect();
     }, CLOSING_LIMIT);
   }
@@ -740,11 +832,16 @@ export class VideoStream {
     // key-frame gate made the socket look silent for the second before the first
     // IDR, so the watchdog closed it and the reconnection did the same again.
     this.lastHeard = performance.now();
+    this.lastMessage = this.lastHeard;
     const message = new Uint8Array(event.data);
     // A keep-alive: the server is there, the emulator has nothing new. It exists
     // so a game blanking the screen for two seconds does not look like a dead
     // link and cost a reconnection.
     if (message.length === 0) return;
+    // Une image est ARRIVÉE, avant toute décision de la jeter: un onglet caché
+    // ou un décodeur qui attend son image-clé n'en font pas un gel de la salle.
+    this.lastUnit = this.lastHeard;
+    this.units += 1;
 
     const capturedMicros = Number(new DataView(event.data).getBigUint64(0, true));
     const unit = message.subarray(8);
@@ -949,6 +1046,7 @@ export class VideoStream {
     this.sampleDark(next.frame);
     next.frame.close();
     this.painted += 1;
+    this.lastPainted = now;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;
     this.waits.push(now - next.decodedAt);

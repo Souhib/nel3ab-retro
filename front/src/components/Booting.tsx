@@ -70,10 +70,15 @@ export function Booting({
   return (
     <div
       id="booting"
-      /* Au-dessus du menu, qui est en z-50. Un chargement en cours est ce
-         qu'il y a de plus important à l'écran: le menu ouvert par-dessus
-         annonçait « aucun jeu » pendant que le jeu demandé démarrait. */
-      className="absolute inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-ink"
+      /* SOUS le menu (z 50), dans la zone de l'image. Il a été au-dessus, en
+         z 60, pour que le menu n'annonce pas « aucun jeu » pendant un
+         démarrage; c'est réglé ailleurs depuis: un démarrage ferme le menu, et
+         son pied dit « chargement ». Au-dessus, il cachait le menu que son
+         propre bouton ouvrait, et ce menu invisible captait le clavier et la
+         manette (audit P2 et E5, 22 novembre 2026). En style et non en classe:
+         l'essai lit la couche, et jsdom ne lit pas Tailwind. */
+      style={{ zIndex: 40 }}
+      className="regie-nuit absolute inset-0 flex flex-col items-center justify-center gap-6 bg-ecran"
     >
       <div className="flex flex-col items-center gap-2">
         <span className="font-mono text-note uppercase tracking-[0.3em] text-faint">{label}</span>
@@ -126,9 +131,11 @@ export function Booting({
               ouvrir le menu
             </button>
           ) : null}
+          {/* « arrêter d'attendre » et non « annuler »: ce bouton n'annule
+              rien dans la salle, il retire cet écran d'ici (audit T08). */}
           {onGiveUp && perdu ? (
             <button type="button" id="bootingGiveUp" className="n3-action" onClick={onGiveUp}>
-              annuler et revenir au menu
+              arrêter d&apos;attendre
             </button>
           ) : null}
         </div>

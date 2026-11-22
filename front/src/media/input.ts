@@ -124,6 +124,12 @@ export type InputState = {
    * afficher zéro serait annoncer une liaison parfaite là où il n'y a aucune
    * mesure. */
   roundTripMs: number | null;
+  /** Depuis le dernier message de la salle sur cette socket, ou `null`.
+   *
+   * L'écho part chaque seconde, donc une salle qui entend en renvoie un chaque
+   * seconde. Nul avant le premier message et sans socket: une socket créée n'a
+   * encore rien prouvé. Témoin de l'état de liaison (`liaison.ts`). */
+  sinceHeardMs: number | null;
   /** Ce que fait chaque touche du clavier. */
   keys: KeyProfile;
   /** Les manettes branchées, dans l'ordre où le navigateur les donne.
@@ -264,6 +270,9 @@ export class InputStream {
   private retry: number | null = null;
   private timers: number[] = [];
   private heardAt: number | null = null;
+  /** Le dernier message reçu, et lui seul. `heardAt` vaut aussi l'instant de
+   * création de la socket, ce qui sert le ménage et pas le témoignage. */
+  private messageAt: number | null = null;
   private checkedAt: number | null = null;
   private retire: (() => void) | null = null;
   private animation: number | null = null;
@@ -517,6 +526,7 @@ export class InputStream {
       keyProfile: this.keySet.active,
       lockedProfiles: this.keySet.locked,
       roundTripMs: this.trips.length === 0 ? null : Math.round(this.trips.at(0.5)),
+      sinceHeardMs: this.messageAt === null ? null : performance.now() - this.messageAt,
     };
   }
 
@@ -998,6 +1008,7 @@ export class InputStream {
     socket.onmessage = (event: MessageEvent<ArrayBuffer | string>) => {
       if (mine !== this.generation) return;
       this.heardAt = performance.now();
+      this.messageAt = this.heardAt;
       if (typeof event.data === "string") {
         if (event.data === "format switch") {
           if (!this.fixedSource) this.source = this.switch;
@@ -1068,6 +1079,7 @@ export class InputStream {
       this.generation += 1;
       this.socket = null;
       this.heardAt = null;
+      this.messageAt = null;
       this.retire = null;
       socket.onclose = null;
       this.releaseLocalSeat();

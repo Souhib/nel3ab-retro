@@ -33,9 +33,7 @@ function show(overrides: Record<string, unknown> = {}) {
     onPlay: vi.fn(),
     onLeave: vi.fn(),
     onComplain: vi.fn().mockResolvedValue(undefined),
-    suggestHalf: false,
     onTakeHalf: vi.fn(),
-    onKeepFull: vi.fn(),
     ...overrides,
   };
   render(<Sidebar {...props} />);
@@ -113,30 +111,13 @@ describe("le bouton « ça saccade »", () => {
 });
 
 describe("la proposition de format réduit", () => {
-  it("ne se montre pas quand la liaison va bien", () => {
-    show({ suggestHalf: false });
-
+  it("n'est plus dans la colonne: elle vit sur l'image, visible aussi au téléphone (E2)", () => {
+    // La colonne est repliée d'office sur un téléphone: une proposition qui n'y
+    // vivait que là n'était vue par personne, et le journal la disait
+    // « proposée » quand même. Elle est maintenant dans `EtatSalle`.
+    show();
     expect(document.querySelector("#rough")).toBeNull();
-  });
-
-  it("propose de basculer, et bascule", () => {
-    const { onTakeHalf } = show({ suggestHalf: true });
-
-    fireEvent.click(screen.getByText("passer en réduit"));
-
-    expect(onTakeHalf).toHaveBeenCalledTimes(1);
-  });
-
-  it("se refuse aussi facilement qu'elle s'accepte", () => {
-    // Les deux boutons comptent autant. Quelqu'un peut préférer une image nette
-    // avec quelques saccades à une image molle sans aucune, et c'est le refus
-    // qui fait taire la proposition.
-    const { onKeepFull, onTakeHalf } = show({ suggestHalf: true });
-
-    fireEvent.click(screen.getByText("non merci"));
-
-    expect(onKeepFull).toHaveBeenCalledTimes(1);
-    expect(onTakeHalf).not.toHaveBeenCalled();
+    expect(screen.queryByText("passer en réduit")).toBeNull();
   });
 });
 

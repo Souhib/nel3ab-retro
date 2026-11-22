@@ -36,9 +36,10 @@
 //    était mesuré dans une couleur qu'il ne porte pas. Et il se pose souvent sur
 //    une forme du même dessin: son fond est cherché sous lui, parmi les formes.
 //
-// Ce qu'il ne voit toujours pas: un bouton posé PAR-DESSUS l'image du jeu. Le
-// fond est cherché chez les ancêtres, et l'image est une sœur: un tel bouton est
-// mesuré contre le fond de la page. `.regie-nuit` existe pour ces boutons-là.
+// Ce que l'audit général ne voit pas: un bouton posé PAR-DESSUS l'image du jeu.
+// Le fond est cherché chez les ancêtres, et l'image est une sœur: un tel bouton
+// est mesuré contre le fond de la page. `.regie-nuit` existe pour ces
+// boutons-là, et `surImage` mesure « montrer (Ctrl) » à part, sur lui-même.
 import puppeteer from "puppeteer";
 import { enterRoom } from "./open.mjs";
 
@@ -239,18 +240,52 @@ async function ouvrir(storage, scheme = "dark") {
   return page;
 }
 
+/** Exige l'écran qu'on s'apprête à mesurer, au lieu de le supposer.
+ *
+ * Jusqu'au 22 novembre 2026, les coques Wii et Switch mesuraient trois fois
+ * le même écran sous trois noms (61, 61, 61 textes). Deux flèches à droite
+ * changent de rayon dans la croix de la PS3, mais avancent d'une case dans la
+ * grille de la Wii et dans la rangée de la Switch; `#item-bindings` n'existait
+ * donc pas, et le clic sur un élément absent ne faisait rien, en silence. */
+async function exiger(page, selector, what) {
+  if ((await page.$(selector)) === null) {
+    throw new Error(`${what}: « ${selector} » absent, l'écran mesuré n'est pas celui qu'on croit`);
+  }
+}
+
+/** Le menu, ouvert sur un rayon choisi par son bouton, qui existe dans les trois
+ * coques (`#ray-<id>`): le clavier ne parcourt pas les trois formes pareil. */
+async function rayon(page, id, what) {
+  if ((await page.$("#ray-jeux")) === null) {
+    await page.evaluate(() => document.querySelector("#openMenu")?.click());
+    await wait(900);
+  }
+  await exiger(page, "#ray-jeux", `${what} (menu)`);
+  // Le clic de l'élément lui-même, pas un clic aux coordonnées: dans la croix
+  // de la PS3, les rayons glissent et se chevauchent pendant l'animation.
+  await page.evaluate((sel) => document.querySelector(sel)?.click(), `#ray-${id}`);
+  await wait(700);
+  await exiger(page, `#ray-${id}[data-selected="true"]`, what);
+}
+
+/** Le panneau des touches, ouvert depuis les réglages: le configurateur, ou les
+ * réglages Switch pour un jeu Switch. */
+async function touches(page, what) {
+  await exiger(page, "#item-bindings", `${what} (entrée du menu)`);
+  await page.evaluate(() => document.querySelector("#item-bindings")?.click());
+  await wait(900);
+  await exiger(page, ".n3-bindings[open], .n3-switch-setup[open]", what);
+}
+
 const screens = [];
 for (const shell of ["ps3", "wii", "switch"]) {
   const page = await ouvrir({ "nel3ab:shell": shell });
   screens.push([`${shell} · colonne`, await page.evaluate(AUDIT)]);
-  await page.evaluate(() => document.querySelector("#openMenu")?.click());
-  await wait(900);
+  await rayon(page, "jeux", `${shell} · menu jeux`);
   screens.push([`${shell} · menu jeux`, await page.evaluate(AUDIT)]);
-  await page.keyboard.press("ArrowRight"); await wait(250);
-  await page.keyboard.press("ArrowRight"); await wait(600);
+  await rayon(page, "reglages", `${shell} · menu réglages`);
   screens.push([`${shell} · menu réglages`, await page.evaluate(AUDIT)]);
-  await page.evaluate(() => document.querySelector("#item-bindings")?.click());
-  await wait(900);
+  await touches(page, `${shell} · touches`);
   screens.push([`${shell} · touches`, await page.evaluate(AUDIT)]);
   await page.close();
 }
@@ -269,14 +304,54 @@ const REGIES = [
   ["nuit", "light"],
   ["jour", "dark"],
 ];
+/** Ce qui flotte PAR-DESSUS l'image noire garde la régie de nuit.
+ *
+ * L'audit ne le voit pas (le fond est cherché chez les ancêtres, et l'image est
+ * une sœur), si bien que retirer `.regie-nuit` ne faisait rien échouer: en
+ * régie de jour, « montrer (Ctrl) » devenait une plaque blanche sur le noir.
+ * Mesuré ici sur le bouton lui-même, colonne repliée par Ctrl. */
+async function surImage(page, nom) {
+  const jour = await page.evaluate(() => {
+    const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number);
+    return r + g + b > 600;
+  });
+  await page.keyboard.press("Control");
+  await wait(500);
+  await exiger(page, "#unbare", `${nom} · colonne repliée`);
+  const mesure = await page.evaluate(AUDIT_BOUTON, "#unbare");
+  await page.keyboard.press("Control");
+  await wait(300);
+  return { jour, ...mesure };
+}
+
+const AUDIT_BOUTON = (selector) => {
+  const toile = document.createElement("canvas");
+  toile.width = toile.height = 1;
+  const pinceau = toile.getContext("2d", { willReadFrequently: true });
+  const rgb = (css) => {
+    pinceau.clearRect(0, 0, 1, 1);
+    pinceau.fillStyle = "#000";
+    pinceau.fillStyle = css;
+    pinceau.fillRect(0, 0, 1, 1);
+    return [...pinceau.getImageData(0, 0, 1, 1).data].slice(0, 3);
+  };
+  const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const lum = ([r, g, b]) => 0.2126 * lin(r / 255) + 0.7152 * lin(g / 255) + 0.0722 * lin(b / 255);
+  const el = document.querySelector(selector);
+  const css = getComputedStyle(el);
+  const fond = lum(rgb(css.backgroundColor));
+  const encre = lum(rgb(css.color));
+  const [hi, lo] = [fond, encre].sort((x, y) => y - x);
+  return { fond: Number(fond.toFixed(3)), rapport: Number(((hi + 0.05) / (lo + 0.05)).toFixed(2)) };
+};
+
+const flottants = [];
 for (const [theme, scheme] of REGIES) {
   const page = await ouvrir({ "nel3ab:shell": "ps3", "nel3ab:theme": theme }, scheme);
   const nom = `${theme} (système ${scheme === "dark" ? "sombre" : "clair"})`;
   screens.push([`colonne · ${nom}`, await page.evaluate(AUDIT)]);
-  await page.evaluate(() => document.querySelector("#openMenu")?.click());
-  await wait(900);
-  await page.keyboard.press("ArrowRight"); await wait(250);
-  await page.keyboard.press("ArrowRight"); await wait(600);
+  flottants.push([nom, await surImage(page, nom)]);
+  await rayon(page, "reglages", `ps3 · réglages · ${nom}`);
   screens.push([`ps3 · réglages · ${nom}`, await page.evaluate(AUDIT)]);
   // Le sélecteur, ouvert sur l'entrée des thèmes.
   await page.evaluate(() => document.querySelector("#item-theme")?.click());
@@ -296,20 +371,25 @@ for (const [theme, scheme] of REGIES) {
   // Le panneau des touches dans chaque régie: les manettes y sont des objets
   // aux couleurs fixes, et leurs inscriptions doivent se lire sur la page claire
   // comme sur la sombre.
-  const touches = await ouvrir({ "nel3ab:shell": "ps3", "nel3ab:theme": theme }, scheme);
-  await touches.evaluate(() => document.querySelector("#openMenu")?.click());
-  await wait(900);
-  await touches.keyboard.press("ArrowRight"); await wait(250);
-  await touches.keyboard.press("ArrowRight"); await wait(600);
-  await touches.evaluate(() => document.querySelector("#item-bindings")?.click());
-  await wait(900);
-  if ((await touches.$(".n3-bindings[open]")) === null) {
-    throw new Error(`le panneau des touches ne s'est pas ouvert (${nom})`);
-  }
-  screens.push([`ps3 · touches · ${nom}`, await touches.evaluate(AUDIT)]);
-  await touches.close();
+  const panneau = await ouvrir({ "nel3ab:shell": "ps3", "nel3ab:theme": theme }, scheme);
+  await rayon(panneau, "reglages", `ps3 · touches · ${nom}`);
+  await touches(panneau, `ps3 · touches · ${nom}`);
+  screens.push([`ps3 · touches · ${nom}`, await panneau.evaluate(AUDIT)]);
+  await panneau.close();
 }
 await browser.close();
+
+// Les commandes posées sur l'image: sombres dans les quatre régies, et lisibles.
+// La précondition d'abord: au moins un passage doit avoir peint le jour, sinon
+// « sombre » ne prouverait rien.
+if (!flottants.some(([, f]) => f.jour)) throw new Error("aucun passage en régie de jour: le garde de l'image ne prouve rien");
+let flottantsFaux = 0;
+console.log("\n  == sur l'image (« montrer (Ctrl) », colonne repliée) ==");
+for (const [nom, f] of flottants) {
+  const ok = f.fond < 0.05 && f.rapport >= 4.5;
+  if (!ok) flottantsFaux += 1;
+  console.log(`     ${ok ? "ok  " : "RATÉ"} ${nom}: luminance du fond ${f.fond}, texte ${f.rapport}:1${f.jour ? " (page en jour)" : ""}`);
+}
 
 let total = 0;
 for (const [where, { measured, bad }] of screens) {
@@ -325,5 +405,8 @@ for (const [where, { measured, bad }] of screens) {
   const skipped = bad.length - real.length;
   if (skipped > 0) console.log(`     (${skipped} commande(s) désactivée(s), que WCAG exempte)`);
 }
-console.log(`\n  ${total === 0 ? "PASS — tout le texte tient son seuil" : `FAIL — ${total} textes sous le seuil`}`);
-process.exit(total === 0 ? 0 : 1);
+const echecs = total + flottantsFaux;
+console.log(
+  `\n  ${echecs === 0 ? "PASS — tout le texte tient son seuil" : `FAIL — ${total} textes sous le seuil, ${flottantsFaux} commande(s) claire(s) sur l'image`}`,
+);
+process.exit(echecs === 0 ? 0 : 1);

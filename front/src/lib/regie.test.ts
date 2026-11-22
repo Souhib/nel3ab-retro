@@ -26,6 +26,7 @@ import { AA_TEXT, contrast, declarations, mix, resolve } from "./contrast";
 type Fs = {
   readFileSync: (chemin: string, codage: "utf-8") => string;
   writeFileSync: (chemin: string, contenu: string) => void;
+  readdirSync: (chemin: string, options?: { recursive: true }) => string[];
 };
 const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
 const ici = (relatif: string) => new URL(relatif, import.meta.url).pathname;
@@ -193,6 +194,106 @@ describe("les deux portes de la régie de jour", () => {
     // texte clair sur fond clair, sans erreur nulle part.
     expect([...NUIT.keys()].sort()).toEqual([...JOUR_CHOISI.keys()].sort());
   });
+});
+
+describe("personne d'autre ne choisit une couleur de la régie", () => {
+  /** Chaque nom que la feuille déclare: primitives, rôles et composants. */
+  const JETONS = new Set([...css.matchAll(/(?<![\w-])(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  /** Les jetons de la régie qu'un texte déclare à nouveau: en CSS
+   * (`--encre: …`) comme dans un style en ligne (`"--encre": …`). */
+  const redeclares = (texte: string) =>
+    [...texte.matchAll(/(?<![\w-])(--[a-z0-9-]+)["']?\s*:/g)]
+      .map((m) => m[1])
+      .filter((nom) => JETONS.has(nom));
+
+  it("lit la liste dans la feuille, et sait la lire", () => {
+    // La précondition et ses jumeaux: une liste vide rendrait l'essai muet, et
+    // un motif trop large prendrait `--color-fond` (le nom Tailwind) pour
+    // `--fond`.
+    for (const nom of ["--fond", "--encre", "--signal", "--p3-encre", "--ecran", "--joueur-1"]) {
+      expect(JETONS.has(nom), nom).toBe(true);
+    }
+    expect(redeclares("@theme { --color-fond: var(--fond); }")).toEqual([]);
+    expect(redeclares(".x { color: var(--encre); }")).toEqual([]);
+    expect(redeclares(".tampon { --encre: var(--alerte); }")).toEqual(["--encre"]);
+    expect(redeclares('style={{ "--signal": "#f0f" }}')).toEqual(["--signal"]);
+  });
+
+  it("aucune feuille, aucun composant ni aperçu de la page ne redéclare un jeton", () => {
+    // Un rôle reposé ailleurs contourne cet essai: les contrastes calculés
+    // plus haut sont ceux de la feuille, pas ceux qu'un composant aurait mis
+    // par-dessus. Relecture du 22 novembre 2026: le garde du salon ne
+    // cherchait que cinq rôles, et `--encre` redéclaré passait.
+    const racine = ici("../../");
+    const fichiers = [
+      ...fs
+        .readdirSync(ici("../"), { recursive: true })
+        .filter((f) => /\.(css|tsx?)$/.test(f) && !/\.test\.tsx?$/.test(f))
+        .map((f) => `src/${f}`)
+        .filter((f) => f !== "src/regie.css"),
+      ...fs.readdirSync(racine).filter((f) => f.endsWith(".html")),
+    ];
+    // La précondition: sans fichiers lus, l'essai ne prouverait rien.
+    expect(fichiers).toContain("src/index.css");
+    expect(fichiers).toContain("bench-preview.html");
+    const fautes = fichiers.flatMap((f) =>
+      redeclares(fs.readFileSync(`${racine}${f}`, "utf-8")).map((nom) => `${f}: ${nom}`),
+    );
+    expect(fautes).toEqual([]);
+  });
+});
+
+describe("ce qui flotte sur l'image garde la régie de nuit", () => {
+  /** Les rôles qui changent d'un thème à l'autre. */
+  const ROLES = new Set(NUIT.keys());
+  /** Les blocs posés sur `:root` qui calculent un jeton à partir d'un rôle.
+   *
+   * Une propriété personnalisée qui vaut `var(--encre)` est calculée là où elle
+   * est déclarée, puis héritée TOUTE FAITE. Déclarée sur `:root` seul, elle
+   * garde sous `.regie-nuit` la valeur du jour: une plaque blanche posée sur
+   * l'image noire (relecture du 22 novembre 2026, `bg-panel` sous `#unbare`).
+   * Un tel bloc doit donc être reposé sur `.regie-nuit`. */
+  const blocsSansNuit = (texte: string) => {
+    const nu = texte.replace(/\/\*[\s\S]*?\*\//g, "");
+    const fautes: string[] = [];
+    let calcules = 0;
+    for (const [, tete = "", corps = ""] of nu.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const selecteurs = (tete.split(";").pop() ?? "").split(",").map((part) => part.trim());
+      if (!selecteurs.includes(":root")) continue;
+      const derives = [...corps.matchAll(/(--[\w-]+)\s*:([^;]+);/g)].filter(([, , valeur = ""]) =>
+        [...valeur.matchAll(/var\(\s*(--[\w-]+)/g)].some(([, nom = ""]) => ROLES.has(nom)),
+      );
+      if (derives.length === 0) continue;
+      calcules += 1;
+      if (!selecteurs.includes(".regie-nuit")) {
+        fautes.push(`${selecteurs.join(", ")} { ${derives.map(([, nom]) => nom).join(" ")} }`);
+      }
+    }
+    return { calcules, fautes };
+  };
+
+  it("sait reconnaître un bloc fautif, et laisse passer un bloc sans rôle", () => {
+    // Les jumeaux du garde: sans eux, un motif qui ne lit rien passerait vert.
+    expect(blocsSansNuit(":root { --bouton: var(--encre); }").fautes).toHaveLength(1);
+    expect(blocsSansNuit(":root, .regie-nuit { --bouton: var(--encre); }").fautes).toEqual([]);
+    expect(blocsSansNuit(":root { --touche: clamp(34px, 9vmin, 52px); }")).toEqual({
+      calcules: 0,
+      fautes: [],
+    });
+  });
+
+  for (const [nom, chemin] of [
+    ["regie.css", "../regie.css"],
+    ["index.css", "../index.css"],
+  ] as const) {
+    it(`${nom}: chaque jeton calculé depuis un rôle est aussi calculé sous .regie-nuit`, () => {
+      const { calcules, fautes } = blocsSansNuit(fs.readFileSync(ici(chemin), "utf-8"));
+      // La précondition: le bloc des composants (regie.css) et celui des
+      // anciens noms (index.css) existent et ont bien été lus.
+      expect(calcules).toBeGreaterThan(0);
+      expect(fautes).toEqual([]);
+    });
+  }
 });
 
 it("la copie du salon est celle de la page", () => {

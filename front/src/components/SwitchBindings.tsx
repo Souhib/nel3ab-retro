@@ -15,6 +15,7 @@ import {
 import { labels as switchLabels, physical, keyName, xboxLabels } from "../lib/switch-labels";
 import { slotLabel, type Slot } from "../lib/saves";
 import { SANS_REPONSE } from "../lib/mots";
+import { useAttente } from "../lib/useAttente";
 import { SWITCH_PRO, XBOX_360 } from "../lib/padmap";
 import { consoleName } from "../lib/consoles";
 import { deviceLabel } from "../lib/faces";
@@ -58,11 +59,11 @@ export function SwitchBindings({
   const me = pending?.players.find((p) => p.claim === input.attribution());
   const ready = me?.ready ?? false;
   const starter = pending?.starter === input.attribution();
-  /** Depuis quand cette page voit la préparation: le délai avant « Lancer sans
-   * attendre », compté comme dans `Preparation`. */
-  const [vueA] = useState(() => Date.now());
+  /** Depuis quand le chef attend: depuis l'arrivée du dernier absent, compté
+   * comme dans `Preparation` (`useAttente`). */
+  const attendu = useAttente(pending ?? null, input.attribution());
   const gestes = pending
-    ? gestesDuLancement(pending, input.attribution(), Date.now() - vueA, game?.console)
+    ? gestesDuLancement(pending, input.attribution(), attendu, game?.console)
     : null;
   const act = async (action: Record<string, unknown>) => {
     setBusy(true);

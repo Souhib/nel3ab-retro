@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Game, Preparation as Pending } from "../client";
 import type { InputState, InputStream } from "../media/input";
 import { PADS, slotLabel, type Pad, type Slot } from "../lib/saves";
@@ -11,6 +11,7 @@ import {
   titrePreparation,
 } from "../lib/lancement";
 import { SANS_REPONSE } from "../lib/mots";
+import { useAttente } from "../lib/useAttente";
 import { SetupProfiles } from "./SetupProfiles";
 import { GameCard } from "./GameCard";
 
@@ -51,26 +52,17 @@ export function Preparation({
 }) {
   const [notice, setNotice] = useState("");
   const [working, setWorking] = useState(false);
-  /** Depuis quand CETTE page voit la préparation: le délai avant « Lancer
-   * sans attendre ». Le panneau est remonté à chaque nouvelle préparation
-   * (`key` dans `App`), donc ce départ est le sien. */
-  const [vueA] = useState(() => Date.now());
-  const [maintenant, setMaintenant] = useState(vueA);
   const moi = input.attribution();
+  /** Depuis quand le chef attend: depuis l'arrivée du dernier absent, vue
+   * par CETTE page (`useAttente`). */
+  const attendu = useAttente(pending, moi);
   const player = pending.players.find((p) => p.claim === moi);
   const starter = pending.starter === moi;
   const ready = player?.ready ?? false;
   const occupied = state.capturing !== null || state.lesson !== null;
   const console = game?.console;
-  const gestes = gestesDuLancement(pending, moi, maintenant - vueA, console);
+  const gestes = gestesDuLancement(pending, moi, attendu, console);
   const attend = starter && gestes.principal?.actif === false && gestes.sansAttendre === null;
-  useEffect(() => {
-    // Une horloge seulement tant que le chef attend: le délai ne se compte
-    // pour personne d'autre.
-    if (!attend) return;
-    const tic = window.setInterval(() => setMaintenant(Date.now()), 1000);
-    return () => window.clearInterval(tic);
-  }, [attend]);
   const act = async (action: Record<string, unknown>) => {
     setWorking(true);
     setNotice("");

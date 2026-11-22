@@ -199,7 +199,7 @@ export function Sidebar({
             type="button"
             id="leaveRoom"
             onClick={onLeave}
-            className="border border-rule px-2 py-1.5 text-left text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
+            className="border border-rule px-2 py-1.5 text-left text-corps text-muted transition-colors pointer-coarse:min-h-11 hover:border-indigo hover:text-indigo"
           >
             {SORTIES.quitter}
           </button>

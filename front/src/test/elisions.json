@@ -1,0 +1,14 @@
+{
+  "pourquoi": "La même table pour la page (lib/mots.ts, de) et le salon (handlers.de): « la sauvegarde de Bo » doit s'écrire pareil des deux côtés. Relecture du 22 novembre 2026: la première règle écrivait « d'Yassine » et « d'Hamza ».",
+  "exemples": [
+    ["Ami", "d'Ami"],
+    ["Éloi", "d'Éloi"],
+    ["Ulysse", "d'Ulysse"],
+    ["Bo", "de Bo"],
+    ["Yves", "d'Yves"],
+    ["Yassine", "de Yassine"],
+    ["Hamza", "de Hamza"],
+    ["Hugo", "de Hugo"],
+    ["Y", "de Y"]
+  ]
+}

@@ -7,7 +7,12 @@
  * La page propose elle-même « Recharger la page » quand l'image n'arrive pas,
  * et un rechargement ramenait à l'avant-salle: il rendait la place et
  * redemandait d'entrer. `?entrer=jouer` et `?entrer=regarder` portent cet état:
- * un rechargement revient dans la salle, comme on l'avait quittée.
+ * un rechargement revient dans la salle, en joueur ou en spectateur.
+ *
+ * L'adresse SUIT la session, pas la porte d'entrée (`entreeDeLaSession`): la
+ * première version écrivait l'entrée une fois, et un spectateur qui prenait
+ * une place la perdait au rechargement (relecture du 22 novembre 2026). Elle
+ * ne garantit pas la MÊME place: le worker donne la première libre.
  *
  * Les mêmes adresses servent l'accueil du salon (« Rejoindre », « Regarder »)
  * et l'invitation: un lien copié entre directement.
@@ -68,4 +73,36 @@ export function sortieVers(chemin: string): string | null {
 export function lienDInvitation(origine: string, chemin: string): string {
   const prefixe = chemin.endsWith("/") ? chemin : `${chemin}/`;
   return `${origine}${prefixe}?${PARAM}=${MOTS.play}`;
+}
+
+/** L'entrée qui correspond à ce que fait la session: regarder, ou jouer.
+ *
+ * `watching` est l'intention de la session (`InputStream`): vraie après
+ * « Rendre ma place » ou un lancement solo d'un autre, fausse après « Prendre
+ * une place ». Une place qu'on attend encore compte comme jouer: c'est ce
+ * qu'un rechargement doit redemander. */
+export const entreeDeLaSession = (watching: boolean): Entree => (watching ? "watch" : "play");
+
+/** Ce que `retenirEntree` lit et réécrit, passé pour être remplacé dans un essai. */
+export type Adresse = { readonly href: string };
+export type Historique = {
+  readonly state: unknown;
+  replaceState: (etat: unknown, titre: string, url: string) => void;
+};
+
+/** Écrit l'entrée dans l'adresse, sans étape d'historique, si elle change.
+ *
+ * Une adresse qu'on ne peut pas réécrire (un cadre bac à sable) laisse l'état
+ * en mémoire: la salle marche, seul le rechargement l'oublie. */
+export function retenirEntree(
+  entree: Entree | null,
+  adresse: Adresse = location,
+  historique: Historique = history,
+): void {
+  if (entreeDeLAdresse(new URL(adresse.href).search) === entree) return;
+  try {
+    historique.replaceState(historique.state, "", adresseAvec(adresse.href, entree));
+  } catch {
+    // Voir plus haut: l'état reste en mémoire.
+  }
 }

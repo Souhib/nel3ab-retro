@@ -210,6 +210,38 @@ it("une salle Xbox 360 parle Xbox 360, pas Switch (audit T03)", () => {
   expect(screen.getByRole("heading", { name: "Mes profils Xbox 360" })).toBeVisible();
   expect(screen.getByRole("link", { name: "Commandes du jeu" })).toBeVisible();
   expect(texte).not.toMatch(/Switch|manette Pro|Nintendo/);
+  // Les boutons que la trame ne porte pas sont ceux de la manette de la salle:
+  // une salle Xbox 360 n'a ni Home, ni Capture, ni gyroscope à regretter.
+  expect(texte).toContain("Le bouton Guide n'est pas disponible.");
+  expect(texte).not.toContain("Home, Capture");
+});
+
+/** Le nom du fichier que « Exporter » propose, lu sur le lien que le panneau clique. */
+function fichierExporte(console: string): string {
+  prepare(console);
+  const noms: string[] = [];
+  const createObjectURL = vi.fn(() => "blob:essai");
+  Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+  const clic = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(function (this: HTMLAnchorElement) {
+      noms.push(this.download);
+    });
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "Exporter" }));
+  } finally {
+    clic.mockRestore();
+  }
+  expect(createObjectURL).toHaveBeenCalledOnce();
+  return noms.join(",");
+}
+
+it("exporte un profil Xbox 360 sous le nom de sa console", () => {
+  expect(fichierExporte("x360")).toBe("nel3ab-profil-x360.json");
+});
+
+it("le jumeau: un profil Switch garde le sien", () => {
+  expect(fichierExporte("switch")).toBe("nel3ab-profil-switch.json");
 });
 
 it("le jumeau: une salle Switch garde la manette Pro", () => {

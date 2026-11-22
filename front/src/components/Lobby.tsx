@@ -17,7 +17,7 @@ import { PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
 import { LobbyPlan } from "./LobbyPlan";
-import { placesLibres, SORTIES } from "../lib/mots";
+import { ENTREES, placesLibres, SORTIES } from "../lib/mots";
 import { salonAuDessus } from "../lib/entree";
 
 /* `salonAuDessus` vit dans `lib/entree`, avec la sortie qu'il décide. Réexporté
@@ -135,7 +135,7 @@ export function Lobby({
           )}
           style={peinture ? { borderColor: peinture.sourde, color: peinture.encre } : undefined}
         >
-          {free === 0 && seats.length > 0 ? "salle pleine" : "entrer et jouer"}
+          {free === 0 && seats.length > 0 ? "salle pleine" : ENTREES.rejoindre}
         </button>
         <button
           type="button"
@@ -147,7 +147,7 @@ export function Lobby({
           )}
           style={peinture ? { borderColor: peinture.sourde, color: peinture.sourde } : undefined}
         >
-          regarder
+          {ENTREES.regarder}
         </button>
       </div>
       <p

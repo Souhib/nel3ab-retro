@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RecoveryNotice } from "../lib/room";
+import { placeN } from "../lib/mots";
 import type { MenuAction } from "../media/menupad";
 
 /** Le silence autorise une confirmation, il ne déclenche aucune prise. */
@@ -62,7 +63,7 @@ export function Recovery({
     return () => pad(null);
   }, [pad, notice, left, onAction]);
   if (!notice && !error) return null;
-  const subject = notice?.port ? `la manette ${notice.port}` : "le rôle de chef";
+  const subject = notice?.port ? `la ${placeN(notice.port)}` : "le rôle de chef";
   const run = (action: string, ok?: boolean) => {
     setBusy(true);
     void onAction({ action, id: notice?.id, ok }).finally(() => setBusy(false));

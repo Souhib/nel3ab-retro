@@ -36,6 +36,11 @@ regarder quand une touche s'allume au mauvais endroit.
 | gauche | `readPad` (`media/pad.ts`) | ce que le **jeu** reçoit, après correspondance |
 | droite | `heldOn` (`lib/wiring.ts`) | ce qu'on **appuie**, sans rien traduire |
 
+Le schéma de gauche s'intitule « Ce que le jeu reçoit » depuis le 22 novembre
+2026. Il disait « Après correspondance », un mot d'atelier que l'audit des
+textes a relevé (`lib/mots.ts` le refuse maintenant). Seul le titre a changé:
+les deux côtés lisent toujours deux choses différentes.
+
 L'écart entre les deux est toute l'information: une pièce allumée à droite et pas
 à gauche dit que la correspondance manque. **Si les deux lisaient la même chose,
 l'écran n'apprendrait rien.** Ne pas « simplifier » en faisant passer la droite

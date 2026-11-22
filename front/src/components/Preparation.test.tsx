@@ -118,6 +118,66 @@ it("le chef lance sans attendre un absent, après le délai", async () => {
   }
 });
 
+it("le délai part de l'arrivée du dernier absent, pas de l'ouverture du panneau", async () => {
+  // Relecture du 22 novembre 2026: quelqu'un qui s'assoit à 19 s pouvait être
+  // lancé sans lui à 20 s. Le salon compte depuis son arrivée; la page aussi.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    const input = new InputStream((s) => s, vi.fn(), vi.fn());
+    vi.spyOn(input, "attribution").mockReturnValue("alice");
+    const panneau = (players: Pending["players"]) => (
+      <Preparation
+        pending={{ ...pending, players }}
+        game={{ index: 1, name: "Mario Kart Wii", console: "wii" }}
+        input={input}
+        state={input.state()}
+        selected={1}
+        onSelect={vi.fn()}
+        send={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+    const benoitPret = { ...pending.players[1], ready: true, pad: 1 };
+    const vue = render(panneau([pending.players[0], benoitPret]));
+    await act(async () => {
+      vi.advanceTimersByTime(19_000);
+    });
+    const cleo = { port: 3, claim: "cleo", name: "Cléo", pad: null, ready: false };
+    vue.rerender(panneau([pending.players[0], benoitPret, cleo]));
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+    // 21 s après l'ouverture, 2 s après l'arrivée de Cléo: pas encore.
+    expect(screen.getByText("En attente de Cléo.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /sans attendre/ })).toBeNull();
+    // Le jumeau: vingt secondes après SON arrivée, le chef peut lancer sans elle.
+    await act(async () => {
+      vi.advanceTimersByTime(19_000);
+    });
+    expect(screen.getByRole("button", { name: "Lancer sans attendre Cléo" })).toBeVisible();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("l'attente d'un prénom à voyelle s'élide", () => {
+  const input = new InputStream((s) => s, vi.fn(), vi.fn());
+  vi.spyOn(input, "attribution").mockReturnValue("alice");
+  render(
+    <Preparation
+      pending={{
+        ...pending,
+        players: [pending.players[0], { ...pending.players[1], name: "Éloi" }],
+      }}
+      input={input}
+      state={input.state()}
+      selected={1}
+      onSelect={vi.fn()}
+      send={vi.fn().mockResolvedValue(undefined)}
+    />,
+  );
+  expect(screen.getByText("En attente d'Éloi.")).toBeVisible();
+});
+
 it("les autres confirment, et ne lancent pas", () => {
   rendre("benoit", false);
   expect(screen.getByRole("button", { name: "Je suis prêt" })).toBeVisible();

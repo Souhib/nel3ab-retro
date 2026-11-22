@@ -11,7 +11,16 @@
  *   `aria-label`, `placeholder`, `alt`) et, sur un composant de la page, ceux
  *   qui portent un texte (`label`, `hint`, `value`, `unit`, `note`...);
  * - les propriétés d'objet du même nom: les entrées du menu sont des objets;
- * - le message d'une `Error`, et l'argument des fonctions qui posent un avis.
+ * - le message d'une `Error`, et l'argument des fonctions qui posent un avis;
+ * - une constante, en capitales OU en minuscules, dont une utilisation arrive
+ *   à l'un des endroits ci-dessus (`const pourquoi = "…"` puis
+ *   `hint={pourquoi}`);
+ * - les éléments d'un tableau que la page dessine (`[…].map(… => <span>…)`).
+ *
+ * Un gabarit (`${n} places libres`) est lu deux fois, ses trous remplis par
+ * « 2 » puis par rien (`lectures`): « … manette… libre… » ne ressemblait à
+ * aucun mot refusé, et « 2 manettes libres » s'affichait (relecture du
+ * 22 novembre 2026).
  *
  * Une chaîne comparée (`state === "running"`) n'est pas visible: elle est le
  * test, pas le texte. Un commentaire non plus, et c'est pour ça qu'on passe par
@@ -38,6 +47,10 @@ export type Chaine = {
   fichier: string;
   ligne: number;
   texte: string;
+  /** Les textes à juger: le texte lui-même, ou, pour un gabarit, ses trous
+   * remplis par « 2 » puis par rien. `texte` garde les points de suspension
+   * pour le rapport. */
+  lectures?: string[];
   /** Vrai sous `<MesuresTechniques>` ou dans un fichier technique. */
   technique: boolean;
 };
@@ -74,24 +87,101 @@ const AVIS = /^(?:set\w*(?:Error|Notice)|setNotice|pour|chefChoisit|chefAbsent)$
 
 function texteDe(noeud: ts.Node): string | null {
   if (ts.isStringLiteral(noeud) || ts.isNoSubstitutionTemplateLiteral(noeud)) return noeud.text;
-  if (ts.isTemplateExpression(noeud))
-    return noeud.head.text + noeud.templateSpans.map((span) => `…${span.literal.text}`).join("");
+  if (ts.isTemplateExpression(noeud)) return gabarit(noeud, "…");
   return null;
+}
+
+/** Un gabarit, chaque trou remplacé par `trou`. */
+function gabarit(noeud: ts.TemplateExpression, trou: string): string {
+  return (
+    noeud.head.text + noeud.templateSpans.map((span) => `${trou}${span.literal.text}`).join("")
+  );
+}
+
+/** Ce que l'essai juge: deux lectures d'un gabarit, sinon le texte.
+ *
+ * « 2 » fait voir `manette ${n}` comme « manette 2 »; rien fait voir
+ * `manette${s} libre${s}` comme « manette libre ». Aucune des deux ne suffit
+ * seule. */
+function lecturesDe(noeud: ts.Node, texte: string): string[] {
+  return ts.isTemplateExpression(noeud) ? [gabarit(noeud, "2"), gabarit(noeud, "")] : [texte];
+}
+
+/** Le rappel d'un `.map` dessine-t-il du JSX ? Alors le tableau est montré. */
+function dessine(appel: ts.Node): boolean {
+  if (!ts.isCallExpression(appel)) return false;
+  let trouve = false;
+  const chercher = (n: ts.Node) => {
+    if (trouve) return;
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) {
+      trouve = true;
+      return;
+    }
+    ts.forEachChild(n, chercher);
+  };
+  for (const argument of appel.arguments) chercher(argument);
+  return trouve;
+}
+
+/** Une constante dont au moins une utilisation arrive à l'écran.
+ *
+ * `vus` évite de tourner en rond sur `const a = b; const b = a;`. */
+function utiliseeVisiblement(
+  declaration: ts.VariableDeclaration,
+  lexique: boolean,
+  vus: Set<string>,
+): boolean {
+  if (!ts.isIdentifier(declaration.name)) return false;
+  const nom = declaration.name.text;
+  if (vus.has(nom)) return false;
+  const suite = new Set(vus).add(nom);
+  let montre = false;
+  const chercher = (n: ts.Node) => {
+    if (montre) return;
+    if (ts.isIdentifier(n) && n.text === nom && n !== declaration.name) {
+      // `objet.nom` n'est pas cette constante, c'est une propriété homonyme.
+      const propriete = ts.isPropertyAccessExpression(n.parent) && n.parent.name === n;
+      if (!propriete && visible(n, lexique, suite)) {
+        montre = true;
+        return;
+      }
+    }
+    ts.forEachChild(n, chercher);
+  };
+  chercher(declaration.getSourceFile());
+  return montre;
 }
 
 /** La chaîne est-elle montrée? Remonte les parents jusqu'à ce qui la reçoit.
  *
  * `lexique` vaut pour `lib/mots.ts`, où une table en capitales est une table de
  * mots. Ailleurs, la même forme range des codes (`frame: "dolphin"`). */
-function visible(noeud: ts.Node, lexique: boolean): boolean {
+function visible(noeud: ts.Node, lexique: boolean, vus: Set<string> = new Set()): boolean {
   let ici: ts.Node = noeud;
   let parent: ts.Node | undefined = noeud.parent;
+  /** Arrivé là par un élément de tableau: une constante en capitales ne suffit
+   * plus, il faut que le tableau soit dessiné (`FRAMES = ["dolphin"]`). */
+  let parTableau = false;
   while (parent) {
     if (ts.isParenthesizedExpression(parent) || ts.isAsExpression(parent)) {
       ici = parent;
       parent = parent.parent;
       continue;
     }
+    if (ts.isArrayLiteralExpression(parent)) {
+      parTableau = true;
+      ici = parent;
+      parent = parent.parent;
+      continue;
+    }
+    // `[…].map((x) => <span>{x}</span>)`, ou `LIGNES.map(…)`: le tableau est
+    // dessiné. Un `.includes(…)` ou un `.find(…)` l'interroge seulement.
+    if (
+      ts.isPropertyAccessExpression(parent) &&
+      parent.expression === ici &&
+      parent.name.text === "map"
+    )
+      return dessine(parent.parent);
     if (ts.isConditionalExpression(parent)) {
       if (parent.condition === ici) return false;
       ici = parent;
@@ -137,8 +227,11 @@ function visible(noeud: ts.Node, lexique: boolean): boolean {
       // Une table de mots: `const IMAGE = { legere: "image légère" } as const`.
       return lexique && constanteDeTexte(parent.parent.parent);
     }
-    if (ts.isVariableDeclaration(parent))
-      return parent.initializer === ici && CONSTANTE.test(parent.name.getText());
+    if (ts.isVariableDeclaration(parent)) {
+      if (parent.initializer !== ici) return false;
+      if (!parTableau && CONSTANTE.test(parent.name.getText())) return true;
+      return utiliseeVisiblement(parent, lexique, vus);
+    }
     if (ts.isNewExpression(parent)) return parent.expression.getText() === "Error";
     if (ts.isCallExpression(parent)) return AVIS.test(parent.expression.getText());
     if (ts.isReturnStatement(parent) || ts.isArrowFunction(parent)) return true;
@@ -209,6 +302,7 @@ export function chainesDe(
       fichier,
       ligne: arbre.getLineAndCharacterOfPosition(noeud.getStart()).line + 1,
       texte,
+      lectures: lecturesDe(noeud, texte),
       technique: toutTechnique || sousLePli(noeud),
     });
   const visiter = (noeud: ts.Node) => {

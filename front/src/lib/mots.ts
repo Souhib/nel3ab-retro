@@ -27,15 +27,21 @@
  * # Le lexique
  *
  * - **place**: l'emplacement 1 à 4. « place 2 », « 2 places libres »,
- *   « prendre une place », « rendre ma place ».
+ *   « Prendre une place », « Rendre ma place » (`PLACE`).
  * - **manette**: l'objet qu'on tient, et lui seul. « Aucune manette détectée. »
  * - **P1 à P4**: la pastille de couleur d'une place, jamais un nom.
- * - **chef**: la personne qui choisit le jeu. « Le chef choisit le jeu. »
+ * - **chef**: la personne qui choisit le jeu. « Bo choisit le jeu. »
  * - **nouvelle partie**, **tout débloqué**, **ma sauvegarde**: les trois
  *   sauvegardes. Aux autres: « la sauvegarde de Bo ».
  * - **image complète**, **image légère**: les deux qualités de l'image.
- * - **regarder**: être là sans place.
+ * - **rejoindre**, **regarder**: les deux façons d'entrer (`ENTREES`), sur
+ *   l'accueil des salles comme dans l'avant-salle.
  * - **quitter la salle**: la seule sortie, vers les autres salles.
+ *
+ * Un geste du lexique ne s'écrit qu'ici: `mots.test.ts` refuse la même phrase
+ * écrite en dur ailleurs. Le menu les écrit en minuscules (`enMenu`), comme
+ * toutes ses entrées; une colonne ou un panneau les écrit avec leur majuscule
+ * de bouton (charte, règle 5). Le mot reste le même.
  */
 
 /** Une place, par son numéro. */
@@ -47,14 +53,23 @@ export function placesLibres(nombre: number): string {
   return nombre === 1 ? "1 place libre" : `${nombre} places libres`;
 }
 
-/** Combien de places sont prises. */
-export function placesPrises(nombre: number): string {
-  if (nombre <= 0) return "aucune place prise";
-  return nombre === 1 ? "1 place prise" : `${nombre} places prises`;
-}
+/** Prendre ou rendre sa place: les deux gestes d'une place, partout. */
+export const PLACE = {
+  prendre: "Prendre une place",
+  rendre: "Rendre ma place",
+} as const;
 
-/** Le rôle du chef, dit une fois et en clair (audit T12). */
-export const CHEF = "Le chef choisit le jeu.";
+/** Les deux façons d'entrer dans une salle.
+ *
+ * L'accueil des salles disait « Rejoindre » et l'avant-salle « entrer et
+ * jouer » pour le même geste (relecture du 22 novembre 2026). */
+export const ENTREES = {
+  rejoindre: "Rejoindre",
+  regarder: "Regarder",
+} as const;
+
+/** Un geste du lexique, écrit comme une entrée du menu: en minuscules. */
+export const enMenu = (geste: string): string => geste.charAt(0).toLowerCase() + geste.slice(1);
 
 /** Qui choisit le jeu. */
 export const chefChoisit = (nom: string): string => `${nom} choisit le jeu.`;
@@ -72,13 +87,26 @@ export const SAUVEGARDES = {
   perso: "ma sauvegarde",
 } as const;
 
-/** « de Bo », « d'Ami »: l'élision devant une voyelle ou un h muet supposé. */
-export function de(nom: string): string {
-  return /^[aeiouyhàâäéèêëîïôöùûü]/i.test(nom) ? `d'${nom}` : `de ${nom}`;
-}
+/** Les voyelles qui font élider « de ». */
+const VOYELLES = "aeiouàâäéèêëîïôöùûüœæ";
 
-/** La sauvegarde de quelqu'un d'autre, vue par les autres joueurs. */
-export const sauvegardeDe = (nom: string): string => `la sauvegarde ${de(nom)}`;
+/** « de Bo », « d'Ami »: l'élision d'un prénom.
+ *
+ * Devant une voyelle. Devant un « y » seulement s'il sonne comme une voyelle,
+ * c'est-à-dire suivi d'une consonne: « d'Yves », mais « de Yassine ». Jamais
+ * devant un « h »: la page ne sait pas s'il est muet, et « de Hamza » se lit
+ * bien quand « d'Hamza » se lit mal. La première règle élidait devant tout
+ * « y » et tout « h » (relecture du 22 novembre 2026).
+ *
+ * Le salon élide de la même façon (`handlers.de`); les deux lisent la même
+ * table d'exemples (`test/elisions.json`). */
+export function de(nom: string): string {
+  const premiere = nom.charAt(0).toLowerCase();
+  const seconde = nom.charAt(1).toLowerCase();
+  const voyelle = premiere !== "" && VOYELLES.includes(premiere);
+  const y = premiere === "y" && seconde !== "" && !`${VOYELLES}y`.includes(seconde);
+  return voyelle || y ? `d'${nom}` : `de ${nom}`;
+}
 
 /** L'image, ses deux qualités, et un seul prix.
  *
@@ -95,8 +123,19 @@ export const IMAGE = {
   reglage: "qualité de l'image",
   complete: "image complète",
   legere: "image légère",
-  prix: "environ 2,6 fois moins de débit",
 } as const;
+
+/** Ce que l'image légère coûte en moins, dit seulement là où on l'a mesuré.
+ *
+ * Le 2,6 vient d'une course Dolphin. Une salle Switch ou Xbox 360 envoie du
+ * 1280 × 720 avec un autre codeur, et personne ne l'a mesurée: lui donner le
+ * même chiffre serait affirmer une mesure qui n'existe pas (CLAUDE.md, règle 1,
+ * relecture du 22 novembre 2026). Ailleurs, l'effet sans le chiffre.
+ *
+ * `moteur` est celui du manifeste (`consoles.json`, `engine`). */
+export function prixImageLegere(moteur: string | null | undefined): string {
+  return moteur === "dolphin" ? "environ 2,6 fois moins de débit" : "moins de débit";
+}
 
 /** Les sorties, chacune sous un seul nom (audit P8). */
 export const SORTIES = {
@@ -104,9 +143,20 @@ export const SORTIES = {
   quitter: "Quitter la salle",
   /** Le lien vers la liste des salles, depuis l'avant-salle. */
   autres: "autres salles",
-  /** Rester dans la salle sans place. */
-  regarder: "Regarder",
 } as const;
+
+/** Les phrases du lexique qui ne s'écrivent qu'ici: `mots.test.ts` refuse la
+ * même phrase écrite en dur dans une autre source. `saves.ts` garde les trois
+ * sauvegardes en clair, parce que le salon les y lit octet pour octet; un
+ * essai vérifie qu'elles sont celles de `SAUVEGARDES`. */
+export const LEXIQUE: readonly string[] = [
+  ...Object.values(PLACE),
+  ...Object.values(ENTREES),
+  ...Object.values(SORTIES),
+  ...Object.values(SAUVEGARDES),
+  IMAGE.complete,
+  IMAGE.legere,
+];
 
 /** Quand une demande reste sans réponse.
  *
@@ -191,7 +241,7 @@ export const REMPLACES: readonly { motif: RegExp; mot: string; raison: string }[
   { motif: /qualité reçue/i, mot: "qualité reçue", raison: `dire « ${IMAGE.reglage} »` },
   { motif: /partie neuve/i, mot: "partie neuve", raison: `dire « ${SAUVEGARDES.neuve} »` },
   {
-    motif: /prendre une manette/i,
+    motif: /pren(?:dre|ds|ez) une manette/i,
     mot: "prendre une manette",
     raison: "dire « prendre une place »",
   },
@@ -209,6 +259,11 @@ export const REMPLACES: readonly { motif: RegExp; mot: string; raison: string }[
     raison: "dire « demande ta place »",
   },
   { motif: /décide du jeu/i, mot: "décide du jeu", raison: "dire « choisit le jeu »" },
+  {
+    motif: /après correspondance/i,
+    mot: "après correspondance",
+    raison: "dire « ce que le jeu reçoit »",
+  },
 ];
 
 /** Le tiret cadratin, refusé partout par les règles du dépôt. Écrit par son
@@ -224,12 +279,14 @@ const CADRATIN = String.fromCodePoint(0x2014);
  */
 export function fautes(texte: string, technique = false): Faute[] {
   const trouvees: Faute[] = [];
+  const noter = (faute: Faute) => {
+    if (!trouvees.some((une) => une.mot === faute.mot)) trouvees.push(faute);
+  };
   if (!technique)
     for (const regle of ATELIER)
-      if (regle.motif.test(texte)) trouvees.push({ mot: regle.mot, raison: regle.raison });
+      if (regle.motif.test(texte)) noter({ mot: regle.mot, raison: regle.raison });
   for (const regle of REMPLACES)
-    if (regle.motif.test(texte)) trouvees.push({ mot: regle.mot, raison: regle.raison });
-  if (texte.includes(CADRATIN))
-    trouvees.push({ mot: "tiret cadratin", raison: "une virgule ou un point" });
+    if (regle.motif.test(texte)) noter({ mot: regle.mot, raison: regle.raison });
+  if (texte.includes(CADRATIN)) noter({ mot: "tiret cadratin", raison: "une virgule ou un point" });
   return trouvees;
 }

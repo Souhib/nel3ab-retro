@@ -66,7 +66,7 @@ export function Wiring({
       <div className="n3-controller-pair">
         <PadMapView
           map={emulated}
-          title="Après correspondance"
+          title="Ce que le jeu reçoit"
           note={emulated.name}
           selected={pieceFor(selected)}
           waiting={waiting ? pieceFor(waiting) : null}

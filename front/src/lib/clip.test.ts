@@ -165,3 +165,11 @@ describe("l'aide visible (audit T10)", () => {
     expect(micAide("refused")).toContain("refusé");
   });
 });
+
+it("ne coupe jamais un nombre de son unité", () => {
+  // Le jumeau du libellé: une espace ordinaire laissait le « s » seul à la
+  // ligne dans la colonne d'un téléphone.
+  expect(clipLabel({ phase: "prêt" })).toBe("clip des 45\u00a0s");
+  expect(clipLabel({ phase: "attendre", seconds: 12 })).toBe("encore 12\u00a0s");
+  expect(clipLabel({ phase: "prêt" })).not.toContain("45 s");
+});

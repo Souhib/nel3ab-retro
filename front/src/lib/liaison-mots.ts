@@ -14,7 +14,7 @@
  */
 import type { Pose } from "../bobine/Bobine";
 import type { Liaison } from "../media/liaison";
-import { IMAGE } from "./mots";
+import { prixImageLegere } from "./mots";
 
 /** Les gestes qu'un état propose, nommés par ce qu'ils font. */
 export type Action =
@@ -60,7 +60,10 @@ const RIEN: Dit = { niveau: "rien", pose: "repos", titre: "", actions: [] };
 
 const enSecondes = (ms: number) => Math.max(0, Math.floor(ms / 1000));
 
-export function dire(liaison: Liaison, salle: number): Dit {
+/** Ce que la page dit d'un état. `moteur` est celui de la console du jeu
+ * (`consoles.moteurDe`): il décide si le prix de l'image légère est un chiffre
+ * mesuré ou un effet. */
+export function dire(liaison: Liaison, salle: number, moteur: string | null = null): Dit {
   switch (liaison.etat) {
     case "ok":
     case "cachee":
@@ -198,7 +201,8 @@ export function dire(liaison: Liaison, salle: number): Dit {
         niveau: "proposition",
         pose: "repos",
         titre: "Ton image saute depuis vingt secondes.",
-        detail: `L'image légère demande ${IMAGE.prix}.`,
+        // Le chiffre n'est dit que là où il a été mesuré (`prixImageLegere`).
+        detail: `L'image légère demande ${prixImageLegere(moteur)}.`,
         actions: ["reduire", "garder"],
       };
   }

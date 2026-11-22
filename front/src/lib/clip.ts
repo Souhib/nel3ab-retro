@@ -95,13 +95,16 @@ export function clipLabel(state: ClipState): string {
     case "en cours":
       return "on emballe…";
     case "attendre":
-      return `encore ${state.seconds} s`;
+      return `encore ${state.seconds}\u00a0s`;
     case "fait":
       return "clip prêt";
     case "raté":
       return "raté";
     default:
-      return "clip des 45 s";
+      // Une espace insécable entre le nombre et son unité: dans la colonne
+      // d'un téléphone, le « s » passait seul à la ligne (relecture du
+      // 22 novembre 2026).
+      return "clip des 45\u00a0s";
   }
 }
 

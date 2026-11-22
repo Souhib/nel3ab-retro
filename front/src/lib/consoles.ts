@@ -53,6 +53,14 @@ export function consoleName(code: string | undefined): string | null {
   return described(code)?.label ?? null;
 }
 
+/** Le moteur qui fait tourner la console, d'après le manifeste (`engine`):
+ * « dolphin », « ryubing », « eden », « xenia ». Nul pour un code inconnu. Lu
+ * pour ne donner un chiffre mesuré que là où il a été mesuré
+ * (`mots.prixImageLegere`). */
+export function moteurDe(code: string | undefined): string | null {
+  return described(code)?.engine ?? null;
+}
+
 /** La console parle la trame de manette Pro: pavé tactile, écran de liaison,
  * blocage des entrées pendant la configuration. Le premier sens de l'ancien
  * `isSwitchConsole`. */

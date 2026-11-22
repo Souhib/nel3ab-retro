@@ -16,6 +16,7 @@ import { useEffect, useRef } from "react";
 import { Bobine } from "../bobine/Bobine";
 import type { GardeSignalement } from "../lib/garde-signalement";
 import { dire, type Action } from "../lib/liaison-mots";
+import { SORTIES } from "../lib/mots";
 import type { Liaison } from "../media/liaison";
 import { Signaler } from "./Signaler";
 import "./etat-salle.css";
@@ -30,6 +31,7 @@ export type Cadre = { top: number; left: number; width: number; height: number }
 export function EtatSalle({
   liaison,
   salle,
+  moteur = null,
   cadre = null,
   onRelancer,
   onReessayer,
@@ -42,6 +44,9 @@ export function EtatSalle({
 }: {
   liaison: Liaison;
   salle: number;
+  /** Le moteur de la console du jeu: le prix de l'image légère n'est un
+   * chiffre que là où il a été mesuré (`mots.prixImageLegere`). */
+  moteur?: string | null;
   /** Le rectangle de l'image, ou `null` quand elle n'a pas encore de taille:
    * l'état prend alors toute la zone. Mesuré sur un téléphone en portrait le
    * 22 novembre 2026: posé en haut de `<main>`, le bandeau couvrait la rangée
@@ -64,7 +69,7 @@ export function EtatSalle({
    * moment où le journal peut écrire « proposé » (audit E3). */
   onPropositionVue: () => void;
 }) {
-  const dit = dire(liaison, salle);
+  const dit = dire(liaison, salle, moteur);
   if (dit.niveau === "rien") return null;
 
   const geste = (action: Action) => {
@@ -112,7 +117,7 @@ export function EtatSalle({
             className="n3-action"
             onClick={onQuitter}
           >
-            Quitter la salle
+            {SORTIES.quitter}
           </button>
         );
       case "salles":

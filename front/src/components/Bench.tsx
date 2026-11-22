@@ -82,7 +82,9 @@ export function Bench({
 
       <div className="flex flex-wrap gap-x-5 gap-y-1">
         {[
-          ["port", index === null ? "—" : String(index)],
+          // « numéro » et non « port »: le mot d'atelier est réservé aux mesures
+          // techniques, et le banc est monté dans l'écran des touches.
+          ["numéro", index === null ? "–" : String(index)],
           ["disposition", layout],
           ["boutons", String(buttons)],
           ["axes", String(axes)],

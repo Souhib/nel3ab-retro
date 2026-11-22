@@ -53,7 +53,7 @@ it("un accord permet de reprendre tout de suite la manette nommée", () => {
   const { rerender } = render(
     <Recovery notice={{ ...notice, port: 2 }} error="" onAction={vi.fn()} onClose={() => {}} />,
   );
-  expect(screen.getByText("Reprendre la manette 2")).toBeVisible();
+  expect(screen.getByText("Reprendre la place 2")).toBeVisible();
   expect(screen.getByRole("button", { name: "reprendre maintenant" })).toBeDisabled();
   rerender(
     <Recovery

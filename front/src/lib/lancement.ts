@@ -22,14 +22,83 @@
 import type { Participant, Preparation } from "../client";
 import { consoleName } from "./consoles";
 import { deviceLabel } from "./faces";
-import { padLabel } from "./saves";
+import { de } from "./mots";
+import { padLabel, slotLabel } from "./saves";
 
 /** Après combien de temps le chef peut lancer sans un joueur.
  *
- * Le même que le salon (`ATTENTE_SANS`, vingt secondes). La page compte depuis
- * qu'ELLE voit la préparation, donc toujours après le salon: elle ne propose
- * jamais un geste que le salon refuserait pour cause de hâte. */
+ * Le même que le salon (`ATTENTE_SANS`, vingt secondes), compté comme lui
+ * depuis l'ARRIVÉE du dernier absent (`attenteDesAbsents`). La page compte
+ * depuis qu'ELLE voit arriver chacun, donc toujours après le salon: elle ne
+ * propose jamais un geste que le salon refuserait pour cause de hâte. */
 export const ATTENTE_SANS_MS = 20_000;
+
+/** Quand cette page a vu arriver chaque joueur d'une préparation. */
+export type Arrivees = {
+  readonly id: string | undefined;
+  readonly vus: ReadonlyMap<string, number>;
+};
+
+/** Retient l'arrivée des nouveaux joueurs, et garde celle des autres.
+ *
+ * Une autre préparation repart de zéro. Rend le MÊME objet quand rien n'a
+ * changé: le salon renvoie la salle entière à chaque mouvement, et un état
+ * React neuf à chaque message redessinerait le panneau pour rien. */
+export function retenirArrivees(
+  avant: Arrivees | null,
+  pending: Pick<Preparation, "id" | "players">,
+  maintenant: number,
+): Arrivees {
+  const memes = avant !== null && avant.id === pending.id;
+  const nouveaux = pending.players.filter((one) => !memes || !avant.vus.has(one.claim));
+  if (memes && nouveaux.length === 0) return avant;
+  const vus = new Map(memes ? avant.vus : []);
+  for (const one of nouveaux) vus.set(one.claim, maintenant);
+  return { id: pending.id, vus };
+}
+
+/** Depuis combien de temps on attend, pour « Lancer sans attendre ».
+ *
+ * Depuis l'arrivée du DERNIER absent: quelqu'un qui s'assoit à 19 s se prépare
+ * peut-être encore à 20 s (relecture du 22 novembre 2026). Un absent que la
+ * page n'a pas encore vu arrive maintenant. */
+export function attenteDesAbsents(
+  pending: Pick<Preparation, "starter" | "players">,
+  arrivees: Arrivees,
+  maintenant: number,
+): number {
+  const absents = pending.players.filter((one) => one.claim !== pending.starter && !one.ready);
+  if (absents.length === 0) return 0;
+  const dernier = Math.max(...absents.map((one) => arrivees.vus.get(one.claim) ?? maintenant));
+  return Math.max(0, maintenant - dernier);
+}
+
+/** La console dont l'écran des touches dessine les commandes.
+ *
+ * Celle du jeu PRÉPARÉ pendant une préparation, sinon celle du jeu en cours.
+ * L'écran recevait « wii » en dur dès qu'une préparation existait: une
+ * préparation GameCube montrait les commandes d'un jeu Wii (audit T04). La Wii
+ * ne reste que le repli d'un jeu préparé que la salle ne connaît pas. */
+export function consoleDesTouches(
+  enPreparation: boolean,
+  consolePreparee: string | undefined,
+  consoleEnCours: string | undefined,
+): string {
+  return enPreparation ? (consolePreparee ?? "wii") : (consoleEnCours ?? "gc");
+}
+
+/** Ce que l'écran de chargement dit de la sauvegarde.
+ *
+ * Le salon écrit « la sauvegarde de Bo » pour tout le monde; celui qui a lancé
+ * lit son propre mot, « ma sauvegarde » (audit T06). `moi` est l'attribution
+ * de cette page. */
+export function sauvegardeAnnoncee(
+  annonce: { save: string; saveSlot?: number; starter?: string },
+  moi: string | null | undefined,
+): string {
+  const mienne = annonce.saveSlot === 2 && moi != null && annonce.starter === moi;
+  return mienne ? slotLabel(2) : annonce.save;
+}
 
 /** L'en-tête: la console du jeu préparé, jamais une console écrite en dur. */
 export function titrePreparation(console: string | undefined): string {
@@ -103,7 +172,7 @@ export function gestesDuLancement(
               }${nomAppareil(pending.allowed[0], console)}.`,
             }
           : null,
-      attente: pret ? null : `En attente de ${nomsAbsents}.`,
+      attente: pret ? null : `En attente ${de(nomsAbsents)}.`,
     };
   }
   return {

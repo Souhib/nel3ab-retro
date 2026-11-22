@@ -42,6 +42,20 @@ const TOUS: Liaison[] = [
   { etat: "arrivee", etape: "salle", depuisMs: 16_000, perdue: true, salleRepond: false },
 ];
 
+describe("le prix de l'image légère, dans la proposition", () => {
+  it("donne le chiffre mesuré à une salle Dolphin", () => {
+    expect(dire({ etat: "irreguliere" }, 1, "dolphin").detail).toBe(
+      "L'image légère demande environ 2,6 fois moins de débit.",
+    );
+  });
+  it("jumeau: une salle Switch ou Xbox 360 n'a pas de chiffre, faute de mesure", () => {
+    for (const moteur of ["ryubing", "xenia", null])
+      expect(dire({ etat: "irreguliere" }, 1, moteur).detail).toBe(
+        "L'image légère demande moins de débit.",
+      );
+  });
+});
+
 describe("ce que Bobine dit de l'image figée", () => {
   it("la phrase du 21 novembre: une durée, un fait, deux actions", () => {
     const dit = dire(figee(14_000), 1);

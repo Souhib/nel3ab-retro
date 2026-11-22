@@ -7,10 +7,14 @@ import { describe, expect, it } from "vitest";
 import type { Preparation } from "../client";
 import {
   ATTENTE_SANS_MS,
+  attenteDesAbsents,
   choixAppareil,
+  consoleDesTouches,
   enUneListe,
   gestesDuLancement,
   ligneJoueur,
+  retenirArrivees,
+  sauvegardeAnnoncee,
   titrePreparation,
 } from "./lancement";
 
@@ -148,4 +152,68 @@ it("met des noms en une phrase", () => {
   expect(enUneListe(["Bo", "Cleo"])).toBe("Bo et Cleo");
   expect(enUneListe(["Bo", "Cleo", "Dami"])).toBe("Bo, Cleo et Dami");
   expect(enUneListe([])).toBe("");
+});
+
+describe("l'écran des touches pendant une préparation", () => {
+  it("dessine la console du jeu préparé, pas la Wii (audit T04)", () => {
+    expect(consoleDesTouches(true, "gc", "wii")).toBe("gc");
+    expect(consoleDesTouches(true, "x360", undefined)).toBe("x360");
+    // Le jumeau: sans préparation, la console du jeu en cours.
+    expect(consoleDesTouches(false, "gc", "wii")).toBe("wii");
+    // Les replis: un jeu préparé inconnu, une salle sans jeu.
+    expect(consoleDesTouches(true, undefined, "gc")).toBe("wii");
+    expect(consoleDesTouches(false, undefined, undefined)).toBe("gc");
+  });
+});
+
+describe("la sauvegarde annoncée au chargement", () => {
+  const annonce = { save: "la sauvegarde d'Ami", saveSlot: 2 as const, starter: AMI };
+
+  it("dit « ma sauvegarde » à qui a lancé", () => {
+    expect(sauvegardeAnnoncee(annonce, AMI)).toBe("ma sauvegarde");
+  });
+
+  it("garde le mot du salon pour les autres et pour les autres emplacements", () => {
+    expect(sauvegardeAnnoncee(annonce, BO)).toBe("la sauvegarde d'Ami");
+    expect(sauvegardeAnnoncee(annonce, null)).toBe("la sauvegarde d'Ami");
+    expect(sauvegardeAnnoncee({ save: "nouvelle partie", saveSlot: 0, starter: AMI }, AMI)).toBe(
+      "nouvelle partie",
+    );
+    // Un salon d'avant n'envoie pas `starter`: son mot reste.
+    expect(sauvegardeAnnoncee({ save: "reprendre", saveSlot: 2 }, AMI)).toBe("reprendre");
+  });
+});
+
+describe("l'attente d'un absent", () => {
+  it("part de l'arrivée du dernier absent", () => {
+    const p = preparation([0]);
+    const ouverture = retenirArrivees(null, p, 0);
+    expect(attenteDesAbsents(p, ouverture, ATTENTE_SANS_MS)).toBe(ATTENTE_SANS_MS);
+    p.players.push({ port: 3, claim: CLEO, name: "Cleo", ready: false, pad: null });
+    const tard = retenirArrivees(ouverture, p, 19_000);
+    expect(tard.vus.get(BO)).toBe(0);
+    expect(tard.vus.get(CLEO)).toBe(19_000);
+    expect(attenteDesAbsents(p, tard, ATTENTE_SANS_MS)).toBe(1_000);
+    expect(attenteDesAbsents(p, tard, 19_000 + ATTENTE_SANS_MS)).toBe(ATTENTE_SANS_MS);
+  });
+
+  it("ne compte pas un joueur prêt, ni le chef", () => {
+    const p = preparation([0], { [BO]: true });
+    p.players.push({ port: 3, claim: CLEO, name: "Cleo", ready: true, pad: 0 });
+    expect(attenteDesAbsents(p, retenirArrivees(null, p, 5_000), 30_000)).toBe(0);
+  });
+
+  it("rend le même objet quand personne n'arrive, et repart de zéro pour une autre préparation", () => {
+    const p = preparation([0]);
+    const a = retenirArrivees(null, p, 0);
+    expect(retenirArrivees(a, { ...p, players: [...p.players] }, 9_000)).toBe(a);
+    const autre = retenirArrivees(a, { ...p, id: "q" }, 9_000);
+    expect(autre.vus.get(BO)).toBe(9_000);
+  });
+
+  it("élide l'attente devant une voyelle", () => {
+    const p = preparation([0]);
+    p.players[1].name = "Éloi";
+    expect(gestesDuLancement(p, AMI, 0, "gc").attente).toBe("En attente d'Éloi.");
+  });
 });

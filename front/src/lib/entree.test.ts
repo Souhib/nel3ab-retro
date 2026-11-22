@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   adresseAvec,
   entreeDeLAdresse,
+  entreeDeLaSession,
   lienDInvitation,
+  retenirEntree,
   salonAuDessus,
   sortieVers,
 } from "./entree";
@@ -61,5 +63,55 @@ describe("l'invitation", () => {
     expect(entreeDeLAdresse(new URL(lienDInvitation("https://n.invalid", "/r/3/")).search)).toBe(
       "play",
     );
+  });
+});
+
+describe("l'adresse suit la place", () => {
+  // Relecture du 22 novembre 2026: entré pour regarder, puis assis, un
+  // rechargement rendait la place; entré pour jouer, puis levé, il la
+  // reprenait avant l'ami à qui on la laissait. L'adresse suit maintenant ce
+  // que la session fait, et non la porte par laquelle on est entré.
+  it("dit jouer pour qui tient ou demande une place, regarder sinon", () => {
+    expect(entreeDeLaSession(false)).toBe("play");
+    expect(entreeDeLaSession(true)).toBe("watch");
+  });
+
+  /** Une adresse et un historique de jeu: ce que `retenirEntree` réécrit. */
+  function faux(href: string) {
+    const ecrites: string[] = [];
+    const loc = { href };
+    const hist = {
+      state: { garde: 1 },
+      replaceState: (_etat: unknown, _titre: string, url: string) => {
+        ecrites.push(url);
+        loc.href = new URL(url, loc.href).href;
+      },
+    };
+    return { loc, hist, ecrites };
+  }
+
+  it("réécrit l'adresse quand la place change, sans étape d'historique", () => {
+    const { loc, hist, ecrites } = faux("https://x.invalid/r/1/?entrer=regarder");
+    retenirEntree("play", loc, hist);
+    expect(ecrites).toEqual(["/r/1/?entrer=jouer"]);
+    retenirEntree("watch", loc, hist);
+    expect(ecrites).toEqual(["/r/1/?entrer=jouer", "/r/1/?entrer=regarder"]);
+  });
+
+  it("ne réécrit rien quand l'adresse dit déjà la même chose", () => {
+    const { loc, hist, ecrites } = faux("https://x.invalid/r/1/?entrer=jouer");
+    retenirEntree("play", loc, hist);
+    expect(ecrites).toEqual([]);
+  });
+
+  it("laisse l'état en mémoire quand l'adresse refuse d'être réécrite", () => {
+    const loc = { href: "https://x.invalid/r/1/" };
+    const hist = {
+      state: null,
+      replaceState: () => {
+        throw new DOMException("refusé", "SecurityError");
+      },
+    };
+    expect(() => retenirEntree("play", loc, hist)).not.toThrow();
   });
 });

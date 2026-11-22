@@ -126,7 +126,7 @@ import {
 import type { Session, Snapshot } from "./media/session";
 import { clipLabel } from "./lib/clip";
 import { SwitchBindings } from "./components/SwitchBindings";
-import { CONSOLES, launchable, preparable, usesProInput } from "./lib/consoles";
+import { CONSOLES, launchable, moteurDe, preparable, usesProInput } from "./lib/consoles";
 import {
   PADS,
   launchPicks,
@@ -140,10 +140,23 @@ import {
   type Slot,
 } from "./lib/saves";
 import { useClip } from "./lib/useClip";
-import { IMAGE, SANS_REPONSE, chefAbsent, chefChoisit, placeN } from "./lib/mots";
 import {
-  adresseAvec,
+  IMAGE,
+  PLACE,
+  SANS_REPONSE,
+  chefAbsent,
+  chefChoisit,
+  enMenu,
+  placeN,
+  prixImageLegere,
+  SORTIES,
+} from "./lib/mots";
+import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
+import { consoleDesTouches, sauvegardeAnnoncee } from "./lib/lancement";
+import {
   entreeDeLAdresse,
+  entreeDeLaSession,
+  retenirEntree,
   lienDInvitation,
   sortieVers,
   type Entree,
@@ -187,11 +200,7 @@ export default function App() {
    * l'avant-salle de la même salle. */
   const entrer = (mode: Entree | null) => {
     setEntered(mode);
-    try {
-      history.replaceState(history.state, "", adresseAvec(location.href, mode));
-    } catch {
-      // Une adresse qu'on ne peut pas réécrire laisse l'état en mémoire.
-    }
+    retenirEntree(mode);
   };
   /** La personne a choisi d'entrer sans attendre le site. Voir `Ouverture`. */
   const [sansAttendre, setSansAttendre] = useState(false);
@@ -1026,15 +1035,9 @@ function Room({
    * plus l'adresse de personne, et le salon calcule `moi` pour CETTE page. Il
    * n'est jamais vrai sans identité, comme l'était `login !== null`. */
   const canClose = boss ? boss.moi === true : mine;
-  const away = mine && boss !== null && boss.moi !== true;
-  const whyNotChoose =
-    port === null
-      ? "prends une manette pour changer de jeu"
-      : mine
-        ? away
-          ? `${boss?.name ?? "quelqu'un"} ne joue plus: la salle est à qui la prend`
-          : null
-        : `${boss?.name ?? "quelqu'un"} décide du jeu dans cette salle`;
+  /** Ce que la page sait du rôle, lu par `lib/chef`: la règle y est testée. */
+  const role = { port, mine, chef: boss?.name ?? null, moi: boss?.moi === true };
+  const whyNotChoose = pourquoiPasChoisir(role);
 
   // De quoi prendre et céder une place, rendu à l'étage du dessus où vit la
   // socket du salon.
@@ -1061,10 +1064,7 @@ function Room({
           game: told.game,
           // Le salon écrit « la sauvegarde de Bo » pour tout le monde; celui
           // qui a lancé lit son propre mot, « ma sauvegarde » (audit T06).
-          save:
-            told.saveSlot === 2 && told.starter === session?.input.attribution()
-              ? slotLabel(2)
-              : told.save,
+          save: sauvegardeAnnoncee(told, session?.input.attribution()),
           at: performance.now(),
         });
         // Le menu et le dossier se ferment, comme sur le chemin local.
@@ -1112,6 +1112,17 @@ function Room({
   /** Regarde-t-on, en ce moment ? Lu sur la session et non sur `watching`, qui
    * ne dit que par quelle porte on est entré. */
   const watchingNow = shot?.input.watching ?? false;
+  /** L'adresse suit la session, pas la porte d'entrée (`lib/entree`).
+   *
+   * Entré pour regarder puis assis, un rechargement rendait la place; entré
+   * pour jouer puis levé, il la reprenait (relecture du 22 novembre 2026).
+   * Seulement l'adresse: l'état d'`App` garde la porte, et le changer
+   * reconstruirait la session. Attend le premier instantané, qui porte
+   * l'intention que la session a reçue à sa construction. */
+  const sessionVue = shot !== null;
+  useEffect(() => {
+    if (sessionVue) retenirEntree(entreeDeLaSession(watchingNow));
+  }, [sessionVue, watchingNow]);
   const picture = shot?.video.picture ?? { width: 0, height: 0 };
   /** Le format choisi. Gardé ici en plus de la session pour que le menu se
    * redessine tout de suite: l'instantané ne revient que deux fois par seconde,
@@ -1120,6 +1131,8 @@ function Room({
   const [half, setHalf] = useState(false);
   /** Les deux qualités, dites d'après l'image reçue: voir `qualities`. */
   const sizes = qualities(shot?.video.picture ?? { width: 0, height: 0 }, half);
+  /** Ce que l'image légère coûte en moins, chiffré seulement pour Dolphin. */
+  const prixImage = prixImageLegere(moteurDe(room?.game?.console));
   /** La manette que les jeux Wii présentent. Un réglage, pas une décision de
    * partie: voir `lib/saves`. */
   const [pad, setPad] = useState<Pad>(storedPad);
@@ -1637,10 +1650,10 @@ function Room({
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
       // passage en spectateur, et la sortie.
       items: ([] as XmbItem[]).concat([
-        // Seulement quand le chef ne joue plus (`away`, que le worker décide):
+        // Seulement quand le chef ne joue plus (`repriseDuRole`, que le worker décide):
         // proposé à tous et tout le temps, c'était la première action offerte
         // à un nouveau venu, celle de prendre la place de l'hôte (audit T12).
-        ...(boss && login && away
+        ...(boss && repriseDuRole(role, login !== null)
           ? [
               {
                 id: "recover-owner",
@@ -1723,7 +1736,7 @@ function Room({
         // endroits à tenir d'accord, et c'est la leçon des quatre places.
         {
           id: "watch",
-          label: watchingNow ? "prendre une place" : "rendre ma place",
+          label: enMenu(watchingNow ? PLACE.prendre : PLACE.rendre),
           value: watchingNow ? "tu regardes" : undefined,
           hint: watchingNow
             ? "la première place libre"
@@ -1737,7 +1750,7 @@ function Room({
         },
         {
           id: "leave",
-          label: "quitter la salle",
+          label: enMenu(SORTIES.quitter),
           // « retour à l'accueil » désignait deux pages différentes (audit P8).
           hint:
             sortieVers(location.pathname) === null
@@ -1776,11 +1789,12 @@ function Room({
             // Les tailles viennent de l'image REÇUE, comme celles du réglage
             // « image à l'écran », et non d'une table: les 1216×896 et 608×448
             // écrits ici étaient ceux de Dolphin, et la Switch envoie du
-            // 1280×720. Un seul prix, celui qui a été mesuré (`IMAGE.prix`):
-            // la page disait ici « le quart » et ailleurs « 2,6 fois moins »
-            // (audit T11).
+            // 1280×720. Un seul prix, et seulement là où il a été mesuré
+            // (`prixImageLegere`): la page disait ici « le quart » et ailleurs
+            // « 2,6 fois moins » (audit T11), et donnait le chiffre d'une
+            // course Dolphin à une salle Switch (relecture du 22 novembre).
             hint: half
-              ? `${sizes.half || IMAGE.legere}, ${IMAGE.prix}. Ne change que ton écran.`
+              ? `${sizes.half || IMAGE.legere}, ${prixImage}. Ne change que ton écran.`
               : `${sizes.full || IMAGE.complete}. Passe en image légère si l'image saccade.`,
             icon: <ScreenIcon className="h-full w-full" />,
             picks: [
@@ -1792,7 +1806,7 @@ function Room({
               {
                 id: "half",
                 label: IMAGE.legere,
-                hint: sizes.half ? `${sizes.half} · ${IMAGE.prix}` : IMAGE.prix,
+                hint: sizes.half ? `${sizes.half} · ${prixImage}` : prixImage,
               },
             ],
             picked: half ? "half" : "full",
@@ -2314,6 +2328,7 @@ function Room({
           <EtatSalle
             liaison={liaison}
             salle={salle()}
+            moteur={moteurDe(room?.game?.console)}
             cadre={cadre}
             onRelancer={() => session?.relancerImage()}
             onReessayer={() => session?.relancerImage()}
@@ -2432,7 +2447,7 @@ function Room({
 
           {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du rôle
               ne se montre que quand le worker dit que le chef ne joue plus
-              (`away`): proposée à tous, c'était la première action offerte à
+              (`repriseDuRole`): proposée à tous, c'était la première action offerte à
               un nouveau venu (audit T12). */}
           {boss ? (
             <p className="flex items-center gap-1 text-corps text-muted">
@@ -2440,7 +2455,7 @@ function Room({
               {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
             </p>
           ) : null}
-          {boss && login && away ? (
+          {boss && repriseDuRole(role, login !== null) ? (
             <div className="flex flex-col gap-1">
               <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
               <button
@@ -2475,9 +2490,11 @@ function Room({
               id={port !== null ? "watchOnly" : "takePad"}
               data-rend-le-jeu=""
               onClick={() => (port !== null ? session?.input.watchOnly() : session?.input.play())}
-              className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors hover:border-indigo hover:text-indigo"
+              /* 44 px de haut au doigt, comme le « ? » d'aide: mesuré à
+                 37 px sur un téléphone (relecture du 22 novembre 2026). */
+              className="mt-2 w-full border border-rule px-2 py-1.5 text-corps text-muted transition-colors pointer-coarse:min-h-11 hover:border-indigo hover:text-indigo"
             >
-              {port !== null ? "Rendre ma place" : "Prendre une place"}
+              {port !== null ? PLACE.rendre : PLACE.prendre}
             </button>
           </Panel>
 
@@ -2720,7 +2737,11 @@ function Room({
       ) : configuring && shot ? (
         <Bindings
           onglet={ongletTouches}
-          console={pendingSetup ? (setupGame?.console ?? "wii") : (room?.game?.console ?? "gc")}
+          console={consoleDesTouches(
+            pendingSetup !== null,
+            setupGame?.console,
+            room?.game?.console,
+          )}
           held={pendingSetup ? setupChoice : pad}
           readOnly={Boolean(setupPlayer?.ready)}
           actions={
@@ -2808,7 +2829,7 @@ function Room({
           }}
           onLearn={() => {
             session?.input.beginLesson(
-              pendingSetup ? (setupGame?.console ?? "wii") : (room?.game?.console ?? "gc"),
+              consoleDesTouches(pendingSetup !== null, setupGame?.console, room?.game?.console),
               pendingSetup ? setupChoice : pad,
             );
             session?.refresh();
@@ -2819,7 +2840,7 @@ function Room({
           }}
           onResetPad={() => {
             session?.input.resetPad(
-              pendingSetup ? (setupGame?.console ?? "wii") : (room?.game?.console ?? "gc"),
+              consoleDesTouches(pendingSetup !== null, setupGame?.console, room?.game?.console),
               pendingSetup ? setupChoice : pad,
             );
             session?.refresh();

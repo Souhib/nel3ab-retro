@@ -53,6 +53,7 @@
  */
 import type { Room } from "../client";
 import { cn } from "../lib/cn";
+import { placesLibres } from "../lib/mots";
 import { PLAYER_COLOURS } from "../media/players";
 
 /** L'ardoise porte le texte, la baie porte les câbles. Mesures dans l'en-tête. */
@@ -197,11 +198,7 @@ export function LobbyCables({
                 className="font-mono text-note"
                 style={{ color: free > 0 ? "#8fd6a4" : "#ffa08c" }}
               >
-                {seats.length === 0
-                  ? ""
-                  : free > 0
-                    ? `${free} manette${free > 1 ? "s" : ""} libre${free > 1 ? "s" : ""}`
-                    : "salle pleine"}
+                {seats.length === 0 ? "" : free > 0 ? placesLibres(free) : "salle pleine"}
               </p>
               <div className="mt-2 flex flex-col gap-0.5">
                 <span

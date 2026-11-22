@@ -118,7 +118,7 @@ export type CatalogueGame = {
     /**
      * Title Id
      *
-     * L'identifiant du titre d'un jeu inscrit (Switch), seize chiffres hexadécimaux en minuscules: le nom de ses dossiers de sauvegarde.
+     * L'identifiant du titre d'un jeu inscrit par fiche, à la forme de sa console (16 chiffres pour la Switch, 8 pour la Xbox 360), en minuscules: le nom de ses dossiers de sauvegarde.
      */
     title_id?: string | null;
 };

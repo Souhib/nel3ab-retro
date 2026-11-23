@@ -1359,6 +1359,126 @@ async function principal() {
       verdict(fautes);
     },
 
+    /** Rien ne tourne entre deux scènes d'Aïn, dans la vraie page (ADR
+     * D46). Au repos, hors scène, deux secondes sans aucun appel à
+     * requestAnimationFrame et sans animation en cours dans une maison
+     * d'Aïn ou son calque. La page en fait d'autres au repos : la pompe des
+     * manettes (`pumpOnRefresh`, 62 par seconde mesurés le 23 novembre
+     * 2026). Un appel est donc compté pour Aïn par le texte de son rappel,
+     * qui nomme la boucle d'une scène (`.tick(`) ou le regard qui suit le
+     * pointeur (`.regarder(`) : des noms de méthode, que le minifieur garde.
+     * Le jumeau dit si ce tri voit encore la boucle. Une fenêtre où une
+     * scène commence est jetée (le plateau
+     * joue « attente » à 2,5 s, 8,5 s et 14,5 s). Le jumeau : pendant une
+     * scène, le compteur monte. La planche mesure la même chose sur chaque
+     * maison (`just planche-garde`, mesure « immobile »). */
+    async "ain-immobile"() {
+      const compteur = () => {
+        const etat = { appels: 0, autres: 0, scenes: 0 };
+        window.__raf = etat;
+        const raf = window.requestAnimationFrame.bind(window);
+        window.requestAnimationFrame = (f) => {
+          if (/\.(tick|regarder)\(/.test(String(f))) etat.appels += 1;
+          else etat.autres += 1;
+          return raf(f);
+        };
+        // Chaque scène qui commence : sa maison reçoit `data-scene`.
+        new MutationObserver((ms) => {
+          for (const m of ms) if (m.target.hasAttribute?.("data-scene")) etat.scenes += 1;
+        }).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-scene"] });
+      };
+      const page = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "moi", decide: true } });
+      await page.evaluateOnNewDocument(compteur);
+      await entrerAuRepos(page);
+      const lire = () =>
+        page.evaluate(() => ({
+          appels: window.__raf.appels,
+          scenes: window.__raf.scenes,
+          joue: !!document.querySelector("[data-scene]"),
+          css: document
+            .getAnimations()
+            .filter((a) => a.playState === "running" && a.effect?.target?.closest?.("[data-hote], .rt-ain-calque"))
+            .map((a) => a.animationName ?? String(a.effect.target.className)),
+        }));
+      /** Une fenêtre de deux secondes sans scène, mesurée. */
+      const fenetre = async (nom) => {
+        for (let essai = 0; essai < 8; essai += 1) {
+          await jusqua(async () => !(await lire()).joue, 6000, 50);
+          await sleep(300);
+          await page.evaluate(() => {
+            window.__raf.appels = 0;
+            window.__raf.autres = 0;
+          });
+          const avant = await lire();
+          await sleep(2000);
+          const apres = await lire();
+          if (apres.scenes !== avant.scenes || apres.joue) continue;
+          const autres = await page.evaluate(() => window.__raf.autres);
+          console.log(JSON.stringify({ etape: "ain-immobile", fenetre: nom, appels: apres.appels, autres, css: apres.css }));
+          return apres;
+        }
+        throw new Precondition(`${nom} : aucune fenêtre de deux secondes sans scène`);
+      };
+      const fautes = [];
+      const juger = (nom, f) => {
+        if (f.appels > 0) fautes.push(`${nom} : ${f.appels} appels à requestAnimationFrame en 2 s hors scène`);
+        if (f.css.length > 0) fautes.push(`${nom} : animations en cours hors scène (${[...new Set(f.css)].join(", ")})`);
+      };
+      juger("au repos", await fenetre("au repos"));
+      // Une page qui tourne déjà sans scène tombe ici, sur son défaut.
+      verdict(fautes);
+      // Le jumeau : une scène d'Aïn, et le compteur monte.
+      const vue = await jusqua(async () => (await lire()).joue, 12000, 20);
+      if (!vue) throw new Precondition("aucune scène ne joue au repos en 12 s");
+      await page.evaluate(() => {
+        window.__raf.appels = 0;
+      });
+      await sleep(400);
+      const pendant = await lire();
+      if (pendant.appels < 10)
+        throw new Precondition(`pendant une scène, ${pendant.appels} appels en 400 ms : le compteur ne voit pas la boucle`);
+      juger("après une scène", await fenetre("après une scène"));
+      await page.close();
+      // Le jumeau de la mesure : la même page, où la boucle d'une scène se
+      // redemande sans fin (le défaut qu'un essai du lecteur et la planche
+      // attrapent aussi, rouge le 23 novembre 2026 avec un lecteur mutant).
+      // La fenêtre d'après doit compter ses appels.
+      const mutante = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "moi", decide: true } });
+      await mutante.evaluateOnNewDocument(compteur);
+      await mutante.evaluateOnNewDocument(() => {
+        // Dès la première scène, une boucle qui rappelle la dernière image
+        // demandée, à chaque image d'écran, pour toujours.
+        const compte = window.requestAnimationFrame;
+        let derniere = null;
+        const encore = (t) => {
+          derniere?.(t);
+          compte(encore);
+        };
+        encore.toString = () => "() => this.tick(n)";
+        window.requestAnimationFrame = (f) => {
+          if (!/\.tick\(/.test(String(f))) return compte(f);
+          if (derniere === null) compte(encore);
+          derniere = f;
+          return 0;
+        };
+      });
+      await entrerAuRepos(mutante);
+      const lireM = () => mutante.evaluate(() => ({ joue: !!document.querySelector("[data-scene]") }));
+      if (!(await jusqua(async () => (await lireM()).joue, 12000, 20)))
+        throw new Precondition("jumeau : aucune scène ne joue au repos en 12 s");
+      await jusqua(async () => !(await lireM()).joue, 6000, 50);
+      await sleep(300);
+      const vus = await mutante.evaluate(async () => {
+        window.__raf.appels = 0;
+        await new Promise((r) => setTimeout(r, 1000));
+        return window.__raf.appels;
+      });
+      await mutante.close();
+      if (vus < 10) throw new Precondition(`jumeau : une boucle qui ne s'arrête pas donne ${vus} appels en 1 s`);
+      console.log(JSON.stringify({ etape: "ain-immobile", jumeau: "boucle sans fin", appels_en_1_s: vus }));
+      verdict(fautes);
+    },
+
     /** Une image vivante, puis arrêtée, puis vivante : le cadre ne bouge
      * pas. À chaque image d'écran, le rectangle de #screen reste le même,
      * rien d'autre que l'image (et son aide cachée) ne vit dans

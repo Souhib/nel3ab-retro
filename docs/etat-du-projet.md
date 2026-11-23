@@ -68,6 +68,8 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Jeu en cours et dernier jeu.** `Salle.console` et `Salle.cle` (K19) ;
   `Salle.dernier_jeu` et `Room.dernier_jeu`, lus dans `chosen-rom` ; une salle
   qui redémarre dit le jeu qui revient.
+- **Qui est là.** `Salle.chef`, `Salle.sieges` et `Salle.regardent`, tirés de
+  ce que le salon tient déjà, sans question de plus au worker.
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

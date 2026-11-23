@@ -19,6 +19,26 @@ class DernierJeu(BaseModel):
     )
 
 
+class SiegeVu(BaseModel):
+    """Une manette d'une salle, telle que l'accueil la montre."""
+
+    port: int = Field(ge=1, le=4, description="Le numéro de la manette.")
+    nom: str | None = Field(
+        default=None,
+        description=(
+            "Le pseudo de qui l'a annoncée au salon, ou rien. Jamais l'adresse: "
+            "un pseudo vide se dit « quelqu'un »."
+        ),
+    )
+    tenu: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand le worker la dit tenue à sa dernière lecture, faux quand "
+            "il la dit libre, rien tant qu'il n'a rien dit."
+        ),
+    )
+
+
 class Salle(BaseModel):
     """Une salle, vue de la liste.
 
@@ -101,6 +121,34 @@ class Salle(BaseModel):
             "non une fois par onglet. Vide veut dire « personne », jamais « on "
             "n'a pas pu savoir »: le salon tient lui-même cette liste. Une "
             "salle fermée n'a personne, par construction."
+        ),
+    )
+    chef: str | None = Field(
+        default=None,
+        description=(
+            "Le pseudo de qui choisit le jeu dans cette salle: le chef retenu "
+            "après une reprise, sinon le premier arrivé identifié encore là. "
+            "Rien pour une salle qui n'est pas ouverte, et pour une salle où "
+            "personne n'a d'identité (tenir une manette y suffit alors)."
+        ),
+    )
+    sieges: list[SiegeVu] | None = Field(
+        default=None,
+        description=(
+            "Chaque manette, qui l'a annoncée et si le worker la dit tenue, tirés "
+            "de ce que le salon suit déjà pour la salle, sans question de plus au "
+            "worker. Vide pour une salle qui n'est pas ouverte. Rien pour une "
+            "salle ouverte où personne n'est connecté au salon: il ne suit pas "
+            "ses places, et une dernière lecture vieille de plusieurs minutes "
+            "dirait des manettes tenues qui ne le sont plus."
+        ),
+    )
+    regardent: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Qui est dans la salle sans tenir de manette et l'a dit (spectateur), "
+            "une fois par personne. Quelqu'un qui vient d'arriver et attend sa "
+            "manette n'y est pas. Vide pour une salle qui n'est pas ouverte."
         ),
     )
     ouverte_depuis: int | None = Field(

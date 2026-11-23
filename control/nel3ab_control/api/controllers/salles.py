@@ -19,7 +19,7 @@ import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, Protocol
 
 import anyio
 import httpx
@@ -27,7 +27,9 @@ from anyio import to_thread
 from fastapi import HTTPException, status
 
 from nel3ab_control import session_salle
-from nel3ab_control.api.schemas.salle import DernierJeu, Salle
+from nel3ab_control.api.controllers.people import PeopleController
+from nel3ab_control.api.controllers.rooms import RoomController
+from nel3ab_control.api.schemas.salle import DernierJeu, Salle, SiegeVu
 from nel3ab_control.catalogue import Catalogue, freshest
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.session_salle import Ouverture, demarrage_actuel
@@ -205,13 +207,10 @@ class SallesController:
         #: zéro à chaque démarrage, et un repère d'ouverture d'avant ne vaut rien.
         self._demarrage = demarrage
 
-    async def etat(
-        self,
-        present: Callable[[int], list[str]] | None = None,
-    ) -> list[Salle]:
+    async def etat(self, presences: "Presences | None" = None) -> list[Salle]:
         """Toutes les salles, ouvertes ou non, ce qu'elles jouent et qui y est.
 
-        `present` dit qui se trouve dans une salle. En PARAMÈTRE plutôt que
+        `presences` dit qui se trouve dans une salle. En PARAMÈTRE plutôt que
         retenu à la construction, et c'est délibéré: cette classe interroge
         systemd et les salles elles-mêmes, et ce qu'elle sait doit survivre à un
         worker mort. Lui donner un second contrôleur la ferait dépendre de
@@ -263,7 +262,10 @@ class SallesController:
                     fermee_pour=fermee_pour,
                     # Une salle fermée n'a personne: le demander pour elle
                     # laisserait passer un fantôme si le registre traînait.
-                    gens=list(present(numero)) if ouverte and present else [],
+                    gens=presences.gens(numero) if ouverte and presences else [],
+                    chef=presences.chef(numero) if ouverte and presences else None,
+                    sieges=(presences.sieges(numero) if presences else None) if ouverte else [],
+                    regardent=presences.regardent(numero) if ouverte and presences else [],
                     # Une salle fermée ne tourne DEPUIS rien et n'a pas de
                     # places: l'interroger ferait attendre la liste entière pour
                     # la salle la plus morte.
@@ -552,6 +554,70 @@ def _etat_du_mot(mot: str) -> EtatUnite:
     if mot == "active":
         return "ouverte"
     return "redemarre" if mot == "activating" else "fermee"
+
+
+class Presences(Protocol):
+    """Ce que le salon sait lui-même de qui est dans chaque salle.
+
+    Le salon le tient de première main, puisque les pages se connectent à lui:
+    rien ici ne coûte une question au worker.
+    """
+
+    def gens(self, numero: int) -> list[str]: ...
+
+    def chef(self, numero: int) -> str | None: ...
+
+    def sieges(self, numero: int) -> list[SiegeVu] | None: ...
+
+    def regardent(self, numero: int) -> list[str]: ...
+
+
+class PresencesDuSalon:
+    """Les présences, lues dans le registre des pseudos et les contrôleurs de salle.
+
+    Seul le pseudo sort, jamais l'adresse: un pseudo vide se dit « quelqu'un ».
+    Les places viennent du contrôleur de la salle, qui garde la dernière lecture
+    du worker (`follow_seats`, une par seconde tant que quelqu'un est là). Une
+    salle où personne n'est connecté n'a pas de lecture fraîche: ses places
+    sont « on ne sait pas ».
+    """
+
+    def __init__(
+        self,
+        people: PeopleController,
+        eveilles: Callable[[], list[tuple[int, RoomController]]],
+    ) -> None:
+        self._people = people
+        self._eveilles = eveilles
+
+    def gens(self, numero: int) -> list[str]:
+        return [name or "quelqu'un" for _login, name in self._people.present(numero)]
+
+    def chef(self, numero: int) -> str | None:
+        chef = self._people.owner(numero)
+        return (chef[1] or "quelqu'un") if chef else None
+
+    def _suivie(self, numero: int) -> RoomController | None:
+        if not self._people.live(numero):
+            return None
+        return dict(self._eveilles()).get(numero)
+
+    def sieges(self, numero: int) -> list[SiegeVu] | None:
+        salle = self._suivie(numero)
+        if salle is None:
+            return None
+        return [
+            SiegeVu(
+                port=siege.port,
+                nom=(siege.player or "quelqu'un") if siege.player is not None else None,
+                tenu=siege.held,
+            )
+            for siege in salle.seats()
+        ]
+
+    def regardent(self, numero: int) -> list[str]:
+        salle = self._suivie(numero)
+        return salle.regardent(self._people) if salle else []
 
 
 @dataclass(frozen=True)

@@ -14,6 +14,7 @@ from nel3ab_control.api.controllers.salles import (
     SalleRebelle,
     SallesController,
 )
+from nel3ab_control.api.schemas.salle import SiegeVu
 from nel3ab_control.settings import Settings
 from tests.faux_systeme import FauxSysteme, Horloge
 
@@ -219,7 +220,7 @@ async def test_la_liste_dit_qui_est_dans_chaque_salle(reglages: Settings) -> Non
     salle ne répond plus."""
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
-    etat = await salles.etat(lambda numero: ["Souhib", "Lu"] if numero == 1 else [])
+    etat = await salles.etat(Registre({1: ["Souhib", "Lu"]}))
 
     assert etat[0].gens == ["Souhib", "Lu"]
     assert etat[1].gens == [], "une salle que le registre ne nomme pas n'a personne"
@@ -234,10 +235,11 @@ async def test_une_salle_fermee_n_a_personne_meme_si_le_registre_le_croit(
     une porte qui n'existe plus."""
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
-    etat = await salles.etat(lambda _numero: ["fantôme"])
+    etat = await salles.etat(Registre({1: ["fantôme"], 2: ["fantôme"], 3: ["fantôme"]}))
 
     assert etat[0].gens == ["fantôme"], "la salle ouverte dit bien qui y est"
     assert [s.gens for s in etat[1:]] == [[], []], "une salle fermée n'a personne"
+    assert [(s.chef, s.sieges, s.regardent) for s in etat[1:]] == [(None, [], [])] * 2
 
 
 async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> None:
@@ -246,6 +248,25 @@ async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> Non
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
     assert [s.gens for s in await salles.etat()] == [[], [], []]
+
+
+class Registre:
+    """Un registre de présents de papier: des pseudos par salle, sans place."""
+
+    def __init__(self, gens: dict[int, list[str]]) -> None:
+        self._gens = gens
+
+    def gens(self, numero: int) -> list[str]:
+        return list(self._gens.get(numero, []))
+
+    def chef(self, numero: int) -> str | None:
+        return next(iter(self._gens.get(numero, [])), None)
+
+    def sieges(self, numero: int) -> list[SiegeVu] | None:
+        return [SiegeVu(port=1, nom=nom, tenu=True) for nom in self._gens.get(numero, [])[:1]]
+
+    def regardent(self, numero: int) -> list[str]:
+        return list(self._gens.get(numero, []))[1:]
 
 
 #: Une horloge monotone figée, partagée par le faux systemd et le contrôleur.

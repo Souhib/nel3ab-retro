@@ -168,3 +168,104 @@ async def test_closing_a_room_ends_its_seats_in_the_play_journal(
         ("place_debut", None),
         ("place_fin", "salle_fermee"),
     ]
+
+
+async def _salle(client: httpx.AsyncClient, numero: int) -> dict:
+    reponse = await client.get("/api/salles")
+    assert reponse.status_code == 200
+    return next(salle for salle in reponse.json() if salle["numero"] == numero)
+
+
+@pytest.mark.usefixtures("salle_deux")
+async def test_the_list_names_the_chief_of_each_room(client: httpx.AsyncClient) -> None:
+    """D01: l'accueil dit qui choisit le jeu, le premier arrivé identifié."""
+    assert (await _salle(client, 2))["chef"] == "Yassine"
+
+
+async def test_a_closed_room_has_no_chief(app: FastAPI, client: httpx.AsyncClient) -> None:
+    """Le jumeau: même si le registre traînait, une salle fermée n'a pas de chef."""
+    app.state.people.arrived("sid-yassine", "yassine@example.com", "Yassine", 3)
+
+    assert (await _salle(client, 3))["chef"] is None
+
+
+async def test_a_room_of_anonymous_pages_has_no_chief(
+    app: FastAPI, client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """Sans identité, tenir une manette suffit: personne n'est « chef »."""
+    systeme.demarrer(2)
+    app.state.people.arrived("sid-a", None, "Ami", 2)
+    app.state.people.arrived("sid-b", None, "Bo", 2)
+
+    salle = await _salle(client, 2)
+
+    assert salle["chef"] is None
+    assert sorted(salle["gens"]) == ["Ami", "Bo"]
+
+
+async def test_the_list_says_who_holds_which_pad_and_who_watches(
+    app: FastAPI, client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """D02: Nour tient la manette 1, mémé regarde. Aucune question de plus au
+    worker: le contrôleur de la salle garde ce qu'il sait déjà."""
+    systeme.demarrer(2)
+    people, rooms = app.state.people, app.state.salons.pour(2)
+    people.arrived("sid-nour", "nour@example.com", "Nour", 2)
+    people.arrived("sid-meme", "meme@example.com", "mémé", 2)
+    rooms.claim(1, "sid-nour", "Nour", login="nour@example.com")
+    rooms.watch("sid-meme")
+
+    salle = await _salle(client, 2)
+
+    assert salle["sieges"][0] == {"port": 1, "nom": "Nour", "tenu": None}
+    assert [siege["nom"] for siege in salle["sieges"][1:]] == [None, None, None]
+    assert salle["regardent"] == ["mémé"]
+    assert "nour@example.com" not in str(salle) and "meme@example.com" not in str(salle)
+
+
+async def test_somebody_still_waiting_for_a_pad_is_not_a_spectator(
+    app: FastAPI, client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """Le jumeau: arriver sans encore avoir de manette n'est pas regarder."""
+    systeme.demarrer(2)
+    app.state.people.arrived("sid-lu", "lu@example.com", "Lu", 2)
+
+    assert (await _salle(client, 2))["regardent"] == []
+
+
+async def test_one_person_on_two_devices_watches_once(
+    app: FastAPI, client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    systeme.demarrer(2)
+    people, rooms = app.state.people, app.state.salons.pour(2)
+    for sid in ("sid-tel", "sid-pc"):
+        people.arrived(sid, "lu@example.com", "Lu", 2)
+        rooms.watch(sid)
+
+    assert (await _salle(client, 2))["regardent"] == ["Lu"]
+
+
+async def test_an_anonymous_spectator_is_somebody_not_an_address(
+    app: FastAPI, client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    systeme.demarrer(2)
+    app.state.people.arrived("sid-x", None, "", 2)
+    app.state.salons.pour(2).watch("sid-x")
+
+    assert (await _salle(client, 2))["regardent"] == ["quelqu'un"]
+
+
+async def test_a_closed_room_has_no_seats_and_nobody_watching(client: httpx.AsyncClient) -> None:
+    salle = await _salle(client, 3)
+
+    assert (salle["sieges"], salle["regardent"]) == ([], [])
+
+
+async def test_an_open_room_nobody_follows_does_not_guess_its_seats(
+    client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """Personne de connecté: le salon ne lit plus ses places, et une lecture
+    vieille de plusieurs minutes dirait des manettes tenues qui ne le sont plus."""
+    systeme.demarrer(2)
+
+    assert (await _salle(client, 2))["sieges"] is None

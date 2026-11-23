@@ -410,6 +410,41 @@ class RoomController:
             return session in self._watching and receipt is None
         return self.seat_of(session) == port and self._receipts.get(session) == receipt
 
+    def _tenues(self, people: PeopleController | None) -> tuple[dict[str, int], dict[str, bool]]:
+        """La place de chaque personne de cette salle, et qui attend encore la sienne.
+
+        La place d'une personne se trouve par ses SESSIONS: le nom ne suffit
+        pas, deux appareils d'une même personne portent le même. Une personne
+        attend sa place tant qu'une de ses sessions n'a ni place ni annonce
+        « aucune manette ».
+        """
+        sessions = people.sessions(self.numero) if people else {}
+        held = {
+            login_or_name: port
+            for login_or_name, siennes in sessions.items()
+            for session in siennes
+            if (port := self.seat_of(session)) is not None
+        }
+        pending = {
+            identity: identity not in held and any(sid not in self._watching for sid in siennes)
+            for identity, siennes in sessions.items()
+        }
+        return held, pending
+
+    def regardent(self, people: PeopleController) -> list[str]:
+        """Les pseudos de ceux qui regardent sans manette, une fois par personne.
+
+        Sans aucune question au worker: c'est ce que l'accueil lit pour chaque
+        salle à chaque liste. Quelqu'un qui attend encore sa manette n'est pas
+        un spectateur; un pseudo vide se dit « quelqu'un », jamais l'adresse.
+        """
+        held, pending = self._tenues(people)
+        return [
+            name or "quelqu'un"
+            for login, name in people.present(self.numero)
+            if (login or name) not in held and not pending.get(login or name, True)
+        ]
+
     async def describe(self, people: PeopleController | None = None) -> Room:
         """Toute la salle, telle qu'une page a besoin de la dessiner.
 
@@ -423,18 +458,7 @@ class RoomController:
         seats = self.seats()
         present = people.present(salle) if people else []
         boss = people.owner(salle) if people else None
-        # La place d'une personne se trouve par ses SESSIONS: le nom ne suffit
-        # pas, deux appareils d'une même personne portent le même.
-        held = {
-            login_or_name: port
-            for login_or_name, sessions in (people.sessions(salle) if people else {}).items()
-            for session in sessions
-            if (port := self.seat_of(session)) is not None
-        }
-        pending = {
-            identity: identity not in held and any(sid not in self._watching for sid in sessions)
-            for identity, sessions in (people.sessions(salle) if people else {}).items()
-        }
+        held, pending = self._tenues(people)
         if self.preparation and not self.preparation.synchronise(
             [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None],
             solo=any(

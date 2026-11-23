@@ -28342,6 +28342,18 @@ est posé, c'est-à-dire si elle revient sur son menu. La liste dit aussi la
 console et la clé du jeu en cours (l'accueil dessinera une cartouche ou une
 boîte selon la console).
 
+**Qui est là, sans rien demander de plus à la salle.** L'accueil donnait les
+pseudos des présents, sans dire qui tenait quelle manette ni qui choisissait
+le jeu. Le salon le savait déjà : c'est lui qui retient le chef de chaque
+salle et le nom de qui a annoncé chaque manette. La liste publie maintenant le
+chef, les quatre manettes et ceux qui regardent. Une précaution a demandé un
+essai à elle : une salle ouverte où personne n'est connecté. Le salon ne lit
+les manettes du worker qu'une fois par seconde, et seulement quand quelqu'un
+est là ; sa dernière lecture peut dater de plusieurs minutes. Plutôt que de
+montrer des manettes tenues qui ne le sont plus, la liste dit « on ne sait
+pas ». Quelqu'un qui vient d'arriver et attend sa manette n'est pas compté
+comme spectateur.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

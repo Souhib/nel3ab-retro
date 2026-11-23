@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
+from nel3ab_control.api.controllers.salles import PresencesDuSalon
 from nel3ab_control.api.schemas.salle import Salle
 from nel3ab_control.dependencies import CallerDep, PeopleDep, SallesDep, SalonsDep, SettingsDep
 
@@ -9,7 +10,7 @@ router = APIRouter(prefix="/api", tags=["salles"])
 
 
 @router.get("/salles", response_model=list[Salle])
-async def read_salles(salles: SallesDep, people: PeopleDep) -> list[Salle]:
+async def read_salles(salles: SallesDep, people: PeopleDep, salons: SalonsDep) -> list[Salle]:
     """Toutes les salles, ouvertes ou non, et qui s'y trouve.
 
     Sans identité: la liste est ce que le salon montre à qui arrive, et exiger
@@ -24,9 +25,7 @@ async def read_salles(salles: SallesDep, people: PeopleDep) -> list[Salle]:
     un courriel. Un pseudo vide n'arrive pas par une page; s'il arrivait, la
     liste dirait « quelqu'un » plutôt que l'adresse.
     """
-    return await salles.etat(
-        lambda numero: [name or "quelqu'un" for _login, name in people.present(numero)],
-    )
+    return await salles.etat(PresencesDuSalon(people, salons.eveilles))
 
 
 @router.post("/salles", response_model=Salle, status_code=status.HTTP_201_CREATED)

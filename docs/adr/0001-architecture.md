@@ -1711,6 +1711,14 @@ Decision:
   at that name means « unknown » and gives no game. `Salle.console` and
   `Salle.cle` describe the running game (K19); « ? » is not published as a
   console.
+- **Who is there, from what the lobby already holds.** `Salle.chef` is the
+  pseudonym of `people.owner(numero)`; `Salle.sieges` (`{port, nom, tenu}`) and
+  `Salle.regardent` come from the room's controller and the presence register,
+  with no extra worker call: `tenu` is the worker's last read, kept fresh by
+  `follow_seats` only while somebody is connected. An open room nobody is
+  connected to therefore has `sieges = None`, not a stale list. A spectator is
+  someone present with no pad who said so; someone waiting for a pad is not.
+  Only pseudonyms leave, never an address. Field names are this track's (K18).
 
 
 ## Consequences

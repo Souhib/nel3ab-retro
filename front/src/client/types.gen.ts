@@ -856,6 +856,24 @@ export type Salle = {
      */
     gens?: Array<string>;
     /**
+     * Chef
+     *
+     * Le pseudo de qui choisit le jeu dans cette salle: le chef retenu après une reprise, sinon le premier arrivé identifié encore là. Rien pour une salle qui n'est pas ouverte, et pour une salle où personne n'a d'identité (tenir une manette y suffit alors).
+     */
+    chef?: string | null;
+    /**
+     * Sieges
+     *
+     * Chaque manette, qui l'a annoncée et si le worker la dit tenue, tirés de ce que le salon suit déjà pour la salle, sans question de plus au worker. Vide pour une salle qui n'est pas ouverte. Rien pour une salle ouverte où personne n'est connecté au salon: il ne suit pas ses places, et une dernière lecture vieille de plusieurs minutes dirait des manettes tenues qui ne le sont plus.
+     */
+    sieges?: Array<SiegeVu> | null;
+    /**
+     * Regardent
+     *
+     * Qui est dans la salle sans tenir de manette et l'a dit (spectateur), une fois par personne. Quelqu'un qui vient d'arriver et attend sa manette n'y est pas. Vide pour une salle qui n'est pas ouverte.
+     */
+    regardent?: Array<string>;
+    /**
      * Ouverte Depuis
      *
      * Depuis combien de SECONDES cette salle est ouverte, d'après le repère que le salon pose quand il l'ouvre. Survit aux changements de jeu. Jusqu'au 23 novembre 2026, ce champ disait le temps depuis la dernière relance du worker, c'est-à-dire depuis le dernier changement de jeu: c'est maintenant `jeu_depuis`. Rien pour une salle fermée, pour une salle ouverte sans passer par le salon, et pour une salle ouverte avant ce repère. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure.
@@ -927,6 +945,32 @@ export type Seat = {
      * Vrai quand la personne qui tient cette prise n'avait jamais tenu de place dans cette salle, d'après le journal des parties. Gardé tant qu'elle tient la prise. Rien quand le salon ne sait pas: sans identité, page de banc ou journal illisible. La page retombe alors sur sa propre mémoire.
      */
     premiere?: boolean | null;
+};
+
+/**
+ * SiegeVu
+ *
+ * Une manette d'une salle, telle que l'accueil la montre.
+ */
+export type SiegeVu = {
+    /**
+     * Port
+     *
+     * Le numéro de la manette.
+     */
+    port: number;
+    /**
+     * Nom
+     *
+     * Le pseudo de qui l'a annoncée au salon, ou rien. Jamais l'adresse: un pseudo vide se dit « quelqu'un ».
+     */
+    nom?: string | null;
+    /**
+     * Tenu
+     *
+     * Vrai quand le worker la dit tenue à sa dernière lecture, faux quand il la dit libre, rien tant qu'il n'a rien dit.
+     */
+    tenu?: boolean | null;
 };
 
 /**

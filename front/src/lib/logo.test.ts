@@ -174,7 +174,9 @@ describe("l'icône d'onglet", () => {
     const svg = iconeOngletSVG();
     expect(svg).toContain('<rect width="16" height="16" fill="#000"/>');
     // 24 pixels allumés dans le glyphe du 3.
-    const carres = [...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="2" height="2" fill="([^"]+)"/g)];
+    const carres = [
+      ...svg.matchAll(/<rect x="(\d+)" y="(\d+)" width="2" height="2" fill="([^"]+)"/g),
+    ];
     expect(carres).toHaveLength(24);
     for (const c of carres) {
       const colonne = (Number(c[1]) - 1) / 2;

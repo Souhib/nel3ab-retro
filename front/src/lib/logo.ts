@@ -140,6 +140,42 @@ export type Peinture = "jetons" | CouleursLogo;
 const echapper = (texte: string) =>
   texte.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
+/** Un calque du logo: un chemin, son décalage, et sa couleur (le jeton de la
+ * page et la couleur écrite qui lui correspond). */
+export type Calque = { d: string; decale: number; jeton: string; couleur: string };
+
+/** Les cinq calques, dans l'ordre de peinture: les trois marches du relief,
+ * de la plus lointaine à la plus proche, puis les lettres, puis le 3. */
+export function calquesDuLogo(couleurs: CouleursLogo = LOGO_NUIT): Calque[] {
+  const pixels = pixelsDuLogo();
+  const tout = chemin(pixels);
+  const calques: Calque[] = [];
+  for (let marche = RELIEF; marche >= 1; marche -= 1) {
+    const rang = marche - 1;
+    calques.push({
+      d: tout,
+      decale: marche,
+      jeton: JETONS_LOGO.relief[rang] ?? "",
+      couleur: couleurs.relief[rang] ?? "",
+    });
+  }
+  calques.push(
+    {
+      d: chemin(pixels.filter((p) => !p.trois)),
+      decale: 0,
+      jeton: JETONS_LOGO.lettre,
+      couleur: couleurs.lettre,
+    },
+    {
+      d: chemin(pixels.filter((p) => p.trois)),
+      decale: 0,
+      jeton: JETONS_LOGO.trois,
+      couleur: couleurs.trois,
+    },
+  );
+  return calques;
+}
+
 /**
  * Le logo en SVG, prêt à poser dans une page.
  *
@@ -153,24 +189,12 @@ export function logoSVG({
   peinture = "jetons",
   titre = "nel3ab",
 }: { unite?: number; peinture?: Peinture; titre?: string } = {}): string {
-  const pixels = pixelsDuLogo();
-  const tout = chemin(pixels);
-  const couleur = (jeton: string, ecrite: string) =>
-    peinture === "jetons" ? `style="fill:var(${jeton})"` : `fill="${ecrite}"`;
-  const calques: string[] = [];
-  for (let marche = RELIEF; marche >= 1; marche -= 1) {
-    const rang = marche - 1;
-    const ecrite = peinture === "jetons" ? "" : (peinture.relief[rang] ?? "");
-    calques.push(
-      `<path transform="translate(${marche} ${marche})" ${couleur(JETONS_LOGO.relief[rang] ?? "", ecrite)} d="${tout}"/>`,
-    );
-  }
-  const lettres = chemin(pixels.filter((p) => !p.trois));
-  const trois = chemin(pixels.filter((p) => p.trois));
-  calques.push(
-    `<path ${couleur(JETONS_LOGO.lettre, peinture === "jetons" ? "" : peinture.lettre)} d="${lettres}"/>`,
-    `<path ${couleur(JETONS_LOGO.trois, peinture === "jetons" ? "" : peinture.trois)} d="${trois}"/>`,
-  );
+  const calques = calquesDuLogo(peinture === "jetons" ? LOGO_NUIT : peinture).map((calque) => {
+    const decale = calque.decale ? `transform="translate(${calque.decale} ${calque.decale})" ` : "";
+    const couleur =
+      peinture === "jetons" ? `style="fill:var(${calque.jeton})"` : `fill="${calque.couleur}"`;
+    return `<path ${decale}${couleur} d="${calque.d}"/>`;
+  });
   const nom = titre
     ? `role="img" aria-label="${echapper(titre)}"`
     : `aria-hidden="true" focusable="false"`;

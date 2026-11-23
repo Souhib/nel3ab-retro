@@ -92,6 +92,10 @@
   --vert-800: #1b6b3e;
   --blanc: #ffffff;
   --noir: #000000;
+  /* L'or de la pièce, le rendu provisoire de la mascotte (`mascotte/rendu.ts`):
+     un objet dessiné, comme une manette, qui garde ses couleurs. */
+  --or-700: #b8860b;
+  --or-100: #fff8c8;
 
   /* Les quatre joueurs. Ces aplats sont ceux de `src/media/players.ts`, que
      l'essai compare, et ils ne changent pas avec le thème: tous les jeux qui

@@ -1,0 +1,880 @@
+/*
+ * LES EFFETS RÉTRO, en feuille. Communs à la salle et au salon.
+ *
+ * Chaque effet du catalogue (`src/lib/effets.ts`) s'allume par une classe
+ * `fx-<id>` posée sur `<html>`; les règles ci-dessous la visent. Un composant
+ * ne choisit donc jamais un effet: il porte une classe `rt-…` qui dit ce
+ * qu'il est (une boîte, un bouton, un afficheur, un écran d'attente), et le
+ * niveau choisi sur l'appareil décide de ce qu'il en montre. Éteint, chaque
+ * classe `rt-…` rend une version plate et lisible.
+ *
+ * Le salon reçoit une copie de cette feuille au démarrage
+ * (`control/nel3ab_control/api/routes/retro/effets.css`), comparée octet pour
+ * octet par `src/lib/salon-retro.test.ts`.
+ *
+ * Trois règles tenues partout (ADR D37):
+ *   - rien ne passe sur l'image du jeu ni ne la modifie: les calques vivent
+ *     DANS une surface d'interface ou un écran d'attente, jamais dans la zone
+ *     de jeu (`etats.mjs`, étape `calques-sous-image`, le vérifie dans un vrai
+ *     navigateur);
+ *   - au plus un clignotement par seconde: chaque clignotement dure 1 s, en
+ *     `steps(1)`, allumé une demi-seconde, éteint l'autre;
+ *   - mouvement réduit: la pose clé et le texte restent, rien ne bouge (le
+ *     bloc à la fin de la feuille).
+ *
+ * Aucune couleur n'est choisie ici: elles viennent toutes des jetons de
+ * `regie.css`, qu'aucune autre feuille n'a le droit de reposer.
+ */
+
+/* ── Constantes des effets (pas des couleurs) ───────────────────────── */
+:root {
+  /* Les coins en escalier: deux marches de 2 px dehors, une dedans. Les
+     polygones de la page des effets, à l'identique. */
+  --rt-esc-ext: polygon(
+    0 4px,
+    2px 4px,
+    2px 2px,
+    4px 2px,
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 2px,
+    calc(100% - 2px) 2px,
+    calc(100% - 2px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 2px) calc(100% - 4px),
+    calc(100% - 2px) calc(100% - 2px),
+    calc(100% - 4px) calc(100% - 2px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 2px),
+    2px calc(100% - 2px),
+    2px calc(100% - 4px),
+    0 calc(100% - 4px)
+  );
+  --rt-esc-int: polygon(
+    0 2px,
+    2px 2px,
+    2px 0,
+    calc(100% - 2px) 0,
+    calc(100% - 2px) 2px,
+    100% 2px,
+    100% calc(100% - 2px),
+    calc(100% - 2px) calc(100% - 2px),
+    calc(100% - 2px) 100%,
+    2px 100%,
+    2px calc(100% - 2px),
+    0 calc(100% - 2px)
+  );
+  /* La flèche de souris en pixels (effet « pointeur »), 12 × 18 cases
+     agrandies deux fois. Noire et blanche: c'est un objet, comme une manette
+     dessinée, et elle doit se voir sur les deux thèmes. */
+  --rt-pointeur:
+    url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'24'%20height%3D'36'%20viewBox%3D'0%200%2012%2018'%20shape-rendering%3D'crispEdges'%3E%3Cpath%20fill%3D'%23000'%20d%3D'M0%200h1v1h-1zM0%201h2v1h-2zM0%202h1v1h-1zM2%202h1v1h-1zM0%203h1v1h-1zM3%203h1v1h-1zM0%204h1v1h-1zM4%204h1v1h-1zM0%205h1v1h-1zM5%205h1v1h-1zM0%206h1v1h-1zM6%206h1v1h-1zM0%207h1v1h-1zM7%207h1v1h-1zM0%208h1v1h-1zM8%208h1v1h-1zM0%209h1v1h-1zM9%209h1v1h-1zM0%2010h1v1h-1zM10%2010h1v1h-1zM0%2011h1v1h-1zM7%2011h5v1h-5zM0%2012h1v1h-1zM4%2012h1v1h-1zM7%2012h1v1h-1zM0%2013h1v1h-1zM3%2013h1v1h-1zM5%2013h1v1h-1zM8%2013h1v1h-1zM0%2014h1v1h-1zM2%2014h1v1h-1zM5%2014h1v1h-1zM8%2014h1v1h-1zM0%2015h2v1h-2zM6%2015h1v1h-1zM9%2015h1v1h-1zM0%2016h1v1h-1zM6%2016h1v1h-1zM9%2016h1v1h-1zM7%2017h2v1h-2z'%2F%3E%3Cpath%20fill%3D'%23fff'%20d%3D'M1%202h1v1h-1zM1%203h2v1h-2zM1%204h3v1h-3zM1%205h4v1h-4zM1%206h5v1h-5zM1%207h6v1h-6zM1%208h7v1h-7zM1%209h8v1h-8zM1%2010h9v1h-9zM1%2011h6v1h-6zM1%2012h3v1h-3zM5%2012h2v1h-2zM1%2013h2v1h-2zM6%2013h2v1h-2zM1%2014h1v1h-1zM6%2014h2v1h-2zM7%2015h2v1h-2zM7%2016h2v1h-2z'%2F%3E%3C%2Fsvg%3E")
+      0 0,
+    auto;
+}
+
+/* ── Le logo (`src/lib/logo.ts`) ─────────────────────────────────────── */
+/* Ses couleurs sont lues dans les jetons par le dessin lui-même; la feuille
+   ne règle que sa taille et l'empêche de se lisser. */
+.rt-logo {
+  display: block;
+  height: var(--rt-logo-hauteur, 20px);
+  width: auto;
+  image-rendering: pixelated;
+}
+
+/* ── La mire et les couleurs ─────────────────────────────────────────── */
+/* « mire-vide »: les sept barres en plein cadre quand rien ne tourne. Éteinte,
+   la surface reste un creux uni. */
+.rt-mire {
+  background: var(--creux);
+}
+.fx-mire-vide .rt-mire {
+  background: linear-gradient(
+    90deg,
+    var(--mire-blanc) 0 14.28%,
+    var(--mire-jaune) 14.28% 28.56%,
+    var(--mire-cyan) 28.56% 42.84%,
+    var(--mire-vert) 42.84% 57.12%,
+    var(--mire-magenta) 57.12% 71.4%,
+    var(--mire-rouge) 71.4% 85.68%,
+    var(--mire-bleu) 85.68% 100%
+  );
+}
+/* « cycle »: les couleurs glissent d'une barre à la suivante toutes les
+   0,6 seconde. Un glissement, pas un clignotement: chaque barre change de
+   couleur sans jamais s'éteindre. */
+.fx-mire-vide.fx-cycle .rt-mire {
+  background: linear-gradient(
+      90deg,
+      var(--mire-blanc) 0 7.14%,
+      var(--mire-jaune) 7.14% 14.28%,
+      var(--mire-cyan) 14.28% 21.42%,
+      var(--mire-vert) 21.42% 28.56%,
+      var(--mire-magenta) 28.56% 35.7%,
+      var(--mire-rouge) 35.7% 42.84%,
+      var(--mire-bleu) 42.84% 50%,
+      var(--mire-blanc) 50% 57.14%,
+      var(--mire-jaune) 57.14% 64.28%,
+      var(--mire-cyan) 64.28% 71.42%,
+      var(--mire-vert) 71.42% 78.56%,
+      var(--mire-magenta) 78.56% 85.7%,
+      var(--mire-rouge) 85.7% 92.84%,
+      var(--mire-bleu) 92.84% 100%
+    )
+    0 0 / 200% 100%;
+  animation: rt-cycle 4.2s steps(7, end) infinite;
+}
+@keyframes rt-cycle {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+/* « mire-charge »: sept barres qui s'allument l'une après l'autre pendant un
+   démarrage. Sept `<i>` dans un `.rt-mire-charge`; cachées sans l'effet. La
+   phrase à côté dit « le jeu démarre », jamais un pourcentage: le salon ne
+   connaît pas l'avancement. */
+.rt-mire-charge {
+  display: none;
+  gap: 3px;
+}
+.fx-mire-charge .rt-mire-charge {
+  display: flex;
+}
+.rt-mire-charge > i {
+  width: 22px;
+  height: 8px;
+  opacity: 0.25;
+}
+.rt-mire-charge > i:nth-child(1) {
+  background: var(--mire-blanc);
+}
+.rt-mire-charge > i:nth-child(2) {
+  background: var(--mire-jaune);
+  animation-delay: 0.3s;
+}
+.rt-mire-charge > i:nth-child(3) {
+  background: var(--mire-cyan);
+  animation-delay: 0.6s;
+}
+.rt-mire-charge > i:nth-child(4) {
+  background: var(--mire-vert);
+  animation-delay: 0.9s;
+}
+.rt-mire-charge > i:nth-child(5) {
+  background: var(--mire-magenta);
+  animation-delay: 1.2s;
+}
+.rt-mire-charge > i:nth-child(6) {
+  background: var(--mire-rouge);
+  animation-delay: 1.5s;
+}
+.rt-mire-charge > i:nth-child(7) {
+  background: var(--mire-bleu);
+  animation-delay: 1.8s;
+}
+.fx-mire-charge .rt-mire-charge > i {
+  animation-name: rt-allume-barre;
+  animation-duration: 2.1s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+@keyframes rt-allume-barre {
+  0%,
+  13% {
+    opacity: 1;
+  }
+  14%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+/* « tramage »: un dégradé fait de points alternés, sur un fond sans texte.
+   Du creux en haut à la plaque en bas, avec une bande de damier entre les
+   deux. Un utilitaire: sans l'effet, la surface garde son fond. */
+.fx-tramage .rt-tramage {
+  background:
+    linear-gradient(var(--creux) 0 28%, transparent 28% 72%, var(--plaque) 72%),
+    repeating-conic-gradient(var(--creux) 0 25%, var(--plaque) 0 50%) 0 0 / 4px 4px;
+}
+
+/* ── Les pixels ──────────────────────────────────────────────────────── */
+/* « titres »: les titres, les étiquettes et les boutons principaux en
+   Pixelify Sans. La police vient de `--police-titre` (`regie.css`), qui ne
+   bascule que sous `.fx-titres`. Les titres de la page la prennent d'office;
+   une étiquette ou un bouton principal la demande par `.rt-titre`. */
+h1,
+h2,
+h3,
+.rt-titre {
+  font-family: var(--police-titre);
+}
+
+/* « coins » et « ombres »: une boîte en trois calques, comme les boîtes de
+   dialogue des jeux. `::before` est le bord, `::after` le fond, et un enfant
+   `<i class="rt-ombre" aria-hidden="true">` l'ombre dure. Les trois suivent
+   les mêmes coins, taillés ou non. La boîte elle-même n'est jamais coupée:
+   l'anneau de focus reste entier. Couleurs: `--rt-fond` et `--rt-bord`,
+   posés par le composant (par défaut la plaque et le trait). */
+.rt-boite {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+}
+.rt-boite::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--rt-bord, var(--trait));
+}
+.rt-boite::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  background: var(--rt-fond, var(--plaque));
+}
+.rt-boite > .rt-ombre {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  display: none;
+  background: var(--ombre);
+  transform: translate(4px, 4px);
+  pointer-events: none;
+}
+.fx-ombres .rt-boite > .rt-ombre {
+  display: block;
+}
+.fx-coins .rt-boite::before,
+.fx-coins .rt-boite > .rt-ombre {
+  clip-path: var(--rt-esc-ext);
+}
+.fx-coins .rt-boite::after {
+  clip-path: var(--rt-esc-int);
+}
+
+/* « boutons »: le bouton a une lèvre dessous; enfoncé, il descend de 4 px et
+   la lèvre disparaît, comme un bouton de borne. La lèvre est l'ombre de la
+   boîte, foncée à la couleur du bouton. */
+.rt-bouton {
+  cursor: pointer;
+}
+.fx-boutons .rt-bouton > .rt-ombre {
+  display: block;
+  transform: translate(0, 4px);
+  background: color-mix(in srgb, var(--rt-fond, var(--plaque)) 45%, var(--noir));
+}
+.fx-boutons .rt-bouton:active:not(:disabled) {
+  transform: translateY(4px);
+}
+.fx-boutons .rt-bouton:active:not(:disabled) > .rt-ombre {
+  display: none;
+}
+/* Le bouton principal: le signal plein, l'encre du fond. */
+.rt-bouton-plein {
+  --rt-fond: var(--bouton-plein-fond);
+  --rt-bord: var(--bouton-plein-fond);
+  color: var(--bouton-plein-encre);
+  font-family: var(--police-titre);
+}
+
+/* « nettes »: un dessin en pixels agrandi garde ses carrés. Jamais sur une
+   vraie jaquette: une photo deviendrait des escaliers. */
+.fx-nettes .rt-nettes {
+  image-rendering: pixelated;
+}
+
+/* « icones »: les icônes en pixels remplacent les icônes au trait; chacune
+   garde son mot. Un composant pose les deux, la feuille en montre une. */
+.rt-icone-pixel {
+  display: none;
+}
+.fx-icones .rt-icone-pixel {
+  display: inline-block;
+}
+.fx-icones .rt-icone-trait {
+  display: none;
+}
+
+/* « pointeur »: la flèche de souris en pixels, au salon et dans les menus,
+   jamais pendant une partie: seule une surface `.rt-pointeur` la prend. */
+.fx-pointeur .rt-pointeur,
+.fx-pointeur .rt-pointeur :is(button, a, label, [role="button"], [role="option"]) {
+  cursor: var(--rt-pointeur);
+}
+
+/* « chiffres »: l'horloge et le temps de jeu comme un compteur de borne, les
+   segments éteints visibles derrière. Le texte reste du texte: le fantôme est
+   caché aux lecteurs d'écran (`retro/chiffres.ts` pose les deux). */
+.rt-afficheur {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rt-afficheur > .rt-afficheur-fantome {
+  display: none;
+}
+.rt-afficheur > .rt-afficheur-valeur {
+  position: relative;
+  display: inline-flex;
+}
+.rt-afficheur > .rt-afficheur-valeur > span {
+  display: inline-block;
+}
+.fx-chiffres .rt-afficheur {
+  font-family: var(--police-machine);
+  letter-spacing: 0.1em;
+  color: var(--afficheur-encre);
+}
+.fx-chiffres .rt-afficheur > .rt-afficheur-fantome {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0.13;
+}
+
+/* ── Le menu de jeu ──────────────────────────────────────────────────── */
+/* « curseur »: un seul ▶ qui suit le focus et le survol dans les surfaces qui
+   l'activent (`retro/curseur.ts`). Il clignote une fois par seconde et ne
+   reçoit jamais le pointeur. Le contour de focus reste, pour le clavier. */
+.rt-curseur {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  display: none;
+  width: 10px;
+  height: 14px;
+  color: var(--signal);
+  pointer-events: none;
+  transition: transform 120ms ease-out;
+}
+.fx-curseur .rt-curseur[data-visible] {
+  display: block;
+}
+.rt-curseur > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(1px 1px 0 var(--ombre));
+  animation: rt-clignote 1s steps(1, end) infinite;
+}
+.fx-paliers .rt-curseur {
+  transition-timing-function: steps(3, end);
+}
+@keyframes rt-clignote {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* « start »: APPUIE SUR START, une fois par seconde. Le texte ne s'éteint
+   jamais tout à fait (35 %). */
+.rt-start {
+  display: none;
+  color: var(--signal);
+  font-family: var(--police-titre);
+  letter-spacing: 0.14em;
+}
+.fx-start .rt-start {
+  display: block;
+  animation: rt-clignote 1s steps(1, end) infinite;
+}
+
+/* « arrive »: la place s'allume et « 3P PRÊT ! » saute dessus, une fois. Le
+   badge vit SUR la place, jamais sur l'image. Le code pose `data-joue` sur la
+   place le temps de l'animation. */
+.rt-pret {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  z-index: 2;
+  padding: 2px 5px;
+  white-space: nowrap;
+  font-family: var(--police-titre);
+  color: var(--rt-joueur, var(--encre));
+  background: var(--noir);
+  opacity: 0;
+  pointer-events: none;
+}
+.fx-arrive [data-joue] > .rt-pret {
+  animation: rt-pret 1.3s ease-out forwards;
+}
+.fx-arrive [data-joue] {
+  animation: rt-allumage 0.6s steps(3, end) 1;
+}
+.fx-arrive.fx-paliers [data-joue] > .rt-pret {
+  animation-timing-function: steps(6, end);
+}
+@keyframes rt-pret {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  25% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes rt-allumage {
+  0%,
+  66% {
+    filter: brightness(1.9);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+/* « lettres »: l'annonce s'écrit lettre par lettre (`retro/lettres.ts`); un
+   ▼ clignote quand elle est finie. Jamais pour une erreur. */
+.rt-suite {
+  display: none;
+  margin-left: 6px;
+  color: var(--signal);
+}
+.fx-lettres .rt-lettres[data-fini]:not([data-erreur]) .rt-suite {
+  display: inline;
+  animation: rt-clignote 1s steps(1, end) infinite;
+}
+
+/* « compteur »: un chiffre qui change roule vers le haut. */
+.rt-roule {
+  animation: rt-roule 220ms ease-out;
+}
+.fx-paliers .rt-roule {
+  animation-timing-function: steps(3, end);
+}
+@keyframes rt-roule {
+  from {
+    transform: translateY(75%);
+    opacity: 0.15;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ── Les transitions (`retro/transitions.ts`) ────────────────────────── */
+/* Les calques que le code pose le temps d'une transition, au-dessus de la
+   surface qu'il change. L'image du jeu s'est effacée avant: la transition ne
+   passe jamais dessus. */
+.rt-voile {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: var(--noir);
+  opacity: 0;
+  pointer-events: none;
+}
+.rt-tuiles {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  grid-template-rows: repeat(10, 1fr);
+  pointer-events: none;
+}
+.rt-tuiles > i {
+  background: var(--noir);
+  transform: scale(0);
+}
+.rt-neige-transition {
+  position: absolute;
+  inset: 0;
+  z-index: 61;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+/* Pendant une transition, l'image du jeu est cachée, pas modifiée: le code
+   pose `data-transition-image` sur sa zone, et le retire à la fin. */
+[data-transition-image] {
+  visibility: hidden;
+}
+
+/* ── Le tube ─────────────────────────────────────────────────────────── */
+/* Les calques des écrans sans jeu (« balayage », « vignette », « roulement »):
+   trois `<i>` qu'un écran d'attente pose dans sa propre surface
+   (`retro/calques.ts`, `poserCalquesAttente`). Le cadre du texte reste plein:
+   il se pose au-dessus d'eux. */
+.rt-calque-balayage,
+.rt-calque-vignette,
+.rt-calque-roulement {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+}
+.fx-balayage .rt-calque-balayage {
+  display: block;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--noir) 34%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+}
+.fx-vignette .rt-calque-vignette {
+  display: block;
+  box-shadow: inset 0 0 70px 16px color-mix(in srgb, var(--noir) 62%, transparent);
+  border-radius: 26px / 34px;
+}
+.fx-roulement .rt-calque-roulement {
+  display: block;
+  inset: auto 0;
+  top: -34%;
+  height: 34%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--blanc) 9%, transparent),
+    transparent
+  );
+  animation: rt-roulement 6s linear infinite;
+}
+@keyframes rt-roulement {
+  to {
+    transform: translateY(400%);
+  }
+}
+
+/* Les calques de toute l'interface (« balayage-tout », « grille »,
+   « scintille »), niveau « tout » seulement. Un `.rt-calques-ui` posé DANS
+   une surface d'interface (le salon entier, un menu, la colonne), jamais dans
+   la zone de jeu: ils s'arrêtent au bord de leur surface, donc au bord de
+   l'image. Le texte passe dessous, comme sous la vitre d'un tube. */
+.rt-calques-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: none;
+  pointer-events: none;
+}
+:is(.fx-balayage-tout, .fx-grille, .fx-scintille) .rt-calques-ui {
+  display: block;
+}
+.rt-calques-ui.rt-calques-page {
+  position: fixed;
+}
+.rt-calques-ui > i {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+.fx-balayage-tout .rt-calques-ui > .rt-calque-balayage-tout {
+  display: block;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--noir) 36%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+}
+.fx-grille .rt-calques-ui > .rt-calque-grille {
+  display: block;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--mire-rouge) 10%, transparent) 0 1px,
+    color-mix(in srgb, var(--mire-vert) 10%, transparent) 1px 2px,
+    color-mix(in srgb, var(--mire-bleu) 10%, transparent) 2px 3px
+  );
+}
+/* Une variation de 4,5 % de blanc, allumée une demi-seconde par seconde:
+   un clignotement par seconde, loin du seuil de trois. */
+.fx-scintille .rt-calques-ui > .rt-calque-scintille {
+  display: block;
+  background: var(--blanc);
+  opacity: 0;
+  animation: rt-scintille 1s steps(1, end) infinite;
+}
+@keyframes rt-scintille {
+  50% {
+    opacity: 0.045;
+  }
+}
+
+/* « halo »: ce qui est allumé a un léger halo de sa couleur. */
+.fx-halo .rt-halo {
+  text-shadow: 0 0 6px color-mix(in srgb, currentColor 55%, transparent);
+}
+.fx-halo .rt-halo-boite:is(:hover, :focus-visible, [aria-pressed="true"], [aria-current]) {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--signal) 65%, transparent));
+}
+
+/* « bave »: les très grands titres seulement, un liseré rouge et cyan. */
+.fx-bave .rt-bave {
+  text-shadow:
+    -2px 0 color-mix(in srgb, var(--mire-rouge) 80%, transparent),
+    2px 0 color-mix(in srgb, var(--mire-cyan) 80%, transparent);
+}
+
+/* « neige »: un signal perdu, dessiné sur son propre canevas
+   (`retro/calques.ts`, `neige`) À LA PLACE de l'image, jamais dessus. */
+.rt-neige {
+  display: none;
+  image-rendering: pixelated;
+}
+.fx-neige .rt-neige[data-actif] {
+  display: block;
+  /* Visible même posée dans une zone de jeu cachée le temps de la coupure. */
+  visibility: visible;
+}
+
+/* « courbure »: le salon se courbe comme la vitre d'un tube. Un filtre SVG
+   posé une fois dans le document (`poserFiltreBombe`). */
+.fx-courbure .rt-bombe {
+  filter: url("#rt-bombe");
+}
+
+/* ── La salle d'arcade ───────────────────────────────────────────────── */
+/* « fronton »: le titre du jeu allumé comme l'enseigne d'une borne, la mire
+   dessous. Éteint, une ligne de titre ordinaire. */
+.rt-fronton {
+  position: relative;
+}
+.fx-fronton .rt-fronton {
+  background: var(--noir);
+  color: var(--mire-jaune);
+  font-family: var(--police-titre);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  text-align: center;
+}
+.fx-fronton .rt-fronton::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--mire-blanc) 0 14.28%,
+    var(--mire-jaune) 14.28% 28.56%,
+    var(--mire-cyan) 28.56% 42.84%,
+    var(--mire-vert) 42.84% 57.12%,
+    var(--mire-magenta) 57.12% 71.4%,
+    var(--mire-rouge) 71.4% 85.68%,
+    var(--mire-bleu) 85.68% 100%
+  );
+}
+.fx-fronton.fx-halo .rt-fronton {
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--mire-jaune) 75%, transparent),
+    0 0 16px color-mix(in srgb, var(--mire-jaune) 35%, transparent);
+}
+
+/* « borne »: les bandes vides de chaque côté de l'image reçoivent un décor
+   de borne. Le décor vit dans la bande, l'image ne rapetisse jamais pour lui. */
+.fx-borne .rt-cote {
+  position: relative;
+  background:
+    linear-gradient(var(--creux) 0 28%, transparent 28% 72%, var(--plaque) 72%),
+    repeating-conic-gradient(var(--creux) 0 25%, var(--plaque) 0 50%) 0 0 / 4px 4px;
+}
+
+/* « places »: une place est un bouton START rond, 1P à 4P, allumé à la
+   couleur du joueur quand elle est prise. Le numéro reste écrit. Le
+   composant pose `--rt-joueur` (`var(--p1)` à `var(--p4)`). */
+.rt-bouton-start {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rayon-rond);
+  border: 2px solid var(--rt-joueur, var(--trait));
+  color: var(--encre);
+  background: var(--creux);
+  font-family: var(--police-titre);
+}
+.fx-places .rt-bouton-start {
+  border: 0;
+  color: var(--noir);
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in srgb, var(--rt-joueur, var(--trait)) 55%, var(--blanc)),
+    var(--rt-joueur, var(--trait)) 62%
+  );
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--rt-joueur, var(--trait)) 45%, var(--noir));
+}
+.fx-places .rt-bouton-start[data-libre] {
+  color: var(--legende);
+  background: color-mix(in srgb, var(--rt-joueur, var(--trait)) 20%, var(--creux));
+  box-shadow: 0 3px 0 var(--noir);
+}
+.fx-places.fx-halo .rt-bouton-start:not([data-libre]) {
+  box-shadow:
+    0 3px 0 color-mix(in srgb, var(--rt-joueur, var(--trait)) 45%, var(--noir)),
+    0 0 14px var(--rt-joueur, var(--trait));
+}
+
+/* « initiales »: trois lettres à la place du nom, comme au tableau des
+   scores. Le nom entier reste dans la liste des joueurs. */
+.rt-initiales {
+  display: none;
+}
+.fx-initiales .rt-initiales {
+  display: inline;
+}
+.fx-initiales .rt-nom-plein {
+  display: none;
+}
+
+/* « scores »: le carnet en tableau des meilleurs scores. */
+.fx-scores .rt-scores {
+  font-family: var(--police-titre);
+  text-transform: uppercase;
+}
+.fx-scores .rt-scores tr:nth-child(5n + 1) {
+  color: var(--score-1);
+}
+.fx-scores .rt-scores tr:nth-child(5n + 2) {
+  color: var(--score-2);
+}
+.fx-scores .rt-scores tr:nth-child(5n + 3) {
+  color: var(--score-3);
+}
+.fx-scores .rt-scores tr:nth-child(5n + 4) {
+  color: var(--score-4);
+}
+.fx-scores .rt-scores tr:nth-child(5n + 5) {
+  color: var(--score-5);
+}
+
+/* « demo »: ce qui ne se montre qu'en mode démo, quand personne ne touche au
+   salon (`retro/demo.ts` pose `data-demo` sur la surface). */
+.rt-demo {
+  display: none;
+}
+.fx-demo [data-demo] .rt-demo {
+  display: block;
+}
+
+/* « credit »: « PLACES LIBRES 2 », « SALLES OUVERTES 0 », en bas à droite. */
+.rt-credit {
+  display: none;
+  font-family: var(--police-machine);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.fx-credit .rt-credit {
+  display: block;
+}
+
+/* ── La mascotte (`src/mascotte/`) ───────────────────────────────────── */
+/* L'hôte coupe tout ce qui dépasse de sa boîte: une scène ne passe jamais
+   sur ce qui est à côté, et surtout pas sur l'image. Le rendu provisoire est
+   une pièce de dix pixels (`mascotte/rendu.ts`), en or de la mire. */
+.rt-mascotte-hote {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  width: var(--rt-mascotte-taille, 40px);
+  height: var(--rt-mascotte-taille, 40px);
+}
+.rt-mascotte {
+  position: absolute;
+  inset: 0;
+  display: block;
+  --rt-piece-bord: var(--or-700);
+  --rt-piece-coeur: var(--mire-jaune);
+  --rt-piece-reflet: var(--or-100);
+}
+.rt-mascotte .rt-piece {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Quatre images superposées, une seule visible: la première au repos. */
+.rt-piece-image {
+  visibility: hidden;
+}
+.rt-piece-image[data-image="0"] {
+  visibility: visible;
+}
+.rt-mascotte:is([data-tourne="vite"], [data-tourne="lent"]) .rt-piece-image {
+  animation: rt-piece-image 0.5s steps(1, end) infinite;
+}
+.rt-mascotte[data-tourne="lent"] .rt-piece-image {
+  animation-duration: 1.2s;
+}
+.rt-piece-image[data-image="1"] {
+  animation-delay: -0.375s;
+}
+.rt-piece-image[data-image="2"] {
+  animation-delay: -0.25s;
+}
+.rt-piece-image[data-image="3"] {
+  animation-delay: -0.125s;
+}
+@keyframes rt-piece-image {
+  0% {
+    visibility: visible;
+  }
+  25%,
+  100% {
+    visibility: hidden;
+  }
+}
+
+/* ── Mouvement réduit: la pose clé, et rien ne bouge ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rt-mire,
+  .rt-mire-charge > i,
+  .rt-curseur,
+  .rt-curseur > svg,
+  .rt-start,
+  .rt-pret,
+  [data-joue],
+  .rt-suite,
+  .rt-roule,
+  .rt-calque-roulement,
+  .rt-calques-ui > i,
+  .rt-bouton,
+  .rt-voile,
+  .rt-tuiles > i,
+  .rt-mascotte,
+  .rt-piece-image {
+    animation: none !important;
+    transition: none !important;
+  }
+  .fx-mire-charge .rt-mire-charge > i {
+    opacity: 1;
+  }
+  .fx-arrive [data-joue] > .rt-pret {
+    opacity: 1;
+  }
+  .fx-boutons .rt-bouton:active:not(:disabled) {
+    transform: none;
+  }
+  .fx-boutons .rt-bouton:active:not(:disabled) > .rt-ombre {
+    display: block;
+  }
+  .fx-scintille .rt-calques-ui > .rt-calque-scintille {
+    display: none;
+  }
+}

@@ -253,7 +253,14 @@ describe("le thème rétro: seize couleurs, la mire et le logo", () => {
 
   for (const theme of ["nuit", "jour"] as const) {
     it(`${theme}: l'afficheur et les cinq lignes du tableau des scores se lisent`, () => {
-      for (const encre of ["--afficheur-encre", "--score-1", "--score-2", "--score-3", "--score-4", "--score-5"]) {
+      for (const encre of [
+        "--afficheur-encre",
+        "--score-1",
+        "--score-2",
+        "--score-3",
+        "--score-4",
+        "--score-5",
+      ]) {
         for (const surface of SURFACES) {
           expect(
             contrast(couleur(theme, encre), couleur(theme, surface)),

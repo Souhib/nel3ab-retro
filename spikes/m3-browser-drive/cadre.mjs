@@ -1427,14 +1427,21 @@ async function principal() {
       juger("au repos", await fenetre("au repos"));
       // Une page qui tourne déjà sans scène tombe ici, sur son défaut.
       verdict(fautes);
-      // Le jumeau : une scène d'Aïn, et le compteur monte.
-      const vue = await jusqua(async () => (await lire()).joue, 12000, 20);
-      if (!vue) throw new Precondition("aucune scène ne joue au repos en 12 s");
-      await page.evaluate(() => {
-        window.__raf.appels = 0;
-      });
-      await sleep(400);
-      const pendant = await lire();
+      // Le jumeau : une scène d'Aïn, et le compteur monte. Une scène qui
+      // cède (deux images à plus de 50 ms, sous la charge) finit avant
+      // 400 ms : on attend la suivante, le plateau en joue trois.
+      let pendant = null;
+      for (let essai = 0; essai < 3; essai += 1) {
+        const vue = await jusqua(async () => (await lire()).joue, 12000, 20);
+        if (!vue) throw new Precondition("aucune scène ne joue au repos en 12 s");
+        await page.evaluate(() => {
+          window.__raf.appels = 0;
+        });
+        await sleep(400);
+        pendant = await lire();
+        if (pendant.joue || pendant.appels >= 10) break;
+        await jusqua(async () => !(await lire()).joue, 6000, 50);
+      }
       if (pendant.appels < 10)
         throw new Precondition(`pendant une scène, ${pendant.appels} appels en 400 ms : le compteur ne voit pas la boucle`);
       juger("après une scène", await fenetre("après une scène"));

@@ -28367,6 +28367,21 @@ la page dit « sauvegarde inconnue » plutôt que d'inventer. L'adresse de qui a
 lancé reste en mémoire pour calculer son repère, et un essai vérifie que ni
 elle ni son empreinte ne sortent.
 
+**« Au menu », et le motif d'un signalement.** Deux petits messages de la page
+vers le salon. Le premier dit « j'ai ouvert mon menu », pour que les autres
+voient pourquoi quelqu'un ne joue plus ; la marque tombe quand la page le
+referme, part ou perd sa manette. Sa cadence est comptée par mot, comme celle
+du format réduit : ouvrir puis refermer dans la même demi-seconde aurait sinon
+laissé la marque sur quelqu'un revenu au jeu, et un essai le vérifie. Un
+mutant qui oubliait d'effacer la marque au départ passait d'abord : le calcul
+par personne ignorait déjà la page partie, mais l'ensemble des pages « au
+menu » grossissait à chaque fermeture. L'essai vérifie maintenant que
+l'ensemble se vide. Le second message donne le motif d'un signalement (image,
+son, manette, autre), écrit au journal des séances à côté de la trace. Et
+tout refus « trop rapproché » dit maintenant combien de secondes attendre ;
+le premier essai ne laissait pas passer de temps entre les deux demandes, et
+une attente figée à vingt secondes le passait. Il attend une seconde et demie.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

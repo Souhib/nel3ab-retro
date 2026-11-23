@@ -104,6 +104,8 @@ class RoomController:
         # Une absence de nom ne prouve pas que la personne regarde. Seule une
         # annonce explicite « aucune manette » permet de la classer spectateur.
         self._watching: set[str] = set()
+        #: Les sessions qui ont dit avoir ouvert leur menu (D15).
+        self._au_menu: set[str] = set()
         self._worker_seats: list[str | None] | None = None
         self._syncing = Lock()
         self.preparation: Preparation | None = None
@@ -341,6 +343,7 @@ class RoomController:
         self._named.pop(session, None)
         self._receipts.pop(session, None)
         self._watching.discard(session)
+        self._au_menu.discard(session)
 
     def watch(self, session: str) -> bool:
         """Rend la place et confirme le mode spectateur, même à la première annonce."""
@@ -415,6 +418,21 @@ class RoomController:
         session = self._claims.pop(port, None)
         if session is not None:
             self.tablee.leve(session, Fin.REMPLACEE)
+            self._au_menu.discard(session)
+
+    def menu(self, session: str, ouvert: bool) -> bool:
+        """Cette session dit avoir ouvert ou refermé son menu. Rend si ça change.
+
+        La marque tombe aussi quand la session part ou perd sa place (`release`,
+        `free`): une page qui se ferme sans refermer son menu ne doit pas laisser
+        « au menu » sur quelqu'un qui joue sur un autre appareil.
+        """
+        avant = session in self._au_menu
+        if ouvert:
+            self._au_menu.add(session)
+        else:
+            self._au_menu.discard(session)
+        return avant != ouvert
 
     def seat_of(self, session: str) -> int | None:
         """La place que cette session tient, s'il y en a une."""
@@ -478,6 +496,10 @@ class RoomController:
         present = people.present(salle) if people else []
         boss = people.owner(salle) if people else None
         held, pending = self._tenues(people)
+        au_menu = {
+            identity: any(sid in self._au_menu for sid in siennes)
+            for identity, siennes in (people.sessions(salle) if people else {}).items()
+        }
         if self.preparation and not self.preparation.synchronise(
             [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None],
             solo=any(
@@ -501,6 +523,7 @@ class RoomController:
                     id=people.repere(boss[0]) if people else None,
                     seat=held.get(boss[0] or boss[1]),
                     seat_pending=pending.get(boss[0] or boss[1], True),
+                    au_menu=au_menu.get(boss[0] or boss[1], False),
                 )
                 if boss
                 else None
@@ -511,6 +534,7 @@ class RoomController:
                     id=people.repere(login) if people else None,
                     seat=held.get(login or name),
                     seat_pending=pending.get(login or name, True),
+                    au_menu=au_menu.get(login or name, False),
                 )
                 for login, name in present
             ],

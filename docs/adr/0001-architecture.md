@@ -1727,6 +1727,13 @@ Decision:
   restarted since), and when the game changed more than once since that
   launch: a game that came back through the worker's own menu was not
   launched by that person. `Room.vue_par` sets `moi` on the launcher too.
+- **Two socket messages, closed by construction.** `menu {ouvert: bool}` marks
+  `Person.au_menu` until the page closes its menu, leaves, or loses its pad;
+  its rate limit is held per word, so opening then closing within half a
+  second is not lost. `plainte_quoi {quoi}` writes the complaint's reason
+  (`image`, `son`, `manette`, `autre`) to the session journal, on its own
+  twenty-second limit. Every rate-limit refusal now carries `reste_s`, the
+  seconds before the next accepted message.
 
 
 ## Consequences

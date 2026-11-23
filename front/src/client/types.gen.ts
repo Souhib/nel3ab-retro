@@ -623,6 +623,12 @@ export type Person = {
      * L'attribution reste à confirmer ; cette personne n'est pas un spectateur.
      */
     seat_pending?: boolean;
+    /**
+     * Au Menu
+     *
+     * Vrai quand une de ses pages a dit avoir ouvert son menu (événement `menu`), jusqu'à ce qu'elle le referme, parte ou perde sa place. Ce que la page dit d'elle-même, rien de plus: le salon ne voit pas l'écran.
+     */
+    au_menu?: boolean;
 };
 
 /**

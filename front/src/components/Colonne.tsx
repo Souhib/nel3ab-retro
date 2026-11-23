@@ -25,7 +25,6 @@ import { COLONNE, SORTIES, TOUCHES, placeN, prendreLaPlace } from "../lib/mots";
 import { activerCurseur, type Curseur } from "../retro/curseur";
 import { iconePixelSVG, type IconePixel } from "../retro/icones";
 import { Crown } from "./Crown";
-import { Logo } from "./Logo";
 import { Touche } from "./Reperes";
 import { Volume } from "./Settings";
 
@@ -156,8 +155,6 @@ export function Colonne({
         <div className="sticky top-0 z-30 -mx-3 bg-panel px-3 pb-2 empty:hidden">{avis}</div>
       ) : null}
       <header className="n3-colonne-tete">
-        {/* Le logo reste, petit (K26) : c'est un choix du propriétaire. */}
-        <Logo className="n3-colonne-logo" />
         <div className="flex items-center justify-between gap-2">
           <h1 className="n3-colonne-salle truncate">{nomSalle}</h1>
           <button

@@ -73,6 +73,22 @@ describe("la colonne", () => {
     expect(quitter?.closest("header")?.textContent).toContain("Salle 1");
   });
 
+  it("le logo est au pied de la colonne, maison d'Aïn ; l'en-tête n'en a plus", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    colonne(["autres"]);
+    expect(document.querySelector("header .rt-logo, header [data-ancre='logo']")).toBeNull();
+    const logo = document.querySelector("#coin [data-hote='coin'] > canvas[data-ancre='logo']");
+    expect(logo).not.toBeNull();
+    // Sous la ligne d'état, jamais au-dessus.
+    const ligne = document.getElementById("mesures") as HTMLElement;
+    expect(
+      ligne.compareDocumentPosition(logo as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // Son sol : là où Aïn pose les pieds en sortant du 3.
+    expect(document.querySelector("#coin [data-sol='coin']")).not.toBeNull();
+    vi.restoreAllMocks();
+  });
+
   it("les mesures prennent la place des rangs, et les rangs reviennent sans elles", () => {
     const { container, rerender } = colonne(["son", "autres"], <div id="stats">mesures</div>);
     expect(container.querySelector("#stats")).not.toBeNull();

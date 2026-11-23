@@ -19,10 +19,6 @@
   flex-direction: column;
   gap: 0.25rem;
 }
-/* Le logo, petit (K26) : 14 px de haut au lieu de 20. */
-.n3-colonne-logo {
-  --rt-logo-hauteur: 14px;
-}
 .n3-colonne-salle {
   font-family: var(--police-titre);
   font-size: var(--text-fort);

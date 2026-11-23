@@ -54,6 +54,12 @@ const couleur = (theme: keyof typeof THEMES, nom: string) => resolve(nom, THEMES
  * un bouton survolé garde son libellé. */
 const SURFACES = ["--fond", "--plaque", "--creux", "--survol"] as const;
 
+/** Ce qui s'écrit sur l'écran noir de la borne, de jour comme de nuit. */
+const ECRAN = ["--encre-ecran", "--ecran-trame", "--fronton-encre"] as const;
+
+/** Les encres des quatre joueurs. */
+const ENCRES_JOUEURS = ["--p1-encre", "--p2-encre", "--p3-encre", "--p4-encre"] as const;
+
 describe("la feuille se lit", () => {
   it("trouve les quatre blocs, et chacun déclare quelque chose", () => {
     // Sans cette précondition, un sélecteur renommé rendrait des blocs vides et
@@ -145,6 +151,182 @@ describe("la zone d'image", () => {
   });
 });
 
+/* Les jetons demandés par les plans des chantiers d'écran (partition du
+   23 novembre 2026, K28), livrés par le socle avant leur départ. Chaque paire
+   est celle qu'un plan pose réellement, avec son jumeau. */
+describe("l'écran de la borne: écran éteint, plein cadre, fronton, tramage", () => {
+  it("ses jetons ne changent pas avec le thème", () => {
+    // Le plan de la salle: « un jeton qui ne change pas de thème ».
+    for (const nom of [...ECRAN, "--ecran"]) {
+      expect(couleur("jour", nom), nom).toBe(couleur("nuit", nom));
+    }
+  });
+
+  it("le texte de l'écran et le titre du fronton tiennent 4,5:1 sur le noir", () => {
+    for (const theme of ["nuit", "jour"] as const) {
+      for (const encre of ["--encre-ecran", "--fronton-encre"]) {
+        expect(
+          contrast(couleur(theme, encre), couleur(theme, "--ecran")),
+          `${theme}: ${encre}`,
+        ).toBeGreaterThanOrEqual(AA_TEXT);
+      }
+    }
+  });
+
+  it("l'encre, la légende et l'afficheur du jour ne se liraient pas sur l'écran", () => {
+    // Le jumeau, et la raison d'un jeton à part: un écran éteint écrit à
+    // l'encre de la page serait du marine sur du noir le jour (1,16:1).
+    for (const encre of ["--encre", "--legende", "--afficheur-encre"]) {
+      expect(contrast(couleur("jour", encre), couleur("jour", "--ecran")), encre).toBeLessThan(
+        AA_TEXT,
+      );
+    }
+  });
+
+  it("la trame est un second noir: distinct de l'écran, à 1,2:1 au plus", () => {
+    // Le tramage des bandes noires doit rester un grain: au-delà de 1,2:1,
+    // les bandes d'une image 4:3 deviennent un motif qui tire l'oeil.
+    for (const theme of ["nuit", "jour"] as const) {
+      const trame = couleur(theme, "--ecran-trame");
+      expect(trame, theme).not.toBe(couleur(theme, "--ecran"));
+      expect(contrast(trame, couleur(theme, "--ecran")), theme).toBeLessThanOrEqual(1.2);
+    }
+  });
+
+  it("la plaque de nuit serait déjà trop claire pour une trame", () => {
+    // Le jumeau: la borne de 1,2:1 sépare bien les noirs voisins (1,22:1).
+    expect(contrast(couleur("nuit", "--plaque"), couleur("nuit", "--ecran"))).toBeGreaterThan(1.2);
+  });
+});
+
+describe("le panneau de commande de la borne", () => {
+  for (const theme of ["nuit", "jour"] as const) {
+    it(`${theme}: chaque encre posée sur le panneau tient 4,5:1, celles des joueurs comprises`, () => {
+      // Les places (nom et numéro à la couleur du joueur), le crédit, le temps
+      // de jeu en chiffres d'afficheur et la ligne d'état s'y écrivent.
+      const panneau = couleur(theme, "--panneau");
+      for (const encre of [
+        "--encre",
+        "--legende",
+        "--signal",
+        "--alerte",
+        "--ok",
+        "--afficheur-encre",
+        ...ENCRES_JOUEURS,
+      ]) {
+        expect(contrast(couleur(theme, encre), panneau), encre).toBeGreaterThanOrEqual(AA_TEXT);
+      }
+    });
+
+    it(`${theme}: le trait, le focus, une offre et le contour d'un START éteint y tiennent 3:1`, () => {
+      const panneau = couleur(theme, "--panneau");
+      for (const trait of ["--trait", "--focus", "--offre", "--start-eteint-trait"]) {
+        expect(contrast(couleur(theme, trait), panneau), trait).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it(`${theme}: son filet est un décor, visible mais sous 3:1`, () => {
+      const rapport = contrast(couleur(theme, "--panneau-filet"), couleur(theme, "--panneau"));
+      expect(rapport).toBeGreaterThan(1);
+      expect(rapport).toBeLessThan(3);
+    });
+  }
+
+  it("l'aplat brut du joueur 3 ne s'écrit pas sur le panneau du jour", () => {
+    // Le jumeau: sans encre à part, « 3P » en jaune sur le givre tombe à 1,84:1.
+    expect(contrast(couleur("jour", "--p3"), couleur("jour", "--panneau"))).toBeLessThan(AA_TEXT);
+  });
+});
+
+describe("les boutons START des places", () => {
+  it("allumé: le numéro s'écrit sur l'aplat de chaque joueur, dans les deux thèmes", () => {
+    for (const theme of ["nuit", "jour"] as const) {
+      for (let port = 1; port <= 4; port += 1) {
+        expect(
+          contrast(couleur(theme, "--start-encre"), couleur(theme, `--p${port}`)),
+          `${theme}: ${port}P`,
+        ).toBeGreaterThanOrEqual(AA_TEXT);
+      }
+    }
+  });
+
+  it("le blanc de la mire ne s'écrirait pas sur le rouge du joueur 1", () => {
+    // Le jumeau: une encre claire, celle de la nuit, tombe à 3,47:1.
+    expect(contrast(couleur("nuit", "--encre"), couleur("nuit", "--p1"))).toBeLessThan(AA_TEXT);
+  });
+
+  for (const theme of ["nuit", "jour"] as const) {
+    it(`${theme}: éteint, son numéro se lit et ses pointillés le dessinent`, () => {
+      const fond = couleur(theme, "--start-eteint-fond");
+      const trait = couleur(theme, "--start-eteint-trait");
+      expect(contrast(couleur(theme, "--start-eteint-encre"), fond)).toBeGreaterThanOrEqual(
+        AA_TEXT,
+      );
+      expect(contrast(trait, fond), "sur son creux").toBeGreaterThanOrEqual(3);
+      expect(contrast(trait, couleur(theme, "--panneau")), "sur le panneau").toBeGreaterThanOrEqual(
+        3,
+      );
+    });
+  }
+
+  it("le filet ne dessinerait pas le contour d'un START éteint", () => {
+    // Le jumeau: un contour au filet disparaît dans le creux (2,09:1 la nuit,
+    // 1,51:1 le jour), et la place libre n'aurait plus de bord.
+    for (const theme of ["nuit", "jour"] as const) {
+      expect(
+        contrast(couleur(theme, "--filet"), couleur(theme, "--start-eteint-fond")),
+        theme,
+      ).toBeLessThan(3);
+    }
+  });
+});
+
+describe("une offre n'est pas une alerte", () => {
+  for (const theme of ["nuit", "jour"] as const) {
+    it(`${theme}: son contour en pointillés tient 3:1 sur chaque surface`, () => {
+      for (const surface of [...SURFACES, "--panneau"]) {
+        expect(
+          contrast(couleur(theme, "--offre"), couleur(theme, surface)),
+          surface,
+        ).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+
+  it("l'offre et l'alerte n'ont pas la même couleur", () => {
+    // Le plan des états: « une offre, pas une alerte ». Le dessin du contour
+    // les distingue, la couleur aussi.
+    for (const theme of ["nuit", "jour"] as const) {
+      expect(couleur(theme, "--offre"), theme).not.toBe(couleur(theme, "--alerte"));
+    }
+  });
+});
+
+describe("les couleurs d'objet des manettes", () => {
+  /** Les primitives de la section des manettes. */
+  const OBJETS = [...RACINE.keys()].filter((nom) => nom.startsWith("--manette-"));
+  /** Les jetons d'un bloc qui s'habillent d'une couleur d'objet. */
+  const emprunts = (bloc: Map<string, string>) =>
+    [...bloc].filter(([, valeur]) => /var\(\s*--manette-/.test(valeur)).map(([nom]) => nom);
+
+  it("sont des couleurs pleines, posées une fois pour les deux thèmes", () => {
+    // La précondition: la section existe et a été lue.
+    expect(OBJETS.length).toBeGreaterThan(0);
+    for (const nom of OBJETS) {
+      expect(RACINE.get(nom), nom).toMatch(/^#[0-9a-f]{6}$/);
+      expect(NUIT.has(nom) || JOUR_SYSTEME.has(nom) || JOUR_CHOISI.has(nom), nom).toBe(false);
+    }
+  });
+
+  it("aucun rôle ni composant de la page ne s'habille d'une couleur de manette", () => {
+    // Le jumeau d'abord: la lecture voit un emprunt quand il y en a un.
+    expect(emprunts(new Map([["--essai", "var(--manette-xbox-coque-bas)"]]))).toEqual(["--essai"]);
+    for (const bloc of [NUIT, JOUR_CHOISI, declarations(css, ":root, .regie-nuit")]) {
+      expect(emprunts(bloc)).toEqual([]);
+    }
+  });
+});
+
 describe("une teinte, un sens: les quatre joueurs", () => {
   it("les aplats sont ceux de la page, et ne changent pas avec le thème", () => {
     // Le joueur 1 reste rouge quoi qu'il arrive; une couleur de joueur qui
@@ -195,9 +377,11 @@ describe("le thème rétro: seize couleurs, la mire et le logo", () => {
   /** Les couleurs qu'un thème peint pour son interface: chaque rôle et chaque
    * composant résolu, plus les quatre aplats des joueurs. Hors du compte,
    * comme `regie.css` le dit: les encres des joueurs (la couleur du joueur,
-   * éclaircie ou foncée), et ce qui est une image peinte aux couleurs de la
-   * mire (le logo, le tableau des scores). */
-  const HORS_COMPTE = /^--(p[1-4]-encre|logo-.+|score-[1-5])$/;
+   * éclaircie ou foncée), ce qui est une image peinte aux couleurs de la
+   * mire (le logo, le tableau des scores), et ce qui s'écrit sur l'écran de
+   * la borne, qui garde sa nuit le jour (`ECRAN`, vérifié plus bas). */
+  const HORS_COMPTE =
+    /^--(p[1-4]-encre|logo-.+|score-[1-5]|encre-ecran|ecran-trame|fronton-encre)$/;
   const palette = (theme: keyof typeof THEMES, extra: Map<string, string> = new Map()) => {
     const noms = [
       ...[...THEMES[theme].keys()],
@@ -233,6 +417,20 @@ describe("le thème rétro: seize couleurs, la mire et le logo", () => {
     const extra = new Map([["--essai", "#123456"]]);
     expect(palette("nuit", extra).size).toBe(palette("nuit").size + 1);
     expect(palette("nuit", extra).size).toBeGreaterThan(16);
+  });
+
+  it("l'écran garde sa nuit: ses jetons sont des couleurs que la nuit compte déjà", () => {
+    // Ce qui met ces jetons hors du compte du jour. Un jeton d'écran d'une
+    // couleur nouvelle passerait sinon sans être compté nulle part.
+    const nuit = palette("nuit");
+    for (const nom of ECRAN) {
+      expect(nuit.has(couleur("jour", nom)), nom).toBe(true);
+    }
+  });
+
+  it("le blanc pur, l'erreur la plus probable pour un texte sur l'écran, n'est pas de la nuit", () => {
+    // Le jumeau du précédent: la vérification sait dire non.
+    expect(palette("nuit").has("#ffffff")).toBe(false);
   });
 
   it("la mire a ses sept barres, dans l'ordre de l'écran", () => {

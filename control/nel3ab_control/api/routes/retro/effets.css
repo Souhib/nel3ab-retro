@@ -659,8 +659,8 @@ h3,
   position: relative;
 }
 .fx-fronton .rt-fronton {
-  background: var(--noir);
-  color: var(--mire-jaune);
+  background: var(--ecran);
+  color: var(--fronton-encre);
   font-family: var(--police-titre);
   text-transform: uppercase;
   letter-spacing: 0.16em;
@@ -686,8 +686,8 @@ h3,
 }
 .fx-fronton.fx-halo .rt-fronton {
   text-shadow:
-    0 0 6px color-mix(in srgb, var(--mire-jaune) 75%, transparent),
-    0 0 16px color-mix(in srgb, var(--mire-jaune) 35%, transparent);
+    0 0 6px color-mix(in srgb, var(--fronton-encre) 75%, transparent),
+    0 0 16px color-mix(in srgb, var(--fronton-encre) 35%, transparent);
 }
 
 /* « borne »: les bandes vides de chaque côté de l'image reçoivent un décor
@@ -701,7 +701,10 @@ h3,
 
 /* « places »: une place est un bouton START rond, 1P à 4P, allumé à la
    couleur du joueur quand elle est prise. Le numéro reste écrit. Le
-   composant pose `--rt-joueur` (`var(--p1)` à `var(--p4)`). */
+   composant pose `--rt-joueur` (`var(--p1)` à `var(--p4)`) sur une place
+   prise, et `data-libre` sur une place éteinte: elle n'est à personne, et
+   prend les jetons `--start-eteint-*` de la régie, sans couleur de joueur,
+   avec un contour en pointillés. */
 .rt-bouton-start {
   display: grid;
   place-items: center;
@@ -713,9 +716,14 @@ h3,
   background: var(--creux);
   font-family: var(--police-titre);
 }
+.rt-bouton-start[data-libre] {
+  border: 2px dashed var(--start-eteint-trait);
+  color: var(--start-eteint-encre);
+  background: var(--start-eteint-fond);
+}
 .fx-places .rt-bouton-start {
   border: 0;
-  color: var(--noir);
+  color: var(--start-encre);
   background: radial-gradient(
     circle at 35% 30%,
     color-mix(in srgb, var(--rt-joueur, var(--trait)) 55%, var(--blanc)),
@@ -724,9 +732,10 @@ h3,
   box-shadow: 0 3px 0 color-mix(in srgb, var(--rt-joueur, var(--trait)) 45%, var(--noir));
 }
 .fx-places .rt-bouton-start[data-libre] {
-  color: var(--legende);
-  background: color-mix(in srgb, var(--rt-joueur, var(--trait)) 20%, var(--creux));
-  box-shadow: 0 3px 0 var(--noir);
+  border: 2px dashed var(--start-eteint-trait);
+  color: var(--start-eteint-encre);
+  background: var(--start-eteint-fond);
+  box-shadow: 0 3px 0 var(--ombre);
 }
 .fx-places.fx-halo .rt-bouton-start:not([data-libre]) {
   box-shadow:

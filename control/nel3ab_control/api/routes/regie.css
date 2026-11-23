@@ -34,9 +34,12 @@
  * couleurs que les rôles, les composants et les quatre aplats des joueurs
  * finissent par valoir: douze pour l'interface, quatre pour les joueurs. Hors
  * du compte, et dit ici pour qu'on ne le découvre pas: la mire et le logo,
- * qui sont des images et gardent les mêmes couleurs de jour et de nuit, et
- * les encres des joueurs, qui sont la couleur du joueur éclaircie ou foncée
- * pour se lire (voir plus bas).
+ * qui sont des images et gardent les mêmes couleurs de jour et de nuit, les
+ * encres des joueurs, qui sont la couleur du joueur éclaircie ou foncée pour
+ * se lire (voir plus bas), et l'écran de la borne, qui garde sa nuit le jour:
+ * ce qui s'y écrit prend des couleurs que la nuit compte déjà (bloc des
+ * composants). Les couleurs d'objet des manettes, à la fin, sont des
+ * primitives qu'aucun rôle ne lit: elles n'entrent dans aucun thème.
  *
  * Une teinte, un sens. Le rouge, le bleu, le jaune et le vert des joueurs
  * restent ceux de `src/media/players.ts`. Le signal (focus, sélection, bouton
@@ -341,4 +344,136 @@
      Les coins en escalier sont un effet (`src/effets.css`), pas un rayon. */
   --rayon: 0;
   --rayon-rond: 50%;
+
+  /* Les jetons ci-dessous ont été demandés par les plans des chantiers
+     d'écran (partition du 23 novembre 2026, K28). Chaque rapport cité est
+     calculé par `regie.test.ts`.
+
+     L'ÉCRAN DE LA BORNE. Il reste noir dans les deux thèmes, et ce qui s'y
+     écrit ne change pas de thème non plus: le jour, l'écran garde sa nuit.
+     Ses jetons pointent donc sur des primitives, pas sur des rôles, et l'essai
+     exige qu'ils restent des couleurs de la palette de nuit: ils n'ajoutent
+     rien à la nuit, et le jour ils sont comptés avec l'écran, hors des seize
+     couleurs du givre. Le texte posé sur l'écran (écran éteint, plein cadre
+     d'un état) tient 18,38:1; l'encre du jour n'y tiendrait que 1,16:1. */
+  --encre-ecran: var(--mire-blanc);
+  /* Le second noir du tramage des bandes (effet « tramage »): 1,09:1 contre
+     l'écran. Au plus 1,2:1, pour rester un grain et pas un motif qui tire
+     l'oeil vers les bords; la plaque de nuit, à 1,22:1, serait trop claire. */
+  --ecran-trame: var(--marine-950);
+  /* Le titre du jeu sur le fronton, la bande noire au-dessus de l'image: le
+     jaune de la mire, une enseigne allumée, 15,65:1. */
+  --fronton-encre: var(--mire-jaune);
+
+  /* LE PANNEAU DE COMMANDE de la borne, sous l'écran: une plaque, et son
+     filet, un décor visible sous 3:1. Les places, le crédit et le temps de jeu
+     s'y écrivent; l'essai y mesure chaque encre, celles des joueurs comprises
+     (5,39:1 au plus juste, le jour). */
+  --panneau: var(--plaque);
+  --panneau-filet: var(--filet);
+
+  /* LES BOUTONS START des places (effet « places »). Allumé, le bouton prend
+     l'aplat du joueur et son numéro s'écrit en noir: 5,3:1 au plus juste, sur
+     le rouge du joueur 1, où le blanc de la mire ne tiendrait que 3,47:1.
+     Éteint (place libre, salle qui redémarre ou fermée), c'est un creux
+     bordé de pointillés au trait, et son numéro reste écrit en légende:
+     7,98:1 la nuit, 9,21:1 le jour. Aucune couleur de joueur: une place
+     éteinte n'est à personne. */
+  --start-encre: var(--noir);
+  --start-eteint-fond: var(--creux);
+  --start-eteint-encre: var(--legende);
+  --start-eteint-trait: var(--trait);
+
+  /* UNE OFFRE (« L'image saute »: on propose l'image légère): un contour en
+     pointillés au signal. L'alerte a un contour plein et sa propre couleur;
+     l'essai exige que les deux ne se confondent pas. */
+  --offre: var(--signal);
+}
+
+/* chantier manettes: couleurs d'objet ────────────────────────────────────
+   Les manettes dessinées sont des OBJETS: elles gardent leurs couleurs dans
+   les deux thèmes, comme la mire. Ces primitives ont été recopiées telles
+   quelles le 23 novembre 2026, à la demande du plan des manettes (K28), des
+   matières de `src/index.css` (`[data-padmap…]`) et des teintes `TINTS` de
+   `src/lib/padmap.ts`. Les valeurs à transparence (reflet, ombre intérieure,
+   couture translucide) n'y sont pas: le plan dessine des aplats sans lumière.
+   Rien ne les lit encore. Le chantier manettes y branche ses dessins, et
+   cette section est la sienne (partition du 23 novembre): il y garde, change
+   ou retire ce que son dessin emploie. Aucun rôle ni composant ne pointe ici
+   (`regie.test.ts`). */
+:root {
+  /* La base de toutes les manettes (`[data-padmap]`), appui compris. */
+  --manette-commune-coque-haut: #4b5161;
+  --manette-commune-coque-bas: #1c2028;
+  --manette-commune-plaque: #15181e;
+  --manette-commune-logement: #0b0d11;
+  --manette-commune-touche: #2a2e37;
+  --manette-commune-encre: #eef0f5;
+  --manette-commune-decor: #2a2e37;
+  --manette-commune-voyant: #8f98aa;
+  --manette-commune-fil: #d4d6de;
+  --manette-commune-appui: #7c6ce0;
+  --manette-commune-appui-anneau: #e8e8ee;
+  --manette-commune-appui-encre: #08080a;
+  /* La Wiimote, seule ou avec son Nunchuk. */
+  --manette-wiimote-coque-haut: #fdfdfe;
+  --manette-wiimote-coque-bas: #c8cdd7;
+  --manette-wiimote-logement: #a3a9b6;
+  --manette-wiimote-touche: #f3f4f7;
+  --manette-wiimote-encre: #545b6a;
+  --manette-wiimote-couture: #b4bac6;
+  --manette-wiimote-voyant: #aab1bf;
+  --manette-wiimote-fil: #e9ebf0;
+  /* La guitare. */
+  --manette-guitare-coque-haut: #fbfbfc;
+  --manette-guitare-coque-bas: #c3c8d2;
+  --manette-guitare-plaque: #1b1c21;
+  --manette-guitare-logement: #121317;
+  --manette-guitare-touche: #2a2c33;
+  --manette-guitare-encre: #eef0f5;
+  --manette-guitare-couture: #6b7080;
+  /* Les manettes Xbox et Xbox 360. */
+  --manette-xbox-coque-haut: #41444c;
+  --manette-xbox-coque-bas: #16181c;
+  --manette-xbox-logement: #07080a;
+  --manette-xbox-touche: #24262c;
+  --manette-xbox-encre: #c9ccd4;
+  /* La DualShock. */
+  --manette-dualshock-coque-haut: #fdfdfe;
+  --manette-dualshock-coque-bas: #c7ccd6;
+  --manette-dualshock-plaque: #17181d;
+  --manette-dualshock-logement: #0c0d10;
+  --manette-dualshock-touche: #34363e;
+  --manette-dualshock-encre: #d9dce4;
+  --manette-dualshock-couture: #8c93a3;
+  --manette-dualshock-voyant: #6f7fff;
+  /* La manette Pro de la Switch. */
+  --manette-switch-pro-coque-haut: #3f434b;
+  --manette-switch-pro-coque-bas: #15171b;
+  --manette-switch-pro-plaque: #1b1d22;
+  --manette-switch-pro-logement: #08090b;
+  --manette-switch-pro-touche: #1f2126;
+  --manette-switch-pro-encre: #c9cdd6;
+  /* La manette standard du navigateur. */
+  --manette-standard-coque-haut: #7b818d;
+  --manette-standard-coque-bas: #3c414b;
+  --manette-standard-logement: #15171c;
+  --manette-standard-touche: #2c2f36;
+  --manette-standard-encre: #e9ebf0;
+  /* La manette GameCube, et son appui à elle. */
+  --manette-gamecube-coque-haut: #6d64d2;
+  --manette-gamecube-coque-bas: #2b247c;
+  --manette-gamecube-logement: #1b1550;
+  --manette-gamecube-touche: #cfcdd9;
+  --manette-gamecube-encre: #2a2840;
+  --manette-gamecube-appui: #c8ff4d;
+  --manette-gamecube-appui-anneau: #14200a;
+  --manette-gamecube-appui-encre: #1a2600;
+  /* Les teintes de touches qui reviennent d'une manette à l'autre (`TINTS`). */
+  --manette-teinte-vert: #2f9e5e;
+  --manette-teinte-rouge: #c8402f;
+  --manette-teinte-violet: #7a5bb5;
+  --manette-teinte-jaune: #c8a01f;
+  --manette-teinte-bleu: #3c7dc7;
+  --manette-teinte-gris: #6e6e7a;
 }

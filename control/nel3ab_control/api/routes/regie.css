@@ -412,8 +412,10 @@
   --manette-commune-couture: #0b0d11;
   --manette-commune-voyant: #8f98aa;
   --manette-commune-fil: #d4d6de;
-  /* L'appui sans place (spectateur, planche), jamais une couleur de joueur. */
-  --manette-commune-appui: #7c6ce0;
+  /* L'appui sans place (spectateur, planche), jamais une couleur de joueur.
+     Il tient 3:1 sur les touches sombres (3,58:1 sur la DualShock) comme sur
+     les touches claires de la Wiimote (3,04:1), où la croix n'a que lui. */
+  --manette-commune-appui: #8b7cf0;
   /* Les anneaux d'appui: de l'autre clarté que la coque. */
   --manette-anneau-clair: #e8e8ee;
   --manette-anneau-sombre: #08080a;
@@ -456,13 +458,12 @@
   --manette-standard-logement: #15171c;
   --manette-standard-touche: #2c2f36;
   --manette-standard-encre: #e9ebf0;
-  /* La manette GameCube, et son appui sans place: un vert d'objet. */
+  /* La manette GameCube, et son appui sans place: un vert d'objet foncé. */
   --manette-gamecube-coque: #4c44a7;
   --manette-gamecube-logement: #1b1550;
   --manette-gamecube-touche: #cfcdd9;
   --manette-gamecube-encre: #2a2840;
-  --manette-gamecube-appui: #c8ff4d;
-  --manette-gamecube-appui-encre: #1a2600;
+  --manette-gamecube-appui: #1f5a1a;
   /* Les touches de couleur, nommées par les plans de `lib/padmap.ts`: une
      touche porte la couleur de la vraie manette, et on reconnaît le A d'une
      GameCube à son vert d'eau avant d'avoir lu la lettre. */

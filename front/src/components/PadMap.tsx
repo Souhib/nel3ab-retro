@@ -116,6 +116,7 @@ export function PadMapView({
         data-under={part.under ? "oui" : undefined}
         data-hangs={part.hangs ? "oui" : undefined}
         data-flush={part.flush ? "oui" : undefined}
+        data-appui={part.appui}
         data-selected={selected === part.key ? "oui" : undefined}
         data-attendue={waiting === part.key ? "oui" : undefined}
         // Le dessin montre, la liste agit : un clic de souris choisit la

@@ -130,6 +130,12 @@ export type Part = {
   under?: boolean;
   /** Une branche d'une pièce plus grande (la croix) : pas de logement à elle. */
   flush?: boolean;
+  /** L'appui de cette touche est la teinte CLAIRE de la place, avec l'anneau
+   * sombre, même sur une coque claire. Pour une teinte moyenne ou sombre
+   * entourée de sombre (le A vert d'eau de la GameCube dans son logement, le
+   * viseur noir et les arcs gris de la Wiimote) : aucune autre paire ne se
+   * détache à la fois de la touche et de ce qui l'entoure (`padmap.css`). */
+  appui?: "clair";
   /** Posée sur la coque mais en dépasse, comme le vibrato d'une guitare. */
   hangs?: boolean;
   /** La garde d'un stick, ronde ou octogonale comme sur une GameCube. */
@@ -434,6 +440,7 @@ export const GAMECUBE: PadMap = {
     {
       key: "A",
       label: "A",
+      appui: "clair",
       x: 77.2,
       y: 24.4,
       r: 5.3,
@@ -1218,6 +1225,7 @@ const WM_PARTS: Part[] = [
   {
     key: "cx",
     label: "viser",
+    appui: "clair",
     x: 69.75,
     y: 7,
     r: 0.8,
@@ -1251,6 +1259,7 @@ const WM_PARTS: Part[] = [
   {
     key: "Z",
     label: "secouer",
+    appui: "clair",
     x: 80.4,
     y: 50,
     r: 2.8,

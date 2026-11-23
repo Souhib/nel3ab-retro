@@ -100,13 +100,15 @@
   --pad-well: var(--manette-gamecube-logement);
   --pad-cap: var(--manette-gamecube-touche);
   --pad-ink: var(--manette-gamecube-encre);
-  /* Sans place, un vert d'objet : le violet neutre ne se voyait pas sur sa
-     coque violette. Son anneau est sombre, pour trancher sur les touches gris
-     clair et, de jour, sur la page derrière les gâchettes (1,07:1 avec
-     l'anneau clair, mesuré par `just banc-visuel` le 23 novembre 2026). */
+  /* Sans place, un vert d'objet FONCÉ, comme la teinte foncée d'une place
+     sur ces touches gris clair, et l'anneau clair. Le vert clair d'avant
+     tombait à 1,33:1 sur la croix, qui n'a pas d'anneau (23 novembre 2026,
+     `lib/manettes-couleurs.test.ts`). Les gâchettes derrière la coque ont
+     l'anneau à l'encre du thème : le 1,07:1 de jour mesuré par
+     `just banc-visuel` avec l'anneau clair ne revient pas. */
   --pad-lit: var(--manette-gamecube-appui);
-  --pad-lit-ring: var(--manette-anneau-sombre);
-  --pad-lit-ink: var(--manette-gamecube-appui-encre);
+  --pad-lit-ring: var(--manette-anneau-clair);
+  --pad-lit-ink: var(--manette-anneau-clair);
 }
 
 /* Touches claires : l'appui est la teinte foncée de la place. */
@@ -148,18 +150,30 @@
   --pad-lit-ink: var(--pad-appui-encre);
 }
 
-/* Une touche teintée de la clarté de l'anneau le perd : le A vert d'eau de
-   la GameCube sous l'anneau clair, le viseur noir de la Wiimote et le
-   vibrato de la guitare sous l'anneau sombre, à 2,6:1 au mieux (23 novembre
-   2026). Sur la pièce, la propriété l'emporte sur celle du dessin, quelle
-   que soit la place. */
-[data-padmap="gamecube"] [data-part="A"] {
+/* Une touche teintée moyenne ou sombre, entourée de sombre, ne se détache
+   avec aucune des paires de sa coque : le A vert d'eau de la GameCube dans
+   son logement, le viseur noir et les arcs gris de la Wiimote (2,3 à 2,7:1,
+   23 novembre 2026, `lib/manettes-couleurs.test.ts` et la planche). Le plan
+   la marque `appui: "clair"` : l'aplat prend la teinte claire de la place,
+   qui tranche sur ce qui l'entoure, et l'anneau sombre tranche sur la
+   touche. Sur la pièce, ces propriétés l'emportent sur celles du dessin. */
+[data-padmap] [data-appui="clair"] {
+  --pad-lit: var(--manette-commune-appui);
   --pad-lit-ring: var(--manette-anneau-sombre);
+  --pad-lit-ring-dessous: var(--manette-anneau-sombre);
+  --pad-lit-ink: var(--manette-anneau-sombre);
 }
-[data-padmap="wiimote"] [data-part="cx"],
-[data-padmap="wiimote-only"] [data-part="cx"],
-[data-padmap="guitar"] [data-part="cx"] {
-  --pad-lit-ring: var(--manette-anneau-clair);
+[data-padmap][data-place="1"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-1-nuit);
+}
+[data-padmap][data-place="2"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-2-nuit);
+}
+[data-padmap][data-place="3"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-3-nuit);
+}
+[data-padmap][data-place="4"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-4-nuit);
 }
 
 /* Le contour net suit le thème : clair sur une page sombre, sombre sur une
@@ -284,9 +298,10 @@
   filter: drop-shadow(0 0 1.2px var(--pad-lit));
 }
 /* Une gâchette dessinée derrière la coque se voit sur la page : son anneau
-   prend l'encre du thème, qui tient sur le fond de nuit comme de jour. */
+   prend l'encre du thème, qui tient sur le fond de nuit comme de jour, sauf
+   si la pièce en déclare un (`--pad-lit-ring-dessous`). */
 [data-padmap] [data-under][data-lit="oui"] .n3-cap {
-  stroke: var(--encre);
+  stroke: var(--pad-lit-ring-dessous, var(--encre));
 }
 [data-padmap] [data-lit="oui"] text:not(.n3-callout) {
   fill: var(--pad-lit-ink);
@@ -297,6 +312,10 @@
 }
 [data-padmap] [data-flush] .n3-cap {
   stroke: none;
+}
+/* Le viseur affleure mais garde son anneau d'appui, seul à trancher sur lui. */
+[data-padmap] [data-flush][data-appui="clair"][data-lit="oui"] .n3-cap {
+  stroke: var(--pad-lit-ring);
 }
 [data-padmap] [data-lit="oui"]:not([data-stick], [data-flush]) > .n3-stick-body {
   transform: translate(0, 0.35px);

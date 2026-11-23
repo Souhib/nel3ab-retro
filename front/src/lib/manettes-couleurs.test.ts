@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { EMULATED, MAPS, PHYSICAL, type PadMap } from "./padmap";
+import { EMULATED, MAPS, type Part, PHYSICAL, type PadMap } from "./padmap";
 
 type Fs = { readFileSync: (chemin: string, codage: "utf-8") => string };
 const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
@@ -44,13 +44,14 @@ const RACINE = new Map(
 
 /** Les propriétés d'un dessin de ce plan à cette place, dans l'ordre de la
  * feuille : la base, puis chaque bloc qui le nomme. Avec une pièce, les blocs
- * qui la nomment viennent après tous les autres : posée sur la pièce, une
- * propriété l'emporte sur celle que le dessin lui transmet. */
+ * qui la visent viennent après tous les autres, ceux qui nomment aussi la
+ * place en dernier (plus précis) : posée sur la pièce, une propriété
+ * l'emporte sur celle que le dessin lui transmet. */
 function proprietes(
   css: string,
   plan: string,
   place: number | null,
-  piece?: string,
+  piece?: Pick<Part, "key" | "appui">,
 ): Map<string, string> {
   const vues = new Map<string, string>();
   const tous = blocs(css);
@@ -64,11 +65,23 @@ function proprietes(
     if (vise) for (const [nom, val] of bloc.decl) vues.set(nom, val);
   }
   if (piece === undefined) return vues;
-  for (const bloc of tous) {
-    const vise = bloc.selecteurs.some(
-      (sel) => sel === `[data-padmap="${plan}"] [data-part="${piece}"]`,
-    );
-    if (vise) for (const [nom, val] of bloc.decl) vues.set(nom, val);
+  const cibles = [
+    `[data-part="${piece.key}"]`,
+    ...(piece.appui ? [`[data-appui="${piece.appui}"]`] : []),
+  ];
+  const dessins = [`[data-padmap]`, `[data-padmap="${plan}"]`];
+  const passes = [
+    cibles.flatMap((c) => dessins.map((d) => `${d} ${c}`)),
+    place === null
+      ? []
+      : cibles.flatMap((c) => dessins.map((d) => `${d}[data-place="${place}"] ${c}`)),
+  ];
+  for (const voulus of passes) {
+    for (const bloc of tous) {
+      if (bloc.selecteurs.some((sel) => voulus.includes(sel))) {
+        for (const [nom, val] of bloc.decl) vues.set(nom, val);
+      }
+    }
   }
   return vues;
 }
@@ -113,6 +126,19 @@ const IDS = [
   ...[...PLANS.matchAll(/\bid: "([a-z0-9-]+)"/g)].map(([, id]) => id!),
   ...[...PLANS.matchAll(/switchPro\(\s*"([a-z0-9-]+)"/g)].map(([, id]) => id!),
 ];
+
+/** Ce que la page déclare dans chaque thème : l'encre (l'anneau d'une gâchette
+ * dessinée derrière la coque) et le fond (ce qui l'entoure). Le bloc de nuit
+ * nomme `:root`, il est donc déjà dans `RACINE`. */
+const JOUR = new Map(
+  blocs(REGIE)
+    .filter((b) => b.selecteurs.includes(':root[data-theme="jour"]'))
+    .flatMap((b) => [...b.decl]),
+);
+const PAGE = {
+  nuit: { encre: resoudre("var(--encre)", new Map()), fond: resoudre("var(--fond)", new Map()) },
+  jour: { encre: resoudre("var(--encre)", JOUR), fond: resoudre("var(--fond)", JOUR) },
+};
 
 describe("l'appui des manettes dessinées", () => {
   it("lit les dix plans, et chacun a ses matières", () => {
@@ -187,6 +213,8 @@ describe("l'appui des manettes dessinées", () => {
   });
 });
 
+const GAMECUBE_A = MAPS["gamecube"]!.parts.find((one) => one.key === "A")!;
+
 /** Tous les plans, la Wiimote seule comprise, que `MAPS` ne porte pas. */
 const PLANS_VIVANTS: readonly PadMap[] = [
   ...new Set([...Object.values(MAPS), ...EMULATED, ...PHYSICAL]),
@@ -197,6 +225,57 @@ const nommees = (plan: PadMap) =>
   plan.parts.flatMap((part) =>
     [part.tint, part.ink].filter((c): c is NonNullable<typeof c> => c !== undefined),
   );
+
+/** Les appuis sous 3:1 de tous les plans avec cette feuille, et le nombre de
+ * cas lus.
+ *
+ * Deux seuils de 3:1, par l'aplat ou par l'anneau, tels que `padmap.css`
+ * les dessine. Contre la touche elle-même (sa teinte, sinon le capuchon) :
+ * l'appui la change. Contre ce qui l'entoure, comme `banc-visuel.mjs` le
+ * mesure : son logement ou la coque ; la base de la croix pour une pièce
+ * affleurante ; la page pour une gâchette derrière la coque. Une pièce
+ * affleurante n'a pas d'anneau, sauf `appui: "clair"` ; une gâchette
+ * derrière la coque a l'encre du thème, sauf si elle déclare le sien.
+ */
+function appuisFaibles(css: string): { faibles: string[]; lues: number } {
+  const faibles: string[] = [];
+  let lues = 0;
+  for (const plan of PLANS_VIVANTS) {
+    for (const part of plan.parts) {
+      for (const place of [null, 1, 2, 3, 4]) {
+        for (const theme of ["nuit", "jour"] as const) {
+          const p = proprietes(css, plan.id, place, part);
+          const voir = (nom: string) => resoudre(`var(${nom})`, p);
+          const aplat = voir("--pad-lit");
+          const anneau =
+            part.flush && part.appui !== "clair"
+              ? null
+              : part.under
+                ? p.has("--pad-lit-ring-dessous")
+                  ? voir("--pad-lit-ring-dessous")
+                  : PAGE[theme].encre
+                : voir("--pad-lit-ring");
+          const tranche = (fond: string) =>
+            Math.max(contraste(aplat, fond), anneau ? contraste(anneau, fond) : 0);
+          const touche = tranche(resoudre(part.tint ?? "var(--pad-cap)", p));
+          const autour = part.under
+            ? tranche(PAGE[theme].fond)
+            : part.flush
+              ? tranche(voir("--pad-cap"))
+              : Math.max(
+                  part.hangs ? 0 : tranche(voir("--pad-well")),
+                  tranche(voir("--pad-shell")),
+                );
+          lues += 1;
+          const ou = `${plan.id} ${part.key} place ${place} ${theme}`;
+          if (touche < 3) faibles.push(`${ou} touche ${touche.toFixed(2)}`);
+          if (autour < 3) faibles.push(`${ou} autour ${autour.toFixed(2)}`);
+        }
+      }
+    }
+  }
+  return { faibles, lues };
+}
 
 describe("les touches de couleur des plans", () => {
   it("nomment chacune une couleur que la feuille déclare", () => {
@@ -210,37 +289,38 @@ describe("les touches de couleur des plans", () => {
     expect(() => resoudre("var(--manette-gamecube-inconnue)", new Map())).toThrow(/déclaré/);
   });
 
-  it("laissent voir l'appui de chaque place sur la touche teintée", () => {
-    // La touche teintée remplace le capuchon commun : l'appui doit s'en
-    // distinguer à 3:1 au moins, par l'aplat ou par l'anneau.
-    const faibles: string[] = [];
-    for (const plan of PLANS_VIVANTS) {
-      for (const part of plan.parts.filter((one) => one.tint)) {
-        for (const place of [null, 1, 2, 3, 4]) {
-          const p = proprietes(PADMAP, plan.id, place, part.key);
-          const voir = (nom: string) => resoudre(`var(${nom})`, p);
-          const touche = resoudre(part.tint!, p);
-          const vu = Math.max(
-            contraste(voir("--pad-lit"), touche),
-            contraste(voir("--pad-lit-ring"), touche),
-          );
-          if (vu < 3) faibles.push(`${plan.id} ${part.key} place ${place} ${vu.toFixed(2)}`);
-        }
-      }
-    }
+  it("laissent voir l'appui de chaque place sur chaque touche et autour d'elle", () => {
+    const { faibles, lues } = appuisFaibles(PADMAP);
+    // La précondition : chaque pièce de chaque plan a été lue, dans deux
+    // thèmes qui diffèrent.
+    expect(lues).toBeGreaterThan(1000);
+    expect(PAGE.nuit.fond).not.toBe(PAGE.jour.fond);
     expect(faibles).toEqual([]);
   });
 
-  it("lit l'anneau posé sur la pièce, après celui du dessin", () => {
-    // Le jumeau : sans la règle de la pièce, le A de la GameCube retombe.
-    const sans = PADMAP.replace(
-      '[data-padmap="gamecube"] [data-part="A"] {\n  --pad-lit-ring: var(--manette-anneau-sombre);',
-      '[data-padmap="gamecube"] [data-part="A"] {\n  --pad-lit-ring: var(--pad-anneau);',
+  it("lit l'appui posé sur la pièce, après celui du dessin", () => {
+    // La place 1 donne au A de la GameCube sa teinte claire ; sans sa règle,
+    // il perd la couleur de la place.
+    const regle =
+      '[data-padmap][data-place="1"] [data-appui="clair"] {\n  --pad-lit: var(--joueur-1-nuit);';
+    expect(PADMAP).toContain(regle);
+    const sansPlace = PADMAP.replace(
+      regle,
+      '[data-padmap][data-place="1"] [data-appui="clair"] {\n',
     );
-    expect(sans).not.toBe(PADMAP);
-    const anneau = (css: string) =>
-      resoudre("var(--pad-lit-ring)", proprietes(css, "gamecube", 1, "A"));
-    expect(anneau(PADMAP)).toBe(RACINE.get("--manette-anneau-sombre"));
-    expect(anneau(sans)).toBe(RACINE.get("--manette-anneau-clair"));
+    const aplat = (css: string) =>
+      resoudre("var(--pad-lit)", proprietes(css, "gamecube", 1, GAMECUBE_A));
+    expect(aplat(PADMAP)).toBe(RACINE.get("--joueur-1-nuit"));
+    expect(aplat(sansPlace)).not.toBe(RACINE.get("--joueur-1-nuit"));
+    // Le jumeau : sans aucune règle `appui: "clair"`, le A, le viseur et les
+    // arcs retombent sous 3:1, et l'essai le dit.
+    const sansAppui = PADMAP.replaceAll('[data-appui="clair"]', '[data-appui="aucun"]');
+    expect(sansAppui).not.toBe(PADMAP);
+    const tombent = new Set(
+      appuisFaibles(sansAppui).faibles.map((un) => un.split(" ").slice(0, 2).join(" ")),
+    );
+    expect([...tombent].sort()).toEqual(
+      ["gamecube A", "wiimote Z", "wiimote cx", "wiimote-only Z", "wiimote-only cx"].sort(),
+    );
   });
 });

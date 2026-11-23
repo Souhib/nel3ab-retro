@@ -63,6 +63,7 @@ import {
   type Touche,
 } from "../lib/faces";
 import { nomDeLaSalle } from "../lib/feuille";
+import { Mascotte } from "../mascotte/Mascotte";
 import { RoomIcon } from "./XmbIcons";
 import "./manette-tactile.css";
 
@@ -461,9 +462,7 @@ export function Pave<K extends string>({
                 (`ouEstLaMascotte` rend « barre »). Sans cet hôte, les scènes
                 de la salle ne jouaient nulle part (relecture du
                 23 novembre 2026). */}
-            {cadre?.tete ? (
-              <span className="n3-salle-tete" data-hote="barre" aria-hidden="true" />
-            ) : null}
+            {cadre?.tete ? <Mascotte scene={null} className="n3-salle-tete" hote="barre" /> : null}
             {said.label}
             {libelleSalle ? <span className="n3-pave-geste-libelle">{libelleSalle}</span> : null}
           </button>

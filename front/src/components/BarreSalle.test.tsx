@@ -40,3 +40,21 @@ it("posé seul en travers, « La salle » porte la tête de la mascotte ; dans l
   expect(hotes).toHaveLength(1);
   expect(hotes[0]?.closest("#laSalle")).toBeNull();
 });
+
+it("la tête d'Aïn est peinte dès le montage, dans son hôte", () => {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+  const barre = render(
+    <BarreSalle
+      rect={{ x: 0, y: 0, w: 390, h: 52 }}
+      nomSalle="Salle 1"
+      jeu={null}
+      sonCoupe={false}
+      onSalle={vi.fn()}
+    />,
+  );
+  const tete = barre.container.querySelector('[data-hote="barre"] > canvas.rt-mascotte');
+  expect(tete).not.toBeNull();
+  // La tête n'est pas un logo : pas de sol, pas de marque.
+  expect(barre.container.querySelector("[data-sol]")).toBeNull();
+  vi.restoreAllMocks();
+});

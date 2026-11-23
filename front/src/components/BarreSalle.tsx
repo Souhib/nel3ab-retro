@@ -13,6 +13,7 @@
  */
 import type { Rect } from "../lib/cadre";
 import { nomDeLaSalle } from "../lib/feuille";
+import { Mascotte } from "../mascotte/Mascotte";
 import { placeDe } from "./Cadre";
 import { RoomIcon } from "./XmbIcons";
 import "./telephone.css";
@@ -38,7 +39,7 @@ export function BarreSalle({
     <header id="barreSalle" className="n3-barre" style={placeDe(rect)}>
       {/* L'hôte de la mascotte au téléphone (`ouEstLaMascotte`) : l'arbitre
           des scènes le trouve par son attribut. */}
-      <span className="n3-barre-tete" data-hote="barre" aria-hidden="true" />
+      <Mascotte scene={null} className="n3-barre-tete" hote="barre" />
       <div className="n3-barre-noms">
         <p className="n3-barre-salle">{nomSalle}</p>
         {jeu ? (
@@ -91,7 +92,7 @@ export function BoutonSalle({
       onMouseDown={(event) => event.preventDefault()}
       onClick={onSalle}
     >
-      {tete ? <span className="n3-salle-tete" data-hote="barre" aria-hidden="true" /> : null}
+      {tete ? <Mascotte scene={null} className="n3-salle-tete" hote="barre" /> : null}
       <span className="n3-salle-icone" aria-hidden="true">
         <RoomIcon className="h-full w-full" />
       </span>

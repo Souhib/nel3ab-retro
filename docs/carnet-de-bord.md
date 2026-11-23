@@ -28438,6 +28438,17 @@ complétés aussitôt. C'est la règle « a newline is not an execution
 dependency » du 10 novembre, appliquée à de la prose : le texte passe
 maintenant par un fichier lancé avec `&&` avant le commit.
 
+**« Je reste ».** Une salle où personne ne touche au jeu pendant une
+demi-heure se ferme, et elle prévient cinq minutes avant. Pour rester, il
+fallait appuyer sur une touche du jeu, donc agir sur la partie en cours. Un
+message d'un seul octet, envoyé par la socket de la manette, compte maintenant
+comme un geste sans rien envoyer au jeu. Il passe par le même horodatage
+qu'une touche, donc par les deux règles qui le lisent : la fermeture, et le
+chef absent qui laisse décider les autres. Un essai vérifie qu'aucune trame
+n'atteint l'émulateur ; son jumeau envoie un octet inconnu, qui ne remet rien
+et ne ferme pas la socket. Le bouton de la page viendra après la fusion du
+chantier des manettes, qui tient ce fichier.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

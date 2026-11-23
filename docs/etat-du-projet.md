@@ -81,6 +81,9 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Durées de démarrage (D05).** `nel3ab_control/demarrages.py`,
   `NEL3AB_DEMARRAGES_FILE` (`~/.local/state/nel3ab/demarrages.jsonl`) ;
   `Game.demarrage` à partir de cinq démarrages réussis.
+- **« Je reste » (D16).** Message `Reste` d'un octet sur la socket de
+  manette ; la méthode `reste()` de `front/src/media/input.ts` reste à écrire
+  après la fusion du chantier des manettes (K34).
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

@@ -1784,6 +1784,14 @@ Decision:
   keeps its constants and does not say « usually ». A launch that comes back
   on another game or on the menu, or without an image after ten minutes, is an
   « abandon » line, never counted; an impossible duration is not written.
+- **« I'm staying » is one byte on the pad socket (D16).** `Reste` (tag `0xE1`,
+  next to the echo's `0xE0`, a length no other message of that channel has)
+  stamps the seat's last gesture like a non-neutral frame, so the inactivity
+  close and the absent-owner rule both see it, and puts nothing in the
+  emulator's input. An unknown single byte is ignored and the socket stays
+  open (before, any one-byte message reached the pad decoder and closed it). A
+  spectator has no pad socket, hence no button. The page method `reste()` in
+  `media/input.ts` waits for the controllers track to merge (K34).
 
 
 ## Consequences

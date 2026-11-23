@@ -8,7 +8,7 @@
 
 use std::net::TcpStream;
 
-use nel3ab_protocol::{Command, Echo, PlayerSlot};
+use nel3ab_protocol::{Command, Echo, PlayerSlot, Reste};
 
 use super::{AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Seats, Shared, socket_limits};
 
@@ -106,6 +106,19 @@ pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bo
     // into a lock it cannot take.
     shared.arrived.notify_one();
     true
+}
+
+/// « Je reste »: cette place compte comme active, sans trame pour le jeu.
+///
+/// Le même horodatage qu'une trame non neutre (`acted`), donc la même règle
+/// d'inactivité et la même règle de propriétaire absent: qui dit « je reste »
+/// est là. Rien n'entre dans `inputs`: l'émulateur ne voit aucune trame.
+fn reste(shared: &Shared, seat: PlayerSlot) {
+    if let Ok(mut acted) = shared.acted.lock()
+        && let Some(when) = acted.get_mut(seat.index())
+    {
+        *when = Some(std::time::Instant::now());
+    }
 }
 
 /// Renvoie un aller-retour tel quel, et dit si la socket tient encore.
@@ -301,6 +314,15 @@ pub(super) fn input_thread(
                 continue;
             }
             break;
+        }
+        // Un octet est « je reste » (D16): un geste qui ne va pas au jeu. Un
+        // octet inconnu est ignoré, et la socket reste ouverte, comme un
+        // aller-retour sans sa marque.
+        if payload.len() == Reste::LEN {
+            if Reste::decode(&payload).is_ok() {
+                reste(shared, seat);
+            }
+            continue;
         }
         // Two bytes is a command, thirteen is a pad. Told apart by length,
         // which needs no mode and no header — see `Command` in the protocol.

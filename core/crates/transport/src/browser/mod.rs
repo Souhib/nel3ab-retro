@@ -2607,6 +2607,67 @@ mod tests {
         assert_eq!(came_back, Some(sent));
     }
 
+    /// D16: « je reste » compte comme un geste pour la fermeture, et n'atteint
+    /// jamais l'émulateur.
+    #[test]
+    fn staying_counts_as_a_gesture_and_reaches_no_game() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut socket, _) = hold(server.address());
+        let avant = server.inputs_received();
+        assert_eq!(server.last_action(), None);
+
+        socket
+            .send(tungstenite::Message::binary(
+                nel3ab_protocol::Reste.encode().to_vec(),
+            ))
+            .unwrap();
+        // Un aller-retour derrière: quand il revient, « reste » a été lu.
+        let marque = Echo([7; 8]);
+        socket
+            .send(tungstenite::Message::binary(marque.encode().to_vec()))
+            .unwrap();
+        while Echo::decode(&socket.read().unwrap().into_data()) != Ok(marque) {}
+
+        let geste = server.last_action().expect("« reste » est un geste");
+        assert!(geste.elapsed() < Duration::from_secs(2));
+        assert_eq!(server.inputs_received(), avant, "aucune trame comptée");
+        assert!(server.drain_input().is_empty(), "rien pour l'émulateur");
+    }
+
+    /// Le jumeau: un octet inconnu ne remet rien, et ne ferme pas la socket.
+    #[test]
+    fn an_unknown_single_byte_is_ignored_and_the_socket_stays() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            PlayerSlot::new(1).unwrap(),
+            &nobody(),
+        )
+        .unwrap();
+        let (mut socket, _) = hold(server.address());
+
+        socket
+            .send(tungstenite::Message::binary(vec![0x42_u8]))
+            .unwrap();
+        let marque = Echo([3; 8]);
+        socket
+            .send(tungstenite::Message::binary(marque.encode().to_vec()))
+            .unwrap();
+        while Echo::decode(&socket.read().unwrap().into_data()) != Ok(marque) {}
+
+        assert_eq!(server.last_action(), None);
+    }
+
     /// Le jumeau: neuf octets sans la marque ne sont pas un aller-retour, et ne
     /// doivent donc rien faire revenir.
     #[test]

@@ -6,8 +6,10 @@
  * est donc là dès l'entrée, vide, et seul son texte change. Atomique, pour
  * qu'une phrase se lise en entier.
  *
- * Elle dit la DERNIÈRE nouvelle: un changement d'état de la liaison, ou une
- * demande de manette. Jamais une durée qui avance, qui la ferait relire deux
+ * Elle dit la DERNIÈRE nouvelle: un changement d'état de la liaison, une
+ * demande de place, ou une nouvelle des places et de l'invitation (`nouvelle`,
+ * depuis le 23 novembre 2026: Inviter, la reprise et Signaler avaient chacun
+ * leur région, audit A11Y-18). Jamais une durée qui avance, qui la ferait relire deux
  * fois par seconde (audit A11Y-03, A11Y-07, A11Y-09). Bobine fait le geste à
  * l'écran, cette ligne le dit en mots.
  */
@@ -21,14 +23,19 @@ export function LigneParlee({
   demande,
   delai,
   peintes,
+  nouvelle = null,
 }: {
   liaison: Liaison;
   salle: number;
-  demande: { from: string; port: number } | null;
+  demande: { from: string; port: number; chemin?: "reprise" | "ancienne" } | null;
   /** Le délai de réponse à une demande, en secondes. */
   delai: number;
   /** Les images peintes par la page, lues quand l'état change (`phraseLiaison`). */
   peintes: number;
+  /** Une nouvelle d'un autre chantier (une arrivée, « Lien copié. », un
+   * signalement), dite une fois. `cle` change à chaque nouvelle : la même
+   * phrase deux fois de suite se redit. */
+  nouvelle?: { texte: string; cle: number } | null;
 }) {
   const [dit, setDit] = useState("");
   const avant = useRef<Liaison>({ etat: "ok" });
@@ -49,6 +56,11 @@ export function LigneParlee({
   useEffect(() => {
     if (demandee !== "") setDit(demandee);
   }, [demandee]);
+  useEffect(() => {
+    if (nouvelle !== null && nouvelle.texte !== "") setDit(nouvelle.texte);
+    // La clé seule décide : le texte voyage avec elle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nouvelle?.cle]);
   return (
     <p id="ligneParlee" role="status" aria-atomic="true" className="sr-only">
       {dit}

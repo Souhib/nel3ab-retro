@@ -96,7 +96,8 @@ sa place à prendre est dans la bande. Mesure alternée des effets (`just cadre-
 quatre phases de 60 s) : aucun coût répétable dans Chrome sans écran, sous
 une charge étrangère, donc une tendance. Reste : les captures de nuit et de
 jour, le temps de jeu (D04), la documentation finale et la porte entière.
-Poids : 246 561 octets en brotli (10 861 pour la salle). Décision : [ADR](adr/0001-architecture.md) D39 (en
+Poids : 246 490 octets en brotli (10 790 pour la salle, enveloppe de
+12 000). Décision : [ADR](adr/0001-architecture.md) D39 (en
 partie livrée), qui amende D28 et D35. Récits : « 23
 novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
 novembre, la nuit : la colonne du bureau et le panneau de commande » et

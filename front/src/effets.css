@@ -824,11 +824,17 @@ canvas.rt-mascotte {
   width: 100%;
   height: 0;
 }
+/* Le calque n'a pas de boîte : un point en haut à gauche de la fenêtre, d'où
+   les sprites se placent. Plein écran, il couvrait l'image sans rien peindre,
+   et la garde d'etats-navigateur (calques-sous-image) le voyait dessus. */
 .rt-ain-calque {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   z-index: 60;
-  overflow: hidden;
+  width: 0;
+  height: 0;
+  overflow: visible;
   pointer-events: none;
 }
 .rt-ain-sprite {

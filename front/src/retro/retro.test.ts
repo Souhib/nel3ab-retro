@@ -559,6 +559,39 @@ describe("le dessin en pixels", () => {
     }
   });
 
+  /** Ce qui sort de la grille du socle: sept lignes de douze cases, `#` ou `.`. */
+  const horsGrille = (grille: readonly string[]) => {
+    const fautes: string[] = [];
+    if (grille.length !== 7) fautes.push(`${grille.length} lignes`);
+    grille.forEach((ligne, rang) => {
+      if (!/^[.#]{12}$/.test(ligne)) fautes.push(`ligne ${rang + 1}: « ${ligne} »`);
+    });
+    return fautes;
+  };
+
+  it("chaque icône tient sur la grille, et une icône hors de la grille se voit", () => {
+    // Chaque chantier ajoute ses icônes ici (K27): une ligne de treize cases
+    // ou une huitième ligne décalerait l'icône par rapport à ses voisines.
+    expect(Object.keys(ICONES_PIXEL)).toEqual(
+      expect.arrayContaining(["manette", "chevron", "curseurs", "horloge", "porte"]),
+    );
+    for (const [nom, grille] of Object.entries(ICONES_PIXEL)) {
+      expect(horsGrille(grille), nom).toEqual([]);
+    }
+    // Les jumeaux: la lecture refuse ce qu'elle doit refuser.
+    const juste = ICONES_PIXEL.chevron;
+    expect(horsGrille([...juste, "............"])).toEqual(["8 lignes"]);
+    expect(horsGrille([`${juste[0]}.`, ...juste.slice(1)])).toHaveLength(1);
+    expect(horsGrille(["....xx......", ...juste.slice(1)])).toHaveLength(1);
+  });
+
+  it("deux icônes n'ont jamais le même dessin", () => {
+    // Une icône par sens: deux clés au même dessin diraient deux choses
+    // différentes avec la même image.
+    const dessins = Object.values(ICONES_PIXEL).map((grille) => grille.join("/"));
+    expect(new Set(dessins).size).toBe(dessins.length);
+  });
+
   it("la flèche de souris de la feuille est celle de la grille", () => {
     // La feuille porte la valeur toute faite: un pixel changé dans la grille
     // sans recopier la valeur fait échouer cet essai.

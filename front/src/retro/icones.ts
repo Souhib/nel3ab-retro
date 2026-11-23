@@ -6,6 +6,14 @@
  * (`.rt-icone-pixel`); la feuille en montre une selon le niveau. Chaque icône
  * garde son mot à côté: un dessin de douze pixels ne suffit pas à dire
  * « inviter ».
+ *
+ * La grille: sept lignes de douze cases, `#` allumée et `.` éteinte, posées à
+ * deux cases du haut du carré de douze (`retro.test.ts` le vérifie). C'est le
+ * seul jeu d'icônes de la page (partition du 23 novembre 2026, K27): chaque
+ * chantier y ajoute les siennes, une clé par icône, sans changer celles qui
+ * existent. Le chevron, les curseurs, l'horloge et la porte ont été dessinés
+ * par le socle parce que deux chantiers au moins les demandaient: deux
+ * ajouts de la même clé se seraient heurtés à la fusion.
  */
 import { chemin } from "../lib/logo";
 
@@ -45,6 +53,46 @@ export const ICONES_PIXEL = {
     "#...#...#...",
     "#...#..#....",
     "#####.......",
+  ],
+  /* Ouvrir, déplier, aller plus loin (salle et personnes). */
+  chevron: [
+    "....##......",
+    ".....##.....",
+    "......##....",
+    ".......##...",
+    "......##....",
+    ".....##.....",
+    "....##......",
+  ],
+  /* Les réglages (salle et menus). */
+  curseurs: [
+    "..##........",
+    "############",
+    "..##........",
+    "........##..",
+    "############",
+    "........##..",
+    "............",
+  ],
+  /* Une durée, une attente (états et menus). */
+  horloge: [
+    "....###.....",
+    "..##...##...",
+    ".#...#...#..",
+    ".#...###.#..",
+    ".#.......#..",
+    "..##...##...",
+    "....###.....",
+  ],
+  /* La salle (salle et menus). */
+  porte: [
+    "...######...",
+    "...#....#...",
+    "...#....#...",
+    "...#..#.#...",
+    "...#....#...",
+    "...#....#...",
+    ".##########.",
   ],
 } as const satisfies Record<string, readonly string[]>;
 

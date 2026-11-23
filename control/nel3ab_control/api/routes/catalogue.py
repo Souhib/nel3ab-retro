@@ -1,11 +1,19 @@
 """La bibliothèque des jeux, sans salle ouverte. No logic here."""
 
 from anyio import to_thread
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from nel3ab_control.api.schemas.error import NoCatalogue
-from nel3ab_control.catalogue import Catalogue, art_of, freshest
-from nel3ab_control.dependencies import SettingsDep
+from nel3ab_control.catalogue import (
+    ART_MAX,
+    Catalogue,
+    ImageRefuseeError,
+    art_of,
+    deposer_image,
+    freshest,
+    retirer_image,
+)
+from nel3ab_control.dependencies import AdminDep, SettingsDep
 
 router = APIRouter(prefix="/api", tags=["catalogue"])
 
@@ -57,3 +65,74 @@ async def read_art(cle: str, settings: SettingsDep) -> Response:
     return Response(
         content=image, media_type="image/png", headers={"X-Content-Type-Options": "nosniff"}
     )
+
+
+async def _corps_borne(request: Request, plafond: int) -> bytes | None:
+    """Le corps de la demande, ou rien s'il dépasse `plafond`.
+
+    Lu par morceaux et arrêté au-delà: lire tout le corps d'abord mettrait en
+    mémoire ce qu'on envoie, quelle que soit sa taille.
+    """
+    recu = bytearray()
+    async for morceau in request.stream():
+        recu += morceau
+        if len(recu) > plafond:
+            return None
+    return bytes(recu)
+
+
+_JEU_INCONNU = "ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable"
+
+
+@router.put(
+    "/catalogue/art/{cle}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": _JEU_INCONNU},
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": "L'image dépasse un Mio."},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": "Une image que la salle ne montrerait pas."
+        },
+    },
+)
+async def deposit_art(
+    cle: str, request: Request, settings: SettingsDep, _admin: AdminDep
+) -> Response:
+    """Dépose l'image d'un jeu, à côté de lui: `<jeu>.nel3ab.png` (ADR D45).
+
+    Réservé à l'administrateur, comme la liste de qui dépose: l'image s'affiche
+    chez tout le monde. Le corps est le PNG lui-même. Elle passe avant la
+    bannière d'un jeu GameCube ou Wii, et sert d'image à un jeu Switch ou Xbox
+    360. Une salle la lit à son prochain démarrage; rien n'est téléchargé.
+    """
+    contenu = await _corps_borne(request, ART_MAX)
+    if contenu is None:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="l'image dépasse un Mio"
+        )
+    try:
+        trouve = await to_thread.run_sync(
+            deposer_image, settings.salles_dir, settings.rom_dir, cle, contenu
+        )
+    except ImageRefuseeError as refus:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(refus)
+        ) from refus
+    if not trouve:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_JEU_INCONNU)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/catalogue/art/{cle}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={status.HTTP_404_NOT_FOUND: {"description": _JEU_INCONNU}},
+)
+async def remove_art(cle: str, settings: SettingsDep, _admin: AdminDep) -> Response:
+    """Retire l'image déposée d'un jeu; la bannière du disque revient."""
+    trouve = await to_thread.run_sync(retirer_image, settings.salles_dir, settings.rom_dir, cle)
+    if not trouve:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_JEU_INCONNU)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

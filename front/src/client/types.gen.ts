@@ -1467,6 +1467,40 @@ export type ReadCatalogueResponses = {
 
 export type ReadCatalogueResponse = ReadCatalogueResponses[keyof ReadCatalogueResponses];
 
+export type RemoveArtData = {
+    body?: never;
+    path: {
+        /**
+         * Cle
+         */
+        cle: string;
+    };
+    query?: never;
+    url: '/api/catalogue/art/{cle}';
+};
+
+export type RemoveArtErrors = {
+    /**
+     * ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveArtError = RemoveArtErrors[keyof RemoveArtErrors];
+
+export type RemoveArtResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveArtResponse = RemoveArtResponses[keyof RemoveArtResponses];
+
 export type ReadArtData = {
     body?: never;
     path: {
@@ -1498,3 +1532,39 @@ export type ReadArtResponses = {
      */
     200: unknown;
 };
+
+export type DepositArtData = {
+    body?: never;
+    path: {
+        /**
+         * Cle
+         */
+        cle: string;
+    };
+    query?: never;
+    url: '/api/catalogue/art/{cle}';
+};
+
+export type DepositArtErrors = {
+    /**
+     * ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable
+     */
+    404: unknown;
+    /**
+     * L'image dépasse un Mio.
+     */
+    413: unknown;
+    /**
+     * Une image que la salle ne montrerait pas.
+     */
+    422: unknown;
+};
+
+export type DepositArtResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DepositArtResponse = DepositArtResponses[keyof DepositArtResponses];

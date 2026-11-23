@@ -28512,6 +28512,24 @@ garde qu'aucun essai ne peut prendre en défaut. Non prouvé : l'appel dans le
 démarrage du worker n'est couvert que par la lecture du code, puisque ce
 démarrage lance Docker ; la première vraie ouverture sur un jeu le montrera.
 
+**L'image que le propriétaire dépose.** Une bannière GameCube est un dessin
+de 96 pixels sur 32 ; un jeu Wii jamais lancé n'a aucune image, puisque la
+sienne vient de la sauvegarde que le jeu écrit. Le propriétaire peut
+maintenant déposer une image PNG pour un jeu déjà rangé, depuis le salon :
+elle est écrite à côté du jeu sous le nom que le worker lisait déjà pour la
+Switch et la Xbox 360 (`<jeu>.nel3ab.png`), et elle passe désormais avant la
+bannière d'un disque GameCube ou Wii, en gardant l'éditeur et la phrase de la
+bannière. Le salon ne fait qu'un contrôle léger (la signature, l'en-tête, un
+Mio et 1024 pixels de côté au plus) ; le décodage complet reste au worker,
+qui ignore une image qu'il ne sait pas lire. Un des essais du worker abîme les
+pixels d'une image dont l'en-tête est juste : seul un décodage complet la
+refuse, et le mutant qui s'arrête à l'en-tête échoue sur lui. Côté salon,
+deux gardes se recouvraient : le catalogue et la présence du fichier. Le
+premier essai demandait une clé absente des deux, et aurait passé sans l'une
+ou l'autre ; un fichier présent mais absent du catalogue (une copie en cours)
+a maintenant son propre essai. Le bouton de la page de dépôt reste au chantier
+du salon, qui tient cette page.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

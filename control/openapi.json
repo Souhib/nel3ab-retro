@@ -556,6 +556,76 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Deposit Art",
+        "description": "Dépose l'image d'un jeu, à côté de lui: `<jeu>.nel3ab.png` (ADR D45).\n\nRéservé à l'administrateur, comme la liste de qui dépose: l'image s'affiche\nchez tout le monde. Le corps est le PNG lui-même. Elle passe avant la\nbannière d'un jeu GameCube ou Wii, et sert d'image à un jeu Switch ou Xbox\n360. Une salle la lit à son prochain démarrage; rien n'est téléchargé.",
+        "operationId": "deposit_art",
+        "parameters": [
+          {
+            "name": "cle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cle"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable"
+          },
+          "413": {
+            "description": "L'image dépasse un Mio."
+          },
+          "422": {
+            "description": "Une image que la salle ne montrerait pas."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Remove Art",
+        "description": "Retire l'image déposée d'un jeu; la bannière du disque revient.",
+        "operationId": "remove_art",
+        "parameters": [
+          {
+            "name": "cle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cle"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleErrors, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadArtData, ReadArtErrors, ReadArtResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, DepositArtData, DepositArtErrors, DepositArtResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleErrors, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadArtData, ReadArtErrors, ReadArtResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RemoveArtData, RemoveArtErrors, RemoveArtResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -240,6 +240,13 @@ export const closeSalle = <ThrowOnError extends boolean = false>(options: Option
 export const readCatalogue = <ThrowOnError extends boolean = false>(options?: Options<ReadCatalogueData, ThrowOnError>): RequestResult<ReadCatalogueResponses, ReadCatalogueErrors, ThrowOnError> => (options?.client ?? client).get<ReadCatalogueResponses, ReadCatalogueErrors, ThrowOnError>({ url: '/api/catalogue', ...options });
 
 /**
+ * Remove Art
+ *
+ * Retire l'image déposée d'un jeu; la bannière du disque revient.
+ */
+export const removeArt = <ThrowOnError extends boolean = false>(options: Options<RemoveArtData, ThrowOnError>): RequestResult<RemoveArtResponses, RemoveArtErrors, ThrowOnError> => (options.client ?? client).delete<RemoveArtResponses, RemoveArtErrors, ThrowOnError>({ url: '/api/catalogue/art/{cle}', ...options });
+
+/**
  * Read Art
  *
  * L'image d'un jeu, sans salle ouverte (ADR D45).
@@ -251,3 +258,15 @@ export const readCatalogue = <ThrowOnError extends boolean = false>(options?: Op
  * un jeu inconnu, sans image ou au fichier refusé ne s'affichent pas.
  */
 export const readArt = <ThrowOnError extends boolean = false>(options: Options<ReadArtData, ThrowOnError>): RequestResult<ReadArtResponses, ReadArtErrors, ThrowOnError> => (options.client ?? client).get<ReadArtResponses, ReadArtErrors, ThrowOnError>({ url: '/api/catalogue/art/{cle}', ...options });
+
+/**
+ * Deposit Art
+ *
+ * Dépose l'image d'un jeu, à côté de lui: `<jeu>.nel3ab.png` (ADR D45).
+ *
+ * Réservé à l'administrateur, comme la liste de qui dépose: l'image s'affiche
+ * chez tout le monde. Le corps est le PNG lui-même. Elle passe avant la
+ * bannière d'un jeu GameCube ou Wii, et sert d'image à un jeu Switch ou Xbox
+ * 360. Une salle la lit à son prochain démarrage; rien n'est téléchargé.
+ */
+export const depositArt = <ThrowOnError extends boolean = false>(options: Options<DepositArtData, ThrowOnError>): RequestResult<DepositArtResponses, DepositArtErrors, ThrowOnError> => (options.client ?? client).put<DepositArtResponses, DepositArtErrors, ThrowOnError>({ url: '/api/catalogue/art/{cle}', ...options });

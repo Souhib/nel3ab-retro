@@ -1860,6 +1860,22 @@ Decision:
   that catalogue says has a picture: a file left behind for a game now said
   without one stays silent. The file must start with the PNG signature; strict
   decoding stays in the worker. Every absence is the same 404.
+- **The owner drops an image, the lobby writes it beside the game.**
+  `PUT /api/catalogue/art/{cle}` (the PNG itself as the body) and `DELETE`,
+  for the administrator only, write or remove `<game>.nel3ab.png` in the first
+  game folder of `NEL3AB_ROM_DIR` that holds that file, for a game the
+  freshest catalogue lists. The body is read in pieces and cut above one MiB
+  (413); the lobby checks the signature and the PNG header (one to 1024 pixels
+  a side, the worker's bound) and leaves full decoding to the worker. The file
+  is written under a fresh name through the folder's descriptor, then renamed
+  over the old one. A game whose name leaves no room for the image name and
+  its temporary name within 255 bytes is refused. The picture appears at the
+  next start of a room, which scans the library.
+- **For GameCube and Wii, a dropped image now wins over the banner**
+  (`banner::dropped_picture`), with the same bounds as the Switch and Xbox 360
+  sidecar reader (one MiB, 1024 a side, a complete decode). It keeps the
+  banner's publisher and sentence, and gives a Wii game that was never played
+  its first picture. Switch and Xbox 360 already read that same file name.
 
 
 ## Consequences

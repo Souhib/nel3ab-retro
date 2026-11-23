@@ -83,6 +83,10 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
   `art/<sha256 de la clé>.png` à côté de `catalogue.json` à chaque
   démarrage ; le salon les sert à `GET /api/catalogue/art/{cle}`. Demande de
   reconstruire le worker ; une salle les écrit à son prochain démarrage.
+- **Image déposée par le propriétaire (ADR D45).** `PUT` et `DELETE
+  /api/catalogue/art/{cle}`, pour l'administrateur : `<jeu>.nel3ab.png` à côté
+  du jeu, prioritaire sur la bannière GameCube et Wii. Le bouton de la page de
+  dépôt (`importer.html`) reste au chantier du salon.
 - **Jalons du worker (lot 2, ADR D43).** `/roms` porte `depuis_ms`, `moteur`
   et `image_ms` ; le salon publie `Room.partie`. Demande de reconstruire le
   worker, sans salle ouverte, APRÈS le redémarrage du salon.

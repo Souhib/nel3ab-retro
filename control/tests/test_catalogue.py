@@ -2,24 +2,29 @@
 
 import json
 import os
+import struct
 from collections.abc import Callable
 from pathlib import Path
 
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
+from fastapi import FastAPI
 
 from nel3ab_control.app import create_app
 from nel3ab_control.catalogue import (
     ART_FOLDER,
     ART_MAX,
     NAME,
+    ImageRefuseeError,
     art_file_name,
     art_of,
+    deposer_image,
     freshest,
     read_one,
 )
 from nel3ab_control.settings import Settings
+from tests.conftest import SOUHIB, VINCENT
 
 #: Les octets exacts que `library_file` écrit, épinglés par le test Rust
 #: `the_library_file_has_the_room_entries_and_no_room_state`. Les deux essais
@@ -331,3 +336,159 @@ async def test_the_lobby_serves_a_picture_as_png_without_a_room(tmp_path: Path) 
     assert dotted.headers["content-type"] == "application/json"
     assert slashed.status_code == 404
     assert asked == [], "le salon a demandé l'image à un worker"
+
+
+def png_de(largeur: int, hauteur: int, poids: int = 0) -> bytes:
+    """Un en-tête PNG de ces dimensions, suivi de `poids` octets: le salon ne
+    lit que l'en-tête, le décodage complet est l'affaire du worker."""
+    return UN_PIXEL[:16] + struct.pack(">II", largeur, hauteur) + UN_PIXEL[24:] + bytes(poids)
+
+
+@pytest.fixture
+def depot(
+    settings: Settings, app: FastAPI, client: httpx.AsyncClient
+) -> tuple[httpx.AsyncClient, Path]:
+    """Un salon, un catalogue qui liste Melee, et son disque dans `roms/gc`."""
+    room(settings.salles_dir, "1", library(100, "Melee.rvz"))
+    jeux = Path(settings.rom_dir.split(":")[0])
+    jeux.mkdir(parents=True)
+    (jeux / "Melee.rvz").write_bytes(b"un disque")
+    return client, jeux
+
+
+async def test_the_admin_drops_a_picture_beside_the_game(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    client, jeux = depot
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 204
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+    # Et la retire: la bannière du disque revient.
+    assert (await client.delete("/api/catalogue/art/Melee.rvz", headers=SOUHIB)).status_code == 204
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+async def test_only_the_admin_drops_a_picture(depot: tuple[httpx.AsyncClient, Path]) -> None:
+    """Les jumeaux: sans identité, puis une identité qui n'est pas l'administrateur."""
+    client, jeux = depot
+
+    anonyme = await client.put("/api/catalogue/art/Melee.rvz", content=UN_PIXEL)
+    membre = await client.put("/api/catalogue/art/Melee.rvz", headers=VINCENT, content=UN_PIXEL)
+    retrait = await client.delete("/api/catalogue/art/Melee.rvz", headers=VINCENT)
+
+    assert (anonyme.status_code, membre.status_code, retrait.status_code) == (401, 403, 403)
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+@pytest.mark.parametrize(
+    ("corps", "code", "mot"),
+    [
+        (b"<html>bonjour</html>", 422, "PNG"),
+        (UN_PIXEL[:20], 422, "en-tête"),
+        (png_de(1025, 10), 422, "1024"),
+        (png_de(10, 1025), 422, "1024"),
+        (png_de(0, 10), 422, "1024"),
+        (png_de(10, 10, ART_MAX), 413, "Mio"),
+    ],
+)
+async def test_a_picture_the_room_would_not_show_is_refused(
+    depot: tuple[httpx.AsyncClient, Path], corps: bytes, code: int, mot: str
+) -> None:
+    client, jeux = depot
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=corps)
+
+    assert answer.status_code == code
+    assert mot in answer.json()["detail"]
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+async def test_the_largest_picture_the_room_shows_is_accepted(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    """Le jumeau des refus: 1024 de côté et un Mio tout juste passent."""
+    client, jeux = depot
+    corps = png_de(1024, 1024)
+    corps += bytes(ART_MAX - len(corps))
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=corps)
+
+    assert answer.status_code == 204
+    assert (jeux / "Melee.rvz.nel3ab.png").stat().st_size == ART_MAX
+
+
+@pytest.mark.parametrize("cle", ["Autre.rvz", "%2E%2E"])
+async def test_a_game_the_catalogue_does_not_list_gets_no_picture(
+    depot: tuple[httpx.AsyncClient, Path], cle: str
+) -> None:
+    client, jeux = depot
+
+    answer = await client.put(f"/api/catalogue/art/{cle}", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 404
+    assert [p.name for p in jeux.iterdir()] == ["Melee.rvz"]
+
+
+async def test_a_listed_game_whose_file_is_gone_gets_no_picture(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    client, jeux = depot
+    (jeux / "Melee.rvz").unlink()
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 404
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+async def test_a_link_in_place_of_the_picture_is_replaced_not_followed(
+    depot: tuple[httpx.AsyncClient, Path], tmp_path: Path
+) -> None:
+    client, jeux = depot
+    victime = tmp_path / "victime"
+    victime.write_text("intact")
+    (jeux / "Melee.rvz.nel3ab.png").symlink_to(victime)
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 204
+    assert victime.read_text() == "intact"
+    assert not (jeux / "Melee.rvz.nel3ab.png").is_symlink()
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+
+
+def test_a_name_too_long_for_a_picture_beside_it_is_refused(tmp_path: Path) -> None:
+    """Le nom de l'image, plus son nom d'écriture, doit tenir dans 255 octets."""
+    cle = "k" * 227 + ".rvz"
+    room(tmp_path / "salles", "1", library(100, cle))
+    with pytest.raises(ImageRefuseeError, match="trop long"):
+        deposer_image(tmp_path / "salles", str(tmp_path / "gc"), cle, UN_PIXEL)
+    # Le jumeau: un caractère de moins passe le contrôle du nom.
+    court = "k" * 226 + ".rvz"
+    room(tmp_path / "salles", "1", library(100, court))
+    (tmp_path / "gc").mkdir()
+    (tmp_path / "gc" / court).write_bytes(b"un disque")
+    assert deposer_image(tmp_path / "salles", str(tmp_path / "gc"), court, UN_PIXEL)
+
+
+async def test_a_file_the_catalogue_does_not_list_gets_no_picture(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    """Un fichier présent mais pas au catalogue (une copie en cours, un jeu
+    que le worker n'a pas encore balayé) n'a pas d'image: le catalogue fait foi."""
+    client, jeux = depot
+    (jeux / "Copie.rvz").write_bytes(b"un disque")
+
+    answer = await client.put("/api/catalogue/art/Copie.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 404
+    assert not (jeux / "Copie.rvz.nel3ab.png").exists()
+
+
+def test_the_check_refuses_more_than_a_mib_without_the_route(tmp_path: Path) -> None:
+    """La route coupe le corps avant; le contrôle tient seul, pour tout autre appelant."""
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    with pytest.raises(ImageRefuseeError, match="Mio"):
+        deposer_image(tmp_path / "salles", str(tmp_path), "Melee.rvz", png_de(1, 1, ART_MAX))

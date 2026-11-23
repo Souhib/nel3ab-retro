@@ -18,12 +18,16 @@ afficher une bibliothèque à qui il manque des jeux sans le dire.
 import hashlib
 import json
 import logging
+import os
+import stat
+import struct
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from nel3ab_control import session_salle
 from nel3ab_control.consoles import titre_valide
+from nel3ab_control.imports.destinations import dossiers
 from nel3ab_control.worker import valid_key
 
 LOG = logging.getLogger(__name__)
@@ -197,3 +201,107 @@ def art_of(salles_dir: Path, key: str) -> bytes | None:
     if image is None or not image.startswith(PNG_SIGNATURE):
         return None
     return image
+
+
+#: Ce qu'on ajoute au nom d'un jeu pour l'image que le propriétaire dépose à
+#: côté de lui, lue par le worker (`banner::dropped_picture`, `switch::art`).
+DEPOSEE = ".nel3ab.png"
+
+#: Le plus grand côté d'une image déposée, la borne du worker: au-delà, il
+#: l'ignore, et un dépôt accepté ici ne s'afficherait jamais.
+COTE_MAX = 1024
+
+#: Le plus long nom de fichier que Linux accepte, en octets (`NAME_MAX`).
+NOM_MAX = 255
+
+#: Ce que l'écriture ajoute au nom pendant qu'elle écrit (`session_salle.ecrire`:
+#: un point, un point et douze chiffres hexadécimaux).
+PROVISOIRE = 14
+
+
+class ImageRefuseeError(ValueError):
+    """Une image que le worker ne montrerait pas: le refus dit pourquoi."""
+
+
+def controler_png(contenu: bytes) -> None:
+    """Le contrôle léger d'une image déposée: taille, signature et en-tête.
+
+    Le décodage complet reste au worker, qui refuse en silence une image qu'il
+    ne sait pas lire. Ici, on refuse ce qu'on peut nommer avant d'écrire: un
+    fichier trop gros, qui n'est pas un PNG, ou plus grand que 1024 pixels de
+    côté. Lève `ImageRefuseeError`.
+    """
+    if len(contenu) > ART_MAX:
+        raise ImageRefuseeError("l'image dépasse un Mio")
+    if not contenu.startswith(PNG_SIGNATURE):
+        raise ImageRefuseeError("ce n'est pas une image PNG")
+    # Le premier morceau d'un PNG est toujours l'en-tête: 13 octets, « IHDR ».
+    if len(contenu) < 24 or contenu[8:16] != b"\x00\x00\x00\x0dIHDR":
+        raise ImageRefuseeError("l'en-tête de l'image est incomplet")
+    largeur, hauteur = struct.unpack(">II", contenu[16:24])
+    if not (1 <= largeur <= COTE_MAX and 1 <= hauteur <= COTE_MAX):
+        raise ImageRefuseeError(f"l'image dépasse {COTE_MAX} pixels de côté")
+
+
+def _dossier_du_jeu(rom_dir: str, key: str) -> Path | None:
+    """Le premier dossier de jeux qui contient ce fichier, dans l'ordre du balayage.
+
+    `key` vient du catalogue, donc d'un nom de fichier sans séparateur: elle
+    désigne une entrée de ce dossier et rien d'autre.
+    """
+    for dossier in dossiers(rom_dir):
+        try:
+            mode = os.stat(dossier / key, follow_symlinks=False).st_mode
+        except OSError:
+            continue
+        if not stat.S_ISDIR(mode):
+            return dossier
+    return None
+
+
+def _jeu_connu(salles_dir: Path, rom_dir: str, key: str) -> Path | None:
+    """Le dossier d'un jeu que le catalogue le plus frais liste, ou rien."""
+    catalogue = freshest(salles_dir)
+    if catalogue is None or not any(game.key == key for game in catalogue.games):
+        return None
+    return _dossier_du_jeu(rom_dir, key)
+
+
+def deposer_image(salles_dir: Path, rom_dir: str, key: str, contenu: bytes) -> bool:
+    """Écrit l'image du propriétaire à côté du jeu: `<jeu>.nel3ab.png`.
+
+    Faux quand le jeu n'est pas au catalogue ou que son fichier est introuvable.
+    L'écriture passe par le descripteur du dossier, sous un nom neuf renommé
+    par-dessus: un lien laissé à ce nom est remplacé, pas suivi. Le worker la
+    lit à son prochain démarrage. Lève `ImageRefuseeError` et `OSError`.
+    """
+    controler_png(contenu)
+    nom = key + DEPOSEE
+    if len(nom.encode()) + PROVISOIRE > NOM_MAX:
+        raise ImageRefuseeError("le nom de ce jeu est trop long pour une image à côté de lui")
+    dossier = _jeu_connu(salles_dir, rom_dir, key)
+    if dossier is None:
+        return False
+    fd = os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        session_salle.ecrire(fd, nom, contenu)
+    finally:
+        os.close(fd)
+    return True
+
+
+def retirer_image(salles_dir: Path, rom_dir: str, key: str) -> bool:
+    """Retire l'image déposée à côté du jeu; faux quand le jeu est inconnu.
+
+    Retirer une image absente n'est pas une erreur. Un lien à ce nom est retiré
+    sans être suivi. Lève `OSError`.
+    """
+    dossier = _jeu_connu(salles_dir, rom_dir, key)
+    if dossier is None:
+        return False
+    fd = os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        session_salle.retirer(fd, key + DEPOSEE)
+    finally:
+        os.close(fd)
+    return True

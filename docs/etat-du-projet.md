@@ -230,10 +230,19 @@ versions complètes jouent quand les ancres des autres chantiers sont
 posées, et se replient sinon. `cadre-navigateur` (étape
 `mascotte-hors-image`) joue les 16 scènes de la salle sur chaque hôte et
 vérifie image par image qu'aucun sprite ne touche l'image, un contrôle ou un
-mot, avec son jumeau rouge. La page fait 261 523 octets en brotli (+12 087).
-Restent : la planche de la mascotte (gardien mascotte), le paquet du salon,
-la mesure dans le navigateur que rien ne tourne entre deux scènes. Récit : « 23 novembre, la dernière vague : Aïn
-entre dans la salle ».
+mot, avec son jumeau rouge. Deuxième passage : la planche d'Aïn remplace
+celle de Bobine (`just planche`) ; son décor porte toutes les ancres, et
+`just planche-garde` y exige la version complète des 16 scènes de la salle
+et des 10 du salon, sans contact, et aucun appel à `requestAnimationFrame`
+d'Aïn pendant deux secondes après une scène. L'étape `ain-immobile` de
+`cadre-navigateur` mesure la même chose dans la vraie page. Un seul Aïn par
+salle : sur le plateau, le logo du coin garde sa place en pointillés. Le
+paquet du salon est prêt (`just ain-salon`, `retro/ain.js`, 15 249 octets
+brotli, avec sa marque `ain.SOURCES` gardée par `salon.test.ts`) ; le
+chantier salon le branche. La page fait 261 610 octets en brotli (+12 174
+depuis la vague A). Récits : « 23 novembre, la dernière vague : Aïn entre
+dans la salle » et « 23 novembre, deuxième passage : la planche d'Aïn, son
+paquet pour le salon, et rien entre deux scènes ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

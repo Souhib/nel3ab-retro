@@ -29580,6 +29580,99 @@ vraie salle, faute des ancres des autres chantiers : dans le cadre, Aïn joue
 leurs versions courtes. La planche de la mascotte et le paquet du salon
 restent à faire. Personne n'a regardé Aïn à froid.
 
+### 23 novembre, deuxième passage : la planche d'Aïn, son paquet pour le salon, et rien entre deux scènes
+
+Le premier passage avait laissé une question ouverte : les scènes complètes
+d'Aïn marchent-elles vraiment, puisque le vrai cadre n'a pas encore les
+ancres qu'elles demandent ? Une ancre est un élément de la page marqué
+`data-ancre`, là où Aïn va se poser : le haut d'un bouton START, la prise de
+la pastille d'état, une marque sur un sol. Les START viennent du chantier
+personnes, la prise du chantier etats ; tant qu'elles manquent, la scène se
+replie en version courte, et rien ne prouve que la complète passerait.
+
+**La planche.** C'est une page à part (`planche.html`), jamais livrée dans la
+salle, servie par un Vite sans aucun relais vers une salle vivante. Elle
+remplace celle de Bobine, l'ancien personnage. Elle montre le logo avec Aïn
+dedans et dehors, la tête seule, la pose clé de chaque scène, les
+accessoires et les bulles, puis trois décors : la salle (une image, le
+panneau et ses quatre START, la pastille, la colonne), le plateau (l'écran
+noir), et le salon (les étagères, le dépôt, la liste des salles). Les
+coordonnées reprennent le décor de la proposition validée. Chaque scène s'y
+joue à la main en version complète, courte ou pose clé.
+
+Son gardien ne recopie aucun nom d'ancre. Il joue chaque scène contre un faux
+décor qui dit oui à toute ancre et note ce qu'on lui demande ; un sol absent
+lève une erreur, qu'on ajoute avant de rejouer. La liste obtenue doit
+exister dans la planche. Une scène qui demande une ancre nouvelle rend donc
+la planche périmée, et l'essai le dit. Le jumeau retire deux ancres par
+l'adresse (`?sans=start-2,etagere-haut`) et doit les voir manquer.
+
+Dans Chrome, `just planche-garde` exige la version complète de chacune des
+16 scènes de la salle et des 10 du salon. Le premier essai en a refusé
+quatre au salon. Deux titres du décor portaient `data-texte`, la marque des
+mots qu'Aïn ne couvre jamais, alors que la proposition ne la donnait qu'au
+mot du dépôt ; et « range » bondissait du logo jusqu'au bout de la règle du
+carnet par-dessus le lien « carnet » du rail. Le décor a suivi la
+proposition, le lien est descendu au pupitre. Une leçon pour le chantier
+salon : chaque `data-texte` est un mur pour Aïn, il ne faut le poser que sur
+les mots d'un événement.
+
+Le pilote a aussi appris une chose sur lui-même : `jouer()` rend la version
+DEMANDÉE, pas celle que le planificateur a prise. Sur le plateau, toutes les
+scènes semblaient complètes alors que la moitié se repliait. Le logo dit
+maintenant la version vraiment jouée (`data-version`), à côté de ses
+replis (`data-refus`).
+
+**Rien ne tourne entre deux scènes, mesuré.** `requestAnimationFrame`
+demande au navigateur d'appeler une fonction à la prochaine image d'écran ;
+une boucle qui se redemande à chaque image tourne 60 fois par seconde. La
+planche n'a pas de boucle vidéo : le pilote compte TOUS les appels de la
+page. Avant une scène, 0 en une seconde ; pendant, 26 en 400 ms ; après la
+fin, 0 en deux secondes, et aucune animation en cours. Un lecteur mutant,
+dont la boucle se redemande toujours, donne 96 appels en deux secondes après
+chaque scène : la mesure le voit.
+
+Dans la vraie page, la même mesure a d'abord échoué : 125 appels en deux
+secondes au repos. Les piles d'appel ont montré `pumpOnRefresh`, la pompe
+qui lit les manettes à chaque image ; ce n'est pas Aïn, et c'est voulu.
+L'étape `ain-immobile` de `cadre-navigateur` trie donc les appels par le
+texte de leur rappel, qui nomme la boucle d'une scène (`.tick(`) ou le regard
+(`.regarder(`) : des noms de méthode, que le minifieur garde. Au repos et
+après une scène : 0 appel d'Aïn, 125 autres. Son jumeau installe une boucle
+qui ne s'arrête plus, et compte 60 appels par seconde. La page de référence
+d'avant Aïn ne sert pas de contrôle rouge ici : elle n'a ni boucle à mesurer
+ni animation dans une maison, et l'étape y tombe sur une précondition.
+
+**Un seul Aïn.** Le plateau et le logo du coin sont deux maisons. Quand Aïn
+joue en grand sur l'écran noir, le logo montre sa place en pointillés, et la
+retrouve à la première image. Une scène qui part d'une maison rentre d'abord
+Aïn d'une autre maison de la même salle. Trois mutants (le lien coupé, deux
+Aïn à la fois, pas de retour quand la salle revit) tombent chacun sur leur
+essai.
+
+**Le paquet du salon.** Les pages du salon sont du HTML écrit à la main, sans
+React. `just ain-salon` construit Aïn en un seul fichier, une fonction qui
+s'exécute tout de suite (IIFE, pour « immediately invoked function
+expression »), écrit à côté des autres copies du salon : `retro/ain.js`.
+Le premier paquet pesait 22 245 octets en brotli : React y était entré par
+`lib/focus-jeu.ts`, dont Aïn ne lit qu'une constante. Déclarer React sans
+effet de bord pour cette construction l'a laissé dehors : 15 249 octets.
+Comme la page, le paquet ne se compare pas d'une construction à l'autre ; sa
+marque (`ain.SOURCES`) garde l'empreinte du paquet et celle de chaque module
+que la construction a lu, et `salon.test.ts` refuse un paquet plus vieux que
+ses sources ou plus lourd que 16 800 octets. Le même essai charge le paquet
+comme le salon le fera, dans une page avec et sans hôte. Deux constructions
+de suite donnent le même fichier à l'octet. Le chantier salon le branche.
+
+**Le poids.** La page de la salle passe de 261 523 à 261 610 octets en brotli
+11 : 87 de plus pour un seul Aïn et la version jouée. La planche et le
+paquet du salon ne comptent pas dans la page.
+
+**Ce qui n'est pas prouvé.** Les versions complètes jouent dans la planche,
+pas encore dans la vraie salle : il y faut les START et la prise des autres
+chantiers. Le paquet du salon n'est encore servi par aucune page. Personne
+n'a regardé Aïn à froid, ni sur un vrai téléphone, ni sous WebKit.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -29596,6 +29689,16 @@ toucheraient l'image du jeu, un contrôle ou un mot.
 
 **Sprite** : une petite image qu'on déplace d'un bloc au-dessus du décor,
 comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
+
+**Ancre (d'Aïn)** : un élément de la page marqué `data-ancre`, là où Aïn va
+se poser ou d'où part un objet : le haut d'un bouton START, la prise de la
+pastille, une marque sur un sol. Une ancre absente replie la scène en
+version courte, puis en pose clé.
+
+**IIFE (immediately invoked function expression)** : un script dont tout le
+code tient dans une fonction appelée aussitôt définie. Ses noms restent
+dedans, rien ne fuit dans la page qui le charge. C'est la forme du paquet
+d'Aïn pour le salon.
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
 verticales de couleurs pures (blanc, jaune, cyan, vert, magenta, rouge, bleu)

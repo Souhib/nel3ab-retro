@@ -2218,6 +2218,23 @@ Decision:
 - **The sprite layer has no box.** It is a fixed point at the top left of
   the window; a full-window layer painted nothing but covered the picture
   for the guards that hit-test every box.
+- **One Aïn per room.** A scene that starts in one home first brings Aïn
+  back from any other home of the same room. While he plays on the black
+  screen, the logo of the corner shows his place dotted (`data-dehors`).
+- **The board holds every anchor.** `planche.html` replaces Bobine's board:
+  drawings, key poses, and a room, a black screen and a lounge that carry
+  every anchor the scenes ask for. `just planche-garde` requires the full
+  version of every room and lounge scene there, no sprite box on the
+  picture, a control or a word, and no animation frame requested by Aïn
+  for two seconds after a scene (measured: 0, against 26 in 400 ms during
+  one). `cadre-navigateur` step `ain-immobile` measures the same in the real
+  page, where the pad pump requests 62 frames a second of its own.
+- **The lounge gets a bundle, not a copy of the page.** `just ain-salon`
+  builds `src/mascotte/salon.ts` into one IIFE without React,
+  `control/nel3ab_control/api/routes/retro/ain.js` (15 249 bytes brotli),
+  with a stamp over every module the build read (`ain.SOURCES`);
+  `salon.test.ts` refuses a stale or heavier bundle. The lounge workstream
+  wires it into its pages (D41).
 
 Rejected: keeping the arbiter of the proposal beside K10 (two arbiters would
 disagree on ranks); positions written in the scenes (every layout of

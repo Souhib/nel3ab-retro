@@ -444,6 +444,13 @@ machine".
   `content-visibility`): on 2026-11-23 the mascot's planner took a folded
   microphone button for an obstacle on the logo and refused every scene.
   Code that reads obstacles skips that content, as the probes already did.
+- **Read what was done, not what was asked.** On 2026-11-23, `jouer()`
+  returned the version a caller ASKED for; the mascot's board driver reported
+  every black-screen scene complete while half fell back. The logo now
+  carries the version the planner chose (`data-version`). The same day, a
+  page-wide count of animation frames at rest found 125 in two seconds: the
+  pad pump, not the mascot. Attribute a count to its source before judging
+  it, and keep the twin that proves the filter still sees the source.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that
@@ -725,11 +732,13 @@ Markdown alone does not update the site.
 | `just parcours-navigateur` | the room's routes: entry in the URL, reload, invite, exit, closing by the owner, preparation names |
 | `just salle-telephone` | the room on phones and tablets: drawer, bottom sheet, 44 px targets, safe areas, the built page under the worker's CSP |
 | `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
+| `just planche-garde` | the mascot's board in Chrome: every room and lobby scene plays its full version, no sprite box on the picture, a control or a word, and no animation frame for two seconds after a scene (Vite without relays) |
+| `just ain-salon` | builds the mascot bundle for the lobby pages (`retro/ain.js` and its stamp `ain.SOURCES`); `front-build` runs it, `salon.test.ts` refuses a stale one |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
-| `just front-build` | rebuilds the page into the worker's source tree, and stamps it |
+| `just front-build` | rebuilds the page into the worker's source tree, and stamps it; then the lobby's mascot bundle |
 | `just browser-watch` | what the page renders over a minute, without restarting anything |
 | `just boite-noire` | reads the black box: machine and page cadence per ten seconds, then the day's captures |
 | `just end-to-end` | the whole chain against a real Dolphin and ROM |

@@ -511,6 +511,8 @@ export const REGLAGE = {
   commencer: "Commencer",
   annuler: "Annuler",
   etape: (n: number, total: number) => `Étape ${n} sur ${total}`,
+  /** Devant le compteur « 03/16 » du pas à pas, que le lecteur d'écran ne lit pas. */
+  etapeCourte: "Étape",
   appuie: (nom: string) => `Appuie sur ce que tu veux pour ${nom}.`,
   pousse: (sens: string) => `Pousse ${sens}.`,
   relache: "Relâche avant de continuer.",

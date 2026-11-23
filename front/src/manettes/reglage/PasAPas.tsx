@@ -2,8 +2,9 @@
  * deux trames (Dolphin et Pro). Rien ici ne lit une manette : chaque trame
  * passe ses mots et ses gestes, et la machine d'étapes reste dans
  * `media/lesson` (`Pas`). */
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { REGLAGE } from "../../lib/mots";
+import { ecrireChiffres, poserAfficheur } from "../../retro/chiffres";
 
 /** Un bouton du panneau : la boîte en escalier du socle, plein ou non. */
 export function Bouton({
@@ -42,6 +43,22 @@ export function Jauge({ faites, total }: { faites: number; total: number }) {
   );
 }
 
+/** Le compteur d'étape en chiffres d'afficheur, « 03/16 » (effet
+ * « chiffres »), écrit hors de React par l'utilitaire du socle : le chiffre
+ * qui change roule d'un cran au niveau tout (effet « compteur »). Caché au
+ * lecteur d'écran, qui lit le titre entier. */
+function Compteur({ etape, total }: { etape: number; total: number }) {
+  const boite = useRef<HTMLSpanElement>(null);
+  const valeur = useRef<HTMLElement | null>(null);
+  const texte = `${String(etape).padStart(2, "0")}/${String(total).padStart(2, "0")}`;
+  useLayoutEffect(() => {
+    if (!boite.current) return;
+    if (valeur.current) ecrireChiffres(valeur.current, texte);
+    else valeur.current = poserAfficheur(boite.current, texte);
+  }, [texte]);
+  return <span ref={boite} className="n3-pas-compteur" aria-hidden="true" />;
+}
+
 /** Une étape en cours : la consigne prend la place de l'appareil et de la
  * liste ; les dessins restent dessous, posés par la trame. */
 export function PasAPas({
@@ -63,7 +80,11 @@ export function PasAPas({
 }) {
   return (
     <section className="n3-pas" aria-labelledby="pasTitre" data-pas-a-pas="">
-      <h3 id="pasTitre">{REGLAGE.etape(etape, total)}</h3>
+      <h3 id="pasTitre" className="n3-pas-titre">
+        <span className="sr-only">{REGLAGE.etape(etape, total)}</span>
+        <span aria-hidden="true">{REGLAGE.etapeCourte}</span>
+        <Compteur etape={etape} total={total} />
+      </h3>
       <Jauge faites={etape - 1} total={total} />
       <p role="status" className="n3-pas-consigne">
         {attendRelache ? REGLAGE.relache : consigne}

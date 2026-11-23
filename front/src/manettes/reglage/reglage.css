@@ -189,8 +189,16 @@
   gap: var(--espace-2);
 }
 
+/* Le titre d'une étape : « Étape » et le compteur « 03/16 » en chiffres
+   d'afficheur (`Compteur`, effet « chiffres » du socle). */
+.n3-pas-titre {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espace-2);
+}
+
 /* Les marques du pas à pas (`marques.ts`) sur les coins en pixels de chaque
-   pièce (`PadMap.tsx`). Le cadre se referme en trois paliers (240 ms), revient
+   pièce (`PadMap.tsx`). Le cadre se referme en 240 ms, revient
    plus large quand la commande insiste, puis la flèche arrive du bord. La
    pièce appuyée prend des coins d'encre et la ligne pointillée qui la relie à
    la commande ; les deux s'effacent. Chaque animation joue

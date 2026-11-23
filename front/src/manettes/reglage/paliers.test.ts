@@ -20,13 +20,18 @@ const regles = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{
 
 describe("les paliers des marques", () => {
   it("aucune marche hors de .fx-paliers", () => {
-    const sans = regles.filter(([sel, corps]) => /steps\(/.test(corps) && !/\.fx-paliers/.test(sel));
+    const sans = regles.filter(
+      ([sel, corps]) => /steps\(/.test(corps) && !/\.fx-paliers/.test(sel),
+    );
     expect(sans.map(([sel]) => sel)).toEqual([]);
   });
 
   it("sous .fx-paliers, les coins, la flèche et la liaison avancent par quatre marches", () => {
-    const avec = regles.filter(([sel, corps]) => /\.fx-paliers/.test(sel) && /steps\(4/.test(corps));
+    const avec = regles.filter(
+      ([sel, corps]) => /\.fx-paliers/.test(sel) && /steps\(4/.test(corps),
+    );
     const selecteurs = avec.map(([sel]) => sel).join(" ");
-    for (const piece of [".n3-coins", ".n3-fleche", ".n3-liaison"]) expect(selecteurs).toContain(piece);
+    for (const piece of [".n3-coins", ".n3-fleche", ".n3-liaison"])
+      expect(selecteurs).toContain(piece);
   });
 });

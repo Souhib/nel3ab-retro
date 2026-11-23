@@ -696,19 +696,20 @@ async function principal() {
       const debut = Date.now();
       await entrerAuRepos(page);
       // Aucun geste pendant l'étape: un pointeur ou une touche arrête la boucle.
-      // Deux familles d'animations sur le plateau: celles de la scène (Web
-      // Animations, posées par `jouer`) et l'image de la pièce provisoire du
-      // socle (une animation CSS, `rt-piece-image`).
+      // La scène d'Aïn se lit sur sa maison (`data-scene`), le temps qu'elle
+      // joue ; hors scène, rien ne doit tourner.
       const plateau = () =>
         page.evaluate(() => {
           const p = document.querySelector('[data-hote="plateau"]');
           if (!p) return null;
           const vivantes = p.getAnimations({ subtree: true }).filter((a) => a.playState === "running");
-          const css = vivantes.filter((a) => typeof CSSAnimation !== "undefined" && a instanceof CSSAnimation);
+          const sprites = [...document.querySelectorAll(".rt-ain-sprite")].filter((s) => !s.hidden).length;
           return {
             enfants: p.children.length,
-            scene: vivantes.length - css.length,
-            css: css.map((a) => a.animationName),
+            // Une scène d'Aïn : sa maison dit son nom tant qu'elle joue.
+            scene: p.querySelector("[data-scene]") ? 1 : 0,
+            sprites,
+            css: vivantes.map((a) => a.animationName ?? "animation"),
           };
         });
       let pendant = null;
@@ -723,15 +724,11 @@ async function principal() {
       if (apres === null) throw new Precondition("le plateau a disparu");
       await capture(page, "repos-attention");
       await page.close();
-      if (apres.scene > 0) throw new Defaut(`${apres.scene} animations de scène tournent encore sur le plateau à 20 s`);
-      // L'exception nommée: la pièce provisoire du socle tourne sans fin
-      // (`data-tourne` reste posé après la scène, K15). Elle part avec la
-      // mascotte définitive, qui ne tourne que pendant une scène; toute autre
-      // animation CSS reste une faute.
-      const autres = apres.css.filter((nom) => nom !== "rt-piece-image");
-      if (autres.length > 0) throw new Defaut(`animations CSS encore vivantes à 20 s: ${autres.join(", ")}`);
-      if (apres.css.length > 0)
-        console.log(JSON.stringify({ note: `repos-attention: la pièce provisoire tourne encore (${apres.css.length} animations rt-piece-image), à lever avec la mascotte` }));
+      if (apres.scene > 0) throw new Defaut("une scène joue encore sur le plateau à 20 s");
+      // Aïn ne tourne que pendant une scène (K15 levé avec la pièce) : à
+      // 20 s, ni animation, ni sprite dehors.
+      if (apres.css.length > 0) throw new Defaut(`animations encore vivantes à 20 s: ${apres.css.join(", ")}`);
+      if (apres.sprites > 0) throw new Defaut(`${apres.sprites} sprites d'Aïn encore visibles à 20 s`);
     },
 
     /** L'effet « fronton » : le titre du jeu dans la bande noire du haut
@@ -1203,6 +1200,13 @@ async function principal() {
      * ni la ligne d'état. Quatre cas : premiere-image au bureau (deux
      * tailles) et au téléphone, attente au repos. Le jumeau : une mascotte
      * posée sur l'image par l'essai est vue. */
+    /** Aïn (ADR D46) joue chaque scène de la salle dans le vrai cadre, sur
+     * l'hôte que la mise en page lui donne : le logo du coin au bureau, la
+     * tête dans la barre ou dans « La salle » au téléphone, le plateau de
+     * l'écran noir au repos. Image par image, la boîte serrée de chaque
+     * sprite (`data-serre`, celle que le planificateur a vérifiée) ne touche
+     * ni l'image peinte, ni un contrôle, ni un mot. Le jumeau rouge glisse
+     * l'image sous le logo pendant une scène : la sonde doit l'y voir. */
     async "mascotte-hors-image"() {
       const sonde = () => {
         const etat = { images: 0, scenes: {}, lieux: {}, fautes: {} };
@@ -1210,32 +1214,34 @@ async function principal() {
         const coupe = (a, b) =>
           Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
           Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
-        const AUTRES = 'button, a[href], input, select, [role="button"], #liaison, #fronton, #mesures';
+        const AUTRES = 'button, a[href], input, select, [role="button"], #liaison, #fronton, #mesures, [data-texte]';
         const tour = () => {
-          for (const m of document.querySelectorAll(".rt-mascotte")) {
-            const r = m.getBoundingClientRect();
-            if (r.width < 1 || r.height < 1) continue;
-            // Une scène : une animation Web posée par `jouer`. L'image CSS
-            // de la pièce provisoire tourne hors scène (K15) et ne compte pas.
-            const scene = m
-              .getAnimations({ subtree: true })
-              .some((a) => a.playState === "running" && !(a instanceof CSSAnimation));
-            if (!scene) continue;
-            const nom = m.dataset.scene ?? "?";
+          const maison = document.querySelector(".rt-mascotte[data-scene]");
+          if (maison) {
+            const nom = maison.dataset.scene;
             etat.scenes[nom] = (etat.scenes[nom] ?? 0) + 1;
-            const lieu = `#${m.closest("[id]")?.id ?? "?"}`;
+            const lieu = `#${maison.closest("[id]")?.id ?? "?"}`;
             etat.lieux[lieu] = (etat.lieux[lieu] ?? 0) + 1;
             etat.images += 1;
-            const toile = document.querySelector("#screen");
-            const peintes = globalThis.nel3abTest?.counters?.().painted ?? 0;
-            if (toile && peintes > 0 && coupe(r, toile.getBoundingClientRect())) etat.fautes[`${nom} sur l'image`] = 1;
-            for (const c of document.querySelectorAll(AUTRES)) {
-              if (c.contains(m) || m.contains(c)) continue;
-              const b = c.getBoundingClientRect();
-              if (b.width < 1 || b.height < 1 || c.closest("details:not([open]) > :not(summary)")) continue;
-              if (coupe(r, b)) {
-                const nomC = c.id ? `#${c.id}` : c.tagName.toLowerCase();
-                etat.fautes[`${nom} sur ${nomC} « ${(c.textContent ?? "").trim().slice(0, 30)} »`] = 1;
+            for (const s of document.querySelectorAll(".rt-ain-sprite")) {
+              if (s.hidden || !s.dataset.serre) continue;
+              const c = s.getBoundingClientRect();
+              const [x0, y0, x1, y1] = s.dataset.serre.split(" ").map(Number);
+              const r = { left: c.left + x0, top: c.top + y0, right: c.left + x1, bottom: c.top + y1 };
+              const qui = `${nom} (${s.dataset.acteur})`;
+              const toile = document.querySelector("#screen");
+              const peintes = globalThis.nel3abTest?.counters?.().painted ?? 0;
+              const cadre = document.querySelector("[data-cadre]");
+              const image = cadre?.getAttribute("data-sans-image") !== "oui" && peintes > 0;
+              if (toile && image && coupe(r, toile.getBoundingClientRect())) etat.fautes[`${qui} sur l'image`] = 1;
+              for (const o of document.querySelectorAll(AUTRES)) {
+                if (o.closest("[data-hote]")) continue;
+                const b = o.getBoundingClientRect();
+                if (b.width < 1 || b.height < 1 || o.closest("details:not([open]) > :not(summary)")) continue;
+                if (coupe(r, b)) {
+                  const nomO = o.id ? `#${o.id}` : o.tagName.toLowerCase();
+                  etat.fautes[`${qui} sur ${nomO} « ${(o.textContent ?? "").trim().slice(0, 30)} »`] = 1;
+                }
               }
             }
           }
@@ -1244,80 +1250,88 @@ async function principal() {
         requestAnimationFrame(tour);
       };
       const lire = (page) => page.evaluate(() => window.__mascotte);
+      const SALLE = [
+        "arrivee", "spectateur", "depart", "attente", "attente-chargement", "chercher", "rebrancher",
+        "arret", "hoquet", "coupe", "decroche", "redemarre", "endort", "pret", "fier", "dort",
+      ];
+      /** Joue chaque scène l'une après l'autre, chacune jusqu'à sa fin. */
+      let refus = {};
+      const jouerTout = async (page, hote) => {
+        refus = {};
+        const versions = {};
+        for (const scene of SALLE) {
+          versions[scene] = await page.evaluate(
+            (s, h) => window.nel3abAin?.jouer(s, h, { joueur: "2", mode: "tous" }) ?? "sans-crochet",
+            scene,
+            hote,
+          );
+          await jusqua(() => page.evaluate(() => !document.querySelector(".rt-mascotte[data-scene]")), 4000, 30);
+          refus[scene] = await page.evaluate(
+            (h) => document.querySelector(`[data-hote="${h}"] .rt-mascotte, [data-hote="coin"] > .rt-mascotte`)?.dataset.refus ?? "",
+            hote,
+          );
+          await sleep(60);
+        }
+        return versions;
+      };
       const fautes = [];
       const telephone = { width: 390, height: 844, isMobile: true, hasTouch: true };
       const cas = [
-        { nom: "1280×720 premiere-image", vue: { width: 1280, height: 720 }, salle: {} },
-        { nom: "1440×900 premiere-image", vue: { width: 1440, height: 900 }, salle: {} },
-        { nom: "390×844 premiere-image", vue: telephone, salle: {} },
+        { nom: "1280×720", vue: { width: 1280, height: 720 }, salle: {}, hote: "coin" },
+        { nom: "1440×900", vue: { width: 1440, height: 900 }, salle: {}, hote: "coin" },
+        { nom: "390×844", vue: telephone, salle: {}, hote: "barre" },
         // Sans barre, la tête passe dans « La salle » : seul en travers
         // (#laSalleCote), parmi les touches tenu droit sur un écran court
-        // (#laSalleManette). Sans hôte, aucune scène ne jouait (relecture du
-        // 23 novembre 2026) : ici, une scène absente est le défaut.
-        {
-          nom: "844×390 premiere-image",
-          vue: { width: 844, height: 390, isMobile: true, hasTouch: true },
-          salle: {},
-          exige: "#laSalleCote",
-        },
-        {
-          nom: "375×548 premiere-image",
-          vue: { width: 375, height: 548, isMobile: true, hasTouch: true },
-          salle: {},
-          exige: "#laSalleManette",
-        },
-        {
-          nom: "1440×900 attente au repos",
-          vue: { width: 1440, height: 900 },
-          salle: { jeu: null, chef: "moi", decide: true },
-          repos: true,
-        },
+        // (#laSalleManette).
+        { nom: "844×390", vue: { width: 844, height: 390, isMobile: true, hasTouch: true }, salle: {}, hote: "barre", exige: "#laSalleCote" },
+        { nom: "375×548", vue: { width: 375, height: 548, isMobile: true, hasTouch: true }, salle: {}, hote: "barre", exige: "#laSalleManette" },
+        { nom: "1440×900 au repos", vue: { width: 1440, height: 900 }, salle: { jeu: null, chef: "moi", decide: true }, hote: "plateau", repos: true },
       ];
       for (const un of cas) {
         const page = await nouvelle(un.vue, { salle: un.salle });
         await page.evaluateOnNewDocument(sonde);
         if (un.repos) await entrerAuRepos(page);
         else await entrer(page);
-        await jusqua(async () => ((await lire(page))?.images ?? 0) > 0, 6000);
-        await sleep(1500);
+        if (un.exige) {
+          if (await page.$("#barreSalle")) throw new Precondition(`${un.nom}: la barre est montée`);
+          if (!(await page.$(`${un.exige} [data-hote="barre"]`))) throw new Precondition(`${un.nom}: pas de tête dans ${un.exige}`);
+        }
+        if (!(await page.$(`[data-hote="${un.hote}"]`))) throw new Precondition(`${un.nom}: pas d'hôte « ${un.hote} »`);
+        const versions = await jouerTout(page, un.hote);
+        if (Object.values(versions).includes("sans-crochet")) throw new Precondition(`${un.nom}: la page n'expose pas nel3abAin`);
         const lu = await lire(page);
         if (un.exige) {
-          // La précondition : la salle est bien sans barre, et le bouton qui
-          // doit porter la tête est monté.
-          if (await page.$("#barreSalle")) throw new Precondition(`${un.nom}: la barre est montée`);
-          if (!(await page.$(un.exige))) throw new Precondition(`${un.nom}: ${un.exige} n'est pas monté`);
-          if (!lu || lu.images === 0) {
-            fautes.push(`${un.nom}: aucune scène ne joue (pas d'hôte « barre » dans ${un.exige})`);
-            await page.close();
-            continue;
-          }
-          if (!lu.lieux[un.exige])
+          // La tête vit dans le bouton « La salle » : ses mots ne se couvrent
+          // pas, donc Aïn n'en sort pas en sprite. Le planificateur doit
+          // l'avoir refusé à cause de ce bouton (et non joué ailleurs).
+          if (!Object.values(refus).some((r) => r.includes(un.exige)))
+            fautes.push(`${un.nom}: le planificateur n'a jamais vu ${un.exige} (${JSON.stringify(refus)})`);
+          if (lu?.images && !lu.lieux[un.exige])
             fautes.push(`${un.nom}: la scène joue dans ${Object.keys(lu.lieux).join(", ")}, pas dans ${un.exige}`);
-        } else if (!lu || lu.images === 0) throw new Precondition(`${un.nom}: aucune scène vue pendant l'étape`);
-        console.log(JSON.stringify({ cas: un.nom, scenes: lu.scenes, lieux: lu.lieux }));
-        fautes.push(...Object.keys(lu.fautes).map((f) => `${un.nom}: ${f}`));
-        await capture(page, `mascotte-${un.repos ? "repos" : "jeu"}`);
+        } else if (!lu || lu.images === 0) fautes.push(`${un.nom}: aucune scène vue sur l'hôte « ${un.hote} »`);
+        console.log(JSON.stringify({ cas: un.nom, scenes: Object.keys(lu?.scenes ?? {}).length, images: lu?.images, lieux: lu?.lieux }));
+        if (process.env.N3_AIN_REFUS) console.log(JSON.stringify({ cas: un.nom, versions, refus }));
+        fautes.push(...Object.keys(lu?.fautes ?? {}).map((f) => `${un.nom}: ${f}`));
+        await capture(page, `mascotte-${un.repos ? "repos" : un.nom}`);
         await page.close();
       }
-      // Le jumeau : la sonde voit une mascotte posée sur l'image.
-      const page = await nouvelle({ width: 1280, height: 720 });
+      // Le jumeau rouge : l'image glisse sous le logo pendant une scène ;
+      // la sonde doit voir Aïn dessus.
+      const page = await nouvelle({ width: 1440, height: 900 });
       await page.evaluateOnNewDocument(sonde);
       await entrer(page);
+      await page.evaluate(() => window.nel3abAin?.jouer("fier", "coin", {}));
+      await sleep(250);
       await page.evaluate(() => {
-        const t = document.querySelector("#screen").getBoundingClientRect();
-        const m = document.createElement("div");
-        m.className = "rt-mascotte";
-        m.dataset.scene = "essai";
-        const ici = { left: `${t.x + t.width / 2}px`, top: `${t.y + t.height / 2}px` };
-        Object.assign(m.style, { position: "fixed", width: "40px", height: "40px", pointerEvents: "none", ...ici });
-        document.body.append(m);
-        m.animate([{ opacity: 1 }, { opacity: 0.99 }], { duration: 2000 });
+        const logo = document.querySelector('[data-hote="coin"] > canvas').getBoundingClientRect();
+        const t = document.querySelector("#screen");
+        Object.assign(t.style, { position: "fixed", left: `${logo.left - 40}px`, top: `${logo.top - 120}px`, width: "400px", height: "240px" });
       });
-      await sleep(300);
+      await sleep(400);
       const essai = await lire(page);
       await page.close();
-      if (!essai?.fautes?.["essai sur l'image"])
-        throw new Precondition(`la sonde ne voit pas une mascotte posée sur l'image (${JSON.stringify(essai)})`);
+      if (!Object.keys(essai?.fautes ?? {}).some((f) => f.includes("sur l'image")))
+        throw new Precondition(`la sonde ne voit pas Aïn posé sur l'image (${JSON.stringify(essai)})`);
       verdict(fautes);
     },
 

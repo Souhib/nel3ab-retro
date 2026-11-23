@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readPad, type PadProfile } from "../media/pad";
+import type { SwitchDevice } from "../media/switch";
 import { heldOn, downward, upward, type Raw } from "./wiring";
 
 const pad = (buttons: number[], axes: number[] = []): Raw => ({
@@ -71,6 +72,18 @@ describe("ce qui est enfoncé", () => {
   it("sans leçon ni profil, une gâchette à 0,62 s'allume encore sur son drapeau", () => {
     // Le jumeau : une manette qu'on vient de brancher n'a encore aucun repos.
     expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.62]), null)).toEqual(["b6"]);
+  });
+
+  it("lit aussi les repos d'une manette de la trame Pro", () => {
+    // Changement 28 : en salle Switch ou Xbox 360, « Ta manette » lit le
+    // SwitchDevice, qui n'a pas de gâchettes à part : ZL repose à 0,6.
+    const device: SwitchDevice = {
+      standard: false,
+      buttons: { ZL: { button: 6, rest: 0.6 } },
+      sticks: { lx: { axis: 0, sign: 1, rest: 0.2 } },
+    };
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.6], [0.2]), device)).toEqual([]);
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 1], [0.9]), device)).toEqual(["b6", "a0+"]);
   });
 
   it("se passe d'un profil sans rien casser", () => {

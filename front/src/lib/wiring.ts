@@ -24,8 +24,10 @@ import {
   MOVED,
   readPad,
   type ButtonName,
+  type Control,
   type PadProfile,
   type PadReading,
+  type StickAxis,
 } from "../media/pad";
 import type { Snapshot } from "../media/lesson";
 import { paintBench } from "./bench";
@@ -37,6 +39,15 @@ export type Raw = {
   axes: readonly number[];
 };
 
+/** Ce que `heldOn` lit d'un réglage : les entrées nommées et leur repos.
+ * Un profil Dolphin (`PadProfile`) et une manette de la trame Pro
+ * (`SwitchDevice`, sans gâchettes à part) en ont tous les deux la forme. */
+export type Reglage = {
+  buttons: Partial<Record<string, Control>>;
+  triggers?: { L?: Control; R?: Control };
+  sticks: Partial<Record<string, StickAxis>>;
+};
+
 /** Ce qui est allumé sur le schéma physique: les clés de ses pièces.
  *
  * `neutre` est le repos qu'une leçon ou une réassignation a pris au clic
@@ -46,7 +57,7 @@ export type Raw = {
  * détection, elle, lisait déjà la course depuis ce même repos. */
 export function heldOn(
   raw: Raw,
-  profile: PadProfile | null,
+  profile: Reglage | null,
   neutre: Snapshot | null = null,
 ): string[] {
   const rests = restsOf(profile, neutre);
@@ -88,7 +99,7 @@ export function heldOn(
  * et non de la commande.
  */
 function restsOf(
-  profile: PadProfile | null,
+  profile: Reglage | null,
   neutre: Snapshot | null = null,
 ): {
   buttons: Map<number, number>;
@@ -119,8 +130,8 @@ function restsOf(
     if (!axes.has(control.axis)) axes.set(control.axis, control.rest);
   };
   for (const control of Object.values(profile.buttons)) note(control);
-  note(profile.triggers.L);
-  note(profile.triggers.R);
+  note(profile.triggers?.L);
+  note(profile.triggers?.R);
   for (const stick of Object.values(profile.sticks)) {
     if (stick && !axes.has(stick.axis)) axes.set(stick.axis, stick.rest ?? 0);
   }

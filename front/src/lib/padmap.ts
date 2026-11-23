@@ -1199,7 +1199,9 @@ const WM_PARTS: Part[] = [
     tint: "#24262d",
     flush: true,
     size: 2.4,
-    callout: { x: 58.5, y: 7, anchor: "end" },
+    // Hors du bord de la coque, avec un trait qui se voit (`padmap.test.ts`,
+    // « les renvois ») : à 58,5, le 23 novembre 2026, le mot touchait le bord.
+    callout: { x: 56, y: 7, anchor: "end" },
   },
   ...WM_DPAD.parts,
   { key: "A", label: "A", x: 69.75, y: 25.9, r: 2.2, shape: "rond", size: 2.6 },
@@ -1232,7 +1234,8 @@ const WM_PARTS: Part[] = [
       "M 80.6 45.2 C 83.3 47.8, 83.3 52.2, 80.6 54.8 C 82 52.2, 82 47.8, 80.6 45.2 Z",
     tint: "#9aa1ae",
     size: 2.4,
-    callout: { x: 84.2, y: 50, anchor: "start" },
+    // Hors des arcs : à 84,2, le mot se collait au deuxième.
+    callout: { x: 87.4, y: 50, anchor: "start" },
   },
 ];
 const NC_PARTS: Part[] = [

@@ -8,7 +8,16 @@
 import { describe, expect, it } from "vitest";
 
 import { CONTROLS } from "../media/pad";
-import { EMULATED, GAMECUBE, GUITAR, MAPS, mirrorX, PHYSICAL, type PadMap } from "./padmap";
+import {
+  EMULATED,
+  GAMECUBE,
+  GUITAR,
+  MAPS,
+  mirrorX,
+  PHYSICAL,
+  type PadMap,
+  WIIMOTE,
+} from "./padmap";
 
 /** La boîte d'une pièce, dans le repère du plan. */
 const box = (part: PadMap["parts"][number]) => {
@@ -159,6 +168,92 @@ describe("les plans de la manette tenue", () => {
         expect(set.has(key), `il manque ${key}`).toBe(true);
       }
     }
+  });
+});
+
+/** La boîte des nombres d'un tracé, points de contrôle compris : elle couvre la
+ * courbe, un peu plus large qu'elle, ce qui va dans le sens prudent ici. */
+const boiteDuTrace = (d: string) => {
+  const n = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map(([v]) => Number(v));
+  const xs = n.filter((_, i) => i % 2 === 0);
+  const ys = n.filter((_, i) => i % 2 === 1);
+  return {
+    left: Math.min(...xs),
+    right: Math.max(...xs),
+    top: Math.min(...ys),
+    bottom: Math.max(...ys),
+  };
+};
+
+/** Le trait d'un renvoi qui reste VISIBLE entre ce qu'il désigne et son mot.
+ *
+ * Le trait part du centre de la pièce. Il traverse la pièce dessinée et, quand
+ * la pièce est posée sur la coque, le corps qui la porte ; seul le bout qui en
+ * sort se voit. Le 23 novembre 2026, la planche montrait « secouer » collé aux
+ * arcs et « viser » collé au bord de la Wiimote : 1,6 et 3,5 unités de trait. */
+const traitVisible = (map: PadMap, part: PadMap["parts"][number]) => {
+  const at = part.callout!;
+  const boites = [box(part), ...(part.d ? [boiteDuTrace(part.d)] : [])];
+  for (const corps of map.body.split(/(?=M )/)) {
+    const b = boiteDuTrace(corps);
+    const dedans = part.x >= b.left && part.x <= b.right && part.y >= b.top && part.y <= b.bottom;
+    if (dedans) boites.push(b);
+  }
+  const vers = at.anchor === "end" ? "gauche" : "droite";
+  return vers === "gauche"
+    ? Math.min(...boites.map((b) => b.left)) - at.x
+    : at.x - Math.max(...boites.map((b) => b.right));
+};
+
+/** Le plus petit bout de trait qui se lit comme un trait : 4 unités font
+ * 4,8 px sur le plus petit dessin (120 px de large pour un repère de 100). */
+const TRAIT_MIN = 4;
+/** L'avance moyenne d'un caractère de Pixelify Sans, en em, prise large. */
+const AVANCE = 0.62;
+
+// `MAPS` ne porte pas la Wiimote seule, qui a pourtant les mêmes renvois.
+const AVEC_RENVOIS = [...new Set([...Object.values(MAPS), ...EMULATED])].filter((map) =>
+  map.parts.some((part) => part.callout),
+);
+
+describe.each(AVEC_RENVOIS)("les renvois du plan « $name »", (map) => {
+  it("laissent voir un trait hors de la pièce et de la coque", () => {
+    const renvois = map.parts.filter((one) => one.callout);
+    // La précondition : la mesure suit un trait horizontal.
+    for (const part of renvois) expect(part.callout!.y, part.key).toBe(part.y);
+    const courts = renvois
+      .map((part) => `${part.key} ${traitVisible(map, part).toFixed(1)}`)
+      .filter((_, i) => traitVisible(map, renvois[i]!) < TRAIT_MIN);
+    expect(courts).toEqual([]);
+  });
+
+  it("écrivent leur mot entièrement dans le repère", () => {
+    const [x0, , largeur] = (map.viewBox ?? "-2 -2 104 66").split(" ").map(Number);
+    for (const part of map.parts.filter((one) => one.callout)) {
+      const at = part.callout!;
+      const long = part.label.length * AVANCE * (part.size ?? 2.2);
+      const debut = at.anchor === "end" ? at.x - long : at.x;
+      expect(debut, part.key).toBeGreaterThanOrEqual(x0!);
+      expect(debut + long, part.key).toBeLessThanOrEqual(x0! + largeur!);
+    }
+  });
+});
+
+describe("la mesure du trait d'un renvoi", () => {
+  it("compte deux plans à renvois, la Wiimote seule comprise", () => {
+    expect(AVEC_RENVOIS.map((map) => map.id).sort()).toEqual(["wiimote", "wiimote-only"]);
+  });
+
+  it("refuse les renvois d'avant, collés au bord et aux arcs", () => {
+    // Le jumeau : la même mesure aux positions du 21 novembre.
+    const viser = WIIMOTE.parts.find((one) => one.key === "cx")!;
+    const secouer = WIIMOTE.parts.find((one) => one.key === "Z")!;
+    const avant = (part: typeof viser, x: number) => ({
+      ...part,
+      callout: { ...part.callout!, x },
+    });
+    expect(traitVisible(WIIMOTE, avant(viser, 58.5))).toBeLessThan(TRAIT_MIN);
+    expect(traitVisible(WIIMOTE, avant(secouer, 84.2))).toBeLessThan(TRAIT_MIN);
   });
 });
 

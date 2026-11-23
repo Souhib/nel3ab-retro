@@ -748,13 +748,8 @@ try {
       });
       const bad = [];
       try {
-        // Une salle au repos ouvre le menu d'elle-même : on le referme pour
-        // voir l'écran du repos.
-        if (game === null) {
-          await page.waitForSelector("#menu", { timeout: 20000 });
-          await sleep(400);
-          await page.evaluate(() => document.querySelector("#closeMenu")?.click());
-        }
+        // Une salle au repos n'ouvre plus son menu d'elle-même depuis le
+        // 23 novembre 2026 : l'écran éteint se montre tout de suite.
         await page.waitForSelector(game === null ? "#idle-room" : "#arrivee", { timeout: 20000 });
         await sleep(700);
         bad.push(...dansLaZone("le « ••• »", await page.evaluate(boite, OPENER), zone, width, height));

@@ -1714,6 +1714,16 @@ Decision:
   the line. A row that does nothing in a state is absent rather than greyed.
   The column scrolls by itself with a 60 px bottom scroll padding, and a
   sticky « Plus bas » says that more is hidden.
+- **An idle room opens nothing by itself.** Until 2026-11-23 a room without
+  a game opened its menu for everyone and hid the screen under it. The idle
+  screen (`EcranEteint.tsx`, still `#idle-room`) now says « Pas encore de
+  jeu. »; whoever chooses the game gets the focus on « Choisir un jeu », the
+  only filled button in view, and the others read who chooses. The menu
+  stays one gesture away (Escape, or « Menu du jeu » in the column, K23).
+  The stage under the text hosts the mascot's waiting scene three times at
+  most, stopped by the first gesture or a hidden tab. A spectator's button
+  names the place it will get (« Prendre la place 4 »), and stays polite: it
+  asks for the first free place rather than taking that one by force.
 - **One mascot place at a time, one arbiter.** `ouEstLaMascotte` names the
   place (stage when there is no picture, column corner on the desk, phone
   bar, panel edge for an arrival). `lib/scenes-salle.ts` ranks the tracks
@@ -1733,10 +1743,13 @@ loading, link state) now live in a wrapper above the panel, so an overlay on
 `inset-0` cannot cover the places. Proofs: `cadre.mjs` steps `meuble-place`,
 `une-fois` and `un-plein`, red against the end-of-pass-1 page (0fef99e);
 `focus.mjs` step `colonne-deborde` with its in-page twin (scroll padding at
-0 hides a stop under « Plus bas »). Not yet delivered: the bar, band and
-single phone sheet (step 4, which amends D28 and D35), the idle screen and
-stage (step 5), the keyboard and controller views (step 6), the frame
-effects (step 7).
+0 hides a stop under « Plus bas »). Delivered in pass 2 (step 5): the idle
+screen without an automatic menu, its entry focus, the waiting loop on the
+stage, and the numbered take-place button; proofs `cadre.mjs`
+`repos-sans-menu` (red against the step-3 page, 3cada57) and
+`repos-attention`, `parcours.mjs` `spectateur-prendre`. Not yet delivered:
+the bar, band and single phone sheet (step 4, which amends D28 and D35), the
+keyboard and controller views (step 6), the frame effects (step 7).
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

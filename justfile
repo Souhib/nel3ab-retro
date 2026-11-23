@@ -909,6 +909,12 @@ cadre-navigateur-rouge:
     etapes=meuble-place,une-fois
     node cadre.mjs --page "$dossier/cadre-seul.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page de la colonne du bureau (3cada57) ouvre encore son menu d'office
+    # dans une salle au repos.
+    git show 3cada57:core/crates/worker/src/page/index.html > "$dossier/colonne.html"
+    etapes=repos-sans-menu
+    node cadre.mjs --page "$dossier/colonne.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

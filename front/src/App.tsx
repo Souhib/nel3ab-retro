@@ -8,7 +8,6 @@
  * bounds (`lib/column`), and the picture takes whatever is left.
  */
 import { Bobine } from "./bobine/Bobine";
-import { Console } from "./bobine/Console";
 import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
 import { base, salle, under } from "./lib/base";
@@ -47,6 +46,7 @@ import {
   RangSon,
 } from "./components/Colonne";
 import { Coin } from "./components/Coin";
+import { EcranEteint, phraseDuRepos } from "./components/EcranEteint";
 import { PanneauCommande } from "./components/PanneauCommande";
 import { ConnectionDiagnostic } from "./components/ConnectionDiagnostic";
 import { Instruments } from "./components/Instruments";
@@ -618,7 +618,11 @@ function Room({
    * encore `undefined`, donc la page se croyait EN PARTIE avant même de savoir
    * s'il y en avait une, et s'alarmait en conséquence. */
   const playing = room === undefined ? null : room.game !== null;
-  const [menu, setMenu] = useState(idle);
+  /* Fermé à l'entrée, même au repos : une salle sans jeu ouvrait son menu
+     d'office, à tout le monde, et cachait l'écran dessous. L'écran éteint
+     dit maintenant qu'il n'y a pas de jeu, et « Choisir un jeu » l'ouvre
+     (`EcranEteint`, 23 novembre 2026). */
+  const [menu, setMenu] = useState(false);
   pourCtrl.current = { tiroir: tiroirOuvert, menu, feuille, touches: bindings };
   // Le menu, ou quelqu'un qui demande ta place, passent avant le tiroir et la
   // feuille: les deux sont des dialogues modaux, qui rendraient le menu ou la
@@ -749,10 +753,9 @@ function Room({
       //
       // Le cas où rien n'arrive jamais est déjà couvert par le plafond de
       // soixante secondes plus bas.
-      if (bootingNow.current === null) {
-        setFolder(null);
-        setMenu(true);
-      }
+      // Le menu ne s'ouvre plus d'office au repos : l'écran éteint le
+      // propose (`EcranEteint`). On remonte seulement aux consoles.
+      if (bootingNow.current === null) setFolder(null);
     }
   }, [idle, padOnly, session]);
 
@@ -1124,6 +1127,8 @@ function Room({
       (shot?.input.watching ? Boolean(seat?.player) : (shot?.input.busy[index] ?? false))
     );
   });
+  /** La place qu'un spectateur prendrait : la première libre, ou `null`. */
+  const premiereLibre = occupied.indexOf(false) >= 0 ? occupied.indexOf(false) + 1 : null;
   const names = new Map(
     (room?.seats ?? []).flatMap((seat) =>
       seat.player && occupied[seat.port - 1] ? [[seat.port, seat.player] as const] : [],
@@ -2627,23 +2632,10 @@ function Room({
           ) : null}
 
           {idle && !menu && !configuring ? (
-            <div
-              className="regie-nuit absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-ecran text-text"
-              id="idle-room"
-            >
-              {/* La console vide, et Bobine qui attend à côté. Dans la zone de
-                l'image et plus sur toute la page: la colonne reste visible. */}
-              <div className="n3-chargement" aria-hidden="true">
-                <div className="n3-chargement-bob">
-                  <Bobine pose="repos" taille={64} />
-                </div>
-                <Console support="cartouche" diode="eteinte" avale={false} />
-              </div>
-              <h2 className="text-titre font-semibold">Aucun jeu en cours</h2>
-              <button type="button" className="n3-action primary" onClick={() => setMenu(true)}>
-                Choisir un jeu
-              </button>
-            </div>
+            <EcranEteint
+              phrase={phraseDuRepos(role, whyNotChoose)}
+              onChoisir={() => setMenu(true)}
+            />
           ) : null}
 
           {/* La ligne parlée: montée dès l'entrée, vide, et seul son texte
@@ -2712,6 +2704,7 @@ function Room({
               <BlocRole
                 nom={name}
                 place={port}
+                libre={premiereLibre}
                 onPrendre={salleFermee ? undefined : () => session?.input.play()}
               />
             }
@@ -2720,7 +2713,8 @@ function Room({
                 {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
                     rôle ne se montre que quand le worker dit que le chef ne
                     joue plus (`repriseDuRole`, audit T12). */}
-                {boss && !salleFermee ? (
+                {/* Au repos, l'écran éteint le dit déjà : une chose, une fois. */}
+                {boss && !salleFermee && !idle ? (
                   <p className="flex items-center gap-1 text-corps text-muted">
                     <Crown />
                     {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}

@@ -28408,6 +28408,65 @@ et etats. Le rang « Ta manette » ouvre encore l'onglet manette du réglage,
 pas la vue légère de l'étape 6. Au téléphone, la colonne garde le tiroir
 jusqu'à l'étape 4. Rien n'a été essayé sur un vrai écran par quelqu'un.
 
+### 23 novembre, tard : une salle au repos n'ouvre plus rien
+
+**Le contexte.** Jusqu'ici, une salle sans jeu ouvrait son menu toute seule,
+à tout le monde, et l'écran restait caché dessous. Quelqu'un qui entrait
+pour regarder tombait sur un menu où il ne pouvait rien lancer.
+
+**Ce qui a changé.** Rien ne s'ouvre. L'écran éteint, noir dans les deux
+thèmes, dit « Pas encore de jeu. ». Celui qui choisit le jeu a le focus sur
+« Choisir un jeu », le seul bouton plein de la vue ; Entrée ouvre le menu.
+Les autres lisent « Bo choisit le jeu. Tu le verras démarrer ici. ». La
+colonne ne répète plus la phrase de qui choisit : l'écran la dit déjà. Sous
+le texte, le plateau accueille la mascotte, qui joue sa scène d'attente
+trois fois au plus (à 2,5 s, 8,5 s et 14,5 s) et s'arrête au premier geste
+ou quand l'onglet se cache. Elle passe par l'arbitre de la salle, qui la
+refuse pendant une panne ou une scène plus importante. Le spectateur lit
+enfin quelle place il prendra : « Prendre la place 4 ». Le plan voulait que
+ce bouton prenne cette place-là ; il garde le geste poli d'avant, la
+première place libre, pour ne jamais déloger quelqu'un qui l'aurait prise
+une seconde plus tôt.
+
+**Ce qui a résisté : la zone de jeu prenait le focus d'entrée.** La page
+donne le focus à la zone de jeu dès l'entrée, pour qu'on joue au clavier
+sans cliquer. Elle le fait avant que la salle ait dit qu'elle n'a pas de
+jeu. L'écran éteint, monté ensuite, voyait un focus déjà pris et le
+laissait : la première version de l'étape `repos-sans-menu` l'a trouvé sur
+la zone. Sans jeu, la zone n'envoie rien ; l'écran éteint la compte donc
+comme un focus libre, et la page ne la focalise plus quand elle sait déjà
+la salle au repos.
+
+**Ce qui a résisté : la pièce qui tourne sans fin.** L'étape
+`repos-attention` attend, vingt secondes après l'entrée, qu'aucune animation
+ne tourne plus sur le plateau. Les animations de la scène s'arrêtent bien.
+Mais la mascotte provisoire du socle, une pièce, garde son image qui tourne
+en boucle après la scène (son attribut `data-tourne` reste posé). C'est le
+défaut que K15 annonçait. L'étape sépare donc les deux familles : une
+animation de scène encore vivante est une faute ; l'image de la pièce est
+une exception nommée, écrite dans le journal de l'étape, à lever avec la
+mascotte définitive.
+
+**Les preuves.** `cadre.mjs` : `repos-sans-menu` (pour qui choisit, aucun
+dialogue ouvert après 3 s, le focus sur « Choisir un jeu », Entrée ouvre le
+menu ; pour les autres, pas de bouton, et « choisit le jeu » comme « Pas
+encore de jeu » rendus une seule fois), rouge contre la page de l'étape
+précédente (3cada57), qui ouvrait encore son menu ; `repos-attention`, avec
+son jumeau : la scène doit d'abord être vue jouer. `parcours.mjs` :
+`spectateur-prendre`, la place annoncée est celle obtenue. La salle pleine
+(aucun bouton) est vérifiée dans `Colonne.test.tsx`, le banc ne sachant pas
+tenir les quatre places.
+
+**Mesures.** Poids de la page en brotli 11 : 243 505 octets, soit 7 805 pour
+la salle depuis le socle (enveloppe 12 000). L'écran éteint n'importe plus
+Bobine ni sa console dessinée.
+
+**Ce qui n'est pas prouvé.** La mascotte n'est pas encore la vraie : la
+scène d'attente joue la pièce provisoire. Le rayonnage de jeux du chantier
+menus n'est pas encore posé sur l'écran éteint (K23) ; quand il le sera, le
+focus d'entrée ira à sa première cartouche. Au téléphone, l'écran éteint est
+le même, mais la barre et la bande attendent l'étape 4.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

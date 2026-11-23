@@ -181,3 +181,31 @@
 .n3-panneau[data-forme="sous"] #ports > button > span.block {
   max-width: 6rem;
 }
+
+/* L'écran éteint : noir dans les deux thèmes (`--ecran`), son texte à
+   l'encre de l'écran, qui ne change pas de thème non plus. */
+.n3-ecran-eteint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--ecran);
+  color: var(--encre-ecran);
+  text-align: center;
+}
+.n3-ecran-titre {
+  font-family: var(--police-titre);
+  font-size: var(--text-titre);
+  font-weight: 400;
+}
+.n3-ecran-phrase {
+  max-width: 42ch;
+  font-size: var(--text-corps);
+  line-height: 1.5;
+}
+.n3-plateau {
+  position: relative;
+  width: min(100%, 16rem);
+}

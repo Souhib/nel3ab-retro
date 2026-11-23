@@ -23,7 +23,7 @@ const colonne = (rangs: readonly Rang[], mesures: React.ReactNode = null) =>
       jeu="Zelda"
       onQuitter={() => {}}
       largeur={304}
-      role={<BlocRole nom="Lina" place={1} />}
+      role={<BlocRole nom="Lina" place={1} libre={2} />}
       rangs={rangs}
       contenus={contenus}
       mesures={mesures}
@@ -83,7 +83,7 @@ describe("la colonne", () => {
         jeu={null}
         onQuitter={() => {}}
         largeur={304}
-        role={<BlocRole nom="Lina" place={1} />}
+        role={<BlocRole nom="Lina" place={1} libre={2} />}
         rangs={["son", "autres"]}
         contenus={contenus}
         mesures={null}
@@ -112,21 +112,26 @@ describe("la colonne", () => {
 
 describe("le bloc de rôle", () => {
   it("dit la place tenue, sans bouton pour en prendre une", () => {
-    render(<BlocRole nom="Lina" place={2} onPrendre={() => {}} />);
+    render(<BlocRole nom="Lina" place={2} libre={1} onPrendre={() => {}} />);
     expect(document.getElementById("seat")?.textContent).toBe("Lina · place 2");
     expect(document.getElementById("takePad")).toBeNull();
   });
 
   it("offre une place à qui regarde, et le dit", () => {
     const prendre = vi.fn();
-    render(<BlocRole nom="Lina" place={null} onPrendre={prendre} />);
+    render(<BlocRole nom="Lina" place={null} libre={4} onPrendre={prendre} />);
     expect(document.getElementById("seat")?.textContent).toBe("Lina · tu regardes");
-    fireEvent.click(screen.getByRole("button", { name: /Prendre une place/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Prendre la place 4" }));
     expect(prendre).toHaveBeenCalledOnce();
   });
 
   it("rien à prendre dans une salle fermée", () => {
-    render(<BlocRole nom="Lina" place={null} />);
+    render(<BlocRole nom="Lina" place={null} libre={1} />);
+    expect(document.getElementById("takePad")).toBeNull();
+  });
+
+  it("rien à prendre dans une salle pleine", () => {
+    render(<BlocRole nom="Lina" place={null} libre={null} onPrendre={() => {}} />);
     expect(document.getElementById("takePad")).toBeNull();
   });
 });

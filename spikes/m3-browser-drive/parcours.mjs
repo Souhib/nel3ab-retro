@@ -202,6 +202,32 @@ const ETAPES = {
     await page.close();
   },
 
+  /** spectateur.1: le spectateur lit QUELLE place il prendra, « Prendre la
+   * place N », et c'est bien celle-là qu'il tient après l'appui. Le jumeau
+   * d'une salle pleine (aucun bouton) est dans `Colonne.test.tsx`: le banc ne
+   * sait pas tenir les quatre places. */
+  async "spectateur-prendre"() {
+    const page = await nouvelle(PC);
+    await page.goto(`${banc.url}?entrer=regarder`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#screen", { timeout: 15000 }).catch(() => {
+      throw new Precondition("`?entrer=regarder` n'entre pas dans la salle");
+    });
+    if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
+      throw new Precondition(`entré pour regarder: « ${await siege(page)} »`);
+    const texte = await page
+      .waitForSelector("#takePad", { timeout: 5000 })
+      .then((el) => el.evaluate((b) => b.textContent.trim()))
+      .catch(() => "");
+    const lu = /Prendre la place (\d)/.exec(texte);
+    if (!lu) throw new Defaut(`le bouton du spectateur ne dit pas quelle place: « ${texte} »`);
+    await page.click("#takePad");
+    if (!(await jusqua(async () => /place \d/.test(await siege(page)), 8000)))
+      throw new Precondition(`« ${texte} » sans place: « ${await siege(page)} »`);
+    const tenue = /place (\d)/.exec(await siege(page))[1];
+    if (tenue !== lu[1]) throw new Defaut(`« ${texte} » a donné la place ${tenue}`);
+    await page.close();
+  },
+
   /** La relecture: l'adresse suit la place, pas la porte d'entrée. Entré pour
    * regarder puis assis, on rentre assis; entré pour jouer puis levé, on rentre
    * pour regarder, sans socket d'entrée. */

@@ -69,13 +69,18 @@ rangs nommés, « Autres réglages », « Plus bas », marge de défilement de
 « mesures » sont partis), le panneau de commande sous l'image ou au pied de
 la colonne, `Sidebar` retiré, un arbitre des scènes par salle. Preuves :
 `cadre.mjs` `meuble-place`, `une-fois`, `un-plein` (rouges contre 0fef99e)
-et `focus.mjs` `colonne-deborde`. Reste : la barre, la bande et la feuille
-unique au téléphone, la manette sous l'image, les vues des touches, le repos
-sans menu d'office, les effets du cadre, les mesures. Poids : 243 207
-octets en brotli (7 507 pour la salle). Décision :
+et `focus.mjs` `colonne-deborde`. Au repos, plus de menu d'office : l'écran
+éteint dit « Pas encore de jeu. », donne le focus à « Choisir un jeu » à qui
+choisit et nomme qui choisit aux autres, et la scène d'attente joue trois
+fois au plus sur le plateau ; le spectateur lit « Prendre la place N »
+(`cadre.mjs` `repos-sans-menu`, `repos-attention`, `parcours.mjs`
+`spectateur-prendre`). Reste : la barre, la bande et la feuille unique au
+téléphone, la manette sous l'image, les vues des touches, les effets du
+cadre, les mesures. Poids : 243 505 octets en brotli (7 805 pour la salle). Décision :
 [ADR](adr/0001-architecture.md) D39 (en partie livrée). Récits : « 23
 novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
-novembre, la nuit : la colonne du bureau et le panneau de commande ».
+novembre, la nuit : la colonne du bureau et le panneau de commande » et
+« 23 novembre, tard : une salle au repos n'ouvre plus rien ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

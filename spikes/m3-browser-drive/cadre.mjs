@@ -236,6 +236,22 @@ async function principal() {
       throw new Precondition("la page n'a pas peint 30 images en 20 s");
   }
 
+  /** Une salle au repos: pas d'image à attendre, l'écran éteint suffit. */
+  async function entrerAuRepos(page) {
+    await page.goto(banc.url, { waitUntil: "domcontentloaded" });
+    try {
+      // `#menu` aussi: une page d'avant ouvrait son menu d'office au repos,
+      // et le contrôle rouge doit tomber sur ce défaut, pas attendre ici.
+      await page.waitForSelector("#enter, #idle-room, #menu", { timeout: 15000 });
+      if (await page.$("#enter")) {
+        await page.click("#enter");
+        await page.waitForSelector("#idle-room, #menu", { timeout: 15000 });
+      }
+    } catch (e) {
+      throw new Precondition(`la salle au repos ne montre pas son écran: ${e.message}`);
+    }
+  }
+
   /** La salle annonce une fermeture dans `minutes`: le message de salle de la
    * socket d'entrée, rejoué avec son octet de fermeture. */
   async function annoncerFermeture(page, minutes) {
@@ -472,6 +488,106 @@ async function principal() {
       await capture(joueur, "un-plein-spectateur");
       await joueur.close();
       verdict(fautes);
+    },
+
+    /** salle-repos.1: une salle sans jeu n'ouvre rien d'office. Pour qui
+     * choisit: 3 s après l'entrée, aucun dialogue ouvert, le focus sur
+     * « Choisir un jeu », et Entrée ouvre le menu. Le jumeau, pour qui ne
+     * choisit pas: aucun « Choisir un jeu », et l'écran nomme qui choisit. */
+    async "repos-sans-menu"() {
+      const fautes = [];
+      const page = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "moi", decide: true } });
+      await entrerAuRepos(page);
+      await sleep(3000);
+      const lu = await page.evaluate(() => ({
+        ouverts: [...document.querySelectorAll("dialog[open]")].map((d) => d.id || d.className),
+        menu: document.querySelector("#menu") !== null,
+        focus: document.activeElement?.id ?? "",
+        titre: document.querySelector("#idle-room")?.textContent ?? "",
+      }));
+      if (lu.ouverts.length > 0 || lu.menu) fautes.push(`au repos, un dialogue s'ouvre seul: ${lu.ouverts.join(", ") || "#menu"}`);
+      if (lu.focus !== "choisirJeu") fautes.push(`le focus d'entrée est sur « ${lu.focus || "body"} », pas sur « Choisir un jeu »`);
+      if (!/Pas encore de jeu/.test(lu.titre)) fautes.push(`l'écran éteint ne dit pas « Pas encore de jeu »: « ${lu.titre.slice(0, 60)} »`);
+      await capture(page, "repos-choisit");
+      if (lu.focus === "choisirJeu") {
+        await page.keyboard.press("Enter");
+        if (!(await jusqua(() => page.$("#menu").then(Boolean), 3000))) fautes.push("Entrée sur « Choisir un jeu » n'ouvre pas le menu");
+      }
+      await page.close();
+      const autre = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "bo", decide: false } });
+      await entrerAuRepos(autre);
+      await sleep(1500);
+      const vu = await autre.evaluate(() => {
+        // salle-repos.3: une chose, une fois. Les textes rendus qui disent qui
+        // choisit, et le titre de l'écran éteint, comptés par nœud de texte.
+        const fois = (motif) => {
+          const marche = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          let n = 0;
+          for (let t = marche.nextNode(); t; t = marche.nextNode())
+            if (motif.test(t.textContent ?? "") && t.parentElement?.getClientRects().length) n += 1;
+          return n;
+        };
+        return {
+          bouton: document.querySelector("#choisirJeu") !== null,
+          phrase: document.querySelector("#idle-room")?.textContent ?? "",
+          chef: fois(/choisit le jeu/),
+          titre: fois(/Pas encore de jeu/),
+        };
+      });
+      if (vu.chef !== 1) fautes.push(`« choisit le jeu » rendu ${vu.chef} fois au repos`);
+      if (vu.titre !== 1) fautes.push(`« Pas encore de jeu » rendu ${vu.titre} fois au repos`);
+      if (vu.bouton) fautes.push("qui ne choisit pas voit « Choisir un jeu »");
+      if (!/Bo choisit le jeu/.test(vu.phrase)) fautes.push(`l'écran ne nomme pas qui choisit: « ${vu.phrase.slice(0, 80)} »`);
+      await capture(autre, "repos-regarde");
+      await autre.close();
+      verdict(fautes);
+    },
+
+    /** salle-repos.6: la scène « attente » joue sur le plateau, puis s'arrête.
+     * Vers 3 s, la mascotte est sur le plateau; à 20 s, plus aucune animation
+     * n'y tourne. Le jumeau est la première mesure: sans elle, un plateau
+     * vide passerait la seconde. */
+    async "repos-attention"() {
+      const page = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "moi", decide: true } });
+      const debut = Date.now();
+      await entrerAuRepos(page);
+      // Aucun geste pendant l'étape: un pointeur ou une touche arrête la boucle.
+      // Deux familles d'animations sur le plateau: celles de la scène (Web
+      // Animations, posées par `jouer`) et l'image de la pièce provisoire du
+      // socle (une animation CSS, `rt-piece-image`).
+      const plateau = () =>
+        page.evaluate(() => {
+          const p = document.querySelector('[data-hote="plateau"]');
+          if (!p) return null;
+          const vivantes = p.getAnimations({ subtree: true }).filter((a) => a.playState === "running");
+          const css = vivantes.filter((a) => typeof CSSAnimation !== "undefined" && a instanceof CSSAnimation);
+          return {
+            enfants: p.children.length,
+            scene: vivantes.length - css.length,
+            css: css.map((a) => a.animationName),
+          };
+        });
+      let pendant = null;
+      const vue = await jusqua(async () => {
+        pendant = await plateau();
+        return (pendant?.scene ?? 0) > 0;
+      }, 6000, 50);
+      if (!vue) throw new Precondition(`la scène « attente » ne joue jamais sur le plateau (${JSON.stringify(pendant)})`);
+      const fin = debut + 20000 - Date.now();
+      if (fin > 0) await sleep(fin);
+      const apres = await plateau();
+      if (apres === null) throw new Precondition("le plateau a disparu");
+      await capture(page, "repos-attention");
+      await page.close();
+      if (apres.scene > 0) throw new Defaut(`${apres.scene} animations de scène tournent encore sur le plateau à 20 s`);
+      // L'exception nommée: la pièce provisoire du socle tourne sans fin
+      // (`data-tourne` reste posé après la scène, K15). Elle part avec la
+      // mascotte définitive, qui ne tourne que pendant une scène; toute autre
+      // animation CSS reste une faute.
+      const autres = apres.css.filter((nom) => nom !== "rt-piece-image");
+      if (autres.length > 0) throw new Defaut(`animations CSS encore vivantes à 20 s: ${autres.join(", ")}`);
+      if (apres.css.length > 0)
+        console.log(JSON.stringify({ note: `repos-attention: la pièce provisoire tourne encore (${apres.css.length} animations rt-piece-image), à lever avec la mascotte` }));
     },
   };
 

@@ -59,6 +59,9 @@ export const PLACE = {
   rendre: "Rendre ma place",
 } as const;
 
+/** Le bouton du spectateur, qui dit quelle place il prendra. */
+export const prendreLaPlace = (numero: number): string => `Prendre la place ${numero}`;
+
 /** Les deux façons d'entrer dans une salle.
  *
  * L'accueil des salles disait « Rejoindre » et l'avant-salle « entrer et
@@ -408,6 +411,15 @@ export const COLONNE = {
   mesures: "Mesures de la liaison",
   revenir: "Fermer",
   panneau: "Les places",
+} as const;
+
+/** L'écran éteint d'une salle sans jeu (`components/EcranEteint`). Il ne
+ * s'ouvre plus rien d'office : l'écran dit qu'il n'y a pas de jeu, et qui
+ * le choisit. */
+export const REPOS = {
+  titre: "Pas encore de jeu.",
+  choisir: "Choisir un jeu",
+  verras: "Tu le verras démarrer ici.",
 } as const;
 
 // ==== fin salle ====

@@ -21,7 +21,7 @@ import type { Person } from "../client";
 import type { Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
 import type { Rang } from "../lib/colonne";
-import { COLONNE, PLACE, SORTIES, placeN } from "../lib/mots";
+import { COLONNE, SORTIES, placeN, prendreLaPlace } from "../lib/mots";
 import { iconePixelSVG, type IconePixel } from "../retro/icones";
 import { Crown } from "./Crown";
 import { Logo } from "./Logo";
@@ -199,12 +199,16 @@ function useSuiteCachee(boite: HTMLElement | null): boolean {
 export function BlocRole({
   nom,
   place,
+  libre,
   onPrendre,
 }: {
   nom: string;
   /** La place tenue, ou `null` pour qui regarde. */
   place: number | null;
-  /** Prendre une place ; absent dans une salle fermée. */
+  /** La première place libre, celle qu'un spectateur prendra ; `null` quand
+   * la salle est pleine. */
+  libre: number | null;
+  /** Prendre la première place libre ; absent dans une salle fermée. */
   onPrendre?: () => void;
 }) {
   return (
@@ -213,7 +217,11 @@ export function BlocRole({
         <span className="text-text">{nom}</span>
         {place === null ? " · tu regardes" : ` · ${placeN(place)}`}
       </p>
-      {place === null && onPrendre ? (
+      {/* « Prendre la place 4 », et pas « une place » : le spectateur sait
+          laquelle il aura. Le geste reste poli (`play`, la première libre,
+          sans déloger personne) : si quelqu'un la prend juste avant, le worker
+          en donne une autre plutôt que de la lui reprendre. */}
+      {place === null && libre !== null && onPrendre ? (
         <button
           type="button"
           id="takePad"
@@ -223,7 +231,7 @@ export function BlocRole({
         >
           <i className="rt-ombre" aria-hidden="true" />
           <IconeRang nom="manette" />
-          {PLACE.prendre}
+          {prendreLaPlace(libre)}
         </button>
       ) : null}
     </section>

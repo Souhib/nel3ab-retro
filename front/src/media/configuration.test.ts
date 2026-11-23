@@ -441,6 +441,88 @@ describe("configurer une manette pendant une partie", () => {
     expect(stream.state().lesson).toBeNull();
   });
 
+  it("la boucle annonce chaque moment du pas à pas, hors de React", () => {
+    const vus: string[] = [];
+    const finir = stream.surReglage((e) =>
+      vus.push(
+        e.type === "etape"
+          ? `etape ${e.etape}/${e.total} ${e.control}`
+          : e.type === "recu"
+            ? `recu ${e.control} ${e.indice}`
+            : e.type === "fin"
+              ? `fin ${e.resultat.retenues}`
+              : e.type,
+      ),
+    );
+    stream.beginLesson();
+    press(2);
+    press(2);
+    press(2, 0);
+    stream.skipLessonStep();
+    for (let etape = 3; etape <= 16; etape += 1) stream.skipLessonStep();
+    expect(vus.slice(0, 5)).toEqual([
+      "etape 1/16 A",
+      "recu A b2",
+      "etape 2/16 B",
+      "relache",
+      "etape 3/16 X",
+    ]);
+    expect(vus.at(-1)).toBe("fin 1");
+    expect(vus.filter((v) => v.startsWith("recu"))).toHaveLength(1);
+    // Le jumeau : une fois désabonné, plus rien n'arrive.
+    finir();
+    stream.beginLesson();
+    expect(vus.at(-1)).toBe("fin 1");
+  });
+
+  it("la boucle annonce une réassignation reçue et une suspension", () => {
+    const vus: string[] = [];
+    stream.surReglage((e) =>
+      vus.push(e.type === "recu" ? `recu ${e.control} ${e.indice}` : e.type),
+    );
+    stream.beginCapture("x", "pad");
+    (pad.axes as number[])[2] = -1;
+    tick();
+    expect(vus).toEqual(["recu x a2-"]);
+    (pad.axes as number[])[2] = 0;
+    tick();
+    stream.beginLesson();
+    connected = [];
+    tick();
+    expect(vus.at(-1)).toBe("suspendu");
+  });
+
+  it("un abonné qui lève ne casse pas la boucle", () => {
+    stream.surReglage(() => {
+      throw new Error("abonné cassé");
+    });
+    expect(() => stream.beginLesson()).not.toThrow();
+    expect(stream.state().lesson?.step).toBe(1);
+  });
+
+  it("la première manette vue par la page s'annonce une seule fois", () => {
+    stream.stop();
+    connected = [];
+    stream = new InputStream(
+      (path) => path,
+      () => {},
+      () => {},
+      true,
+    );
+    const vus: string[] = [];
+    stream.surReglage((e) => vus.push(e.type === "premiere-manette" ? `premiere ${e.id}` : e.type));
+    stream.start();
+    tick();
+    expect(vus).toEqual([]);
+    connected = [pad];
+    tick();
+    connected = [];
+    tick();
+    connected = [pad, { ...pad, id: "deuxième", index: 1 } as Gamepad];
+    tick();
+    expect(vus).toEqual([`premiere ${pad.id}`]);
+  });
+
   it("un débranchement efface l'identité affichée et annule la capture", () => {
     stream.beginCapture("A", "pad");
     connected = [];

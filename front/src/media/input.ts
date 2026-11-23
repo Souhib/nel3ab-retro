@@ -10,7 +10,7 @@ import type { InputSource } from "./input-source";
  */
 import { Window } from "./clock";
 import { Touch } from "./touch";
-import { Capture, Lesson, modelSnapshot, type Snapshot } from "./lesson";
+import { Capture, indiceDe, Lesson, modelSnapshot, type Snapshot } from "./lesson";
 import { MenuPad, type MenuAction } from "./menupad";
 import type { SetupProfile } from "../lib/setups";
 import { readProfile } from "./profile";
@@ -71,6 +71,22 @@ export type FinDeLecon = {
   passees: ControlKey[];
   garde: "avant" | "standard" | "rien";
 };
+
+/**
+ * Ce que la boucle dit d'un réglage, au moment où ça arrive.
+ *
+ * L'instantané React se lit deux fois par seconde (règle 8) : les marques
+ * d'une étape (cadre de la touche attendue, coins d'un appui) ne peuvent pas
+ * le suivre. Elles s'abonnent ici, dans un module ordinaire (constat C9).
+ * `indice` est nommé comme les pièces du dessin de droite (`heldOn`).
+ */
+export type EvenementReglage =
+  | { type: "etape"; control: ControlKey; etape: number; total: number }
+  | { type: "recu"; control: ControlKey; indice: string }
+  | { type: "relache" }
+  | { type: "fin"; resultat: FinDeLecon }
+  | { type: "suspendu"; etape: number }
+  | { type: "premiere-manette"; id: string };
 
 export type InputState = {
   /** Appareil confirmé par le worker pour cette place. */
@@ -376,6 +392,10 @@ export class InputStream {
   private lesson: Lesson | null = null;
   private lessonResult: FinDeLecon | null = null;
   private suspension: { lesson: Lesson; id: string } | null = null;
+  private readonly ecoutes = new Set<(evenement: EvenementReglage) => void>();
+  /** Vrai dès que cette page a vu une manette : la première s'annonce une
+   * fois par chargement, pas à chaque rebranchement. */
+  private manetteVue = false;
   private capture: {
     control: ControlKey;
     source: "pad" | "key";
@@ -1003,6 +1023,7 @@ export class InputStream {
     this.lessonResult = null;
     this.suspension = null;
     this.lesson = new Lesson(pad.id, this.lessonSnapshot(pad), console, kind);
+    this.annoncerEtape();
   }
 
   /** Reprend le pas à pas suspendu, sur la MÊME manette seulement : une
@@ -1018,6 +1039,7 @@ export class InputStream {
     this.sendNeutral();
     suspendue.lesson.reprendre(this.lessonSnapshot(pad));
     this.lesson = suspendue.lesson;
+    this.annoncerEtape();
     return true;
   }
 
@@ -1026,13 +1048,45 @@ export class InputStream {
     this.suspension = null;
   }
 
+  /** S'abonne aux moments d'un réglage ; rend la fonction qui désabonne. */
+  surReglage(ecoute: (evenement: EvenementReglage) => void): () => void {
+    this.ecoutes.add(ecoute);
+    return () => {
+      this.ecoutes.delete(ecoute);
+    };
+  }
+
+  /** Un abonné qui lève ne doit jamais arrêter la boucle d'entrée : elle
+   * porte aussi la partie des autres. */
+  private emettre(evenement: EvenementReglage): void {
+    for (const ecoute of this.ecoutes) {
+      try {
+        ecoute(evenement);
+      } catch {
+        /* l'abonné est seul responsable de ce qu'il fait */
+      }
+    }
+  }
+
+  /** L'étape demandée maintenant, si la leçon en a une. */
+  private annoncerEtape(): void {
+    const progress = this.lesson?.progress;
+    if (progress)
+      this.emettre({
+        type: "etape",
+        control: progress.control,
+        etape: progress.step,
+        total: progress.total,
+      });
+  }
+
   skipLessonStep(): void {
     this.lesson?.skip();
     const pad = this.current();
     if (this.lesson?.done && pad?.id === this.configuringId) {
       this.finirLecon(pad, this.lesson);
       this.cancelCapture();
-    }
+    } else this.annoncerEtape();
     this.onSettled();
   }
 
@@ -1048,6 +1102,7 @@ export class InputStream {
       garde: range ? "avant" : precedent ? "standard" : "rien",
     };
     if (lesson.retenues > 0) this.keepProfile(pad.id, lesson.learned(precedent));
+    this.emettre({ type: "fin", resultat: this.lessonResult });
   }
 
   private connect(take: number | null = null, expected?: string): void {
@@ -1277,6 +1332,11 @@ export class InputStream {
         buttons: candidate.buttons.length,
         axes: candidate.axes.length,
       }));
+    const premiere = this.pads[0];
+    if (!this.manetteVue && premiere) {
+      this.manetteVue = true;
+      this.emettre({ type: "premiere-manette", id: premiere.id });
+    }
     this.source?.poll(this.held, found);
     // Preparing a Wii game can happen while Switch is still running. Read the
     // Dolphin capture below, but sendNeutral keeps the active Switch wire.
@@ -1301,9 +1361,10 @@ export class InputStream {
     if (this.configuringId !== null && pad?.id !== this.configuringId) {
       // Une leçon débranchée se suspend au lieu de s'annuler (constat C5) ;
       // une réassignation en cours s'annule sans rien écrire.
-      if (this.lesson !== null && !this.lesson.done)
-        this.suspension = { lesson: this.lesson, id: this.configuringId };
+      const suspendue = this.lesson !== null && !this.lesson.done ? this.lesson : null;
+      if (suspendue) this.suspension = { lesson: suspendue, id: this.configuringId };
       this.cancelCapture();
+      if (suspendue) this.emettre({ type: "suspendu", etape: suspendue.step + 1 });
       this.onSettled();
     }
     if (!pad) {
@@ -1318,7 +1379,13 @@ export class InputStream {
       // presses that answer the questions never reach the game.
       if (this.lesson !== null && !this.lesson.done) {
         this.sendNeutral();
-        this.lesson.feed(this.lessonSnapshot(pad));
+        const lesson = this.lesson;
+        const attendait = lesson.waiting;
+        if (lesson.feed(this.lessonSnapshot(pad)) && lesson.dernier) {
+          const { key, control, value } = lesson.dernier;
+          this.emettre({ type: "recu", control: key, indice: indiceDe(control, value) });
+          if (!lesson.done) this.annoncerEtape();
+        } else if (attendait && !lesson.waiting) this.emettre({ type: "relache" });
         if (this.lesson.done) {
           this.finirLecon(pad, this.lesson);
           this.releasing = { id: pad.id, atRest: this.lesson.atRest.bind(this.lesson) };
@@ -1335,6 +1402,11 @@ export class InputStream {
         const moved = this.capture.machine.feed(this.lessonSnapshot(pad));
         if (moved && (!isStick(this.capture.control) || "axis" in moved.control)) {
           this.bindPad(pad, this.capture.control, moved.control, moved.value);
+          this.emettre({
+            type: "recu",
+            control: this.capture.control,
+            indice: indiceDe(moved.control, moved.value),
+          });
           const machine = this.capture.machine;
           this.releasing = { id: pad.id, atRest: (now) => machine.feed(now) === null };
           this.capture = null;

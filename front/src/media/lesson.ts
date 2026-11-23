@@ -110,6 +110,13 @@ export function furthest(
  * Pas d'attente de relâchement ici, contrairement à la leçon: on vient de
  * cliquer avec la souris, donc les mains ne sont pas sur la manette.
  */
+/** L'indice d'une entrée tel que les dessins le nomment (`heldOn`) : `b6`
+ * pour un bouton, `a2-` pour un axe poussé vers le négatif. */
+export function indiceDe(control: Control, value: number): string {
+  if ("button" in control) return `b${control.button}`;
+  return `a${control.axis}${value >= control.rest ? "+" : "-"}`;
+}
+
 export class Capture {
   private readonly neutral: Snapshot;
 
@@ -191,6 +198,9 @@ export class Lesson {
       : null;
   }
 
+  /** La dernière réponse retenue, et la valeur qui l'a donnée. */
+  dernier: { key: StepKey; control: Control; value: number } | null = null;
+
   /** Les commandes passées, dans l'ordre où elles ont été demandées. */
   readonly passees: StepKey[] = [];
 
@@ -271,6 +281,7 @@ export class Lesson {
     } else {
       this.profile.buttons[key as ButtonName] = best.control;
     }
+    this.dernier = { key, control: best.control, value: best.value };
     this.step += 1;
     this.waiting = true;
     return true;

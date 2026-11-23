@@ -76,18 +76,20 @@ export function ManetteDansLaBande({
         <button
           type="button"
           id="verifierManette"
-          className="rt-bouton n3-rang-bouton"
+          className="rt-boite rt-bouton n3-rang-bouton"
           onClick={onVerifier}
         >
+          <i className="rt-ombre" aria-hidden="true" />
           {BRANCHEE.verifier}
         </button>
         <button
           type="button"
           id="manetteTactile"
           aria-pressed={tactile}
-          className="rt-bouton n3-rang-bouton"
+          className="rt-boite rt-bouton n3-rang-bouton"
           onClick={onTactile}
         >
+          <i className="rt-ombre" aria-hidden="true" />
           {BRANCHEE.tactile}
         </button>
       </div>

@@ -136,6 +136,9 @@ async function principal() {
   if (!PAGE || !FLUX) throw new Error("usage: cadre.mjs --page <index.html> --flux <flux.h264>");
   const PORT = Number(option("port", "5478"));
   const CAPTURES = option("captures");
+  // `--clair jour` ou `--clair nuit` : la préférence du système, pour les
+  // captures de nuit et de jour (étape 8). Sans elle, celle de Chrome.
+  const CLAIR = option("clair");
   const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
   const TOUT = ROUGE !== null;
   if (CAPTURES) mkdirSync(CAPTURES, { recursive: true });
@@ -167,7 +170,8 @@ async function principal() {
   async function capture(page, nom) {
     if (!CAPTURES) return;
     const vue = page.viewport();
-    await page.screenshot({ path: `${CAPTURES}/${vue.width}x${vue.height}-${nom}.png` });
+    const clair = CLAIR ? `-${CLAIR}` : "";
+    await page.screenshot({ path: `${CAPTURES}/${vue.width}x${vue.height}-${nom}${clair}.png` });
   }
 
   /** Une page neuve sur une salle remise à zéro, effets au niveau « tout ».
@@ -178,6 +182,8 @@ async function principal() {
     banc.regler(salle);
     const page = await browser.newPage();
     await page.setViewport(vue);
+    if (CLAIR)
+      await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: CLAIR === "jour" ? "light" : "dark" }]);
     // Une vraie manette, simulée : une manette Xbox standard que la boucle
     // d'entrée lit par `navigator.getGamepads`, comme focus.mjs. Elle se
     // branche et se débranche par `window.__brancher(oui)`.

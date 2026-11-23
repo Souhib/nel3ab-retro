@@ -15,7 +15,10 @@
 // `#zone-jeu` par `elementFromPoint`, et `#screen` doit s'afficher avec
 // opacity 1, filter none et transform none, ses ancêtres sans opacité ni
 // filtre. Une grille de 9 × 9 laissait passer les boutons de coin d'avant, qui
-// tenaient dans les 40 premiers pixels.
+// tenaient dans les 40 premiers pixels. `elementFromPoint` ne voit que ce qui
+// prend le pointeur : un élément visible sans pointeur dont la boîte coupe
+// l'image le reçoit le temps d'un test de touche (relecture du 23 novembre
+// 2026 : un voile plein écran à `pointer-events: none` passait la garde).
 //
 // Le banc est celui des parcours (`parcours-banc.mjs`): la page COMMITTÉE, un
 // salon et une salle simulés, le flux H.264 réel, un port de 5400 à 5499.
@@ -51,6 +54,26 @@ export async function gardeDeLImage(page, { images = 30 } = {}) {
       const parent = el.id ? null : el.parentElement?.closest("[id]");
       const dans = parent ? ` dans #${parent.id}` : "";
       return `${el.tagName.toLowerCase()}${id}${classes}${dans}${texte ? ` « ${texte} »` : ""}`;
+    };
+    const transparent = (couleur) => couleur === "transparent" || /^rgba\(.*,\s*0\)$/.test(couleur);
+    /** L'élément peint-il quelque chose de lui-même : un fond, un bord, une
+     * ombre, un contour, un texte à lui, un élément remplacé (toile, image,
+     * dessin), un pseudo-élément, ou un mélange avec ce qui est dessous ? */
+    const peint = (el, s) => {
+      if (/^(canvas|img|svg|video|iframe|picture|object|embed|input|select|textarea)$/i.test(el.tagName)) return true;
+      if (!transparent(s.backgroundColor) || s.backgroundImage !== "none") return true;
+      if (s.boxShadow !== "none" || s.backdropFilter !== "none" || s.mixBlendMode !== "normal") return true;
+      if (s.outlineStyle !== "none" && parseFloat(s.outlineWidth) > 0) return true;
+      for (const cote of ["Top", "Right", "Bottom", "Left"])
+        if (s[`border${cote}Style`] !== "none" && parseFloat(s[`border${cote}Width`]) > 0 && !transparent(s[`border${cote}Color`]))
+          return true;
+      for (const enfant of el.childNodes)
+        if (enfant.nodeType === Node.TEXT_NODE && enfant.textContent.trim() !== "") return true;
+      for (const pseudo of ["::before", "::after"]) {
+        const contenu = getComputedStyle(el, pseudo).content;
+        if (contenu !== "none" && contenu !== "normal") return true;
+      }
+      return false;
     };
     let vues = 0;
     for (let i = 0; i < n; i += 1) {
@@ -101,6 +124,37 @@ export async function gardeDeLImage(page, { images = 30 } = {}) {
         const ici = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
         if (ici && (ici === el || el.contains(ici)) && ici !== toile && ici !== zone)
           fautes.add(`${nom(ici)} sur l'image`);
+        // Les deux passes d'avant ne voient que ce qui prend le pointeur.
+        // Un calque décoratif n'en prend pas (`pointer-events: none`) : la
+        // neige, un voile, la mascotte, le décor de borne. Il reçoit le
+        // pointeur le temps d'un test de touche, en neuf points de
+        // l'intersection : s'il revient au-dessus de l'image, il la couvre.
+        // Un élément sous l'image, ou rogné par un ancêtre qui défile, ne
+        // revient pas : la toile passe devant lui. Rien n'est peint entre la
+        // pose et le retrait, qui se font dans la même tâche.
+        // Une boîte qui ne peint rien ne couvre rien : la boîte de la manette
+        // tenue en main prend toute la largeur, image comprise, et seules ses
+        // touches, dans les bandes, se voient. Ses enfants sont jugés un par
+        // un.
+        const s = getComputedStyle(el);
+        if (s.pointerEvents !== "none" || s.visibility !== "visible" || !peint(el, s)) continue;
+        let opacite = 1;
+        for (let a = el; a && opacite > 0; a = a.parentElement) opacite *= Number(getComputedStyle(a).opacity);
+        if (opacite === 0) continue;
+        const valeur = el.style.getPropertyValue("pointer-events");
+        const priorite = el.style.getPropertyPriority("pointer-events");
+        el.style.setProperty("pointer-events", "auto", "important");
+        try {
+          for (const fx of [0.1, 0.5, 0.9]) {
+            for (const fy of [0.1, 0.5, 0.9]) {
+              const sous = document.elementFromPoint(x0 + (x1 - x0) * fx, y0 + (y1 - y0) * fy);
+              if (sous && (sous === el || el.contains(sous))) fautes.add(`${nom(el)} sur l'image, sans pointeur`);
+            }
+          }
+        } finally {
+          if (valeur) el.style.setProperty("pointer-events", valeur, priorite);
+          else el.style.removeProperty("pointer-events");
+        }
       }
     }
     if (vues === 0) return ["aucune image peinte pendant la garde"];
@@ -343,8 +397,47 @@ async function principal() {
       });
       const vues = await gardeDeLImage(page, { images: 5 });
       if (!vues.some((f) => f.includes("leurre-cadre"))) throw new Defaut(`le leurre n'est pas vu: ${vues}`);
+      await page.evaluate(() => document.getElementById("leurre-cadre")?.remove());
+      // Les calques décoratifs ne prennent pas le pointeur (la neige, un
+      // voile, la mascotte, le décor de borne). Une garde qui ne lit que
+      // `elementFromPoint` ne les voit pas (relecture du 23 novembre 2026) :
+      // un leurre d'une demi-image sans pointeur, puis un voile noir à 50 %
+      // sur toute la fenêtre, doivent être vus chacun.
+      for (const [id, style] of [
+        ["leurre-sans-pointeur", { left: "30%", top: "30%", width: "30%", height: "30%", background: "red" }],
+        ["voile-plein", { left: "0", top: "0", width: "100vw", height: "100vh", background: "black", opacity: "0.5" }],
+      ]) {
+        await page.evaluate(
+          (id, style) => {
+            const calque = document.createElement("div");
+            calque.id = id;
+            Object.assign(calque.style, { position: "fixed", zIndex: "50", pointerEvents: "none" }, style);
+            document.body.append(calque);
+          },
+          id,
+          style,
+        );
+        const sans = await gardeDeLImage(page, { images: 5 });
+        if (!sans.some((f) => f.includes(id))) throw new Defaut(`${id} (sans pointeur) n'est pas vu: ${sans}`);
+        await page.evaluate((id) => document.getElementById(id)?.remove(), id);
+      }
+      // Une boîte qui ne peint rien (celle de la manette tenue en main) ne
+      // couvre pas l'image ; l'enfant peint qu'elle pose dessus, si.
       await page.evaluate(() => {
-        document.getElementById("leurre-cadre")?.remove();
+        const boite = document.createElement("div");
+        boite.id = "boite-vide";
+        Object.assign(boite.style, { position: "fixed", inset: "0", zIndex: "50", pointerEvents: "none" });
+        const enfant = document.createElement("div");
+        enfant.id = "enfant-peint";
+        Object.assign(enfant.style, { position: "absolute", left: "45%", top: "45%", width: "40px", height: "40px", background: "red" });
+        boite.append(enfant);
+        document.body.append(boite);
+      });
+      const boite = await gardeDeLImage(page, { images: 5 });
+      if (!boite.some((f) => f.includes("enfant-peint"))) throw new Defaut(`l'enfant peint n'est pas vu: ${boite}`);
+      if (boite.some((f) => f.includes("boite-vide"))) throw new Defaut(`une boîte qui ne peint rien est vue: ${boite}`);
+      await page.evaluate(() => document.getElementById("boite-vide")?.remove());
+      await page.evaluate(() => {
         document.querySelector("#screen").style.filter = "brightness(0.5)";
       });
       const filtre = await gardeDeLImage(page, { images: 5 });

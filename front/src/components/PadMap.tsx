@@ -133,6 +133,11 @@ export function PadMapView({
         }
       >
         <title>{label}</title>
+        {onSelect ? (
+          // La zone de clic, invisible : son rayon suit la taille rendue
+          // (`manettes/reglage/zones.ts`), la pièce elle-même au départ.
+          <circle cx={part.x} cy={part.y} r={part.r} data-r={part.r} className="n3-zone" />
+        ) : null}
         {at ? <path d={`M ${part.x} ${part.y} L ${at.x} ${at.y}`} className="n3-leader" /> : null}
         {part.gate ? (
           part.gate === "octogone" ? (

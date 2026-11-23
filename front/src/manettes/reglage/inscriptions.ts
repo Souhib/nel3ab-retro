@@ -8,6 +8,8 @@
  *
  * Hors de React : une boîte qui change de taille ne rend pas le panneau, elle
  * réécrit seulement `font-size` et `visibility` des textes. */
+import { appliquerZones } from "./zones";
+
 export const PLANCHER_PX = 9;
 
 /** La taille d'une inscription en unités du dessin, ou `null` : cachée. */
@@ -48,7 +50,11 @@ export function tenirInscriptions(svg: SVGSVGElement): () => void {
   const largeur = svg.viewBox.baseVal?.width ?? 0;
   const observateur = new ResizeObserver(([entree]) => {
     const rendue = entree?.contentRect.width ?? 0;
-    if (largeur > 0 && rendue > 0) appliquerInscriptions(svg, rendue / largeur);
+    if (largeur > 0 && rendue > 0) {
+      appliquerInscriptions(svg, rendue / largeur);
+      // Les zones de clic suivent la même taille rendue (`zones.ts`).
+      appliquerZones(svg, rendue / largeur);
+    }
   });
   observateur.observe(svg);
   return () => observateur.disconnect();

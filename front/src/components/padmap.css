@@ -304,6 +304,13 @@
   display: none;
   pointer-events: none;
 }
+/* La zone de clic d'une pièce, à la souris : invisible, elle prend le
+   pointeur (`manettes/reglage/zones.ts`). */
+.n3-zone {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
 .n3-coins {
   fill: none;
   stroke: var(--focus);

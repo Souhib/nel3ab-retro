@@ -9,6 +9,10 @@ import type { InputState } from "../media/input";
 import { controlsFor, type ControlKey } from "../media/pad";
 import { PadMapView } from "./PadMap";
 
+/** Le pointeur principal est un doigt : lu à chaque rendu, une tablette peut
+ * recevoir une souris en cours de route. */
+const auDoigt = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+
 export function Wiring({
   state,
   pad,
@@ -78,7 +82,9 @@ export function Wiring({
           selected={pieceFor(selected)}
           waiting={waiting ? pieceFor(waiting) : null}
           labels={Object.fromEntries(controlsFor("wii", pad).map((one) => [one.key, one.label]))}
-          onSelect={(key) => onSelect(key as ControlKey)}
+          // Au doigt, le dessin n'est pas cliquable : la liste est le chemin
+          // (`manettes/reglage/zones.ts`).
+          onSelect={auDoigt() ? undefined : (key) => onSelect(key as ControlKey)}
         />
         <PadMapView
           map={physical}

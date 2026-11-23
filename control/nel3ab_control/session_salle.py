@@ -3,8 +3,10 @@
 Le dossier `salles_dir/N` appartient au worker de la salle N: il y écrit le jeu
 retenu (`chosen-rom`), la sauvegarde retenue et sa bibliothèque. Les conteneurs
 des moteurs y montent aussi des sous-dossiers en écriture. Le salon y lit le
-dernier jeu (ADR D38) et y pose deux marqueurs: `game-closed`, qui fait arriver
-une salle sur son menu, et `ouverte-le`, qui dit depuis quand elle est ouverte.
+dernier jeu (ADR D38), la bibliothèque et les images des jeux (`catalogue`), et
+y pose deux marqueurs: `game-closed`, qui fait arriver une salle sur son menu,
+et `ouverte-le`, qui dit depuis quand elle est ouverte. Toutes ces lectures
+passent par ce module.
 
 L'hôte ne suit jamais un lien dans ce dossier (ADR D36). Le dossier numéroté
 s'ouvre avec `O_NOFOLLOW` depuis `salles_dir`, et chaque fichier depuis ce

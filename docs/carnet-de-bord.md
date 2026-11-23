@@ -28302,8 +28302,11 @@ pose un fichier vide, `game-closed`, pour qu'elle arrive sur son menu. Il le
 posait avec `touch`, qui suit un lien : un moteur qui aurait laissé un lien à
 ce nom faisait créer un fichier ailleurs sur la machine (la règle D36 du
 22 novembre). Le marqueur est maintenant retiré puis recréé dans le dossier
-même, et les lectures du dossier de salle passent toutes par
-`session_salle.py`, qui n'y suit aucun lien. Huit mutants ont été réintroduits
+même, et les lectures du jeu retenu, du marqueur et du repère d'ouverture
+passent par `session_salle.py`, qui n'y suit aucun lien. (Cette phrase disait
+d'abord « les lectures du dossier de salle passent toutes » par ce module. La
+bibliothèque, `catalogue.json`, était encore lue par son chemin : voir « La
+bibliothèque lue par son chemin » plus bas.) Huit mutants ont été réintroduits
 un par un, et chacun a fait échouer l'essai qui le nomme. L'un d'eux, le repère
 posé avant le démarrage, passait d'abord : le faux changeait l'état de l'unité
 à l'instant même de l'appel. C'est ce qui lui a appris que systemd prend du
@@ -28628,6 +28631,50 @@ survivre : le filtre de noms donné à `cargo test` laissait justement de côté
 l'essai qui les prend. Lancés sans filtre, ils échouent. Ce qui reste non
 prouvé est plus étroit : que `run` appelle bien cette fonction, ce que dit
 une ligne qu'on lit d'un coup d'œil.
+
+**La bibliothèque lue par son chemin.** Plus haut, ce carnet affirmait que
+toutes les lectures du dossier de salle passaient par `session_salle.py`, qui
+n'y suit aucun lien. Une relecture indépendante l'a contredit le même soir. La
+bibliothèque d'une salle, `catalogue.json`, était encore ouverte par son
+chemin. Or ce dossier est monté en écriture dans le conteneur de Dolphin. Un
+moteur compromis pouvait y laisser un lien symbolique vers un fichier de la
+machine : le salon l'aurait lu comme une bibliothèque, et aurait publié ses
+titres. Il pouvait aussi y laisser un tube nommé : ouvrir un tube pour le lire
+attend un écrivain pour toujours. Le défaut est plus ancien que ce chantier :
+la route de la bibliothèque, les imports et le profil lisaient déjà ce fichier
+ainsi. Mais le chantier l'a fait lire par trois chemins de plus, dont la liste
+des salles. Celle-ci se lit sans identité, l'accueil la relit toutes les cinq
+secondes, et la salle la relit quand l'image tombe. La sonde du relecteur l'a
+montré sur des dossiers temporaires : avec un lien, la liste titrait le dernier
+jeu « LU HORS DU DOSSIER » ; avec un tube, la lecture de la liste ne revenait
+jamais, et chaque appel gardait un fil du salon.
+
+La correction tient en un endroit. `read_one`, que toutes les lectures de la
+bibliothèque appellent, ouvre maintenant le dossier de la salle puis le
+fichier par `session_salle`, comme le jeu retenu : sans suivre de lien, sans
+attendre, fichier ordinaire seulement, huit Mio au plus. Un dossier de salle
+qui est lui-même un lien est refusé aussi. Une bibliothèque écartée est dite
+au journal avec sa raison (un lien, pas un fichier ordinaire, trop gros).
+
+Les essais rouges ont demandé une précaution. Un essai qui ouvre un tube sur
+l'ancien code ne rougit pas : il pend, et la suite d'essais avec lui. L'appel
+part donc sur un fil, borné à cinq secondes. Passé ce délai, l'essai ouvre
+l'autre bout du tube et le referme, ce qui libère le lecteur bloqué, puis
+échoue en nommant le blocage. Cinq essais, chacun avec son jumeau ordinaire
+au même endroit : un lien à la place du fichier, un lien à la place du dossier
+de la salle et un tube, au niveau de la bibliothèque ; un lien et un tube au
+niveau de la liste des salles. Les cinq étaient rouges sur l'ancien code. Le
+lien y faisait gagner la bibliothèque d'ailleurs, ou titrer « Lu hors du
+dossier ». Le tube y échouait sur sa borne. Un sixième essai garde le plafond
+de huit Mio, qui passe maintenant par un autre chemin ; il passait déjà avant.
+Trois mutants, remis un par un dans `session_salle.py` : la lecture qui
+attend, la lecture qui suit un lien, le dossier qui suit un lien. Chacun fait
+échouer les essais qui le nomment, et eux seuls.
+
+La leçon : une phrase comme « toutes les lectures passent par ce module » est
+une affirmation sur tout le code, pas seulement sur le code qu'on vient
+d'écrire. Elle se vérifie en cherchant chaque lecteur du dossier, anciens
+modules compris.
 
 ## 12. Glossaire complet
 
@@ -29862,6 +29909,11 @@ premier octet.
 **O_NOFOLLOW** : option d'ouverture d'un fichier sous Linux. Si le nom désigne
 un lien symbolique, l'ouverture échoue au lieu de suivre le lien vers un autre
 endroit.
+
+**O_NONBLOCK** : option d'ouverture d'un fichier sous Linux. Une opération qui
+devrait attendre rend la main tout de suite. Ouvrir un tube nommé pour le lire
+n'attend donc plus un écrivain, et le programme peut alors vérifier qu'il tient
+un fichier ordinaire avant de lire.
 
 **Lien dur** : un deuxième nom pour le même fichier sur le disque. Contrairement
 au lien symbolique, rien ne le distingue du premier nom : `O_NOFOLLOW` ne

@@ -61,7 +61,9 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
   repartait à chaque changement de jeu, est `Salle.jeu_depuis`. Le faux
   systemd des essais suit le vrai (`control/tests/faux_systeme.py`).
 - **Dossier de salle.** Le salon y lit et écrit par `session_salle.py`, sans
-  suivre de lien ; le marqueur `game-closed` aussi.
+  suivre de lien ni attendre sur un tube ; le marqueur `game-closed` aussi, et
+  la bibliothèque `catalogue.json` depuis la relecture du 23 novembre, qui l'a
+  trouvée lue par son chemin (ADR D38).
 - **Fermeture et silence.** `Salle.fermee_depuis` et `Salle.fermee_pour`
   (inactivité, arrêt, panne), lus dans systemd ; `Salle.repond` sépare une
   salle allumée mais muette d'une salle sur son menu.

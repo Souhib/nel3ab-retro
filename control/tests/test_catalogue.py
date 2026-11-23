@@ -16,6 +16,7 @@ from nel3ab_control.catalogue import (
     ART_FOLDER,
     ART_MAX,
     NAME,
+    SIZE_MAX,
     ImageRefuseeError,
     art_file_name,
     art_of,
@@ -24,7 +25,7 @@ from nel3ab_control.catalogue import (
     read_one,
 )
 from nel3ab_control.settings import Settings
-from tests.conftest import SOUHIB, VINCENT
+from tests.conftest import SOUHIB, VINCENT, sans_rester_sur_un_tube
 
 #: Les octets exacts que `library_file` écrit, épinglés par le test Rust
 #: `the_library_file_has_the_room_entries_and_no_room_state`. Les deux essais
@@ -62,7 +63,8 @@ def library(scanned_ms: int, *keys: str) -> dict:
 
 
 def test_what_the_worker_writes_is_what_the_lobby_reads(tmp_path: Path) -> None:
-    found = read_one(room(tmp_path, "1", WRITTEN_BY_THE_WORKER), 1)
+    room(tmp_path, "1", WRITTEN_BY_THE_WORKER)
+    found = read_one(tmp_path, 1)
     assert found is not None
     assert found.scanned_ms == 1_763_700_000_123
     assert [(game.key, game.name, game.console, game.art) for game in found.games] == [
@@ -110,6 +112,87 @@ def test_only_numbered_rooms_are_read(tmp_path: Path) -> None:
     room(tmp_path, "0", library(900, "Zero.rvz"))
     assert freshest(tmp_path) is None
     assert freshest(tmp_path / "absent") is None
+
+
+@pytest.mark.parametrize("lien", ["le fichier", "le dossier de la salle"])
+def test_a_link_in_place_of_a_catalogue_is_not_followed(
+    tmp_path: Path, lien: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """ADR D36: le dossier de la salle est monté en écriture dans le conteneur
+    de son moteur, qui peut y laisser un lien. Le suivre ferait publier au salon
+    un fichier de l'hôte comme bibliothèque, à qui le demande sans identité.
+
+    Le catalogue du lien est le plus FRAIS: suivi, il gagnerait. Le jumeau le
+    pose en fichier ordinaire au même endroit, et il gagne."""
+    salles = tmp_path / "salles"
+    room(salles, "1", library(100, "Melee.rvz"))
+    ailleurs = tmp_path / "ailleurs"
+    hors = room(ailleurs, "2", library(300, "Hors du dossier.rvz"))
+    if lien == "le fichier":
+        (salles / "2").mkdir()
+        (salles / "2" / NAME).symlink_to(hors)
+    else:
+        (salles / "2").symlink_to(hors.parent)
+
+    found = freshest(salles)
+
+    assert found is not None
+    assert (found.room, [game.key for game in found.games]) == (1, ["Melee.rvz"])
+    assert any(str(salles / "2") in line for line in caplog.messages), "écarté sans le dire"
+
+    # Le jumeau ordinaire: les mêmes octets, sans lien, sont lus et gagnent.
+    if lien == "le fichier":
+        (salles / "2" / NAME).unlink()
+    else:
+        (salles / "2").unlink()
+    room(salles, "2", hors.read_text())
+    found = freshest(salles)
+    assert found is not None
+    assert (found.room, [game.key for game in found.games]) == (2, ["Hors du dossier.rvz"])
+
+
+def test_a_pipe_in_place_of_a_catalogue_does_not_block_the_lobby(tmp_path: Path) -> None:
+    """Un tube nommé à la place du fichier: l'ouvrir pour le lire attend un
+    écrivain pour toujours, et garde un fil du salon à chaque appel. La liste des
+    salles le relit toutes les cinq secondes. Il est écarté sans attendre, et le
+    catalogue suivant prend sa place."""
+    room(tmp_path, "1", library(100, "Melee.rvz"))
+    (tmp_path / "2").mkdir()
+    tube = tmp_path / "2" / NAME
+    os.mkfifo(tube)
+
+    found = sans_rester_sur_un_tube(lambda: freshest(tmp_path), tube)
+
+    assert found is not None
+    assert (found.room, [game.key for game in found.games]) == (1, ["Melee.rvz"])
+
+    # Le jumeau ordinaire: un fichier au même nom est lu, et gagne.
+    tube.unlink()
+    room(tmp_path, "2", library(300, "Zelda.rvz"))
+    found = freshest(tmp_path)
+    assert found is not None
+    assert found.room == 2
+
+
+def test_a_catalogue_over_the_bound_is_set_aside_and_said(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Le plafond tient toujours par le descripteur: un fichier qui le dépasse
+    d'un octet est écarté en entier, et le journal dit pourquoi."""
+    room(tmp_path, "1", library(100, "Melee.rvz"))
+    trop = json.dumps(library(300, "Zelda.rvz"))
+    room(tmp_path, "2", trop + " " * (SIZE_MAX + 1 - len(trop)))
+
+    found = freshest(tmp_path)
+
+    assert found is not None
+    assert found.room == 1
+    assert any("trop gros" in line and str(tmp_path / "2") in line for line in caplog.messages)
+    # Le jumeau: le plafond tout juste passe.
+    room(tmp_path, "2", trop + " " * (SIZE_MAX - len(trop)))
+    found = freshest(tmp_path)
+    assert found is not None
+    assert found.room == 2
 
 
 async def test_the_lobby_lists_the_library_without_asking_a_worker(tmp_path: Path) -> None:
@@ -189,7 +272,8 @@ def un_jeu(console: str, title_id: object) -> dict:
 def test_the_title_is_kept_in_the_shape_of_its_own_console(
     tmp_path: Path, console: str, title_id: object, garde: bool
 ) -> None:
-    found = read_one(room(tmp_path, "1", un_jeu(console, title_id)), 1)
+    room(tmp_path, "1", un_jeu(console, title_id))
+    found = read_one(tmp_path, 1)
 
     assert found is not None, "un titre mal formé ne fait jamais écarter le jeu"
     (game,) = found.games

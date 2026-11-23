@@ -116,35 +116,70 @@ def _entree(brute: object) -> CatalogueGame | None:
     )
 
 
-def read_one(path: Path, room: int) -> Catalogue | None:
-    """Un fichier de salle, entier et valide, ou rien."""
+def _pourquoi_ecarte(fd: int) -> str | None:
+    """Pourquoi `session_salle.lire` n'a rien rendu, pour le journal.
+
+    Rien pour un fichier absent: une salle qui n'a jamais démarré n'en a pas, et
+    ce n'est pas un défaut. Lu après coup et sans suivre de lien: le fichier a
+    pu changer entre les deux, la raison n'est qu'une indication.
+    """
     try:
-        with path.open("rb") as file:
-            raw = file.read(SIZE_MAX + 1)
-    except OSError:
+        etat = os.stat(NAME, dir_fd=fd, follow_symlinks=False)
+    except FileNotFoundError:
         return None
-    if len(raw) > SIZE_MAX:
-        LOG.warning("catalogue trop gros, écarté: %s", path)
+    except OSError as erreur:
+        return erreur.strerror or "illisible"
+    if stat.S_ISLNK(etat.st_mode):
+        return "un lien"
+    if not stat.S_ISREG(etat.st_mode):
+        return "pas un fichier ordinaire"
+    return "trop gros" if etat.st_size > SIZE_MAX else "illisible"
+
+
+def read_one(salles_dir: Path, room: int) -> Catalogue | None:
+    """Le fichier de la salle `room`, entier et valide, ou rien.
+
+    Lu par le descripteur du dossier de la salle, jamais par un chemin (ADR
+    D36). Ce dossier est monté en écriture dans le conteneur de son moteur, qui
+    peut y laisser un lien ou un tube nommé à ce nom: suivi, un lien ferait
+    publier au salon un fichier de l'hôte, à qui demande la liste des salles
+    sans identité; ouvert, un tube bloquerait un fil du salon pour toujours, à
+    chaque relecture de cette liste. `session_salle.lire` refuse les deux, sans
+    attendre, et un dossier de salle qui est lui-même un lien.
+    """
+    chemin = salles_dir / str(room) / NAME
+    try:
+        with session_salle.dossier(salles_dir, room) as fd:
+            lu = session_salle.lire(fd, NAME, SIZE_MAX)
+            pourquoi = _pourquoi_ecarte(fd) if lu is None else None
+    except FileNotFoundError:
+        return None
+    except OSError as erreur:
+        LOG.warning("dossier de salle écarté (%s): %s", erreur.strerror, chemin.parent)
+        return None
+    if lu is None:
+        if pourquoi:
+            LOG.warning("catalogue écarté (%s): %s", pourquoi, chemin)
         return None
     try:
-        said = json.loads(raw)
+        said = json.loads(lu.contenu)
     except ValueError:
-        LOG.warning("catalogue illisible, écarté: %s", path)
+        LOG.warning("catalogue illisible, écarté: %s", chemin)
         return None
     if not isinstance(said, dict) or said.get("version") != VERSION:
-        LOG.warning("catalogue d'une version inconnue, écarté: %s", path)
+        LOG.warning("catalogue d'une version inconnue, écarté: %s", chemin)
         return None
     scanned, roms = said.get("scanned_ms"), said.get("roms")
     if type(scanned) is not int or scanned < 0 or not isinstance(roms, list):
-        LOG.warning("catalogue mal formé, écarté: %s", path)
+        LOG.warning("catalogue mal formé, écarté: %s", chemin)
         return None
     games = [_entree(rom) for rom in roms]
     if any(game is None for game in games):
-        LOG.warning("catalogue avec une entrée mal formée, écarté: %s", path)
+        LOG.warning("catalogue avec une entrée mal formée, écarté: %s", chemin)
         return None
     keys = [game.key for game in games if game]
     if len(set(keys)) != len(keys):
-        LOG.warning("catalogue avec deux fois la même clé, écarté: %s", path)
+        LOG.warning("catalogue avec deux fois la même clé, écarté: %s", chemin)
         return None
     return Catalogue(scanned_ms=scanned, room=room, games=[game for game in games if game])
 
@@ -153,7 +188,8 @@ def freshest(salles_dir: Path) -> Catalogue | None:
     """Le catalogue le plus récent parmi ceux des salles numérotées, ou rien.
 
     Seuls les dossiers dont le nom est un numéro de salle sont lus : c'est la
-    forme que l'unité `nel3ab-worker@N` donne au répertoire de session.
+    forme que l'unité `nel3ab-worker@N` donne au répertoire de session. Chacun
+    est lu par `read_one`, qui ne suit aucun lien et n'attend sur aucun tube.
     """
     try:
         rooms = [child for child in salles_dir.iterdir() if child.name.isdecimal()]
@@ -162,7 +198,7 @@ def freshest(salles_dir: Path) -> Catalogue | None:
     found: list[Catalogue] = []
     for child in rooms:
         numero = int(child.name)
-        if numero >= 1 and (catalogue := read_one(child / NAME, numero)) is not None:
+        if numero >= 1 and (catalogue := read_one(salles_dir, numero)) is not None:
             found.append(catalogue)
     # À égalité d'heure, la plus petite salle: un choix fixe plutôt que l'ordre
     # du système de fichiers, qui changerait d'un appel à l'autre.

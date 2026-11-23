@@ -1,5 +1,6 @@
 """Ouvrir et fermer des salles, sans systemd."""
 
+import asyncio
 import json
 import os
 from datetime import UTC, datetime
@@ -21,6 +22,7 @@ from nel3ab_control.api.controllers.salles import (
 from nel3ab_control.api.schemas.salle import SiegeVu
 from nel3ab_control.session_salle import OrdreOuverture
 from nel3ab_control.settings import Settings
+from tests.conftest import sans_rester_sur_un_tube
 from tests.faux_systeme import FauxSysteme, Horloge
 
 
@@ -748,6 +750,62 @@ async def test_un_jeu_retenu_en_lien_n_est_pas_lu(reglages: Settings, tmp_path: 
     etat = await SallesController(reglages, FauxSysteme()).etat()
 
     assert etat[1].dernier_jeu is None
+
+
+def bibliotheque_hors_du_dossier(ailleurs: Path) -> Path:
+    """Un catalogue écrit HORS du dossier des salles, qui titre Melee d'un nom
+    à lui: un titre publié qui vient de là a suivi un lien."""
+    ailleurs.mkdir()
+    hors = ailleurs / "catalogue.json"
+    jeu = {"key": "Melee.rvz", "name": "Lu hors du dossier", "console": "gc", "art": False}
+    hors.write_text(json.dumps({"version": 1, "scanned_ms": 1, "roms": [jeu]}), encoding="utf-8")
+    return hors
+
+
+async def test_une_bibliotheque_en_lien_ne_titre_pas_le_dernier_jeu(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    """ADR D36, pour la liste que l'accueil relit sans identité toutes les cinq
+    secondes: un lien à la place de `catalogue.json` ne donne pas son titre."""
+    hors = bibliotheque_hors_du_dossier(tmp_path / "ailleurs")
+    (reglages.salles_dir / "1").mkdir(parents=True)
+    (reglages.salles_dir / "1" / "catalogue.json").symlink_to(hors)
+    retenir(reglages, 2, "Melee.rvz")
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+    # Le jumeau ordinaire: les mêmes octets dans le dossier titrent le jeu.
+    (reglages.salles_dir / "1" / "catalogue.json").unlink()
+    (reglages.salles_dir / "1" / "catalogue.json").write_bytes(hors.read_bytes())
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+    assert etat[1].dernier_jeu is not None
+    assert etat[1].dernier_jeu.titre == "Lu hors du dossier"
+
+
+def test_une_bibliotheque_en_tube_ne_bloque_pas_la_liste(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    """Le relevé du 23 novembre 2026: `etat()` ne revenait jamais, et chaque
+    appel gardait un fil du salon. L'appel passe par `asyncio.run` sur un fil
+    borné, pour que l'essai rouge échoue au lieu de pendre."""
+    hors = bibliotheque_hors_du_dossier(tmp_path / "ailleurs")
+    (reglages.salles_dir / "1").mkdir(parents=True)
+    tube = reglages.salles_dir / "1" / "catalogue.json"
+    os.mkfifo(tube)
+    retenir(reglages, 2, "Melee.rvz")
+
+    etat = sans_rester_sur_un_tube(
+        lambda: asyncio.run(SallesController(reglages, FauxSysteme()).etat()), tube
+    )
+
+    assert etat[1].dernier_jeu is None
+    # Le jumeau ordinaire: un fichier au même nom titre le jeu.
+    tube.unlink()
+    tube.write_bytes(hors.read_bytes())
+    etat = asyncio.run(SallesController(reglages, FauxSysteme()).etat())
+    assert etat[1].dernier_jeu is not None
+    assert etat[1].dernier_jeu.titre == "Lu hors du dossier"
 
 
 async def test_un_jeu_retenu_trop_gros_n_est_pas_lu(reglages: Settings) -> None:

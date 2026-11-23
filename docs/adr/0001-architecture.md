@@ -1711,6 +1711,26 @@ Decision:
   at that name means « unknown » and gives no game. `Salle.console` and
   `Salle.cle` describe the running game (K19); « ? » is not published as a
   console.
+- **The catalogue is read through the room folder's descriptor too (D36).**
+  `catalogue.read_one` opened `salles_dir/N/catalogue.json` by path, which
+  follows a link and blocks on a named pipe, and the Dolphin container mounts
+  that folder read-write. The defect predates this track (the catalogue route,
+  imports and the profile read the file that way), but this track added three
+  readers, among them the list that the lobby page re-reads every five seconds
+  without an identity. An independent review on 2026-11-23 showed the list
+  titling the last game from a file outside the room folder, and
+  `SallesController.etat()` never returning, one thread held per call.
+  `read_one` now takes `salles_dir` and the room number and reads through
+  `session_salle.dossier` and `session_salle.lire` (`O_NOFOLLOW`,
+  `O_NONBLOCK`, regular file only, 8 MiB), so every caller of `freshest` is
+  covered, and a room folder that is itself a link is refused. A catalogue set
+  aside is logged with its reason. Proof: a link at the file, a link at the
+  room folder and a pipe, each with its ordinary twin, at `freshest`; a link
+  and a pipe at the list. All five were red on the code before; the pipe tests
+  run the call on a thread bounded at five seconds and then open the pipe's
+  write end, so the red run fails instead of hanging. Three mutants of
+  `session_salle` (no `O_NONBLOCK`, no `O_NOFOLLOW` on the file, none on the
+  folder) each fail only their named tests.
 - **Who is there, from what the lobby already holds.** `Salle.chef` is the
   pseudonym of `people.owner(numero)`; `Salle.sieges` (`{port, nom, tenu}`) and
   `Salle.regardent` come from the room's controller and the presence register,

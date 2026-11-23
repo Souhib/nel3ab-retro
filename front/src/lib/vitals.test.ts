@@ -88,6 +88,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       padLayout: null,
       learning: null,
       lesson: null,
+      lessonResult: null,
       pressed: [],
       displaced: false,
       players: 4,

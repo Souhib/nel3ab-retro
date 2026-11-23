@@ -260,6 +260,75 @@ describe("configurer une manette pendant une partie", () => {
     expect(stream.state().profile).toBeNull();
   });
 
+  /** Répond A sur `index`, puis passe toutes les autres étapes. */
+  const aSeulement = (index: number) => {
+    stream.beginLesson();
+    press(index);
+    press(index, 0);
+    const total = stream.state().lesson?.total ?? 0;
+    expect(total).toBe(16);
+    for (let etape = 1; etape < total; etape += 1) stream.skipLessonStep();
+    expect(stream.state().lesson).toBeNull();
+  };
+
+  // Constat C4 du chantier manettes (23 novembre 2026) : `Lesson.skip` ne
+  // notait rien, la fin remplaçait tout le profil par les seules réponses, et
+  // `readPad` ne retombe pas sur la disposition standard quand un profil
+  // existe. Passer B pour « le garder » l'effaçait.
+  it("une commande passée pendant le pas à pas garde son réglage d'avant", () => {
+    stream.beginCapture("B", "pad");
+    press(5);
+    press(5, 0);
+    expect(stream.state().profile?.buttons.B).toEqual({ button: 5, rest: 0 });
+    aSeulement(2);
+    press(5);
+    expect(stream.readPadNow(pad).buttons & BUTTON.B).not.toBe(0);
+  });
+
+  it("une commande passée garde la disposition standard d'une manette sans profil", () => {
+    aSeulement(2);
+    press(1);
+    expect(stream.readPadNow(pad).buttons & BUTTON.B).not.toBe(0);
+  });
+
+  it("une commande répondue prend le nouvel indice et quitte l'ancien", () => {
+    aSeulement(2);
+    press(0);
+    expect(stream.readPadNow(pad).buttons & BUTTON.A).toBe(0);
+    press(0, 0);
+    press(2);
+    expect(stream.readPadNow(pad).buttons & BUTTON.A).not.toBe(0);
+    expect(stream.state().lessonResult?.retenues).toBe(1);
+    expect(stream.state().lessonResult?.passees).toHaveLength(15);
+    expect(stream.state().lessonResult?.passees[0]).toBe("B");
+    expect(stream.state().lessonResult?.garde).toBe("standard");
+  });
+
+  it("tout passer ne change pas le profil d'avant", () => {
+    stream.beginCapture("B", "pad");
+    press(5);
+    press(5, 0);
+    const avant = structuredClone(stream.state().profile);
+    const ecrit = localStorage.getItem(`nel3ab.pad.${pad.id}`);
+    stream.beginLesson();
+    for (let etape = 0; etape < 16; etape += 1) stream.skipLessonStep();
+    expect(stream.state().lesson).toBeNull();
+    expect(stream.state().profile).toEqual(avant);
+    expect(localStorage.getItem(`nel3ab.pad.${pad.id}`)).toBe(ecrit);
+    expect(stream.state().lessonResult?.retenues).toBe(0);
+    expect(stream.state().lessonResult?.passees).toHaveLength(16);
+    expect(stream.state().lessonResult?.garde).toBe("avant");
+  });
+
+  it("sur un adaptateur sans profil, une commande passée reste sans réglage", () => {
+    Object.assign(pad, { mapping: "" });
+    tick();
+    aSeulement(2);
+    expect(stream.state().profile?.buttons.A).toEqual({ button: 2, rest: 0 });
+    expect(stream.state().profile?.buttons.B).toBeUndefined();
+    expect(stream.state().lessonResult?.garde).toBe("rien");
+  });
+
   it("un débranchement efface l'identité affichée et annule la capture", () => {
     stream.beginCapture("A", "pad");
     connected = [];

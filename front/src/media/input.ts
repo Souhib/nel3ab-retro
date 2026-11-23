@@ -60,6 +60,17 @@ import {
  * identical states, so a redundant send costs one decode and a compare. */
 const PAD_PERIOD_MS = 4;
 
+/** Ce qu'un pas à pas a laissé : combien de commandes ont reçu une réponse,
+ * lesquelles ont été passées, et ce que gardent les passées. « avant » : le
+ * profil rangé de cette manette ; « standard » : la disposition standard d'une
+ * manette qui n'en avait pas ; « rien » : un adaptateur jamais réglé, où une
+ * commande passée reste sans réglage. */
+export type FinDeLecon = {
+  retenues: number;
+  passees: ControlKey[];
+  garde: "avant" | "standard" | "rien";
+};
+
 export type InputState = {
   /** Appareil confirmé par le worker pour cette place. */
   device?: 0 | 1 | 2 | 3;
@@ -72,6 +83,8 @@ export type InputState = {
   padLayout: "standard" | "unknown" | null;
   learning: string | null;
   lesson: { control: ControlKey; step: number; total: number; waiting: boolean } | null;
+  /** La fin du dernier pas à pas, jusqu'au suivant ou à une réassignation. */
+  lessonResult: FinDeLecon | null;
   pressed: string[];
   /** True once this page HAD a pad and was told it no longer has one.
    *
@@ -351,6 +364,7 @@ export class InputStream {
   private pad: 0 | 1 | 2 | 3 = 0;
   private extension: 0 | 1 | 2 = 0;
   private lesson: Lesson | null = null;
+  private lessonResult: FinDeLecon | null = null;
   private capture: {
     control: ControlKey;
     source: "pad" | "key";
@@ -510,6 +524,7 @@ export class InputStream {
       padLayout: this.padLayout,
       learning: this.lesson?.done === false ? this.lesson.asking : null,
       lesson: this.lesson?.progress ?? null,
+      lessonResult: this.lessonResult,
       pressed: this.pressedNames(),
       players: this.players,
       busy: this.busy,
@@ -708,6 +723,7 @@ export class InputStream {
    */
   beginCapture(control: ControlKey, source: "pad" | "key", sign: 1 | -1 = 1): void {
     this.cancelCapture();
+    this.lessonResult = null;
     this.held.clear();
     if (source === "key") {
       this.capture = { control, source, sign, machine: null };
@@ -963,6 +979,7 @@ export class InputStream {
     this.configuringId = pad.id;
     this.held.clear();
     this.sendNeutral();
+    this.lessonResult = null;
     this.lesson = new Lesson(pad.id, this.lessonSnapshot(pad), console, kind);
   }
 
@@ -970,10 +987,24 @@ export class InputStream {
     this.lesson?.skip();
     const pad = this.current();
     if (this.lesson?.done && pad?.id === this.configuringId) {
-      this.keepProfile(pad.id, this.lesson.learned());
+      this.finirLecon(pad, this.lesson);
       this.cancelCapture();
     }
     this.onSettled();
+  }
+
+  /** Range ce que la leçon a appris. Une commande passée garde son réglage
+   * d'avant (`Lesson.learned`) ; une leçon où tout a été passé ne réécrit
+   * rien, pas même une copie de la disposition standard. */
+  private finirLecon(pad: Gamepad, lesson: Lesson): void {
+    const range = this.profileFor(pad.id);
+    const precedent = range ?? (pad.mapping === "standard" ? standardProfile(pad.id) : null);
+    this.lessonResult = {
+      retenues: lesson.retenues,
+      passees: [...lesson.passees],
+      garde: range ? "avant" : precedent ? "standard" : "rien",
+    };
+    if (lesson.retenues > 0) this.keepProfile(pad.id, lesson.learned(precedent));
   }
 
   private connect(take: number | null = null, expected?: string): void {
@@ -1239,7 +1270,7 @@ export class InputStream {
         this.sendNeutral();
         this.lesson.feed(this.lessonSnapshot(pad));
         if (this.lesson.done) {
-          this.keepProfile(pad.id, this.lesson.learned());
+          this.finirLecon(pad, this.lesson);
           this.releasing = { id: pad.id, atRest: this.lesson.atRest.bind(this.lesson) };
           this.lesson = null;
           this.configuringId = null;

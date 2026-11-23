@@ -167,12 +167,52 @@ export class Lesson {
       : null;
   }
 
-  learned(): PadProfile {
-    return this.profile;
+  /** Les commandes passées, dans l'ordre où elles ont été demandées. */
+  readonly passees: StepKey[] = [];
+
+  /** Combien de commandes ont reçu une réponse. */
+  get retenues(): number {
+    return this.step - this.passees.length;
+  }
+
+  /** Le repos pris au clic sur « Commencer ». Les dessins le lisent pendant la
+   * leçon (`heldOn`), à la même échelle que la détection. */
+  get repos(): Snapshot {
+    return this.neutral;
+  }
+
+  /**
+   * Le profil appris, et pour chaque commande passée, son réglage d'avant.
+   *
+   * `precedent` est le profil rangé de cette manette, ou la disposition
+   * standard d'une manette standard qui n'en avait pas. Sans lui (adaptateur
+   * jamais réglé), une commande passée reste sans réglage. Avant le 23 novembre
+   * 2026, la fin rendait les seules réponses : passer B pour « le garder »
+   * l'effaçait, puisque `readPad` ne retombe pas sur la disposition standard
+   * quand un profil existe (constat C4 du chantier manettes).
+   */
+  learned(precedent: PadProfile | null = null): PadProfile {
+    const out = structuredClone(this.profile);
+    if (!precedent) return out;
+    for (const key of this.passees) {
+      if (key === "L" || key === "R") {
+        const avant = precedent.triggers[key];
+        if (avant) out.triggers[key] = structuredClone(avant);
+      } else if (isStick(key)) {
+        const avant = precedent.sticks[key];
+        if (avant) out.sticks[key] = structuredClone(avant);
+      } else {
+        const avant = precedent.buttons[key as ButtonName];
+        if (avant) out.buttons[key as ButtonName] = structuredClone(avant);
+      }
+    }
+    return out;
   }
 
   /** Skips the control being asked for: not every pad has every button. */
   skip(): void {
+    const current = this.steps[this.step];
+    if (current) this.passees.push(current.key);
     this.step += 1;
     this.waiting = true;
   }

@@ -165,3 +165,40 @@ describe("ce que la leçon retient du repos", () => {
     expect(lesson.learned().buttons.A).toEqual({ button: 1, rest: 0 });
   });
 });
+
+describe("les commandes passées", () => {
+  const avant = {
+    id: "adapter",
+    buttons: { A: { button: 9, rest: 0 }, B: { button: 8, rest: 0 } },
+    triggers: { L: { button: 4, rest: 0.6 } },
+    sticks: { x: { axis: 0, sign: 1 as const, rest: 0.2 } },
+  };
+
+  it("reprennent leur réglage d'avant, et seulement elles", () => {
+    const lesson = new Lesson("adapter", rest());
+    lesson.feed(pressing(1)); // A répondu sur b1
+    lesson.feed(rest());
+    lesson.skip(); // B passé
+    while (!lesson.done) lesson.skip();
+
+    const appris = lesson.learned(avant);
+    expect(appris.buttons.A).toEqual({ button: 1, rest: 0 });
+    expect(appris.buttons.B).toEqual({ button: 8, rest: 0 });
+    expect(appris.triggers.L).toEqual({ button: 4, rest: 0.6 });
+    expect(appris.sticks.x).toEqual({ axis: 0, sign: 1, rest: 0.2 });
+    expect(lesson.retenues).toBe(1);
+    expect(lesson.passees[0]).toBe("B");
+    expect(lesson.passees).toHaveLength(15);
+  });
+
+  it("restent sans réglage quand il n'y avait rien avant", () => {
+    const lesson = new Lesson("adapter", rest());
+    lesson.skip();
+    expect(lesson.learned(null).buttons.A).toBeUndefined();
+    // Le profil d'avant n'est pas modifié par la fusion.
+    const copie = structuredClone(avant);
+    while (!lesson.done) lesson.skip();
+    lesson.learned(avant).buttons.A = { button: 0, rest: 0 };
+    expect(avant).toEqual(copie);
+  });
+});

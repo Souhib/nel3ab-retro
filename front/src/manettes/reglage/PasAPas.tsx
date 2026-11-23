@@ -3,8 +3,10 @@
  * passe ses mots et ses gestes, et la machine d'étapes reste dans
  * `media/lesson` (`Pas`). */
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { effetActif, mouvementReduit } from "../../lib/effets";
 import { REGLAGE } from "../../lib/mots";
 import { ecrireChiffres, poserAfficheur } from "../../retro/chiffres";
+import { annoncerLettres } from "../../retro/lettres";
 
 /** Un bouton du panneau : la boîte en escalier du socle, plein ou non. */
 export function Bouton({
@@ -212,9 +214,28 @@ export function Fin({
   passee: { cle: string; nom: string } | null;
   onRegler: (cle: string) => void;
 }) {
+  // Au niveau tout (effet « lettres »), la phrase s'écrit lettre par lettre
+  // hors de React ; le lecteur d'écran la reçoit entière par la région, vidée
+  // ensuite pour qu'elle ne soit pas lue deux fois. Sinon, React l'écrit.
+  const lettres = effetActif("lettres") && !mouvementReduit();
+  const visible = useRef<HTMLParagraphElement>(null);
+  const region = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (!lettres || !visible.current) return;
+    const annonce = annoncerLettres(visible.current, texte, { region: region.current });
+    let vivante = true;
+    void annonce.fini.then(() => {
+      if (vivante && region.current) region.current.textContent = "";
+    });
+    return () => {
+      vivante = false;
+      annonce.finir();
+    };
+  }, [lettres, texte]);
   return (
-    <div className="n3-reglage-avis" role="status" data-fin-lecon="">
-      <p>{texte}</p>
+    <div className="n3-reglage-avis rt-lettres" role="status" data-fin-lecon="">
+      <p ref={visible}>{lettres ? null : texte}</p>
+      <span ref={region} className="sr-only" data-fin-region="" />
       {passee ? (
         <Bouton id="reglerPassee" onClick={() => onRegler(passee.cle)}>
           {REGLAGE.reglerDans(passee.nom)}

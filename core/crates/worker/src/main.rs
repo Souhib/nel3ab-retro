@@ -312,9 +312,9 @@ const SAVES: &str = "saves";
 /// stopping the worker. The disk is not ours to depend on, and a room that
 /// refuses to start because a file was renamed is worse than one that starts
 /// with the usual game.
-fn chosen_rom(settings: &Settings, library: &[Rom]) -> PathBuf {
-    let Ok(remembered) = std::fs::read_to_string(settings.session_dir.join(CHOICE)) else {
-        return settings.rom.clone();
+fn chosen_rom(session_dir: &Path, usual: &Path, library: &[Rom]) -> PathBuf {
+    let Ok(remembered) = std::fs::read_to_string(session_dir.join(CHOICE)) else {
+        return usual.to_path_buf();
     };
     let remembered = remembered.trim();
     library
@@ -326,10 +326,25 @@ fn chosen_rom(settings: &Settings, library: &[Rom]) -> PathBuf {
                     remembered,
                     "the remembered game is gone; booting the usual one"
                 );
-                settings.rom.clone()
+                usual.to_path_buf()
             },
             |rom| rom.path.clone(),
         )
+}
+
+/// Le jeu de ce démarrage, et si la salle arrive sur son menu (`true`).
+///
+/// Une salle ouverte directement sur un jeu (D17): l'ordre du salon passe par
+/// `remember_choice` AVANT de lire l'état et le jeu retenus, comme un
+/// lancement. Dans l'autre ordre, la salle lirait le marqueur « sans jeu » que
+/// le salon a posé en l'ouvrant, et l'ordre ne servirait qu'au démarrage
+/// suivant. Une fonction à part plutôt que trois lignes de `run`, pour qu'un
+/// essai tienne cet ordre: `run` démarre Docker.
+fn starting_game(session_dir: &Path, usual: &Path, library: &[Rom]) -> Result<(bool, PathBuf)> {
+    open_on_order(library, session_dir);
+    let idle = nel3ab_emulator::playback::Playback::read(session_dir)?
+        == nel3ab_emulator::playback::Playback::Idle;
+    Ok((idle, chosen_rom(session_dir, usual, library)))
 }
 
 /// L'emplacement de sauvegarde retenu, ou une partie neuve.
@@ -866,12 +881,7 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         &settings.session_dir,
         &adapter_state,
     );
-    // Une salle ouverte directement sur un jeu (D17): l'ordre du salon passe
-    // par `remember_choice` AVANT de lire le jeu retenu, comme un lancement.
-    open_on_order(&library, &settings.session_dir);
-    let mut idle = nel3ab_emulator::playback::Playback::read(&settings.session_dir)?
-        == nel3ab_emulator::playback::Playback::Idle;
-    let rom = chosen_rom(settings, &library);
+    let (mut idle, rom) = starting_game(&settings.session_dir, &settings.rom, &library)?;
     let rom_file = rom
         .file_name()
         .context("ROM filename missing")?
@@ -2482,6 +2492,7 @@ impl<'a> HalfStream<'a> {
     reason = "a panic IS the failure signal in a test"
 )]
 mod tests {
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
@@ -2621,6 +2632,49 @@ mod tests {
             nel3ab_emulator::playback::Playback::Idle
         );
         assert!(read(&dir, nel3ab_emulator::OPEN_ORDER).is_none());
+    }
+
+    /// Le démarrage suit l'ordre AVANT de lire l'état: la salle que le salon a
+    /// ouverte sur un jeu démarre ce jeu, pas son menu. C'est l'ordre des appels
+    /// que `run` faisait en trois lignes, couvert seulement par lecture.
+    #[test]
+    fn a_room_opened_on_a_game_starts_that_game() {
+        let dir = opened_with(Some("nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n"));
+
+        let started =
+            super::starting_game(dir.path(), Path::new("/jeux/usual.rvz"), &library()).unwrap();
+
+        assert_eq!(started, (false, PathBuf::from("/jeux/Melee.rvz")));
+    }
+
+    /// Les jumeaux: sans ordre, ou pour un jeu parti, la salle arrive sur son
+    /// menu avec le jeu retenu d'avant, et jamais le jeu par défaut.
+    #[test]
+    fn a_room_opened_without_a_followed_order_starts_on_its_menu() {
+        for order in [None, Some("nel3ab-ouvrir 1\nParti.rvz\n0\n-\n")] {
+            let dir = opened_with(order);
+
+            let started =
+                super::starting_game(dir.path(), Path::new("/jeux/usual.rvz"), &library()).unwrap();
+
+            assert_eq!(
+                started,
+                (true, PathBuf::from("/jeux/Kart.rvz")),
+                "{order:?}"
+            );
+        }
+    }
+
+    /// Un jeu retenu qui a disparu retombe sur le jeu par défaut, comme avant.
+    #[test]
+    fn a_remembered_game_that_is_gone_falls_back_to_the_usual_one() {
+        let dir = opened_with(None);
+        std::fs::write(dir.path().join(super::CHOICE), "Parti.rvz").unwrap();
+
+        let started =
+            super::starting_game(dir.path(), Path::new("/jeux/usual.rvz"), &library()).unwrap();
+
+        assert_eq!(started, (true, PathBuf::from("/jeux/usual.rvz")));
     }
 
     /// Sans ordre, rien ne bouge: la salle reste sur son menu.

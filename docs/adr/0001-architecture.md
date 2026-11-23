@@ -1769,7 +1769,10 @@ Decision:
   opens on its menu. An order left by a refused start, an older opening or a
   closing is removed by the lobby. The order's text is pinned on both sides,
   and its read bound (512) is measured against the longest legal order (339
-  bytes).
+  bytes). The worker follows the order BEFORE it reads the playback state and
+  the chosen game, in one function (`starting_game`) that a test pins: in the
+  other order the room would read the `game-closed` marker the lobby set, and
+  open on its menu.
 
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23

@@ -28511,6 +28511,8 @@ n'en est jamais un ; la comparaison a été retirée plutôt que gardée comme u
 garde qu'aucun essai ne peut prendre en défaut. Non prouvé : l'appel dans le
 démarrage du worker n'est couvert que par la lecture du code, puisque ce
 démarrage lance Docker ; la première vraie ouverture sur un jeu le montrera.
+(Le même jour, un passage suivant a mis cet ordre sous essai : voir
+« L'ordre d'ouverture, tenu par un essai » plus bas.)
 
 **L'image que le propriétaire dépose.** Une bannière GameCube est un dessin
 de 96 pixels sur 32 ; un jeu Wii jamais lancé n'a aucune image, puisque la
@@ -28606,6 +28608,26 @@ démarrages suivants fassent une habitude. Trois mutants, remis un par un sur
 une copie du fichier : la boucle retirée rougit le premier essai, la garde
 retirée le second, et une garde qui ajouterait toujours une fin de ligne en
 rougit cinq, parce qu'une ligne vide n'est pas un objet JSON.
+
+**L'ordre d'ouverture, tenu par un essai.** Ouvrir une salle sur un jeu
+repose sur l'ordre de trois lignes au début du démarrage du worker : suivre
+l'ordre du salon, puis lire si la salle est sur son menu, puis lire le jeu
+retenu. Dans l'autre sens, le worker lirait le marqueur « sans jeu » que le
+salon pose en ouvrant la salle, et la salle arriverait sur son menu ; l'ordre
+ne servirait qu'au démarrage suivant. Ces trois lignes vivaient dans la
+fonction qui démarre aussi Docker, qu'aucun essai ne lance : seule la
+lecture du code les couvrait, et le carnet l'avait écrit en « non prouvé ».
+Elles sont maintenant une fonction à part, `starting_game`, que `run`
+appelle. Trois essais la tiennent : une salle ouverte sur un jeu démarre ce
+jeu ; sans ordre, ou avec un ordre pour un jeu parti, elle arrive sur son
+menu avec le jeu retenu d'avant ; un jeu retenu qui a disparu retombe sur le
+jeu par défaut, comme avant. Deux mutants, remis un par un sur une copie :
+suivre l'ordre après la lecture de l'état, et oublier de le suivre. Chacun
+fait échouer le premier essai. Un premier passage des mutants les avait vus
+survivre : le filtre de noms donné à `cargo test` laissait justement de côté
+l'essai qui les prend. Lancés sans filtre, ils échouent. Ce qui reste non
+prouvé est plus étroit : que `run` appelle bien cette fonction, ce que dit
+une ligne qu'on lit d'un coup d'œil.
 
 ## 12. Glossaire complet
 

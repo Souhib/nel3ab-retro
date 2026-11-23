@@ -207,6 +207,32 @@ export type Dernier = {
 };
 
 /**
+ * DernierJeu
+ *
+ * Le dernier jeu qu'une salle a lancé, d'après son propre dossier.
+ */
+export type DernierJeu = {
+    /**
+     * Cle
+     *
+     * Sa clé, son nom de fichier (ADR D23).
+     */
+    cle: string;
+    /**
+     * Titre
+     *
+     * Son titre, tel que la bibliothèque le nomme.
+     */
+    titre: string;
+    /**
+     * Quand
+     *
+     * Quand il a été CHOISI (l'écriture du choix par le worker), pas quand la partie s'est terminée: « lancé jeudi soir », pas « joué jeudi soir ».
+     */
+    quand: string;
+};
+
+/**
  * Emplacement
  *
  * Une sauvegarde personnelle trouvée sur le disque: une carte mémoire.
@@ -718,6 +744,10 @@ export type Room = {
      */
     library: Array<Game>;
     /**
+     * Le dernier jeu que cette salle a lancé, lu dans son dossier (`chosen-rom`), titré par la bibliothèque du worker. Il reste le même quand la salle revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou quand ce jeu n'est plus dans sa bibliothèque.
+     */
+    dernier_jeu?: DernierJeu | null;
+    /**
      * Seats
      */
     seats: Array<Seat>;
@@ -794,9 +824,25 @@ export type Salle = {
     /**
      * Jeu
      *
-     * Le jeu qui tourne, ou rien quand la salle est sur son menu. Rien veut dire « aucun jeu », jamais « on n'a pas pu demander »: une salle injoignable est décrite comme fermée, pas comme vide.
+     * Le jeu qui tourne, ou rien quand la salle est sur son menu. Pour une salle qui redémarre, le jeu qui revient, lu dans son dossier. Rien veut aussi dire « on n'a pas su »: `repond` faux dit une salle allumée mais muette.
      */
     jeu?: string | null;
+    /**
+     * Cle
+     *
+     * La clé du jeu qui tourne, son nom de fichier (ADR D23), lue avec `jeu`. Rien avec lui, et rien pour un worker qui ne la publie pas.
+     */
+    cle?: string | null;
+    /**
+     * Console
+     *
+     * Le code de la console du jeu qui tourne (`consoles/consoles.json`). Rien sans jeu, et rien quand le disque n'a pas dit sa console: « ? » ne se publie pas comme une console.
+     */
+    console?: string | null;
+    /**
+     * Le dernier jeu que cette salle a lancé, lu dans son dossier (`chosen-rom`), ouverte ou non. Il reste le même quand la salle revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou quand ce jeu n'est plus dans la bibliothèque.
+     */
+    dernier_jeu?: DernierJeu | null;
     /**
      * Switch
      *

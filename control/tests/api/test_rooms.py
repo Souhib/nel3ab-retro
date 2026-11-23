@@ -1,5 +1,8 @@
 """The room a page reads, and the pads it claims."""
 
+import os
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -363,3 +366,50 @@ async def test_room_one_still_sees_its_own_people(client: httpx.AsyncClient, app
     three = (await client.get("/api/room", params={"salle": "3"})).json()
     assert three["people"] == []
     assert three["owner"] is None
+
+
+def _worker_avec_cles(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "players": 4,
+            "current": None,
+            "roms": [
+                {"name": "Super Smash Bros Melee", "console": "gc", "key": "Melee.rvz"},
+                {"name": "Mario Kart", "console": "gc", "key": "Kart.rvz"},
+            ],
+        },
+    )
+
+
+async def test_the_room_names_its_last_game_from_its_own_folder(settings: Settings) -> None:
+    """D06: la salle sur son menu dit encore à quoi elle a joué en dernier, et
+    quand ce jeu a été choisi. Le titre vient de la bibliothèque du worker."""
+    dossier = settings.salles_dir / "2"
+    dossier.mkdir(parents=True)
+    (dossier / "chosen-rom").write_text("Kart.rvz")
+    os.utime(dossier / "chosen-rom", (1_763_666_000.0, 1_763_666_000.0))
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_worker_avec_cles)) as http:
+        room = await RoomController(settings, http, 2).describe()
+
+    assert room.game is None
+    assert room.dernier_jeu is not None
+    assert (room.dernier_jeu.cle, room.dernier_jeu.titre) == ("Kart.rvz", "Mario Kart")
+    assert room.dernier_jeu.quand == datetime.fromtimestamp(1_763_666_000.0, tz=UTC)
+
+
+async def test_a_last_game_the_library_no_longer_has_is_not_named(settings: Settings) -> None:
+    """Le jumeau: le fichier retenu n'est plus là, et la salle n'invente rien.
+    Et la salle 1 ne lit pas le dossier de la salle 2."""
+    (settings.salles_dir / "2").mkdir(parents=True)
+    (settings.salles_dir / "2" / "chosen-rom").write_text("Parti.rvz")
+    (settings.salles_dir / "1").mkdir(parents=True)
+    (settings.salles_dir / "1" / "chosen-rom").write_text("Kart.rvz")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_worker_avec_cles)) as http:
+        deux = await RoomController(settings, http, 2).describe()
+        trois = await RoomController(settings, http, 3).describe()
+
+    assert deux.dernier_jeu is None
+    assert trois.dernier_jeu is None, "la salle 3 n'a rien retenu"

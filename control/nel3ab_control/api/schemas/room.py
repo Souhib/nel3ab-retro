@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from nel3ab_control.api.controllers.preparation import Preparation
 from nel3ab_control.api.schemas.player import Person
+from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
 
 
@@ -107,6 +108,15 @@ class Room(BaseModel):
     name: str
     game: Game | None = Field(default=None, description="What is loaded right now.")
     library: list[Game]
+    dernier_jeu: DernierJeu | None = Field(
+        default=None,
+        description=(
+            "Le dernier jeu que cette salle a lancé, lu dans son dossier "
+            "(`chosen-rom`), titré par la bibliothèque du worker. Il reste le "
+            "même quand la salle revient sur son menu. Rien quand elle n'a "
+            "jamais lancé de jeu, ou quand ce jeu n'est plus dans sa bibliothèque."
+        ),
+    )
     seats: list[Seat]
     owner: Person | None = Field(
         default=None,

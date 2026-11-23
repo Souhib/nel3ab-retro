@@ -65,6 +65,9 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Fermeture et silence.** `Salle.fermee_depuis` et `Salle.fermee_pour`
   (inactivité, arrêt, panne), lus dans systemd ; `Salle.repond` sépare une
   salle allumée mais muette d'une salle sur son menu.
+- **Jeu en cours et dernier jeu.** `Salle.console` et `Salle.cle` (K19) ;
+  `Salle.dernier_jeu` et `Room.dernier_jeu`, lus dans `chosen-rom` ; une salle
+  qui redémarre dit le jeu qui revient.
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

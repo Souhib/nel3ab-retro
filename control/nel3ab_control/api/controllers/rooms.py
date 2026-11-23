@@ -8,6 +8,7 @@ worker.
 """
 
 from collections.abc import Container
+from datetime import UTC, datetime
 from time import monotonic
 
 import httpx
@@ -20,9 +21,11 @@ from nel3ab_control.api.controllers.tablee import Tablee
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.room import Game, Room, Seat
+from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.game_controls import guide_for
 from nel3ab_control.parties import Fin, JeuJoue, Parties
+from nel3ab_control.session_salle import JeuRetenu, jeu_retenu
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import read_seats
 
@@ -201,6 +204,16 @@ class RoomController:
         self._known = (games, running)
         self.tablee.jeu(jeu_joue(running) if running else None)
         return games, running
+
+    def dernier_jeu(self, library: list[Game]) -> DernierJeu | None:
+        """Le dernier jeu lancé dans CETTE salle, d'après son dossier.
+
+        Le dossier plutôt que la mémoire du salon: le worker y écrit son choix
+        avant de sortir (`chosen-rom`), donc il survit à un redémarrage du salon
+        comme à celui de la salle. Lu sans suivre de lien (ADR D36), quelques
+        centaines d'octets par diffusion; titré par la bibliothèque déjà lue.
+        """
+        return _dernier(jeu_retenu(self._settings.salles_dir, self.numero), library)
 
     def known_game(self) -> str | None:
         """Le jeu qui tourne, d'après la DERNIÈRE réponse du worker.
@@ -434,6 +447,7 @@ class RoomController:
             name=self._settings.room_name,
             game=running,
             library=library,
+            dernier_jeu=self.dernier_jeu(library),
             seats=seats,
             # Un repère, jamais l'adresse: cet état part vers toutes les pages.
             # `moi` reste faux ici; `Room.vue_par` le pose pour chaque page.
@@ -459,6 +473,18 @@ class RoomController:
             ask_lasts=ASK_LASTS,
             media_url=self._settings.worker_public_url,
         )
+
+
+def _dernier(retenu: JeuRetenu | None, library: list[Game]) -> DernierJeu | None:
+    """Le jeu retenu, titré par la bibliothèque, ou rien s'il n'y est plus."""
+    if retenu is None:
+        return None
+    jeu = next((game for game in library if game.key == retenu.cle), None)
+    if jeu is None or jeu.key is None:
+        return None
+    return DernierJeu(
+        cle=jeu.key, titre=jeu.name, quand=datetime.fromtimestamp(retenu.choisi, tz=UTC)
+    )
 
 
 def jeu_joue(game: Game) -> JeuJoue:

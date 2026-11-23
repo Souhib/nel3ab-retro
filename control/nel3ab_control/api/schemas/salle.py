@@ -1,8 +1,22 @@
 """Ce qu'une salle montre à la liste du salon."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+
+class DernierJeu(BaseModel):
+    """Le dernier jeu qu'une salle a lancé, d'après son propre dossier."""
+
+    cle: str = Field(description="Sa clé, son nom de fichier (ADR D23).")
+    titre: str = Field(description="Son titre, tel que la bibliothèque le nomme.")
+    quand: datetime = Field(
+        description=(
+            "Quand il a été CHOISI (l'écriture du choix par le worker), pas quand "
+            "la partie s'est terminée: « lancé jeudi soir », pas « joué jeudi soir »."
+        )
+    )
 
 
 class Salle(BaseModel):
@@ -42,9 +56,34 @@ class Salle(BaseModel):
     jeu: str | None = Field(
         default=None,
         description=(
-            "Le jeu qui tourne, ou rien quand la salle est sur son menu. Rien "
-            "veut dire « aucun jeu », jamais « on n'a pas pu demander »: une "
-            "salle injoignable est décrite comme fermée, pas comme vide."
+            "Le jeu qui tourne, ou rien quand la salle est sur son menu. Pour une "
+            "salle qui redémarre, le jeu qui revient, lu dans son dossier. Rien "
+            "veut aussi dire « on n'a pas su »: `repond` faux dit une salle "
+            "allumée mais muette."
+        ),
+    )
+    cle: str | None = Field(
+        default=None,
+        description=(
+            "La clé du jeu qui tourne, son nom de fichier (ADR D23), lue avec "
+            "`jeu`. Rien avec lui, et rien pour un worker qui ne la publie pas."
+        ),
+    )
+    console: str | None = Field(
+        default=None,
+        description=(
+            "Le code de la console du jeu qui tourne (`consoles/consoles.json`). "
+            "Rien sans jeu, et rien quand le disque n'a pas dit sa console: « ? » "
+            "ne se publie pas comme une console."
+        ),
+    )
+    dernier_jeu: DernierJeu | None = Field(
+        default=None,
+        description=(
+            "Le dernier jeu que cette salle a lancé, lu dans son dossier "
+            "(`chosen-rom`), ouverte ou non. Il reste le même quand la salle "
+            "revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou "
+            "quand ce jeu n'est plus dans la bibliothèque."
         ),
     )
     switch: bool = Field(

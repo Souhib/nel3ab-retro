@@ -1,5 +1,8 @@
 """Ouvrir et fermer des salles, sans systemd."""
 
+import json
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -645,3 +648,195 @@ async def test_une_salle_qu_on_ferme_n_a_pas_encore_d_heure_de_fermeture(
 
     assert etat[0].ouverte is False
     assert (etat[0].fermee_depuis, etat[0].fermee_pour) == (None, None)
+
+
+def bibliotheque(reglages: Settings, *jeux: tuple[str, str, str]) -> None:
+    """Le catalogue qu'un worker écrit dans le dossier de sa salle (ADR D24)."""
+    dossier = reglages.salles_dir / "1"
+    dossier.mkdir(parents=True, exist_ok=True)
+    (dossier / "catalogue.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "scanned_ms": 1_763_700_000_000,
+                "roms": [
+                    {"key": cle, "name": nom, "console": console, "art": False}
+                    for cle, nom, console in jeux
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def retenir(reglages: Settings, numero: int, cle: str, quand: float = 1_763_666_000.0) -> Path:
+    """Ce que `remember_choice` écrit avant de relancer le worker."""
+    dossier = reglages.salles_dir / str(numero)
+    dossier.mkdir(parents=True, exist_ok=True)
+    chemin = dossier / "chosen-rom"
+    chemin.write_text(cle, encoding="utf-8")
+    os.utime(chemin, (quand, quand))
+    return chemin
+
+
+MARIO = ("Mario Tennis Aces.xci", "Mario Tennis Aces", "switch")
+MELEE = ("Melee.rvz", "Super Smash Bros Melee", "gc")
+
+
+async def test_la_liste_dit_le_dernier_jeu_d_une_salle_fermee(reglages: Settings) -> None:
+    """« Le dernier jeu de cette salle : Melee, jeudi soir. » Lu dans le dossier
+    que le worker garde, qui survit à la fermeture."""
+    bibliotheque(reglages, MELEE, MARIO)
+    retenir(reglages, 2, "Melee.rvz")
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    dernier = etat[1].dernier_jeu
+    assert dernier is not None
+    assert (dernier.cle, dernier.titre) == ("Melee.rvz", "Super Smash Bros Melee")
+    assert dernier.quand == datetime.fromtimestamp(1_763_666_000.0, tz=UTC)
+    assert [etat[0].dernier_jeu, etat[2].dernier_jeu] == [None, None]
+
+
+async def test_un_jeu_retenu_qui_n_est_plus_dans_la_bibliotheque_ne_se_dit_pas(
+    reglages: Settings,
+) -> None:
+    """Un titre inventé depuis le nom de fichier dirait un jeu que la salle ne
+    peut plus lancer."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 2, "Parti.rvz")
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+
+
+async def test_un_jeu_retenu_en_lien_n_est_pas_lu(reglages: Settings, tmp_path: Path) -> None:
+    """ADR D36: le dossier de la salle est écrit par ses moteurs."""
+    bibliotheque(reglages, MELEE)
+    cible = tmp_path / "ailleurs"
+    cible.write_text("Melee.rvz", encoding="utf-8")
+    (reglages.salles_dir / "2").mkdir(parents=True)
+    (reglages.salles_dir / "2" / "chosen-rom").symlink_to(cible)
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+
+
+async def test_un_jeu_retenu_trop_gros_n_est_pas_lu(reglages: Settings) -> None:
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 2, "Melee.rvz" + " " * 10_000)
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+
+
+async def test_une_salle_revenue_sur_son_menu_garde_son_dernier_jeu(reglages: Settings) -> None:
+    """Le marqueur « sans jeu » ne change pas le dernier jeu, et la salle allumée
+    sur son menu ne joue rien."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "game-closed").touch()
+
+    def menu(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"current": None, "players": 4, "roms": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(menu)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert etat[0].jeu is None
+    assert etat[0].dernier_jeu is not None
+    assert etat[0].dernier_jeu.titre == "Super Smash Bros Melee"
+
+
+async def test_une_salle_qui_redemarre_dit_le_jeu_qui_revient(reglages: Settings) -> None:
+    """Pendant les deux secondes d'une relance, l'accueil disait la salle sans
+    jeu. Le worker a écrit le jeu et retiré le marqueur avant de sortir."""
+    bibliotheque(reglages, MELEE, MARIO)
+    retenir(reglages, 1, "Mario Tennis Aces.xci")
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert etat[0].redemarre is True
+    assert (etat[0].jeu, etat[0].cle, etat[0].console) == (
+        "Mario Tennis Aces",
+        "Mario Tennis Aces.xci",
+        "switch",
+    )
+    assert etat[0].switch is True, "la place Switch est déjà prise par ce jeu"
+    assert etat[0].repond is None, "on n'a rien demandé à une salle qui redémarre"
+
+
+async def test_une_salle_qui_redemarre_sur_son_menu_ne_dit_pas_de_jeu(reglages: Settings) -> None:
+    """Le jumeau: marqueur posé, elle revient sur son menu."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "game-closed").touch()
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert (etat[0].jeu, etat[0].switch) == (None, False)
+    assert etat[0].dernier_jeu is not None
+
+
+async def test_le_marqueur_en_lien_ne_dit_pas_de_jeu_qui_revient(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    """Un lien à la place du marqueur: le worker le suit, le salon non. On ne
+    sait pas si la salle revient sur un jeu, donc on ne le dit pas."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "game-closed").symlink_to(tmp_path / "rien")
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert etat[0].jeu is None
+
+
+async def test_la_liste_dit_la_console_et_la_cle_du_jeu_qui_tourne(reglages: Settings) -> None:
+    """K19: l'accueil dessine une cartouche ou une boîte selon la console."""
+
+    def joue(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "current": 0,
+                "players": 4,
+                "roms": [{"name": "Melee", "console": "gc", "key": "Melee.rvz"}],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(joue)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert (etat[0].cle, etat[0].console) == ("Melee.rvz", "gc")
+
+
+async def test_une_console_inconnue_ou_une_cle_en_chemin_ne_se_publient_pas(
+    reglages: Settings,
+) -> None:
+    """Le jumeau: « ? » n'est pas une console, et `../x` n'est pas une clé."""
+
+    def joue(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"current": 0, "roms": [{"name": "Muet", "console": "?", "key": "../x"}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(joue)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert (etat[0].jeu, etat[0].cle, etat[0].console) == ("Muet", None, None)
+
+
+async def test_qui_a_lance_n_est_jamais_lu(reglages: Settings) -> None:
+    """`chosen-person` est une adresse: rien de la liste n'en porte."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "chosen-person").write_text("alice@example.com")
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert "alice" not in json.dumps([salle.model_dump(mode="json") for salle in etat])

@@ -28326,6 +28326,22 @@ autre mutant, qui taisait la panne au lieu de la dire, passait : le code
 appelant confondait « pas demandé » et « pas répondu ». Il a été simplifié, et
 le mutant échoue maintenant.
 
+**Le dernier jeu d'une salle était déjà sur le disque.** Avant de s'arrêter
+pour changer de jeu, le worker écrit la clé du jeu choisi dans un fichier de
+son dossier, `chosen-rom`, pour le relancer au démarrage suivant. Ce fichier
+survit à la fermeture : le salon le lit maintenant pour dire « le dernier jeu
+de cette salle ». La date est celle du choix, pas celle de la fin de la
+partie ; la phrase juste est donc « lancé jeudi soir ». Le titre vient de la
+bibliothèque : un jeu retiré depuis ne se dit pas, plutôt que d'afficher un
+nom de fichier. À côté se trouve `chosen-person`, l'adresse de qui a lancé ;
+le salon ne l'ouvre jamais, et un essai vérifie qu'aucune adresse ne sort de
+la liste. Le même fichier règle un défaut de l'accueil : pendant les deux
+secondes d'une relance, une salle qui changeait de jeu y apparaissait sans
+jeu. Elle dit maintenant le jeu qui revient, sauf si le marqueur « sans jeu »
+est posé, c'est-à-dire si elle revient sur son menu. La liste dit aussi la
+console et la clé du jeu en cours (l'accueil dessinera une cartouche ou une
+boîte selon la console).
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

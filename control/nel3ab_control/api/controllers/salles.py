@@ -18,17 +18,21 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal
 
 import anyio
 import httpx
+from anyio import to_thread
 from fastapi import HTTPException, status
 
 from nel3ab_control import session_salle
-from nel3ab_control.api.schemas.salle import Salle
+from nel3ab_control.api.schemas.salle import DernierJeu, Salle
+from nel3ab_control.catalogue import Catalogue, freshest
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.session_salle import Ouverture, demarrage_actuel
 from nel3ab_control.settings import Settings
+from nel3ab_control.worker import valid_key
 
 LOG = logging.getLogger(__name__)
 
@@ -216,8 +220,13 @@ class SallesController:
         Absent, la liste ne dit personne. C'est le cas des essais, et c'est plus
         honnête qu'une liste vide qui prétendrait que la salle est déserte.
         """
+        # Les dossiers des trois salles et la bibliothèque, lus en une fois sur
+        # un fil: une lecture de disque sur la boucle bloquerait tout le salon.
+        dossiers, catalogue = await to_thread.run_sync(self._lire_dossiers)
         salles = []
         for numero in SALLES:
+            dossier = dossiers[numero]
+            dernier = _dernier_jeu(dossier.retenu, catalogue)
             mot = await self._mot(numero)
             etat = _etat_du_mot(mot)
             ouverte = etat == "ouverte"
@@ -232,6 +241,12 @@ class SallesController:
                 self._fermee(systeme) if mot in ("inactive", "failed") else (None, None)
             )
             vu = await self._joue(numero) if ouverte else None
+            if etat == "redemarre" and dossier.sur_son_menu is False and dernier is not None:
+                # Une salle qui redémarre pour un changement de jeu a déjà écrit
+                # ce jeu et retiré le marqueur « sans jeu » avant de sortir
+                # (`remember_choice`, worker/main.rs): c'est lui qui revient.
+                # Sans le marqueur lisible, on ne sait pas: rien.
+                vu = _joue_retenu(dernier, catalogue)
             salles.append(
                 Salle(
                     numero=numero,
@@ -239,8 +254,11 @@ class SallesController:
                     redemarre=etat == "redemarre",
                     chemin=chemin(numero),
                     jeu=vu.nom if vu else None,
+                    cle=vu.cle if vu else None,
+                    console=vu.console if vu else None,
                     switch=vu.switch if vu else False,
-                    repond=vu.repond if vu else None,
+                    repond=vu.repond if vu and etat == "ouverte" else None,
+                    dernier_jeu=dernier,
                     fermee_depuis=fermee_depuis,
                     fermee_pour=fermee_pour,
                     # Une salle fermée n'a personne: le demander pour elle
@@ -249,7 +267,7 @@ class SallesController:
                     # Une salle fermée ne tourne DEPUIS rien et n'a pas de
                     # places: l'interroger ferait attendre la liste entière pour
                     # la salle la plus morte.
-                    ouverte_depuis=self._ouverte_depuis(numero, systeme)
+                    ouverte_depuis=self._ouverte_depuis(dossier.ouverture, systeme)
                     if etat != "fermee"
                     else None,
                     jeu_depuis=self._age(systeme.get("ActiveEnterTimestampMonotonic"))
@@ -290,15 +308,35 @@ class SallesController:
         if not 0 <= courant < len(jeux) or not isinstance(jeux[courant], dict):
             return Joue(repond=True)
         joue = jeux[courant]
-        nom = joue.get("name")
+        nom, cle, console = joue.get("name"), joue.get("key"), joue.get("console")
         return Joue(
             repond=True,
             nom=nom if isinstance(nom, str) else None,
+            cle=cle if isinstance(cle, str) and valid_key(cle) else None,
+            console=_console_connue(console),
             # « Joue à la Switch » veut dire « tient la place Switch de la
             # machine »: le groupe de verrou du manifeste, et non la liste de
             # ses consoles.
-            switch=CONSOLES.lock(str(joue.get("console"))) == "switch",
+            switch=CONSOLES.lock(str(console)) == "switch",
         )
+
+    def _lire_dossiers(self) -> tuple[dict[int, "Dossier"], Catalogue | None]:
+        """Ce que le salon lit dans le dossier de chaque salle, et la bibliothèque.
+
+        Appelée sur un fil. La bibliothèque n'est lue que si une salle a retenu
+        un jeu: c'est elle qui donne son titre.
+        """
+        racine = self._settings.salles_dir
+        dossiers = {
+            numero: Dossier(
+                retenu=session_salle.jeu_retenu(racine, numero),
+                sur_son_menu=session_salle.sur_son_menu(racine, numero),
+                ouverture=session_salle.lire_ouverture(racine, numero),
+            )
+            for numero in SALLES
+        }
+        catalogue = freshest(racine) if any(d.retenu for d in dossiers.values()) else None
+        return dossiers, catalogue
 
     async def _systemd(self, numero: int) -> dict[str, str]:
         """Ce que systemd dit de cette salle, par nom de propriété.
@@ -371,7 +409,7 @@ class SallesController:
             return depuis, "arret"
         return depuis, "panne" if resultat else None
 
-    def _ouverte_depuis(self, numero: int, systeme: dict[str, str]) -> int | None:
+    def _ouverte_depuis(self, repere: Ouverture | None, systeme: dict[str, str]) -> int | None:
         """Depuis quand le SALON a ouvert cette salle, ou rien.
 
         Le repère `ouverte-le` est posé par `ouvrir`, après que systemd a pris
@@ -391,7 +429,6 @@ class SallesController:
         """
         if not systeme:
             return None
-        repere = session_salle.lire_ouverture(self._settings.salles_dir, numero)
         if repere is None or repere.demarrage != self._demarrage():
             return None
         try:
@@ -519,9 +556,56 @@ def _etat_du_mot(mot: str) -> EtatUnite:
 
 @dataclass(frozen=True)
 class Joue:
-    """Ce qu'une salle allumée a répondu à `GET /roms`."""
+    """Ce qu'une salle allumée a répondu à `GET /roms`, ou le jeu qui revient."""
 
     #: Faux quand la salle n'a rien répondu d'exploitable.
     repond: bool
     nom: str | None = None
+    cle: str | None = None
+    console: str | None = None
     switch: bool = False
+
+
+@dataclass(frozen=True)
+class Dossier:
+    """Ce que le salon a lu dans le dossier de session d'une salle."""
+
+    retenu: session_salle.JeuRetenu | None
+    sur_son_menu: bool | None
+    ouverture: Ouverture | None
+
+
+def _console_connue(code: object) -> str | None:
+    """Le code d'une console du manifeste, ou rien pour « ? » et l'inconnu."""
+    return code if isinstance(code, str) and CONSOLES.console(code) is not None else None
+
+
+def _dernier_jeu(
+    retenu: session_salle.JeuRetenu | None, catalogue: Catalogue | None
+) -> DernierJeu | None:
+    """Le jeu retenu, avec son titre, s'il est encore dans la bibliothèque.
+
+    Rien quand la clé n'y est plus: un titre inventé à partir du nom de fichier
+    dirait un jeu que la salle ne peut plus lancer.
+    """
+    if retenu is None or catalogue is None:
+        return None
+    jeu = next((one for one in catalogue.games if one.key == retenu.cle), None)
+    if jeu is None:
+        return None
+    return DernierJeu(
+        cle=jeu.key, titre=jeu.name, quand=datetime.fromtimestamp(retenu.choisi, tz=UTC)
+    )
+
+
+def _joue_retenu(dernier: DernierJeu, catalogue: Catalogue | None) -> Joue:
+    """Le jeu qui revient après une relance, tel que la bibliothèque le décrit."""
+    jeux = catalogue.games if catalogue else []
+    console = next((one.console for one in jeux if one.key == dernier.cle), None)
+    return Joue(
+        repond=False,
+        nom=dernier.titre,
+        cle=dernier.cle,
+        console=_console_connue(console),
+        switch=console is not None and CONSOLES.lock(console) == "switch",
+    )

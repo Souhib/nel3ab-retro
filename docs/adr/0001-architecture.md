@@ -1699,6 +1699,18 @@ Decision:
   other result) come from the same `systemctl show`, only for the words
   `inactive` and `failed`: a `deactivating` unit still carries the inactive
   timestamp of its last game change. Who closed the room is not published.
+- **The last game comes from the room's own folder.** `Salle.dernier_jeu` and
+  `Room.dernier_jeu` (`{cle, titre, quand}`) read `salles_dir/N/chosen-rom`,
+  which the worker writes before it exits for a new game and which survives a
+  closed room. `quand` is when the game was chosen (the file's mtime), not when
+  play ended. The title comes from the freshest catalogue for the list and from
+  the worker's library for the room; a key that is no longer there gives
+  nothing rather than a title made from a file name. `chosen-person`, an
+  address, is never read. During a restart, `Salle.jeu` is that game when the
+  `game-closed` marker is absent (the worker removes it before exiting); a link
+  at that name means « unknown » and gives no game. `Salle.console` and
+  `Salle.cle` describe the running game (K19); « ? » is not published as a
+  console.
 
 
 ## Consequences

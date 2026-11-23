@@ -246,3 +246,48 @@
 .n3-carte-bouton.rt-bouton-plein {
   color: var(--bouton-plein-encre);
 }
+
+/* ── Inviter quelqu'un ─────────────────────────────────────────────── */
+.n3-invitation-choix {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-corps);
+}
+.n3-invitation-choix:has(input:disabled) {
+  color: var(--legende);
+}
+.n3-invitation-start {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  font-size: var(--text-note);
+}
+/* Le lien entier, qui passe à la ligne, et se sélectionne d'un geste. */
+.n3-invitation-lien {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  font-family: var(--police-machine);
+  font-size: var(--text-note);
+  color: var(--encre);
+}
+/* Le cadre du code : sa taille est fixée avant le dessin, pour que le code
+   qui arrive ne pousse rien. Noir sur blanc dans les deux thèmes. */
+.n3-qr-cadre {
+  display: grid;
+  width: 148px;
+  height: 148px;
+  place-items: center;
+}
+.n3-qr {
+  width: 100%;
+  height: 100%;
+}
+.n3-qr-fond {
+  fill: var(--blanc);
+}
+.n3-qr-modules {
+  fill: var(--noir);
+}

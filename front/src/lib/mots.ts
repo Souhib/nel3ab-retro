@@ -560,4 +560,28 @@ export const DEMANDE = {
   redemander: "Redemander une place",
 } as const;
 
+/** Inviter quelqu'un (`components/Inviter`) : un panneau déplié dans la
+ * colonne, le lien pour jouer ou pour regarder, son code, et la condition du
+ * réseau privé, toujours dite. Une seule région parle : la ligne de la salle. */
+export const INVITER = {
+  bouton: "Inviter quelqu'un",
+  legende: "Le lien ouvre la salle",
+  pourJouer: "pour jouer",
+  pourRegarder: "pour regarder",
+  attend: (n: number) => `La place ${n} attend ton invité.`,
+  pleine: "Aucune place libre : ton invité pourra regarder.",
+  lien: "Le lien",
+  copier: "Copier le lien",
+  copierCourt: "Copier",
+  envoyer: "Envoyer le lien",
+  replier: "Replier l'invitation",
+  copie: "Lien copié.",
+  envoye: "Lien envoyé.",
+  nonCopie: "Le lien n'a pas pu être copié. Il est sélectionné.",
+  aLaMain: "Ton navigateur n'a pas pu copier : le lien est sélectionné, copie-le à la main.",
+  reseau: "Le lien ne marche que pour qui est déjà sur le réseau privé de nel3ab.",
+  code: (pour: string) => `Code QR du lien ${pour}`,
+  tropLong: "Ce lien est trop long pour un code : copie-le.",
+} as const;
+
 // ==== fin personnes ====

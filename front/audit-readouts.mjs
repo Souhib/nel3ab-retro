@@ -59,8 +59,15 @@ const components = readdirSync(join(root, "src/components"))
   .filter((name) => name.endsWith(".tsx"))
   .map((name) => readFileSync(join(root, "src/components", name), "utf8"))
   .join("\n");
+// Le panneau « Touches et manettes » vit hors de components/ : il dit la fin
+// du pas à pas et la suspension (`lessonResult`, `suspendu`).
+const manettes = readdirSync(join(root, "src/manettes"), { recursive: true })
+  .map(String)
+  .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
+  .map((name) => readFileSync(join(root, "src/manettes", name), "utf8"))
+  .join("\n");
 const page = readFileSync(join(root, "src/App.tsx"), "utf8");
-const shown = components + page;
+const shown = components + manettes + page;
 
 let missing = 0;
 for (const [file, name] of SNAPSHOTS) {

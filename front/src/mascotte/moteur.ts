@@ -62,7 +62,8 @@ export type Ancre = {
   bas: number;
 };
 export type NomZone = "image" | "ligne" | "controle" | "texte";
-export type Zone = { nom: NomZone; b: Boite };
+/** Une zone interdite ; `qui` nomme l'élément, pour dire un refus. */
+export type Zone = { nom: NomZone; b: Boite; qui?: string };
 export type Sol = { nom: string; x0: number; x1: number; y: number };
 
 /** Ce qu'une scène sait de la page. */
@@ -103,6 +104,11 @@ const enAncre = (r: { left: number; top: number; width: number; height: number }
 /** Le rectangle d'un élément visible, ou `null` : caché, sans boîte. */
 function rectVisible(el: Element): Ancre | null {
   if (el.closest("[hidden]")) return null;
+  // Le contenu d'un <details> fermé garde sa boîte dans Chrome (il est
+  // caché par content-visibility) : il ne se voit pas, il ne gêne pas.
+  // Sans cette garde, le micro replié sous « Autres réglages » interdisait
+  // toute scène au logo du coin (cadre-navigateur, 23 novembre 2026).
+  if (el.closest("details:not([open])") && !el.closest("summary")) return null;
   const r = el.getBoundingClientRect();
   if (r.width === 0 && r.height === 0) return null;
   if (getComputedStyle(el).visibility === "hidden") return null;
@@ -165,7 +171,12 @@ export function lireDecor(
         if (el.closest("[data-zone-jeu], [data-ancre], [data-sol], [data-hote]")) continue;
         const r = rectVisible(el);
         const nom = el.getAttribute("data-interdit") === "ligne" ? "ligne" : "controle";
-        if (r) res.push({ nom, b: elargir(r, MARGE / 2) });
+        if (r)
+          res.push({
+            nom,
+            b: elargir(r, MARGE / 2),
+            qui: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
+          });
       }
       for (const el of tous("[data-texte]")) {
         const r = rectVisible(el);
@@ -661,7 +672,7 @@ export function objetA(P: Plan, p: PisteObjet, t: number): Point | null {
 /* ── Le planificateur ─────────────────────────────────────────────────── */
 
 type Essai = { d: Decor; joueur: Joueur; dehorsA: (t: number) => boolean };
-export type Contact = { t: number; zone: NomZone; qui: string };
+export type Contact = { t: number; zone: NomZone; qui: string; ou?: string };
 
 /** Le premier contact d'une piste d'Aïn (lui ou sa bulle) avec une zone. */
 export function pisteTouche(P: Essai, p: PisteAin, Z: Zone[]): Contact | null {
@@ -673,7 +684,8 @@ export function pisteTouche(P: Essai, p: PisteAin, Z: Zone[]): Contact | null {
     for (const pz of p.poses) {
       const pose = { forme: p.forme, ...p.base, ...pz };
       const A = boiteAin(P.d, pose, P.joueur, pos);
-      for (const z of Z) if (touche(A.b, z.b)) return { t: Math.round(t), zone: z.nom, qui: "Aïn" };
+      for (const z of Z)
+        if (touche(A.b, z.b)) return { t: Math.round(t), zone: z.nom, qui: "Aïn", ou: z.qui };
       if (pose.fx?.length) {
         const B = bulleDe(pose.fx, P.joueur);
         const bb = serreA(B.serre, placeBulle(P.d, A.serre, pos, B.g), P.d.c);
@@ -692,7 +704,8 @@ function objetTouche(P: Plan, p: PisteObjet, Z: Zone[]): Contact | null {
     const xy = objetA(P, p, t);
     if (!xy) continue;
     const b = serreA(serre, xy, P.d.c);
-    for (const z of Z) if (touche(b, z.b)) return { t: Math.round(t), zone: z.nom, qui: p.qui };
+    for (const z of Z)
+      if (touche(b, z.b)) return { t: Math.round(t), zone: z.nom, qui: p.qui, ou: z.qui };
   }
   return null;
 }
@@ -725,7 +738,8 @@ export function verifier(P: Plan, Z: Zone[] = P.d.zones()): boolean {
       ? essayer(p, () => pisteTouche(P, p, Z))
       : essayer(p, () => objetTouche(P, p, Z));
     if (r) {
-      P.refus = `${estAin(p) ? r.qui : `l'objet ${r.qui}`} toucherait ${NOMS[r.zone]} à ${r.t} ms`;
+      const ou = r.ou ? ` (${r.ou})` : "";
+      P.refus = `${estAin(p) ? r.qui : `l'objet ${r.qui}`} toucherait ${NOMS[r.zone]}${ou} à ${r.t} ms`;
       return false;
     }
   }

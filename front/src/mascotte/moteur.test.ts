@@ -258,4 +258,86 @@ describe("le décor lu dans la page", () => {
     expect(d.ancre("start-1")?.cx).toBe(115);
     expect(d.ancre("absente")).toBeNull();
   });
+
+  it("le bouton qui porte sa maison reste un obstacle : Aïn n'en sort pas par-dessus ses mots", () => {
+    document.body.innerHTML = `
+      <div data-cadre data-sans-image="oui">
+        <button id="salle"><span data-hote="barre"><canvas id="tete"></canvas></span>La salle</button>
+        <button id="autre">Son</button>
+      </div>`;
+    rects.set(document.getElementById("salle") as Element, ancre(0, 0, 120, 44));
+    rects.set(document.getElementById("tete") as Element, ancre(4, 10, 30, 20));
+    rects.set(document.getElementById("autre") as Element, ancre(130, 0, 60, 44));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const a = rects.get(this) ?? ancre(0, 0, 0, 0);
+        return {
+          left: a.x,
+          top: a.y,
+          width: a.w,
+          height: a.h,
+          right: a.droite,
+          bottom: a.bas,
+          x: a.x,
+          y: a.y,
+          toJSON: () => a,
+        } as DOMRect;
+      },
+    );
+    const d = lireDecor(
+      document.querySelector("[data-cadre]") as Element,
+      document.getElementById("tete") as Element,
+      { tete: true },
+    );
+    // « La salle » porte sa tête, mais ses mots ne doivent pas être
+    // couverts : la scène s'y joue en pose, sans sprite (cadre-navigateur,
+    // 844×390, 23 novembre 2026).
+    expect(
+      d
+        .zones()
+        .map((z) => z.qui)
+        .sort(),
+    ).toEqual(["#autre", "#salle"]);
+  });
+
+  it("le contenu d'un <details> fermé ne gêne pas ; ouvert, il gêne", () => {
+    document.body.innerHTML = `
+      <div data-cadre data-sans-image="oui">
+        <details id="autres"><summary id="titre">Autres</summary><button id="mic">Micro</button></details>
+        <div data-hote="coin"><canvas id="logo"></canvas></div>
+      </div>`;
+    rects.set(document.getElementById("titre") as Element, ancre(0, 0, 100, 30));
+    rects.set(document.getElementById("mic") as Element, ancre(0, 40, 100, 30));
+    rects.set(document.getElementById("logo") as Element, ancre(0, 100, 228, 62));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const a = rects.get(this) ?? ancre(0, 0, 0, 0);
+        return {
+          left: a.x,
+          top: a.y,
+          width: a.w,
+          height: a.h,
+          right: a.droite,
+          bottom: a.bas,
+          x: a.x,
+          y: a.y,
+          toJSON: () => a,
+        } as DOMRect;
+      },
+    );
+    const racine = document.querySelector("[data-cadre]") as Element;
+    const logo = document.getElementById("logo") as Element;
+    expect(
+      lireDecor(racine, logo)
+        .zones()
+        .map((z) => z.qui),
+    ).toEqual(["#titre"]);
+    (document.getElementById("autres") as HTMLDetailsElement).open = true;
+    expect(
+      lireDecor(racine, logo)
+        .zones()
+        .map((z) => z.qui)
+        .sort(),
+    ).toEqual(["#mic", "#titre"]);
+  });
 });

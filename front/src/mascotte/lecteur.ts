@@ -24,6 +24,7 @@
  * - « couper » : la première image du jeu ; Aïn est rentré, aucun objet.
  */
 import {
+  boiteSerree,
   dessinerLogo,
   dessinerTete,
   lirePalette,
@@ -50,6 +51,8 @@ import {
   Plan,
   poseA,
   solSous,
+  touche,
+  type Boite,
   type Contexte,
   type Decor,
   type Dehors,
@@ -126,6 +129,10 @@ class Acteur {
     }
     this.cv.style.width = `${g[0].length * c}px`;
     this.cv.style.height = `${g.length * c}px`;
+    // La boîte serrée, en pixels de la page depuis le coin de la toile : ce
+    // que le planificateur a vérifié, et ce que les pilotes relèvent.
+    const s = boiteSerree(g);
+    this.cv.dataset.serre = s ? s.map((v) => v * c).join(" ") : "";
     const ctx = this.cv.getContext("2d");
     ctx?.clearRect(0, 0, b.width, b.height);
     ctx?.drawImage(b, 0, 0);
@@ -212,10 +219,23 @@ export class Theatre {
     }
     if (this.present && !this.courante && this.air.fx?.length) {
       const B = bulleDe(this.air.fx, this.air.joueur ?? "1");
-      this.bulle.dessin(B.g, B.cle, this.d.c, this.k, this.mesure);
       const [x, y] = placeBulleMaison(this.d, B.g);
-      this.bulle.placer(x, y, this.k);
-      this.bulle.montrer(true);
+      const c = this.d.c;
+      const b: Boite = [
+        x + B.serre[0] * c,
+        y + B.serre[1] * c,
+        x + B.serre[2] * c,
+        y + B.serre[3] * c,
+      ];
+      // Une bulle chez lui ne couvre pas plus qu'une scène : si sa place
+      // touche une zone (les mots de « La salle » qui porte sa tête), il
+      // garde son air sans bulle.
+      if (this.d.zones().some((z) => touche(b, z.b))) this.bulle.montrer(false);
+      else {
+        this.bulle.dessin(B.g, B.cle, c, this.k, this.mesure);
+        this.bulle.placer(x, y, this.k);
+        this.bulle.montrer(true);
+      }
     } else if (this.present && !this.courante) this.bulle.montrer(false);
   }
 
@@ -321,6 +341,8 @@ export class Theatre {
     plan.evts.sort((a, b) => a.t - b.t);
     this.mesure = { images: 0, ms: 0, max: 0, peints: 0, cede: 0 };
     this.courante = { plan, t0: performance.now(), fait: 0, retards: 0, dernier: 0, fin };
+    // La scène qui joue, lisible par les pilotes, retirée à la fin.
+    this.maison.dataset.scene = plan.id;
     this.dehors = null;
     this.appliquer(plan, 0);
     this.raf = requestAnimationFrame((n) => this.tick(n));
@@ -356,6 +378,7 @@ export class Theatre {
     this.raf = 0;
     const plan = c.plan;
     const t = performance.now() - c.t0;
+    delete this.maison.dataset.scene;
     if (mode === "interrompre" && t < plan.duree) {
       while (c.fait < plan.evts.length) plan.evts[c.fait++].fn();
       plan.finFn?.();

@@ -88,6 +88,8 @@ describe("rien ne tourne entre deux scènes", () => {
     let finie = 0;
     th.lancer(P, () => finie++);
     expect(h.enAttente).toBe(1);
+    // La scène se lit sur la maison tant qu'elle joue.
+    expect(logo.dataset.scene).toBe("essai");
     const images = h.vider();
     expect(finie).toBe(1);
     expect(images).toBeGreaterThan(P.duree / 20);
@@ -96,6 +98,10 @@ describe("rien ne tourne entre deux scènes", () => {
     expect(th.raf).toBe(0);
     expect(sprites()).toHaveLength(0);
     expect(th.present).toBe(true);
+    expect(logo.dataset.scene).toBeUndefined();
+    // Chaque sprite dit sa boîte serrée, en pixels de la page.
+    const ain = document.querySelector<HTMLCanvasElement>('[data-acteur="ain"]');
+    expect(ain?.dataset.serre?.split(" ").map(Number)).toHaveLength(4);
   });
 
   it("une pose clé ne demande aucune image, et finit par un minuteur", () => {
@@ -115,6 +121,28 @@ describe("rien ne tourne entre deux scènes", () => {
     vi.advanceTimersByTime(2000);
     expect(finie).toBe(1);
     expect(th.air.oeil).toBeUndefined();
+    expect(sprites()).toHaveLength(0);
+    vi.useRealTimers();
+  });
+});
+
+describe("la bulle chez lui", () => {
+  it("ne se pose pas sur une zone : il garde son air sans bulle", () => {
+    vi.useFakeTimers();
+    horloge();
+    // Une zone couvre tout ce qui est au-dessus du logo (les mots d'un
+    // bouton qui porterait sa tête).
+    const couvert = (): Decor => ({
+      ...decor(),
+      zones: () => [{ nom: "controle", b: [0, 0, 800, 449] }],
+    });
+    const th = new Theatre(logo, "logo", couvert);
+    th.poseCle(
+      { pose: { oeil: "heureux", fx: [{ t: "etoile", c: "Y" }] }, tient: 2000 },
+      "2",
+      () => {},
+    );
+    expect(th.air.oeil).toBe("heureux");
     expect(sprites()).toHaveLength(0);
     vi.useRealTimers();
   });

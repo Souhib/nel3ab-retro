@@ -392,32 +392,31 @@
 
 /* chantier manettes: couleurs d'objet ────────────────────────────────────
    Les manettes dessinées sont des OBJETS: elles gardent leurs couleurs dans
-   les deux thèmes, comme la mire. Ces primitives ont été recopiées telles
-   quelles le 23 novembre 2026, à la demande du plan des manettes (K28), des
-   matières de `src/index.css` (`[data-padmap…]`) et des teintes `TINTS` de
-   `src/lib/padmap.ts`. Les valeurs à transparence (reflet, ombre intérieure,
-   couture translucide) n'y sont pas: le plan dessine des aplats sans lumière.
-   Rien ne les lit encore. Le chantier manettes y branche ses dessins, et
-   cette section est la sienne (partition du 23 novembre): il y garde, change
-   ou retire ce que son dessin emploie. Aucun rôle ni composant ne pointe ici
-   (`regie.test.ts`). */
+   les deux thèmes, comme la mire. Ces primitives ont été recopiées le
+   23 novembre 2026 des matières de `src/index.css` (`[data-padmap…]`) et des
+   teintes `TINTS` de `src/lib/padmap.ts` (K28), puis le chantier manettes les
+   a passées en aplats le même jour: la coque n'a plus qu'une couleur, le
+   milieu exact de son ancien dégradé (haut et bas), et les deux anneaux
+   d'appui sont un blanc et un noir d'objet. `components/padmap.css` les lit;
+   aucun rôle ni composant de la page n'y pointe (`regie.test.ts`). Les
+   contrastes d'appui sont vérifiés par `lib/manettes-couleurs.test.ts`. */
 :root {
-  /* La base de toutes les manettes (`[data-padmap]`), appui compris. */
-  --manette-commune-coque-haut: #4b5161;
-  --manette-commune-coque-bas: #1c2028;
+  /* La base de toutes les manettes (`[data-padmap]`). */
+  --manette-commune-coque: #333844;
   --manette-commune-plaque: #15181e;
   --manette-commune-logement: #0b0d11;
   --manette-commune-touche: #2a2e37;
   --manette-commune-encre: #eef0f5;
-  --manette-commune-decor: #2a2e37;
+  --manette-commune-couture: #0b0d11;
   --manette-commune-voyant: #8f98aa;
   --manette-commune-fil: #d4d6de;
+  /* L'appui sans place (spectateur, planche), jamais une couleur de joueur. */
   --manette-commune-appui: #7c6ce0;
-  --manette-commune-appui-anneau: #e8e8ee;
-  --manette-commune-appui-encre: #08080a;
+  /* Les anneaux d'appui: de l'autre clarté que la coque. */
+  --manette-anneau-clair: #e8e8ee;
+  --manette-anneau-sombre: #08080a;
   /* La Wiimote, seule ou avec son Nunchuk. */
-  --manette-wiimote-coque-haut: #fdfdfe;
-  --manette-wiimote-coque-bas: #c8cdd7;
+  --manette-wiimote-coque: #e2e5ea;
   --manette-wiimote-logement: #a3a9b6;
   --manette-wiimote-touche: #f3f4f7;
   --manette-wiimote-encre: #545b6a;
@@ -425,22 +424,19 @@
   --manette-wiimote-voyant: #aab1bf;
   --manette-wiimote-fil: #e9ebf0;
   /* La guitare. */
-  --manette-guitare-coque-haut: #fbfbfc;
-  --manette-guitare-coque-bas: #c3c8d2;
+  --manette-guitare-coque: #dfe1e7;
   --manette-guitare-plaque: #1b1c21;
   --manette-guitare-logement: #121317;
   --manette-guitare-touche: #2a2c33;
   --manette-guitare-encre: #eef0f5;
   --manette-guitare-couture: #6b7080;
   /* Les manettes Xbox et Xbox 360. */
-  --manette-xbox-coque-haut: #41444c;
-  --manette-xbox-coque-bas: #16181c;
+  --manette-xbox-coque: #2b2e34;
   --manette-xbox-logement: #07080a;
   --manette-xbox-touche: #24262c;
   --manette-xbox-encre: #c9ccd4;
   /* La DualShock. */
-  --manette-dualshock-coque-haut: #fdfdfe;
-  --manette-dualshock-coque-bas: #c7ccd6;
+  --manette-dualshock-coque: #e2e4ea;
   --manette-dualshock-plaque: #17181d;
   --manette-dualshock-logement: #0c0d10;
   --manette-dualshock-touche: #34363e;
@@ -448,26 +444,22 @@
   --manette-dualshock-couture: #8c93a3;
   --manette-dualshock-voyant: #6f7fff;
   /* La manette Pro de la Switch. */
-  --manette-switch-pro-coque-haut: #3f434b;
-  --manette-switch-pro-coque-bas: #15171b;
+  --manette-switch-pro-coque: #2a2d33;
   --manette-switch-pro-plaque: #1b1d22;
   --manette-switch-pro-logement: #08090b;
   --manette-switch-pro-touche: #1f2126;
   --manette-switch-pro-encre: #c9cdd6;
   /* La manette standard du navigateur. */
-  --manette-standard-coque-haut: #7b818d;
-  --manette-standard-coque-bas: #3c414b;
+  --manette-standard-coque: #5b616c;
   --manette-standard-logement: #15171c;
   --manette-standard-touche: #2c2f36;
   --manette-standard-encre: #e9ebf0;
-  /* La manette GameCube, et son appui à elle. */
-  --manette-gamecube-coque-haut: #6d64d2;
-  --manette-gamecube-coque-bas: #2b247c;
+  /* La manette GameCube, et son appui sans place: un vert d'objet. */
+  --manette-gamecube-coque: #4c44a7;
   --manette-gamecube-logement: #1b1550;
   --manette-gamecube-touche: #cfcdd9;
   --manette-gamecube-encre: #2a2840;
   --manette-gamecube-appui: #c8ff4d;
-  --manette-gamecube-appui-anneau: #14200a;
   --manette-gamecube-appui-encre: #1a2600;
   /* Les teintes de touches qui reviennent d'une manette à l'autre (`TINTS`). */
   --manette-teinte-vert: #2f9e5e;

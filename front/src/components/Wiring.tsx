@@ -27,6 +27,11 @@ export function Wiring({
   const physical = physicalMap(identity);
   const pieceFor = (key: string) => (key === "y" ? "x" : key === "cy" ? "cx" : key);
   const waiting = state.lesson?.control ?? state.capturing?.control;
+  // La place de la page colore l'appui ; un spectateur n'en a pas.
+  const place =
+    state.port === 1 || state.port === 2 || state.port === 3 || state.port === 4
+      ? state.port
+      : null;
   useEffect(() => {
     let frame = 0;
     const paint = () => {
@@ -69,6 +74,7 @@ export function Wiring({
           map={emulated}
           title="Ce que le jeu reçoit"
           note={emulated.name}
+          place={place}
           selected={pieceFor(selected)}
           waiting={waiting ? pieceFor(waiting) : null}
           labels={Object.fromEntries(controlsFor("wii", pad).map((one) => [one.key, one.label]))}
@@ -79,6 +85,7 @@ export function Wiring({
           title="Ta manette"
           note={identity?.name ?? "En attente de connexion"}
           rawLabels={!identity?.standard}
+          place={place}
         />
       </div>
       <p className="text-corps leading-relaxed text-muted">

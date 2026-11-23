@@ -112,3 +112,61 @@ it("montre aussi le troisième port du même adaptateur, sans lire un autre mod�
     vi.unstubAllGlobals();
   }
 });
+
+it("dessine en aplats nets : ni dégradé, ni filtre, ni reflet, ni ombre", () => {
+  const { container } = render(
+    <>
+      {[GAMECUBE, DUALSHOCK, XBOX, STANDARD_PAD, SWITCH_PRO_PAD].map((map) => (
+        <PadMapView key={map.id} map={map} title={map.name} />
+      ))}
+    </>,
+  );
+  // La précondition : cinq dessins sont bien rendus.
+  expect(container.querySelectorAll("[data-padmap]")).toHaveLength(5);
+  for (const volume of [
+    "linearGradient",
+    "radialGradient",
+    "filter",
+    "pattern",
+    "[filter]",
+    ".n3-sheen",
+    ".n3-rim",
+    ".n3-gloss",
+    ".n3-inner",
+    ".n3-dish",
+    ".n3-stick-shadow",
+  ]) {
+    expect(container.querySelector(volume), volume).toBeNull();
+  }
+  // Le jumeau : la coque et ses touches sont toujours là.
+  expect(container.querySelectorAll(".n3-shell")).toHaveLength(5);
+  expect(container.querySelector('[data-part="A"] .n3-cap')).not.toBeNull();
+});
+
+it("pose la place de la page sur le dessin, et rien sans place", () => {
+  const { container } = render(
+    <>
+      <PadMapView map={XBOX} title="Ta manette" place={2} />
+      <PadMapView map={GAMECUBE} title="Jeu" />
+    </>,
+  );
+  const [main, jeu] = container.querySelectorAll("[data-padmap]");
+  expect(main).toHaveAttribute("data-place", "2");
+  expect(jeu).not.toHaveAttribute("data-place");
+});
+
+it("Wiring passe la place de la page aux deux dessins", () => {
+  const stream = new InputStream(
+    () => "",
+    () => {},
+  );
+  const state = { ...stream.state(), port: 3 };
+  const { container } = render(<Wiring state={state} pad={0} selected="A" onSelect={() => {}} />);
+  const dessins = container.querySelectorAll("[data-padmap]");
+  expect(dessins).toHaveLength(2);
+  for (const dessin of dessins) expect(dessin).toHaveAttribute("data-place", "3");
+  const spectateur = render(
+    <Wiring state={{ ...state, port: null }} pad={0} selected="A" onSelect={() => {}} />,
+  ).container;
+  expect(spectateur.querySelector("[data-place]")).toBeNull();
+});

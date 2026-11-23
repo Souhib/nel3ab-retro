@@ -1,22 +1,21 @@
 /** Le dessin est posé par React; paintWiring anime ses pièces sans le rendre.
  *
- * # Une manette en volume, avec six effets et pas une image
+ * # Une manette en aplats nets
  *
- * La coque a un dégradé de haut en bas, un reflet vers le haut à gauche, ses
- * bords assombris (un trait flou découpé par la coque elle-même) et un liseré
- * clair en haut, sombre en bas. Chaque touche est posée dans son logement (le
- * même contour élargi, en sombre), a sa vraie couleur et reçoit un reflet
- * bombé. Un stick a sa cuvette, sa garde, et des anneaux ou un creux selon la
- * manette. Tout vient du plan (`lib/padmap.ts`) : ce composant ne connaît
- * aucune manette.
+ * Depuis le 23 novembre 2026 (thème rétro, chantier manettes), une matière est
+ * un aplat et la coque a un contour net : plus de dégradé, de reflet, de
+ * liseré, d'ombre ni de filtre. Chaque touche reste posée dans son logement,
+ * avec sa vraie couleur ; un stick garde sa garde et ses anneaux ou son
+ * creux. Tout vient du plan (`lib/padmap.ts`) : ce composant ne connaît
+ * aucune manette. Les couleurs sont dans `padmap.css` et `regie.css`.
  *
- * Une seule lumière, en haut à gauche, pour toutes les manettes : deux dessins
- * côte à côte éclairés de deux côtés différents se liraient comme deux images
- * collées, pas comme deux objets sur la même table.
+ * `place` pose `data-place` : une touche appuyée prend la couleur de la place
+ * de la page, jamais celle d'un autre joueur.
  */
 import { useId, type CSSProperties, type ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { octagon, type Layer, type PadMap, type Part } from "../lib/padmap";
+import "./padmap.css";
 
 /** Le contour d'une pièce : son tracé exact, ou un disque, ou une pastille. */
 function Outline({ part, className, fill }: { part: Part; className: string; fill?: string }) {
@@ -59,6 +58,7 @@ export function PadMapView({
   labels,
   className,
   rawLabels = false,
+  place = null,
 }: {
   map: PadMap;
   title: string;
@@ -69,10 +69,12 @@ export function PadMapView({
   labels?: Record<string, string>;
   className?: string;
   rawLabels?: boolean;
+  /** La place de la page, de 1 à 4, ou rien (spectateur, planche). */
+  place?: 1 | 2 | 3 | 4 | null;
 }) {
-  const uid = useId().replaceAll(":", "");
-  const ref = (name: string) => `url(#${uid}-${name})`;
-
+  // Le décor de la coque est découpé par elle : une découpe n'est pas une
+  // lumière, et sans elle les grains de la manette Pro débordent du dessin.
+  const decoupe = `${useId().replaceAll(":", "")}-coque`;
   const piece = (part: Part): ReactNode => {
     const half = part.r * (part.wide ?? 1);
     const label = labels?.[part.key] ?? (part.label || part.key);
@@ -124,9 +126,6 @@ export function PadMapView({
           <Outline part={part} className="n3-well" />
         )}
         <g className="n3-stick-body" data-drive={part.stick ? String(part.r * 0.72) : undefined}>
-          {part.stick ? (
-            <circle cx={part.x} cy={part.y + 0.9} r={part.r} className="n3-stick-shadow" />
-          ) : null}
           <Outline part={part} className="n3-cap" />
           {part.grip === "anneaux" ? (
             <g className="n3-stick-grip">
@@ -144,16 +143,9 @@ export function PadMapView({
                 className="n3-stick-grip"
                 strokeDasharray="0.35 0.35"
               />
-              <circle
-                cx={part.x}
-                cy={part.y}
-                r={part.r * 0.64}
-                className="n3-dish"
-                fill={ref("dish")}
-              />
+              <circle cx={part.x} cy={part.y} r={part.r * 0.64} className="n3-stick-grip" />
             </>
           ) : null}
-          <Outline part={part} className="n3-gloss" fill={ref("gloss")} />
           {part.glyph ? (
             <g transform={`translate(${part.x} ${part.y})`}>
               <path d={part.glyph} className="n3-glyph" />
@@ -201,70 +193,20 @@ export function PadMapView({
         role={onSelect ? "group" : "img"}
         aria-label={title}
         data-padmap={map.id}
+        data-place={place ?? undefined}
         className="w-full"
-        style={
-          {
-            "--shell-fill": ref("shell"),
-            "--grain-fill": ref("grain"),
-          } as CSSProperties
-        }
       >
-        <defs>
-          <linearGradient id={`${uid}-shell`} x2="0" y2="1">
-            <stop stopColor="var(--pad-shell-top)" />
-            <stop offset="1" stopColor="var(--pad-shell-bottom)" />
-          </linearGradient>
-          <radialGradient id={`${uid}-sheen`} cx="0.32" cy="0.12" r="0.75">
-            <stop stopColor="#fff" stopOpacity="var(--pad-sheen)" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id={`${uid}-rim`} x2="0" y2="1">
-            <stop stopColor="#fff" stopOpacity="0.55" />
-            <stop offset="0.3" stopColor="#fff" stopOpacity="0" />
-            <stop offset="0.75" stopColor="#000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.5" />
-          </linearGradient>
-          <radialGradient id={`${uid}-gloss`} cx="0.36" cy="0.3" r="0.78">
-            <stop stopColor="#fff" stopOpacity="0.5" />
-            <stop offset="0.45" stopColor="#fff" stopOpacity="0" />
-            <stop offset="0.72" stopColor="#000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.38" />
-          </radialGradient>
-          <linearGradient id={`${uid}-dish`} x1="0.2" y1="0.1" x2="0.8" y2="0.9">
-            <stop stopColor="#000" stopOpacity="0.45" />
-            <stop offset="0.6" stopColor="#000" stopOpacity="0.05" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0.18" />
-          </linearGradient>
-          <pattern id={`${uid}-grain`} width="1.1" height="1.1" patternUnits="userSpaceOnUse">
-            <circle cx="0.55" cy="0.55" r="0.2" fill="#000" fillOpacity="0.28" />
-          </pattern>
-          <clipPath id={`${uid}-clip`}>
-            <path d={map.body} />
-          </clipPath>
-          <filter id={`${uid}-soft`} x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="1.4" />
-          </filter>
-          <filter id={`${uid}-drop`} x="-15%" y="-15%" width="130%" height="140%">
-            <feDropShadow
-              dx="0"
-              dy="1.6"
-              stdDeviation="1.3"
-              floodColor="#000"
-              floodOpacity="0.55"
-            />
-          </filter>
-        </defs>
-        <g filter={ref("drop")}>
+        <g>
           {map.wire ? <path d={map.wire} className="n3-wire" /> : null}
           <Layers layers={map.under} />
           {map.parts.filter((part) => part.under).map(piece)}
           <path d={map.body} className="n3-shell" />
-          <path d={map.body} className="n3-sheen" fill={ref("sheen")} />
-          <g clipPath={ref("clip")}>
+          <clipPath id={decoupe}>
+            <path d={map.body} />
+          </clipPath>
+          <g clipPath={`url(#${decoupe})`}>
             <Layers layers={map.art} />
-            <path d={map.body} className="n3-inner" filter={ref("soft")} />
           </g>
-          <path d={map.body} className="n3-rim" stroke={ref("rim")} />
           <Layers layers={map.deco} />
           {map.parts.filter((part) => !part.under).map(piece)}
         </g>

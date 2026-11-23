@@ -7,9 +7,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
-from nel3ab_control.parties import Fin
+from nel3ab_control.parties import Fin, JeuJoue
+from nel3ab_control.personnes import empreinte
 from nel3ab_control.settings import Settings
 from tests.conftest import LIBRARY
 
@@ -413,3 +415,102 @@ async def test_a_last_game_the_library_no_longer_has_is_not_named(settings: Sett
 
     assert deux.dernier_jeu is None
     assert trois.dernier_jeu is None, "la salle 3 n'a rien retenu"
+
+
+class WorkerQuiChange:
+    """Un worker de papier dont le jeu en cours change au fil de l'essai."""
+
+    def __init__(self) -> None:
+        self.courant: int | None = None
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "players": 4,
+                "current": self.courant,
+                "roms": [
+                    {"name": "Super Smash Bros Melee", "console": "gc", "key": "Melee.rvz"},
+                    {"name": "Mario Kart", "console": "gc", "key": "Kart.rvz"},
+                ],
+            },
+        )
+
+
+MELEE_JOUE = JeuJoue(cle="Melee.rvz", console="gc", titre="Super Smash Bros Melee")
+
+
+async def test_the_room_says_who_launched_the_running_game_and_on_which_save(
+    settings: Settings,
+) -> None:
+    """D08: une page qui arrive pendant la partie lit « Sami l'a lancé sur sa
+    sauvegarde. » Le repère de Sami, jamais son adresse ni son empreinte."""
+    people = PeopleController(settings.state_file)
+    worker = WorkerQuiChange()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        rooms = RoomController(settings, http, 1)
+        await rooms.library()
+        rooms.tablee.lance("sami@example.com", "Sami", MELEE_JOUE, 2)
+        worker.courant = 0
+
+        room = await rooms.describe(people)
+
+    assert room.lancement is not None
+    assert room.lancement.par.name == "Sami"
+    assert room.lancement.par.id == people.repere("sami@example.com")
+    assert room.lancement.sauvegarde == "lanceur"
+    texte = room.model_dump_json()
+    assert "sami@example.com" not in texte
+    assert empreinte("sami@example.com") not in texte
+    sienne = room.vue_par(people.repere("sami@example.com")).lancement
+    autre = room.vue_par(None).lancement
+    assert sienne is not None and autre is not None
+    assert (sienne.par.moi, autre.par.moi) == (True, False)
+
+
+async def test_a_lobby_that_restarted_does_not_invent_the_launch(settings: Settings) -> None:
+    """Le jumeau: un salon neuf n'a vu aucun lancement, la page dira « inconnue »."""
+    worker = WorkerQuiChange()
+    worker.courant = 0
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        room = await RoomController(settings, http, 1).describe()
+
+    assert room.game is not None
+    assert room.lancement is None
+
+
+async def test_a_game_that_came_back_without_the_lobby_has_no_launcher(
+    settings: Settings,
+) -> None:
+    """Melee lancé par Sami, puis Mario Kart, puis Melee revenu par le menu du
+    worker sans passer par le salon: ce n'est plus le lancement de Sami."""
+    worker = WorkerQuiChange()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        rooms = RoomController(settings, http, 1)
+        await rooms.library()
+        rooms.tablee.lance("sami@example.com", "Sami", MELEE_JOUE, 2)
+        worker.courant = 0
+        assert (await rooms.describe()).lancement is not None
+        worker.courant = 1
+        assert (await rooms.describe()).lancement is None, "Mario Kart n'a pas été lancé ici"
+        worker.courant = 0
+
+        room = await rooms.describe()
+
+    assert room.lancement is None
+
+
+async def test_relaunching_the_running_game_keeps_its_launcher(settings: Settings) -> None:
+    """Le jumeau: relancer le jeu qui tourne ne fait voir aucun changement."""
+    worker = WorkerQuiChange()
+    worker.courant = 0
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        rooms = RoomController(settings, http, 1)
+        await rooms.library()
+        rooms.tablee.lance(None, "Bo", MELEE_JOUE, 1)
+
+        room = await rooms.describe()
+
+    assert room.lancement is not None
+    assert (room.lancement.par.name, room.lancement.par.id) == ("Bo", None)
+    assert room.lancement.sauvegarde == "commune"

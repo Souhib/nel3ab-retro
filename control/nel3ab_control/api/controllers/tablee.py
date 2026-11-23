@@ -36,6 +36,11 @@ class Lancement:
     pseudo: str
     jeu: JeuJoue
     sauvegarde: Sauvegarde
+    #: L'adresse de qui a lancé, en mémoire seulement: jamais écrite au journal
+    #: ni publiée. Elle sert à calculer son repère pour la salle (`Room.lancement`).
+    login: str | None = None
+    #: Combien de changements de jeu la salle avait vus à ce lancement.
+    vus: int = 0
 
     def ligne(self) -> dict[str, str | None]:
         return {"empreinte": self.par, "pseudo": self.pseudo}
@@ -77,6 +82,9 @@ class Tablee:
         #: Compte les ordres de changement de jeu (lancer, fermer). Une place
         #: perdue après un tel ordre a perdu son jeu, pas sa prise.
         self._generation = 0
+        #: Compte les changements de jeu VUS dans la bibliothèque, quel que soit
+        #: le chemin qui les a faits. Voir `lancement_courant`.
+        self._changements = 0
 
     @property
     def parties(self) -> Parties:
@@ -143,6 +151,7 @@ class Tablee:
         if self._jeu_connu and courant == self._jeu:
             return
         self._jeu, self._jeu_connu = courant, True
+        self._changements += 1
         for session, ouverte in list(self._ouvertes.items()):
             if ouverte.jeu == courant:
                 continue
@@ -164,6 +173,8 @@ class Tablee:
             pseudo=pseudo,
             jeu=jeu,
             sauvegarde=sauvegarde,
+            login=login,
+            vus=self._changements,
         )
         if login is not None:
             self._parties.ecrire(
@@ -174,6 +185,23 @@ class Tablee:
                 emplacement=EMPLACEMENTS[emplacement] if emplacement is not None else None,
                 sauvegarde=sauvegarde.value,
             )
+
+    def lancement_courant(self) -> Lancement | None:
+        """Qui a lancé le jeu qui tourne, et dans quelle sauvegarde, ou rien.
+
+        Rien quand aucun jeu ne tourne, quand le salon n'a vu aucun lancement de
+        ce jeu (il tournait avant le redémarrage du salon), et quand le jeu a
+        changé plus d'une fois depuis ce lancement: revenu ensuite par un chemin
+        qui ne passe pas par le salon, il n'a pas été lancé par cette personne.
+        Un lancement attend UN changement, celui vers son jeu, ou aucun quand on
+        relance le jeu qui tourne déjà.
+        """
+        if not self._jeu_connu or self._jeu is None:
+            return None
+        lancement = self._lancements.get(self._jeu.identite())
+        if lancement is None or self._changements - lancement.vus > 1:
+            return None
+        return lancement
 
     def arrete(self) -> None:
         """Le jeu a été fermé: les prises que le worker reprend ont perdu leur jeu."""

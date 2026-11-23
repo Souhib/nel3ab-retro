@@ -1,5 +1,7 @@
 """What a room looks like on the wire."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from nel3ab_control.api.controllers.preparation import Preparation
@@ -101,6 +103,25 @@ class Seat(BaseModel):
     )
 
 
+class LancementVu(BaseModel):
+    """Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit."""
+
+    par: Person = Field(
+        description=(
+            "Qui a lancé: son pseudo, et son repère quand il a une identité. "
+            "Jamais son adresse ni son empreinte. `moi` est vrai pour sa page."
+        )
+    )
+    sauvegarde: Literal["lanceur", "commune", "neuve", "inconnue"] = Field(
+        description=(
+            "« lanceur »: la sauvegarde personnelle de qui a lancé; « commune »: "
+            "tout débloqué, à tout le monde; « neuve »: la partie neuve partagée "
+            "(lancement sans identité); « inconnue »: lancé par un chemin qui ne "
+            "dit pas la sauvegarde."
+        )
+    )
+
+
 class Room(BaseModel):
     """The room, as a page needs to render it."""
 
@@ -118,6 +139,15 @@ class Room(BaseModel):
         ),
     )
     seats: list[Seat]
+    lancement: LancementVu | None = Field(
+        default=None,
+        description=(
+            "Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page "
+            "qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a "
+            "pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite "
+            "sans passer par lui): la page dit alors « sauvegarde inconnue »."
+        ),
+    )
     owner: Person | None = Field(
         default=None,
         description=(
@@ -164,5 +194,8 @@ class Room(BaseModel):
             update={
                 "owner": marque(self.owner) if self.owner else None,
                 "people": [marque(person) for person in self.people],
+                "lancement": self.lancement.model_copy(update={"par": marque(self.lancement.par)})
+                if self.lancement
+                else None,
             }
         )

@@ -1060,6 +1060,32 @@
         "title": "JeuProfil",
         "description": "Un jeu joué: une tranche sur l'étagère."
       },
+      "LancementVu": {
+        "properties": {
+          "par": {
+            "$ref": "#/components/schemas/Person",
+            "description": "Qui a lancé: son pseudo, et son repère quand il a une identité. Jamais son adresse ni son empreinte. `moi` est vrai pour sa page."
+          },
+          "sauvegarde": {
+            "type": "string",
+            "enum": [
+              "lanceur",
+              "commune",
+              "neuve",
+              "inconnue"
+            ],
+            "title": "Sauvegarde",
+            "description": "« lanceur »: la sauvegarde personnelle de qui a lancé; « commune »: tout débloqué, à tout le monde; « neuve »: la partie neuve partagée (lancement sans identité); « inconnue »: lancé par un chemin qui ne dit pas la sauvegarde."
+          }
+        },
+        "type": "object",
+        "required": [
+          "par",
+          "sauvegarde"
+        ],
+        "title": "LancementVu",
+        "description": "Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit."
+      },
       "Me": {
         "properties": {
           "login": {
@@ -1536,6 +1562,17 @@
             },
             "type": "array",
             "title": "Seats"
+          },
+          "lancement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LancementVu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite sans passer par lui): la page dit alors « sauvegarde inconnue »."
           },
           "owner": {
             "anyOf": [

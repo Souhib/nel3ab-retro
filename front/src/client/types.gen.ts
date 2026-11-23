@@ -429,6 +429,24 @@ export type JeuProfil = {
 };
 
 /**
+ * LancementVu
+ *
+ * Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit.
+ */
+export type LancementVu = {
+    /**
+     * Qui a lancé: son pseudo, et son repère quand il a une identité. Jamais son adresse ni son empreinte. `moi` est vrai pour sa page.
+     */
+    par: Person;
+    /**
+     * Sauvegarde
+     *
+     * « lanceur »: la sauvegarde personnelle de qui a lancé; « commune »: tout débloqué, à tout le monde; « neuve »: la partie neuve partagée (lancement sans identité); « inconnue »: lancé par un chemin qui ne dit pas la sauvegarde.
+     */
+    sauvegarde: 'lanceur' | 'commune' | 'neuve' | 'inconnue';
+};
+
+/**
  * Me
  *
  * Qui le service croit avoir en face.
@@ -751,6 +769,10 @@ export type Room = {
      * Seats
      */
     seats: Array<Seat>;
+    /**
+     * Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite sans passer par lui): la page dit alors « sauvegarde inconnue ».
+     */
+    lancement?: LancementVu | null;
     /**
      * Le chef choisi après une reprise, sinon le premier arrivé encore connecté. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit.
      */

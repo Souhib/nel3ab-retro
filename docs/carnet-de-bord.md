@@ -28354,6 +28354,19 @@ montrer des manettes tenues qui ne le sont plus, la liste dit « on ne sait
 pas ». Quelqu'un qui vient d'arriver et attend sa manette n'est pas compté
 comme spectateur.
 
+**Qui a lancé, pour la page qui arrive après.** Quand quelqu'un lance un jeu,
+le salon prévient les pages présentes : « Sami l'a lancé sur sa sauvegarde ».
+Une page qui arrivait ou rechargeait après ce moment ne le savait pas. La
+salle publie maintenant ce lancement (`Room.lancement`) tant que le jeu
+tourne. Le salon le retenait déjà, mais pour chaque jeu, pas pour le jeu en
+cours : Melee lancé par Sami, puis Mario Kart, puis Melee revenu par le menu
+du worker sans passer par le salon, aurait encore dit « lancé par Sami ». La
+salle compte donc les changements de jeu qu'elle voit, et un lancement ne
+vaut que pour le changement qui le suit. Après un redémarrage du salon, rien :
+la page dit « sauvegarde inconnue » plutôt que d'inventer. L'adresse de qui a
+lancé reste en mémoire pour calculer son repère, et un essai vérifie que ni
+elle ni son empreinte ne sortent.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

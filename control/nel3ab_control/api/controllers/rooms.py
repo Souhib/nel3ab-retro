@@ -20,7 +20,7 @@ from nel3ab_control.api.controllers.recovery import Recovery
 from nel3ab_control.api.controllers.tablee import Tablee
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
-from nel3ab_control.api.schemas.room import Game, Room, Seat
+from nel3ab_control.api.schemas.room import Game, LancementVu, Room, Seat
 from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.game_controls import guide_for
@@ -214,6 +214,25 @@ class RoomController:
         centaines d'octets par diffusion; titré par la bibliothèque déjà lue.
         """
         return _dernier(jeu_retenu(self._settings.salles_dir, self.numero), library)
+
+    def _lancement_vu(self, people: PeopleController | None) -> LancementVu | None:
+        """Le lancement du jeu qui tourne, tel que toutes les pages le lisent.
+
+        Le repère est calculé ici, pour la page, depuis l'adresse gardée en
+        mémoire par la tablée: l'adresse elle-même ne sort jamais.
+        """
+        lancement = self.tablee.lancement_courant()
+        if lancement is None:
+            return None
+        return LancementVu(
+            par=Person(
+                name=lancement.pseudo or "quelqu'un",
+                id=people.repere(lancement.login) if people and lancement.login else None,
+                seat=None,
+                seat_pending=False,
+            ),
+            sauvegarde=lancement.sauvegarde.value,
+        )
 
     def known_game(self) -> str | None:
         """Le jeu qui tourne, d'après la DERNIÈRE réponse du worker.
@@ -472,6 +491,7 @@ class RoomController:
             game=running,
             library=library,
             dernier_jeu=self.dernier_jeu(library),
+            lancement=self._lancement_vu(people),
             seats=seats,
             # Un repère, jamais l'adresse: cet état part vers toutes les pages.
             # `moi` reste faux ici; `Room.vue_par` le pose pour chaque page.

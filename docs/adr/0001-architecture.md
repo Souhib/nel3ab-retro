@@ -1719,6 +1719,14 @@ Decision:
   connected to therefore has `sieges = None`, not a stale list. A spectator is
   someone present with no pad who said so; someone waiting for a pad is not.
   Only pseudonyms leave, never an address. Field names are this track's (K18).
+- **`Room.lancement` says who launched the running game and on which save.**
+  It reads the table's last launch of that game (`Tablee.lancement_courant`),
+  with the launcher's pseudonym and repère (computed from the address kept in
+  memory only, never published nor written) and the save (`lanceur`,
+  `commune`, `neuve`, `inconnue`). `None` when the lobby saw no launch (it
+  restarted since), and when the game changed more than once since that
+  launch: a game that came back through the worker's own menu was not
+  launched by that person. `Room.vue_par` sets `moi` on the launcher too.
 
 
 ## Consequences

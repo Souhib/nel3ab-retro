@@ -219,23 +219,37 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
-**Au 23 novembre, la nuit : le chantier personnes, premier passage.** Sur
+**Au 23 novembre, la nuit : le chantier personnes, deux passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de
-poussé. Posés avec leurs essais, pas encore montés dans la salle : les places
-START 1P à 4P (`Places.tsx`, `lib/places.ts`), l'étiquette tapée
-(`Etiquette.tsx`, `lib/etiquette.ts`), la carte d'une place
-(`CartePlace.tsx`), la demande reçue (`DemandeRecue.tsx`), les arrivées et
-départs (`lib/usePlaces.ts`, `lib/arrivees.ts` sorti de `bobine/`). Montés
-dès maintenant : la pastille « 1P » à « 4P » partout, la couronne et le micro
-en pixels, la ligne parlée qui dit la vraie règle d'une reprise
-(`phraseDemande`), et les raisons du salon qui nomment une place
-(`api/ws/recovery.py`, à mettre en service avant la page). La page fait
-249 903 octets en brotli (+417). Restent : l'invitation et son code QR,
-Signaler, les mesures, le champ du nom, le câblage d'`App.tsx` avec les
-retraits de `Seats`, `Socket`, `Swap`, `Recovery`, `Branchement` et `Canape`,
-et les preuves navigateur. Récit : « 23 novembre, la nuit : les places
-deviennent des boutons START ».
+poussé. Montés dans la salle par un seul commit de câblage d'`App.tsx` :
+les places START 1P à 4P (`Places.tsx`) dans le panneau que le cadre pose,
+avec l'étiquette tapée ; la carte d'une place (`CartePlace.tsx`) et la
+demande reçue (`DemandeRecue.tsx`), en tête de la colonne au bureau, dans la
+bande d'un téléphone tenu droit, dans la feuille agrandie en travers, et
+au-dessus du menu ouvert, jamais sur l'image ; les arrivées et départs
+(`SuiviPlaces`, `lib/usePlaces.ts`) par l'arbitre des scènes ; « Ils
+regardent » en étiquettes ; « Inviter quelqu'un » en panneau, avec le lien
+pour jouer ou pour regarder et un code QR (`lib/qr.ts`, prouvé contre
+l'encodeur d'Arase sur 224 matrices) ; « Signaler un problème » qui dit
+l'heure de l'accusé et ne suppose pas la cause d'un échec ; les mesures
+(`Mesures.tsx`) où un chiffre absent se dit « pas encore mesuré » ; une seule
+ligne parlée pour toutes ces nouvelles. Retirés : `Seats`, `Socket`, `Swap`,
+`Recovery`, `ConnectionDiagnostic`, `bobine/Branchement` et `bobine/Canape`,
+et les règles provisoires de `Seats` dans `cadre.css` et `telephone.css`.
+Prêts, non montés : `ChampNom` et l'aperçu de l'étiquette, que le chantier
+salon montera dans « Qui joue ? » (K03). Mise en service : le salon d'abord
+(`api/ws/recovery.py`, raisons qui nomment une place), la page ensuite. La
+page fait 255 536 octets en brotli, 6 050 de plus que le départ du chantier
+(enveloppe 8 000) : +3 889 avant le câblage (Inviter, le code QR, Signaler),
++5 886 au câblage, et 4 142 rendus par les retraits. Restent : les preuves navigateur nouvelles
+(`places-clavier`, `demande-place`, `nom-champ`, `nom-apercu`,
+`annonce-arrivee`, `arrivee-hors-image`, `places-sous-image`) et leurs
+recettes rouges, les quatre groupes des mesures techniques, l'annonce en
+lettres sur l'ancre du socle, et le refus du mot « chef » dans les chaînes
+visibles, qui attend le menu. Récits : « 23 novembre, la nuit : les places
+deviennent des boutons START » et « 23 novembre, la nuit, second passage :
+les places montées dans la salle ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

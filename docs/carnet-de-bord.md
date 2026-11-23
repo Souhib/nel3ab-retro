@@ -29539,6 +29539,109 @@ monte encore. Les places, les cartes et `usePlaces` ne pèseront qu'au câblage,
 avec les retraits de `Seats`, `Socket`, `Swap`, `Recovery` et de la scène de
 la Bobine, qui libèrent de la place.
 
+### 23 novembre, la nuit, second passage : les places montées dans la salle
+
+**Le contexte.** Le premier passage du chantier « personnes » avait posé les
+places START, les cartes et le suivi des arrivées sans les monter. Ce second
+passage écrit ce qui manquait (l'invitation et son code QR, Signaler, les
+mesures, le champ du nom, « Ils regardent ») puis câble le tout dans
+`App.tsx`, en un seul commit, et retire ce que les places remplacent :
+`Seats`, `Socket`, `Swap`, `Recovery`, `ConnectionDiagnostic`, et la scène
+et le canapé de la Bobine.
+
+**Un code QR prouvé par un autre encodeur.** Le 22 novembre, l'invitation
+avait écarté le code QR : il fallait une dépendance, ou un encodeur maison à
+prouver. La maquette en avait écrit un de 150 lignes ; il est porté en
+TypeScript (`lib/qr.ts`). La preuve vient d'un oracle, c'est-à-dire d'un
+autre programme qui sait déjà répondre : l'encodeur de Kazuhiko Arase, sous
+licence MIT, que npm livre dans `qrcode-terminal`. Un script
+(`front/qr-reference.mjs`) lui fait écrire 224 matrices : 28 liens de 1 à
+178 octets, chacun sous les huit masques de la norme. Le script ne lit
+jamais l'encodeur de la page, sinon la référence jugerait son propre code.
+L'essai compare chaque matrice par son empreinte, et les deux liens de salle
+réels ligne par ligne. Deux mutants ont été essayés à la main : le masque 4
+réécrit, et un bit du format déplacé. Les deux font tomber l'essai. Un lien
+de plus de 180 octets est refusé, jamais coupé : un code qui mène à une
+moitié d'adresse serait pire qu'aucun code. Le module n'est évalué qu'à
+l'ouverture de l'invitation (import dynamique) ; ses octets restent dans la
+page, puisque la construction en un fichier inline tout. Aucun vrai
+téléphone ne l'a encore lu : c'est un essai à faire avec le propriétaire.
+
+**Inviter, Signaler, les mesures.** « Inviter quelqu'un » déplie un panneau :
+le lien pour jouer ou pour regarder (« pour jouer » désactivé dans une salle
+pleine), la place libre que l'invité prendra, le code, le lien entier, et
+« Copier le lien ». Une copie refusée sélectionne le lien et le dit. « Lien
+copié. » passe par la seule ligne parlée de la salle, qui reçoit maintenant
+les nouvelles des autres chantiers (`LigneParlee`, prop `nouvelle`) : avant,
+Inviter, la reprise et Signaler avaient chacun leur région, et un lecteur
+d'écran entendait trois voix. « Signaler un problème » dit l'heure de
+l'accusé, « Déjà signalé il y a 12 s » et le temps qui reste, et reste
+focalisable (`aria-disabled`) pour que ces mots se lisent au clavier. Il ne
+suppose plus la cause d'un échec : sans accusé, « le site ne répond pas » et
+« Réessayer » ; un refus du salon se dit avec ses mots. Les mesures
+(`Mesures.tsx`) remplacent le diagnostic de la colonne : une phrase, puis
+trois chiffres avec leur sens écrit. Chacun se dit « pas encore mesuré » tant
+qu'il ne l'est pas, jamais une valeur de repli : c'est la leçon du
+« pages 250 img/s » du 21 novembre. Un mutant qui rendait la cadence du jeu
+sans sa garde a fait tomber deux essais.
+
+**Le champ du nom, et la bulle du navigateur.** `ChampNom` a un libellé
+visible, une aide, et refuse un nom vide avec sa raison. Le premier essai du
+refus était rouge pour une raison qu'on n'attendait pas : le champ portait
+`required`, et le navigateur bloquait l'envoi avec sa propre bulle avant que
+la page ne dise la sienne. Le champ porte `aria-required` à la place. L'écran
+« Qui joue ? » appartient au chantier salon (K03), qui montera le champ.
+
+**Ce que le navigateur a trouvé.** Deux défauts sont passés à travers les
+quelque 1 700 essais de la page, et la preuve du téléphone
+(`salle-telephone`) les a vus tous les deux :
+
+- la demande reçue disparaissait aussitôt. La salle monte la carte vide en
+  permanence, et le temps restant de « pas de demande » valait 0. Au premier
+  rendu d'une demande, ce 0 n'avait pas encore été remplacé, et l'ancienne
+  demande expirait sur-le-champ. L'essai unitaire montait la carte avec sa
+  demande dès le départ, et ne pouvait pas le voir. Le temps restant
+  appartient maintenant à sa clé (`useReste`), et un essai monte la carte
+  vide, puis lui donne une demande : il était rouge avant la correction.
+  La leçon : un composant que le produit monte vide se teste monté vide ;
+- en travers, la carte se posait dans la bande de droite, large d'une
+  centaine de pixels, et sortait de l'écran par le bas. Elle vit maintenant
+  dans la bande d'un téléphone tenu droit seulement. En travers, « La salle »
+  dit « Bo · ta place » et ouvre la feuille agrandie, où la carte est collée
+  en tête de la colonne ;
+- au repos, la scène d'arrivée de la mascotte se jouait sur l'écran éteint,
+  par-dessus « Choisir un jeu » (`cadre-navigateur`, mascotte-hors-image).
+  Une arrivée parle des places : elle se joue maintenant au bord du panneau,
+  dans la barre d'un téléphone, ou dans le coin (`hoteDesPlaces`).
+
+**Une précondition intermittente, expliquée.** Au premier passage, l'étape
+`un-plein` de la salle avait échoué une fois sur sa précondition, puis passé
+deux fois. Avec les places dans la colonne, elle échouait à chaque fois, ce
+qui a permis de la comprendre. À 1440 × 900, la colonne déborde. Le premier
+clic fait naître l'avis « Le jeu ne reçoit plus tes touches » en tête de la
+colonne, qui pousse tout de 110 px entre le moment où le pilote calcule le
+point du second clic et le clic lui-même : le clic tombait à côté de
+« Rendre ma place ». Centrer chaque cible avant de cliquer règle l'étape ;
+le décalage sous le pointeur reste une question pour le chantier salle.
+
+**Les règles d'avant.** Le chantier salle avait resserré les prises de
+`Seats` par des règles provisoires (`cadre.css`, `telephone.css`). Elles
+visaient l'ancien dessin et écrasaient la grille des places START : les
+icônes de la couronne et du micro y prenaient la hauteur du panneau. Elles
+sont retirées avec `Seats`.
+
+**Le poids.** La page passe de 249 903 à 255 536 octets en brotli (+5 633). La
+mesure sépare ce qui entre et ce qui sort, en construisant trois pages depuis
+leurs commits : avant le câblage (253 792), la même sans les montages
+d'avant (249 650), et après. Le panneau d'Inviter, son code QR, Signaler et
+les mots entrent avant le câblage : +3 889. Le câblage ajoute les places,
+les cartes, le suivi et les mesures : +5 886. Les retraits de `Seats`,
+`Socket`, `Swap`, `Recovery`, `ConnectionDiagnostic` et de la scène de la
+Bobine rendent 4 142 octets. Depuis son départ (249 486), le chantier
+personnes en est à +6 050, pour une enveloppe de 8 000. La construction est
+déterministe : la page reconstruite depuis l'archive du commit a le même
+poids, à l'octet, que la page committée.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31212,3 +31315,18 @@ feutre de la proposition « Scotch et feutre ».
 **Bouton START (place)** : une place de la salle, dessinée comme le bouton rond
 d'une borne d'arcade, « 1P » à « 4P », allumée à la couleur du joueur quand
 elle est prise.
+
+**Code QR** : un carré de modules noirs et blancs qu'un téléphone lit avec
+son appareil photo pour ouvrir une adresse. L'invitation en dessine un pour
+le lien de la salle.
+
+**Reed-Solomon (correction d'erreurs)** : des octets ajoutés à un message,
+calculés sur les autres, qui permettent de reconstituer ce qu'une tache ou
+une perte a effacé. Le code QR en porte, comme le flux d'image de la salle.
+
+**Masque (d'un code QR)** : un motif fixe, un parmi huit, qu'on superpose aux
+données pour éviter de grandes plages d'une seule couleur, difficiles à lire.
+
+**Oracle (dans un essai)** : un autre programme, déjà fiable, dont on
+compare les réponses à celles du code essayé. Il ne doit jamais dépendre du
+code qu'il juge.

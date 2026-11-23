@@ -962,6 +962,48 @@ cadre-navigateur-rouge:
         --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 
+# ==== manettes ====
+# « Touches et manettes » dans un vrai navigateur (chantier manettes, L7) : le
+# panneau prend la place de la colonne sans toucher l'image (bureau et
+# fenêtre étroite), « Toutes les touches » ouvre le clavier et Échap rend le
+# focus, la vue de la manette suit la trame Pro (K34), et le pas à pas tourne
+# sur une manette simulée. La page COMMITTÉE, le banc des parcours, une
+# manette Xbox simulée ; rien de vivant, port 5482.
+#
+#   just reglage-navigateur                        les étapes de la porte
+#   just reglage-navigateur --etapes place-tenu    hors porte : tenu en main
+#   just reglage-navigateur --captures <dossier>   avec les captures
+reglage-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node reglage.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Le contrôle négatif : la page de la base du chantier (9fb659e, sur
+# integration/retro) ouvre l'ancien dialogue modal par-dessus l'image, n'a pas
+# « Toutes les touches », ne suit pas la trame Pro dans la vue de la manette,
+# et ne monte aucun panneau dans la colonne. Chaque étape doit y rougir sur
+# son défaut, pas sur une précondition.
+reglage-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show 9fb659e:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    cd spikes/m3-browser-drive
+    etapes=place,entrees,activite-pro,pas-a-pas
+    node reglage.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+# ==== fin manettes ====
+
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
 # (`systemctl start nel3ab-worker@1`), because the failure only exists against a
 # live stream: a decoder that is fed nothing cannot be caught refusing anything.

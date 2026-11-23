@@ -722,6 +722,8 @@ Markdown alone does not update the site.
 | `just salle-telephone` | the room on phones and tablets: drawer, bottom sheet, 44 px targets, safe areas, the built page under the worker's CSP |
 | `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
+| `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad; `--etapes place-tenu` measures the held sizes, red until the room geometry gives the panel its place |
+| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog) must fail each step on its named defect; the integration adds both to `local` when it merges the branch |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |

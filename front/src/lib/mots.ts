@@ -494,6 +494,9 @@ export const REGLAGE = {
   aucune:
     "Cette page ne voit aucune manette. Le navigateur ne la montre qu'après un premier appui.",
   branche: "Branche-la, puis appuie sur un bouton.",
+  /** La première manette vue par la page (`premiere-manette`), dite une fois. */
+  arrivee: (nom: string) =>
+    `${nom.charAt(0).toUpperCase()}${nom.slice(1)} branchée : elle apparaît à droite.`,
   standard: "branchée, disposition standard",
   nonStandard: "branchée, disposition non standard",
   adaptateur:

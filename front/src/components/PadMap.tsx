@@ -82,6 +82,7 @@ export function PadMapView({
   className,
   rawLabels = false,
   place = null,
+  absente = false,
 }: {
   map: PadMap;
   title: string;
@@ -94,6 +95,8 @@ export function PadMapView({
   rawLabels?: boolean;
   /** La place de la page, de 1 à 4, ou rien (spectateur, planche). */
   place?: 1 | 2 | 3 | 4 | null;
+  /** Aucune manette vue : la coque seule, tramée sous l'effet « tramage ». */
+  absente?: boolean;
 }) {
   // Le décor de la coque est découpé par elle : une découpe n'est pas une
   // lumière, et sans elle les grains de la manette Pro débordent du dessin.
@@ -209,8 +212,16 @@ export function PadMapView({
         aria-label={title}
         data-padmap={map.id}
         data-place={place ?? undefined}
+        data-absente={absente ? "oui" : undefined}
+        style={absente ? ({ "--trame": `url(#${decoupe}-trame)` } as CSSProperties) : undefined}
         className="w-full"
       >
+        {absente ? (
+          <pattern id={`${decoupe}-trame`} width="1" height="1" patternUnits="userSpaceOnUse">
+            <rect width="0.5" height="0.5" className="n3-trame" />
+            <rect x="0.5" y="0.5" width="0.5" height="0.5" className="n3-trame" />
+          </pattern>
+        ) : null}
         <g>
           {map.wire ? <path d={map.wire} className="n3-wire" /> : null}
           <Layers layers={map.under} />

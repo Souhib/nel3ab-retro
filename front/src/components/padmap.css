@@ -321,6 +321,22 @@
   fill: var(--signal);
 }
 
+/* Aucune manette vue : la coque seule, sans pièce ni décor. Sous l'effet
+   « tramage », un damier de pixels au filet (le motif du dessin). */
+[data-absente] .n3-shell {
+  fill: var(--creux);
+  stroke: var(--filet);
+}
+.fx-tramage [data-absente] .n3-shell {
+  fill: var(--trame);
+}
+[data-absente] :is([data-part], .n3-art, .n3-wire) {
+  display: none;
+}
+.n3-trame {
+  fill: var(--filet);
+}
+
 /* Sans carte : le dessin se pose sur le panneau, sans cadre ni fond à lui. */
 .n3-controller-pair {
   display: grid;

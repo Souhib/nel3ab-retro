@@ -86,6 +86,7 @@ export function Wiring({
           note={identity?.name ?? "En attente de connexion"}
           rawLabels={!identity?.standard}
           place={place}
+          absente={!held}
         />
       </div>
       <p className="text-corps leading-relaxed text-muted">

@@ -266,7 +266,7 @@ describe("la trame Pro", () => {
       xbox: console === "Xbox 360",
       manette: console === "Xbox 360" ? "manette Xbox 360" : "manette Pro",
       source,
-      input: { switchActive: () => true },
+      input: { switchActive: () => true, surReglage: () => rien },
       place: 2,
     };
     const vue = render(
@@ -282,6 +282,10 @@ describe("la trame Pro", () => {
     );
     expect(container.textContent).not.toContain("Switch");
     expect(screen.queryByRole("button", { name: "Reprendre" })).toBeNull();
+    // Sans manette vue, la droite est une silhouette ; la gauche reste entière.
+    const dessins = container.querySelectorAll(".n3-dessins [data-padmap]");
+    expect(dessins[1]).toHaveAttribute("data-absente", "oui");
+    expect(dessins[0]).not.toHaveAttribute("data-absente");
     expect(screen.getAllByText("Pas transmis au jeu : le bouton Guide.").length).toBeGreaterThan(0);
   });
 
@@ -307,7 +311,7 @@ describe("la trame Pro", () => {
       xbox: false,
       manette: "manette Pro",
       source,
-      input: { switchActive: () => true },
+      input: { switchActive: () => true, surReglage: () => rien },
       place: null,
     };
     render(
@@ -316,6 +320,37 @@ describe("la trame Pro", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "Course" } });
     fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
     expect(Object.keys(source.named)).toEqual([]);
+  });
+});
+
+describe("la manette qui arrive", () => {
+  it("dit la première manette vue par la page, sans jouer de scène (K09)", () => {
+    const { emettre, demander, container } = monterDolphin();
+    expect(container.querySelector("[data-arrivee]")).toBeNull();
+    act(() => emettre({ type: "premiere-manette", id: "Xbox Wireless Controller" }));
+    expect(container.querySelector("[data-arrivee]")?.textContent).toBe(
+      "Manette Xbox branchée : elle apparaît à droite.",
+    );
+    expect(container.querySelector("[data-arrivee]")).toHaveAttribute("role", "status");
+    expect(demander).not.toHaveBeenCalled();
+  });
+
+  it("montre une silhouette tramée à droite tant qu'aucune manette n'est vue", () => {
+    const sans = monterDolphin().container;
+    const droite = () => sans.querySelectorAll(".n3-dessins [data-padmap]")[1];
+    expect(droite()).toHaveAttribute("data-absente", "oui");
+    // Le dessin du jeu n'est jamais absent : c'est ce que le jeu reçoit.
+    expect(sans.querySelector(".n3-dessins [data-padmap]")).not.toHaveAttribute("data-absente");
+    const avec = monterDolphin({
+      state: etat({
+        ...XBOX,
+        using: 0,
+        pads: [{ index: 0, id: XBOX.padId, buttons: 17, axes: 4 }],
+      }),
+    }).container;
+    expect(avec.querySelectorAll(".n3-dessins [data-padmap]")[1]).not.toHaveAttribute(
+      "data-absente",
+    );
   });
 });
 

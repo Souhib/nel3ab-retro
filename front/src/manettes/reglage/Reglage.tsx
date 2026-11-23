@@ -7,9 +7,10 @@
  * en cours, puis ferme. Le conteneur prend le focus (`tabIndex` -1) : un clic
  * sur un texte du panneau le garde dans le panneau, et les flèches qui
  * suivent ne partent pas au jeu (C12). */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Hote } from "../../lib/cadre";
 import { REGLAGE } from "../../lib/mots";
+import { identify } from "../../media/families";
 import { useArbitre } from "../../components/Cadre";
 import type { Onglet } from "../entree";
 import { ClavierDolphin, ManetteDolphin, ProfilsDolphin, type TrameDolphin } from "./Dolphin";
@@ -75,6 +76,21 @@ function useFier(trame: TrameDolphin | TramePro, vit: boolean, hote: Hote | null
   }, [source, input]);
 }
 
+/** La première manette que la page voit pendant que le panneau est ouvert :
+ * une phrase, jamais une scène (K09, « arrivee » appartient aux personnes). */
+function useArrivee(trame: TrameDolphin | TramePro): string | null {
+  const [nom, setNom] = useState<string | null>(null);
+  const input = trame.input;
+  useEffect(
+    () =>
+      input.surReglage((evenement) => {
+        if (evenement.type === "premiere-manette") setNom(identify(evenement.id, "").name);
+      }),
+    [input],
+  );
+  return nom;
+}
+
 export function Reglage({
   onglet,
   onOnglet,
@@ -88,6 +104,7 @@ export function Reglage({
   usePro(trame.genre === "pro" ? trame : null);
   useFier(trame, vit, hote);
   const occupe = occupeDe(trame);
+  const arrivee = useArrivee(trame);
   const place = trame.genre === "pro" ? trame.place : trame.state.port;
   // La ligne d'une commande tenue, posée hors de React (`tenues.ts`).
   useEffect(() => (racine.current ? suivreTenues(racine.current) : undefined), []);
@@ -149,6 +166,11 @@ export function Reglage({
         </p>
       </header>
       <Onglets onglet={onglet} inactifs={occupe} onChoisir={onOnglet} />
+      {arrivee ? (
+        <p role="status" data-arrivee="" className="n3-arrivee">
+          {REGLAGE.arrivee(arrivee)}
+        </p>
+      ) : null}
       <div
         role="tabpanel"
         id={`page-${onglet}`}

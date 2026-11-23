@@ -42,7 +42,7 @@ export type TramePro = {
   /** Le nom de la manette que le jeu reçoit (« manette Pro »). */
   manette: string;
   source: SwitchInput;
-  input: Pick<InputStream, "switchActive">;
+  input: Pick<InputStream, "switchActive" | "surReglage">;
   guide?: Game["guide"];
   place: 1 | 2 | 3 | 4 | null;
 };
@@ -145,6 +145,7 @@ function DessinsPro({ trame }: { trame: TramePro }) {
           note={identite?.name ?? REGLAGE.rien}
           rawLabels={!identite?.standard}
           place={trame.place}
+          absente={!pad}
         />
       </div>
     </div>

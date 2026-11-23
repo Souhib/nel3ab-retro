@@ -66,6 +66,9 @@
   justify-content: space-between;
   gap: var(--espace-3);
 }
+.n3-arrivee {
+  margin: 0;
+}
 .n3-appareil p,
 .n3-reglage-avis p {
   margin: 0;

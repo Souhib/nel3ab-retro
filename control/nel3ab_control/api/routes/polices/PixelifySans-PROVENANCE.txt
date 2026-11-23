@@ -1,0 +1,39 @@
+Pixelify Sans, police des titres du thème rétro (ADR D37)
+
+Ce qui est ici
+  pixelify-titres.woff2   10 020 octets, sha256
+                          d188139e67645575e498e78560734584b6b1443c0fa61b610206f69c48119c3f
+  PixelifySans-OFL.txt    la licence, recopiée telle quelle (fins de ligne
+                          Unix au lieu de CRLF)
+
+L'original
+  Pixelify Sans, de Stefie Justprince, licence SIL Open Font License 1.1.
+  Aucun nom de police réservé dans la ligne de copyright: le sous-ensemble
+  peut garder le nom « Pixelify Sans ».
+  Pris le 23 novembre 2026 dans le dépôt google/fonts,
+  ofl/pixelifysans/PixelifySans[wght].ttf, dernier commit sur ce fichier
+  9ce5017522020232f525003b39971ddb67e33243 (13 septembre 2023), lui-même
+  construit depuis github.com/eifetx/Pixelify-Sans au commit
+  39df74aba80df8157546034b878e8be1eb565ced.
+  79 160 octets, sha256
+  9ba86cd010a4de309d263ceff8e8044092c9db7efda869620cb9ff1c4389e8a5
+
+Le sous-ensemble
+  Police variable gardée entière sur son axe de graisse (400 à 700): une
+  coupe figée à 400 pèse 6 356 octets, deux coupes (400 et 600) 13 060, la
+  variable 10 020. Les composants demandent 400, 500, 600 et 700; une graisse
+  absente serait épaissie par le navigateur, ce qui abîme un dessin en pixels.
+
+  Fait dans un environnement jetable (fontTools 4.68.0, brotli), hors du
+  dépôt:
+
+    pyftsubset PixelifySans[wght].ttf \
+      --unicodes=U+0020-007E,U+00A0-00FF,U+0152-0153,U+0178,U+2013,U+2018-201E,U+2022,U+2026,U+2039-203A,U+20AC \
+      --flavor=woff2 --layout-features=kern,liga,calt,ccmp,locl,mark,mkmk \
+      --no-hinting --desubroutinize --output-file=pixelify-titres.woff2
+
+  204 glyphes: l'ASCII, le Latin-1 (accents français, guillemets « »,
+  espace insécable), Œ œ Ÿ, le tiret demi-cadratin, les apostrophes et
+  guillemets typographiques, la puce, les points de suspension, € et ‹ ›.
+  L'original n'a ni ▶ ni l'espace fine insécable (U+202F): ces caractères
+  retombent sur la police suivante de `--police-pixel`.

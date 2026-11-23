@@ -167,7 +167,10 @@
 /* Jusqu'aux places du chantier personnes, les prises de `Seats` tiennent sur
    une rangée à la hauteur du panneau, et la phrase d'aide à côté d'elles. */
 .n3-panneau[data-forme="sous"] .n3-panneau-places {
+  display: flex;
   height: 100%;
+  align-items: center;
+  gap: 1rem;
 }
 .n3-panneau[data-forme="sous"] .n3-panneau-places > div {
   height: 100%;
@@ -256,4 +259,92 @@
   .n3-ligne-allumee {
     transform: none;
   }
+}
+
+/* Le fronton (`Fronton`) : posé en absolu dans la bande du haut, il ne
+   prend aucune hauteur à l'image. Les couleurs, la police et la mire
+   viennent de `.rt-fronton` (`effets.css`, effet « fronton »), qui le pose
+   en `relative` : les deux classes ensemble l'emportent, sans quoi il
+   entrait dans le flux et poussait l'image (cadre.mjs, fronton-bande). */
+.rt-fronton.n3-fronton {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  padding: 0 0.75rem 4px;
+  font-size: var(--text-fort);
+}
+.n3-fronton-titre {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Le crédit (`Credit`) : en capitales par la feuille, au bout du panneau. */
+.n3-credit {
+  margin-left: auto;
+  align-self: center;
+  text-transform: uppercase;
+  font-size: var(--text-corps);
+  color: var(--legende);
+}
+
+/* Le décor de borne (`CoteBorne`) : dans les bandes, jamais dans l'image.
+   Le fond tramé vient de `.fx-borne .rt-cote` ; le manche et les quatre
+   boutons n'apparaissent qu'avec l'effet. */
+.n3-borne {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  display: none;
+}
+.fx-borne .n3-borne {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+.n3-borne-manche {
+  width: 12px;
+  height: 36px;
+  background: var(--trait);
+  box-shadow: 0 -12px 0 6px var(--alerte);
+}
+.n3-borne-boutons {
+  display: grid;
+  grid-template-columns: repeat(2, 14px);
+  gap: 6px;
+}
+.n3-borne-boutons > i {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--rayon-rond);
+}
+.n3-borne-boutons > i:nth-child(1) {
+  background: var(--p1);
+}
+.n3-borne-boutons > i:nth-child(2) {
+  background: var(--p2);
+}
+.n3-borne-boutons > i:nth-child(3) {
+  background: var(--p3);
+}
+.n3-borne-boutons > i:nth-child(4) {
+  background: var(--p4);
+}
+
+/* Le tramage (effet « tramage ») : le fond de la zone de jeu, deux noirs
+   proches. La toile a son propre fond opaque : avant la première image,
+   rien de la trame ne transparaît dans le rectangle de l'image. */
+.fx-tramage .n3-zone-jeu {
+  background: repeating-conic-gradient(var(--ecran) 0 25%, var(--ecran-trame) 0 50%) 0 0 / 4px 4px;
+}
+#screen {
+  background: var(--ecran);
 }

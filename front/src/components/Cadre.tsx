@@ -25,6 +25,8 @@ import {
   SANS_ZONES,
   attributsDuCadre,
   miseEnPage,
+  ouEstLaMascotte,
+  premiereImage,
   variablesDuCadre,
   type Entree,
   type Geometrie,
@@ -61,6 +63,22 @@ export function Cadre({
       etat: () => etat.current,
     }),
   );
+  /* K06 : la première image, un seul appelant. Au passage d'un état sans
+     image à « vit », le plateau est coupé et la scène « premiere-image »
+     joue là où la mascotte vit maintenant (le coin au bureau, la barre au
+     téléphone). Le retour à « vit » après une image figée ne joue rien :
+     « figee » a une image. */
+  const avant = useRef(geo.etat);
+  const geoRef = useRef(geo);
+  geoRef.current = geo;
+  useEffect(() => {
+    const precedent = avant.current;
+    avant.current = geo.etat;
+    if (!premiereImage(precedent, geo.etat)) return;
+    arbitre.couper("plateau");
+    const hote = ouEstLaMascotte(geoRef.current, "premiere-image");
+    if (hote) arbitre.demander({ scene: "premiere-image", par: "salle", hote });
+  }, [geo.etat, arbitre]);
   return (
     <div
       ref={racine}

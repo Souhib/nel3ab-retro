@@ -47,6 +47,9 @@ import {
   RangTouches,
 } from "./components/Colonne";
 import { VueTouches, type Releve } from "./components/VueTouches";
+import { CoteBorne } from "./components/CoteBorne";
+import { Credit } from "./components/Credit";
+import { Fronton } from "./components/Fronton";
 import { identify } from "./media/families";
 import {
   activiteDolphin,
@@ -208,6 +211,7 @@ import {
   MANETTES as DESSINS_MANETTES,
   etatDuCadre,
   lieuDesAvis,
+  FRONTON_MIN,
   modeDuCadre,
   type Role as RoleDuCadre,
 } from "./lib/cadre";
@@ -2304,6 +2308,14 @@ function Room({
     colonneACote: couches.colonne === "a-cote",
     hauteur: hauteurPile,
   });
+  /** Le fronton a sa bande quand l'image laisse 40 px au-dessus d'elle. Il
+   * cède la bande à la pile des avis le temps d'un avis : les deux ne s'y
+   * superposent pas. */
+  const frontonPossible =
+    cadre !== null && cadre.top >= FRONTON_MIN && jeuEnCours !== null && !bare;
+  const frontonVisible = frontonPossible && !(lieuAvis.lieu === "fronton" && hauteurPile > 0);
+  /** Le crédit de la borne : les places libres, compté comme les places. */
+  const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   const pastilleAgrandie =
     agrandieVue && bare && !compact && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
   const takeHalf = () => {
@@ -2480,6 +2492,18 @@ function Room({
             onPrescale={(times) => session?.video.setPrescale(times)}
           />
           {lieuAvis.rect ? avis : null}
+          {/* La borne autour de l'image (étape 7) : le fronton dans la bande
+              du haut, s'il n'y a pas d'avis à y dire, et le décor dans les
+              bandes latérales. Posés en absolu : l'image ne bouge pas. */}
+          {frontonVisible && cadre && jeuEnCours ? (
+            <Fronton
+              jeu={jeuEnCours}
+              bande={{ x: cadre.left, y: 0, w: cadre.width, h: cadre.top }}
+            />
+          ) : null}
+          {geo.bordures && cadre ? (
+            <CoteBorne gauche={cadre.left} largeur={space.width} hauteur={space.height} />
+          ) : null}
           {/* Ce qu'on voit quand cet appareil ne sert que de manette.
             Un écran noir se lit comme une panne, et c'en est une pour qui a
             oublié avoir choisi ce mode. La toile reste montée derrière: elle
@@ -2716,7 +2740,7 @@ function Room({
           />
         </div>
         {panneauSous ? (
-          <PanneauCommande forme="sous" hauteur={panneauSous.h}>
+          <PanneauCommande forme="sous" hauteur={panneauSous.h} fin={credit}>
             {places}
           </PanneauCommande>
         ) : null}
@@ -2733,7 +2757,9 @@ function Room({
         <TiroirSi actif={couches.colonne === "tiroir"} onFermer={() => setTiroir(false)}>
           <Colonne
             nomSalle={nomSalle}
-            jeu={room?.game?.name ?? null}
+            // Le nom du jeu une seule fois : au fronton quand il a sa bande,
+            // sinon dans l'en-tête de la colonne.
+            jeu={frontonPossible ? null : (room?.game?.name ?? null)}
             onQuitter={onLeave}
             largeur={compact ? null : column}
             tiroir={
@@ -2792,7 +2818,11 @@ function Room({
               </>
             }
             panneau={
-              panneauSous ? null : <PanneauCommande forme="colonne">{places}</PanneauCommande>
+              panneauSous ? null : (
+                <PanneauCommande forme="colonne" fin={credit}>
+                  {places}
+                </PanneauCommande>
+              )
             }
             rangs={rangs}
             contenus={{

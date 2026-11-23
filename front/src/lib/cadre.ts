@@ -105,6 +105,12 @@ export const SANS_IMAGE: readonly EtatDuCadre[] = ["repos", "demarrage", "connex
 
 export const sansImage = (etat: EtatDuCadre): boolean => SANS_IMAGE.includes(etat);
 
+/** K06 : la scène « premiere-image » joue au passage d'un état sans image à
+ * « vit », et seulement là. Le retour à « vit » après une image figée ne
+ * joue rien : une image figée est une image. */
+export const premiereImage = (avant: EtatDuCadre, apres: EtatDuCadre): boolean =>
+  apres === "vit" && sansImage(avant);
+
 /** Les états d'une panne : la fiche d'état parle, les scènes des autres se
  * taisent (`lib/scenes-salle`). */
 export const EN_PANNE: readonly EtatDuCadre[] = [

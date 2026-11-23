@@ -18,11 +18,14 @@ export function PanneauCommande({
   forme,
   hauteur,
   children,
+  fin,
 }: {
   forme: Exclude<FormePanneau, "absent">;
   /** La hauteur que le cadre lui donne sous l'image ; libre ailleurs. */
   hauteur?: number;
   children: ReactNode;
+  /** Le bout droit : le crédit, puis le temps de jeu quand la salle le dit. */
+  fin?: ReactNode;
 }) {
   return (
     <section
@@ -35,7 +38,10 @@ export function PanneauCommande({
       }
     >
       {forme === "sous" ? <div className="n3-panneau-bord" data-hote="bord-panneau" /> : null}
-      <div className="n3-panneau-places">{children}</div>
+      <div className="n3-panneau-places">
+        {children}
+        {fin}
+      </div>
     </section>
   );
 }

@@ -589,6 +589,160 @@ async function principal() {
       if (apres.css.length > 0)
         console.log(JSON.stringify({ note: `repos-attention: la pièce provisoire tourne encore (${apres.css.length} animations rt-piece-image), à lever avec la mascotte` }));
     },
+
+    /** L'effet « fronton » : le titre du jeu dans la bande noire du haut
+     * quand elle fait 40 px ou plus, jamais sur l'image, son bas à 2 px au
+     * moins au-dessus d'elle. Le jumeau: sans bande, aucun #fronton et le nom
+     * du jeu une fois dans l'en-tête de la colonne. Les deux cas doivent
+     * apparaître dans le balayage. */
+    async "fronton-bande"() {
+      const fautes = [];
+      const vus = { avec: 0, sans: 0 };
+      for (const vue of [...BUREAUX, { width: 1024, height: 768 }, { width: 1366, height: 1024 }]) {
+        const page = await nouvelle(vue);
+        await entrer(page);
+        // Une toile sans taille (vue une fois à 1920×1080, le temps d'une
+        // pose) n'a pas de bande à mesurer: une précondition, pas un verdict.
+        const posee = () => page.evaluate(() => document.querySelector("#screen").getBoundingClientRect().height > 0);
+        if (!(await jusqua(posee, 3000))) throw new Precondition(`${vue.width}×${vue.height}: la toile n'a pas de taille`);
+        await sleep(400);
+        const lu = await page.evaluate(() => {
+          const r = (el) => {
+            const b = el.getBoundingClientRect();
+            return { x: b.left, y: b.top, w: b.width, h: b.height };
+          };
+          const fronton = document.querySelector("#fronton");
+          const image = r(document.querySelector("#screen"));
+          const zone = r(document.querySelector("#zone-jeu"));
+          const tete = document.querySelector("#side header")?.textContent ?? "";
+          return {
+            fronton: fronton ? { ...r(fronton), texte: fronton.textContent ?? "" } : null,
+            image,
+            dessus: image.y - zone.y,
+            tete,
+            avis: document.querySelector("#avisDuCadre")?.getBoundingClientRect().height ?? 0,
+          };
+        });
+        const ici = `${vue.width}×${vue.height}`;
+        if (lu.fronton) {
+          vus.avec += 1;
+          const f = lu.fronton;
+          const coupe = f.x < lu.image.x + lu.image.w && lu.image.x < f.x + f.w && f.y < lu.image.y + lu.image.h && lu.image.y < f.y + f.h;
+          if (coupe) fautes.push(`${ici}: le fronton coupe l'image`);
+          if (f.y + f.h > lu.image.y - 2 + 0.5) fautes.push(`${ici}: le bas du fronton (${f.y + f.h}) est à moins de 2 px de l'image (${lu.image.y})`);
+          if (!/Mario Party 4/.test(f.texte)) fautes.push(`${ici}: le fronton ne dit pas le jeu (« ${f.texte} »)`);
+          if (/Mario Party 4/.test(lu.tete)) fautes.push(`${ici}: le nom du jeu est aussi dans l'en-tête de la colonne`);
+        } else if (lu.dessus >= 40 && lu.avis === 0) {
+          fautes.push(`${ici}: ${Math.round(lu.dessus)} px au-dessus de l'image et pas de fronton (${JSON.stringify(lu.image)})`);
+        } else if (lu.dessus < 40) {
+          vus.sans += 1;
+          const fois = (lu.tete.match(/Mario Party 4/g) ?? []).length;
+          if (fois !== 1) fautes.push(`${ici}: sans fronton, l'en-tête dit le jeu ${fois} fois`);
+        }
+        if (lu.fronton) await capture(page, "fronton");
+        await page.close();
+      }
+      // Les fautes d'abord: une page sans l'effet n'a aucun cas « avec », et
+      // doit rougir sur son défaut, pas sur le jumeau.
+      verdict(fautes);
+      if (vus.avec === 0 || vus.sans === 0)
+        throw new Precondition(`le balayage n'a pas vu les deux cas (avec ${vus.avec}, sans ${vus.sans})`);
+    },
+
+    /** L'effet « credit » (K02) : « places libres N » au bout du panneau, et
+     * N baisse d'un en moins d'une seconde quand une autre page prend une
+     * place. */
+    async "credit-compte"() {
+      const page = await nouvelle({ width: 1440, height: 900 });
+      await entrer(page);
+      const lire = () =>
+        page.evaluate(() => {
+          const el = document.querySelector("#credit");
+          return el ? { texte: el.textContent ?? "", cache: el.getAttribute("aria-hidden"), dansPanneau: Boolean(el.closest("#panneau")) } : null;
+        });
+      const avant = await lire();
+      if (avant === null) throw new Defaut("aucun crédit dans le panneau");
+      if (!avant.dansPanneau) throw new Defaut("le crédit n'est pas dans le panneau de commande");
+      if (avant.cache !== "true") throw new Defaut("le crédit n'est pas caché au lecteur d'écran");
+      const n = Number(avant.texte.match(/(\d+)/)?.[1] ?? Number.NaN);
+      if (!Number.isFinite(n)) throw new Defaut(`le crédit ne dit pas de nombre: « ${avant.texte} »`);
+      const autre = await browser.newPage();
+      await autre.setViewport({ width: 1280, height: 800 });
+      await autre.goto(banc.url, { waitUntil: "domcontentloaded" });
+      await autre.waitForSelector("#enter, #screen", { timeout: 15000 });
+      if (await autre.$("#enter")) await autre.click("#enter");
+      const pris = Date.now();
+      const baisse = await jusqua(async () => (await lire())?.texte.includes(String(n - 1)) ?? false, 6000, 50);
+      if (!baisse) throw new Defaut(`le crédit reste à ${n} après l'arrivée d'une autre page`);
+      const ms = Date.now() - pris;
+      await capture(page, "credit");
+      await autre.close();
+      console.log(JSON.stringify({ note: `credit-compte: ${n} puis ${n - 1} en ${ms} ms après l'entrée de l'autre page` }));
+    },
+
+    /** L'effet « tramage » : la zone de jeu porte la trame, la toile a son
+     * fond opaque, et rien de la trame ne se voit dans le rectangle de
+     * l'image. */
+    async "tramage-hors-image"() {
+      const page = await nouvelle({ width: 1024, height: 768 });
+      await entrer(page);
+      const lu = await page.evaluate(() => ({
+        trame: getComputedStyle(document.querySelector("#zone-jeu")).backgroundImage,
+        toile: getComputedStyle(document.querySelector("#screen")).backgroundColor,
+      }));
+      if (!/conic-gradient/.test(lu.trame)) throw new Defaut(`la zone de jeu ne porte pas la trame (${lu.trame})`);
+      if (!/^rgb\(/.test(lu.toile) || /rgba\(.*, 0\)/.test(lu.toile))
+        throw new Defaut(`la toile n'a pas de fond opaque (${lu.toile})`);
+      verdict(await garder(page, "1024×768 tramage"));
+      await page.close();
+    },
+
+    /** L'effet « borne » (niveau tout) : le décor dans les bandes latérales
+     * de 72 px ou plus, jamais dans l'image, et l'image a la même taille avec
+     * et sans lui. Le jumeau: sans bande assez large, aucun décor. */
+    async "borne-bandes"() {
+      const fautes = [];
+      const vus = { avec: 0, sans: 0 };
+      for (const vue of BUREAUX) {
+        const page = await nouvelle(vue);
+        await entrer(page);
+        await sleep(300);
+        const lu = await page.evaluate(() => {
+          const image = document.querySelector("#screen").getBoundingClientRect();
+          const zone = document.querySelector("#zone-jeu").getBoundingClientRect();
+          const decors = [...document.querySelectorAll(".n3-borne")].map((el) => {
+            const b = el.getBoundingClientRect();
+            return { x: b.left, y: b.top, w: b.width, h: b.height, vu: getComputedStyle(el).display !== "none" };
+          });
+          return { image: { x: image.left, y: image.top, w: image.width, h: image.height }, bande: image.left - zone.left, decors };
+        });
+        const ici = `${vue.width}×${vue.height}`;
+        if (lu.decors.length > 0) {
+          vus.avec += 1;
+          if (lu.bande < 72) fautes.push(`${ici}: un décor dans une bande de ${Math.round(lu.bande)} px`);
+          for (const d of lu.decors) {
+            if (!d.vu) fautes.push(`${ici}: un décor caché au niveau tout`);
+            const coupe = d.x < lu.image.x + lu.image.w && lu.image.x < d.x + d.w && d.y < lu.image.y + lu.image.h && lu.image.y < d.y + d.h;
+            if (coupe) fautes.push(`${ici}: un décor coupe l'image`);
+          }
+          // La même page sans l'effet: l'image garde sa taille.
+          await page.evaluate(() => document.documentElement.classList.remove("fx-borne"));
+          await sleep(200);
+          const sans = await page.evaluate(() => document.querySelector("#screen").getBoundingClientRect().width);
+          if (Math.abs(sans - lu.image.w) > 0.5) fautes.push(`${ici}: l'image change de taille avec le décor (${lu.image.w} contre ${sans})`);
+          await capture(page, "borne");
+        } else {
+          vus.sans += 1;
+          if (lu.bande >= 72) fautes.push(`${ici}: bande de ${Math.round(lu.bande)} px sans décor`);
+        }
+        await page.close();
+      }
+      // Les fautes d'abord: une page sans l'effet n'a aucun cas « avec », et
+      // doit rougir sur son défaut, pas sur le jumeau.
+      verdict(fautes);
+      if (vus.avec === 0 || vus.sans === 0)
+        throw new Precondition(`le balayage n'a pas vu les deux cas (avec ${vus.avec}, sans ${vus.sans})`);
+    },
   };
 
   const choisies = option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES);

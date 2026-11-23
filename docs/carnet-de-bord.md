@@ -28528,6 +28528,51 @@ rétrécir l'image, F dans une salle Switch envoie R et n'agrandit rien),
 brotli 11 : 245 157 octets, soit 9 457 pour la salle depuis le socle
 (enveloppe 12 000).
 
+### 23 novembre, encore plus tard : la borne autour de l'image
+
+**Le contexte.** Le thème rétro voulait une borne d'arcade : une enseigne
+au-dessus de l'écran, des flancs décorés, un crédit. La règle de la salle
+ne bouge pas : rien sur l'image, et l'image ne rapetisse pour aucun décor.
+
+**Ce qui a changé.** Quatre effets, chacun dans une bande. Le fronton dit le
+nom du jeu en capitales dans la bande noire du haut, quand elle fait 40 px ou
+plus ; son bas, mire comprise, reste à 2 px au moins de l'image. Il laisse la
+bande à un avis le temps de l'avis. L'en-tête de la colonne ne dit le jeu
+que s'il n'y a pas de fronton : une chose une fois. Les flancs de borne
+(niveau « tout ») remplissent les bandes latérales de 72 px ou plus. Le
+crédit dit « PLACES LIBRES 2 » au bout du panneau de commande. La trame est
+le fond de la zone de jeu ; la toile a son propre fond noir, pour que la
+trame ne se voie jamais dans le rectangle de l'image avant la première
+image. Le temps de jeu est écrit mais ne s'affiche pas : la salle ne dit
+pas encore quand le jeu a été lancé, et un temps compté depuis l'arrivée de
+la page mentirait à qui arrive en cours de partie.
+
+**Ce qui a résisté : le fronton qui poussait l'image.** La première version
+mettait le fronton en position absolue dans `cadre.css`. La classe du socle,
+`.rt-fronton`, le met en position relative, et sa feuille vient après : le
+fronton entrait dans le flux, sous l'écran. L'étape `fronton-bande` l'a vu,
+son bas à 681 px pour une image qui commence à 48. Les deux classes ensemble
+l'emportent maintenant.
+
+**Ce qui a résisté : une toile sans taille.** Une fois sur deux passages, à
+1920×1080, la toile n'avait pas encore de taille au moment de la mesure, et
+l'étape lisait 540 px de bande sans fronton. Une toile sans taille est
+maintenant une précondition, attendue trois secondes, et pas un verdict.
+
+**Les preuves.** `cadre.mjs` : `fronton-bande` (neuf tailles, les deux cas
+exigés), `credit-compte` (une seconde page entre, le crédit passe de 3 à 2),
+`tramage-hors-image` et `borne-bandes` (l'image a la même largeur avec et
+sans l'effet). Les quatre sont rouges sur leur défaut contre la page de
+l'étape 6 (2cb36ba) ; les jumeaux des balayages passent après le verdict,
+sans quoi une page sans effet tombait sur une précondition. La règle de la
+première image (K06) est une fonction pure, `premiereImage`, dont le mutant
+« tout retour à vit joue » est vu rouge. Poids : 245 842 octets en brotli,
+soit 10 142 pour la salle depuis le socle (enveloppe 12 000).
+
+**Ce qui n'est pas prouvé.** Le crédit d'une salle fermée n'est vérifié que
+dans `Credit.test.tsx`, le banc ne fermant pas la salle sous la page. Aucun
+de ces décors n'a été vu sur un vrai écran par le propriétaire.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

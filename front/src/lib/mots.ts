@@ -427,6 +427,18 @@ export const TOUCHES = {
   envoyee: "envoyée",
 } as const;
 
+/** Le crédit de la borne (`components/Credit`), en casse normale : les
+ * capitales viennent de la feuille. */
+export const CREDIT = {
+  placesLibres: (n: number) => `places libres ${n}`,
+} as const;
+
+/** Le temps de jeu (`components/TempsDeJeu`), dit en clair à côté de
+ * l'afficheur, qui est caché au lecteur d'écran. */
+export const TEMPS = {
+  lisible: (secondes: number) => `${Math.floor(Math.max(0, secondes) / 60)} min de jeu`,
+} as const;
+
 /** Le nom de la zone de jeu (`components/Screen`), et ce que les touches y
  * font, au clavier seulement : Ctrl n'existe pas au doigt. */
 export const ZONE = {

@@ -915,6 +915,13 @@ cadre-navigateur-rouge:
     etapes=repos-sans-menu
     node cadre.mjs --page "$dossier/colonne.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # Quatrième bloc (étape 7): la page de l'étape 6 (2cb36ba) n'a ni
+    # fronton, ni crédit, ni trame, ni décor de borne; chaque étape doit y
+    # rougir sur son défaut, pas sur le jumeau de son balayage.
+    git show 2cb36ba:core/crates/worker/src/page/index.html > "$dossier/touches.html"
+    etapes=fronton-bande,credit-compte,tramage-hors-image,borne-bandes
+    node cadre.mjs --page "$dossier/touches.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

@@ -1752,6 +1752,24 @@ Decision:
   rows and the next visit starts on them. The game zone is named « [game],
   l'image de la partie » and, at the keyboard only, described by a hidden
   sentence (Ctrl, Escape, Tab), so nothing is drawn on the picture.
+- **The arcade frame lives in the bands, never on the picture.** The marquee
+  (`Fronton.tsx`) shows the game title in the black band above the picture
+  when that band is 40 px or more, its bottom at least 2 px above the
+  picture; it yields the band to the notice stack while a notice speaks, and
+  the column header names the game only when there is no marquee. The side
+  decoration (`CoteBorne.tsx`) fills side bands of 72 px or more that do not
+  carry the touch pad. The credit (`Credit.tsx`, K02) says « places libres
+  N » at the right end of the control panel, counted on the places the
+  worker reports, hidden from screen readers since the places already say
+  free. The dither (`tramage`) is the game zone's background; the canvas has
+  its own opaque background, so the pattern cannot show through before the
+  first picture. All are positioned absolutely: the picture's size is the
+  same with and without them. The play time (`TempsDeJeu.tsx`) is written
+  but renders nothing until the room reports its game's launch time (data
+  track, D04); a time counted from the page's arrival would lie. The
+  first-picture scene has one caller (K06): `Cadre` cuts the stage and plays
+  it on a passage from a no-picture state to `vit`, never on a return from a
+  frozen picture (`premiereImage` in `lib/cadre.ts`).
 
 Delivered in pass 1: the pure layout and its sweeps, the arbiter, the column
 rows, the idle attention loop, the pad-only latency sentence, the root
@@ -1775,9 +1793,13 @@ stage, and the numbered take-place button; proofs `cadre.mjs`
 `focus.mjs` `touches-cochees` (red on a page whose input loop sends keys out
 of the game zone), `agrandir-ctrl` (Ctrl enlarges, Escape opens the menu
 without shrinking, F in a Switch room sends R and enlarges nothing) and the
-updated `premiere-visite` and `carte-wii`. Not yet delivered: the bar, band
-and single phone sheet (step 4, which amends D28 and D35), the frame effects
-(step 7).
+updated `premiere-visite` and `carte-wii`. Delivered in pass 3 (step 7):
+the marquee, the side decoration, the credit, the dither and the
+first-picture rule; proofs `cadre.mjs` `fronton-bande`, `credit-compte`,
+`tramage-hors-image` and `borne-bandes`, each red against the step-6 page
+(2cb36ba, fourth block of `just cadre-navigateur-rouge`). Not yet delivered:
+the bar, band and single phone sheet (step 4, which amends D28 and D35), the
+play time wiring (waits for D04), the measurements (step 8).
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

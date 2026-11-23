@@ -21,6 +21,8 @@ import {
   type Entree,
   type EtatDuCadre,
   type Rect,
+  premiereImage,
+  sansImage,
 } from "./cadre";
 import { TIROIR_SOUS } from "./disposition";
 import { FITS, place, type Fit, type Size } from "./fit";
@@ -707,5 +709,20 @@ describe("la pile des avis dans la page montée", () => {
         }
       }
     }
+  });
+});
+
+describe("K06 : la première image, un seul déclencheur", () => {
+  it("joue au passage d'un état sans image à vit", () => {
+    for (const avant of ["repos", "demarrage", "connexion", "coupee"] as const)
+      expect(premiereImage(avant, "vit")).toBe(sansImage(avant));
+    expect(premiereImage("demarrage", "vit")).toBe(true);
+  });
+
+  it("ne joue pas au retour d'une image figée, ni sans passer à vit", () => {
+    expect(premiereImage("figee", "vit")).toBe(false);
+    expect(sansImage("figee")).toBe(false);
+    expect(premiereImage("vit", "vit")).toBe(false);
+    expect(premiereImage("repos", "demarrage")).toBe(false);
   });
 });

@@ -207,7 +207,7 @@ export function ManetteDolphin({ trame }: { trame: TrameDolphin }) {
           {vu === tenue ? null : <p>{REGLAGE.apercu(EMULATED[tenue]!.name)}</p>}
         </fieldset>
       ) : null}
-      <div ref={dessins}>
+      <div ref={dessins} className="n3-dessins">
         <Wiring
           state={state}
           pad={vu}

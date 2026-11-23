@@ -37,6 +37,29 @@ function Outline({ part, className, fill }: { part: Part; className: string; fil
   );
 }
 
+/** Les coins en pixels d'une pièce : quatre angles droits autour de sa boîte,
+ * et la flèche ▶ en escalier qui arrive par la gauche. Toujours dans le
+ * balisage, montrés par la feuille seulement (choix, attente, marques du pas
+ * à pas) : poser une marque ne change qu'un attribut. */
+function coinsDe(part: Part): { coins: string; fleche: string } {
+  const demi = Math.max(part.r * (part.wide ?? 1), part.r) + 1.6;
+  const haut = part.r + 1.6;
+  const [g, d, h, b] = [part.x - demi, part.x + demi, part.y - haut, part.y + haut];
+  const l = Math.min(2, demi / 2, haut / 2);
+  const f = (n: number) => +n.toFixed(2);
+  const coins = [
+    `M${f(g)} ${f(h + l)}V${f(h)}H${f(g + l)}`,
+    `M${f(d - l)} ${f(h)}H${f(d)}V${f(h + l)}`,
+    `M${f(d)} ${f(b - l)}V${f(b)}H${f(d - l)}`,
+    `M${f(g + l)} ${f(b)}H${f(g)}V${f(b - l)}`,
+  ].join("");
+  // Trois marches de 0,8 de chaque côté de la pointe : un ▶ de pixels.
+  const x = g - 1.2;
+  const y = part.y;
+  const fleche = `M${f(x)} ${f(y)}h-0.8v-0.8h-0.8v-0.8h-0.8v-0.8h-0.4v6.4h0.4v-0.8h0.8v-0.8h0.8v-0.8h0.8z`;
+  return { coins, fleche };
+}
+
 function Layers({ layers }: { layers?: readonly Layer[] }) {
   if (!layers?.length) return null;
   return (
@@ -76,8 +99,8 @@ export function PadMapView({
   // lumière, et sans elle les grains de la manette Pro débordent du dessin.
   const decoupe = `${useId().replaceAll(":", "")}-coque`;
   const piece = (part: Part): ReactNode => {
-    const half = part.r * (part.wide ?? 1);
     const label = labels?.[part.key] ?? (part.label || part.key);
+    const { coins, fleche } = coinsDe(part);
     const inscription = rawLabels ? part.key : part.label;
     const size = part.size ?? (inscription.length > 3 ? 2.2 : 3.2);
     const at = part.callout;
@@ -91,22 +114,14 @@ export function PadMapView({
         data-hangs={part.hangs ? "oui" : undefined}
         data-flush={part.flush ? "oui" : undefined}
         data-selected={selected === part.key ? "oui" : undefined}
+        data-attendue={waiting === part.key ? "oui" : undefined}
+        // Le dessin montre, la liste agit : un clic de souris choisit la
+        // ligne, et la tabulation passe par la liste, jamais par une pièce.
         role={onSelect ? "button" : undefined}
-        tabIndex={onSelect ? 0 : undefined}
+        tabIndex={onSelect ? -1 : undefined}
         aria-label={onSelect ? `Configurer ${label}` : undefined}
         aria-pressed={onSelect ? selected === part.key : undefined}
         onClick={onSelect ? () => onSelect(part.key) : undefined}
-        onKeyDown={
-          onSelect
-            ? (event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onSelect(part.key);
-                }
-              }
-            : undefined
-        }
         style={
           {
             "--part-tint": part.tint ?? "var(--pad-cap)",
@@ -176,16 +191,8 @@ export function PadMapView({
             {inscription}
           </text>
         ) : null}
-        {waiting === part.key || selected === part.key ? (
-          <rect
-            x={part.x - Math.max(half, part.r) - 1.6}
-            y={part.y - part.r - 1.6}
-            width={Math.max(half, part.r) * 2 + 3.2}
-            height={part.r * 2 + 3.2}
-            rx={part.r + 1.6}
-            className={waiting === part.key ? "n3-wanted" : "n3-selection"}
-          />
-        ) : null}
+        <path d={coins} className="n3-coins" />
+        <path d={fleche} className="n3-fleche" />
       </g>
     );
   };

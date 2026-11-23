@@ -128,7 +128,7 @@ function DessinsPro({ trame }: { trame: TramePro }) {
   const identite = pad ? identify(pad.id, pad.mapping) : null;
   useEffect(() => (paire.current ? tenirDessins(paire.current) : undefined), [identite?.name]);
   return (
-    <div className="n3-controller-pair" ref={paire}>
+    <div className="n3-controller-pair n3-dessins" ref={paire}>
       <div ref={gauche}>
         <PadMapView
           map={trame.xbox ? XBOX_360 : SWITCH_PRO}

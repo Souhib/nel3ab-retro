@@ -22,7 +22,7 @@ function monter() {
   const marque = (part: string) =>
     container.querySelector(`[data-part="${part}"]`)?.getAttribute("data-marque") ?? null;
   const marquees = () => container.querySelectorAll("[data-marque]").length;
-  return { emettre: (m: Moment) => annonces.emettre(m), marque, marquees, arreter };
+  return { emettre: (m: Moment) => annonces.emettre(m), marque, marquees, arreter, container };
 }
 
 describe("la commande attendue", () => {
@@ -93,5 +93,59 @@ describe("la pièce appuyée", () => {
     expect(marquees()).toBe(0);
     emettre({ type: "etape", control: "A" });
     expect(marquees()).toBe(0);
+  });
+});
+
+describe("la ligne de liaison", () => {
+  /** Une boîte fixe par pièce : jsdom ne mesure rien. */
+  const boites = (container: Element, places: Record<string, [number, number]>) => {
+    container.getBoundingClientRect = () => new DOMRect(100, 50, 400, 200);
+    for (const [part, [x, y]] of Object.entries(places)) {
+      const piece = container.querySelector(`[data-part="${part}"]`)!;
+      piece.getBoundingClientRect = () => new DOMRect(x - 5, y - 5, 10, 10);
+    }
+  };
+  const ligne = (container: Element) => container.querySelector(".n3-liaison line");
+
+  it("relie la pièce appuyée à la commande attendue, puis s'efface avec les coins", () => {
+    const m = monter();
+    const { container } = m;
+    boites(container, { A: [150, 100], b0: [400, 120] });
+    m.emettre({ type: "etape", control: "A" });
+    expect(ligne(container)).toBeNull();
+    m.emettre({ type: "recu", indice: "b0" });
+    const trait = ligne(container)!;
+    // Du centre de la pièce appuyée au centre de l'attendue, dans la racine.
+    expect([...["x1", "y1", "x2", "y2"].map((a) => trait.getAttribute(a))]).toEqual([
+      "300",
+      "70",
+      "50",
+      "50",
+    ]);
+    vi.advanceTimersByTime(MARQUES.coins);
+    expect(container.querySelector(".n3-liaison")).toHaveAttribute("data-marque", "efface");
+    vi.advanceTimersByTime(MARQUES.efface);
+    expect(container.querySelector(".n3-liaison")).toBeNull();
+  });
+
+  it("ne se tire pas sans commande attendue, et l'étape suivante l'efface aussitôt", () => {
+    const m = monter();
+    const { container } = m;
+    boites(container, { A: [150, 100], B: [160, 90], b0: [400, 120] });
+    m.emettre({ type: "recu", indice: "b0" });
+    expect(ligne(container)).toBeNull();
+    // La pièce appuyée a quand même ses coins.
+    expect(m.marque("b0")).toBe("coins");
+    m.emettre({ type: "etape", control: "A" });
+    m.emettre({ type: "recu", indice: "b0" });
+    expect(ligne(container)).not.toBeNull();
+    m.emettre({ type: "etape", control: "B" });
+    expect(container.querySelector(".n3-liaison")).toBeNull();
+    m.emettre({ type: "recu", indice: "b0" });
+    m.emettre({ type: "fin" });
+    expect(container.querySelector(".n3-liaison")).toBeNull();
+    // Après la fin, plus aucune commande n'est attendue : un appui ne relie rien.
+    m.emettre({ type: "recu", indice: "b0" });
+    expect(container.querySelector(".n3-liaison")).toBeNull();
   });
 });

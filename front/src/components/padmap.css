@@ -296,21 +296,29 @@
   stroke: var(--focus);
   stroke-width: 0.8;
 }
-.n3-selection,
-.n3-wanted {
-  fill: none;
-  stroke: var(--focus);
-  stroke-width: 0.65;
+/* Les coins en pixels (`coinsDe`) : cachés, sauf sur la pièce choisie, la
+   pièce attendue et les marques du pas à pas. Ils se posent sans animation
+   et ne clignotent jamais. Ni l'un ni l'autre ne prend le pointeur. */
+.n3-coins,
+.n3-fleche {
+  display: none;
   pointer-events: none;
 }
-.n3-selection {
-  stroke-dasharray: 1.2 1;
+.n3-coins {
+  fill: none;
+  stroke: var(--focus);
+  stroke-width: 0.8;
+  stroke-linecap: square;
 }
-/* La touche attendue reste entourée, sans clignoter : une marque qui bat ne
-   dit rien de plus et compte dans la règle d'un clignotement par seconde.
-   Les marques en pixels du pas à pas la remplaceront (lot L5). */
-.n3-wanted {
-  stroke: var(--ok);
+[data-selected="oui"] > .n3-coins,
+[data-attendue="oui"] > .n3-coins {
+  display: inline;
+}
+[data-attendue="oui"] > .n3-coins {
+  stroke: var(--signal);
+}
+.n3-fleche {
+  fill: var(--signal);
 }
 
 /* Sans carte : le dessin se pose sur le panneau, sans cadre ni fond à lui. */

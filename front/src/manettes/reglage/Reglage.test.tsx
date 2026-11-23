@@ -6,6 +6,7 @@ import { ContexteArbitre } from "../../components/Cadre";
 import type { Arbitre } from "../../lib/scenes-salle";
 import type { EvenementReglage, InputState } from "../../media/input";
 import { InputStream } from "../../media/input";
+import { standardProfile } from "../../media/pad";
 import { SwitchInput } from "../../media/switch";
 import type { Onglet } from "../entree";
 import type { EntreeDolphin, TrameDolphin } from "./Dolphin";
@@ -315,6 +316,39 @@ describe("la trame Pro", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "Course" } });
     fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
     expect(Object.keys(source.named)).toEqual([]);
+  });
+});
+
+describe("la commande tenue", () => {
+  it("marque sa ligne quand la boucle de peinture l'allume, et seulement elle", async () => {
+    // La vraie boucle de peinture du dessin lit cette manette : B (b1) tenu.
+    const manette = {
+      id: XBOX.padId,
+      index: 0,
+      mapping: "standard",
+      connected: true,
+      timestamp: 1,
+      buttons: Array.from({ length: 17 }, (_, at) => ({
+        pressed: at === 1,
+        touched: at === 1,
+        value: at === 1 ? 1 : 0,
+      })),
+      axes: [0, 0, 0, 0],
+    } as unknown as Gamepad;
+    const avant = navigator.getGamepads;
+    navigator.getGamepads = () => [manette];
+    try {
+      const { container } = monterDolphin({
+        state: etat({ ...XBOX, port: 2, using: 0, profile: standardProfile(XBOX.padId) }),
+      });
+      expect(container.querySelector("#reglage")).toHaveAttribute("data-place", "2");
+      await act(() => image());
+      await act(() => new Promise((fin) => setTimeout(fin, 0)));
+      const tenues = [...container.querySelectorAll<HTMLElement>("tr[data-tenu]")];
+      expect(tenues.map((tr) => tr.dataset["cle"])).toEqual(["B"]);
+    } finally {
+      navigator.getGamepads = avant;
+    }
   });
 });
 

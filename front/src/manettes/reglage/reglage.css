@@ -133,6 +133,29 @@
 .n3-correspondances [aria-current="true"] > th {
   box-shadow: inset 4px 0 0 var(--signal);
 }
+/* Une commande tenue : un carré à la couleur de la place, devant ce qui la
+   déclenche (`tenues.ts`). Un spectateur n'a pas de place : encre du thème. */
+.n3-reglage tr[data-tenu] > td:first-of-type::before {
+  content: "";
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-right: var(--espace-1);
+  background: var(--tenu, var(--encre));
+  vertical-align: middle;
+}
+.n3-reglage[data-place="1"] {
+  --tenu: var(--p1);
+}
+.n3-reglage[data-place="2"] {
+  --tenu: var(--p2);
+}
+.n3-reglage[data-place="3"] {
+  --tenu: var(--p3);
+}
+.n3-reglage[data-place="4"] {
+  --tenu: var(--p4);
+}
 .n3-correspondances [data-attend="oui"] {
   background: var(--plaque);
 }
@@ -151,23 +174,62 @@
   max-height: 16rem;
 }
 
-/* Les marques du pas à pas (`marques.ts`) : un trait au signal autour des
-   formes de la pièce attendue, plus large quand elle insiste ; rien ne
-   clignote. La pièce appuyée prend un trait d'encre en tirets, qui s'efface
-   en quatre paliers. */
-.n3-reglage [data-marque] > :not(text) {
+/* Les marques du pas à pas (`marques.ts`) sur les coins en pixels de chaque
+   pièce (`PadMap.tsx`). Le cadre se referme en trois paliers (240 ms), revient
+   plus large quand la commande insiste, puis la flèche arrive du bord. La
+   pièce appuyée prend des coins d'encre et la ligne pointillée qui la relie à
+   la commande ; les deux s'effacent en quatre paliers. Chaque animation joue
+   une fois : rien ne clignote, rien ne tourne après la fin. */
+.n3-dessins {
+  position: relative;
+}
+.n3-reglage [data-marque] > .n3-coins {
+  display: inline;
   stroke: var(--signal);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.n3-reglage [data-marque="cadre"] > .n3-coins {
+  animation: n3-marque-cadre 240ms steps(3) both;
+}
+.n3-reglage :is([data-marque="insiste"], [data-marque="fleche"]) > .n3-coins {
+  transform: scale(1.25);
   stroke-width: 1.2;
 }
-.n3-reglage :is([data-marque="insiste"], [data-marque="fleche"]) > :not(text) {
-  stroke-width: 2.2;
+.n3-reglage [data-marque="fleche"] > .n3-fleche {
+  display: inline;
+  animation: n3-marque-fleche 240ms steps(3) both;
 }
-.n3-reglage :is([data-marque="coins"], [data-marque="efface"]) > :not(text) {
+.n3-reglage :is([data-marque="coins"], [data-marque="efface"]) > .n3-coins {
   stroke: var(--encre);
-  stroke-dasharray: 2 1;
 }
-.n3-reglage [data-marque="efface"] > :not(text) {
+.n3-liaison {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.n3-liaison line {
+  stroke: var(--encre);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  shape-rendering: crispEdges;
+}
+.n3-reglage [data-marque="efface"] > .n3-coins,
+.n3-liaison[data-marque="efface"] line {
   animation: n3-marque-efface 400ms steps(4) forwards;
+}
+@keyframes n3-marque-cadre {
+  from {
+    transform: scale(1.6);
+  }
+}
+@keyframes n3-marque-fleche {
+  from {
+    transform: translateX(-4px);
+  }
 }
 @keyframes n3-marque-efface {
   to {
@@ -175,8 +237,12 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .n3-reglage [data-marque="efface"] > :not(text) {
+  .n3-reglage [data-marque] > :is(.n3-coins, .n3-fleche),
+  .n3-liaison line {
     animation: none;
+  }
+  .n3-reglage [data-marque="efface"] > .n3-coins,
+  .n3-liaison[data-marque="efface"] line {
     stroke-opacity: 0;
   }
 }

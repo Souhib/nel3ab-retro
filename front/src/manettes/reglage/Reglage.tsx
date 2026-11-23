@@ -16,6 +16,7 @@ import { ClavierDolphin, ManetteDolphin, ProfilsDolphin, type TrameDolphin } fro
 import { Onglets } from "./Onglets";
 import { Bouton } from "./PasAPas";
 import { ClavierPro, ManettePro, ProfilsPro, usePro, type TramePro } from "./Pro";
+import { suivreTenues } from "./tenues";
 import "./reglage.css";
 
 export type ReglageProps = {
@@ -87,6 +88,9 @@ export function Reglage({
   usePro(trame.genre === "pro" ? trame : null);
   useFier(trame, vit, hote);
   const occupe = occupeDe(trame);
+  const place = trame.genre === "pro" ? trame.place : trame.state.port;
+  // La ligne d'une commande tenue, posée hors de React (`tenues.ts`).
+  useEffect(() => (racine.current ? suivreTenues(racine.current) : undefined), []);
   // Le focus entre par l'onglet ouvert : c'est lui qu'on lit en premier.
   useEffect(() => {
     document.getElementById(`onglet-${onglet}`)?.focus();
@@ -115,6 +119,7 @@ export function Reglage({
       id="reglage"
       data-reglage=""
       data-occupe={occupe ? "oui" : "non"}
+      data-place={place ?? undefined}
       tabIndex={-1}
       aria-labelledby="reglageTitre"
       className="n3-reglage"

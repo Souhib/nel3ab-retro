@@ -198,7 +198,7 @@ export function paintReading(
   if (Math.abs(reading.x) > MOVED || Math.abs(reading.y) > MOVED) on.add("x");
   if (Math.abs(reading.cx) > MOVED || Math.abs(reading.cy) > MOVED) on.add("cx");
   for (const piece of root.querySelectorAll<SVGGElement>("[data-part]")) {
-    piece.dataset["lit"] = on.has(piece.dataset["part"] ?? "") ? "oui" : "non";
+    poser(piece, "data-lit", on.has(piece.dataset["part"] ?? "") ? "oui" : "non");
   }
   const tilts: Record<string, Tilt> = {
     ...physical,
@@ -208,6 +208,14 @@ export function paintReading(
   tiltSticks(root, tilts);
 }
 
+/** Écrit un attribut seulement s'il change. La peinture tourne à chaque
+ * image : une écriture identique coûte quand même un enregistrement à chaque
+ * observateur (les tenues de la table, `tenues.ts`) et une invalidation de
+ * style possible. */
+function poser(el: Element, nom: string, valeur: string): void {
+  if (el.getAttribute(nom) !== valeur) el.setAttribute(nom, valeur);
+}
+
 /** Incline le capot de chaque stick dessiné selon son `Tilt`. */
 function tiltSticks(root: Element, tilts: Record<string, Tilt>): void {
   for (const piece of root.querySelectorAll<SVGGElement>("[data-stick]")) {
@@ -215,7 +223,8 @@ function tiltSticks(root: Element, tilts: Record<string, Tilt>): void {
     const push = tilts[piece.dataset["stick"] ?? ""];
     if (!body || !push) continue;
     const travel = Number(body.dataset["drive"] ?? 0);
-    body.setAttribute(
+    poser(
+      body,
       "transform",
       `translate(${(Math.max(-1, Math.min(1, push.along)) * travel).toFixed(2)} ${(Math.max(-1, Math.min(1, push.down)) * travel).toFixed(2)})`,
     );
@@ -237,13 +246,13 @@ export function paintPro(
 ): void {
   const on = new Set<string>(SWITCH_BUTTONS.filter((_, at) => reading.buttons & (1 << at)));
   for (const piece of gauche.querySelectorAll<SVGGElement>("[data-part]")) {
-    piece.dataset["lit"] = on.has(piece.dataset["part"] ?? "") ? "oui" : "non";
+    poser(piece, "data-lit", on.has(piece.dataset["part"] ?? "") ? "oui" : "non");
   }
   tiltSticks(gauche, { a0: upward(reading.lx, reading.ly), a2: upward(reading.rx, reading.ry) });
   if (!droite) return;
   const tenus = new Set(live ? heldOn(live, device, neutre) : []);
   for (const piece of droite.querySelectorAll<SVGGElement>("[data-part]")) {
-    piece.dataset["lit"] = tenus.has(piece.dataset["part"] ?? "") ? "oui" : "non";
+    poser(piece, "data-lit", tenus.has(piece.dataset["part"] ?? "") ? "oui" : "non");
   }
   const axes = live?.axes ?? [];
   tiltSticks(droite, {

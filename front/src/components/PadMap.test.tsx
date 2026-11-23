@@ -170,3 +170,32 @@ it("Wiring passe la place de la page aux deux dessins", () => {
   ).container;
   expect(spectateur.querySelector("[data-place]")).toBeNull();
 });
+
+it("pose des coins en pixels sur la pièce choisie et l'attendue, sans anneau", () => {
+  const { container } = render(
+    <PadMapView map={GAMECUBE} title="Jeu" selected="A" waiting="B" onSelect={() => {}} />,
+  );
+  const coins = (part: string) =>
+    container.querySelector(`[data-part="${part}"] > .n3-coins`)?.getAttribute("d") ?? "";
+  // Quatre angles droits, un par coin du cadre : M, puis deux traits.
+  for (const part of ["A", "B", "Z", "x"]) expect(coins(part).match(/M/g)).toHaveLength(4);
+  expect(container.querySelector('[data-part="A"]')).toHaveAttribute("data-selected", "oui");
+  expect(container.querySelector('[data-part="B"]')).toHaveAttribute("data-attendue", "oui");
+  // Jumeau : les autres pièces ne portent ni choix ni attente.
+  expect(container.querySelector('[data-part="Z"]')).not.toHaveAttribute("data-selected");
+  expect(container.querySelector('[data-part="Z"]')).not.toHaveAttribute("data-attendue");
+  // Plus d'anneau au feutre.
+  expect(container.querySelector(".n3-wanted, .n3-selection")).toBeNull();
+});
+
+it("garde le dessin hors de la tabulation : la liste agit, le dessin montre", () => {
+  const choisi = vi.fn();
+  const { container } = render(<PadMapView map={GAMECUBE} title="Jeu" onSelect={choisi} />);
+  const pieces = [...container.querySelectorAll<SVGGElement>("[data-part]")];
+  expect(pieces.length).toBeGreaterThan(5);
+  for (const piece of pieces) expect(piece.tabIndex).toBeLessThan(0);
+  expect(container.querySelector('[tabindex="0"]')).toBeNull();
+  // Un clic choisit toujours la pièce.
+  pieces[0]!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  expect(choisi).toHaveBeenCalledWith(pieces[0]!.dataset["part"]);
+});

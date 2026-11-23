@@ -62,3 +62,32 @@ describe("paintPro", () => {
     expect(corps(droite)).toMatch(/ 0\.00\)$/);
   });
 });
+
+describe("une peinture qui ne change rien n'écrit rien", () => {
+  it("repeindre le même appui ne touche aucun attribut, un nouvel appui si", async () => {
+    const { gauche, droite } = monter();
+    const peindre = (presses: number[]) =>
+      paintPro(
+        gauche,
+        droite,
+        { ...emptySwitch(), buttons: presses.length ? 1 : 0 },
+        brut(presses),
+        standardSwitchDevice(),
+      );
+    peindre([0]);
+    const ecrits: string[] = [];
+    const veille = new MutationObserver((records) =>
+      ecrits.push(...records.map((r) => r.attributeName ?? "")),
+    );
+    veille.observe(gauche.parentElement!, { attributes: true, subtree: true });
+    peindre([0]);
+    peindre([0]);
+    await Promise.resolve();
+    expect(ecrits.filter((nom) => nom === "data-lit")).toEqual([]);
+    // Jumeau : relâcher change A et b0, et seulement eux.
+    peindre([]);
+    await Promise.resolve();
+    expect(ecrits.filter((nom) => nom === "data-lit")).toHaveLength(2);
+    veille.disconnect();
+  });
+});

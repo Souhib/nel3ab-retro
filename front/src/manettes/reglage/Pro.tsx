@@ -10,6 +10,7 @@ import { REGLAGE } from "../../lib/mots";
 import { SWITCH_PRO, XBOX_360, physicalMap } from "../../lib/padmap";
 import { labels as switchLabels, physical, keyName, xboxLabels } from "../../lib/switch-labels";
 import { paintPro } from "../../lib/wiring";
+import { sonMenu } from "../../retro/sons";
 import { identify } from "../../media/families";
 import type { InputStream } from "../../media/input";
 import {
@@ -88,20 +89,25 @@ export function usePro(trame: TramePro | null): void {
   }, [source, input]);
 }
 
-/** Un geste sur la trame Pro : son refus se dit au lieu de lever. */
+/** Un geste sur la trame Pro : son refus se dit au lieu de lever, avec le
+ * son grave du socle (coupé par défaut, et quand le jeu a le focus). */
 function useGeste(source: SwitchInput) {
   const [avis, setAvis] = useState("");
   const [, relire] = useReducer((n: number) => n + 1, 0);
+  const refuser = (texte: string) => {
+    setAvis(texte);
+    sonMenu("erreur");
+  };
   const geste = (change: () => void) => {
     try {
       change();
       setAvis("");
     } catch (e) {
-      setAvis(e instanceof Error ? e.message : REGLAGE.refuse);
+      refuser(e instanceof Error ? e.message : REGLAGE.refuse);
     }
     relire();
   };
-  return { avis: avis || source.message, setAvis, geste };
+  return { avis: avis || source.message, refuser, geste };
 }
 
 function DessinsPro({ trame }: { trame: TramePro }) {
@@ -394,7 +400,7 @@ export function ClavierPro({ trame }: { trame: TramePro }) {
  * déclare jamais prêt, et aucun profil n'est « proposé pour ce jeu ». */
 export function ProfilsPro({ trame }: { trame: TramePro }) {
   const { source } = trame;
-  const { avis, setAvis, geste } = useGeste(source);
+  const { avis, refuser, geste } = useGeste(source);
   const [nom, setNom] = useState("");
   const fichier = useRef<HTMLInputElement>(null);
   const pareil = (profil: unknown) => JSON.stringify(profil) === JSON.stringify(source.profile);
@@ -497,7 +503,7 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
         onChange={async (e) => {
           const pris = e.target.files?.[0];
           if (pris) {
-            if (pris.size > 100000) setAvis(REGLAGE.tropGrand);
+            if (pris.size > 100000) refuser(REGLAGE.tropGrand);
             else {
               const texte = await pris.text();
               geste(() => source.import(texte));

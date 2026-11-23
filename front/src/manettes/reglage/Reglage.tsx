@@ -14,9 +14,11 @@ import { identify } from "../../media/families";
 import { useArbitre } from "../../components/Cadre";
 import type { Onglet } from "../entree";
 import { ClavierDolphin, ManetteDolphin, ProfilsDolphin, type TrameDolphin } from "./Dolphin";
+import type { Moment } from "./marques";
 import { Onglets } from "./Onglets";
 import { Bouton } from "./PasAPas";
 import { ClavierPro, ManettePro, ProfilsPro, usePro, type TramePro } from "./Pro";
+import { sonnerReglage } from "./sons";
 import { suivreTenues } from "./tenues";
 import "./reglage.css";
 
@@ -56,7 +58,7 @@ function annuler(trame: TrameDolphin | TramePro): string {
   return capture ? `${capture.source}-${capture.target}` : "learnPad";
 }
 
-/** La scène « fier » à la fin d'un pas à pas qui a retenu quelque chose,
+/** La scène « fier » à la fin d'un pas à pas, et les sons du socle qui a retenu quelque chose,
  * seulement quand la salle vit (K07). Une manette qui arrive ne joue rien :
  * « arrivee » appartient aux personnes (K09). */
 function useFier(trame: TrameDolphin | TramePro, vit: boolean, hote: Hote | null) {
@@ -71,8 +73,14 @@ function useFier(trame: TrameDolphin | TramePro, vit: boolean, hote: Hote | null
       if (evenement.type !== "fin" || !evenement.resultat?.retenues || !enVie || !ou) return;
       juge?.demander({ scene: "fier", par: "manettes", hote: ou });
     };
-    if (source) return source.surLecon(surFin);
-    return input?.surReglage(surFin);
+    const abonner = (ecoute: (evenement: Moment) => void) =>
+      source ? source.surLecon(ecoute) : (input?.surReglage(ecoute) ?? (() => {}));
+    const sans = sonnerReglage(abonner);
+    const fin = abonner(surFin);
+    return () => {
+      sans();
+      fin();
+    };
   }, [source, input]);
 }
 

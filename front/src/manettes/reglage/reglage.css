@@ -147,6 +147,10 @@
   background: var(--tenu, var(--encre));
   vertical-align: middle;
 }
+/* L'effet « halo » : le carré luit de sa couleur, sans bouger. */
+.fx-halo .n3-reglage tr[data-tenu] > td:first-of-type::before {
+  box-shadow: 0 0 0.375rem var(--tenu, var(--encre));
+}
 .n3-reglage[data-place="1"] {
   --tenu: var(--p1);
 }

@@ -152,6 +152,12 @@ export function Picker({
   );
 }
 
+/** La part du signal dans le fond de la ligne choisie. `regie.test.ts` exige
+ * que le signal et la légende s'y lisent, dans les deux thèmes. 18 % avec le
+ * violet de la régie; le jaune de la mire, bien plus clair, y laissait la
+ * légende à 4,31:1 (contraste.mjs, 23 novembre 2026). À 12 %, 5,2:1. */
+export const TEINTE_SELECTION = 0.12;
+
 /** La liste des valeurs possibles. */
 function List({ picking, costume }: { picking: Picking; costume: Costume }) {
   const picks = picking.item.picks ?? [];
@@ -196,7 +202,9 @@ function List({ picking, costume }: { picking: Picking; costume: Costume }) {
               "flex items-baseline justify-between gap-3 rounded-[5px] px-3 py-1.5 text-left text-corps transition-colors",
             )}
             style={{
-              background: here ? `color-mix(in srgb, ${costume.accent} 18%, transparent)` : "none",
+              background: here
+                ? `color-mix(in srgb, ${costume.accent} ${TEINTE_SELECTION * 100}%, transparent)`
+                : "none",
               color: here ? costume.ink : costume.dim,
               border: `1px solid ${here ? costume.accent : "transparent"}`,
             }}

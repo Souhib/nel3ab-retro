@@ -1,8 +1,9 @@
 /**
  * Deux régies, et l'appareil qui choisit entre elles.
  *
- * La salle porte la régie du salon (`src/regie.css`): la régie de nuit, en
- * graphite, et la régie de jour, en craie. Sans choix, la page suit le réglage
+ * La salle porte la régie du salon (`src/regie.css`): la nuit, en bleu marine,
+ * et le jour, en givre, depuis le thème rétro du 23 novembre 2026 (ADR D37;
+ * graphite et craie avant). Sans choix, la page suit le réglage
  * clair ou sombre du système; un choix explicite l'emporte et se garde dans le
  * navigateur.
  *
@@ -32,8 +33,8 @@
  */
 export const THEMES = [
   { id: "auto", label: "comme l'appareil", note: "clair ou sombre selon le système" },
-  { id: "nuit", label: "régie de nuit", note: "graphite, pour une pièce sombre" },
-  { id: "jour", label: "régie de jour", note: "craie, pour une pièce éclairée" },
+  { id: "nuit", label: "nuit", note: "bleu marine, pour une pièce sombre" },
+  { id: "jour", label: "jour", note: "givre, pour une pièce éclairée" },
 ] as const;
 
 export type Theme = (typeof THEMES)[number]["id"];

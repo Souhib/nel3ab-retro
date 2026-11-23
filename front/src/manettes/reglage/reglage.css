@@ -26,6 +26,18 @@
   min-height: 2.75rem;
   padding: 0.375rem 0.75rem;
 }
+/* « Toutes les touches » (`ToutesLesTouches`), au bout du panneau de
+   commande, avant le crédit, qui lui laisse sa marge. */
+.n3-toutes-touches {
+  align-self: center;
+  min-height: 2.75rem;
+  margin-left: auto;
+  padding: 0.375rem 0.75rem;
+  white-space: nowrap;
+}
+.n3-toutes-touches + .n3-credit {
+  margin-left: 0;
+}
 .n3-reglage-gestes {
   display: flex;
   flex-wrap: wrap;

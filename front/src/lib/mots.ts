@@ -482,6 +482,8 @@ const laConsole = (nom: string | null) => (nom ? `la ${nom}` : "le jeu");
  * ses boutons. La fin du pas à pas et la manette débranchée suivent. */
 export const REGLAGE = {
   titre: "Touches et manettes",
+  /** Au bout du panneau de commande : ouvre le panneau sur le clavier. */
+  toutes: "Toutes les touches",
   fermer: "Fermer",
   /** La phrase de tête : `console` est nommée pour une salle Pro. */
   tete: (console: string | null) =>

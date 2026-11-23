@@ -295,10 +295,8 @@ export class Theatre {
       o.cv.classList.toggle("rt-ain-efface", !!cur.efface && t >= cur.t1 - 150);
     }
     const c = this.courante;
-    while (c && c.fait < plan.evts.length && plan.evts[c.fait].t <= t) {
-      plan.evts[c.fait].fn();
-      c.fait++;
-    }
+    if (!c) return;
+    for (; c.fait < plan.evts.length && plan.evts[c.fait].t <= t; c.fait++) plan.evts[c.fait].fn();
   }
 
   /** Lance un plan vérifié. `fin` est appelée une fois, à la fin. */

@@ -286,13 +286,17 @@ const GESTE: Record<Geste, { id: string; label: React.ReactNode }> = {
 };
 
 /** La boîte que le cadre donne à la manette (`lib/cadre`) : ses bandes (les
- * grappes en travers, rien tenue droite), ses gestes, et la règle qui garde
- * chaque pièce dans sa bande. Sans elle, la manette se pose par-dessus
- * l'écran comme avant le 23 novembre 2026 (souris, manette « toujours »). */
+ * grappes en travers et sur les côtés à la souris, rien tenue droite), ses
+ * gestes, la règle qui garde chaque pièce dans sa bande, et la tête de la
+ * mascotte dans « La salle » (tenue en main, quand la barre manque). Sans
+ * elle, la manette se pose par-dessus l'écran : la salle ne le fait plus
+ * depuis le 23 novembre 2026, et la garde de `manette-garde` la pose
+ * encore ainsi. */
 export type BoiteDuCadre = {
   bandes: { left: number; right: number };
   gestes: readonly Geste[];
   dansLesBandes: boolean;
+  tete: boolean;
 };
 
 /** Le pavé commun : il mesure, place et pose. Les deux manettes le partagent. */
@@ -438,7 +442,7 @@ export function Pave<K extends string>({
             className="n3-pave-geste"
             data-geste={piece.geste}
             data-alerte={soundOff ? "" : undefined}
-            data-tete={cadre ? "" : undefined}
+            data-tete={cadre?.tete ? "" : undefined}
             // Le nom dit le son coupé: la pastille rouge seule ne se lit pas
             // à voix haute, et ne se distingue pas sans les couleurs.
             aria-label={nomDeLaSalle(soundOff, libelleSalle)}
@@ -457,7 +461,9 @@ export function Pave<K extends string>({
                 (`ouEstLaMascotte` rend « barre »). Sans cet hôte, les scènes
                 de la salle ne jouaient nulle part (relecture du
                 23 novembre 2026). */}
-            {cadre ? <span className="n3-salle-tete" data-hote="barre" aria-hidden="true" /> : null}
+            {cadre?.tete ? (
+              <span className="n3-salle-tete" data-hote="barre" aria-hidden="true" />
+            ) : null}
             {said.label}
             {libelleSalle ? <span className="n3-pave-geste-libelle">{libelleSalle}</span> : null}
           </button>

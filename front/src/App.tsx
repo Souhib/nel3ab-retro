@@ -2209,15 +2209,15 @@ function Room({
      posés sur la racine en attributs et en variables CSS que les feuilles de
      chaque chantier lisent. */
   const roleDuCadre: RoleDuCadre = padOnly ? "seule" : port === null ? "regarde" : "joueur";
-  /** La manette tactile d'une salle tenue en main : sa PLACE est réservée
-   * qu'elle soit montée ou non (sous la feuille, pendant un chargement), pour
-   * que l'image ne bouge pas quand elle se démonte. */
-  const manetteDuCadre =
-    tenu && couchesVoulues.manette
-      ? usesProInput(room?.game?.console)
-        ? DESSINS_MANETTES.pro
-        : DESSINS_MANETTES.dolphin
-      : null;
+  /** La manette tactile : sa PLACE est réservée qu'elle soit montée ou non
+   * (sous la feuille, pendant un chargement), pour que l'image ne bouge pas
+   * quand elle se démonte. À la souris aussi, réglée sur « toujours » : le
+   * cadre lui donne sa place hors de l'image (relecture du 23 novembre 2026). */
+  const manetteDuCadre = couchesVoulues.manette
+    ? usesProInput(room?.game?.console)
+      ? DESSINS_MANETTES.pro
+      : DESSINS_MANETTES.dolphin
+    : null;
   const geo = useGeometrie({
     mode: modeSalle,
     fenetre,
@@ -2384,9 +2384,10 @@ function Room({
         cadre={cadreDeLaManette}
       />
     );
-  /** La boîte de la manette d'une salle tenue en main : ses grappes en
-   * travers, rien tenue droite ; « La salle » parmi ses touches seulement
-   * quand la barre manque. */
+  /** La boîte de la manette : ses grappes en travers et sur les côtés à la
+   * souris, rien tenue droite ou sous l'image ; « La salle » parmi ses
+   * touches quand la barre manque, et toujours à la souris. La tête de la
+   * mascotte y passe seulement tenue en main (`ouEstLaMascotte`). */
   const boiteDeLaManette: BoiteDuCadre | undefined = geo.manette
     ? {
         bandes: geo.manette.grappes
@@ -2394,6 +2395,7 @@ function Room({
           : { left: 0, right: 0 },
         gestes: geo.salleDansLaManette ? ["feuille"] : [],
         dansLesBandes: geo.manette.grappes !== null,
+        tete: tenu && geo.salleDansLaManette,
       }
     : undefined;
   /** La pile des avis va dans la bande d'une salle tenue en main : jamais sur
@@ -2805,7 +2807,11 @@ function Room({
         }
         // Étroite, l'écran prend la hauteur que le cadre lui donne, et la
         // colonne le reste, dessous (`lib/cadre`, au moins 240 px).
-        style={modeSalle === "etroit" && geo.ecran ? { height: geo.ecran.h } : undefined}
+        style={
+          modeSalle === "etroit" && geo.ecran
+            ? { height: geo.ecran.h + (geo.margesManette?.bas ?? 0) }
+            : undefined
+        }
       >
         {/* L'écran, et ce qui se pose à sa place quand il n'a pas d'image. Le
             panneau de commande est son voisin du dessous, jamais dedans : un
@@ -2815,7 +2821,21 @@ function Room({
           // Tenue en main, l'écran est où le cadre le pose. Une manette seule
           // n'en a pas : la toile reste montée (la boucle média la tient par
           // une référence), réduite à rien.
-          style={tenu ? (geo.ecran ? placeDe(geo.ecran) : SANS_ECRAN) : undefined}
+          // À la souris, la manette « toujours » prend ses marges autour de
+          // l'écran : l'image se pose dans ce qui reste.
+          style={
+            tenu
+              ? geo.ecran
+                ? placeDe(geo.ecran)
+                : SANS_ECRAN
+              : geo.margesManette
+                ? {
+                    marginLeft: geo.margesManette.gauche,
+                    marginRight: geo.margesManette.droite,
+                    marginBottom: geo.margesManette.bas,
+                  }
+                : undefined
+          }
         >
           {!avisDansLaBande && lieuAvis.lieu === "flux" ? avis : null}
           <Screen
@@ -2850,13 +2870,6 @@ function Room({
             oublié avoir choisi ce mode. La toile reste montée derrière: elle
             appartient à la boucle média, qui la tient par une référence, et la
             démonter reviendrait à mettre React sur le chemin des images. */}
-          {/* À la souris, la manette « toujours » se pose encore par-dessus
-            l'écran, rangée dans ses bandes noires quand il y en a : c'est un
-            réglage choisi sur un grand écran. Tenue en main, elle a sa boîte
-            dans le cadre, plus bas, et ne touche jamais l'image. Montée
-            seulement quand elle sert : cent boutons invisibles au-dessus d'une
-            partie jouée au clavier intercepteraient des clics. */}
-          {!tenu && session && couches.pave ? manetteTactile(undefined) : null}
           {asked ? (
             <AskedBanner
               from={asked.from}
@@ -2978,6 +2991,18 @@ function Room({
             peintes={shot?.video.painted ?? 0}
           />
         </div>
+        {/* À la souris, la manette « toujours » dans les marges que le cadre
+            a prises autour de l'écran, jamais sur l'image : à côté d'elle ou
+            dessous (`manetteALaSouris`). Jusqu'au 23 novembre 2026, elle se
+            posait par-dessus l'écran. Montée seulement quand elle sert : cent
+            boutons au-dessus d'une partie jouée au clavier intercepteraient
+            des clics. Les coordonnées sont celles de `<main>`, posé en haut à
+            gauche de la fenêtre au bureau comme en fenêtre étroite. */}
+        {!tenu && geo.manette && couches.pave ? (
+          <div className="n3-manette-boite" style={placeDe(geo.manette.rect)}>
+            {manetteTactile(boiteDeLaManette)}
+          </div>
+        ) : null}
         {panneauSous ? (
           <PanneauCommande forme="sous" hauteur={panneauSous.h} fin={credit}>
             {places}

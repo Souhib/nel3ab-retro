@@ -123,6 +123,7 @@ function Salle() {
         bandes: m.grappes ? { left: m.grappes.g.w, right: m.grappes.d.w } : { left: 0, right: 0 },
         gestes: geo.salleDansLaManette ? (["feuille"] as const) : ([] as const),
         dansLesBandes: m.grappes !== null,
+        tete: geo.salleDansLaManette,
       }
     : undefined;
   return (

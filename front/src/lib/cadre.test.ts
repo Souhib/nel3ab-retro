@@ -643,6 +643,77 @@ describe("la vraie pose des touches dans la boîte du cadre", () => {
     expect(vus).toBe(12 * 6 * 2 * 3);
   });
 
+  it("à la souris, la manette « toujours » ne pose aucune pièce sur l'image, au bureau et en fenêtre étroite", () => {
+    // Relecture du 23 novembre 2026 : réglée sur « toujours », elle se posait
+    // par-dessus l'image vivante (onze pièces à 1280×720).
+    let vus = 0;
+    const tailles = [
+      ["bureau", 1024, 640],
+      ["bureau", 1280, 720],
+      ["bureau", 1366, 768],
+      ["bureau", 1440, 900],
+      ["bureau", 1920, 1080],
+      ["etroit", 820, 900],
+      ["etroit", 700, 800],
+      ["etroit", 600, 1000],
+    ] as const;
+    for (const [mode, width, height] of tailles) {
+      for (const agrandie of [false, true]) {
+        for (const [nom, face] of FACES_TENUES) {
+          for (const image of FORMATS) {
+            const geo = miseEnPage(
+              entree({ mode, fenetre: { width, height }, image, manette: pad(nom), agrandie }),
+            );
+            const dit = `${face.title} ${mode} ${width}×${height} ${image.width} agrandie ${agrandie}`;
+            const img = geo.image;
+            if (!img || !geo.ecran) throw new Error(`pas d'image : ${dit}`);
+            // « La salle » parmi les touches : il déplie la colonne repliée.
+            expect(geo.salleDansLaManette, dit).toBe(true);
+            const { degradee, rects } = pieces(geo, face);
+            expect(degradee, dit).toBeNull();
+            // La zone de <main> : à gauche de la colonne, au-dessus du panneau.
+            const droite = geo.colonne && mode === "bureau" ? geo.colonne.x : width;
+            const bas = geo.panneau.rect
+              ? geo.panneau.rect.y
+              : geo.colonne && mode === "etroit"
+                ? geo.colonne.y
+                : height;
+            for (const r of rects) {
+              expect(coupe(img, r), dit).toBe(0);
+              expect(r.x, dit).toBeGreaterThanOrEqual(0);
+              expect(r.x + r.w, dit).toBeLessThanOrEqual(droite);
+              expect(r.y + r.h, dit).toBeLessThanOrEqual(bas);
+            }
+            // Les marges et l'écran remplissent la zone : la page pose l'écran
+            // dans ses marges, et la manette dans la zone.
+            const marges = geo.margesManette;
+            if (!marges) throw new Error(`pas de marges : ${dit}`);
+            expect(marges.gauche + geo.ecran.w + marges.droite, dit).toBe(droite);
+            expect(geo.ecran.y + geo.ecran.h + marges.bas, dit).toBe(bas);
+            vus += 1;
+          }
+        }
+      }
+    }
+    expect(vus).toBe(8 * 2 * 3 * 3);
+  });
+
+  it("le jumeau : sans manette à la souris, l'écran garde toute la zone, sans marges", () => {
+    for (const mode of ["bureau", "etroit"] as const) {
+      const fenetre =
+        mode === "bureau" ? { width: 1280, height: 720 } : { width: 820, height: 900 };
+      const sans = miseEnPage(entree({ mode, fenetre, image: QUATRE_TIERS }));
+      const avec = miseEnPage(
+        entree({ mode, fenetre, image: QUATRE_TIERS, manette: pad("dolphin") }),
+      );
+      expect(sans.manette, mode).toBeNull();
+      expect(sans.margesManette, mode).toBeNull();
+      expect(sans.salleDansLaManette, mode).toBe(false);
+      // L'image cède de la place à la manette : sans elle, elle était dessous.
+      expect(avec.image!.w * avec.image!.h, mode).toBeLessThan(sans.image!.w * sans.image!.h);
+    }
+  });
+
   it("le jumeau : la boîte de la maquette (128 px) met des touches sur l'image", () => {
     // Les grappes de la maquette, rejouées : la pose les déborde. C'est la
     // faute que la sonde du 23 novembre 2026 a vue.

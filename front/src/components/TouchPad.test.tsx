@@ -211,21 +211,36 @@ it("« La salle » parmi les touches dit le libellé qu'on lui passe, et rien sa
   expect(nu.getAttribute("aria-label")).toBe("La salle : son, menu, places");
 });
 
-it("tenue en main, « La salle » parmi les touches porte la tête de la mascotte, et pas sans le cadre", () => {
+it("tenue en main, « La salle » parmi les touches porte la tête de la mascotte, et pas à la souris", () => {
   // Sans barre, `ouEstLaMascotte` rend « barre » : l'arbitre cherche
   // [data-hote="barre"], et ne trouvait rien (relecture du 23 novembre 2026).
-  const cadre = {
+  const cadre = (tete: boolean) => ({
     bandes: { left: 0, right: 0 },
     gestes: ["feuille"] as const,
     dansLesBandes: false,
-  };
+    tete,
+  });
   const tenue = render(
-    <TouchPad bar={0} touch={new Touch()} soundOff={false} onFeuille={vi.fn()} cadre={cadre} />,
+    <TouchPad
+      bar={0}
+      touch={new Touch()}
+      soundOff={false}
+      onFeuille={vi.fn()}
+      cadre={cadre(true)}
+    />,
   );
   expect(tenue.container.querySelector('#laSalleManette [data-hote="barre"]')).not.toBeNull();
   tenue.unmount();
+  // Le jumeau : à la souris, la mascotte joue dans le coin de la colonne, et
+  // « La salle » parmi les touches ne porte pas de tête.
   const souris = render(
-    <TouchPad bar={0} touch={new Touch()} soundOff={false} onFeuille={vi.fn()} />,
+    <TouchPad
+      bar={0}
+      touch={new Touch()}
+      soundOff={false}
+      onFeuille={vi.fn()}
+      cadre={cadre(false)}
+    />,
   );
   expect(souris.container.querySelector("#laSalleManette")).not.toBeNull();
   expect(souris.container.querySelector('[data-hote="barre"]')).toBeNull();

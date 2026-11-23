@@ -897,6 +897,56 @@ async function principal() {
       verdict(fautes);
     },
 
+    /** La manette à l'écran réglée sur « toujours », à la souris. Jusqu'à
+     * la relecture du 23 novembre 2026, elle se posait par-dessus l'image
+     * vivante au bureau et en fenêtre étroite : onze pièces sur elle à
+     * 1280×720, contre la règle du propriétaire (« jamais rien sur une image
+     * vivante »). Le cadre lui réserve sa place hors de l'image, comme au
+     * doigt. À trois tailles : la garde de l'image, aucune pièce sur elle,
+     * une pose sans faute, et « La salle » parmi les touches (il déplie la
+     * colonne repliée, salle-telephone partie 13). La précondition : la
+     * manette montée. */
+    async "souris-toujours"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 1280, height: 720 },
+        { width: 1440, height: 900 },
+        { width: 820, height: 900 },
+      ]) {
+        const nom = `${vue.width}×${vue.height}`;
+        const page = await nouvelle(vue, { stockage: { "nel3ab:touchpad": "on" } });
+        await entrer(page);
+        if (!(await jusqua(() => page.$("#touchpad, .n3-pave").then(Boolean), 4000)))
+          throw new Precondition(`${nom}: la manette « toujours » n'est pas montée`);
+        await sleep(400);
+        fautes.push(...(await garder(page, `${nom} manette « toujours »`)));
+        const lu = await page.evaluate(() => {
+          const t = document.querySelector("#screen").getBoundingClientRect();
+          const pave = document.querySelector("#touchpad, .n3-pave");
+          return {
+            coupes: [...pave.querySelectorAll(":scope > *, [data-geste]")]
+              .map((el) => {
+                const r = el.getBoundingClientRect();
+                const w = Math.min(r.right, t.right) - Math.max(r.left, t.left);
+                const h = Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top);
+                return w > 0.5 && h > 0.5 ? (el.dataset.touche ?? el.dataset.geste ?? el.id ?? el.className) : null;
+              })
+              .filter(Boolean),
+            degradee: pave.dataset.degradee ?? null,
+            salle: pave.querySelector('[data-geste="feuille"]') !== null,
+            image: `${Math.round(t.width)}×${Math.round(t.height)}`,
+          };
+        });
+        console.log(JSON.stringify({ souris: nom, image: lu.image }));
+        if (lu.coupes.length) fautes.push(`${nom}: sur l'image : ${lu.coupes.join(", ")}`);
+        if (lu.degradee) fautes.push(`${nom}: la pose de la manette est dégradée (${lu.degradee})`);
+        if (!lu.salle) fautes.push(`${nom}: « La salle » manque parmi les touches`);
+        await capture(page, "souris-toujours");
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
     /** en-jeu-manette.2 (audit N1) : une vraie manette branchée à 390×844,
      * les touches à l'écran gardées (« toujours »). Pendant 6 s depuis que la
      * page a vu la manette, le centre de L rend L : l'avis de branchement de

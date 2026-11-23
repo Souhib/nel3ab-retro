@@ -300,15 +300,22 @@ export type Geometrie = {
   colonne: Rect | null;
   barre: Rect | null;
   bande: Rect | null;
-  /** La manette tactile : sa boîte, et ses deux grappes en paysage. `null`
-   * sans manette. La pose des touches dans la boîte est celle de `placePad`,
-   * avec pour bandes les grappes. */
+  /** La manette tactile : sa boîte, et ses deux grappes en paysage ou à la
+   * souris quand elle se tient sur les côtés. `null` sans manette. La pose
+   * des touches dans la boîte est celle de `placePad`, avec pour bandes les
+   * grappes. */
   manette: { rect: Rect; grappes: { g: Rect; d: Rect } | null } | null;
+  /** À la souris (bureau et étroit), la place que la manette « toujours »
+   * prend autour de l'image, dans la zone de `<main>` : les marges de la
+   * boîte de l'écran. `null` sans manette, et toujours tenu en main, où
+   * chaque pièce est posée en absolu. */
+  margesManette: { gauche: number; droite: number; bas: number } | null;
   /** Le bouton « La salle » posé hors de la barre : en haut de la bande gauche
    * ou dans la bande du panneau, en paysage. */
   boutonSalle: Rect | null;
   /** « La salle » se pose parmi les touches (`placePad`, geste « feuille ») :
-   * un téléphone tenu droit trop court pour sa barre. */
+   * un téléphone tenu droit trop court pour sa barre, et la manette
+   * « toujours » à la souris (il déplie la colonne repliée). */
   salleDansLaManette: boolean;
   /** Ton étiquette tapée, collée dans la manette quand le panneau manque. */
   etiquetteManette: Rect | null;
@@ -363,6 +370,7 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   barre: null,
   bande: null,
   manette: null,
+  margesManette: null,
   boutonSalle: null,
   salleDansLaManette: false,
   etiquetteManette: null,
@@ -396,30 +404,123 @@ export function panneauAuBureau(e: {
   return memePose(sans, avec) ? { forme: "sous", hauteur } : { forme: "colonne", hauteur: 0 };
 }
 
+/**
+ * La manette à l'écran d'une fenêtre à la souris, réglée sur « toujours ».
+ *
+ * Jusqu'à la relecture du 23 novembre 2026, elle se posait par-dessus
+ * l'écran, rangée dans les bandes noires quand il y en avait : à 1280×720,
+ * onze pièces tombaient sur l'image vivante. La règle du propriétaire ne
+ * connaît pas d'exception (« jamais rien sur une image vivante ») : le cadre
+ * lui réserve sa place, comme au doigt. Deux façons sont essayées dans la
+ * zone, et la plus grande image gagne, comme en travers :
+ *
+ * - « cotes » : une grappe dans une bande de chaque côté de l'image, aussi
+ *   haute que la zone (la manette du paysage) ;
+ * - « dessous » : la pose tenue droite sous l'image, sur toute la largeur.
+ *
+ * Une 4:3 à 1440×900 garde 808 px de large sur les côtés et 901 dessous ;
+ * une 16:9, 808 et 1136. « La salle » reste parmi les touches : il déplie la
+ * colonne repliée. `null` quand rien ne tient : la manette n'est alors pas
+ * montée, plutôt que posée sur l'image.
+ */
+type ALaSouris = {
+  variante: "cotes" | "dessous";
+  ecran: Rect;
+  manette: { rect: Rect; grappes: { g: Rect; d: Rect } | null };
+  marges: { gauche: number; droite: number; bas: number };
+};
+
+function manetteALaSouris(
+  D: DessinManette,
+  zone: Rect,
+  format: number,
+  imposee?: ALaSouris["variante"],
+): ALaSouris | null {
+  const m = 4;
+  const essais: ALaSouris[] = [];
+  const gh = zone.h - 2 * m;
+  const gl = gh >= 150 ? D.largeur(gh) : null;
+  if (gl !== null && zone.w - 2 * (gl + 2 * m) > 0) {
+    const cote = gl + 2 * m;
+    essais.push({
+      variante: "cotes",
+      ecran: rect(zone.x + cote, zone.y, zone.w - 2 * cote, zone.h),
+      manette: {
+        rect: rect(zone.x + m, zone.y + m, zone.w - 2 * m, gh),
+        grappes: {
+          g: rect(zone.x + m, zone.y + m, gl, gh),
+          d: rect(zone.x + zone.w - m - gl, zone.y + m, gl, gh),
+        },
+      },
+      marges: { gauche: cote, droite: cote, bas: 0 },
+    });
+  }
+  const besoin = D.hauteur(zone.w);
+  if (besoin !== null && zone.h - besoin - 2 * m > 0) {
+    essais.push({
+      variante: "dessous",
+      ecran: rect(zone.x, zone.y, zone.w, zone.h - besoin - 2 * m),
+      manette: { rect: rect(zone.x, zone.y + zone.h - besoin - m, zone.w, besoin), grappes: null },
+      marges: { gauche: 0, droite: 0, bas: besoin + 2 * m },
+    });
+  }
+  let meilleur: ALaSouris | null = null;
+  let aire = -1;
+  for (const un of essais) {
+    if (imposee && un.variante !== imposee) continue;
+    const b = remplir(un.ecran.w, un.ecran.h, format);
+    if (b.w * b.h > aire) {
+      aire = b.w * b.h;
+      meilleur = un;
+    }
+  }
+  return meilleur;
+}
+
+/** Ce que la manette à la souris donne à la géométrie. */
+const champsALaSouris = (
+  pave: ALaSouris | null,
+): Pick<Geometrie, "manette" | "margesManette" | "salleDansLaManette"> =>
+  pave
+    ? { manette: pave.manette, margesManette: pave.marges, salleDansLaManette: true }
+    : { manette: null, margesManette: null, salleDansLaManette: false };
+
 function bureau(e: Entree): Geometrie {
   const { width: W, height: H } = e.fenetre;
   const voulue = e.largeurPanneau ?? e.largeurColonne;
   const col = e.agrandie ? 0 : Math.max(0, Math.min(Math.floor(W / 2), Math.round(voulue)));
   const largeur = W - col;
   const colonne = e.agrandie ? null : rect(largeur, 0, col, H);
+  const format = formatDe(e.image);
   if (e.agrandie) {
-    const ecran = rect(0, 0, W, H);
+    const zone = rect(0, 0, W, H);
+    const pave = e.manette ? manetteALaSouris(e.manette, zone, format) : null;
+    const ecran = pave?.ecran ?? zone;
     return {
       ...vide(e),
       ecran,
       ...poser(e, ecran),
       panneau: { forme: "absent", rect: null },
       colonne,
+      ...champsALaSouris(pave),
     };
   }
+  // La manette « toujours » se décide sur toute la hauteur, puis le panneau
+  // sur la boîte qu'elle laisse à l'image ; elle se repose ensuite au-dessus
+  // du panneau, dans la même façon.
+  const avant = e.manette ? manetteALaSouris(e.manette, rect(0, 0, largeur, H), format) : null;
+  const boite = avant?.ecran ?? rect(0, 0, largeur, H);
   const decision = panneauAuBureau({
-    ecran: { width: largeur, height: H },
+    ecran: { width: boite.w, height: boite.h },
     image: e.image,
     ajustement: e.ajustement,
     sansImage: sansImage(e.etat),
   });
   const p = decision.forme === "sous" ? decision.hauteur : 0;
-  const ecran = rect(0, 0, largeur, H - p);
+  const zone = rect(0, 0, largeur, H - p);
+  const pave =
+    e.manette && avant ? manetteALaSouris(e.manette, zone, format, avant.variante) : null;
+  const ecran = pave?.ecran ?? zone;
   return {
     ...vide(e),
     ecran,
@@ -429,26 +530,45 @@ function bureau(e: Entree): Geometrie {
       rect: decision.forme === "sous" ? rect(0, H - p, largeur, p) : null,
     },
     colonne,
+    ...champsALaSouris(pave),
   };
 }
 
 function etroit(e: Entree): Geometrie {
   const { width: W, height: H } = e.fenetre;
+  const format = formatDe(e.image);
   if (e.agrandie) {
-    const ecran = rect(0, 0, W, H);
-    return { ...vide(e), ecran, ...poser(e, ecran), panneau: { forme: "absent", rect: null } };
+    const zone = rect(0, 0, W, H);
+    const pave = e.manette ? manetteALaSouris(e.manette, zone, format) : null;
+    const ecran = pave?.ecran ?? zone;
+    return {
+      ...vide(e),
+      ecran,
+      ...poser(e, ecran),
+      panneau: { forme: "absent", rect: null },
+      ...champsALaSouris(pave),
+    };
   }
-  const haut = Math.max(
-    0,
-    Math.min(Math.max(120, H - COLONNE_ETROITE_MIN), Math.round(W / formatDe(e.image))),
-  );
-  const ecran = rect(0, 0, W, haut);
+  const plafond = Math.max(120, H - COLONNE_ETROITE_MIN);
+  // La manette « toujours » prend sa place dans la hauteur de l'écran : la
+  // zone garde l'image et la manette, la colonne le reste.
+  const avant = e.manette ? manetteALaSouris(e.manette, rect(0, 0, W, plafond), format) : null;
+  let haut = Math.max(0, Math.min(plafond, Math.round(W / format)));
+  let pave: ALaSouris | null = null;
+  if (e.manette && avant) {
+    const b = remplir(avant.ecran.w, avant.ecran.h, format);
+    haut = avant.variante === "dessous" ? Math.min(plafond, b.h + avant.marges.bas) : plafond;
+    pave = manetteALaSouris(e.manette, rect(0, 0, W, haut), format, avant.variante) ?? avant;
+    if (pave === avant) haut = plafond;
+  }
+  const ecran = pave?.ecran ?? rect(0, 0, W, haut);
   return {
     ...vide(e),
     ecran,
     ...poser(e, ecran),
     panneau: { forme: "colonne", rect: null },
     colonne: rect(0, haut, W, H - haut),
+    ...champsALaSouris(pave),
   };
 }
 

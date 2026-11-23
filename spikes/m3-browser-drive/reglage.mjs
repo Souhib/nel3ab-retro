@@ -400,6 +400,42 @@ const ETAPES = {
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
+  /** Changement 9 : à la souris, chaque pièce cliquable du dessin du jeu a
+   * sa zone de clic, posée hors de React à la taille rendue. Une petite
+   * pièce reçoit le clic à 10 px de son centre, au-delà de son bord ; aucune
+   * zone ne rend une autre pièce que la sienne. */
+  async zones() {
+    const fautes = [];
+    const page = await nouvelle({ width: 1440, height: 900 });
+    await entrer(page);
+    await ouvrirParLaManette(page);
+    if (!(await page.$("[data-reglage]"))) throw new Defaut("« Changer » n'ouvre pas le panneau de la colonne");
+    await sleep(300);
+    const lu = await page.evaluate(() => {
+      const jeu = document.querySelector("#reglage [data-padmap]");
+      if (!jeu) return null;
+      const cercles = [...jeu.querySelectorAll("circle.n3-zone")];
+      const elargies = cercles.filter((c) => Number(c.getAttribute("r")) > Number(c.dataset.r) + 0.01);
+      const ratees = [];
+      for (const c of elargies) {
+        const piece = c.closest("[data-part]");
+        const b = c.getBoundingClientRect();
+        // À droite du centre, au bord de la zone moins 1 px.
+        const x = b.left + b.width / 2 + Math.min(10, b.width / 2 - 1);
+        const y = b.top + b.height / 2;
+        const ici = document.elementFromPoint(x, y)?.closest("[data-part]");
+        if (ici !== piece) ratees.push(`${piece.getAttribute("data-part")} rend ${ici?.getAttribute("data-part") ?? "rien"}`);
+      }
+      return { cercles: cercles.length, elargies: elargies.length, ratees };
+    });
+    if (!lu) throw new Precondition("pas de dessin du jeu dans le panneau");
+    if (lu.cercles === 0) fautes.push("le dessin du jeu n'a aucune zone de clic");
+    else if (lu.elargies === 0) fautes.push(`aucune des ${lu.cercles} zones n'est élargie à la taille rendue`);
+    fautes.push(...lu.ratees);
+    await page.close();
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
   /** Le pas à pas d'une salle GameCube, par la vraie boucle : la ligne
    * attendue est marquée, un appui la fait passer à la suivante, et une
    * seconde après, aucune animation ne tourne plus dans le panneau (rien ne

@@ -1002,6 +1002,11 @@ reglage-navigateur-rouge:
     etapes=place,entrees,activite-pro,pas-a-pas
     node reglage.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page du câblage (bc72ba9) monte le panneau, sans zone de clic sur
+    # les pièces du dessin : l'étape zones doit y rougir sur leur absence.
+    git -C ../.. show bc72ba9:core/crates/worker/src/page/index.html > "$dossier/cablage.html"
+    node reglage.mjs --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
+        --etapes zones --rouge-attendu zones
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

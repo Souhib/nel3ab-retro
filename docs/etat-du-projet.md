@@ -90,17 +90,21 @@ droite ou en deux grappes en travers, à la taille que sa vraie pose demande
 une feuille « La salle » à deux hauteurs ; la colonne sous l'image d'une
 fenêtre étroite à la souris ; la page « manette seule » (`ManetteSeule`).
 Preuves : `salle-telephone` et `manette-garde` récrits (0 px² de touches sur
-l'image), `cadre.mjs` `tenu-rien-sur-image` (rouge contre cf3bba1). Reste :
-les mesures alternées et les captures (étape 8), le temps de jeu (D04), la
-documentation finale et la porte entière. Poids : 246 511 octets en brotli
-(10 811 pour la salle). Décision : [ADR](adr/0001-architecture.md) D39 (en
+l'image), `cadre.mjs` `tenu-rien-sur-image` (rouge contre cf3bba1). Un
+spectateur tenu en main n'a plus de manette, et sa place à prendre est dans
+la bande. Mesure alternée des effets (`just cadre-mesure`, deux séries de
+quatre phases de 60 s) : aucun coût répétable dans Chrome sans écran, sous
+une charge étrangère, donc une tendance. Reste : les captures de nuit et de
+jour, le temps de jeu (D04), la documentation finale et la porte entière.
+Poids : 246 561 octets en brotli (10 861 pour la salle). Décision : [ADR](adr/0001-architecture.md) D39 (en
 partie livrée), qui amende D28 et D35. Récits : « 23
 novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
 novembre, la nuit : la colonne du bureau et le panneau de commande » et
 « 23 novembre, tard : une salle au repos n'ouvre plus rien » et « 23
 novembre, encore : la vue des touches, lue dans le produit » et « 23
 novembre, encore plus tard : la borne autour de l'image » et « 23 novembre,
-la nuit encore : la salle tenue en main ».
+la nuit encore : la salle tenue en main » et « 23 novembre, au bout de la
+nuit : ce que coûtent les effets ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

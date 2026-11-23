@@ -28684,6 +28684,41 @@ travers sont vides en dehors des avis : les phrases des autres chantiers
 demande de place se pose encore sur l'image, comme avant ; elle appartient
 au chantier des personnes.
 
+### 23 novembre, au bout de la nuit : ce que coûtent les effets
+
+**La question.** Le niveau « tout » des effets (fronton, flancs de borne,
+trame, mire) coûte-t-il des images à la salle ? Le plan demandait une mesure
+alternée : sobre, tout, sobre, tout, et pas deux phases à la suite, dont la
+seconde hériterait d'une machine plus chaude.
+
+**La mesure.** `just cadre-mesure` (étape `mesure-effets` de `cadre.mjs`) :
+la page committée sur le banc des parcours, son flux H.264 réel, à
+1440 × 900, une page neuve par phase, 5 s de mise en route, puis 60 s
+comptées. Le compteur d'images peintes de la page est daté à l'horloge du
+mur par une boucle d'images d'écran, et le niveau est relu sur la page
+(`data-effets`), pas seulement demandé. Deux séries de quatre phases, le
+23 novembre 2026 vers minuit :
+
+| Série | sobre | tout | sobre | tout |
+|---|---|---|---|---|
+| 1 | 60,0 img/s | 60,0 | 59,9 | 52,7 |
+| 2 | 59,5 | 60,0 | 60,0 | 60,0 |
+
+Le plus long écart entre deux images vaut environ 0,5 s dans chacune des
+huit phases, sobre comme tout : c'est la boucle du banc, un fichier de 3 s
+rejoué, et pas la page.
+
+**Ce qu'on en tire, et ce qu'on n'en tire pas.** Une seule phase sur quatre
+au niveau « tout » a perdu des images, et la série suivante ne l'a pas
+refait : aucun coût répétable ne se voit ici. Ce n'est pas une preuve que
+les effets ne coûtent rien. Chrome tournait sans écran, sur le processeur
+d'un ordinateur de bureau à douze cœurs, pas sur un téléphone. Et la
+machine n'était pas au repos : une autre session faisait tourner huit
+processus de rendu de Chrome au début de la première série, et des
+processus de rendu dont je n'ai pas établi le propriétaire tournaient
+encore à la fin. La baisse de la quatrième phase peut venir d'eux. C'est une
+tendance, pas une comparaison.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

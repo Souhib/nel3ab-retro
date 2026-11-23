@@ -300,3 +300,41 @@
   color: var(--legende);
   cursor: default;
 }
+
+/* ── Le champ du nom ──────────────────────────────────────────────── */
+.n3-champ-libelle {
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  color: var(--encre);
+}
+/* 16 px : un champ plus petit fait zoomer un téléphone iOS au focus. */
+.n3-champ {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--champ-trait);
+  background: var(--champ-fond);
+  color: var(--encre);
+  font-size: 16px;
+}
+.n3-champ:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
+  outline-offset: 1px;
+}
+.n3-champ[aria-invalid="true"] {
+  border-color: var(--alerte);
+}
+/* La case d'une place de la rangée sous une image de 768 px : quatre cases
+   et leurs trois écarts de 8 px. */
+.n3-apercu-place {
+  --apercu-place: 186px;
+  display: grid;
+  width: var(--apercu-place);
+  max-width: 100%;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 0.375rem;
+  align-items: center;
+}
+.n3-apercu-start {
+  width: 44px;
+  height: 44px;
+}

@@ -604,4 +604,15 @@ export const SIGNALER = {
   reessayer: "Réessayer",
 } as const;
 
+/** Le champ du nom (`components/ChampNom`), à l'entrée et dans l'avant-salle :
+ * un libellé visible, son aide, la raison d'un refus, et l'aperçu de
+ * l'étiquette telle que les autres la verront. */
+export const NOM = {
+  libelle: "Ton nom",
+  aide: "Il s'affiche sur ta place.",
+  vide: "Tape ton nom pour entrer.",
+  apercu: "Ton étiquette, telle que les autres la verront",
+  coupe: "Ton nom sera coupé sur ta place.",
+} as const;
+
 // ==== fin personnes ====

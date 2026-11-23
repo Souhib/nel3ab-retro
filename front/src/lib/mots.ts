@@ -196,6 +196,30 @@ export function sortieDuMenu({ dossier, idle }: { dossier: boolean; idle: boolea
   return idle ? SORTIES_MENU.fermer : SORTIES_MENU.reprendre;
 }
 
+/** Le réglage des effets rétro, dans le menu de la salle et au pied de la
+ * liste des salles (ADR D37). Les mêmes mots aux deux endroits: le salon les
+ * reçoit écrits depuis ce module (`retro/reglage.html`, `salon-retro.test.ts`).
+ *
+ * Le propriétaire a nommé les trois niveaux « Sobre, Conseillé, Tout ». Ce
+ * sont des choix d'une liste: en minuscules, comme les autres choix du menu
+ * (charte, règle 5). */
+export const EFFETS_RETRO = {
+  reglage: "effets rétro",
+  niveaux: {
+    sobre: {
+      label: "sobre",
+      note: "les couleurs, les lettres en pixels et les coins, presque rien ne bouge",
+    },
+    conseille: {
+      label: "conseillé",
+      note: "le réglage de départ, avec un peu de mouvement, jamais sur le jeu",
+    },
+    tout: { label: "tout", note: "tous les effets, lignes d'écran et tremblements compris" },
+  },
+  sons: "sons de menu",
+  sonsNote: "un petit bip dans les menus, jamais pendant une partie",
+} as const;
+
 /** Les phrases du lexique qui ne s'écrivent qu'ici: `mots.test.ts` refuse la
  * même phrase écrite en dur dans une autre source. `saves.ts` garde les trois
  * sauvegardes en clair, parce que le salon les y lit octet pour octet; un

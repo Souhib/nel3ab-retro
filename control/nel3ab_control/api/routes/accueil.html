@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nel3ab · les salles</title>
+<!--RETRO:EN-TETE-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      RÉGIE. nel3ab n'est pas un site avec des cartes, c'est une chaîne
@@ -37,6 +38,8 @@
      chiffre, en Anybody large; la mire EBU reste l'image « hors antenne », et
      elle seule. */
   /*__REGIE__*/
+  /* Les effets rétro, communs à la salle et au salon (`front/src/effets.css`). */
+  /*__EFFETS__*/
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh;
@@ -53,8 +56,11 @@
     display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
     border-bottom: 2px solid var(--trait); padding-bottom: .7rem;
   }
-  .marque { font-family: var(--police-machine); font-size: clamp(15px, 1.5vw, 19px);
-            letter-spacing: .34em; text-transform: uppercase; }
+  /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon
+     depuis `front/src/lib/logo.ts`. Centré sur la ligne: un dessin n'a pas
+     de ligne de base. */
+  .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
+            --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
   .rail-fait { font-family: var(--police-machine); font-size: clamp(13px, 1.2vw, 16px);
                color: var(--legende); letter-spacing: .12em; }
   /* L'horloge est une PREUVE DE VIE, pas une décoration: elle avance tant
@@ -311,7 +317,7 @@
 
   <main class="page">
     <div class="rail">
-      <span class="marque">nel3ab</span>
+      <span class="marque"><!--RETRO:LOGO--></span>
       <span class="rail-fait" id="antenne"></span>
       <a id="carnet" href="/profil" hidden>CARNET DE JEU</a>
       <span class="rail-fait" id="horloge">--:--:--</span>
@@ -330,6 +336,11 @@
       <span class="perdu" id="perdu" hidden>la liste ne se met plus à jour</span>
       <a class="importer" id="importer" href="/importer" hidden>déposer un jeu</a>
     </div>
+
+    <!-- Le réglage des effets rétro de cet appareil, le même que dans le menu
+         d'une salle (ADR D37): posé au démarrage du salon depuis
+         `front/src/lib/effets-salon.ts`. -->
+    <!--RETRO:REGLAGE-->
   </main>
 
 <script>

@@ -11,6 +11,7 @@ import pytest
 from fastapi import FastAPI
 
 from nel3ab_control.api.routes import accueil as regie_module
+from nel3ab_control.api.routes import retro
 
 
 async def test_la_page_d_accueil_est_servie(client: httpx.AsyncClient) -> None:
@@ -272,3 +273,54 @@ async def test_une_salle_pleine_se_regarde_et_un_emplacement_libre_ne_se_lit_pas
     assert fin["cartes"][0]["regarder"] == "/r/1/?entrer=regarder"
     assert fin["eteints"] and all("LIBRE" in bloc for bloc in fin["eteints"])
     assert not any("HORS SERVICE" in bloc for bloc in fin["eteints"])
+
+
+async def test_les_trois_pages_du_salon_portent_le_theme_retro(
+    client: httpx.AsyncClient,
+) -> None:
+    """La feuille des effets, le script d'en-tête, l'icône et le logo (ADR D37).
+
+    Les pièces de `routes/retro/` sont écrites depuis les modules de la salle et
+    comparées par `front/src/lib/salon-retro.test.ts`. Ici on vérifie qu'elles
+    arrivent dans ce qui est servi, et que le script passe AVANT la feuille: il
+    pose les classes des effets avant que le corps se peigne.
+    """
+    pieces = {nom: retro.piece(nom) for nom in ("effets.css", "en-tete.html", "logo.svg")}
+    for nom, contenu in pieces.items():
+        assert len(contenu) > 500, nom
+    for chemin in ("/", "/importer", "/profil"):
+        page = (await client.get(chemin, headers={})).text
+        for marque in retro.MARQUES:
+            assert marque not in page, (chemin, marque)
+        for nom, contenu in pieces.items():
+            assert contenu in page, (chemin, nom)
+        tete = page.index("</head>")
+        assert page.index(pieces["en-tete.html"]) < page.index("<style>") < tete, chemin
+        assert 'localStorage.getItem("nel3ab:effets")' in page[:tete], chemin
+        assert "font-family:'Pixelify Sans'" in page, chemin
+        # Le logo remplace le mot: plus de « nel3ab » écrit dans la marque.
+        assert re.search(r'class="marque"[^>]*>\s*<svg[^>]*class="rt-logo"', page), chemin
+
+
+async def test_le_reglage_des_effets_est_au_pied_de_l_accueil(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le réglage de l'appareil, au salon comme dans le menu d'une salle."""
+    reglage = retro.piece("reglage.html")
+    accueil = (await client.get("/", headers={})).text
+    assert reglage in accueil
+    assert accueil.index(reglage) > accueil.index('id="ouvrir"')
+    # Le jumeau: les autres pages ne le portent pas.
+    assert reglage not in (await client.get("/importer", headers={})).text
+
+
+def test_une_page_sans_en_tete_ni_feuille_du_theme_est_refusee() -> None:
+    """Une marque oubliée se voit au démarrage du salon, pas dans une page servie."""
+    with pytest.raises(ValueError, match="EN-TETE"):
+        retro.garnir("<style>/*__EFFETS__*/</style>")
+    with pytest.raises(ValueError, match="EFFETS"):
+        retro.garnir("<!--RETRO:EN-TETE--><style></style>")
+    # Le jumeau: une page qui porte les deux marques passe, et les perd.
+    garnie = retro.garnir("<!--RETRO:EN-TETE--><style>/*__EFFETS__*/</style>")
+    assert "RETRO" not in garnie
+    assert "__EFFETS__" not in garnie

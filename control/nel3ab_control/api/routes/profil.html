@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nel3ab · carnet de jeu</title>
+<!--RETRO:EN-TETE-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      LE CARNET DE JEU. Pas un tableau de bord: une étagère de salon.
@@ -29,6 +30,8 @@
   /*__POLICES__*/
   /*__BOBINE__*/
   /*__REGIE__*/
+  /* Les effets rétro, communs à la salle et au salon (`front/src/effets.css`). */
+  /*__EFFETS__*/
 
   /* L'étagère, les boîtiers, le compteur et les cartes mémoire sont des
      OBJETS: ils gardent leurs couleurs d'objet dans les deux thèmes, comme
@@ -78,10 +81,11 @@
   /* ── Le rail, comme à l'accueil ─────────────────────────────────── */
   .rail { display: flex; align-items: baseline; gap: 1.2rem; flex-wrap: wrap;
           border-bottom: 2px solid var(--trait); padding-bottom: .7rem; }
-  /* En capitales, comme à l'accueil et dans la salle: sans elles, la police
-     machine n'ayant pas de minuscules, le mot s'écrivait dans le repli. */
-  .marque { font-family: var(--police-machine); letter-spacing: .34em; font-size: clamp(15px, 1.5vw, 19px);
-            text-transform: uppercase; }
+  /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon
+     depuis `front/src/lib/logo.ts`. Centré sur la ligne: un dessin n'a pas
+     de ligne de base. */
+  .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
+            --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
   .rail-fait { font-family: var(--police-machine); letter-spacing: .14em; color: var(--legende);
                font-size: clamp(13px, 1.2vw, 16px); }
   .rail a { margin-left: auto; color: var(--legende); text-decoration: none; }
@@ -258,7 +262,7 @@
 <body>
   <main class="carnet">
     <nav class="rail" aria-label="nel3ab">
-      <span class="marque">nel3ab</span>
+      <span class="marque"><!--RETRO:LOGO--></span>
       <span class="rail-fait">CARNET DE JEU</span>
       <a href="/">revenir aux salles</a>
     </nav>

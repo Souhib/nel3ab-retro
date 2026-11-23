@@ -18,7 +18,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-from nel3ab_control.api.routes import bobine
+from nel3ab_control.api.routes import bobine, retro
 from nel3ab_control.api.routes.accueil import faces, regie
 from nel3ab_control.imports.destinations import noms
 from nel3ab_control.imports.traitement import rangees
@@ -59,7 +59,9 @@ def assembler() -> str:
     page = (DOSSIER / "importer.html").read_text(encoding="utf-8")
     page = page.replace("/*__RANGEES__*/", html.escape(enumerer(rangees())))
     page = page.replace("/*__CONSOLES__*/", noms_en_json(noms()))
-    page = bobine.garnir(page.replace("/*__POLICES__*/", faces()).replace("/*__REGIE__*/", regie()))
+    page = retro.garnir(
+        bobine.garnir(page.replace("/*__POLICES__*/", faces()).replace("/*__REGIE__*/", regie()))
+    )
     return page.replace("/*__SCRIPT__*/", SCRIPT.read_text(encoding="utf-8"))
 
 

@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-from nel3ab_control.api.routes import bobine
+from nel3ab_control.api.routes import bobine, retro
 
 router = APIRouter(tags=["accueil"])
 
@@ -32,11 +32,16 @@ router = APIRouter(tags=["accueil"])
 #:
 #: Le dépôt garde les vrais `.woff2`, pas une chaîne base64: on peut les
 #: ouvrir, vérifier leur licence et les remplacer.
+#:
+#: Pixelify Sans depuis le 23 novembre 2026, pour les titres du thème rétro
+#: (ADR D37): une police variable, d'où une plage de graisses plutôt qu'une
+#: graisse (provenance et sous-ensemble dans `polices/PixelifySans-PROVENANCE.txt`).
 POLICES = (
-    ("Anybody", 700, "anybody-large700.woff2"),
-    ("Anybody", 600, "anybody-texte600.woff2"),
-    ("Anybody", 400, "anybody-courant400.woff2"),
-    ("Departure", 400, "departure-regie.woff2"),
+    ("Anybody", "700", "anybody-large700.woff2"),
+    ("Anybody", "600", "anybody-texte600.woff2"),
+    ("Anybody", "400", "anybody-courant400.woff2"),
+    ("Departure", "400", "departure-regie.woff2"),
+    ("Pixelify Sans", "400 700", "pixelify-titres.woff2"),
 )
 
 
@@ -70,11 +75,13 @@ def regie() -> str:
     return (Path(__file__).parent / "regie.css").read_text(encoding="utf-8")
 
 
-PAGE = bobine.garnir(
-    (Path(__file__).parent / "accueil.html")
-    .read_text(encoding="utf-8")
-    .replace("/*__POLICES__*/", faces())
-    .replace("/*__REGIE__*/", regie())
+PAGE = retro.garnir(
+    bobine.garnir(
+        (Path(__file__).parent / "accueil.html")
+        .read_text(encoding="utf-8")
+        .replace("/*__POLICES__*/", faces())
+        .replace("/*__REGIE__*/", regie())
+    )
 )
 
 

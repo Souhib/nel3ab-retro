@@ -1280,6 +1280,7 @@ async function principal() {
         return versions;
       };
       const fautes = [];
+      let sansCrochet = false;
       const telephone = { width: 390, height: 844, isMobile: true, hasTouch: true };
       const cas = [
         { nom: "1280×720", vue: { width: 1280, height: 720 }, salle: {}, hote: "coin" },
@@ -1299,11 +1300,24 @@ async function principal() {
         else await entrer(page);
         if (un.exige) {
           if (await page.$("#barreSalle")) throw new Precondition(`${un.nom}: la barre est montée`);
-          if (!(await page.$(`${un.exige} [data-hote="barre"]`))) throw new Precondition(`${un.nom}: pas de tête dans ${un.exige}`);
+          if (!(await page.$(un.exige))) throw new Precondition(`${un.nom}: ${un.exige} n'est pas monté`);
+          // Sans hôte, aucune scène ne jouait (relecture du 23 novembre
+          // 2026) : c'est le défaut que la page de référence rouge montre.
+          if (!(await page.$(`${un.exige} [data-hote="barre"]`))) {
+            fautes.push(`${un.nom}: pas de tête d'Aïn dans ${un.exige}, aucune scène n'y joue`);
+            await page.close();
+            continue;
+          }
         }
         if (!(await page.$(`[data-hote="${un.hote}"]`))) throw new Precondition(`${un.nom}: pas d'hôte « ${un.hote} »`);
         const versions = await jouerTout(page, un.hote);
-        if (Object.values(versions).includes("sans-crochet")) throw new Precondition(`${un.nom}: la page n'expose pas nel3abAin`);
+        if (Object.values(versions).includes("sans-crochet")) {
+          // Une page d'avant Aïn : rien à jouer ici, mais les hôtes se
+          // vérifient quand même (la page de référence rouge).
+          sansCrochet = true;
+          await page.close();
+          continue;
+        }
         const lu = await lire(page);
         if (un.exige) {
           // La tête vit dans le bouton « La salle » : ses mots ne se couvrent
@@ -1319,6 +1333,11 @@ async function principal() {
         fautes.push(...Object.keys(lu?.fautes ?? {}).map((f) => `${un.nom}: ${f}`));
         await capture(page, `mascotte-${un.repos ? "repos" : un.nom}`);
         await page.close();
+      }
+      if (sansCrochet) {
+        if (fautes.length === 0) throw new Precondition("la page n'expose pas nel3abAin");
+        verdict(fautes);
+        return;
       }
       // Le jumeau rouge : l'image glisse sous le logo pendant une scène ;
       // la sonde doit voir Aïn dessus.

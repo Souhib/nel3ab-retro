@@ -211,14 +211,21 @@ const VIDE: ReadonlySet<number> = new Set();
 /** Les secondes qui restent, à 1 Hz, depuis la valeur du salon. `cle`
  * change avec la demande : une nouvelle demande repart de son temps. */
 export function useReste(secondes: number, cle: string): number {
-  const [reste, setReste] = useState(Math.max(0, Math.ceil(secondes)));
+  const depart = Math.max(0, Math.ceil(secondes));
+  // Le temps restant appartient à SA clé. Tenu seul, il gardait le 0 de « pas
+  // de demande » au premier rendu d'une demande arrivée dans une carte déjà
+  // montée, et l'ancienne demande expirait aussitôt (salle-telephone, 23
+  // novembre 2026). Une clé nouvelle repart de son temps dès ce rendu-là.
+  const [suivi, setSuivi] = useState({ cle, reste: depart });
+  const reste = suivi.cle === cle ? suivi.reste : depart;
   useEffect(() => {
     if (secondes <= 0) {
-      setReste(0);
+      setSuivi({ cle, reste: 0 });
       return;
     }
     const fin = performance.now() + secondes * 1000;
-    const battre = () => setReste(Math.max(0, Math.ceil((fin - performance.now()) / 1000)));
+    const battre = () =>
+      setSuivi({ cle, reste: Math.max(0, Math.ceil((fin - performance.now()) / 1000)) });
     battre();
     const id = window.setInterval(battre, 1000);
     return () => window.clearInterval(id);

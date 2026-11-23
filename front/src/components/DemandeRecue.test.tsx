@@ -102,6 +102,28 @@ describe("la demande reçue", () => {
     expect(onExpire).toHaveBeenCalledTimes(1);
   });
 
+  it("une demande qui arrive dans une carte déjà montée n'expire pas à son premier rendu", () => {
+    // La salle monte la carte VIDE en permanence (`App`, 23 novembre 2026) :
+    // le temps restant de « pas de demande » valait 0, et le premier rendu
+    // de la demande l'expirait aussitôt. salle-telephone l'a vu : #keepSeat
+    // n'existait déjà plus quand le pilote le cherchait.
+    const onExpire = vi.fn();
+    const rendu = render(<DemandeRecue {...rien} demande={null} onExpire={onExpire} />);
+    rendu.rerender(
+      <DemandeRecue
+        {...rien}
+        demande={demande({ chemin: "ancienne", lasts: 10 })}
+        onExpire={onExpire}
+      />,
+    );
+    expect(onExpire).not.toHaveBeenCalled();
+    expect(document.querySelector("#keepSeat")).not.toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
   it("pendant le don, dit à qui va la place et propose d'annuler", () => {
     const onAnnulerDon = vi.fn();
     render(<DemandeRecue {...rien} demande={demande()} donne onAnnulerDon={onAnnulerDon} />);

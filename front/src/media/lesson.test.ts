@@ -191,6 +191,19 @@ describe("les commandes passées", () => {
     expect(lesson.passees).toHaveLength(15);
   });
 
+  it("perdent leur entrée quand une réponse l'a prise", () => {
+    // A répondu sur b8, l'entrée de B avant : b8 ne doit pas presser A et B.
+    const lesson = new Lesson("adapter", rest());
+    lesson.feed(pressing(8));
+    lesson.feed(rest());
+    while (!lesson.done) lesson.skip();
+    const appris = lesson.learned(avant);
+    expect(appris.buttons.A).toEqual({ button: 8, rest: 0 });
+    expect(appris.buttons.B).toBeUndefined();
+    // Les autres passées gardent le leur.
+    expect(appris.triggers.L).toEqual({ button: 4, rest: 0.6 });
+  });
+
   it("restent sans réglage quand il n'y avait rien avant", () => {
     const lesson = new Lesson("adapter", rest());
     lesson.skip();

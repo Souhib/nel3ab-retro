@@ -117,6 +117,25 @@ export function indiceDe(control: Control, value: number): string {
   return `a${control.axis}${value >= control.rest ? "+" : "-"}`;
 }
 
+/** L'entrée physique d'une commande, sans son sens : `b6` ou `a2`. */
+export function entreeDe(control: Control | { axis: number }): string {
+  return "button" in control ? `b${control.button}` : `a${control.axis}`;
+}
+
+/**
+ * Les entrées que les réponses d'une leçon ont prises.
+ *
+ * Une commande passée garde son réglage d'avant, SAUF si une réponse a pris
+ * son entrée : répondre b2 pour A sur une manette standard, puis passer X
+ * (standard sur b2), laisserait b2 presser A et X à la fois. La leçon est un
+ * nouveau plan de la manette, et une entrée y fait une seule chose, comme une
+ * touche du clavier (`bindKey`). X reste alors sans réglage, et la table le
+ * montre.
+ */
+export function entreesPrises(reponses: readonly (Control | { axis: number })[]): Set<string> {
+  return new Set(reponses.map(entreeDe));
+}
+
 export class Capture {
   private readonly neutral: Snapshot;
 
@@ -373,16 +392,22 @@ export class Lesson extends Pas<StepKey> {
   learned(precedent: PadProfile | null = null): PadProfile {
     const out = structuredClone(this.profile);
     if (!precedent) return out;
+    const prises = entreesPrises([
+      ...Object.values(out.buttons),
+      ...Object.values(out.triggers),
+      ...Object.values(out.sticks),
+    ]);
+    const libre = (entree: Control | { axis: number }) => !prises.has(entreeDe(entree));
     for (const key of this.passees) {
       if (key === "L" || key === "R") {
         const avant = precedent.triggers[key];
-        if (avant) out.triggers[key] = structuredClone(avant);
+        if (avant && libre(avant)) out.triggers[key] = structuredClone(avant);
       } else if (isStick(key)) {
         const avant = precedent.sticks[key];
-        if (avant) out.sticks[key] = structuredClone(avant);
+        if (avant && libre(avant)) out.sticks[key] = structuredClone(avant);
       } else {
         const avant = precedent.buttons[key as ButtonName];
-        if (avant) out.buttons[key as ButtonName] = structuredClone(avant);
+        if (avant && libre(avant)) out.buttons[key as ButtonName] = structuredClone(avant);
       }
     }
     return out;

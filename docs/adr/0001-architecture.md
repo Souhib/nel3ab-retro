@@ -2231,7 +2231,7 @@ Decision:
   page, where the pad pump requests 62 frames a second of its own.
 - **The lounge gets a bundle, not a copy of the page.** `just ain-salon`
   builds `src/mascotte/salon.ts` into one IIFE without React,
-  `control/nel3ab_control/api/routes/retro/ain.js` (15 249 bytes brotli),
+  `control/nel3ab_control/api/routes/retro/ain.js` (15 237 bytes brotli),
   with a stamp over every module the build read (`ain.SOURCES`);
   `salon.test.ts` refuses a stale or heavier bundle. The lounge workstream
   wires it into its pages (D41).

@@ -30,7 +30,7 @@ const RETRO = `${RACINE}control/nel3ab_control/api/routes/retro/`;
 const lire = (relatif: string) => fs.readFileSync(`${RACINE}${relatif}`);
 const empreinte = (octets: Uint8Array) => createHash("sha256").update(octets).digest("hex");
 
-/** Ce que le paquet a le droit de peser en brotli 11 : 15 249 octets mesurés
+/** Ce que le paquet a le droit de peser en brotli 11 : 15 237 octets mesurés
  * le 23 novembre 2026 (dessin, moteur, lecteur, 27 scènes, rendu, et les
  * effets pour le niveau), plus 10 % pour les retouches. Le salon le charge
  * à part de la page de la salle : il ne compte pas dans ses 300 000. */

@@ -237,9 +237,9 @@ et des 10 du salon, sans contact, et aucun appel à `requestAnimationFrame`
 d'Aïn pendant deux secondes après une scène. L'étape `ain-immobile` de
 `cadre-navigateur` mesure la même chose dans la vraie page. Un seul Aïn par
 salle : sur le plateau, le logo du coin garde sa place en pointillés. Le
-paquet du salon est prêt (`just ain-salon`, `retro/ain.js`, 15 249 octets
+paquet du salon est prêt (`just ain-salon`, `retro/ain.js`, 15 237 octets
 brotli, avec sa marque `ain.SOURCES` gardée par `salon.test.ts`) ; le
-chantier salon le branche. La page fait 261 610 octets en brotli (+12 174
+chantier salon le branche. La page fait 261 613 octets en brotli (+12 177
 depuis la vague A). Récits : « 23 novembre, la dernière vague : Aïn entre
 dans la salle » et « 23 novembre, deuxième passage : la planche d'Aïn, son
 paquet pour le salon, et rien entre deux scènes ».

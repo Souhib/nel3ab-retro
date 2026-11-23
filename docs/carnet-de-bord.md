@@ -29669,8 +29669,9 @@ ses sources ou plus lourd que 16 800 octets. Le même essai charge le paquet
 comme le salon le fera, dans une page avec et sans hôte. Deux constructions
 de suite donnent le même fichier à l'octet. Le chantier salon le branche.
 
-**Le poids.** La page de la salle passe de 261 523 à 261 610 octets en brotli
-11 : 87 de plus pour un seul Aïn et la version jouée. La planche et le
+**Le poids.** La page de la salle passe de 261 523 à 261 613 octets en brotli
+11 : 90 de plus pour un seul Aïn et la version jouée, pose clé comprise. Le
+paquet du salon finit à 15 237 octets. La planche et le
 paquet du salon ne comptent pas dans la page.
 
 **Ce qui n'est pas prouvé.** Les versions complètes jouent dans la planche,

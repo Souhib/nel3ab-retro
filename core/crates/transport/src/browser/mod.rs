@@ -55,6 +55,7 @@ pub use controller::{ControllerFrame, InputKind};
 #[cfg(test)]
 mod harness;
 mod head;
+mod jalons;
 mod pad;
 mod page;
 mod route;
@@ -326,6 +327,8 @@ const HALF_NO: u8 = 2;
 #[derive(Debug)]
 pub struct BrowserServer {
     catalogue: Catalogue,
+    /// Les jalons de ce démarrage, ajoutés à `/roms`. Voir [`jalons`].
+    jalons: Arc<jalons::Jalons>,
     keys: Keys,
     save_catalogue: SaveCatalogue,
     /// One queue per listener, the sound's answer to `viewers`. Separate lists
@@ -544,6 +547,7 @@ impl BrowserServer {
         let (listener, bound) = Self::bound_listener(address)?;
 
         let clips = Arc::new(Mutex::new(crate::clip::Clips::new()));
+        let jalons = Arc::new(jalons::Jalons::maintenant());
         let keys = keys_of(&catalogue);
         let catalogue = Arc::new(Mutex::new(catalogue));
         let save_catalogue: SaveCatalogue = Arc::new(Mutex::new(None));
@@ -577,6 +581,7 @@ impl BrowserServer {
             .name("browser-accept".to_owned())
             .spawn({
                 let clips = Arc::clone(&clips);
+                let jalons = Arc::clone(&jalons);
                 let catalogue = Arc::clone(&catalogue);
                 let keys = Arc::clone(&keys);
                 let save_catalogue = Arc::clone(&save_catalogue);
@@ -611,6 +616,7 @@ impl BrowserServer {
                         page,
                         &Shared {
                             save_catalogue,
+                            jalons,
                             clips: Arc::clone(&clips),
                             viewers,
                             listeners,
@@ -650,6 +656,7 @@ impl BrowserServer {
         tracing::info!(%bound, "browser server listening");
         Ok(Self {
             catalogue,
+            jalons,
             keys,
             save_catalogue,
             owner: Arc::clone(owner),
@@ -720,6 +727,14 @@ impl BrowserServer {
         true
     }
 
+    /// L'émulateur ou l'adaptateur de cette salle vient de démarrer.
+    ///
+    /// Publié dans `/roms` (`"moteur":"lance"`): le salon dit alors « le jeu
+    /// s'est lancé dans la salle » au lieu d'attendre la première image.
+    pub fn moteur_lance(&self) {
+        self.jalons.moteur_lance();
+    }
+
     /// The address actually bound, which matters when port 0 was asked for.
     #[must_use]
     pub const fn address(&self) -> SocketAddr {
@@ -738,6 +753,9 @@ impl BrowserServer {
     /// no metric.
     #[must_use]
     pub fn send(&self, packet: &Packet) -> bool {
+        // Le premier paquet offert date le jalon « image » de `/roms`. Offert,
+        // pas reçu: il prouve que la salle envoie, pas qu'une page le peint.
+        self.jalons.image_offerte();
         // Gardé AVANT d'être distribué, et sans regarder si quelqu'un écoute:
         // une image jetée faute de place chez un spectateur reste une image que
         // la partie a produite, et un clip qui aurait des trous là où une
@@ -1328,6 +1346,8 @@ impl BrowserServer {
 #[derive(Clone)]
 struct Shared {
     save_catalogue: SaveCatalogue,
+    /// Les jalons de ce démarrage, que la route `/roms` ajoute au catalogue.
+    jalons: Arc<jalons::Jalons>,
     /// Les dernières secondes, gardées pour qu'on puisse les revoir.
     ///
     /// Nourri par [`BrowserServer::send`], donc par le flux GRAND format et lui
@@ -1627,7 +1647,12 @@ fn serve_connection(stream: TcpStream, page: &'static str, shared: &Shared) {
         Some(Route::Roms) => {
             let catalogue = shared.catalogue.lock().ok().map(|held| Arc::clone(&held));
             if let Some(catalogue) = catalogue {
-                serve_body(stream, &catalogue, "application/json");
+                let avec_jalons = shared.jalons.dans(&catalogue);
+                serve_body(
+                    stream,
+                    avec_jalons.as_deref().unwrap_or(&catalogue),
+                    "application/json",
+                );
             } else {
                 serve_unready(stream);
             }
@@ -1780,6 +1805,53 @@ mod tests {
             serde_json::from_str(after.split_once("\r\n\r\n").unwrap().1).unwrap();
         assert!(after["current"].is_null());
         assert_eq!(after["roms"], before["roms"]);
+        // Les jalons passent la mise au repos: ils sont ajoutés au moment de
+        // servir, pas écrits dans le catalogue que `mark_idle` réécrit.
+        assert_eq!(after["depuis_ms"], before["depuis_ms"]);
+    }
+
+    /// D04: `/roms` dit quand ce worker a démarré, si son moteur est lancé, et
+    /// quand la première image est partie, posée une seule fois.
+    #[test]
+    fn roms_carries_the_milestones_of_this_start() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            r#"{"current":0,"roms":[{"name":"A"}]}"#.into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let roms = || {
+            let mut stream = TcpStream::connect(server.address()).unwrap();
+            stream
+                .write_all(b"GET /roms HTTP/1.1\r\nHost: x\r\n\r\n")
+                .unwrap();
+            let mut response = String::new();
+            stream.read_to_string(&mut response).unwrap();
+            serde_json::from_str::<serde_json::Value>(response.split_once("\r\n\r\n").unwrap().1)
+                .unwrap()
+        };
+        let neuf = roms();
+        assert!(neuf["depuis_ms"].as_u64().unwrap() > 1_700_000_000_000);
+        assert!(neuf.get("moteur").is_none() && neuf.get("image_ms").is_none());
+        assert_eq!(neuf["roms"][0]["name"], "A", "the library is unchanged");
+
+        server.moteur_lance();
+        let packet = Packet {
+            captured_micros: 1,
+            annex_b: &[0, 0, 0, 1, 0x65],
+        };
+        let _nobody_watches = server.send(&packet);
+        let premiere = roms();
+        std::thread::sleep(Duration::from_millis(5));
+        let _again = server.send(&packet);
+        let seconde = roms();
+
+        assert_eq!(premiere["moteur"], "lance");
+        assert!(premiere["image_ms"].as_u64().unwrap() >= neuf["depuis_ms"].as_u64().unwrap());
+        assert_eq!(seconde["image_ms"], premiere["image_ms"]);
     }
 
     #[test]

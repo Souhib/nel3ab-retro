@@ -28389,6 +28389,26 @@ Chaque emplacement relié au catalogue porte maintenant cette clé ; un
 emplacement que le salon ne sait pas relier n'en a pas, plutôt qu'une clé
 devinée.
 
+**Le worker dit où en est son démarrage.** L'écran de chargement devinait
+l'étape « le jeu s'est lancé dans la salle » : la page ne sait que ce qu'elle
+peint, et le salon sait seulement que le worker a accepté le lancement. Le
+worker, lui, sait quand il a démarré, quand l'émulateur est parti et quand la
+première image est sortie. Il le dit maintenant dans `/roms`, la réponse que le
+salon lit déjà une fois par seconde. Trois choix. Les champs s'ajoutent au
+moment de servir la réponse, pas dans la bibliothèque, pour que les chaînes de
+référence des essais de la bibliothèque ne bougent pas. Le chemin des images
+ne paie qu'une lecture atomique par paquet (une lecture de mémoire que deux
+fils peuvent faire sans verrou), et l'heure n'est lue qu'au premier. Les heures
+sont murales, pas monotones : le salon les compare à l'heure de son propre
+lancement, et l'horloge monotone d'un processus ne se compare à rien hors de
+lui. Côté salon, un worker qui redémarre ne garde pas les jalons du jeu
+d'avant : ils diraient « image partie » d'un jeu qui ne tourne plus. Deux
+mutants ont été essayés sur le worker : l'heure de la première image reposée à
+chaque paquet, et l'envoi qui oublie de la poser ; chacun fait échouer son
+essai. En passant, deux fichiers d'essai que ce chantier ne possède pas
+(`harness.rs`, `stream.rs`) ont reçu une ligne : ils construisent l'état
+partagé du serveur champ par champ.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

@@ -25,6 +25,7 @@ use super::{BrowserServer, PORTS, Packet, Queued, Viewer};
 pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Queued>>) -> BrowserServer {
     BrowserServer {
         catalogue: Arc::new(Mutex::new("{}".into())),
+        jalons: Arc::new(super::jalons::Jalons::depuis(0)),
         keys: Arc::from(Vec::new()),
         save_catalogue: Arc::new(Mutex::new(None)),
         prepared: Mutex::new(None),

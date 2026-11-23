@@ -1,6 +1,7 @@
 """The room a page reads, and the pads it claims."""
 
 import os
+import time
 from datetime import UTC, datetime
 
 import httpx
@@ -514,3 +515,68 @@ async def test_relaunching_the_running_game_keeps_its_launcher(settings: Setting
     assert room.lancement is not None
     assert (room.lancement.par.name, room.lancement.par.id) == ("Bo", None)
     assert room.lancement.sauvegarde == "commune"
+
+
+class WorkerAJalons:
+    """Un worker de papier qui publie (ou non) les jalons de son démarrage."""
+
+    def __init__(self, jalons: dict | None) -> None:
+        self.jalons = jalons
+        self.muet = False
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        if self.muet:
+            raise httpx.ConnectError("il redémarre")
+        corps = {"players": 4, "current": 0, "roms": [{"name": "Melee", "key": "Melee.rvz"}]}
+        return httpx.Response(200, json={**corps, **(self.jalons or {})})
+
+
+async def test_the_room_says_where_the_start_of_its_game_stands(settings: Settings) -> None:
+    """D04: moteur lancé, première image partie, et depuis quand."""
+    maintenant_ms = int(time.time() * 1000)
+    worker = WorkerAJalons(
+        {"depuis_ms": maintenant_ms - 30_000, "moteur": "lance", "image_ms": maintenant_ms}
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        room = await RoomController(settings, http, 1).describe()
+
+    assert room.partie is not None
+    assert (room.partie.lance, room.partie.image) == (True, True)
+    assert room.partie.depuis_s == pytest.approx(30, abs=2)
+
+
+async def test_a_milestone_not_reached_yet_is_false(settings: Settings) -> None:
+    """Le worker publie ses jalons: l'absence de `moteur` veut dire « pas encore »."""
+    worker = WorkerAJalons({"depuis_ms": int(time.time() * 1000)})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        room = await RoomController(settings, http, 1).describe()
+
+    assert room.partie is not None
+    assert (room.partie.lance, room.partie.image) == (False, False)
+
+
+async def test_an_older_worker_says_nothing_rather_than_not_started(settings: Settings) -> None:
+    """Le jumeau: sans `depuis_ms`, on ne sait pas, ce qui n'est pas « pas lancé »."""
+    async with httpx.AsyncClient(transport=httpx.MockTransport(WorkerAJalons(None))) as http:
+        room = await RoomController(settings, http, 1).describe()
+
+    assert room.partie is not None
+    assert (room.partie.lance, room.partie.image, room.partie.depuis_s) == (None, None, None)
+
+
+async def test_a_restarting_worker_does_not_keep_the_old_milestones(settings: Settings) -> None:
+    """La bibliothèque d'avant reste affichée pendant une relance, ses jalons non:
+    ils diraient « image partie » d'un jeu qui ne tourne plus."""
+    maintenant_ms = int(time.time() * 1000)
+    worker = WorkerAJalons(
+        {"depuis_ms": maintenant_ms, "moteur": "lance", "image_ms": maintenant_ms}
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(worker)) as http:
+        rooms = RoomController(settings, http, 1)
+        assert (await rooms.describe()).partie is not None
+        worker.muet = True
+
+        room = await rooms.describe()
+
+    assert room.game is not None, "le jeu d'avant reste affiché"
+    assert room.partie is None

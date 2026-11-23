@@ -1135,6 +1135,8 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             &saves::folder_for(slot, person.as_deref()),
             runtime.path(),
         )?;
+        // Le jalon « moteur » de `/roms`, comme pour Dolphin (ADR D43).
+        server.moteur_lance();
         // The same field names as the Dolphin report, at the same ten seconds,
         // so one grep reads both consoles. Only this one number: the rest of
         // the Dolphin report is the encoder's, and the Switch encodes elsewhere.
@@ -1408,6 +1410,9 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         Err(nel3ab_emulator::EmulatorError::Cancelled) => return Ok(false),
         result => result?,
     };
+    // Publié dans `/roms`: le salon sait que Dolphin a démarré avant la
+    // première image (ADR D43).
+    server.moteur_lance();
     let mut workers = nel3ab_emulator::lifecycle::Workers::new(Arc::clone(stopping));
     let mut frames = match listener.accept_while(Duration::from_mins(2), || {
         !stopping.load(std::sync::atomic::Ordering::Relaxed)

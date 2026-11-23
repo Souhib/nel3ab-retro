@@ -1740,6 +1740,40 @@ Decision:
   slot has none.
 
 
+### D43: The worker publishes the milestones of its start, 2026-11-23
+
+The loading screen said « the game started in the room » by guessing: the page
+only knows what it paints, and the lobby only knows that the worker accepted a
+launch. The worker knows each milestone and did not publish them (plan
+« donnees », lot 2).
+
+Decision:
+
+- **`/roms` gains three fields, added when the route is served**, not by the
+  library (`nel3ab_transport::browser::jalons`): `depuis_ms`, the wall-clock
+  time this worker started its game or menu; `moteur: "lance"` once Dolphin's
+  session or an external room's adapter has started; `image_ms`, the wall-clock
+  time of the first video packet OFFERED by `BrowserServer::send`, set once by
+  a compare-and-swap. A milestone not reached is absent, never `false` or `0`.
+  The library's reference strings are unchanged, `mark_idle` keeps the
+  milestones since they are not stored in the catalogue, and the frame path
+  pays one relaxed atomic load per packet. Adapter rooms (Switch, Xbox 360)
+  send their frames through the same `send` (`ingress.rs`), so they are
+  covered.
+- **Wall clock, on purpose.** The lobby compares these times with its own
+  wall-clock launch time on the same machine; the worker's monotonic clock
+  means nothing outside its process.
+- **`Room.partie {lance, image, depuis_s}`** reads them. A worker that predates
+  these fields gives three `None`, never « not started »; a worker that does
+  not answer (it is restarting) gives `partie = None` even though the previous
+  library stays displayed, because the old game's milestones would claim an
+  image for a game that no longer runs.
+- **What `image` proves.** A packet left the worker, not that a page painted
+  it (rule « A game's frame counter does not prove the picture players see »):
+  the sentence is « the room is sending the picture », and the page keeps its
+  own count of painted frames.
+
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

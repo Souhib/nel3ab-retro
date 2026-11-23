@@ -591,6 +591,32 @@ export type Partie = {
 };
 
 /**
+ * PartieVue
+ *
+ * Où en est le worker de la salle, d'après ses propres jalons (ADR D43).
+ */
+export type PartieVue = {
+    /**
+     * Lance
+     *
+     * Vrai quand l'émulateur ou l'adaptateur a démarré, faux quand le worker dit qu'il ne l'est pas encore (ou qu'il sert son menu). Rien pour un worker qui ne publie pas ce jalon: on ne sait pas, ce qui n'est pas « pas lancé ».
+     */
+    lance?: boolean | null;
+    /**
+     * Image
+     *
+     * Vrai quand le worker a OFFERT sa première image aux pages. Cela prouve que la salle envoie l'image, pas qu'une page la voit: la page garde son propre compte d'images peintes. Rien sans le jalon.
+     */
+    image?: boolean | null;
+    /**
+     * Depuis S
+     *
+     * Depuis combien de secondes ce worker a démarré son jeu ou son menu, à l'heure murale de la machine. Rien sans le jalon.
+     */
+    depuis_s?: number | null;
+};
+
+/**
  * Person
  *
  * Quelqu'un dans la salle, qu'il tienne une manette ou non.
@@ -781,6 +807,10 @@ export type Room = {
      * Seats
      */
     seats: Array<Seat>;
+    /**
+     * Les jalons du worker à sa dernière réponse: moteur lancé, première image partie, depuis quand. Rien quand il n'a pas répondu cette fois (il redémarre): les jalons du jeu d'avant ne valent pas pour celui qui démarre.
+     */
+    partie?: PartieVue | null;
     /**
      * Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite sans passer par lui): la page dit alors « sauvegarde inconnue ».
      */

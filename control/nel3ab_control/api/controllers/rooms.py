@@ -7,6 +7,7 @@ The two can disagree for a second after a reconnection, and the page believes th
 worker.
 """
 
+import time
 from collections.abc import Container
 from datetime import UTC, datetime
 from time import monotonic
@@ -20,7 +21,7 @@ from nel3ab_control.api.controllers.recovery import Recovery
 from nel3ab_control.api.controllers.tablee import Tablee
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
-from nel3ab_control.api.schemas.room import Game, LancementVu, Room, Seat
+from nel3ab_control.api.schemas.room import Game, LancementVu, PartieVue, Room, Seat
 from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.game_controls import guide_for
@@ -85,6 +86,9 @@ class RoomController:
         #: La dernière bibliothèque obtenue, gardée pour survivre à un worker qui
         #: redémarre. Voir `library`.
         self._known: tuple[list[Game], Game | None] | None = None
+        #: Les jalons de la DERNIÈRE réponse, et seulement d'elle: rien quand le
+        #: worker n'a pas répondu. Voir `PartieVue`.
+        self._partie: PartieVue | None = None
         #: Session -> le nom sous lequel elle s'est assise, pour l'afficher.
         self._named: dict[str, str] = {}
         #: La dernière place annoncée au worker, pour ne pas le rappeler pour
@@ -115,6 +119,8 @@ class RoomController:
         # Cinq cibles possibles : chef (0), puis quatre ports. Un refus sur une
         # autre cible ne doit pas annuler la protection de la première.
         self.recovery_refused: dict[int, tuple[str, float]] = {}
+        #: L'heure murale, pour lire les jalons du worker, qui sont murales.
+        self._horloge_murale = time.time
 
     async def unlocked_available(self, index: int) -> bool:
         """The worker checks import receipts and real payloads, including after removal."""
@@ -180,11 +186,15 @@ class RoomController:
             response = await self._client.get(f"{self._settings.worker_url}/roms", timeout=2.0)
             response.raise_for_status()
         except httpx.HTTPError as error:
+            # Le jeu d'avant reste affiché, mais pas ses jalons: pendant une
+            # relance, ils diraient « image partie » d'un jeu qui ne tourne plus.
+            self._partie = None
             if self._known is not None:
                 return self._known
             raise WorkerUnreachable(self._settings.worker_url) from error
 
         payload = response.json()
+        self._partie = partie_vue(payload, self._horloge_murale())
         # Le worker décrivait ses jeux par un simple nom; il en dit maintenant
         # quatre choses. On accepte encore l'ancienne forme parce que le worker
         # et ce service se redémarrent séparément, et qu'une salle muette
@@ -513,6 +523,7 @@ class RoomController:
             game=running,
             library=library,
             dernier_jeu=self.dernier_jeu(library),
+            partie=self._partie,
             lancement=self._lancement_vu(people),
             seats=seats,
             # Un repère, jamais l'adresse: cet état part vers toutes les pages.
@@ -552,6 +563,28 @@ def _dernier(retenu: JeuRetenu | None, library: list[Game]) -> DernierJeu | None
         return None
     return DernierJeu(
         cle=jeu.key, titre=jeu.name, quand=datetime.fromtimestamp(retenu.choisi, tz=UTC)
+    )
+
+
+def _instant_ms(brut: object) -> int | None:
+    """Une heure murale en millisecondes publiée par le worker, ou rien."""
+    return brut if type(brut) is int and brut > 0 else None
+
+
+def partie_vue(payload: object, maintenant: float) -> PartieVue:
+    """Les jalons d'une réponse `/roms`, ou trois « on ne sait pas ».
+
+    Un worker d'avant le 23 novembre 2026 ne publie pas `depuis_ms`: tout est
+    rien, jamais faux. Avec lui, l'absence de `moteur` ou de `image_ms` veut
+    dire « pas encore ».
+    """
+    if not isinstance(payload, dict) or (depuis := _instant_ms(payload.get("depuis_ms"))) is None:
+        return PartieVue()
+    age = maintenant - depuis / 1000
+    return PartieVue(
+        lance=payload.get("moteur") == "lance",
+        image=_instant_ms(payload.get("image_ms")) is not None,
+        depuis_s=int(age) if age >= 0 else None,
     )
 
 

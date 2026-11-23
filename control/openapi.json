@@ -1301,6 +1301,50 @@
         "title": "Partie",
         "description": "Une partie: des places tenues de suite, au même jeu, dans la même salle.\n\nUne reconnexion de moins de deux minutes ne fait pas une nouvelle partie, et\ndeux onglets de la même personne ne comptent pas double."
       },
+      "PartieVue": {
+        "properties": {
+          "lance": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lance",
+            "description": "Vrai quand l'émulateur ou l'adaptateur a démarré, faux quand le worker dit qu'il ne l'est pas encore (ou qu'il sert son menu). Rien pour un worker qui ne publie pas ce jalon: on ne sait pas, ce qui n'est pas « pas lancé »."
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "Vrai quand le worker a OFFERT sa première image aux pages. Cela prouve que la salle envoie l'image, pas qu'une page la voit: la page garde son propre compte d'images peintes. Rien sans le jalon."
+          },
+          "depuis_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depuis S",
+            "description": "Depuis combien de secondes ce worker a démarré son jeu ou son menu, à l'heure murale de la machine. Rien sans le jalon."
+          }
+        },
+        "type": "object",
+        "title": "PartieVue",
+        "description": "Où en est le worker de la salle, d'après ses propres jalons (ADR D43)."
+      },
       "Person": {
         "properties": {
           "name": {
@@ -1580,6 +1624,17 @@
             },
             "type": "array",
             "title": "Seats"
+          },
+          "partie": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartieVue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Les jalons du worker à sa dernière réponse: moteur lancé, première image partie, depuis quand. Rien quand il n'a pas répondu cette fois (il redémarre): les jalons du jeu d'avant ne valent pas pour celui qui démarre."
           },
           "lancement": {
             "anyOf": [

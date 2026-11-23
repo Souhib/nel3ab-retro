@@ -75,6 +75,9 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Messages de socket.** `menu` et `Person.au_menu` (D15) ; `plainte_quoi`
   et `reste_s` dans chaque refus de cadence (D20).
 - **Sauvegardes.** `Emplacement.cle` (D19).
+- **Jalons du worker (lot 2, ADR D43).** `/roms` porte `depuis_ms`, `moteur`
+  et `image_ms` ; le salon publie `Room.partie`. Demande de reconstruire le
+  worker, sans salle ouverte, APRÈS le redémarrage du salon.
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

@@ -103,6 +103,36 @@ class Seat(BaseModel):
     )
 
 
+class PartieVue(BaseModel):
+    """Où en est le worker de la salle, d'après ses propres jalons (ADR D43)."""
+
+    lance: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand l'émulateur ou l'adaptateur a démarré, faux quand le "
+            "worker dit qu'il ne l'est pas encore (ou qu'il sert son menu). Rien "
+            "pour un worker qui ne publie pas ce jalon: on ne sait pas, ce qui "
+            "n'est pas « pas lancé »."
+        ),
+    )
+    image: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand le worker a OFFERT sa première image aux pages. Cela "
+            "prouve que la salle envoie l'image, pas qu'une page la voit: la page "
+            "garde son propre compte d'images peintes. Rien sans le jalon."
+        ),
+    )
+    depuis_s: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Depuis combien de secondes ce worker a démarré son jeu ou son menu, "
+            "à l'heure murale de la machine. Rien sans le jalon."
+        ),
+    )
+
+
 class LancementVu(BaseModel):
     """Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit."""
 
@@ -139,6 +169,15 @@ class Room(BaseModel):
         ),
     )
     seats: list[Seat]
+    partie: PartieVue | None = Field(
+        default=None,
+        description=(
+            "Les jalons du worker à sa dernière réponse: moteur lancé, première "
+            "image partie, depuis quand. Rien quand il n'a pas répondu cette "
+            "fois (il redémarre): les jalons du jeu d'avant ne valent pas pour "
+            "celui qui démarre."
+        ),
+    )
     lancement: LancementVu | None = Field(
         default=None,
         description=(

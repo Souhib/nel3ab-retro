@@ -212,13 +212,13 @@ def _lire(fichier: Path) -> dict[str, deque[float]]:
     durees: dict[str, deque[float]] = {}
     try:
         with fichier.open("rb") as flux:
-            brut = flux.read(TAILLE_MAX + 1)
+            # Les lignes les plus RÉCENTES sont à la fin: au-delà de la borne,
+            # on lit la fin, et pas le début. La ligne que la coupe entame n'est
+            # pas un objet JSON entier: la lecture ligne à ligne l'écarte.
+            flux.seek(max(0, os.fstat(flux.fileno()).st_size - TAILLE_MAX))
+            brut = flux.read(TAILLE_MAX)
     except OSError:
         return durees
-    if len(brut) > TAILLE_MAX:
-        # Les lignes les plus RÉCENTES sont à la fin: on garde la fin, et la
-        # première ligne coupée est écartée par la lecture JSON.
-        brut = brut[-TAILLE_MAX:]
     for texte in brut.decode("utf-8", errors="replace").splitlines():
         try:
             ligne = json.loads(texte)

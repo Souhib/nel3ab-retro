@@ -28548,6 +28548,25 @@ d'avant entière. Les deux essais font écrire mille octets par appel, ou
 lever au deuxième ; la même fonction écrit aussi l'ordre d'ouverture et le
 repère d'ouverture.
 
+**Un fichier lu par le mauvais bout.** La même relecture a trouvé un défaut
+dans le chronomètre des démarrages. Son fichier grandit d'une ligne par
+lancement, et le salon n'en lit que 4 Mio, ce qui tient des dizaines de
+milliers de démarrages. Le commentaire disait « on garde la fin, où sont les
+lignes récentes ». Le code lisait les 4 premiers Mio, puis gardait la fin de
+CE morceau : au-delà de la borne, l'habitude d'un jeu se serait figée sur ses
+premiers mois, et un jeu devenu lent aurait continué d'être annoncé rapide.
+À une vingtaine de lancements par soirée, il aurait fallu des années pour y
+arriver, mais un code qui fait le contraire de son commentaire est un défaut.
+Le salon se place maintenant à la fin du fichier avant de lire. L'essai fait
+écrire vingt-cinq démarrages de dix secondes puis cinq de cinquante, réduit
+la borne à la taille des cinq derniers, et attend cinquante ; il passe aussi
+par une coupe qui tombe pile au début d'une ligne, qui doit la garder, et par
+une borne qui tient une ancienne ligne entière, qui doit la compter. Une
+première correction écartait aussi elle-même la ligne entamée par la coupe ;
+son mutant survivait, puisque la lecture ligne à ligne refuse déjà un objet
+JSON coupé. Elle a été retirée, pour la même raison que la comparaison de
+taille de l'ordre d'ouverture la veille.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

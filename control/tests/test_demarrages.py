@@ -6,6 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from nel3ab_control import demarrages as demarrages_module
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.demarrages import ABANDON_S, Demarrages
 from nel3ab_control.parties import JeuJoue
@@ -205,3 +206,38 @@ def test_une_duree_impossible_n_est_pas_ecrite(tmp_path: Path, duree: float) -> 
     demarrages.vu(1, "Melee.rvz", lance_ms + 2_000, lance_ms + int(duree * 1000))
 
     assert not fichier.exists()
+
+
+@pytest.mark.parametrize(
+    ("octets", "anciennes", "comptes"),
+    [
+        # Un morceau de la ligne d'avant: écarté, les cinq récentes restent.
+        (40, 0, 5),
+        # La coupe tombe juste au début d'une ligne récente: elle est gardée.
+        (0, 0, 5),
+        # Une ancienne ligne entière tient dans la borne: elle compte aussi.
+        (0, 1, 6),
+    ],
+)
+def test_un_gros_fichier_est_lu_par_sa_fin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, octets: int, anciennes: int, comptes: int
+) -> None:
+    """Au-delà de la borne, ce sont les démarrages RÉCENTS qui comptent: ils
+    sont à la fin du fichier. Un jeu devenu lent ne doit pas garder pour
+    toujours l'habitude de ses premiers mois."""
+    murale = Murale()
+    fichier = tmp_path / "d.jsonl"
+    demarrages = Demarrages(fichier, murale)
+    for _ in range(25):
+        demarrer(demarrages, murale, 1, "Mario.xci", 10.0)
+    anciens = fichier.stat().st_size
+    une_ligne = len(fichier.read_bytes().splitlines(keepends=True)[-1])
+    for _ in range(5):
+        demarrer(demarrages, murale, 1, "Mario.xci", 50.0)
+    recents = fichier.stat().st_size - anciens
+    monkeypatch.setattr(demarrages_module, "TAILLE_MAX", recents + anciennes * une_ligne + octets)
+
+    relue = Demarrages(fichier, murale).habituel("Mario.xci")
+
+    assert relue is not None
+    assert (relue.mediane_s, relue.p90_s, relue.n) == (50.0, 50.0, comptes)

@@ -519,6 +519,20 @@ export type Me = {
 };
 
 /**
+ * OuvrirSalle
+ *
+ * Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif.
+ */
+export type OuvrirSalle = {
+    /**
+     * Numero
+     *
+     * Ouvrir CETTE salle: « Ouvrir la salle 3 », « Rouvrir la salle 1 ». Refusé (409) si elle n'est pas fermée: une salle qui redémarre n'est pas libre. Sans numéro, le premier emplacement libre.
+     */
+    numero?: number | null;
+};
+
+/**
  * PageParties
  */
 export type PageParties = {
@@ -1357,11 +1371,23 @@ export type ReadSallesResponses = {
 export type ReadSallesResponse = ReadSallesResponses[keyof ReadSallesResponses];
 
 export type OpenSalleData = {
-    body?: never;
+    /**
+     * Demande
+     */
+    body?: OuvrirSalle | null;
     path?: never;
     query?: never;
     url: '/api/salles';
 };
+
+export type OpenSalleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OpenSalleError = OpenSalleErrors[keyof OpenSalleErrors];
 
 export type OpenSalleResponses = {
     /**

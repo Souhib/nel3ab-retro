@@ -1,9 +1,11 @@
 """Les salles de la machine: les lister, en ouvrir une, la fermer. No logic here."""
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Body, HTTPException, status
 
 from nel3ab_control.api.controllers.salles import PresencesDuSalon
-from nel3ab_control.api.schemas.salle import Salle
+from nel3ab_control.api.schemas.salle import OuvrirSalle, Salle
 from nel3ab_control.dependencies import CallerDep, PeopleDep, SallesDep, SalonsDep, SettingsDep
 
 router = APIRouter(prefix="/api", tags=["salles"])
@@ -29,8 +31,15 @@ async def read_salles(salles: SallesDep, people: PeopleDep, salons: SalonsDep) -
 
 
 @router.post("/salles", response_model=Salle, status_code=status.HTTP_201_CREATED)
-async def open_salle(salles: SallesDep, caller: CallerDep) -> Salle:
-    """Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.
+async def open_salle(
+    salles: SallesDep,
+    caller: CallerDep,
+    demande: Annotated[OuvrirSalle | None, Body()] = None,
+) -> Salle:
+    """Ouvre la salle demandée, ou le premier emplacement libre, ou refuse.
+
+    Sans corps, le comportement d'avant le 23 novembre 2026: le premier
+    emplacement libre. Avec `numero`, cette salle-là ou un refus (D17).
 
     Demande une identité, n'importe laquelle. Ouvrir un emplacement libre ne
     décide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur
@@ -42,7 +51,7 @@ async def open_salle(salles: SallesDep, caller: CallerDep) -> Salle:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="aucune identité: ouvrir une salle demande de savoir qui l'ouvre",
         )
-    return await salles.ouvrir()
+    return await salles.ouvrir(demande.numero if demande else None)
 
 
 @router.delete("/salles/{numero}", response_model=Salle)

@@ -1738,6 +1738,15 @@ Decision:
   the catalogue links it (Dolphin folder key, or a registered title id), so a
   page can say whether « my save » exists for the game it shows. An unlinked
   slot has none.
+- **`POST /api/salles` takes an optional body `{numero}`** (D17, first part).
+  A named room is opened, or refused with 409 when it is not closed (open, or
+  restarting), 404 when it is not a room; it is never replaced by another
+  room, since « reopen room 1 » that opened room 2 would split a group. No
+  body keeps the old behaviour. Opening directly on a game (`cle`,
+  `sauvegarde`) is not built yet: the worker also reads `chosen-pad`, the
+  per-game pad setup and a pending new-game request written by
+  `remember_choice`, and a room started with only `chosen-rom` could boot a
+  Wii game on the wrong controller or replay a stale new-game request.
 
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23

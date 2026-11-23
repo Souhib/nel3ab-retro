@@ -269,3 +269,54 @@ async def test_an_open_room_nobody_follows_does_not_guess_its_seats(
     systeme.demarrer(2)
 
     assert (await _salle(client, 2))["sieges"] is None
+
+
+async def test_a_named_room_is_opened_and_not_another(
+    client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """D17: « Ouvrir la salle 3 » ouvre la 3, même quand la 1 est libre."""
+    answer = await client.post("/api/salles", headers=VINCENT, json={"numero": 3})
+
+    assert answer.status_code == 201
+    assert answer.json()["numero"] == 3
+    assert _ordres(systeme) == [["sudo", "-n", "systemctl", "start", "nel3ab-worker@3"]]
+
+
+async def test_a_named_room_that_is_open_or_restarting_is_refused(
+    client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """Le jumeau: une salle ouverte, ou que systemd relance, n'est pas libre, et
+    la demande n'ouvre pas une autre salle à la place."""
+    systeme.demarrer(1)
+    systeme.unite(2).etat = "activating"
+    avant = _ordres(systeme)
+
+    ouverte = await client.post("/api/salles", headers=VINCENT, json={"numero": 1})
+    relancee = await client.post("/api/salles", headers=VINCENT, json={"numero": 2})
+
+    assert (ouverte.status_code, relancee.status_code) == (409, 409)
+    assert _ordres(systeme) == avant
+
+
+async def test_a_room_that_does_not_exist_cannot_be_opened(
+    client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    assert (
+        await client.post("/api/salles", headers=VINCENT, json={"numero": 7})
+    ).status_code == 404
+    assert (
+        await client.post("/api/salles", headers=VINCENT, json={"numero": 0})
+    ).status_code == 422
+    assert _ordres(systeme) == []
+
+
+async def test_without_a_body_the_first_free_room_opens_as_before(
+    client: httpx.AsyncClient, systeme: FauxSysteme
+) -> None:
+    """Le jumeau sans corps: la page d'avant ouvre encore une salle."""
+    systeme.demarrer(1)
+
+    answer = await client.post("/api/salles", headers=VINCENT)
+
+    assert answer.status_code == 201
+    assert answer.json()["numero"] == 2

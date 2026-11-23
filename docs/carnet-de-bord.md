@@ -28449,6 +28449,15 @@ n'atteint l'émulateur ; son jumeau envoie un octet inconnu, qui ne remet rien
 et ne ferme pas la socket. Le bouton de la page viendra après la fusion du
 chantier des manettes, qui tient ce fichier.
 
+**Ouvrir la salle 3, pas la première libre.** « Ouvrir une salle » prenait le
+premier emplacement libre. Les écrans du thème rétro veulent « Ouvrir la salle
+3 » et « Rouvrir la salle 1 ». La demande peut maintenant nommer la salle ;
+une salle ouverte ou qui redémarre est refusée, plutôt que d'en ouvrir une
+autre à sa place, ce qui enverrait chacun dans une salle différente. Ouvrir
+directement sur un jeu attend encore : en lisant le worker, il est apparu qu'il
+retient aussi la manette choisie pour le jeu et une demande de partie neuve.
+Écrire seulement le jeu ferait démarrer un jeu Wii sur une manette GameCube.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleErrors, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -190,14 +190,24 @@ export const readSalles = <ThrowOnError extends boolean = false>(options?: Optio
 /**
  * Open Salle
  *
- * Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.
+ * Ouvre la salle demandée, ou le premier emplacement libre, ou refuse.
+ *
+ * Sans corps, le comportement d'avant le 23 novembre 2026: le premier
+ * emplacement libre. Avec `numero`, cette salle-là ou un refus (D17).
  *
  * Demande une identité, n'importe laquelle. Ouvrir un emplacement libre ne
  * décide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur
  * la carte graphique commune: le salon doit savoir qui l'a demandé. Avant le
  * 21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.
  */
-export const openSalle = <ThrowOnError extends boolean = false>(options?: Options<OpenSalleData, ThrowOnError>): RequestResult<OpenSalleResponses, unknown, ThrowOnError> => (options?.client ?? client).post<OpenSalleResponses, unknown, ThrowOnError>({ url: '/api/salles', ...options });
+export const openSalle = <ThrowOnError extends boolean = false>(options?: Options<OpenSalleData, ThrowOnError>): RequestResult<OpenSalleResponses, OpenSalleErrors, ThrowOnError> => (options?.client ?? client).post<OpenSalleResponses, OpenSalleErrors, ThrowOnError>({
+    url: '/api/salles',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
 
 /**
  * Close Salle

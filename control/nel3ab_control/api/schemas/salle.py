@@ -216,3 +216,17 @@ class Salle(BaseModel):
             "les présents »: on peut regarder une partie sans tenir de manette."
         ),
     )
+
+
+class OuvrirSalle(BaseModel):
+    """Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif."""
+
+    numero: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Ouvrir CETTE salle: « Ouvrir la salle 3 », « Rouvrir la salle 1 ». "
+            "Refusé (409) si elle n'est pas fermée: une salle qui redémarre n'est "
+            "pas libre. Sans numéro, le premier emplacement libre."
+        ),
+    )

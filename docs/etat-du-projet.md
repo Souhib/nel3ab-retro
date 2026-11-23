@@ -75,6 +75,8 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Messages de socket.** `menu` et `Person.au_menu` (D15) ; `plainte_quoi`
   et `reste_s` dans chaque refus de cadence (D20).
 - **Sauvegardes.** `Emplacement.cle` (D19).
+- **Ouvrir une salle précise (D17, première partie).** `POST /api/salles`
+  accepte `{numero}` ; ouvrir sur un jeu et une sauvegarde reste à faire.
 - **Jalons du worker (lot 2, ADR D43).** `/roms` porte `depuis_ms`, `moteur`
   et `image_ms` ; le salon publie `Room.partie`. Demande de reconstruire le
   worker, sans salle ouverte, APRÈS le redémarrage du salon.

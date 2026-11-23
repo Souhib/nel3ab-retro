@@ -141,6 +141,16 @@ class SalleInconnue(HTTPException):
         )
 
 
+class SallePrise(HTTPException):
+    """La salle demandée n'est pas fermée: ouverte, ou que systemd relance."""
+
+    def __init__(self, numero: int) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"la salle {numero} n'est pas fermée ; rejoins-la plutôt que de l'ouvrir",
+        )
+
+
 class SalleRebelle(HTTPException):
     """systemd a refusé d'allumer ou d'éteindre.
 
@@ -486,9 +496,19 @@ class SallesController:
         """
         return _etat_du_mot(await self._mot(numero))
 
-    async def ouvrir(self) -> Salle:
-        """Allume le premier emplacement libre, ou refuse."""
-        for numero in SALLES:
+    async def ouvrir(self, voulue: int | None = None) -> Salle:
+        """Allume la salle demandée, ou le premier emplacement libre, ou refuse.
+
+        Une salle demandée qui n'est pas fermée est refusée (409) plutôt que
+        remplacée par une autre: « Rouvrir la salle 1 » qui ouvrirait la 2
+        enverrait chacun dans une salle différente (D17).
+        """
+        if voulue is not None:
+            if voulue not in SALLES:
+                raise SalleInconnue(voulue)
+            if await self.unite(voulue) != "fermee":
+                raise SallePrise(voulue)
+        for numero in SALLES if voulue is None else (voulue,):
             # Une salle que systemd relance n'est PAS libre: voir `unite`.
             if await self.unite(numero) != "fermee":
                 continue

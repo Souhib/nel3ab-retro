@@ -518,4 +518,46 @@ export const ARRIVEES = {
   regarde: (nom: string) => `${nom} regarde la partie.`,
 } as const;
 
+/** La carte d'une place (`components/CartePlace`) : demander la place de
+ * quelqu'un selon la vraie règle du salon (20 s, puis la reprise confirmée),
+ * reprendre une place sans nom, ou rendre la sienne. Aucune phrase genrée sur
+ * l'autre personne, et plus de « est prévenu ». */
+export const CARTE = {
+  estA: (n: number, nom: string) => `La place ${n} est à ${nom}`,
+  tenue: (n: number) => `La place ${n} est tenue`,
+  personne: "Personne n'y est nommé : tu peux la reprendre.",
+  delai: (nom: string, s: number, n: number) =>
+    `${nom} a ${s} s pour répondre. Sans réponse, tu pourras prendre la place ${n}.`,
+  demander: "Lui demander sa place",
+  reprendre: (n: number) => `Reprendre la place ${n}`,
+  chezLui: (nom: string) => `Ta demande est chez ${nom}`,
+  annuler: "Annuler la demande",
+  prendre: (n: number) => `Prendre la place ${n}`,
+  silence: (nom: string) => `${nom} n'a pas répondu`,
+  garde: (nom: string, n: number) => `${nom} garde sa place ${n}.`,
+  ta: (n: number) => `Ta place ${n}`,
+  tuJoues: (comment: string) => `Tu joues ${comment}.`,
+  nom: "Ton nom se change entre deux parties, depuis l'avant-salle.",
+  choix: "Le choix du jeu",
+  choixA: (nom: string) => `${nom} choisit le jeu`,
+  choisir: "Choisir le jeu",
+  fermer: "Fermer",
+  restant: (s: number) => `${s} s`,
+} as const;
+
+/** La demande reçue (`components/DemandeRecue`) : jamais sur l'image, un
+ * geste qui ne coûte rien en premier, et « Donner » qui s'annule 4 s. */
+export const DEMANDE = {
+  titre: (nom: string, n: number) => `${nom} demande ta place ${n}`,
+  reprise: (s: number, nom: string) => `Sans réponse dans ${s} s, ${nom} pourra la prendre.`,
+  ancienne: (s: number) => `Sans réponse dans ${s} s, tu la gardes.`,
+  manette: "A sur ta manette garde ta place.",
+  garder: "Garder ma place",
+  donner: "Donner ma place",
+  donne: (n: number, nom: string) => `Tu donnes ta place ${n} à ${nom}`,
+  annuler: "Annuler",
+  prise: (nom: string, n: number) => `${nom} a pris ta place ${n}.`,
+  redemander: "Redemander une place",
+} as const;
+
 // ==== fin personnes ====

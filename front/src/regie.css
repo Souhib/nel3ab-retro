@@ -399,7 +399,9 @@
    milieu exact de son ancien dégradé (haut et bas), et les deux anneaux
    d'appui sont un blanc et un noir d'objet. `components/padmap.css` les lit;
    aucun rôle ni composant de la page n'y pointe (`regie.test.ts`). Les
-   contrastes d'appui sont vérifiés par `lib/manettes-couleurs.test.ts`. */
+   touches de couleur sont nommées par les plans de `lib/padmap.ts` (D3), qui
+   n'écrivent plus aucune valeur. Les contrastes d'appui sont vérifiés par
+   `lib/manettes-couleurs.test.ts`. */
 :root {
   /* La base de toutes les manettes (`[data-padmap]`). */
   --manette-commune-coque: #333844;
@@ -461,11 +463,33 @@
   --manette-gamecube-encre: #2a2840;
   --manette-gamecube-appui: #c8ff4d;
   --manette-gamecube-appui-encre: #1a2600;
-  /* Les teintes de touches qui reviennent d'une manette à l'autre (`TINTS`). */
-  --manette-teinte-vert: #2f9e5e;
-  --manette-teinte-rouge: #c8402f;
-  --manette-teinte-violet: #7a5bb5;
-  --manette-teinte-jaune: #c8a01f;
-  --manette-teinte-bleu: #3c7dc7;
-  --manette-teinte-gris: #6e6e7a;
+  /* Les touches de couleur, nommées par les plans de `lib/padmap.ts`: une
+     touche porte la couleur de la vraie manette, et on reconnaît le A d'une
+     GameCube à son vert d'eau avant d'avoir lu la lettre. */
+  --manette-gamecube-gachette: #c9c8d8;
+  --manette-gamecube-gachette-encre: #2b2a3d;
+  --manette-gamecube-z: #5b54d4;
+  --manette-gamecube-c: #f2b11c;
+  --manette-gamecube-c-encre: #4d3200;
+  --manette-gamecube-a: #3cc6a4;
+  --manette-gamecube-a-encre: #05362a;
+  --manette-gamecube-b: #d8262f;
+  --manette-gamecube-start: #e7e6ef;
+  --manette-gamecube-xy-encre: #34324a;
+  --manette-blanc: #ffffff;
+  --manette-xbox-lettres: #141619;
+  --manette-xbox-a: #86da47;
+  --manette-xbox-b: #ff5a4a;
+  --manette-xbox-x: #4d94ff;
+  --manette-xbox-y: #f4d23c;
+  --manette-xbox-guide: #1b1d22;
+  --manette-xbox-guide-encre: #f2f4f8;
+  --manette-wiimote-viseur: #24262d;
+  --manette-wiimote-secousse: #9aa1ae;
+  --manette-guitare-verte: #2fb24a;
+  --manette-guitare-rouge: #e0352f;
+  --manette-guitare-jaune: #f2cd2a;
+  --manette-guitare-bleue: #2f6fe0;
+  --manette-guitare-orange: #f08a24;
+  --manette-guitare-vibrato: #3a3d45;
 }

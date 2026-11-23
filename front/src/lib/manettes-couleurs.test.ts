@@ -11,6 +11,8 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { EMULATED, MAPS, PHYSICAL, type PadMap } from "./padmap";
+
 type Fs = { readFileSync: (chemin: string, codage: "utf-8") => string };
 const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
 const lire = (relatif: string) =>
@@ -41,15 +43,30 @@ const RACINE = new Map(
 );
 
 /** Les propriétés d'un dessin de ce plan à cette place, dans l'ordre de la
- * feuille : la base, puis chaque bloc qui le nomme. */
-function proprietes(css: string, plan: string, place: number | null): Map<string, string> {
+ * feuille : la base, puis chaque bloc qui le nomme. Avec une pièce, les blocs
+ * qui la nomment viennent après tous les autres : posée sur la pièce, une
+ * propriété l'emporte sur celle que le dessin lui transmet. */
+function proprietes(
+  css: string,
+  plan: string,
+  place: number | null,
+  piece?: string,
+): Map<string, string> {
   const vues = new Map<string, string>();
-  for (const bloc of blocs(css)) {
+  const tous = blocs(css);
+  for (const bloc of tous) {
     const vise = bloc.selecteurs.some(
       (sel) =>
         sel === "[data-padmap]" ||
         sel === `[data-padmap="${plan}"]` ||
         (place !== null && sel === `[data-padmap][data-place="${place}"]`),
+    );
+    if (vise) for (const [nom, val] of bloc.decl) vues.set(nom, val);
+  }
+  if (piece === undefined) return vues;
+  for (const bloc of tous) {
+    const vise = bloc.selecteurs.some(
+      (sel) => sel === `[data-padmap="${plan}"] [data-part="${piece}"]`,
     );
     if (vise) for (const [nom, val] of bloc.decl) vues.set(nom, val);
   }
@@ -167,5 +184,63 @@ describe("l'appui des manettes dessinées", () => {
     );
     expect(mutant).not.toBe(PADMAP);
     expect(pire(mutant, "xbox", 1)).toBeLessThan(3);
+  });
+});
+
+/** Tous les plans, la Wiimote seule comprise, que `MAPS` ne porte pas. */
+const PLANS_VIVANTS: readonly PadMap[] = [
+  ...new Set([...Object.values(MAPS), ...EMULATED, ...PHYSICAL]),
+];
+
+/** Les couleurs nommées par les pièces d'un plan, touche et inscription. */
+const nommees = (plan: PadMap) =>
+  plan.parts.flatMap((part) =>
+    [part.tint, part.ink].filter((c): c is NonNullable<typeof c> => c !== undefined),
+  );
+
+describe("les touches de couleur des plans", () => {
+  it("nomment chacune une couleur que la feuille déclare", () => {
+    // La précondition : des noms sont lus, sur plusieurs plans.
+    const toutes = PLANS_VIVANTS.flatMap(nommees);
+    expect(toutes.length).toBeGreaterThan(20);
+    for (const couleur of toutes) {
+      expect(resoudre(couleur, new Map()), couleur).toMatch(/^#[0-9a-f]{6}$/);
+    }
+    // Le jumeau : un nom absent de la feuille est refusé, pas rendu noir.
+    expect(() => resoudre("var(--manette-gamecube-inconnue)", new Map())).toThrow(/déclaré/);
+  });
+
+  it("laissent voir l'appui de chaque place sur la touche teintée", () => {
+    // La touche teintée remplace le capuchon commun : l'appui doit s'en
+    // distinguer à 3:1 au moins, par l'aplat ou par l'anneau.
+    const faibles: string[] = [];
+    for (const plan of PLANS_VIVANTS) {
+      for (const part of plan.parts.filter((one) => one.tint)) {
+        for (const place of [null, 1, 2, 3, 4]) {
+          const p = proprietes(PADMAP, plan.id, place, part.key);
+          const voir = (nom: string) => resoudre(`var(${nom})`, p);
+          const touche = resoudre(part.tint!, p);
+          const vu = Math.max(
+            contraste(voir("--pad-lit"), touche),
+            contraste(voir("--pad-lit-ring"), touche),
+          );
+          if (vu < 3) faibles.push(`${plan.id} ${part.key} place ${place} ${vu.toFixed(2)}`);
+        }
+      }
+    }
+    expect(faibles).toEqual([]);
+  });
+
+  it("lit l'anneau posé sur la pièce, après celui du dessin", () => {
+    // Le jumeau : sans la règle de la pièce, le A de la GameCube retombe.
+    const sans = PADMAP.replace(
+      '[data-padmap="gamecube"] [data-part="A"] {\n  --pad-lit-ring: var(--manette-anneau-sombre);',
+      '[data-padmap="gamecube"] [data-part="A"] {\n  --pad-lit-ring: var(--pad-anneau);',
+    );
+    expect(sans).not.toBe(PADMAP);
+    const anneau = (css: string) =>
+      resoudre("var(--pad-lit-ring)", proprietes(css, "gamecube", 1, "A"));
+    expect(anneau(PADMAP)).toBe(RACINE.get("--manette-anneau-sombre"));
+    expect(anneau(sans)).toBe(RACINE.get("--manette-anneau-clair"));
   });
 });

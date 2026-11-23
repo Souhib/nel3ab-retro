@@ -148,6 +148,20 @@
   --pad-lit-ink: var(--pad-appui-encre);
 }
 
+/* Une touche teintée de la clarté de l'anneau le perd : le A vert d'eau de
+   la GameCube sous l'anneau clair, le viseur noir de la Wiimote et le
+   vibrato de la guitare sous l'anneau sombre, à 2,6:1 au mieux (23 novembre
+   2026). Sur la pièce, la propriété l'emporte sur celle du dessin, quelle
+   que soit la place. */
+[data-padmap="gamecube"] [data-part="A"] {
+  --pad-lit-ring: var(--manette-anneau-sombre);
+}
+[data-padmap="wiimote"] [data-part="cx"],
+[data-padmap="wiimote-only"] [data-part="cx"],
+[data-padmap="guitar"] [data-part="cx"] {
+  --pad-lit-ring: var(--manette-anneau-clair);
+}
+
 /* Le contour net suit le thème : clair sur une page sombre, sombre sur une
    page claire. */
 .n3-shell {

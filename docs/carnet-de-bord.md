@@ -28567,6 +28567,27 @@ son mutant survivait, puisque la lecture ligne à ligne refuse déjà un objet
 JSON coupé. Elle a été retirée, pour la même raison que la comparaison de
 taille de l'ordre d'ouverture la veille.
 
+**Deux contrôles d'identité qui ne comptaient pas les mêmes blancs.** Pour
+ouvrir une salle sur un jeu, le salon écrit l'identité de qui l'ouvre dans
+l'ordre que le worker lit, et il refuse d'avance une identité qui ne pourrait
+pas voyager. Son contrôle ne connaissait que quatre blancs : l'espace, la
+tabulation, le retour à la ligne et le retour chariot. Le worker, lui, refuse
+tout ce que Rust appelle un blanc (`char::is_whitespace`) : l'espace
+insécable, la tabulation verticale, le séparateur de lignes et une vingtaine
+d'autres. Une identité qui en portait un passait donc le salon, qui répondait
+« la salle s'ouvre sur ce jeu », puis le worker écartait l'ordre et la salle
+arrivait sur son menu, sans un mot. Le salon avait déjà la liste exacte de
+Rust, écrite point par point pour une autre raison (`BLANCS_RUST` dans
+`personnes.py`) ; les deux contrôles s'en servent maintenant. La ligne de
+lancement du port de contrôle avait le même écart, et comptait en plus la
+longueur en caractères là où le worker compte des octets : une identité
+accentuée de 33 caractères pèse 66 octets. Là, le worker refusait le
+lancement à voix haute, mais un refus qu'on peut éviter avant d'envoyer n'a
+pas à partir. Chaque cas a son essai, rouge avant la correction, et ses
+jumeaux : une identité accentuée et la plus longue identité légale passent
+entières. Une identité de proxy porte rarement un espace insécable ; ce qui
+compte est que le salon et le worker appliquent la même règle.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

@@ -969,7 +969,24 @@ async def test_un_jeu_switch_s_ouvre_quand_la_switch_est_libre(reglages: Setting
     assert (salle.numero, salle.switch) == (2, True)
 
 
-@pytest.mark.parametrize("login", ["", "-", "nour x@y.org", "n\t@y.org", "x" * 65])
+@pytest.mark.parametrize(
+    "login",
+    [
+        "",
+        "-",
+        "nour x@y.org",
+        "n\t@y.org",
+        "x" * 65,
+        # 33 caractères, mais 66 octets: le worker compte des octets.
+        "\u00e9" * 33,
+        # Des blancs pour `char::is_whitespace`, que le worker applique à
+        # l'ordre: l'espace insécable, la tabulation verticale, le séparateur
+        # de lignes. Passés ici, ils faisaient ouvrir la salle sur son menu.
+        "n\u00a0@y.org",
+        "n\x0b@y.org",
+        "n\u2028@y.org",
+    ],
+)
 async def test_une_identite_qui_ne_peut_pas_voyager_est_refusee(
     reglages: Settings, login: str
 ) -> None:
@@ -995,6 +1012,18 @@ async def test_la_plus_longue_identite_voyage(reglages: Settings) -> None:
     )
 
     assert (reglages.salles_dir / "1" / "ouvrir-sur").read_bytes().endswith(login.encode() + b"\n")
+
+
+async def test_une_identite_accentuee_voyage(reglages: Settings) -> None:
+    """Le jumeau des blancs: un caractère hors de l'ASCII n'est pas un blanc."""
+    bibliotheque(reglages, MELEE)
+
+    await SallesController(reglages, FauxSysteme()).ouvrir(
+        None, SurUnJeu(cle="Melee.rvz", sauvegarde=2, login="n\u00e9na@y.org")
+    )
+
+    ordre = (reglages.salles_dir / "1" / "ouvrir-sur").read_text(encoding="utf-8")
+    assert ordre.endswith("n\u00e9na@y.org\n")
 
 
 async def test_un_demarrage_refuse_retire_l_ordre(reglages: Settings) -> None:

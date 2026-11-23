@@ -32,6 +32,7 @@ from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.salle import DernierJeu, Salle, SiegeVu
 from nel3ab_control.catalogue import Catalogue, CatalogueGame, freshest
 from nel3ab_control.consoles import CONSOLES
+from nel3ab_control.personnes import BLANCS_RUST
 from nel3ab_control.session_salle import Ouverture, demarrage_actuel
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import valid_key
@@ -605,8 +606,11 @@ class SallesController:
 
         L'identité part au worker sur une ligne, comme la ligne de lancement:
         les mêmes limites, et le même refus quand elle ne peut pas voyager.
+        Les blancs sont ceux de `char::is_whitespace`, que `OpenOrder::parse`
+        applique: une identité que le worker refuserait ferait ouvrir la salle
+        sur son menu, après une réponse qui annonçait le jeu.
         """
-        if len(sur.login.encode()) > PERSONNE_MAX or any(b in sur.login for b in " \t\n\r"):
+        if len(sur.login.encode()) > PERSONNE_MAX or not BLANCS_RUST.isdisjoint(sur.login):
             raise IdentiteIntransmissible()
         if sur.login in ("", "-"):
             raise IdentiteIntransmissible()

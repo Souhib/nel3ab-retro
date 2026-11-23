@@ -1760,9 +1760,12 @@ Decision:
   it earlier too (422), reading the freshest catalogue just before the start.
   A Switch-group game is refused (409) while another room holds the Switch.
   The identity is the proxy's, bounded like the launch line (64 bytes, no
-  blank). After systemd accepts, `RoomController.lance` journals the launch and
-  starts the startup clock, as the two socket paths do. `game-closed` stays
-  set with the order: a worker from before this change ignores the order and
+  blank). « Blank » is Rust's `char::is_whitespace`, the set the worker
+  applies to both the order and the launch line (`personnes.BLANCS_RUST`), and
+  both lobby checks count bytes. After systemd accepts, `RoomController.lance`
+  journals the launch and starts the startup clock, as the two socket paths
+  do. `game-closed` stays set with the order: a worker from before this
+  change ignores the order and
   opens on its menu. An order left by a refused start, an older opening or a
   closing is removed by the lobby. The order's text is pinned on both sides,
   and its read bound (512) is measured against the longest legal order (339

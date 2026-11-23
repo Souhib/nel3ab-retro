@@ -4,7 +4,7 @@
  */
 import { render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { BoutonSalle } from "./BarreSalle";
+import { BarreSalle, BoutonSalle } from "./BarreSalle";
 
 it("« La salle » dit le libellé qu'on lui passe à la place de son nom, et son nom sans lui", () => {
   // L'emplacement promis au chantier personnes (« Lina · ta place ») : en
@@ -20,4 +20,23 @@ it("« La salle » dit le libellé qu'on lui passe à la place de son nom, et so
   const nu = sans.container.querySelector("#laSalleCote") as HTMLElement;
   expect(nu.textContent).toBe("La salle");
   expect(nu.getAttribute("aria-label")).toBe("Son coupé. La salle : son, menu, places");
+});
+
+it("posé seul en travers, « La salle » porte la tête de la mascotte ; dans la barre, non", () => {
+  const seul = render(<BoutonSalle id="laSalleCote" sonCoupe={false} onSalle={vi.fn()} tete />);
+  expect(seul.container.querySelector('#laSalleCote [data-hote="barre"]')).not.toBeNull();
+  seul.unmount();
+  const barre = render(
+    <BarreSalle
+      rect={{ x: 0, y: 0, w: 390, h: 52 }}
+      nomSalle="Salle 1"
+      jeu={null}
+      sonCoupe={false}
+      onSalle={vi.fn()}
+    />,
+  );
+  // Une seule tête dans la barre : la sienne, à gauche du nom.
+  const hotes = [...barre.container.querySelectorAll('[data-hote="barre"]')];
+  expect(hotes).toHaveLength(1);
+  expect(hotes[0]?.closest("#laSalle")).toBeNull();
 });

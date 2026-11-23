@@ -3001,6 +3001,7 @@ function Room({
             sonCoupe={soundOff}
             onSalle={() => setFeuille("mi")}
             style={placeDe(geo.boutonSalle)}
+            tete
           />
         ) : null}
         {panneauTenu ? (

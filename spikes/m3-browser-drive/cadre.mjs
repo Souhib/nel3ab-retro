@@ -1091,7 +1091,7 @@ async function principal() {
      * posée sur l'image par l'essai est vue. */
     async "mascotte-hors-image"() {
       const sonde = () => {
-        const etat = { images: 0, scenes: {}, fautes: {} };
+        const etat = { images: 0, scenes: {}, lieux: {}, fautes: {} };
         window.__mascotte = etat;
         const coupe = (a, b) =>
           Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
@@ -1109,6 +1109,8 @@ async function principal() {
             if (!scene) continue;
             const nom = m.dataset.scene ?? "?";
             etat.scenes[nom] = (etat.scenes[nom] ?? 0) + 1;
+            const lieu = `#${m.closest("[id]")?.id ?? "?"}`;
+            etat.lieux[lieu] = (etat.lieux[lieu] ?? 0) + 1;
             etat.images += 1;
             const toile = document.querySelector("#screen");
             const peintes = globalThis.nel3abTest?.counters?.().painted ?? 0;
@@ -1134,6 +1136,22 @@ async function principal() {
         { nom: "1280×720 premiere-image", vue: { width: 1280, height: 720 }, salle: {} },
         { nom: "1440×900 premiere-image", vue: { width: 1440, height: 900 }, salle: {} },
         { nom: "390×844 premiere-image", vue: telephone, salle: {} },
+        // Sans barre, la tête passe dans « La salle » : seul en travers
+        // (#laSalleCote), parmi les touches tenu droit sur un écran court
+        // (#laSalleManette). Sans hôte, aucune scène ne jouait (relecture du
+        // 23 novembre 2026) : ici, une scène absente est le défaut.
+        {
+          nom: "844×390 premiere-image",
+          vue: { width: 844, height: 390, isMobile: true, hasTouch: true },
+          salle: {},
+          exige: "#laSalleCote",
+        },
+        {
+          nom: "375×548 premiere-image",
+          vue: { width: 375, height: 548, isMobile: true, hasTouch: true },
+          salle: {},
+          exige: "#laSalleManette",
+        },
         {
           nom: "1440×900 attente au repos",
           vue: { width: 1440, height: 900 },
@@ -1149,8 +1167,20 @@ async function principal() {
         await jusqua(async () => ((await lire(page))?.images ?? 0) > 0, 6000);
         await sleep(1500);
         const lu = await lire(page);
-        if (!lu || lu.images === 0) throw new Precondition(`${un.nom}: aucune scène vue pendant l'étape`);
-        console.log(JSON.stringify({ cas: un.nom, scenes: lu.scenes }));
+        if (un.exige) {
+          // La précondition : la salle est bien sans barre, et le bouton qui
+          // doit porter la tête est monté.
+          if (await page.$("#barreSalle")) throw new Precondition(`${un.nom}: la barre est montée`);
+          if (!(await page.$(un.exige))) throw new Precondition(`${un.nom}: ${un.exige} n'est pas monté`);
+          if (!lu || lu.images === 0) {
+            fautes.push(`${un.nom}: aucune scène ne joue (pas d'hôte « barre » dans ${un.exige})`);
+            await page.close();
+            continue;
+          }
+          if (!lu.lieux[un.exige])
+            fautes.push(`${un.nom}: la scène joue dans ${Object.keys(lu.lieux).join(", ")}, pas dans ${un.exige}`);
+        } else if (!lu || lu.images === 0) throw new Precondition(`${un.nom}: aucune scène vue pendant l'étape`);
+        console.log(JSON.stringify({ cas: un.nom, scenes: lu.scenes, lieux: lu.lieux }));
         fautes.push(...Object.keys(lu.fautes).map((f) => `${un.nom}: ${f}`));
         await capture(page, `mascotte-${un.repos ? "repos" : "jeu"}`);
         await page.close();

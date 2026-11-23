@@ -77,6 +77,15 @@
   width: 20px;
   height: 20px;
 }
+/* La tête de la mascotte dans « La salle », quand la barre manque
+   (`ouEstLaMascotte` rend « barre ») : à côté de l'icône, parmi les touches
+   comme dans la bande gauche en travers. */
+.n3-salle-tete {
+  --rt-mascotte-taille: 24px;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
 /* Un libellé passé par le chantier personnes peut être plus long que
    « La salle » : il se coupe dans la largeur que le cadre donne au bouton. */
 .n3-salle-libelle {

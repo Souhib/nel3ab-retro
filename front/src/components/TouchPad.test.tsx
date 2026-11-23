@@ -210,3 +210,23 @@ it("« La salle » parmi les touches dit le libellé qu'on lui passe, et rien sa
   expect(nu.textContent).toBe("");
   expect(nu.getAttribute("aria-label")).toBe("La salle : son, menu, places");
 });
+
+it("tenue en main, « La salle » parmi les touches porte la tête de la mascotte, et pas sans le cadre", () => {
+  // Sans barre, `ouEstLaMascotte` rend « barre » : l'arbitre cherche
+  // [data-hote="barre"], et ne trouvait rien (relecture du 23 novembre 2026).
+  const cadre = {
+    bandes: { left: 0, right: 0 },
+    gestes: ["feuille"] as const,
+    dansLesBandes: false,
+  };
+  const tenue = render(
+    <TouchPad bar={0} touch={new Touch()} soundOff={false} onFeuille={vi.fn()} cadre={cadre} />,
+  );
+  expect(tenue.container.querySelector('#laSalleManette [data-hote="barre"]')).not.toBeNull();
+  tenue.unmount();
+  const souris = render(
+    <TouchPad bar={0} touch={new Touch()} soundOff={false} onFeuille={vi.fn()} />,
+  );
+  expect(souris.container.querySelector("#laSalleManette")).not.toBeNull();
+  expect(souris.container.querySelector('[data-hote="barre"]')).toBeNull();
+});

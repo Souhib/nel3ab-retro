@@ -61,11 +61,16 @@ export function BoutonSalle({
   onSalle,
   style,
   libelle,
+  tete = false,
 }: {
   id: string;
   sonCoupe: boolean;
   onSalle: () => void;
   style?: React.CSSProperties;
+  /** Le bouton porte la tête de la mascotte (`data-hote="barre"`) : posé
+   * seul en travers, il remplace la barre, et `ouEstLaMascotte` y envoie
+   * les scènes. Dans la barre, la tête est déjà à gauche du nom. */
+  tete?: boolean;
   /** Ce que le bouton dit à la place de « La salle » : l'emplacement du
    * chantier personnes (« Lina · ta place »), dit aussi en tête du nom
    * accessible. */
@@ -86,6 +91,7 @@ export function BoutonSalle({
       onMouseDown={(event) => event.preventDefault()}
       onClick={onSalle}
     >
+      {tete ? <span className="n3-salle-tete" data-hote="barre" aria-hidden="true" /> : null}
       <span className="n3-salle-icone" aria-hidden="true">
         <RoomIcon className="h-full w-full" />
       </span>

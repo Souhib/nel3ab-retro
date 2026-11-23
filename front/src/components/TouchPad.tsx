@@ -438,6 +438,7 @@ export function Pave<K extends string>({
             className="n3-pave-geste"
             data-geste={piece.geste}
             data-alerte={soundOff ? "" : undefined}
+            data-tete={cadre ? "" : undefined}
             // Le nom dit le son coupé: la pastille rouge seule ne se lit pas
             // à voix haute, et ne se distingue pas sans les couleurs.
             aria-label={nomDeLaSalle(soundOff, libelleSalle)}
@@ -451,6 +452,12 @@ export function Pave<K extends string>({
             onMouseDown={(event) => event.preventDefault()}
             onClick={onFeuille}
           >
+            {/* Tenue en main, « La salle » n'est parmi les touches que
+                quand la barre manque : la tête de la mascotte y passe
+                (`ouEstLaMascotte` rend « barre »). Sans cet hôte, les scènes
+                de la salle ne jouaient nulle part (relecture du
+                23 novembre 2026). */}
+            {cadre ? <span className="n3-salle-tete" data-hote="barre" aria-hidden="true" /> : null}
             {said.label}
             {libelleSalle ? <span className="n3-pave-geste-libelle">{libelleSalle}</span> : null}
           </button>

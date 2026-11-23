@@ -907,7 +907,9 @@ try {
         url: `${BASE}/construite/r/1/`,
         built,
         politique,
-        stockage: { "nel3ab:theme": choisi },
+        // Les effets rétro au niveau « tout »: le script de l'en-tête doit les
+        // avoir posés quand le corps commence, comme le thème (ADR D37).
+        stockage: { "nel3ab:theme": choisi, "nel3ab:effets": '{"niveau":"tout","sons":false}' },
         // Lu quand le corps commence, c'est-à-dire au plus tôt où le
         // navigateur peut peindre : le script de la page est un module, lancé
         // seulement après la lecture de tout le document. Le premier rappel
@@ -922,6 +924,11 @@ try {
             if (!document.getElementById("root")) return;
             watch.disconnect();
             window.__premiere = getComputedStyle(document.documentElement).getPropertyValue("--fond").trim();
+            window.__effets = {
+              niveau: document.documentElement.dataset.effets ?? null,
+              scintille: document.documentElement.classList.contains("fx-scintille"),
+              titre: getComputedStyle(document.documentElement).getPropertyValue("--police-titre").trim(),
+            };
           });
           watch.observe(document, { childList: true, subtree: true });
         },
@@ -938,12 +945,15 @@ try {
         await sleep(300);
         const vu = await page.evaluate(() => window.__premiere);
         if (vu !== attendu) bad.push(`« ${choisi} » sous un système ${systeme} : première image en ${vu || "rien"}, ${attendu} attendu`);
+        const effets = await page.evaluate(() => window.__effets);
+        if (effets?.niveau !== "tout" || effets?.scintille !== true || !effets?.titre?.startsWith('"Pixelify Sans"'))
+          bad.push(`effets rétro au début du corps : ${JSON.stringify(effets)}, niveau « tout » et Pixelify attendus`);
         const refus = await page.evaluate(() => window.__violations);
         if (refus.length) bad.push(`la politique du worker refuse : ${refus.join(" ; ")}`);
         await page.close();
       }
     }
-    say(bad.length === 0, `la première image suit le thème choisi, sous la politique du worker (${BUILT.replace(REPO + "/", "")})`, bad);
+    say(bad.length === 0, `la première image suit le thème et les effets choisis, sous la politique du worker (${BUILT.replace(REPO + "/", "")})`, bad);
     // Le jumeau : une empreinte oubliée doit se voir, sinon l'écoute ne prouve rien.
     {
       const { page } = await ouvrirConstruite("nuit", politiqueDe(scripts.slice(1)));

@@ -115,16 +115,17 @@ async function capture(page, nom) {
   await page.screenshot({ path: `${CAPTURES}/${vue.width}x${vue.height}-${nom}.png` });
 }
 
-async function nouvelle(vue) {
+async function nouvelle(vue, stockage = {}) {
   banc.reinitialiser();
   const page = await browser.newPage();
   await page.setViewport(taille(vue));
-  await page.evaluateOnNewDocument(() => {
+  await page.evaluateOnNewDocument((stockage) => {
     try {
       localStorage.setItem("nel3ab:name", "banc");
       localStorage.setItem("nel3ab:banc", "1");
+      for (const [cle, valeur] of Object.entries(stockage)) localStorage.setItem(cle, valeur);
     } catch {}
-  });
+  }, stockage);
   page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
   await page.goto(banc.url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#enter", { timeout: 15000 });
@@ -143,7 +144,67 @@ async function entrer(page) {
 const proposes = (depuis) =>
   banc.journal(depuis).filter((l) => l.texte.includes('"qualite"') && l.texte.includes("proposé"));
 
+/** Ce qui reçoit le point au centre et sur une grille de l'image du jeu,
+ * chaque élément `rt-…` rendu cible du pointeur le temps de la mesure: un
+ * calque est `pointer-events: none`, et `elementFromPoint` passerait au
+ * travers sans le voir. Rend les points où un effet est au-dessus de l'image. */
+const SUR_IMAGE = () => {
+  const toile = document.getElementById("screen");
+  if (!toile) return { erreur: "pas de canevas #screen" };
+  const r = toile.getBoundingClientRect();
+  if (r.width < 50 || r.height < 50) return { erreur: `image trop petite: ${r.width}x${r.height}` };
+  const style = document.createElement("style");
+  style.textContent = ':is([class^="rt-"], [class*=" rt-"]), :is([class^="rt-"], [class*=" rt-"]) * { pointer-events: auto !important; }';
+  document.head.append(style);
+  const fautes = [];
+  let points = 0;
+  for (let i = 1; i <= 5; i++)
+    for (let j = 1; j <= 5; j++) {
+      const x = Math.round(r.left + (r.width * i) / 6);
+      const y = Math.round(r.top + (r.height * j) / 6);
+      const vu = document.elementFromPoint(x, y);
+      points += 1;
+      if (vu !== toile) {
+        const effet = vu?.closest('[class^="rt-"], [class*=" rt-"]');
+        fautes.push(`${x},${y}: ${vu?.tagName ?? "rien"}.${vu?.className ?? ""}${effet ? ` (effet ${effet.className})` : ""}`);
+      }
+    }
+  style.remove();
+  return { points, fautes };
+};
+
 const ETAPES = {
+  /** Le thème rétro (ADR D37): au niveau « tout », aucun effet ne passe sur
+   * l'image du jeu. Le point au centre et sur une grille de l'image doit
+   * tomber sur le canevas lui-même. Le jumeau: un calque d'interface posé par
+   * erreur sur toute la page doit être vu sur l'image. */
+  async "calques-sous-image"() {
+    const page = await nouvelle(PC, { "nel3ab:effets": '{"niveau":"tout","sons":true}' });
+    const racine = await page.evaluate(() => ({
+      niveau: document.documentElement.dataset.effets,
+      classes: [...document.documentElement.classList].filter((c) => c.startsWith("fx-")).length,
+    }));
+    if (racine.niveau !== "tout" || racine.classes < 45)
+      throw new Precondition(`le niveau « tout » n'est pas posé: ${JSON.stringify(racine)}`);
+    await entrer(page);
+    const vu = await page.evaluate(SUR_IMAGE);
+    if (vu.erreur) throw new Precondition(vu.erreur);
+    if (vu.points !== 25) throw new Precondition(`${vu.points} points mesurés, 25 attendus`);
+    if (vu.fautes.length) throw new Defaut(`un effet passe sur l'image: ${vu.fautes.slice(0, 4).join(" ; ")}`);
+    await capture(page, "calques-tout");
+    // Le jumeau: le calque d'interface posé sur toute la page, comme un écran
+    // qui oublierait de le garder dans sa surface.
+    await page.evaluate(() => {
+      const calques = document.createElement("div");
+      calques.className = "rt-calques-ui rt-calques-page";
+      calques.innerHTML = '<i class="rt-calque-balayage-tout"></i><i class="rt-calque-grille"></i><i class="rt-calque-scintille"></i>';
+      document.body.append(calques);
+    });
+    const jumeau = await page.evaluate(SUR_IMAGE);
+    if (!jumeau.fautes?.length) throw new Precondition("le calque posé sur toute la page n'est pas vu: la mesure ne voit rien");
+    await page.close();
+  },
+
   /** Le jumeau de tout le reste: des images qui arrivent, rien d'affiché. */
   async "images-rien"() {
     const page = await nouvelle(PC);

@@ -60,11 +60,16 @@ export function useReglage(): Ouverture | null {
 }
 
 /** Où rendre le focus : l'ouvreur s'il est encore dans la page et visible,
+ * ou l'élément remonté sous son identifiant (« Toutes les touches » est
+ * remonté avec le panneau de commande pendant que le réglage est ouvert),
  * sinon `repli` (le rang de la colonne, qui revient avec les rangs). */
 export function focusRendu(
   ouvreur: HTMLElement | null,
   repli: () => HTMLElement | null,
 ): HTMLElement | null {
-  if (ouvreur?.isConnected && !ouvreur.closest("[hidden],[inert]")) return ouvreur;
+  const visible = (el: HTMLElement | null) => el?.isConnected && !el.closest("[hidden],[inert]");
+  if (visible(ouvreur)) return ouvreur;
+  const remonte = ouvreur?.id ? document.getElementById(ouvreur.id) : null;
+  if (visible(remonte)) return remonte;
   return repli();
 }

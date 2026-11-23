@@ -104,6 +104,20 @@ function useArrivee(trame: TrameDolphin | TramePro): string | null {
   return nom;
 }
 
+/** Fait défiler le premier ancêtre qui défile pour que la tête du panneau
+ * soit visible : en fenêtre étroite, la colonne sous l'image gardait le
+ * défilement de la vue des touches, et le titre du panneau s'ouvrait caché
+ * sous l'image (reglage.mjs, étape place, 860 × 900). */
+export function montrerLaTete(panneau: HTMLElement): void {
+  for (let el = panneau.parentElement; el; el = el.parentElement) {
+    const { overflowY } = getComputedStyle(el);
+    if (overflowY !== "auto" && overflowY !== "scroll") continue;
+    const ecart = panneau.getBoundingClientRect().top - el.getBoundingClientRect().top;
+    if (ecart < 0) el.scrollTop += ecart;
+    return;
+  }
+}
+
 export function Reglage({
   onglet,
   onOnglet,
@@ -122,9 +136,12 @@ export function Reglage({
   const place = trame.genre === "pro" ? trame.place : trame.state.port;
   // La ligne d'une commande tenue, posée hors de React (`tenues.ts`).
   useEffect(() => (racine.current ? suivreTenues(racine.current) : undefined), []);
-  // Le focus entre par l'onglet ouvert : c'est lui qu'on lit en premier.
+  // Le focus entre par l'onglet ouvert : c'est lui qu'on lit en premier. Le
+  // panneau prend la place d'une vue que la colonne avait pu faire défiler :
+  // sa tête revient en haut de ce qu'on voit (`montrerLaTete`).
   useEffect(() => {
-    document.getElementById(`onglet-${onglet}`)?.focus();
+    document.getElementById(`onglet-${onglet}`)?.focus({ preventScroll: true });
+    if (racine.current) montrerLaTete(racine.current);
     // À l'ouverture seulement : changer d'onglet garde le focus où il est.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

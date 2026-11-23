@@ -10,7 +10,7 @@ import { standardProfile } from "../../media/pad";
 import { SwitchInput } from "../../media/switch";
 import type { Onglet } from "../entree";
 import type { EntreeDolphin, TrameDolphin } from "./Dolphin";
-import { Reglage } from "./Reglage";
+import { montrerLaTete, Reglage } from "./Reglage";
 import type { TramePro } from "./Pro";
 
 const rien = () => {};
@@ -580,5 +580,40 @@ describe("les nombres de ta manette, trame Pro", () => {
     expect(nombres.querySelector("[data-bench]")).not.toBeNull();
     expect(nombres.querySelector("pre")).toBeNull();
     expect(nombres.textContent).not.toContain("{");
+  });
+});
+
+describe("montrerLaTete", () => {
+  /** Une colonne qui défile, un bloc qui ne défile pas, et le panneau
+   * dedans ; `haut` place la tête du panneau, la colonne commence à 100. */
+  function colonne(haut: number) {
+    const col = document.createElement("div");
+    col.style.overflowY = "auto";
+    const bloc = document.createElement("div");
+    const panneau = document.createElement("section");
+    bloc.append(panneau);
+    col.append(bloc);
+    document.body.append(col);
+    col.scrollTop = 200;
+    const boite = (top: number) => ({ top }) as DOMRect;
+    col.getBoundingClientRect = () => boite(100);
+    // Le bloc ne défile pas : son haut ne compte pas.
+    bloc.getBoundingClientRect = () => boite(-500);
+    panneau.getBoundingClientRect = () => boite(haut);
+    return { col, panneau };
+  }
+
+  it("ramène en haut de la colonne une tête cachée au-dessus", () => {
+    const { col, panneau } = colonne(60);
+    montrerLaTete(panneau);
+    expect(col.scrollTop).toBe(160);
+    col.remove();
+  });
+
+  it("ne bouge pas une tête déjà visible", () => {
+    const { col, panneau } = colonne(130);
+    montrerLaTete(panneau);
+    expect(col.scrollTop).toBe(200);
+    col.remove();
   });
 });

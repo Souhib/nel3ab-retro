@@ -60,4 +60,24 @@ describe("focusRendu", () => {
     expect(focusRendu(ouvreur, () => repli)).toBe(repli);
     expect(focusRendu(null, () => null)).toBeNull();
   });
+
+  it("rend l'élément remonté sous le même identifiant quand l'ouvreur a été remplacé", () => {
+    // « Toutes les touches » est remonté avec le panneau de commande pendant
+    // que le réglage est ouvert (reglage.mjs, étape entrees).
+    const ouvreur = document.body.appendChild(document.createElement("button"));
+    ouvreur.id = "toutesLesTouches";
+    ouvreur.remove();
+    const remonte = document.body.appendChild(document.createElement("button"));
+    remonte.id = "toutesLesTouches";
+    const repli = document.body.appendChild(document.createElement("button"));
+    expect(focusRendu(ouvreur, () => repli)).toBe(remonte);
+    // Le jumeau : remonté mais caché, c'est le repli.
+    const cache = document.body.appendChild(document.createElement("div"));
+    cache.hidden = true;
+    cache.append(remonte);
+    expect(focusRendu(ouvreur, () => repli)).toBe(repli);
+    // Sans identifiant, rien à retrouver : le repli.
+    const anonyme = document.createElement("button");
+    expect(focusRendu(anonyme, () => repli)).toBe(repli);
+  });
 });

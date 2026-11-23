@@ -7,25 +7,43 @@
  * `control/nel3ab_control/api/routes/regie.css`, que `src/lib/regie.test.ts`
  * compare octet pour octet.
  *
+ * LE THÈME RÉTRO (23 novembre 2026, ADR D37). Les consoles 8 et 16 bits et la
+ * salle d'arcade, autour de la mire « HORS ANTENNE » du salon, que le
+ * propriétaire a gardée. Les valeurs sont celles de la page des effets qu'il a
+ * choisie (règles `.borne.on-palette`): un bleu marine profond la nuit, un
+ * givre bleuté le jour, et la mire comme seule source de couleurs vives.
+ * Elles ont été ajustées à trois endroits seulement, et pour une mesure:
+ * voir le creux de jour, le survol et le trait plus bas. Les NOMS des rôles
+ * n'ont pas changé: chaque composant se ré-habille sans être réécrit.
+ *
  * Trois couches, et une règle par couche:
  *   1. les PRIMITIVES sont des valeurs brutes, sans sens. On ne les emploie pas
  *      dans un composant, sauf pour un objet dessiné qui garde ses couleurs
- *      d'objet (une manette, une carte mémoire);
+ *      d'objet (une manette, une carte mémoire, la mire);
  *   2. les RÔLES donnent un sens à une primitive, et c'est la seule couche qui
  *      change d'un thème à l'autre;
  *   3. les jetons de COMPOSANT nomment un usage précis à partir des rôles.
  *
- * Deux thèmes: la régie de nuit et la régie de jour. Sans choix, la page suit
- * le système (`prefers-color-scheme`); un choix posé sur `<html data-theme>`
- * l'emporte. Chaque paire texte sur surface est CALCULÉE par
- * `src/lib/regie.test.ts`, dans les deux thèmes: les rapports écrits ici sont
- * ceux de cet essai, pas une estimation.
+ * Deux thèmes: la nuit et le jour. Sans choix, la page suit le système
+ * (`prefers-color-scheme`); un choix posé sur `<html data-theme>` l'emporte.
+ * Chaque paire texte sur surface est CALCULÉE par `src/lib/regie.test.ts`,
+ * dans les deux thèmes: les rapports écrits ici sont ceux de cet essai, pas
+ * une estimation.
  *
- * Une teinte, un sens. Le rouge, le bleu, le jaune et le vert appartiennent aux
- * quatre joueurs, et à eux seuls: une salle se reconnaît à son chiffre, une
- * console à son nom et à son support. Le violet est le signal du focus et de la
- * sélection, la seule teinte qu'aucun joueur n'occupe. Le corail dit une
- * alerte et le vert clair un succès, toujours avec un mot à côté.
+ * SEIZE COULEURS PAR THÈME, comme une console 16 bits. L'essai compte les
+ * couleurs que les rôles, les composants et les quatre aplats des joueurs
+ * finissent par valoir: douze pour l'interface, quatre pour les joueurs. Hors
+ * du compte, et dit ici pour qu'on ne le découvre pas: la mire et le logo,
+ * qui sont des images et gardent les mêmes couleurs de jour et de nuit, et
+ * les encres des joueurs, qui sont la couleur du joueur éclaircie ou foncée
+ * pour se lire (voir plus bas).
+ *
+ * Une teinte, un sens. Le rouge, le bleu, le jaune et le vert des joueurs
+ * restent ceux de `src/media/players.ts`. Le signal (focus, sélection, bouton
+ * principal) est le jaune de la mire la nuit et un bleu cobalt le jour: le
+ * choix du propriétaire sur la page des effets. Ils sont proches du jaune du
+ * joueur 3 et du bleu du joueur 2; une place se reconnaît donc toujours à son
+ * numéro écrit (« P3 », « 3P »), jamais à sa seule couleur.
  *
  * La zone d'image reste noire dans les deux thèmes: des bandes claires autour
  * d'une image 4:3 tirent l'oeil vers les bords.
@@ -33,34 +51,47 @@
 
 /* ── 1. Primitives ─────────────────────────────────────────────────────── */
 :root {
-  /* Graphite de matériel de studio, ni bleu nuit ni noir pur. */
-  --graphite-950: #101216;
-  --graphite-900: #15171b;
-  --graphite-850: #1e2126;
-  --graphite-800: #24272d;
-  --graphite-700: #2b313a;
-  --graphite-600: #4f5660;
-  --graphite-550: #5b626c;
-  --graphite-500: #6b727b;
-  --graphite-450: #8b939c;
-  --graphite-400: #9aa2ab;
-  /* Craie: le blanc cassé du texte de nuit, et les fonds de jour. */
-  --craie-50: #eef0f2;
-  --craie-100: #f2f3f5;
-  --craie-200: #e9ecef;
-  --craie-300: #e4e7eb;
-  --craie-400: #d5d9df;
+  /* La mire: les sept barres EBU de « HORS ANTENNE ». Une image, la même de
+     jour et de nuit, et la source des couleurs vives du thème: le jaune du
+     signal de nuit, le rouge de l'alerte, le vert du succès, le relief du
+     logo. Elle est peinte par `.rt-mire` (`src/effets.css`), sans image. */
+  --mire-blanc: #eef0f2;
+  --mire-jaune: #f2e14b;
+  --mire-cyan: #57d3f0;
+  --mire-vert: #63d488;
+  --mire-magenta: #d06fd0;
+  --mire-rouge: #e0604f;
+  --mire-bleu: #4f63e0;
+
+  /* Marine: les neutres de la nuit, un bleu presque noir plutôt que le
+     graphite de la régie d'avant. Le 925 est l'encre du jour. */
+  --marine-975: #070811;
+  --marine-950: #0c0e1a;
+  --marine-925: #11142a;
+  --marine-900: #161a2e;
+  /* Le survol de nuit n'était pas dans la page des effets, qui ne survolait
+     rien. Le plus clair des marines où l'alerte tient encore 4,5:1: 4,55:1
+     calculé par l'essai le 23 novembre 2026. */
+  --marine-875: #1b2038;
+  --marine-700: #3a4270;
+  --marine-650: #3e4668;
+  /* L'ardoise: le trait des deux thèmes. La page des effets traçait ses
+     cadres de nuit en marine 700, qui ne tient que 1,8:1 sur la plaque; un
+     cadre qui porte une information (un champ, une jauge) doit tenir 3:1.
+     L'ardoise est le trait de jour de la même page, et tient 3,64:1 sur la
+     pire surface de nuit, 3,51:1 sur celle du jour. */
+  --marine-500: #6a76a8;
+  --marine-400: #9aa3c2;
+  /* Givre: les fonds du jour. */
+  --givre-100: #f6f8fc;
+  --givre-200: #eaeef6;
+  --givre-300: #dfe6f2;
+  --givre-400: #c9d3e6;
+  --cobalt-600: #3b4fd6;
+  --rouge-700: #b3261e;
+  --vert-800: #1b6b3e;
   --blanc: #ffffff;
   --noir: #000000;
-  /* #a494ff et non #9d8cff: « en cours », écrit en signal sur la ligne
-     choisie d'un menu teintée du signal à 18 %, tombait à 4,36:1
-     (contraste.mjs, 22 novembre 2026). Même teinte, clarté relevée. */
-  --violet-300: #a494ff;
-  --violet-700: #4b3aa6;
-  --corail-300: #ff8f6b;
-  --rouge-700: #b3261e;
-  --vert-300: #63d488;
-  --vert-800: #1b6b3e;
 
   /* Les quatre joueurs. Ces aplats sont ceux de `src/media/players.ts`, que
      l'essai compare, et ils ne changent pas avec le thème: tous les jeux qui
@@ -70,10 +101,11 @@
   --joueur-3: #d9b64a;
   --joueur-4: #4aab5c;
   /* Leurs encres, pour écrire « P1 » à « P4 ». Même teinte et même
-     saturation que l'aplat, seule la clarté bouge, jusqu'à 4,6:1 sur la PIRE
+     saturation que l'aplat, seule la clarté bouge, jusqu'à 4,5:1 sur la PIRE
      surface: fond, plaque, creux, survol, et la case du joueur teintée à 12 %.
      L'aplat du joueur 3 tombait à 1,81:1 sur le thème clair (audit du
-     22 novembre 2026). */
+     22 novembre 2026). Inchangées par le thème rétro: elles tiennent sur les
+     nouvelles surfaces (4,57:1 au plus juste, le jour, sur le fond). */
   --joueur-1-nuit: #e0726e;
   --joueur-2-nuit: #6397de;
   --joueur-3-nuit: #d9b64a;
@@ -84,13 +116,21 @@
   --joueur-4-jour: #32733e;
 
   /* Les caractères, embarqués dans chaque page et servis par cette machine:
-     Anybody pour tout ce qui se lit, Departure pour les lectures machine.
-     Departure n'a que 45 glyphes (capitales sans accent, chiffres, quelques
-     signes): rien qui porte une minuscule ou un accent ne s'y écrit. Les
-     replis nomment DejaVu, parce que cette machine n'a que DejaVu et qu'un
-     générique seul y retombait sur une proportionnelle. */
+     Anybody pour tout ce qui se lit, Departure pour les lectures machine et
+     les chiffres d'afficheur, Pixelify Sans pour les titres, les étiquettes
+     et les boutons principaux. Departure n'a que 45 glyphes (capitales sans
+     accent, chiffres, quelques signes): rien qui porte une minuscule ou un
+     accent ne s'y écrit. Pixelify Sans a les accents du français, pas le ▶ ni
+     l'espace fine: ils retombent sur la police suivante. Les replis nomment
+     DejaVu, parce que cette machine n'a que DejaVu et qu'un générique seul y
+     retombait sur une proportionnelle. */
   --police-texte: "Anybody", "Helvetica Neue", Arial, "DejaVu Sans", sans-serif;
   --police-machine: "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
+  --police-pixel: "Pixelify Sans", "Departure", ui-monospace, "DejaVu Sans Mono", monospace;
+  /* La police des titres suit l'effet « titres » (`src/lib/effets.ts`): les
+     trois niveaux l'allument, mais une page lue sans script garde Anybody,
+     qui a tous les glyphes. */
+  --police-titre: var(--police-texte);
 
   /* Espacements, sur une grille de 4. */
   --espace-1: 4px;
@@ -114,7 +154,18 @@
   --p4: var(--joueur-4);
 }
 
-/* ── 2. Rôles: la régie de nuit, et le défaut ───────────────────────────
+/* Les effets « titres » et « texte-pixel » changent une police, pas une
+   couleur: ils vivent ici parce que ce sont des jetons, et qu'une autre feuille
+   n'a pas le droit de les reposer (`regie.test.ts`). La classe est posée sur
+   `<html>` avant la première image (`src/lib/effets.ts`). */
+:root.fx-titres {
+  --police-titre: var(--police-pixel);
+}
+:root.fx-texte-pixel {
+  --police-texte: var(--police-pixel);
+}
+
+/* ── 2. Rôles: la nuit, et le défaut ─────────────────────────────────────
    Sur `:root` nu autant que sur son attribut. Sans `data-theme`, la feuille
    ne connaît que le système: ce bloc peint un système sombre ou qui ne dit
    rien. Un choix CONTRE le système est posé avant le corps par le script
@@ -123,83 +174,137 @@
    système clair était encore en craie au début du corps quatre fois sur
    quatre (mesuré le 22 novembre 2026 sur la page construite, dans Chrome sans
    écran; `theme-en-tete.test.ts`). Rapports calculés par l'essai, sur la pire
-   des quatre surfaces:
-   encre 12,6:1, légende 5,79:1, discret 4,81:1, signal 5,89:1, trait 3,08:1.
+   des quatre surfaces: encre 14,03:1, légende 6,4:1, signal 11,94:1,
+   alerte 4,55:1, trait 3,64:1.
 
-   `.regie-nuit` pose la même régie sur un morceau de page, quel que soit le
+   `.regie-nuit` pose la même nuit sur un morceau de page, quel que soit le
    thème: ce qui flotte PAR-DESSUS l'image du jeu, qui reste noire de jour
-   comme de nuit. Un bouton de la régie de jour posé sur du noir serait du
-   gris foncé sur du gris. */
+   comme de nuit. Un bouton du jour posé sur du noir serait du bleu foncé sur
+   du noir. */
 :root,
 :root[data-theme="nuit"],
 .regie-nuit {
   color-scheme: dark;
-  --fond: var(--graphite-900);
-  --plaque: var(--graphite-850);
-  --creux: var(--graphite-950);
-  --survol: var(--graphite-800);
-  --encre: var(--craie-50);
-  --legende: var(--graphite-400);
-  --discret: var(--graphite-450);
-  --trait: var(--graphite-500);
-  --filet: var(--graphite-700);
-  --signal: var(--violet-300);
-  --alerte: var(--corail-300);
-  --ok: var(--vert-300);
+  --fond: var(--marine-950);
+  --plaque: var(--marine-900);
+  --creux: var(--marine-975);
+  --survol: var(--marine-875);
+  --encre: var(--mire-blanc);
+  --legende: var(--marine-400);
+  /* Seize couleurs: le texte discret rejoint la légende, il n'a plus sa
+     propre teinte. */
+  --discret: var(--marine-400);
+  --trait: var(--marine-500);
+  --filet: var(--marine-700);
+  --signal: var(--mire-jaune);
+  --alerte: var(--mire-rouge);
+  --ok: var(--mire-vert);
+  /* L'ombre dure des boîtes et des boutons (effet « ombres »). */
+  --ombre: var(--noir);
   --p1-encre: var(--joueur-1-nuit);
   --p2-encre: var(--joueur-2-nuit);
   --p3-encre: var(--joueur-3-nuit);
   --p4-encre: var(--joueur-4-nuit);
+  /* Le logo « relief en escalier »: lettres claires, relief cyan, magenta
+     puis bleu, le 3 en jaune (`src/lib/logo.ts`). */
+  --logo-lettre: var(--mire-blanc);
+  --logo-trois: var(--mire-jaune);
+  --logo-relief-1: var(--mire-cyan);
+  --logo-relief-2: var(--mire-magenta);
+  --logo-relief-3: var(--mire-bleu);
+  /* Les chiffres d'afficheur (effet « chiffres »): le jaune d'un compteur de
+     borne la nuit. */
+  --afficheur-encre: var(--mire-jaune);
+  /* Le tableau « DERNIÈRES PARTIES » (effet « scores »): une couleur de mire
+     par ligne, comme un tableau des meilleurs scores. Toutes tiennent 5,19:1
+     au moins sur les surfaces de nuit. */
+  --score-1: var(--mire-jaune);
+  --score-2: var(--mire-cyan);
+  --score-3: var(--mire-vert);
+  --score-4: var(--mire-magenta);
+  --score-5: var(--mire-rouge);
 }
 
-/* ── La régie de jour, quand le système la demande ──────────────────────
+/* ── Le jour, quand le système le demande ────────────────────────────────
    Sauf si la nuit a été choisie. Le même bloc est écrit juste en dessous
    pour le choix explicite: une règle sous `@media` ne peut pas partager son
    sélecteur avec une règle qui n'y est pas, et `light-dark()` aurait exclu
    les Safari d'avant 17.5. L'essai exige que les deux copies soient
-   identiques. Pire surface: encre 14,47:1, légende 5,98:1, discret 4,97:1,
-   signal 6,9:1, trait 3,92:1. */
+   identiques. Pire surface: encre 14,46:1, légende 7,34:1, signal 5,11:1,
+   alerte 5,21:1, trait 3,51:1.
+
+   Le creux de jour est blanc. La page des effets le peignait en givre 400,
+   plus sombre que le fond: les encres des joueurs n'y tenaient que 3,8:1, le
+   signal 4,26:1 et le trait 2,92:1 (essai du 23 novembre 2026). Un champ
+   blanc enfoncé dans un panneau clair est d'ailleurs la boîte de saisie des
+   interfaces de cette époque. Le givre 400 devient le filet. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="nuit"]) {
     color-scheme: light;
-    --fond: var(--craie-100);
-    --plaque: var(--blanc);
-    --creux: var(--craie-300);
-    --survol: var(--craie-200);
-    --encre: var(--graphite-900);
-    --legende: var(--graphite-600);
-    --discret: var(--graphite-550);
-    --trait: var(--graphite-500);
-    --filet: var(--craie-400);
-    --signal: var(--violet-700);
+    --fond: var(--givre-300);
+    --plaque: var(--givre-100);
+    --creux: var(--blanc);
+    --survol: var(--givre-200);
+    --encre: var(--marine-925);
+    --legende: var(--marine-650);
+    --discret: var(--marine-650);
+    --trait: var(--marine-500);
+    --filet: var(--givre-400);
+    --signal: var(--cobalt-600);
     --alerte: var(--rouge-700);
     --ok: var(--vert-800);
+    --ombre: var(--marine-925);
     --p1-encre: var(--joueur-1-jour);
     --p2-encre: var(--joueur-2-jour);
     --p3-encre: var(--joueur-3-jour);
     --p4-encre: var(--joueur-4-jour);
+    --logo-lettre: var(--marine-925);
+    --logo-trois: var(--mire-jaune);
+    --logo-relief-1: var(--mire-cyan);
+    --logo-relief-2: var(--mire-magenta);
+    --logo-relief-3: var(--marine-400);
+    /* Le jour, l'afficheur et le tableau des scores s'écrivent à l'encre: les
+       couleurs de la mire ne tiennent pas 4,5:1 sur le givre. */
+    --afficheur-encre: var(--marine-925);
+    --score-1: var(--marine-925);
+    --score-2: var(--marine-925);
+    --score-3: var(--marine-925);
+    --score-4: var(--marine-925);
+    --score-5: var(--marine-925);
   }
 }
 
-/* ── La régie de jour, choisie ───────────────────────────────────────── */
+/* ── Le jour, choisi ─────────────────────────────────────────────────── */
 :root[data-theme="jour"] {
   color-scheme: light;
-  --fond: var(--craie-100);
-  --plaque: var(--blanc);
-  --creux: var(--craie-300);
-  --survol: var(--craie-200);
-  --encre: var(--graphite-900);
-  --legende: var(--graphite-600);
-  --discret: var(--graphite-550);
-  --trait: var(--graphite-500);
-  --filet: var(--craie-400);
-  --signal: var(--violet-700);
+  --fond: var(--givre-300);
+  --plaque: var(--givre-100);
+  --creux: var(--blanc);
+  --survol: var(--givre-200);
+  --encre: var(--marine-925);
+  --legende: var(--marine-650);
+  --discret: var(--marine-650);
+  --trait: var(--marine-500);
+  --filet: var(--givre-400);
+  --signal: var(--cobalt-600);
   --alerte: var(--rouge-700);
   --ok: var(--vert-800);
+  --ombre: var(--marine-925);
   --p1-encre: var(--joueur-1-jour);
   --p2-encre: var(--joueur-2-jour);
   --p3-encre: var(--joueur-3-jour);
   --p4-encre: var(--joueur-4-jour);
+  --logo-lettre: var(--marine-925);
+  --logo-trois: var(--mire-jaune);
+  --logo-relief-1: var(--mire-cyan);
+  --logo-relief-2: var(--mire-magenta);
+  --logo-relief-3: var(--marine-400);
+  --afficheur-encre: var(--marine-925);
+  --score-1: var(--marine-925);
+  --score-2: var(--marine-925);
+  --score-3: var(--marine-925);
+  --score-4: var(--marine-925);
+  --score-5: var(--marine-925);
 }
 
 /* ── 3. Composants ─────────────────────────────────────────────────────
@@ -210,11 +315,13 @@
 .regie-nuit {
   /* L'image du jeu: noire dans les deux thèmes, bandes comprises. */
   --ecran: var(--noir);
-  /* Le bouton principal: craie pleine sur graphite la nuit, graphite plein
-     sur craie le jour. Le « ouvrir une salle » de l'accueil. */
-  --bouton-plein-fond: var(--encre);
+  /* Le bouton principal: le signal plein, comme le bouton d'une borne. Jaune
+     la nuit, cobalt le jour, et le fond de la page pour encre (14,31:1 la
+     nuit, 5,11:1 le jour). Survolé, il s'allume à l'encre de la page. Le
+     « ouvrir une salle » de l'accueil. */
+  --bouton-plein-fond: var(--signal);
   --bouton-plein-encre: var(--fond);
-  --bouton-plein-survol: var(--legende);
+  --bouton-plein-survol: var(--encre);
   /* Le bouton secondaire: un cadre de 2 px, sans fond. */
   --bouton-cadre-trait: var(--trait);
   --bouton-cadre-encre: var(--encre);
@@ -225,8 +332,9 @@
   --focus-largeur: 3px;
   /* Une barre d'état de 6 px à gauche dit un état: signal, alerte ou joueur. */
   --barre-etat: 6px;
-  /* Rayon nul partout. Seuls les objets ronds (prises, têtes) prennent 50 %,
-     et les manettes dessinées gardent leurs rayons d'objet. */
+  /* Rayon nul partout. Seuls les objets ronds (prises, têtes, boutons START)
+     prennent 50 %, et les manettes dessinées gardent leurs rayons d'objet.
+     Les coins en escalier sont un effet (`src/effets.css`), pas un rayon. */
   --rayon: 0;
   --rayon-rond: 50%;
 }

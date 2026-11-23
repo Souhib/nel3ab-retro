@@ -927,8 +927,8 @@ try {
         },
       });
     for (const [choisi, systeme, attendu] of [
-      ["nuit", "light", "#15171b"],
-      ["jour", "dark", "#f2f3f5"],
+      ["nuit", "light", "#0c0e1a"],
+      ["jour", "dark", "#dfe6f2"],
     ]) {
       for (let essai = 0; essai < 4; essai++) {
         const { page } = await ouvrirConstruite(choisi, politiqueDe(scripts));

@@ -40,8 +40,8 @@
     --bois-clair: #8a6a43;
     --bois-ombre: #3c2a17;
     --objet: #2c3038;
-    --objet-encre: var(--craie-50);
-    --objet-legende: var(--graphite-400);
+    --objet-encre: var(--mire-blanc);
+    --objet-legende: var(--marine-400);
     /* Les bandes de console, une par `rang` du manifeste. Elles étaient sept
        teintes (violet, cyan, corail, vert, jaune, magenta, craie): le cyan
        était aussi la salle 2 de l'accueil, le corail de la Switch voisinait
@@ -139,7 +139,7 @@
                  var(--bois-clair) calc(var(--rangee) - var(--planche)) calc(var(--rangee) - var(--planche) + 3px),
                  var(--bois) calc(var(--rangee) - var(--planche) + 3px) calc(var(--rangee) - 4px),
                  var(--bois-ombre) calc(var(--rangee) - 4px) var(--rangee)),
-               linear-gradient(90deg, var(--graphite-950), #181b20 50%, var(--graphite-950));
+               linear-gradient(90deg, var(--marine-975), #181b20 50%, var(--marine-975));
              border-left: 6px solid var(--bois-ombre); border-right: 6px solid var(--bois-ombre); }
   .case { height: var(--rangee); padding: 0 6px var(--planche) 0; display: flex; align-items: flex-end;
           position: relative; }
@@ -155,8 +155,9 @@
              animation-delay: calc(240ms + var(--rang, 0) * 55ms); }
   .tranche:hover, .tranche[aria-expanded="true"] { transform: translateY(-10px); }
   /* La tranche prise est SÉLECTIONNÉE: le signal, dans sa valeur de nuit
-     puisque le boîtier reste sombre dans les deux thèmes. */
-  .tranche[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--violet-300); }
+     (le jaune de la mire) puisque le boîtier reste sombre dans les deux
+     thèmes. */
+  .tranche[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--mire-jaune); }
   /* Un boîtier de disque: grand, coins arrondis. Une cartouche: plus
      courte, le haut strié pour les doigts. Une carte: petite et mince. */
   .tranche[data-media="cartridge"] { --haut: 184px; border-radius: 6px 6px 2px 2px;
@@ -213,7 +214,7 @@
            border-top: 8px solid var(--bande);
            animation: glisse .45s cubic-bezier(.2, .8, .3, 1) both;
            animation-delay: calc(400ms + var(--rang, 0) * 70ms); }
-  .carte-etiquette { background: var(--objet-encre); color: var(--graphite-900); padding: .45rem .6rem; }
+  .carte-etiquette { background: var(--objet-encre); color: var(--marine-950); padding: .45rem .6rem; }
   .carte-etiquette strong { display: block; font: 700 16px/1.2 var(--police-texte); overflow-wrap: anywhere; }
   .carte-etiquette span { font-size: 13px; }
   .carte p { margin: 0; font-size: 14px; color: var(--objet-legende); }

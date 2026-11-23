@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 
 import { PLAYER_COLOURS } from "../media/players";
 import { AA_TEXT, contrast, declarations, mix, resolve } from "../test/contrast";
+import { JETONS_LOGO, LOGO_JOUR, LOGO_NUIT, MIRE } from "./logo";
 import { THEMES as CHOIX } from "./theme";
 
 /* Les modules de Node sont importés à l'exécution, comme dans
@@ -179,6 +180,95 @@ describe("une teinte, un sens: les quatre joueurs", () => {
         expect(valeur, nom).not.toMatch(/--joueur-/);
       }
     }
+  });
+});
+
+describe("le thème rétro: seize couleurs, la mire et le logo", () => {
+  /** Les couleurs qu'un thème peint pour son interface: chaque rôle et chaque
+   * composant résolu, plus les quatre aplats des joueurs. Hors du compte,
+   * comme `regie.css` le dit: les encres des joueurs (la couleur du joueur,
+   * éclaircie ou foncée), et ce qui est une image peinte aux couleurs de la
+   * mire (le logo, le tableau des scores). */
+  const HORS_COMPTE = /^--(p[1-4]-encre|logo-.+|score-[1-5])$/;
+  const palette = (theme: keyof typeof THEMES, extra: Map<string, string> = new Map()) => {
+    const noms = [
+      ...[...THEMES[theme].keys()],
+      ...[...declarations(css, ":root, .regie-nuit").keys()],
+      ...extra.keys(),
+      "--p1",
+      "--p2",
+      "--p3",
+      "--p4",
+    ].filter((nom) => !HORS_COMPTE.test(nom));
+    const valeurs = noms
+      .map((nom) => {
+        const valeur = extra.get(nom) ?? THEMES[theme].get(nom) ?? RACINE.get(nom);
+        if (!valeur || !/^(var\(--[\w-]+\)|#[0-9a-f]{6})$/i.test(valeur)) return null;
+        return extra.has(nom) ? valeur : couleur(theme, nom);
+      })
+      .filter((v): v is string => v !== null);
+    return new Set(valeurs);
+  };
+
+  for (const theme of ["nuit", "jour"] as const) {
+    it(`${theme}: l'interface et les joueurs tiennent en seize couleurs`, () => {
+      const vues = palette(theme);
+      // La précondition: les quatre joueurs et au moins le fond et l'encre.
+      expect(vues.size).toBeGreaterThan(8);
+      expect(vues.size, [...vues].join(" ")).toBeLessThanOrEqual(16);
+    });
+  }
+
+  it("une dix-septième couleur se voit", () => {
+    // Le jumeau: un rôle de plus avec sa propre teinte doit faire déborder la
+    // nuit, sinon le compte ne prouve rien.
+    const extra = new Map([["--essai", "#123456"]]);
+    expect(palette("nuit", extra).size).toBe(palette("nuit").size + 1);
+    expect(palette("nuit", extra).size).toBeGreaterThan(16);
+  });
+
+  it("la mire a ses sept barres, dans l'ordre de l'écran", () => {
+    const barres = ["blanc", "jaune", "cyan", "vert", "magenta", "rouge", "bleu"];
+    expect(barres.map((b) => resolve(`--mire-${b}`, RACINE))).toEqual([...MIRE]);
+  });
+
+  it("les couleurs vives du thème viennent de la mire, la nuit", () => {
+    expect(couleur("nuit", "--signal")).toBe(resolve("--mire-jaune", RACINE));
+    expect(couleur("nuit", "--alerte")).toBe(resolve("--mire-rouge", RACINE));
+    expect(couleur("nuit", "--ok")).toBe(resolve("--mire-vert", RACINE));
+  });
+
+  it("le logo lit les couleurs choisies, de nuit comme de jour", () => {
+    for (const [theme, attendu] of [
+      ["nuit", LOGO_NUIT],
+      ["jour", LOGO_JOUR],
+    ] as const) {
+      expect(couleur(theme, JETONS_LOGO.lettre), theme).toBe(attendu.lettre);
+      expect(couleur(theme, JETONS_LOGO.trois), theme).toBe(attendu.trois);
+      JETONS_LOGO.relief.forEach((jeton, rang) => {
+        expect(couleur(theme, jeton), `${theme} ${jeton}`).toBe(attendu.relief[rang]);
+      });
+    }
+  });
+
+  for (const theme of ["nuit", "jour"] as const) {
+    it(`${theme}: l'afficheur et les cinq lignes du tableau des scores se lisent`, () => {
+      for (const encre of ["--afficheur-encre", "--score-1", "--score-2", "--score-3", "--score-4", "--score-5"]) {
+        for (const surface of SURFACES) {
+          expect(
+            contrast(couleur(theme, encre), couleur(theme, surface)),
+            `${encre} sur ${surface}`,
+          ).toBeGreaterThanOrEqual(AA_TEXT);
+        }
+      }
+    });
+  }
+
+  it("la nuit, chaque ligne du tableau prend une barre de la mire, toutes différentes", () => {
+    const barres = new Set<string>(MIRE);
+    const lignes = [1, 2, 3, 4, 5].map((n) => couleur("nuit", `--score-${n}`));
+    for (const ligne of lignes) expect(barres.has(ligne), ligne).toBe(true);
+    expect(new Set(lignes).size).toBe(5);
   });
 });
 

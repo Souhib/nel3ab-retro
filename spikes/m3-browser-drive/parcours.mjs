@@ -74,7 +74,9 @@ async function nouvelle(vue, { salle = {}, stockage = {}, avant = null } = {}) {
     } catch {
       // Un stockage refusé laisse la page sur ses réglages par défaut.
     }
-  }, stockage);
+    // La vue des touches de la première visite prend la place des rangs de
+    // la colonne (chantier salle, étape 6); les parcours partent d'une vue lue.
+  }, { "nel3ab:aide-clavier": "vue", ...stockage });
   if (avant) await page.evaluateOnNewDocument(avant);
   await page.setRequestInterception(true);
   page.on("request", (req) => {

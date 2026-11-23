@@ -188,6 +188,9 @@ async function principal() {
         }
         localStorage.setItem("nel3ab:name", "banc");
         localStorage.setItem("nel3ab:effets", '{"niveau":"tout","sons":false}');
+        // La vue des touches de la première visite prend la place des rangs
+        // (étape 6) ; le cadre se vérifie sur une vue déjà lue.
+        localStorage.setItem("nel3ab:aide-clavier", "vue");
       } catch {
         // Un stockage refusé laisse la page sur ses réglages par défaut.
       }
@@ -714,7 +717,12 @@ async function principal() {
             const b = el.getBoundingClientRect();
             return { x: b.left, y: b.top, w: b.width, h: b.height, vu: getComputedStyle(el).display !== "none" };
           });
-          return { image: { x: image.left, y: image.top, w: image.width, h: image.height }, bande: image.left - zone.left, decors };
+          return {
+            image: { x: image.left, y: image.top, w: image.width, h: image.height },
+            bande: image.left - zone.left,
+            zoneH: zone.height,
+            decors: decors.map((d, i) => ({ ...d, position: getComputedStyle(document.querySelectorAll(".n3-borne")[i]).position })),
+          };
         });
         const ici = `${vue.width}×${vue.height}`;
         if (lu.decors.length > 0) {
@@ -722,14 +730,19 @@ async function principal() {
           if (lu.bande < 72) fautes.push(`${ici}: un décor dans une bande de ${Math.round(lu.bande)} px`);
           for (const d of lu.decors) {
             if (!d.vu) fautes.push(`${ici}: un décor caché au niveau tout`);
+            if (d.position !== "absolute") fautes.push(`${ici}: un décor en position ${d.position}, dans le flux de l'écran`);
             const coupe = d.x < lu.image.x + lu.image.w && lu.image.x < d.x + d.w && d.y < lu.image.y + lu.image.h && lu.image.y < d.y + d.h;
             if (coupe) fautes.push(`${ici}: un décor coupe l'image`);
           }
           // La même page sans l'effet: l'image garde sa taille.
           await page.evaluate(() => document.documentElement.classList.remove("fx-borne"));
           await sleep(200);
-          const sans = await page.evaluate(() => document.querySelector("#screen").getBoundingClientRect().width);
-          if (Math.abs(sans - lu.image.w) > 0.5) fautes.push(`${ici}: l'image change de taille avec le décor (${lu.image.w} contre ${sans})`);
+          const sans = await page.evaluate(() => {
+            const r = document.querySelector("#screen").getBoundingClientRect();
+            return { w: r.width, h: r.height, zoneH: document.querySelector("#zone-jeu").getBoundingClientRect().height };
+          });
+          if (Math.abs(sans.w - lu.image.w) > 0.5 || Math.abs(sans.h - lu.image.h) > 0.5 || Math.abs(sans.zoneH - lu.zoneH) > 0.5)
+            fautes.push(`${ici}: l'image ou la zone change de taille avec le décor (${lu.image.w}×${lu.image.h}, zone ${lu.zoneH}, contre ${sans.w}×${sans.h}, zone ${sans.zoneH})`);
           await capture(page, "borne");
         } else {
           vus.sans += 1;

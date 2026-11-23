@@ -28566,8 +28566,32 @@ sans l'effet). Les quatre sont rouges sur leur défaut contre la page de
 l'étape 6 (2cb36ba) ; les jumeaux des balayages passent après le verdict,
 sans quoi une page sans effet tombait sur une précondition. La règle de la
 première image (K06) est une fonction pure, `premiereImage`, dont le mutant
-« tout retour à vit joue » est vu rouge. Poids : 245 842 octets en brotli,
-soit 10 142 pour la salle depuis le socle (enveloppe 12 000).
+« tout retour à vit joue » est vu rouge. Poids après les corrections de la
+porte : 246 074 octets en brotli, soit 10 374 pour la salle depuis le socle
+(enveloppe 12 000).
+
+**Ce qui a résisté, à la porte : les flancs dans le flux, et une boucle.**
+La porte complète, lancée après le commit, a trouvé trois choses que les
+étapes de l'effet ne voyaient pas. La classe du socle `.fx-borne .rt-cote`
+pose les flancs en position relative, plus fort que notre position absolue :
+à 1920×1080, la seule taille où les bandes font 72 px, les flancs entraient
+dans le flux sous l'écran, prenaient sa hauteur, et la zone mesurée
+oscillait (une toile sans taille, un clic impossible dans `rien-sur-image`).
+`borne-bandes` comparait seulement la largeur de l'image, qui ne bougeait
+pas ; elle lit maintenant la position des flancs, la hauteur de l'image et
+celle de la zone, et elle est vue rouge contre la page fautive. Ensuite,
+`salle-telephone` a vu une fois « Maximum update depth exceeded » : l'en-tête
+de la colonne perdait sa ligne de jeu selon l'image mesurée, ce qui peut
+boucler. La décision se prend maintenant sur la géométrie du cadre, qui ne
+dépend d'aucune mesure. Enfin, la vue des touches de la première visite
+prend la place des rangs : les pilotes dont l'étape ne parle pas de cette
+visite (`focus.mjs`, `etats.mjs`, `parcours.mjs`, `cadre.mjs`) partent d'une
+vue déjà lue ; `premiere-visite`, `touches-cochees`, `carte-wii` et
+`aides-manette` gardent un stockage vierge. Une étape de `salle-telephone`
+(« colonne repliée », la feuille qui ne s'ouvre pas) a aussi échoué une fois
+contre la page du passage précédent : un défaut intermittent plus ancien,
+vert ensuite trois fois seule et une fois dans la porte entière, à revoir
+avec la feuille de l'étape 4.
 
 **Ce qui n'est pas prouvé.** Le crédit d'une salle fermée n'est vérifié que
 dans `Credit.test.tsx`, le banc ne fermant pas la salle sous la page. Aucun

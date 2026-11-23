@@ -102,9 +102,21 @@ function manetteSimulee() {
   Object.defineProperty(navigator, "getGamepads", { value: () => [pad, null, null, null] });
 }
 
+// La vue des touches s'ouvre d'elle-même à la première visite au clavier
+// et prend la place des rangs de la colonne (chantier salle, étape 6). Les
+// étapes qui ne parlent pas de cette visite partent d'une vue déjà lue;
+// `premiere-visite`, `touches-cochees` et `carte-wii` (focus.mjs) l'exercent.
 async function nouvelle(
   vue,
-  { console: jeu = "gc", format = "dolphin", manette = false, vierge = true, stockage = {}, appareil = null } = {},
+  {
+    console: jeu = "gc",
+    format = "dolphin",
+    manette = false,
+    vierge = true,
+    stockage = {},
+    appareil = null,
+    premiere = false,
+  } = {},
 ) {
   banc.reinitialiser();
   banc.regler({ console: jeu, format, appareil });
@@ -123,7 +135,7 @@ async function nouvelle(
       } catch {}
     },
     vierge,
-    stockage,
+    premiere ? stockage : { "nel3ab:aide-clavier": "vue", ...stockage },
   );
   if (manette) await page.evaluateOnNewDocument(manetteSimulee);
   page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
@@ -484,7 +496,7 @@ const ETAPES = {
 
   /** Le jumeau: avec une manette branchée, le même pied parle A et B. */
   async "aides-manette"() {
-    const page = await nouvelle(PC, { manette: true });
+    const page = await nouvelle(PC, { manette: true, premiere: true });
     await entrer(page);
     await ouvrirMenu(page);
     const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "");
@@ -506,7 +518,7 @@ const ETAPES = {
    * c'était la carte dépliable `#aideClavier`; une page d'avant est lue par
    * elle, pour rougir sur son défaut et non sur un sélecteur. */
   async "premiere-visite"() {
-    const page = await nouvelle(PC);
+    const page = await nouvelle(PC, { premiere: true });
     await entrer(page);
     const carte = await page.evaluate(() => {
       const vue = document.querySelector("#vueTouches");
@@ -558,7 +570,7 @@ const ETAPES = {
    * un clic sur l'image, X: la ligne A se coche et le banc reçoit A. Enfin
    * l'écho muet depuis plus de deux secondes: C ne coche pas B. */
   async "touches-cochees"() {
-    const page = await nouvelle(PC);
+    const page = await nouvelle(PC, { premiere: true });
     await entrer(page);
     if (!(await attendre(page, () => document.querySelector("#vueTouches [data-ligne-touche]") !== null, 4000)))
       throw new Precondition("pas de vue des touches à la première visite");
@@ -998,7 +1010,7 @@ const ETAPES = {
    * « S → X », là où le jeu lit + et 1 (relecture du 22 novembre 2026). */
   async "carte-wii"() {
     const lire = async (options) => {
-      const page = await nouvelle(PC, options);
+      const page = await nouvelle(PC, { ...options, premiere: true });
       await entrer(page);
       if (
         !(await attendre(

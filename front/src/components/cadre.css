@@ -302,6 +302,13 @@
   pointer-events: none;
   display: none;
 }
+/* `.fx-borne .rt-cote` (`effets.css`) pose le décor en `relative` : sans ce
+   sélecteur plus fort, il entrait dans le flux de la boîte de l'écran,
+   prenait sa hauteur et faisait osciller la mesure de la zone à 1920×1080
+   (une toile sans taille, puis un clic impossible dans cadre.mjs). */
+.fx-borne .rt-cote.n3-borne {
+  position: absolute;
+}
 .fx-borne .n3-borne {
   display: flex;
   flex-direction: column;

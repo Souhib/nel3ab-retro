@@ -211,7 +211,6 @@ import {
   MANETTES as DESSINS_MANETTES,
   etatDuCadre,
   lieuDesAvis,
-  FRONTON_MIN,
   modeDuCadre,
   type Role as RoleDuCadre,
 } from "./lib/cadre";
@@ -2310,9 +2309,15 @@ function Room({
   });
   /** Le fronton a sa bande quand l'image laisse 40 px au-dessus d'elle. Il
    * cède la bande à la pile des avis le temps d'un avis : les deux ne s'y
-   * superposent pas. */
-  const frontonPossible =
-    cadre !== null && cadre.top >= FRONTON_MIN && jeuEnCours !== null && !bare;
+   * superposent pas.
+   *
+   * Décidé sur la géométrie du cadre (`geo.fronton`), calculée depuis la
+   * fenêtre et les réglages, et non sur l'image mesurée : l'en-tête de la
+   * colonne perd sa ligne de jeu quand le fronton existe, et une décision
+   * prise sur la mesure pouvait boucler (la ligne change la hauteur, la
+   * mesure change la décision ; « Maximum update depth exceeded » vu une
+   * fois dans salle-telephone, 23 novembre 2026). */
+  const frontonPossible = geo.fronton !== null && jeuEnCours !== null && !bare;
   const frontonVisible = frontonPossible && !(lieuAvis.lieu === "fronton" && hauteurPile > 0);
   /** Le crédit de la borne : les places libres, compté comme les places. */
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;

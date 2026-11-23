@@ -84,7 +84,7 @@ trame, dans les bandes et jamais sur l'image (`cadre.mjs` `fronton-bande`,
 `credit-compte`, `tramage-hors-image`, `borne-bandes`) ; le temps de jeu
 attend l'instant de lancement (D04). Reste : la barre, la bande et la
 feuille unique au téléphone, la manette sous l'image, les mesures. Poids :
-245 842 octets en brotli (10 142 pour la salle). Décision :
+246 074 octets en brotli (10 374 pour la salle). Décision :
 [ADR](adr/0001-architecture.md) D39 (en partie livrée). Récits : « 23
 novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
 novembre, la nuit : la colonne du bureau et le panneau de commande » et

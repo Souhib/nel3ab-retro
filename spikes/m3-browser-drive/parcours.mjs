@@ -98,6 +98,15 @@ const texte = (page, sel = "body") =>
     sel,
   );
 
+/** L'identifiant de l'élément qui a le focus. */
+const idActif = (page) => page.evaluate(() => document.activeElement?.id ?? "");
+/** Le centre d'un élément, en nombres (un DOMRect arrive vide de `evaluate`). */
+const centreDe = (page, sel) =>
+  page.$eval(sel, (el) => {
+    const r = el.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  });
+
 /** Attend que `test` soit vrai, au plus `ms`. Rend vrai s'il l'est devenu. */
 async function jusqua(test, ms, pas = 100) {
   const fin = Date.now() + ms;
@@ -313,6 +322,150 @@ const ETAPES = {
       throw new Defaut(`lien pour regarder copié: ${regarder}`);
     await capture(page, "invitation");
     await page.close();
+  },
+
+  /** A11Y-09 (plan personnes, places-demande 1) : les places au vrai
+   * clavier. Tab mène à la place de Bo, Entrée ouvre sa carte et y pose le
+   * focus, Échap la ferme et rend le focus à la place sans ouvrir le menu du
+   * jeu ; la place garde le focus quand Bo part puis revient (aucun
+   * démontage). Le jumeau : Échap depuis la zone de jeu laisse la carte et
+   * ouvre le menu, comme avant. Écrite le 23 novembre 2026 ; la page de
+   * 54d1f6f (`rouges/personnes-54d1f6f.html`), où Échap ouvrait le menu par
+   * la carte, doit y tomber sur son défaut. */
+  async "places-clavier"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    if (!(await page.$("#port2"))) throw new Precondition("aucune place #port2");
+    await page.mouse.click(...(await centreDe(page, "#screen")));
+    let appuis = 0;
+    while ((await idActif(page)) !== "port2") {
+      if (++appuis > 80) throw new Precondition("80 Tab n'ont jamais atteint #port2");
+      await page.keyboard.press("Tab");
+    }
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => page.$("#cartePlace").then(Boolean), 2000)))
+      throw new Precondition("Entrée sur la place de Bo n'ouvre aucune carte");
+    if ((await idActif(page)) !== "cartePlaceTitre")
+      throw new Defaut(`la carte ouverte au clavier n'a pas le focus (${await idActif(page)})`);
+    await page.keyboard.press("Escape");
+    await sleep(300);
+    if (await page.$("#menu")) throw new Defaut("Échap dans la carte ouvre le menu du jeu");
+    if (await page.$("#cartePlace")) throw new Defaut("Échap dans la carte ne la ferme pas");
+    if ((await idActif(page)) !== "port2")
+      throw new Defaut(`Échap ne rend pas le focus à la place (${await idActif(page)})`);
+    // La rangée se met à jour en place : Bo part, puis revient.
+    banc.regler({ bo: false });
+    if (!(await jusqua(() => page.$eval("#port2", (b) => b.dataset.state === "free"), 3000)))
+      throw new Precondition("la place 2 ne se libère pas quand Bo part");
+    banc.regler({ bo: true });
+    if (!(await jusqua(() => page.$eval("#port2", (b) => b.dataset.state === "busy"), 3000)))
+      throw new Precondition("la place 2 ne se reprend pas quand Bo revient");
+    if ((await idActif(page)) !== "port2")
+      throw new Defaut(`la place a perdu le focus quand Bo est parti et revenu (${await idActif(page)})`);
+    // Le jumeau : la carte ouverte, Échap depuis la zone de jeu ouvre le menu.
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => page.$("#cartePlace").then(Boolean), 2000)))
+      throw new Precondition("Entrée ne rouvre pas la carte");
+    await page.focus("[data-zone-jeu]");
+    await page.keyboard.press("Escape");
+    if (!(await jusqua(() => page.$("#menu").then(Boolean), 2000)))
+      throw new Defaut("Échap depuis la zone de jeu n'ouvre plus le menu");
+    await capture(page, "places-clavier");
+    await page.close();
+  },
+
+  /** Plan personnes, places-demande 4 : demander la place de Bo. La demande
+   * s'écrit hors de l'image, dit la vraie règle du salon (sans réponse, tu
+   * pourras prendre la place) et attend le délai avant « Prendre ». Le banc
+   * répond comme `api/ws/recovery.py`. Sur 03b21c0, le panneau fixe de
+   * `Recovery` se posait en haut de la page, sur l'image. */
+  async "demande-place"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    const depuis = Date.now();
+    await page.click("#port2");
+    // La page d'après ouvre d'abord la carte de la place ; celle d'avant
+    // demandait au premier clic.
+    if (await jusqua(() => page.$("#demanderPlace").then(Boolean), 1500)) await page.click("#demanderPlace");
+    const demandee = () =>
+      banc.journal.evenements.some(
+        (e) => e.a >= depuis && e.quoi[0] === "recover" && e.quoi[1]?.action === "begin" && e.quoi[1]?.port === 2,
+      );
+    if (!(await jusqua(async () => demandee(), 3000))) throw new Precondition("la page n'a pas demandé la place 2");
+    const boite = "#cartePlace, #recovery";
+    if (!(await jusqua(() => page.evaluate((s) => document.querySelector(s)?.textContent.includes("Bo") ?? false, boite), 3000)))
+      throw new Precondition("la demande en cours ne s'écrit nulle part");
+    const pose = await page.evaluate((s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      const t = document.querySelector("#screen").getBoundingClientRect();
+      const coupe = r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom;
+      const points = [
+        [t.left + t.width / 2, t.top + t.height / 2],
+        [t.left + 3, t.top + 3],
+        [t.right - 3, t.top + 3],
+        [t.left + 3, t.bottom - 3],
+        [t.right - 3, t.bottom - 3],
+      ];
+      const caches = points.filter(([x, y]) => document.elementFromPoint(x, y)?.id !== "screen").length;
+      return { coupe, caches, boite: [r.left, r.top, r.width, r.height].map(Math.round) };
+    }, boite);
+    if (pose.coupe) throw new Defaut(`la demande se pose sur l'image (boîte ${pose.boite.join(" ")})`);
+    if (pose.caches > 0) throw new Defaut(`${pose.caches} point(s) de l'image ne rendent plus l'image`);
+    const dit = await texte(page, boite);
+    if (!dit.includes("Sans réponse, tu pourras prendre la place 2"))
+      throw new Defaut(`la demande ne dit pas la règle du salon : « ${dit} »`);
+    const attend = await page.$eval("#confirmRecovery", (b) => b.getAttribute("aria-disabled") === "true" || b.disabled);
+    if (!attend) throw new Defaut("« Prendre la place 2 » est permis avant le délai");
+    // Le jumeau : annuler part au salon.
+    await page.click("#annulerDemande");
+    if (
+      !(await jusqua(
+        async () => banc.journal.evenements.some((e) => e.a >= depuis && e.quoi[0] === "recover" && e.quoi[1]?.action === "cancel"),
+        2000,
+      ))
+    )
+      throw new Defaut("« Annuler » n'a rien envoyé au salon");
+    await capture(page, "demande-place");
+    await page.close();
+  },
+
+  /** P7 (plan personnes, signaler 0) : « Signaler un problème » se voit sans
+   * défiler dans la colonne, à trois tailles de bureau. Sur 03b21c0, à
+   * 1280 × 720, il était sous le pli. */
+  async "signaler-visible"() {
+    for (const vue of [
+      { width: 1440, height: 900 },
+      { width: 1366, height: 768 },
+      { width: 1280, height: 720 },
+    ]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      if (!(await page.$("#complain"))) throw new Precondition(`aucun #complain à ${vue.width} × ${vue.height}`);
+      const vu = await page.evaluate(() => {
+        const b = document.querySelector("#complain");
+        const r = b.getBoundingClientRect();
+        let haut = 0;
+        let bas = innerHeight;
+        for (let p = b.parentElement; p; p = p.parentElement) {
+          const s = getComputedStyle(p);
+          if (/(auto|scroll|hidden)/.test(s.overflowY)) {
+            const q = p.getBoundingClientRect();
+            haut = Math.max(haut, q.top);
+            bas = Math.min(bas, q.bottom);
+          }
+        }
+        const centre = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return { haut: r.top, bas: r.bottom, visibleDe: haut, visibleA: bas, touche: b.contains(centre) };
+      });
+      if (vu.haut < vu.visibleDe || vu.bas > vu.visibleA + 0.5 || !vu.touche)
+        throw new Defaut(
+          `à ${vue.width} × ${vue.height}, #complain va de ${Math.round(vu.haut)} à ${Math.round(vu.bas)} px, ` +
+            `la colonne montre ${Math.round(vu.visibleDe)} à ${Math.round(vu.visibleA)} px` +
+            (vu.touche ? "" : ", et son centre ne le touche pas"),
+        );
+      await capture(page, "signaler-visible");
+      await page.close();
+    }
   },
 
   /** P8: une seule sortie, « Quitter la salle », vers les autres salles. */

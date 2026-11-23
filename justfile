@@ -757,7 +757,9 @@ etats-navigateur-rouge:
 # chef, le verbe du chef et la reprise de son rôle, les noms de console d'une
 # préparation GameCube et Xbox 360, « ma sauvegarde » pour qui lance, les
 # cibles au doigt et les places de l'avant-salle. Chaque étape a son jumeau
-# (`parcours.mjs`).
+# (`parcours.mjs`). Le 23 novembre 2026, le chantier personnes y a ajouté les
+# places au vrai clavier, la demande de place hors de l'image avec la règle
+# du salon, et « Signaler » visible sans défiler à trois tailles de bureau.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
 # salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
@@ -806,6 +808,24 @@ parcours-navigateur-rouge:
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes invitation --rouge-attendu invitation
+    # Sur la même page, la demande de place se pose sur l'image (le panneau
+    # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
+    etapes=demande-place,signaler-visible
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
+    # place existe, mais Échap y ouvre le menu du jeu. Ce commit ne vit que
+    # sur `chantier/retro-personnes` : sa page est gardée dans `rouges/`,
+    # avec son empreinte vérifiée avant usage, comme celles de la salle.
+    rouges="$(pwd)/rouges"
+    lue=$(git hash-object "$rouges/personnes-54d1f6f.html")
+    attendue=$(awk '$3 == "personnes-54d1f6f.html" { print $1 }' "$rouges/EMPREINTES")
+    if [ "$lue" != "$attendue" ]; then
+        echo "personnes-54d1f6f.html n'est plus la page de 54d1f6f ($lue au lieu de $attendue)" >&2
+        exit 1
+    fi
+    node parcours.mjs --page "$rouges/personnes-54d1f6f.html" --flux "$dossier/flux.h264" \
+        --etapes places-clavier --rouge-attendu places-clavier
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

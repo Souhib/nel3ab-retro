@@ -217,18 +217,34 @@ export async function demarrerParcours({ port, page, flux }) {
       }
       const ack = /^42(\d+)(\[[\s\S]*\])$/.exec(text);
       if (ack) {
+        let quoi = null;
         try {
-          journal.evenements.push({ a: Date.now(), quoi: JSON.parse(ack[2]) });
+          quoi = JSON.parse(ack[2]);
+          journal.evenements.push({ a: Date.now(), quoi });
         } catch {
           // Une trame illisible n'est pas un geste de la page.
         }
         ws.send(`43${ack[1]}[{"ok":true,"port":null,"claim":null}]`);
+        if (Array.isArray(quoi) && quoi[0] === "recover") reprise(ws, quoi[1]);
       }
     });
     ws.on("close", () => {
       clearInterval(ping);
       lobbies.delete(ws);
     });
+  }
+
+  /** La reprise d'une place, comme `api/ws/recovery.py` la dit à qui
+   * demande : la place, les deux noms, 20 s pour répondre (`ANSWER_WITHIN`),
+   * puis « Demande annulée. » à l'annulation. Le banc ne fait pas répondre Bo :
+   * l'étape `demande-place` regarde où et comment la demande s'écrit. */
+  function reprise(ws, demande) {
+    if (demande === null || typeof demande !== "object") return;
+    const avis = (champs) => ws.send(`42["recovery",${JSON.stringify({ id: "banc-reprise", from: "Ami", to: "Bo", asking: true, ...champs })}]`);
+    if (demande.action === "begin" && demande.port === 2 && state.bo)
+      avis({ port: 2, remaining: 20, reason: null });
+    else if (demande.action === "cancel" && demande.id === "banc-reprise")
+      avis({ port: 2, remaining: 0, reason: "Demande annulée." });
   }
 
   function pousser() {

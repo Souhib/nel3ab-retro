@@ -128,3 +128,16 @@ export function jouer(
 
 /** La scène qui se joue dans cet hôte, s'il y en a une. */
 export const sceneEnCours = (hote: HTMLElement): Scene | null => enCours.get(hote)?.scene ?? null;
+
+/**
+ * Pour les pilotes du navigateur (`cadre.mjs`, étape « mascotte-hors-image ») :
+ * joue une scène, version complète, sur l'hôte `ou` de la page
+ * (`data-hote`), sans passer par l'arbitre. Rend la version jouée, ou
+ * « sans-hote ». Rien d'autre n'est exposé.
+ */
+(globalThis as Record<string, unknown>).nel3abAin = {
+  jouer(scene: Scene, ou: string, contexte?: Contexte) {
+    const hote = document.querySelector<HTMLElement>(`[data-hote="${ou}"]`);
+    return hote ? jouer(scene, { hote, version: "complete", contexte }).version : "sans-hote";
+  },
+};

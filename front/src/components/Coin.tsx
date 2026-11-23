@@ -19,8 +19,12 @@ import { poserMascotte } from "../mascotte";
 import { IconeRang } from "./Colonne";
 
 /** La hauteur de la maison, sous la ligne : le logo à deux pixels d'écran
- * par pixel d'Aïn (31 × 2 = 62 px) y tient sans toucher la ligne. */
-export const SCENE_DU_COIN = 64;
+ * par pixel d'Aïn (31 × 2 = 62 px) posé en bas, et 34 px au-dessus pour ses
+ * sauts et sa bulle (24 px), plus les 4 px que le planificateur garde autour
+ * de la ligne. À 64 px, le logo touchait presque la ligne : chaque scène
+ * était refusée et ne montrait que sa pose clé (cadre-navigateur, étape
+ * mascotte-hors-image, 23 novembre 2026). */
+export const SCENE_DU_COIN = 96;
 
 export function Coin({
   mesures,

@@ -812,6 +812,12 @@ h3,
 canvas.rt-mascotte {
   margin-inline: auto;
 }
+/* La maison du coin : le logo posé en bas, la place de ses sauts dessus. */
+[data-hote="coin"].rt-mascotte-hote {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
 .rt-ain-sol {
   position: absolute;
   left: 0;

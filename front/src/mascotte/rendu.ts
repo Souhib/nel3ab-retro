@@ -78,8 +78,10 @@ function poserSols(hote: HTMLElement, c: number) {
     devant.style.width = "2px";
     hote.append(sol, devant);
   }
+  // Le logo est posé en bas de sa maison : le sol est à 6 pixels d'Aïn
+  // au-dessus du bas (le logo a 31 lignes, les pieds sont sur la 25e).
   for (const i of hote.querySelectorAll<HTMLElement>(":scope > .rt-ain-sol"))
-    i.style.top = `${25 * c}px`;
+    i.style.bottom = `${6 * c}px`;
 }
 
 function creer(hote: HTMLElement, el: HTMLElement, sorte: string): Theatre {
@@ -305,6 +307,9 @@ export const AIN: Rendu = {
       contexte,
       th.dehors,
     );
+    // Les replis de la dernière scène, lisibles par les pilotes et la
+    // planche : une ancre absente, un contact, et à quel instant.
+    th.maison.dataset.refus = choix.refus.join(" ; ");
     if (!choix.plan) return [poser(th, id, contexte)];
     let finir = () => {};
     const finished = new Promise<void>((r) => {

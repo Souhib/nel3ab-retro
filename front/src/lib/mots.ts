@@ -604,6 +604,13 @@ export const SIGNALER = {
   reessayer: "Réessayer",
 } as const;
 
+/** « Ils regardent » (`components/IlsRegardent`) : les spectateurs en
+ * étiquettes tapées, et qui arrive sans place encore annoncée. */
+export const REGARDENT = {
+  arrive: (nom: string) =>
+    `${nom} arrive : sa place n'est pas encore annoncée. Si c'est toi sur un autre appareil, recharge cette page pour la retrouver.`,
+} as const;
+
 /** Le champ du nom (`components/ChampNom`), à l'entrée et dans l'avant-salle :
  * un libellé visible, son aide, la raison d'un refus, et l'aperçu de
  * l'étiquette telle que les autres la verront. */

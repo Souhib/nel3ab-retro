@@ -219,5 +219,20 @@ describe("les niveaux", () => {
     changerNiveau("sobre");
     jouer("arrivee", { hote: hote("coin"), contexte: { joueur: "3" } });
     expect(logo?.dataset.version).toBe("cle");
+    expect(logo?.dataset.refus).toBe("");
+  });
+
+  it("en mouvement réduit aussi, le logo dit la pose clé, pas la scène d'avant", () => {
+    jouer("arrivee", { hote: hote("coin"), version: "complete", contexte: { joueur: "3" } });
+    const logo = hote("coin").querySelector<HTMLElement>(".rt-mascotte");
+    expect(logo?.dataset.refus).toContain("start-3");
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: q.includes("reduce"),
+      addEventListener() {},
+    }));
+    jouer("fier", { hote: hote("coin") });
+    expect(enAttente()).toBe(0);
+    expect(logo?.dataset.version).toBe("cle");
+    expect(logo?.dataset.refus).toBe("");
   });
 });

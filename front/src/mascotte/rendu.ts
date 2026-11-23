@@ -306,7 +306,12 @@ export const AIN: Rendu = {
   },
   poseCle(el, scene, contexte = {}) {
     const th = theatreDe(el);
-    if (th) poser(th, idDe(el, scene), contexte);
+    if (!th) return;
+    // Le mouvement réduit passe par ici : le logo dit la pose clé, sans
+    // garder la version ni les replis d'une scène d'avant.
+    th.maison.dataset.version = "cle";
+    th.maison.dataset.refus = "";
+    poser(th, idDe(el, scene), contexte);
   },
   jouer(el, scene, version, contexte = {}) {
     const th = theatreDe(el);
@@ -327,6 +332,7 @@ export const AIN: Rendu = {
     th.terminer(th.mode === "plateau" ? "couper" : "interrompre");
     if (niveau() === "sobre") {
       th.maison.dataset.version = "cle";
+      th.maison.dataset.refus = "";
       return [poser(th, id, contexte)];
     }
     const choix = planifier(

@@ -391,9 +391,14 @@ saves-test:
 # `isPointInFill` n'existent pas dans jsdom, et l'oeil ne se triche pas. Le
 # premier script vérifie la GÉOMÉTRIE (rien ne pend hors de la coque), le second
 # écrit une capture dans /tmp/padmap-visuel.png pour la regarder. Ne compile
-# rien, ne parle à aucune salle: l'aperçu est servi par Vite tout seul.
-padmap-visuel:
-    cd spikes/m3-browser-drive && node padmap-visuel.mjs
+# rien, ne parle à aucune salle: l'aperçu est servi par Vite sur
+# `vite.planche.config.ts`, la configuration sans relais vers les ports de la
+# salle (C10, 23 novembre 2026 ; c'était `npm run dev`, qui relaie /api).
+#
+#   just padmap-visuel                 la capture dans /tmp/padmap-visuel.png
+#   just padmap-visuel <fichier.png>   ailleurs
+padmap-visuel *args:
+    cd spikes/m3-browser-drive && node padmap-visuel.mjs {{args}}
 
 # La garde de la manette tactile, sur l'arbre de travail.
 #

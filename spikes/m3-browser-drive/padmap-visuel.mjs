@@ -3,16 +3,22 @@
 // Runs the two checks that need a real browser against the preview page:
 // `padmap-qc.mjs` proves each piece sits on its shell (Chrome's SVG geometry,
 // which jsdom does not provide), and `padmap-shot.mjs` writes a screenshot at
-// /tmp/padmap-visuel.png. The preview is served by Vite; this script starts it,
-// waits for it, runs the checks, and stops it.
+// /tmp/padmap-visuel.png (or the path given as first argument). The preview
+// is served by Vite; this script starts it, waits for it, runs the checks, and
+// stops it.
+//
+// Vite runs on `vite.planche.config.ts`, the configuration WITHOUT the relays
+// to the room's ports (C10 of the manettes plan, 23 November 2026). It used
+// `npm run dev`, whose configuration relays /api and the sockets to the live
+// room: a preview has no reason to reach a running service.
 import { execFileSync, spawn } from "node:child_process";
 
 const HERE = import.meta.dirname;
 const PORT = "5299";
 const PREVIEW = `http://localhost:${PORT}/padmap-preview.html`;
 
-const dev = spawn("npm", ["run", "dev", "--", "--port", PORT, "--strictPort"], {
-  cwd: new URL("../../front", import.meta.url),
+const dev = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", PORT, "--strictPort"], {
+  cwd: new URL("../../front/", import.meta.url).pathname,
   // Détaché pour pouvoir tuer npm ET vite d'un coup, et stdio coupé pour que
   // le processus n'attende jamais qu'un tuyau se vide.
   detached: true,
@@ -48,7 +54,7 @@ if (!up) {
 const env = { ...process.env, PADMAP_URL: PREVIEW };
 try {
   execFileSync("node", ["padmap-qc.mjs"], { cwd: HERE, env, stdio: "inherit" });
-  execFileSync("node", ["padmap-shot.mjs", "/tmp/padmap-visuel.png"], {
+  execFileSync("node", ["padmap-shot.mjs", process.argv[2] ?? "/tmp/padmap-visuel.png"], {
     cwd: HERE,
     env,
     stdio: "inherit",

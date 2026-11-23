@@ -2,7 +2,7 @@
  * deux trames (Dolphin et Pro). Rien ici ne lit une manette : chaque trame
  * passe ses mots et ses gestes, et la machine d'étapes reste dans
  * `media/lesson` (`Pas`). */
-import { useReducer, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { REGLAGE } from "../../lib/mots";
 
 /** Un bouton du panneau : la boîte en escalier du socle, plein ou non. */
@@ -156,7 +156,7 @@ export type Envoi = { enAttente: () => boolean; reessayer: () => Promise<void> }
 /** « Gardé ici, envoi au prochain passage », et le renvoi sur demande. Rien
  * quand rien n'attend : un envoi accepté ne laisse aucune mention. */
 export function EnAttente({ envoi }: { envoi?: Envoi }) {
-  const [, relire] = useReducer((n: number) => n + 1, 0);
+  // Passer de « envoie » à « n'envoie plus » relit `enAttente` au rendu.
   const [envoie, setEnvoie] = useState(false);
   if (!envoi?.enAttente()) return null;
   return (
@@ -171,7 +171,6 @@ export function EnAttente({ envoi }: { envoi?: Envoi }) {
               await envoi.reessayer();
             } finally {
               setEnvoie(false);
-              relire();
             }
           }}
         >

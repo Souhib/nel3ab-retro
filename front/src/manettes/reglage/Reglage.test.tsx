@@ -501,3 +501,42 @@ describe("une copie qui attend le service", () => {
     expect(screen.queryByRole("button", { name: "Réessayer maintenant" })).toBeNull();
   });
 });
+
+describe("les nombres de ta manette, trame Pro", () => {
+  it("passent par le banc, jamais par un bloc JSON", () => {
+    const source = new SwitchInput();
+    const manette = {
+      id: "Xbox Wireless Controller (STANDARD GAMEPAD)",
+      index: 0,
+      mapping: "standard",
+      connected: true,
+      timestamp: 1,
+      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+      axes: [0, 0, 0, 0],
+    } as unknown as Gamepad;
+    source.poll(new Set(), [manette]);
+    expect(source.raw).not.toBeNull();
+    const { container } = render(
+      <Reglage
+        onglet="manette"
+        onOnglet={rien}
+        onFermer={rien}
+        autres={false}
+        vit
+        trame={{
+          genre: "pro",
+          console: "Switch",
+          xbox: false,
+          manette: "manette Pro",
+          source,
+          input: { switchActive: () => true, surReglage: () => rien },
+          place: 1,
+        }}
+      />,
+    );
+    const nombres = container.querySelector(".n3-nombres")!;
+    expect(nombres.querySelector("[data-bench]")).not.toBeNull();
+    expect(nombres.querySelector("pre")).toBeNull();
+    expect(nombres.textContent).not.toContain("{");
+  });
+});

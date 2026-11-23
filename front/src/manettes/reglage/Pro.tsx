@@ -22,6 +22,7 @@ import {
   type SwitchProfile,
   type SwitchTarget,
 } from "../../media/switch";
+import { Bench } from "../../components/Bench";
 import { PadMapView } from "../../components/PadMap";
 import {
   AvantLePas,
@@ -314,13 +315,18 @@ export function ManettePro({ trame }: { trame: TramePro }) {
             REGLAGE.sticks,
             REGLAGE.nonTransmis(trame.xbox),
           )}
-          {source.raw ? (
+          {pad && source.raw ? (
             <details className="n3-nombres">
               <summary className="rt-titre">{REGLAGE.nombres}</summary>
-              <p>{pad?.id}</p>
-              <pre>
-                {JSON.stringify({ physique: source.raw, commandes: source.reading }, null, 2)}
-              </pre>
+              <Bench
+                name={identite?.name ?? pad.id}
+                id={pad.id}
+                index={pad.index}
+                layout={pad.mapping || "inconnue"}
+                buttons={source.raw.buttons.length}
+                axes={source.raw.axes.length}
+                className="pt-4"
+              />
             </details>
           ) : null}
         </>

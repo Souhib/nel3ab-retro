@@ -34,10 +34,22 @@ d'écran :
   tableaux de bord (XMB, Wii, Switch) et les dessins de manettes de la régie :
   les sept chantiers d'écran les remplaceront écran par écran.
 
-Poids de la page de salle : 235 158 octets en brotli, 64 842 sous le budget.
-Décision : [ADR](adr/0001-architecture.md) D37. Récit : entrée « 23 novembre :
-le thème rétro, et ses effets derrière un réglage ». Non prouvé : aucun effet
-vu sur un vrai téléphone, et aucun effet n'est encore posé dans un vrai écran.
+- **Retouches demandées par les chantiers d'écran** (K14, K27 et K28 de leur
+  partition). Le cycle de la mire fait un pas par seconde. Les jetons de
+  l'écran de la borne (`--encre-ecran`, `--ecran-trame`, `--fronton-encre`),
+  du panneau de commande (`--panneau`, `--panneau-filet`), des boutons START
+  (`--start-encre`, `--start-eteint-*`) et de l'offre (`--offre`) sont dans
+  `regie.css`, chaque paire mesurée avec son jumeau. Les couleurs d'objet des
+  manettes forment la dernière section de `regie.css`, qui appartient au
+  chantier des manettes. Quatre icônes partagées (chevron, curseurs, horloge,
+  porte) sont dans `front/src/retro/icones.ts`.
+
+Poids de la page de salle : 235 700 octets en brotli, 64 300 sous le budget.
+Décision : [ADR](adr/0001-architecture.md) D37 et son amendement. Récit :
+entrées « 23 novembre : le thème rétro, et ses effets derrière un réglage »
+et « 23 novembre, l'après-midi : ce que les chantiers d'écran demandaient au
+socle ». Non prouvé : aucun effet vu sur un vrai téléphone, et aucun effet ni
+aucun des nouveaux jetons n'est encore posé dans un vrai écran.
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

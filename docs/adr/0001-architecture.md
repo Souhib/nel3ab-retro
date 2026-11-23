@@ -1613,6 +1613,43 @@ bytes. Not proven: any effect on a real phone (cost of the mosaic filter, moiré
 of dithering), menu sounds on iOS, the effects inside real screens (the tracks
 will place them), and the provisional coin as a character.
 
+Amended the same day, before the screen tracks branch off, with what their
+plans asked of the base (K14, K27 and K28 of the track partition):
+
+- **The test-card cycle moves one bar per second** (7 steps in 7 s, was
+  4.2 s). The room allows one change per second for anything that moves
+  unasked, and the lobby's blink step would have refused the base's sheet.
+  `retro.test.ts` reads the rule's duration and step count; it was red at
+  0.6 s per step, and its twin feeds the old declaration to the same reader.
+- **The arcade screen keeps its night by day.** `--encre-ecran`,
+  `--ecran-trame` and `--fronton-encre` point at night primitives, not roles,
+  so they do not change with the theme: text on the black screen holds
+  18.38:1, the dithering partner 1.09:1 (bounded at 1.2:1, the night plaque
+  would be 1.22:1), the marquee 15.65:1. They leave the day's count of 16,
+  and the test requires them to be colours the night already counts, with
+  pure white as the twin it must refuse. Weighed: a role with near-identical
+  light values per theme would have kept the strict count, but the room plan
+  asked for a token that does not change with the theme, and the screen is
+  the same object in both.
+- **Panel, START buttons, offer.** `--panneau` and `--panneau-filet` (every
+  ink measured on the panel, players' inks at 5.39:1 by day, the raw player 3
+  flat refused); `--start-encre` (black on each player flat, 5.3:1 at worst,
+  where the test-card white would hold 3.47:1); the unlit START
+  (`--start-eteint-fond`, `-encre`, `-trait`: a hollow with a dotted outline,
+  no player colour); `--offre`, a dotted signal outline that must differ from
+  the alert. All point at existing roles, so neither theme gains a colour.
+- **The controllers' object colours** form a section of their own at the end
+  of `regie.css`: 65 primitives copied from the `[data-padmap]` materials of
+  `index.css` and `TINTS` of `padmap.ts`, without the translucent values.
+  Nothing reads them yet; the controllers track owns that section, and the
+  test refuses a role or component that points at one.
+- **Four shared pixel icons** (chevron, sliders, clock, door), each asked by
+  two tracks, so two additions of the same key cannot collide at merge. The
+  test now checks every icon's grid (7 rows of 12 cells) with three twins.
+
+Eight token mutants each fail the test that names them. Room page weight
+after the amendment: 235 700 bytes in brotli 11, margin 64 300.
+
 
 ## Consequences
 

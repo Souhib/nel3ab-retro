@@ -28172,6 +28172,86 @@ sept chantiers suivants. La pièce n'est pas un personnage. Le logo n'a été vu
 qu'en capture, pas à côté d'un vrai salon le soir. Bobine et les anciens menus
 sont toujours là, et partiront écran par écran.
 
+### 23 novembre, l'après-midi : ce que les chantiers d'écran demandaient au socle
+
+**Le contexte.** Avant de lancer les chantiers d'écran, leurs sept plans ont
+été lus ensemble, et une partition a réparti les fichiers et relevé les
+conflits entre plans (numérotés K01 à K42). Trois de ces points revenaient au
+socle, à faire avant que les chantiers partent de sa branche.
+
+**La mire allait trop vite (K14).** L'effet « cycle » fait glisser les
+couleurs de la mire d'une barre à la suivante. La page des effets le faisait
+toutes les 0,6 seconde. La règle de la salle, posée le même jour, n'autorise
+qu'un changement par seconde pour ce qui bouge sans qu'on le demande, et
+l'étape du salon qui mesure les clignotements l'aurait refusé. Le cycle fait
+maintenant sept pas en sept secondes. L'essai lit la durée et le nombre de
+pas dans la feuille elle-même : il était rouge à 0,6 s avant la correction.
+Son jumeau donne l'ancienne ligne à la même lecture, qui doit la refuser.
+
+**L'écran garde sa nuit (K28).** Plusieurs plans écrivent sur l'écran noir de
+la borne : la salle sur l'écran éteint et sur le fronton (la bande noire
+au-dessus de l'image, comme l'enseigne d'une borne), les états sur le plein
+cadre d'une salle injoignable. Le texte de la page ne convient pas : le jour,
+l'encre est un marine foncé, qui ne tient que 1,16:1 sur du noir. Trois
+jetons sont donc nés : l'encre de l'écran (le blanc de la mire, 18,38:1), le
+second noir du tramage des bandes (1,09:1, borné à 1,2:1 pour rester un grain
+et pas un motif) et l'encre du fronton (le jaune de la mire, 15,65:1). Le
+plan de la salle voulait des jetons qui ne changent pas avec le thème.
+
+Cela posait une question au compte des seize couleurs. Ces trois couleurs
+sont déjà dans la palette de nuit, mais pas dans celle du jour, qui serait
+passée à dix-neuf. Deux solutions ont été pesées : un jeton qui change de
+thème avec deux blancs presque identiques, qui aurait gardé le compte strict
+mais contredit la demande ; ou l'écran compté avec la nuit, comme la mire et
+le logo sont comptés à part. La seconde a été retenue, avec une garde :
+l'essai exige que chaque jeton de l'écran soit une couleur que la nuit compte
+déjà. Un blanc pur, l'erreur la plus probable pour un texte sur l'écran, est
+refusé (c'est le jumeau).
+
+**Le panneau, les boutons START, l'offre.** Le panneau de commande, sous
+l'écran, reçoit les places des joueurs : il a son jeton et son filet, et
+chaque encre y est mesurée, celles des joueurs comprises (5,39:1 au plus
+juste, le jour). Le jaune brut du joueur 3 y tombe à 1,84:1 : c'est le
+jumeau. Un bouton START allumé prend la couleur du joueur, et son numéro
+s'écrit en noir (5,3:1 au plus juste, sur le rouge du joueur 1, où le blanc
+de la mire ne tiendrait que 3,47:1). Éteint, c'est un creux bordé de
+pointillés, sans couleur de joueur, et son numéro se lit en légende. Une
+« offre » (« l'image saute : essayer l'image légère ») a un contour en
+pointillés au signal, et l'essai exige qu'il ne soit pas de la couleur de
+l'alerte. Aucun de ces jetons n'ajoute une couleur : ils pointent sur des
+rôles qui existaient.
+
+**Les couleurs des manettes.** Le plan des manettes veut que les couleurs de
+ses dessins vivent dans la feuille des jetons, comme les autres. Le socle a
+recopié telles quelles les 65 couleurs pleines de leurs matières (coques,
+touches, logements, voyants) et des teintes de touches. Les couleurs à
+transparence (reflets, ombres) n'y sont pas : le plan dessine des aplats.
+Rien ne les lit encore ; la section appartient au chantier des manettes, qui
+y gardera ce que son dessin emploie. L'essai refuse qu'un rôle de la page
+emprunte une couleur de manette.
+
+**Quatre icônes partagées (K27).** Le jeu d'icônes en pixels est unique, et
+chaque chantier y ajoute les siennes. Le chevron, les curseurs de réglage,
+l'horloge et la porte étaient demandés par deux chantiers à la fois : deux
+ajouts de la même clé se seraient heurtés à la fusion. Le socle les a
+dessinés. L'essai vérifie maintenant la grille de chaque icône (sept lignes
+de douze cases) et qu'aucun dessin ne sert deux fois.
+
+**Les essais qui savent tomber.** Huit mutations des jetons ont été essayées
+une par une (le blanc pur sur l'écran, l'encre de la page sur l'écran, la
+plaque comme trame, le blanc sur les boutons allumés, l'alerte comme offre, le
+filet comme contour de START, le trait comme filet du panneau, un rôle qui
+emprunte une couleur de manette) : chacune fait tomber l'essai qui la nomme.
+
+**Le poids.** 235 700 octets en brotli pour la page de salle, 542 de plus,
+presque tout pour la section des manettes. Marge : 64 300 sous 300 000.
+
+**Ce qui n'est pas prouvé.** Aucun de ces jetons n'est encore posé dans un
+écran : les contrastes sont calculés, pas mesurés dans un rendu. Quand un
+chantier mélangera une couleur dans un composant (une opacité, un
+`color-mix`), seul `contraste.mjs --simule` le verra. Les icônes n'ont été
+vues qu'en texte, pas à leur taille réelle.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -29746,3 +29826,11 @@ venue d'un autre site.
 
 **Note (d'une console)** : la phrase courte du manifeste des consoles qui
 s'affiche sous le nom d'une console dans le menu des jeux.
+
+**Fronton** : sur une borne d'arcade, l'enseigne lumineuse au-dessus de
+l'écran, qui porte le nom du jeu. Dans la salle, la bande noire au-dessus de
+l'image quand elle est assez haute.
+
+**Panneau de commande** : sur une borne d'arcade, la planche sous l'écran qui
+porte les manettes et les boutons START. Dans la salle, la bande sous l'image
+où se posent les places des joueurs.

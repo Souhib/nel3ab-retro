@@ -40,3 +40,13 @@ if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.sho
     this.dispatchEvent(new Event("close"));
   };
 }
+
+// jsdom n'a pas de contexte 2D : `getContext` y rend `null` et écrit « Not
+// implemented » dans la console à chaque appel. Depuis que le logo d'Aïn se
+// peint au montage du coin (23 novembre 2026), chaque rendu de la salle en
+// écrivait une ligne, et le journal de `just check` noyait les vraies erreurs.
+// Le remplaçant rend le même `null`, sans bruit ; un essai qui veut une toile
+// la simule lui-même.
+HTMLCanvasElement.prototype.getContext = function getContext() {
+  return null;
+} as typeof HTMLCanvasElement.prototype.getContext;

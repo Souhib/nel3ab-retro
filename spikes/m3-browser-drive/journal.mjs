@@ -94,7 +94,9 @@ await other.close();
 await wait(12_000);
 await page.click("#complain");
 await wait(1000);
-const said = await page.$eval("#complain", (button) => button.textContent);
+// Le bouton et la ligne qui le suit : « C'est noté, à 21 h 42. » depuis le
+// 23 novembre 2026 (« signalement enregistré » avant).
+const said = await page.$eval("#complain", (button) => button.parentElement?.textContent ?? "");
 await page.close();
 await wait(1500);
 
@@ -216,7 +218,7 @@ check(
 // « signalement enregistré » depuis le 9 septembre 2026 (`Sidebar.tsx`): le bouton
 // ne dit plus « noté » avant que le salon ait répondu. Ce pilote attendait encore
 // l'ancien mot et rougissait depuis, sans que personne ne l'ait relancé.
-check(said?.includes("enregistré"), `le bouton dit qu'il a compris (« ${said} »)`);
+check(said?.includes("C'est noté"), `le bouton dit qu'il a compris (« ${said} »)`);
 // L'identité du proxy: c'est ce qui manquait le jour où on m'a demandé de
 // retrouver quelqu'un. Un `null` ici veut dire qu'on est passé à côté du proxy.
 check(

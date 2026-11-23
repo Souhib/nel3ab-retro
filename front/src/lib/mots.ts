@@ -584,4 +584,24 @@ export const INVITER = {
   tropLong: "Ce lien est trop long pour un code : copie-le.",
 } as const;
 
+/** L'heure d'un accusé, à la française : « 21 h 42 », « 9 h 05 ». */
+export const heureDite = (d: Date): string =>
+  `${d.getHours()} h ${String(d.getMinutes()).padStart(2, "0")}`;
+
+/** Signaler un problème (`components/Signaler`) : un seul composant, posé au
+ * premier rang de la colonne, dans la feuille, ou dans la fiche d'un état
+ * (K25). En casse de phrase, comme ses voisins. */
+export const SIGNALER = {
+  pret: "Signaler un problème",
+  court: "Signaler",
+  envoi: "Envoi…",
+  tenu: (s: number) => `Déjà signalé il y a ${s} s`,
+  reste: (s: number) => `Tu pourras en envoyer un autre dans ${s} s.`,
+  note: (heure: string) =>
+    `C'est noté, à ${heure}. Les deux dernières minutes de mesures partent avec, pour la maison.`,
+  sansReponse:
+    "Le signalement n'est pas parti : le site ne répond pas. Il passe par le site, pas par la salle. Réessaie dès que la page le rejoint.",
+  reessayer: "Réessayer",
+} as const;
+
 // ==== fin personnes ====

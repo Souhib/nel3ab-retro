@@ -146,6 +146,17 @@ export const ICONES_PIXEL = {
     "...####.#...",
     ".....##..#..",
   ],
+  // Le chantier personnes : Signaler, un fanion planté pour « note cet
+  // instant ».
+  drapeau: [
+    "..#######...",
+    "..########..",
+    "..#######...",
+    "..#.........",
+    "..#.........",
+    "..#.........",
+    ".###........",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconePixel = keyof typeof ICONES_PIXEL;

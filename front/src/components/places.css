@@ -291,3 +291,12 @@
 .n3-qr-modules {
   fill: var(--noir);
 }
+
+/* ── Signaler ─────────────────────────────────────────────────────── */
+/* Tenu, le bouton reste focalisable pour que « Déjà signalé il y a 12 s »
+   se lise au clavier ; il se dit éteint par la couleur de la légende. */
+#complain[aria-disabled="true"],
+#signalerEtat[aria-disabled="true"] {
+  color: var(--legende);
+  cursor: default;
+}

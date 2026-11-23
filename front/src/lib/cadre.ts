@@ -29,15 +29,15 @@
  * plus petite et laisse bien plus de place. On calcule donc la pose avec et
  * sans le panneau, par `place` de `lib/fit`, et on compare.
  *
- * # Ce qui reste à rapprocher
+ * # La manette tactile se mesure dans sa propre pose
  *
- * Les dimensions des manettes tactiles (`MANETTES`) sont celles des dessins de
- * la maquette, à l'échelle 1. L'étape du téléphone (étape 4 du chantier salle)
- * les fera lire dans `lib/faces.ts`, qui pose les touches pour de vrai ; d'ici
- * là, la géométrie du portrait et du paysage est un squelette vérifié par
- * balayage, pas encore la pose des touches.
+ * Les dimensions des manettes (`MANETTES`) viennent de `encombrement` dans
+ * `lib/faces`, qui interroge la pose des touches elle-même. Jusqu'au
+ * 23 novembre 2026, elles venaient des dessins de la maquette, et la pose
+ * réelle ne tenait pas dedans (voir `encombrement`).
  */
 import type { Etat as EtatDeLiaison } from "../media/liaison";
+import { DOLPHIN_FACE, encombrement, SWITCH_FACE, type Encombrement } from "./faces";
 import { place, type Fit, type Placed, type Size } from "./fit";
 
 /** Un rectangle en pixels de la fenêtre : la même forme que `faces.Rect`. */
@@ -206,47 +206,17 @@ export const COLONNE_ETROITE_MIN = 240;
 export const FORMAT_PAR_DEFAUT = 4 / 3;
 
 /**
- * Les dessins des manettes tactiles, à l'échelle 1 (maquette du 22 novembre).
- *
- * - portrait : une boîte de 390 px de large, sous l'image ; `fente` est le
- *   creux où se range « La salle » quand la barre manque, `fenteEtiquette`
- *   celui de ton étiquette quand le panneau manque ; `pouce` la largeur d'un
- *   groupe de pouce, pour la tablette qui les écarte aux bords ;
- * - paysage : deux grappes de 128 px de large, à gauche et à droite.
- *
- * Une touche y fait 48 px au moins : à l'échelle la plus petite admise
- * (0,92), elle garde 44 px.
+ * Ce que chaque manette tactile demande au cadre, lu dans sa pose
+ * (`encombrement`) : la hauteur de sa boîte tenue droite pour une largeur, et
+ * la largeur de chaque grappe en travers pour une hauteur. La manette Xbox 360
+ * a la forme de la manette Pro (`faces.test.ts` le vérifie).
  */
-export type DessinManette = {
-  portrait: { l: number; h: number; fente: Rect; fenteEtiquette: Rect; pouce: number };
-  paysage: { l: number; g: number; d: number };
-};
+export type DessinManette = Encombrement;
 
 export const MANETTES: Readonly<Record<"dolphin" | "pro", DessinManette>> = {
-  dolphin: {
-    portrait: {
-      l: 390,
-      h: 272,
-      fente: { x: 122, y: 210, w: 76, h: 56 },
-      fenteEtiquette: { x: 122, y: 166, w: 76, h: 36 },
-      pouce: 150,
-    },
-    paysage: { l: 128, g: 312, d: 308 },
-  },
-  pro: {
-    portrait: {
-      l: 390,
-      h: 300,
-      fente: { x: 130, y: 136, w: 96, h: 48 },
-      fenteEtiquette: { x: 130, y: 92, w: 96, h: 36 },
-      pouce: 150,
-    },
-    paysage: { l: 128, g: 320, d: 332 },
-  },
+  dolphin: encombrement(DOLPHIN_FACE),
+  pro: encombrement(SWITCH_FACE),
 };
-
-/** L'échelle la plus petite d'une manette : ses touches de 48 px y font 44. */
-export const ECHELLE_MIN = 0.92;
 
 /* ── La géométrie ─────────────────────────────────────────────────────── */
 
@@ -312,12 +282,16 @@ export type Geometrie = {
   colonne: Rect | null;
   barre: Rect | null;
   bande: Rect | null;
-  /** La manette tactile : sa boîte et son échelle, et ses deux grappes en
-   * paysage. `null` sans manette. */
-  manette: { rect: Rect; echelle: number; grappes: { g: Rect; d: Rect } | null } | null;
-  /** Le bouton « La salle » posé hors de la barre (dans la fente de la
-   * manette, ou en haut de la bande gauche en paysage). */
+  /** La manette tactile : sa boîte, et ses deux grappes en paysage. `null`
+   * sans manette. La pose des touches dans la boîte est celle de `placePad`,
+   * avec pour bandes les grappes. */
+  manette: { rect: Rect; grappes: { g: Rect; d: Rect } | null } | null;
+  /** Le bouton « La salle » posé hors de la barre : en haut de la bande gauche
+   * ou dans la bande du panneau, en paysage. */
   boutonSalle: Rect | null;
+  /** « La salle » se pose parmi les touches (`placePad`, geste « feuille ») :
+   * un téléphone tenu droit trop court pour sa barre. */
+  salleDansLaManette: boolean;
   /** Ton étiquette tapée, collée dans la manette quand le panneau manque. */
   etiquetteManette: Rect | null;
   /** La bande noire au-dessus de l'image, quand elle fait 40 px ou plus. */
@@ -372,6 +346,7 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   bande: null,
   manette: null,
   boutonSalle: null,
+  salleDansLaManette: false,
   etiquetteManette: null,
   fronton: null,
   bordures: null,
@@ -459,10 +434,6 @@ function etroit(e: Entree): Geometrie {
   };
 }
 
-/** Une case du dessin portrait, posée à l'échelle `s` depuis (ox, oy). */
-const caseDe = (f: Rect, ox: number, oy: number, s: number): Rect =>
-  rect(ox + f.x * s, oy + f.y * s, f.w * s, f.h * s);
-
 /**
  * Le portrait : barre, image, panneau, bande, manette, dans cet ordre, dans la
  * zone sûre.
@@ -472,6 +443,11 @@ const caseDe = (f: Rect, ox: number, oy: number, s: number): Rect =>
  * l'image en dernier. Il ne dépend que de la taille de l'écran, jamais de
  * l'état : la manette ne bouge pas d'un pixel entre une image vivante et une
  * image figée.
+ *
+ * La manette prend toute la largeur (moins 16 px de chaque côté sur une
+ * tablette, pour que les pouces restent aux bords) et la hauteur que sa pose
+ * demande pour cette largeur (`encombrement`). Sans barre, « La salle » se
+ * pose parmi ses touches, et cette hauteur l'a déjà compté.
  */
 function portrait(e: Entree): Geometrie {
   const sa = e.zonesSures;
@@ -479,22 +455,28 @@ function portrait(e: Entree): Geometrie {
   const y0 = sa.haut;
   const W = Math.max(0, e.fenetre.width - sa.gauche - sa.droite);
   const H = Math.max(0, e.fenetre.height - sa.haut - sa.bas);
-  const P = e.manette?.portrait ?? null;
   const tablette = W >= 600;
+  const largeurManette = tablette ? W - 32 : W;
+  const besoin = e.manette ? e.manette.hauteur(largeurManette) : null;
   const format = formatDe(e.image);
   const ih = Math.round(W / format);
-  const sMax = tablette ? 1.4 : 1.1;
   const C0 = tablette ? 88 : 72;
   const C1 = 56;
   const sans = sansImage(e.etat);
 
-  type G = { barre: number; image: number; chant: number; bande: number; s: number; iw: number };
+  type G = { barre: number; image: number; chant: number; bande: number; m: number; iw: number };
   let g: G;
   let cede = false;
-  if (e.role === "seule" && P) {
-    const s = Math.min(W / P.l, (H - BARRE - 180 - 8) / P.h, sMax);
-    g = { barre: BARRE, image: 0, chant: Math.max(0, H - BARRE - P.h * s - 8), bande: 0, s, iw: 0 };
-  } else if (!P) {
+  if (e.role === "seule" && besoin !== null) {
+    g = {
+      barre: BARRE,
+      image: 0,
+      chant: Math.max(0, H - BARRE - besoin - 8),
+      bande: 0,
+      m: besoin,
+      iw: 0,
+    };
+  } else if (besoin === null) {
     // Pas de manette tactile : spectateur, vraie manette, salle sans jeu.
     const voulu = sans ? Math.max(ih, Math.min(H - BARRE - C0 - 170, Math.round(W * 1.05))) : ih;
     const imgH = Math.max(0, Math.min(voulu, H - BARRE - C0));
@@ -503,7 +485,7 @@ function portrait(e: Entree): Geometrie {
       image: imgH,
       chant: Math.min(C0, Math.max(0, H - BARRE - imgH)),
       bande: Math.max(0, H - BARRE - imgH - C0),
-      s: 0,
+      m: 0,
       iw: imgH === ih || sans ? W : Math.min(W, Math.round(imgH * format)),
     };
   } else {
@@ -518,23 +500,20 @@ function portrait(e: Entree): Geometrie {
     ];
     let trouve: G | null = null;
     for (const [b, c, bd] of essais) {
-      const reste = H - b - ih - c - bd;
-      const s = Math.min(W / P.l, (reste - 8) / P.h, sMax);
-      if (s >= ECHELLE_MIN) {
-        trouve = { barre: b, image: ih, chant: c, bande: bd, s, iw: W };
+      if (H - b - ih - c - bd - 8 >= besoin) {
+        trouve = { barre: b, image: ih, chant: c, bande: bd, m: besoin, iw: W };
         break;
       }
     }
     if (!trouve) {
-      // Dernier recours : l'image rapetisse, les touches gardent 44 px.
-      const s = Math.min(ECHELLE_MIN, W / P.l);
-      const im = Math.max(120, H - P.h * s - 8);
+      // Dernier recours : l'image rapetisse, la manette garde sa pose.
+      const im = Math.max(120, H - besoin - 8);
       trouve = {
         barre: 0,
         image: im,
         chant: 0,
         bande: 0,
-        s,
+        m: besoin,
         iw: Math.min(W, Math.round(im * format)),
       };
     }
@@ -558,23 +537,13 @@ function portrait(e: Entree): Geometrie {
   y += g.chant;
   const bande = g.bande > 0 ? rect(x0, y, W, g.bande) : null;
 
-  let manette: Geometrie["manette"] = null;
-  let boutonSalle: Rect | null = null;
-  let etiquetteManette: Rect | null = null;
-  if (g.s > 0 && P) {
-    const s = g.s;
-    const oy = y0 + H - P.h * s - 8;
-    const ox = x0 + (W - P.l * s) / 2;
-    manette = {
-      rect: tablette ? rect(x0 + 16, oy, W - 32, P.h * s) : rect(ox, oy, P.l * s, P.h * s),
-      echelle: s,
-      grappes: null,
-    };
-    if (g.barre === 0 && e.role !== "seule") boutonSalle = caseDe(P.fente, ox, oy, s);
-    if (g.chant === 0 && e.role === "joueur") {
-      etiquetteManette = caseDe(g.barre ? P.fente : P.fenteEtiquette, ox, oy, s);
-    }
-  }
+  const manette: Geometrie["manette"] =
+    g.m > 0
+      ? {
+          rect: rect(x0 + (W - largeurManette) / 2, y0 + H - g.m - 8, largeurManette, g.m),
+          grappes: null,
+        }
+      : null;
 
   const feuilleHaut = g.barre + sa.haut;
   const sous = feuilleHaut + g.image + g.chant;
@@ -590,8 +559,7 @@ function portrait(e: Entree): Geometrie {
     barre,
     bande,
     manette,
-    boutonSalle,
-    etiquetteManette,
+    salleDansLaManette: manette !== null && barre === null,
     feuille: {
       mi: rect(0, feuilleHaut + delta, e.fenetre.width, e.fenetre.height - feuilleHaut - delta),
       agrandie: rect(0, feuilleHaut, e.fenetre.width, e.fenetre.height - feuilleHaut),
@@ -625,7 +593,9 @@ function paysage(e: Entree): Geometrie {
   const PLUS = { nu: 0, "tete-etiquette": 100, tete: 72 } as const;
   type Variante = "seule" | "nu" | "tete-etiquette" | "tete" | "bas";
   type Choix = {
-    s: number;
+    /** La hauteur des grappes, et la largeur de chacune (`encombrement`). */
+    gh: number;
+    gl: number;
     cote: number;
     variante: Variante;
     iw: number;
@@ -633,39 +603,52 @@ function paysage(e: Entree): Geometrie {
     score: number;
   };
   let best: Choix | null = null;
+  /** Les grappes d'une hauteur `gh` : leur largeur, ou `null` si la pose ne
+   * tient pas à cette hauteur. */
+  const grappeDe = (gh: number) => (D && gh >= 150 ? D.largeur(gh) : null);
 
+  // Les grappes descendent jusqu'au bas de la zone sûre : la pose garde déjà
+  // 12 px de marge en dedans (`SIZES.MARGIN`). Avec une marge de plus, un
+  // iPhone 12 mini en travers (375 px, barre d'accueil de 21) laissait 346 px
+  // à la manette Pro, qui en demande 348 pour tenir dans sa bande de 140 px ;
+  // sinon il lui en faut 308 (sonde du 23 novembre 2026).
   if (e.role === "seule" && D) {
-    const s = Math.min(tablette ? 1.4 : 1.15, (H - 2 * m) / Math.max(D.paysage.g, D.paysage.d));
-    best = { s, cote: D.paysage.l * s + 2 * m, variante: "seule", iw: 0, ih: 0, score: 0 };
+    const gh = H - m;
+    const gl = grappeDe(gh) ?? 0;
+    best = { gh, gl, cote: gl + 2 * m, variante: "seule", iw: 0, ih: 0, score: 0 };
   } else if (!D) {
     const b = remplir(W, H, format);
-    best = { s: 0, cote: (W - b.w) / 2, variante: "nu", iw: b.w, ih: b.h, score: 0 };
+    best = { gh: 0, gl: 0, cote: (W - b.w) / 2, variante: "nu", iw: b.w, ih: b.h, score: 0 };
   } else {
     for (const v of ["nu", "tete-etiquette", "tete"] as const) {
-      for (const s of [0.92, 0.96, 1, 1.1, 1.2, 1.3]) {
-        if (s > (tablette ? 1.3 : 1)) continue;
-        if (Math.max(D.paysage.g + PLUS[v], D.paysage.d) * s > H - 2 * m) continue;
-        const cote = D.paysage.l * s + 2 * m;
-        const b = remplir(W - 2 * cote, H - (v === "nu" ? C0 : 0), format);
-        const score = b.w * b.h * (v === "nu" ? 1.01 : 1) + s;
-        if (!best || score > best.score) best = { s, cote, variante: v, iw: b.w, ih: b.h, score };
-      }
+      const gh = H - m - PLUS[v];
+      const gl = grappeDe(gh);
+      if (gl === null) continue;
+      const cote = gl + 2 * m;
+      const b = remplir(W - 2 * cote, H - (v === "nu" ? C0 : 0), format);
+      const score = b.w * b.h * (v === "nu" ? 1.01 : 1);
+      if (!best || score > best.score)
+        best = { gh, gl, cote, variante: v, iw: b.w, ih: b.h, score };
     }
     if (tablette) {
-      for (const s of [0.92, 1, 1.1, 1.2]) {
-        const bas = D.portrait.h * s + 16;
-        const b = remplir(W, H - BARRE - bas, format);
-        const score = b.w * b.h * 1.01 + s;
+      const lm = W - 32;
+      const besoin = D.hauteur(lm);
+      if (besoin !== null) {
+        const b = remplir(W, H - BARRE - besoin - 16, format);
+        const score = b.w * b.h * 1.01;
         if (b.h > 200 && (!best || score > best.score)) {
-          best = { s, cote: 0, variante: "bas", iw: b.w, ih: b.h, score };
+          best = { gh: besoin, gl: 0, cote: 0, variante: "bas", iw: b.w, ih: b.h, score };
         }
       }
     }
     if (!best) {
-      const s = ECHELLE_MIN;
-      const cote = D.paysage.l * s + 2 * m;
+      // Rien ne tient en hauteur (une fenêtre de moins de 160 px) : les
+      // grappes au plancher, et la pose le dira (`data-degradee`).
+      const gh = H - m;
+      const gl = 160;
+      const cote = gl + 2 * m;
       const b = remplir(W - 2 * cote, H, format);
-      best = { s, cote, variante: "tete", iw: b.w, ih: b.h, score: 0 };
+      best = { gh, gl, cote, variante: "nu", iw: b.w, ih: b.h, score: 0 };
     }
   }
 
@@ -681,31 +664,26 @@ function paysage(e: Entree): Geometrie {
   let etiquetteManette: Rect | null = null;
   let manette: Geometrie["manette"] = null;
 
-  const grappes = (s: number) => {
-    if (!D) return null;
-    const l = D.paysage.l * s;
-    return {
-      g: rect(L + m, T + H - m - D.paysage.g * s, l, D.paysage.g * s),
-      d: rect(W0 - sa.droite - m - l, T + H - m - D.paysage.d * s, l, D.paysage.d * s),
-    };
-  };
+  const grappes = () => ({
+    g: rect(L + m, T + H - g.gh, g.gl, g.gh),
+    d: rect(W0 - sa.droite - m - g.gl, T + H - g.gh, g.gl, g.gh),
+  });
 
   if (g.variante === "seule") {
     barre = rect(xg, T, C, BARRE);
     panneau = { forme: "sous", rect: rect(xg, T + 60, C, H - 60) };
   } else if (g.variante === "bas" && D) {
-    // Barre, image, puis en bas : pouce gauche, panneau et bande, pouce droit.
+    // Barre, image, puis en bas la manette du portrait, pouces aux bords ; le
+    // panneau et la bande entre l'image et elle.
     barre = rect(L, T, W, BARRE);
     ecran = rect(L + (W - g.iw) / 2, T + BARRE, g.iw, g.ih);
-    const s = g.s;
-    const oy = T + H - D.portrait.h * s - 8;
-    manette = { rect: rect(L + 16, oy, W - 32, D.portrait.h * s), echelle: s, grappes: null };
-    const finG = L + 16 + D.portrait.pouce * s + 16;
-    const debD = L + W - 16 - D.portrait.pouce * s - 16;
+    const oy = T + H - g.gh - 8;
+    manette = { rect: rect(L + 16, oy, W - 32, g.gh), grappes: null };
     const yb = T + BARRE + g.ih + 8;
-    panneau = { forme: "sous", rect: rect(finG, yb, debD - finG, C0) };
-    const reste = T + H - yb - C0;
-    bande = reste >= 48 ? rect(finG, yb + C0, debD - finG, reste) : null;
+    const haut = Math.max(0, Math.min(C0, oy - yb));
+    panneau = haut >= 44 ? { forme: "sous", rect: rect(L, yb, W, haut) } : panneau;
+    const reste = oy - yb - haut;
+    bande = reste >= 48 ? rect(L, yb + haut, W, reste) : null;
   } else if (g.variante === "nu") {
     if (!D && !tablette) {
       // Téléphone sans manette tactile (spectateur, vraie manette) : l'image
@@ -730,8 +708,7 @@ function paysage(e: Entree): Geometrie {
       }
       ecran = rect(xg + (C - g.iw) / 2, y, g.iw, g.ih);
       y += g.ih;
-      const premiere = D ? D.paysage.g : 0;
-      const hautGrappe = T + H - m - premiere * g.s;
+      const hautGrappe = T + H - g.gh;
       const enHaut = !avecBarre && hautGrappe - (T + m + 44) >= 20;
       const xt = avecBarre || enHaut ? xg : xg + 130;
       panneau = {
@@ -740,7 +717,7 @@ function paysage(e: Entree): Geometrie {
       };
       if (!avecBarre) {
         boutonSalle = enHaut
-          ? rect(L + m + 2, T + m, Math.max(118, (D?.paysage.l ?? 128) * g.s - 4), 44)
+          ? rect(L + m + 2, T + m, Math.max(118, g.gl - 4), 44)
           : rect(xg + 4, y + (C0 - 44) / 2, 122, 44);
       }
       y += C0;
@@ -752,23 +729,16 @@ function paysage(e: Entree): Geometrie {
     // sûre.
     const b = remplir(C, H0, format);
     ecran = rect(xg + (C - b.w) / 2, (H0 - b.h) / 2, b.w, b.h);
-    const l = (D?.paysage.l ?? 128) * g.s;
+    const l = g.gl;
     boutonSalle = rect(L + m + 2, T + m, l - 4, 44);
     if (g.variante === "tete-etiquette" && e.role === "joueur") {
       etiquetteManette = rect(L + m + 4, T + m + 52, l - 8, 36);
     }
   }
 
-  if (g.s > 0 && D && g.variante !== "bas") {
-    const deux = grappes(g.s);
-    if (deux) {
-      const haut = Math.min(deux.g.y, deux.d.y);
-      manette = {
-        rect: rect(L + m, haut, W - 2 * m, T + H - m - haut),
-        echelle: g.s,
-        grappes: deux,
-      };
-    }
+  if (g.gl > 0 && D && g.variante !== "bas") {
+    const deux = grappes();
+    manette = { rect: rect(L + m, deux.g.y, W - 2 * m, g.gh), grappes: deux };
   }
 
   // À mi-hauteur, la feuille ne prend que la bande gauche (la critique :
@@ -890,7 +860,7 @@ export function ouEstLaMascotte(geo: Geometrie, scene?: string): Hote | null {
     }
     return "coin";
   }
-  if (geo.barre || geo.boutonSalle) return "barre";
+  if (geo.barre || geo.boutonSalle || geo.salleDansLaManette) return "barre";
   return null;
 }
 

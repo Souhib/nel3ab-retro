@@ -21,10 +21,12 @@ import {
   type Entree,
   type EtatDuCadre,
   type Rect,
+  type ZonesSures,
   premiereImage,
   sansImage,
 } from "./cadre";
 import { TIROIR_SOUS } from "./disposition";
+import { DOLPHIN_FACE, placePad, SWITCH_FACE, XBOX_FACE } from "./faces";
 import { FITS, place, type Fit, type Size } from "./fit";
 
 const SEIZE_NEUF: Size = { width: 1280, height: 720 };
@@ -314,12 +316,14 @@ describe("le portrait", () => {
                 manette: pad(nom),
               }),
             );
-            const P = pad(nom).portrait;
+            const besoin = pad(nom).hauteur(W);
+            if (besoin === null) throw new Error(`${nom} ne tient pas à ${W} px`);
             const ih = Math.round(W / (image.width / image.height));
-            const tient = ih + P.h * 0.92 + 8 <= H && W / P.l >= 0.92;
+            const tient = ih + besoin + 8 <= H;
             if (!geo.manette) throw new Error("la manette manque");
-            // Touches de 44 px au moins : l'échelle ne descend pas sous 0,92.
-            if (W / P.l >= 0.92) expect(geo.manette.echelle).toBeGreaterThanOrEqual(0.92);
+            // La manette reçoit toute la largeur et la hauteur que sa pose
+            // demande : ses touches gardent 44 px (`encombrement`).
+            expect(geo.manette.rect).toMatchObject({ w: W, h: besoin });
             if (tient) {
               vus += 1;
               expect(geo.ecran?.w).toBe(W);
@@ -357,11 +361,22 @@ describe("le portrait", () => {
     );
     expect(geo.barre).toBeNull();
     expect(geo.ecran).toMatchObject({ w: 375, h: 276 });
-    // « La salle » passe dans la fente de la manette, et ton étiquette aussi.
-    expect(geo.boutonSalle).not.toBeNull();
-    expect(geo.etiquetteManette).not.toBeNull();
+    // « La salle » passe parmi les touches : la pose le place, et la hauteur
+    // de la manette l'a compté (`encombrement`).
+    expect(geo.salleDansLaManette).toBe(true);
     // La mascotte suit : la tête dans le bouton, toujours un seul endroit.
     expect(ouEstLaMascotte(geo)).toBe("barre");
+    // Le jumeau : avec sa barre, « La salle » n'est pas dans la manette.
+    const haut = miseEnPage(
+      entree({
+        mode: "portrait",
+        fenetre: { width: 375, height: 812 },
+        image: GAMECUBE,
+        manette: pad("dolphin"),
+      }),
+    );
+    expect(haut.barre).not.toBeNull();
+    expect(haut.salleDansLaManette).toBe(false);
   });
 
   it("ne déplace pas la manette d'un pixel entre vit et figée, à toutes les tailles", () => {
@@ -475,7 +490,10 @@ describe("le paysage", () => {
     expect(geo.manette.rect.y).toBeGreaterThanOrEqual(img.y + img.h);
   });
 
-  it("garde à une GameCube toute la hauteur d'un téléphone de 390 px", () => {
+  it("donne à une GameCube 380 des 390 px d'un téléphone, sa vraie manette posée", () => {
+    // La maquette promettait 529×390 avec des grappes de 128 px ; les quatre
+    // boutons de la GameCube en demandent 156 (`encombrement`). 10 px de
+    // hauteur perdus, mesurés le 23 novembre 2026.
     const geo = miseEnPage(
       entree({
         mode: "paysage",
@@ -484,7 +502,8 @@ describe("le paysage", () => {
         manette: pad("dolphin"),
       }),
     );
-    expect(geo.ecran?.h).toBe(390);
+    expect(geo.image?.h).toBe(380);
+    expect(geo.manette?.grappes?.g.w).toBe(156);
   });
 
   it("pose le panneau debout dans la bande gauche d'un spectateur, places empilées", () => {
@@ -519,6 +538,132 @@ describe("le paysage", () => {
     if (!geo.feuille || !geo.image) throw new Error("feuille ou image absente");
     expect(geo.feuille.mi.w).toBeGreaterThanOrEqual(132);
     expect(geo.feuille.agrandie.w).toBe(380);
+  });
+});
+
+describe("la vraie pose des touches dans la boîte du cadre", () => {
+  const FACES_ = [
+    ["dolphin", DOLPHIN_FACE],
+    ["pro", SWITCH_FACE],
+    ["pro", XBOX_FACE],
+  ] as const;
+  const IPHONE_TRAVERS: ZonesSures = { haut: 0, droite: 47, bas: 21, gauche: 47 };
+  const IPHONE_DROIT: ZonesSures = { haut: 47, droite: 0, bas: 34, gauche: 0 };
+  /** Les pièces posées par `placePad` dans la boîte de la manette, en
+   * coordonnées de la fenêtre, comme `Pave` les pose. */
+  const pieces = (geo: ReturnType<typeof miseEnPage>, face: (typeof FACES_)[number][1]) => {
+    const m = geo.manette;
+    if (!m) throw new Error("pas de manette");
+    const bandes = m.grappes
+      ? { left: m.grappes.g.w, right: m.grappes.d.w }
+      : { left: 0, right: 0 };
+    const pose = placePad(
+      face,
+      { width: m.rect.w, height: m.rect.h },
+      bandes,
+      geo.salleDansLaManette ? ["feuille"] : [],
+      m.grappes !== null,
+    );
+    return {
+      degradee: pose.degraded,
+      rects: pose.pieces.map((one) => ({
+        ...one.rect,
+        x: one.rect.x + m.rect.x,
+        y: one.rect.y + m.rect.y,
+      })),
+    };
+  };
+
+  it("en travers, aucune pièce sur l'image ni hors de la zone sûre, quatre tailles, zones ou non", () => {
+    let vus = 0;
+    for (const fenetre of [
+      { width: 844, height: 390 },
+      { width: 932, height: 430 },
+      { width: 667, height: 375 },
+      { width: 1180, height: 820 },
+    ]) {
+      for (const zonesSures of [SANS_ZONES, IPHONE_TRAVERS]) {
+        for (const [nom, face] of FACES_) {
+          for (const image of FORMATS) {
+            const geo = miseEnPage(
+              entree({ mode: "paysage", fenetre, zonesSures, image, manette: pad(nom) }),
+            );
+            const img = geo.image;
+            if (!img) throw new Error("pas d'image");
+            const { degradee, rects } = pieces(geo, face);
+            const dit = `${face.title} ${fenetre.width}×${fenetre.height} ${image.width}`;
+            expect(degradee, dit).toBeNull();
+            for (const r of rects) {
+              expect(coupe(img, r), dit).toBe(0);
+              expect(r.x, dit).toBeGreaterThanOrEqual(zonesSures.gauche);
+              expect(r.x + r.w, dit).toBeLessThanOrEqual(fenetre.width - zonesSures.droite);
+              expect(r.y + r.h, dit).toBeLessThanOrEqual(fenetre.height - zonesSures.bas);
+              if (geo.boutonSalle) expect(coupe(geo.boutonSalle, r), dit).toBe(0);
+            }
+            vus += 1;
+          }
+        }
+      }
+    }
+    expect(vus).toBe(4 * 2 * 3 * 3);
+  });
+
+  it("tenu droit, aucune pièce sur l'image ni hors de la zone sûre, de 320 à 430 px", () => {
+    let vus = 0;
+    for (let W = 320; W <= 430; W += 10) {
+      for (const H of [548, 568, 667, 740, 844, 932]) {
+        for (const zonesSures of [SANS_ZONES, IPHONE_DROIT]) {
+          for (const [nom, face] of FACES_) {
+            const geo = miseEnPage(
+              entree({
+                mode: "portrait",
+                fenetre: { width: W, height: H },
+                zonesSures,
+                image: GAMECUBE,
+                manette: pad(nom),
+              }),
+            );
+            const { degradee, rects } = pieces(geo, face);
+            const dit = `${face.title} ${W}×${H}`;
+            expect(degradee, dit).toBeNull();
+            for (const r of rects) {
+              if (geo.image) expect(coupe(geo.image, r), dit).toBe(0);
+              expect(r.y, dit).toBeGreaterThanOrEqual(zonesSures.haut);
+              expect(r.y + r.h, dit).toBeLessThanOrEqual(H - zonesSures.bas);
+            }
+            vus += 1;
+          }
+        }
+      }
+    }
+    expect(vus).toBe(12 * 6 * 2 * 3);
+  });
+
+  it("le jumeau : la boîte de la maquette (128 px) met des touches sur l'image", () => {
+    // Les grappes de la maquette, rejouées : la pose les déborde. C'est la
+    // faute que la sonde du 23 novembre 2026 a vue.
+    const geo = miseEnPage(
+      entree({
+        mode: "paysage",
+        fenetre: { width: 844, height: 390 },
+        image: GAMECUBE,
+        manette: { hauteur: () => 272, largeur: () => 128 },
+      }),
+    );
+    const img = geo.image;
+    if (!img) throw new Error("pas d'image");
+    const m = geo.manette;
+    if (!m?.grappes) throw new Error("pas de grappes");
+    const pose = placePad(
+      DOLPHIN_FACE,
+      { width: m.rect.w, height: m.rect.h },
+      { left: m.grappes.g.w, right: m.grappes.d.w },
+      [],
+    );
+    const sur = pose.pieces.filter(
+      (one) => coupe(img, { ...one.rect, x: one.rect.x + m.rect.x, y: one.rect.y + m.rect.y }) > 0,
+    );
+    expect(sur.length).toBeGreaterThan(0);
   });
 });
 

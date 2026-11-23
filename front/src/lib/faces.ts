@@ -356,13 +356,17 @@ export type Piece<K extends string> =
  * 260. */
 export type Pose<K extends string> = { pieces: Piece<K>[]; degraded: string | null };
 
-/** Le geste de la PAGE, jamais du jeu: le « ••• » qui ouvre la feuille du bas.
+/** Le geste de la PAGE, jamais du jeu: « La salle », qui ouvre la feuille.
  *
  * Il y en avait trois jusqu'au 22 novembre 2026: son, menu, cacher. Trois
  * cibles de page parmi les touches, c'est trois occasions de perdre la partie
  * d'un pouce mal posé; et le plein écran, la salle et le signalement n'avaient
- * pas de place du tout. Ils vivent tous dans la feuille (`lib/feuille`).
- * La pose sait toujours en placer plusieurs: le compte vient de ce tableau. */
+ * pas de place du tout. Un « ••• » les a remplacés ce jour-là; depuis le
+ * 23 novembre, il s'appelle « La salle » et ne se pose parmi les touches que
+ * quand la barre de la salle manque (téléphone court tenu droit). Ailleurs, la
+ * barre ou le cadre (`lib/cadre`) lui donnent sa place, et la pose reçoit une
+ * liste vide. Elle sait toujours en placer plusieurs: le compte vient de la
+ * liste reçue. */
 export type Geste = "feuille";
 export const GESTES: readonly Geste[] = ["feuille"];
 
@@ -388,7 +392,8 @@ export const GESTES: readonly Geste[] = ["feuille"];
  *   suffit. `KEY_GAP` est aussi l'écart minimal accepté entre deux groupes
  *   (voir `STICK_FLOOR`). À 6, la rangée ZL L fait 138 px, et les deux rangées
  *   du haut tiennent côte à côte dès 296 px de large.
- * - `GESTE_W`, 56 : le « ••• » n'a qu'un signe, et la largeur porte en plus la
+ * - `GESTE_W`, 56 : le geste n'a qu'un signe (l'icône de la salle, le nom en
+ *   aide), et la largeur porte en plus la
  *   pastille du son coupé dans son coin. 56 sur 44 reste au-dessus du plancher
  *   dans les deux sens. C'était 72 tant que « CACHER » en capitales (60,1 px
  *   mesurés dans Chrome le 22 novembre 2026) devait y tenir.
@@ -520,6 +525,14 @@ export function placePad<K extends string>(
   face: FaceOf<Frame, K>,
   box: { width: number; height: number },
   bands: { left: number; right: number },
+  /** Les gestes de page à poser parmi les touches. Aucun quand la barre de la
+   * salle porte « La salle » (téléphone tenu droit) ou quand le cadre lui
+   * donne sa propre place (en travers) : `lib/cadre`. */
+  gestes: readonly Geste[] = GESTES,
+  /** Une pièce hors de sa bande est une faute : la pose rétrécit ses sticks
+   * plutôt que de poser un groupe à côté d'un autre, sur l'image. Le cadre
+   * le demande en travers, où les bandes sont faites pour la manette. */
+  dansLesBandes = false,
 ): Pose<K> {
   const W = box.width;
   const H = box.height;
@@ -662,12 +675,21 @@ export function placePad<K extends string>(
   const sticks: number[] = [];
   for (let stick = units.stick; stick > STICK_FLOOR; stick -= 4) sticks.push(stick);
   sticks.push(STICK_FLOOR);
+  /* Hors de sa bande : ni dans la gauche, ni dans la droite. */
+  const horsBande = (placed: Posee<K>[]): string | null => {
+    if (!dansLesBandes) return null;
+    const dehors = placed.find(
+      ({ piece: { rect } }) => rect.x + rect.w > bands.left && rect.x < W - bands.right,
+    );
+    return dehors ? `${pieceName(dehors.piece)} sort de sa bande` : null;
+  };
+  const faute = (placed: Posee<K>[]) => gameFault(placed, W, H) ?? horsBande(placed);
   let chosen = layout(true, STICK_FLOOR);
-  let fault = gameFault(chosen.placed, W, H);
+  let fault = faute(chosen.placed);
   search: for (const narrow of [false, true]) {
     for (const stick of sticks) {
       const pose = layout(narrow, stick);
-      if (gameFault(pose.placed, W, H) === null) {
+      if (faute(pose.placed) === null) {
         chosen = pose;
         fault = null;
         break search;
@@ -681,16 +703,18 @@ export function placePad<K extends string>(
     H,
     bands,
     chosen.top,
+    gestes.length,
   );
   for (const [i, rect] of gestures.rects.entries()) {
-    const geste = GESTES[i];
+    const geste = gestes[i];
     if (geste) pieces.push({ kind: "geste", geste, rect });
   }
   return { pieces, degraded: fault ?? gestures.degraded };
 }
 
 /**
- * Les gestes de page (aujourd'hui le seul « ••• »), loin de toute touche de jeu.
+ * Les gestes de page (aujourd'hui « La salle », quand la barre manque), loin de
+ * toute touche de jeu.
  *
  * D'abord dans les bandes noires : le 22 novembre 2026, les poser en haut au
  * milieu de l'image alors que les bandes étaient libres a mis « menu » sur
@@ -705,7 +729,9 @@ function placeGestes(
   H: number,
   bands: { left: number; right: number },
   top: number,
+  n: number,
 ): { rects: Rect[]; degraded: string | null } {
+  if (n === 0) return { rects: [], degraded: null };
   const { GESTE_W: gw, GESTE_GAP: gap, CLEAR, FLOOR, MARGIN, BAND_PAD } = SIZES;
   const room = (rect: Rect) =>
     rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= W && rect.y + rect.h <= H
@@ -755,19 +781,19 @@ function placeGestes(
     return out;
   };
   const inBands = (): Rect[] | null => {
-    const whole = slots.find((slot) => capacity(slot) >= GESTES.length);
+    const whole = slots.find((slot) => capacity(slot) >= n);
     let taken: { side: number; rect: Rect }[] = [];
-    if (whole) taken = fill(whole, GESTES.length);
+    if (whole) taken = fill(whole, n);
     else {
       // La plus grande place d'abord ; à égalité, la bande droite, comme avant.
       const order = [...slots].sort((a, b) => capacity(b) - capacity(a) || b.side - a.side);
       for (const slot of order) {
-        const left = GESTES.length - taken.length;
+        const left = n - taken.length;
         if (left <= 0) break;
         taken = [...taken, ...fill(slot, Math.min(left, capacity(slot)))];
       }
     }
-    if (taken.length < GESTES.length) return null;
+    if (taken.length < n) return null;
     // De gauche à droite et de haut en bas, dans l'ordre de `GESTES`.
     const rects = taken
       .sort((a, b) => a.side - b.side || a.rect.y - b.rect.y || a.rect.x - b.rect.x)
@@ -779,13 +805,23 @@ function placeGestes(
 
   /* Sinon au milieu, en rangée puis en colonne : sur un écran presque carré,
    * le milieu est étroit mais haut. */
-  const span = GESTES.length * gw + (GESTES.length - 1) * gap;
-  const tall = GESTES.length * FLOOR + (GESTES.length - 1) * gap;
+  const span = n * gw + (n - 1) * gap;
+  const tall = n * FLOOR + (n - 1) * gap;
   const below = top + CLEAR;
   const row = (y: number) =>
-    GESTES.map((_, i) => ({ x: (W - span) / 2 + i * (gw + gap), y, w: gw, h: FLOOR }));
+    Array.from({ length: n }, (_, i) => ({
+      x: (W - span) / 2 + i * (gw + gap),
+      y,
+      w: gw,
+      h: FLOOR,
+    }));
   const column = (y: number) =>
-    GESTES.map((_, i) => ({ x: (W - gw) / 2, y: y + i * (FLOOR + gap), w: gw, h: FLOOR }));
+    Array.from({ length: n }, (_, i) => ({
+      x: (W - gw) / 2,
+      y: y + i * (FLOOR + gap),
+      w: gw,
+      h: FLOOR,
+    }));
   const candidates = [
     row(MARGIN),
     row(below),
@@ -804,4 +840,79 @@ function placeGestes(
     rects: least,
     degraded: `les gestes de page sont à ${Math.max(0, worst(least)).toFixed(1)} px d'une touche, ${CLEAR} demandés`,
   };
+}
+
+/* ── Ce que la boîte d'une manette doit mesurer ──────────────────────── */
+
+/**
+ * La place qu'une manette demande au cadre (`lib/cadre`), lue dans la pose.
+ *
+ * Jusqu'au 23 novembre 2026, le cadre gardait les dimensions d'une maquette :
+ * des grappes de 128 px en travers, une boîte de 390 × 272 tenue droite. La
+ * pose réelle ne les tenait pas. Les quatre boutons de la GameCube font
+ * 148 px au plancher de 44, et une sonde a trouvé, à 844 × 390, B, Z et le
+ * geste de page sur l'image ; à 375 × 667, la croix de la manette Pro sur son
+ * stick droit. Le cadre lit donc ses mesures ici, dans le même calcul qui pose
+ * les touches.
+ *
+ * - `hauteur(largeur)` : la plus petite hauteur d'une boîte tenue droite, sans
+ *   bandes, où la pose ne fait aucune faute, geste « La salle » compris (il y
+ *   vit quand la barre manque, et la boîte ne change pas de taille selon) ;
+ * - `largeur(hauteur)` : la plus petite bande, de chaque côté d'une boîte en
+ *   travers, où chaque pièce tient sans faute. Sans geste : en travers, le
+ *   cadre pose « La salle » au-dessus de la grappe.
+ *
+ * Les deux cherchent par pas de 4 et 2 px, de bas en haut, et retiennent leurs
+ * réponses : le cadre les demande à chaque redimensionnement. `null` quand
+ * rien ne tient sous le plafond : le cadre essaie alors autre chose, au lieu
+ * de recevoir un plafond qu'il prendrait pour une mesure.
+ */
+export type Encombrement = {
+  hauteur: (largeur: number) => number | null;
+  largeur: (hauteur: number) => number | null;
+};
+
+/** Le plafond des deux recherches : au-delà, la pose ne tiendra plus. */
+const ENCOMBREMENT_MAX = { hauteur: 900, largeur: 420 } as const;
+
+/** La boîte en travers est plus large que tout écran tenu en travers : seule
+ * sa hauteur compte pour la taille des touches (`unitsFor`). */
+const LARGE = 4000;
+
+export function encombrement<K extends string>(face: FaceOf<Frame, K>): Encombrement {
+  const hauteurs = new Map<number, number | null>();
+  const largeurs = new Map<number, number | null>();
+  const hauteur = (largeur: number): number | null => {
+    const w = Math.round(largeur);
+    const connue = hauteurs.get(w);
+    if (connue !== undefined) return connue;
+    let h = 120;
+    while (
+      h < ENCOMBREMENT_MAX.hauteur &&
+      placePad(face, { width: w, height: h }, { left: 0, right: 0 }).degraded !== null
+    )
+      h += 4;
+    const rendue = h < ENCOMBREMENT_MAX.hauteur ? h : null;
+    hauteurs.set(w, rendue);
+    return rendue;
+  };
+  const largeur = (haut: number): number | null => {
+    const h = Math.round(haut);
+    const connue = largeurs.get(h);
+    if (connue !== undefined) return connue;
+    const tient = (b: number) => {
+      // `dansLesBandes` : la pose rétrécit ses sticks pour rester dans la
+      // bande. Sans lui, à 361 px de haut (un iPhone en travers, barre
+      // d'accueil ôtée), la manette Pro posait son stick droit À CÔTÉ de ses
+      // quatre boutons et demandait 356 px de chaque côté.
+      const pose = placePad(face, { width: LARGE, height: h }, { left: b, right: b }, [], true);
+      return pose.degraded === null;
+    };
+    let b = 60;
+    while (b < ENCOMBREMENT_MAX.largeur && !tient(b)) b += 2;
+    const rendue = b < ENCOMBREMENT_MAX.largeur ? b : null;
+    largeurs.set(h, rendue);
+    return rendue;
+  };
+  return { hauteur, largeur };
 }

@@ -77,6 +77,14 @@
   width: 20px;
   height: 20px;
 }
+/* Un libellé passé par le chantier personnes peut être plus long que
+   « La salle » : il se coupe dans la largeur que le cadre donne au bouton. */
+.n3-salle-libelle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Posé seul en travers : au-dessus de la salle au repos (30) et du rideau
    d'une arrivée (40), sous le menu, qui est un dialogue du dessus. */
 #laSalleCote {

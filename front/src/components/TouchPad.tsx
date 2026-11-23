@@ -307,6 +307,7 @@ export function Pave<K extends string>({
   onFeuille,
   id,
   cadre,
+  libelleSalle,
 }: {
   face: FaceOf<Frame, K>;
   /** La largeur d'une bande noire à côté de l'image, en pixels de la salle. */
@@ -323,6 +324,10 @@ export function Pave<K extends string>({
   onFeuille: () => void;
   id?: string;
   cadre?: BoiteDuCadre;
+  /** Ce que « La salle » dit en plus, parmi les touches : l'emplacement du
+   * chantier personnes (« Lina · ta place »). Montré sous l'icône, et dit en
+   * tête de son nom accessible. */
+  libelleSalle?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(() => ({
@@ -435,7 +440,7 @@ export function Pave<K extends string>({
             data-alerte={soundOff ? "" : undefined}
             // Le nom dit le son coupé: la pastille rouge seule ne se lit pas
             // à voix haute, et ne se distingue pas sans les couleurs.
-            aria-label={nomDeLaSalle(soundOff)}
+            aria-label={nomDeLaSalle(soundOff, libelleSalle)}
             aria-haspopup="dialog"
             style={at(piece.rect)}
             // Un clic de souris n'enlève pas le clavier au jeu: le focus pris
@@ -447,6 +452,7 @@ export function Pave<K extends string>({
             onClick={onFeuille}
           >
             {said.label}
+            {libelleSalle ? <span className="n3-pave-geste-libelle">{libelleSalle}</span> : null}
           </button>
         );
       }
@@ -476,6 +482,7 @@ export function TouchPad({
   soundOff,
   onFeuille,
   cadre,
+  libelleSalle,
 }: {
   /** La largeur d'une bande noire à côté de l'image, en pixels.
    *
@@ -497,6 +504,8 @@ export function TouchPad({
   onFeuille: () => void;
   /** La boîte du cadre, quand la salle est tenue en main. */
   cadre?: BoiteDuCadre;
+  /** Ce que « La salle » dit en plus (`Pave`). */
+  libelleSalle?: string;
 }) {
   const radius = useRef(stickRadius());
 
@@ -529,6 +538,7 @@ export function TouchPad({
       soundOff={soundOff}
       onFeuille={onFeuille}
       cadre={cadre}
+      libelleSalle={libelleSalle}
       stickOf={() => ({
         id: "touchStick",
         label: "stick",

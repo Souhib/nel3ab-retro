@@ -22,6 +22,7 @@ export function SwitchTouchPad({
   soundOff = false,
   onFeuille,
   cadre,
+  libelleSalle,
 }: {
   source: SwitchInput;
   /** La console de la salle, pour nommer les touches comme sa manette. Une
@@ -43,6 +44,8 @@ export function SwitchTouchPad({
   onFeuille: () => void;
   /** La boîte du cadre, quand la salle est tenue en main. */
   cadre?: BoiteDuCadre;
+  /** Ce que « La salle » dit en plus, parmi les touches (`Pave`). */
+  libelleSalle?: string;
 }) {
   useEffect(() => {
     const release = () => {
@@ -70,6 +73,7 @@ export function SwitchTouchPad({
       soundOff={soundOff}
       onFeuille={onFeuille}
       cadre={cadre}
+      libelleSalle={libelleSalle}
       stickOf={(side) => {
         const [x, y] = axes(side);
         return {

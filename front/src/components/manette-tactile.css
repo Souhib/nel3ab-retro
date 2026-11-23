@@ -245,3 +245,14 @@
   outline: var(--focus-largeur) solid var(--focus);
   outline-offset: 2px;
 }
+/* Le libellé que le chantier personnes passe à « La salle » (« Lina · ta
+   place ») : une ligne sous l'icône, coupée dans la largeur de la pièce. Le
+   nom accessible le dit entier. */
+.n3-pave-geste-libelle {
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  font-size: var(--text-note);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

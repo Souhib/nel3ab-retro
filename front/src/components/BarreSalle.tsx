@@ -60,11 +60,16 @@ export function BoutonSalle({
   sonCoupe,
   onSalle,
   style,
+  libelle,
 }: {
   id: string;
   sonCoupe: boolean;
   onSalle: () => void;
   style?: React.CSSProperties;
+  /** Ce que le bouton dit à la place de « La salle » : l'emplacement du
+   * chantier personnes (« Lina · ta place »), dit aussi en tête du nom
+   * accessible. */
+  libelle?: string;
 }) {
   return (
     <button
@@ -75,7 +80,7 @@ export function BoutonSalle({
       data-alerte={sonCoupe ? "" : undefined}
       aria-haspopup="dialog"
       // Le nom dit le son coupé : la pastille rouge seule ne se lit pas.
-      aria-label={nomDeLaSalle(sonCoupe)}
+      aria-label={nomDeLaSalle(sonCoupe, libelle)}
       style={style}
       // Un appui de souris n'enlève pas le clavier au jeu (`TouchPad`).
       onMouseDown={(event) => event.preventDefault()}
@@ -84,7 +89,7 @@ export function BoutonSalle({
       <span className="n3-salle-icone" aria-hidden="true">
         <RoomIcon className="h-full w-full" />
       </span>
-      <span>La salle</span>
+      <span className="n3-salle-libelle">{libelle ?? "La salle"}</span>
     </button>
   );
 }

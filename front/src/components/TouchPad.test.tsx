@@ -185,3 +185,28 @@ it("la croix se nomme une fois, et ses flèches dessinées restent muettes", () 
   for (const one of bras)
     expect(one.getAttribute("aria-hidden"), one.textContent ?? "").toBe("true");
 });
+
+it("« La salle » parmi les touches dit le libellé qu'on lui passe, et rien sans lui", () => {
+  // L'emplacement promis au chantier personnes (« Lina · ta place ») : le
+  // texte du geste et son nom accessible. Le jumeau : sans libellé, le geste
+  // garde son icône seule et son nom de toujours.
+  const avec = render(
+    <TouchPad
+      bar={0}
+      touch={new Touch()}
+      soundOff={false}
+      onFeuille={vi.fn()}
+      libelleSalle="Lina · ta place"
+    />,
+  );
+  const geste = avec.container.querySelector("#laSalleManette") as HTMLElement;
+  expect(geste.textContent).toContain("Lina · ta place");
+  expect(geste.getAttribute("aria-label")).toMatch(/^Lina · ta place\. La salle/);
+  avec.unmount();
+  const sans = render(
+    <TouchPad bar={0} touch={new Touch()} soundOff={false} onFeuille={vi.fn()} />,
+  );
+  const nu = sans.container.querySelector("#laSalleManette") as HTMLElement;
+  expect(nu.textContent).toBe("");
+  expect(nu.getAttribute("aria-label")).toBe("La salle : son, menu, places");
+});

@@ -25,9 +25,12 @@ import { TACTILE } from "./mots";
 
 /** Le nom du bouton « La salle », lu à voix haute : le son coupé y est dit
  * en mots, la pastille rouge seule ne se lisant pas. Un seul texte pour le
- * bouton de la barre et pour celui qui se pose parmi les touches. */
-export function nomDeLaSalle(sonCoupe: boolean): string {
-  const nom = "La salle : son, menu, places";
+ * bouton de la barre et pour celui qui se pose parmi les touches.
+ *
+ * `libelle` est l'emplacement du chantier personnes (« Lina · ta place ») :
+ * dit en premier, avant ce que le bouton ouvre. */
+export function nomDeLaSalle(sonCoupe: boolean, libelle?: string): string {
+  const nom = libelle ? `${libelle}. La salle : son, menu, places` : "La salle : son, menu, places";
   return sonCoupe ? `Son coupé. ${nom}` : nom;
 }
 

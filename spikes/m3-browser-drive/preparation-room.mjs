@@ -417,28 +417,34 @@ http://localhost:${door} {
     await alice.$eval("#watchOnly", e => e.click());
     await until(async () => (await room()).owner.seat === null, "Le chef n'est pas spectateur");
     // Un joueur qui répond garde sa manette.
+    // Depuis le 23 novembre 2026 (chantier personnes) : le toucher ouvre la
+    // carte de la place, et « Lui demander sa place » part au salon. La
+    // carte (#cartePlace) remplace le panneau #recovery posé sur l'image.
+    // Non relancé ce jour-là : ce pilote monte une vraie salle jetable.
     await camille.$eval("#port2", e => e.click());
+    await camille.waitForSelector("#demanderPlace");
+    await camille.$eval("#demanderPlace", e => e.click());
     await benoit.waitForSelector("#keepRecovery");
     await benoit.$eval("#keepRecovery", e => e.click());
-    await camille.waitForFunction(() => document.querySelector("#recovery").textContent.includes("est là"));
+    await camille.waitForFunction(() => document.querySelector("#cartePlace")?.textContent.includes("garde sa place 2"));
     assert.equal((await names())[1], "Benoit");
-    await button(camille, "fermer");
+    await button(camille, "Fermer");
     // Un spectateur qui ne répond plus peut céder la couronne sans déconnexion.
     await benoit.$eval("#recoverOwner", e => e.click());
     await alice.waitForSelector("#keepRecovery");
     await benoit.waitForSelector("#confirmRecovery");
-    assert.equal(await benoit.$eval("#confirmRecovery", e => e.disabled), true);
+    assert.equal(await benoit.$eval("#confirmRecovery", e => e.getAttribute("aria-disabled") === "true"), true);
     assert.equal((await room()).owner.name, "Alice");
     await alice.screenshot({ path: join(root, "chef-prevenu.png") });
-    await benoit.waitForFunction(() => !document.querySelector("#confirmRecovery").disabled, {timeout:30000});
+    await benoit.waitForFunction(() => document.querySelector("#confirmRecovery").getAttribute("aria-disabled") !== "true", {timeout:30000});
     assert.equal((await room()).owner.name, "Alice", "Le délai seul ne doit rien transférer");
     await benoit.$eval("#confirmRecovery", e => e.click());
     await until(async () => (await room()).owner.name === "Benoit", "La couronne reste au chef absent");
     for (const p of [alice, benoit, camille]) {
-      await p.waitForFunction(() => document.querySelector('#port2 [aria-label="chef de la salle"]'));
+      await p.waitForFunction(() => document.querySelector('#port2 [aria-label="choisit le jeu"]'));
     }
-    await button(alice, "fermer");
-    await button(benoit, "fermer");
+    await button(alice, "Fermer");
+    await button(benoit, "Fermer");
     await benoit.$eval("#openMenu", e => e.click());
     await benoit.$eval("#ray-salle", e => e.click());
     assert.equal(await benoit.$eval("#item-close-game", e => e.getAttribute("aria-disabled") === "true"), false);
@@ -449,8 +455,10 @@ http://localhost:${door} {
     assert.equal((await room()).owner.name, "Benoit");
     const previous = (await room()).seats[0].claim;
     await camille.$eval("#port1", e => e.click());
+    await camille.waitForSelector("#demanderPlace");
+    await camille.$eval("#demanderPlace", e => e.click());
     await camille.waitForSelector("#confirmRecovery");
-    await camille.waitForFunction(() => !document.querySelector("#confirmRecovery").disabled, {timeout:30000});
+    await camille.waitForFunction(() => document.querySelector("#confirmRecovery").getAttribute("aria-disabled") !== "true", {timeout:30000});
     assert.equal((await names())[0], "Alice");
     await camille.$eval("#confirmRecovery", e => e.click());
     await until(async () => JSON.stringify(await names()) === '["Camille","Benoit",null,null]', "La reprise ne rattache pas le bon nom");
@@ -486,22 +494,22 @@ http://localhost:${door} {
     const painted = await camille.evaluate(() => nel3abTest.counters().painted);
     await camille.waitForFunction(n => nel3abTest.counters().painted > n + 10, {}, painted);
     await camille.screenshot({ path: join(root, "reprise-confirmee.png") });
-    await button(alice, "fermer");
+    await button(alice, "Fermer");
     await alice.$eval("#recoverOwner", e => e.click());
     await benoit.waitForSelector("#keepRecovery");
     await alice.$eval("#leaveRoom", e => e.click());
-    await benoit.waitForFunction(() => document.querySelector("#recovery").textContent.includes("annulée"));
+    await benoit.waitForFunction(() => document.querySelector("#cartePlace")?.textContent.includes("annulée"));
     assert.equal((await room()).owner.name, "Benoit");
-    await button(camille, "fermer");
+    await button(camille, "Fermer");
     await camille.setViewport({width:390,height:844});
     await camille.$eval("#recoverOwner", e => e.click());
     await camille.waitForSelector("#confirmRecovery");
-    const bounds = await camille.$eval("#recovery", e => {
+    const bounds = await camille.$eval("#cartePlace", e => {
       const r = e.getBoundingClientRect(); return {left:r.left,right:r.right,bottom:r.bottom};
     });
     assert.ok(bounds.left >= 0 && bounds.right <= 390 && bounds.bottom <= 844);
     await camille.screenshot({path:join(root,"reprise-telephone.png")});
-    await button(camille, "annuler");
+    await camille.$eval("#annulerDemande", e => e.click());
     console.log("PASS · refus respecté, chef spectateur prévenu, confirmation après 20 s, couronne transférée, manette reprise, ancien joueur averti et attribution périmée refusée. Même worker et images vivantes.");
   } else if (migration) {
     await until(async () => JSON.stringify(await names()) === '[null,"Benoit",null,null]', "L'ancienne page doit rester sans association inventée");
@@ -627,7 +635,7 @@ http://localhost:${door} {
     // l'ordre des reconnexions. Il ne doit pas parier que ce sera encore Alice.
     await until(async () => JSON.stringify(await names()) === '["Alice","Benoit",null,null]', "Noms initiaux incorrects");
     await until(() => camille.$eval('[aria-label="spectateurs"]', (e) => e.textContent.includes("Camille")), "Spectateur absent");
-    assert.equal(await alice.$$eval('#port1 [aria-label="chef de la salle"]', (xs) => xs.length), 1);
+    assert.equal(await alice.$$eval('#port1 [aria-label="choisit le jeu"]', (xs) => xs.length), 1);
     await benoit.click("#watchOnly");
     await until(async () => JSON.stringify(await names()) === '["Alice",null,null,null]', "La place quittée garde son nom");
     await camille.waitForFunction(() => !document.querySelector("#port2").textContent.match(/Benoit|occup/i));

@@ -9,10 +9,16 @@ import { displacedOn, enterRoom, seatOf, seedName } from "./open.mjs";
 const url = process.argv[2] ?? "http://localhost:8110/";
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-/** La prise est-elle armée ? Un attribut de données, pas un libellé: une prise
- * qu'on reformule ne doit pas casser un essai sur la confirmation. */
+/** La carte de la place est-elle ouverte, avec « Reprendre » ? Depuis le
+ * 23 novembre 2026 (chantier personnes), le premier toucher sur une place
+ * tenue sans nom ouvre sa carte (#cartePlace) au lieu de l'armer
+ * (`data-armed`), et #reprendrePlace la prend. Non relancé ce jour-là : ce
+ * pilote vise la salle vivante. */
 const armedOn = (p, slot) =>
-  p.evaluate((s) => document.getElementById(`port${s}`)?.dataset.armed === "true", slot);
+  p.evaluate(
+    (s) => document.querySelector("#cartePlace")?.dataset.port === String(s) && document.querySelector("#reprendrePlace") !== null,
+    slot,
+  );
 
 const first = await browser.newPage();
 
@@ -48,8 +54,8 @@ console.log(`  après un clic : prise armée ${armed}, page 1 tient toujours ${s
 const armedOk =
   armed && stillFirst === slot;
 
-// The second click takes it.
-await thief.click(`#port${slot}`);
+// The second click takes it: « Reprendre la place » in the card.
+await thief.click("#reprendrePlace");
 await wait(2500);
 const took = await seatOf(thief);
 // La page délogée doit le DIRE, pas seulement perdre sa place en silence.

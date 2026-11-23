@@ -224,6 +224,48 @@ describe("le curseur ▶", () => {
   });
 });
 
+/** La durée d'un pas d'une animation en marches, lue dans sa déclaration
+ * `animation: nom durée steps(n, …)`. Lève une erreur sur une déclaration
+ * qui n'a pas cette forme: rendre 0 ou NaN laisserait passer la règle. */
+function pasDeLAnimation(declaration: string): { pas: number; secondes: number } {
+  const lue = /animation:\s*[\w-]+\s+([\d.]+)(m?s)\s+steps\((\d+)/.exec(declaration);
+  if (!lue) throw new Error(`pas d'animation en marches dans: ${declaration}`);
+  const duree = Number(lue[1]) / (lue[2] === "ms" ? 1000 : 1);
+  const pas = Number(lue[3]);
+  return { pas, secondes: duree / pas };
+}
+
+describe("le cycle de la mire", () => {
+  /** La règle du cycle, telle que la feuille l'écrit. */
+  const regle = () => {
+    const css = fs.readFileSync(ici("../effets.css"), "utf-8");
+    const trouvee = /\.fx-mire-vide\.fx-cycle \.rt-mire \{[^}]*\}/.exec(css)?.[0];
+    // La précondition: un sélecteur renommé ne doit pas rendre l'essai muet.
+    expect(trouvee, "la règle du cycle a disparu de effets.css").toBeDefined();
+    return trouvee ?? "";
+  };
+
+  it("avance d'une barre par pas, un pas par seconde au plus: sept pas en sept secondes", () => {
+    // K14 de la partition du 23 novembre: au plus un changement par seconde
+    // pour tout ce qui bouge sans qu'on le demande. Le cycle faisait un pas
+    // toutes les 0,6 s (4,2 s pour 7 pas), et l'étape « clignotement » du
+    // salon l'aurait refusé sur la feuille du socle.
+    const { pas, secondes } = pasDeLAnimation(regle());
+    expect(pas).toBe(7);
+    expect(secondes).toBeGreaterThanOrEqual(1);
+  });
+
+  it("la mesure refuse l'ancien cycle et lit les millisecondes", () => {
+    // Le jumeau: la même lecture sur l'ancienne déclaration doit tomber, sinon
+    // l'essai du dessus ne prouverait rien.
+    const ancien = pasDeLAnimation("animation: rt-cycle 4.2s steps(7, end) infinite;");
+    expect(ancien.secondes).toBeCloseTo(0.6, 5);
+    expect(ancien.secondes).toBeLessThan(1);
+    expect(pasDeLAnimation("animation: rt-cycle 7000ms steps(7, end) infinite;").secondes).toBe(1);
+    expect(() => pasDeLAnimation("animation: rt-cycle 7s linear infinite;")).toThrow();
+  });
+});
+
 describe("les sons de menu", () => {
   /** Un contexte audio qui compte ses oscillateurs. */
   function audio() {

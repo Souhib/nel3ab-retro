@@ -103,9 +103,11 @@
     var(--mire-bleu) 85.68% 100%
   );
 }
-/* « cycle »: les couleurs glissent d'une barre à la suivante toutes les
-   0,6 seconde. Un glissement, pas un clignotement: chaque barre change de
-   couleur sans jamais s'éteindre. */
+/* « cycle »: les couleurs glissent d'une barre à la suivante une fois par
+   seconde, sept pas en sept secondes. Un glissement, pas un clignotement:
+   chaque barre change de couleur sans jamais s'éteindre. La page des effets
+   faisait un pas toutes les 0,6 s; c'était plus d'un changement par seconde,
+   et la règle de la salle n'en permet qu'un (K14, `retro.test.ts`). */
 .fx-mire-vide.fx-cycle .rt-mire {
   background: linear-gradient(
       90deg,
@@ -125,7 +127,7 @@
       var(--mire-bleu) 92.84% 100%
     )
     0 0 / 200% 100%;
-  animation: rt-cycle 4.2s steps(7, end) infinite;
+  animation: rt-cycle 7s steps(7, end) infinite;
 }
 @keyframes rt-cycle {
   from {

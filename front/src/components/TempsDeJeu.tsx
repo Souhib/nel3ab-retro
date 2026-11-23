@@ -21,9 +21,15 @@ export function horloge(secondes: number): string {
   return `${deux(Math.floor(s / 3600))}:${deux(Math.floor(s / 60) % 60)}:${deux(s % 60)}`;
 }
 
+/** L'horloge par défaut, une seule fonction pour tous les rendus : neuve à
+ * chaque rendu, elle reposait l'afficheur et relançait la minuterie chaque
+ * fois que la salle se redessine, deux fois par seconde (relecture du
+ * 23 novembre 2026). */
+const MAINTENANT = () => Date.now() / 1000;
+
 export function TempsDeJeu({
   depuisS,
-  maintenant = () => Date.now() / 1000,
+  maintenant = MAINTENANT,
 }: {
   /** L'instant de lancement du jeu en cours, en secondes Unix, ou `null`. */
   depuisS: number | null;

@@ -1,5 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as chiffres from "../retro/chiffres";
 import { horloge, TempsDeJeu } from "./TempsDeJeu";
 
 describe("le temps de jeu", () => {
@@ -16,6 +17,21 @@ describe("le temps de jeu", () => {
     t += 1;
     act(() => void vi.advanceTimersByTime(1000));
     expect(valeur.textContent).toBe("00:12:35");
+  });
+
+  // La salle se redessine deux fois par seconde. Une horloge par défaut
+  // neuve à chaque rendu reposait l'afficheur et relançait la minuterie à
+  // chaque fois : elle ne battait jamais (relecture du 23 novembre 2026).
+  it("garde son afficheur et sa minuterie quand la salle se redessine", () => {
+    const pose = vi.spyOn(chiffres, "poserAfficheur");
+    const { rerender, container } = render(<TempsDeJeu depuisS={1000} />);
+    const valeur = container.querySelector(".rt-afficheur-valeur");
+    rerender(<TempsDeJeu depuisS={1000} />);
+    rerender(<TempsDeJeu depuisS={1000} />);
+    expect(pose).toHaveBeenCalledTimes(1);
+    // Le même afficheur : un afficheur reposé perd le roulement du compteur.
+    expect(container.querySelector(".rt-afficheur-valeur")).toBe(valeur);
+    pose.mockRestore();
   });
 
   it("sans instant de lancement, ne rend rien", () => {

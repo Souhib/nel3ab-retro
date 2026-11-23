@@ -22,6 +22,9 @@ export type Memoire = {
 };
 
 export function memoireDesVus(salle: string, stockage: Storage | null = lire()): Memoire {
+  // La clé garde le nom d'avant le déplacement hors de `bobine/` (23 novembre
+  // 2026) : la renommer ferait rejouer la scène d'arrivée à tous ceux que ce
+  // navigateur a déjà vus. La planche efface les clés de ce préfixe.
   const cle = `n3-bobine-vus:${salle}`;
   let noms: string[] = [];
   try {

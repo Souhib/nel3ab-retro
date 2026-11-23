@@ -16,8 +16,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PLAYER_COLOURS } from "../media/players";
 import { Bobine, type Pose } from "./Bobine";
-import { differences, type Occupation } from "./arrivees";
-import { memoireDesVus } from "./memoire";
+import { differences, type Occupation } from "../lib/arrivees";
+import { memoireDesVus } from "../lib/memoire-des-vus";
 
 /** Les étapes et leur début, depuis l'arrivée de la scène. */
 export const CHRONO = {

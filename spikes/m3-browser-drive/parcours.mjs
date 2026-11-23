@@ -429,6 +429,39 @@ const ETAPES = {
     await page.close();
   },
 
+  /** A11Y-18 (plan personnes, places-demande 14) : Bo arrive, sa phrase est
+   * écrite dans la ligne parlée, et 90 ms plus tard le salon annonce un
+   * démarrage. La ligne dit « Le jeu démarre. » sans avoir effacé
+   * l'arrivée. Sur la page de 54d1f6f, la phrase d'état la remplaçait. */
+  async "annonce-arrivee"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(800);
+    banc.regler({ bo: true });
+    if (!(await jusqua(async () => /Bo/.test(await texte(page, "#ligneParlee")), 4000)))
+      throw new Precondition(`l'arrivée de Bo n'est pas dite : « ${await texte(page, "#ligneParlee")} »`);
+    const arrivee = await texte(page, "#ligneParlee");
+    await sleep(90);
+    banc.annoncer({ game: "Sonic Generations", save: "nouvelle partie" });
+    if (!(await jusqua(async () => /Le jeu démarre/.test(await texte(page, "#ligneParlee")), 3000)))
+      throw new Precondition(`le démarrage n'est pas dit : « ${await texte(page, "#ligneParlee")} »`);
+    const ensuite = await texte(page, "#ligneParlee");
+    if (!ensuite.includes(arrivee))
+      throw new Defaut(`l'arrivée (« ${arrivee} ») est effacée par l'état : « ${ensuite} »`);
+    // Le jumeau : la ligne parlée est la seule région de la salle, hors de
+    // `#controller-status` (ControllerStatus, chantier manettes, qui dit les
+    // manettes branchées ; le réunir à la ligne est à ce chantier-là).
+    // Inviter, Signaler et la reprise avaient chacun la leur.
+    const regions = await page.evaluate(() =>
+      [...document.querySelectorAll("[role=status], [role=alert], [aria-live]:not([aria-live=off])")]
+        .filter((e) => e.id !== "controller-status")
+        .map((e) => `${e.tagName.toLowerCase()}#${e.id}.${e.className}`),
+    );
+    if (regions.length !== 1 || !regions[0].startsWith("p#ligneParlee"))
+      throw new Defaut(`${regions.length} régions parlées dans la salle : ${regions.join(", ")}`);
+    await page.close();
+  },
+
   /** P7 (plan personnes, signaler 0) : « Signaler un problème » se voit sans
    * défiler dans la colonne, à trois tailles de bureau. Sur 03b21c0, à
    * 1280 × 720, il était sous le pli. */

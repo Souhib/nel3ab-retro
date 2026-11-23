@@ -759,7 +759,8 @@ etats-navigateur-rouge:
 # cibles au doigt et les places de l'avant-salle. Chaque étape a son jumeau
 # (`parcours.mjs`). Le 23 novembre 2026, le chantier personnes y a ajouté les
 # places au vrai clavier, la demande de place hors de l'image avec la règle
-# du salon, et « Signaler » visible sans défiler à trois tailles de bureau.
+# du salon, l'arrivée qui reste dite quand l'état change aussitôt après, et
+# « Signaler » visible sans défiler à trois tailles de bureau.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
 # salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
@@ -814,7 +815,8 @@ parcours-navigateur-rouge:
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
-    # place existe, mais Échap y ouvre le menu du jeu. Ce commit ne vit que
+    # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
+    # dite 90 ms après une arrivée l'efface de la ligne parlée. Ce commit ne vit que
     # sur `chantier/retro-personnes` : sa page est gardée dans `rouges/`,
     # avec son empreinte vérifiée avant usage, comme celles de la salle.
     rouges="$(pwd)/rouges"
@@ -825,7 +827,7 @@ parcours-navigateur-rouge:
         exit 1
     fi
     node parcours.mjs --page "$rouges/personnes-54d1f6f.html" --flux "$dossier/flux.h264" \
-        --etapes places-clavier --rouge-attendu places-clavier
+        --etapes places-clavier,annonce-arrivee --rouge-attendu places-clavier,annonce-arrivee
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

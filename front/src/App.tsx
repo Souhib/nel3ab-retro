@@ -44,7 +44,17 @@ import {
   RangManette,
   RangMenu,
   RangSon,
+  RangTouches,
 } from "./components/Colonne";
+import { VueTouches, type Releve } from "./components/VueTouches";
+import { identify } from "./media/families";
+import {
+  activiteDolphin,
+  SANS_ACTIVITE,
+  verificationDolphin,
+  verificationPro,
+  type ManetteLue,
+} from "./lib/verification";
 import { Coin } from "./components/Coin";
 import { EcranEteint, phraseDuRepos } from "./components/EcranEteint";
 import { PanneauCommande } from "./components/PanneauCommande";
@@ -130,7 +140,6 @@ import { aideDeLaSalle, appareilDe, pour } from "./lib/appareil";
 import { clavierEnPause, useFocusJeu } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
 import { keyLabel, keyboardLayout } from "./media/describe";
-import { AideClavier } from "./components/AideClavier";
 import { HoteDesSurcouches, Surcouche } from "./components/Surcouche";
 import { useMe, useMenuIdentity, useRename } from "./lib/me";
 import {
@@ -183,6 +192,8 @@ import {
   SORTIES,
   sortieDuMenu,
   TACTILE,
+  TOUCHES,
+  ZONE,
   AGRANDIE,
 } from "./lib/mots";
 import {
@@ -1036,8 +1047,13 @@ function Room({
       vivant = false;
     };
   }, []);
-  /** La carte « Tu joues au clavier »: ouverte à la première visite. */
-  const [aideOuverte, setAideOuverte] = useState(() => !aideDejaVue());
+  /** La vue des touches (`VueTouches`) : « clavier » ou « manette », ouverte
+   * par son rang. À la première visite au clavier, la colonne s'ouvre d'elle-
+   * même sur « Tes touches au clavier », tant que « Revenir » ne l'a pas
+   * fermée. */
+  const [vueTouches, setVueTouches] = useState<"clavier" | "manette" | null>(null);
+  const [premiereVisite] = useState(() => !aideDejaVue());
+  const [vueFermee, setVueFermee] = useState(false);
   const nomTouche = (code: string) => keyLabel(code, disposition);
   // Une fois qu'on a joué, la carte est lue: elle reste ouverte pour cette
   // visite, et la suivante commence repliée. Seulement au clavier: la carte
@@ -2207,6 +2223,47 @@ function Room({
     appareil,
     fiche: false,
   });
+  /** La vue des touches montrée : celle qu'un rang a ouverte, ou celle du
+   * clavier à la première visite. Seulement tant que son rang existe : une
+   * manette branchée en cours de route retire la vue du clavier. */
+  const vueVoulue =
+    vueTouches ??
+    (premiereVisite && !vueFermee && appareil === "clavier" && lignesClavier.length > 0
+      ? "clavier"
+      : null);
+  const vueMontree =
+    vueVoulue !== null && rangs.includes(vueVoulue === "clavier" ? "touches" : "manette")
+      ? vueVoulue
+      : null;
+  const consoleDuJeu = room?.game?.console ?? "gc";
+  /** Les lignes de « Ta manette », lues dans les tables du produit
+   * (`lib/verification`). La manette est relue au navigateur pour compter ses
+   * boutons quand sa disposition est inconnue. */
+  const lignesDeLaManette = () => {
+    const id = shot?.input.padId;
+    if (!shot || !id || !session) return [];
+    const branchee = [...(navigator.getGamepads?.() ?? [])].find((une) => une?.id === id) ?? null;
+    const manette: ManetteLue = {
+      id,
+      mapping: branchee?.mapping ?? (shot.input.padLayout === "standard" ? "standard" : ""),
+      boutons: branchee?.buttons.length ?? 17,
+      axes: branchee?.axes.length ?? 4,
+    };
+    return usesProInput(consoleDuJeu)
+      ? verificationPro(manette, session.input.switch.profile, consoleDuJeu === "x360")
+      : verificationDolphin(manette, shot.input.profile, { console: consoleDuJeu, pad });
+  };
+  /** Ce que la vue des touches relit toutes les 50 ms : la trame Dolphin
+   * porte ses boutons dans `pressed` ; la trame Pro attend l'activité que
+   * manettes ajoute à l'instantané (K34). */
+  const lireLEntree = (): Releve => {
+    const etat = session?.input.state();
+    if (!etat) return { activite: SANS_ACTIVITE, sinceHeardMs: null };
+    return {
+      activite: usesProInput(consoleDuJeu) ? SANS_ACTIVITE : activiteDolphin(etat.pressed),
+      sinceHeardMs: etat.sinceHeardMs,
+    };
+  };
   /** La pastille de l'image agrandie : trois secondes après Ctrl, puis
    * trois secondes après chaque mouvement de la souris (colonne.11). */
   const [agrandieVue, setAgrandieVue] = useState(false);
@@ -2414,11 +2471,8 @@ function Room({
             // Pas pendant un chargement: l'écran de chargement couvre l'image,
             // et Tab s'arrêterait sur une zone qu'on ne voit pas.
             jouable={enPartie}
-            libelle={
-              port === null
-                ? "Image du jeu"
-                : "Zone de jeu. Au clavier, tes touches y pilotent ta manette."
-            }
+            libelle={jeuEnCours ? ZONE.nom(jeuEnCours) : ZONE.sansJeu}
+            aide={port !== null && appareil === "clavier" ? ZONE.aide : null}
             connected={shot?.video.connected ?? false}
             fit={fit}
             picture={shot?.video.picture ?? { width: 0, height: 0 }}
@@ -2755,27 +2809,15 @@ function Room({
               /* Les touches du clavier, sans ouvrir de menu (audit T02). */
               touches:
                 lignesClavier.length > 0 ? (
-                  <AideClavier
-                    lignes={lignesClavier}
-                    ouverte={aideOuverte}
-                    onBascule={(ouverte) => {
-                      setAideOuverte(ouverte);
-                      retenirAideVue(!ouverte);
-                    }}
-                    onChanger={() => {
-                      setOngletTouches("key");
-                      setBindings(true);
-                    }}
-                  />
+                  <RangTouches onOuvrir={() => setVueTouches("clavier")} />
                 ) : null,
-              manette: (
+              manette: shot?.input.padId ? (
                 <RangManette
-                  onOuvrir={() => {
-                    setOngletTouches("pad");
-                    setBindings(true);
-                  }}
+                  nom={identify(shot.input.padId, shot.input.padLayout ?? "").name}
+                  aConfigurer={manetteAConfigurer(shot.input)}
+                  onOuvrir={() => setVueTouches("manette")}
                 />
-              ),
+              ) : null,
               /* Le clip, à portée sans ouvrir le menu: quarante-cinq secondes
                  ne se demandent pas après coup. Un seul bouton pour deux
                  gestes, demander puis enregistrer. */
@@ -2884,7 +2926,7 @@ function Room({
                 </AutresReglages>
               ),
             }}
-            mesures={
+            vue={
               mode === "details" ? (
                 <div id="stats">
                   <MesuresTechniques>
@@ -2895,6 +2937,29 @@ function Room({
                     )}
                   </MesuresTechniques>
                 </div>
+              ) : vueMontree ? (
+                <VueTouches
+                  key={vueMontree}
+                  titre={
+                    vueMontree === "clavier"
+                      ? TOUCHES.clavier
+                      : TOUCHES.manette(
+                          identify(shot?.input.padId ?? "", shot?.input.padLayout ?? "").name,
+                        )
+                  }
+                  lignes={vueMontree === "clavier" ? lignesClavier : lignesDeLaManette()}
+                  clavier={vueMontree === "clavier"}
+                  lire={lireLEntree}
+                  onRevenir={() => {
+                    setVueTouches(null);
+                    setVueFermee(true);
+                    retenirAideVue(true);
+                  }}
+                  onChanger={() => {
+                    setOngletTouches(vueMontree === "clavier" ? "key" : "pad");
+                    setBindings(true);
+                  }}
+                />
               ) : null
             }
             coin={

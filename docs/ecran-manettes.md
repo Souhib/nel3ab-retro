@@ -46,6 +46,12 @@ L'écart entre les deux est toute l'information: une pièce allumée à droite e
 l'écran n'apprendrait rien.** Ne pas « simplifier » en faisant passer la droite
 par `readPad`.
 
+La vue « Ta manette » de la colonne (`lib/verification.ts`, 23 novembre 2026)
+est un troisième lecteur, du côté gauche : elle presse chaque bouton d'une
+manette simulée et passe la lecture à `readPad`, ou à `readSwitch` avec le
+profil de la salle Switch ou Xbox 360. Elle ne tient aucune table ; si
+`readPad` change, elle change avec lui.
+
 ## Le piège du repos
 
 Un adaptateur GameCube rapporte une gâchette **au repos à 0,6**, donc le

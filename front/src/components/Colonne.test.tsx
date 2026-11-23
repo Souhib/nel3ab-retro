@@ -26,7 +26,7 @@ const colonne = (rangs: readonly Rang[], mesures: React.ReactNode = null) =>
       role={<BlocRole nom="Lina" place={1} libre={2} />}
       rangs={rangs}
       contenus={contenus}
-      mesures={mesures}
+      vue={mesures}
       coin={<Coin mesures={false} onMesures={() => {}} />}
     />,
   );
@@ -86,7 +86,7 @@ describe("la colonne", () => {
         role={<BlocRole nom="Lina" place={1} libre={2} />}
         rangs={["son", "autres"]}
         contenus={contenus}
-        mesures={null}
+        vue={null}
         coin={<Coin mesures={false} onMesures={() => {}} />}
       />,
     );

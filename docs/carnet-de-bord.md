@@ -28467,6 +28467,67 @@ menus n'est pas encore posé sur l'écran éteint (K23) ; quand il le sera, le
 focus d'entrée ira à sa première cartouche. Au téléphone, l'écran éteint est
 le même, mais la barre et la bande attendent l'étape 4.
 
+### 23 novembre, encore : la vue des touches, lue dans le produit
+
+**Le contexte.** La carte « Tu joues au clavier » était un pli dans la
+colonne : la liste des touches, sans rien qui dise si elles partaient. Et
+rien ne disait ce que presse chaque bouton d'une vraie manette. Le
+11 septembre, l'essai attendait le même code faux que l'aide, et le X de la
+page arrivait Y dans chaque jeu ; une aide qui recopie une table refait ce
+piège.
+
+**Ce qui a changé.** La colonne a une vue, « Tes touches au clavier » ou
+« Ta manette Xbox », qui prend la place des rangs comme les mesures. Une
+ligne par commande : la touche, une flèche, ce que la console reçoit. À la
+première visite au clavier, la colonne s'ouvre dessus ; « Revenir » ramène
+les rangs, et la visite suivante commence sur eux. Pour la manette, la vue
+ne tient aucune table : pour chaque bouton, elle fabrique une manette
+simulée où seul ce bouton est pressé et la fait lire par la fonction que la
+page appelle vraiment pour jouer (`readPad` pour la GameCube et la Wii,
+`readSwitch` avec le profil de la salle pour la Switch et la Xbox 360). RB
+presse Z dans une salle GameCube, Back n'y presse rien, et la ligne le dit.
+
+**Quand une ligne s'allume.** Une case se coche quand la trame envoyée porte
+la commande, que la salle a répondu depuis moins de deux secondes (l'écho
+part chaque seconde : un seuil d'une seconde ferait clignoter la case), et,
+au clavier, que le focus est dans l'image. La case dit « envoyée », jamais
+« reçue » : la salle ne renvoie pas d'accusé par bouton.
+
+**Ce qui a résisté : l'instantané lu deux fois par seconde.** React reçoit
+l'état de la page deux fois par seconde. Un appui de 150 ms tombe le plus
+souvent entre deux relevés : la case ne se serait presque jamais cochée. La
+vue relit donc la boucle d'entrée toutes les 50 ms, seulement tant qu'elle
+est ouverte, et ne redessine que si une ligne change. Ce n'est pas le chemin
+de l'image.
+
+**Ce qui a résisté : un mutant qui passait.** Le premier jumeau négatif de
+l'étape `touches-cochees` met le focus sur « Revenir », tape X et C, et
+exige qu'aucune case ne se coche. Il passait aussi contre une page qui
+ignore le focus dans la vue. Ce n'est pas un hasard : hors de l'image, la
+boucle d'entrée n'envoie pas la touche, donc la trame ne la porte pas, et la
+garde de la vue n'a rien à refuser. Les deux gardes se cachent l'une
+l'autre. Chacune a maintenant son essai : la garde de la vue dans
+`VueTouches.test.tsx` (rouge quand on la retire), celle de la boucle par le
+jumeau du navigateur, devenu une faute nommée « X ou C sur Revenir est
+parti au jeu » au lieu d'une précondition, et vu rouge contre une page dont
+la boucle laisse passer les touches.
+
+**Ce qui n'est pas prouvé.** Les lignes des sticks, et toute la trame de la
+Switch et de la Xbox 360, n'ont pas de case : l'instantané ne dit pas leur
+activité. C'est le chantier manettes qui l'ajoutera (il possède
+`media/input.ts`). D'ici là, la scène « fier », qui attend que chaque ligne
+ait été vue, ne joue jamais. Aucun essai sur une vraie manette branchée :
+le banc simule une manette standard.
+
+**Les preuves.** `verification.test.ts` (18 essais : RB vers Z, Back vers
+rien, l'indice 2 vers X et jamais Y, un appareil réglé suivi, une manette
+inconnue dite par numéros), `VueTouches.test.tsx` (8 essais), `focus.mjs` :
+`touches-cochees`, `agrandir-ctrl` (Ctrl agrandit, Échap ouvre le menu sans
+rétrécir l'image, F dans une salle Switch envoie R et n'agrandit rien),
+`premiere-visite` et `carte-wii` lisant la vue. Poids de la page en
+brotli 11 : 245 157 octets, soit 9 457 pour la salle depuis le socle
+(enveloppe 12 000).
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

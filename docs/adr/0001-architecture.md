@@ -1653,7 +1653,7 @@ after the amendment: 235 700 bytes in brotli 11, margin 64 300.
 
 ### D39: The room frame, and nothing on the picture, 2026-11-23
 
-Status: partly delivered on `chantier/retro-salle` (passes 1 and 2).
+Status: partly delivered on `chantier/retro-salle` (passes 1 to 3).
 Amends D28, D29 and D35 when the steps that change them land; until then
 those entries stay in force, except where this entry says otherwise.
 
@@ -1730,6 +1730,28 @@ Decision:
   that play scenes (states, menus, people, controllers, room): a lower scene
   is refused during a higher one, only the states track plays during a fault,
   and only the room plays the first-picture scene.
+- **The keys view reads the product's tables, and lights what was sent.**
+  `components/VueTouches.tsx` replaces the fold-out keyboard card and takes
+  the place of the column rows, like the measurements. « Tes touches au
+  clavier » lists the active key profile (`lib/aide-clavier`, now with the
+  frame commands of each line); « Ta manette » lists the fifteen controls of
+  a standard pad and what each presses in this room. `lib/verification.ts`
+  holds no table: it builds a simulated pad with one control pressed and has
+  it read by the reader the input loop really calls (`readPad` for Dolphin,
+  `readSwitch` with the room's profile for Switch and Xbox 360). A line
+  lights when the sent frame carries its command, the controller socket's
+  echo is under 2 s old (two echo periods, since the echo leaves every
+  second), and, at the keyboard, the focus is in the game zone. The view
+  polls the input loop every 50 ms while it is mounted, because the React
+  snapshot (2 Hz) misses most 150 ms presses. A line whose commands the
+  snapshot does not report has no box at all: today `pressed` carries only
+  the Dolphin frame's buttons, so sticks and the whole Pro frame wait for the
+  controllers track to add activity (K34). The box says sent, never
+  received: the room sends no per-button acknowledgement yet. At first visit
+  at the keyboard the column opens on the view; « Revenir » returns to the
+  rows and the next visit starts on them. The game zone is named « [game],
+  l'image de la partie » and, at the keyboard only, described by a hidden
+  sentence (Ctrl, Escape, Tab), so nothing is drawn on the picture.
 
 Delivered in pass 1: the pure layout and its sweeps, the arbiter, the column
 rows, the idle attention loop, the pad-only latency sentence, the root
@@ -1747,9 +1769,15 @@ loading, link state) now live in a wrapper above the panel, so an overlay on
 screen without an automatic menu, its entry focus, the waiting loop on the
 stage, and the numbered take-place button; proofs `cadre.mjs`
 `repos-sans-menu` (red against the step-3 page, 3cada57) and
-`repos-attention`, `parcours.mjs` `spectateur-prendre`. Not yet delivered:
-the bar, band and single phone sheet (step 4, which amends D28 and D35), the
-keyboard and controller views (step 6), the frame effects (step 7).
+`repos-attention`, `parcours.mjs` `spectateur-prendre`. Delivered in pass 3
+(step 6): the keys view for the keyboard and the controller,
+`lib/verification.ts`, the game zone's name and description; proofs
+`focus.mjs` `touches-cochees` (red on a page whose input loop sends keys out
+of the game zone), `agrandir-ctrl` (Ctrl enlarges, Escape opens the menu
+without shrinking, F in a Switch room sends R and enlarges nothing) and the
+updated `premiere-visite` and `carte-wii`. Not yet delivered: the bar, band
+and single phone sheet (step 4, which amends D28 and D35), the frame effects
+(step 7).
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

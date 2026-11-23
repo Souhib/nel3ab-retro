@@ -494,35 +494,155 @@ const ETAPES = {
     // Et la colonne ne montre pas la carte du clavier à qui tient une manette.
     await page.keyboard.press("Escape");
     await sleep(300);
-    if (await page.evaluate(() => document.querySelector("#aideClavier") !== null))
-      throw new Defaut("la carte des touches du clavier s'affiche alors qu'une manette est branchée");
+    if (await page.evaluate(() => document.querySelector("#aideClavier, #vueTouches, #tesTouches") !== null))
+      throw new Defaut("la vue des touches du clavier s'affiche alors qu'une manette est branchée");
     await capture(page, "menu-manette");
     await page.close();
   },
 
-  /** T02: la première visite montre les touches, sans ouvrir de menu. */
+  /** T02 et en-jeu-clavier.2: la première visite ouvre la colonne sur « Tes
+   * touches au clavier », sans ouvrir de menu: une ligne par touche du profil
+   * (neuf pour le profil GameCube par défaut). Avant le 23 novembre 2026,
+   * c'était la carte dépliable `#aideClavier`; une page d'avant est lue par
+   * elle, pour rougir sur son défaut et non sur un sélecteur. */
   async "premiere-visite"() {
     const page = await nouvelle(PC);
     await entrer(page);
     const carte = await page.evaluate(() => {
+      const vue = document.querySelector("#vueTouches");
+      if (vue)
+        return {
+          ouverte: true,
+          lignes: vue.querySelectorAll("[data-ligne-touche]").length,
+          texte: vue.textContent ?? "",
+          vue: true,
+        };
       const el = document.querySelector("#aideClavier");
-      return el ? { ouverte: el.hasAttribute("open"), texte: el.textContent ?? "" } : null;
+      return el
+        ? { ouverte: el.hasAttribute("open"), lignes: el.querySelectorAll("dl > div").length, texte: el.textContent ?? "", vue: false }
+        : null;
     });
-    if (carte === null) throw new Defaut("aucune carte des touches à la première visite");
+    if (carte === null) throw new Defaut("aucune vue des touches à la première visite");
     if (!carte.ouverte) throw new Defaut("la carte des touches est repliée à la première visite");
     if (!/Entrée/.test(carte.texte) || !/Start/.test(carte.texte))
-      throw new Defaut(`la carte ne dit pas Entrée pour Start: « ${carte.texte} »`);
+      throw new Defaut(`la vue ne dit pas Entrée pour Start: « ${carte.texte} »`);
+    if (carte.vue && carte.lignes !== 9)
+      throw new Defaut(`la vue a ${carte.lignes} lignes, le profil GameCube par défaut en a neuf`);
     await capture(page, "premiere-visite");
-    // Le jumeau: repliée une fois, elle reste repliée à la visite suivante.
-    await page.click("#aideClavier summary");
+    // Le jumeau: « Revenir » ramène les rangs, et la visite suivante commence
+    // sur eux, le rang « Tes touches au clavier » prêt à rouvrir la vue.
+    if (carte.vue) await page.click("#revenirTouches");
+    else await page.click("#aideClavier summary");
     await sleep(200);
     const recharge = Date.now();
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#enter, #screen", { timeout: 15000 });
     await entrer(page, { depuis: recharge });
-    const revue = await page.evaluate(() => document.querySelector("#aideClavier")?.hasAttribute("open") ?? null);
-    if (revue !== false) throw new Defaut(`repliée puis rechargée, la carte vaut ${revue}`);
+    await sleep(300);
+    const revue = await page.evaluate(() => ({
+      vue: document.querySelector("#vueTouches") !== null,
+      rang: document.querySelector("#tesTouches") !== null,
+      carte: document.querySelector("#aideClavier")?.hasAttribute("open") ?? null,
+    }));
+    if (carte.vue) {
+      if (revue.vue) throw new Defaut("fermée puis rechargée, la vue des touches se rouvre d'elle-même");
+      if (!revue.rang) throw new Defaut("fermée puis rechargée, la colonne n'a plus le rang « Tes touches au clavier »");
+    } else if (revue.carte !== false) throw new Defaut(`repliée puis rechargée, la carte vaut ${revue.carte}`);
     await page.close();
+  },
+
+  /** en-jeu-clavier.1: une ligne de « Tes touches au clavier » se coche
+   * quand sa commande part au jeu, et seulement alors. Le jumeau d'abord,
+   * avant que la ligne ne soit cochée pour la visite: le focus sur
+   * « Revenir », X et C ne cochent rien et le banc ne reçoit ni A ni B. Puis
+   * un clic sur l'image, X: la ligne A se coche et le banc reçoit A. Enfin
+   * l'écho muet depuis plus de deux secondes: C ne coche pas B. */
+  async "touches-cochees"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    if (!(await attendre(page, () => document.querySelector("#vueTouches [data-ligne-touche]") !== null, 4000)))
+      throw new Precondition("pas de vue des touches à la première visite");
+    const ligne = (fait) =>
+      page.evaluate((fait) => {
+        const li = [...document.querySelectorAll("#vueTouches [data-ligne-touche]")].find(
+          (el) => el.querySelector(".n3-ligne-fait")?.textContent?.trim() === fait,
+        );
+        return li ? { suivie: li.hasAttribute("data-suivie"), vue: li.hasAttribute("data-vue") } : null;
+      }, fait);
+    if ((await ligne("A")) === null || (await ligne("B")) === null)
+      throw new Precondition("la vue n'a pas de ligne A ou B");
+    if (!(await ligne("A")).suivie) throw new Defaut("la ligne A n'a pas de case: rien ne dirait qu'elle part");
+    const A = 1 << 0;
+    const B = 1 << 1;
+    await page.focus("#revenirTouches");
+    const hors = Date.now();
+    await appuyer(page, "KeyX");
+    await appuyer(page, "KeyC");
+    await sleep(300);
+    // Une faute et pas une précondition: c'est la garde de la boucle d'entrée
+    // qui rend la case muette hors de l'image (la vue a la sienne, prouvée
+    // par VueTouches.test.tsx), et c'est elle que ce jumeau tient.
+    if ((recus(hors) & (A | B)) !== 0) throw new Defaut("X ou C sur « Revenir » est parti au jeu");
+    if ((await ligne("A")).vue || (await ligne("B")).vue)
+      throw new Defaut("une ligne s'est cochée alors que le focus était hors de l'image");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    const dedans = Date.now();
+    await appuyer(page, "KeyX");
+    await sleep(300);
+    if ((recus(dedans) & A) === 0) throw new Precondition("X dans la zone n'a pas envoyé A au banc");
+    if (!(await ligne("A")).vue) throw new Defaut("A est parti au jeu et sa ligne ne s'est pas cochée");
+    if ((await ligne("B")).vue) throw new Defaut("la ligne B s'est cochée sans que B parte");
+    await capture(page, "touches-cochees");
+    // L'écho muet: la salle n'a rien répondu depuis plus de deux secondes.
+    banc.regler({ video: "silent" });
+    await sleep(2600);
+    if ((await page.$("#vueTouches")) === null) throw new Precondition("la vue des touches a disparu pendant l'écho muet");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    await appuyer(page, "KeyC");
+    await sleep(300);
+    if ((await ligne("B")).vue) throw new Defaut("la ligne B s'est cochée alors que l'écho se tait depuis plus de 2 s");
+    await page.close();
+  },
+
+  /** en-jeu-clavier.4: Ctrl seule dans la zone agrandit l'image, Échap ouvre
+   * le menu sans la rétrécir, et Ctrl ramène la salle. Le jumeau: dans une
+   * salle Switch, F est la gâchette R; elle part au banc et n'agrandit rien. */
+  async "agrandir-ctrl"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    const agrandie = () => page.evaluate(() => document.querySelector("[data-cadre]")?.hasAttribute("data-agrandie") ?? null);
+    if ((await agrandie()) === null) throw new Precondition("pas de racine [data-cadre]");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    await page.keyboard.down("Control");
+    await page.keyboard.up("Control");
+    if (!(await attendre(page, () => document.querySelector("#side") === null, 3000)))
+      throw new Defaut("Ctrl seule dans la zone ne replie pas la colonne");
+    if (!(await agrandie())) throw new Defaut("Ctrl seule: la racine ne dit pas l'image agrandie");
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#menu") !== null, 3000)))
+      throw new Defaut("Échap, image agrandie, n'ouvre pas le menu du jeu");
+    if (!(await agrandie())) throw new Defaut("Échap a rétréci l'image en ouvrant le menu");
+    await capture(page, "agrandir-menu");
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#menu") === null, 3000)))
+      throw new Precondition("Échap ne referme pas le menu");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    await page.keyboard.down("Control");
+    await page.keyboard.up("Control");
+    if (!(await attendre(page, () => document.querySelector("#side") !== null, 3000)))
+      throw new Defaut("Ctrl ne ramène pas la salle");
+    await page.close();
+    // Le jumeau: F dans une salle Switch.
+    const pro = await nouvelle(PC, { console: "x360", format: "switch" });
+    await entrer(pro);
+    await pro.mouse.click(...(await centre(pro, "#screen")));
+    const depuis = Date.now();
+    await appuyer(pro, "KeyF");
+    await sleep(300);
+    const R_SWITCH = 1 << 5;
+    if ((recus(depuis) & R_SWITCH) === 0) throw new Precondition("F n'a pas envoyé R au banc");
+    if ((await pro.$("#side")) === null) throw new Defaut("F a replié la colonne dans une salle Switch");
+    await pro.close();
   },
 
   /** T13 et P12: quatre rubriques nommées, une pour les manettes. */
@@ -880,11 +1000,26 @@ const ETAPES = {
     const lire = async (options) => {
       const page = await nouvelle(PC, options);
       await entrer(page);
-      if (!(await attendre(page, () => document.querySelector("#aideClavier dl") !== null, 4000)))
+      if (
+        !(await attendre(
+          page,
+          () => document.querySelector("#vueTouches [data-ligne-touche], #aideClavier dl") !== null,
+          4000,
+        ))
+      )
         throw new Precondition("pas de carte des touches");
       await sleep(300);
-      const paires = await page.$$eval("#aideClavier dl > div", (els) =>
-        els.map((el) => [el.querySelector("dt")?.textContent?.trim(), el.querySelector("dd")?.textContent?.trim()]),
+      // La vue des touches depuis le 23 novembre 2026, la carte dépliable avant.
+      const paires = await page.evaluate(() =>
+        document.querySelector("#vueTouches")
+          ? [...document.querySelectorAll("#vueTouches [data-ligne-touche]")].map((el) => [
+              el.querySelector(".n3-ligne-touches")?.textContent?.trim(),
+              el.querySelector(".n3-ligne-fait")?.textContent?.trim(),
+            ])
+          : [...document.querySelectorAll("#aideClavier dl > div")].map((el) => [
+              el.querySelector("dt")?.textContent?.trim(),
+              el.querySelector("dd")?.textContent?.trim(),
+            ]),
       );
       if (options.console === "wii") await capture(page, "carte-wii");
       await page.close();

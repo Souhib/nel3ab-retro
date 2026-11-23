@@ -74,13 +74,19 @@ et `focus.mjs` `colonne-deborde`. Au repos, plus de menu d'office : l'écran
 choisit et nomme qui choisit aux autres, et la scène d'attente joue trois
 fois au plus sur le plateau ; le spectateur lit « Prendre la place N »
 (`cadre.mjs` `repos-sans-menu`, `repos-attention`, `parcours.mjs`
-`spectateur-prendre`). Reste : la barre, la bande et la feuille unique au
-téléphone, la manette sous l'image, les vues des touches, les effets du
-cadre, les mesures. Poids : 243 505 octets en brotli (7 805 pour la salle). Décision :
+`spectateur-prendre`). Troisième passage : la vue « Tes touches au
+clavier » ou « Ta manette », lue dans les tables du produit
+(`lib/verification.ts`), dont les cases se cochent quand la commande part au
+jeu (`focus.mjs` `touches-cochees`, `agrandir-ctrl`) ; les sticks et la
+trame Pro attendent l'activité que le chantier manettes ajoutera à
+l'instantané. Reste : la barre, la bande et la feuille unique au
+téléphone, la manette sous l'image, les effets du cadre, les mesures. Poids :
+245 157 octets en brotli (9 457 pour la salle). Décision :
 [ADR](adr/0001-architecture.md) D39 (en partie livrée). Récits : « 23
 novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
 novembre, la nuit : la colonne du bureau et le panneau de commande » et
-« 23 novembre, tard : une salle au repos n'ouvre plus rien ».
+« 23 novembre, tard : une salle au repos n'ouvre plus rien » et « 23
+novembre, encore : la vue des touches, lue dans le produit ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

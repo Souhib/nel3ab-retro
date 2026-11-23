@@ -209,3 +209,51 @@
   position: relative;
   width: min(100%, 16rem);
 }
+
+/* La vue des touches (`VueTouches`) : une ligne par commande, une case en
+   pixels qui se coche quand la trame envoyée porte la commande. La ligne
+   s'enfonce 120 ms (effet boutons) ; en mouvement réduit, la case se coche
+   sans mouvement. */
+.n3-ligne-touche {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--filet);
+  padding: 0.25rem 0;
+  font-size: var(--text-corps);
+  color: var(--encre);
+  transition: transform 120ms steps(2);
+}
+.n3-ligne-allumee {
+  transform: translateY(1px);
+}
+.n3-case {
+  display: inline-grid;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  place-items: center;
+  font-family: var(--police-titre);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.n3-ligne-touche[data-suivie] .n3-case {
+  border: 2px solid var(--trait);
+}
+.n3-case[data-cochee] {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--fond);
+}
+.n3-ligne-touche .n3-rang-icone {
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-ligne-touche {
+    transition: none;
+  }
+  .n3-ligne-allumee {
+    transform: none;
+  }
+}

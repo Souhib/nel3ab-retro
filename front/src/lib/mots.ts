@@ -413,6 +413,28 @@ export const COLONNE = {
   panneau: "Les places",
 } as const;
 
+/** La vue des touches (`components/VueTouches`) : ce que chaque commande
+ * presse sur la console de la salle. La coche dit « envoyée », jamais
+ * « reçue » : la salle ne renvoie pas encore d'accusé par bouton. */
+export const TOUCHES = {
+  clavier: "Tes touches au clavier",
+  manette: (nom: string) => `Ta ${nom}`,
+  aConfigurer: "à configurer",
+  revenir: "Revenir",
+  changer: "Changer les touches",
+  horsJeu: "Clique sur l'image pour que tes touches aillent au jeu.",
+  legende: "Une case se coche quand la touche part au jeu.",
+  envoyee: "envoyée",
+} as const;
+
+/** Le nom de la zone de jeu (`components/Screen`), et ce que les touches y
+ * font, au clavier seulement : Ctrl n'existe pas au doigt. */
+export const ZONE = {
+  nom: (jeu: string) => `${jeu}, l'image de la partie`,
+  sansJeu: "L'image de la partie",
+  aide: "Ctrl agrandit l'image, Échap ouvre le menu du jeu, Tab en sort.",
+} as const;
+
 /** L'écran éteint d'une salle sans jeu (`components/EcranEteint`). Il ne
  * s'ouvre plus rien d'office : l'écran dit qu'il n'y a pas de jeu, et qui
  * le choisit. */

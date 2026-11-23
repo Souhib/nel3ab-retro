@@ -21,7 +21,7 @@ import type { Person } from "../client";
 import type { Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
 import type { Rang } from "../lib/colonne";
-import { COLONNE, SORTIES, placeN, prendreLaPlace } from "../lib/mots";
+import { COLONNE, SORTIES, TOUCHES, placeN, prendreLaPlace } from "../lib/mots";
 import { iconePixelSVG, type IconePixel } from "../retro/icones";
 import { Crown } from "./Crown";
 import { Logo } from "./Logo";
@@ -67,7 +67,7 @@ export function Colonne({
   panneau,
   rangs,
   contenus,
-  mesures,
+  vue,
   coin,
 }: {
   nomSalle: string;
@@ -91,8 +91,9 @@ export function Colonne({
   panneau?: ReactNode;
   rangs: readonly Rang[];
   contenus: Partial<Record<Rang, ReactNode>>;
-  /** Les mesures ouvertes depuis le coin : elles prennent la place des rangs. */
-  mesures: ReactNode | null;
+  /** Les mesures ouvertes depuis le coin, ou la vue des touches
+   * (`VueTouches`) : elles prennent la place des rangs. */
+  vue: ReactNode | null;
   coin: ReactNode;
 }) {
   const [boite, setBoite] = useState<HTMLElement | null>(null);
@@ -140,7 +141,7 @@ export function Colonne({
       {role}
       {personnes}
       {panneau}
-      {mesures ?? (
+      {vue ?? (
         <nav aria-label={COLONNE.rangs} className="flex flex-col gap-2">
           {rangs.map((rang) =>
             contenus[rang] ? (
@@ -334,13 +335,34 @@ export function RangAgrandir({
   );
 }
 
-/** Le rang Ta manette : la vue de la manette tenue, jusqu'à la vue légère de
- * l'étape 6 ; il ouvre aujourd'hui l'onglet manette du réglage. */
-export function RangManette({ onOuvrir }: { onOuvrir: () => void }) {
+/** Le rang Tes touches au clavier : il ouvre la vue des touches. */
+export function RangTouches({ onOuvrir }: { onOuvrir: () => void }) {
+  return (
+    <button type="button" id="tesTouches" onClick={onOuvrir} className="n3-rang">
+      <IconeRang nom="clavier" />
+      {TOUCHES.clavier}
+    </button>
+  );
+}
+
+/** Le rang Ta manette : il ouvre la vue de vérification de la manette
+ * tenue, avec « à configurer » quand elle n'a ni disposition standard ni
+ * profil (`manetteAConfigurer`). */
+export function RangManette({
+  nom,
+  aConfigurer,
+  onOuvrir,
+}: {
+  /** « manette Xbox », lu dans `media/families`. */
+  nom: string;
+  aConfigurer: boolean;
+  onOuvrir: () => void;
+}) {
   return (
     <button type="button" id="taManette" onClick={onOuvrir} className="n3-rang">
       <IconeRang nom="manette" />
-      {COLONNE.manette}
+      <span className="min-w-0 flex-1 truncate">{TOUCHES.manette(nom)}</span>
+      {aConfigurer ? <span className="shrink-0 text-alerte">{TOUCHES.aConfigurer}</span> : null}
     </button>
   );
 }

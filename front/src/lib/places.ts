@@ -17,7 +17,7 @@
  * 23 novembre 2026) devient un bouton de la carte : il disait la même chose
  * par un état caché de cinq secondes.
  */
-import type { FormePanneau } from "./cadre";
+import type { FormePanneau, Hote } from "./cadre";
 import { initialesDeLaSalle } from "./etiquette";
 import { PLACES } from "./mots";
 
@@ -134,3 +134,18 @@ export function echapFermeLaCarte(
  * `control/nel3ab_control/api/controllers/recovery.py`. La carte le dit
  * AVANT la demande ; pendant, elle lit le temps restant que le salon envoie. */
 export const REPRISE_REPONSE_S = 20;
+
+/** Où une arrivée ou un départ se joue : là où le cadre le dit
+ * (`ouEstLaMascotte`), sauf sur l'écran éteint. Au repos, « Choisir un jeu »
+ * est au centre du plateau, et la scène d'arrivée s'y posait dessus
+ * (cadre.mjs, mascotte-hors-image, 23 novembre 2026). Une arrivée parle des
+ * places : elle se joue au bord du panneau quand il est sous l'image, dans
+ * la barre d'un téléphone, sinon dans le coin de la colonne. */
+export function hoteDesPlaces(
+  cadre: Hote | null,
+  { tenu, panneauSous }: { tenu: boolean; panneauSous: boolean },
+): Hote | null {
+  if (cadre !== "plateau") return cadre;
+  if (tenu) return "barre";
+  return panneauSous ? "bord-panneau" : "coin";
+}

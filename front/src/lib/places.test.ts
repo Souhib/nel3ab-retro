@@ -3,6 +3,7 @@ import {
   echapFermeLaCarte,
   formeDesPlaces,
   gesteDe,
+  hoteDesPlaces,
   lesPlaces,
   nomDePlace,
   phraseDuRole,
@@ -86,7 +87,7 @@ describe("le nom accessible d'une place", () => {
       }),
     );
     expect(places.map(nomDePlace)).toEqual([
-      "Place 1 : toi",
+      "Place 1 : la tienne",
       "Place 2 : Bilel, choisit le jeu : lui demander sa place",
       "Place 3 : JO, micro coupé : lui demander sa place",
       "Place 4, libre : la prendre",
@@ -97,7 +98,7 @@ describe("le nom accessible d'une place", () => {
     const [p] = lesPlaces(
       entree({ tenues: [true], noms: new Map([[1, "Moi"]]), micros: [true], chef: 1, mienne: 1 }),
     );
-    expect(nomDePlace(p!)).toBe("Place 1 : toi, tu choisis le jeu");
+    expect(nomDePlace(p!)).toBe("Place 1 : la tienne, tu choisis le jeu");
   });
 });
 
@@ -139,5 +140,19 @@ describe("Échap et la carte", () => {
     // Les jumeaux : depuis la zone de jeu, Échap garde son sens ; sans carte, rien.
     expect(echapFermeLaCarte(document.querySelector("#jeu"), carte, place)).toBe(false);
     expect(echapFermeLaCarte(place, null, place)).toBe(false);
+  });
+});
+
+describe("hoteDesPlaces", () => {
+  it("ne joue jamais une arrivée sur l'écran éteint", () => {
+    expect(hoteDesPlaces("plateau", { tenu: false, panneauSous: false })).toBe("coin");
+    expect(hoteDesPlaces("plateau", { tenu: false, panneauSous: true })).toBe("bord-panneau");
+    expect(hoteDesPlaces("plateau", { tenu: true, panneauSous: false })).toBe("barre");
+  });
+
+  it("jumeau : ailleurs, le choix du cadre tient", () => {
+    expect(hoteDesPlaces("coin", { tenu: false, panneauSous: false })).toBe("coin");
+    expect(hoteDesPlaces("bord-panneau", { tenu: false, panneauSous: true })).toBe("bord-panneau");
+    expect(hoteDesPlaces(null, { tenu: true, panneauSous: false })).toBeNull();
   });
 });

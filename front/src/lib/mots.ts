@@ -495,7 +495,7 @@ export const PLACES = {
   pret: "prêt !",
   libre: (n: number) => `Place ${n}, libre : la prendre`,
   tenue: (n: number) => `Place ${n}, tenue : la reprendre`,
-  aToi: (n: number) => `Place ${n} : toi`,
+  aToi: (n: number) => `Place ${n} : la tienne`,
   aQuelquun: (n: number, nom: string) => `Place ${n} : ${nom}`,
   choisit: "choisit le jeu",
   tuChoisis: "tu choisis le jeu",

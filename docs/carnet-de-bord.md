@@ -29467,6 +29467,78 @@ la page, page à jour), comme `focus-navigateur` (27 étapes),
 et 932×430) et `parcours-navigateur` (13 étapes, dont
 `preparation-x360`). La porte entière attend toujours l'intégration finale.
 
+### 23 novembre, la nuit : les places deviennent des boutons START
+
+**Le contexte.** Le chantier « personnes » de la dernière vague reprend tout
+ce qui touche aux gens dans la salle : les places, la demande de place,
+l'invitation, le signalement, les mesures et le champ du nom. Ce premier
+passage pose les pièces sans les monter : la partition veut que le câblage
+d'`App.tsx` soit le dernier commit de chaque branche, refait à la fusion. Les
+composants existent donc, avec leurs essais, mais la salle montre encore les
+prises de `Seats`.
+
+**Ce qui est posé.** Les places deviennent des boutons START ronds, « 1P » à
+« 4P », allumés à la couleur du joueur (`Places.tsx`, classes du socle
+`.rt-bouton-start`). Chaque place est un bouton entier, avec son étiquette
+tapée (`Etiquette.tsx`), la couronne de qui choisit le jeu et le micro, en
+pixels sur la grille du socle. Une place libre se prend d'un toucher. Une
+place tenue ouvre sa carte (`CartePlace.tsx`), où l'on demande la place, où
+l'on reprend une place sans nom, ou, pour la sienne, où on la rend. Le double
+toucher caché de cinq secondes qui reprenait une place sans nom devient un
+bouton écrit. La demande reçue (`DemandeRecue.tsx`) remplace le bandeau posé
+sur l'image : « Garder ma place » en premier et seul plein, « Donner ma
+place » annulable pendant 4 s. `lib/usePlaces.ts` remplace la scène de la
+Bobine : une arrivée allume la place et fait sauter « 3P prêt ! » dessus,
+jamais au-dessus, demande la scène de la mascotte à l'arbitre de la salle et
+se dit une fois. `arrivees.ts` et la mémoire des vus quittent `bobine/` pour
+`lib/`.
+
+**Les initiales.** Le socle calcule déjà trois lettres (`initiales`, K35).
+Deux règles s'y ajoutent pour une salle. Un nom court est complété par des
+tirets (« Al » donne « AL- »). Deux personnes aux mêmes lettres prennent
+TOUTES LES DEUX leur numéro de place en troisième signe : deux « Lina » aux
+places 1 et 3 donnent « LI1 » et « LI3 ». Remplacer le second venu seulement
+aurait fait dépendre les lettres de l'ordre d'arrivée, et deux pages
+ouvertes à des moments différents n'auraient pas montré les mêmes.
+
+**Un essai qui ne pouvait pas échouer.** Le passage de « P1 » à « 1P » se fait
+en un seul commit, pour qu'une même place n'ait jamais deux noms. Le premier
+essai écrit pour le garder parcourait les chaînes visibles et cherchait
+« P1 » à « P4 ». Il passait sur l'ancienne page. Le parcours voit
+`P{seat.port}` comme un « P » seul, suivi d'une expression : le numéro n'est
+jamais dans la chaîne. L'essai lit maintenant aussi la source, à la recherche
+d'un « P » collé à un numéro calculé, et il était rouge sur sept endroits
+avant la correction : l'avant-salle et ses deux plans, la préparation deux
+fois, la prise de `Seats`. La leçon : un essai de vocabulaire doit être vu
+rouge sur la page d'avant, pas seulement vert sur la nouvelle.
+
+**La page disait le contraire du salon.** La ligne parlée annonçait toute
+demande avec « Sans réponse, tu la gardes. » C'est la règle de l'ancienne
+demande `ask`, que la page n'émet plus. Le chemin de tous les jours est la
+reprise (`api/ws/recovery.py`) : sans réponse en 20 s, la personne qui
+demande peut prendre la place. `phraseDemande` reçoit maintenant le chemin, et
+dit « Sans réponse, Lina pourra la prendre. » pour une reprise. L'essai a été
+écrit d'abord et vu rouge. La proposition promettait 10 s et « la place te
+reste » : la carte suit le salon, pas la proposition.
+
+**Les raisons du salon.** La carte affiche la raison du salon telle quelle.
+« Lu est là et garde sa manette » devient « Lu garde sa place 2. », et le rôle
+de chef devient le choix du jeu. Le protocole ne change pas, seulement le
+texte. Ces raisons se mettent en service avant la page, le salon d'abord.
+
+**Ce que vérifient les essais.** Chaque garde a son jumeau, et quatre mutants
+ont été essayés à la main : sans la résolution des doublons, sans la garde de
+stabilité (la mascotte jouerait départs et arrivées pendant un démarrage de
+jeu), avec la scène de départ pour plusieurs places à la fois (une salle qui
+ferme), et les deux raisons du salon d'avant. Chacun fait tomber l'essai qui
+le nomme.
+
+**Le poids.** La page passe de 249 486 à 249 903 octets en brotli, 417 de plus :
+la couronne et le micro en pixels et la pastille du lexique, que `Seats`
+monte encore. Les places, les cartes et `usePlaces` ne pèseront qu'au câblage,
+avec les retraits de `Seats`, `Socket`, `Swap`, `Recovery` et de la scène de
+la Bobine, qui libèrent de la place.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31132,3 +31204,11 @@ effet. Son état appartient au composant qui l'appelle.
 **Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
 composant modifié sans recharger la page ni perdre son état. Il ne le fait
 que pour un fichier qui n'exporte que des composants.
+
+**Étiquette tapée** : le nom d'une personne en Pixelify, à l'encre de sa place,
+sur un ruban du creux de la régie. Elle remplace le bout de scotch écrit au
+feutre de la proposition « Scotch et feutre ».
+
+**Bouton START (place)** : une place de la salle, dessinée comme le bouton rond
+d'une borne d'arcade, « 1P » à « 4P », allumée à la couleur du joueur quand
+elle est prise.

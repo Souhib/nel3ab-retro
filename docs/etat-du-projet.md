@@ -219,6 +219,24 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
+**Au 23 novembre, la nuit : le chantier personnes, premier passage.** Sur
+`chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
+parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de
+poussé. Posés avec leurs essais, pas encore montés dans la salle : les places
+START 1P à 4P (`Places.tsx`, `lib/places.ts`), l'étiquette tapée
+(`Etiquette.tsx`, `lib/etiquette.ts`), la carte d'une place
+(`CartePlace.tsx`), la demande reçue (`DemandeRecue.tsx`), les arrivées et
+départs (`lib/usePlaces.ts`, `lib/arrivees.ts` sorti de `bobine/`). Montés
+dès maintenant : la pastille « 1P » à « 4P » partout, la couronne et le micro
+en pixels, la ligne parlée qui dit la vraie règle d'une reprise
+(`phraseDemande`), et les raisons du salon qui nomment une place
+(`api/ws/recovery.py`, à mettre en service avant la page). La page fait
+249 903 octets en brotli (+417). Restent : l'invitation et son code QR,
+Signaler, les mesures, le champ du nom, le câblage d'`App.tsx` avec les
+retraits de `Seats`, `Socket`, `Swap`, `Recovery`, `Branchement` et `Canape`,
+et les preuves navigateur. Récit : « 23 novembre, la nuit : les places
+deviennent des boutons START ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

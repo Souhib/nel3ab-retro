@@ -1,0 +1,364 @@
+/* Le cadre de la salle au bureau : la colonne, ses rangs, le coin et le
+   panneau de commande. Les couleurs viennent des jetons de `regie.css` ; aucune
+   n'est redéclarée ici. Rien dans cette feuille ne vise l'image du jeu. */
+
+/* Un titre de section : Pixelify Sans, casse de phrase, sans interlettrage,
+   encre secondaire (colonne.8). `n3-etiquette`, en capitales espacées, quitte
+   la colonne. */
+.n3-colonne-titre {
+  font-family: var(--police-titre);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--legende);
+}
+
+.n3-colonne-tete {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+/* Le logo, petit (K26) : 14 px de haut au lieu de 20. */
+.n3-colonne-logo {
+  --rt-logo-hauteur: 14px;
+}
+.n3-colonne-salle {
+  font-family: var(--police-titre);
+  font-size: var(--text-fort);
+  color: var(--encre);
+}
+
+/* Un rang : une ligne nommée en clair, avec un filet, 44 px au doigt. */
+.n3-rang {
+  display: flex;
+  width: 100%;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--filet);
+  padding: 0.375rem 0.75rem;
+  text-align: left;
+  font-size: var(--text-corps);
+  color: var(--legende);
+  cursor: pointer;
+  list-style: none;
+}
+.n3-rang::-webkit-details-marker {
+  display: none;
+}
+.n3-rang:hover {
+  border-color: var(--trait);
+  color: var(--encre);
+}
+/* 44 px au doigt pour chaque cible de la colonne et du coin. */
+@media (pointer: coarse) {
+  .n3-rang,
+  .n3-rang-lien,
+  .n3-coin-ligne {
+    min-height: 2.75rem;
+  }
+}
+.n3-rang-lien {
+  font-size: var(--text-corps);
+  color: var(--legende);
+}
+.n3-rang-lien:hover {
+  color: var(--encre);
+  text-decoration: underline;
+}
+.n3-rang-bouton {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+}
+.n3-rang-icone {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.n3-rang-icone > svg {
+  width: 100%;
+  height: 100%;
+}
+.n3-autres[open] > .n3-rang {
+  color: var(--encre);
+}
+
+/* « Plus bas » : collé au bas de ce qui se voit, 40 px, sous la marge de
+   défilement de 60 px (`MARGE_BAS`). */
+.n3-plus-bas {
+  pointer-events: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 -0.75rem;
+  border-top: 1px solid var(--filet);
+  background: var(--plaque);
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+.n3-plus-bas .n3-rang-icone {
+  transform: rotate(90deg);
+}
+
+/* Le coin, au pied de la colonne : la ligne, puis la scène, sans se toucher. */
+.n3-coin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-top: 1px solid var(--filet);
+  padding-top: 0.5rem;
+  padding-bottom: 0.75rem;
+}
+.n3-coin-ligne {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13px;
+  color: var(--legende);
+  text-align: left;
+}
+.n3-coin-ligne:hover,
+.n3-coin-ligne[aria-pressed="true"] {
+  color: var(--encre);
+}
+.n3-coin-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Le panneau de commande. Sous l'image, il prend la hauteur que le cadre lui
+   donne et pas un pixel de plus : l'image garde exactement sa pose. */
+.n3-panneau {
+  position: relative;
+  background: var(--panneau);
+  border-top: 1px solid var(--panneau-filet);
+}
+.n3-panneau[data-forme="sous"] {
+  height: var(--panneau-h);
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 0.375rem 1rem;
+}
+.n3-panneau[data-forme="colonne"] {
+  border: 1px solid var(--panneau-filet);
+  padding: 0.5rem;
+}
+.n3-panneau-bord {
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  width: 4rem;
+  height: 100%;
+  pointer-events: none;
+}
+/* Jusqu'aux places du chantier personnes, les prises de `Seats` tiennent sur
+   une rangée à la hauteur du panneau, et la phrase d'aide à côté d'elles. */
+.n3-panneau[data-forme="sous"] .n3-panneau-places {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 1rem;
+}
+.n3-panneau[data-forme="sous"] .n3-panneau-places > div {
+  height: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+.n3-panneau[data-forme="sous"] #ports {
+  grid-template-columns: repeat(4, calc((var(--panneau-h) - 1.75rem) * 72 / 84));
+}
+.n3-panneau[data-forme="sous"] #ports > button > span.block {
+  max-width: 6rem;
+}
+
+/* L'écran éteint : noir dans les deux thèmes (`--ecran`), son texte à
+   l'encre de l'écran, qui ne change pas de thème non plus. */
+.n3-ecran-eteint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--ecran);
+  color: var(--encre-ecran);
+  text-align: center;
+}
+.n3-ecran-titre {
+  font-family: var(--police-titre);
+  font-size: var(--text-titre);
+  font-weight: 400;
+}
+.n3-ecran-phrase {
+  max-width: 42ch;
+  font-size: var(--text-corps);
+  line-height: 1.5;
+}
+.n3-plateau {
+  position: relative;
+  width: min(100%, 16rem);
+}
+
+/* La vue des touches (`VueTouches`) : une ligne par commande, une case en
+   pixels qui se coche quand la trame envoyée porte la commande. La ligne
+   s'enfonce 120 ms (effet boutons) ; en mouvement réduit, la case se coche
+   sans mouvement. */
+.n3-ligne-touche {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--filet);
+  padding: 0.25rem 0;
+  font-size: var(--text-corps);
+  color: var(--encre);
+  transition: transform 120ms steps(2);
+}
+.n3-ligne-allumee {
+  transform: translateY(1px);
+}
+.n3-case {
+  display: inline-grid;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  place-items: center;
+  font-family: var(--police-titre);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.n3-ligne-touche[data-suivie] .n3-case {
+  border: 2px solid var(--trait);
+}
+.n3-case[data-cochee] {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--fond);
+}
+.n3-ligne-touche .n3-rang-icone {
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-ligne-touche {
+    transition: none;
+  }
+  .n3-ligne-allumee {
+    transform: none;
+  }
+}
+
+/* Le fronton (`Fronton`) : posé en absolu dans la bande du haut, il ne
+   prend aucune hauteur à l'image. Les couleurs, la police et la mire
+   viennent de `.rt-fronton` (`effets.css`, effet « fronton »), qui le pose
+   en `relative` : les deux classes ensemble l'emportent, sans quoi il
+   entrait dans le flux et poussait l'image (cadre.mjs, fronton-bande). */
+.rt-fronton.n3-fronton {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  padding: 0 0.75rem 4px;
+  font-size: var(--text-fort);
+}
+.n3-fronton-titre {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Le crédit (`Credit`) : en capitales par la feuille, au bout du panneau. */
+.n3-credit {
+  margin-left: auto;
+  align-self: center;
+  text-transform: uppercase;
+  font-size: var(--text-corps);
+  color: var(--legende);
+}
+
+/* Le décor de borne (`CoteBorne`) : dans les bandes, jamais dans l'image.
+   Le fond tramé vient de `.fx-borne .rt-cote` ; le manche et les quatre
+   boutons n'apparaissent qu'avec l'effet. */
+.n3-borne {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  display: none;
+}
+/* `.fx-borne .rt-cote` (`effets.css`) pose le décor en `relative` : sans ce
+   sélecteur plus fort, il entrait dans le flux de la boîte de l'écran,
+   prenait sa hauteur et faisait osciller la mesure de la zone à 1920×1080
+   (une toile sans taille, puis un clic impossible dans cadre.mjs). */
+.fx-borne .rt-cote.n3-borne {
+  position: absolute;
+}
+.fx-borne .n3-borne {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+.n3-borne-manche {
+  width: 12px;
+  height: 36px;
+  background: var(--trait);
+  box-shadow: 0 -12px 0 6px var(--alerte);
+}
+.n3-borne-boutons {
+  display: grid;
+  grid-template-columns: repeat(2, 14px);
+  gap: 6px;
+}
+.n3-borne-boutons > i {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--rayon-rond);
+}
+.n3-borne-boutons > i:nth-child(1) {
+  background: var(--p1);
+}
+.n3-borne-boutons > i:nth-child(2) {
+  background: var(--p2);
+}
+.n3-borne-boutons > i:nth-child(3) {
+  background: var(--p3);
+}
+.n3-borne-boutons > i:nth-child(4) {
+  background: var(--p4);
+}
+
+/* Le tramage (effet « tramage ») : le fond de la zone de jeu, deux noirs
+   proches. La toile a son propre fond opaque : avant la première image,
+   rien de la trame ne transparaît dans le rectangle de l'image. */
+.fx-tramage .n3-zone-jeu {
+  background: repeating-conic-gradient(var(--ecran) 0 25%, var(--ecran-trame) 0 50%) 0 0 / 4px 4px;
+}
+#screen {
+  background: var(--ecran);
+}
+
+/* Le ▶ du socle (effet « curseur ») se pose à 16 px à gauche du rang visé
+   (10 px de flèche, 6 d'écart). La marge de 12 px de la colonne le coupait
+   au bord : 20 px quand l'effet est allumé (relecture du 23 novembre 2026). */
+.fx-curseur .n3-colonne {
+  padding-left: 20px;
+}

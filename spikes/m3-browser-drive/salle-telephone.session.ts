@@ -41,7 +41,9 @@ function patch(s: Snapshot): Snapshot {
     sound: { ...s.sound, state: q.get("son") ?? "running" },
     input: {
       ...s.input,
-      port: 1,
+      // `place=aucune` : la page d'un spectateur (étape 4 du chantier salle).
+      port: q.get("place") === "aucune" ? null : 1,
+      watching: q.get("place") === "aucune",
       players: 4,
       busy: [true, true, false, false],
       mics: [false, false, false, false],

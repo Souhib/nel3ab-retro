@@ -23,7 +23,9 @@ import { Screen } from "../../front/src/components/Screen";
 import { SwitchTouchPad } from "../../front/src/components/SwitchTouchPad";
 import { TouchPad } from "../../front/src/components/TouchPad";
 import { usesProInput } from "../../front/src/lib/consoles";
-import { place } from "../../front/src/lib/fit";
+import { BarreSalle, BoutonSalle } from "../../front/src/components/BarreSalle";
+import { placeDe, useFenetre, useZonesSures } from "../../front/src/components/Cadre";
+import { MANETTES, miseEnPage, modeDuCadre } from "../../front/src/lib/cadre";
 import { BUTTON } from "../../front/src/media/pad";
 import { SwitchInput } from "../../front/src/media/switch";
 import { Touch } from "../../front/src/media/touch";
@@ -75,6 +77,30 @@ function Salle() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [space, setSpace] = useState({ width: 0, height: 0 });
   const [hidden, setHidden] = useState(false);
+  // La salle tenue en main, posée comme `App` la pose depuis le 23 novembre
+  // 2026 : le cadre (`lib/cadre`) donne l'écran, la barre, « La salle » et la
+  // boîte de la manette, zones sûres retranchées par le même témoin.
+  const fenetre = useFenetre();
+  const zonesSures = useZonesSures(fenetre);
+  const pro = usesProInput(code);
+  const geo = miseEnPage({
+    mode: modeDuCadre({
+      largeur: fenetre.width,
+      hauteur: fenetre.height,
+      grossier: true,
+      role: "joueur",
+    }),
+    fenetre,
+    zonesSures,
+    image: picture,
+    ajustement: "remplir",
+    etat: "vit",
+    role: "joueur",
+    manette: pro ? MANETTES.pro : MANETTES.dolphin,
+    largeurColonne: 304,
+    largeurPanneau: null,
+    agrandie: false,
+  });
   useEffect(() => {
     if (canvas.current) paint(canvas.current);
   }, []);
@@ -87,39 +113,62 @@ function Salle() {
       }),
     );
   }, [space]);
-  // La même expression que dans `App`, au caractère près.
-  const bar = Math.max(0, (space.width - place("remplir", picture, space).width) / 2);
   const tell = (what: string) => () => {
     gestures.push(what);
     if (what === "cacher") setHidden(true);
   };
+  const m = geo.manette;
+  const boite = m
+    ? {
+        bandes: m.grappes ? { left: m.grappes.g.w, right: m.grappes.d.w } : { left: 0, right: 0 },
+        gestes: geo.salleDansLaManette ? (["feuille"] as const) : ([] as const),
+        dansLesBandes: m.grappes !== null,
+        tete: geo.salleDansLaManette,
+      }
+    : undefined;
   return (
-    <div style={{ display: "flex", height: "100%" }}>
-      <main
-        style={{ position: "relative", display: "flex", minWidth: 0, flex: 1, flexDirection: "column" }}
-      >
-        <Screen canvasRef={canvas} connected fit="remplir" picture={picture} onSpace={setSpace} />
-        {hidden ? null : usesProInput(code) ? (
-          <SwitchTouchPad
-            source={source}
-            console={code}
-            bar={bar}
-            soundOff={muet}
-            onFeuille={tell("feuille")}
-            onMenu={tell("menu")}
-            onLeave={tell("cacher")}
-            onSound={tell("son")}
+    <div style={{ position: "relative", height: "100%" }}>
+      <main style={{ position: "absolute", inset: 0 }}>
+        <div
+          style={{
+            ...(geo.ecran ? placeDe(geo.ecran) : {}),
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Screen canvasRef={canvas} connected fit="remplir" picture={picture} onSpace={setSpace} />
+        </div>
+        {geo.barre ? (
+          <BarreSalle
+            rect={geo.barre}
+            nomSalle="Salle 1"
+            jeu="Le jeu"
+            sonCoupe={muet}
+            onSalle={tell("feuille")}
           />
-        ) : (
-          <TouchPad
-            bar={bar}
-            touch={touch}
-            soundOff={muet}
-            onFeuille={tell("feuille")}
-            onSound={tell("son")}
-            onLeave={tell("cacher")}
-            onMenu={tell("menu")}
+        ) : geo.boutonSalle ? (
+          <BoutonSalle
+            id="laSalleCote"
+            sonCoupe={muet}
+            onSalle={tell("feuille")}
+            style={placeDe(geo.boutonSalle)}
           />
+        ) : null}
+        {hidden || !m ? null : (
+          <div className="n3-manette-boite" style={placeDe(m.rect)}>
+            {pro ? (
+              <SwitchTouchPad
+                source={source}
+                console={code}
+                bar={0}
+                soundOff={muet}
+                onFeuille={tell("feuille")}
+                cadre={boite}
+              />
+            ) : (
+              <TouchPad bar={0} touch={touch} soundOff={muet} onFeuille={tell("feuille")} cadre={boite} />
+            )}
+          </div>
         )}
       </main>
     </div>

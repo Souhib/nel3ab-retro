@@ -94,6 +94,28 @@ export const ICONES_PIXEL = {
     "...#....#...",
     ".##########.",
   ],
+  // Le clavier de « Tes touches au clavier » (chantier salle, étape 6) :
+  // trois rangées de touches et une barre d'espace.
+  clavier: [
+    "############",
+    "#.#.#.#.#.##",
+    "############",
+    "##.#.#.#.#.#",
+    "############",
+    "###......###",
+    "############",
+  ],
+  // Chantier salle : un téléphone couché sous une flèche qui tourne, pour
+  // le conseil d'une salle tenue droite avec une vraie manette.
+  tourne: [
+    "...#####....",
+    "..#.....#...",
+    "..#....###..",
+    "............",
+    "############",
+    "#.........##",
+    "############",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconePixel = keyof typeof ICONES_PIXEL;

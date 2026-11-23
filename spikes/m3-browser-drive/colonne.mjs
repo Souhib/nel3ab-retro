@@ -184,8 +184,15 @@ try {
     side.style.width = avant;
     return { dehors, defile };
   }, largeur);
+  // Les deux contenus de la colonne: les mesures, ouvertes par la ligne du
+  // coin (`#mesures`), puis les rangs, « Autres réglages » déplié.
   for (const mode of ["details", "normal"]) {
-    await page.click(`#mode-${mode}`);
+    const ouvertes = await page.evaluate(() => document.querySelector("#mesures")?.getAttribute("aria-pressed") === "true");
+    if (ouvertes !== (mode === "details")) await page.click("#mesures");
+    await page.evaluate(() => {
+      const autres = document.querySelector("#autresReglages");
+      if (autres) autres.open = true;
+    });
     await new Promise((done) => setTimeout(done, 300));
     const juste = await sorties(MIN);
     assert.deepEqual(juste.dehors, [], `À ${MIN} px en mode ${mode}, sort de la colonne : ${juste.dehors.join(", ")}`);

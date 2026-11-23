@@ -28676,6 +28676,669 @@ une affirmation sur tout le code, pas seulement sur le code qu'on vient
 d'écrire. Elle se vérifie en cherchant chaque lecteur du dossier, anciens
 modules compris.
 
+### 23 novembre, le soir : le cadre de la salle, et rien sur l'image
+
+**Le contexte.** La proposition « Scotch et feutre » avait été refusée pour
+son thème, mais le propriétaire en gardait les remaniements d'écran. Le plus
+important tenait en une phrase : rien ne se pose sur l'image du jeu. Ce soir,
+sept choses s'y posaient encore ou lui prenaient de la hauteur : la pile des
+avis du haut (manette branchée, fermeture proche, clavier en pause), l'avis
+de l'image légère, les deux boutons de coin à 30 % d'une colonne repliée, la
+manette tactile, l'état de la liaison, la bande d'apprentissage d'une
+manette. Le chantier « salle » leur donne un emplacement autour de l'image.
+Ce premier passage pose les fondations ; les écrans eux-mêmes viennent
+ensuite.
+
+**Une fonction pure pour toute la salle.** `front/src/lib/cadre.ts` calcule
+où va chaque chose à partir de ce que la salle sait : la fenêtre, les zones
+sûres d'un téléphone (l'encoche, la barre d'accueil), la taille de l'image
+reçue, le réglage de la pose, l'état, le rôle. Elle ne tourne que quand une
+de ces entrées change, jamais à chaque image : la page ne doit rien faire de
+plus pendant qu'elle peint. Quatre modes : le bureau (souris, 900 px et
+plus), l'étroit (souris, moins de 900 px : l'image en haut, la colonne
+dessous), le portrait et le paysage (au doigt).
+
+**Le panneau de commande se décide sur la vraie pose.** Sur une borne, la
+planche sous l'écran porte les boutons START ; dans la salle, c'est là que
+les places iront. La maquette le posait sous l'image s'il restait 64 px
+libres sous une image qui remplit l'écran. C'est faux dès que l'image ne
+remplit pas : en « agrandissement entier » ou en « taille d'origine »,
+l'image est plus petite et laisse bien plus de place. La fonction calcule
+donc la pose deux fois, avec et sans le panneau, et ne le pose dessous que
+si l'image n'y perd rien. Un piège trouvé en chemin : un panneau de 88 px
+fixes ferait perdre un cran d'agrandissement à une image 640×480 dans une
+fenêtre de 1596×1030 (deux fois devient une fois). Le panneau prend donc la
+place libre, entre 64 et 88 px. Le balayage de l'essai passe 1024 à 1920 px
+de large, 640 à 1200 de haut, trois formats et quatre réglages : plus de
+mille cas de chaque côté de la frontière. Six mutants ont été vus rouges,
+dont la règle de la maquette elle-même.
+
+**Un arbitre pour la mascotte.** Cinq chantiers font jouer des scènes à la
+mascotte dans la salle. La fonction `jouer()` du socle coupe la scène en
+cours sans regarder qui la jouait : une panne et une arrivée au même instant
+se seraient coupées selon l'ordre d'affichage. `lib/scenes-salle.ts` donne
+un rang à chacun (les états d'abord, puis les menus, les personnes, les
+manettes, la salle), refuse une scène plus basse pendant une plus haute, et
+ne laisse parler que les états pendant une panne.
+
+**La garde de l'image.** Une nouvelle preuve, `just cadre-navigateur`, ouvre
+la page dans un vrai navigateur à sept tailles de bureau, effets au niveau
+« tout », et touche l'image à chaque image d'écran : une grille de 20 × 20
+points, plus le milieu de chaque élément dont la boîte coupe l'image. Une
+grille de 9 × 9, prévue au plan, laissait passer les boutons de coin, qui
+tenaient dans les 40 premiers pixels. La garde a trouvé un défaut que
+personne n'avait vu : la prise de la poignée qui règle la largeur de la
+colonne mordait de 4 px sur le bord droit de l'image, et son survol la
+teintait. Contre la page d'avant (03b21c0), elle échoue sur ce qu'il faut :
+l'avis de fermeture et celui du clavier sur l'image, « montrer (Ctrl) » sur
+l'image agrandie, la poignée.
+
+**Ce qui a résisté : l'avis qui naît d'un clic.** Les avis sont partis vers
+une bande noire où ils tiennent entiers, sinon vers la tête de la colonne.
+Trois preuves existantes sont alors devenues rouges. L'avis « le jeu ne
+reçoit plus tes touches » apparaît au moment même où un clic dans la colonne
+prend le focus à l'image : il naissait en tête de colonne pendant le clic,
+poussait le bouton pressé vers le bas, et le relâchement tombait sur le
+bouton d'à côté. Le poser au pied de la colonne, collé au bas de ce qui se
+voit, couvrait les derniers boutons : le bouton du menu a été cliqué à
+travers lui. La solution retenue : la tête de la colonne, collée en haut de
+ce qui se voit (une colonne qui défile jusqu'au rang focalisé laissait
+sinon l'avis hors de vue), une marge de défilement de sa hauteur, et un avis
+qui ne change pas pendant qu'un bouton de souris est enfoncé. Sans cette
+retenue, l'étape `clic-colonne` redevient rouge. La leçon : un élément qui
+apparaît à cause d'un geste ne doit pas déplacer la cible de ce geste.
+
+**Mesures.** Poids de la page de salle en brotli 11 : 235 700 octets sur le
+socle, 239 638 après ce passage, soit 3 938 pour la salle (son enveloppe est
+de 12 000). Les cinq preuves de la porte, la nouvelle et les contrôles rouges
+de `focus` et du cadre ont tourné vertes le 23 novembre sur cette machine.
+
+**Ce qui n'est pas prouvé.** La géométrie du portrait et du paysage est
+celle du cadre cible : elle est vérifiée par balayage, mais le téléphone
+garde encore son ancienne mise en page (le tiroir, la manette sur les
+bandes) jusqu'à l'étape 4. Les dimensions des manettes viennent des dessins
+de la maquette, pas encore de `lib/faces.ts`. Rien n'a été essayé sur un vrai
+téléphone. Le panneau de commande, la colonne nouvelle, la barre et la bande
+ne sont pas encore montés.
+
+### 23 novembre, la nuit : la colonne du bureau et le panneau de commande
+
+**Le contexte.** Le cadre de la salle savait déjà, par une fonction pure, où
+poser chaque chose. Ce passage monte au bureau ce que la fonction décrivait :
+la colonne nouvelle, son coin, et le panneau de commande sous l'image.
+
+**Ce qui a changé.** L'ancienne colonne (`Sidebar`) avait deux onglets,
+« essentiel » et « mesures », et montrait tout tout le temps. La nouvelle
+(`Colonne.tsx`) a un en-tête (le nom de la salle et « Quitter la salle », le
+logo gardé petit), un bloc d'état, un bloc de rôle qui dit qui tu es et, à
+qui regarde, offre « Prendre une place », puis des rangs nommés en clair :
+Signaler, Son, Menu du jeu, tes touches, Garder les 45 secondes, Agrandir
+l'image, Autres réglages. Un rang qui ne sert à rien dans un état disparaît
+au lieu d'être grisé. Les mesures s'ouvrent depuis la ligne du coin, au pied
+de la colonne, au-dessus de la place réservée à la mascotte. « Rendre ma
+place » et le micro sont rangés dans « Autres réglages ». Les places quittent
+la colonne pour le panneau de commande, sous l'image, quand l'image n'y perd
+rien ; sinon il reste au pied de la colonne.
+
+**Ce qui a résisté : un écran éteint qui couvrait les places.** Le panneau
+est le voisin du dessous de l'écran. Mais l'écran éteint d'une salle au repos,
+le chargement et la manette seule se posaient sur toute la zone de l'image
+(`inset-0`), et cette zone allait jusqu'en bas : ils auraient couvert les
+places. L'écran et tout ce qui le remplace vivent maintenant dans une boîte à
+eux, au-dessus du panneau.
+
+**Ce qui a résisté : les contrôles rouges.** Huit étapes de `focus.mjs`
+posaient le focus sur l'onglet « détails », qui n'existe plus. Les faire
+pointer sur la nouvelle ligne des mesures aurait cassé leurs contrôles
+rouges : contre les pages d'avant, l'étape se serait arrêtée faute de bouton,
+sur une précondition, au lieu de tomber sur son défaut. Elles prennent donc
+la ligne des mesures quand elle existe, et l'onglet sinon. La règle 4 du
+dépôt le demande : un défaut réintroduit doit laisser courir son essai.
+
+**Ce qui a résisté : « Plus bas » et un pli replié.** La première version
+de « Plus bas » était un bouton collé au bas de la colonne. La preuve des
+téléphones (`salle-telephone.mjs`) l'a trouvé posé sur les places et sur
+« Inviter quelqu'un » dans le tiroir : un doigt qui visait une place pouvait
+toucher « Plus bas ». C'est maintenant un repère sans prise, que le doigt
+traverse. La même preuve voyait aussi « Rendre ma place » posé sur la ligne
+des mesures. Ce n'était pas vrai : Chrome garde une boîte au contenu d'un
+`<details>` replié, sous son résumé, alors que rien n'en est rendu. La preuve
+ne compte plus ce contenu comme une cible, et déplie « Autres réglages »
+avant de toucher « Rendre ma place », comme elle ouvre le tiroir.
+
+**Les preuves.** Trois étapes nouvelles de `cadre.mjs` : `meuble-place`
+(sept tailles de bureau ; sous l'image, le panneau ne la touche pas, a toute
+la largeur et la hauteur que le cadre lui donne, et l'image a la taille
+calculée ; le balayage doit montrer les deux formes), `une-fois` (Quitter, le
+bloc de rôle, chaque place et la ligne des mesures une seule fois, aucun
+identifiant en double, plus d'onglets) et `un-plein` (au plus un bouton plein
+pour le joueur, exactement un pour le spectateur). Les deux premières
+tombent sur leur défaut contre la page de la fin du passage précédent
+(0fef99e). Une étape nouvelle de `focus.mjs`, `colonne-deborde` : à
+1280×720, Tab passe sur chaque arrêt de la colonne et chacun se voit en
+entier. Son jumeau tourne dans la même page : avec la marge de défilement du
+bas remise à 0, au moins un arrêt passe sous « Plus bas ». Sans lui, une
+colonne qui ne déborde pas aurait rendu l'étape verte pour rien.
+
+**Mesures.** Poids de la page en brotli 11 : 243 207 octets, soit 3 569 de
+plus que la fin du passage précédent et 7 507 pour la salle depuis le socle
+(son enveloppe est de 12 000). Mesuré le 23 novembre.
+
+**Ce qui n'est pas prouvé.** Les prises de `Seats` sont serrées dans les 64
+à 88 px du panneau : leurs noms se coupent. C'est provisoire, jusqu'aux
+places START 1P à 4P du chantier personnes. La ligne du coin dit seulement
+« Mesures de la liaison » : l'état en clair viendra des chantiers personnes
+et etats. Le rang « Ta manette » ouvre encore l'onglet manette du réglage,
+pas la vue légère de l'étape 6. Au téléphone, la colonne garde le tiroir
+jusqu'à l'étape 4. Rien n'a été essayé sur un vrai écran par quelqu'un.
+
+### 23 novembre, tard : une salle au repos n'ouvre plus rien
+
+**Le contexte.** Jusqu'ici, une salle sans jeu ouvrait son menu toute seule,
+à tout le monde, et l'écran restait caché dessous. Quelqu'un qui entrait
+pour regarder tombait sur un menu où il ne pouvait rien lancer.
+
+**Ce qui a changé.** Rien ne s'ouvre. L'écran éteint, noir dans les deux
+thèmes, dit « Pas encore de jeu. ». Celui qui choisit le jeu a le focus sur
+« Choisir un jeu », le seul bouton plein de la vue ; Entrée ouvre le menu.
+Les autres lisent « Bo choisit le jeu. Tu le verras démarrer ici. ». La
+colonne ne répète plus la phrase de qui choisit : l'écran la dit déjà. Sous
+le texte, le plateau accueille la mascotte, qui joue sa scène d'attente
+trois fois au plus (à 2,5 s, 8,5 s et 14,5 s) et s'arrête au premier geste
+ou quand l'onglet se cache. Elle passe par l'arbitre de la salle, qui la
+refuse pendant une panne ou une scène plus importante. Le spectateur lit
+enfin quelle place il prendra : « Prendre la place 4 ». Le plan voulait que
+ce bouton prenne cette place-là ; il garde le geste poli d'avant, la
+première place libre, pour ne jamais déloger quelqu'un qui l'aurait prise
+une seconde plus tôt.
+
+**Ce qui a résisté : la zone de jeu prenait le focus d'entrée.** La page
+donne le focus à la zone de jeu dès l'entrée, pour qu'on joue au clavier
+sans cliquer. Elle le fait avant que la salle ait dit qu'elle n'a pas de
+jeu. L'écran éteint, monté ensuite, voyait un focus déjà pris et le
+laissait : la première version de l'étape `repos-sans-menu` l'a trouvé sur
+la zone. Sans jeu, la zone n'envoie rien ; l'écran éteint la compte donc
+comme un focus libre, et la page ne la focalise plus quand elle sait déjà
+la salle au repos.
+
+**Ce qui a résisté : la pièce qui tourne sans fin.** L'étape
+`repos-attention` attend, vingt secondes après l'entrée, qu'aucune animation
+ne tourne plus sur le plateau. Les animations de la scène s'arrêtent bien.
+Mais la mascotte provisoire du socle, une pièce, garde son image qui tourne
+en boucle après la scène (son attribut `data-tourne` reste posé). C'est le
+défaut que K15 annonçait. L'étape sépare donc les deux familles : une
+animation de scène encore vivante est une faute ; l'image de la pièce est
+une exception nommée, écrite dans le journal de l'étape, à lever avec la
+mascotte définitive.
+
+**Les preuves.** `cadre.mjs` : `repos-sans-menu` (pour qui choisit, aucun
+dialogue ouvert après 3 s, le focus sur « Choisir un jeu », Entrée ouvre le
+menu ; pour les autres, pas de bouton, et « choisit le jeu » comme « Pas
+encore de jeu » rendus une seule fois), rouge contre la page de l'étape
+précédente (3cada57), qui ouvrait encore son menu ; `repos-attention`, avec
+son jumeau : la scène doit d'abord être vue jouer. `parcours.mjs` :
+`spectateur-prendre`, la place annoncée est celle obtenue. La salle pleine
+(aucun bouton) est vérifiée dans `Colonne.test.tsx`, le banc ne sachant pas
+tenir les quatre places.
+
+**Mesures.** Poids de la page en brotli 11 : 243 505 octets, soit 7 805 pour
+la salle depuis le socle (enveloppe 12 000). L'écran éteint n'importe plus
+Bobine ni sa console dessinée.
+
+**Ce qui n'est pas prouvé.** La mascotte n'est pas encore la vraie : la
+scène d'attente joue la pièce provisoire. Le rayonnage de jeux du chantier
+menus n'est pas encore posé sur l'écran éteint (K23) ; quand il le sera, le
+focus d'entrée ira à sa première cartouche. Au téléphone, l'écran éteint est
+le même, mais la barre et la bande attendent l'étape 4.
+
+### 23 novembre, encore : la vue des touches, lue dans le produit
+
+**Le contexte.** La carte « Tu joues au clavier » était un pli dans la
+colonne : la liste des touches, sans rien qui dise si elles partaient. Et
+rien ne disait ce que presse chaque bouton d'une vraie manette. Le
+11 septembre, l'essai attendait le même code faux que l'aide, et le X de la
+page arrivait Y dans chaque jeu ; une aide qui recopie une table refait ce
+piège.
+
+**Ce qui a changé.** La colonne a une vue, « Tes touches au clavier » ou
+« Ta manette Xbox », qui prend la place des rangs comme les mesures. Une
+ligne par commande : la touche, une flèche, ce que la console reçoit. À la
+première visite au clavier, la colonne s'ouvre dessus ; « Revenir » ramène
+les rangs, et la visite suivante commence sur eux. Pour la manette, la vue
+ne tient aucune table : pour chaque bouton, elle fabrique une manette
+simulée où seul ce bouton est pressé et la fait lire par la fonction que la
+page appelle vraiment pour jouer (`readPad` pour la GameCube et la Wii,
+`readSwitch` avec le profil de la salle pour la Switch et la Xbox 360). RB
+presse Z dans une salle GameCube, Back n'y presse rien, et la ligne le dit.
+
+**Quand une ligne s'allume.** Une case se coche quand la trame envoyée porte
+la commande, que la salle a répondu depuis moins de deux secondes (l'écho
+part chaque seconde : un seuil d'une seconde ferait clignoter la case), et,
+au clavier, que le focus est dans l'image. La case dit « envoyée », jamais
+« reçue » : la salle ne renvoie pas d'accusé par bouton.
+
+**Ce qui a résisté : l'instantané lu deux fois par seconde.** React reçoit
+l'état de la page deux fois par seconde. Un appui de 150 ms tombe le plus
+souvent entre deux relevés : la case ne se serait presque jamais cochée. La
+vue relit donc la boucle d'entrée toutes les 50 ms, seulement tant qu'elle
+est ouverte, et ne redessine que si une ligne change. Ce n'est pas le chemin
+de l'image.
+
+**Ce qui a résisté : un mutant qui passait.** Le premier jumeau négatif de
+l'étape `touches-cochees` met le focus sur « Revenir », tape X et C, et
+exige qu'aucune case ne se coche. Il passait aussi contre une page qui
+ignore le focus dans la vue. Ce n'est pas un hasard : hors de l'image, la
+boucle d'entrée n'envoie pas la touche, donc la trame ne la porte pas, et la
+garde de la vue n'a rien à refuser. Les deux gardes se cachent l'une
+l'autre. Chacune a maintenant son essai : la garde de la vue dans
+`VueTouches.test.tsx` (rouge quand on la retire), celle de la boucle par le
+jumeau du navigateur, devenu une faute nommée « X ou C sur Revenir est
+parti au jeu » au lieu d'une précondition, et vu rouge contre une page dont
+la boucle laisse passer les touches.
+
+**Ce qui n'est pas prouvé.** Les lignes des sticks, et toute la trame de la
+Switch et de la Xbox 360, n'ont pas de case : l'instantané ne dit pas leur
+activité. C'est le chantier manettes qui l'ajoutera (il possède
+`media/input.ts`). D'ici là, la scène « fier », qui attend que chaque ligne
+ait été vue, ne joue jamais. Aucun essai sur une vraie manette branchée :
+le banc simule une manette standard.
+
+**Les preuves.** `verification.test.ts` (18 essais : RB vers Z, Back vers
+rien, l'indice 2 vers X et jamais Y, un appareil réglé suivi, une manette
+inconnue dite par numéros), `VueTouches.test.tsx` (8 essais), `focus.mjs` :
+`touches-cochees`, `agrandir-ctrl` (Ctrl agrandit, Échap ouvre le menu sans
+rétrécir l'image, F dans une salle Switch envoie R et n'agrandit rien),
+`premiere-visite` et `carte-wii` lisant la vue. Poids de la page en
+brotli 11 : 245 157 octets, soit 9 457 pour la salle depuis le socle
+(enveloppe 12 000).
+
+### 23 novembre, encore plus tard : la borne autour de l'image
+
+**Le contexte.** Le thème rétro voulait une borne d'arcade : une enseigne
+au-dessus de l'écran, des flancs décorés, un crédit. La règle de la salle
+ne bouge pas : rien sur l'image, et l'image ne rapetisse pour aucun décor.
+
+**Ce qui a changé.** Quatre effets, chacun dans une bande. Le fronton dit le
+nom du jeu en capitales dans la bande noire du haut, quand elle fait 40 px ou
+plus ; son bas, mire comprise, reste à 2 px au moins de l'image. Il laisse la
+bande à un avis le temps de l'avis. L'en-tête de la colonne ne dit le jeu
+que s'il n'y a pas de fronton : une chose une fois. Les flancs de borne
+(niveau « tout ») remplissent les bandes latérales de 72 px ou plus. Le
+crédit dit « PLACES LIBRES 2 » au bout du panneau de commande. La trame est
+le fond de la zone de jeu ; la toile a son propre fond noir, pour que la
+trame ne se voie jamais dans le rectangle de l'image avant la première
+image. Le temps de jeu est écrit mais ne s'affiche pas : la salle ne dit
+pas encore quand le jeu a été lancé, et un temps compté depuis l'arrivée de
+la page mentirait à qui arrive en cours de partie.
+
+**Ce qui a résisté : le fronton qui poussait l'image.** La première version
+mettait le fronton en position absolue dans `cadre.css`. La classe du socle,
+`.rt-fronton`, le met en position relative, et sa feuille vient après : le
+fronton entrait dans le flux, sous l'écran. L'étape `fronton-bande` l'a vu,
+son bas à 681 px pour une image qui commence à 48. Les deux classes ensemble
+l'emportent maintenant.
+
+**Ce qui a résisté : une toile sans taille.** Une fois sur deux passages, à
+1920×1080, la toile n'avait pas encore de taille au moment de la mesure, et
+l'étape lisait 540 px de bande sans fronton. Une toile sans taille est
+maintenant une précondition, attendue trois secondes, et pas un verdict.
+
+**Les preuves.** `cadre.mjs` : `fronton-bande` (neuf tailles, les deux cas
+exigés), `credit-compte` (une seconde page entre, le crédit passe de 3 à 2),
+`tramage-hors-image` et `borne-bandes` (l'image a la même largeur avec et
+sans l'effet). Les quatre sont rouges sur leur défaut contre la page de
+l'étape 6 (2cb36ba) ; les jumeaux des balayages passent après le verdict,
+sans quoi une page sans effet tombait sur une précondition. La règle de la
+première image (K06) est une fonction pure, `premiereImage`, dont le mutant
+« tout retour à vit joue » est vu rouge. Poids après les corrections de la
+porte : 246 074 octets en brotli, soit 10 374 pour la salle depuis le socle
+(enveloppe 12 000).
+
+**Ce qui a résisté, à la porte : les flancs dans le flux, et une boucle.**
+La porte complète, lancée après le commit, a trouvé trois choses que les
+étapes de l'effet ne voyaient pas. La classe du socle `.fx-borne .rt-cote`
+pose les flancs en position relative, plus fort que notre position absolue :
+à 1920×1080, la seule taille où les bandes font 72 px, les flancs entraient
+dans le flux sous l'écran, prenaient sa hauteur, et la zone mesurée
+oscillait (une toile sans taille, un clic impossible dans `rien-sur-image`).
+`borne-bandes` comparait seulement la largeur de l'image, qui ne bougeait
+pas ; elle lit maintenant la position des flancs, la hauteur de l'image et
+celle de la zone, et elle est vue rouge contre la page fautive. Ensuite,
+`salle-telephone` a vu une fois « Maximum update depth exceeded » : l'en-tête
+de la colonne perdait sa ligne de jeu selon l'image mesurée, ce qui peut
+boucler. La décision se prend maintenant sur la géométrie du cadre, qui ne
+dépend d'aucune mesure. Enfin, la vue des touches de la première visite
+prend la place des rangs : les pilotes dont l'étape ne parle pas de cette
+visite (`focus.mjs`, `etats.mjs`, `parcours.mjs`, `cadre.mjs`) partent d'une
+vue déjà lue ; `premiere-visite`, `touches-cochees`, `carte-wii` et
+`aides-manette` gardent un stockage vierge. Une étape de `salle-telephone`
+(« colonne repliée », la feuille qui ne s'ouvre pas) a aussi échoué une fois
+contre la page du passage précédent : un défaut intermittent plus ancien,
+vert ensuite trois fois seule et une fois dans la porte entière, à revoir
+avec la feuille de l'étape 4.
+
+**Ce qui n'est pas prouvé.** Le crédit d'une salle fermée n'est vérifié que
+dans `Credit.test.tsx`, le banc ne fermant pas la salle sous la page. Aucun
+de ces décors n'a été vu sur un vrai écran par le propriétaire.
+
+### 23 novembre, la nuit encore : la salle tenue en main
+
+**Le contexte.** Au téléphone, la manette tactile se posait par-dessus
+l'écran : rangée dans les bandes noires quand il y en avait, sur l'image
+sinon. Une feuille du bas, ouverte par « ••• », portait le son et le menu ;
+un tiroir, ouvert depuis elle, portait la colonne. Deux couches pour une même
+salle, et un signe sans nom posé sur l'image.
+
+**Ce qui a changé.** Tenue en main (au doigt, ou pour une manette seule),
+chaque pièce de la salle se pose où le cadre la met, en pixels, déjà hors des
+zones sûres : une barre en haut (le nom de la salle, le jeu, et « La salle »),
+l'écran, le panneau de commande, une bande, et la manette dans sa propre
+boîte, sous l'image tenue droite ou en deux grappes sur les côtés en
+travers. La feuille du bas et le tiroir ne font plus qu'une feuille
+« La salle », à deux hauteurs : à mi-hauteur les gestes de la partie (son,
+menu du jeu, cacher la manette, plein écran), sans assombrir le fond et sans
+toucher l'image ; « Toute la salle » l'agrandit et y pose la colonne
+entière. À la souris, une fenêtre de moins de 900 px pose la colonne sous
+l'image, sans tiroir. Une page « manette seule » dit sa place et si les
+touches arrivent, au lieu de capitales espacées.
+
+**Ce qui a résisté : la maquette ne tenait pas la vraie manette.** Le cadre
+gardait les dimensions de la maquette du 22 novembre : des grappes de 128 px
+en travers, une boîte de 390 × 272 tenue droite. Une sonde a posé la vraie
+manette (`placePad`) dans ces boîtes : à 844 × 390, B, Z et le geste
+tombaient sur l'image ; à 375 × 667, la croix de la manette Pro recouvrait
+son stick droit. Les quatre boutons d'une GameCube font 148 px au plancher de
+44 px par touche ; avec 4 px de marge de chaque côté, il faut 156 px. Le
+cadre ne recopie donc plus de mesure : `encombrement` (dans `lib/faces`)
+cherche dans la pose elle-même la plus petite hauteur tenue droite et la plus
+petite bande en travers. Une GameCube à 844 × 390 garde 380 des 390 px de
+haut, pas les 390 promis par la maquette.
+
+**Ce qui a résisté : la manette Pro trop haute pour sa bande.** Sous 348 px
+de haut, la pose plaçait le stick droit de la manette Pro À CÔTÉ de ses
+quatre boutons, et demandait 308 px de chaque côté au lieu de 140. C'est le
+cas d'un iPhone 12 mini tenu en travers : 375 px, moins la barre d'accueil
+de 21 px et une marge de 4 px, il en reste 350, et avec une marge de plus,
+346. La pose sait maintenant tenir chaque pièce dans sa bande en rétrécissant
+ses sticks, et les grappes descendent jusqu'au bas de la zone sûre : la pose
+garde déjà 12 px de marge en dedans.
+
+**Ce qui a résisté, au navigateur.** `salle-telephone` a trouvé quatre
+choses que les essais sans navigateur ne voyaient pas. La boîte de la
+manette, posée sur toute la largeur en travers, prenait l'appui de
+« La salle » dans la barre d'une tablette : elle laisse maintenant passer les
+appuis, seules ses touches les reçoivent. Les places étaient montées deux
+fois, sous l'image et dans la colonne de la feuille : les pilotes trouvaient
+la mauvaise. Les prises des places se réglaient sur la largeur du panneau :
+une prise de 180 px de large en faisait 210 de haut sur une tablette, et sa
+boîte passait sous L et START. Enfin, la feuille à mi-hauteur devait faire
+300 px au moins, une valeur de la maquette ; à 375 × 667, elle montait alors
+de 13 px sur l'image. Mesurée dans Chrome, elle a besoin de 275 px (cinq
+entrées de 44 px sur deux colonnes, son en-tête, et la barre d'accueil d'un
+iPhone) : le plancher est maintenant de 276 px. Le détail des entrées ne se
+montre plus à mi-hauteur : avec lui, le son coupé faisait défiler la feuille.
+
+**Les preuves.** `faces.test.ts` vérifie que la hauteur et la largeur
+rendues tiennent la pose et que 4 px (ou 2 px) de moins ne la tiennent pas.
+`cadre.test.ts` pose la vraie manette dans la boîte du cadre à chaque taille
+essayée, avec et sans les zones sûres d'un iPhone, et rejoue les boîtes de la
+maquette, qui doivent mettre une touche sur l'image. `salle-telephone` et
+`manette-garde` ont été récrits pour la feuille unique ; chacun a un jumeau,
+une touche posée exprès sur l'image, que la garde doit voir.
+`manette-garde` mesure 0 px² sur l'image à sept tailles dans quatre salles.
+`cadre.mjs` a une étape `tenu-rien-sur-image`, rouge contre la page de
+l'étape 7 (cf3bba1), où la croix tombe sur l'image d'une tablette de
+768 × 1024. Poids : 246 511 octets en brotli.
+
+**Le spectateur.** Une page qui a choisi de regarder n'a plus de manette à
+l'écran : elle n'aurait rien à envoyer. C'est le choix qui compte, pas
+l'absence de place : à l'entrée, la place arrive après la première image, et
+une manette apparue ensuite déplaçait l'image d'un joueur (`parcours.mjs`
+l'a vu, la place lue dans la bande puis disparue). Tenue droite, sa bande dit « tu regardes » et porte
+« Prendre la place N » ; en travers, le panneau de commande est debout dans
+la bande gauche, les places l'une sous l'autre, et la bande droite porte le
+bouton. La colonne n'étant montée que dans la feuille agrandie, qui couvre
+la bande, le bouton n'est jamais là deux fois. `salle-telephone` le vérifie,
+avec son jumeau : une page qui tient une place n'a pas ce bouton.
+
+**Ce qui n'est pas prouvé.** Rien de tout cela n'a été tenu dans une vraie
+main : les pilotes émulent le toucher et les zones sûres dans Chrome. La
+manette « toujours » sur un grand écran à la souris se pose encore
+par-dessus l'écran, comme avant ; c'est un réglage choisi, et le seul cas où
+une touche peut encore toucher l'image. La bande et la bande droite en
+travers sont vides en dehors des avis : les phrases des autres chantiers
+(qui regarde, l'état de la liaison) n'y sont pas encore. La carte d'une
+demande de place se pose encore sur l'image, comme avant ; elle appartient
+au chantier des personnes.
+
+### 23 novembre, au bout de la nuit : ce que coûtent les effets
+
+**La question.** Le niveau « tout » des effets (fronton, flancs de borne,
+trame, mire) coûte-t-il des images à la salle ? Le plan demandait une mesure
+alternée : sobre, tout, sobre, tout, et pas deux phases à la suite, dont la
+seconde hériterait d'une machine plus chaude.
+
+**La mesure.** `just cadre-mesure` (étape `mesure-effets` de `cadre.mjs`) :
+la page committée sur le banc des parcours, son flux H.264 réel, à
+1440 × 900, une page neuve par phase, 5 s de mise en route, puis 60 s
+comptées. Le compteur d'images peintes de la page est daté à l'horloge du
+mur par une boucle d'images d'écran, et le niveau est relu sur la page
+(`data-effets`), pas seulement demandé. Deux séries de quatre phases, le
+23 novembre 2026 vers minuit :
+
+| Série | sobre | tout | sobre | tout |
+|---|---|---|---|---|
+| 1 | 60,0 img/s | 60,0 | 59,9 | 52,7 |
+| 2 | 59,5 | 60,0 | 60,0 | 60,0 |
+
+Le plus long écart entre deux images vaut environ 0,5 s dans chacune des
+huit phases, sobre comme tout : c'est la boucle du banc, un fichier de 3 s
+rejoué, et pas la page.
+
+**Ce qu'on en tire, et ce qu'on n'en tire pas.** Une seule phase sur quatre
+au niveau « tout » a perdu des images, et la série suivante ne l'a pas
+refait : aucun coût répétable ne se voit ici. Ce n'est pas une preuve que
+les effets ne coûtent rien. Chrome tournait sans écran, sur le processeur
+d'un ordinateur de bureau à douze cœurs, pas sur un téléphone. Et la
+machine n'était pas au repos : une autre session faisait tourner huit
+processus de rendu de Chrome au début de la première série, et des
+processus de rendu dont je n'ai pas établi le propriétaire tournaient
+encore à la fin. La baisse de la quatrième phase peut venir d'eux. C'est une
+tendance, pas une comparaison.
+
+**Corrigé à la relecture, le même jour : les deux bras ne mesuraient pas ce
+que la question disait.** La question nommait le fronton, les flancs de
+borne, la trame et la mire. Une sonde a relu, sur la page mesurée (celle de
+141c9a6) et au même format, les règles `.fx-*` qui trouvent un élément dans
+la salle, au niveau « sobre » puis au niveau « tout ». Une seule règle
+change : la police du texte (`texte-pixel`), qui passe en Pixelify Sans. Le
+fronton et la trame sont du niveau « sobre » aussi. À 1440 × 900, l'image
+4:3 du banc ne laisse ni bande de 40 px au-dessus d'elle ni bandes de 72 px
+sur les côtés : ni le fronton ni les flancs n'étaient montés, dans aucun
+bras. Les calques du niveau « tout » du socle (balayage partout, grille,
+scintillement), le curseur et le compteur ne sont pas montés dans la salle.
+Cette mesure ne dit donc rien du coût du fronton, des flancs, de la trame ni
+des calques du niveau « tout ». La leçon : avant de mesurer le coût d'un
+effet, compter dans chaque bras ce qui est réellement à l'écran. Suite dans
+l'entrée « 23 novembre, après la relecture : neuf défauts du chantier
+salle ».
+
+### 23 novembre, avant l'aube : une vraie manette se dit dans la bande
+
+**Le défaut.** Quand une vraie manette se branchait, la page posait un avis
+de cinq secondes. Au téléphone, il couvrait la gâchette L pendant ces cinq
+secondes (audit N1). Le premier passage l'avait sorti de l'image, dans la
+pile des avis ; il restait un objet posé à l'écran pour une information que
+la salle peut dire ailleurs.
+
+**Ce qui a changé.** Le branchement est dit une fois au lecteur d'écran, par
+une ligne invisible (`#controller-status`, classe `sr-only`) qui reste montée
+et dont seul le texte change. Au bureau, le rang « Ta manette Xbox » de la
+colonne dit déjà « à configurer » quand il le faut. Au téléphone, la bande
+dit « Ta manette Xbox joue à la place 1. », avec deux gestes : « Vérifier
+les boutons », qui ouvre la vue des touches dans la feuille agrandie, et les
+commandes tactiles, montrées ou cachées. En automatique, une vraie manette
+branchée efface les touches à l'écran, et elles reviennent quand la manette
+part. Tenu droit sans touches à l'écran, la bande conseille de tourner le
+téléphone, avec une icône en pixels : en travers, l'image prend toute la
+hauteur, et le panneau se tient debout dans la bande gauche.
+
+**La preuve.** Deux étapes de `cadre.mjs`, avec une manette Xbox simulée
+(`navigator.getGamepads` remplacé, comme dans `focus.mjs`).
+`manette-branchee` garde les touches à l'écran à 390 × 844 et touche le
+centre de L toutes les 100 ms pendant 6 s : contre la page d'avant le
+chantier (03b21c0), L est couverte par `#controller-status`.
+`manette-vraie` vérifie l'image entière, le conseil tenu droit et son
+absence en travers ; son jumeau débranche la manette et attend le retour des
+touches. Contre la page de la fin du passage précédent (acfa4c7), elle est
+rouge sur les touches restées à l'écran. `manette-branchee` touche aussi les
+deux gestes de la bande pour de vrai : un mutant d'`App.tsx` dont « Vérifier
+les boutons » n'ouvre plus la feuille agrandie, et dont le bouton des
+commandes tactiles ne fait rien, la rend rouge sur ces deux défauts.
+
+**Une option tuée par la mesure.** La feuille à mi-hauteur devait garder les
+45 dernières secondes à un toucher. Tenue droite, sa grille a deux colonnes,
+et une sixième entrée ne coûte aucune ligne. En travers, elle n'a qu'une
+colonne dans la bande gauche : `salle-telephone` a mesuré 458 px de contenu
+pour 390 de haut à 844 × 390, et « Toute la salle » sortait de la zone sûre.
+L'essai a pris une porte, une dizaine de minutes. En travers, le clip reste
+dans la salle entière, à deux touchers ; la règle est dans `lib/feuille.ts`,
+et l'étape `feuille-clip` vérifie les deux sens.
+
+**Un piège : simuler un état, c'est rejouer ce que le système envoie dans
+cet état.** Pour l'étape `vit-figee-immobile`, il fallait une image arrêtée
+sur le banc. Le premier essai retenait les messages de la socket vidéo : la
+page est passée à « injoignable », pas à « figée ». La page juge la salle
+vivante sur les octets qui arrivent, pas sur les images décodées. Une salle
+dont l'image s'arrête envoie toujours des messages vides, le signe de vie du
+worker. Le banc remplace donc chaque image par un message vide, et la page
+voit alors une image figée, puis vivante quand les images reprennent. Le
+cadre n'y bouge pas d'un demi-pixel.
+
+**Un jumeau qui ne passait pas par le contrôle.** Le premier jumeau de
+`vit-figee-immobile` décalait l'image d'un pixel par une marge et relisait
+sa boîte directement. L'image est centrée dans sa zone : la marge ne la
+déplaçait que d'un demi-pixel, et surtout la relecture ne passait pas par la
+surveillance qu'il devait éprouver. Le jumeau relance maintenant la même
+surveillance et décale l'image de deux pixels par une transformation ; elle
+le voit. La mascotte a le même genre de jumeau : une fausse mascotte posée
+sur l'image doit être vue par la sonde de `mascotte-hors-image`. Ni l'une ni
+l'autre étape n'a de page rouge : aucune page d'avant n'a le cadre qu'elles
+lisent.
+
+**Un petit piège de formatage.** `prettier` lancé sur `cadre.mjs` a réécrit
+819 lignes : ce pilote n'est pas formaté par lui. Le changement a été défait
+et refait à la main. Avant de formater un fichier, regarder quel outil le
+formate déjà.
+
+**L'ancre de l'annonce.** Le socle écrit ses annonces lettre à lettre dans
+un élément qu'on lui donne (`retro/lettres.ts`). La salle en pose un seul à
+la fois, `[data-ancre="annonce"]` (`ANCRE_ANNONCE` dans `lib/cadre.ts`), sur
+la ligne du titre : le fronton au bureau, sinon l'en-tête de la colonne ; la
+barre au téléphone, sinon la bande. En travers avec la manette tactile, il
+n'y a ni barre ni bande, donc pas d'ancre.
+
+**Les captures de nuit et de jour (étape 8).** `cadre.mjs --clair jour` ou
+`--clair nuit` règle la préférence du système. Deux passages, le
+23 novembre 2026, ont pris 54 captures aux tailles des preuves (sept
+bureaux, téléphone droit et en travers, tablette). Elles restent hors du
+dépôt. Relues : les deux régies diffèrent bien, et les deux gestes de la
+bande se lisaient comme du texte ; ils ont pris la boîte et l'ombre des
+boutons du socle. Les prises des places restent recouvertes en partie par le
+micro et la couronne, en attendant les places du chantier personnes.
+
+**Le poids.** 246 764 octets en brotli : la salle en utilise 11 064 sur ses
+12 000.
+
+### 23 novembre, après la relecture : neuf défauts du chantier salle
+
+**Ce qui s'est passé.** Une relecture indépendante du chantier salle a
+relevé neuf défauts importants. Chacun a été reproduit avant d'être
+corrigé, et chaque correction a d'abord été vue rouge.
+
+**Une garde qui ne voyait pas ce qu'elle devait voir.** La garde de l'image
+(`gardeDeLImage` dans `cadre.mjs`), offerte aux autres pilotes comme LA
+preuve de « rien sur l'image », cherchait les éléments par un test de
+touche : quel élément recevrait un clic à ce point ? Or un calque décoratif
+ne prend pas le pointeur (`pointer-events: none`) : la neige, un voile, la
+mascotte, le décor de borne. Une sonde a posé un voile noir à 50 % sur toute
+la fenêtre : la garde n'a rien vu. Son jumeau `garde-voit` posait un leurre
+qui prenait le pointeur, et ne pouvait donc pas rougir pour ce cas. La garde
+donne maintenant le pointeur, le temps d'un test, à chaque élément visible
+qui peint quelque chose et dont la boîte coupe l'image, en neuf points ;
+s'il revient au-dessus de l'image, il la couvre. Le premier essai a rougi
+`tenu-rien-sur-image` à tort : la boîte de la manette tenue en main prend
+toute la largeur, image comprise, mais ne peint rien ; seules ses touches,
+dans les bandes, se voient. Une boîte qui ne peint rien n'est plus une
+faute, et ses enfants sont jugés un par un. `garde-voit` pose trois jumeaux
+de plus : un leurre sans pointeur, le voile, et une boîte vide qui tient un
+enfant peint.
+
+**La mascotte sans maison.** Au téléphone sans barre (en travers, ou tenu
+droit sur un écran court), le cadre envoyait la mascotte dans « la barre »,
+mais seule la barre en portait l'hôte. L'arbitre ne trouvait rien et se
+taisait : aucune scène ne jouait. L'essai pur disait juste, la page non. Le
+bouton « La salle » posé seul en travers et celui posé parmi les touches
+portent maintenant une tête de 24 px, et `mascotte-hors-image` exige une
+scène vue à 844 × 390 et à 375 × 548.
+
+**Aucune exception pour la manette « toujours ».** À la souris, la manette
+à l'écran réglée sur « toujours » se posait encore sur l'image vivante :
+onze pièces à 1280 × 720. C'était classé « réglage choisi », mais la
+consigne du propriétaire n'en connaît pas. Le cadre lui réserve maintenant
+sa place, comme au doigt : une grappe de chaque côté de l'image, ou la pose
+tenue droite sous elle, et la plus grande image gagne. Le prix est payé par
+qui a choisi « toujours » : à 1440 × 900, l'image passe de 1136 × 852 à
+890 × 668 ; à 1280 × 720, de 960 × 720 à 650 × 488 ; à 820 × 900, de
+820 × 615 à 570 × 428. Rien ne la touche.
+
+**Une étape qui ne pouvait pas rougir.** `manette-branchee` touchait les
+deux gestes de la bande seulement s'ils existaient : une page sans eux
+restait verte. Leur absence est maintenant une faute (règle 4 du dépôt).
+
+**Une horloge neuve à chaque rendu.** `TempsDeJeu` prenait par défaut une
+fonction créée à chaque rendu, et elle était dans les dépendances de son
+effet. Branché dans la salle, qui se redessine deux fois par seconde, il
+aurait reposé son afficheur à chaque fois : la minuterie ne battait jamais.
+L'horloge par défaut est maintenant une seule fonction.
+
+**Deux effets promis et jamais branchés.** « Quitter la salle » joue
+maintenant la transition « sortir-salle » (K13) : une mosaïque, un fondu au
+niveau « sobre », rien en mouvement réduit, et l'image cachée avant le
+premier pas. Le ▶ du socle suit la colonne (en-jeu-clavier.5). Deux pièges
+en chemin. Caché, le ▶ n'a pas de taille : sa première pose le calculait à
+0 px de large et le posait sur sa cible. Et l'avis « le jeu ne reçoit plus
+tes touches », qui naît du même focus, poussait la colonne de 97 px et le
+laissait devant le vide. La colonne le repose à l'image suivante et après
+chaque rendu, et sa marge gauche passe de 12 à 20 px pour qu'il tienne.
+La feuille à mi-hauteur n'a pas de ▶ : sa grille de deux colonnes n'a que
+4 px entre deux entrées, et le ▶ couvrirait la voisine.
+
+**Un emplacement promis et absent.** Le contrat des emplacements disait que
+la manette acceptait un libellé pour « La salle » (« Lina · ta place », du
+chantier personnes), qui n'a pas le droit de modifier ces fichiers. Aucune
+ne l'acceptait. `libelleSalle` existe maintenant, et `BoutonSalle` prend le
+même libellé.
+
+**Un contrôle rouge qui dépendait d'une branche.** `cadre-navigateur-rouge`
+lisait cinq pages de référence dont les commits ne vivent que sur la branche
+du chantier. L'intégration refait ces commits : la branche supprimée, la
+recette serait tombée en erreur, et un contrôle rouge en erreur ne contrôle
+plus rien. Les cinq pages sont gardées dans `spikes/m3-browser-drive/rouges/`,
+chacune avec l'empreinte git de la page de son commit, vérifiée avant usage.
+Ce sont les mêmes objets que dans l'historique : la copie ne coûte rien au
+dépôt.
+
+**Une mesure qui mesurait autre chose.** Voir la correction de l'entrée « au
+bout de la nuit » : les deux bras ne différaient que par la police du texte.
+
+**Le poids.** 249 436 octets en brotli. La salle en utilise 13 736, au-delà
+de son enveloppe de 12 000. Les modules du socle pour les transitions
+(1 178 octets) et le ▶ (769) entrent ici dans la page pour la première fois ;
+le salon et les menus les liront aussi. Le reste de la page tient sous le
+plafond de 300 000. Le partage de ce coût revient au chef de chantier.
+
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -30280,3 +30943,48 @@ avant de servir une image, le décodage complet reste au worker.
 **nosniff** : en-tête HTTP (`X-Content-Type-Options: nosniff`) qui interdit au
 navigateur de deviner le type d'un fichier à partir de son contenu. Une image
 annoncée PNG n'est alors jamais lue comme une page.
+
+**Plateau** : dans la salle, l'écran noir quand il n'y a pas d'image (salle
+au repos, jeu qui démarre, arrivée, salle fermée), où la mascotte se tient en
+grand, posée sur le panneau de commande.
+
+**Garde de l'image** : la vérification de `cadre.mjs` qui touche l'image du
+jeu en des centaines de points à chaque image d'écran et exige de n'y
+trouver que l'image, sans voile ni déplacement.
+
+**Élément collant (sticky)** : un élément qui défile avec la page jusqu'à
+toucher un bord de la zone visible, puis y reste collé. Dans la colonne de la
+salle, la pile des avis est collée en haut et « Plus bas » en bas.
+
+**Arbitre des scènes** : le module qui décide quelle scène de la mascotte
+joue quand deux chantiers en demandent une au même endroit (`lib/scenes-salle.ts`).
+
+**Ancre de l'annonce** : l'élément où le socle écrit une annonce lettre à
+lettre. La salle n'en pose qu'un à la fois, sur la ligne du titre, jamais
+sur l'image.
+
+**sr-only** : une classe qui garde un texte pour le lecteur d'écran sans le
+peindre. La boîte fait un pixel et elle est découpée à zéro : elle ne
+couvre rien et ne reçoit aucun clic.
+
+**Marge de défilement (scroll-padding)** : la place qu'une zone qui défile
+garde libre sur un bord quand elle amène un élément en vue, pour qu'il ne
+passe pas sous un élément collant.
+
+**Salle tenue en main** : la salle au doigt ou pour une page « manette
+seule », tenue droite (portrait) ou en travers (paysage). Chaque pièce y est
+posée par le cadre en pixels, hors des zones sûres.
+
+**Grappe** : en travers, chacune des deux colonnes de touches aux bords de
+l'écran, de part et d'autre de l'image : à gauche les gâchettes de gauche, la
+croix et le stick, à droite le reste.
+
+**Encombrement** : la place qu'une manette tactile demande au cadre, lue
+dans sa pose réelle (`encombrement` dans `lib/faces`) : la hauteur de sa
+boîte tenue droite, la largeur de chaque grappe en travers.
+
+**Test de touche (hit test)** : la question que le navigateur se pose pour
+savoir quel élément recevrait un clic à un point donné
+(`elementFromPoint`). Un élément à `pointer-events: none` n'y répond
+jamais, même quand il est peint au-dessus de tout.
+

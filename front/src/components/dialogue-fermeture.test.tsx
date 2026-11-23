@@ -5,7 +5,8 @@
  * il le met en file (HTML, « queue an element task »). En développement,
  * React passe deux fois sur chaque effet: il ouvre le dialogue, le referme,
  * puis le rouvre. L'événement de la fermeture du milieu arrivait après la
- * réouverture, et fermait la feuille du bas qu'on venait d'ouvrir; le menu du
+ * réouverture, et fermait la feuille du bas qu'on venait d'ouvrir (devenue
+ * la feuille « La salle » le 23 novembre 2026); le menu du
  * jeu, lui, ne s'ouvrait jamais en développement (`salle-telephone.mjs`,
  * 22 novembre 2026). La page construite n'a pas ce double passage, d'où un
  * défaut invisible aux bancs qui servent la page construite.
@@ -16,9 +17,7 @@
 import { act, render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GardeSignalement } from "../lib/garde-signalement";
-import { FeuilleDuBas } from "./FeuilleDuBas";
-import { Tiroir } from "./Tiroir";
+import { FeuilleSalle } from "./FeuilleSalle";
 import { Xmb } from "./Xmb";
 
 const fermerTout = HTMLDialogElement.prototype.close;
@@ -36,20 +35,30 @@ afterEach(() => {
 /** Laisse passer la file des tâches, où attend l'événement `close`. */
 const fileVidee = () => act(() => new Promise((fini) => setTimeout(fini, 5)));
 
+const RECT = { x: 0, y: 300, w: 390, h: 544 };
 const feuille = (onFermer: () => void) => (
-  <FeuilleDuBas
-    titre="salle 1"
+  <FeuilleSalle
+    hauteur="mi"
+    rect={RECT}
+    titre="Salle 1"
     entrees={[{ id: "menu", titre: "Menu du jeu", detail: "", alerte: false }]}
     onEntree={vi.fn()}
     onFermer={onFermer}
-    garde={new GardeSignalement()}
-    onComplain={vi.fn(async () => {})}
-  />
+  >
+    {null}
+  </FeuilleSalle>
 );
-const tiroir = (onFermer: () => void) => (
-  <Tiroir onFermer={onFermer}>
+const agrandie = (onFermer: () => void) => (
+  <FeuilleSalle
+    hauteur="agrandie"
+    rect={RECT}
+    titre="Salle 1"
+    entrees={[]}
+    onEntree={vi.fn()}
+    onFermer={onFermer}
+  >
     <aside id="side" />
-  </Tiroir>
+  </FeuilleSalle>
 );
 const menu = (onFermer: () => void) => (
   <Xmb
@@ -60,8 +69,8 @@ const menu = (onFermer: () => void) => (
 );
 
 describe.each([
-  ["la feuille du bas", "#feuilleDuBas", feuille],
-  ["le tiroir", "#tiroir", tiroir],
+  ["la feuille à mi-hauteur", "#feuilleSalle", feuille],
+  ["la feuille agrandie", "#feuilleSalle", agrandie],
   ["le menu du jeu", "#menu", menu],
 ] as const)("%s", (_, selecteur, monter) => {
   it("reste ouvert après le double passage des effets", async () => {

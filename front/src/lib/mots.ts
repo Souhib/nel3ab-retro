@@ -59,6 +59,9 @@ export const PLACE = {
   rendre: "Rendre ma place",
 } as const;
 
+/** Le bouton du spectateur, qui dit quelle place il prendra. */
+export const prendreLaPlace = (numero: number): string => `Prendre la place ${numero}`;
+
 /** Les deux façons d'entrer dans une salle.
  *
  * L'accueil des salles disait « Rejoindre » et l'avant-salle « entrer et
@@ -373,3 +376,95 @@ export function fautes(texte: string, technique = false): Faute[] {
   if (texte.includes(CADRATIN)) noter({ mot: "tiret cadratin", raison: "une virgule ou un point" });
   return trouvees;
 }
+
+// ==== chantier salle ====
+
+/** Ce que la page « manette seule » dit de ses touches (`lib/manette-seule`).
+ * Rien n'est affirmé tant que rien n'est mesuré. */
+export const LATENCE = {
+  arrivent: "Tes touches arrivent.",
+  attend: "La page attend la réponse de la salle.",
+  lentes: (ms: number) => `Tes touches mettent ${ms} ms à arriver.`,
+} as const;
+
+/** L'image agrandie par Ctrl (`lib/fullscreen`) : la seule indication qui
+ * reste, posée trois secondes dans une bande noire, jamais sur l'image. */
+export const AGRANDIE = {
+  pastille: "Image agrandie : Ctrl pour revenir à la salle",
+  tactile: "Image agrandie",
+} as const;
+
+/** La colonne de la salle au bureau (`components/Colonne`) : des rangs
+ * nommés en clair, une chose une fois. Les onglets « essentiel » et
+ * « mesures » sont partis ; les mesures s'ouvrent depuis la ligne du coin. */
+export const COLONNE = {
+  rangs: "Commandes de la salle",
+  role: "Ton rôle",
+  regardent: "Ils regardent",
+  personne: "Personne pour l'instant.",
+  activerSon: "Activer le son",
+  menu: "Menu du jeu",
+  manette: "Ta manette",
+  agrandir: "Agrandir l'image",
+  autres: "Autres réglages",
+  plusBas: "Plus bas",
+  mesures: "Mesures de la liaison",
+  revenir: "Fermer",
+  panneau: "Les places",
+} as const;
+
+/** La vue des touches (`components/VueTouches`) : ce que chaque commande
+ * presse sur la console de la salle. La coche dit « envoyée », jamais
+ * « reçue » : la salle ne renvoie pas encore d'accusé par bouton. */
+export const TOUCHES = {
+  clavier: "Tes touches au clavier",
+  manette: (nom: string) => `Ta ${nom}`,
+  aConfigurer: "à configurer",
+  revenir: "Revenir",
+  changer: "Changer les touches",
+  horsJeu: "Clique sur l'image pour que tes touches aillent au jeu.",
+  legende: "Une case se coche quand la touche part au jeu.",
+  envoyee: "envoyée",
+} as const;
+
+/** Le crédit de la borne (`components/Credit`), en casse normale : les
+ * capitales viennent de la feuille. */
+export const CREDIT = {
+  placesLibres: (n: number) => `places libres ${n}`,
+} as const;
+
+/** Le temps de jeu (`components/TempsDeJeu`), dit en clair à côté de
+ * l'afficheur, qui est caché au lecteur d'écran. */
+export const TEMPS = {
+  lisible: (secondes: number) => `${Math.floor(Math.max(0, secondes) / 60)} min de jeu`,
+} as const;
+
+/** Le nom de la zone de jeu (`components/Screen`), et ce que les touches y
+ * font, au clavier seulement : Ctrl n'existe pas au doigt. */
+export const ZONE = {
+  nom: (jeu: string) => `${jeu}, l'image de la partie`,
+  sansJeu: "L'image de la partie",
+  aide: "Ctrl agrandit l'image, Échap ouvre le menu du jeu, Tab en sort.",
+} as const;
+
+/** L'écran éteint d'une salle sans jeu (`components/EcranEteint`). Il ne
+ * s'ouvre plus rien d'office : l'écran dit qu'il n'y a pas de jeu, et qui
+ * le choisit. */
+export const REPOS = {
+  titre: "Pas encore de jeu.",
+  choisir: "Choisir un jeu",
+  verras: "Tu le verras démarrer ici.",
+} as const;
+
+/** Une vraie manette dans une salle tenue en main (`ControllerStatus`) : la
+ * bande dit laquelle joue et où, au lieu d'un avis posé sur les touches
+ * (audit N1). « Manette » est l'objet qu'on tient ; les touches dessinées
+ * gardent leur nom (`TACTILE`). */
+export const BRANCHEE = {
+  joue: (nom: string, place: number) => `Ta ${nom} joue à la place ${place}.`,
+  verifier: "Vérifier les boutons",
+  tactile: `Les ${TACTILE}`,
+  tourne: "Tourne ton téléphone : l'image sera plus grande.",
+} as const;
+
+// ==== fin salle ====

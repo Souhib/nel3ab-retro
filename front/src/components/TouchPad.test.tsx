@@ -47,19 +47,21 @@ it("taper R tient R, et n'ouvre aucun geste de page", () => {
   fireEvent.pointerUp(r, { pointerId: 1 });
   expect(touch.reading()).toBeNull();
   expect(onFeuille).not.toHaveBeenCalled();
-  // Le jumeau: le « ••• » ouvre bien la feuille.
-  fireEvent.click(container.querySelector("#ouvrirFeuille") as HTMLElement);
+  // Le jumeau: « La salle » ouvre bien la feuille.
+  fireEvent.click(container.querySelector("#laSalleManette") as HTMLElement);
   expect(onFeuille).toHaveBeenCalledTimes(1);
 });
 
-it("un seul geste de page reste parmi les touches, le « ••• »", () => {
-  // Son, menu et cacher vivent dans la feuille du bas depuis le 22 novembre
-  // 2026. Un retour de l'un d'eux parmi les touches remettrait une cible de
-  // page sous les pouces.
+it("un seul geste de page peut rester parmi les touches, « La salle »", () => {
+  // Son, menu et cacher vivent dans la feuille depuis le 22 novembre 2026. Un
+  // retour de l'un d'eux parmi les touches remettrait une cible de page sous
+  // les pouces. Le « ••• » est devenu « La salle » le 23 novembre : son nom
+  // est dit, son signe est l'icône de la salle.
   const { container } = poser();
   const gestes = [...container.querySelectorAll<HTMLElement>("[data-geste]")];
   expect(gestes.map((one) => one.dataset.geste)).toEqual(["feuille"]);
-  expect(gestes[0]?.textContent).toBe("•••");
+  expect(gestes[0]?.getAttribute("aria-label")).toMatch(/La salle/);
+  expect(gestes[0]?.textContent).not.toContain("•••");
   for (const ancien of ["#wakeSound", "#showColumn", "#hideTouch"])
     expect(container.querySelector(ancien), ancien).toBeNull();
 });
@@ -96,9 +98,9 @@ it("la croix d'un seul bloc tient la direction du doigt, puis la lâche", () => 
   expect(touch.reading()).toBeNull();
 });
 
-it("le son coupé se voit sur le « ••• », et se dit dans son nom", () => {
+it("le son coupé se voit sur « La salle », et se dit dans son nom", () => {
   const { container } = poser();
-  const plus = container.querySelector("#ouvrirFeuille");
+  const plus = container.querySelector("#laSalleManette");
   expect(plus?.hasAttribute("data-alerte")).toBe(true);
   expect(plus?.getAttribute("aria-label")).toMatch(/^Son coupé\./);
 });
@@ -110,7 +112,7 @@ it("le son qui joue ne s'alerte pas", () => {
   const { container } = render(
     <TouchPad bar={0} touch={touch} soundOff={false} onFeuille={vi.fn()} />,
   );
-  const plus = container.querySelector("#ouvrirFeuille");
+  const plus = container.querySelector("#laSalleManette");
   expect(plus?.hasAttribute("data-alerte")).toBe(false);
   expect(plus?.getAttribute("aria-label")).not.toMatch(/coupé/);
 });
@@ -182,4 +184,64 @@ it("la croix se nomme une fois, et ses flèches dessinées restent muettes", () 
   expect(bras).toHaveLength(4);
   for (const one of bras)
     expect(one.getAttribute("aria-hidden"), one.textContent ?? "").toBe("true");
+});
+
+it("« La salle » parmi les touches dit le libellé qu'on lui passe, et rien sans lui", () => {
+  // L'emplacement promis au chantier personnes (« Lina · ta place ») : le
+  // texte du geste et son nom accessible. Le jumeau : sans libellé, le geste
+  // garde son icône seule et son nom de toujours.
+  const avec = render(
+    <TouchPad
+      bar={0}
+      touch={new Touch()}
+      soundOff={false}
+      onFeuille={vi.fn()}
+      libelleSalle="Lina · ta place"
+    />,
+  );
+  const geste = avec.container.querySelector("#laSalleManette") as HTMLElement;
+  expect(geste.textContent).toContain("Lina · ta place");
+  expect(geste.getAttribute("aria-label")).toMatch(/^Lina · ta place\. La salle/);
+  avec.unmount();
+  const sans = render(
+    <TouchPad bar={0} touch={new Touch()} soundOff={false} onFeuille={vi.fn()} />,
+  );
+  const nu = sans.container.querySelector("#laSalleManette") as HTMLElement;
+  expect(nu.textContent).toBe("");
+  expect(nu.getAttribute("aria-label")).toBe("La salle : son, menu, places");
+});
+
+it("tenue en main, « La salle » parmi les touches porte la tête de la mascotte, et pas à la souris", () => {
+  // Sans barre, `ouEstLaMascotte` rend « barre » : l'arbitre cherche
+  // [data-hote="barre"], et ne trouvait rien (relecture du 23 novembre 2026).
+  const cadre = (tete: boolean) => ({
+    bandes: { left: 0, right: 0 },
+    gestes: ["feuille"] as const,
+    dansLesBandes: false,
+    tete,
+  });
+  const tenue = render(
+    <TouchPad
+      bar={0}
+      touch={new Touch()}
+      soundOff={false}
+      onFeuille={vi.fn()}
+      cadre={cadre(true)}
+    />,
+  );
+  expect(tenue.container.querySelector('#laSalleManette [data-hote="barre"]')).not.toBeNull();
+  tenue.unmount();
+  // Le jumeau : à la souris, la mascotte joue dans le coin de la colonne, et
+  // « La salle » parmi les touches ne porte pas de tête.
+  const souris = render(
+    <TouchPad
+      bar={0}
+      touch={new Touch()}
+      soundOff={false}
+      onFeuille={vi.fn()}
+      cadre={cadre(false)}
+    />,
+  );
+  expect(souris.container.querySelector("#laSalleManette")).not.toBeNull();
+  expect(souris.container.querySelector('[data-hote="barre"]')).toBeNull();
 });

@@ -245,3 +245,20 @@
   outline: var(--focus-largeur) solid var(--focus);
   outline-offset: 2px;
 }
+/* La tête de la mascotte à côté de l'icône, le libellé dessous. */
+.n3-pave-geste[data-geste="feuille"][data-tete] {
+  grid-template-columns: auto auto;
+  column-gap: 2px;
+}
+/* Le libellé que le chantier personnes passe à « La salle » (« Lina · ta
+   place ») : une ligne sous l'icône, coupée dans la largeur de la pièce. Le
+   nom accessible le dit entier. */
+.n3-pave-geste-libelle {
+  grid-column: 1 / -1;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  font-size: var(--text-note);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

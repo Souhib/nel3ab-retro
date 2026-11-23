@@ -370,7 +370,6 @@ describe("un bouton commence par une majuscule", () => {
    * raccourcir: une entrée qui ne correspond plus à rien fait échouer l'essai.
    * Relevé le 22 novembre 2026. */
   const AVANT_LA_CHARTE = [
-    "App.tsx « montrer (Ctrl) »",
     "App.tsx « passer »",
     "components/Booting.tsx « ouvrir le menu »",
     "components/Booting.tsx « arrêter d&apos;attendre »",
@@ -385,7 +384,6 @@ describe("un bouton commence par une majuscule", () => {
     "components/Recovery.tsx « je suis là, garder »",
     "components/Recovery.tsx « lui passer »",
     "components/Recovery.tsx « fermer »",
-    "components/Sidebar.tsx « activer le son »",
     "components/Swap.tsx « la lui passer »",
     "components/Swap.tsx « garder »",
   ];
@@ -444,7 +442,7 @@ describe("le pli des mesures techniques", () => {
     ).toEqual([]);
     // Et il est vraiment monté quelque part: sinon la permission ne coûte rien.
     const montages = sources.filter(({ source }) => /<Instruments\b/.test(source));
-    expect(montages.map((m) => m.fichier)).toEqual(["components/Sidebar.tsx"]);
+    expect(montages.map((m) => m.fichier)).toEqual(["App.tsx"]);
   });
 });
 

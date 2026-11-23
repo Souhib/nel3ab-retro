@@ -1,129 +1,91 @@
 /**
- * La colonne à côté de l'image, ou dans un tiroir par-dessus.
+ * Où vit la colonne de la salle, et ce qui se monte par-dessus l'image.
  *
  * Sur un grand écran, la colonne vit à droite de l'image et se replie par Ctrl
  * (`fullscreen.ts`). Sur un téléphone, elle était repliée d'office et ses
- * fonctions n'existaient nulle part ailleurs: ni prendre une place précise, ni
- * demander celle d'un autre, ni signaler, ni le diagnostic, ni les spectateurs
- * (audit P5 et E2, 22 novembre 2026). Dépliée, elle prenait la moitié de la
- * largeur: une image de 195 px, START hors de l'écran, dix touches qui se
- * recouvraient (audit M6).
+ * fonctions n'existaient nulle part ailleurs (audit P5 et E2, 22 novembre
+ * 2026) ; dépliée, elle prenait la moitié de la largeur (audit M6). Elle est
+ * devenue un tiroir ce jour-là, à côté d'une feuille du bas : deux couches
+ * pour une même salle.
  *
- * Sous 900 px de large ou au doigt, la colonne devient donc un TIROIR posé
- * par-dessus l'image, qu'on ouvre quand on en a besoin et qu'on referme pour
- * jouer. Elle n'est jamais posée à côté de l'image d'un téléphone.
+ * Depuis le 23 novembre 2026, il n'y en a plus qu'une. Une salle tenue en
+ * main (`lib/cadre`, portrait et paysage) a sa feuille « La salle », à deux
+ * hauteurs : les gestes de la partie à mi-hauteur, toute la salle agrandie.
+ * Une fenêtre étroite à la souris pose la colonne sous l'image.
  *
- * # Pourquoi 900 px
- *
- * La colonne fait 304 px par défaut (`lib/column`). À 900 px de large, elle
- * laisse 596 px à l'image, les deux tiers de la fenêtre; en dessous, l'image
- * passe sous les deux tiers et la colonne la mange. C'est aussi le seuil que
- * l'audit mobile a proposé.
- *
- * # Pourquoi le pointeur grossier compte aussi
- *
- * Une tablette de 1024 px tenue en travers a la place d'une colonne, mais pas
- * celle d'une colonne ET de la manette à l'écran: les deux se disputaient les
- * bandes noires. Au doigt, le tiroir vaut à toutes les tailles.
+ * Le mode lui-même (bureau, étroit, tenu en main) se décide dans `lib/cadre`
+ * (`modeDuCadre`, `BUREAU_DES`), qui a repris le seuil de 900 px mesuré ici
+ * le 22 novembre 2026, et la règle du pointeur grossier : une tablette de
+ * 1024 px tenue en travers a la place d'une colonne, mais pas celle d'une
+ * colonne ET de la manette à l'écran.
  */
-import { useEffect, useState } from "react";
+/** Les deux hauteurs de la feuille « La salle » d'une salle tenue en main :
+ * à mi-hauteur les gestes de la partie, agrandie toute la salle (ce qui était
+ * le tiroir jusqu'au 23 novembre 2026). */
+export type HauteurFeuille = "mi" | "agrandie";
 
-export const TIROIR_SOUS = 900;
-
-/** Ce que le hook demande au navigateur. `- 0,02` pour que 899,5 px (un
- * zoom) compte encore comme étroit, sans attraper 900. */
-export const REQUETE_TIROIR = `(max-width: ${TIROIR_SOUS - 0.02}px), (pointer: coarse)`;
-
-/** Vrai quand la colonne doit être un tiroir. Suit la fenêtre: tourner une
- * tablette ou rétrécir une fenêtre change la forme sans recharger. */
-export function useEnTiroir(): boolean {
-  const [vrai, poser] = useState(() => lire());
-  useEffect(() => {
-    let requete: MediaQueryList;
-    try {
-      requete = window.matchMedia(REQUETE_TIROIR);
-    } catch {
-      return;
-    }
-    if (!requete) return;
-    const suivre = (event: { matches: boolean }) => poser(event.matches);
-    poser(requete.matches);
-    requete.addEventListener("change", suivre);
-    return () => requete.removeEventListener("change", suivre);
-  }, []);
-  return vrai;
-}
-
-function lire(): boolean {
-  try {
-    return window.matchMedia(REQUETE_TIROIR).matches;
-  } catch {
-    return false;
-  }
-}
-
-/** Ce que la salle sait au moment de poser ses couches par-dessus l'image. */
+/** Ce que la salle sait au moment de poser ses couches. */
 export type EtatDesCouches = {
-  /** La colonne est un tiroir (`useEnTiroir`). */
-  compact: boolean;
-  /** Le tiroir a été demandé. */
-  tiroir: boolean;
-  /** La feuille du bas est ouverte. */
-  feuille: boolean;
+  /** La salle est tenue en main : portrait ou paysage (`lib/cadre`). */
+  tenu: boolean;
+  /** Une fenêtre étroite à la souris : la colonne passe sous l'image. */
+  etroit: boolean;
+  /** La feuille « La salle », et sa hauteur, ou `null` fermée. */
+  feuille: HauteurFeuille | null;
   /** La manette à l'écran est voulue, et une session existe pour elle. */
   manette: boolean;
   /** Un écran couvre l'image (`voileSurImage`). */
   voile: boolean;
-  /** La colonne est repliée par Ctrl (grand écran seulement). */
+  /** La colonne est repliée par Ctrl (souris seulement). */
   bare: boolean;
 };
 
-/** Ce qui est monté: le tiroir, la manette à l'écran, le « ••• » seul, la
- * colonne. Une seule fonction, pour qu'aucune condition de montage ne lise
- * un état que les autres ont oublié. */
+/** Ce qui est monté : la manette à l'écran, et où vit la colonne. Une seule
+ * fonction, pour qu'aucune condition de montage ne lise un état que les
+ * autres ont oublié. */
 export type Couches = {
-  /** Le tiroir est VRAIMENT ouvert. */
-  tiroir: boolean;
   pave: boolean;
-  plusSeul: boolean;
-  colonne: "a-cote" | "tiroir" | null;
+  /** À côté de l'image (bureau), dessous (étroit), dans la feuille agrandie
+   * (tenu en main), ou nulle part (repliée, ou feuille fermée). */
+  colonne: "a-cote" | "dessous" | "feuille" | null;
 };
 
 export function couchesDeLaSalle(e: EtatDesCouches): Couches {
-  // `compact` d'abord: un tiroir demandé sur un grand écran (la manette à
-  // l'écran réglée sur « toujours », ou une fenêtre étroite agrandie tiroir
-  // ouvert) démontait la manette et n'ouvrait rien (relecture du 22 novembre
-  // 2026). Il ne restait qu'Échap au clavier.
-  const tiroir = e.compact && e.tiroir;
-  const pave = e.manette && !e.voile && !tiroir && !e.feuille;
-  // Le « ••• » seul reste monté sous la feuille, inerte sous le dialogue
-  // modal: le navigateur lui rend le focus à la fermeture (WCAG 2.4.3).
-  const plusSeul = e.compact && !(e.manette && !e.voile) && !tiroir;
-  const colonne = e.compact ? (tiroir ? "tiroir" : null) : e.bare ? null : "a-cote";
-  return { tiroir, pave, plusSeul, colonne };
+  // La manette n'est pas montée sous la feuille : le démontage relâche ce
+  // qu'un doigt tenait encore (audit M6). Sa PLACE reste réservée par le
+  // cadre, qui la compte qu'elle soit montée ou non : l'image ne bouge pas.
+  const pave = e.manette && !e.voile && e.feuille === null;
+  const colonne = e.tenu
+    ? e.feuille === "agrandie"
+      ? "feuille"
+      : null
+    : e.bare
+      ? null
+      : e.etroit
+        ? "dessous"
+        : "a-cote";
+  return { pave, colonne };
 }
 
-/** « La salle », depuis la feuille ou le menu: le tiroir quand la colonne en
- * est un, la colonne dépliée sinon. */
-export function ouvrirLaSalle(compact: boolean): { tiroir: true } | { bare: false } {
-  return compact ? { tiroir: true } : { bare: false };
+/** « La salle », depuis le menu ou le détail de la liaison : la feuille
+ * agrandie quand la salle est tenue en main, la colonne dépliée sinon. */
+export function ouvrirLaSalle(tenu: boolean): { feuille: "agrandie" } | { bare: false } {
+  return tenu ? { feuille: "agrandie" } : { bare: false };
 }
 
-/** Ce que Ctrl seule change quand la colonne est un tiroir. `null`: rien. */
+/** Ce que Ctrl seule change dans une salle tenue en main. `null` : rien. */
 export function apresCtrl(e: {
-  tiroir: boolean;
+  feuille: HauteurFeuille | null;
   menu: boolean;
-  feuille: boolean;
   /** Le réglage des touches est ouvert. */
   touches: boolean;
-}): { tiroir: boolean; menu: boolean; feuille: boolean } | null {
-  // Le réglage des touches lit le clavier, et un tiroir par-dessus le
+}): { feuille: HauteurFeuille | null; menu: boolean } | null {
+  // Le réglage des touches lit le clavier, et une feuille par-dessus le
   // rendrait inerte au milieu d'une capture.
   if (e.touches) return null;
-  // Le menu et la feuille se ferment: deux dialogues modaux empilés
-  // laissaient le bouton « menu » du tiroir sans effet (relecture du
-  // 22 novembre 2026).
-  return { tiroir: !e.tiroir, menu: false, feuille: false };
+  // Le menu se ferme : deux dialogues modaux empilés laissaient le bouton
+  // « menu » sans effet (relecture du 22 novembre 2026).
+  return { feuille: e.feuille === null ? "agrandie" : null, menu: false };
 }
 
 /** Un écran couvre-t-il toute l'image ? */
@@ -143,13 +105,13 @@ export function voileSurImage(e: {
   return e.repos || (!e.padOnly && (e.chargement || e.rideau));
 }
 
-/** Où rendre le focus quand la feuille ou le tiroir se ferme. */
+/** Où rendre le focus quand la feuille se ferme. */
 export function focusApresFermeture(e: {
   /** Le focus est retombé sur le document: ce qui l'avait a disparu. */
   perdu: boolean;
-  /** Un « ••• » est monté pour le reprendre. */
-  plus: boolean;
-}): "plus" | "jeu" | null {
+  /** Un bouton « La salle » est monté pour le reprendre. */
+  salle: boolean;
+}): "salle" | "jeu" | null {
   if (!e.perdu) return null;
-  return e.plus ? "plus" : "jeu";
+  return e.salle ? "salle" : "jeu";
 }

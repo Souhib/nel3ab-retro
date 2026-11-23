@@ -1058,6 +1058,18 @@ alone loads neither the engine module nor its card. The check does not see
 
 ### D28: Touch pad geometry is computed, not styled, 2026-11-22
 
+Amended on 2026-11-23 by D39 (step 4): a room held in hand gives the pad its
+own box outside the picture (under it upright, two side clusters sideways),
+sized from `placePad` itself (`encombrement`), and the page gesture is
+« La salle », placed among the keys only when the bar is missing. The
+overlay placement below survives only for a pad forced on at a fine pointer.
+Amended again the same day (D39, pass 6): it no longer survives. The owner's
+rule has no exception (nothing on a live picture), and a pad forced on at a
+fine pointer put eleven pieces on the picture at 1280×720. The frame now
+reserves its place at a fine pointer too: one cluster in a band on each side
+of the picture, or the upright pose under it, whichever leaves the larger
+picture (`manetteALaSouris`).
+
 The on-screen pads placed their groups with CSS: corner anchors, a centred flex
 row, and `bottom: 140px` for the Switch tool row. A phone-sized audit on
 2026-11-22 found page gestures on top of game keys: a tap on R or Z hid the pad
@@ -1408,6 +1420,12 @@ says what it does (`libelleJouer`), because the worker only reads its library at
 start-up.
 
 ### D35: On a phone or tablet, the room column is a drawer, and page gestures live in a bottom sheet, 2026-11-22
+
+Amended on 2026-11-23 by D39 (step 4): the drawer and the bottom sheet are
+one `FeuilleSalle` with two heights, opened by « La salle » in the room bar;
+the mode comes from `modeDuCadre` (`useEnTiroir` is gone), and a fine
+pointer below 900 px puts the column under the picture instead of in a
+drawer. The safe-area tokens are kept and subtracted by the frame.
 
 The mobile audit of 2026-11-22 found the column folded by default on phones. Its
 functions (seats, ask for a seat, report, link diagnosis, spectators, leave)
@@ -1794,6 +1812,245 @@ Decision:
   other order the room would read the `game-closed` marker the lobby set, and
   open on its menu.
 
+### D39: The room frame, and nothing on the picture, 2026-11-23
+
+Status: partly delivered on `chantier/retro-salle` (passes 1 to 5).
+Amends D28, D29 and D35 when the steps that change them land; until then
+those entries stay in force, except where this entry says otherwise.
+
+Until 2026-11-23, seven layers sat on the game picture or took height from
+it: the top-of-picture notice stack (controller plugged, room closing, keyboard
+paused), the reduced-picture notice, the 30 % corner buttons of a folded
+column, the touch pad (D28 allowed it onto the picture when the black bands
+were too narrow), the link state (D29 drew it on the picture's rectangle), and
+the controller-learning strip. The « Scotch et feutre » proposal kept the
+picture clear by giving every one of them a place around it; the owner kept
+that reorganisation and dropped its theme (D37).
+
+Decision:
+
+- **The picture is the only occupant of its rectangle.** Nothing is drawn on
+  it, nothing veils it (no opacity, filter or transform on `#screen` or an
+  ancestor), nothing moves it during play. One exception may be admitted for
+  the link-state work (D40): a still picture may be darkened, lifted on the
+  first new frame; a cut connection may show snow instead of the picture.
+  Never anything on a live picture, and no layer, cursor or mascot inside
+  `[data-zone-jeu]`.
+- **One pure function lays the room out.** `front/src/lib/cadre.ts`
+  `miseEnPage` returns the whole geometry (screen, posed picture, control
+  panel, column, bar, band, touch pad, top band, side bands, phone sheet) from
+  what the room knows. It recomputes on a resize, a picture size (the 2 Hz
+  snapshot), a setting or a state, never per frame. Four modes: desk (fine
+  pointer, 900 px and wider, the threshold of D35 kept rather than the
+  mock-up's 760), narrow (fine pointer below 900: picture on top, column
+  below, no drawer), portrait and landscape (coarse pointer or pad-only).
+- **The control panel goes under the picture only if the real pose is
+  unchanged.** The panel (START places, credit, play time) is 64 to 88 px
+  high. It sits under the picture when `lib/fit.place` gives the same size,
+  smoothing and integer step with and without it; otherwise it goes to the
+  foot of the column. The mock-up's rule, « 64 px free under a picture that
+  fills », is wrong for the integer and original sizes, and a fixed 88 px
+  panel loses an integer step (640×480 in 1596×1030). Both cases are tests.
+- **Nine frame states**, derived from the link state, the page's own launch
+  and the room's game by an exhaustive switch: live, still, cut, unreachable,
+  restarting, idle, starting, connecting, closed. The root carries them as
+  `data-etat`, with `data-mode`, `data-role`, `data-panneau`,
+  `data-sans-image`, `data-agrandie`, and the geometry as
+  `--cadre-<name>-{gauche,haut,largeur,hauteur}` CSS variables.
+- **Notices leave the picture.** The notice stack (`#avisDuCadre`) goes to a
+  black band where it fits whole, otherwise to the head of the column, stuck
+  to the top of what is visible, otherwise into the flow above the screen
+  (`lieuDesAvis`). The corner buttons of a folded column are gone; an
+  enlarged picture shows « Image agrandie : Ctrl pour revenir à la salle »
+  for three seconds in a black band, or nothing.
+- **The desk column names its rows.** `components/Colonne.tsx` replaces
+  `Sidebar`: a head (room name and « Quitter la salle », the logo kept small
+  per K26), the state block (D40's track), the role block (`#seat`, with
+  « Prendre une place » for a spectator), what the people track fills, the
+  control panel when it has no room under the picture, then the rows of
+  `rangsDeLaColonne` (report, sound, game menu, keys or controller, keep the
+  last 45 seconds, enlarge, other settings). The « essentiel » and
+  « mesures » tabs are gone: the measures open from the status line of the
+  column corner (`Coin.tsx`, `#mesures`), which also hosts the mascot under
+  the line. A row that does nothing in a state is absent rather than greyed.
+  The column scrolls by itself with a 60 px bottom scroll padding, and a
+  sticky « Plus bas » says that more is hidden.
+- **An idle room opens nothing by itself.** Until 2026-11-23 a room without
+  a game opened its menu for everyone and hid the screen under it. The idle
+  screen (`EcranEteint.tsx`, still `#idle-room`) now says « Pas encore de
+  jeu. »; whoever chooses the game gets the focus on « Choisir un jeu », the
+  only filled button in view, and the others read who chooses. The menu
+  stays one gesture away (Escape, or « Menu du jeu » in the column, K23).
+  The stage under the text hosts the mascot's waiting scene three times at
+  most, stopped by the first gesture or a hidden tab. A spectator's button
+  names the place it will get (« Prendre la place 4 »), and stays polite: it
+  asks for the first free place rather than taking that one by force.
+- **One mascot place at a time, one arbiter.** `ouEstLaMascotte` names the
+  place (stage when there is no picture, column corner on the desk, phone
+  bar, panel edge for an arrival). `lib/scenes-salle.ts` ranks the tracks
+  that play scenes (states, menus, people, controllers, room): a lower scene
+  is refused during a higher one, only the states track plays during a fault,
+  and only the room plays the first-picture scene.
+- **The keys view reads the product's tables, and lights what was sent.**
+  `components/VueTouches.tsx` replaces the fold-out keyboard card and takes
+  the place of the column rows, like the measurements. « Tes touches au
+  clavier » lists the active key profile (`lib/aide-clavier`, now with the
+  frame commands of each line); « Ta manette » lists the fifteen controls of
+  a standard pad and what each presses in this room. `lib/verification.ts`
+  holds no table: it builds a simulated pad with one control pressed and has
+  it read by the reader the input loop really calls (`readPad` for Dolphin,
+  `readSwitch` with the room's profile for Switch and Xbox 360). A line
+  lights when the sent frame carries its command, the controller socket's
+  echo is under 2 s old (two echo periods, since the echo leaves every
+  second), and, at the keyboard, the focus is in the game zone. The view
+  polls the input loop every 50 ms while it is mounted, because the React
+  snapshot (2 Hz) misses most 150 ms presses. A line whose commands the
+  snapshot does not report has no box at all: today `pressed` carries only
+  the Dolphin frame's buttons, so sticks and the whole Pro frame wait for the
+  controllers track to add activity (K34). The box says sent, never
+  received: the room sends no per-button acknowledgement yet. At first visit
+  at the keyboard the column opens on the view; « Revenir » returns to the
+  rows and the next visit starts on them. The game zone is named « [game],
+  l'image de la partie » and, at the keyboard only, described by a hidden
+  sentence (Ctrl, Escape, Tab), so nothing is drawn on the picture.
+- **The arcade frame lives in the bands, never on the picture.** The marquee
+  (`Fronton.tsx`) shows the game title in the black band above the picture
+  when that band is 40 px or more, its bottom at least 2 px above the
+  picture; it yields the band to the notice stack while a notice speaks, and
+  the column header names the game only when there is no marquee. The side
+  decoration (`CoteBorne.tsx`) fills side bands of 72 px or more that do not
+  carry the touch pad. The credit (`Credit.tsx`, K02) says « places libres
+  N » at the right end of the control panel, counted on the places the
+  worker reports, hidden from screen readers since the places already say
+  free. The dither (`tramage`) is the game zone's background; the canvas has
+  its own opaque background, so the pattern cannot show through before the
+  first picture. All are positioned absolutely: the picture's size is the
+  same with and without them. The play time (`TempsDeJeu.tsx`) is written
+  but renders nothing until the room reports its game's launch time (data
+  track, D04); a time counted from the page's arrival would lie. The
+  first-picture scene has one caller (K06): `Cadre` cuts the stage and plays
+  it on a passage from a no-picture state to `vit`, never on a return from a
+  frozen picture (`premiereImage` in `lib/cadre.ts`).
+
+Delivered in pass 1: the pure layout and its sweeps, the arbiter, the column
+rows, the idle attention loop, the pad-only latency sentence, the root
+attributes and variables, the notice stack off the picture, the corner
+buttons removed, and the browser guard (`cadre.mjs`, `just
+cadre-navigateur`, red against 03b21c0). Delivered in pass 2 (step 3, desk):
+the column, the corner, the control panel under the picture or at the foot
+of the column, `Sidebar` removed, and one arbiter instance per room created
+by `Cadre` (`useArbitre`). The screen and its stand-ins (idle screen,
+loading, link state) now live in a wrapper above the panel, so an overlay on
+`inset-0` cannot cover the places. Proofs: `cadre.mjs` steps `meuble-place`,
+`une-fois` and `un-plein`, red against the end-of-pass-1 page (0fef99e);
+`focus.mjs` step `colonne-deborde` with its in-page twin (scroll padding at
+0 hides a stop under « Plus bas »). Delivered in pass 2 (step 5): the idle
+screen without an automatic menu, its entry focus, the waiting loop on the
+stage, and the numbered take-place button; proofs `cadre.mjs`
+`repos-sans-menu` (red against the step-3 page, 3cada57) and
+`repos-attention`, `parcours.mjs` `spectateur-prendre`. Delivered in pass 3
+(step 6): the keys view for the keyboard and the controller,
+`lib/verification.ts`, the game zone's name and description; proofs
+`focus.mjs` `touches-cochees` (red on a page whose input loop sends keys out
+of the game zone), `agrandir-ctrl` (Ctrl enlarges, Escape opens the menu
+without shrinking, F in a Switch room sends R and enlarges nothing) and the
+updated `premiere-visite` and `carte-wii`. Delivered in pass 3 (step 7):
+the marquee, the side decoration, the credit, the dither and the
+first-picture rule; proofs `cadre.mjs` `fronton-bande`, `credit-compte`,
+`tramage-hors-image` and `borne-bandes`, each red against the step-6 page
+(2cb36ba, fourth block of `just cadre-navigateur-rouge`). Delivered in
+pass 4 (step 4, which amends D28 and D35): the room held in hand. In
+portrait and landscape every piece is placed absolutely on the rectangle
+`miseEnPage` returns: the bar (`BarreSalle`: room, game, the « La salle »
+button), the screen, the control panel, the band (`Bande`, which carries the
+notice stack on a phone) and the touch pad's own box, under the picture when
+held upright and as two side clusters when held sideways. The pad's sizes
+come from its real placement: `encombrement` in `lib/faces` searches
+`placePad` for the smallest upright height and the smallest side band, and
+`placePad` can treat a piece outside its band as a fault (it shrinks its
+sticks first). The mock-up's 128 px clusters put B, Z and the gesture on the
+picture at 844×390; a GameCube's four buttons need 156 px, so a GameCube at
+844×390 now gets 380 of the 390 px of height. The Pro pad needs 348 px of
+cluster height to stay in a 140 px band, so clusters run down to the bottom
+of the safe area (the pad keeps its own 12 px margin). `FeuilleDuBas` and
+`Tiroir` merge into one `FeuilleSalle`: at half height the game gestures
+(no darkened backdrop, never on the picture; at least 276 px, measured), and
+enlarged the whole column. A fine pointer below 900 px puts the column under
+the picture. A pad-only page shows `ManetteSeule` (its seat, and whether keys
+arrive). Proofs: `faces.test.ts` and `cadre.test.ts` place the real pad in
+the frame's box at every sampled size with and without iPhone safe areas,
+with a twin replaying the mock-up's boxes; `salle-telephone.mjs` and
+`manette-garde.mjs` rewritten for the single sheet, each with a twin key
+placed on the picture; `cadre.mjs` `tenu-rien-sur-image`, red against the
+step-7 page (cf3bba1, fifth block). A page that chose to watch, held in
+hand, has no touch pad (the choice, not a missing seat: the seat arrives
+after the first picture, and a pad appearing then moved the picture); the
+band carries the take-a-seat button. Step 8, in part: the
+alternating effects measurement (`just cadre-mesure`, outside the gate),
+two series of four 60 s phases, showed no repeatable cost in headless
+Chrome under a foreign load (a trend, not a comparison). Corrected on review
+(pass 6): the two arms differed only by the body font (`texte-pixel`). At
+1440×900 with the bench's 4:3 picture, neither the pediment nor the cabinet
+sides were mounted (no 40 px band above, no 72 px side bands); the pediment
+and the dither are on in « sobre » too; the « tout » layers of the socle, the
+cursor and the counter were not mounted in the room. The measurement says
+nothing about the cost of the pediment, the sides, the dither or the socle's
+« tout » layers. Delivered in pass 5:
+a real controller no longer gets a notice. The plug notice, which covered L
+for five seconds on a phone (audit N1, red against 03b21c0 in
+`manette-branchee`), is now a screen-reader line only (`#controller-status`,
+`sr-only`). Held in hand, the band says « Ta manette Xbox joue à la place 1. »
+with « Vérifier les boutons » and the touch-controls toggle; on automatic, a
+plugged controller hides the touch pad (`showsTouchPad`), and an upright
+phone without it advises turning (`manette-vraie`). The half-height sheet
+carries the clip, except across, where its single column scrolled (458 px of
+content for 390). The socle's announcement anchor (`ANCRE_ANNONCE`) sits on
+the title line, one at a time. `mascotte-hors-image` and
+`vit-figee-immobile` have in-step twins and no red page (no earlier page has
+the frame they read). Step 8 is closed with the night and day captures
+(`cadre.mjs --clair`). Not yet delivered: the play time wiring (waits for
+D04), the stick and Pro activity (waits for K34), the label in the pad's
+slot (en-jeu-tactile.5).
+
+Pass 6, after an independent review, nine defects, each seen red first. The
+picture guard (`gardeDeLImage`) found elements only by `elementFromPoint`,
+which never returns an element without pointer events: a full-window veil at
+`pointer-events: none` passed it. Every visible element that paints something
+and crosses the picture now gets the pointer for one hit test at nine points
+of the intersection; a box that paints nothing (the held pad's box spans the
+picture, its keys sit in the bands) is not a fault. Without a bar, the mascot
+had no host: `ouEstLaMascotte` said « barre » and only the bar carried
+`data-hote="barre"`; « La salle » placed alone across (`#laSalleCote`) and
+among the keys (`#laSalleManette`) now carry a 24 px head. A pad forced on at
+a fine pointer gets its place outside the picture (see the D28 amendment):
+the picture shrinks for whoever chose « toujours » (at 1440×900, 890×668
+instead of 1136×852), and nothing touches it. Weighed: keeping the overlay
+as a chosen setting, which the owner's rule does not allow without his word;
+side bands only, which leave a 16:9 picture at 1440×900 808 px wide where the
+pose underneath leaves 1136. « Quitter la salle » plays the
+`sortir-salle` transition (K13; mosaic, a fade in « sobre », nothing under
+reduced motion), the picture hidden before the first step. The column runs
+the socle's ▶ (`activerCurseur`) with a 20 px left margin; the socle's first
+placement measures the hidden ▶ as 0 px wide and lands on its target, and a
+notice born from the same focus pushed the column, so the column places it
+again on the next frame and after each render. The half-height sheet has no
+▶: its two-column grid has 4 px gaps and no room left of an entry. The pads
+and « La salle » take the label promised to the people site (`libelleSalle`,
+`libelle`). `TempsDeJeu` keeps one default clock, so the room's two renders a
+second no longer rebuild its display. `cadre-navigateur-rouge` reads the
+branch-only reference pages from `spikes/m3-browser-drive/rouges/`, each
+checked against the git blob id of its commit's page, so the recipe survives
+the integration rewriting this branch. Cost: the page is 249 436 bytes in
+brotli; the room uses 13 736 of its 12 000, of which 1 947 are the socle's
+transitions and cursor modules, bundled here for the first time.
+
+Weighed: keeping the notices on the picture with a smaller footprint (still
+on the picture, which is what the owner ruled out); putting them at the foot
+of the column (a sticky foot covered the bottom buttons, and the menu button
+was clicked through it in `focus.mjs`); at the head without holding them
+during a click (the keyboard notice is born from the click that leaves the
+picture, pushed the pressed button down, and the release landed on its
+neighbour: `clic-colonne` red without the hold).
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

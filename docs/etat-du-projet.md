@@ -103,6 +103,94 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service
   n'a pas de repère et tait la ligne jusqu'à sa prochaine ouverture.
 
+**Au 23 novembre, le soir : le chantier salle, premier passage.** Sur
+`chantier/retro-salle` (worktree `~/nel3ab-chantiers/retro-salle`), parti du
+socle ; rien dans `main`, rien d'installé, rien de poussé. Livré : la mise en
+page pure de la salle (`front/src/lib/cadre.ts` : modes, neuf états,
+panneau décidé sur la vraie pose, emplacements, lieu de la mascotte), l'arbitre
+des scènes (`lib/scenes-salle.ts`), les rangs de la colonne
+(`lib/colonne.ts`), la boucle d'attention de l'écran éteint
+(`lib/attention.ts`), la phrase de latence de la manette seule
+(`lib/manette-seule.ts`), la racine `[data-cadre]` et ses variables, la pile
+des avis hors de l'image, la fin des boutons de coin d'une colonne repliée,
+la poignée de colonne qui ne mord plus sur l'image. Preuve nouvelle : `just
+cadre-navigateur` et son contrôle `just cadre-navigateur-rouge` (page de
+03b21c0). Au bureau, deuxième passage : la colonne nouvelle (`Colonne.tsx`,
+rangs nommés, « Autres réglages », « Plus bas », marge de défilement de
+60 px), le coin et sa ligne des mesures (les onglets « essentiel » et
+« mesures » sont partis), le panneau de commande sous l'image ou au pied de
+la colonne, `Sidebar` retiré, un arbitre des scènes par salle. Preuves :
+`cadre.mjs` `meuble-place`, `une-fois`, `un-plein` (rouges contre 0fef99e)
+et `focus.mjs` `colonne-deborde`. Au repos, plus de menu d'office : l'écran
+éteint dit « Pas encore de jeu. », donne le focus à « Choisir un jeu » à qui
+choisit et nomme qui choisit aux autres, et la scène d'attente joue trois
+fois au plus sur le plateau ; le spectateur lit « Prendre la place N »
+(`cadre.mjs` `repos-sans-menu`, `repos-attention`, `parcours.mjs`
+`spectateur-prendre`). Troisième passage : la vue « Tes touches au
+clavier » ou « Ta manette », lue dans les tables du produit
+(`lib/verification.ts`), dont les cases se cochent quand la commande part au
+jeu (`focus.mjs` `touches-cochees`, `agrandir-ctrl`) ; les sticks et la
+trame Pro attendent l'activité que le chantier manettes ajoutera à
+l'instantané. Les effets du cadre : fronton, flancs de borne, crédit et
+trame, dans les bandes et jamais sur l'image (`cadre.mjs` `fronton-bande`,
+`credit-compte`, `tramage-hors-image`, `borne-bandes`) ; le temps de jeu
+attend l'instant de lancement (D04). Quatrième passage : la salle tenue
+en main. Au doigt, la barre (salle, jeu, « La salle »), l'écran, le panneau,
+la bande et la manette tactile dans sa propre boîte, sous l'image tenue
+droite ou en deux grappes en travers, à la taille que sa vraie pose demande
+(`encombrement` dans `lib/faces`) ; la feuille du bas et le tiroir fondus en
+une feuille « La salle » à deux hauteurs ; la colonne sous l'image d'une
+fenêtre étroite à la souris ; la page « manette seule » (`ManetteSeule`).
+Preuves : `salle-telephone` et `manette-garde` récrits (0 px² de touches sur
+l'image), `cadre.mjs` `tenu-rien-sur-image` (rouge contre cf3bba1). Un
+spectateur (qui a choisi de regarder) tenu en main n'a plus de manette, et
+sa place à prendre est dans la bande. Mesure alternée des effets (`just cadre-mesure`, deux séries de
+quatre phases de 60 s) : aucun coût répétable dans Chrome sans écran, sous
+une charge étrangère, donc une tendance ; et, corrigé à la relecture, les
+deux bras ne différaient que par la police du texte : le coût du fronton,
+des flancs, de la trame et des calques du niveau « tout » n'est pas mesuré.
+Cinquième passage : une vraie
+manette n'a plus d'avis à l'écran. Le branchement est dit au lecteur
+d'écran ; au téléphone, la bande dit quelle manette joue et à quelle place,
+avec « Vérifier les boutons » et les commandes tactiles ; en automatique, la
+manette efface les touches à l'écran, et le téléphone tenu droit conseille
+de se tourner (`cadre.mjs` `manette-branchee`, rouge contre 03b21c0, et
+`manette-vraie`). La feuille à mi-hauteur garde le clip, sauf en travers
+(`feuille-clip`). L'ancre de l'annonce du socle est posée sur la ligne du
+titre. `mascotte-hors-image` et `vit-figee-immobile` vérifient la mascotte
+pendant ses scènes et un cadre immobile quand l'image s'arrête. Les captures
+de nuit et de jour sont prises (`cadre.mjs --clair`). Reste : le temps de jeu
+(D04), l'activité des sticks et de la trame Pro (K34), l'étiquette dans la
+manette, l'amendement de D29 avec etats et la porte entière. Sixième
+passage, après une relecture indépendante (neuf défauts, chacun vu rouge
+d'abord) : la garde de l'image voit aussi les calques sans pointeur ; la
+tête de la mascotte passe dans « La salle » quand la barre manque ; à la
+souris, la manette « toujours » a sa place hors de l'image (`souris-toujours`,
+l'image rapetisse pour qui l'a choisie) ; « Quitter la salle » part par la
+transition « sortir-salle » et le ▶ du socle suit la colonne
+(`sortir-salle`, `anneau`) ; la manette accepte le libellé de « La salle »
+promis aux personnes ; `TempsDeJeu` garde une horloge stable ;
+`manette-branchee` compte un geste absent comme une faute ; les pages de
+référence de `cadre-navigateur-rouge` qui ne vivent que sur la branche sont
+gardées dans `spikes/m3-browser-drive/rouges/`. Restent déclarés : pas de ▶
+dans la feuille à mi-hauteur (pas de place à gauche d'une entrée) ; le menu
+garde sa propre sortie, sans transition (chantier menus). Poids : 249 436
+octets en brotli, 13 736 pour la salle, au-delà de son enveloppe de 12 000 :
+les modules du socle pour les transitions et le ▶ (1 947 octets) entrent ici
+dans la page pour la première fois, et le partage revient au chef de
+chantier. Décision : [ADR](adr/0001-architecture.md) D39 (en
+partie livrée), qui amende D28 et D35. Récits : « 23
+novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
+novembre, la nuit : la colonne du bureau et le panneau de commande » et
+« 23 novembre, tard : une salle au repos n'ouvre plus rien » et « 23
+novembre, encore : la vue des touches, lue dans le produit » et « 23
+novembre, encore plus tard : la borne autour de l'image » et « 23 novembre,
+la nuit encore : la salle tenue en main » et « 23 novembre, au bout de la
+nuit : ce que coûtent les effets » et « 23 novembre, avant l'aube : une
+vraie manette se dit dans la bande » et « 23 novembre, après la relecture :
+neuf défauts du chantier salle ».
+
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

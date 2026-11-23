@@ -64,13 +64,13 @@ const took = await seatOf(page);
 // trajet entier plutôt que l'existence d'une ligne quelconque.
 // Le panneau des chiffres est replié par défaut: qui joue veut l'image. Il faut
 // donc l'ouvrir, comme une personne le fait avant de me lire un numéro.
-await page.click("#mode-details");
+await page.click("#mesures"); // ouvre les mesures
 await wait(600);
 const visit = await page.evaluate(() => document.getElementById("visit")?.textContent ?? null);
 // Et on revient à la salle, où vit le bouton de signalement. Une personne qui
 // joue est de ce côté-là; le panneau des chiffres est ce qu'elle ouvre pour me
 // lire un numéro, pas ce qu'elle regarde en jouant.
-await page.click("#mode-normal");
+await page.click("#mesures"); // les referme
 await wait(400);
 // Plus long qu'une fenêtre de relevé, sinon il n'y en a aucun à vérifier. Un
 // pilote qui regarde trop tôt trouve un journal correct et une moitié vide.

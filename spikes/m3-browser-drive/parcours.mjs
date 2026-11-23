@@ -74,7 +74,9 @@ async function nouvelle(vue, { salle = {}, stockage = {}, avant = null } = {}) {
     } catch {
       // Un stockage refusé laisse la page sur ses réglages par défaut.
     }
-  }, stockage);
+    // La vue des touches de la première visite prend la place des rangs de
+    // la colonne (chantier salle, étape 6); les parcours partent d'une vue lue.
+  }, { "nel3ab:aide-clavier": "vue", ...stockage });
   if (avant) await page.evaluateOnNewDocument(avant);
   await page.setRequestInterception(true);
   page.on("request", (req) => {
@@ -123,16 +125,17 @@ async function entrer(page) {
   // Au téléphone, la colonne est repliée: on la déplie pour lire la place.
   // Jusqu'à ce qu'elle le soit: un clic posé pendant le premier rendu de la
   // salle peut se perdre, et l'étape tombait alors sur une précondition.
-  // Depuis le 22 novembre 2026, elle est un tiroir, ouvert par « ••• » puis
-  // « La salle »; les pages d'avant gardent leur « montrer (Ctrl) ».
+  // Du 22 au 23 novembre 2026, elle était un tiroir, ouvert par « ••• » puis
+  // « La salle » ; depuis, la feuille « La salle » de la barre, agrandie par
+  // « Toute la salle ». Les pages d'avant gardent leur chemin.
   await jusqua(async () => {
     if (await page.$("#seat")) return true;
     await page.evaluate(() => {
       const avant = document.querySelector("#unbare");
       if (avant) return avant.click();
-      const salle = document.querySelector('[data-entree="salle"]');
+      const salle = document.querySelector('[data-entree="toute-la-salle"], [data-entree="salle"]');
       if (salle) return salle.click();
-      document.querySelector("#ouvrirFeuille")?.click();
+      document.querySelector('#laSalle, [data-geste="feuille"], #ouvrirFeuille')?.click();
     });
     return false;
   }, 5000, 300);
@@ -202,6 +205,32 @@ const ETAPES = {
     await page.close();
   },
 
+  /** spectateur.1: le spectateur lit QUELLE place il prendra, « Prendre la
+   * place N », et c'est bien celle-là qu'il tient après l'appui. Le jumeau
+   * d'une salle pleine (aucun bouton) est dans `Colonne.test.tsx`: le banc ne
+   * sait pas tenir les quatre places. */
+  async "spectateur-prendre"() {
+    const page = await nouvelle(PC);
+    await page.goto(`${banc.url}?entrer=regarder`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#screen", { timeout: 15000 }).catch(() => {
+      throw new Precondition("`?entrer=regarder` n'entre pas dans la salle");
+    });
+    if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
+      throw new Precondition(`entré pour regarder: « ${await siege(page)} »`);
+    const texte = await page
+      .waitForSelector("#takePad", { timeout: 5000 })
+      .then((el) => el.evaluate((b) => b.textContent.trim()))
+      .catch(() => "");
+    const lu = /Prendre la place (\d)/.exec(texte);
+    if (!lu) throw new Defaut(`le bouton du spectateur ne dit pas quelle place: « ${texte} »`);
+    await page.click("#takePad");
+    if (!(await jusqua(async () => /place \d/.test(await siege(page)), 8000)))
+      throw new Precondition(`« ${texte} » sans place: « ${await siege(page)} »`);
+    const tenue = /place (\d)/.exec(await siege(page))[1];
+    if (tenue !== lu[1]) throw new Defaut(`« ${texte} » a donné la place ${tenue}`);
+    await page.close();
+  },
+
   /** La relecture: l'adresse suit la place, pas la porte d'entrée. Entré pour
    * regarder puis assis, on rentre assis; entré pour jouer puis levé, on rentre
    * pour regarder, sans socket d'entrée. */
@@ -223,6 +252,9 @@ const ETAPES = {
     if (!(await jusqua(async () => /place \d/.test(await siege(page)), 8000)))
       throw new Defaut(`le rechargement a rendu la place prise: « ${await siege(page)} »`);
     // Le jumeau: entré pour jouer, puis levé.
+    // « Rendre ma place » vit dans « Autres réglages » depuis le
+    // 23 novembre 2026 (colonne de la salle) : on le déplie d'abord.
+    await page.click("#autresReglages > summary");
     await page.click("#watchOnly");
     if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
       throw new Precondition(`« Rendre ma place » sans effet: « ${await siege(page)} »`);

@@ -30,6 +30,7 @@ import {
   type Piece,
   type Rect,
 } from "./faces";
+import { encombrement } from "./faces";
 import { place } from "./fit";
 import { GAMECUBE, SWITCH_PRO, XBOX_360, mirrorX, type PadMap } from "./padmap";
 import { labels as switchLabels, xboxLabels } from "./switch-labels";
@@ -572,5 +573,98 @@ describe("les inscriptions des touches Pro", () => {
     for (const face of [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE])
       for (const [key, one] of keysOf(face))
         expect(one.label.length, `${face.title} ${key}`).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("la place qu'une manette demande au cadre", () => {
+  const FACES_TENUES = [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE] as const;
+  const dans = (b: number, W: number) => (r: { x: number; w: number }) =>
+    r.x + r.w <= b || r.x >= W - b;
+
+  it("tenue droite, la hauteur rendue tient toute la pose, geste compris, de 320 à 1024 px", () => {
+    let vus = 0;
+    for (const face of FACES_TENUES) {
+      const { hauteur } = encombrement(face);
+      for (let w = 320; w <= 1024; w += 8) {
+        const h = hauteur(w);
+        if (h === null) throw new Error(`${face.title} : rien ne tient à ${w} px de large`);
+        const pose = placePad(face, { width: w, height: h }, { left: 0, right: 0 });
+        expect(pose.degraded, `${face.title} ${w}×${h}`).toBeNull();
+        // La plus petite : 4 px de moins, et la pose fait une faute. Sans ce
+        // jumeau, rendre 900 partout passerait.
+        const moins = placePad(face, { width: w, height: h - 4 }, { left: 0, right: 0 });
+        expect(moins.degraded, `${face.title} ${w}×${h - 4}`).not.toBeNull();
+        vus += 1;
+      }
+    }
+    expect(vus).toBeGreaterThan(250);
+  });
+
+  it("en travers, la largeur rendue garde chaque pièce dans sa bande, et 2 px de moins non", () => {
+    for (const face of FACES_TENUES) {
+      const { largeur } = encombrement(face);
+      for (let h = 200; h <= 900; h += 10) {
+        const b = largeur(h);
+        // Un téléphone tenu en travers, 320 px utiles sous la barre d'accueil,
+        // tient toujours ses grappes ; plus bas, `null` le dit.
+        if (b === null) {
+          expect(h, `${face.title} : aucune grappe à ${h} px`).toBeLessThan(300);
+          continue;
+        }
+        for (const W of [600, 844, 1366]) {
+          if (W < 2 * b + 40) continue;
+          const pose = placePad(face, { width: W, height: h }, { left: b, right: b }, [], true);
+          expect(pose.degraded, `${face.title} h=${h} b=${b} W=${W}`).toBeNull();
+          expect(pose.pieces.every((one) => dans(b, W)(one.rect))).toBe(true);
+        }
+        const W = 1366;
+        const etroite = placePad(
+          face,
+          { width: W, height: h },
+          { left: b - 2, right: b - 2 },
+          [],
+          true,
+        );
+        // Le jumeau mesure lui-même, sans croire la faute de la pose.
+        const tient =
+          etroite.degraded === null && etroite.pieces.every((one) => dans(b - 2, W)(one.rect));
+        expect(tient, `${face.title} h=${h} : ${b - 2} px suffisaient`).toBe(false);
+      }
+    }
+  });
+
+  it("donne aux quatre boutons de la GameCube les 148 px du plancher, plus 4 de chaque côté", () => {
+    // La maquette du 22 novembre donnait 128 px aux grappes : B, Z et le geste
+    // tombaient sur l'image à 844×390 (sonde du 23 novembre 2026).
+    expect(encombrement(DOLPHIN_FACE).largeur(374)).toBe(156);
+  });
+
+  it("donne la même place à la manette Switch et à celle de la Xbox 360", () => {
+    const sw = encombrement(SWITCH_FACE);
+    const xb = encombrement(XBOX_FACE);
+    for (let w = 320; w <= 1024; w += 32) expect(xb.hauteur(w)).toBe(sw.hauteur(w));
+    expect(sw.hauteur(390)).not.toBeNull();
+    for (let h = 200; h <= 900; h += 50) expect(xb.largeur(h)).toBe(sw.largeur(h));
+  });
+
+  it("rétrécit les sticks pour rester dans les bandes quand on le lui demande", () => {
+    // 361 px : un iPhone de 390 tenu en travers, sans sa barre d'accueil.
+    const box = { width: 844, height: 353 };
+    const bands = { left: 160, right: 160 };
+    const libre = placePad(SWITCH_FACE, box, bands, []);
+    const tenue = placePad(SWITCH_FACE, box, bands, [], true);
+    const dehors = (pose: typeof libre) =>
+      pose.pieces.filter((one) => !dans(160, 844)(one.rect)).length;
+    expect(dehors(libre)).toBeGreaterThan(0);
+    expect(tenue.degraded).toBeNull();
+    expect(dehors(tenue)).toBe(0);
+  });
+
+  it("ne pose aucun geste quand la liste est vide, et le geste de la salle sinon", () => {
+    const box = { width: 390, height: 300 };
+    const sans = placePad(SWITCH_FACE, box, { left: 0, right: 0 }, []);
+    const avec = placePad(SWITCH_FACE, box, { left: 0, right: 0 }, ["feuille"]);
+    expect(sans.pieces.filter((one) => one.kind === "geste")).toHaveLength(0);
+    expect(avec.pieces.filter((one) => one.kind === "geste")).toHaveLength(1);
   });
 });

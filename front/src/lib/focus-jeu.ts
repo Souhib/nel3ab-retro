@@ -159,10 +159,14 @@ export function useFocusJeu({
     };
   }, []);
   // À l'entrée, le focus va au jeu: au clavier, on joue sans cliquer l'image.
-  // Une salle au repos ouvre son menu, qui le prend à son tour.
+  // Pas dans une salle qu'on sait au repos: l'écran éteint donne le focus à
+  // « Choisir un jeu » (`EcranEteint`), et il le reprend à la zone quand la
+  // salle ne parle qu'après l'entrée.
   const menuALEntree = useRef(menu);
+  const reposALEntree = useRef(playing === false);
   useEffect(() => {
-    if (!menuALEntree.current) zone.current?.focus({ preventScroll: true });
+    if (!menuALEntree.current && !reposALEntree.current)
+      zone.current?.focus({ preventScroll: true });
   }, []);
   // Fermer le menu rend la main au jeu. Le dialogue a déjà rendu le focus à ce
   // qui l'avait avant lui, souvent le bouton « menu » de la colonne; mais

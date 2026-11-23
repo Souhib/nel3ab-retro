@@ -24,6 +24,7 @@ export function Screen({
   zoneRef,
   jouable = false,
   libelle = "Image du jeu",
+  aide = null,
   fit,
   picture,
   onSpace,
@@ -37,6 +38,9 @@ export function Screen({
   jouable?: boolean;
   /** Ce que la zone dit d'elle au lecteur d'écran. */
   libelle?: string;
+  /** Ce que les touches font dans la zone, dit au lecteur d'écran
+   * (`aria-describedby`) ; rien ne s'en voit, rien ne se pose sur l'image. */
+  aide?: string | null;
   /** Gardé bien que non utilisé ici: la page s'en sert pour poser l'écran de
    * chargement à la place de l'ancienne étiquette. Le retirer de la signature
    * obligerait l'appelant à savoir que cet écran ne s'en soucie plus. */
@@ -146,11 +150,21 @@ export function Screen({
       ref={poser}
       id="zone-jeu"
       {...{ [ZONE_JEU]: "" }}
+      // Le ▶ du socle ne se pose jamais ici (plan salle, en-jeu-clavier.5).
+      data-sans-curseur=""
       role="application"
       aria-label={libelle}
+      aria-describedby={aide ? "aideZoneJeu" : undefined}
       tabIndex={jouable ? 0 : -1}
       className="n3-zone-jeu relative flex min-h-0 flex-1 items-center justify-center bg-ecran"
     >
+      {/* `hidden` : sans boîte, donc rien sur l'image ; aria-describedby lit
+          quand même un texte caché. */}
+      {aide ? (
+        <p id="aideZoneJeu" hidden>
+          {aide}
+        </p>
+      ) : null}
       <canvas
         id="screen"
         ref={canvasRef}

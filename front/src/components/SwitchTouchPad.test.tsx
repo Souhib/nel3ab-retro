@@ -168,10 +168,30 @@ it("quitter l'onglet relâche les touches et les sticks de la manette Pro", () =
   expect(source.pushed.size).toBe(0);
 });
 
-it("le son coupé se voit sur le « ••• » de la manette Pro, et seulement alors", () => {
+it("le son coupé se voit sur « La salle » de la manette Pro, et seulement alors", () => {
   const coupe = salle(new SwitchInput(), true);
-  expect(coupe.container.querySelector("#ouvrirFeuille")?.hasAttribute("data-alerte")).toBe(true);
+  expect(coupe.container.querySelector("#laSalleManette")?.hasAttribute("data-alerte")).toBe(true);
   coupe.unmount();
   const joue = salle(new SwitchInput(), false);
-  expect(joue.container.querySelector("#ouvrirFeuille")?.hasAttribute("data-alerte")).toBe(false);
+  expect(joue.container.querySelector("#laSalleManette")?.hasAttribute("data-alerte")).toBe(false);
+});
+
+it("« La salle » de la manette Pro dit le libellé qu'on lui passe, et rien sans lui", () => {
+  const avec = render(
+    <SwitchTouchPad
+      source={new SwitchInput()}
+      console="switch"
+      bar={0}
+      onFeuille={vi.fn()}
+      libelleSalle="Lina · ta place"
+    />,
+  );
+  const geste = avec.container.querySelector("#laSalleManette") as HTMLElement;
+  expect(geste.textContent).toContain("Lina · ta place");
+  expect(geste.getAttribute("aria-label")).toMatch(/^Lina · ta place\. La salle/);
+  avec.unmount();
+  const sans = salle(new SwitchInput());
+  const nu = sans.container.querySelector("#laSalleManette") as HTMLElement;
+  expect(nu.textContent).toBe("");
+  expect(nu.getAttribute("aria-label")).toBe("La salle : son, menu, places");
 });

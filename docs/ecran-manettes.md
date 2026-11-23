@@ -46,6 +46,12 @@ L'écart entre les deux est toute l'information: une pièce allumée à droite e
 l'écran n'apprendrait rien.** Ne pas « simplifier » en faisant passer la droite
 par `readPad`.
 
+La vue « Ta manette » de la colonne (`lib/verification.ts`, 23 novembre 2026)
+est un troisième lecteur, du côté gauche : elle presse chaque bouton d'une
+manette simulée et passe la lecture à `readPad`, ou à `readSwitch` avec le
+profil de la salle Switch ou Xbox 360. Elle ne tient aucune table ; si
+`readPad` change, elle change avec lui.
+
 ## Le piège du repos
 
 Un adaptateur GameCube rapporte une gâchette **au repos à 0,6**, donc le
@@ -444,6 +450,13 @@ pas lisible dans le code :
 - **Le losange des quatre boutons est lu sur le dessin** (`diamondOf`, sur
   `XBOX_360` et `SWITCH_PRO`), pas recopié. Un essai retourne le dessin de
   gauche à droite et vérifie que le losange se retourne aussi.
+- **La place d'une manette dans la salle est lue dans sa pose**
+  (`encombrement`, depuis le 23 novembre 2026) : le cadre (`lib/cadre`)
+  demande à `placePad` la hauteur de la boîte tenue droite et la largeur de
+  chaque grappe en travers. Ajouter une touche à une face change donc la
+  place de la manette, sans rien recopier ; `cadre.test.ts` pose la vraie
+  manette dans la boîte du cadre et vérifie qu'aucune pièce ne touche
+  l'image.
 - **Une salle Wii garde les noms de la GameCube.** Elle présente un appareil
   par place, et le pavé ne le connaît pas. Nommer ses touches comme une Wiimote
   mentirait à qui joue avec la manette GameCube.

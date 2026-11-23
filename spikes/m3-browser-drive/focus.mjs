@@ -102,9 +102,21 @@ function manetteSimulee() {
   Object.defineProperty(navigator, "getGamepads", { value: () => [pad, null, null, null] });
 }
 
+// La vue des touches s'ouvre d'elle-même à la première visite au clavier
+// et prend la place des rangs de la colonne (chantier salle, étape 6). Les
+// étapes qui ne parlent pas de cette visite partent d'une vue déjà lue;
+// `premiere-visite`, `touches-cochees` et `carte-wii` (focus.mjs) l'exercent.
 async function nouvelle(
   vue,
-  { console: jeu = "gc", format = "dolphin", manette = false, vierge = true, stockage = {}, appareil = null } = {},
+  {
+    console: jeu = "gc",
+    format = "dolphin",
+    manette = false,
+    vierge = true,
+    stockage = {},
+    appareil = null,
+    premiere = false,
+  } = {},
 ) {
   banc.reinitialiser();
   banc.regler({ console: jeu, format, appareil });
@@ -123,7 +135,7 @@ async function nouvelle(
       } catch {}
     },
     vierge,
-    stockage,
+    premiere ? stockage : { "nel3ab:aide-clavier": "vue", ...stockage },
   );
   if (manette) await page.evaluateOnNewDocument(manetteSimulee);
   page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
@@ -212,6 +224,14 @@ const choisie = (page) =>
 
 /** Maj+Tab jusqu'à la zone de jeu, au plus `fois` appuis. Rend le nombre
  * d'appuis, ou `null` si la zone n'a jamais eu le focus. */
+/** Le bouton de la colonne qui ouvre les mesures, et celui qui les referme:
+ * la ligne du coin (`#mesures`) depuis le 23 novembre 2026, les onglets
+ * « détails » et « normal » avant. Les contrôles rouges rejouent les pages
+ * d'avant: l'étape doit y courir jusqu'à son défaut, pas s'arrêter faute de
+ * bouton. */
+const ouvreMesures = async (page) => ((await page.$("#mesures")) ? "#mesures" : "#mode-details");
+const fermeMesures = async (page) => ((await page.$("#mesures")) ? "#mesures" : "#mode-normal");
+
 async function tabArriereJusquALaZone(page, fois = 25) {
   for (let i = 0; i < fois; i += 1) {
     await page.keyboard.down("Shift");
@@ -266,24 +286,27 @@ const ETAPES = {
   async "entree-colonne"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    if ((await page.$("#mode-details")) === null) throw new Precondition("pas de bouton « détails »");
-    await page.focus("#mode-details");
+    // La ligne du coin, qui ouvre les mesures depuis le 23 novembre 2026 (les
+    // onglets « essentiel » et « mesures » sont partis avec `Sidebar`).
+    const ouvre = await ouvreMesures(page);
+    if ((await page.$(ouvre)) === null) throw new Precondition("pas de bouton pour les mesures");
+    await page.focus(ouvre);
     const depuis = Date.now();
     await appuyer(page, "Enter");
     await sleep(300);
     const details = await page.evaluate(() => document.querySelector("#stats") !== null);
-    if ((recus(depuis) & START_DOLPHIN) !== 0) throw new Defaut("Entrée sur « détails » a envoyé START à la salle");
-    if (!details) throw new Defaut("Entrée sur « détails » n'a pas changé de mode");
+    if ((recus(depuis) & START_DOLPHIN) !== 0) throw new Defaut("Entrée sur « mesures » a envoyé START à la salle");
+    if (!details) throw new Defaut("Entrée sur « mesures » n'a pas ouvert les mesures");
     // Le prix de la règle, dit sur l'image: le clavier n'est plus au jeu.
     if ((await page.$("#clavierEnPause")) === null)
       throw new Defaut("rien ne dit que le clavier ne joue plus pendant que la colonne a le focus");
     await capture(page, "clavier-en-pause");
     // Espace, le jumeau de touche: même bouton, même effet, rien pour le jeu.
-    await page.focus("#mode-normal");
+    await page.focus(await fermeMesures(page));
     await appuyer(page, "Space");
     await sleep(300);
     if (await page.evaluate(() => document.querySelector("#stats") !== null))
-      throw new Defaut("Espace sur « salle » n'a pas changé de mode");
+      throw new Defaut("Espace sur « mesures » ne les a pas refermées");
     // Et une flèche sur ce bouton ne pousse pas le stick: le focus est ailleurs.
     const fleche = Date.now();
     await appuyer(page, "ArrowRight");
@@ -298,7 +321,7 @@ const ETAPES = {
   async "entree-jeu"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await page.focus("#mode-details");
+    await page.focus(await ouvreMesures(page));
     await page.mouse.click(...(await centre(page, "#screen")));
     const depuis = Date.now();
     await page.keyboard.down("Enter");
@@ -332,11 +355,11 @@ const ETAPES = {
       throw new Precondition(`aucune trame Switch reçue: ${JSON.stringify(trames.slice(0, 3))}`);
     if ((recus(depuis) & PLUS_SWITCH) === 0) throw new Defaut("Entrée dans la zone de jeu n'a pas envoyé + (Start)");
     // Et le négatif dans la même salle: Entrée sur un bouton de la colonne.
-    await page.focus("#mode-details");
+    await page.focus(await ouvreMesures(page));
     const colonne = Date.now();
     await appuyer(page, "Enter");
     await sleep(300);
-    if ((recus(colonne) & PLUS_SWITCH) !== 0) throw new Defaut("Entrée sur « détails » a envoyé + à la salle");
+    if ((recus(colonne) & PLUS_SWITCH) !== 0) throw new Defaut("Entrée sur « mesures » a envoyé + à la salle");
     await page.close();
   },
 
@@ -473,7 +496,7 @@ const ETAPES = {
 
   /** Le jumeau: avec une manette branchée, le même pied parle A et B. */
   async "aides-manette"() {
-    const page = await nouvelle(PC, { manette: true });
+    const page = await nouvelle(PC, { manette: true, premiere: true });
     await entrer(page);
     await ouvrirMenu(page);
     const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "");
@@ -483,35 +506,155 @@ const ETAPES = {
     // Et la colonne ne montre pas la carte du clavier à qui tient une manette.
     await page.keyboard.press("Escape");
     await sleep(300);
-    if (await page.evaluate(() => document.querySelector("#aideClavier") !== null))
-      throw new Defaut("la carte des touches du clavier s'affiche alors qu'une manette est branchée");
+    if (await page.evaluate(() => document.querySelector("#aideClavier, #vueTouches, #tesTouches") !== null))
+      throw new Defaut("la vue des touches du clavier s'affiche alors qu'une manette est branchée");
     await capture(page, "menu-manette");
     await page.close();
   },
 
-  /** T02: la première visite montre les touches, sans ouvrir de menu. */
+  /** T02 et en-jeu-clavier.2: la première visite ouvre la colonne sur « Tes
+   * touches au clavier », sans ouvrir de menu: une ligne par touche du profil
+   * (neuf pour le profil GameCube par défaut). Avant le 23 novembre 2026,
+   * c'était la carte dépliable `#aideClavier`; une page d'avant est lue par
+   * elle, pour rougir sur son défaut et non sur un sélecteur. */
   async "premiere-visite"() {
-    const page = await nouvelle(PC);
+    const page = await nouvelle(PC, { premiere: true });
     await entrer(page);
     const carte = await page.evaluate(() => {
+      const vue = document.querySelector("#vueTouches");
+      if (vue)
+        return {
+          ouverte: true,
+          lignes: vue.querySelectorAll("[data-ligne-touche]").length,
+          texte: vue.textContent ?? "",
+          vue: true,
+        };
       const el = document.querySelector("#aideClavier");
-      return el ? { ouverte: el.hasAttribute("open"), texte: el.textContent ?? "" } : null;
+      return el
+        ? { ouverte: el.hasAttribute("open"), lignes: el.querySelectorAll("dl > div").length, texte: el.textContent ?? "", vue: false }
+        : null;
     });
-    if (carte === null) throw new Defaut("aucune carte des touches à la première visite");
+    if (carte === null) throw new Defaut("aucune vue des touches à la première visite");
     if (!carte.ouverte) throw new Defaut("la carte des touches est repliée à la première visite");
     if (!/Entrée/.test(carte.texte) || !/Start/.test(carte.texte))
-      throw new Defaut(`la carte ne dit pas Entrée pour Start: « ${carte.texte} »`);
+      throw new Defaut(`la vue ne dit pas Entrée pour Start: « ${carte.texte} »`);
+    if (carte.vue && carte.lignes !== 9)
+      throw new Defaut(`la vue a ${carte.lignes} lignes, le profil GameCube par défaut en a neuf`);
     await capture(page, "premiere-visite");
-    // Le jumeau: repliée une fois, elle reste repliée à la visite suivante.
-    await page.click("#aideClavier summary");
+    // Le jumeau: « Revenir » ramène les rangs, et la visite suivante commence
+    // sur eux, le rang « Tes touches au clavier » prêt à rouvrir la vue.
+    if (carte.vue) await page.click("#revenirTouches");
+    else await page.click("#aideClavier summary");
     await sleep(200);
     const recharge = Date.now();
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#enter, #screen", { timeout: 15000 });
     await entrer(page, { depuis: recharge });
-    const revue = await page.evaluate(() => document.querySelector("#aideClavier")?.hasAttribute("open") ?? null);
-    if (revue !== false) throw new Defaut(`repliée puis rechargée, la carte vaut ${revue}`);
+    await sleep(300);
+    const revue = await page.evaluate(() => ({
+      vue: document.querySelector("#vueTouches") !== null,
+      rang: document.querySelector("#tesTouches") !== null,
+      carte: document.querySelector("#aideClavier")?.hasAttribute("open") ?? null,
+    }));
+    if (carte.vue) {
+      if (revue.vue) throw new Defaut("fermée puis rechargée, la vue des touches se rouvre d'elle-même");
+      if (!revue.rang) throw new Defaut("fermée puis rechargée, la colonne n'a plus le rang « Tes touches au clavier »");
+    } else if (revue.carte !== false) throw new Defaut(`repliée puis rechargée, la carte vaut ${revue.carte}`);
     await page.close();
+  },
+
+  /** en-jeu-clavier.1: une ligne de « Tes touches au clavier » se coche
+   * quand sa commande part au jeu, et seulement alors. Le jumeau d'abord,
+   * avant que la ligne ne soit cochée pour la visite: le focus sur
+   * « Revenir », X et C ne cochent rien et le banc ne reçoit ni A ni B. Puis
+   * un clic sur l'image, X: la ligne A se coche et le banc reçoit A. Enfin
+   * l'écho muet depuis plus de deux secondes: C ne coche pas B. */
+  async "touches-cochees"() {
+    const page = await nouvelle(PC, { premiere: true });
+    await entrer(page);
+    if (!(await attendre(page, () => document.querySelector("#vueTouches [data-ligne-touche]") !== null, 4000)))
+      throw new Precondition("pas de vue des touches à la première visite");
+    const ligne = (fait) =>
+      page.evaluate((fait) => {
+        const li = [...document.querySelectorAll("#vueTouches [data-ligne-touche]")].find(
+          (el) => el.querySelector(".n3-ligne-fait")?.textContent?.trim() === fait,
+        );
+        return li ? { suivie: li.hasAttribute("data-suivie"), vue: li.hasAttribute("data-vue") } : null;
+      }, fait);
+    if ((await ligne("A")) === null || (await ligne("B")) === null)
+      throw new Precondition("la vue n'a pas de ligne A ou B");
+    if (!(await ligne("A")).suivie) throw new Defaut("la ligne A n'a pas de case: rien ne dirait qu'elle part");
+    const A = 1 << 0;
+    const B = 1 << 1;
+    await page.focus("#revenirTouches");
+    const hors = Date.now();
+    await appuyer(page, "KeyX");
+    await appuyer(page, "KeyC");
+    await sleep(300);
+    // Une faute et pas une précondition: c'est la garde de la boucle d'entrée
+    // qui rend la case muette hors de l'image (la vue a la sienne, prouvée
+    // par VueTouches.test.tsx), et c'est elle que ce jumeau tient.
+    if ((recus(hors) & (A | B)) !== 0) throw new Defaut("X ou C sur « Revenir » est parti au jeu");
+    if ((await ligne("A")).vue || (await ligne("B")).vue)
+      throw new Defaut("une ligne s'est cochée alors que le focus était hors de l'image");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    const dedans = Date.now();
+    await appuyer(page, "KeyX");
+    await sleep(300);
+    if ((recus(dedans) & A) === 0) throw new Precondition("X dans la zone n'a pas envoyé A au banc");
+    if (!(await ligne("A")).vue) throw new Defaut("A est parti au jeu et sa ligne ne s'est pas cochée");
+    if ((await ligne("B")).vue) throw new Defaut("la ligne B s'est cochée sans que B parte");
+    await capture(page, "touches-cochees");
+    // L'écho muet: la salle n'a rien répondu depuis plus de deux secondes.
+    banc.regler({ video: "silent" });
+    await sleep(2600);
+    if ((await page.$("#vueTouches")) === null) throw new Precondition("la vue des touches a disparu pendant l'écho muet");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    await appuyer(page, "KeyC");
+    await sleep(300);
+    if ((await ligne("B")).vue) throw new Defaut("la ligne B s'est cochée alors que l'écho se tait depuis plus de 2 s");
+    await page.close();
+  },
+
+  /** en-jeu-clavier.4: Ctrl seule dans la zone agrandit l'image, Échap ouvre
+   * le menu sans la rétrécir, et Ctrl ramène la salle. Le jumeau: dans une
+   * salle Switch, F est la gâchette R; elle part au banc et n'agrandit rien. */
+  async "agrandir-ctrl"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    const agrandie = () => page.evaluate(() => document.querySelector("[data-cadre]")?.hasAttribute("data-agrandie") ?? null);
+    if ((await agrandie()) === null) throw new Precondition("pas de racine [data-cadre]");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    await page.keyboard.down("Control");
+    await page.keyboard.up("Control");
+    if (!(await attendre(page, () => document.querySelector("#side") === null, 3000)))
+      throw new Defaut("Ctrl seule dans la zone ne replie pas la colonne");
+    if (!(await agrandie())) throw new Defaut("Ctrl seule: la racine ne dit pas l'image agrandie");
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#menu") !== null, 3000)))
+      throw new Defaut("Échap, image agrandie, n'ouvre pas le menu du jeu");
+    if (!(await agrandie())) throw new Defaut("Échap a rétréci l'image en ouvrant le menu");
+    await capture(page, "agrandir-menu");
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#menu") === null, 3000)))
+      throw new Precondition("Échap ne referme pas le menu");
+    await page.mouse.click(...(await centre(page, "#screen")));
+    await page.keyboard.down("Control");
+    await page.keyboard.up("Control");
+    if (!(await attendre(page, () => document.querySelector("#side") !== null, 3000)))
+      throw new Defaut("Ctrl ne ramène pas la salle");
+    await page.close();
+    // Le jumeau: F dans une salle Switch.
+    const pro = await nouvelle(PC, { console: "x360", format: "switch" });
+    await entrer(pro);
+    await pro.mouse.click(...(await centre(pro, "#screen")));
+    const depuis = Date.now();
+    await appuyer(pro, "KeyF");
+    await sleep(300);
+    const R_SWITCH = 1 << 5;
+    if ((recus(depuis) & R_SWITCH) === 0) throw new Precondition("F n'a pas envoyé R au banc");
+    if ((await pro.$("#side")) === null) throw new Defaut("F a replié la colonne dans une salle Switch");
+    await pro.close();
   },
 
   /** T13 et P12: quatre rubriques nommées, une pour les manettes. */
@@ -662,7 +805,7 @@ const ETAPES = {
   async "tab-retour"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await page.focus("#mode-details");
+    await page.focus("#leaveRoom");
     const fois = await tabArriereJusquALaZone(page);
     if (fois === null) throw new Defaut("Maj+Tab depuis la colonne n'atteint jamais la zone de jeu");
     const tab = await page.$eval("[data-zone-jeu]", (el) => el.tabIndex);
@@ -671,7 +814,7 @@ const ETAPES = {
     banc.annoncerDemarrage();
     if (!(await attendre(page, () => document.querySelector("[data-zone-jeu]")?.tabIndex === -1, 5000)))
       throw new Defaut("pendant un chargement, la zone de jeu reste dans l'ordre de Tab");
-    await page.focus("#mode-details");
+    await page.focus("#leaveRoom");
     if ((await tabArriereJusquALaZone(page)) !== null)
       throw new Defaut("pendant un chargement, Maj+Tab s'arrête encore sur la zone de jeu");
     await page.close();
@@ -772,9 +915,37 @@ const ETAPES = {
     const pendant = await trait();
     await capture(page, "anneau-pendant-partie");
     if (pendant !== "none") throw new Defaut(`l'anneau de focus (${pendant}) reste sur l'image pendant la partie`);
+    // Le ▶ du socle (effet « curseur », allumé à tous les niveaux) suit le
+    // focus dans la colonne, à gauche du rang visé et hors de l'image ; il
+    // se cache quand le focus part dans la zone de jeu, et ne se pose
+    // jamais sur l'image. Jusqu'à la relecture du 23 novembre 2026, la salle
+    // n'activait aucun ▶ (en-jeu-clavier.5).
+    const fleche = () =>
+      page.evaluate(() => {
+        const t = document.querySelector("#screen").getBoundingClientRect();
+        return [...document.querySelectorAll(".rt-curseur[data-visible]")].map((f) => {
+          const r = f.getBoundingClientRect();
+          const sur =
+            Math.min(r.right, t.right) - Math.max(r.left, t.left) > 0.5 &&
+            Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top) > 0.5;
+          const cible = document.activeElement?.getBoundingClientRect();
+          return {
+            dansColonne: f.closest("#side") !== null,
+            sur,
+            aGauche: cible ? r.right <= cible.left + 1 && r.bottom > cible.top && r.top < cible.bottom : false,
+          };
+        });
+      });
+    await page.focus("#leaveRoom");
+    await sleep(150);
+    const surQuitter = await fleche();
+    if (surQuitter.length !== 1 || !surQuitter[0].dansColonne || !surQuitter[0].aGauche)
+      throw new Defaut(`le ▶ ne se pose pas devant « Quitter la salle » dans la colonne (${JSON.stringify(surQuitter)})`);
+    if (surQuitter[0].sur) throw new Defaut("le ▶ de la colonne se pose sur l'image");
     // Le jumeau: arrivé par Tab, l'anneau se montre...
-    await page.focus("#mode-details");
     if ((await tabArriereJusquALaZone(page)) === null) throw new Precondition("Maj+Tab n'atteint pas la zone");
+    const dansLaZone = await fleche();
+    if (dansLaZone.length) throw new Defaut(`le focus dans la zone de jeu, un ▶ reste visible (${JSON.stringify(dansLaZone)})`);
     const parTab = await trait();
     if (parTab === "none") throw new Defaut("arrivé par Tab, la zone de jeu ne montre aucun anneau");
     // ... puis s'efface à la première touche qui joue.
@@ -792,7 +963,7 @@ const ETAPES = {
   async "clic-colonne"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    for (const id of ["#mode-details", "#mode-normal", "#port2"]) {
+    for (const id of [await ouvreMesures(page), await fermeMesures(page), "#port2"]) {
       if ((await page.$(id)) === null) throw new Precondition(`pas de bouton ${id}`);
       await page.mouse.click(...(await centre(page, id)));
       await sleep(250);
@@ -803,11 +974,12 @@ const ETAPES = {
         throw new Defaut(`après un clic sur ${id}, la flèche ne pousse plus le stick`);
     }
     // Le jumeau: au clavier, le focus reste sur le bouton qu'on active.
-    await page.focus("#mode-details");
+    const ouvre = await ouvreMesures(page);
+    await page.focus(ouvre);
     await appuyer(page, "Enter");
     await sleep(250);
     const ici = await actif(page);
-    if (ici.id !== "mode-details") throw new Defaut(`Entrée au clavier sur « détails » a mis le focus sur ${ici.tag}#${ici.id}`);
+    if (`#${ici.id}` !== ouvre) throw new Defaut(`Entrée au clavier sur « mesures » a mis le focus sur ${ici.tag}#${ici.id}`);
     await page.close();
   },
 
@@ -866,13 +1038,28 @@ const ETAPES = {
    * « S → X », là où le jeu lit + et 1 (relecture du 22 novembre 2026). */
   async "carte-wii"() {
     const lire = async (options) => {
-      const page = await nouvelle(PC, options);
+      const page = await nouvelle(PC, { ...options, premiere: true });
       await entrer(page);
-      if (!(await attendre(page, () => document.querySelector("#aideClavier dl") !== null, 4000)))
+      if (
+        !(await attendre(
+          page,
+          () => document.querySelector("#vueTouches [data-ligne-touche], #aideClavier dl") !== null,
+          4000,
+        ))
+      )
         throw new Precondition("pas de carte des touches");
       await sleep(300);
-      const paires = await page.$$eval("#aideClavier dl > div", (els) =>
-        els.map((el) => [el.querySelector("dt")?.textContent?.trim(), el.querySelector("dd")?.textContent?.trim()]),
+      // La vue des touches depuis le 23 novembre 2026, la carte dépliable avant.
+      const paires = await page.evaluate(() =>
+        document.querySelector("#vueTouches")
+          ? [...document.querySelectorAll("#vueTouches [data-ligne-touche]")].map((el) => [
+              el.querySelector(".n3-ligne-touches")?.textContent?.trim(),
+              el.querySelector(".n3-ligne-fait")?.textContent?.trim(),
+            ])
+          : [...document.querySelectorAll("#aideClavier dl > div")].map((el) => [
+              el.querySelector("dt")?.textContent?.trim(),
+              el.querySelector("dd")?.textContent?.trim(),
+            ]),
       );
       if (options.console === "wii") await capture(page, "carte-wii");
       await page.close();
@@ -892,24 +1079,92 @@ const ETAPES = {
   /** L'avis « le jeu ne reçoit plus tes touches » ne se pose pas en bas de
    * l'image, où vivent déjà la proposition, la pastille de liaison et l'avis du
    * format réduit: la proposition, plus tard dans le DOM, pouvait couvrir son
-   * bouton. */
+   * bouton. Depuis le 23 novembre 2026 (chantier salle), il ne se pose plus
+   * du tout sur l'image: une bande noire où il tient, sinon le pied de la
+   * colonne (`lieuDesAvis`). */
   async "avis-haut"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await page.focus("#mode-details");
+    await page.focus(await ouvreMesures(page));
     if (!(await attendre(page, () => document.querySelector("#clavierEnPause") !== null)))
       throw new Precondition("l'avis de pause ne s'affiche pas");
     const lu = await page.evaluate(() => {
-      const zone = document.querySelector("[data-zone-jeu]").getBoundingClientRect();
+      const image = document.querySelector("#screen").getBoundingClientRect();
       const avis = document.querySelector("#clavierEnPause").getBoundingClientRect();
       const bouton = document.querySelector("#clavierEnPause button");
       const b = bouton.getBoundingClientRect();
       const ici = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
-      return { milieu: zone.top + zone.height / 2, bas: avis.bottom, libre: bouton.contains(ici), texte: bouton.textContent };
+      const l = Math.min(image.right, avis.right) - Math.max(image.left, avis.left);
+      const h = Math.min(image.bottom, avis.bottom) - Math.max(image.top, avis.top);
+      return { coupe: l > 0 && h > 0 ? Math.round(l * h) : 0, libre: bouton.contains(ici), texte: bouton.textContent };
     });
     await capture(page, "avis-haut");
-    if (lu.bas > lu.milieu) throw new Defaut(`l'avis descend à ${Math.round(lu.bas)} px, sous le milieu de l'image (${Math.round(lu.milieu)})`);
+    if (lu.coupe > 0) throw new Defaut(`l'avis est posé sur l'image (${lu.coupe} px²)`);
     if (!lu.libre) throw new Defaut("le bouton de l'avis est couvert");
+    await page.close();
+  },
+
+  /** colonne.10: la colonne déborde à 1280×720. Tab passe sur chaque arrêt
+   * de la colonne, et chacun se voit en entier: ni sous « Plus bas », ni sous
+   * la pile des avis collée en tête. Le jumeau, dans la même page: la marge
+   * de défilement du bas remise à 0, au moins un arrêt passe sous « Plus
+   * bas ». Sans ce jumeau, une colonne qui ne déborde pas passerait pour rien. */
+  async "colonne-deborde"() {
+    const page = await nouvelle({ width: 1280, height: 720 });
+    await entrer(page);
+    await page.evaluate(() => {
+      const autres = document.querySelector("#autresReglages");
+      if (autres) autres.open = true;
+    });
+    const deborde = await page.evaluate(() => {
+      const side = document.querySelector("#side");
+      return side ? side.scrollHeight > side.clientHeight + 40 : false;
+    });
+    if (!deborde) throw new Precondition("la colonne ne déborde pas à 1280×720");
+    if ((await page.$("#leaveRoom")) === null) throw new Precondition("pas de « Quitter » en tête de colonne");
+    /** Les arrêts de Tab dans la colonne, et ceux qu'on ne voit pas en entier. */
+    const parcourir = async () => {
+      await page.evaluate(() => {
+        document.querySelector("#side").scrollTop = 0;
+        document.querySelector("#leaveRoom").focus();
+      });
+      const caches = [];
+      let arrets = 0;
+      for (let i = 0; i < 60; i += 1) {
+        await appuyer(page, "Tab");
+        await sleep(60);
+        const lu = await page.evaluate(() => {
+          const el = document.activeElement;
+          const side = document.querySelector("#side");
+          if (!el || !side?.contains(el)) return null;
+          const r = el.getBoundingClientRect();
+          const c = side.getBoundingClientRect();
+          const plus = document.querySelector("#plusBas")?.getBoundingClientRect();
+          const tete = document.querySelector("#side > .sticky")?.getBoundingClientRect();
+          const bas = plus && plus.height > 0 ? plus.top : c.bottom;
+          const haut = tete && tete.height > 0 ? tete.bottom : c.top;
+          return {
+            nom: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""} « ${(el.textContent ?? "").trim().slice(0, 24)} »`,
+            vu: r.top >= haut - 0.5 && r.bottom <= bas + 0.5,
+          };
+        });
+        if (lu === null) break;
+        arrets += 1;
+        if (!lu.vu) caches.push(lu.nom);
+      }
+      return { arrets, caches };
+    };
+    const juste = await parcourir();
+    if (juste.arrets < 6) throw new Precondition(`seulement ${juste.arrets} arrêts dans la colonne`);
+    await capture(page, "colonne-deborde");
+    await page.evaluate(() => {
+      document.querySelector("#side").style.scrollPaddingBottom = "0px";
+    });
+    const sansMarge = await parcourir();
+    if (sansMarge.caches.length === 0)
+      throw new Precondition("sans marge de défilement, aucun arrêt ne passe sous « Plus bas »: l'étape ne voit rien");
+    if (juste.caches.length > 0)
+      throw new Defaut(`arrêts cachés dans la colonne (${juste.arrets} arrêts): ${juste.caches.join(", ")}`);
     await page.close();
   },
 
@@ -930,8 +1185,10 @@ const ETAPES = {
       const p2 = document.querySelector("#port2");
       return {
         volume: nom(document.querySelector("#volume")),
-        normal: document.querySelector("#mode-normal")?.getAttribute("aria-pressed") ?? null,
-        details: document.querySelector("#mode-details")?.getAttribute("aria-pressed") ?? null,
+        mesures:
+          (document.querySelector("#mesures") ?? document.querySelector("#mode-details"))?.getAttribute(
+            "aria-pressed",
+          ) ?? null,
         p1: p1?.getAttribute("aria-label") ?? null,
         p1Inactif: p1?.disabled ?? null,
         p2: p2?.getAttribute("aria-label") ?? null,
@@ -939,8 +1196,7 @@ const ETAPES = {
     });
     if (lu.volume === null) throw new Precondition("pas de glissière de volume");
     if (!/volume/i.test(lu.volume)) throw new Defaut(`la glissière n'a pas de nom: « ${lu.volume} »`);
-    if (lu.normal !== "true" || lu.details !== "false")
-      throw new Defaut(`les modes ne disent pas lequel est choisi: ${lu.normal}/${lu.details}`);
+    if (lu.mesures !== "false") throw new Defaut(`la ligne des mesures ne dit pas si elles sont ouvertes: ${lu.mesures}`);
     if (!/la tienne/.test(lu.p1 ?? "")) throw new Defaut(`ta prise ne dit pas qu'elle est à toi: « ${lu.p1} »`);
     if (lu.p1Inactif) throw new Defaut("ta prise est retirée de la tabulation (disabled)");
     if (!/libre/.test(lu.p2 ?? "")) throw new Defaut(`une prise libre ne le dit pas: « ${lu.p2} »`);

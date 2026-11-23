@@ -861,6 +861,107 @@ focus-navigateur-rouge:
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 
+# ==== chantier salle ====
+# Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni
+# ne la voile, à sept tailles de bureau et au niveau d'effets « tout », en
+# partie, avec la fermeture proche annoncée, avec le clavier rendu à la
+# colonne, et l'image agrandie par Ctrl (`cadre.mjs`, chantier salle du
+# 23 novembre 2026). Même banc que `parcours-navigateur` (Chrome, ffmpeg, rien
+# de vivant, port 5478).
+#
+#   just cadre-navigateur                         toutes les étapes
+#   just cadre-navigateur --etapes agrandie       une seule
+#   just cadre-navigateur --captures /tmp/cadre   avec les captures
+cadre-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node cadre.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Ce que coûtent les effets (étape 8 du chantier salle) : quatre phases de
+# 60 s en alternance, sobre, tout, sobre, tout, sur la page committée et le
+# banc H.264, images peintes par seconde et plus long écart. Hors de la porte:
+# quatre minutes de mesure, à lancer sur une machine au repos (aucune autre
+# porte, aucun profileur), dont la charge est écrite à chaque phase.
+cadre-mesure:
+    just cadre-navigateur --etapes mesure-effets
+
+# Le contrôle négatif du précédent: la page de 03b21c0, d'avant le chantier,
+# doit échouer sur le DÉFAUT de chaque étape (la pile des avis sur l'image, les
+# boutons de coin d'une colonne repliée, la manette « toujours » posée sur
+# l'image à la souris), pas sur une précondition. La garde elle-même
+# (`garde-voit`) doit rester verte sur cette page: elle ne dépend pas du cadre.
+#
+# Les étapes nouvelles du chantier lisent aussi des pages de la branche du
+# chantier (0fef99e, 3cada57, 2cb36ba, cf3bba1, acfa4c7). Ces commits ne vivent
+# que sur `chantier/retro-salle`, que l'intégration refait : leurs pages sont
+# gardées dans le dépôt (`spikes/m3-browser-drive/rouges/`, relecture du
+# 23 novembre 2026), chacune avec l'empreinte git de la page de son commit
+# (`EMPREINTES`), vérifiée avant usage. Une copie changée arrête la recette.
+cadre-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    rouges="$(pwd)/spikes/m3-browser-drive/rouges"
+    while read -r empreinte commit fichier; do
+        lue=$(git hash-object "$rouges/$fichier")
+        if [ "$lue" != "$empreinte" ]; then
+            echo "$fichier n'est plus la page de $commit ($lue au lieu de $empreinte)" >&2
+            exit 1
+        fi
+    done < "$rouges/EMPREINTES"
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    cd spikes/m3-browser-drive
+    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
+    # manette-branchee: l'avis de branchement de cette page couvre L.
+    # souris-toujours: la manette « toujours » se pose sur l'image à la souris.
+    # sortir-salle: Quitter part sans la transition « sortir-salle » (K13).
+    etapes=rien-sur-image,agrandie,manette-branchee,souris-toujours,sortir-salle
+    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page de la fin du passage 1 (0fef99e) a déjà le cadre, mais ni le
+    # panneau de commande ni la colonne nouvelle: elle doit tomber sur le
+    # panneau absent de l'écran et sur les onglets restés là.
+    etapes=meuble-place,une-fois
+    node cadre.mjs --page "$rouges/salle-0fef99e.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page de la colonne du bureau (3cada57) ouvre encore son menu d'office
+    # dans une salle au repos.
+    etapes=repos-sans-menu
+    node cadre.mjs --page "$rouges/salle-3cada57.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Quatrième bloc (étape 7): la page de l'étape 6 (2cb36ba) n'a ni
+    # fronton, ni crédit, ni trame, ni décor de borne; chaque étape doit y
+    # rougir sur son défaut, pas sur le jumeau de son balayage.
+    etapes=fronton-bande,credit-compte,tramage-hors-image,borne-bandes
+    node cadre.mjs --page "$rouges/salle-2cb36ba.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Cinquième bloc (étape 4): la page de l'étape 7 (cf3bba1) pose la
+    # manette tactile par-dessus l'écran; tenue en main, elle doit rougir sur
+    # les touches posées sur l'image, pas sur une manette absente.
+    etapes=tenu-rien-sur-image
+    node cadre.mjs --page "$rouges/salle-cf3bba1.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Sixième bloc (passage 5): la page de la fin du passage 4 (acfa4c7) garde
+    # ses touches à l'écran devant une vraie manette, sa bande ne dit pas
+    # quelle manette joue, sa feuille à mi-hauteur n'a pas le clip, et ni son
+    # fronton, ni sa colonne, ni sa barre ne portent l'ancre de l'annonce.
+    # Passage 6: sans barre (844×390, 375×548), aucune scène de la mascotte
+    # n'y joue, faute d'hôte dans « La salle ».
+    etapes=manette-branchee,manette-vraie,feuille-clip,fronton-bande,tenu-rien-sur-image,mascotte-hors-image
+    node cadre.mjs --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+# ==== fin salle ====
+
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
 # (`systemctl start nel3ab-worker@1`), because the failure only exists against a
 # live stream: a decoder that is fed nothing cannot be caught refusing anything.

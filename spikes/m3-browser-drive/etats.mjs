@@ -123,6 +123,9 @@ async function nouvelle(vue, stockage = {}) {
     try {
       localStorage.setItem("nel3ab:name", "banc");
       localStorage.setItem("nel3ab:banc", "1");
+      // La vue des touches de la première visite prend la place des rangs de
+      // la colonne (chantier salle, étape 6); ces étapes partent d'une vue lue.
+      localStorage.setItem("nel3ab:aide-clavier", "vue");
       for (const [cle, valeur] of Object.entries(stockage)) localStorage.setItem(cle, valeur);
     } catch {}
   }, stockage);

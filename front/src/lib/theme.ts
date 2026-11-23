@@ -278,9 +278,12 @@ export function looksLikeAPhone(): boolean {
   }
 }
 
-/** Faut-il la montrer, tout compte fait ? */
-export function showsTouchPad(pref: TouchPref, coarse: boolean): boolean {
+/** Faut-il la montrer, tout compte fait ? En automatique, une vraie manette
+ * branchée l'efface : au téléphone, l'image reprend toute la largeur, et
+ * les touches reviennent quand la manette part (en-jeu-manette.4,
+ * 23 novembre 2026). */
+export function showsTouchPad(pref: TouchPref, coarse: boolean, manette = false): boolean {
   if (pref === "on") return true;
   if (pref === "off") return false;
-  return coarse;
+  return coarse && !manette;
 }

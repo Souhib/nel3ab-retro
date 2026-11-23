@@ -116,6 +116,16 @@ describe("la manette à l'écran", () => {
     expect(showsTouchPad("on", false)).toBe(true);
   });
 
+  it("s'efface en automatique devant une vraie manette, et revient sans elle", () => {
+    // Au téléphone, une vraie manette branchée rend l'image entière
+    // (en-jeu-manette.4) ; débranchée, les touches reviennent d'elles-mêmes.
+    expect(showsTouchPad("auto", true, true)).toBe(false);
+    expect(showsTouchPad("auto", true, false)).toBe(true);
+    // Un choix explicite tient, manette ou pas.
+    expect(showsTouchPad("on", true, true)).toBe(true);
+    expect(showsTouchPad("off", true, false)).toBe(false);
+  });
+
   it("retombe sur l'automatique devant une valeur inconnue", () => {
     localStorage.setItem("nel3ab:touchpad", "peut-être");
     expect(storedTouch()).toBe("auto");

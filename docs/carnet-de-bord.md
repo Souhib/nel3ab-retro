@@ -29467,7 +29467,126 @@ la page, page à jour), comme `focus-navigateur` (27 étapes),
 et 932×430) et `parcours-navigateur` (13 étapes, dont
 `preparation-x360`). La porte entière attend toujours l'intégration finale.
 
+### 23 novembre, la dernière vague : Aïn entre dans la salle
+
+**Le choix du propriétaire.** La mascotte du thème rétro est Aïn : le 3 du
+logo, vivant. En arabizi, l'écriture de l'arabe avec des lettres latines et
+des chiffres, le 3 note la lettre ʿayn, dont le nom veut dire « œil ». Aïn
+porte donc un seul grand œil rond, deux petits pieds rouges, et le relief en
+escalier du logo. Il habite le logo, en sort pour ses scènes et y rentre ;
+sa place reste en pointillés quand il est dehors. La proposition jouable
+(`da/ain/`) avait trois décisions validées : sa maison est le logo au pied
+de la colonne de la salle, et sa tête seule dans la barre au téléphone ; son
+poids dépasse l'enveloppe de 8 Ko de la partition et se prend sur la
+réserve ; il peut jouer en grand sur l'écran noir tant qu'aucune image du
+jeu n'a été peinte, et la première image le renvoie aussitôt au logo.
+
+**Ce qui a été porté.** Cinq modules sous `front/src/mascotte/`, chacun avec
+ses essais. `dessin.ts` dessine en grilles de lettres, une lettre par
+couleur : Aïn (32 × 36 pixels), sa tête seule, ses six yeux, ses bulles
+(« ! », « ? », « z », l'étiquette « 3P »), ses accessoires et le logo à son
+unité. Les couleurs viennent des jetons de `regie.css` quand il en existe,
+si bien que le logo suit le jour et la nuit. `moteur.ts` lit le décor dans
+la page et vérifie les trajets. `lecteur.ts` peint et joue. `scenes-ain.ts`
+porte les 27 scènes (17 de la salle, 10 du salon). `rendu.ts` branche le
+tout sur `jouer()`, dont l'appel ne change pas : la pièce provisoire du
+socle est partie en un seul endroit, comme D37 le prévoyait.
+
+**Le planificateur.** Aucune scène ne connaît une coordonnée. Elle demande
+des ancres (`data-ancre`), des sols (`data-sol`), et lit au moment où elle
+part les zones interdites : l'image du jeu peinte plus 4 pixels, les lignes
+d'état et les contrôles, les mots de l'événement (`data-texte`). Chaque
+trajet est échantillonné toutes les 12 ms ; à chaque point, la boîte serrée
+d'Aïn (le plus petit rectangle qui contient ses pixels peints), de sa bulle
+et des objets qu'il porte est comparée aux zones. Un saut qui touche est
+abaissé (60 %, 30 %, à plat) ; un trajet qui touche encore est refusé, et la
+scène joue sa version suivante : la courte, puis une pose animée dans le
+logo, puis la pose clé, immobile. Une ancre absente fait le même repli. Les
+scènes complètes qui vont aux boutons START ou à la prise de la pastille
+attendent donc que les chantiers personnes et etats posent ces ancres ;
+d'ici là, Aïn joue dans son logo. Ce n'est pas un défaut : c'est la règle
+« rien sur l'image » appliquée par construction.
+
+**Rien ne tourne entre deux scènes.** La proposition l'exigeait, et la pièce
+provisoire ne le tenait pas (elle tournait sans fin, K15). Une boucle
+`requestAnimationFrame` part avec une scène et s'arrête avec elle ; au repos,
+Aïn est une toile peinte une fois et des sprites cachés. Un essai fait
+passer cent images après la fin d'une scène et exige qu'aucune ne soit
+demandée. Le premier mutant essayé, une boucle qui continue à vide, n'était
+pas vu : la boucle ne repartait jamais, le mutant ne changeait rien. Le
+second, qui redemande une image même après la fin, faisait tourner l'essai
+sans fin au lieu de le faire échouer. La boucle d'essai a reçu une borne :
+une boucle qui tourne encore après mille images échoue en le disant. La
+scène cède aussi : deux images de suite à plus de 50 ms d'écart, et elle
+saute à sa fin, pour ne pas prendre de temps au jeu.
+
+**Les essais rouges.** Celui du planificateur fait grandir l'image jusque
+sur le chemin d'un bond : le plan est refusé, et son jumeau, la même image à
+sa place, le laisse passer. Celui des scènes fait descendre l'image sur le
+panneau : les sept scènes qui y vont se replient, et disent pourquoi. Celui
+du plateau change l'attribut `data-sans-image` sans que personne n'appelle
+la mascotte : la scène est coupée. Le déplacement du logo a son essai, rouge
+sur l'ancienne colonne et vert sur la nouvelle.
+
+**Un bruit qui cachait les erreurs.** Depuis que le coin peint le logo au
+montage, chaque rendu de la salle dans les essais écrivait « Not
+implemented: HTMLCanvasElement's getContext() » : jsdom n'a pas de contexte
+2D. Le journal de `just check` en était plein. `src/test/setup.ts` remplace
+désormais `getContext` par une fonction qui rend le même `null`, sans bruit.
+Un passage de `oxfmt` sur tout `src/` a aussi reformaté le client généré :
+la commande du dépôt passe `--ignore-path`, l'appel direct non. Les fichiers
+ont été remis tels quels avant le commit.
+
+**Ce que le vrai cadre a appris.** L'étape `mascotte-hors-image` de
+`cadre-navigateur` joue maintenant les 16 scènes de la salle, l'une après
+l'autre, sur chaque hôte : le logo du coin à 1280×720 et 1440×900, la barre
+à 390×844, la tête dans « La salle » à 844×390 et 375×548, le plateau au
+repos. Image par image, la boîte serrée de chaque sprite (lue sur la toile,
+`data-serre`) ne doit toucher ni l'image peinte, ni un contrôle, ni un mot.
+Le premier passage n'a vu aucune scène au bureau : toutes tombaient sur leur
+pose clé. La maison dit maintenant pourquoi (`data-refus`) : « Aïn
+toucherait un contrôle (#mic) à 60 ms ». Le micro est replié sous « Autres
+réglages », un `<details>` fermé ; Chrome cache son contenu sans lui retirer
+sa boîte, et le planificateur le prenait pour un obstacle posé sur le logo.
+Le contenu d'un `<details>` fermé n'est plus une zone, avec son essai. Il
+fallait aussi de la place : à 64 px de haut, le logo touchait presque la
+ligne d'état, et le moindre saut était refusé. Le coin passe à 96 px, le
+logo posé en bas. Dans « La salle », la sonde a vu Aïn passer sur le mot du
+bouton qui porte sa tête : ce bouton reste un obstacle, Aïn n'en sort pas en
+sprite, et sa bulle se tait quand sa place toucherait un mot. Le jumeau
+rouge glisse l'image sous le logo pendant « fier » : la sonde l'y voit. Le
+pilote prend un port à part (`--port`) : un autre chantier tenait le port
+par défaut au même moment.
+
+**Le poids.** La page passe de 249 436 à 261 476 octets en brotli 11 :
+12 040 de plus. Mesurés fichier par fichier (minifiés, sans partage), les
+cinq modules font environ 16 200 octets et la pièce retirée 1 179 ; dans la
+page, le partage de la compression ramène Aïn à environ 13 200 octets. C'est
+le « environ 15 Ko » de la proposition, au-dessus de l'enveloppe de 8 Ko,
+comme le propriétaire l'a accepté.
+
+**Ce qui n'est pas prouvé.** Les scènes complètes qui vont aux START, à la
+prise de la pastille ou aux marques du sol n'ont pas encore joué dans la
+vraie salle, faute des ancres des autres chantiers : dans le cadre, Aïn joue
+leurs versions courtes. La planche de la mascotte et le paquet du salon
+restent à faire. Personne n'a regardé Aïn à froid.
+
 ## 12. Glossaire complet
+
+**Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
+née des claviers sans lettres arabes. Le 3 y note la lettre ʿayn (ع), dont le
+nom veut dire « œil » : d'où Aïn.
+
+**Boîte serrée** : le plus petit rectangle qui contient les pixels peints
+d'un dessin, sans ses marges transparentes. C'est elle que le planificateur
+d'Aïn compare aux zones interdites.
+
+**Planificateur (d'Aïn)** : le module qui calcule les trajets d'une scène à
+partir des ancres de la page, les échantillonne, et refuse ceux qui
+toucheraient l'image du jeu, un contrôle ou un mot.
+
+**Sprite** : une petite image qu'on déplace d'un bloc au-dessus du décor,
+comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
 verticales de couleurs pures (blanc, jaune, cyan, vert, magenta, rouge, bleu)

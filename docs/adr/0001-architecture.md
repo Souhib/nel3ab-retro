@@ -2172,6 +2172,54 @@ Decision:
   its first picture. Switch and Xbox 360 already read that same file name.
 
 
+### D46: The mascot is Aïn, the 3 of the logo, played by a planner that reads the page, 2026-11-23
+
+D37 left the mascot abstract: screens ask for a SCENE (`jouer(scene, {hote})`)
+and one renderer, `mascotte/rendu.ts`, decides how to play it. The owner chose
+Aïn on 2026-11-23 from a playable proposal (`da/ain/`): the 3 of the logo,
+alive, one round eye (in arabizi the 3 writes the letter ʿayn, « eye »), two
+red feet and the logo's stepped relief. He lives in the logo and leaves it for
+his scenes.
+
+Decision:
+
+- **One renderer, the same API.** `rendu.ts` now plugs Aïn into `jouer()`;
+  the socle's signature is unchanged and gains one optional field,
+  `contexte` (the player, the variant), passed on by the room arbiter
+  (`lib/scenes-salle.ts`, still the only arbiter, K10). Three ids join the
+  common scenes (`spectateur`, `attente-chargement`, `hoquet`); the salon
+  variants keep their scene's id and are chosen by the host (a logo outside
+  any `[data-cadre]`). 17 room scenes and 10 salon scenes.
+- **His home is the logo at the foot of the column** (K26), on the phone his
+  head alone in the bar. The logo leaves the column header; the coin paints it
+  at mount. While he is out, his place in the logo is dotted.
+- **The planner reads the page, not coordinates.** Every scene asks for
+  anchors (`[data-ancre]`), floors (`[data-sol]`) and reads forbidden zones at
+  its start, in window pixels: the painted game picture plus 4 px, status
+  lines and controls, the words of the event (`[data-texte]`). Each track is
+  sampled every 12 ms; an arc that touches is lowered, a track that still
+  touches refuses the plan, and the scene falls back to its short version,
+  then an animated pose in the logo, then the key pose. A missing anchor is a
+  fallback too, never an error: the full versions appear as the other
+  workstreams place their anchors (`start-N`, `prise`, the floor marks).
+- **Nothing runs between two scenes.** One `requestAnimationFrame` loop per
+  scene, stopped with it; at rest Aïn is a canvas painted once. A scene
+  yields (jumps to its end) after two frames more than 50 ms apart.
+  Reduced motion and level Sobre show the key pose; level Tout adds the eye
+  that follows the pointer outside the picture and a reaction to a click.
+- **The black screen is his stage until the first picture.** On the plateau
+  he plays large while no picture of the current game is painted; the first
+  picture cuts him in the same task, and an observer of `data-sans-image`
+  cuts him even when nobody asked.
+- **Weight.** About 13 kB brotli in the room page, against the 8 kB envelope
+  of the partition: the owner accepted taking the difference from the
+  reserve.
+
+Rejected: keeping the arbiter of the proposal beside K10 (two arbiters would
+disagree on ranks); positions written in the scenes (every layout of
+`lib/cadre.ts` would need its own); WAAPI keyframes per scene (a planner
+cannot check a path it does not compute).
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

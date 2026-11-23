@@ -440,6 +440,10 @@ machine".
   real clicks rather than `element.click()`, and return numbers, not a DOMRect,
   from `page.evaluate` (it arrives as `{}`). Name a sweep's unit and domain:
   "2,000 sizes" counted poses, and never went below 320 px, where they broke.
+  A closed `<details>` keeps its box in Chrome (its content is hidden by
+  `content-visibility`): on 2026-11-23 the mascot's planner took a folded
+  microphone button for an obstacle on the logo and refused every scene.
+  Code that reads obstacles skips that content, as the probes already did.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that

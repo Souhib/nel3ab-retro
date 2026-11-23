@@ -219,6 +219,22 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
+**Au 23 novembre, la dernière vague : Aïn, chantier mascotte, premier
+passage.** Sur la branche `chantier/retro-mascotte` (worktree
+`~/nel3ab-chantiers/retro-mascotte`), partie d'`integration/retro` ; rien
+dans `main`, rien de poussé ni d'installé. Aïn, le 3 du logo, remplace la
+pièce provisoire dans `mascotte/rendu.ts` sans changer `jouer()` (ADR D46).
+Sa maison est le logo, descendu de l'en-tête au pied de la colonne ; au
+téléphone, sa tête seule dans la barre. Les 27 scènes sont portées ; leurs
+versions complètes jouent quand les ancres des autres chantiers sont
+posées, et se replient sinon. `cadre-navigateur` (étape
+`mascotte-hors-image`) joue les 16 scènes de la salle sur chaque hôte et
+vérifie image par image qu'aucun sprite ne touche l'image, un contrôle ou un
+mot, avec son jumeau rouge. La page fait 261 476 octets en brotli (+12 040).
+Restent : la planche de la mascotte (gardien mascotte), le paquet du salon,
+la mesure dans le navigateur que rien ne tourne entre deux scènes. Récit : « 23 novembre, la dernière vague : Aïn
+entre dans la salle ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

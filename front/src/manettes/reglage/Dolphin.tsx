@@ -23,6 +23,7 @@ import {
   Suspension,
   type Ligne,
 } from "./PasAPas";
+import { tenirDessins } from "./inscriptions";
 import { poserMarques } from "./marques";
 
 export type EntreeDolphin = Pick<
@@ -85,6 +86,8 @@ export function ManetteDolphin({ trame }: { trame: TrameDolphin }) {
     const racine = dessins.current;
     return racine ? poserMarques(racine, (ecoute) => trame.input.surReglage(ecoute)) : undefined;
   }, [trame.input]);
+  // Le plancher de 9 px des inscriptions, à chaque dessin montré.
+  useEffect(() => (dessins.current ? tenirDessins(dessins.current) : undefined), [vu, state.padId]);
   const controls = controlsFor("wii", vu);
   const nomDe = (key: string) => controls.find((one) => one.key === key)?.label ?? key;
   // Les actions du jeu suivent l'appareil de la place : un aperçu les cache.

@@ -152,7 +152,14 @@ export function PadMapView({
             </g>
           ) : null}
           {inscription && !at ? (
-            <text x={part.x} y={part.y + size * 0.36} textAnchor="middle" fontSize={size}>
+            <text
+              x={part.x}
+              y={part.y + size * 0.36}
+              textAnchor="middle"
+              fontSize={size}
+              data-taille={size}
+              data-piece={part.r * 2}
+            >
               {inscription}
             </text>
           ) : null}
@@ -163,6 +170,7 @@ export function PadMapView({
             y={at.y + size * 0.36}
             textAnchor={at.anchor ?? "middle"}
             fontSize={size}
+            data-taille={size}
             className="n3-callout"
           >
             {inscription}

@@ -31,6 +31,7 @@ import {
   Suspension,
   type Ligne,
 } from "./PasAPas";
+import { tenirDessins } from "./inscriptions";
 import { poserMarques } from "./marques";
 
 export type TramePro = {
@@ -125,6 +126,7 @@ function DessinsPro({ trame }: { trame: TramePro }) {
   }, [source]);
   const pad = source.pad;
   const identite = pad ? identify(pad.id, pad.mapping) : null;
+  useEffect(() => (paire.current ? tenirDessins(paire.current) : undefined), [identite?.name]);
   return (
     <div className="n3-controller-pair" ref={paire}>
       <div ref={gauche}>

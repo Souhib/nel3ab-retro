@@ -1817,7 +1817,11 @@ Decision:
   on another game or on the menu, or without an image after ten minutes, is an
   « abandon » line, never counted; an impossible duration is not written. The
   lobby reads at most the last 4 MiB of that file, from its end: the most
-  recent starts are the ones that count.
+  recent starts are the ones that count. Each line is written to its last byte
+  (`write(2)` may write less than it is given), and a line that a full disk or
+  a stopped lobby left without its newline gets one before the next, the same
+  guard as the play journal: otherwise the next measurement would be glued to
+  it and lost with it.
 - **« I'm staying » is one byte on the pad socket (D16).** `Reste` (tag `0xE1`,
   next to the echo's `0xE0`, a length no other message of that channel has)
   stamps the seat's last gesture like a non-neutral frame, so the inactivity

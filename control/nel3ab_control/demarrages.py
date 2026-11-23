@@ -190,15 +190,27 @@ class Demarrages:
         }
         if secondes is not None:
             self._lues().setdefault(attente.cle, deque(maxlen=GARDES)).append(round(secondes, 1))
+        octets = (json.dumps(ligne, ensure_ascii=False) + "\n").encode()
         try:
             self._fichier.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             descripteur = os.open(
                 self._fichier,
-                os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
+                os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC,
                 0o600,
             )
             try:
-                os.write(descripteur, (json.dumps(ligne, ensure_ascii=False) + "\n").encode())
+                # Une ligne coupée (disque plein, salon arrêté en pleine
+                # écriture) n'a pas de fin de ligne: celle-ci s'y collerait, et
+                # les deux seraient illisibles. Même garde que le journal des
+                # parties (`parties.py`).
+                taille = os.fstat(descripteur).st_size
+                if taille and os.pread(descripteur, 1, taille - 1) != b"\n":
+                    octets = b"\n" + octets
+                # `write(2)` peut écrire moins qu'on lui donne: on reprend
+                # jusqu'au bout, et un disque plein lève à l'appel suivant.
+                reste = memoryview(octets)
+                while reste:
+                    reste = reste[os.write(descripteur, reste) :]
             finally:
                 os.close(descripteur)
         except OSError:

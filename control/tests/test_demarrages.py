@@ -1,6 +1,7 @@
 """Combien de temps un jeu met d'habitude à démarrer (D05), sans worker ni horloge réelle."""
 
 import json
+import os
 from pathlib import Path
 
 import httpx
@@ -206,6 +207,54 @@ def test_une_duree_impossible_n_est_pas_ecrite(tmp_path: Path, duree: float) -> 
     demarrages.vu(1, "Melee.rvz", lance_ms + 2_000, lance_ms + int(duree * 1000))
 
     assert not fichier.exists()
+
+
+def test_une_ecriture_courte_va_jusqu_au_bout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`write(2)` peut écrire moins qu'on lui donne (un disque qui se remplit):
+    le reste de la ligne suit, au lieu d'une ligne coupée que la lecture écarte."""
+    murale = Murale()
+    fichier = tmp_path / "d.jsonl"
+    ecrire_vraiment = os.write
+    monkeypatch.setattr(os, "write", lambda fd, data: ecrire_vraiment(fd, bytes(data[:40])))
+
+    for duree in (20.0, 24.0, 25.0, 26.0, 40.0):
+        demarrer(Demarrages(fichier, murale), murale, 1, "Melee.rvz", duree)
+
+    assert [ligne["secondes"] for ligne in lignes(fichier)] == [20.0, 24.0, 25.0, 26.0, 40.0]
+    relue = Demarrages(fichier, murale).habituel("Melee.rvz")
+    assert relue is not None and relue.n == 5
+
+
+def test_une_ligne_coupee_n_emporte_pas_la_suivante(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un disque plein au milieu d'une ligne la laisse coupée, sans fin de ligne.
+    La ligne suivante ne doit pas s'y coller: les deux seraient illisibles, et
+    la première mesure après la panne serait perdue avec la ligne coupée."""
+    murale = Murale()
+    fichier = tmp_path / "d.jsonl"
+    ecrire_vraiment = os.write
+    appels: list[int] = []
+
+    def disque_plein(fd: int, data: bytes) -> int:
+        appels.append(len(data))
+        if len(appels) > 1:
+            raise OSError(28, "No space left on device")
+        return ecrire_vraiment(fd, bytes(data[:40]))
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "write", disque_plein)
+        demarrer(Demarrages(fichier, murale), murale, 1, "Melee.rvz", 99.0)
+    assert not fichier.read_bytes().endswith(b"\n"), "la panne a bien coupé la ligne"
+
+    for duree in (20.0, 24.0, 25.0, 26.0, 40.0):
+        demarrer(Demarrages(fichier, murale), murale, 1, "Melee.rvz", duree)
+
+    relue = Demarrages(fichier, murale).habituel("Melee.rvz")
+    assert relue is not None
+    assert (relue.mediane_s, relue.p90_s, relue.n) == (25.0, 40.0, 5)
 
 
 @pytest.mark.parametrize(

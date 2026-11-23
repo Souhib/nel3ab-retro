@@ -28588,6 +28588,25 @@ jumeaux : une identité accentuée et la plus longue identité légale passent
 entières. Une identité de proxy porte rarement un espace insécable ; ce qui
 compte est que le salon et le worker appliquent la même règle.
 
+**La ligne coupée du chronomètre.** Le passage d'avant avait signalé sans le
+corriger un reste du même défaut que l'image déposée : le chronomètre des
+démarrages écrivait sa ligne par un seul `write(2)` et ignorait le nombre
+d'octets que l'appel rend. Une ligne coupée par un disque plein n'était pas
+grave en elle-même, puisque la lecture l'écarte. Ce qui l'était, c'est la
+ligne suivante : écrite à la fin du fichier, elle se collait à la moitié
+restée sans fin de ligne, et les deux devenaient illisibles. La première
+mesure prise après la panne était perdue avec la ligne coupée. Le journal des
+parties connaissait déjà ce piège et le garde : avant d'écrire, il regarde le
+dernier octet du fichier et ajoute une fin de ligne s'il en manque une. Le
+chronomètre prend la même garde, et reprend son écriture jusqu'au dernier
+octet. Deux essais, chacun rouge avant la correction : l'un fait écrire
+quarante octets par appel et relit cinq lignes entières, l'autre coupe une
+ligne par un disque plein au deuxième appel, puis attend que les cinq
+démarrages suivants fassent une habitude. Trois mutants, remis un par un sur
+une copie du fichier : la boucle retirée rougit le premier essai, la garde
+retirée le second, et une garde qui ajouterait toujours une fin de ligne en
+rougit cinq, parce qu'une ligne vide n'est pas un objet JSON.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

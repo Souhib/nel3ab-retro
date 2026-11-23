@@ -73,11 +73,31 @@ local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox
 abri-test:
     tools/test_abri.sh
 
-# La planche de Bobine: chaque pose et chaque scène, rejouables à la main, sans
-# salle ni salon. Sa configuration Vite n'a AUCUN mandataire vers les ports de
-# la salle, contrairement à `npm run dev`: une planche ne touche rien de vivant.
+# La planche d'Aïn: ses dessins, et chaque scène rejouable à la main en version
+# complète, courte ou pose clé, sans salle ni salon. Sa configuration Vite n'a
+# AUCUN mandataire vers les ports de la salle, contrairement à `npm run dev`:
+# une planche ne touche rien de vivant.
 planche port="5391":
     cd front && npx vite --config vite.planche.config.ts --port {{port}}
+
+# ==== mascotte ====
+# La planche d'Aïn dans Chrome (`planche-ain.mjs`, ADR D46). Le vrai cadre ne
+# porte pas encore les START ni la prise: ses scènes complètes s'y replient.
+# La planche les porte toutes, et ce pilote exige la version complète de
+# chaque scène de la salle et du salon, aucune boîte de sprite sur l'image,
+# un contrôle ou un mot, et RIEN entre deux scènes: aucun appel à
+# requestAnimationFrame ni animation en cours pendant deux secondes après la
+# fin d'une scène. Chaque mesure a son jumeau dans le pilote (une ancre
+# retirée, l'image glissée sous le logo, le compteur qui monte pendant la
+# scène). Rien de vivant: un Vite sans relais sur 5489. 2 min 36 s mesurées
+# le 23 novembre 2026.
+#
+#   just planche-garde                          tout
+#   just planche-garde --mesures immobile       une mesure
+#   just planche-garde --lieux salon --port 5490
+planche-garde *args:
+    cd spikes/m3-browser-drive && node planche-ain.mjs {{args}}
+# ==== fin mascotte ====
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
 # poe exactly as LaTabdhir and Majlisna drive theirs.

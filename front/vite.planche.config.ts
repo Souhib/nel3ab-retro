@@ -3,10 +3,12 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 
 /**
- * La planche de Bobine: chaque pose et chaque scène, sans salle ni salon.
+ * La planche d'Aïn: ses dessins, et chaque scène dans un décor qui porte
+ * toutes ses ancres, sans salle ni salon.
  *
  * Une configuration à part, SANS mandataire vers les ports de la salle: la
- * planche ne doit jamais toucher un service vivant. `just planche` la sert.
+ * planche ne doit jamais toucher un service vivant. `just planche` la sert,
+ * `just planche-garde` y joue chaque scène dans Chrome.
  */
 export default defineConfig({
   plugins: [react(), tailwind()],

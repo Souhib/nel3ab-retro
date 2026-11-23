@@ -373,3 +373,15 @@ export function fautes(texte: string, technique = false): Faute[] {
   if (texte.includes(CADRATIN)) noter({ mot: "tiret cadratin", raison: "une virgule ou un point" });
   return trouvees;
 }
+
+// ==== chantier salle ====
+
+/** Ce que la page « manette seule » dit de ses touches (`lib/manette-seule`).
+ * Rien n'est affirmé tant que rien n'est mesuré. */
+export const LATENCE = {
+  arrivent: "Tes touches arrivent.",
+  attend: "La page attend la réponse de la salle.",
+  lentes: (ms: number) => `Tes touches mettent ${ms} ms à arriver.`,
+} as const;
+
+// ==== fin salle ====

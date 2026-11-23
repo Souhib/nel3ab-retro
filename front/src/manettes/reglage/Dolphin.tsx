@@ -475,11 +475,11 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
           <Bouton
             id="forgetKeys"
             onClick={() => {
-              const nom = state.keyProfile;
-              const profil = trame.input.keyProfileNamed(nom);
-              agir(trame, (input) => input.forgetKeys(nom));
+              const parte = state.keyProfile;
+              const profil = trame.input.keyProfileNamed(parte);
+              agir(trame, (input) => input.forgetKeys(parte));
               setAvis("");
-              setParti(profil ? { nom, profil, actif: true } : null);
+              setParti(profil ? { nom: parte, profil, actif: true } : null);
             }}
           >
             {REGLAGE.supprimer}

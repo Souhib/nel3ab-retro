@@ -85,6 +85,9 @@ export type InputState = {
   lesson: { control: ControlKey; step: number; total: number; waiting: boolean } | null;
   /** La fin du dernier pas à pas, jusqu'au suivant ou à une réassignation. */
   lessonResult: FinDeLecon | null;
+  /** Le repos pris au clic par la leçon ou la réassignation en cours, ou nul.
+   * Les dessins lisent la course depuis lui (`heldOn`), comme la détection. */
+  neutre: Snapshot | null;
   pressed: string[];
   /** True once this page HAD a pad and was told it no longer has one.
    *
@@ -525,6 +528,7 @@ export class InputStream {
       learning: this.lesson?.done === false ? this.lesson.asking : null,
       lesson: this.lesson?.progress ?? null,
       lessonResult: this.lessonResult,
+      neutre: this.lesson?.repos ?? this.capture?.machine?.repos ?? null,
       pressed: this.pressedNames(),
       players: this.players,
       busy: this.busy,

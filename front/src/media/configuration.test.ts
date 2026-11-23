@@ -329,6 +329,19 @@ describe("configurer une manette pendant une partie", () => {
     expect(stream.state().lessonResult?.garde).toBe("rien");
   });
 
+  it("expose aux dessins le repos pris au début de la leçon, et seulement pendant", () => {
+    Object.assign(pad, { mapping: "" });
+    Object.assign(pad.buttons[6]!, { value: 0.62, pressed: true });
+    tick();
+    expect(stream.state().neutre).toBeNull();
+    stream.beginLesson();
+    expect(stream.state().neutre?.buttons[6]).toBe(0.62);
+    stream.cancelCapture();
+    expect(stream.state().neutre).toBeNull();
+    stream.beginCapture("A", "pad");
+    expect(stream.state().neutre?.buttons[6]).toBe(0.62);
+  });
+
   it("un débranchement efface l'identité affichée et annule la capture", () => {
     stream.beginCapture("A", "pad");
     connected = [];

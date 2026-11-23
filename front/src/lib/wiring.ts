@@ -27,6 +27,7 @@ import {
   type PadProfile,
   type PadReading,
 } from "../media/pad";
+import type { Snapshot } from "../media/lesson";
 import { paintBench } from "./bench";
 
 /** Une manette réduite à ce qu'on lit d'elle. Un objet plutôt que `Gamepad`,
@@ -36,9 +37,19 @@ export type Raw = {
   axes: readonly number[];
 };
 
-/** Ce qui est allumé sur le schéma physique: les clés de ses pièces. */
-export function heldOn(raw: Raw, profile: PadProfile | null): string[] {
-  const rests = restsOf(profile);
+/** Ce qui est allumé sur le schéma physique: les clés de ses pièces.
+ *
+ * `neutre` est le repos qu'une leçon ou une réassignation a pris au clic
+ * (`InputState.neutre`). Il complète les repos du profil pour les indices que
+ * le profil ignore: pendant la leçon d'un adaptateur jamais réglé, la gâchette
+ * posée à 0,62 restait sinon allumée sur son drapeau `pressed`, alors que la
+ * détection, elle, lisait déjà la course depuis ce même repos. */
+export function heldOn(
+  raw: Raw,
+  profile: PadProfile | null,
+  neutre: Snapshot | null = null,
+): string[] {
+  const rests = restsOf(profile, neutre);
   const lit: string[] = [];
   raw.buttons.forEach((button, at) => {
     const rest = rests.buttons.get(at);
@@ -76,13 +87,27 @@ export function heldOn(raw: Raw, profile: PadProfile | null): string[] {
  * erreur — et la première gagne, parce qu'un repos est une propriété du matériel
  * et non de la commande.
  */
-function restsOf(profile: PadProfile | null): {
+function restsOf(
+  profile: PadProfile | null,
+  neutre: Snapshot | null = null,
+): {
   buttons: Map<number, number>;
   axes: Map<number, number>;
 } {
   const buttons = new Map<number, number>();
   const axes = new Map<number, number>();
-  if (!profile) return { buttons, axes };
+  // Le profil d'abord, le neutre de la leçon ensuite: `completer` n'écrit
+  // qu'un indice que le profil n'a pas nommé.
+  const completer = () => {
+    neutre?.buttons.forEach((value, at) => {
+      if (!buttons.has(at)) buttons.set(at, value);
+    });
+    neutre?.axes.forEach((value, at) => {
+      if (!axes.has(at)) axes.set(at, value);
+    });
+    return { buttons, axes };
+  };
+  if (!profile) return completer();
   const note = (
     control: { button: number; rest?: number } | { axis: number; rest: number } | undefined,
   ) => {
@@ -99,7 +124,7 @@ function restsOf(profile: PadProfile | null): {
   for (const stick of Object.values(profile.sticks)) {
     if (stick && !axes.has(stick.axis)) axes.set(stick.axis, stick.rest ?? 0);
   }
-  return { buttons, axes };
+  return completer();
 }
 
 /** Un stick incliné, dit dans le repère de l'ÉCRAN: `down` grandit vers le BAS.
@@ -135,8 +160,9 @@ export function paintWiring(
   root: Element,
   live: Pick<Gamepad, "buttons" | "axes" | "timestamp"> | null,
   profile: PadProfile | null,
+  neutre: Snapshot | null = null,
 ): void {
-  const on = new Set(live ? heldOn(live, profile) : []);
+  const on = new Set(live ? heldOn(live, profile, neutre) : []);
   const reading = live ? readPad(live, profile) : { buttons: 0, x: 0, y: 0, cx: 0, cy: 0 };
   const axes = live?.axes ?? [];
   paintReading(root, reading, on, {

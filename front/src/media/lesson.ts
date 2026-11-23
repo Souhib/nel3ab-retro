@@ -117,6 +117,11 @@ export class Capture {
     this.neutral = neutral;
   }
 
+  /** Le repos pris au clic, lu par les dessins comme celui d'une leçon. */
+  get repos(): Snapshot {
+    return this.neutral;
+  }
+
   feed(now: Snapshot): { control: Control; value: number } | null {
     const best = furthest(this.neutral, now);
     return best === null ? null : { control: best.control, value: best.value };

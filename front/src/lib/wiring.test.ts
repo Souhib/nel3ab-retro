@@ -49,6 +49,30 @@ describe("ce qui est enfoncé", () => {
     expect(heldOn(pad([0, 0, 0, 0, 1]), known)).toContain("b4");
   });
 
+  // Changement 16 du plan manettes : pendant une leçon d'adaptateur sans
+  // profil, le dessin de droite s'allumait au repos, sur le drapeau `pressed`
+  // d'une gâchette posée à 0,62. La leçon connaît pourtant ce repos depuis le
+  // clic sur « Commencer » : c'est le même neutre que sa détection.
+  it("pendant une leçon, lit la course depuis le repos pris au départ", () => {
+    const neutre = { buttons: [0, 0, 0, 0, 0, 0, 0.62], axes: [0.3] };
+    const repos = pad([0, 0, 0, 0, 0, 0, 0.62], [0.3]);
+    expect(heldOn(repos, null, neutre)).toEqual([]);
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.96]), null, neutre)).toEqual(["b6"]);
+    // Un axe se lit depuis son repos, pas depuis zéro.
+    expect(heldOn(pad([], [0.9]), null, neutre)).toEqual(["a0+"]);
+  });
+
+  it("le repos du profil passe avant celui de la leçon", () => {
+    const known: PadProfile = { ...empty, triggers: { L: { button: 6, rest: 0 } } };
+    const neutre = { buttons: [0, 0, 0, 0, 0, 0, 0.62], axes: [] };
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.62]), known, neutre)).toEqual(["b6"]);
+  });
+
+  it("sans leçon ni profil, une gâchette à 0,62 s'allume encore sur son drapeau", () => {
+    // Le jumeau : une manette qu'on vient de brancher n'a encore aucun repos.
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.62]), null)).toEqual(["b6"]);
+  });
+
   it("se passe d'un profil sans rien casser", () => {
     // Une manette qu'on vient de brancher n'en a pas encore. L'écran doit quand
     // même montrer ce qu'on appuie, sinon il ne sert pas au moment où il sert le

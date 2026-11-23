@@ -54,12 +54,13 @@ export function Wiring({
               }
             : null,
           state.profile,
+          state.neutre,
         );
       frame = requestAnimationFrame(paint);
     };
     frame = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(frame);
-  }, [state.using, state.profile]);
+  }, [state.using, state.profile, state.neutre]);
 
   return (
     <div ref={room} className="flex min-w-0 flex-col gap-4">

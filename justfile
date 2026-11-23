@@ -922,6 +922,13 @@ cadre-navigateur-rouge:
     etapes=fronton-bande,credit-compte,tramage-hors-image,borne-bandes
     node cadre.mjs --page "$dossier/touches.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # Cinquième bloc (étape 4): la page de l'étape 7 (cf3bba1) pose la
+    # manette tactile par-dessus l'écran; tenue en main, elle doit rougir sur
+    # les touches posées sur l'image, pas sur une manette absente.
+    git show cf3bba1:core/crates/worker/src/page/index.html > "$dossier/borne.html"
+    etapes=tenu-rien-sur-image
+    node cadre.mjs --page "$dossier/borne.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

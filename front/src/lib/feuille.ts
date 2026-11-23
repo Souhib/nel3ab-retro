@@ -1,5 +1,6 @@
 /**
- * La feuille du bas: les gestes de la PAGE, hors des touches du jeu.
+ * La feuille « La salle » d'une salle tenue en main : les gestes de la PAGE,
+ * hors des touches du jeu.
  *
  * La manette à l'écran portait trois gestes de page parmi ses touches: son,
  * menu, cacher. Le 22 novembre 2026, sur un iPhone tenu droit, « cacher » était
@@ -8,37 +9,39 @@
  * et la colonne, repliée d'office, emportait avec elle les places, les
  * spectateurs et la sortie (audit P5).
  *
- * Un seul bouton « ••• » reste donc parmi les touches, et ouvre cette feuille.
- * Elle tient tous les gestes de page d'un téléphone, à l'abri des pouces: le
- * son, le menu du jeu, la salle (le tiroir de la colonne), la manette à
- * l'écran, le plein écran ou l'écran d'accueil, et le signalement.
+ * Une feuille du bas, ouverte par « ••• », et un tiroir pour la colonne les
+ * ont remplacés ce jour-là. Depuis le 23 novembre, c'est une seule feuille, à
+ * deux hauteurs, ouverte par « La salle » (dans la barre, ou parmi les
+ * touches quand la barre manque). À mi-hauteur, elle porte les gestes de la
+ * partie ; « Toute la salle » l'agrandit, et la colonne entière y vit : les
+ * places, qui regarde, inviter, signaler, quitter.
  *
- * Ce module dit QUOI montrer; `FeuilleDuBas` le pose. Le son coupé passe en
- * tête: c'est la seule entrée qui répare quelque chose.
+ * Ce module dit QUOI montrer à mi-hauteur ; `FeuilleSalle` le pose. Le son
+ * coupé passe en tête : c'est la seule entrée qui répare quelque chose.
  */
 import type { PleinEcran } from "./plein-ecran";
 import { TACTILE } from "./mots";
 
-/** Le nom du « ••• », lu à voix haute: le son coupé y est dit en mots, la
- * pastille rouge seule ne se lisant pas. Un seul texte pour le « ••• » de la
- * manette et pour celui qui se pose seul. */
-export function nomDuPlus(sonCoupe: boolean): string {
-  const nom = "Options : son, menu, la salle";
+/** Le nom du bouton « La salle », lu à voix haute : le son coupé y est dit
+ * en mots, la pastille rouge seule ne se lisant pas. Un seul texte pour le
+ * bouton de la barre et pour celui qui se pose parmi les touches. */
+export function nomDeLaSalle(sonCoupe: boolean): string {
+  const nom = "La salle : son, menu, places";
   return sonCoupe ? `Son coupé. ${nom}` : nom;
 }
 
-/** Les deux « ••• » qui ouvrent la feuille: celui de la manette à l'écran et
- * celui qui se pose seul. Lu par la salle pour leur rendre le focus. */
-export const OUVRE_LA_FEUILLE = '[data-geste="feuille"], #ouvrirFeuille';
+/** Les boutons qui ouvrent la feuille : celui de la barre, celui posé parmi
+ * les touches et celui du cadre en travers. Lu par la salle pour leur rendre
+ * le focus. */
+export const OUVRE_LA_FEUILLE = '[data-geste="feuille"]';
 
 export type IdEntree =
   | "son"
   | "menu"
-  | "salle"
   | "manette"
   | "plein-ecran"
   | "ecran-accueil"
-  | "signaler";
+  | "toute-la-salle";
 
 export type EntreeFeuille = { id: IdEntree; titre: string; detail: string; alerte: boolean };
 
@@ -76,7 +79,6 @@ export function entreesDeLaFeuille({
           alerte: false,
         },
     { id: "menu", titre: "Menu du jeu", detail: "Jeux, sauvegardes, réglages.", alerte: false },
-    { id: "salle", titre: "La salle", detail: "Places, spectateurs, quitter.", alerte: false },
   ];
   if (manette !== null)
     entrees.push(
@@ -108,10 +110,12 @@ export function entreesDeLaFeuille({
       detail: "Pour jouer sans la barre du navigateur.",
       alerte: false,
     });
+  // La salle entière en dernier : elle agrandit la feuille au lieu d'ouvrir
+  // une seconde couche. Signaler y vit, en tête de la colonne (K25).
   entrees.push({
-    id: "signaler",
-    titre: "Signaler un problème",
-    detail: "Note cet instant pour qui répare.",
+    id: "toute-la-salle",
+    titre: "Toute la salle",
+    detail: "Places, qui regarde, signaler, quitter.",
     alerte: false,
   });
   return entrees;

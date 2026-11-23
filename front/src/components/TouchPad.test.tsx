@@ -47,19 +47,21 @@ it("taper R tient R, et n'ouvre aucun geste de page", () => {
   fireEvent.pointerUp(r, { pointerId: 1 });
   expect(touch.reading()).toBeNull();
   expect(onFeuille).not.toHaveBeenCalled();
-  // Le jumeau: le « ••• » ouvre bien la feuille.
-  fireEvent.click(container.querySelector("#ouvrirFeuille") as HTMLElement);
+  // Le jumeau: « La salle » ouvre bien la feuille.
+  fireEvent.click(container.querySelector("#laSalleManette") as HTMLElement);
   expect(onFeuille).toHaveBeenCalledTimes(1);
 });
 
-it("un seul geste de page reste parmi les touches, le « ••• »", () => {
-  // Son, menu et cacher vivent dans la feuille du bas depuis le 22 novembre
-  // 2026. Un retour de l'un d'eux parmi les touches remettrait une cible de
-  // page sous les pouces.
+it("un seul geste de page peut rester parmi les touches, « La salle »", () => {
+  // Son, menu et cacher vivent dans la feuille depuis le 22 novembre 2026. Un
+  // retour de l'un d'eux parmi les touches remettrait une cible de page sous
+  // les pouces. Le « ••• » est devenu « La salle » le 23 novembre : son nom
+  // est dit, son signe est l'icône de la salle.
   const { container } = poser();
   const gestes = [...container.querySelectorAll<HTMLElement>("[data-geste]")];
   expect(gestes.map((one) => one.dataset.geste)).toEqual(["feuille"]);
-  expect(gestes[0]?.textContent).toBe("•••");
+  expect(gestes[0]?.getAttribute("aria-label")).toMatch(/La salle/);
+  expect(gestes[0]?.textContent).not.toContain("•••");
   for (const ancien of ["#wakeSound", "#showColumn", "#hideTouch"])
     expect(container.querySelector(ancien), ancien).toBeNull();
 });
@@ -96,9 +98,9 @@ it("la croix d'un seul bloc tient la direction du doigt, puis la lâche", () => 
   expect(touch.reading()).toBeNull();
 });
 
-it("le son coupé se voit sur le « ••• », et se dit dans son nom", () => {
+it("le son coupé se voit sur « La salle », et se dit dans son nom", () => {
   const { container } = poser();
-  const plus = container.querySelector("#ouvrirFeuille");
+  const plus = container.querySelector("#laSalleManette");
   expect(plus?.hasAttribute("data-alerte")).toBe(true);
   expect(plus?.getAttribute("aria-label")).toMatch(/^Son coupé\./);
 });
@@ -110,7 +112,7 @@ it("le son qui joue ne s'alerte pas", () => {
   const { container } = render(
     <TouchPad bar={0} touch={touch} soundOff={false} onFeuille={vi.fn()} />,
   );
-  const plus = container.querySelector("#ouvrirFeuille");
+  const plus = container.querySelector("#laSalleManette");
   expect(plus?.hasAttribute("data-alerte")).toBe(false);
   expect(plus?.getAttribute("aria-label")).not.toMatch(/coupé/);
 });

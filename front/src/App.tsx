@@ -94,7 +94,7 @@ import {
 } from "./components/XmbIcons";
 import { Screen } from "./components/Screen";
 import { SwitchTouchPad } from "./components/SwitchTouchPad";
-import { TouchPad } from "./components/TouchPad";
+import { TouchPad, type BoiteDuCadre } from "./components/TouchPad";
 import { Seats } from "./components/Seats";
 import { forgetName, rememberedName } from "./lib/name";
 import {
@@ -127,14 +127,16 @@ import {
   couchesDeLaSalle,
   focusApresFermeture,
   ouvrirLaSalle,
-  useEnTiroir,
   voileSurImage,
+  type HauteurFeuille,
 } from "./lib/disposition";
-import { entreesDeLaFeuille, nomDuPlus, OUVRE_LA_FEUILLE } from "./lib/feuille";
+import { entreesDeLaFeuille, OUVRE_LA_FEUILLE } from "./lib/feuille";
 import { lireAppareil, pleinEcranPossible } from "./lib/plein-ecran";
 import { armerReveilDuSon } from "./media/reveil-son";
-import { FeuilleDuBas } from "./components/FeuilleDuBas";
-import { BarreDuTiroir, TiroirSi } from "./components/Tiroir";
+import { Bande } from "./components/Bande";
+import { BarreSalle, BoutonSalle } from "./components/BarreSalle";
+import { FeuilleSalle } from "./components/FeuilleSalle";
+import { ManetteSeule } from "./components/ManetteSeule";
 import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
 import { publishProfile, useBindings, useRoomReference } from "./lib/bindings";
 import { cn } from "./lib/cn";
@@ -202,6 +204,7 @@ import {
 import {
   Cadre,
   useApresLeClic,
+  placeDe,
   useFenetre,
   useGeometrie,
   useHauteur,
@@ -306,6 +309,19 @@ export default function App() {
     />
   );
 }
+
+/** L'écran d'une manette seule : réduit à rien, mais monté, parce que la
+ * toile appartient à la boucle média (ADR D13). */
+const SANS_ECRAN: React.CSSProperties = {
+  position: "absolute",
+  width: 0,
+  height: 0,
+  overflow: "hidden",
+};
+
+/** Le repli de la feuille si le cadre ne la mesure pas (bureau) : toute la
+ * fenêtre. Elle ne s'ouvre qu'en main, où le cadre la mesure toujours. */
+const TOUTE = { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
 
 /** Ce qui vaut dès qu'on a un nom: une socket de salon, et une description de
  * la salle. Les deux vivent ici plutôt que dans la partie, pour que l'écran de
@@ -563,43 +579,52 @@ function Room({
   };
 }) {
   const coarse = useRef(looksLikeAPhone()).current;
-  /** Sous 900 px ou au doigt, la colonne est un tiroir par-dessus l'image, et
-   * les gestes de page passent par la feuille du bas (`lib/disposition`). */
-  const compact = useEnTiroir();
-  /** Le tiroir et la feuille, ouverts ou non. Jamais retenus: rouverte au
-   * chargement, la colonne cacherait la partie qu'on vient rejoindre. */
-  const [tiroir, setTiroir] = useState(false);
-  const [feuille, setFeuille] = useState(false);
-  /** Le tiroir VRAIMENT ouvert: jamais hors du mode compact. Un tiroir demandé
-   * sur un grand écran démontait la manette sans rien ouvrir (relecture du
-   * 22 novembre 2026). La même règle que `couchesDeLaSalle`, lue plus tôt. */
-  const tiroirOuvert = compact && tiroir;
-  // Une fenêtre agrandie au-delà de 900 px, tiroir ouvert, ne le garde pas
-  // pour la prochaine fois qu'elle rétrécit.
+  /* Le mode de la salle (`lib/cadre`) : au bureau, étroite à la souris, ou
+     tenue en main (portrait, paysage). Il remplace le tiroir de
+     `lib/disposition` (23 novembre 2026) : tenue en main, la salle a sa
+     barre, sa feuille et sa manette dans la boîte du cadre ; étroite, sa
+     colonne passe sous l'image. */
+  const fenetre = useFenetre();
+  const zonesSures = useZonesSures(fenetre);
+  const modeSalle = modeDuCadre({
+    largeur: fenetre.width,
+    hauteur: fenetre.height,
+    grossier: coarse,
+    role: padOnly ? "seule" : "joueur",
+  });
+  const tenu = modeSalle === "portrait" || modeSalle === "paysage";
+  /** La feuille « La salle » et sa hauteur, ou `null`. Jamais retenue :
+   * rouverte au chargement, elle cacherait la partie qu'on vient rejoindre. */
+  const [feuilleVoulue, setFeuille] = useState<HauteurFeuille | null>(null);
+  /** La feuille VRAIMENT ouverte : jamais hors d'une salle tenue en main. Une
+   * feuille demandée sur un grand écran démontait la manette sans rien ouvrir
+   * (relecture du 22 novembre 2026, du temps du tiroir). */
+  const feuille = tenu ? feuilleVoulue : null;
+  // Une fenêtre qui quitte le mode tenu ne garde pas sa feuille pour la
+  // prochaine fois.
   useEffect(() => {
-    if (!compact) setTiroir(false);
-  }, [compact]);
+    if (!tenu) setFeuille(null);
+  }, [tenu]);
   /** Ce que Ctrl lit au moment où elle est relâchée (`apresCtrl`). Une
    * référence, parce que le menu et le réglage des touches sont déclarés plus
    * bas et changent sans que l'écoute du clavier ait à se rebrancher. */
-  const pourCtrl = useRef({
-    tiroir: false,
+  const pourCtrl = useRef<{ feuille: HauteurFeuille | null; menu: boolean; touches: boolean }>({
+    feuille: null,
     menu: false,
-    feuille: false,
     touches: false,
   });
-  const basculerTiroir = useCallback(() => {
+  const basculerFeuille = useCallback(() => {
     const suite = apresCtrl(pourCtrl.current);
     if (suite === null) return;
-    setTiroir(suite.tiroir);
     setMenu(suite.menu);
     setFeuille(suite.feuille);
   }, []);
-  // Ctrl seule replie la colonne à côté de l'image, et ouvre ou ferme le
-  // tiroir quand elle en est un, sans jamais l'empiler sur le menu.
+  // Ctrl seule replie la colonne à côté de l'image, et ouvre ou ferme la
+  // salle entière quand elle est tenue en main, sans jamais l'empiler sur le
+  // menu.
   const { bare, setBare, fullscreen, toggleFullscreen } = useBare(
     coarse,
-    compact ? basculerTiroir : undefined,
+    tenu ? basculerFeuille : undefined,
   );
   /** Ce que l'appareil permet: plein écran, écran d'accueil, ou rien. Lu une
    * fois: ni l'API ni l'écran d'accueil ne changent pendant une visite. */
@@ -637,14 +662,13 @@ function Room({
      dit maintenant qu'il n'y a pas de jeu, et « Choisir un jeu » l'ouvre
      (`EcranEteint`, 23 novembre 2026). */
   const [menu, setMenu] = useState(false);
-  pourCtrl.current = { tiroir: tiroirOuvert, menu, feuille, touches: bindings };
+  pourCtrl.current = { feuille, menu, touches: bindings };
   // Le menu, ou quelqu'un qui demande ta place, passent avant le tiroir et la
   // feuille: les deux sont des dialogues modaux, qui rendraient le menu ou la
   // demande inertes dessous. La demande ne dure que dix secondes.
   useEffect(() => {
     if (!menu && asked === null) return;
-    setTiroir(false);
-    setFeuille(false);
+    setFeuille(null);
   }, [menu, asked]);
   const checkingIdentity = useMenuIdentity(menu);
   const [unlockedSaves, setUnlockedSaves] = useState<readonly boolean[] | null>(null);
@@ -889,8 +913,8 @@ function Room({
       // compte ni pour ni contre. Une coupure COMPTE: c'est la liaison qui
       // cale, le cas pour lequel la proposition existe (`fenetrePourProposition`,
       // relecture du 22 novembre 2026).
-      const fenetre = alive.current?.veille.prendreFenetre() ?? FENETRE_VIDE;
-      const poids = bootingNow.current !== null ? "tenir" : fenetrePourProposition(fenetre);
+      const tranche = alive.current?.veille.prendreFenetre() ?? FENETRE_VIDE;
+      const poids = bootingNow.current !== null ? "tenir" : fenetrePourProposition(tranche);
       if (poids === "ignorer") {
         rough.current.ignore();
         return;
@@ -947,7 +971,7 @@ function Room({
       if (typingIn(event.target)) return;
       // Le tiroir et la feuille se ferment eux-mêmes par Échap: leur
       // `preventDefault` ici les garderait ouverts.
-      if (event.key !== "Escape" || menu || bindings || tiroirOuvert || feuille) return;
+      if (event.key !== "Escape" || menu || bindings || feuille) return;
       // Sans `preventDefault`, la fin de ce même appui est une « demande de
       // fermeture » pour le navigateur, et le menu, ouvert en dialogue modal
       // pendant l'événement, la recevait: il s'ouvrait et se refermait aussitôt
@@ -957,7 +981,7 @@ function Room({
     };
     addEventListener("keydown", press);
     return () => removeEventListener("keydown", press);
-  }, [menu, bindings, tiroirOuvert, feuille]);
+  }, [menu, bindings, feuille]);
 
   /* Le modèle de focus (`lib/focus-jeu`): le clavier du jeu vit dans la zone de
      jeu, et partout ailleurs Entrée, Espace et les flèches font ce que fait le
@@ -1267,8 +1291,8 @@ function Room({
   });
   /** Ce qui est monté par-dessus l'image, décidé en un seul endroit. */
   const couches = couchesDeLaSalle({
-    compact,
-    tiroir,
+    tenu,
+    etroit: modeSalle === "etroit",
     feuille,
     manette: session !== null && onTouch,
     voile,
@@ -1284,20 +1308,20 @@ function Room({
      de la feuille peut ouvrir le tiroir ou le menu. */
   const coucheAvant = useRef(false);
   useEffect(() => {
-    const ouverte = feuille || tiroirOuvert;
+    const ouverte = feuille !== null;
     const fermee = coucheAvant.current && !ouverte;
     coucheAvant.current = ouverte;
     if (!fermee || menu) return;
     const ici = document.activeElement;
-    const plus = document.querySelector<HTMLElement>(OUVRE_LA_FEUILLE);
+    const ouvreuse = document.querySelector<HTMLElement>(OUVRE_LA_FEUILLE);
     const suite = focusApresFermeture({
       perdu: ici === null || ici === document.body,
-      plus: plus !== null,
+      salle: ouvreuse !== null,
     });
-    if (suite === "plus") plus?.focus({ preventScroll: true });
+    if (suite === "salle") ouvreuse?.focus({ preventScroll: true });
     else if (suite === "jeu") zone.current?.focus({ preventScroll: true });
     // `zone` est la même référence d'un rendu à l'autre (`useFocusJeu`).
-  }, [feuille, tiroirOuvert, menu, zone]);
+  }, [feuille, menu, zone]);
   useEffect(() => {
     session?.input.blockGameplay(configuring, configuringSwitch ? "switch" : "dolphin");
     return () => session?.input.blockGameplay(false);
@@ -1427,7 +1451,7 @@ function Room({
    * la colonne dépliée ailleurs (`ouvrirLaSalle`). */
   const voirDetail = () => {
     setMode("details");
-    if ("tiroir" in ouvrirLaSalle(compact)) setTiroir(true);
+    if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
     else setBare(false);
     setMenu(false);
   };
@@ -1838,7 +1862,7 @@ function Room({
         // endroits à tenir d'accord, et c'est la leçon des quatre places.
         // Le tiroir de la colonne, quand elle en est un: les places, demander
         // celle d'un autre, signaler, le diagnostic, les spectateurs.
-        ...(compact
+        ...(tenu
           ? [
               {
                 id: "places",
@@ -1849,7 +1873,7 @@ function Room({
                 icon: <RoomIcon className="h-full w-full" />,
                 onEnter: () => {
                   setMenu(false);
-                  setTiroir(true);
+                  setFeuille("agrandie");
                 },
               },
             ]
@@ -2125,12 +2149,12 @@ function Room({
                 hz: shot?.video.refreshHz ?? 0,
                 port,
                 appareil,
-                compact,
+                compact: tenu,
                 etroit: window.innerWidth < ETROIT_SOUS,
                 voirDetail,
               }),
             ],
-            { tiroir: compact, pleinEcran: plein === "api" },
+            { tiroir: tenu, pleinEcran: plein === "api" },
           ),
         ),
         avances,
@@ -2170,16 +2194,18 @@ function Room({
   /* Le cadre de la salle (`lib/cadre`) : l'état, le rôle et la géométrie,
      posés sur la racine en attributs et en variables CSS que les feuilles de
      chaque chantier lisent. */
-  const fenetre = useFenetre();
-  const zonesSures = useZonesSures(fenetre);
   const roleDuCadre: RoleDuCadre = padOnly ? "seule" : port === null ? "regarde" : "joueur";
+  /** La manette tactile d'une salle tenue en main : sa PLACE est réservée
+   * qu'elle soit montée ou non (sous la feuille, pendant un chargement), pour
+   * que l'image ne bouge pas quand elle se démonte. */
+  const manetteDuCadre =
+    tenu && session !== null && onTouch
+      ? usesProInput(room?.game?.console)
+        ? DESSINS_MANETTES.pro
+        : DESSINS_MANETTES.dolphin
+      : null;
   const geo = useGeometrie({
-    mode: modeDuCadre({
-      largeur: fenetre.width,
-      hauteur: fenetre.height,
-      grossier: coarse,
-      role: roleDuCadre,
-    }),
+    mode: modeSalle,
     fenetre,
     zonesSures,
     image: picture,
@@ -2190,14 +2216,10 @@ function Room({
       jeu: Boolean(room?.game),
     }),
     role: roleDuCadre,
-    manette: couches.pave
-      ? usesProInput(room?.game?.console)
-        ? DESSINS_MANETTES.pro
-        : DESSINS_MANETTES.dolphin
-      : null,
+    manette: manetteDuCadre,
     largeurColonne: column,
     largeurPanneau: null,
-    agrandie: bare && !compact,
+    agrandie: bare && !tenu,
   });
   /* Le panneau de commande sous l'image, au bureau, quand l'image n'y perd
      rien (`panneauAuBureau`) ; sinon au pied de la colonne. Au téléphone, il
@@ -2271,7 +2293,7 @@ function Room({
    * trois secondes après chaque mouvement de la souris (colonne.11). */
   const [agrandieVue, setAgrandieVue] = useState(false);
   useEffect(() => {
-    if (!bare || compact) {
+    if (!bare || tenu) {
       setAgrandieVue(false);
       return;
     }
@@ -2287,7 +2309,7 @@ function Room({
       window.clearTimeout(minuteur);
       window.removeEventListener("mousemove", montrer);
     };
-  }, [bare, compact]);
+  }, [bare, tenu]);
   /** Le clavier rendu à la colonne, retenu pendant un clic (`useApresLeClic`). */
   const pauseClavier = useApresLeClic(
     clavierEnPause({
@@ -2317,12 +2339,62 @@ function Room({
    * prise sur la mesure pouvait boucler (la ligne change la hauteur, la
    * mesure change la décision ; « Maximum update depth exceeded » vu une
    * fois dans salle-telephone, 23 novembre 2026). */
-  const frontonPossible = geo.fronton !== null && jeuEnCours !== null && !bare;
+  const frontonPossible = !tenu && geo.fronton !== null && jeuEnCours !== null && !bare;
   const frontonVisible = frontonPossible && !(lieuAvis.lieu === "fronton" && hauteurPile > 0);
+  /** « La salle » : la feuille à mi-hauteur quand la salle est tenue en main,
+   * la colonne dépliée à la souris (la manette « toujours » d'un grand écran
+   * le pose parmi ses touches). */
+  const ouvrirLaFeuille = () => (tenu ? setFeuille("mi") : setBare(false));
+  /** La manette à l'écran, dans la boîte du cadre ou par-dessus l'écran. */
+  const manetteTactile = (cadreDeLaManette: BoiteDuCadre | undefined) =>
+    session === null ? null : usesProInput(room?.game?.console) ? (
+      <SwitchTouchPad
+        source={session.input.switch}
+        console={room?.game?.console}
+        bar={bande}
+        // Le son coupé se voit aussi sur la manette Pro : en salle Xbox
+        // 360, rien ne le disait (audit M10).
+        soundOff={soundOff}
+        onFeuille={ouvrirLaFeuille}
+        cadre={cadreDeLaManette}
+      />
+    ) : (
+      <TouchPad
+        /* La largeur des bandes noires de chaque côté de l'image, quand la
+         * manette se pose par-dessus l'écran (à la souris). Tenue en main,
+         * le cadre lui donne sa boîte et ses bandes. */
+        bar={bande}
+        touch={session.input.touch}
+        soundOff={soundOff}
+        onFeuille={ouvrirLaFeuille}
+        cadre={cadreDeLaManette}
+      />
+    );
+  /** La boîte de la manette d'une salle tenue en main : ses grappes en
+   * travers, rien tenue droite ; « La salle » parmi ses touches seulement
+   * quand la barre manque. */
+  const boiteDeLaManette: BoiteDuCadre | undefined = geo.manette
+    ? {
+        bandes: geo.manette.grappes
+          ? { left: geo.manette.grappes.g.w, right: geo.manette.grappes.d.w }
+          : { left: 0, right: 0 },
+        gestes: geo.salleDansLaManette ? ["feuille"] : [],
+        dansLesBandes: geo.manette.grappes !== null,
+      }
+    : undefined;
+  /** La pile des avis va dans la bande d'une salle tenue en main : jamais sur
+   * l'image, et pas dans une colonne qu'on ne voit pas. */
+  const avisDansLaBande = tenu && geo.bande !== null;
+  /** Le panneau de commande d'une salle tenue en main : où le cadre le pose
+   * (sous l'image, debout dans la bande gauche), pas pour une manette seule.
+   * La feuille agrandie le couvre : il passe alors dans sa colonne, pour que
+   * les places ne soient jamais montées deux fois (leurs identifiants sont
+   * lus par les pilotes et par les lecteurs d'écran). */
+  const panneauTenu = tenu && !padOnly && couches.colonne !== "feuille" ? geo.panneau.rect : null;
   /** Le crédit de la borne : les places libres, compté comme les places. */
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   const pastilleAgrandie =
-    agrandieVue && bare && !compact && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
+    agrandieVue && bare && !tenu && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
   const takeHalf = () => {
     session?.video.setHalf(true);
     setHalf(true);
@@ -2346,7 +2418,7 @@ function Room({
     setupGame?.console,
     room?.game?.console,
   );
-  const tenu = pendingSetup ? setupChoice : pad;
+  const manetteTenue = pendingSetup ? setupChoice : pad;
 
   /* Les avis de la salle, en une pile, et JAMAIS sur l'image : en tête de
      la colonne quand elle est à côté, dans une bande noire où la pile tient
@@ -2474,14 +2546,274 @@ function Room({
       </div>
     ) : null;
 
+  /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
+  const colonne = (
+    <Colonne
+      nomSalle={nomSalle}
+      // Le nom du jeu une seule fois : au fronton quand il a sa bande,
+      // sinon dans l'en-tête de la colonne.
+      jeu={frontonPossible ? null : (room?.game?.name ?? null)}
+      onQuitter={onLeave}
+      largeur={couches.colonne === "a-cote" ? column : null}
+      forme={couches.colonne ?? "a-cote"}
+      margeHaut={lieuAvis.lieu === "colonne" ? hauteurPile : undefined}
+      avis={lieuAvis.lieu === "colonne" ? avis : null}
+      etat={
+        !idle && shot && !shot.padOnly ? (
+          <ConnectionDiagnostic
+            video={shot.video}
+            liaison={shot.liaison}
+            salle={salle()}
+            moteur={moteurDe(room?.game?.console)}
+            onReduce={takeHalf}
+          />
+        ) : null
+      }
+      role={
+        <BlocRole
+          nom={name}
+          place={port}
+          libre={premiereLibre}
+          onPrendre={salleFermee ? undefined : () => session?.input.play()}
+        />
+      }
+      personnes={
+        <>
+          {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
+              rôle ne se montre que quand le worker dit que le chef ne
+              joue plus (`repriseDuRole`, audit T12). */}
+          {/* Au repos, l'écran éteint le dit déjà : une chose, une fois. */}
+          {boss && !salleFermee && !idle ? (
+            <p className="flex items-center gap-1 text-corps text-muted">
+              <Crown />
+              {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
+            </p>
+          ) : null}
+          {boss && !salleFermee && repriseDuRole(role, login !== null) ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
+              <button
+                id="recoverOwner"
+                type="button"
+                className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
+                onClick={() => onRecover(null)}
+              >
+                Prendre le rôle de chef
+              </button>
+            </div>
+          ) : null}
+          <IlsRegardent people={people} owner={boss} />
+          {salleFermee ? null : <Inviter lien={lienDInvitation(location.origin, base())} />}
+        </>
+      }
+      panneau={
+        panneauSous || panneauTenu ? null : (
+          <PanneauCommande forme="colonne" fin={credit}>
+            {places}
+          </PanneauCommande>
+        )
+      }
+      rangs={rangs}
+      contenus={{
+        signaler: <Signaler onComplain={complain} garde={garde.current} />,
+        son: (
+          <RangSon
+            joue={shot?.sound.state === "running"}
+            volume={volume}
+            onVolume={setVolume}
+            onActiver={() => void session?.sound.start()}
+          />
+        ),
+        menu: <RangMenu appareil={appareil} onMenu={() => setMenu(true)} />,
+        /* Les touches du clavier, sans ouvrir de menu (audit T02). */
+        touches:
+          lignesClavier.length > 0 ? (
+            <RangTouches onOuvrir={() => setVueTouches("clavier")} />
+          ) : null,
+        manette: shot?.input.padId ? (
+          <RangManette
+            nom={identify(shot.input.padId, shot.input.padLayout ?? "").name}
+            aConfigurer={manetteAConfigurer(shot.input)}
+            onOuvrir={() => setVueTouches("manette")}
+          />
+        ) : null,
+        /* Le clip, à portée sans ouvrir le menu: quarante-cinq secondes
+           ne se demandent pas après coup. Un seul bouton pour deux
+           gestes, demander puis enregistrer. */
+        garder: (
+          <Aide texte={clipAide(clip.state)} sujet="le clip">
+            <button
+              type="button"
+              id="clip"
+              // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
+              data-rend-le-jeu=""
+              onClick={takeClip}
+              disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
+              title={clipAide(clip.state)}
+              className={cn(
+                "n3-rang flex-1 justify-between",
+                clip.state.phase === "fait"
+                  ? "border-good/60 text-good hover:bg-good/10"
+                  : clip.state.phase === "raté"
+                    ? "border-alert/60 text-alert"
+                    : null,
+                (clip.state.phase === "en cours" || clip.state.phase === "attendre") &&
+                  "cursor-not-allowed",
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                  <ScreenIcon className="h-full w-full" />
+                </span>
+                {clipLabel(clip.state)}
+              </span>
+              {clip.state.phase === "fait" ? (
+                <span className="font-mono text-note">{Math.round(clip.state.bytes / 1e6)} Mo</span>
+              ) : null}
+            </button>
+          </Aide>
+        ),
+        agrandir: <RangAgrandir appareil={appareil} onAgrandir={() => setBare(true)} />,
+        autres: (
+          <AutresReglages>
+            {port !== null && !salleFermee ? (
+              <button
+                type="button"
+                id="watchOnly"
+                data-rend-le-jeu=""
+                onClick={() => session?.input.watchOnly()}
+                className="n3-rang"
+              >
+                {PLACE.rendre}
+              </button>
+            ) : null}
+            {/* Le micro, pour que les clips portent aussi la voix:
+                rien n'est rejoué, la voix part seulement vers le worker
+                et revient mêlée au son au prochain clip. */}
+            <Aide texte={micAide(shot?.mic)} sujet="le micro">
+              <button
+                type="button"
+                id="mic"
+                data-rend-le-jeu=""
+                onClick={toggleMic}
+                title={micAide(shot?.mic)}
+                className={cn(
+                  "n3-rang flex-1",
+                  shot?.mic === "on"
+                    ? "border-good/60 text-good hover:bg-good/10"
+                    : shot?.mic === "refused"
+                      ? "border-alert/60 text-alert"
+                      : null,
+                )}
+              >
+                <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
+                  <WaveIcon className="h-full w-full" />
+                </span>
+                {shot?.mic === "on"
+                  ? "micro ouvert"
+                  : shot?.mic === "asking"
+                    ? "micro…"
+                    : shot?.mic === "refused"
+                      ? "micro refusé"
+                      : "micro pour les clips"}
+              </button>
+            </Aide>
+            {micDevices.length > 0 ? (
+              <select
+                id="micDevice"
+                value={micDevice}
+                onChange={(event) => pickMic(event.target.value)}
+                title="choisir le micro"
+                className="border border-rule bg-transparent px-2 py-2 text-note text-corps"
+              >
+                <option value="">micro par défaut</option>
+                {micDevices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            {idle ? null : (
+              <p id="saveReminder" className="text-corps leading-relaxed text-faint">
+                Pense à sauvegarder dans le jeu: une salle que tout le monde quitte ferme la partie.
+              </p>
+            )}
+          </AutresReglages>
+        ),
+      }}
+      vue={
+        mode === "details" ? (
+          <div id="stats">
+            <MesuresTechniques>
+              {shot ? (
+                <Instruments shot={shot} moteur={moteurDe(room?.game?.console)} />
+              ) : (
+                <p className="text-corps text-faint">Pas encore de mesures.</p>
+              )}
+            </MesuresTechniques>
+          </div>
+        ) : vueMontree ? (
+          <VueTouches
+            key={vueMontree}
+            titre={
+              vueMontree === "clavier"
+                ? TOUCHES.clavier
+                : TOUCHES.manette(
+                    identify(shot?.input.padId ?? "", shot?.input.padLayout ?? "").name,
+                  )
+            }
+            lignes={vueMontree === "clavier" ? lignesClavier : lignesDeLaManette()}
+            clavier={vueMontree === "clavier"}
+            lire={lireLEntree}
+            onRevenir={() => {
+              setVueTouches(null);
+              setVueFermee(true);
+              retenirAideVue(true);
+            }}
+            onChanger={() => {
+              setOngletTouches(vueMontree === "clavier" ? "key" : "pad");
+              setBindings(true);
+            }}
+          />
+        ) : null
+      }
+      coin={
+        <Coin
+          mesures={mode === "details"}
+          onMesures={() => setMode(mode === "details" ? "normal" : "details")}
+        />
+      }
+    />
+  );
   return (
-    <Cadre geo={geo} className="flex h-full">
-      <main className="relative flex min-w-0 flex-1 flex-col">
+    <Cadre
+      geo={geo}
+      className={cn("h-full", tenu ? "relative" : "flex", modeSalle === "etroit" && "flex-col")}
+    >
+      <main
+        className={
+          tenu
+            ? "absolute inset-0"
+            : modeSalle === "etroit"
+              ? "relative flex shrink-0 flex-col"
+              : "relative flex min-w-0 flex-1 flex-col"
+        }
+        // Étroite, l'écran prend la hauteur que le cadre lui donne, et la
+        // colonne le reste, dessous (`lib/cadre`, au moins 240 px).
+        style={modeSalle === "etroit" && geo.ecran ? { height: geo.ecran.h } : undefined}
+      >
         {/* L'écran, et ce qui se pose à sa place quand il n'a pas d'image. Le
             panneau de commande est son voisin du dessous, jamais dedans : un
             écran éteint posé sur `inset-0` le couvrait. */}
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          {lieuAvis.lieu === "flux" ? avis : null}
+        <div
+          className="relative flex min-h-0 flex-1 flex-col"
+          // Tenue en main, l'écran est où le cadre le pose. Une manette seule
+          // n'en a pas : la toile reste montée (la boucle média la tient par
+          // une référence), réduite à rien.
+          style={tenu ? (geo.ecran ? placeDe(geo.ecran) : SANS_ECRAN) : undefined}
+        >
+          {!avisDansLaBande && lieuAvis.lieu === "flux" ? avis : null}
           <Screen
             canvasRef={ref}
             zoneRef={zone}
@@ -2496,7 +2828,7 @@ function Room({
             onSpace={setSpace}
             onPrescale={(times) => session?.video.setPrescale(times)}
           />
-          {lieuAvis.rect ? avis : null}
+          {!avisDansLaBande && lieuAvis.rect ? avis : null}
           {/* La borne autour de l'image (étape 7) : le fronton dans la bande
               du haut, s'il n'y a pas d'avis à y dire, et le décor dans les
               bandes latérales. Posés en absolu : l'image ne bouge pas. */}
@@ -2514,119 +2846,13 @@ function Room({
             oublié avoir choisi ce mode. La toile reste montée derrière: elle
             appartient à la boucle média, qui la tient par une référence, et la
             démonter reviendrait à mettre React sur le chemin des images. */}
-          {padOnly ? (
-            <div
-              id="padOnlyNotice"
-              className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-ink px-6 text-center"
-            >
-              <span className="font-mono text-note uppercase tracking-[0.16em] text-faint">
-                {MANETTE_SEULE}
-              </span>
-              <p className="max-w-[42ch] text-corps leading-relaxed text-muted">
-                Cet appareil ne décode ni l&apos;image ni le son. Il envoie les boutons et il vibre,
-                c&apos;est tout.
-              </p>
-              <p className="font-mono text-corps text-muted">
-                aller-retour{" "}
-                {shot?.input.roundTripMs === null || shot === null
-                  ? "pas encore mesuré"
-                  : `${shot.input.roundTripMs} ms`}
-              </p>
-            </div>
-          ) : null}
-          {/* Les gestes de PAGE d'un téléphone vivent dans la feuille du bas,
-            ouverte par un seul « ••• » (`FeuilleDuBas`, audit M1, M2, P5). Avec
-            la manette à l'écran, le « ••• » est l'une de ses pièces, placé loin
-            des touches par `placePad`; sans elle, il se pose seul en haut à
-            droite, dans les zones sûres. Cachée, la manette revient par la
-            feuille: « cacher » sans retour était un piège (18 août 2026).
-            La manette n'est pas montée sous le tiroir ni sous la feuille: le
-            démontage relâche ce qu'un doigt tenait encore (audit M6). */}
-          {couches.plusSeul ? (
-            <button
-              type="button"
-              id="ouvrirFeuille"
-              className="n3-plus regie-nuit"
-              data-alerte={soundOff ? "" : undefined}
-              aria-label={nomDuPlus(soundOff)}
-              aria-haspopup="dialog"
-              // Comme celui de la manette: un clic de souris laisse le clavier
-              // au jeu (`TouchPad`).
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => setFeuille(true)}
-            >
-              •••
-            </button>
-          ) : null}
-          {/* La manette à l'écran, par-dessus l'image et sous le menu.
-            Montée seulement quand elle sert: cent boutons invisibles au-dessus
-            d'une partie jouée au clavier intercepteraient des clics. */}
-          {session && couches.pave && usesProInput(room?.game?.console) ? (
-            <SwitchTouchPad
-              source={session.input.switch}
-              console={room?.game?.console}
-              bar={bande}
-              // Le son coupé se voit aussi sur la manette Pro: en salle Xbox
-              // 360, rien ne le disait (audit M10).
-              soundOff={soundOff}
-              onFeuille={() => setFeuille(true)}
-            />
-          ) : session && couches.pave ? (
-            <TouchPad
-              /* La largeur des bandes noires de chaque côté de l'image.
-               *
-               * La page la connaît déjà: elle mesure la place et calcule le
-               * placement pour le menu. La manette s'en sert pour se ranger DANS
-               * les bandes plutôt que par-dessus le jeu, ce qui est la différence
-               * entre des boutons posés sur du noir et des boutons posés sur les
-               * pieds du personnage. Quand il n'y a pas de bande, elle retombe sur
-               * les coins. */
-              bar={bande}
-              touch={session.input.touch}
-              soundOff={soundOff}
-              onFeuille={() => setFeuille(true)}
-            />
-          ) : null}
-          {feuille ? (
-            <FeuilleDuBas
-              titre={`${nomSalle}${room?.game ? ` · ${room.game.name}` : ""}`}
-              entrees={entreesDeLaFeuille({
-                sonCoupe: soundOff,
-                manette: coarse || onTouch ? (onTouch ? "montree" : "cachee") : null,
-                plein,
-                pleinActif: fullscreen,
-              })}
-              onEntree={(id) => {
-                setFeuille(false);
-                switch (id) {
-                  case "son":
-                    // Démarrer PUIS biper, dans cet ordre et dans le même geste:
-                    // le bip ne sort de rien tant que le contexte n'a pas repris.
-                    void session?.sound.start().then(() => session.sound.beep());
-                    return;
-                  case "menu":
-                    setMenu(true);
-                    return;
-                  case "salle":
-                    // Le tiroir sur un téléphone, la colonne dépliée sur un
-                    // grand écran: la manette à l'écran « toujours » y ouvre
-                    // aussi la feuille (`ouvrirLaSalle`).
-                    if ("tiroir" in ouvrirLaSalle(compact)) setTiroir(true);
-                    else setBare(false);
-                    return;
-                  case "manette":
-                    setTouchPref(onTouch ? "off" : "on");
-                    return;
-                  case "plein-ecran":
-                    toggleFullscreen();
-                    return;
-                }
-              }}
-              onFermer={() => setFeuille(false)}
-              garde={garde.current}
-              onComplain={complain}
-            />
-          ) : null}
+          {/* À la souris, la manette « toujours » se pose encore par-dessus
+            l'écran, rangée dans ses bandes noires quand il y en a : c'est un
+            réglage choisi sur un grand écran. Tenue en main, elle a sa boîte
+            dans le cadre, plus bas, et ne touche jamais l'image. Montée
+            seulement quand elle sert : cent boutons invisibles au-dessus d'une
+            partie jouée au clavier intercepteraient des clics. */}
+          {!tenu && session && couches.pave ? manetteTactile(undefined) : null}
           {asked ? (
             <AskedBanner
               from={asked.from}
@@ -2749,263 +2975,102 @@ function Room({
             {places}
           </PanneauCommande>
         ) : null}
+        {/* Tenue en main, chaque pièce est où le cadre la pose, dans la zone
+            sûre (`lib/cadre`) : la barre, le panneau, la bande, la manette,
+            et « La salle » hors de la barre quand elle manque. */}
+        {tenu && geo.barre ? (
+          <BarreSalle
+            rect={geo.barre}
+            nomSalle={nomSalle}
+            jeu={padOnly ? null : jeuEnCours}
+            sonCoupe={soundOff}
+            onSalle={() => setFeuille("mi")}
+          />
+        ) : null}
+        {tenu && !geo.barre && geo.boutonSalle ? (
+          <BoutonSalle
+            id="laSalleCote"
+            sonCoupe={soundOff}
+            onSalle={() => setFeuille("mi")}
+            style={placeDe(geo.boutonSalle)}
+          />
+        ) : null}
+        {panneauTenu ? (
+          <div style={placeDe(panneauTenu)} className="n3-panneau-tenu">
+            <PanneauCommande
+              forme={geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme}
+              hauteur={panneauTenu.h}
+              fin={credit}
+            >
+              {places}
+            </PanneauCommande>
+          </div>
+        ) : null}
+        {padOnly && geo.panneau.rect ? (
+          <ManetteSeule
+            rect={geo.panneau.rect}
+            jeu={jeuEnCours}
+            place={port}
+            allerRetourMs={shot?.input.roundTripMs ?? null}
+            entenduIlYaMs={shot?.input.sinceHeardMs ?? null}
+          />
+        ) : null}
+        {avisDansLaBande && geo.bande ? <Bande rect={geo.bande}>{avis}</Bande> : null}
+        {tenu && geo.manette && couches.pave ? (
+          <div className="n3-manette-boite" style={placeDe(geo.manette.rect)}>
+            {manetteTactile(boiteDeLaManette)}
+          </div>
+        ) : null}
+        {feuille ? (
+          <FeuilleSalle
+            hauteur={feuille}
+            rect={feuille === "mi" ? (geo.feuille?.mi ?? TOUTE) : (geo.feuille?.agrandie ?? TOUTE)}
+            titre={nomSalle}
+            entrees={entreesDeLaFeuille({
+              sonCoupe: soundOff,
+              manette: onTouch ? "montree" : "cachee",
+              plein,
+              pleinActif: fullscreen,
+            })}
+            onEntree={(id) => {
+              switch (id) {
+                case "toute-la-salle":
+                  setFeuille("agrandie");
+                  return;
+                case "son":
+                  setFeuille(null);
+                  // Démarrer PUIS biper, dans cet ordre et dans le même geste :
+                  // le bip ne sort de rien tant que le contexte n'a pas repris.
+                  void session?.sound.start().then(() => session.sound.beep());
+                  return;
+                case "menu":
+                  setFeuille(null);
+                  setMenu(true);
+                  return;
+                case "manette":
+                  setFeuille(null);
+                  setTouchPref(onTouch ? "off" : "on");
+                  return;
+                case "plein-ecran":
+                  setFeuille(null);
+                  toggleFullscreen();
+                  return;
+              }
+            }}
+            onFermer={() => setFeuille(null)}
+          >
+            {couches.colonne === "feuille" ? colonne : null}
+          </FeuilleSalle>
+        ) : null}
       </main>
 
-      {bare || compact ? null : (
+      {bare || modeSalle !== "bureau" ? null : (
         <ColumnHandle width={column} onWidth={setColumn} onSettle={rememberColumn} />
       )}
-      {/* À côté de l'image sur un grand écran, repliée par Ctrl; dans un
-          tiroir par-dessus l'image sous 900 px ou au doigt (`lib/disposition`),
-          ouvert par la feuille du bas, par le menu ou par Ctrl. La même
-          colonne, entière, dans les deux formes. */}
-      {couches.colonne === null ? null : (
-        <TiroirSi actif={couches.colonne === "tiroir"} onFermer={() => setTiroir(false)}>
-          <Colonne
-            nomSalle={nomSalle}
-            // Le nom du jeu une seule fois : au fronton quand il a sa bande,
-            // sinon dans l'en-tête de la colonne.
-            jeu={frontonPossible ? null : (room?.game?.name ?? null)}
-            onQuitter={onLeave}
-            largeur={compact ? null : column}
-            tiroir={
-              couches.colonne === "tiroir" ? (
-                <BarreDuTiroir onFermer={() => setTiroir(false)} />
-              ) : null
-            }
-            margeHaut={lieuAvis.lieu === "colonne" ? hauteurPile : undefined}
-            avis={lieuAvis.lieu === "colonne" ? avis : null}
-            etat={
-              !idle && shot && !shot.padOnly ? (
-                <ConnectionDiagnostic
-                  video={shot.video}
-                  liaison={shot.liaison}
-                  salle={salle()}
-                  moteur={moteurDe(room?.game?.console)}
-                  onReduce={takeHalf}
-                />
-              ) : null
-            }
-            role={
-              <BlocRole
-                nom={name}
-                place={port}
-                libre={premiereLibre}
-                onPrendre={salleFermee ? undefined : () => session?.input.play()}
-              />
-            }
-            personnes={
-              <>
-                {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
-                    rôle ne se montre que quand le worker dit que le chef ne
-                    joue plus (`repriseDuRole`, audit T12). */}
-                {/* Au repos, l'écran éteint le dit déjà : une chose, une fois. */}
-                {boss && !salleFermee && !idle ? (
-                  <p className="flex items-center gap-1 text-corps text-muted">
-                    <Crown />
-                    {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
-                  </p>
-                ) : null}
-                {boss && !salleFermee && repriseDuRole(role, login !== null) ? (
-                  <div className="flex flex-col gap-1">
-                    <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
-                    <button
-                      id="recoverOwner"
-                      type="button"
-                      className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
-                      onClick={() => onRecover(null)}
-                    >
-                      Prendre le rôle de chef
-                    </button>
-                  </div>
-                ) : null}
-                <IlsRegardent people={people} owner={boss} />
-                {salleFermee ? null : <Inviter lien={lienDInvitation(location.origin, base())} />}
-              </>
-            }
-            panneau={
-              panneauSous ? null : (
-                <PanneauCommande forme="colonne" fin={credit}>
-                  {places}
-                </PanneauCommande>
-              )
-            }
-            rangs={rangs}
-            contenus={{
-              signaler: <Signaler onComplain={complain} garde={garde.current} />,
-              son: (
-                <RangSon
-                  joue={shot?.sound.state === "running"}
-                  volume={volume}
-                  onVolume={setVolume}
-                  onActiver={() => void session?.sound.start()}
-                />
-              ),
-              menu: <RangMenu appareil={appareil} onMenu={() => setMenu(true)} />,
-              /* Les touches du clavier, sans ouvrir de menu (audit T02). */
-              touches:
-                lignesClavier.length > 0 ? (
-                  <RangTouches onOuvrir={() => setVueTouches("clavier")} />
-                ) : null,
-              manette: shot?.input.padId ? (
-                <RangManette
-                  nom={identify(shot.input.padId, shot.input.padLayout ?? "").name}
-                  aConfigurer={manetteAConfigurer(shot.input)}
-                  onOuvrir={() => setVueTouches("manette")}
-                />
-              ) : null,
-              /* Le clip, à portée sans ouvrir le menu: quarante-cinq secondes
-                 ne se demandent pas après coup. Un seul bouton pour deux
-                 gestes, demander puis enregistrer. */
-              garder: (
-                <Aide texte={clipAide(clip.state)} sujet="le clip">
-                  <button
-                    type="button"
-                    id="clip"
-                    // Ponctuel: un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
-                    data-rend-le-jeu=""
-                    onClick={takeClip}
-                    disabled={clip.state.phase === "en cours" || clip.state.phase === "attendre"}
-                    title={clipAide(clip.state)}
-                    className={cn(
-                      "n3-rang flex-1 justify-between",
-                      clip.state.phase === "fait"
-                        ? "border-good/60 text-good hover:bg-good/10"
-                        : clip.state.phase === "raté"
-                          ? "border-alert/60 text-alert"
-                          : null,
-                      (clip.state.phase === "en cours" || clip.state.phase === "attendre") &&
-                        "cursor-not-allowed",
-                    )}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
-                        <ScreenIcon className="h-full w-full" />
-                      </span>
-                      {clipLabel(clip.state)}
-                    </span>
-                    {clip.state.phase === "fait" ? (
-                      <span className="font-mono text-note">
-                        {Math.round(clip.state.bytes / 1e6)} Mo
-                      </span>
-                    ) : null}
-                  </button>
-                </Aide>
-              ),
-              agrandir: <RangAgrandir appareil={appareil} onAgrandir={() => setBare(true)} />,
-              autres: (
-                <AutresReglages>
-                  {port !== null && !salleFermee ? (
-                    <button
-                      type="button"
-                      id="watchOnly"
-                      data-rend-le-jeu=""
-                      onClick={() => session?.input.watchOnly()}
-                      className="n3-rang"
-                    >
-                      {PLACE.rendre}
-                    </button>
-                  ) : null}
-                  {/* Le micro, pour que les clips portent aussi la voix:
-                      rien n'est rejoué, la voix part seulement vers le worker
-                      et revient mêlée au son au prochain clip. */}
-                  <Aide texte={micAide(shot?.mic)} sujet="le micro">
-                    <button
-                      type="button"
-                      id="mic"
-                      data-rend-le-jeu=""
-                      onClick={toggleMic}
-                      title={micAide(shot?.mic)}
-                      className={cn(
-                        "n3-rang flex-1",
-                        shot?.mic === "on"
-                          ? "border-good/60 text-good hover:bg-good/10"
-                          : shot?.mic === "refused"
-                            ? "border-alert/60 text-alert"
-                            : null,
-                      )}
-                    >
-                      <span className="flex h-4 w-4 [&>svg]:h-full [&>svg]:w-full">
-                        <WaveIcon className="h-full w-full" />
-                      </span>
-                      {shot?.mic === "on"
-                        ? "micro ouvert"
-                        : shot?.mic === "asking"
-                          ? "micro…"
-                          : shot?.mic === "refused"
-                            ? "micro refusé"
-                            : "micro pour les clips"}
-                    </button>
-                  </Aide>
-                  {micDevices.length > 0 ? (
-                    <select
-                      id="micDevice"
-                      value={micDevice}
-                      onChange={(event) => pickMic(event.target.value)}
-                      title="choisir le micro"
-                      className="border border-rule bg-transparent px-2 py-2 text-note text-corps"
-                    >
-                      <option value="">micro par défaut</option>
-                      {micDevices.map((device) => (
-                        <option key={device.id} value={device.id}>
-                          {device.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                  {idle ? null : (
-                    <p id="saveReminder" className="text-corps leading-relaxed text-faint">
-                      Pense à sauvegarder dans le jeu: une salle que tout le monde quitte ferme la
-                      partie.
-                    </p>
-                  )}
-                </AutresReglages>
-              ),
-            }}
-            vue={
-              mode === "details" ? (
-                <div id="stats">
-                  <MesuresTechniques>
-                    {shot ? (
-                      <Instruments shot={shot} moteur={moteurDe(room?.game?.console)} />
-                    ) : (
-                      <p className="text-corps text-faint">Pas encore de mesures.</p>
-                    )}
-                  </MesuresTechniques>
-                </div>
-              ) : vueMontree ? (
-                <VueTouches
-                  key={vueMontree}
-                  titre={
-                    vueMontree === "clavier"
-                      ? TOUCHES.clavier
-                      : TOUCHES.manette(
-                          identify(shot?.input.padId ?? "", shot?.input.padLayout ?? "").name,
-                        )
-                  }
-                  lignes={vueMontree === "clavier" ? lignesClavier : lignesDeLaManette()}
-                  clavier={vueMontree === "clavier"}
-                  lire={lireLEntree}
-                  onRevenir={() => {
-                    setVueTouches(null);
-                    setVueFermee(true);
-                    retenirAideVue(true);
-                  }}
-                  onChanger={() => {
-                    setOngletTouches(vueMontree === "clavier" ? "key" : "pad");
-                    setBindings(true);
-                  }}
-                />
-              ) : null
-            }
-            coin={
-              <Coin
-                mesures={mode === "details"}
-                onMesures={() => setMode(mode === "details" ? "normal" : "details")}
-              />
-            }
-          />
-        </TiroirSi>
-      )}
+      {/* À côté de l'image au bureau, repliée par Ctrl ; sous l'image d'une
+          fenêtre étroite à la souris ; dans la feuille agrandie d'une salle
+          tenue en main (`couchesDeLaSalle`). La même colonne, entière. */}
+      {couches.colonne === "a-cote" || couches.colonne === "dessous" ? colonne : null}
 
       {/* SANS `&& shot`: le menu ne dépend pas de l'image.
           Avec, cliquer « Choisir un jeu » dans une salle au repos faisait
@@ -3106,9 +3171,9 @@ function Room({
         <Bindings
           onglet={ongletTouches}
           console={consoleTouches}
-          held={tenu}
+          held={manetteTenue}
           readOnly={Boolean(setupPlayer?.ready)}
-          actions={(setupGame ?? room?.game)?.guide?.actions[String(tenu)]}
+          actions={(setupGame ?? room?.game)?.guide?.actions[String(manetteTenue)]}
           preparation={
             pendingSetup && session ? (
               <Preparation
@@ -3171,9 +3236,9 @@ function Room({
             session?.input.beginCapture(control, source, sign),
           )}
           onCancel={puis(() => session?.input.cancelCapture())}
-          onLearn={puis(() => session?.input.beginLesson(consoleTouches, tenu))}
+          onLearn={puis(() => session?.input.beginLesson(consoleTouches, manetteTenue))}
           onSkip={puis(() => session?.input.skipLessonStep())}
-          onResetPad={puis(() => session?.input.resetPad(consoleTouches, tenu))}
+          onResetPad={puis(() => session?.input.resetPad(consoleTouches, manetteTenue))}
           onResetKeys={puis(() => session?.input.resetKeys())}
           onClose={() => {
             session?.input.cancelCapture();

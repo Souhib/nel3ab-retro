@@ -125,16 +125,17 @@ async function entrer(page) {
   // Au téléphone, la colonne est repliée: on la déplie pour lire la place.
   // Jusqu'à ce qu'elle le soit: un clic posé pendant le premier rendu de la
   // salle peut se perdre, et l'étape tombait alors sur une précondition.
-  // Depuis le 22 novembre 2026, elle est un tiroir, ouvert par « ••• » puis
-  // « La salle »; les pages d'avant gardent leur « montrer (Ctrl) ».
+  // Du 22 au 23 novembre 2026, elle était un tiroir, ouvert par « ••• » puis
+  // « La salle » ; depuis, la feuille « La salle » de la barre, agrandie par
+  // « Toute la salle ». Les pages d'avant gardent leur chemin.
   await jusqua(async () => {
     if (await page.$("#seat")) return true;
     await page.evaluate(() => {
       const avant = document.querySelector("#unbare");
       if (avant) return avant.click();
-      const salle = document.querySelector('[data-entree="salle"]');
+      const salle = document.querySelector('[data-entree="toute-la-salle"], [data-entree="salle"]');
       if (salle) return salle.click();
-      document.querySelector("#ouvrirFeuille")?.click();
+      document.querySelector('#laSalle, [data-geste="feuille"], #ouvrirFeuille')?.click();
     });
     return false;
   }, 5000, 300);

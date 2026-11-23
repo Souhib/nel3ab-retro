@@ -58,7 +58,7 @@ export function Colonne({
   jeu,
   onQuitter,
   largeur,
-  tiroir,
+  forme = "a-cote",
   margeHaut,
   avis,
   etat,
@@ -73,10 +73,12 @@ export function Colonne({
   nomSalle: string;
   jeu: string | null;
   onQuitter: () => void;
-  /** La largeur choisie au bureau ; `null` dans le tiroir, qui décide. */
+  /** La largeur choisie au bureau ; `null` sous l'image ou dans la feuille. */
   largeur: number | null;
-  /** La barre du tiroir, sous 900 px ou au doigt, jusqu'à la feuille unique. */
-  tiroir?: ReactNode;
+  /** À côté de l'image (bureau), dessous (fenêtre étroite à la souris), ou
+   * dans la feuille agrandie d'une salle tenue en main, qui porte son propre
+   * en-tête et « Fermer » (`FeuilleSalle`). */
+  forme?: "a-cote" | "dessous" | "feuille";
   /** La hauteur de la pile des avis collée en tête, pour la marge du haut. */
   margeHaut?: number;
   /** La pile des avis quand elle vit en tête de la colonne (`lieuDesAvis`). */
@@ -110,10 +112,10 @@ export function Colonne({
       }}
       className={cn(
         "n3-colonne relative flex flex-col gap-3 overflow-y-auto bg-panel",
-        largeur !== null && "shrink-0 border-l border-rule px-3 pt-3",
+        forme === "a-cote" && "shrink-0 border-l border-rule px-3 pt-3",
+        forme === "dessous" && "min-h-0 flex-1 border-t border-rule px-3 pt-3",
       )}
     >
-      {tiroir}
       {/* En tête quand aucune bande noire ne tient la pile (`lieuDesAvis`),
           collée en haut de ce qui se voit : une tête qui défilait avec la
           colonne laissait l'avis hors de vue (focus.mjs, avis-haut). */}

@@ -199,6 +199,16 @@ export const BORNE_MIN = 72;
 /** La barre du téléphone : la tête de la mascotte, « Salle N », Son, La salle. */
 export const BARRE = 52;
 
+/**
+ * La hauteur la plus petite de la feuille « La salle » à mi-hauteur, tenue
+ * droite : ses cinq entrées sur deux colonnes de 44 px, son en-tête et la
+ * barre d'accueil d'un iPhone (34 px). Mesuré dans Chrome le 23 novembre
+ * 2026 (salle-telephone, bas du dernier enfant de la feuille) : 275 px de
+ * contenu à 375 et à 390 px de large. C'était 300 px, pris à la maquette ; à
+ * 375×667, la feuille montait alors de 13 px sur l'image.
+ */
+export const FEUILLE_MI_MIN = 276;
+
 /** Au mode étroit, la colonne garde au moins cette hauteur sous l'image. */
 export const COLONNE_ETROITE_MIN = 240;
 
@@ -547,7 +557,10 @@ function portrait(e: Entree): Geometrie {
 
   const feuilleHaut = g.barre + sa.haut;
   const sous = feuilleHaut + g.image + g.chant;
-  const delta = Math.max(0, Math.min(sous - feuilleHaut, e.fenetre.height - feuilleHaut - 300));
+  const delta = Math.max(
+    0,
+    Math.min(sous - feuilleHaut, e.fenetre.height - feuilleHaut - FEUILLE_MI_MIN),
+  );
   return {
     ...vide(e),
     ecran,

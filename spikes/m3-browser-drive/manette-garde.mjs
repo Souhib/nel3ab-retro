@@ -89,8 +89,6 @@ const THEMES = ["nuit", "jour"];
 // en gras.
 const CONTRAST = 4.5;
 const CONTRAST_LARGE = 3;
-// La bande où `touch.mjs` exige que rien ne morde sur l'image, gestes compris.
-const TOUCH_MJS_BAR = 130;
 
 // L'avis de fermeture, tel que `App.tsx` l'écrit. Lu dans le fichier : une copie
 // recopiée à la main resterait verte quand l'avis change.
@@ -302,7 +300,7 @@ function notice({ NOTICE, PILE, INSET }) {
   pile.className = PILE;
   Object.assign(pile.style, { position: "absolute", top: "8px", left: "12px", right: "12px" });
   pile.append(note);
-  main.insertBefore(pile, pad);
+  main.insertBefore(pile, main.firstChild);
   const style = getComputedStyle(pile);
   const r = note.getBoundingClientRect();
   const bad = [];
@@ -436,6 +434,30 @@ try {
     console.log(`${seen ? "ok  " : "RATÉ"}  la garde voit un geste posé exprès sur une touche`);
     if (!seen) failures.push("jumeau négatif: le leurre n'a pas été vu");
 
+    // Le jumeau de « rien sur l'image » : une touche posée exprès au milieu
+    // de l'image doit être vue. Sans lui, une garde qui ne trouverait jamais
+    // la toile passerait toutes les tailles.
+    const propre = (await page.evaluate(inspect, { GAME, PAGE, CLEARANCE, FLOOR, INSET })).onPicture;
+    await page.evaluate(() => {
+      const r = document.getElementById("screen").getBoundingClientRect();
+      const decoy = document.createElement("button");
+      decoy.id = "garde-sur-image";
+      decoy.dataset.touche = "leurre-image";
+      Object.assign(decoy.style, {
+        position: "fixed",
+        left: `${r.left + r.width / 2 - 24}px`,
+        top: `${r.top + r.height / 2 - 24}px`,
+        width: "48px",
+        height: "48px",
+      });
+      document.querySelector(".n3-pave")?.append(decoy);
+    });
+    const surImage = (await page.evaluate(inspect, { GAME, PAGE, CLEARANCE, FLOOR, INSET })).onPicture;
+    await page.evaluate(() => document.getElementById("garde-sur-image")?.remove());
+    const vue = propre.length === 0 && surImage.includes("leurre-image");
+    console.log(`${vue ? "ok  " : "RATÉ"}  la garde voit une touche posée exprès sur l'image`);
+    if (!vue) failures.push(`jumeau négatif: la touche sur l'image n'a pas été vue (avant : ${propre.join(", ")})`);
+
     // Le jumeau de l'avis : un calque posé exprès au-dessus de lui doit être vu.
     await page.evaluate(() => {
       const cover = document.createElement("div");
@@ -496,20 +518,21 @@ try {
       // avait plus, sa croix comptant pour quatre.
       const minimum = room.pad === "gc" ? 10 : 15;
       if (seen.games.length < minimum) bad.push(`${seen.games.length} touches trouvées, ${minimum} attendues au moins`);
-      // Un seul geste de page depuis le 22 novembre 2026: le « ••• » qui ouvre
-      // la feuille du bas, où vivent son, menu et cacher (`lib/feuille`).
-      // Rejouée sur le code d'avant, la garde y trouve trois gestes et le dit.
+      // Un seul geste de page depuis le 22 novembre 2026 : « La salle » (le
+      // « ••• » jusqu'au 23), qui ouvre la feuille où vivent son, menu et
+      // cacher (`lib/feuille`). Il est dans la barre, au-dessus de la grappe
+      // gauche en travers, ou parmi les touches quand la barre manque : dans
+      // les trois cas, la garde le mesure contre les touches.
       if (seen.pages.length !== 1) bad.push(`${seen.pages.length} gestes de page trouvés, 1 attendu`);
       // Une pose dégradée le dit sur la boîte du pavé (`data-degradee`).
       const degraded = await page.evaluate(() => document.querySelector(".n3-pave")?.dataset.degradee ?? null);
       if (degraded !== null) bad.push(`la pose se dit dégradée : ${degraded}`);
-      // Dans le noir quand le noir suffit : en paysage, si la bande est plus
-      // large que le plus large des groupes (plus 6 px de chaque côté).
-      const landscape = width > height;
-      if (landscape && seen.bar !== null && seen.bar >= seen.widest + 12 && seen.onPicture.length)
-        bad.push(`bande de ${seen.bar} px, et pourtant sur l'image: ${seen.onPicture.join(", ")}`);
-      if (landscape && seen.bar !== null && seen.bar >= TOUCH_MJS_BAR && seen.pagesOnPicture.length)
-        bad.push(`bande de ${seen.bar} px, et pourtant des gestes sur l'image: ${seen.pagesOnPicture.join(", ")}`);
+      // Rien sur l'image, à toutes les tailles et dans les quatre salles :
+      // la manette a sa boîte dans le cadre depuis le 23 novembre 2026, sous
+      // l'image tenue droite, dans ses grappes en travers. Jusque-là, la règle
+      // ne valait que pour une bande noire assez large.
+      if (seen.onPicture.length) bad.push(`des touches sur l'image : ${seen.onPicture.join(", ")}`);
+      if (seen.pagesOnPicture.length) bad.push(`des gestes de page sur l'image : ${seen.pagesOnPicture.join(", ")}`);
       for (const key of seen.simple) {
         const { during, after } = await tap(page, key);
         const wanted = key.frame ?? key.name;
@@ -578,8 +601,10 @@ try {
       }
       // La précondition : un pavé sans inscription passerait sans rien mesurer.
       // Deux de moins depuis que « son », « menu » et « cacher » sont devenus
-      // un seul « ••• » (22 novembre 2026).
-      const minimum = THEMES.length * (room.pad === "gc" ? 13 : 17);
+      // un seul « ••• » (22 novembre 2026) ; une de moins depuis que ce geste
+      // est « La salle », hors des touches quand la barre ou le cadre le
+      // portent, et une icône sans texte parmi elles (23 novembre 2026).
+      const minimum = THEMES.length * (room.pad === "gc" ? 12 : 16);
       if (measured < minimum) bad.push(`${measured} inscriptions mesurées, ${minimum} attendues au moins`);
       // La seconde précondition : deux régies qui donnent le même panneau sont
       // une seule régie mesurée deux fois.

@@ -10,9 +10,17 @@ const TELEPHONE: EtatFeuille = {
 };
 const ids = (etat: EtatFeuille) => entreesDeLaFeuille(etat).map((entree) => entree.id);
 
-describe("la feuille du bas", () => {
-  it("porte chaque geste de page d'un téléphone, et la salle", () => {
-    expect(ids(TELEPHONE)).toEqual(["son", "menu", "salle", "manette", "plein-ecran", "signaler"]);
+describe("la feuille « La salle » à mi-hauteur", () => {
+  it("porte chaque geste de la partie, puis la salle entière en dernier", () => {
+    expect(ids(TELEPHONE)).toEqual(["son", "menu", "manette", "plein-ecran", "toute-la-salle"]);
+  });
+
+  it("ne répète pas Signaler, qui vit en tête de la colonne de la feuille agrandie", () => {
+    for (const etat of [
+      TELEPHONE,
+      { ...TELEPHONE, sonCoupe: true, plein: "ecran-accueil" as const },
+    ])
+      expect(ids(etat)).not.toContain("signaler");
   });
 
   it("met le son coupé en tête, en alerte, et le dit", () => {

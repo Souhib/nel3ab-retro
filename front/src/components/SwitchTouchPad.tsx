@@ -13,7 +13,7 @@
 import { useEffect } from "react";
 import type { SwitchAxis, SwitchButton, SwitchInput } from "../media/switch";
 import { SWITCH_FACE, faceOf } from "../lib/faces";
-import { Pave } from "./TouchPad";
+import { Pave, type BoiteDuCadre } from "./TouchPad";
 
 export function SwitchTouchPad({
   source,
@@ -21,6 +21,7 @@ export function SwitchTouchPad({
   bar,
   soundOff = false,
   onFeuille,
+  cadre,
 }: {
   source: SwitchInput;
   /** La console de la salle, pour nommer les touches comme sa manette. Une
@@ -38,8 +39,10 @@ export function SwitchTouchPad({
    * 22 novembre 2026: en salle Xbox 360, rien ne disait la partie muette
    * (audit M10). */
   soundOff?: boolean;
-  /** Ouvrir la feuille du bas (`FeuilleDuBas`). */
+  /** Ouvrir la feuille « La salle » (`FeuilleSalle`). */
   onFeuille: () => void;
+  /** La boîte du cadre, quand la salle est tenue en main. */
+  cadre?: BoiteDuCadre;
 }) {
   useEffect(() => {
     const release = () => {
@@ -66,6 +69,7 @@ export function SwitchTouchPad({
       release={(key) => source.touched.delete(key)}
       soundOff={soundOff}
       onFeuille={onFeuille}
+      cadre={cadre}
       stickOf={(side) => {
         const [x, y] = axes(side);
         return {

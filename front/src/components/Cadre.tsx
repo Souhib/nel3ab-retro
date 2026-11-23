@@ -30,6 +30,7 @@ import {
   variablesDuCadre,
   type Entree,
   type Geometrie,
+  type Rect,
   type ZonesSures,
 } from "../lib/cadre";
 import type { Size } from "../lib/fit";
@@ -255,3 +256,13 @@ export function useApresLeClic<T>(valeur: T): T {
   }, [valeur]);
   return tenue;
 }
+
+/** Un rectangle du cadre en position absolue : les coordonnées de la
+ * fenêtre, que la racine de la salle partage quand elle est tenue en main. */
+export const placeDe = (r: Rect): CSSProperties => ({
+  position: "absolute",
+  left: r.x,
+  top: r.y,
+  width: r.w,
+  height: r.h,
+});

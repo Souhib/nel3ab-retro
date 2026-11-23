@@ -703,6 +703,44 @@ async function principal() {
     /** L'effet « borne » (niveau tout) : le décor dans les bandes latérales
      * de 72 px ou plus, jamais dans l'image, et l'image a la même taille avec
      * et sans lui. Le jumeau: sans bande assez large, aucun décor. */
+    /** Étape 4 : la salle tenue en main. Au doigt, tenue droite puis en
+     * travers, et une tablette tenue droite, avec la manette à l'écran :
+     * rien ne se pose sur l'image, et aucune pièce de la manette ne la
+     * coupe. Contre la page de cf3bba1, la manette se pose PAR-DESSUS
+     * l'écran, et sa croix tombe sur l'image d'une tablette de 768×1024
+     * (vu le 23 novembre 2026). La précondition : la manette montée, et
+     * l'image peinte. */
+    async "tenu-rien-sur-image"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 390, height: 844, isMobile: true, hasTouch: true },
+        { width: 844, height: 390, isMobile: true, hasTouch: true },
+        { width: 768, height: 1024, isMobile: true, hasTouch: true },
+      ]) {
+        const page = await nouvelle(vue);
+        await entrer(page);
+        if (!(await jusqua(() => page.$(".n3-pave").then(Boolean), 4000)))
+          throw new Precondition(`${vue.width}×${vue.height}: la manette à l'écran n'est pas montée`);
+        await sleep(400);
+        fautes.push(...(await garder(page, `${vue.width}×${vue.height} tenue en main`)));
+        const coupes = await page.evaluate(() => {
+          const t = document.querySelector("#screen").getBoundingClientRect();
+          return [...document.querySelectorAll(".n3-pave > *, [data-geste]")]
+            .map((el) => {
+              const r = el.getBoundingClientRect();
+              const w = Math.min(r.right, t.right) - Math.max(r.left, t.left);
+              const h = Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top);
+              return w > 0.5 && h > 0.5 ? (el.dataset.touche ?? el.dataset.geste ?? el.id) : null;
+            })
+            .filter(Boolean);
+        });
+        if (coupes.length) fautes.push(`${vue.width}×${vue.height}: sur l'image : ${coupes.join(", ")}`);
+        await capture(page, "tenu-rien-sur-image");
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
     async "borne-bandes"() {
       const fautes = [];
       const vus = { avec: 0, sans: 0 };

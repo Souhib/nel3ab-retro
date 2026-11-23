@@ -22,10 +22,14 @@
  * Les deux pouces tiennent les coins du bas : le stick à gauche, les quatre
  * boutons à droite, comme sur la console. La croix monte au-dessus du stick,
  * parce qu'elle sert surtout dans les menus. Les gâchettes sont aux coins du
- * haut, là où les index tombent. Un seul geste de la PAGE reste parmi les
- * touches, le « ••• » qui ouvre la feuille du bas (`FeuilleDuBas`); il prend la
- * première place libre à 16 px de toute touche de jeu : un geste de page sous
- * un pouce qui joue fait perdre la partie.
+ * haut, là où les index tombent. Un seul geste de la PAGE peut se poser parmi
+ * les touches, « La salle », qui ouvre la feuille (`FeuilleSalle`), et
+ * seulement quand la barre de la salle manque ; il prend la première place
+ * libre à 16 px de toute touche de jeu : un geste de page sous un pouce qui
+ * joue fait perdre la partie.
+ *
+ * Tenue en main, la manette se pose dans la boîte que le cadre lui donne
+ * (`lib/cadre`), sous l'image ou dans ses deux grappes, jamais dessus.
  *
  * # Elle ne repasse pas par React
  *
@@ -58,7 +62,8 @@ import {
   type Rect,
   type Touche,
 } from "../lib/faces";
-import { nomDuPlus } from "../lib/feuille";
+import { nomDeLaSalle } from "../lib/feuille";
+import { RoomIcon } from "./XmbIcons";
 import "./manette-tactile.css";
 
 /** Le rayon du stick GameCube, en pixels d'écran.
@@ -265,14 +270,29 @@ function Puits({
 /** Ce que chaque geste de page affiche, et son identifiant pour les pilotes.
  *
  * Trois jusqu'au 22 novembre 2026 (son, menu, cacher, sous les identifiants
- * `wakeSound`, `showColumn` et `hideTouch`); un seul depuis, qui ouvre la
- * feuille du bas où les trois vivent, avec la salle, le plein écran et le
- * signalement. */
-const GESTE: Record<Geste, { id: string; label: string }> = {
-  // Trois points pleins, centrés sur la ligne: les points de suspension
-  // tombaient au pied de la pastille et se voyaient à peine (capture du
-  // 22 novembre 2026). Le nom dit ce qu'il ouvre (`nomDuPlus`).
-  feuille: { id: "ouvrirFeuille", label: "•••" },
+ * `wakeSound`, `showColumn` et `hideTouch`); un seul depuis, le « ••• » qui
+ * ouvrait la feuille du bas. Le 23 novembre, il devient « La salle » : l'icône
+ * de la salle, le nom dit par `nomDeLaSalle`, et seulement quand la barre de
+ * la salle manque (`salleDansLaManette`). */
+const GESTE: Record<Geste, { id: string; label: React.ReactNode }> = {
+  feuille: {
+    id: "laSalleManette",
+    label: (
+      <span className="n3-salle-icone" aria-hidden="true">
+        <RoomIcon className="h-full w-full" />
+      </span>
+    ),
+  },
+};
+
+/** La boîte que le cadre donne à la manette (`lib/cadre`) : ses bandes (les
+ * grappes en travers, rien tenue droite), ses gestes, et la règle qui garde
+ * chaque pièce dans sa bande. Sans elle, la manette se pose par-dessus
+ * l'écran comme avant le 23 novembre 2026 (souris, manette « toujours »). */
+export type BoiteDuCadre = {
+  bandes: { left: number; right: number };
+  gestes: readonly Geste[];
+  dansLesBandes: boolean;
 };
 
 /** Le pavé commun : il mesure, place et pose. Les deux manettes le partagent. */
@@ -286,6 +306,7 @@ export function Pave<K extends string>({
   soundOff,
   onFeuille,
   id,
+  cadre,
 }: {
   face: FaceOf<Frame, K>;
   /** La largeur d'une bande noire à côté de l'image, en pixels de la salle. */
@@ -298,9 +319,10 @@ export function Pave<K extends string>({
   idOf?: (key: K) => string;
   /** Le son ne joue pas: le « ••• » le montre, pour les deux manettes. */
   soundOff: boolean;
-  /** Ouvrir la feuille du bas. */
+  /** Ouvrir la feuille « La salle ». */
   onFeuille: () => void;
   id?: string;
+  cadre?: BoiteDuCadre;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(() => ({
@@ -338,11 +360,13 @@ export function Pave<K extends string>({
 
   const pose = useMemo(
     () =>
-      placePad(face, size, {
-        left: Math.max(0, bar - inset.left),
-        right: Math.max(0, bar - inset.right),
-      }),
-    [face, size, bar, inset],
+      cadre
+        ? placePad(face, size, cadre.bandes, cadre.gestes, cadre.dansLesBandes)
+        : placePad(face, size, {
+            left: Math.max(0, bar - inset.left),
+            right: Math.max(0, bar - inset.right),
+          }),
+    [face, size, bar, inset, cadre],
   );
 
   const key = (touche: Touche<K>, rect: Rect) => (
@@ -411,7 +435,7 @@ export function Pave<K extends string>({
             data-alerte={soundOff ? "" : undefined}
             // Le nom dit le son coupé: la pastille rouge seule ne se lit pas
             // à voix haute, et ne se distingue pas sans les couleurs.
-            aria-label={nomDuPlus(soundOff)}
+            aria-label={nomDeLaSalle(soundOff)}
             aria-haspopup="dialog"
             style={at(piece.rect)}
             // Un clic de souris n'enlève pas le clavier au jeu: le focus pris
@@ -433,7 +457,7 @@ export function Pave<K extends string>({
     <div
       ref={root}
       id={id}
-      className="n3-pave"
+      className={cadre ? "n3-pave n3-pave-cadre" : "n3-pave"}
       role="group"
       aria-label={face.title}
       // Une pose qui n'a pas tout tenu le dit, pour les pilotes et les outils
@@ -451,6 +475,7 @@ export function TouchPad({
   touch,
   soundOff,
   onFeuille,
+  cadre,
 }: {
   /** La largeur d'une bande noire à côté de l'image, en pixels.
    *
@@ -470,6 +495,8 @@ export function TouchPad({
    * manette, le plein écran, signaler. Le tapotement sur « ••• » est lui-même un
    * geste, donc il rallume aussi un son coupé (`media/reveil-son`). */
   onFeuille: () => void;
+  /** La boîte du cadre, quand la salle est tenue en main. */
+  cadre?: BoiteDuCadre;
 }) {
   const radius = useRef(stickRadius());
 
@@ -501,6 +528,7 @@ export function TouchPad({
       idOf={(key) => `touch-${key}`}
       soundOff={soundOff}
       onFeuille={onFeuille}
+      cadre={cadre}
       stickOf={() => ({
         id: "touchStick",
         label: "stick",

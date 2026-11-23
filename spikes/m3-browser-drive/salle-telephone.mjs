@@ -14,42 +14,47 @@
 //
 //   1. la page ne défile pas en largeur, et aucune cible visible n'en recouvre
 //      une autre ;
-//   2. un seul bouton « ••• » ouvre la feuille du bas ; lui et chaque entrée
-//      de la feuille tiennent dans les zones sûres, font 44 px au moins, et
-//      reçoivent leur appui (`elementFromPoint`) ; « Menu du jeu » ouvre le
-//      menu et ferme la feuille ;
-//   3. la feuille ouvre le tiroir de la salle, qui tient dans l'écran sans
-//      défiler en largeur, et où chaque fonction de la colonne se joint : les
-//      places, prendre une place précise, demander celle d'un autre, signaler,
-//      le diagnostic, les spectateurs, quitter, et le bouton qui le ferme ;
-//   4. la manette à l'écran n'est pas montée tant que le tiroir est ouvert ;
+//   2. un seul bouton « La salle » ouvre la feuille (dans la barre, dans la
+//      bande gauche en travers, ou parmi les touches quand la barre manque) ;
+//      lui et chaque entrée de la feuille tiennent dans les zones sûres, font
+//      44 px au moins, et reçoivent leur appui (`elementFromPoint`) ; « Menu
+//      du jeu » ouvre le menu et ferme la feuille ; aucune touche de la
+//      manette ne touche l'image, et la feuille à mi-hauteur non plus ;
+//   3. « Toute la salle » agrandit la même feuille, qui tient dans l'écran
+//      sans défiler en largeur, et où chaque fonction de la colonne se joint :
+//      les places, prendre une place précise, demander celle d'un autre,
+//      signaler, le diagnostic, les spectateurs, quitter, et « Fermer » ;
+//      jamais deux dialogues ouverts ;
+//   4. la manette à l'écran n'est pas montée tant que la feuille est ouverte ;
 //   5. sans l'API plein écran (un iPhone), aucune erreur de page, et la
 //      feuille propose l'écran d'accueil ; avec elle, le plein écran ;
-//   6. le son coupé se voit sur le « ••• », GameCube comme Xbox 360 ;
+//   6. le son coupé se voit sur « La salle », GameCube comme Xbox 360 ;
 //   7. l'entrée de la salle tient en haut de l'écran, et sous la salle au
-//      repos ou le rideau d'une arrivée, le tiroir reste joignable ;
+//      repos ou le rideau d'une arrivée, la salle entière reste joignable ;
 //   8. le réglage des touches prend tout l'écran en paysage, avec une vraie
 //      hauteur pour son contenu et un bouton fermer de 44 px ;
 //   9. sur la page CONSTRUITE (`--page`), la première image porte le thème
 //      choisi contre le système, et pas celui du système ;
-//  10. à 1440x900, la colonne reste à côté de l'image, sans « ••• ».
+//  10. à 1440x900, la colonne reste à côté de l'image, sans « La salle ».
 //
 // Ajouté après la relecture du 22 novembre 2026, chaque cas vu rouge sur
 // l'arbre d'avant (fbb3bcc) :
 //
-//  11. TOUTES les cibles visibles du tiroir font 44 px (bouton, champ, liste,
-//      résumé, lien), sauf une exception nommée ; le bouton qui le ferme reste
-//      joignable une fois le tiroir défilé jusqu'à « quitter » ; tenu droit
-//      sous 480 px, il couvre toute la largeur ;
-//  12. le focus revient au « ••• » quand la feuille ou le tiroir se ferme ;
+//  11. TOUTES les cibles visibles de la feuille agrandie font 44 px (bouton,
+//      champ, liste, résumé, lien), sauf une exception nommée ; « Fermer »
+//      reste joignable une fois la colonne défilée jusqu'à « quitter » ; tenue
+//      droite sous 480 px, la feuille couvre toute la largeur ;
+//  12. le focus revient à « La salle » quand la feuille se ferme ;
 //  13. un grand écran à la souris, manette à l'écran « toujours » : « La
 //      salle » déplie la colonne et garde la manette, au lieu de tout cacher ;
-//  14. Ctrl sous le menu ouvre le tiroir SANS l'empiler sur le menu ;
+//  14. tenue en main, Ctrl sous le menu agrandit la feuille SANS l'empiler
+//      sur le menu ; étroite à la souris, la colonne est sous l'image et Ctrl
+//      agrandit l'image ;
 //  15. une page « manette seule » garde sa manette pendant un chargement
 //      annoncé par le salon, et son jumeau (avec l'image) montre l'écran de
 //      chargement ;
-//  16. la demande de place et la reprise de la salle ne passent ni sous le
-//      « ••• » ni sous l'encoche ;
+//  16. la demande de place et la reprise de la salle ne passent ni sous « La
+//      salle » ni sous l'encoche ;
 //  17. le fond du menu va jusqu'aux bords ;
 //  18. le configurateur Pro (Switch, Xbox 360) et la préparation d'une partie
 //      prennent tout l'écran tenu en travers ;
@@ -115,8 +120,10 @@ const zoneOf = (width, height) =>
 const IPHONE =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 
-const OPENER = '[data-geste="feuille"], #ouvrirFeuille';
-// Ce que le tiroir doit porter : la colonne entière, joignable au doigt.
+const OPENER = '[data-geste="feuille"]';
+const FEUILLE = "#feuilleSalle";
+const AGRANDIE = '#feuilleSalle[data-hauteur="agrandie"]';
+// Ce que la feuille agrandie doit porter : la colonne entière, joignable au doigt.
 const DRAWER_MUST = {
   "la rangée des places": "#ports",
   "prendre une place précise (la 3, libre)": "#port3",
@@ -128,7 +135,7 @@ const DRAWER_MUST = {
   // Le curseur quand le son joue, le bouton qui l'allume sinon.
   "le son": "#side input[type='range'], #sound",
   quitter: "#leaveRoom",
-  "fermer le tiroir": "#foldColumn",
+  "fermer la feuille": "#fermerFeuille",
 };
 
 const CONTENEURS = ["#ports", "section[aria-labelledby='ilsRegardent']"];
@@ -439,8 +446,8 @@ async function attendre(page, test, arg, ms = 4000) {
   }
 }
 
-/** Le focus, rendu après la fermeture d'une couche : au « ••• » qui l'a
- * ouverte, ou au jeu qui l'avait avant. Jamais au document, d'où un lecteur
+/** Le focus, rendu après la fermeture de la feuille : au « La salle » qui
+ * l'a ouverte, ou au jeu qui l'avait avant. Jamais au document, d'où un lecteur
  * d'écran repart du début de la page (WCAG 2.4.3). */
 const focusRendu = (opener) => {
   const ici = document.activeElement;
@@ -448,7 +455,42 @@ const focusRendu = (opener) => {
 };
 
 const ENTRIES = () =>
-  [...document.querySelectorAll("#feuilleDuBas [data-entree]")].map((el) => el.dataset.entree);
+  [...document.querySelectorAll("#feuilleSalle [data-entree]")].map((el) => el.dataset.entree);
+
+/** Ce qui touche l'image : chaque pièce de la manette et chaque « La salle »,
+ * comparés au rectangle de la toile. Rien n'a le droit d'y mordre (règle du
+ * cadre, 23 novembre 2026). */
+function surLImage() {
+  const toile = document.querySelector("#screen")?.getBoundingClientRect();
+  if (!toile || toile.width < 2 || toile.height < 2) return ["la toile n'a pas de taille"];
+  const bad = [];
+  for (const el of document.querySelectorAll(".n3-pave > *, [data-geste]")) {
+    const r = el.getBoundingClientRect();
+    const w = Math.min(r.right, toile.right) - Math.max(r.left, toile.left);
+    const h = Math.min(r.bottom, toile.bottom) - Math.max(r.top, toile.top);
+    if (w > 0.5 && h > 0.5)
+      bad.push(`${el.dataset.touche ?? el.dataset.geste ?? el.id ?? el.className} mord sur l'image : ${Math.round(w)}x${Math.round(h)} px`);
+  }
+  return bad;
+}
+
+/** Le jumeau de `surLImage` : une touche posée exprès sur l'image est vue. */
+function leurreSurLImage() {
+  const toile = document.querySelector("#screen")?.getBoundingClientRect();
+  const pave = document.querySelector(".n3-pave");
+  if (!toile || !pave) return false;
+  const leurre = document.createElement("button");
+  leurre.dataset.touche = "leurre";
+  Object.assign(leurre.style, {
+    position: "fixed",
+    left: `${toile.left + toile.width / 2}px`,
+    top: `${toile.top + toile.height / 2}px`,
+    width: "44px",
+    height: "44px",
+  });
+  pave.append(leurre);
+  return true;
+}
 
 try {
   // Les jumeaux négatifs de la mesure elle-même.
@@ -472,6 +514,19 @@ try {
     });
     const covered = !(await page.evaluate(boite, "#screen"))?.hit;
     say(covered, "jumeau : la garde voit une cible recouverte par un calque");
+    await page.evaluate(() => document.getElementById("leurre-dessus")?.remove());
+    // Le jumeau de « rien sur l'image » : une touche posée exprès au milieu
+    // de l'image est vue. Sans lui, une garde qui ne trouverait jamais la
+    // toile passerait.
+    await page.waitForSelector(".n3-pave", { timeout: 8000 });
+    const avant = await page.evaluate(surLImage);
+    const pose = await page.evaluate(leurreSurLImage);
+    const apres = await page.evaluate(surLImage);
+    say(
+      avant.length === 0 && pose && apres.some((line) => line.startsWith("leurre")),
+      "jumeau : la garde voit une touche posée sur l'image",
+      [...avant, ...(pose ? [] : ["pas de manette où poser le leurre"])],
+    );
     await page.close();
   }
 
@@ -503,21 +558,57 @@ try {
         await sleep(900);
         await page.screenshot({ path: join(OUT, `salle-${name}-${size}.png`) });
         bad.push(...(await page.evaluate(etat)));
+        bad.push(...(await page.evaluate(surLImage)));
         const openers = await page.evaluate((s) => document.querySelectorAll(s).length, OPENER);
-        if (openers !== 1) bad.push(`${openers} boutons « ••• » trouvés, 1 attendu`);
+        if (openers !== 1) bad.push(`${openers} boutons « La salle » trouvés, 1 attendu`);
         const opener = await page.evaluate(boite, OPENER);
-        bad.push(...dansLaZone("le « ••• »", opener, zone, width, height));
-        if (opener && sound !== "running" && !opener.alerte) bad.push("le son est coupé et le « ••• » ne le dit pas");
-        if (opener && sound === "running" && opener.alerte) bad.push("le son joue et le « ••• » s'alerte");
+        bad.push(...dansLaZone("« La salle »", opener, zone, width, height));
+        if (opener && sound !== "running" && !opener.alerte) bad.push("le son est coupé et « La salle » ne le dit pas");
+        if (opener && sound === "running" && opener.alerte) bad.push("le son joue et « La salle » s'alerte");
+        // Tenu droit, la barre porte « La salle » dès qu'elle tient.
+        if (height > width && height >= 667 && !(await page.$("#barreSalle #laSalle")))
+          bad.push("tenu droit, « La salle » n'est pas dans la barre");
         if (opener) {
           await tap(page, OPENER);
-          if (!(await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true)))
-            bad.push("le « ••• » n'ouvre pas la feuille du bas");
+          if (!(await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true)))
+            bad.push("« La salle » n'ouvre pas la feuille");
           else {
             await sleep(350);
-            await page.screenshot({ path: join(OUT, `feuille-${name}-${size}.png`) });
+            await page.screenshot({ path: join(OUT, `feuille-mi-${name}-${size}.png`) });
+            // À mi-hauteur, la feuille ne touche pas l'image, et le fond ne
+            // s'assombrit plus.
+            const mi = await page.evaluate(() => {
+              const f = document.querySelector("#feuilleSalle .n3-feuille-boite")?.getBoundingClientRect();
+              const t = document.querySelector("#screen")?.getBoundingClientRect();
+              const fond = getComputedStyle(document.querySelector("#feuilleSalle"), "::backdrop").backgroundColor;
+              const boite = document.querySelector("#feuilleSalle .n3-feuille-boite");
+              if (!f || !t || !boite) return null;
+              const w = Math.min(f.right, t.right) - Math.max(f.left, t.left);
+              const h = Math.min(f.bottom, t.bottom) - Math.max(f.top, t.top);
+              return {
+                coupe: w > 0.5 && h > 0.5 ? Math.round(w * h) : 0,
+                fond,
+                // La hauteur NATURELLE du contenu : `scrollHeight` vaut la
+                // hauteur de la boîte dès que le contenu est plus court.
+                contenu: Math.round(
+                  Math.max(...[...boite.children].map((one) => one.getBoundingClientRect().bottom)) -
+                    boite.getBoundingClientRect().top +
+                    parseFloat(getComputedStyle(boite).paddingBottom),
+                ),
+                hauteur: boite.getBoundingClientRect().height,
+              };
+            });
+            if (!mi) bad.push("la feuille ou la toile n'a pas de boîte");
+            else {
+              if (mi.coupe > 0) bad.push(`la feuille à mi-hauteur couvre ${mi.coupe} px² de l'image`);
+              if (mi.fond !== "rgba(0, 0, 0, 0)") bad.push(`le fond de la feuille s'assombrit : ${mi.fond}`);
+              // Toutes les entrées se voient sans faire défiler la feuille.
+              if (mi.contenu > mi.hauteur + 1)
+                bad.push(`la feuille à mi-hauteur défile : ${mi.contenu} px de contenu pour ${mi.hauteur}`);
+              console.log(`      mesure : feuille à mi-hauteur ${what}, ${mi.contenu} px de contenu pour ${mi.hauteur}`);
+            }
             const entries = await page.evaluate(ENTRIES);
-            const wanted = ["son", "menu", "salle", "manette", "signaler"];
+            const wanted = ["son", "menu", "manette", "toute-la-salle"];
             for (const one of wanted) if (!entries.includes(one)) bad.push(`la feuille n'a pas l'entrée « ${one} »`);
             if (!entries.includes("plein-ecran") && !entries.includes("ecran-accueil"))
               bad.push("la feuille n'a ni plein écran ni écran d'accueil");
@@ -526,18 +617,18 @@ try {
             bad.push(...(await page.evaluate(etat)));
             const son = await page.evaluate(boite, '[data-entree="son"]');
             if (son && sound !== "running" && !son.alerte) bad.push("le son est coupé et la feuille ne le dit pas");
-            // Échap ferme la feuille, et le focus revient au « ••• » : celui de
-            // la manette est démonté pendant qu'elle est ouverte.
+            // Échap ferme la feuille, et le focus revient à « La salle » : la
+            // manette est démontée pendant qu'elle est ouverte.
             if (name === "gc") {
               await page.keyboard.press("Escape");
-              if (!(await attendre(page, () => document.querySelector("#feuilleDuBas") === null)))
+              if (!(await attendre(page, () => document.querySelector("#feuilleSalle") === null)))
                 bad.push("Échap ne ferme pas la feuille");
               else if (!(await attendre(page, focusRendu, OPENER, 1500)))
                 bad.push(
-                  `la feuille fermée, le focus est sur ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}, ni sur le « ••• » ni sur le jeu`,
+                  `la feuille fermée, le focus est sur ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}, ni sur « La salle » ni sur le jeu`,
                 );
               await tap(page, OPENER);
-              await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true);
+              await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
               await sleep(300);
             }
             // Le menu du jeu, depuis la feuille, puis retour à la feuille.
@@ -548,7 +639,7 @@ try {
               else {
                 await sleep(300);
                 await page.screenshot({ path: join(OUT, `menu-${name}-${size}.png`) });
-                if (await page.$("#feuilleDuBas")) bad.push("la feuille reste ouverte sous le menu");
+                if (await page.$("#feuilleSalle")) bad.push("la feuille reste ouverte sous le menu");
                 // Le fond du menu va jusqu'aux bords : posé dans la zone sûre,
                 // il laissait une bande de fond uni sous l'encoche.
                 const fond = await page.evaluate(() => {
@@ -566,36 +657,38 @@ try {
                 await attendre(page, () => document.querySelector("#menu") === null);
               }
               await tap(page, OPENER);
-              await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true);
+              await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
               await sleep(300);
             }
-            // La salle, depuis la feuille.
-            await tap(page, '[data-entree="salle"]');
-            if (!(await attendre(page, () => document.querySelector("#tiroir")?.open === true)))
-              bad.push("« la salle » n'ouvre pas le tiroir");
+            // Toute la salle, dans la même feuille agrandie.
+            await tap(page, '[data-entree="toute-la-salle"]');
+            if (!(await attendre(page, (s) => document.querySelector(s)?.open === true, AGRANDIE)))
+              bad.push("« Toute la salle » n'agrandit pas la feuille");
             else {
               await sleep(350);
-              await page.screenshot({ path: join(OUT, `tiroir-${name}-${size}.png`) });
-              if (await page.$(".n3-pave")) bad.push("la manette à l'écran reste montée sous le tiroir");
+              await page.screenshot({ path: join(OUT, `feuille-agrandie-${name}-${size}.png`) });
+              const ouverts = await page.evaluate(() => document.querySelectorAll("dialog[open]").length);
+              if (ouverts !== 1) bad.push(`${ouverts} dialogues ouverts, un seul attendu`);
+              if (await page.$(".n3-pave")) bad.push("la manette à l'écran reste montée sous la feuille");
               const side = await page.evaluate(() => {
                 const el = document.querySelector("#side");
                 if (!el) return null;
                 const r = el.getBoundingClientRect();
                 return { left: r.left, right: r.right, scroll: el.scrollWidth, client: el.clientWidth };
               });
-              if (!side) bad.push("le tiroir n'a pas la colonne (#side)");
+              if (!side) bad.push("la feuille agrandie n'a pas la colonne (#side)");
               else {
                 if (side.left < -0.5 || side.right > width + 0.5)
-                  bad.push(`le tiroir sort de l'écran : ${Math.round(side.left)} à ${Math.round(side.right)}`);
-                if (side.scroll > side.client + 1) bad.push(`le tiroir défile en largeur : ${side.scroll} pour ${side.client}`);
-                // Tenu droit sous 480 px, une bande de jeu assombri à gauche
-                // n'est ni l'image ni le tiroir : il prend toute la largeur.
-                if (height > width && width <= 480 && side.left > 0.5)
-                  bad.push(`le tiroir laisse ${Math.round(side.left)} px à sa gauche, tenu droit`);
+                  bad.push(`la feuille sort de l'écran : ${Math.round(side.left)} à ${Math.round(side.right)}`);
+                if (side.scroll > side.client + 1) bad.push(`la feuille défile en largeur : ${side.scroll} pour ${side.client}`);
+                // Tenue droite sous 480 px, une bande de jeu à gauche n'est ni
+                // l'image ni la feuille : elle prend toute la largeur.
+                if (height > width && width <= 480 && side.left > 20.5)
+                  bad.push(`la feuille laisse ${Math.round(side.left)} px à sa gauche, tenue droite`);
               }
-              bad.push(...(await page.evaluate(petites, { racine: "#tiroir", floor: FLOOR, exceptions: EXCEPTIONS_DU_TIROIR })));
+              bad.push(...(await page.evaluate(petites, { racine: "#feuilleSalle", floor: FLOOR, exceptions: EXCEPTIONS_DU_TIROIR })));
               // « Rendre ma place » vit dans « Autres réglages » depuis le
-              // 23 novembre 2026 : on le déplie, comme on ouvre le tiroir.
+              // 23 novembre 2026 : on le déplie.
               await page.evaluate(() => {
                 const autres = document.querySelector("#autresReglages");
                 if (autres) autres.open = true;
@@ -618,9 +711,9 @@ try {
                 if (aside) aside.scrollTop = aside.scrollHeight;
               });
               await sleep(120);
-              await page.screenshot({ path: join(OUT, `tiroir-bas-${name}-${size}.png`) });
+              await page.screenshot({ path: join(OUT, `feuille-agrandie-bas-${name}-${size}.png`) });
               bad.push(
-                ...dansLaZone("fermer, tiroir défilé jusqu'en bas", await page.evaluate(boite, "#foldColumn"), zone, width, height),
+                ...dansLaZone("fermer, colonne défilée jusqu'en bas", await page.evaluate(boite, "#fermerFeuille"), zone, width, height),
               );
               await page.evaluate(() => {
                 const aside = document.querySelector("#side");
@@ -628,15 +721,16 @@ try {
               });
               await sleep(120);
               bad.push(...(await page.evaluate(etat)));
-              await tap(page, "#foldColumn");
-              if (!(await attendre(page, () => document.querySelector("#tiroir")?.open !== true)))
-                bad.push("« fermer » ne ferme pas le tiroir");
+              await tap(page, "#fermerFeuille");
+              if (!(await attendre(page, () => document.querySelector("#feuilleSalle")?.open !== true)))
+                bad.push("« Fermer » ne ferme pas la feuille");
               else if (!(await attendre(page, () => document.querySelector(".n3-pave") !== null)))
-                bad.push("la manette ne revient pas quand le tiroir se ferme");
+                bad.push("la manette ne revient pas quand la feuille se ferme");
               else if (!(await attendre(page, focusRendu, OPENER, 1500)))
                 bad.push(
-                  `le tiroir fermé, le focus est sur ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}, ni sur le « ••• » ni sur le jeu`,
+                  `la feuille fermée, le focus est sur ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}, ni sur « La salle » ni sur le jeu`,
                 );
+              else bad.push(...(await page.evaluate(surLImage)));
             }
           }
         }
@@ -681,7 +775,7 @@ try {
         await page.waitForSelector(OPENER, { timeout: 20000 });
         await sleep(600);
         await tap(page, OPENER);
-        await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true);
+        await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
         await sleep(300);
         const entries = await page.evaluate(ENTRIES);
         const wanted = sansApi ? "ecran-accueil" : "plein-ecran";
@@ -729,7 +823,8 @@ try {
   }
 
   // Sous un écran qui couvre l'image (salle au repos, rideau d'une arrivée
-  // qui n'aboutit pas), le tiroir reste joignable : le « ••• » passe dessus.
+  // qui n'aboutit pas), la salle entière reste joignable : « La salle » est
+  // dans la barre, hors de l'écran.
   for (const [what, game, liaison] of [
     ["salle au repos", null, "ok"],
     ["rideau d'arrivée", 0, "injoignable"],
@@ -752,16 +847,16 @@ try {
         // 23 novembre 2026 : l'écran éteint se montre tout de suite.
         await page.waitForSelector(game === null ? "#idle-room" : "#arrivee", { timeout: 20000 });
         await sleep(700);
-        bad.push(...dansLaZone("le « ••• »", await page.evaluate(boite, OPENER), zone, width, height));
+        bad.push(...dansLaZone("« La salle »", await page.evaluate(boite, OPENER), zone, width, height));
         if (await page.$(".n3-pave")) bad.push("la manette reste montée sous l'écran qui couvre l'image");
         await tap(page, OPENER);
-        if (!(await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true)))
-          bad.push("le « ••• » n'ouvre pas la feuille");
+        if (!(await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true)))
+          bad.push("« La salle » n'ouvre pas la feuille");
         else {
           await sleep(300);
-          await tap(page, '[data-entree="salle"]');
-          if (!(await attendre(page, () => document.querySelector("#tiroir")?.open === true)))
-            bad.push("« la salle » n'ouvre pas le tiroir");
+          await tap(page, '[data-entree="toute-la-salle"]');
+          if (!(await attendre(page, (s) => document.querySelector(s)?.open === true, AGRANDIE)))
+            bad.push("« Toute la salle » n'agrandit pas la feuille");
           else {
             await sleep(300);
             await page.screenshot({ path: join(OUT, `voile-${game === null ? "repos" : "rideau"}-${width}x${height}.png`) });
@@ -776,7 +871,7 @@ try {
         bad.push(`le parcours s'arrête : ${error.message}`);
       }
       bad.push(...errors.map((e) => `erreur de page : ${e}`));
-      say(bad.length === 0, `${what} ${width}x${height} : le tiroir reste joignable`, bad);
+      say(bad.length === 0, `${what} ${width}x${height} : la salle entière reste joignable`, bad);
       await page.close();
     }
   }
@@ -980,9 +1075,10 @@ try {
       await page.waitForSelector("#side", { timeout: 20000 });
       await sleep(700);
       await page.screenshot({ path: join(OUT, "salle-pc-1440x900.png") });
-      if (await page.$(OPENER)) bad.push("un « ••• » sur un grand écran à la souris");
+      if (await page.$(OPENER)) bad.push("un « La salle » sur un grand écran à la souris");
+      if (await page.$("#barreSalle")) bad.push("une barre de téléphone sur un grand écran à la souris");
       if (await page.evaluate(() => document.querySelector("#side")?.closest("dialog") !== null))
-        bad.push("la colonne est dans un tiroir sur un grand écran");
+        bad.push("la colonne est dans une feuille sur un grand écran");
       bad.push(...(await page.evaluate(etat)));
     } catch (error) {
       bad.push(`la salle ne s'ouvre pas : ${error.message}`);
@@ -993,8 +1089,8 @@ try {
   }
 
   // 13. Un grand écran à la souris, la manette à l'écran réglée sur
-  // « toujours » : son « ••• » ouvre la feuille, et « La salle » n'a pas de
-  // tiroir à ouvrir. Elle démontait la manette et ne montrait rien.
+  // « toujours » : son « La salle » déplie la colonne, sans feuille. Le
+  // tiroir d'avant le 23 novembre démontait la manette et ne montrait rien.
   for (const bare of part("toujours") ? ["1", "0"] : []) {
     const what = `grand écran, manette « toujours », colonne ${bare === "1" ? "repliée" : "dépliée"}`;
     const { page, errors } = await ouvrir({
@@ -1008,12 +1104,8 @@ try {
     try {
       await page.waitForSelector(".n3-pave", { timeout: 20000 });
       await sleep(700);
-      await page.click(OPENER);
-      if (!(await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true)))
-        bad.push("le « ••• » n'ouvre pas la feuille");
-      else {
-        await sleep(300);
-        await page.click('[data-entree="salle"]');
+      {
+        await page.click(OPENER);
         await sleep(800);
         const vu = await page.evaluate(() => {
           const side = document.querySelector("#side");
@@ -1038,43 +1130,104 @@ try {
     await page.close();
   }
 
-  // 14. Ctrl seule sous le menu, puis sous la feuille : le tiroir s'ouvre
-  // SEUL. Deux dialogues modaux empilés rendaient le bouton « menu » du
-  // tiroir sans effet.
+  // 14. Ctrl seule. Tenue en main (une tablette au clavier), sous le menu
+  // puis sous la feuille à mi-hauteur : la feuille agrandie s'ouvre SEULE.
+  // Deux dialogues modaux empilés rendaient le bouton « menu » sans effet.
+  // Étroite à la souris : la colonne est sous l'image, sans feuille, et Ctrl
+  // agrandit l'image puis la rend.
   if (part("ctrl")) {
-    const { page, errors } = await ouvrir({ width: 820, height: 900, coarse: false, url: `${BASE}/r/1/?entrer=jouer` });
-    const bad = [];
-    const ouverts = () => page.evaluate(() => [...document.querySelectorAll("dialog[open]")].map((d) => d.id).join(", "));
-    const ctrl = async () => {
+    const ouverts = (page) =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("dialog[open]")]
+          .map((d) => (d.dataset.hauteur ? `${d.id}:${d.dataset.hauteur}` : d.id))
+          .join(", "),
+      );
+    const ctrl = async (page) => {
       await page.keyboard.down("Control");
       await page.keyboard.up("Control");
       await sleep(500);
     };
-    try {
-      await page.waitForSelector("#ouvrirFeuille", { timeout: 20000 });
-      await sleep(700);
-      await page.keyboard.press("Escape");
-      if (!(await attendre(page, () => document.querySelector("#menu")?.open === true))) bad.push("Échap n'ouvre pas le menu");
-      await sleep(400);
-      await ctrl();
-      const sousMenu = await ouverts();
-      await page.screenshot({ path: join(OUT, "ctrl-sous-menu-820x900.png") });
-      if (sousMenu !== "tiroir") bad.push(`Ctrl sous le menu : « ${sousMenu} » ouvert, le tiroir seul attendu`);
-      // Le jumeau : Ctrl referme le tiroir, et rien ne reste.
-      await ctrl();
-      if ((await ouverts()) !== "") bad.push(`Ctrl ne referme pas le tiroir : « ${await ouverts()} »`);
-      await page.click("#ouvrirFeuille");
-      await attendre(page, () => document.querySelector("#feuilleDuBas")?.open === true);
-      await sleep(300);
-      await ctrl();
-      const sousFeuille = await ouverts();
-      if (sousFeuille !== "tiroir") bad.push(`Ctrl sous la feuille : « ${sousFeuille} » ouvert, le tiroir seul attendu`);
-    } catch (error) {
-      bad.push(`le parcours s'arrête : ${error.message}`);
+    {
+      const { page, errors } = await ouvrir({ width: 768, height: 1024, url: `${BASE}/r/1/?entrer=jouer` });
+      const bad = [];
+      try {
+        await page.waitForSelector("#laSalle", { timeout: 20000 });
+        await sleep(700);
+        await page.keyboard.press("Escape");
+        if (!(await attendre(page, () => document.querySelector("#menu")?.open === true))) bad.push("Échap n'ouvre pas le menu");
+        await sleep(400);
+        await ctrl(page);
+        const sousMenu = await ouverts(page);
+        await page.screenshot({ path: join(OUT, "ctrl-sous-menu-768x1024.png") });
+        if (sousMenu !== "feuilleSalle:agrandie")
+          bad.push(`Ctrl sous le menu : « ${sousMenu} » ouvert, la feuille agrandie seule attendue`);
+        // Le jumeau : Ctrl referme la feuille, et rien ne reste.
+        await ctrl(page);
+        if ((await ouverts(page)) !== "") bad.push(`Ctrl ne referme pas la feuille : « ${await ouverts(page)} »`);
+        await tap(page, "#laSalle");
+        await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
+        await sleep(300);
+        await ctrl(page);
+        // Ctrl sur la feuille à mi-hauteur la ferme : un seul geste pour
+        // revenir au jeu.
+        const sousFeuille = await ouverts(page);
+        if (sousFeuille !== "") bad.push(`Ctrl sur la feuille à mi-hauteur : « ${sousFeuille} » reste ouvert`);
+      } catch (error) {
+        bad.push(`le parcours s'arrête : ${error.message}`);
+      }
+      bad.push(...errors.map((e) => `erreur de page : ${e}`));
+      say(bad.length === 0, "tablette au clavier, Ctrl sous le menu : la feuille agrandie, seule", bad);
+      await page.close();
     }
-    bad.push(...errors.map((e) => `erreur de page : ${e}`));
-    say(bad.length === 0, "Ctrl sous le menu et sous la feuille : le tiroir, seul", bad);
-    await page.close();
+    {
+      // La manette « selon l'appareil » : l'étape 13 a laissé « toujours »
+      // dans le stockage du navigateur, et une manette voulue par-dessus
+      // l'écran porte son propre « La salle ».
+      const { page, errors } = await ouvrir({
+        width: 820,
+        height: 900,
+        coarse: false,
+        url: `${BASE}/r/1/?entrer=jouer`,
+        stockage: { "nel3ab:touchpad": "auto", "nel3ab:bare": "0" },
+      });
+      const bad = [];
+      try {
+        await page.waitForSelector("#side", { timeout: 20000 });
+        await sleep(700);
+        const vu = () =>
+          page.evaluate(() => {
+            const side = document.querySelector("#side")?.getBoundingClientRect();
+            const toile = document.querySelector("#screen")?.getBoundingClientRect();
+            return {
+              side: side ? { top: side.top, height: side.height } : null,
+              toile: toile ? { bottom: toile.bottom } : null,
+              dialogue: document.querySelector("#side")?.closest("dialog") !== null,
+              salle: document.querySelector('[data-geste="feuille"]') !== null,
+            };
+          });
+        const avant = await vu();
+        await page.screenshot({ path: join(OUT, "etroite-820x900.png") });
+        if (!avant.side) bad.push("étroite, la colonne n'est pas montée");
+        else {
+          if (avant.dialogue) bad.push("étroite, la colonne est dans un dialogue");
+          if (avant.toile && avant.side.top < avant.toile.bottom - 0.5)
+            bad.push(`étroite, la colonne commence à ${Math.round(avant.side.top)} px, au-dessus du bas de l'image (${Math.round(avant.toile.bottom)})`);
+          if (avant.side.height < 239.5) bad.push(`étroite, la colonne ne garde que ${Math.round(avant.side.height)} px`);
+        }
+        if (avant.salle) bad.push("étroite, un bouton « La salle » alors que la colonne se voit");
+        await ctrl(page);
+        const agrandie = await vu();
+        if (agrandie.side) bad.push("Ctrl n'agrandit pas l'image d'une fenêtre étroite");
+        await ctrl(page);
+        if (!(await vu()).side) bad.push("le second Ctrl ne rend pas la colonne");
+        if ((await ouverts(page)) !== "") bad.push(`un dialogue s'ouvre : « ${await ouverts(page)} »`);
+      } catch (error) {
+        bad.push(`le parcours s'arrête : ${error.message}`);
+      }
+      bad.push(...errors.map((e) => `erreur de page : ${e}`));
+      say(bad.length === 0, "étroite à la souris : la colonne sous l'image, Ctrl agrandit", bad);
+      await page.close();
+    }
   }
 
   // 15. Une page « manette seule » pendant un chargement annoncé par le salon.
@@ -1124,8 +1277,8 @@ try {
     await page.close();
   }
 
-  // 16. La demande de place et la reprise de la salle : ni sous le « ••• »
-  // seul, ni sous l'encoche.
+  // 16. La demande de place et la reprise de la salle : ni sous « La salle »,
+  // ni sous l'encoche.
   for (const [width, height] of part("demande")
     ? [
         [390, 844],
@@ -1141,7 +1294,7 @@ try {
     });
     const bad = [];
     try {
-      await page.waitForSelector("#ouvrirFeuille", { timeout: 20000 });
+      await page.waitForSelector(OPENER, { timeout: 20000 });
       if (!(await attendre(page, () => window.__salonConnecte === true, null, 6000))) bad.push("le faux salon ne se connecte pas");
       await sleep(400);
       await page.evaluate(() => window.__salon.emit("asked", { from: "Bo", port: 1 }));
@@ -1154,13 +1307,13 @@ try {
             const r = document.querySelector(s)?.getBoundingClientRect();
             return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
           };
-          return { demande: box("#asked"), plus: box("#ouvrirFeuille") };
+          return { demande: box("#asked"), plus: box('[data-geste="feuille"]') };
         });
         const { demande, plus } = deux;
         if (demande && plus) {
           const w = Math.min(demande.right, plus.right) - Math.max(demande.left, plus.left);
           const h = Math.min(demande.bottom, plus.bottom) - Math.max(demande.top, plus.top);
-          if (w > 0.5 && h > 0.5) bad.push(`le « ••• » mord sur la demande de place : ${Math.round(w)}x${Math.round(h)} px`);
+          if (w > 0.5 && h > 0.5) bad.push(`« La salle » mord sur la demande de place : ${Math.round(w)}x${Math.round(h)} px`);
         }
         if (demande && demande.top < zone.top - 0.5) bad.push(`la demande commence à ${Math.round(demande.top)} px, sous l'encoche`);
         bad.push(...(await page.evaluate(etat)));

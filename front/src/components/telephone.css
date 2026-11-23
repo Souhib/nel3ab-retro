@@ -1,32 +1,196 @@
-/* La salle au doigt: le « ••• », la feuille du bas et le tiroir de la colonne.
+/* La salle tenue en main : la barre, « La salle », la bande, la boîte de la
+ * manette, la feuille à deux hauteurs et la page manette seule.
  *
- * Tout ce qui touche un bord se tient hors des zones sûres, par les jetons
- * `--zone-*` d'index.css (`env(safe-area-inset-*)`, qui ne vaut quelque chose
- * que depuis `viewport-fit=cover`). Les cibles font 44 px au moins: le
- * plancher usuel d'une cible au doigt (WCAG 2.5.5, Apple). */
+ * Chaque pièce se pose où le cadre la met (`lib/cadre`, `placeDe`), en
+ * pixels de la fenêtre et déjà hors des zones sûres : aucune règle ici ne
+ * décide d'une position. Les cibles font 44 px au moins: le plancher usuel
+ * d'une cible au doigt (WCAG 2.5.5, Apple). */
 
-/* ── Le « ••• » seul, quand la manette à l'écran n'est pas montée ──────────
-   En haut à droite, là où la salle posait ses boutons de coin. Le « ••• » de la
-   manette, lui, est placé par `placePad` avec les touches. */
-.n3-plus {
-  position: absolute;
-  top: calc(var(--zone-haut) + 10px);
-  right: calc(var(--zone-droite) + 10px);
-  /* Au-dessus de la salle au repos (30) et du rideau d'arrivée (40): c'est la
-     seule porte vers le tiroir pendant une panne. Sous le menu, qui est un
-     dialogue dans la couche du dessus. */
-  z-index: 45;
-  min-width: 56px;
-  min-height: 44px;
+/* ── La barre ──────────────────────────────────────────────────────────── */
+.n3-barre {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  background: var(--plaque);
+  border-bottom: 2px solid var(--trait);
+  color: var(--encre);
+}
+.n3-barre-tete {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+}
+.n3-barre-noms {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.n3-barre-salle,
+.n3-barre-jeu {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.n3-barre-salle {
+  font-family: var(--police-pixel);
+  font-size: var(--text-fort);
+  line-height: 1.2;
+}
+.n3-barre-jeu {
+  color: var(--legende);
+  font-size: var(--text-note);
+  line-height: 1.3;
 }
 
-/* ── La feuille du bas ─────────────────────────────────────────────────── */
+/* « La salle », dans la barre, dans la bande gauche en travers, ou parmi les
+   touches (`.n3-pave-geste`, qui garde sa taille de pièce). */
+.n3-salle-bouton {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 2px solid var(--trait);
+  border-radius: var(--rayon);
+  background: var(--creux);
+  color: var(--encre);
+  font-family: var(--police-pixel);
+  font-size: var(--text-corps);
+  -webkit-tap-highlight-color: transparent;
+}
+.n3-salle-bouton[data-alerte] {
+  border-color: var(--alerte);
+}
+.n3-salle-bouton:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
+  outline-offset: 2px;
+}
+.n3-salle-icone {
+  display: flex;
+  width: 20px;
+  height: 20px;
+}
+/* Posé seul en travers : au-dessus de la salle au repos (30) et du rideau
+   d'une arrivée (40), sous le menu, qui est un dialogue du dessus. */
+#laSalleCote {
+  z-index: 45;
+}
+
+/* ── La bande, le panneau et la page manette seule ─────────────────────── */
+.n3-bande {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Le panneau de commande au téléphone : la hauteur que le cadre lui donne,
+   rien qui déborde sur la manette. Les prises font 48 px de large au moins
+   (44 au doigt, plus leur filet) : à la hauteur du panneau du bureau, elles
+   n'en faisaient que 38 à 390 px de large (salle-telephone, 23 novembre 2026).
+   La phrase d'aide des places et le crédit restent dans la colonne de la
+   feuille agrandie : sur une rangée de 72 px, ils se coupaient. */
+.n3-panneau-tenu {
+  display: flex;
+}
+.n3-panneau-tenu > .n3-panneau {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.25rem 0.75rem;
+}
+.n3-panneau-tenu .n3-panneau-places {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: 0.75rem;
+}
+.n3-panneau-tenu .n3-panneau-places > div {
+  flex: 1;
+  min-width: 0;
+}
+.n3-panneau-tenu .n3-panneau-places > div > p.text-faint,
+.n3-panneau-tenu #credit {
+  display: none;
+}
+.n3-panneau-tenu #ports {
+  grid-template-columns: repeat(4, minmax(48px, 88px));
+}
+/* La prise se règle sur la hauteur du panneau, pas sur sa largeur : dessinée
+   en 72 × 84, une prise de 180 px de large en faisait 210 de haut sur une
+   tablette, et sa boîte passait sous L et START (salle-telephone, 768x1024). */
+.n3-panneau-tenu #ports svg {
+  width: auto;
+  height: max(20px, calc(var(--panneau-h) - 2.5rem));
+  margin-inline: auto;
+}
+/* Debout dans la bande gauche, les quatre prises s'empilent : chacune a le
+   quart de la hauteur, son nom et son numéro compris. Réglée sur toute la
+   hauteur, la première dépassait par le haut et passait sous « La salle »
+   (salle-telephone, 844x390, 23 novembre 2026). */
+.n3-panneau-tenu .n3-panneau[data-forme="debout"] #ports {
+  grid-template-columns: minmax(48px, 1fr);
+}
+.n3-panneau-tenu .n3-panneau[data-forme="debout"] #ports svg {
+  height: max(20px, calc(var(--panneau-h) / 4 - 2.5rem));
+}
+.n3-manette-seule {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  text-align: center;
+}
+.n3-manette-seule-titre {
+  font-family: var(--police-pixel);
+  font-size: var(--text-fort);
+}
+.n3-manette-seule-place,
+.n3-manette-seule-latence {
+  font-size: var(--text-corps);
+  line-height: 1.5;
+}
+.n3-manette-seule-latence {
+  color: var(--legende);
+}
+
+/* ── La boîte de la manette ────────────────────────────────────────────────
+   La pose (`placePad`) mesure sa boîte, ici celle du cadre : la manette ne
+   reprend pas les zones sûres, déjà retranchées. Sous les calques de la salle
+   qui valent z-30 (`manette-tactile.css`). */
+.n3-manette-boite {
+  z-index: 20;
+  /* La boîte prend toute la largeur en travers, image et barre comprises :
+     seules ses touches reçoivent un appui. Sans cela, elle prenait l'appui
+     de « La salle » dans la barre d'une tablette (manette-garde, 1024x768). */
+  pointer-events: none;
+}
+.n3-pave.n3-pave-cadre {
+  inset: 0;
+}
+
+/* ── La feuille « La salle » ───────────────────────────────────────────────
+   Un dialogue modal posé sur le rectangle que le cadre lui donne : à
+   mi-hauteur sous le panneau, agrandie sous la barre. Le fond ne s'assombrit
+   plus : à mi-hauteur, elle ne couvre que la manette et la bande, et
+   l'image reste lisible au-dessus. */
 .n3-feuille {
   position: fixed;
-  inset: auto 0 0 0;
-  width: 100%;
   max-width: none;
-  max-height: calc(100dvh - var(--zone-haut) - 12px);
+  max-height: none;
   margin: 0;
   padding: 0;
   border: 0;
@@ -34,15 +198,14 @@
   color: var(--encre);
   overflow: visible;
 }
-.n3-feuille::backdrop,
-.n3-tiroir::backdrop {
-  background: rgb(0 0 0 / 0.55);
+.n3-feuille::backdrop {
+  background: transparent;
 }
 .n3-feuille-boite {
   box-sizing: border-box;
-  width: min(100%, 760px);
-  max-height: calc(100dvh - var(--zone-haut) - 12px);
-  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--plaque);
@@ -50,20 +213,63 @@
   padding: 10px calc(14px + var(--zone-droite)) calc(14px + var(--zone-bas))
     calc(14px + var(--zone-gauche));
 }
-@media (min-width: 761px) {
-  .n3-feuille-boite {
-    border-inline: 2px solid var(--trait);
-  }
+/* En travers, à mi-hauteur, la feuille ne prend que la bande gauche : les
+   entrées gardent leur icône et leur titre, sans détail. */
+/* À mi-hauteur, les entrées tiennent sur une ligne de 44 px, sans leur
+   détail : avec lui, le son coupé faisait défiler la feuille de 41 px à
+   390 px de large (316 px de contenu pour 275). « Rallumer le son » et son
+   filet d'alerte le disent seuls. En travers, la feuille ne prend que la
+   bande gauche : une seule colonne d'entrées. */
+.n3-feuille[data-hauteur="mi"] .n3-feuille-entrees {
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+  gap: 4px;
+}
+.n3-feuille[data-hauteur="mi"] .n3-feuille-entree {
+  min-height: 44px;
+  padding: 4px 10px;
+}
+.n3-feuille[data-hauteur="mi"] .n3-feuille-titre {
+  font-size: var(--text-corps);
+}
+.n3-feuille[data-hauteur="mi"] .n3-feuille-detail {
+  display: none;
+}
+[data-mode="paysage"] .n3-feuille[data-hauteur="mi"] .n3-feuille-entrees {
+  grid-template-columns: 1fr;
+}
+/* Agrandie, la colonne garde la marge de 12 px qu'elle a au bureau : des
+   blocs pleine largeur s'y posent en marge négative, et sans elle la colonne
+   défilait de 12 px en largeur (salle-telephone, 23 novembre 2026). */
+.n3-feuille[data-hauteur="agrandie"] .n3-feuille-boite {
+  padding-left: var(--zone-gauche);
+  padding-right: var(--zone-droite);
+}
+.n3-feuille[data-hauteur="agrandie"] .n3-feuille-tete {
+  padding-inline: 12px;
+}
+.n3-feuille-salle > aside {
+  padding-inline: 12px;
+}
+[data-mode="paysage"] .n3-feuille .n3-feuille-boite {
+  border-top: 0;
+  border-right: 2px solid var(--trait);
+  padding-right: 10px;
+}
+.n3-feuille-salle {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.n3-feuille-salle > aside {
+  flex: 1;
+  min-height: 0;
 }
 .n3-feuille-tete {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
-}
-.n3-feuille-bob {
-  flex-shrink: 0;
-  display: flex;
+  margin-bottom: 6px;
 }
 .n3-feuille-nom {
   flex: 1;
@@ -79,7 +285,7 @@
 }
 .n3-feuille-entrees {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 6px;
 }
 .n3-feuille-entree {
@@ -146,100 +352,27 @@
   list-style: decimal;
 }
 
-/* ── Le tiroir de la colonne ─────────────────────────────────────────────
-   Sous 480 px de large, il prend tout l'écran; au-delà (un téléphone tenu en
-   travers, une tablette), il se pose à droite sur 420 px, assez pour les
-   quatre places et leurs noms, et laisse voir l'image à côté, assombrie. À
-   430 px de large, 420 px laissaient une bande de 10 px de jeu assombri, qui
-   n'était ni l'image ni le tiroir (relecture du 22 novembre 2026). */
-.n3-tiroir {
-  position: fixed;
-  inset: 0 0 0 auto;
-  width: min(100%, 420px);
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-left: 1px solid var(--filet);
-  background: var(--plaque);
-  color: var(--encre);
-  overflow: hidden;
-}
-@media (max-width: 480px) {
-  .n3-tiroir {
-    width: 100%;
-    border-left: 0;
-  }
-}
-.n3-tiroir > aside {
-  box-sizing: border-box;
-  height: 100%;
-  width: 100%;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  padding: calc(12px + var(--zone-haut)) calc(12px + var(--zone-droite))
-    calc(12px + var(--zone-bas)) 12px;
-}
-@media (max-width: 480px) {
-  .n3-tiroir > aside {
-    padding-left: calc(12px + var(--zone-gauche));
-  }
-}
-
-/* Le haut du tiroir, collé pendant qu'on défile: son nom, et « Revenir au
-   jeu ». Les marges négatives le posent sur le bord du tiroir, sous
-   l'encoche, et son fond cache ce qui défile dessous. */
-.n3-tiroir-barre {
-  position: sticky;
-  top: calc(-12px - var(--zone-haut));
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: calc(-12px - var(--zone-haut)) calc(-12px - var(--zone-droite)) 0 -12px;
-  padding: calc(8px + var(--zone-haut)) calc(12px + var(--zone-droite)) 8px 12px;
-  background: var(--plaque);
-  border-bottom: 1px solid var(--filet);
-}
-@media (max-width: 480px) {
-  .n3-tiroir-barre {
-    margin-left: calc(-12px - var(--zone-gauche));
-    padding-left: calc(12px + var(--zone-gauche));
-  }
-}
-.n3-tiroir-nom {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--text-fort);
-  font-weight: 600;
-}
-.n3-tiroir-barre .n3-action {
-  flex-shrink: 0;
+/* Chaque cible de la colonne dans la feuille agrandie fait 44 px au moins,
+   sans exception à tenir en liste: mesurées le 22 novembre 2026 dans le
+   tiroir d'alors, « menu » et « Inviter » faisaient 41 px, les deux modes 33,
+   les « ? » 36 de large, le résumé du diagnostic 23 et le curseur du volume
+   4. La feuille ne s'ouvre que tenue en main : la colonne d'un grand écran
+   garde sa densité. */
+.n3-feuille-salle :is(button, select, a[href]) {
   min-height: 44px;
 }
-
-/* Chaque cible du tiroir fait 44 px au moins, sans exception à tenir en
-   liste: mesurées le 22 novembre 2026, « menu » et « Inviter » faisaient
-   41 px, les deux modes 33, les « ? » 36 de large, le résumé du diagnostic
-   23 et le curseur du volume 4. Le tiroir ne s'ouvre qu'au doigt ou dans une
-   fenêtre étroite: la colonne d'un grand écran garde sa densité. */
-.n3-tiroir :is(button, select, a[href]) {
-  min-height: 44px;
-}
-.n3-tiroir .n3-aide-bouton {
+.n3-feuille-salle .n3-aide-bouton {
   min-width: 44px;
 }
 /* Le résumé garde son triangle: un `display: flex` l'effacerait. */
-.n3-tiroir summary {
+.n3-feuille-salle summary {
   box-sizing: border-box;
   min-height: 44px;
   padding-block: 10px;
 }
 /* Le curseur du volume: une boîte de 44 px, sa piste de 4 px dessinée au
    milieu, à la place de la bande pleine qu'il était. */
-.n3-tiroir input[type="range"] {
+.n3-feuille-salle input[type="range"] {
   height: 44px;
   background: linear-gradient(var(--rule), var(--rule)) no-repeat center / 100% 4px;
 }
@@ -248,19 +381,10 @@
   .n3-feuille[open] .n3-feuille-boite {
     animation: n3-monte 160ms ease-out;
   }
-  .n3-tiroir[open] {
-    animation: n3-glisse 160ms ease-out;
-  }
 }
 @keyframes n3-monte {
   from {
     transform: translateY(24px);
-    opacity: 0.4;
-  }
-}
-@keyframes n3-glisse {
-  from {
-    transform: translateX(32px);
     opacity: 0.4;
   }
 }

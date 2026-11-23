@@ -168,10 +168,10 @@ it("quitter l'onglet relâche les touches et les sticks de la manette Pro", () =
   expect(source.pushed.size).toBe(0);
 });
 
-it("le son coupé se voit sur le « ••• » de la manette Pro, et seulement alors", () => {
+it("le son coupé se voit sur « La salle » de la manette Pro, et seulement alors", () => {
   const coupe = salle(new SwitchInput(), true);
-  expect(coupe.container.querySelector("#ouvrirFeuille")?.hasAttribute("data-alerte")).toBe(true);
+  expect(coupe.container.querySelector("#laSalleManette")?.hasAttribute("data-alerte")).toBe(true);
   coupe.unmount();
   const joue = salle(new SwitchInput(), false);
-  expect(joue.container.querySelector("#ouvrirFeuille")?.hasAttribute("data-alerte")).toBe(false);
+  expect(joue.container.querySelector("#laSalleManette")?.hasAttribute("data-alerte")).toBe(false);
 });

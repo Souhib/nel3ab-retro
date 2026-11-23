@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BUREAU_DES,
+  FEUILLE_MI_MIN,
   EN_PANNE,
   ETATS_DU_CADRE,
   MANETTES,
@@ -25,7 +26,6 @@ import {
   premiereImage,
   sansImage,
 } from "./cadre";
-import { TIROIR_SOUS } from "./disposition";
 import { DOLPHIN_FACE, placePad, SWITCH_FACE, XBOX_FACE } from "./faces";
 import { FITS, place, type Fit, type Size } from "./fit";
 
@@ -63,10 +63,8 @@ describe("le mode de la fenêtre", () => {
     expect(modeDuCadre({ ...fin, largeur: 1920 })).toBe("bureau");
     // Le jumeau : un pixel de moins, et la colonne passe sous l'image.
     expect(modeDuCadre({ ...fin, largeur: 899 })).toBe("etroit");
-  });
-
-  it("garde le seuil que lib/disposition mesurait pour le tiroir", () => {
-    expect(BUREAU_DES).toBe(TIROIR_SOUS);
+    // Le seuil mesuré le 22 novembre 2026 pour le tiroir d'alors.
+    expect(BUREAU_DES).toBe(900);
   });
 
   it("pose le portrait ou le paysage au doigt, à toutes les largeurs", () => {
@@ -422,19 +420,25 @@ describe("le portrait", () => {
     expect(grand.etiquetteManette).toBeNull();
   });
 
-  it("monte la feuille à mi-hauteur sous le panneau, jamais à moins de 300 px", () => {
+  it("monte la feuille à mi-hauteur sous le panneau, jamais à moins de 276 px", () => {
     const geo = miseEnPage(
       entree({ mode: "portrait", fenetre: { width: 390, height: 844 }, manette: pad("dolphin") }),
     );
     const panneau = geo.panneau.rect;
     if (!panneau || !geo.feuille) throw new Error("panneau ou feuille absents");
     expect(geo.feuille.mi.y).toBe(panneau.y + panneau.h);
-    expect(geo.feuille.mi.h).toBeGreaterThanOrEqual(300);
-    // À 375×548, la feuille garde ses 300 px et monte au-dessus du panneau.
+    expect(geo.feuille.mi.h).toBeGreaterThanOrEqual(FEUILLE_MI_MIN);
+    // À 375×548, il reste assez de place sous le panneau.
     const court = miseEnPage(
       entree({ mode: "portrait", fenetre: { width: 375, height: 548 }, manette: pad("dolphin") }),
     );
-    expect(court.feuille?.mi.h).toBe(300);
+    expect(court.feuille?.mi.h).toBeGreaterThanOrEqual(FEUILLE_MI_MIN);
+    // Plus court encore, la feuille garde sa hauteur la plus petite et monte
+    // sur ce qui est au-dessus : un geste choisi, qui se referme.
+    const tres = miseEnPage(
+      entree({ mode: "portrait", fenetre: { width: 320, height: 420 }, manette: pad("dolphin") }),
+    );
+    expect(tres.feuille?.mi.h).toBe(FEUILLE_MI_MIN);
   });
 
   it("sans manette tactile, garde la barre, l'image, le panneau et la bande", () => {
@@ -542,7 +546,7 @@ describe("le paysage", () => {
 });
 
 describe("la vraie pose des touches dans la boîte du cadre", () => {
-  const FACES_ = [
+  const FACES_TENUES = [
     ["dolphin", DOLPHIN_FACE],
     ["pro", SWITCH_FACE],
     ["pro", XBOX_FACE],
@@ -551,7 +555,7 @@ describe("la vraie pose des touches dans la boîte du cadre", () => {
   const IPHONE_DROIT: ZonesSures = { haut: 47, droite: 0, bas: 34, gauche: 0 };
   /** Les pièces posées par `placePad` dans la boîte de la manette, en
    * coordonnées de la fenêtre, comme `Pave` les pose. */
-  const pieces = (geo: ReturnType<typeof miseEnPage>, face: (typeof FACES_)[number][1]) => {
+  const pieces = (geo: ReturnType<typeof miseEnPage>, face: (typeof FACES_TENUES)[number][1]) => {
     const m = geo.manette;
     if (!m) throw new Error("pas de manette");
     const bandes = m.grappes
@@ -583,7 +587,7 @@ describe("la vraie pose des touches dans la boîte du cadre", () => {
       { width: 1180, height: 820 },
     ]) {
       for (const zonesSures of [SANS_ZONES, IPHONE_TRAVERS]) {
-        for (const [nom, face] of FACES_) {
+        for (const [nom, face] of FACES_TENUES) {
           for (const image of FORMATS) {
             const geo = miseEnPage(
               entree({ mode: "paysage", fenetre, zonesSures, image, manette: pad(nom) }),
@@ -613,7 +617,7 @@ describe("la vraie pose des touches dans la boîte du cadre", () => {
     for (let W = 320; W <= 430; W += 10) {
       for (const H of [548, 568, 667, 740, 844, 932]) {
         for (const zonesSures of [SANS_ZONES, IPHONE_DROIT]) {
-          for (const [nom, face] of FACES_) {
+          for (const [nom, face] of FACES_TENUES) {
             const geo = miseEnPage(
               entree({
                 mode: "portrait",

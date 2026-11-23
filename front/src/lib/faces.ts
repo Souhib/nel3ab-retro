@@ -729,9 +729,9 @@ function placeGestes(
   H: number,
   bands: { left: number; right: number },
   top: number,
-  n: number,
+  compte: number,
 ): { rects: Rect[]; degraded: string | null } {
-  if (n === 0) return { rects: [], degraded: null };
+  if (compte === 0) return { rects: [], degraded: null };
   const { GESTE_W: gw, GESTE_GAP: gap, CLEAR, FLOOR, MARGIN, BAND_PAD } = SIZES;
   const room = (rect: Rect) =>
     rect.x >= 0 && rect.y >= 0 && rect.x + rect.w <= W && rect.y + rect.h <= H
@@ -781,19 +781,19 @@ function placeGestes(
     return out;
   };
   const inBands = (): Rect[] | null => {
-    const whole = slots.find((slot) => capacity(slot) >= n);
+    const whole = slots.find((slot) => capacity(slot) >= compte);
     let taken: { side: number; rect: Rect }[] = [];
-    if (whole) taken = fill(whole, n);
+    if (whole) taken = fill(whole, compte);
     else {
       // La plus grande place d'abord ; à égalité, la bande droite, comme avant.
       const order = [...slots].sort((a, b) => capacity(b) - capacity(a) || b.side - a.side);
       for (const slot of order) {
-        const left = n - taken.length;
+        const left = compte - taken.length;
         if (left <= 0) break;
         taken = [...taken, ...fill(slot, Math.min(left, capacity(slot)))];
       }
     }
-    if (taken.length < n) return null;
+    if (taken.length < compte) return null;
     // De gauche à droite et de haut en bas, dans l'ordre de `GESTES`.
     const rects = taken
       .sort((a, b) => a.side - b.side || a.rect.y - b.rect.y || a.rect.x - b.rect.x)
@@ -805,18 +805,18 @@ function placeGestes(
 
   /* Sinon au milieu, en rangée puis en colonne : sur un écran presque carré,
    * le milieu est étroit mais haut. */
-  const span = n * gw + (n - 1) * gap;
-  const tall = n * FLOOR + (n - 1) * gap;
+  const span = compte * gw + (compte - 1) * gap;
+  const tall = compte * FLOOR + (compte - 1) * gap;
   const below = top + CLEAR;
   const row = (y: number) =>
-    Array.from({ length: n }, (_, i) => ({
+    Array.from({ length: compte }, (_, i) => ({
       x: (W - span) / 2 + i * (gw + gap),
       y,
       w: gw,
       h: FLOOR,
     }));
   const column = (y: number) =>
-    Array.from({ length: n }, (_, i) => ({
+    Array.from({ length: compte }, (_, i) => ({
       x: (W - gw) / 2,
       y: y + i * (FLOOR + gap),
       w: gw,

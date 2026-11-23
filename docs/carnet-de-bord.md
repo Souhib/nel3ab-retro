@@ -29406,6 +29406,67 @@ la page. `TempsDeJeu` peut maintenant lire `PartieVue.depuis_s` sur cette
 branche, mais le brancher reste le travail de la salle, à refaire ici à sa
 prochaine fusion.
 
+### 23 novembre, la nuit encore : la préparation Pro sort du panneau des touches
+
+**Le contexte.** La dernière vague ouvre deux chantiers en même temps sur
+`integration/retro` : les menus et les manettes. Tous deux voulaient changer
+`SwitchBindings.tsx`, le panneau des touches des salles Switch et Xbox 360.
+Ce composant mêlait deux choses : le réglage des touches de la trame Pro
+(au chantier des manettes) et la préparation à plusieurs avant un lancement
+(au chantier des menus), avec un état commun. La partition demande donc un
+seul commit d'abord : la préparation sort vers `Preparation.tsx`, sans rien
+changer à ce que la page fait. Sans lui, retirer le réglage casserait le
+lancement des salles Pro, et les deux chantiers se marcheraient dessus.
+
+**Comment.** Un crochet React, `usePreparationPro`, rend au panneau ce que
+la préparation y pose : le surtitre (« Avant de jouer · Xbox 360 »), le nom
+du jeu, « Annuler le lancement » pour qui l'a lancé, la ligne de chaque
+joueur, le pied avec le geste de chacun, et deux états qui figent le
+réglage, `pret` et `occupe`. Le panneau garde sa ligne d'état et la lui
+prête (`dire`) ; il lui dit quand une commande attend d'être actionnée
+(`capture`). Chaque morceau reste à sa place, et le HTML ne change pas.
+`Bindings.tsx` n'est pas touché : la préparation GameCube et Wii y était
+déjà un emplacement, rempli depuis `App.tsx` par le composant
+`Preparation`.
+
+**La preuve que rien ne change.** Une comparaison temporaire rend l'ancien
+panneau et le nouveau dans 63 états : sans préparation, joueur, chef,
+spectateur ; Switch, Xbox 360 et console inconnue ; avant, pendant et après
+un geste accepté ou refusé ; Échap ; une commande en attente de capture.
+Elle compare le HTML et les messages envoyés au salon : identiques, aux
+identifiants de `useId` près, que React numérote dans l'ordre des rendus.
+Son contrôle voit une vraie différence, et un mutant (le réglage ne se fige
+plus pendant un geste) fait tomber quatre de ses cas. Le fichier n'est pas
+gardé dans le dépôt, puisqu'il importe l'ancienne version du panneau.
+
+**Les essais.** Ceux de la préparation l'ont suivie dans
+`Preparation.test.tsx` : la salle Xbox 360 qui parle Xbox 360 (audit T03),
+son jumeau Switch, et le chef qui lance en un geste (audit P6). Ils rendent
+les morceaux dans un petit hôte qui les pose comme le panneau.
+`SwitchBindings.test.tsx` garde ce qui touche le réglage, et gagne deux
+essais du branchement : le réglage se fige pendant qu'un geste attend le
+salon, et le refus du salon s'écrit dans la ligne d'état. Ces deux-là
+passent aussi sur l'ancien panneau : ils décrivent un comportement d'avant.
+Six mutants du branchement (manette 1 au lieu de 4, `occupe`, `dire`,
+`pret` et le pied débranchés, la ligne d'un joueur sans sa console) tombent
+chacun sur au moins un essai.
+
+**Un avertissement de l'analyseur.** Exporter un crochet à côté d'un
+composant prive le fichier du rechargement à chaud de Vite. Le coût n'existe
+qu'en développement : une retouche de ce fichier perd l'état des composants
+affichés. La ligne porte une exception avec sa raison, et le nombre
+d'avertissements de `npm run lint` reste à 29.
+
+**Le poids.** La page passe de 249 436 à 249 486 octets en brotli : 50 de
+plus, pour l'objet que le crochet rend et ses noms. Rien n'est retiré dans
+ce commit.
+
+**Les portes.** `just check` est vert (1 284 essais Python, 1 577 essais de
+la page, page à jour), comme `focus-navigateur` (27 étapes),
+`salle-telephone` (56 lignes, dont le panneau Pro en préparation à 844×390
+et 932×430) et `parcours-navigateur` (13 étapes, dont
+`preparation-x360`). La porte entière attend toujours l'intégration finale.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31063,3 +31124,11 @@ que la frontière reste visible dans l'historique.
 **Conflit de fusion** : deux branches ont changé les mêmes lignes d'un
 fichier, et git ne sait pas laquelle garder. Il écrit les deux versions
 entre des marques et attend qu'on choisisse.
+
+**Crochet React (hook)** : une fonction dont le nom commence par `use`, que
+React appelle pendant le rendu d'un composant pour lui donner un état ou un
+effet. Son état appartient au composant qui l'appelle.
+
+**Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
+composant modifié sans recharger la page ni perdre son état. Il ne le fait
+que pour un fichier qui n'exporte que des composants.

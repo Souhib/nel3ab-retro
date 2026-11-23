@@ -1,5 +1,9 @@
 /** Configuration edits render at reading speed. The live diagram paints from
- * the same SwitchInput state as gameplay, without React on its polling path. */
+ * the same SwitchInput state as gameplay, without React on its polling path.
+ *
+ * La préparation à plusieurs d'une salle Pro n'est plus écrite ici : elle vit
+ * dans `Preparation.tsx` (`usePreparationPro`), et ce panneau pose ses
+ * morceaux à leur place. */
 import { useEffect, useRef, useState } from "react";
 import type { Game, Preparation } from "../client";
 import type { InputStream } from "../media/input";
@@ -13,20 +17,11 @@ import {
   type SwitchTarget,
 } from "../media/switch";
 import { labels as switchLabels, physical, keyName, xboxLabels } from "../lib/switch-labels";
-import { slotLabel, type Slot } from "../lib/saves";
-import { SANS_REPONSE } from "../lib/mots";
-import { useAttente } from "../lib/useAttente";
 import { SWITCH_PRO, XBOX_360 } from "../lib/padmap";
 import { consoleName } from "../lib/consoles";
 import { deviceLabel } from "../lib/faces";
-import {
-  ATTENTE_SANS_MS,
-  gestesDuLancement,
-  lancerEnChef,
-  ligneJoueur,
-  titrePreparation,
-} from "../lib/lancement";
 import { PadMapView } from "./PadMap";
+import { usePreparationPro } from "./Preparation";
 
 export function SwitchBindings({
   source,
@@ -53,41 +48,19 @@ export function SwitchBindings({
     (same(defaultSwitchProfile()) ? "" : null);
   const [chosen, setChosen] = useState(active ?? "");
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
   const pad = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
-  const me = pending?.players.find((p) => p.claim === input.attribution());
-  const ready = me?.ready ?? false;
-  const starter = pending?.starter === input.attribution();
-  /** Depuis quand le chef attend: depuis l'arrivée du dernier absent, compté
-   * comme dans `Preparation` (`useAttente`). */
-  const attendu = useAttente(pending ?? null, input.attribution());
-  const gestes = pending
-    ? gestesDuLancement(pending, input.attribution(), attendu, game?.console)
-    : null;
-  const run = async (geste: () => Promise<void>) => {
-    setBusy(true);
-    setNotice("");
-    try {
-      await geste();
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : SANS_REPONSE);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const act = (action: Record<string, unknown>) => run(() => send({ ...action, id: pending?.id }));
-  /** Le lancement du chef, compris aussi d'un salon d'avant (`lancerEnChef`).
-   * La manette Pro est l'appareil 4. */
-  const lancer = (sansAttendre: boolean) =>
-    run(() =>
-      lancerEnChef(send, {
-        id: pending?.id,
-        pad: 4,
-        ...(sansAttendre ? { sans_attendre: true as const } : {}),
-      }),
-    );
+  const preparation = usePreparationPro({
+    pending,
+    game,
+    input,
+    send,
+    capture: Boolean(source.capturing),
+    dire: setNotice,
+  });
+  const ready = preparation.pret;
+  const vue = preparation.vue;
   const edit = (change: () => void) => {
     try {
       change();
@@ -170,49 +143,19 @@ export function SwitchBindings({
       onCancel={(e) => {
         e.preventDefault();
         if (source.capturing) edit(() => source.cancel());
-        else if (!pending) close();
+        else if (!vue) close();
       }}
     >
       <header>
         <div>
-          <span className="n3-eyebrow">
-            {pending
-              ? titrePreparation(game?.console ?? undefined)
-              : `${nomConsole} · ${nomManette}`}
-          </span>
-          <h2>{pending ? game?.name : "Touches et manettes"}</h2>
+          <span className="n3-eyebrow">{vue ? vue.surtitre : `${nomConsole} · ${nomManette}`}</span>
+          <h2>{vue ? vue.titre : "Touches et manettes"}</h2>
         </div>
-        {!pending ? (
-          <button onClick={close}>Reprendre</button>
-        ) : starter ? (
-          <button disabled={busy} onClick={() => void act({ action: "cancel" })}>
-            Annuler le lancement
-          </button>
-        ) : null}
+        {vue ? vue.annuler : <button onClick={close}>Reprendre</button>}
       </header>
       <div className="n3-switch-body">
-        {pending ? (
-          <section className="n3-preparation">
-            <p>
-              Sauvegarde : {slotLabel(pending.save as Slot)}. Chacun teste ses commandes et charge
-              son profil.
-            </p>
-            <div className="n3-preparation-players">
-              {pending.players.map((p) => (
-                <div key={p.claim} data-ready={p.ready}>
-                  <span>P{p.port}</span>
-                  <strong>{p.name ?? ""}</strong>
-                  <small>
-                    {p.claim === pending.starter && !p.ready
-                      ? "lance le jeu"
-                      : ligneJoueur(p, game?.console ?? undefined)}
-                  </small>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-        <fieldset disabled={ready || busy}>
+        {vue?.joueurs}
+        <fieldset disabled={ready || preparation.occupe}>
           <label>
             Manette physique{" "}
             <select
@@ -406,47 +349,7 @@ export function SwitchBindings({
         </fieldset>
         <p role="status">{notice || source.message}</p>
       </div>
-      {pending && gestes?.principal ? (
-        <footer>
-          {gestes.principal.quoi === "lancer" ? (
-            <>
-              <button
-                id="launchPrepared"
-                disabled={busy || Boolean(source.capturing) || !gestes.principal.actif}
-                onClick={() => void lancer(false)}
-              >
-                {gestes.principal.label}
-              </button>
-              {gestes.sansAttendre ? (
-                <button
-                  id="launchWithout"
-                  disabled={busy}
-                  title={gestes.sansAttendre.note}
-                  onClick={() => void lancer(true)}
-                >
-                  {gestes.sansAttendre.label}
-                </button>
-              ) : null}
-              <span>
-                {gestes.sansAttendre?.note ??
-                  (gestes.attente
-                    ? `${gestes.attente} Sans réponse au bout de ${Math.round(ATTENTE_SANS_MS / 1000)} s, tu pourras lancer sans attendre.`
-                    : "")}
-              </span>
-            </>
-          ) : (
-            <>
-              <button
-                disabled={busy || Boolean(source.capturing)}
-                onClick={() => void act({ action: "choose", pad: 4, ready: !ready })}
-              >
-                {gestes.principal.label}
-              </button>
-              <span>{gestes.attente ?? "Le chef lance le jeu quand chacun est prêt."}</span>
-            </>
-          )}
-        </footer>
-      ) : null}
+      {vue?.pied}
     </dialog>
   );
 }

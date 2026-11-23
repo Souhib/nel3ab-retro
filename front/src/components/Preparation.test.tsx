@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { Preparation } from "./Preparation";
+import { Preparation, usePreparationPro } from "./Preparation";
 import { InputStream } from "../media/input";
 import type { Preparation as Pending } from "../client";
 
@@ -192,4 +192,85 @@ it("un seul appareil se nomme, sans liste à une seule option", () => {
   cleanup();
   rendre("alice", true, [1, 0]);
   expect(screen.getByRole("combobox", { name: "Ma configuration pour ce jeu" })).toBeVisible();
+});
+
+/* La préparation d'une salle Pro (Switch, Xbox 360). Ces essais vivaient dans
+   `SwitchBindings.test.tsx` avec elle, et l'ont suivie quand elle est sortie
+   du panneau des touches de la trame Pro (23 novembre 2026). L'hôte ci-dessous
+   pose ses morceaux comme ce panneau les pose. */
+function HotePro(props: Parameters<typeof usePreparationPro>[0]) {
+  const { vue } = usePreparationPro(props);
+  if (!vue) return null;
+  return (
+    <>
+      <span>{vue.surtitre}</span>
+      <h2>{vue.titre}</h2>
+      {vue.annuler}
+      {vue.joueurs}
+      {vue.pied}
+    </>
+  );
+}
+
+/** La préparation Pro d'un jeu de `console`, vue par `qui` ; Alice lance. */
+function preparerPro(console: string, qui = "claim-2") {
+  const input = new InputStream((p) => p, vi.fn(), vi.fn());
+  vi.spyOn(input, "attribution").mockReturnValue(qui);
+  const send = vi.fn().mockResolvedValue(undefined);
+  const preparation = {
+    id: "launch-2",
+    starter: "claim-1",
+    save: 0,
+    allowed: [4],
+    players: [
+      { claim: "claim-1", port: 1, name: "Alice", ready: false, pad: null },
+      { claim: "claim-2", port: 2, name: "Benoit", ready: true, pad: 4 },
+    ],
+  } as Pending;
+  const game = {
+    index: 0,
+    name: "Un jeu",
+    console,
+    guide: {
+      allowed: [4],
+      source: "https://exemple.invalid/manuel",
+      note: "Le manuel.",
+      actions: {},
+    },
+  };
+  const view = render(
+    <HotePro
+      pending={preparation}
+      game={game}
+      input={input}
+      send={send}
+      capture={false}
+      dire={vi.fn()}
+    />,
+  );
+  return { send, ...view };
+}
+
+it("une préparation Xbox 360 parle Xbox 360, pas Switch (audit T03)", () => {
+  const { container } = preparerPro("x360");
+  const texte = container.textContent ?? "";
+  expect(texte).toContain("Avant de jouer · Xbox 360");
+  expect(texte).toContain("manette Xbox 360 · prêt");
+  expect(texte).not.toMatch(/Switch|manette Pro|Nintendo/);
+});
+
+it("le jumeau: une préparation Switch garde la manette Pro", () => {
+  const { container } = preparerPro("switch");
+  const texte = container.textContent ?? "";
+  expect(texte).toContain("Avant de jouer · Switch");
+  expect(texte).toContain("manette Pro · prêt");
+});
+
+it("le chef d'une salle Pro lance en un geste (audit P6)", () => {
+  const { send } = preparerPro("x360", "claim-1");
+  expect(screen.queryByText("Je suis prêt")).toBeNull();
+  const lancer = screen.getByRole("button", { name: "Lancer le jeu" });
+  expect(lancer).toBeEnabled();
+  fireEvent.click(lancer);
+  expect(send).toHaveBeenCalledWith({ id: "launch-2", action: "launch", pad: 4 });
 });

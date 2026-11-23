@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SwitchBindings } from "./SwitchBindings";
 import { InputStream } from "../media/input";
@@ -203,10 +203,11 @@ function prepare(console: string, qui = "claim-2") {
 }
 
 it("une salle Xbox 360 parle Xbox 360, pas Switch (audit T03)", () => {
+  // L'en-tête et la ligne des joueurs viennent de la préparation Pro, et leurs
+  // mots sont vérifiés avec elle (`Preparation.test.tsx`). Ici, le panneau
+  // entier pendant une préparation : aucun mot de la Switch nulle part.
   const { container } = prepare("x360");
   const texte = container.textContent ?? "";
-  expect(texte).toContain("Avant de jouer · Xbox 360");
-  expect(texte).toContain("manette Xbox 360 · prêt");
   expect(screen.getByRole("heading", { name: "Mes profils Xbox 360" })).toBeVisible();
   expect(screen.getByRole("link", { name: "Commandes du jeu" })).toBeVisible();
   expect(texte).not.toMatch(/Switch|manette Pro|Nintendo/);
@@ -247,17 +248,31 @@ it("le jumeau: un profil Switch garde le sien", () => {
 it("le jumeau: une salle Switch garde la manette Pro", () => {
   const { container } = prepare("switch");
   const texte = container.textContent ?? "";
-  expect(texte).toContain("Avant de jouer · Switch");
-  expect(texte).toContain("manette Pro · prêt");
   expect(screen.getByRole("heading", { name: "Mes profils Switch" })).toBeVisible();
   expect(texte).toContain("Home, Capture et le gyroscope ne sont pas disponibles.");
 });
 
-it("le chef d'une salle Pro lance en un geste (audit P6)", () => {
-  const { send } = prepare("x360", "claim-1");
-  expect(screen.queryByText("Je suis prêt")).toBeNull();
-  const lancer = screen.getByRole("button", { name: "Lancer le jeu" });
-  expect(lancer).toBeEnabled();
-  fireEvent.click(lancer);
-  expect(send).toHaveBeenCalledWith({ id: "launch-2", action: "launch", pad: 4 });
+/* La préparation Pro vit dans `Preparation.tsx` (`usePreparationPro`) ; ses
+   gestes y sont vérifiés. Ici, ce que le panneau fait de ce qu'elle lui rend :
+   le réglage se fige pendant qu'un geste attend le salon, et le refus du salon
+   s'écrit dans la ligne d'état que le réglage partage. */
+it("le réglage se fige pendant qu'un geste attend le salon, et revient après", async () => {
+  const { send } = show(false, true);
+  let repondre: () => void = () => {};
+  send.mockImplementation(() => new Promise<void>((fin) => (repondre = fin)));
+  expect(screen.getByText("Enregistrer")).toBeEnabled();
+  fireEvent.click(screen.getByText("Je suis prêt"));
+  expect(screen.getByText("Enregistrer")).toBeDisabled();
+  await act(async () => repondre());
+  expect(screen.getByText("Enregistrer")).toBeEnabled();
+});
+
+it("le refus du salon s'écrit dans la ligne d'état du panneau", async () => {
+  const { send } = show(false, true);
+  send.mockRejectedValue(new Error("Le salon refuse ce choix."));
+  expect(screen.getByRole("status")).not.toHaveTextContent("Le salon refuse ce choix.");
+  fireEvent.click(screen.getByText("Je suis prêt"));
+  await waitFor(() =>
+    expect(screen.getByRole("status")).toHaveTextContent("Le salon refuse ce choix."),
+  );
 });

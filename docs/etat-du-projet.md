@@ -207,6 +207,18 @@ présent sur cette branche (salle) ; `reste()` côté page après les manettes
 (données, K34) ; la porte entière à l'intégration finale. Récit : « 23
 novembre, la nuit : la vague A sur une branche d'intégration ».
 
+**Au 23 novembre, la nuit : la préparation Pro hors de `SwitchBindings`.**
+Le préalable de la dernière vague est sur `integration/retro`, en un seul
+commit : la préparation à plusieurs des salles Switch et Xbox 360 vit dans
+`Preparation.tsx` (`usePreparationPro`, chantier menus), et le panneau des
+touches de la trame Pro (chantier manettes) ne fait plus que poser ses
+morceaux. Le HTML et les envois sont identiques à l'ancien panneau dans 63
+états comparés ; `Bindings.tsx` n'est pas touché. Trois essais ont suivi la
+préparation, deux nouveaux gardent le branchement. La page fait 249 486
+octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
+manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
+novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

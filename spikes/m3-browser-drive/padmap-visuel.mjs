@@ -7,11 +7,17 @@
 // is served by Vite; this script starts it, waits for it, runs the checks, and
 // stops it.
 //
+// Depuis le 23 novembre 2026, `padmap-qc.mjs` vérifie aussi les comptes
+// d'inscriptions, les contrastes d'appui et les réglages de la planche. Son
+// jumeau tourne ici : avec `--mutant-contraste`, il doit sortir en 1, et
+// chacun de ses défauts doit être un contraste de la manette Xbox. Un pilote
+// qui sortirait en 1 pour une autre raison ne prouverait rien.
+//
 // Vite runs on `vite.planche.config.ts`, the configuration WITHOUT the relays
 // to the room's ports (C10 of the manettes plan, 23 November 2026). It used
 // `npm run dev`, whose configuration relays /api and the sockets to the live
 // room: a preview has no reason to reach a running service.
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 
 const HERE = import.meta.dirname;
 const PORT = "5299";
@@ -54,6 +60,23 @@ if (!up) {
 const env = { ...process.env, PADMAP_URL: PREVIEW };
 try {
   execFileSync("node", ["padmap-qc.mjs"], { cwd: HERE, env, stdio: "inherit" });
+  const jumeau = spawnSync("node", ["padmap-qc.mjs", "--mutant-contraste"], {
+    cwd: HERE,
+    env,
+    encoding: "utf-8",
+  });
+  const defauts = jumeau.stderr
+    .split("\n")
+    .filter((ligne) => /^\s+\S+: /.test(ligne))
+    .map((ligne) => ligne.trim());
+  const justes = defauts.length > 0 && defauts.every((d) => d.startsWith("contraste: xbox "));
+  if (jumeau.status !== 1 || !justes) {
+    console.error(`le jumeau du contraste devait échouer sur la Xbox seule (sortie ${jumeau.status}) :`);
+    console.error(jumeau.stdout + jumeau.stderr);
+    process.exitCode = 1;
+  } else {
+    console.log(`jumeau : ${defauts.length} contrastes refusés, comme voulu`);
+  }
   execFileSync("node", ["padmap-shot.mjs", process.argv[2] ?? "/tmp/padmap-visuel.png"], {
     cwd: HERE,
     env,

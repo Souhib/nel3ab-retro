@@ -16,7 +16,8 @@ await page.waitForSelector("svg[data-padmap]", { timeout: 20000 });
 const grids = await page.evaluate(() => {
   const COLS = 68;
   const out = {};
-  for (const svg of document.querySelectorAll("svg[data-padmap]")) {
+  // La planche montre chaque manette à trois tailles : la grande suffit ici.
+  for (const svg of document.querySelectorAll('[data-format="grande"] svg[data-padmap]')) {
     const vb = (svg.getAttribute("viewBox") || "-2 -2 104 66").split(/[\s,]+/).map(Number);
     const L = vb[0], T = vb[1], W = vb[2], H = vb[3];
     const ROWS = Math.round(COLS * H / W);

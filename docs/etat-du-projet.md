@@ -1,10 +1,43 @@
-# État du projet au 22 novembre 2026
+# État du projet au 23 novembre 2026
 
 Ce point de reprise conserve le travail commencé en septembre et les
 livraisons datées jusqu'au 10 novembre. Il indique où retrouver les décisions, les expériences
 et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-appris)
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
+
+**Au 23 novembre : le socle du thème rétro, sur une branche.** Le
+propriétaire a choisi un thème de consoles 8 et 16 bits et de salle d'arcade
+autour de la mire « HORS ANTENNE », le logo en pixels « relief en escalier »,
+Pixelify Sans pour les titres, et les 46 effets de la page des effets derrière
+un réglage à trois niveaux. Le socle est sur `chantier/retro-socle` (worktree
+`~/nel3ab-chantiers/retro-socle`) : rien n'est dans `main`, rien n'est
+installé, la branche n'est pas poussée. Il pose, sans déplacer aucun élément
+d'écran :
+
+- **Couleurs.** Les rôles de la régie gardent leurs noms et prennent les
+  valeurs rétro, seize couleurs par thème comptées par l'essai, la mire en sept
+  jetons (`front/src/regie.css`). Trois valeurs ajustées pour le contraste.
+- **Police et logo.** Pixelify Sans variable, sous-ensemble français de
+  10 020 octets (`control/.../polices/`, provenance à côté). Le logo remplace
+  le mot « nel3ab » dans la colonne, l'avant-salle, l'ouverture, l'entrée du
+  nom et les trois pages du salon ; l'icône d'onglet est le 3 aux couleurs de
+  la mire (`front/src/lib/logo.ts`).
+- **Effets.** Le moteur (`front/src/lib/effets.ts`, clé `nel3ab:effets`,
+  classes `fx-<id>` posées avant la première image), la feuille commune
+  (`front/src/effets.css`, classes `rt-…`), les outils (`front/src/retro/`) et
+  la mascotte provisoire, une pièce en pixels, avec dix-neuf scènes abstraites
+  (`front/src/mascotte/`). Le salon reçoit tout cela par `retro.py`.
+- **Réglage.** « effets rétro » (sobre, conseillé, tout) et « sons de menu »
+  dans le menu de la salle et au pied de l'accueil.
+- **Encore là.** Bobine (`front/src/bobine/`, `routes/bobine/`), les trois
+  tableaux de bord (XMB, Wii, Switch) et les dessins de manettes de la régie :
+  les sept chantiers d'écran les remplaceront écran par écran.
+
+Poids de la page de salle : 235 147 octets en brotli, 64 853 sous le budget.
+Décision : [ADR](adr/0001-architecture.md) D37. Récit : entrée « 23 novembre :
+le thème rétro, et ses effets derrière un réglage ». Non prouvé : aucun effet
+vu sur un vrai téléphone, et aucun effet n'est encore posé dans un vrai écran.
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

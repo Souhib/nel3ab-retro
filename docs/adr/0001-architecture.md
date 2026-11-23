@@ -1518,6 +1518,99 @@ unchanged: no Docker command moved. Not proven: a real container, and a slot
 where an engine created a legitimate link. The Switch save import, the Rust
 unlocked-save module and the Dolphin paths were not reviewed from this angle.
 
+### D37: A retro theme, and its effects behind a three-level setting per device, 2026-11-23
+
+The owner rejected the « régie » screens of D26 (graphite, chalk, violet) and
+then the « Scotch et feutre » proposal's theme, while keeping its screen
+reorganisations. He chose an 8- and 16-bit console and arcade theme built
+around the lobby's EBU test card (« HORS ANTENNE »), the « relief en
+escalier » pixel logo, Pixelify Sans for titles, and all 46 effects of the
+effects page, behind a setting. This entry is the base the seven screen
+tracks build on; it changes no screen layout.
+
+Decision:
+
+- **Tokens keep their names, values change.** `regie.css` keeps every role of
+  D26 (`--fond`, `--plaque`, `--creux`, `--encre`, `--legende`, `--trait`,
+  `--signal`, `--focus`, `--bouton-plein-*`, the players), so existing
+  components re-skin without being rewritten. Values come from the effects
+  page's `.borne.on-palette` rules: navy at night, frost by day, the test card
+  as the only source of saturated colour (night signal = test-card yellow,
+  alert = its red, success = its green). Three values moved for a measured
+  reason: day `--creux` is white (frost 400 left player inks at 3.8:1), night
+  `--survol` is the lightest navy where the alert holds 4.55:1, and `--trait` is
+  the slate #6a76a8 in both themes (navy 700 held 1.8:1). The bold button is
+  the signal filled. The test card gets seven tokens (`--mire-*`), the logo
+  five per theme, the scoreboard five, the display digits one.
+- **Sixteen colours per theme, counted.** `regie.test.ts` resolves every role,
+  component token and player flat and requires at most 16 distinct colours,
+  with a 17-colour twin. Outside the count, and said in the sheet: the test
+  card and the logo (images, identical day and night) and the players' inks
+  (the player colour lightened or darkened to read). Player flats are
+  unchanged (`media/players.ts`).
+- **One engine, one key.** `lib/effets.ts` holds the 46 effects (id, family,
+  strength, verdict copied from the page) and three nested levels: « sobre »
+  = strength `d` (18), « conseillé » (default) = verdict `oui` (23), « tout »
+  = all but sounds (45). Menu sounds are a separate opt-in, off by default,
+  never while the game zone has focus. The setting lives in one
+  `localStorage` key, `nel3ab:effets` (`{niveau, sons}`), read by the room and
+  the lobby, which share an origin. It surfaces as `fx-<id>` classes and
+  `data-effets` on `<html>`, set before first paint by a classic head script
+  generated from the catalogue (`scriptEnTete`), in the room's single head
+  script and in each lobby page. A test runs that script in a bare context for
+  every stored value and compares it with the engine.
+- **Effects are opt-in classes, flat when off.** `src/effets.css` gives each
+  effect an `rt-…` class (box, button, display, waiting screen, layers,
+  fronton, START button…) whose off state is plain and readable. Reduced
+  motion keeps the key pose and the text, and moves nothing. Every blink is
+  1 s in `steps(1)`: at most one per second.
+- **Nothing passes over the game picture.** Layers live inside a UI surface or
+  a waiting screen, never in the game zone; every JS helper (`src/retro/`)
+  refuses an element that is, contains or sits inside the game zone; a
+  transition hides the game zone first and restores it after, even on error;
+  the snow replaces a hidden zone rather than covering it. `etats-navigateur`
+  (`calques-sous-image`) hit-tests a 5×5 grid on the painted picture at level
+  « tout », with every `rt-` element made hittable, and its twin detects a
+  page-wide layer.
+- **One source for the room and the lobby.** The lobby has no React page, so
+  it receives generated copies (`routes/retro/`: the effects sheet, the head
+  script with the tab icon, the logo, the setting form), compared byte for
+  byte by `salon-retro.test.ts` and placed by markers (`retro.py`), like
+  `regie.css` before them. A missing marker fails at lobby start.
+- **The mascot is abstract.** Screens ask for one of 19 scenes
+  (`src/mascotte/`): full version the first time in this browser, short
+  afterwards, key pose under reduced motion, refused on the game picture, its
+  host clipping whatever leaves its box. A provisional coin draws them until
+  the character is chosen; replacing it means changing `mascotte/rendu.ts`.
+
+Weighed:
+
+1. A palette switchable by the « palette » effect (old colours when off).
+   Rejected: « palette » is in all three levels, so the old palette would only
+   ever show without script, and two palettes double every contrast proof.
+2. A strict 16 including the test card and the inks. Rejected: the hover tone,
+   the slate and the white field are each required by a measured contrast,
+   and the inks exist because a player flat cannot be text on both themes.
+3. Global page-wide layers above the picture with a hole cut by script.
+   Rejected: a frame of lag on resize would draw over the picture. Layers stay
+   inside their surface by construction.
+4. A bundle of the JS helpers for the lobby now. Deferred to the lobby track:
+   nothing in the lobby uses them yet, and an unused bundle is a copy to keep
+   in sync for nothing.
+
+Proof: `regie.test.ts` (contrast of every pair in both themes, 16 colours,
+test card, logo tokens), `logo.test.ts` (the logo painted cell by cell against
+the effects page's function, night and day, with a wrong-order twin),
+`effets.test.ts`, `retro/retro.test.ts`, `mascotte/mascotte.test.ts`,
+`salon-retro.test.ts`, `control/tests/test_accueil.py`, and in a browser
+`salle-telephone` (effects classes and the title font set before the body
+starts, under the worker's policy) and `etats-navigateur`
+(`calques-sous-image`). Room page weight, brotli 11: 219 695 bytes before,
+235 147 after, margin 64 853 under the 300 000 budget; the font is 10 020
+bytes. Not proven: any effect on a real phone (cost of the mosaic filter, moiré
+of dithering), menu sounds on iOS, the effects inside real screens (the tracks
+will place them), and the provisional coin as a character.
+
 
 ## Consequences
 

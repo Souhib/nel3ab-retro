@@ -28012,7 +28012,205 @@ ce que la salle dit. Une partie, un joueur : seule la sauvegarde du profil
 Joueur 1 a été vue écrite ; deux salles Xbox 360 ensemble n'ont jamais été
 mesurées, et aucun verrou n'est décidé.
 
+### 23 novembre : le thème rétro, et ses effets derrière un réglage
+
+**La demande.** Le propriétaire n'a aimé ni la régie du 22 novembre (graphite,
+craie, violet) ni le thème de la proposition « Scotch et feutre » (le scotch
+écrit à la main, le meuble en noyer, le chien Quatrou). Il en a gardé les
+réorganisations d'écrans. Il a choisi un univers de consoles 8 et 16 bits et
+de salle d'arcade, autour de la mire « HORS ANTENNE » de l'accueil, qu'il
+aime. Une page lui a montré 46 effets sur une borne maquette, et trois logos
+en lettres de pixels. Il a pris le « relief en escalier », la police Pixelify
+Sans pour les titres, et TOUS les effets, derrière un réglage à trois niveaux.
+
+Ce chantier est le socle : les couleurs, la police, le logo, le moteur des
+effets, leur feuille, leurs outils, la mascotte provisoire et le réglage. Sept
+chantiers d'écran viendront ensuite poser tout cela dans les vrais écrans. Le
+socle ne déplace aucun élément d'écran.
+
+**Les couleurs gardent leurs noms.** La régie avait des rôles (`--fond`,
+`--plaque`, `--encre`, `--trait`, `--signal`…), et chaque composant les lit.
+Les rôles ne changent pas de nom, seulement de valeur : tous les écrans
+prennent le thème sans être réécrits. Les valeurs viennent de la page des
+effets : un bleu marine presque noir la nuit, un « givre » bleuté le jour, et
+la mire comme seule source de couleurs vives. Le jaune de la mire devient le
+signal de nuit (le focus, la sélection, le bouton principal), son rouge
+l'alerte, son vert le succès.
+
+**Trois valeurs ont bougé, chacune pour une mesure.** L'essai des jetons
+calcule le contraste de chaque texte sur chaque surface, dans les deux thèmes.
+Trois valeurs de la page des effets n'y tenaient pas :
+
+- le creux du jour, plus sombre que le fond : les encres des joueurs y
+  tombaient à 3,8:1, sous le seuil de 4,5:1. Il devient blanc, comme le champ
+  de saisie enfoncé des interfaces de cette époque ;
+- le survol de nuit n'existait pas dans la page, qui ne survolait rien : c'est
+  le marine le plus clair où l'alerte tient encore 4,55:1 ;
+- le trait de nuit, un marine qui ne tenait que 1,8:1 sur la plaque. Un cadre
+  qui porte une information (un champ, une jauge) doit tenir 3:1. Le trait
+  prend l'ardoise du jour, qui tient dans les deux thèmes.
+
+**Seize couleurs, comptées par la machine.** La page promettait « seize
+couleurs par thème, comme une console 16 bits ». L'essai les compte : chaque
+rôle, chaque jeton de composant et les quatre couleurs des joueurs, résolus
+jusqu'à leur valeur. Il en trouve seize de nuit et seize de jour. Son jumeau
+ajoute une dix-septième couleur et doit la voir. Hors du compte, et c'est
+écrit dans la feuille : la mire et le logo, qui sont des images et gardent les
+mêmes couleurs de jour comme de nuit, et les encres des joueurs (la couleur du
+joueur éclaircie ou foncée pour se lire). Les couleurs des joueurs ne bougent
+pas : tous les jeux qui ont demandé « lequel es-tu ? » ont répondu en rouge,
+bleu, jaune et vert.
+
+**La police.** Pixelify Sans, sous licence libre OFL, prise au dépôt de
+Google Fonts et réduite aux caractères du français. Gardée variable (de la
+graisse 400 à 700) : 10 020 octets, contre 13 060 pour deux graisses figées, et
+aucune graisse « inventée » par le navigateur, ce qui abîme un dessin en
+pixels. Elle n'a ni le ▶ ni l'espace fine : ces deux caractères retombent sur
+la police suivante. Les chiffres d'afficheur gardent Departure, la police
+machine déjà embarquée.
+
+**Le logo, case par case.** Les six lettres de « nel3ab » sont dessinées sur
+une grille de sept pixels, chacune doublée d'un relief en trois marches. La
+page des effets posait un carré SVG par pixel, 472 carrés et 26 ko de texte.
+Le logo de la salle pose un chemin par calque, cinq en tout, dix fois plus
+court. Pour être sûr qu'il est bien le même dessin, l'essai peint les deux sur
+une grille de 38 cases sur 10 et compare chaque case, de nuit et de jour. Un
+écart d'une colonne entre deux lettres le fait échouer (vérifié en le
+réintroduisant), et le logo « 3 en mire », qui a les mêmes lettres sans relief,
+ne passe pas. Les couleurs du logo sont des jetons : le même dessin passe du
+jour à la nuit avec la page. L'icône d'onglet est le 3 seul, chaque colonne à
+sa barre de mire, celle que la page montrait sous chaque logo.
+
+**Le moteur des effets.** Un catalogue de 46 effets, recopié de la page avec
+leur niveau et l'avis donné. Trois niveaux qui s'emboîtent : « sobre » allume
+les 18 effets discrets, « conseillé » les 23 que la page conseillait, « tout »
+les 45 effets visibles. Les petits sons de menu sont un réglage à part, coupé
+par défaut, jamais pendant que le jeu a le focus. Le réglage vit dans le
+navigateur, sous une seule clé que la salle et le salon lisent tous les deux,
+puisqu'ils sont servis à la même adresse.
+
+Un effet s'allume par une classe sur la racine de la page (`fx-coins`,
+`fx-mosaique`…). Elle doit être posée AVANT la première image : une police de
+titre qui changerait sous les yeux au chargement serait le défaut même que le
+thème de jour avait dû corriger le 22 novembre. Un petit script d'en-tête,
+écrit à partir du catalogue, la pose dans la salle comme au salon. L'essai
+l'exécute dans un contexte qui ne contient que ce qu'un navigateur lui donne,
+pour treize valeurs stockées (dont des valeurs piégées comme `toString`), et
+compare ses classes à celles du moteur. Le pilote du téléphone vérifie, sur
+la page construite et sous la politique de sécurité du worker, que les classes
+et la police des titres sont là quand le corps commence.
+
+**Rien ne passe sur l'image du jeu.** C'est la règle absolue du propriétaire.
+Chaque effet est une classe que le niveau allume ou non, et un écran choisit
+où la poser. Les calques (lignes de balayage, grille, scintillement) vivent
+DANS une surface d'interface, jamais dans la zone de jeu : ils s'arrêtent à son
+bord. Chaque outil qui anime, secoue ou recouvre un élément refuse un élément
+qui touche la zone de jeu. Une transition cache d'abord l'image, et la
+remontre à la fin, même si l'écran suivant échoue. La neige d'une connexion
+coupée remplace l'image cachée au lieu de passer dessus. Un nouveau pas du banc
+des états de la salle vérifie tout cela dans un vrai navigateur, au niveau
+« tout » : 25 points répartis sur l'image peinte doivent tomber sur l'image
+elle-même, chaque élément d'effet rendu « touchable » le temps de la mesure.
+Son jumeau pose un calque sur toute la page, comme un écran qui l'aurait mal
+rangé, et doit le voir.
+
+**Au plus un clignotement par seconde, et le mouvement réduit.** Chaque
+clignotement dure une seconde, allumé une demi-seconde, éteint l'autre : le
+curseur ▶, « APPUIE SUR START », le scintillement. Une personne qui demande
+moins de mouvement à son système garde la pose finale et le texte, et rien ne
+bouge.
+
+**La mascotte, en attendant le personnage.** Elle n'est pas encore choisie.
+Les écrans demandent donc une scène abstraite (« quelqu'un arrive », « la
+salle s'endort », « le jeu démarre »), dix-neuf en tout, et un rendu les joue.
+En attendant, c'est la pièce d'or qui traversait la borne en mode démo. Une
+scène a une version complète la première fois et une version courte ensuite,
+ne passe jamais sur l'image, et ne montre que sa pose finale en mouvement
+réduit. Changer de personnage, c'est changer un seul fichier.
+
+**Le réglage.** Dans le menu de la salle, à côté des couleurs : « effets
+rétro » (sobre, conseillé, tout) et « sons de menu ». Au pied de la liste des
+salles, le même réglage, avec les mêmes mots, écrits depuis le lexique de la
+salle. Changer le niveau dans une salle le change au salon, même dans un autre
+onglet.
+
+**Un essai qui refusait une bonne page.** La page de dépôt de jeux a un garde :
+elle ne doit rien demander à un autre site, donc toute adresse CSS doit être
+une adresse `data:`. La flèche de souris en pixels est une adresse `data:`
+entre guillemets, et le garde la refusait. Son motif laissait le guillemet
+facultatif AVANT la vérification : devant `url("data:…")`, il pouvait sauter le
+guillemet, et la vérification voyait alors `"data:`, qui ne commence pas par
+`data:`. Le motif vérifie maintenant ce qui suit le guillemet, permet aussi un
+renvoi `#…` vers un filtre de la page, et ses jumeaux exigent qu'une vraie
+adresse extérieure reste refusée. Leçon : un motif avec une partie facultative
+avant une garde négative peut contourner la garde en sautant la partie.
+
+**Le poids.** La page de la salle pesait 219 695 octets en brotli avant ce
+chantier, 235 147 après : 15 452 octets de plus, dont environ 10 300 pour la
+police. Il reste 64 853 octets sous le budget de 300 000. Les outils des
+effets et la mascotte ne pèsent encore rien : aucun écran ne les appelle, et
+la construction écarte ce qui n'est pas appelé. Ils pèseront quand les
+chantiers d'écran les poseront.
+
+**Ce qui n'est pas prouvé.** Aucun effet n'a été vu sur un vrai téléphone :
+le coût de la mosaïque, un moirage du tramage, les sons sur iPhone restent à
+mesurer. Les effets ne sont pas encore dans les vrais écrans : ce sont les
+sept chantiers suivants. La pièce n'est pas un personnage. Le logo n'a été vu
+qu'en capture, pas à côté d'un vrai salon le soir. Bobine et les anciens menus
+sont toujours là, et partiront écran par écran.
+
 ## 12. Glossaire complet
+
+**Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
+verticales de couleurs pures (blanc, jaune, cyan, vert, magenta, rouge, bleu)
+fixées par l'Union européenne de radio-télévision (EBU en anglais). Sur
+l'accueil, elle dit « HORS ANTENNE » quand aucune salle n'est ouverte, et elle
+donne au thème rétro ses couleurs vives.
+
+**Pixel art** : un dessin fait case par case, sur une petite grille, comme les
+graphismes des consoles 8 et 16 bits. Agrandi, il doit garder ses carrés nets
+au lieu d'être lissé.
+
+**Police variable** : un seul fichier de police qui contient toute une plage
+de graisses (de 400 à 700 pour Pixelify Sans) au lieu d'un fichier par graisse.
+
+**Sous-ensemble (d'une police)** : une police réduite aux caractères qu'on
+utilise, ici ceux du français. Elle pèse beaucoup moins que l'originale.
+
+**OFL (SIL Open Font License)** : la licence libre des polices Anybody,
+Departure et Pixelify Sans. Elle permet de les modifier et de les
+redistribuer, pas de les vendre seules.
+
+**Niveau d'effets** : le réglage à trois positions de cet appareil, « sobre »,
+« conseillé » ou « tout », qui décide quels effets rétro la page montre.
+
+**Tramage** : un dégradé fait de points de deux couleurs alternés, comme sur
+une console qui n'avait pas assez de couleurs pour un vrai dégradé.
+
+**Lignes de balayage** : les fines lignes horizontales d'un vieil écran à tube,
+imitées par un motif posé sur une surface.
+
+**Mosaïque** : la transition de la Super Nintendo où l'écran se découpe en
+carrés de plus en plus gros. Ici, des filtres SVG.
+
+**Iris** : la transition où un cercle se referme sur le centre de l'écran,
+comme à la fin d'un niveau.
+
+**WebAudio** : l'interface du navigateur qui fabrique des sons sans fichier.
+Les sons de menu sont des notes carrées, comme la puce sonore d'une console.
+
+**Web Animations (WAAPI)** : l'interface du navigateur qui anime un élément
+depuis le script (`element.animate`), sans bibliothèque.
+
+**Mouvement réduit (prefers-reduced-motion)** : un réglage du système qui
+demande moins d'animations. La page le lit et ne garde alors que la pose
+finale et le texte.
+
+**Pose clé** : la dernière image d'une animation, celle qui reste quand rien ne
+doit bouger.
+
+**localStorage** : la petite mémoire qu'un site garde dans le navigateur, par
+adresse. Le salon et les salles, servis à la même adresse, la partagent.
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
 seul fichier exécutable.

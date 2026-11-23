@@ -658,6 +658,16 @@ in the game zone (`lib/focus-jeu.ts`); a full-screen layer is a `<dialog>`
 opened by `showModal()` whose cursor is the focus, and what must stay above it
 goes through `Surcouche`; visible words come from `lib/mots.ts`.
 
+Since 2026-11-23 (ADR D37), a retro effect is an `rt-…` class of
+`front/src/effets.css`, lit or not by the device's level (`fx-<id>` on
+`<html>`, `lib/effets.ts`, one key `nel3ab:effets` for the room and the lobby).
+Its off state must stay flat and readable. Nothing passes over the game
+picture: layers live inside a UI surface, and every helper in `front/src/retro/`
+and `front/src/mascotte/` refuses an element that touches the game zone
+(`retro/image.ts`). The lobby receives the sheet, the head script, the logo and
+the setting as generated copies (`routes/retro/`, `N3_SALON_ECRIRE=1 npx vitest
+run src/lib/salon-retro.test.ts`); edit the source, never the copy.
+
 ### 9. The logbook is part of the work, not a write-up afterwards
 
 [`docs/carnet-de-bord.md`](docs/carnet-de-bord.md) is written **for a human who

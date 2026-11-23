@@ -907,7 +907,8 @@ cadre-navigateur-rouge:
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     cd spikes/m3-browser-drive
     node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
-    etapes=rien-sur-image,agrandie
+    # manette-branchee: l'avis de branchement de cette page couvre L.
+    etapes=rien-sur-image,agrandie,manette-branchee
     node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # La page de la fin du passage 1 (0fef99e) a déjà le cadre, mais ni le
@@ -936,6 +937,13 @@ cadre-navigateur-rouge:
     git show cf3bba1:core/crates/worker/src/page/index.html > "$dossier/borne.html"
     etapes=tenu-rien-sur-image
     node cadre.mjs --page "$dossier/borne.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Sixième bloc (passage 5): la page de la fin du passage 4 (acfa4c7) garde
+    # ses touches à l'écran devant une vraie manette, sa bande ne dit pas
+    # quelle manette joue, et sa feuille à mi-hauteur n'a pas le clip.
+    git show acfa4c7:core/crates/worker/src/page/index.html > "$dossier/tenu.html"
+    etapes=manette-branchee,manette-vraie,feuille-clip
+    node cadre.mjs --page "$dossier/tenu.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 

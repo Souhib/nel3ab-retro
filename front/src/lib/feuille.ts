@@ -20,6 +20,7 @@
  * coupé passe en tête : c'est la seule entrée qui répare quelque chose.
  */
 import type { PleinEcran } from "./plein-ecran";
+import { clipAide, type ClipState } from "./clip";
 import { TACTILE } from "./mots";
 
 /** Le nom du bouton « La salle », lu à voix haute : le son coupé y est dit
@@ -38,12 +39,20 @@ export const OUVRE_LA_FEUILLE = '[data-geste="feuille"]';
 export type IdEntree =
   | "son"
   | "menu"
+  | "clip"
   | "manette"
   | "plein-ecran"
   | "ecran-accueil"
   | "toute-la-salle";
 
-export type EntreeFeuille = { id: IdEntree; titre: string; detail: string; alerte: boolean };
+export type EntreeFeuille = {
+  id: IdEntree;
+  titre: string;
+  detail: string;
+  alerte: boolean;
+  /** Le geste ne fait rien pour l'instant (un clip qui s'emballe). */
+  inactif?: true;
+};
 
 export type EtatFeuille = {
   /** Le contexte audio ne joue pas. */
@@ -53,13 +62,43 @@ export type EtatFeuille = {
   plein: PleinEcran;
   /** La page est en plein écran en ce moment. */
   pleinActif: boolean;
+  /** Le clip des 45 dernières secondes, ou `null` sans partie à garder. */
+  clip: ClipState | null;
+  /** Le téléphone est en travers : la feuille n'a qu'une colonne. */
+  travers?: boolean;
 };
+
+/** Le clip, à mi-hauteur : quarante-cinq secondes ne se demandent pas
+ * après coup, et la feuille agrandie était à deux touchers (feuille-du-bas.2,
+ * 23 novembre 2026). Même geste que le rang de la colonne. */
+function entreeClip(clip: ClipState): EntreeFeuille {
+  const titre =
+    clip.phase === "fait"
+      ? "Enregistrer le clip"
+      : clip.phase === "en cours"
+        ? "Le clip s'emballe…"
+        : clip.phase === "attendre"
+          ? `Clip possible dans ${clip.seconds}\u00a0s`
+          : clip.phase === "raté"
+            ? "Le clip a raté"
+            : "Garder les 45 dernières secondes";
+  const occupe = clip.phase === "en cours" || clip.phase === "attendre";
+  return {
+    id: "clip",
+    titre,
+    detail: clipAide(clip),
+    alerte: clip.phase === "raté",
+    ...(occupe ? { inactif: true as const } : {}),
+  };
+}
 
 export function entreesDeLaFeuille({
   sonCoupe,
   manette,
   plein,
   pleinActif,
+  clip,
+  travers = false,
 }: EtatFeuille): EntreeFeuille[] {
   const entrees: EntreeFeuille[] = [
     sonCoupe
@@ -80,6 +119,10 @@ export function entreesDeLaFeuille({
         },
     { id: "menu", titre: "Menu du jeu", detail: "Jeux, sauvegardes, réglages.", alerte: false },
   ];
+  // En travers, la feuille n'a qu'une colonne dans la bande gauche, et le
+  // clip la faisait défiler : 458 px de contenu pour 390 à 844×390
+  // (salle-telephone, 23 novembre 2026). Il y reste dans la salle entière.
+  if (clip !== null && !travers) entrees.push(entreeClip(clip));
   if (manette !== null)
     entrees.push(
       manette === "montree"

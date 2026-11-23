@@ -105,6 +105,17 @@ export const ICONES_PIXEL = {
     "###......###",
     "############",
   ],
+  // Chantier salle : un téléphone couché sous une flèche qui tourne, pour
+  // le conseil d'une salle tenue droite avec une vraie manette.
+  tourne: [
+    "...#####....",
+    "..#.....#...",
+    "..#....###..",
+    "............",
+    "############",
+    "#.........##",
+    "############",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconePixel = keyof typeof ICONES_PIXEL;

@@ -25,12 +25,21 @@ import type { HauteurFeuille } from "../lib/disposition";
 import type { EntreeFeuille, IdEntree } from "../lib/feuille";
 import { placeDe } from "./Cadre";
 import { PlaceDesSurcouches } from "./Surcouche";
-import { ExpandIcon, GameIcon, HomeScreenIcon, PadIcon, RoomIcon, SoundIcon } from "./XmbIcons";
+import {
+  ExpandIcon,
+  GameIcon,
+  HomeScreenIcon,
+  PadIcon,
+  RoomIcon,
+  ScreenIcon,
+  SoundIcon,
+} from "./XmbIcons";
 import "./telephone.css";
 
 const ICONES: Record<IdEntree, React.ReactNode> = {
   son: <SoundIcon className="h-full w-full" />,
   menu: <GameIcon className="h-full w-full" />,
+  clip: <ScreenIcon className="h-full w-full" />,
   manette: <PadIcon className="h-full w-full" />,
   "plein-ecran": <ExpandIcon className="h-full w-full" />,
   "ecran-accueil": <HomeScreenIcon className="h-full w-full" />,
@@ -114,6 +123,7 @@ export function FeuilleSalle({
                 className="n3-feuille-entree"
                 data-entree={entree.id}
                 data-alerte={entree.alerte ? "" : undefined}
+                disabled={entree.inactif}
                 aria-expanded={entree.id === "ecran-accueil" ? accueil : undefined}
                 onClick={() => {
                   if (entree.id === "ecran-accueil") setAccueil(!accueil);

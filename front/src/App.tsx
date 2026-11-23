@@ -22,7 +22,7 @@ import { useSetupChoice } from "./lib/useSetupChoice";
 import { Bindings } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
-import { ControllerStatus } from "./components/ControllerStatus";
+import { ControllerStatus, ManetteDansLaBande } from "./components/ControllerStatus";
 import { manetteAConfigurer } from "./lib/plug";
 import { dire } from "./lib/liaison-mots";
 import { ETROIT_SOUS } from "./lib/menu-xmb";
@@ -721,11 +721,6 @@ function Room({
   /** Faut-il montrer la manette à l'écran. Retenu, parce que quelqu'un qui joue
    * au téléphone y rejouera au téléphone. */
   const [touchPref, setTouchPref] = useState(storedTouch);
-  /** La manette à l'écran est-elle montée en ce moment. Nommé parce que DEUX
-   * choses en dépendent, et qu'elles doivent être d'accord: la manette
-   * elle-même, et les boutons de coin du mode replié, qui tombaient sinon
-   * exactement sur Z et R. */
-  const onTouch = showsTouchPad(touchPref, coarse);
 
   /** La place dont l'image dispose, rapportée par l'écran. Sert au menu, qui
    * annonce ce que chaque choix donnerait. */
@@ -812,6 +807,15 @@ function Room({
   useRoomReference(() => alive.current?.input.refreshRoomKeys());
   const clip = useClip();
   const shot = useSnapshot(session);
+  /** La manette à l'écran est-elle montée en ce moment. Nommé parce que
+   * plusieurs choses en dépendent et doivent être d'accord : la manette
+   * elle-même, la pose du cadre et la feuille. Une vraie manette branchée
+   * l'efface en automatique (`showsTouchPad`). */
+  const onTouch = showsTouchPad(touchPref, coarse, Boolean(shot?.input.padId));
+  /** Montrer ou cacher les touches à l'écran. Avec une vraie manette
+   * branchée, les cacher revient à l'automatique, qui les rendra quand la
+   * manette partira ; sans elle, c'est un choix retenu. */
+  const basculerTactile = () => setTouchPref(onTouch ? (shot?.input.padId ? "auto" : "off") : "on");
   /** Le son ne joue pas. Lu à la cadence de l'instantané, deux fois par
    * seconde, comme tout ce que la page affiche. */
   const soundOff = shot ? shot.sound.state !== "running" : false;
@@ -2436,11 +2440,7 @@ function Room({
      23 novembre 2026, cette pile se posait en haut de l'image (`#avisDuHaut`),
      et l'avis du format réduit en bas. */
   const avis =
-    (shot && port !== null && !menu && !configuring) ||
-    closingSoon !== null ||
-    reduced ||
-    pastilleAgrandie ||
-    pauseClavier ? (
+    closingSoon !== null || reduced || pastilleAgrandie || pauseClavier ? (
       <div
         id="avisDuCadre"
         ref={setPile}
@@ -2459,18 +2459,6 @@ function Room({
               }
         }
       >
-        {/* Une manette branchée ou débranchée, cinq secondes (choix du
-            7 septembre 2026). */}
-        {shot ? (
-          <ControllerStatus
-            visible={port !== null && !menu && !configuring}
-            state={shot.input}
-            onConfigure={() => {
-              setOngletTouches("pad");
-              setBindings(true);
-            }}
-          />
-        ) : null}
         {/* La salle va fermer faute d'activité, cliquable pour disparaître: un
             message qu'on ne peut pas faire taire finit par être contourné en
             fermant l'onglet. */}
@@ -2962,6 +2950,10 @@ function Room({
             />
           ) : null}
 
+          {/* Une manette branchée ou débranchée, dite cinq secondes au
+              lecteur d'écran et jamais peinte : l'avis visible couvrait L
+              au téléphone (audit N1, en-jeu-manette.2). */}
+          {shot ? <ControllerStatus state={shot.input} /> : null}
           {/* La ligne parlée: montée dès l'entrée, vide, et seul son texte
             change (audit A11Y-03, A11Y-07, A11Y-09). */}
           <LigneParlee
@@ -3034,6 +3026,20 @@ function Room({
           <Bande rect={geo.bande}>
             {avis}
             {regardeParChoix ? blocRole : null}
+            {shot?.input.padId && port !== null && !padOnly ? (
+              <ManetteDansLaBande
+                nom={identify(shot.input.padId, shot.input.padLayout ?? "").name}
+                place={port}
+                aConfigurer={manetteAConfigurer(shot.input)}
+                tactile={onTouch}
+                conseil={modeSalle === "portrait" && !onTouch}
+                onVerifier={() => {
+                  setVueTouches("manette");
+                  setFeuille("agrandie");
+                }}
+                onTactile={basculerTactile}
+              />
+            ) : null}
           </Bande>
         ) : null}
         {tenu && geo.manette && couches.pave ? (
@@ -3051,6 +3057,9 @@ function Room({
               manette: onTouch ? "montree" : "cachee",
               plein,
               pleinActif: fullscreen,
+              // Le clip, pendant une partie seulement : rien à garder sans image.
+              clip: room?.game && !padOnly ? clip.state : null,
+              travers: modeSalle === "paysage",
             })}
             onEntree={(id) => {
               switch (id) {
@@ -3067,9 +3076,13 @@ function Room({
                   setFeuille(null);
                   setMenu(true);
                   return;
+                case "clip":
+                  // La feuille reste ouverte : l'entrée dit où en est le clip.
+                  takeClip();
+                  return;
                 case "manette":
                   setFeuille(null);
-                  setTouchPref(onTouch ? "off" : "on");
+                  basculerTactile();
                   return;
                 case "plein-ecran":
                   setFeuille(null);

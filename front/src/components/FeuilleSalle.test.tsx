@@ -10,6 +10,7 @@ const ENTREES = entreesDeLaFeuille({
   manette: "montree",
   plein: "ecran-accueil",
   pleinActif: false,
+  clip: null,
 });
 
 describe("la feuille « La salle »", () => {

@@ -456,4 +456,15 @@ export const REPOS = {
   verras: "Tu le verras démarrer ici.",
 } as const;
 
+/** Une vraie manette dans une salle tenue en main (`ControllerStatus`) : la
+ * bande dit laquelle joue et où, au lieu d'un avis posé sur les touches
+ * (audit N1). « Manette » est l'objet qu'on tient ; les touches dessinées
+ * gardent leur nom (`TACTILE`). */
+export const BRANCHEE = {
+  joue: (nom: string, place: number) => `Ta ${nom} joue à la place ${place}.`,
+  verifier: "Vérifier les boutons",
+  tactile: `Les ${TACTILE}`,
+  tourne: "Tourne ton téléphone : l'image sera plus grande.",
+} as const;
+
 // ==== fin salle ====

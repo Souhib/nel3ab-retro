@@ -173,11 +173,34 @@ async function principal() {
   /** Une page neuve sur une salle remise à zéro, effets au niveau « tout ».
    * Les sockets de la page sont retenues, pour qu'une étape puisse rejouer un
    * message de la salle (la fermeture proche, que le banc n'envoie pas). */
-  async function nouvelle(vue, { salle = {}, niveau = "tout" } = {}) {
+  async function nouvelle(vue, { salle = {}, niveau = "tout", manette = false, stockage = {} } = {}) {
     banc.reinitialiser();
     banc.regler(salle);
     const page = await browser.newPage();
     await page.setViewport(vue);
+    // Une vraie manette, simulée : une manette Xbox standard que la boucle
+    // d'entrée lit par `navigator.getGamepads`, comme focus.mjs. Elle se
+    // branche et se débranche par `window.__brancher(oui)`.
+    if (manette)
+      await page.evaluateOnNewDocument(() => {
+        const pad = {
+          id: "Manette du banc (STANDARD GAMEPAD Vendor: 045e Product: 0b13)",
+          index: 0,
+          connected: true,
+          mapping: "standard",
+          axes: [0, 0, 0, 0],
+          buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+          timestamp: 0,
+          vibrationActuator: null,
+        };
+        let branchee = true;
+        window.__brancher = (oui) => {
+          branchee = oui;
+        };
+        Object.defineProperty(navigator, "getGamepads", {
+          value: () => [branchee ? pad : null, null, null, null],
+        });
+      });
     await page.evaluateOnNewDocument((niveau) => {
       try {
         // Un onglet neuf part d'un stockage vide: la colonne repliée par une
@@ -203,6 +226,14 @@ async function principal() {
         }
       };
     }, niveau);
+    // Après le stockage vidé de l'onglet neuf : les réglages de l'étape.
+    await page.evaluateOnNewDocument((stockage) => {
+      try {
+        for (const [cle, valeur] of Object.entries(stockage)) localStorage.setItem(cle, valeur);
+      } catch {
+        // Sans stockage, la page garde ses réglages par défaut.
+      }
+    }, stockage);
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const u = new URL(req.url());
@@ -736,6 +767,165 @@ async function principal() {
         });
         if (coupes.length) fautes.push(`${vue.width}×${vue.height}: sur l'image : ${coupes.join(", ")}`);
         await capture(page, "tenu-rien-sur-image");
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
+    /** en-jeu-manette.2 (audit N1) : une vraie manette branchée à 390×844,
+     * les touches à l'écran gardées (« toujours »). Pendant 6 s depuis que la
+     * page a vu la manette, le centre de L rend L : l'avis de branchement de
+     * la page d'avant le couvrait cinq secondes. La bande dit ensuite quelle
+     * manette joue, et à quelle place. */
+    async "manette-branchee"() {
+      const fautes = [];
+      const page = await nouvelle(
+        { width: 390, height: 844, isMobile: true, hasTouch: true },
+        { manette: true, stockage: { "nel3ab:touchpad": "on" } },
+      );
+      await entrer(page);
+      const L = '.n3-pave [data-touche="L"]';
+      if (!(await jusqua(() => page.$(L).then(Boolean), 4000)))
+        throw new Precondition("la touche L n'est pas montée");
+      const vue = () =>
+        page.evaluate(() => /connectée/.test(document.querySelector("#controller-status")?.textContent ?? ""));
+      if (!(await jusqua(vue, 4000))) throw new Precondition("la page n'a pas vu la manette simulée");
+      const dessus = new Set();
+      let tours = 0;
+      const fin = Date.now() + 6000;
+      while (Date.now() < fin) {
+        tours += 1;
+        const ici = await page.evaluate((sel) => {
+          const l = document.querySelector(sel);
+          const r = l.getBoundingClientRect();
+          const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          if (el && (el === l || l.contains(el))) return null;
+          const lieu = el?.closest("[id]");
+          return el ? `${el.tagName.toLowerCase()}${lieu ? ` dans #${lieu.id}` : ""}` : "rien";
+        }, L);
+        if (ici) dessus.add(ici);
+        await sleep(100);
+      }
+      if (tours < 20) throw new Precondition(`seulement ${tours} relevés de L en 6 s`);
+      if (dessus.size) fautes.push(`L couverte par ${[...dessus].join(", ")}`);
+      const bande = await page.evaluate(() => document.querySelector("#bande")?.textContent ?? "");
+      if (!/manette Xbox joue à la place \d/.test(bande))
+        fautes.push(`la bande ne dit pas quelle manette joue (« ${bande.slice(0, 80)} »)`);
+      await capture(page, "manette-branchee");
+      await page.close();
+      verdict(fautes);
+    },
+
+    /** en-jeu-manette.4 : une vraie manette, les touches à l'écran en
+     * automatique. Tenu droit (390×844) : aucune touche à l'écran, l'image
+     * sur toute la largeur, le conseil de tourner le téléphone. En travers
+     * (844×390) : l'image sur toute la hauteur, le panneau dans la bande
+     * gauche, sans conseil. Le jumeau : la même page, manette débranchée,
+     * monte ses touches et retire le conseil. */
+    async "manette-vraie"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 390, height: 844, isMobile: true, hasTouch: true },
+        { width: 844, height: 390, isMobile: true, hasTouch: true },
+      ]) {
+        const nom = `${vue.width}×${vue.height}`;
+        const droit = vue.height > vue.width;
+        const page = await nouvelle(vue, { manette: true });
+        await entrer(page);
+        const vue2 = () =>
+          page.evaluate(() => /connectée/.test(document.querySelector("#controller-status")?.textContent ?? ""));
+        if (!(await jusqua(vue2, 4000))) throw new Precondition(`${nom}: la page n'a pas vu la manette simulée`);
+        await sleep(600);
+        const lire = () =>
+          page.evaluate(() => {
+            const t = document.querySelector("#screen").getBoundingClientRect();
+            const p = document.querySelector(".n3-panneau-tenu")?.getBoundingClientRect() ?? null;
+            return {
+              pave: document.querySelector(".n3-pave") !== null,
+              conseil: document.querySelector("#tourneTelephone") !== null,
+              bande: document.querySelector("#manetteBande") !== null,
+              x: t.x,
+              w: t.width,
+              h: t.height,
+              panneauDroite: p ? p.right : null,
+              W: innerWidth,
+              H: innerHeight,
+            };
+          });
+        const lu = await lire();
+        if (lu.pave) fautes.push(`${nom}: des touches à l'écran avec une vraie manette`);
+        if (!lu.bande) fautes.push(`${nom}: la bande ne dit pas la manette`);
+        if (droit) {
+          if (Math.abs(lu.w - lu.W) > 1) fautes.push(`${nom}: image de ${lu.w} px de large sur ${lu.W}`);
+          if (!lu.conseil) fautes.push(`${nom}: pas de conseil de tourner le téléphone`);
+        } else {
+          if (Math.abs(lu.h - lu.H) > 1) fautes.push(`${nom}: image de ${lu.h} px de haut sur ${lu.H}`);
+          if (lu.conseil) fautes.push(`${nom}: conseil de tourner un téléphone déjà en travers`);
+          if (lu.panneauDroite === null || lu.panneauDroite > lu.x + 0.5)
+            fautes.push(`${nom}: le panneau n'est pas dans la bande gauche (${lu.panneauDroite} contre ${lu.x})`);
+        }
+        await capture(page, "manette-vraie");
+        // Le jumeau : débranchée, les touches reviennent, le conseil part.
+        await page.evaluate(() => window.__brancher(false));
+        const revenue = await jusqua(
+          () => lire().then((un) => un.pave && !un.conseil && !un.bande),
+          4000,
+        );
+        if (!revenue) fautes.push(`${nom}: manette débranchée, les touches ne reviennent pas (${JSON.stringify(await lire())})`);
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
+    /** feuille-du-bas.2 : pendant une partie, la feuille à mi-hauteur d'un
+     * téléphone tenu droit garde les 45 dernières secondes à un toucher, sur
+     * une cible de 44 px hors de l'image. Le toucher atteint le geste du clip
+     * (le banc ne sert pas de clip : l'entrée dit alors qu'il a raté). Le
+     * jumeau : en travers, la feuille n'a pas l'entrée, qui la faisait
+     * défiler. */
+    async "feuille-clip"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 390, height: 844, isMobile: true, hasTouch: true },
+        { width: 844, height: 390, isMobile: true, hasTouch: true },
+      ]) {
+        const nom = `${vue.width}×${vue.height}`;
+        const page = await nouvelle(vue);
+        await entrer(page);
+        const ouvre = (await page.$("#laSalle")) ? "#laSalle" : "#laSalleCote";
+        if (!(await page.$(ouvre))) throw new Precondition(`${nom}: pas de bouton « La salle »`);
+        await page.tap(ouvre);
+        if (!(await jusqua(() => page.$('#feuilleSalle[data-hauteur="mi"]').then(Boolean), 3000)))
+          throw new Precondition(`${nom}: la feuille ne s'ouvre pas à mi-hauteur`);
+        const lu = await page.evaluate(() => {
+          const e = document.querySelector('#feuilleSalle [data-entree="clip"]');
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          const t = document.querySelector("#screen").getBoundingClientRect();
+          const dessus = Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top) > 0.5 &&
+            Math.min(r.right, t.right) - Math.max(r.left, t.left) > 0.5;
+          const ici = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return { h: r.height, dessus, touche: ici === e || e.contains(ici), texte: e.textContent };
+        });
+        if (vue.height > vue.width) {
+          if (!lu) fautes.push(`${nom}: pas d'entrée du clip à mi-hauteur`);
+          else {
+            if (lu.h < 44) fautes.push(`${nom}: entrée du clip de ${lu.h} px`);
+            if (lu.dessus) fautes.push(`${nom}: l'entrée du clip est sur l'image`);
+            if (!lu.touche) fautes.push(`${nom}: l'entrée du clip ne reçoit pas son appui`);
+            if (!/45 dernières secondes/.test(lu.texte)) fautes.push(`${nom}: l'entrée dit « ${lu.texte} »`);
+            await page.tap('#feuilleSalle [data-entree="clip"]');
+            const repondu = await jusqua(
+              () =>
+                page.evaluate(
+                  () => !/45 dernières/.test(document.querySelector('#feuilleSalle [data-entree="clip"]')?.textContent ?? "45 dernières"),
+                ),
+              5000,
+            );
+            if (!repondu) fautes.push(`${nom}: toucher l'entrée du clip ne demande rien`);
+          }
+        } else if (lu) fautes.push(`${nom}: une entrée du clip dans la feuille en travers`);
+        await capture(page, "feuille-clip");
         await page.close();
       }
       verdict(fautes);

@@ -7,12 +7,50 @@ const TELEPHONE: EtatFeuille = {
   manette: "montree",
   plein: "api",
   pleinActif: false,
+  clip: { phase: "prêt" },
 };
+const CLIPS: EtatFeuille["clip"][] = [
+  null,
+  { phase: "prêt" },
+  { phase: "en cours" },
+  { phase: "attendre", seconds: 9 },
+  { phase: "fait", url: "blob:x", name: "c.mp4", bytes: 1 },
+  { phase: "raté", why: "La salle n'a pas pu." },
+];
 const ids = (etat: EtatFeuille) => entreesDeLaFeuille(etat).map((entree) => entree.id);
 
 describe("la feuille « La salle » à mi-hauteur", () => {
   it("porte chaque geste de la partie, puis la salle entière en dernier", () => {
-    expect(ids(TELEPHONE)).toEqual(["son", "menu", "manette", "plein-ecran", "toute-la-salle"]);
+    expect(ids(TELEPHONE)).toEqual([
+      "son",
+      "menu",
+      "clip",
+      "manette",
+      "plein-ecran",
+      "toute-la-salle",
+    ]);
+  });
+
+  it("garde les 45 dernières secondes à mi-hauteur, et seulement pendant une partie", () => {
+    const clip = (etat: EtatFeuille) => entreesDeLaFeuille(etat).find((une) => une.id === "clip");
+    expect(clip(TELEPHONE)?.titre).toBe("Garder les 45 dernières secondes");
+    expect(clip(TELEPHONE)?.inactif).toBeUndefined();
+    // Le jumeau : sans partie, rien à garder.
+    expect(ids({ ...TELEPHONE, clip: null })).not.toContain("clip");
+    // En travers, la colonne unique de la feuille défilait : le clip reste
+    // dans la salle entière.
+    expect(ids({ ...TELEPHONE, travers: true })).not.toContain("clip");
+    // Pendant l'emballage et le délai, le geste ne fait rien ; prêt, il
+    // enregistre ; raté, il le dit en alerte.
+    expect(clip({ ...TELEPHONE, clip: { phase: "en cours" } })?.inactif).toBe(true);
+    expect(clip({ ...TELEPHONE, clip: { phase: "attendre", seconds: 12 } })?.inactif).toBe(true);
+    const fait = clip({
+      ...TELEPHONE,
+      clip: { phase: "fait", url: "blob:x", name: "c.mp4", bytes: 1 },
+    });
+    expect(fait?.titre).toBe("Enregistrer le clip");
+    expect(fait?.inactif).toBeUndefined();
+    expect(clip({ ...TELEPHONE, clip: { phase: "raté", why: "non" } })?.alerte).toBe(true);
   });
 
   it("ne répète pas Signaler, qui vit en tête de la colonne de la feuille agrandie", () => {
@@ -91,7 +129,9 @@ describe("la feuille « La salle » à mi-hauteur", () => {
     const toutes = [true, false].flatMap((sonCoupe) =>
       (["montree", "cachee"] as const).flatMap((manette) =>
         (["api", "ecran-accueil"] as const).flatMap((plein) =>
-          entreesDeLaFeuille({ sonCoupe, manette, plein, pleinActif: false }),
+          CLIPS.flatMap((clip) =>
+            entreesDeLaFeuille({ sonCoupe, manette, plein, pleinActif: false, clip }),
+          ),
         ),
       ),
     );

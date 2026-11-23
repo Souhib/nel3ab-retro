@@ -709,3 +709,16 @@ toucher :
   `data-taille` et `data-piece`, que `PadMap.tsx` pose sur ses textes.
   Retirer ces attributs rend le plancher muet sans rien casser d'autre ;
   `inscriptions.test.tsx` le vérifie sur le vrai dessin.
+- **Les coins, la flèche et la liaison** (troisième passage). Chaque pièce
+  porte `.n3-coins` et `.n3-fleche`, cachés par `padmap.css` ; la feuille
+  les montre sous `data-selected`, `data-attendue` et `data-marque`. La
+  ligne de liaison est un calque `.n3-liaison` posé par `marques.ts` dans la
+  racine `.n3-dessins`, au-dessus des deux `svg`.
+- **La peinture n'écrit que ce qui change.** `paintWiring` et `paintPro`
+  passent par `poser` : `tenues.ts` observe `data-lit` sur le dessin de
+  gauche, et une écriture identique à chaque image le réveillerait autant.
+  Remettre une écriture inconditionnelle fait échouer
+  `wiring-pro.test.tsx`.
+- **Les pièces ne sont plus dans la tabulation** (`tabIndex` -1) : la table
+  « Toutes les correspondances » est le chemin du clavier. Un clic de souris
+  sur une pièce choisit encore sa ligne.

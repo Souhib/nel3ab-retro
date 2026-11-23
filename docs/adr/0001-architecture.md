@@ -2056,9 +2056,9 @@ neighbour: `clic-colonne` red without the hold).
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
-**Status:** first pass of the `manettes` work site, on `chantier/retro-manettes`.
-The panel that replaces the two modal dialogs comes in later passes; this
-entry will grow with it.
+**Status:** three passes of the `manettes` work site, on
+`chantier/retro-manettes`. The panel that replaces the two modal dialogs is
+written and not yet mounted; this entry will grow with it.
 
 **The on-demand module is not taken (K38).** The plan proposed a second
 artefact, `/reglage.js`, served by the worker and loaded on first opening, to
@@ -2143,6 +2143,25 @@ the panel is open. The wiring in `App.tsx` stays the branch's last commit.
 The page weighs 251 536 bytes brotli; a trial build that adds the panel
 without removing anything weighs 256 998, so the panel costs about 5 460
 bytes before the old dialogs and their `index.css` rules leave.
+
+**Third pass: marks on pixel corners, held rows, still unmounted.** Every
+drawn piece now carries its own pixel corners and stepped arrow, hidden by
+the stylesheet and shown for the chosen piece, the awaited command and the
+lesson marks; the felt rings are gone, and pieces left the tab order (the
+list acts, the drawing shows; a mouse click still picks the row). A pressed
+piece is joined to the awaited command by a dotted line in a layer over both
+`svg`. A held command marks its table row (`data-tenu`, a square in the seat
+colour) through a `MutationObserver` on the game drawing; to keep that cheap,
+the paint loops write `data-lit` and stick transforms only when they change.
+The panel also says the first pad seen while open (no scene, K09), draws an
+absent pad as a dithered silhouette, offers "Annuler" after deleting a
+profile (`InputStream.rendreKeys`, `SwitchInput.rendre`, neither overwriting
+a name taken meanwhile), says a copy waiting for the service with "Réessayer
+maintenant", shows the Pro numbers through the bench, and takes a state band
+from the room (its action then holds the only filled button). Menu sounds
+follow the loop's events: a coin for a retained answer, a low tone on unplug.
+The page weighs 251 754 bytes brotli; the trial build with the panel weighs
+258 610, so the panel costs about 6 860 bytes before the removals.
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

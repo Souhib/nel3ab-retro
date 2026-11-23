@@ -242,7 +242,15 @@ React, le plancher de 9 px des inscriptions, la scène fier par l'arbitre) ;
 `placeDuReglage` et `largeurPanneau` attendent le câblage. Restent : le
 câblage dans `App.tsx` (dernier commit), le retrait des deux dialogues, les
 pilotes et la recette `reglage-navigateur`. Page : 251 536 octets. Récit :
-« 23 novembre, tard : les manettes, deuxième passage ».
+« 23 novembre, tard : les manettes, deuxième passage ». Troisième passage,
+toujours sans montage : coins en pixels, flèche et ligne de liaison sur les
+dessins (l'anneau au feutre est retiré, les pièces sortent de la
+tabulation) ; carré de la commande tenue dans la table (`tenues.ts`) ; la
+première manette dite ; silhouette tramée sans manette ; « Annuler » après
+« Supprimer » ; « Réessayer maintenant » ; le banc pour la trame Pro ; la
+bande d'état ; les sons du socle. Page : 251 754 octets ; le panneau, encore
+hors de la page, coûterait environ 6 860 octets avant les retraits. Récit :
+« 23 novembre, très tard : les manettes, troisième passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

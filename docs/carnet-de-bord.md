@@ -29638,6 +29638,83 @@ environ 5 460 octets avant les retraits de `Bindings`, de la partie réglage
 de `SwitchBindings` et de leurs règles d'`index.css`, qui viendront avec le
 câblage.
 
+### 23 novembre, très tard : les manettes, troisième passage
+
+**Le contexte.** Le panneau existe, mais aucune page ne le monte encore. Ce
+passage finit ce qu'il montre, avant le commit de câblage d'`App.tsx`, qui
+reste le dernier de la branche.
+
+**Des coins en pixels au lieu de l'anneau au feutre.** Chaque pièce des
+dessins porte maintenant ses quatre coins et sa flèche en escalier, cachés.
+La feuille les montre sur la pièce choisie, sur la commande attendue et sous
+les marques du pas à pas. Poser une marque ne change donc qu'un attribut.
+Les pièces sortent de l'ordre de tabulation : le dessin montre, la liste
+agit. Un clic de souris sur une pièce choisit toujours sa ligne.
+
+**La ligne de liaison.** À l'appui pendant le pas à pas, une ligne
+pointillée relie la pièce de ta manette (à droite) à la commande attendue
+(à gauche), puis s'efface avec les coins. Les deux dessins sont deux `svg`
+distincts : la ligne vit dans un calque posé sur les deux. Sans commande
+attendue, rien n'est tiré.
+
+**La commande tenue, dans sa ligne.** Un carré à la couleur de la place se
+pose devant la ligne d'une commande tenue. Il est posé hors de React par un
+`MutationObserver` (l'outil du navigateur qui prévient quand un attribut
+change) sur le dessin du jeu. Un piège est apparu en l'écrivant : la boucle
+de peinture réécrivait `data-lit` à chaque image, même inchangé, et chaque
+écriture réveillait l'observateur. La peinture n'écrit plus un attribut qui
+ne change pas ; un essai compte les écritures.
+
+**Un essai qui passait seul et échouait dans la suite.** Le premier essai du
+carré allumait une pièce à la main, puis attendait. Seul, il passait ; dans
+la suite complète, la vraie boucle de peinture, plus rapide sous la charge,
+éteignait la pièce avant la lecture. L'essai pilote maintenant la vraie
+boucle avec une manette doublée qui tient B. Leçon : un attribut que
+possède une boucle ne se pose pas à la main dans un essai, il se fait poser
+par elle.
+
+**Le reste de l'écran.** La première manette vue pendant que le panneau est
+ouvert se dit : « Manette Xbox branchée : elle apparaît à droite. » Aucune
+scène ne joue (K09). Sans manette, le dessin de droite est la coque seule,
+en damier sous l'effet « tramage ». Supprimer un profil laisse « Annuler »,
+qui le rend tel qu'il était. Une copie qui attend le service se dit
+(« Gardé ici, envoi au prochain passage. ») avec « Réessayer maintenant ».
+Les nombres de la manette Pro passent par le banc au lieu d'un bloc JSON
+(JavaScript Object Notation, le format texte des données). Quand la salle
+ne vit pas, une bande en tête dit son état, et son action prend le seul
+bouton plein. Les sons du socle suivent la boucle : une pièce pour une
+réponse retenue, un son grave au débranchement.
+
+**Un contrôle de type qui ne contrôlait rien.** `tsc --noEmit -p .` passait
+sur un type importé d'un module qui ne l'exporte pas : à la racine du front,
+ce fichier de configuration ne désigne aucun fichier. La construction de la
+page, qui lance `tsc -b`, l'a refusé. Le contrôle de type à lancer est
+`tsc -b`.
+
+**Les mutants.** Quatorze mutants lancés contre les essais neufs. Cinq ont
+d'abord survécu. Une liaison tirée sans commande attendue levait avant de
+poser quoi que ce soit, et ressemblait donc au bon code ; l'essai vérifie
+maintenant que la pièce appuyée a quand même ses coins. Une commande
+attendue gardée après la fin n'était pas essayée ; l'essai appuie
+maintenant après la fin. Deux gardes « n'écrase pas un nom repris » étaient
+essayées avec le même contenu ; l'essai rend maintenant un autre contenu
+sous le même nom. Le cinquième était équivalent : une relecture redondante
+de « Réessayer maintenant », retirée plutôt que gardée.
+
+**Une erreur de lint lue à travers un filtre.** `npm run lint` signalait une
+variable qui en cachait une autre (`no-shadow`), mais sa sortie passait par
+`grep` et `head`, qui n'en gardaient que des avertissements. `just check` l'a
+refusée. La règle du dépôt le disait déjà pour une porte : ne pas filtrer sa
+sortie avant de l'avoir lue, et lire son code de sortie.
+
+**Le poids.** La page passe de 251 536 à 251 754 octets en brotli (+218) :
+les coins et la flèche de chaque pièce, la silhouette. Le panneau n'y est
+toujours pas : une construction d'essai qui l'importe, sans rien retirer,
+pèse 258 610 octets, soit environ 6 860 octets pour le panneau (5 460 au
+passage précédent). Les retraits de `Bindings`, de la partie réglage de
+`SwitchBindings` et de leurs règles d'`index.css` viendront avec le
+câblage.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31323,3 +31400,8 @@ seul onglet est dans l'ordre de tabulation ; les flèches passent aux autres.
 
 **ResizeObserver** : l'outil du navigateur qui prévient une page quand une
 boîte change de taille, sans qu'elle ait à la mesurer à chaque image.
+
+**MutationObserver** : l'outil du navigateur qui prévient une page quand un
+élément ou un attribut change, sans qu'elle ait à le relire à chaque image.
+Il prévient aussi pour une écriture qui ne change rien : la page n'écrit donc
+que ce qui change.

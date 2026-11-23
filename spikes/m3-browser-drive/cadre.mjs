@@ -940,12 +940,18 @@ async function principal() {
       // Le câblage des deux gestes de la bande, touchés pour de vrai. Les
       // touches à l'écran, réglées sur « toujours », se cachent (et
       // reviennent à l'automatique, que la manette branchée efface).
-      if (await page.$("#manetteTactile")) {
+      // Chaque geste absent est une faute : derrière un `if`, deux gestes
+      // retirés laissaient l'étape verte (relecture du 23 novembre 2026).
+      if (!(await page.$("#manetteTactile"))) fautes.push("la bande n'a pas le bouton des commandes tactiles");
+      else {
         await page.tap("#manetteTactile");
         if (!(await jusqua(() => page.$(".n3-pave").then((un) => un === null), 3000)))
           fautes.push("« Les commandes tactiles » ne cache pas les touches à l'écran");
-        // « Vérifier les boutons » ouvre la vue de la manette dans la salle
-        // entière.
+      }
+      // « Vérifier les boutons » ouvre la vue de la manette dans la salle
+      // entière.
+      if (!(await page.$("#verifierManette"))) fautes.push("la bande n'a pas « Vérifier les boutons »");
+      else {
         await page.tap("#verifierManette");
         const ouverte = await jusqua(
           () =>

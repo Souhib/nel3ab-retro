@@ -120,7 +120,10 @@ def ecrire(fd: int, nom: str, contenu: bytes) -> None:
 
     Écrit à côté sous un nom neuf (`O_EXCL`), puis renomme par-dessus. Un
     renommage remplace un lien laissé à ce nom au lieu de le suivre, et un
-    lecteur ne voit jamais un fichier à moitié écrit. Lève `OSError`.
+    lecteur ne voit jamais un fichier à moitié écrit. `write(2)` peut écrire
+    moins qu'on lui donne (un disque qui se remplit): on reprend jusqu'au bout,
+    et l'appel suivant lève, plutôt que de renommer un fichier coupé. Lève
+    `OSError`.
     """
     provisoire = f".{nom}.{secrets.token_hex(6)}"
     descripteur = os.open(
@@ -131,7 +134,9 @@ def ecrire(fd: int, nom: str, contenu: bytes) -> None:
     )
     try:
         try:
-            os.write(descripteur, contenu)
+            reste = memoryview(contenu)
+            while reste:
+                reste = reste[os.write(descripteur, reste) :]
         finally:
             os.close(descripteur)
         os.replace(provisoire, nom, src_dir_fd=fd, dst_dir_fd=fd)

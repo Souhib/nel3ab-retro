@@ -28530,6 +28530,24 @@ ou l'autre ; un fichier présent mais absent du catalogue (une copie en cours)
 a maintenant son propre essai. Le bouton de la page de dépôt reste au chantier
 du salon, qui tient cette page.
 
+**Deux défauts du dépôt, trouvés en relisant.** Le lendemain du dépôt
+d'image, une relecture de ce chantier en a trouvé deux, chacun montré rouge
+par un essai avant d'être corrigé. Le premier : pour savoir où poser l'image,
+le salon prenait le premier dossier de jeux qui avait une entrée à ce nom, du
+moment que ce n'était pas un dossier. Le worker, lui, ne garde que des
+fichiers ordinaires. Un lien symbolique au même nom dans un dossier plus tôt
+recevait donc l'image, et la salle ne l'aurait jamais montrée, puisqu'elle lit
+celle d'à côté du vrai fichier. Le salon cherche maintenant le même fichier
+que le worker. Le second : l'écriture appelait `write(2)` une seule fois. Cet
+appel système peut écrire moins d'octets qu'on lui en donne, par exemple
+quand le disque se remplit, et il le dit par le nombre qu'il rend ; ce nombre
+était ignoré. Une image coupée aurait été renommée à sa place et le salon
+aurait répondu « fait ». L'écriture reprend maintenant jusqu'au dernier
+octet, et l'appel suivant lève sur un disque plein, qui laisse l'image
+d'avant entière. Les deux essais font écrire mille octets par appel, ou
+lever au deuxième ; la même fonction écrit aussi l'ordre d'ouverture et le
+repère d'ouverture.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

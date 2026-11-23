@@ -247,14 +247,17 @@ def _dossier_du_jeu(rom_dir: str, key: str) -> Path | None:
     """Le premier dossier de jeux qui contient ce fichier, dans l'ordre du balayage.
 
     `key` vient du catalogue, donc d'un nom de fichier sans séparateur: elle
-    désigne une entrée de ce dossier et rien d'autre.
+    désigne une entrée de ce dossier et rien d'autre. Seul un fichier
+    ordinaire compte, comme dans `library::scan` du worker: un lien au même nom
+    dans un dossier plus tôt n'est pas le jeu qu'il a gardé, et une image posée
+    à côté de ce lien ne s'afficherait jamais.
     """
     for dossier in dossiers(rom_dir):
         try:
             mode = os.stat(dossier / key, follow_symlinks=False).st_mode
         except OSError:
             continue
-        if not stat.S_ISDIR(mode):
+        if stat.S_ISREG(mode):
             return dossier
     return None
 

@@ -487,6 +487,88 @@ async def test_a_file_the_catalogue_does_not_list_gets_no_picture(
     assert not (jeux / "Copie.rvz.nel3ab.png").exists()
 
 
+def test_the_picture_goes_beside_the_file_the_worker_kept(tmp_path: Path) -> None:
+    """Le worker ne garde que des fichiers ordinaires (`library::scan`): un lien
+    au même nom dans un dossier plus tôt n'est pas le jeu, et l'image posée à
+    côté de lui ne s'afficherait jamais."""
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    avant, apres, ailleurs = tmp_path / "avant", tmp_path / "apres", tmp_path / "ailleurs"
+    for dossier in (avant, apres, ailleurs):
+        dossier.mkdir()
+    (ailleurs / "Melee.rvz").write_bytes(b"un disque")
+    (avant / "Melee.rvz").symlink_to(ailleurs / "Melee.rvz")
+    (apres / "Melee.rvz").write_bytes(b"un disque")
+
+    assert deposer_image(tmp_path / "salles", f"{avant}:{apres}", "Melee.rvz", UN_PIXEL)
+
+    assert (apres / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+    assert not (avant / "Melee.rvz.nel3ab.png").exists()
+    assert not (ailleurs / "Melee.rvz.nel3ab.png").exists()
+
+
+def test_a_game_that_is_only_a_link_gets_no_picture(tmp_path: Path) -> None:
+    """Le jumeau: sans fichier ordinaire, le jeu est introuvable, même listé."""
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    jeux, ailleurs = tmp_path / "gc", tmp_path / "ailleurs"
+    jeux.mkdir()
+    ailleurs.mkdir()
+    (ailleurs / "Melee.rvz").write_bytes(b"un disque")
+    (jeux / "Melee.rvz").symlink_to(ailleurs / "Melee.rvz")
+
+    assert not deposer_image(tmp_path / "salles", str(jeux), "Melee.rvz", UN_PIXEL)
+
+    assert sorted(p.name for p in jeux.iterdir()) == ["Melee.rvz"]
+    assert not (ailleurs / "Melee.rvz.nel3ab.png").exists()
+
+
+def _un_jeu_range(tmp_path: Path) -> Path:
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    jeux = tmp_path / "gc"
+    jeux.mkdir()
+    (jeux / "Melee.rvz").write_bytes(b"un disque")
+    return jeux
+
+
+def test_a_short_write_is_carried_on_not_published_half(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`write(2)` peut écrire moins qu'on lui donne, sur un disque qui se
+    remplit par exemple: le reste suit, et l'image n'est jamais publiée coupée."""
+    jeux = _un_jeu_range(tmp_path)
+    corps = png_de(8, 8, 4000)
+    ecrire_vraiment = os.write
+    monkeypatch.setattr(os, "write", lambda fd, data: ecrire_vraiment(fd, bytes(data[:1000])))
+
+    assert deposer_image(tmp_path / "salles", str(jeux), "Melee.rvz", corps)
+
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == corps
+
+
+def test_a_failed_write_keeps_the_previous_picture_and_leaves_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le jumeau: un disque plein lève, l'image d'avant reste entière, et le
+    nom d'écriture ne traîne pas à côté du jeu."""
+    jeux = _un_jeu_range(tmp_path)
+    (jeux / "Melee.rvz.nel3ab.png").write_bytes(UN_PIXEL)
+    ecrire_vraiment = os.write
+    appels = []
+
+    def disque_plein(fd: int, data: bytes) -> int:
+        appels.append(len(data))
+        if len(appels) > 1:
+            raise OSError(28, "No space left on device")
+        return ecrire_vraiment(fd, bytes(data[:1000]))
+
+    monkeypatch.setattr(os, "write", disque_plein)
+
+    with pytest.raises(OSError, match="No space"):
+        deposer_image(tmp_path / "salles", str(jeux), "Melee.rvz", png_de(8, 8, 4000))
+
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+    assert sorted(p.name for p in jeux.iterdir()) == ["Melee.rvz", "Melee.rvz.nel3ab.png"]
+
+
 def test_the_check_refuses_more_than_a_mib_without_the_route(tmp_path: Path) -> None:
     """La route coupe le corps avant; le contrôle tient seul, pour tout autre appelant."""
     room(tmp_path / "salles", "1", library(100, "Melee.rvz"))

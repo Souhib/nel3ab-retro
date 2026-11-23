@@ -3169,7 +3169,13 @@ function Room({
           {/* Les arrivées et les départs, suivis sous le cadre pour son
               arbitre des scènes. */}
           <SuiviPlaces
-            occupation={{ tenues: occupied, noms: names, premieres }}
+            // Ni la salle du salon ni l'instantané de la page : la salle
+            // n'est pas encore connue, et rien ne s'y compare.
+            occupation={
+              room !== undefined && shot !== null
+                ? { tenues: occupied, noms: names, premieres }
+                : null
+            }
             mienne={port}
             regardent={people.filter((p) => p.seat == null).map((p) => p.name)}
             salle={String(salle())}

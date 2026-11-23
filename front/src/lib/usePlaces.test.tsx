@@ -193,6 +193,42 @@ describe("usePlaces", () => {
     expect(result.current.vient.size).toBe(0);
   });
 
+  it("une salle encore inconnue, puis pleine : personne n'arrive ; ensuite, une vraie arrivée se voit", () => {
+    const { demander, arbitre: a } = arbitre();
+    const annoncer = vi.fn();
+    const plein = occ(
+      [true, true, false, false],
+      [
+        [1, "A"],
+        [2, "B"],
+      ],
+    );
+    const { result, rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a, annoncer, occupation: null }),
+    });
+    rerender(suivi({ arbitre: a, annoncer, occupation: plein }));
+    expect(annoncer).not.toHaveBeenCalled();
+    expect(demander).not.toHaveBeenCalled();
+    expect(result.current.vient.size).toBe(0);
+    // Le jumeau : la référence est bien posée, la place 3 arrive.
+    rerender(
+      suivi({
+        arbitre: a,
+        annoncer,
+        occupation: occ(
+          [true, true, true, false],
+          [
+            [1, "A"],
+            [2, "B"],
+            [3, "C"],
+          ],
+        ),
+      }),
+    );
+    expect([...result.current.vient]).toEqual([3]);
+    expect(annoncer.mock.calls).toEqual([["C prend la place 3.", "ordinaire"]]);
+  });
+
   it("un démarrage de jeu ne joue ni départ ni arrivée, et la référence repart de zéro", () => {
     const { demander, arbitre: a } = arbitre();
     const annoncer = vi.fn();

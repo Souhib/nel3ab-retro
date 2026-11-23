@@ -46,8 +46,11 @@ export type Nature = "ordinaire" | "urgente";
 export type Annoncer = (phrase: string, nature: Nature) => void;
 
 export type SuiviDesPlaces = {
-  /** Les places tenues, la mienne comprise, et leurs noms. */
-  occupation: Occupation;
+  /** Les places tenues, la mienne comprise, et leurs noms ; `null` tant que
+   * la page ne connaît pas la salle. Une salle inconnue n'est pas une salle
+   * vide : prise pour vide, elle faisait arriver tout le monde au
+   * chargement (23 novembre 2026). */
+  occupation: Occupation | null;
   /** Ma place, ou `null` quand je regarde. */
   mienne: number | null;
   /** Les noms de ceux qui regardent sans place. */
@@ -153,14 +156,16 @@ export function usePlaces(s: SuiviDesPlaces): {
   const cle = JSON.stringify([
     s.stable,
     s.mienne,
-    s.occupation.tenues,
-    [...s.occupation.noms.entries()],
+    s.occupation?.tenues ?? null,
+    s.occupation === null ? null : [...s.occupation.noms.entries()],
     [...s.regardent].sort(),
   ]);
 
   useEffect(() => {
     const e = actuel.current;
-    if (!e.stable) {
+    // Rien n'est comparé à une salle qu'on ne connaît pas encore : le premier
+    // état CONNU sert de référence, et ne fait rien.
+    if (!e.stable || e.occupation === null) {
       avant.current = null;
       return;
     }

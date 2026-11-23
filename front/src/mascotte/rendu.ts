@@ -60,6 +60,28 @@ const echelleTete = (w: number, h: number) => Math.max(0.75, Math.min(w / TW, h 
 const racineDe = (el: Element): ParentNode => el.closest("[data-cadre]") ?? el.ownerDocument;
 const auSalon = (el: Element) => el.closest("[data-cadre]") === null;
 
+/**
+ * Le sol du logo : la ligne où Aïn pose les pieds dans le 3, sur toute la
+ * largeur de la maison, et une marque devant le logo (« devant », où il
+ * attend quand la salle décroche). Posés par le rendu, à l'échelle du logo.
+ */
+function poserSols(hote: HTMLElement, c: number) {
+  let sol = hote.querySelector<HTMLElement>(":scope > [data-sol]");
+  if (!sol) {
+    sol = document.createElement("i");
+    sol.dataset.sol = "coin";
+    sol.className = "rt-ain-sol";
+    const devant = document.createElement("i");
+    devant.dataset.ancre = "devant";
+    devant.className = "rt-ain-sol";
+    devant.style.left = "18%";
+    devant.style.width = "2px";
+    hote.append(sol, devant);
+  }
+  for (const i of hote.querySelectorAll<HTMLElement>(":scope > .rt-ain-sol"))
+    i.style.top = `${25 * c}px`;
+}
+
 function creer(hote: HTMLElement, el: HTMLElement, sorte: string): Theatre {
   const mode = sorte === "barre" ? "tete" : sorte === "plateau" ? "plateau" : "logo";
   const racine = racineDe(hote);
@@ -70,6 +92,7 @@ function creer(hote: HTMLElement, el: HTMLElement, sorte: string): Theatre {
         ? echelleTete(hote.clientWidth, hote.clientHeight)
         : echelleLogo(hote.clientWidth);
     el.style.width = `${(mode === "tete" ? TW : LOGO_W) * c}px`;
+    if (mode === "logo") poserSols(hote, c);
   }
   const decor = () =>
     mode === "plateau"
@@ -156,8 +179,10 @@ const surLImage = (th: Theatre) => {
  * toucherait maintenant l'image. */
 function rajuster(th: Theatre) {
   if (th.mode === "logo" && th.maison instanceof HTMLCanvasElement) {
-    const c = echelleLogo(th.maison.parentElement?.clientWidth ?? 0);
+    const hote = th.maison.parentElement;
+    const c = echelleLogo(hote?.clientWidth ?? 0);
     th.maison.style.width = `${LOGO_W * c}px`;
+    if (hote) poserSols(hote, c);
   }
   th.relire();
   if (th.dehors && !th.joue && surLImage(th)) th.rentrer();

@@ -369,11 +369,14 @@ async def test_les_sauvegardes_viennent_du_disque_sans_rien_ouvrir(
     assert set(par_titre) == {"Mario Kart: Double Dash!!", "0100BDE00862A000"}
     mario = par_titre["Mario Kart: Double Dash!!"]
     assert (mario["relie"], mario["console"]["code"]) == (True, "gc")
+    # D19: la clé du jeu, pour savoir si « ma sauvegarde » existe pour lui.
+    assert mario["cle"] == "Mario Kart Double Dash.rvz"
     assert mario["sauvegarde"]["versions"] == 2
     assert mario["sauvegarde"]["octets"] == len(b"progression")
     assert mario["sauvegarde"]["derniere_ecriture"].startswith("2025-11-13")
     switch_vue = par_titre["0100BDE00862A000"]
     assert (switch_vue["relie"], switch_vue["console"]["code"]) == (False, "switch")
+    assert switch_vue["cle"] is None, "pas relié: pas de clé"
     assert switch_vue["sauvegarde"]["octets"] == 1000
     assert switch_vue["sauvegarde"]["copies"] == 2
 
@@ -487,6 +490,7 @@ async def test_une_sauvegarde_switch_porte_le_nom_du_jeu_que_le_catalogue_publie
     assert len(vues) == 1
     assert vues[0]["relie"] is relie
     assert vues[0]["titre"] == ("Mario Tennis Aces" if relie else "0100BDE00862A000")
+    assert vues[0]["cle"] == ("Mario Tennis Aces.xci" if relie else None)
     assert vues[0]["console"]["code"] == "switch"
     catalogue = (await client.get("/api/catalogue")).json()
     assert [jeu["key"] for jeu in catalogue["games"]] == ["Mario Tennis Aces.xci"]
@@ -576,6 +580,7 @@ async def test_sans_le_jeu_au_catalogue_la_sauvegarde_xbox_360_garde_son_titre(
     (vue,) = (await client.get("/api/me/sauvegardes", headers=ALICE)).json()
 
     assert (vue["titre"], vue["relie"], vue["console"]["code"]) == ("534507D6", False, "x360")
+    assert vue["cle"] is None
 
 
 @pytest.mark.parametrize(

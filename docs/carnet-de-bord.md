@@ -28252,6 +28252,430 @@ chantier mélangera une couleur dans un composant (une opacité, un
 `color-mix`), seul `contraste.mjs --simule` le verra. Les icônes n'ont été
 vues qu'en texte, pas à leur taille réelle.
 
+### 23 novembre, le soir : ce que le salon publie de chaque salle
+
+**Le contexte.** Les écrans du thème rétro lisent sur chaque salle des choses
+que le salon ne publiait pas encore : qui est le chef, qui tient quelle
+manette, le dernier jeu, l'heure de fermeture. Le chantier « données » les
+ajoute au salon, sans toucher à la page. Ce qui suit raconte chaque champ dans
+l'ordre où il est entré.
+
+**« Ouverte depuis » ne disait pas depuis quand la salle était ouverte.**
+L'accueil affiche « EN ANTENNE DEPUIS » sur chaque salle ouverte. Le salon
+lisait cette durée dans systemd, le programme qui lance les salles : l'heure à
+laquelle le worker de la salle est devenu actif. Or le worker s'arrête à chaque
+changement de jeu, et systemd le relance deux secondes plus tard. La salle 1,
+ouverte le 22 novembre à 07:05:47, disait donc son âge depuis 07:09:08, sa
+deuxième relance. Ce n'était pas faux, c'était autre chose : le temps du jeu en
+cours. Ce chiffre garde son utilité et change de nom (`jeu_depuis`). La vraie
+heure d'ouverture vient d'un petit fichier, `ouverte-le`, que le salon pose
+dans le dossier de la salle quand il l'ouvre et retire quand il la ferme.
+
+**Le faux systemd des essais ne relançait jamais rien.** Les essais du salon
+remplacent systemd par un faux qui répond ce qu'on lui dit. Celui-ci donnait à
+chaque salle un âge fixe : il ne pouvait pas montrer qu'un changement de jeu
+remet l'horloge à zéro. Il suit maintenant le vrai, relu sans rien changer sur
+la machine : une relance déplace les trois horodatages, une salle fermée faute
+d'activité finit « failed » avec le code 42, et un appel à systemd prend du
+temps. Avec ce faux, l'essai « l'ouverture survit à un changement de jeu »
+échouait sur l'ancien code (`assert 0 == 602`), puis passe.
+
+**Le plan prévoyait une garde qui aurait tout cassé.** Pour écarter un vieux
+repère (une salle fermée toute seule, puis rallumée à la main), le plan
+proposait de l'ignorer s'il était plus ancien que la dernière entrée de
+l'unité dans l'état inactif. Le journal de la salle 1 montre qu'une relance
+passe par cet état le temps d'un pas : « Deactivated successfully » à
+07:09:06.65, sortie de l'inactif à 07:09:06. Cette garde aurait effacé l'heure
+d'ouverture dès le premier changement de jeu. La garde retenue regarde la
+DURÉE de la dernière pause : un pas pour une relance, des minutes pour une
+salle fermée. Elle a un trou, écrit dans l'ADR (D38) : une salle rallumée à la
+main puis changée de jeu avant que personne ne regarde.
+
+**Un piège de systemd en passant.** `systemctl show` peut rendre plusieurs
+propriétés d'un coup, et l'option `--value` n'en garde que les valeurs. Mais
+elles sortent dans l'ordre de systemd, pas dans celui qu'on a demandé. Le salon
+lit donc les lignes `Nom=valeur`, et le faux rend le même ordre que le vrai,
+pour qu'une lecture par position échoue dans les essais.
+
+**Le marqueur « sans jeu » suivait les liens.** En ouvrant une salle, le salon
+pose un fichier vide, `game-closed`, pour qu'elle arrive sur son menu. Il le
+posait avec `touch`, qui suit un lien : un moteur qui aurait laissé un lien à
+ce nom faisait créer un fichier ailleurs sur la machine (la règle D36 du
+22 novembre). Le marqueur est maintenant retiré puis recréé dans le dossier
+même, et les lectures du jeu retenu, du marqueur et du repère d'ouverture
+passent par `session_salle.py`, qui n'y suit aucun lien. (Cette phrase disait
+d'abord « les lectures du dossier de salle passent toutes » par ce module. La
+bibliothèque, `catalogue.json`, était encore lue par son chemin : voir « La
+bibliothèque lue par son chemin » plus bas.) Huit mutants ont été réintroduits
+un par un, et chacun a fait échouer l'essai qui le nomme. L'un d'eux, le repère
+posé avant le démarrage, passait d'abord : le faux changeait l'état de l'unité
+à l'instant même de l'appel. C'est ce qui lui a appris que systemd prend du
+temps.
+
+**Fermée, qui redémarre, ou allumée mais muette.** L'accueil ne savait pas
+distinguer une salle allumée qui ne répond pas d'une salle sur son menu : les
+deux avaient un jeu vide. Le champ `repond` le dit, et il vaut « on ne sait
+pas » quand le salon n'a pas posé la question (salle fermée). Une réponse
+qui n'était pas un objet JSON faisait tomber toute la liste ; elle compte
+maintenant comme une salle muette. L'heure et la raison de la fermeture
+(`fermee_depuis`, `fermee_pour`) viennent de la même question à systemd :
+le code 42 veut dire « personne n'a joué pendant une demi-heure », une sortie
+propre veut dire « quelqu'un l'a fermée », le reste est une panne. Un détail a
+demandé un essai à lui : une salle en train de se fermer (« deactivating »)
+garde l'heure de son dernier changement de jeu comme dernière entrée dans
+l'inactif. La lire aurait dit « fermée depuis vingt minutes » d'une salle qui
+se fermait à l'instant. Le mutant qui la lisait a échoué sur cet essai. Un
+autre mutant, qui taisait la panne au lieu de la dire, passait : le code
+appelant confondait « pas demandé » et « pas répondu ». Il a été simplifié, et
+le mutant échoue maintenant.
+
+**Le dernier jeu d'une salle était déjà sur le disque.** Avant de s'arrêter
+pour changer de jeu, le worker écrit la clé du jeu choisi dans un fichier de
+son dossier, `chosen-rom`, pour le relancer au démarrage suivant. Ce fichier
+survit à la fermeture : le salon le lit maintenant pour dire « le dernier jeu
+de cette salle ». La date est celle du choix, pas celle de la fin de la
+partie ; la phrase juste est donc « lancé jeudi soir ». Le titre vient de la
+bibliothèque : un jeu retiré depuis ne se dit pas, plutôt que d'afficher un
+nom de fichier. À côté se trouve `chosen-person`, l'adresse de qui a lancé ;
+le salon ne l'ouvre jamais, et un essai vérifie qu'aucune adresse ne sort de
+la liste. Le même fichier règle un défaut de l'accueil : pendant les deux
+secondes d'une relance, une salle qui changeait de jeu y apparaissait sans
+jeu. Elle dit maintenant le jeu qui revient, sauf si le marqueur « sans jeu »
+est posé, c'est-à-dire si elle revient sur son menu. La liste dit aussi la
+console et la clé du jeu en cours (l'accueil dessinera une cartouche ou une
+boîte selon la console).
+
+**Qui est là, sans rien demander de plus à la salle.** L'accueil donnait les
+pseudos des présents, sans dire qui tenait quelle manette ni qui choisissait
+le jeu. Le salon le savait déjà : c'est lui qui retient le chef de chaque
+salle et le nom de qui a annoncé chaque manette. La liste publie maintenant le
+chef, les quatre manettes et ceux qui regardent. Une précaution a demandé un
+essai à elle : une salle ouverte où personne n'est connecté. Le salon ne lit
+les manettes du worker qu'une fois par seconde, et seulement quand quelqu'un
+est là ; sa dernière lecture peut dater de plusieurs minutes. Plutôt que de
+montrer des manettes tenues qui ne le sont plus, la liste dit « on ne sait
+pas ». Quelqu'un qui vient d'arriver et attend sa manette n'est pas compté
+comme spectateur.
+
+**Qui a lancé, pour la page qui arrive après.** Quand quelqu'un lance un jeu,
+le salon prévient les pages présentes : « Sami l'a lancé sur sa sauvegarde ».
+Une page qui arrivait ou rechargeait après ce moment ne le savait pas. La
+salle publie maintenant ce lancement (`Room.lancement`) tant que le jeu
+tourne. Le salon le retenait déjà, mais pour chaque jeu, pas pour le jeu en
+cours : Melee lancé par Sami, puis Mario Kart, puis Melee revenu par le menu
+du worker sans passer par le salon, aurait encore dit « lancé par Sami ». La
+salle compte donc les changements de jeu qu'elle voit, et un lancement ne
+vaut que pour le changement qui le suit. Après un redémarrage du salon, rien :
+la page dit « sauvegarde inconnue » plutôt que d'inventer. L'adresse de qui a
+lancé reste en mémoire pour calculer son repère, et un essai vérifie que ni
+elle ni son empreinte ne sortent.
+
+**« Au menu », et le motif d'un signalement.** Deux petits messages de la page
+vers le salon. Le premier dit « j'ai ouvert mon menu », pour que les autres
+voient pourquoi quelqu'un ne joue plus ; la marque tombe quand la page le
+referme, part ou perd sa manette. Sa cadence est comptée par mot, comme celle
+du format réduit : ouvrir puis refermer dans la même demi-seconde aurait sinon
+laissé la marque sur quelqu'un revenu au jeu, et un essai le vérifie. Un
+mutant qui oubliait d'effacer la marque au départ passait d'abord : le calcul
+par personne ignorait déjà la page partie, mais l'ensemble des pages « au
+menu » grossissait à chaque fermeture. L'essai vérifie maintenant que
+l'ensemble se vide. Le second message donne le motif d'un signalement (image,
+son, manette, autre), écrit au journal des séances à côté de la trace. Et
+tout refus « trop rapproché » dit maintenant combien de secondes attendre ;
+le premier essai ne laissait pas passer de temps entre les deux demandes, et
+une attente figée à vingt secondes le passait. Il attend une seconde et demie.
+
+**Ma sauvegarde, pour ce jeu-là.** Le carnet liste les sauvegardes
+personnelles de chacun, avec leur titre, mais sans la clé du jeu : une page
+qui montre un jeu ne pouvait pas dire si « ma sauvegarde » existe pour lui.
+Chaque emplacement relié au catalogue porte maintenant cette clé ; un
+emplacement que le salon ne sait pas relier n'en a pas, plutôt qu'une clé
+devinée.
+
+**Le worker dit où en est son démarrage.** L'écran de chargement devinait
+l'étape « le jeu s'est lancé dans la salle » : la page ne sait que ce qu'elle
+peint, et le salon sait seulement que le worker a accepté le lancement. Le
+worker, lui, sait quand il a démarré, quand l'émulateur est parti et quand la
+première image est sortie. Il le dit maintenant dans `/roms`, la réponse que le
+salon lit déjà une fois par seconde. Trois choix. Les champs s'ajoutent au
+moment de servir la réponse, pas dans la bibliothèque, pour que les chaînes de
+référence des essais de la bibliothèque ne bougent pas. Le chemin des images
+ne paie qu'une lecture atomique par paquet (une lecture de mémoire que deux
+fils peuvent faire sans verrou), et l'heure n'est lue qu'au premier. Les heures
+sont murales, pas monotones : le salon les compare à l'heure de son propre
+lancement, et l'horloge monotone d'un processus ne se compare à rien hors de
+lui. Côté salon, un worker qui redémarre ne garde pas les jalons du jeu
+d'avant : ils diraient « image partie » d'un jeu qui ne tourne plus. Deux
+mutants ont été essayés sur le worker : l'heure de la première image reposée à
+chaque paquet, et l'envoi qui oublie de la poser ; chacun fait échouer son
+essai. En passant, deux fichiers d'essai que ce chantier ne possède pas
+(`harness.rs`, `stream.rs`) ont reçu une ligne : ils construisent l'état
+partagé du serveur champ par champ.
+
+**« D'habitude, il démarre en 25 secondes. »** L'écran de chargement disait
+« c'est long » au bout de vingt secondes, quel que soit le jeu ; un jeu Switch
+qui recompile ses nuanceurs en met parfois soixante. Le salon chronomètre
+maintenant chaque démarrage, du moment où le worker accepte le lancement à sa
+première image, et retient les vingt derniers par jeu. Il ne publie une
+habitude (la médiane, et le 90e centile au-delà duquel « c'est plus long que
+d'habitude ») qu'à partir de cinq démarrages réussis. Le piège était dans les
+relances du même jeu : pendant quelques secondes, l'ancien worker répond
+encore avec la même clé et l'image d'AVANT. Sans la garde qui exige un worker
+démarré après le lancement, le chrono s'arrêtait sur cette vieille image ; le
+mutant qui retire cette garde fait échouer quatre essais. Un autre essai passe
+par la vraie socket, parce que le lancement est déclenché par deux chemins du
+salon : celui qui appellerait encore l'ancienne fonction laisserait le chrono
+arrêté, et l'essai le voit. Le fichier ne contient personne : ni adresse, ni
+pseudo.
+
+**Médiane et 90e centile.** La médiane est la valeur du milieu : la moitié des
+démarrages ont été plus courts. Le 90e centile est la valeur sous laquelle
+tombent neuf démarrages sur dix ; il sert de seuil à « plus long que
+d'habitude », pour qu'un seul démarrage lent ne déplace pas la phrase.
+
+**Deux commits partis sans leur texte.** Deux fois ce soir, le script qui
+ajoutait l'entrée du carnet a échoué sur un passage recopié avec un autre
+retour à la ligne, et le commit est parti quand même : le script et le
+commit étaient sur deux lignes, pas enchaînés. Les deux commits ont été
+complétés aussitôt. C'est la règle « a newline is not an execution
+dependency » du 10 novembre, appliquée à de la prose : le texte passe
+maintenant par un fichier lancé avec `&&` avant le commit.
+
+**« Je reste ».** Une salle où personne ne touche au jeu pendant une
+demi-heure se ferme, et elle prévient cinq minutes avant. Pour rester, il
+fallait appuyer sur une touche du jeu, donc agir sur la partie en cours. Un
+message d'un seul octet, envoyé par la socket de la manette, compte maintenant
+comme un geste sans rien envoyer au jeu. Il passe par le même horodatage
+qu'une touche, donc par les deux règles qui le lisent : la fermeture, et le
+chef absent qui laisse décider les autres. Un essai vérifie qu'aucune trame
+n'atteint l'émulateur ; son jumeau envoie un octet inconnu, qui ne remet rien
+et ne ferme pas la socket. Le bouton de la page viendra après la fusion du
+chantier des manettes, qui tient ce fichier.
+
+**Ouvrir la salle 3, pas la première libre.** « Ouvrir une salle » prenait le
+premier emplacement libre. Les écrans du thème rétro veulent « Ouvrir la salle
+3 » et « Rouvrir la salle 1 ». La demande peut maintenant nommer la salle ;
+une salle ouverte ou qui redémarre est refusée, plutôt que d'en ouvrir une
+autre à sa place, ce qui enverrait chacun dans une salle différente. Ouvrir
+directement sur un jeu attend encore : en lisant le worker, il est apparu qu'il
+retient aussi la manette choisie pour le jeu et une demande de partie neuve.
+Écrire seulement le jeu ferait démarrer un jeu Wii sur une manette GameCube.
+
+**Les jaquettes sans salle ouverte.** Une salle sert l'image de chacun de ses
+jeux pendant qu'elle tourne, depuis sa mémoire. Les écrans du thème rétro la
+veulent aussi là où aucune salle ne tourne : l'étagère du salon, la carte
+d'une salle fermée. Le salon ne sait pas décoder une bannière GameCube, et le
+cache des bannières ne garde que les blocs bruts du disque. Le worker écrit
+donc maintenant, à chaque démarrage, l'image qu'il sert déjà dans un dossier
+`art` à côté de la bibliothèque, et le salon la sert à
+`/api/catalogue/art/<clé>`. Le propriétaire a tranché la source le
+23 novembre : les fichiers de jeu, ou une image qu'il dépose ; rien n'est
+téléchargé. Chaque fichier porte l'empreinte SHA-256 de la clé du jeu,
+recalculée par le salon : une clé est un nom de fichier, avec ses espaces et
+ses accents, et elle n'est jamais collée à un chemin. Le conteneur de Dolphin
+écrit dans ce même dossier de session : ni le worker ni le salon ne suivent un
+lien posé à la place du dossier `art` ou d'une image, et chaque essai qui le
+vérifie a son jumeau ordinaire. Six mutants ont été réintroduits un à un côté
+worker (dossier suivi, image écrite à travers un lien, rien retiré, tout
+fichier `.png` pris pour une image du worker, image identique réécrite, borne
+d'un Mio oubliée), quatre côté salon (jeu annoncé sans image, signature PNG,
+salle du catalogue le plus frais, sous-dossier suivi) ; chacun fait échouer
+son essai. Le premier essai de la route prenait `..` tel quel : le client de
+l'essai normalisait le chemin avant de l'envoyer, et la demande arrivait sur
+le catalogue lui-même. La clé est maintenant encodée dans l'essai, pour que ce
+soit le salon qui la refuse.
+
+**Rejouer sur ma sauvegarde, sans passer par le menu.** La seconde moitié de
+« ouvrir une salle précise » : l'ouvrir directement sur un jeu et une
+sauvegarde, pour « Jouer maintenant » après un dépôt ou « Rejouer » depuis le
+carnet. Le premier passage s'était arrêté sur un constat : le worker, quand on
+lance un jeu, écrit six choses (le jeu, la manette retenue pour ce jeu,
+l'emplacement, la personne, la demande de partie neuve, et la sortie du menu).
+Les recopier côté salon aurait fait deux auteurs pour le même ensemble, et le
+premier écart aurait démarré un jeu Wii sur une manette GameCube. Le salon ne
+pose donc qu'un ordre d'une ligne par champ, `ouvrir-sur`, et le worker le
+lit à son démarrage puis le passe à la fonction qui écrit déjà tout le reste.
+Il retire l'ordre AVANT d'agir : un ordre resté là après un plantage serait
+rejoué à chaque relance, par-dessus le jeu choisi depuis. Une clé que la
+bibliothèque n'a plus laisse la salle sur son menu, alors qu'un choix
+ordinaire retombe sur le jeu par défaut. Le salon refuse aussi un jeu inconnu
+avant de démarrer quoi que ce soit, et un jeu Switch quand une autre salle
+tient la Switch. « Tout débloqué » n'est pas proposé ici : seul un worker qui
+tourne vérifie que son import est complet. Le marqueur « sans jeu » reste posé
+avec l'ordre ; c'est le worker qui le retire en le suivant, si bien qu'un
+worker d'avant ce changement ouvre la salle sur son menu au lieu de deviner.
+Douze mutants ont été réintroduits un à un, cinq côté worker et sept côté
+salon (dont l'ordre jamais retiré, la manette oubliée, la clé absente qui
+démarre le premier jeu, la Switch non vérifiée, l'ordre écrit à travers un
+lien) ; onze font échouer leur essai. Le douzième a survécu : retirer la
+comparaison de taille de l'ordre. Elle ne pouvait jamais échouer seule, parce
+qu'un ordre entier fait 339 octets au plus et qu'une lecture coupée à 513
+n'en est jamais un ; la comparaison a été retirée plutôt que gardée comme une
+garde qu'aucun essai ne peut prendre en défaut. Non prouvé : l'appel dans le
+démarrage du worker n'est couvert que par la lecture du code, puisque ce
+démarrage lance Docker ; la première vraie ouverture sur un jeu le montrera.
+(Le même jour, un passage suivant a mis cet ordre sous essai : voir
+« L'ordre d'ouverture, tenu par un essai » plus bas.)
+
+**L'image que le propriétaire dépose.** Une bannière GameCube est un dessin
+de 96 pixels sur 32 ; un jeu Wii jamais lancé n'a aucune image, puisque la
+sienne vient de la sauvegarde que le jeu écrit. Le propriétaire peut
+maintenant déposer une image PNG pour un jeu déjà rangé, depuis le salon :
+elle est écrite à côté du jeu sous le nom que le worker lisait déjà pour la
+Switch et la Xbox 360 (`<jeu>.nel3ab.png`), et elle passe désormais avant la
+bannière d'un disque GameCube ou Wii, en gardant l'éditeur et la phrase de la
+bannière. Le salon ne fait qu'un contrôle léger (la signature, l'en-tête, un
+Mio et 1024 pixels de côté au plus) ; le décodage complet reste au worker,
+qui ignore une image qu'il ne sait pas lire. Un des essais du worker abîme les
+pixels d'une image dont l'en-tête est juste : seul un décodage complet la
+refuse, et le mutant qui s'arrête à l'en-tête échoue sur lui. Côté salon,
+deux gardes se recouvraient : le catalogue et la présence du fichier. Le
+premier essai demandait une clé absente des deux, et aurait passé sans l'une
+ou l'autre ; un fichier présent mais absent du catalogue (une copie en cours)
+a maintenant son propre essai. Le bouton de la page de dépôt reste au chantier
+du salon, qui tient cette page.
+
+**Deux défauts du dépôt, trouvés en relisant.** Le lendemain du dépôt
+d'image, une relecture de ce chantier en a trouvé deux, chacun montré rouge
+par un essai avant d'être corrigé. Le premier : pour savoir où poser l'image,
+le salon prenait le premier dossier de jeux qui avait une entrée à ce nom, du
+moment que ce n'était pas un dossier. Le worker, lui, ne garde que des
+fichiers ordinaires. Un lien symbolique au même nom dans un dossier plus tôt
+recevait donc l'image, et la salle ne l'aurait jamais montrée, puisqu'elle lit
+celle d'à côté du vrai fichier. Le salon cherche maintenant le même fichier
+que le worker. Le second : l'écriture appelait `write(2)` une seule fois. Cet
+appel système peut écrire moins d'octets qu'on lui en donne, par exemple
+quand le disque se remplit, et il le dit par le nombre qu'il rend ; ce nombre
+était ignoré. Une image coupée aurait été renommée à sa place et le salon
+aurait répondu « fait ». L'écriture reprend maintenant jusqu'au dernier
+octet, et l'appel suivant lève sur un disque plein, qui laisse l'image
+d'avant entière. Les deux essais font écrire mille octets par appel, ou
+lever au deuxième ; la même fonction écrit aussi l'ordre d'ouverture et le
+repère d'ouverture.
+
+**Un fichier lu par le mauvais bout.** La même relecture a trouvé un défaut
+dans le chronomètre des démarrages. Son fichier grandit d'une ligne par
+lancement, et le salon n'en lit que 4 Mio, ce qui tient des dizaines de
+milliers de démarrages. Le commentaire disait « on garde la fin, où sont les
+lignes récentes ». Le code lisait les 4 premiers Mio, puis gardait la fin de
+CE morceau : au-delà de la borne, l'habitude d'un jeu se serait figée sur ses
+premiers mois, et un jeu devenu lent aurait continué d'être annoncé rapide.
+À une vingtaine de lancements par soirée, il aurait fallu des années pour y
+arriver, mais un code qui fait le contraire de son commentaire est un défaut.
+Le salon se place maintenant à la fin du fichier avant de lire. L'essai fait
+écrire vingt-cinq démarrages de dix secondes puis cinq de cinquante, réduit
+la borne à la taille des cinq derniers, et attend cinquante ; il passe aussi
+par une coupe qui tombe pile au début d'une ligne, qui doit la garder, et par
+une borne qui tient une ancienne ligne entière, qui doit la compter. Une
+première correction écartait aussi elle-même la ligne entamée par la coupe ;
+son mutant survivait, puisque la lecture ligne à ligne refuse déjà un objet
+JSON coupé. Elle a été retirée, pour la même raison que la comparaison de
+taille de l'ordre d'ouverture la veille.
+
+**Deux contrôles d'identité qui ne comptaient pas les mêmes blancs.** Pour
+ouvrir une salle sur un jeu, le salon écrit l'identité de qui l'ouvre dans
+l'ordre que le worker lit, et il refuse d'avance une identité qui ne pourrait
+pas voyager. Son contrôle ne connaissait que quatre blancs : l'espace, la
+tabulation, le retour à la ligne et le retour chariot. Le worker, lui, refuse
+tout ce que Rust appelle un blanc (`char::is_whitespace`) : l'espace
+insécable, la tabulation verticale, le séparateur de lignes et une vingtaine
+d'autres. Une identité qui en portait un passait donc le salon, qui répondait
+« la salle s'ouvre sur ce jeu », puis le worker écartait l'ordre et la salle
+arrivait sur son menu, sans un mot. Le salon avait déjà la liste exacte de
+Rust, écrite point par point pour une autre raison (`BLANCS_RUST` dans
+`personnes.py`) ; les deux contrôles s'en servent maintenant. La ligne de
+lancement du port de contrôle avait le même écart, et comptait en plus la
+longueur en caractères là où le worker compte des octets : une identité
+accentuée de 33 caractères pèse 66 octets. Là, le worker refusait le
+lancement à voix haute, mais un refus qu'on peut éviter avant d'envoyer n'a
+pas à partir. Chaque cas a son essai, rouge avant la correction, et ses
+jumeaux : une identité accentuée et la plus longue identité légale passent
+entières. Une identité de proxy porte rarement un espace insécable ; ce qui
+compte est que le salon et le worker appliquent la même règle.
+
+**La ligne coupée du chronomètre.** Le passage d'avant avait signalé sans le
+corriger un reste du même défaut que l'image déposée : le chronomètre des
+démarrages écrivait sa ligne par un seul `write(2)` et ignorait le nombre
+d'octets que l'appel rend. Une ligne coupée par un disque plein n'était pas
+grave en elle-même, puisque la lecture l'écarte. Ce qui l'était, c'est la
+ligne suivante : écrite à la fin du fichier, elle se collait à la moitié
+restée sans fin de ligne, et les deux devenaient illisibles. La première
+mesure prise après la panne était perdue avec la ligne coupée. Le journal des
+parties connaissait déjà ce piège et le garde : avant d'écrire, il regarde le
+dernier octet du fichier et ajoute une fin de ligne s'il en manque une. Le
+chronomètre prend la même garde, et reprend son écriture jusqu'au dernier
+octet. Deux essais, chacun rouge avant la correction : l'un fait écrire
+quarante octets par appel et relit cinq lignes entières, l'autre coupe une
+ligne par un disque plein au deuxième appel, puis attend que les cinq
+démarrages suivants fassent une habitude. Trois mutants, remis un par un sur
+une copie du fichier : la boucle retirée rougit le premier essai, la garde
+retirée le second, et une garde qui ajouterait toujours une fin de ligne en
+rougit cinq, parce qu'une ligne vide n'est pas un objet JSON.
+
+**L'ordre d'ouverture, tenu par un essai.** Ouvrir une salle sur un jeu
+repose sur l'ordre de trois lignes au début du démarrage du worker : suivre
+l'ordre du salon, puis lire si la salle est sur son menu, puis lire le jeu
+retenu. Dans l'autre sens, le worker lirait le marqueur « sans jeu » que le
+salon pose en ouvrant la salle, et la salle arriverait sur son menu ; l'ordre
+ne servirait qu'au démarrage suivant. Ces trois lignes vivaient dans la
+fonction qui démarre aussi Docker, qu'aucun essai ne lance : seule la
+lecture du code les couvrait, et le carnet l'avait écrit en « non prouvé ».
+Elles sont maintenant une fonction à part, `starting_game`, que `run`
+appelle. Trois essais la tiennent : une salle ouverte sur un jeu démarre ce
+jeu ; sans ordre, ou avec un ordre pour un jeu parti, elle arrive sur son
+menu avec le jeu retenu d'avant ; un jeu retenu qui a disparu retombe sur le
+jeu par défaut, comme avant. Deux mutants, remis un par un sur une copie :
+suivre l'ordre après la lecture de l'état, et oublier de le suivre. Chacun
+fait échouer le premier essai. Un premier passage des mutants les avait vus
+survivre : le filtre de noms donné à `cargo test` laissait justement de côté
+l'essai qui les prend. Lancés sans filtre, ils échouent. Ce qui reste non
+prouvé est plus étroit : que `run` appelle bien cette fonction, ce que dit
+une ligne qu'on lit d'un coup d'œil.
+
+**La bibliothèque lue par son chemin.** Plus haut, ce carnet affirmait que
+toutes les lectures du dossier de salle passaient par `session_salle.py`, qui
+n'y suit aucun lien. Une relecture indépendante l'a contredit le même soir. La
+bibliothèque d'une salle, `catalogue.json`, était encore ouverte par son
+chemin. Or ce dossier est monté en écriture dans le conteneur de Dolphin. Un
+moteur compromis pouvait y laisser un lien symbolique vers un fichier de la
+machine : le salon l'aurait lu comme une bibliothèque, et aurait publié ses
+titres. Il pouvait aussi y laisser un tube nommé : ouvrir un tube pour le lire
+attend un écrivain pour toujours. Le défaut est plus ancien que ce chantier :
+la route de la bibliothèque, les imports et le profil lisaient déjà ce fichier
+ainsi. Mais le chantier l'a fait lire par trois chemins de plus, dont la liste
+des salles. Celle-ci se lit sans identité, l'accueil la relit toutes les cinq
+secondes, et la salle la relit quand l'image tombe. La sonde du relecteur l'a
+montré sur des dossiers temporaires : avec un lien, la liste titrait le dernier
+jeu « LU HORS DU DOSSIER » ; avec un tube, la lecture de la liste ne revenait
+jamais, et chaque appel gardait un fil du salon.
+
+La correction tient en un endroit. `read_one`, que toutes les lectures de la
+bibliothèque appellent, ouvre maintenant le dossier de la salle puis le
+fichier par `session_salle`, comme le jeu retenu : sans suivre de lien, sans
+attendre, fichier ordinaire seulement, huit Mio au plus. Un dossier de salle
+qui est lui-même un lien est refusé aussi. Une bibliothèque écartée est dite
+au journal avec sa raison (un lien, pas un fichier ordinaire, trop gros).
+
+Les essais rouges ont demandé une précaution. Un essai qui ouvre un tube sur
+l'ancien code ne rougit pas : il pend, et la suite d'essais avec lui. L'appel
+part donc sur un fil, borné à cinq secondes. Passé ce délai, l'essai ouvre
+l'autre bout du tube et le referme, ce qui libère le lecteur bloqué, puis
+échoue en nommant le blocage. Cinq essais, chacun avec son jumeau ordinaire
+au même endroit : un lien à la place du fichier, un lien à la place du dossier
+de la salle et un tube, au niveau de la bibliothèque ; un lien et un tube au
+niveau de la liste des salles. Les cinq étaient rouges sur l'ancien code. Le
+lien y faisait gagner la bibliothèque d'ailleurs, ou titrer « Lu hors du
+dossier ». Le tube y échouait sur sa borne. Un sixième essai garde le plafond
+de huit Mio, qui passe maintenant par un autre chemin ; il passait déjà avant.
+Trois mutants, remis un par un dans `session_salle.py` : la lecture qui
+attend, la lecture qui suit un lien, le dossier qui suit un lien. Chacun fait
+échouer les essais qui le nomment, et eux seuls.
+
+La leçon : une phrase comme « toutes les lectures passent par ce module » est
+une affirmation sur tout le code, pas seulement sur le code qu'on vient
+d'écrire. Elle se vérifie en cherchant chaque lecteur du dossier, anciens
+modules compris.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -29486,6 +29910,11 @@ premier octet.
 un lien symbolique, l'ouverture échoue au lieu de suivre le lien vers un autre
 endroit.
 
+**O_NONBLOCK** : option d'ouverture d'un fichier sous Linux. Une opération qui
+devrait attendre rend la main tout de suite. Ouvrir un tube nommé pour le lire
+n'attend donc plus un écrivain, et le programme peut alors vérifier qu'il tient
+un fichier ordinaire avant de lire.
+
 **Lien dur** : un deuxième nom pour le même fichier sur le disque. Contrairement
 au lien symbolique, rien ne le distingue du premier nom : `O_NOFOLLOW` ne
 l'arrête pas, le numéro d'inode et le nombre de noms, si.
@@ -29834,3 +30263,20 @@ l'image quand elle est assez haute.
 **Panneau de commande** : sur une borne d'arcade, la planche sous l'écran qui
 porte les manettes et les boutons START. Dans la salle, la bande sous l'image
 où se posent les places des joueurs.
+
+**Identifiant de démarrage (boot_id)** : un identifiant que Linux tire au
+hasard à chaque démarrage de la machine (`/proc/sys/kernel/random/boot_id`).
+Une horloge monotone repart à zéro au démarrage ; noter cet identifiant à côté
+d'une heure monotone permet de reconnaître une heure d'un démarrage précédent.
+
+**Repère d'ouverture** : le fichier `ouverte-le` que le salon pose dans le
+dossier d'une salle quand il l'ouvre. Il dit depuis quand la salle est
+ouverte, alors que systemd ne dit que depuis quand le jeu en cours tourne.
+
+**PNG** : *Portable Network Graphics*, format d'image sans perte. Tout fichier
+PNG commence par les mêmes huit octets, sa signature ; le salon la vérifie
+avant de servir une image, le décodage complet reste au worker.
+
+**nosniff** : en-tête HTTP (`X-Content-Type-Options: nosniff`) qui interdit au
+navigateur de deviner le type d'un fichier à partir de son contenu. Une image
+annoncée PNG n'est alors jamais lue comme une page.

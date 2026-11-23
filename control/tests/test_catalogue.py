@@ -1,15 +1,31 @@
 """La bibliothèque lue sans salle ouverte, dans les fichiers que les workers écrivent."""
 
 import json
+import os
+import struct
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
+from fastapi import FastAPI
 
 from nel3ab_control.app import create_app
-from nel3ab_control.catalogue import NAME, freshest, read_one
+from nel3ab_control.catalogue import (
+    ART_FOLDER,
+    ART_MAX,
+    NAME,
+    SIZE_MAX,
+    ImageRefuseeError,
+    art_file_name,
+    art_of,
+    deposer_image,
+    freshest,
+    read_one,
+)
 from nel3ab_control.settings import Settings
+from tests.conftest import SOUHIB, VINCENT, sans_rester_sur_un_tube
 
 #: Les octets exacts que `library_file` écrit, épinglés par le test Rust
 #: `the_library_file_has_the_room_entries_and_no_room_state`. Les deux essais
@@ -47,7 +63,8 @@ def library(scanned_ms: int, *keys: str) -> dict:
 
 
 def test_what_the_worker_writes_is_what_the_lobby_reads(tmp_path: Path) -> None:
-    found = read_one(room(tmp_path, "1", WRITTEN_BY_THE_WORKER), 1)
+    room(tmp_path, "1", WRITTEN_BY_THE_WORKER)
+    found = read_one(tmp_path, 1)
     assert found is not None
     assert found.scanned_ms == 1_763_700_000_123
     assert [(game.key, game.name, game.console, game.art) for game in found.games] == [
@@ -95,6 +112,87 @@ def test_only_numbered_rooms_are_read(tmp_path: Path) -> None:
     room(tmp_path, "0", library(900, "Zero.rvz"))
     assert freshest(tmp_path) is None
     assert freshest(tmp_path / "absent") is None
+
+
+@pytest.mark.parametrize("lien", ["le fichier", "le dossier de la salle"])
+def test_a_link_in_place_of_a_catalogue_is_not_followed(
+    tmp_path: Path, lien: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """ADR D36: le dossier de la salle est monté en écriture dans le conteneur
+    de son moteur, qui peut y laisser un lien. Le suivre ferait publier au salon
+    un fichier de l'hôte comme bibliothèque, à qui le demande sans identité.
+
+    Le catalogue du lien est le plus FRAIS: suivi, il gagnerait. Le jumeau le
+    pose en fichier ordinaire au même endroit, et il gagne."""
+    salles = tmp_path / "salles"
+    room(salles, "1", library(100, "Melee.rvz"))
+    ailleurs = tmp_path / "ailleurs"
+    hors = room(ailleurs, "2", library(300, "Hors du dossier.rvz"))
+    if lien == "le fichier":
+        (salles / "2").mkdir()
+        (salles / "2" / NAME).symlink_to(hors)
+    else:
+        (salles / "2").symlink_to(hors.parent)
+
+    found = freshest(salles)
+
+    assert found is not None
+    assert (found.room, [game.key for game in found.games]) == (1, ["Melee.rvz"])
+    assert any(str(salles / "2") in line for line in caplog.messages), "écarté sans le dire"
+
+    # Le jumeau ordinaire: les mêmes octets, sans lien, sont lus et gagnent.
+    if lien == "le fichier":
+        (salles / "2" / NAME).unlink()
+    else:
+        (salles / "2").unlink()
+    room(salles, "2", hors.read_text())
+    found = freshest(salles)
+    assert found is not None
+    assert (found.room, [game.key for game in found.games]) == (2, ["Hors du dossier.rvz"])
+
+
+def test_a_pipe_in_place_of_a_catalogue_does_not_block_the_lobby(tmp_path: Path) -> None:
+    """Un tube nommé à la place du fichier: l'ouvrir pour le lire attend un
+    écrivain pour toujours, et garde un fil du salon à chaque appel. La liste des
+    salles le relit toutes les cinq secondes. Il est écarté sans attendre, et le
+    catalogue suivant prend sa place."""
+    room(tmp_path, "1", library(100, "Melee.rvz"))
+    (tmp_path / "2").mkdir()
+    tube = tmp_path / "2" / NAME
+    os.mkfifo(tube)
+
+    found = sans_rester_sur_un_tube(lambda: freshest(tmp_path), tube)
+
+    assert found is not None
+    assert (found.room, [game.key for game in found.games]) == (1, ["Melee.rvz"])
+
+    # Le jumeau ordinaire: un fichier au même nom est lu, et gagne.
+    tube.unlink()
+    room(tmp_path, "2", library(300, "Zelda.rvz"))
+    found = freshest(tmp_path)
+    assert found is not None
+    assert found.room == 2
+
+
+def test_a_catalogue_over_the_bound_is_set_aside_and_said(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Le plafond tient toujours par le descripteur: un fichier qui le dépasse
+    d'un octet est écarté en entier, et le journal dit pourquoi."""
+    room(tmp_path, "1", library(100, "Melee.rvz"))
+    trop = json.dumps(library(300, "Zelda.rvz"))
+    room(tmp_path, "2", trop + " " * (SIZE_MAX + 1 - len(trop)))
+
+    found = freshest(tmp_path)
+
+    assert found is not None
+    assert found.room == 1
+    assert any("trop gros" in line and str(tmp_path / "2") in line for line in caplog.messages)
+    # Le jumeau: le plafond tout juste passe.
+    room(tmp_path, "2", trop + " " * (SIZE_MAX - len(trop)))
+    found = freshest(tmp_path)
+    assert found is not None
+    assert found.room == 2
 
 
 async def test_the_lobby_lists_the_library_without_asking_a_worker(tmp_path: Path) -> None:
@@ -174,8 +272,389 @@ def un_jeu(console: str, title_id: object) -> dict:
 def test_the_title_is_kept_in_the_shape_of_its_own_console(
     tmp_path: Path, console: str, title_id: object, garde: bool
 ) -> None:
-    found = read_one(room(tmp_path, "1", un_jeu(console, title_id)), 1)
+    room(tmp_path, "1", un_jeu(console, title_id))
+    found = read_one(tmp_path, 1)
 
     assert found is not None, "un titre mal formé ne fait jamais écarter le jeu"
     (game,) = found.games
     assert game.title_id == (title_id if garde else None)
+
+
+#: Un vrai PNG d'un pixel: la signature suffit au salon, le décodage strict
+#: reste au worker, mais l'essai sert des octets d'image et non un mot.
+UN_PIXEL = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000d49444154789c63f8cfc0f01f00050001ff89993d1d0000000049454e44ae426082"
+)
+
+
+def test_the_picture_name_is_the_one_the_worker_writes() -> None:
+    """Les valeurs de `sha256sum`, épinglées aussi par l'essai Rust
+    `a_picture_is_named_by_the_sha256_of_its_key`."""
+    assert art_file_name("Melee.rvz") == (
+        "3b6604996f3f05b611a8f44a29e6a43dbab89fb8cc6e208e7c135e7ec1729c1d.png"
+    )
+    assert art_file_name("Zelda (Europe) é.rvz") == (
+        "7b361ae8e27b325c40366af2ec35530a00d1154beae45708589e5a1a7456a58e.png"
+    )
+
+
+def with_art(salles: Path, numero: str, scanned_ms: int, key: str, art: bool = True) -> Path:
+    """Une salle dont le catalogue annonce un jeu, et son dossier d'images."""
+    said = library(scanned_ms, key)
+    said["roms"][0]["art"] = art
+    room(salles, numero, said)
+    dossier = salles / numero / ART_FOLDER
+    dossier.mkdir(exist_ok=True)
+    return dossier / art_file_name(key)
+
+
+def test_the_picture_comes_from_the_room_of_the_freshest_catalogue(tmp_path: Path) -> None:
+    ancienne = with_art(tmp_path, "1", 100, "Melee.rvz")
+    ancienne.write_bytes(UN_PIXEL + b"ancienne")
+    fraiche = with_art(tmp_path, "2", 200, "Melee.rvz")
+    fraiche.write_bytes(UN_PIXEL)
+
+    assert art_of(tmp_path, "Melee.rvz") == UN_PIXEL
+
+
+@pytest.mark.parametrize(
+    ("pourquoi", "prepare"),
+    [
+        ("clé inconnue du catalogue", lambda image: image.write_bytes(UN_PIXEL)),
+        ("pas de fichier", lambda image: None),
+        ("pas un PNG", lambda image: image.write_bytes(b"<html>bonjour</html>")),
+        ("trop gros", lambda image: image.write_bytes(UN_PIXEL + bytes(ART_MAX))),
+        ("un tube", lambda image: os.mkfifo(image)),
+    ],
+)
+def test_a_picture_the_lobby_must_not_serve_is_absent(
+    tmp_path: Path, pourquoi: str, prepare: Callable[[Path], object]
+) -> None:
+    image = with_art(tmp_path, "1", 100, "Melee.rvz")
+    prepare(image)
+    cle = "Autre.rvz" if pourquoi == "clé inconnue du catalogue" else "Melee.rvz"
+    assert art_of(tmp_path, cle) is None, pourquoi
+
+
+def test_exactly_the_bound_is_served(tmp_path: Path) -> None:
+    """Le jumeau de « trop gros »: un fichier de un Mio tout juste passe."""
+    image = with_art(tmp_path, "1", 100, "Melee.rvz")
+    image.write_bytes(UN_PIXEL + bytes(ART_MAX - len(UN_PIXEL)))
+    assert art_of(tmp_path, "Melee.rvz") is not None
+
+
+def test_a_game_said_without_art_is_not_served_even_with_a_file(tmp_path: Path) -> None:
+    """Le catalogue fait foi: un fichier resté là pour un jeu sans image se tait."""
+    image = with_art(tmp_path, "1", 100, "Melee.rvz", art=False)
+    image.write_bytes(UN_PIXEL)
+    assert art_of(tmp_path, "Melee.rvz") is None
+
+
+def test_a_link_in_place_of_the_picture_is_not_followed(tmp_path: Path) -> None:
+    ailleurs = tmp_path / "ailleurs.png"
+    ailleurs.write_bytes(UN_PIXEL)
+    image = with_art(tmp_path / "salles", "1", 100, "Melee.rvz")
+    image.symlink_to(ailleurs)
+    assert art_of(tmp_path / "salles", "Melee.rvz") is None
+
+
+def test_a_link_in_place_of_the_folder_is_not_followed(tmp_path: Path) -> None:
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (ailleurs / art_file_name("Melee.rvz")).write_bytes(UN_PIXEL)
+    salles = tmp_path / "salles"
+    with_art(salles, "1", 100, "Melee.rvz").parent.rmdir()
+    (salles / "1" / ART_FOLDER).symlink_to(ailleurs)
+    assert art_of(salles, "Melee.rvz") is None
+    # Le jumeau ordinaire: le même fichier dans un vrai dossier est servi.
+    (salles / "1" / ART_FOLDER).unlink()
+    (salles / "1" / ART_FOLDER).mkdir()
+    (salles / "1" / ART_FOLDER / art_file_name("Melee.rvz")).write_bytes(UN_PIXEL)
+    assert art_of(salles, "Melee.rvz") == UN_PIXEL
+
+
+@pytest.mark.parametrize("cle", ["..", "a/b.rvz", "", "nul\x00.rvz"])
+def test_a_key_shaped_like_a_path_is_refused(tmp_path: Path, cle: str) -> None:
+    with_art(tmp_path, "1", 100, "Melee.rvz").write_bytes(UN_PIXEL)
+    assert art_of(tmp_path, cle) is None
+
+
+async def test_the_lobby_serves_a_picture_as_png_without_a_room(tmp_path: Path) -> None:
+    asked: list[str] = []
+
+    def worker(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(503)
+
+    settings = Settings(
+        room_name="essai",
+        worker_url="http://worker.test",
+        state_file=tmp_path / "people.json",
+        bindings_file=tmp_path / "bindings.json",
+        room_bindings_file=tmp_path / "room-bindings.json",
+        journal_dir=tmp_path / "sessions",
+        salles_dir=tmp_path / "salles",
+    )
+    with_art(settings.salles_dir, "1", 100, "Zelda (Europe) é.rvz").write_bytes(UN_PIXEL)
+    built = create_app(settings)
+    async with LifespanManager(built):
+        built.state.client = httpx.AsyncClient(transport=httpx.MockTransport(worker))
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=built), base_url="http://control.test"
+        ) as http:
+            found = await http.get("/api/catalogue/art/Zelda%20(Europe)%20%C3%A9.rvz")
+            missing = await http.get("/api/catalogue/art/Autre.rvz")
+            # Encodés, pour que le client ne normalise pas le chemin avant
+            # l'envoi: c'est le salon qui doit les refuser.
+            dotted = await http.get("/api/catalogue/art/%2E%2E")
+            slashed = await http.get("/api/catalogue/art/a%2FMelee.rvz")
+
+    assert found.status_code == 200
+    assert found.headers["content-type"] == "image/png"
+    assert found.headers["x-content-type-options"] == "nosniff"
+    assert found.content == UN_PIXEL
+    # Les jumeaux: une clé inconnue et une clé en forme de chemin, sans image.
+    assert missing.status_code == 404
+    assert dotted.status_code == 404
+    assert dotted.headers["content-type"] == "application/json"
+    assert slashed.status_code == 404
+    assert asked == [], "le salon a demandé l'image à un worker"
+
+
+def png_de(largeur: int, hauteur: int, poids: int = 0) -> bytes:
+    """Un en-tête PNG de ces dimensions, suivi de `poids` octets: le salon ne
+    lit que l'en-tête, le décodage complet est l'affaire du worker."""
+    return UN_PIXEL[:16] + struct.pack(">II", largeur, hauteur) + UN_PIXEL[24:] + bytes(poids)
+
+
+@pytest.fixture
+def depot(
+    settings: Settings, app: FastAPI, client: httpx.AsyncClient
+) -> tuple[httpx.AsyncClient, Path]:
+    """Un salon, un catalogue qui liste Melee, et son disque dans `roms/gc`."""
+    room(settings.salles_dir, "1", library(100, "Melee.rvz"))
+    jeux = Path(settings.rom_dir.split(":")[0])
+    jeux.mkdir(parents=True)
+    (jeux / "Melee.rvz").write_bytes(b"un disque")
+    return client, jeux
+
+
+async def test_the_admin_drops_a_picture_beside_the_game(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    client, jeux = depot
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 204
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+    # Et la retire: la bannière du disque revient.
+    assert (await client.delete("/api/catalogue/art/Melee.rvz", headers=SOUHIB)).status_code == 204
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+async def test_only_the_admin_drops_a_picture(depot: tuple[httpx.AsyncClient, Path]) -> None:
+    """Les jumeaux: sans identité, puis une identité qui n'est pas l'administrateur."""
+    client, jeux = depot
+
+    anonyme = await client.put("/api/catalogue/art/Melee.rvz", content=UN_PIXEL)
+    membre = await client.put("/api/catalogue/art/Melee.rvz", headers=VINCENT, content=UN_PIXEL)
+    retrait = await client.delete("/api/catalogue/art/Melee.rvz", headers=VINCENT)
+
+    assert (anonyme.status_code, membre.status_code, retrait.status_code) == (401, 403, 403)
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+@pytest.mark.parametrize(
+    ("corps", "code", "mot"),
+    [
+        (b"<html>bonjour</html>", 422, "PNG"),
+        (UN_PIXEL[:20], 422, "en-tête"),
+        (png_de(1025, 10), 422, "1024"),
+        (png_de(10, 1025), 422, "1024"),
+        (png_de(0, 10), 422, "1024"),
+        (png_de(10, 10, ART_MAX), 413, "Mio"),
+    ],
+)
+async def test_a_picture_the_room_would_not_show_is_refused(
+    depot: tuple[httpx.AsyncClient, Path], corps: bytes, code: int, mot: str
+) -> None:
+    client, jeux = depot
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=corps)
+
+    assert answer.status_code == code
+    assert mot in answer.json()["detail"]
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+async def test_the_largest_picture_the_room_shows_is_accepted(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    """Le jumeau des refus: 1024 de côté et un Mio tout juste passent."""
+    client, jeux = depot
+    corps = png_de(1024, 1024)
+    corps += bytes(ART_MAX - len(corps))
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=corps)
+
+    assert answer.status_code == 204
+    assert (jeux / "Melee.rvz.nel3ab.png").stat().st_size == ART_MAX
+
+
+@pytest.mark.parametrize("cle", ["Autre.rvz", "%2E%2E"])
+async def test_a_game_the_catalogue_does_not_list_gets_no_picture(
+    depot: tuple[httpx.AsyncClient, Path], cle: str
+) -> None:
+    client, jeux = depot
+
+    answer = await client.put(f"/api/catalogue/art/{cle}", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 404
+    assert [p.name for p in jeux.iterdir()] == ["Melee.rvz"]
+
+
+async def test_a_listed_game_whose_file_is_gone_gets_no_picture(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    client, jeux = depot
+    (jeux / "Melee.rvz").unlink()
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 404
+    assert not (jeux / "Melee.rvz.nel3ab.png").exists()
+
+
+async def test_a_link_in_place_of_the_picture_is_replaced_not_followed(
+    depot: tuple[httpx.AsyncClient, Path], tmp_path: Path
+) -> None:
+    client, jeux = depot
+    victime = tmp_path / "victime"
+    victime.write_text("intact")
+    (jeux / "Melee.rvz.nel3ab.png").symlink_to(victime)
+
+    answer = await client.put("/api/catalogue/art/Melee.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 204
+    assert victime.read_text() == "intact"
+    assert not (jeux / "Melee.rvz.nel3ab.png").is_symlink()
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+
+
+def test_a_name_too_long_for_a_picture_beside_it_is_refused(tmp_path: Path) -> None:
+    """Le nom de l'image, plus son nom d'écriture, doit tenir dans 255 octets."""
+    cle = "k" * 227 + ".rvz"
+    room(tmp_path / "salles", "1", library(100, cle))
+    with pytest.raises(ImageRefuseeError, match="trop long"):
+        deposer_image(tmp_path / "salles", str(tmp_path / "gc"), cle, UN_PIXEL)
+    # Le jumeau: un caractère de moins passe le contrôle du nom.
+    court = "k" * 226 + ".rvz"
+    room(tmp_path / "salles", "1", library(100, court))
+    (tmp_path / "gc").mkdir()
+    (tmp_path / "gc" / court).write_bytes(b"un disque")
+    assert deposer_image(tmp_path / "salles", str(tmp_path / "gc"), court, UN_PIXEL)
+
+
+async def test_a_file_the_catalogue_does_not_list_gets_no_picture(
+    depot: tuple[httpx.AsyncClient, Path],
+) -> None:
+    """Un fichier présent mais pas au catalogue (une copie en cours, un jeu
+    que le worker n'a pas encore balayé) n'a pas d'image: le catalogue fait foi."""
+    client, jeux = depot
+    (jeux / "Copie.rvz").write_bytes(b"un disque")
+
+    answer = await client.put("/api/catalogue/art/Copie.rvz", headers=SOUHIB, content=UN_PIXEL)
+
+    assert answer.status_code == 404
+    assert not (jeux / "Copie.rvz.nel3ab.png").exists()
+
+
+def test_the_picture_goes_beside_the_file_the_worker_kept(tmp_path: Path) -> None:
+    """Le worker ne garde que des fichiers ordinaires (`library::scan`): un lien
+    au même nom dans un dossier plus tôt n'est pas le jeu, et l'image posée à
+    côté de lui ne s'afficherait jamais."""
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    avant, apres, ailleurs = tmp_path / "avant", tmp_path / "apres", tmp_path / "ailleurs"
+    for dossier in (avant, apres, ailleurs):
+        dossier.mkdir()
+    (ailleurs / "Melee.rvz").write_bytes(b"un disque")
+    (avant / "Melee.rvz").symlink_to(ailleurs / "Melee.rvz")
+    (apres / "Melee.rvz").write_bytes(b"un disque")
+
+    assert deposer_image(tmp_path / "salles", f"{avant}:{apres}", "Melee.rvz", UN_PIXEL)
+
+    assert (apres / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+    assert not (avant / "Melee.rvz.nel3ab.png").exists()
+    assert not (ailleurs / "Melee.rvz.nel3ab.png").exists()
+
+
+def test_a_game_that_is_only_a_link_gets_no_picture(tmp_path: Path) -> None:
+    """Le jumeau: sans fichier ordinaire, le jeu est introuvable, même listé."""
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    jeux, ailleurs = tmp_path / "gc", tmp_path / "ailleurs"
+    jeux.mkdir()
+    ailleurs.mkdir()
+    (ailleurs / "Melee.rvz").write_bytes(b"un disque")
+    (jeux / "Melee.rvz").symlink_to(ailleurs / "Melee.rvz")
+
+    assert not deposer_image(tmp_path / "salles", str(jeux), "Melee.rvz", UN_PIXEL)
+
+    assert sorted(p.name for p in jeux.iterdir()) == ["Melee.rvz"]
+    assert not (ailleurs / "Melee.rvz.nel3ab.png").exists()
+
+
+def _un_jeu_range(tmp_path: Path) -> Path:
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    jeux = tmp_path / "gc"
+    jeux.mkdir()
+    (jeux / "Melee.rvz").write_bytes(b"un disque")
+    return jeux
+
+
+def test_a_short_write_is_carried_on_not_published_half(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`write(2)` peut écrire moins qu'on lui donne, sur un disque qui se
+    remplit par exemple: le reste suit, et l'image n'est jamais publiée coupée."""
+    jeux = _un_jeu_range(tmp_path)
+    corps = png_de(8, 8, 4000)
+    ecrire_vraiment = os.write
+    monkeypatch.setattr(os, "write", lambda fd, data: ecrire_vraiment(fd, bytes(data[:1000])))
+
+    assert deposer_image(tmp_path / "salles", str(jeux), "Melee.rvz", corps)
+
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == corps
+
+
+def test_a_failed_write_keeps_the_previous_picture_and_leaves_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le jumeau: un disque plein lève, l'image d'avant reste entière, et le
+    nom d'écriture ne traîne pas à côté du jeu."""
+    jeux = _un_jeu_range(tmp_path)
+    (jeux / "Melee.rvz.nel3ab.png").write_bytes(UN_PIXEL)
+    ecrire_vraiment = os.write
+    appels = []
+
+    def disque_plein(fd: int, data: bytes) -> int:
+        appels.append(len(data))
+        if len(appels) > 1:
+            raise OSError(28, "No space left on device")
+        return ecrire_vraiment(fd, bytes(data[:1000]))
+
+    monkeypatch.setattr(os, "write", disque_plein)
+
+    with pytest.raises(OSError, match="No space"):
+        deposer_image(tmp_path / "salles", str(jeux), "Melee.rvz", png_de(8, 8, 4000))
+
+    assert (jeux / "Melee.rvz.nel3ab.png").read_bytes() == UN_PIXEL
+    assert sorted(p.name for p in jeux.iterdir()) == ["Melee.rvz", "Melee.rvz.nel3ab.png"]
+
+
+def test_the_check_refuses_more_than_a_mib_without_the_route(tmp_path: Path) -> None:
+    """La route coupe le corps avant; le contrôle tient seul, pour tout autre appelant."""
+    room(tmp_path / "salles", "1", library(100, "Melee.rvz"))
+    with pytest.raises(ImageRefuseeError, match="Mio"):
+        deposer_image(tmp_path / "salles", str(tmp_path), "Melee.rvz", png_de(1, 1, ART_MAX))

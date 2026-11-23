@@ -83,8 +83,9 @@ pub use disc::{
 };
 pub use error::EmulatorError;
 pub use library::{
-    Rom, catalogue_json, library_file, position_of, scan as scan_roms, scan_all as scan_libraries,
-    write_library_file,
+    ART_FOLDER, ART_MAX_BYTES, ArtWritten, OPEN_ORDER, OPEN_ORDER_MAX, OpenOrder, Rom,
+    art_file_name, catalogue_json, library_file, position_of, scan as scan_roms,
+    scan_all as scan_libraries, take_open_order, write_art_files, write_library_file,
 };
 pub use pipe::{Delivery, PendingPipes, Pipes};
 pub use process::{ConfigOverride, DolphinConfig, Session, VideoBackend};

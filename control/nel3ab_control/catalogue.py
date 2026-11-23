@@ -15,13 +15,19 @@ et le suivant prend sa place. Garder la moitié lisible d'un fichier ferait
 afficher une bibliothèque à qui il manque des jeux sans le dire.
 """
 
+import hashlib
 import json
 import logging
+import os
+import stat
+import struct
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from nel3ab_control import session_salle
 from nel3ab_control.consoles import titre_valide
+from nel3ab_control.imports.destinations import dossiers
 from nel3ab_control.worker import valid_key
 
 LOG = logging.getLogger(__name__)
@@ -36,6 +42,18 @@ VERSION = 1
 #: titre, éditeur et phrase compris : huit Mio laissent la place à vingt mille
 #: jeux, et bornent la mémoire si un fichier grossit par erreur.
 SIZE_MAX = 8 * 1024 * 1024
+
+#: Le dossier où le worker écrit l'image de chaque jeu, à côté de ce fichier
+#: (`nel3ab_emulator::ART_FOLDER`, ADR D45).
+ART_FOLDER = "art"
+
+#: La plus grosse image servie, la borne même du worker (`ART_MAX_BYTES`): une
+#: image déposée est lue jusqu'à un Mio, et une bannière GameCube pèse
+#: quelques kilo-octets. Au-delà, le fichier n'est pas celui que le worker écrit.
+ART_MAX = 1024 * 1024
+
+#: Les huit premiers octets de tout fichier PNG.
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 class CatalogueGame(BaseModel):
@@ -98,35 +116,70 @@ def _entree(brute: object) -> CatalogueGame | None:
     )
 
 
-def read_one(path: Path, room: int) -> Catalogue | None:
-    """Un fichier de salle, entier et valide, ou rien."""
+def _pourquoi_ecarte(fd: int) -> str | None:
+    """Pourquoi `session_salle.lire` n'a rien rendu, pour le journal.
+
+    Rien pour un fichier absent: une salle qui n'a jamais démarré n'en a pas, et
+    ce n'est pas un défaut. Lu après coup et sans suivre de lien: le fichier a
+    pu changer entre les deux, la raison n'est qu'une indication.
+    """
     try:
-        with path.open("rb") as file:
-            raw = file.read(SIZE_MAX + 1)
-    except OSError:
+        etat = os.stat(NAME, dir_fd=fd, follow_symlinks=False)
+    except FileNotFoundError:
         return None
-    if len(raw) > SIZE_MAX:
-        LOG.warning("catalogue trop gros, écarté: %s", path)
+    except OSError as erreur:
+        return erreur.strerror or "illisible"
+    if stat.S_ISLNK(etat.st_mode):
+        return "un lien"
+    if not stat.S_ISREG(etat.st_mode):
+        return "pas un fichier ordinaire"
+    return "trop gros" if etat.st_size > SIZE_MAX else "illisible"
+
+
+def read_one(salles_dir: Path, room: int) -> Catalogue | None:
+    """Le fichier de la salle `room`, entier et valide, ou rien.
+
+    Lu par le descripteur du dossier de la salle, jamais par un chemin (ADR
+    D36). Ce dossier est monté en écriture dans le conteneur de son moteur, qui
+    peut y laisser un lien ou un tube nommé à ce nom: suivi, un lien ferait
+    publier au salon un fichier de l'hôte, à qui demande la liste des salles
+    sans identité; ouvert, un tube bloquerait un fil du salon pour toujours, à
+    chaque relecture de cette liste. `session_salle.lire` refuse les deux, sans
+    attendre, et un dossier de salle qui est lui-même un lien.
+    """
+    chemin = salles_dir / str(room) / NAME
+    try:
+        with session_salle.dossier(salles_dir, room) as fd:
+            lu = session_salle.lire(fd, NAME, SIZE_MAX)
+            pourquoi = _pourquoi_ecarte(fd) if lu is None else None
+    except FileNotFoundError:
+        return None
+    except OSError as erreur:
+        LOG.warning("dossier de salle écarté (%s): %s", erreur.strerror, chemin.parent)
+        return None
+    if lu is None:
+        if pourquoi:
+            LOG.warning("catalogue écarté (%s): %s", pourquoi, chemin)
         return None
     try:
-        said = json.loads(raw)
+        said = json.loads(lu.contenu)
     except ValueError:
-        LOG.warning("catalogue illisible, écarté: %s", path)
+        LOG.warning("catalogue illisible, écarté: %s", chemin)
         return None
     if not isinstance(said, dict) or said.get("version") != VERSION:
-        LOG.warning("catalogue d'une version inconnue, écarté: %s", path)
+        LOG.warning("catalogue d'une version inconnue, écarté: %s", chemin)
         return None
     scanned, roms = said.get("scanned_ms"), said.get("roms")
     if type(scanned) is not int or scanned < 0 or not isinstance(roms, list):
-        LOG.warning("catalogue mal formé, écarté: %s", path)
+        LOG.warning("catalogue mal formé, écarté: %s", chemin)
         return None
     games = [_entree(rom) for rom in roms]
     if any(game is None for game in games):
-        LOG.warning("catalogue avec une entrée mal formée, écarté: %s", path)
+        LOG.warning("catalogue avec une entrée mal formée, écarté: %s", chemin)
         return None
     keys = [game.key for game in games if game]
     if len(set(keys)) != len(keys):
-        LOG.warning("catalogue avec deux fois la même clé, écarté: %s", path)
+        LOG.warning("catalogue avec deux fois la même clé, écarté: %s", chemin)
         return None
     return Catalogue(scanned_ms=scanned, room=room, games=[game for game in games if game])
 
@@ -135,7 +188,8 @@ def freshest(salles_dir: Path) -> Catalogue | None:
     """Le catalogue le plus récent parmi ceux des salles numérotées, ou rien.
 
     Seuls les dossiers dont le nom est un numéro de salle sont lus : c'est la
-    forme que l'unité `nel3ab-worker@N` donne au répertoire de session.
+    forme que l'unité `nel3ab-worker@N` donne au répertoire de session. Chacun
+    est lu par `read_one`, qui ne suit aucun lien et n'attend sur aucun tube.
     """
     try:
         rooms = [child for child in salles_dir.iterdir() if child.name.isdecimal()]
@@ -144,10 +198,149 @@ def freshest(salles_dir: Path) -> Catalogue | None:
     found: list[Catalogue] = []
     for child in rooms:
         numero = int(child.name)
-        if numero >= 1 and (catalogue := read_one(child / NAME, numero)) is not None:
+        if numero >= 1 and (catalogue := read_one(salles_dir, numero)) is not None:
             found.append(catalogue)
     # À égalité d'heure, la plus petite salle: un choix fixe plutôt que l'ordre
     # du système de fichiers, qui changerait d'un appel à l'autre.
     if not found:
         return None
     return max(found, key=lambda one: (one.scanned_ms, -one.room))
+
+
+def art_file_name(key: str) -> str:
+    """Le nom que le worker donne à l'image d'un jeu: l'empreinte SHA-256 de sa clé.
+
+    Le même calcul que `nel3ab_emulator::art_file_name`; les deux essais
+    épinglent les mêmes valeurs. La clé n'est jamais jointe à un chemin.
+    """
+    return hashlib.sha256(key.encode()).hexdigest() + ".png"
+
+
+def art_of(salles_dir: Path, key: str) -> bytes | None:
+    """L'image d'un jeu, lue dans la salle qui a écrit le catalogue le plus frais.
+
+    Rien pour un jeu absent du catalogue ou annoncé sans
+    image, et un fichier absent, trop gros, qui n'est pas un PNG ou qui est un
+    lien. La salle du catalogue et pas une autre: c'est elle qui a balayé les
+    jeux en dernier, et son dossier `art` suit le même balayage. Le dossier de
+    session est monté en écriture dans un conteneur, donc ni le dossier `art`
+    ni l'image ne sont suivis s'ils sont des liens (ADR D36).
+    """
+    # La clé n'est comparée qu'aux clés du catalogue, que `read_one` a déjà
+    # passées à `valid_key`: une clé en forme de chemin n'y est jamais égale.
+    catalogue = freshest(salles_dir)
+    if catalogue is None or not any(game.key == key and game.art for game in catalogue.games):
+        return None
+    image = session_salle.lire_dans(
+        salles_dir, catalogue.room, ART_FOLDER, art_file_name(key), ART_MAX
+    )
+    if image is None or not image.startswith(PNG_SIGNATURE):
+        return None
+    return image
+
+
+#: Ce qu'on ajoute au nom d'un jeu pour l'image que le propriétaire dépose à
+#: côté de lui, lue par le worker (`banner::dropped_picture`, `switch::art`).
+DEPOSEE = ".nel3ab.png"
+
+#: Le plus grand côté d'une image déposée, la borne du worker: au-delà, il
+#: l'ignore, et un dépôt accepté ici ne s'afficherait jamais.
+COTE_MAX = 1024
+
+#: Le plus long nom de fichier que Linux accepte, en octets (`NAME_MAX`).
+NOM_MAX = 255
+
+#: Ce que l'écriture ajoute au nom pendant qu'elle écrit (`session_salle.ecrire`:
+#: un point, un point et douze chiffres hexadécimaux).
+PROVISOIRE = 14
+
+
+class ImageRefuseeError(ValueError):
+    """Une image que le worker ne montrerait pas: le refus dit pourquoi."""
+
+
+def controler_png(contenu: bytes) -> None:
+    """Le contrôle léger d'une image déposée: taille, signature et en-tête.
+
+    Le décodage complet reste au worker, qui refuse en silence une image qu'il
+    ne sait pas lire. Ici, on refuse ce qu'on peut nommer avant d'écrire: un
+    fichier trop gros, qui n'est pas un PNG, ou plus grand que 1024 pixels de
+    côté. Lève `ImageRefuseeError`.
+    """
+    if len(contenu) > ART_MAX:
+        raise ImageRefuseeError("l'image dépasse un Mio")
+    if not contenu.startswith(PNG_SIGNATURE):
+        raise ImageRefuseeError("ce n'est pas une image PNG")
+    # Le premier morceau d'un PNG est toujours l'en-tête: 13 octets, « IHDR ».
+    if len(contenu) < 24 or contenu[8:16] != b"\x00\x00\x00\x0dIHDR":
+        raise ImageRefuseeError("l'en-tête de l'image est incomplet")
+    largeur, hauteur = struct.unpack(">II", contenu[16:24])
+    if not (1 <= largeur <= COTE_MAX and 1 <= hauteur <= COTE_MAX):
+        raise ImageRefuseeError(f"l'image dépasse {COTE_MAX} pixels de côté")
+
+
+def _dossier_du_jeu(rom_dir: str, key: str) -> Path | None:
+    """Le premier dossier de jeux qui contient ce fichier, dans l'ordre du balayage.
+
+    `key` vient du catalogue, donc d'un nom de fichier sans séparateur: elle
+    désigne une entrée de ce dossier et rien d'autre. Seul un fichier
+    ordinaire compte, comme dans `library::scan` du worker: un lien au même nom
+    dans un dossier plus tôt n'est pas le jeu qu'il a gardé, et une image posée
+    à côté de ce lien ne s'afficherait jamais.
+    """
+    for dossier in dossiers(rom_dir):
+        try:
+            mode = os.stat(dossier / key, follow_symlinks=False).st_mode
+        except OSError:
+            continue
+        if stat.S_ISREG(mode):
+            return dossier
+    return None
+
+
+def _jeu_connu(salles_dir: Path, rom_dir: str, key: str) -> Path | None:
+    """Le dossier d'un jeu que le catalogue le plus frais liste, ou rien."""
+    catalogue = freshest(salles_dir)
+    if catalogue is None or not any(game.key == key for game in catalogue.games):
+        return None
+    return _dossier_du_jeu(rom_dir, key)
+
+
+def deposer_image(salles_dir: Path, rom_dir: str, key: str, contenu: bytes) -> bool:
+    """Écrit l'image du propriétaire à côté du jeu: `<jeu>.nel3ab.png`.
+
+    Faux quand le jeu n'est pas au catalogue ou que son fichier est introuvable.
+    L'écriture passe par le descripteur du dossier, sous un nom neuf renommé
+    par-dessus: un lien laissé à ce nom est remplacé, pas suivi. Le worker la
+    lit à son prochain démarrage. Lève `ImageRefuseeError` et `OSError`.
+    """
+    controler_png(contenu)
+    nom = key + DEPOSEE
+    if len(nom.encode()) + PROVISOIRE > NOM_MAX:
+        raise ImageRefuseeError("le nom de ce jeu est trop long pour une image à côté de lui")
+    dossier = _jeu_connu(salles_dir, rom_dir, key)
+    if dossier is None:
+        return False
+    fd = os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        session_salle.ecrire(fd, nom, contenu)
+    finally:
+        os.close(fd)
+    return True
+
+
+def retirer_image(salles_dir: Path, rom_dir: str, key: str) -> bool:
+    """Retire l'image déposée à côté du jeu; faux quand le jeu est inconnu.
+
+    Retirer une image absente n'est pas une erreur. Un lien à ce nom est retiré
+    sans être suivi. Lève `OSError`.
+    """
+    dossier = _jeu_connu(salles_dir, rom_dir, key)
+    if dossier is None:
+        return False
+    fd = os.open(dossier, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        session_salle.retirer(fd, key + DEPOSEE)
+    finally:
+        os.close(fd)
+    return True

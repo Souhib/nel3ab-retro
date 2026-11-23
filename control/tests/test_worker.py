@@ -147,7 +147,7 @@ def test_four_free_seats_are_a_valid_snapshot() -> None:
     assert seat_receipts(b"- - - -\n") == [None, None, None, None]
 
 
-async def heard_launch(key: str | None = None) -> tuple[bool, list[bytes]]:
+async def heard_launch(key: str | None = None, person: str = "") -> tuple[bool, list[bytes]]:
     """Ce qu'un vrai port de contrôle entend d'un lancement, et la réponse rendue."""
     from nel3ab_control.worker import launch_prepared
 
@@ -172,6 +172,7 @@ async def heard_launch(key: str | None = None) -> tuple[bool, list[bytes]]:
                 0,
                 [0, 0, 0, 0],
                 [claim, "-", "-", "-"],
+                person,
                 key=key,
             )
             await anyio.sleep(0.05)
@@ -203,3 +204,32 @@ async def test_a_path_like_key_never_reaches_the_worker(key: str) -> None:
     said, heard = await heard_launch(key=key)
     assert said is False
     assert heard == [], "une clé qui ressemble à un chemin est partie vers le worker"
+
+
+@pytest.mark.parametrize(
+    "person",
+    [
+        "nour x@y.org",
+        # Des blancs pour `split_whitespace`, qui découpe la ligne côté worker:
+        # l'espace insécable, la tabulation verticale, le séparateur de lignes.
+        "n\u00a0@y.org",
+        "n\x0b@y.org",
+        "n\u2028@y.org",
+        # 33 caractères, mais 66 octets: le worker compte des octets.
+        "\u00e9" * 33,
+    ],
+)
+async def test_an_identity_the_worker_would_split_never_leaves(person: str) -> None:
+    said, heard = await heard_launch(key="Melee.rvz", person=person)
+    assert said is False
+    assert heard == [], "une identité que le worker découperait est partie"
+
+
+@pytest.mark.parametrize("person", ["n\u00e9na@y.org", "x" * 60 + "@y.o"])
+async def test_an_accented_or_longest_identity_leaves_whole(person: str) -> None:
+    """Le jumeau: un accent n'est pas un blanc, et 64 octets passent."""
+    said, heard = await heard_launch(key="Melee.rvz", person=person)
+    assert said is True
+    # Le dernier champ, et la ligne en garde quatorze: rien n'a été coupé.
+    fields = heard[0].decode().split()
+    assert (fields[-1], len(fields)) == (person, 14)

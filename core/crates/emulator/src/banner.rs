@@ -413,15 +413,65 @@ pub fn gather(
                 crate::disc::ArtSource::WiiSave => from_a_wii_save(rom, saves),
                 crate::disc::ArtSource::Banner => art_of(rom, tool, cache),
             };
-            match found {
-                Ok(art) => Some(art),
-                Err(error) => {
+            // L'image que le propriétaire a déposée à côté du jeu passe avant
+            // la bannière (ADR D45), et garde les mots de la bannière: elle
+            // remplace un dessin de 96 × 32, pas l'éditeur ni la phrase.
+            match (found, dropped_picture(&rom.path)) {
+                (Ok(art), Some(png)) => Some(Art { png, ..art }),
+                (Ok(art), None) => Some(art),
+                (Err(_), Some(png)) => Some(Art {
+                    png,
+                    maker: String::new(),
+                    about: String::new(),
+                }),
+                (Err(error), None) => {
                     tracing::info!(rom = %rom.name, %error, "no banner for this one");
                     None
                 }
             }
         })
         .collect()
+}
+
+/// Le plus gros fichier d'image déposée qu'on lit, la borne de `switch::art`:
+/// l'affiche officielle de Mario Tennis pesait 497 170 octets (9 septembre 2026).
+const DROPPED_MAX_BYTES: u64 = 1_048_576;
+
+/// Le plus grand côté d'une image déposée, celui de `switch::art`.
+const DROPPED_MAX_SIDE: u32 = 1024;
+
+/// L'image que le propriétaire a posée à côté d'un jeu (`<jeu>.nel3ab.png`),
+/// entière et décodable, ou rien.
+///
+/// Les mêmes bornes que la lecture des consoles inscrites (`switch::art`): un
+/// Mio au plus, 1024 pixels de côté, et un décodage complet sous huit Mio, pour
+/// qu'aucune image cassée ou démesurée n'arrive à un navigateur. Le dossier des
+/// jeux appartient au propriétaire et le conteneur le monte en lecture seule.
+fn dropped_picture(rom: &Path) -> Option<Vec<u8>> {
+    use std::io::Read as _;
+    let mut picture = rom.as_os_str().to_os_string();
+    picture.push(".nel3ab.png");
+    let mut bytes = Vec::new();
+    std::fs::File::open(&picture)
+        .ok()?
+        .take(DROPPED_MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > DROPPED_MAX_BYTES {
+        return None;
+    }
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(&bytes));
+    decoder.set_limits(png::Limits {
+        bytes: 8 * 1024 * 1024,
+    });
+    let mut reader = decoder.read_info().ok()?;
+    if reader.info().width > DROPPED_MAX_SIDE || reader.info().height > DROPPED_MAX_SIDE {
+        return None;
+    }
+    let mut pixels = vec![0; reader.output_buffer_size()?];
+    reader.next_frame(&mut pixels).ok()?;
+    reader.finish().ok()?;
+    Some(bytes)
 }
 
 /// L'image d'un jeu Wii, prise dans sa sauvegarde.
@@ -871,6 +921,95 @@ mod tests {
             std::path::Path::new("/nulle-part"),
         );
         assert_eq!(second[0].as_ref().unwrap().maker, "Nintendo");
+    }
+
+    /// Une image déposée à côté d'un disque GameCube passe avant sa bannière,
+    /// et garde l'éditeur que la bannière donne (ADR D45).
+    #[test]
+    fn a_dropped_picture_wins_over_the_banner_and_keeps_its_words() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut raw = blob(*b"BNR1", 1);
+        put(&mut raw, 0, LONG_MAKER_AT, b"Nintendo");
+        let tool = fake_tool(dir.path(), Some(&raw), 0);
+        let rom = a_rom(dir.path());
+        let banner = patiently(&rom, &tool, &dir.path().join("cache"));
+        let from_disc = banner[0].as_ref().unwrap().png.clone();
+        let dropped = encode(&Banner {
+            pixels: vec![255; 4 * 4 * 4],
+            width: 4,
+            height: 4,
+            name: String::new(),
+            maker: String::new(),
+            about: String::new(),
+        })
+        .unwrap();
+        assert_ne!(dropped, from_disc, "les deux images doivent se distinguer");
+        std::fs::write(dir.path().join("game.rvz.nel3ab.png"), &dropped).unwrap();
+
+        let found = patiently(&rom, &tool, &dir.path().join("cache"));
+
+        let art = found[0].as_ref().unwrap();
+        assert_eq!(art.png, dropped);
+        assert_eq!(art.maker, "Nintendo");
+        // Les jumeaux: une image cassée ou trop large laisse la bannière. La
+        // troisième a un en-tête juste et des pixels abîmés: seul un décodage
+        // complet la refuse.
+        let mut damaged = dropped.clone();
+        let last_pixel_byte = damaged.len() - 12 - 4 - 1;
+        damaged[last_pixel_byte] ^= 0xFF;
+        for broken in [dropped[..24].to_vec(), b"pas une image".to_vec(), damaged] {
+            std::fs::write(dir.path().join("game.rvz.nel3ab.png"), broken).unwrap();
+            assert_eq!(
+                patiently(&rom, &tool, &dir.path().join("cache"))[0]
+                    .as_ref()
+                    .unwrap()
+                    .png,
+                from_disc
+            );
+        }
+        let wide = encode(&Banner {
+            pixels: vec![0; 1025 * 4],
+            width: 1025,
+            height: 1,
+            name: String::new(),
+            maker: String::new(),
+            about: String::new(),
+        })
+        .unwrap();
+        std::fs::write(dir.path().join("game.rvz.nel3ab.png"), wide).unwrap();
+        assert_eq!(
+            patiently(&rom, &tool, &dir.path().join("cache"))[0]
+                .as_ref()
+                .unwrap()
+                .png,
+            from_disc
+        );
+    }
+
+    /// Un jeu Wii jamais lancé n'a pas d'image dans sa sauvegarde: l'image
+    /// déposée lui en donne une. Le jumeau sans image reste sans image.
+    #[test]
+    fn a_dropped_picture_gives_a_wii_game_its_first_picture() {
+        let dir = tempfile::tempdir().unwrap();
+        let rom = a_rom(dir.path());
+        let discs = [crate::disc::Disc {
+            console: crate::disc::Console::Wii,
+            title: None,
+        }];
+        let read = || {
+            gather(
+                std::slice::from_ref(&rom),
+                Path::new(REFUSES),
+                &dir.path().join("cache"),
+                &discs,
+                &dir.path().join("saves"),
+            )
+        };
+        assert_eq!(read(), vec![None]);
+        let dropped = encode(&parse(&blob(*b"BNR1", 1)).unwrap()).unwrap();
+        std::fs::write(dir.path().join("game.rvz.nel3ab.png"), &dropped).unwrap();
+
+        assert_eq!(read()[0].as_ref().unwrap().png, dropped);
     }
 
     #[test]

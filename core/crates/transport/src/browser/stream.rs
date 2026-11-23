@@ -682,6 +682,7 @@ mod tests {
     fn test_shared() -> Shared {
         Shared {
             save_catalogue: Arc::new(Mutex::new(None)),
+            jalons: Arc::new(crate::browser::jalons::Jalons::depuis(0)),
             input_kind: crate::browser::InputKind::Dolphin,
             devices: Arc::new(Mutex::new([0; PORTS])),
             clips: Arc::new(Mutex::new(crate::clip::Clips::new())),

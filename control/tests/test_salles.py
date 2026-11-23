@@ -1,18 +1,29 @@
 """Ouvrir et fermer des salles, sans systemd."""
 
+import asyncio
+import json
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 import pytest
 
 from nel3ab_control.api.controllers.salles import (
+    IdentiteIntransmissible,
+    JeuInconnu,
     PlusDeSalle,
     SalleInconnue,
     SalleRebelle,
     SallesController,
+    SurUnJeu,
+    SwitchPrise,
 )
+from nel3ab_control.api.schemas.salle import SiegeVu
+from nel3ab_control.session_salle import OrdreOuverture
 from nel3ab_control.settings import Settings
-from tests.faux_systeme import FauxSysteme
+from tests.conftest import sans_rester_sur_un_tube
+from tests.faux_systeme import FauxSysteme, Horloge
 
 
 @pytest.fixture
@@ -151,6 +162,45 @@ async def test_une_salle_qui_ne_repond_pas_reste_dans_la_liste(reglages: Setting
 
     assert etat[0].ouverte is True
     assert etat[0].jeu is None
+    assert etat[0].repond is False, "allumée mais muette, et la liste le dit"
+
+
+async def test_une_salle_qui_repond_le_dit(reglages: Settings) -> None:
+    """Le jumeau: la même salle sur son menu répond, sans jeu. `jeu` est rien
+    dans les deux cas; seul `repond` les sépare."""
+
+    def menu(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"current": None, "players": 4, "roms": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(menu)) as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        etat = await salles.etat()
+
+    assert (etat[0].jeu, etat[0].repond) == (None, True)
+    assert [s.repond for s in etat[1:]] == [None, None], "une salle fermée n'est pas demandée"
+
+
+async def test_une_reponse_qui_n_est_pas_un_objet_est_une_salle_muette(
+    reglages: Settings,
+) -> None:
+    """Une liste à la place d'un objet faisait lever `AttributeError` et tomber
+    la liste entière. C'est une réponse inexploitable, pas une panne du salon."""
+
+    def liste(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[1, 2])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(liste)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert (etat[0].ouverte, etat[0].repond) == (True, False)
+
+
+async def test_sans_client_la_liste_ne_dit_pas_si_la_salle_repond(reglages: Settings) -> None:
+    """On n'a pas demandé: ni vrai ni faux."""
+    etat = await SallesController(reglages, FauxSysteme(allumees=[1])).etat()
+
+    assert etat[0].repond is None
 
 
 async def test_une_salle_eteinte_n_est_pas_interrogee(reglages: Settings) -> None:
@@ -177,7 +227,7 @@ async def test_la_liste_dit_qui_est_dans_chaque_salle(reglages: Settings) -> Non
     salle ne répond plus."""
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
-    etat = await salles.etat(lambda numero: ["Souhib", "Lu"] if numero == 1 else [])
+    etat = await salles.etat(Registre({1: ["Souhib", "Lu"]}))
 
     assert etat[0].gens == ["Souhib", "Lu"]
     assert etat[1].gens == [], "une salle que le registre ne nomme pas n'a personne"
@@ -192,10 +242,11 @@ async def test_une_salle_fermee_n_a_personne_meme_si_le_registre_le_croit(
     une porte qui n'existe plus."""
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
-    etat = await salles.etat(lambda _numero: ["fantôme"])
+    etat = await salles.etat(Registre({1: ["fantôme"], 2: ["fantôme"], 3: ["fantôme"]}))
 
     assert etat[0].gens == ["fantôme"], "la salle ouverte dit bien qui y est"
     assert [s.gens for s in etat[1:]] == [[], []], "une salle fermée n'a personne"
+    assert [(s.chef, s.sieges, s.regardent) for s in etat[1:]] == [(None, [], [])] * 2
 
 
 async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> None:
@@ -204,6 +255,25 @@ async def test_sans_registre_la_liste_ne_dit_personne(reglages: Settings) -> Non
     salles = SallesController(reglages, FauxSysteme(allumees=[1]))
 
     assert [s.gens for s in await salles.etat()] == [[], [], []]
+
+
+class Registre:
+    """Un registre de présents de papier: des pseudos par salle, sans place."""
+
+    def __init__(self, gens: dict[int, list[str]]) -> None:
+        self._gens = gens
+
+    def gens(self, numero: int) -> list[str]:
+        return list(self._gens.get(numero, []))
+
+    def chef(self, numero: int) -> str | None:
+        return next(iter(self._gens.get(numero, [])), None)
+
+    def sieges(self, numero: int) -> list[SiegeVu] | None:
+        return [SiegeVu(port=1, nom=nom, tenu=True) for nom in self._gens.get(numero, [])[:1]]
+
+    def regardent(self, numero: int) -> list[str]:
+        return list(self._gens.get(numero, []))[1:]
 
 
 #: Une horloge monotone figée, partagée par le faux systemd et le contrôleur.
@@ -233,40 +303,49 @@ class FauxWorker:
         return self.places
 
 
-async def test_la_liste_dit_depuis_quand_une_salle_tourne(reglages: Settings) -> None:
-    """Une carte qui ne dit pas depuis quand la salle tourne oblige à entrer pour
-    savoir si on arrive au milieu d'une partie commencée il y a deux heures."""
+async def test_la_liste_dit_depuis_quand_le_jeu_tourne(reglages: Settings) -> None:
+    """Une carte qui ne dit pas depuis quand le jeu tourne oblige à entrer pour
+    savoir si on arrive au milieu d'une partie commencée il y a deux heures.
+
+    C'était `ouverte_depuis` jusqu'au 23 novembre 2026: la valeur de systemd,
+    qui repart à chaque changement de jeu, est le temps du JEU. Une salle
+    allumée hors du salon n'a pas de repère d'ouverture, donc pas d'ouverture.
+    """
     systeme = FauxSysteme(allumees=[1], depuis={1: 300.0}, horloge=HORLOGE)
     salles = SallesController(reglages, systeme, horloge=HORLOGE)
 
     etat = await salles.etat()
 
-    assert etat[0].ouverte_depuis == pytest.approx(300, abs=2)
+    assert etat[0].jeu_depuis == pytest.approx(300, abs=2)
+    assert etat[0].ouverte_depuis is None
 
 
 async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> None:
-    """Le jumeau négatif: une salle qui ne tourne pas ne tourne DEPUIS rien, et
-    elle ne doit pas non plus coûter une question à systemd."""
+    """Le jumeau négatif: une salle qui ne tourne pas ne tourne DEPUIS rien.
+
+    Elle coûte une question à systemd depuis le 23 novembre 2026, une seule,
+    pour son heure de fermeture: la liste pose une question par salle.
+    """
     systeme = FauxSysteme(allumees=[1], depuis={1: 300.0}, horloge=HORLOGE)
     salles = SallesController(reglages, systeme, horloge=HORLOGE)
 
     etat = await salles.etat()
 
-    assert [s.ouverte_depuis for s in etat[1:]] == [None, None]
+    assert [(s.ouverte_depuis, s.jeu_depuis) for s in etat[1:]] == [(None, None), (None, None)]
     interrogees = [c[-1] for c in systeme.commandes if "show" in c]
-    assert interrogees == ["nel3ab-worker@1"]
+    assert interrogees == ["nel3ab-worker@1", "nel3ab-worker@2", "nel3ab-worker@3"]
 
 
 async def test_une_unite_sans_horodatage_ne_dit_pas_zero(reglages: Settings) -> None:
     """systemd rend `0` pour une unité qui n'a jamais démarré. Le rendre tel quel
-    afficherait « ouverte depuis 0 seconde », une absence déguisée en mesure,
+    afficherait « depuis 0 seconde », une absence déguisée en mesure,
     c'est-à-dire exactement la faute que le schéma interdit."""
     systeme = FauxSysteme(allumees=[1])
 
     etat = await SallesController(reglages, systeme).etat()
 
     assert etat[0].ouverte is True
-    assert etat[0].ouverte_depuis is None
+    assert etat[0].jeu_depuis is None
 
 
 async def test_la_liste_dit_combien_de_manettes_sont_libres(reglages: Settings) -> None:
@@ -349,3 +428,697 @@ async def test_ouvrir_ne_prend_pas_une_salle_qui_redemarre(reglages: Settings) -
     assert salle.numero == 2
     assert not (reglages.salles_dir / "1" / "game-closed").exists()
     assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@1"] not in systeme.commandes
+
+
+async def test_l_ouverture_survit_a_un_changement_de_jeu(reglages: Settings) -> None:
+    """« Ouverte depuis » dit depuis quand la SALLE est ouverte, pas le jeu.
+
+    Le worker sort à chaque changement de jeu et systemd le relance: son
+    horodatage d'activation repart. Le 23 novembre 2026, la salle 1 ouverte à
+    07:05:47 disait son ancienneté depuis 07:09:08, sa deuxième relance.
+    """
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(600)
+
+    systeme.relancer(1)
+    etat = await salles.etat()
+
+    assert etat[0].ouverte_depuis == pytest.approx(602, abs=1)
+
+
+async def test_le_temps_du_jeu_repart_a_chaque_changement_de_jeu(reglages: Settings) -> None:
+    """Le jumeau du précédent: ce qui survit est l'ouverture, pas le jeu."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(600)
+    assert (await salles.etat())[0].jeu_depuis == pytest.approx(600, abs=1)
+
+    systeme.relancer(1)
+
+    assert (await salles.etat())[0].jeu_depuis == pytest.approx(0, abs=1)
+
+
+async def test_un_repere_d_un_autre_demarrage_ne_vaut_rien(reglages: Settings) -> None:
+    """L'horloge monotone repart à zéro au démarrage de la machine: un repère
+    écrit avant un redémarrage dirait n'importe quoi."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    await SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "avant").ouvrir()
+
+    salles = SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "apres")
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is True
+    assert etat[0].ouverte_depuis is None
+
+
+async def test_le_meme_demarrage_garde_le_repere(reglages: Settings) -> None:
+    """Le jumeau: le même identifiant de démarrage, un autre contrôleur (le salon
+    a redémarré), et le repère vaut encore."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    await SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "lui").ouvrir()
+    horloge.avancer(90)
+
+    salles = SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "lui")
+
+    assert (await salles.etat())[0].ouverte_depuis == pytest.approx(90, abs=1)
+
+
+async def test_une_salle_fermee_seule_puis_rallumee_a_la_main_n_a_pas_d_ouverture(
+    reglages: Settings,
+) -> None:
+    """Fermée faute d'activité (code 42), le repère reste: seul `fermer` le
+    retire. Rallumée à la main, hors du salon, elle ne doit pas dire « ouverte
+    depuis » l'ouverture d'avant. La longue pause inactive le trahit."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(1800)
+    systeme.fermer_seule(1)
+    horloge.avancer(3600)
+
+    systeme.demarrer(1)
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is True
+    assert etat[0].ouverte_depuis is None
+
+
+async def test_rouvrir_par_le_salon_repose_le_repere(reglages: Settings) -> None:
+    """Le jumeau: la même salle fermée seule, rouverte par le salon, a une
+    ouverture neuve. Le repère est posé APRÈS le démarrage: posé avant, la
+    longue pause le périmerait aussitôt."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(1800)
+    systeme.fermer_seule(1)
+    horloge.avancer(3600)
+
+    await salles.ouvrir()
+    horloge.avancer(30)
+
+    assert (await salles.etat())[0].ouverte_depuis == pytest.approx(30, abs=1)
+
+
+async def test_fermer_retire_le_repere(reglages: Settings) -> None:
+    salles = SallesController(reglages, FauxSysteme())
+    await salles.ouvrir()
+    repere = reglages.salles_dir / "1" / "ouverte-le"
+    assert repere.is_file()
+
+    await salles.fermer(1)
+
+    assert not repere.exists()
+
+
+async def test_un_repere_en_lien_n_est_pas_suivi(reglages: Settings, tmp_path: Path) -> None:
+    """ADR D36: un moteur peut laisser un lien dans le dossier de sa salle. Lu,
+    il ne donne rien; écrit, il est remplacé, et sa cible reste intacte."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    dossier = reglages.salles_dir / "1"
+    cible = tmp_path / "ailleurs"
+    avant = (dossier / "ouverte-le").read_bytes()
+    cible.write_bytes(avant)
+    (dossier / "ouverte-le").unlink()
+    (dossier / "ouverte-le").symlink_to(cible)
+
+    assert (await salles.etat())[0].ouverte_depuis is None
+
+    horloge.avancer(60)
+    systeme.arreter(1)
+    await salles.ouvrir()
+    assert (dossier / "ouverte-le").is_file()
+    assert not (dossier / "ouverte-le").is_symlink()
+    assert cible.read_bytes() == avant, "la cible du lien a été réécrite"
+
+
+async def test_le_marqueur_sans_jeu_ne_suit_pas_un_lien(reglages: Settings, tmp_path: Path) -> None:
+    """Le marqueur était posé par `Path.touch`, qui suit un lien: un moteur
+    pouvait faire créer ou dater un fichier de l'hôte. Il est maintenant retiré
+    et recréé dans le dossier, et la cible du lien n'est pas touchée."""
+    dossier = reglages.salles_dir / "1"
+    dossier.mkdir(parents=True)
+    cible = tmp_path / "fichier-de-l-hote"
+    (dossier / "game-closed").symlink_to(cible)
+
+    await SallesController(reglages, FauxSysteme()).ouvrir()
+
+    assert not cible.exists(), "le lien a été suivi"
+    assert (dossier / "game-closed").is_file()
+    assert not (dossier / "game-closed").is_symlink()
+
+
+async def test_un_dossier_de_salle_en_lien_est_refuse(reglages: Settings, tmp_path: Path) -> None:
+    """Le dossier numéroté lui-même ne se suit pas non plus: ouvrir refuse."""
+    reglages.salles_dir.mkdir(parents=True)
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (reglages.salles_dir / "1").symlink_to(ailleurs)
+
+    with pytest.raises(SalleRebelle) as refus:
+        await SallesController(reglages, FauxSysteme()).ouvrir()
+
+    assert "dossier" in refus.value.detail
+
+    assert list(ailleurs.iterdir()) == []
+
+
+async def test_une_salle_fermee_faute_d_activite_dit_quand_et_pourquoi(reglages: Settings) -> None:
+    """« La salle 1 a fermé à 23 h 12 »: systemd le sait sans droit particulier."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(1800)
+    systeme.fermer_seule(1)
+    horloge.avancer(120)
+
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is False
+    assert etat[0].fermee_depuis == pytest.approx(120, abs=1)
+    assert etat[0].fermee_pour == "inactivite"
+
+
+async def test_une_salle_fermee_par_quelqu_un_est_un_arret(reglages: Settings) -> None:
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    await salles.fermer(1)
+    horloge.avancer(60)
+
+    etat = await salles.etat()
+
+    assert etat[0].fermee_depuis == pytest.approx(60, abs=1)
+    assert etat[0].fermee_pour == "arret"
+
+
+async def test_une_autre_sortie_est_une_panne(reglages: Settings) -> None:
+    """Le jumeau du code 42: une sortie que systemd renonce à relancer."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    systeme.fermer_seule(1, statut=1)
+
+    assert (await salles.etat())[0].fermee_pour == "panne"
+
+
+async def test_une_salle_jamais_demarree_n_a_pas_d_heure_de_fermeture(reglages: Settings) -> None:
+    """systemd rend `0`: ni heure ni raison, plutôt que « fermée depuis 0 s »."""
+    etat = await SallesController(reglages, FauxSysteme(horloge=HORLOGE), horloge=HORLOGE).etat()
+
+    assert [(s.fermee_depuis, s.fermee_pour) for s in etat] == [(None, None)] * 3
+
+
+async def test_une_salle_ouverte_n_a_pas_d_heure_de_fermeture(reglages: Settings) -> None:
+    """Après un changement de jeu, l'unité est passée par l'inactif: son heure
+    d'entrée dans l'inactif existe, mais la salle n'est pas fermée."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    systeme.relancer(1)
+
+    etat = await salles.etat()
+
+    assert (etat[0].ouverte, etat[0].fermee_depuis, etat[0].fermee_pour) == (True, None, None)
+
+
+async def test_une_salle_qu_on_ferme_n_a_pas_encore_d_heure_de_fermeture(
+    reglages: Settings,
+) -> None:
+    """« deactivating » compte comme fermée pour la liste, mais son dernier
+    passage par l'inactif est celui de son dernier changement de jeu: le lire
+    dirait « fermée depuis » l'heure de ce changement."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    systeme.relancer(1)
+    horloge.avancer(600)
+    systeme.unite(1).etat = "deactivating"
+
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is False
+    assert (etat[0].fermee_depuis, etat[0].fermee_pour) == (None, None)
+
+
+def bibliotheque(reglages: Settings, *jeux: tuple[str, str, str]) -> None:
+    """Le catalogue qu'un worker écrit dans le dossier de sa salle (ADR D24)."""
+    dossier = reglages.salles_dir / "1"
+    dossier.mkdir(parents=True, exist_ok=True)
+    (dossier / "catalogue.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "scanned_ms": 1_763_700_000_000,
+                "roms": [
+                    {"key": cle, "name": nom, "console": console, "art": False}
+                    for cle, nom, console in jeux
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def retenir(reglages: Settings, numero: int, cle: str, quand: float = 1_763_666_000.0) -> Path:
+    """Ce que `remember_choice` écrit avant de relancer le worker."""
+    dossier = reglages.salles_dir / str(numero)
+    dossier.mkdir(parents=True, exist_ok=True)
+    chemin = dossier / "chosen-rom"
+    chemin.write_text(cle, encoding="utf-8")
+    os.utime(chemin, (quand, quand))
+    return chemin
+
+
+MARIO = ("Mario Tennis Aces.xci", "Mario Tennis Aces", "switch")
+MELEE = ("Melee.rvz", "Super Smash Bros Melee", "gc")
+
+
+async def test_la_liste_dit_le_dernier_jeu_d_une_salle_fermee(reglages: Settings) -> None:
+    """« Le dernier jeu de cette salle : Melee, jeudi soir. » Lu dans le dossier
+    que le worker garde, qui survit à la fermeture."""
+    bibliotheque(reglages, MELEE, MARIO)
+    retenir(reglages, 2, "Melee.rvz")
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    dernier = etat[1].dernier_jeu
+    assert dernier is not None
+    assert (dernier.cle, dernier.titre) == ("Melee.rvz", "Super Smash Bros Melee")
+    assert dernier.quand == datetime.fromtimestamp(1_763_666_000.0, tz=UTC)
+    assert [etat[0].dernier_jeu, etat[2].dernier_jeu] == [None, None]
+
+
+async def test_un_jeu_retenu_qui_n_est_plus_dans_la_bibliotheque_ne_se_dit_pas(
+    reglages: Settings,
+) -> None:
+    """Un titre inventé depuis le nom de fichier dirait un jeu que la salle ne
+    peut plus lancer."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 2, "Parti.rvz")
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+
+
+async def test_un_jeu_retenu_en_lien_n_est_pas_lu(reglages: Settings, tmp_path: Path) -> None:
+    """ADR D36: le dossier de la salle est écrit par ses moteurs."""
+    bibliotheque(reglages, MELEE)
+    cible = tmp_path / "ailleurs"
+    cible.write_text("Melee.rvz", encoding="utf-8")
+    (reglages.salles_dir / "2").mkdir(parents=True)
+    (reglages.salles_dir / "2" / "chosen-rom").symlink_to(cible)
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+
+
+def bibliotheque_hors_du_dossier(ailleurs: Path) -> Path:
+    """Un catalogue écrit HORS du dossier des salles, qui titre Melee d'un nom
+    à lui: un titre publié qui vient de là a suivi un lien."""
+    ailleurs.mkdir()
+    hors = ailleurs / "catalogue.json"
+    jeu = {"key": "Melee.rvz", "name": "Lu hors du dossier", "console": "gc", "art": False}
+    hors.write_text(json.dumps({"version": 1, "scanned_ms": 1, "roms": [jeu]}), encoding="utf-8")
+    return hors
+
+
+async def test_une_bibliotheque_en_lien_ne_titre_pas_le_dernier_jeu(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    """ADR D36, pour la liste que l'accueil relit sans identité toutes les cinq
+    secondes: un lien à la place de `catalogue.json` ne donne pas son titre."""
+    hors = bibliotheque_hors_du_dossier(tmp_path / "ailleurs")
+    (reglages.salles_dir / "1").mkdir(parents=True)
+    (reglages.salles_dir / "1" / "catalogue.json").symlink_to(hors)
+    retenir(reglages, 2, "Melee.rvz")
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+    # Le jumeau ordinaire: les mêmes octets dans le dossier titrent le jeu.
+    (reglages.salles_dir / "1" / "catalogue.json").unlink()
+    (reglages.salles_dir / "1" / "catalogue.json").write_bytes(hors.read_bytes())
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+    assert etat[1].dernier_jeu is not None
+    assert etat[1].dernier_jeu.titre == "Lu hors du dossier"
+
+
+def test_une_bibliotheque_en_tube_ne_bloque_pas_la_liste(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    """Le relevé du 23 novembre 2026: `etat()` ne revenait jamais, et chaque
+    appel gardait un fil du salon. L'appel passe par `asyncio.run` sur un fil
+    borné, pour que l'essai rouge échoue au lieu de pendre."""
+    hors = bibliotheque_hors_du_dossier(tmp_path / "ailleurs")
+    (reglages.salles_dir / "1").mkdir(parents=True)
+    tube = reglages.salles_dir / "1" / "catalogue.json"
+    os.mkfifo(tube)
+    retenir(reglages, 2, "Melee.rvz")
+
+    etat = sans_rester_sur_un_tube(
+        lambda: asyncio.run(SallesController(reglages, FauxSysteme()).etat()), tube
+    )
+
+    assert etat[1].dernier_jeu is None
+    # Le jumeau ordinaire: un fichier au même nom titre le jeu.
+    tube.unlink()
+    tube.write_bytes(hors.read_bytes())
+    etat = asyncio.run(SallesController(reglages, FauxSysteme()).etat())
+    assert etat[1].dernier_jeu is not None
+    assert etat[1].dernier_jeu.titre == "Lu hors du dossier"
+
+
+async def test_un_jeu_retenu_trop_gros_n_est_pas_lu(reglages: Settings) -> None:
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 2, "Melee.rvz" + " " * 10_000)
+
+    etat = await SallesController(reglages, FauxSysteme()).etat()
+
+    assert etat[1].dernier_jeu is None
+
+
+async def test_une_salle_revenue_sur_son_menu_garde_son_dernier_jeu(reglages: Settings) -> None:
+    """Le marqueur « sans jeu » ne change pas le dernier jeu, et la salle allumée
+    sur son menu ne joue rien."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "game-closed").touch()
+
+    def menu(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"current": None, "players": 4, "roms": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(menu)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert etat[0].jeu is None
+    assert etat[0].dernier_jeu is not None
+    assert etat[0].dernier_jeu.titre == "Super Smash Bros Melee"
+
+
+async def test_une_salle_qui_redemarre_dit_le_jeu_qui_revient(reglages: Settings) -> None:
+    """Pendant les deux secondes d'une relance, l'accueil disait la salle sans
+    jeu. Le worker a écrit le jeu et retiré le marqueur avant de sortir."""
+    bibliotheque(reglages, MELEE, MARIO)
+    retenir(reglages, 1, "Mario Tennis Aces.xci")
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert etat[0].redemarre is True
+    assert (etat[0].jeu, etat[0].cle, etat[0].console) == (
+        "Mario Tennis Aces",
+        "Mario Tennis Aces.xci",
+        "switch",
+    )
+    assert etat[0].switch is True, "la place Switch est déjà prise par ce jeu"
+    assert etat[0].repond is None, "on n'a rien demandé à une salle qui redémarre"
+
+
+async def test_une_salle_qui_redemarre_sur_son_menu_ne_dit_pas_de_jeu(reglages: Settings) -> None:
+    """Le jumeau: marqueur posé, elle revient sur son menu."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "game-closed").touch()
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert (etat[0].jeu, etat[0].switch) == (None, False)
+    assert etat[0].dernier_jeu is not None
+
+
+async def test_le_marqueur_en_lien_ne_dit_pas_de_jeu_qui_revient(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    """Un lien à la place du marqueur: le worker le suit, le salon non. On ne
+    sait pas si la salle revient sur un jeu, donc on ne le dit pas."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "game-closed").symlink_to(tmp_path / "rien")
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert etat[0].jeu is None
+
+
+async def test_la_liste_dit_la_console_et_la_cle_du_jeu_qui_tourne(reglages: Settings) -> None:
+    """K19: l'accueil dessine une cartouche ou une boîte selon la console."""
+
+    def joue(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "current": 0,
+                "players": 4,
+                "roms": [{"name": "Melee", "console": "gc", "key": "Melee.rvz"}],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(joue)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert (etat[0].cle, etat[0].console) == ("Melee.rvz", "gc")
+
+
+async def test_une_console_inconnue_ou_une_cle_en_chemin_ne_se_publient_pas(
+    reglages: Settings,
+) -> None:
+    """Le jumeau: « ? » n'est pas une console, et `../x` n'est pas une clé."""
+
+    def joue(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"current": 0, "roms": [{"name": "Muet", "console": "?", "key": "../x"}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(joue)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert (etat[0].jeu, etat[0].cle, etat[0].console) == ("Muet", None, None)
+
+
+async def test_qui_a_lance_n_est_jamais_lu(reglages: Settings) -> None:
+    """`chosen-person` est une adresse: rien de la liste n'en porte."""
+    bibliotheque(reglages, MELEE)
+    retenir(reglages, 1, "Melee.rvz")
+    (reglages.salles_dir / "1" / "chosen-person").write_text("alice@example.com")
+
+    etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
+
+    assert "alice" not in json.dumps([salle.model_dump(mode="json") for salle in etat])
+
+
+#: Les octets exacts que `OpenOrder::encode` écrit, épinglés par l'essai Rust
+#: `an_order_reads_back_what_the_lobby_writes`: un champ déplacé d'un côté rougit.
+ORDRE_ECRIT_PAR_LE_WORKER = "nel3ab-ouvrir 1\nZelda (Europe) é.rvz\n2\nnour@example.org\n"
+
+
+def test_l_ordre_est_ce_que_le_worker_lit() -> None:
+    ordre = OrdreOuverture(cle="Zelda (Europe) é.rvz", sauvegarde=2, personne="nour@example.org")
+    assert ordre.texte() == ORDRE_ECRIT_PAR_LE_WORKER.encode()
+    sans_personne = OrdreOuverture(cle="Melee.rvz", sauvegarde=0, personne="")
+    assert sans_personne.texte() == b"nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n"
+
+
+async def test_ouvrir_sur_un_jeu_pose_l_ordre_et_le_menu(reglages: Settings) -> None:
+    """Le salon n'écrit que l'ordre: le worker écrit le reste en le suivant.
+    Le marqueur du menu reste posé, pour un worker qui ne lirait pas l'ordre."""
+    bibliotheque(reglages, MELEE, MARIO)
+    systeme = FauxSysteme()
+    salles = SallesController(reglages, systeme)
+
+    salle = await salles.ouvrir(2, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org"))
+
+    dossier = reglages.salles_dir / "2"
+    assert (dossier / "ouvrir-sur").read_bytes() == b"nel3ab-ouvrir 1\nMelee.rvz\n0\nnour@x.org\n"
+    assert (dossier / "game-closed").exists()
+    assert not (dossier / "chosen-rom").exists(), "le salon a écrit le choix du worker"
+    assert (salle.numero, salle.cle, salle.jeu, salle.console) == (
+        2,
+        "Melee.rvz",
+        "Super Smash Bros Melee",
+        "gc",
+    )
+    assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@2"] in systeme.commandes
+
+
+async def test_ouvrir_sans_jeu_retire_un_vieil_ordre(reglages: Settings) -> None:
+    """Le jumeau: un ordre resté d'une ouverture précédente ne décide pas de
+    celle-ci, qui arrive sur son menu."""
+    vieux = reglages.salles_dir / "1" / "ouvrir-sur"
+    vieux.parent.mkdir(parents=True)
+    vieux.write_bytes(b"nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n")
+
+    await SallesController(reglages, FauxSysteme()).ouvrir()
+
+    assert not vieux.exists()
+    assert (reglages.salles_dir / "1" / "game-closed").exists()
+
+
+async def test_un_jeu_absent_de_la_bibliotheque_est_refuse_avant_le_demarrage(
+    reglages: Settings,
+) -> None:
+    """Le worker démarrerait son jeu par défaut sur une clé qu'il n'a plus."""
+    bibliotheque(reglages, MELEE)
+    systeme = FauxSysteme()
+
+    with pytest.raises(JeuInconnu) as refus:
+        await SallesController(reglages, systeme).ouvrir(
+            None, SurUnJeu(cle="Parti.rvz", sauvegarde=0, login="nour@x.org")
+        )
+
+    assert refus.value.status_code == 422
+    assert not [c for c in systeme.commandes if "start" in c]
+    assert not (reglages.salles_dir / "2" / "ouvrir-sur").exists()
+
+
+async def test_sans_bibliotheque_aucun_jeu_n_est_connu(reglages: Settings) -> None:
+    with pytest.raises(JeuInconnu):
+        await SallesController(reglages, FauxSysteme()).ouvrir(
+            None, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org")
+        )
+
+
+async def test_un_jeu_switch_est_refuse_quand_une_autre_salle_tient_la_switch(
+    reglages: Settings,
+) -> None:
+    bibliotheque(reglages, MELEE, MARIO)
+    systeme = FauxSysteme(allumees=[1])
+    async with worker_qui_joue("Mario Tennis Aces", "switch") as client:
+        salles = SallesController(reglages, systeme, client=client)
+
+        with pytest.raises(SwitchPrise) as refus:
+            await salles.ouvrir(None, SurUnJeu(cle=MARIO[0], sauvegarde=2, login="nour@x.org"))
+        # Le jumeau: un jeu GameCube s'ouvre à côté de la Switch.
+        salle = await salles.ouvrir(None, SurUnJeu(cle=MELEE[0], sauvegarde=2, login="nour@x.org"))
+
+    assert refus.value.status_code == 409
+    assert "salle 1" in refus.value.detail
+    assert salle.numero == 2
+    assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@2"] in systeme.commandes
+
+
+async def test_un_jeu_switch_s_ouvre_quand_la_switch_est_libre(reglages: Settings) -> None:
+    """Le jumeau du refus: une salle ouverte sur un jeu GameCube ne tient pas la Switch."""
+    bibliotheque(reglages, MELEE, MARIO)
+    async with worker_qui_joue("Super Smash Bros Melee", "gc") as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        salle = await salles.ouvrir(None, SurUnJeu(cle=MARIO[0], sauvegarde=2, login="nour@x.org"))
+
+    assert (salle.numero, salle.switch) == (2, True)
+
+
+@pytest.mark.parametrize(
+    "login",
+    [
+        "",
+        "-",
+        "nour x@y.org",
+        "n\t@y.org",
+        "x" * 65,
+        # 33 caractères, mais 66 octets: le worker compte des octets.
+        "\u00e9" * 33,
+        # Des blancs pour `char::is_whitespace`, que le worker applique à
+        # l'ordre: l'espace insécable, la tabulation verticale, le séparateur
+        # de lignes. Passés ici, ils faisaient ouvrir la salle sur son menu.
+        "n\u00a0@y.org",
+        "n\x0b@y.org",
+        "n\u2028@y.org",
+    ],
+)
+async def test_une_identite_qui_ne_peut_pas_voyager_est_refusee(
+    reglages: Settings, login: str
+) -> None:
+    """Les limites de la ligne de lancement: un blanc couperait la ligne."""
+    bibliotheque(reglages, MELEE)
+    systeme = FauxSysteme()
+
+    with pytest.raises(IdentiteIntransmissible):
+        await SallesController(reglages, systeme).ouvrir(
+            None, SurUnJeu(cle="Melee.rvz", sauvegarde=2, login=login)
+        )
+
+    assert not [c for c in systeme.commandes if "start" in c]
+
+
+async def test_la_plus_longue_identite_voyage(reglages: Settings) -> None:
+    """Le jumeau: 64 octets passent."""
+    bibliotheque(reglages, MELEE)
+    login = "x" * 60 + "@y.o"
+
+    await SallesController(reglages, FauxSysteme()).ouvrir(
+        None, SurUnJeu(cle="Melee.rvz", sauvegarde=2, login=login)
+    )
+
+    assert (reglages.salles_dir / "1" / "ouvrir-sur").read_bytes().endswith(login.encode() + b"\n")
+
+
+async def test_une_identite_accentuee_voyage(reglages: Settings) -> None:
+    """Le jumeau des blancs: un caractère hors de l'ASCII n'est pas un blanc."""
+    bibliotheque(reglages, MELEE)
+
+    await SallesController(reglages, FauxSysteme()).ouvrir(
+        None, SurUnJeu(cle="Melee.rvz", sauvegarde=2, login="n\u00e9na@y.org")
+    )
+
+    ordre = (reglages.salles_dir / "1" / "ouvrir-sur").read_text(encoding="utf-8")
+    assert ordre.endswith("n\u00e9na@y.org\n")
+
+
+async def test_un_demarrage_refuse_retire_l_ordre(reglages: Settings) -> None:
+    bibliotheque(reglages, MELEE)
+    systeme = FauxSysteme(refuse=True)
+
+    with pytest.raises(SalleRebelle):
+        await SallesController(reglages, systeme).ouvrir(
+            None, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org")
+        )
+
+    assert not (reglages.salles_dir / "1" / "ouvrir-sur").exists()
+
+
+async def test_fermer_retire_l_ordre(reglages: Settings) -> None:
+    ordre = reglages.salles_dir / "1" / "ouvrir-sur"
+    ordre.parent.mkdir(parents=True)
+    ordre.write_bytes(b"nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n")
+
+    await SallesController(reglages, FauxSysteme(allumees=[1])).fermer(1)
+
+    assert not ordre.exists()
+
+
+async def test_un_lien_au_nom_de_l_ordre_est_remplace_sans_etre_suivi(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    bibliotheque(reglages, MELEE)
+    victime = tmp_path / "victime"
+    victime.write_text("intact")
+    (reglages.salles_dir / "1" / "ouvrir-sur").symlink_to(victime)
+
+    await SallesController(reglages, FauxSysteme()).ouvrir(
+        None, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org")
+    )
+
+    assert victime.read_text() == "intact"
+    ordre = reglages.salles_dir / "1" / "ouvrir-sur"
+    assert not ordre.is_symlink()
+    assert ordre.read_bytes().startswith(b"nel3ab-ouvrir 1\nMelee.rvz\n")

@@ -17,6 +17,7 @@ import httpx
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.salles import SALLES, SalleInconnue, adresse, controle
+from nel3ab_control.demarrages import Demarrages
 from nel3ab_control.parties import Parties
 from nel3ab_control.settings import Settings
 
@@ -32,6 +33,9 @@ class Salons:
         #: Le journal des parties, UN pour toutes les salles: il retient en
         #: mémoire où chacun s'est déjà assis.
         self.parties = parties or Parties(settings.parties_dir, settings.journal_zone)
+        #: Les durées de démarrage, UNES pour toutes les salles: un jeu démarre
+        #: à la même vitesse dans la salle 1 et dans la salle 3.
+        self.demarrages = Demarrages(settings.demarrages_file)
         self._par_numero: dict[int, RoomController] = {}
 
     def pour(self, numero: int) -> RoomController:
@@ -45,7 +49,7 @@ class Salons:
             raise SalleInconnue(numero)
         if numero not in self._par_numero:
             self._par_numero[numero] = RoomController(
-                self._reglages(numero), self._client, numero, self.parties
+                self._reglages(numero), self._client, numero, self.parties, self.demarrages
             )
         return self._par_numero[numero]
 

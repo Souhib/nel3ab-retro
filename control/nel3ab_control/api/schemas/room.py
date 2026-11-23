@@ -1,10 +1,14 @@
 """What a room looks like on the wire."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from nel3ab_control.api.controllers.preparation import Preparation
 from nel3ab_control.api.schemas.player import Person
+from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
+from nel3ab_control.demarrages import Demarrage
 
 
 class GameGuide(BaseModel):
@@ -64,6 +68,15 @@ class Game(BaseModel):
             "est pire que ne pas le proposer."
         ),
     )
+    demarrage: Demarrage | None = Field(
+        default=None,
+        description=(
+            "Combien de temps ce jeu met d'habitude à démarrer dans les salles de "
+            "cette machine, du lancement accepté à la première image offerte. Rien "
+            "avant cinq démarrages réussis: la page garde alors ses constantes et "
+            "ne dit pas « d'habitude »."
+        ),
+    )
     art: bool = Field(
         default=False,
         description=(
@@ -100,6 +113,55 @@ class Seat(BaseModel):
     )
 
 
+class PartieVue(BaseModel):
+    """Où en est le worker de la salle, d'après ses propres jalons (ADR D43)."""
+
+    lance: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand l'émulateur ou l'adaptateur a démarré, faux quand le "
+            "worker dit qu'il ne l'est pas encore (ou qu'il sert son menu). Rien "
+            "pour un worker qui ne publie pas ce jalon: on ne sait pas, ce qui "
+            "n'est pas « pas lancé »."
+        ),
+    )
+    image: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand le worker a OFFERT sa première image aux pages. Cela "
+            "prouve que la salle envoie l'image, pas qu'une page la voit: la page "
+            "garde son propre compte d'images peintes. Rien sans le jalon."
+        ),
+    )
+    depuis_s: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Depuis combien de secondes ce worker a démarré son jeu ou son menu, "
+            "à l'heure murale de la machine. Rien sans le jalon."
+        ),
+    )
+
+
+class LancementVu(BaseModel):
+    """Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit."""
+
+    par: Person = Field(
+        description=(
+            "Qui a lancé: son pseudo, et son repère quand il a une identité. "
+            "Jamais son adresse ni son empreinte. `moi` est vrai pour sa page."
+        )
+    )
+    sauvegarde: Literal["lanceur", "commune", "neuve", "inconnue"] = Field(
+        description=(
+            "« lanceur »: la sauvegarde personnelle de qui a lancé; « commune »: "
+            "tout débloqué, à tout le monde; « neuve »: la partie neuve partagée "
+            "(lancement sans identité); « inconnue »: lancé par un chemin qui ne "
+            "dit pas la sauvegarde."
+        )
+    )
+
+
 class Room(BaseModel):
     """The room, as a page needs to render it."""
 
@@ -107,7 +169,34 @@ class Room(BaseModel):
     name: str
     game: Game | None = Field(default=None, description="What is loaded right now.")
     library: list[Game]
+    dernier_jeu: DernierJeu | None = Field(
+        default=None,
+        description=(
+            "Le dernier jeu que cette salle a lancé, lu dans son dossier "
+            "(`chosen-rom`), titré par la bibliothèque du worker. Il reste le "
+            "même quand la salle revient sur son menu. Rien quand elle n'a "
+            "jamais lancé de jeu, ou quand ce jeu n'est plus dans sa bibliothèque."
+        ),
+    )
     seats: list[Seat]
+    partie: PartieVue | None = Field(
+        default=None,
+        description=(
+            "Les jalons du worker à sa dernière réponse: moteur lancé, première "
+            "image partie, depuis quand. Rien quand il n'a pas répondu cette "
+            "fois (il redémarre): les jalons du jeu d'avant ne valent pas pour "
+            "celui qui démarre."
+        ),
+    )
+    lancement: LancementVu | None = Field(
+        default=None,
+        description=(
+            "Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page "
+            "qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a "
+            "pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite "
+            "sans passer par lui): la page dit alors « sauvegarde inconnue »."
+        ),
+    )
     owner: Person | None = Field(
         default=None,
         description=(
@@ -154,5 +243,8 @@ class Room(BaseModel):
             update={
                 "owner": marque(self.owner) if self.owner else None,
                 "people": [marque(person) for person in self.people],
+                "lancement": self.lancement.model_copy(update={"par": marque(self.lancement.par)})
+                if self.lancement
+                else None,
             }
         )

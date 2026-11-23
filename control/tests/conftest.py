@@ -1,6 +1,8 @@
 """What every test needs: an app whose worker is a fake, and a client for it."""
 
-from collections.abc import AsyncIterator
+import os
+import threading
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import httpx
@@ -64,6 +66,14 @@ def isolate_personal_state(
     # poserait ses morceaux dans la vraie quarantaine.
     monkeypatch.setenv("NEL3AB_IMPORTEURS_FILE", str(racine / "importeurs.json"))
     monkeypatch.setenv("NEL3AB_IMPORTS_DIR", str(racine / "imports"))
+    # Et les dossiers des salles: depuis le 23 novembre 2026, lister les salles
+    # y LIT le dernier jeu et le repère d'ouverture, et ouvrir une salle y ÉCRIT
+    # ce repère. Un essai qui construit `Settings()` lirait sinon le jeu retenu
+    # des vraies salles, et en ouvrirait une sur la vraie salle 1.
+    monkeypatch.setenv("NEL3AB_SALLES_DIR", str(racine / "salles"))
+    # Et les durées de démarrage (D05): un essai qui lance un jeu y écrirait
+    # une ligne, et l'habitude de la machine apprendrait des jeux inventés.
+    monkeypatch.setenv("NEL3AB_DEMARRAGES_FILE", str(racine / "demarrages.jsonl"))
 
 
 @pytest.fixture(autouse=True)
@@ -158,6 +168,31 @@ SOUHIB = {
     "Tailscale-User-Name": "Souhib Trabelsi",
 }
 VINCENT = {"Tailscale-User-Login": "vincent@example.com", "Tailscale-User-Name": "Vincent Lemaire"}
+
+
+def sans_rester_sur_un_tube[T](appel: Callable[[], T], tube: Path, delai: float = 5.0) -> T:
+    """`appel` sur un fil, borné: un essai qui échoue en le disant, pas qui pend.
+
+    Un lecteur qui OUVRE un tube nommé attend un écrivain pour toujours. Sans
+    borne, l'essai rouge ne rougirait jamais: il pendrait, et la suite avec lui.
+    Passé `delai`, on ouvre l'autre bout du tube puis on le ferme: le lecteur
+    bloqué dans `open(2)` repart sur une fin de fichier, le fil se termine, et
+    l'essai échoue sur le blocage qu'il a vu. Une lecture sans attente prend
+    quelques millisecondes; cinq secondes ne bornent que le cas fautif.
+    """
+    rendu: list[T] = []
+    fil = threading.Thread(target=lambda: rendu.append(appel()), daemon=True)
+    fil.start()
+    fil.join(delai)
+    bloque = fil.is_alive()
+    if bloque:
+        # Un écrivain sans attente s'ouvre dès qu'un lecteur attend: Linux compte
+        # le lecteur avant de le faire attendre (`fifo_open`).
+        os.close(os.open(tube, os.O_WRONLY | os.O_NONBLOCK))
+        fil.join(delai)
+    assert not bloque, f"la lecture est restée bloquée sur le tube nommé {tube.name}"
+    assert rendu, "l'appel a levé au lieu de rendre"
+    return rendu[0]
 
 
 @pytest.fixture

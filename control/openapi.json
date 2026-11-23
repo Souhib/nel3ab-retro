@@ -405,8 +405,25 @@
           "salles"
         ],
         "summary": "Open Salle",
-        "description": "Ouvre le premier emplacement libre, ou refuse quand il n'y en a plus.\n\nDemande une identité, n'importe laquelle. Ouvrir un emplacement libre ne\ndécide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur\nla carte graphique commune: le salon doit savoir qui l'a demandé. Avant le\n21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.",
+        "description": "Ouvre la salle demandée, ou le premier emplacement libre, ou refuse.\n\nSans corps, le comportement d'avant le 23 novembre 2026: le premier\nemplacement libre. Avec `numero`, cette salle-là ou un refus (D17). Avec\n`cle` et `sauvegarde`, la salle démarre directement sur ce jeu, pour la\npersonne qui l'ouvre: son identité vient du proxy, comme pour un lancement.\n\nDemande une identité, n'importe laquelle. Ouvrir un emplacement libre ne\ndécide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur\nla carte graphique commune: le salon doit savoir qui l'a demandé. Avant le\n21 novembre 2026, une page étrangère ouverte chez un membre pouvait le faire.",
         "operationId": "open_salle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/OuvrirSalle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Demande"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Successful Response",
@@ -414,6 +431,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Salle"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -485,6 +512,118 @@
           },
           "404": {
             "description": "Aucune salle n'a écrit sa liste."
+          }
+        }
+      }
+    },
+    "/api/catalogue/art/{cle}": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Read Art",
+        "description": "L'image d'un jeu, sans salle ouverte (ADR D45).\n\nCelle que la salle sert déjà à `/r/N/art/{index}.png` pendant qu'elle\ntourne: la bannière d'un disque GameCube, celle d'une sauvegarde Wii, ou\nl'image que le propriétaire a déposée à côté du jeu. Rien n'est téléchargé.\nSans identité, comme le catalogue. Toutes les absences se ressemblent (404):\nun jeu inconnu, sans image ou au fichier refusé ne s'affichent pas.",
+        "operationId": "read_art",
+        "parameters": [
+          {
+            "name": "cle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cle"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "L'image du jeu.",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "Ce jeu n'a pas d'image que le salon sert."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Deposit Art",
+        "description": "Dépose l'image d'un jeu, à côté de lui: `<jeu>.nel3ab.png` (ADR D45).\n\nRéservé à l'administrateur, comme la liste de qui dépose: l'image s'affiche\nchez tout le monde. Le corps est le PNG lui-même. Elle passe avant la\nbannière d'un jeu GameCube ou Wii, et sert d'image à un jeu Switch ou Xbox\n360. Une salle la lit à son prochain démarrage; rien n'est téléchargé.",
+        "operationId": "deposit_art",
+        "parameters": [
+          {
+            "name": "cle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cle"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable"
+          },
+          "413": {
+            "description": "L'image dépasse un Mio."
+          },
+          "422": {
+            "description": "Une image que la salle ne montrerait pas."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Remove Art",
+        "description": "Retire l'image déposée d'un jeu; la bannière du disque revient.",
+        "operationId": "remove_art",
+        "parameters": [
+          {
+            "name": "cle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cle"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -719,6 +858,37 @@
         "title": "ConsoleVue",
         "description": "Une console, telle que le manifeste la décrit (ADR D22)."
       },
+      "Demarrage": {
+        "properties": {
+          "mediane_s": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Mediane S",
+            "description": "La durée médiane, en secondes."
+          },
+          "p90_s": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "P90 S",
+            "description": "Le 90e centile (rang le plus proche), en secondes: au-delà, « c'est plus long que d'habitude »."
+          },
+          "n": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 5.0,
+            "title": "N",
+            "description": "Sur combien de démarrages."
+          }
+        },
+        "type": "object",
+        "required": [
+          "mediane_s",
+          "p90_s",
+          "n"
+        ],
+        "title": "Demarrage",
+        "description": "L'habitude d'un jeu, sur ses derniers démarrages réussis."
+      },
       "Dernier": {
         "properties": {
           "titre": {
@@ -742,6 +912,34 @@
         ],
         "title": "Dernier"
       },
+      "DernierJeu": {
+        "properties": {
+          "cle": {
+            "type": "string",
+            "title": "Cle",
+            "description": "Sa clé, son nom de fichier (ADR D23)."
+          },
+          "titre": {
+            "type": "string",
+            "title": "Titre",
+            "description": "Son titre, tel que la bibliothèque le nomme."
+          },
+          "quand": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Quand",
+            "description": "Quand il a été CHOISI (l'écriture du choix par le worker), pas quand la partie s'est terminée: « lancé jeudi soir », pas « joué jeudi soir »."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cle",
+          "titre",
+          "quand"
+        ],
+        "title": "DernierJeu",
+        "description": "Le dernier jeu qu'une salle a lancé, d'après son propre dossier."
+      },
       "Emplacement": {
         "properties": {
           "titre": {
@@ -756,6 +954,18 @@
             "type": "boolean",
             "title": "Relie",
             "description": "Vrai quand le salon a reconnu le jeu dans le catalogue."
+          },
+          "cle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cle",
+            "description": "La clé du jeu de cette sauvegarde, son nom de fichier (ADR D23), pour qu'une page sache si « ma sauvegarde » existe pour le jeu qu'elle montre. Rien quand l'emplacement n'est pas relié au catalogue, ou quand le jeu y est connu sans clé (worker d'avant le 21 novembre 2026)."
           },
           "sauvegarde": {
             "$ref": "#/components/schemas/ResumeSauvegarde"
@@ -834,6 +1044,17 @@
             "title": "Console",
             "description": "Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
             "default": "?"
+          },
+          "demarrage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Demarrage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Combien de temps ce jeu met d'habitude à démarrer dans les salles de cette machine, du lancement accepté à la première image offerte. Rien avant cinq démarrages réussis: la page garde alors ses constantes et ne dit pas « d'habitude »."
           },
           "art": {
             "type": "boolean",
@@ -1032,6 +1253,32 @@
         "title": "JeuProfil",
         "description": "Un jeu joué: une tranche sur l'étagère."
       },
+      "LancementVu": {
+        "properties": {
+          "par": {
+            "$ref": "#/components/schemas/Person",
+            "description": "Qui a lancé: son pseudo, et son repère quand il a une identité. Jamais son adresse ni son empreinte. `moi` est vrai pour sa page."
+          },
+          "sauvegarde": {
+            "type": "string",
+            "enum": [
+              "lanceur",
+              "commune",
+              "neuve",
+              "inconnue"
+            ],
+            "title": "Sauvegarde",
+            "description": "« lanceur »: la sauvegarde personnelle de qui a lancé; « commune »: tout débloqué, à tout le monde; « neuve »: la partie neuve partagée (lancement sans identité); « inconnue »: lancé par un chemin qui ne dit pas la sauvegarde."
+          }
+        },
+        "type": "object",
+        "required": [
+          "par",
+          "sauvegarde"
+        ],
+        "title": "LancementVu",
+        "description": "Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit."
+      },
       "Me": {
         "properties": {
           "login": {
@@ -1070,6 +1317,54 @@
         ],
         "title": "Me",
         "description": "Qui le service croit avoir en face.\n\n`login` vient du proxy et n'est pas modifiable; `name` est choisi et l'est.\nUn `login` nul veut dire « aucun proxy devant », donc aucune identité: la\npage retombe alors sur un prénom gardé dans le navigateur."
+      },
+      "OuvrirSalle": {
+        "properties": {
+          "numero": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero",
+            "description": "Ouvrir CETTE salle: « Ouvrir la salle 3 », « Rouvrir la salle 1 ». Refusé (409) si elle n'est pas fermée: une salle qui redémarre n'est pas libre. Sans numéro, le premier emplacement libre."
+          },
+          "cle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cle",
+            "description": "Ouvrir directement sur ce jeu, par sa clé (ADR D23): « Jouer maintenant », « Rejouer sur ma sauvegarde ». Refusé (422) s'il n'est pas dans la bibliothèque, (409) si c'est un jeu Switch et qu'une autre salle tient la Switch. Sans clé, la salle arrive sur son menu."
+          },
+          "sauvegarde": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  2
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sauvegarde",
+            "description": "L'emplacement, avec `cle`: 0 pour une partie neuve, 2 pour « ma sauvegarde ». Le 1, « tout débloqué », se choisit dans la salle: seul un worker qui tourne vérifie que son import est complet."
+          }
+        },
+        "type": "object",
+        "title": "OuvrirSalle",
+        "description": "Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif.\n\n`cle` et `sauvegarde` vont ensemble: ouvrir sur un jeu sans dire sur quelle\nsauvegarde laisserait le salon choisir à la place de la personne, et une\nsauvegarde sans jeu ne veut rien dire."
       },
       "PageParties": {
         "properties": {
@@ -1235,6 +1530,50 @@
         "title": "Partie",
         "description": "Une partie: des places tenues de suite, au même jeu, dans la même salle.\n\nUne reconnexion de moins de deux minutes ne fait pas une nouvelle partie, et\ndeux onglets de la même personne ne comptent pas double."
       },
+      "PartieVue": {
+        "properties": {
+          "lance": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lance",
+            "description": "Vrai quand l'émulateur ou l'adaptateur a démarré, faux quand le worker dit qu'il ne l'est pas encore (ou qu'il sert son menu). Rien pour un worker qui ne publie pas ce jalon: on ne sait pas, ce qui n'est pas « pas lancé »."
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image",
+            "description": "Vrai quand le worker a OFFERT sa première image aux pages. Cela prouve que la salle envoie l'image, pas qu'une page la voit: la page garde son propre compte d'images peintes. Rien sans le jalon."
+          },
+          "depuis_s": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depuis S",
+            "description": "Depuis combien de secondes ce worker a démarré son jeu ou son menu, à l'heure murale de la machine. Rien sans le jalon."
+          }
+        },
+        "type": "object",
+        "title": "PartieVue",
+        "description": "Où en est le worker de la salle, d'après ses propres jalons (ADR D43)."
+      },
       "Person": {
         "properties": {
           "name": {
@@ -1276,6 +1615,12 @@
             "title": "Seat Pending",
             "description": "L'attribution reste à confirmer ; cette personne n'est pas un spectateur.",
             "default": true
+          },
+          "au_menu": {
+            "type": "boolean",
+            "title": "Au Menu",
+            "description": "Vrai quand une de ses pages a dit avoir ouvert son menu (événement `menu`), jusqu'à ce qu'elle le referme, parte ou perde sa place. Ce que la page dit d'elle-même, rien de plus: le salon ne voit pas l'écran.",
+            "default": false
           }
         },
         "type": "object",
@@ -1491,12 +1836,45 @@
             "type": "array",
             "title": "Library"
           },
+          "dernier_jeu": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DernierJeu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le dernier jeu que cette salle a lancé, lu dans son dossier (`chosen-rom`), titré par la bibliothèque du worker. Il reste le même quand la salle revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou quand ce jeu n'est plus dans sa bibliothèque."
+          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/Seat"
             },
             "type": "array",
             "title": "Seats"
+          },
+          "partie": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartieVue"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Les jalons du worker à sa dernière réponse: moteur lancé, première image partie, depuis quand. Rien quand il n'a pas répondu cette fois (il redémarre): les jalons du jeu d'avant ne valent pas pour celui qui démarre."
+          },
+          "lancement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LancementVu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite sans passer par lui): la page dit alors « sauvegarde inconnue »."
           },
           "owner": {
             "anyOf": [
@@ -1573,7 +1951,42 @@
               }
             ],
             "title": "Jeu",
-            "description": "Le jeu qui tourne, ou rien quand la salle est sur son menu. Rien veut dire « aucun jeu », jamais « on n'a pas pu demander »: une salle injoignable est décrite comme fermée, pas comme vide."
+            "description": "Le jeu qui tourne, ou rien quand la salle est sur son menu. Pour une salle qui redémarre, le jeu qui revient, lu dans son dossier. Rien veut aussi dire « on n'a pas su »: `repond` faux dit une salle allumée mais muette."
+          },
+          "cle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cle",
+            "description": "La clé du jeu qui tourne, son nom de fichier (ADR D23), lue avec `jeu`. Rien avec lui, et rien pour un worker qui ne la publie pas."
+          },
+          "console": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Console",
+            "description": "Le code de la console du jeu qui tourne (`consoles/consoles.json`). Rien sans jeu, et rien quand le disque n'a pas dit sa console: « ? » ne se publie pas comme une console."
+          },
+          "dernier_jeu": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DernierJeu"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Le dernier jeu que cette salle a lancé, lu dans son dossier (`chosen-rom`), ouverte ou non. Il reste le même quand la salle revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou quand ce jeu n'est plus dans la bibliothèque."
           },
           "switch": {
             "type": "boolean",
@@ -1589,6 +2002,41 @@
             "title": "Gens",
             "description": "Qui est dans la salle, par son pseudo, une fois par personne et non une fois par onglet. Vide veut dire « personne », jamais « on n'a pas pu savoir »: le salon tient lui-même cette liste. Une salle fermée n'a personne, par construction."
           },
+          "chef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chef",
+            "description": "Le pseudo de qui choisit le jeu dans cette salle: le chef retenu après une reprise, sinon le premier arrivé identifié encore là. Rien pour une salle qui n'est pas ouverte, et pour une salle où personne n'a d'identité (tenir une manette y suffit alors)."
+          },
+          "sieges": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SiegeVu"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sieges",
+            "description": "Chaque manette, qui l'a annoncée et si le worker la dit tenue, tirés de ce que le salon suit déjà pour la salle, sans question de plus au worker. Vide pour une salle qui n'est pas ouverte. Rien pour une salle ouverte où personne n'est connecté au salon: il ne suit pas ses places, et une dernière lecture vieille de plusieurs minutes dirait des manettes tenues qui ne le sont plus."
+          },
+          "regardent": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regardent",
+            "description": "Qui est dans la salle sans tenir de manette et l'a dit (spectateur), une fois par personne. Quelqu'un qui vient d'arriver et attend sa manette n'y est pas. Vide pour une salle qui n'est pas ouverte."
+          },
           "ouverte_depuis": {
             "anyOf": [
               {
@@ -1600,7 +2048,62 @@
               }
             ],
             "title": "Ouverte Depuis",
-            "description": "Depuis combien de SECONDES cette salle tourne, ou rien quand systemd ne le dit pas. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure."
+            "description": "Depuis combien de SECONDES cette salle est ouverte, d'après le repère que le salon pose quand il l'ouvre. Survit aux changements de jeu. Jusqu'au 23 novembre 2026, ce champ disait le temps depuis la dernière relance du worker, c'est-à-dire depuis le dernier changement de jeu: c'est maintenant `jeu_depuis`. Rien pour une salle fermée, pour une salle ouverte sans passer par le salon, et pour une salle ouverte avant ce repère. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure."
+          },
+          "jeu_depuis": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jeu Depuis",
+            "description": "Depuis combien de SECONDES le worker de cette salle tourne sans être sorti, lu dans systemd: le temps du jeu en cours, ou du menu. Il repart à chaque changement de jeu, puisque le worker sort pour changer de jeu et que systemd le relance. Rien quand la salle n'est pas ouverte ou que systemd ne le dit pas."
+          },
+          "repond": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repond",
+            "description": "Vrai quand la salle allumée a répondu à la question de son jeu, faux quand systemd la dit allumée et qu'elle n'a rien répondu d'exploitable: une salle allumée mais muette. Rien quand on n'a pas demandé: salle fermée, salle qui redémarre, ou salon sans client (les essais). Faux n'est pas « sur son menu »: `jeu` est alors rien aussi, mais pour une autre raison."
+          },
+          "fermee_depuis": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fermee Depuis",
+            "description": "Depuis combien de SECONDES cette salle est fermée, lu dans systemd. Rien pour une salle ouverte ou qui redémarre, et pour une salle jamais démarrée depuis le démarrage de la machine."
+          },
+          "fermee_pour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "inactivite",
+                  "arret",
+                  "panne"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fermee Pour",
+            "description": "Pourquoi elle est fermée: « inactivite » (personne n'a touché au jeu pendant une demi-heure, le worker sort avec le code 42), « arret » (quelqu'un l'a fermée), « panne » (tout le reste). Qui l'a fermée n'est pas publié. Rien quand `fermee_depuis` est rien."
           },
           "places": {
             "anyOf": [
@@ -1688,6 +2191,47 @@
         ],
         "title": "Seat",
         "description": "One of the room's pads, and who claims it."
+      },
+      "SiegeVu": {
+        "properties": {
+          "port": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "description": "Le numéro de la manette."
+          },
+          "nom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nom",
+            "description": "Le pseudo de qui l'a annoncée au salon, ou rien. Jamais l'adresse: un pseudo vide se dit « quelqu'un »."
+          },
+          "tenu": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenu",
+            "description": "Vrai quand le worker la dit tenue à sa dernière lecture, faux quand il la dit libre, rien tant qu'il n'a rien dit."
+          }
+        },
+        "type": "object",
+        "required": [
+          "port"
+        ],
+        "title": "SiegeVu",
+        "description": "Une manette d'une salle, telle que l'accueil la montre."
       },
       "ValidationError": {
         "properties": {

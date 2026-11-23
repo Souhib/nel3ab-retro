@@ -7,7 +7,9 @@ The two can disagree for a second after a reconnection, and the page believes th
 worker.
 """
 
+import time
 from collections.abc import Container
+from datetime import UTC, datetime
 from time import monotonic
 
 import httpx
@@ -19,10 +21,13 @@ from nel3ab_control.api.controllers.recovery import Recovery
 from nel3ab_control.api.controllers.tablee import Tablee
 from nel3ab_control.api.schemas.error import NoSuchSeat, SeatTaken, WorkerUnreachable
 from nel3ab_control.api.schemas.player import Person
-from nel3ab_control.api.schemas.room import Game, Room, Seat
+from nel3ab_control.api.schemas.room import Game, LancementVu, PartieVue, Room, Seat
+from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
+from nel3ab_control.demarrages import Demarrages
 from nel3ab_control.game_controls import guide_for
 from nel3ab_control.parties import Fin, JeuJoue, Parties
+from nel3ab_control.session_salle import JeuRetenu, jeu_retenu
 from nel3ab_control.settings import Settings
 from nel3ab_control.worker import read_seats
 
@@ -51,6 +56,7 @@ class RoomController:
         client: httpx.AsyncClient,
         numero: int = 1,
         parties: Parties | None = None,
+        demarrages: Demarrages | None = None,
     ) -> None:
         self._settings = settings
         self._client = client
@@ -82,6 +88,9 @@ class RoomController:
         #: La dernière bibliothèque obtenue, gardée pour survivre à un worker qui
         #: redémarre. Voir `library`.
         self._known: tuple[list[Game], Game | None] | None = None
+        #: Les jalons de la DERNIÈRE réponse, et seulement d'elle: rien quand le
+        #: worker n'a pas répondu. Voir `PartieVue`.
+        self._partie: PartieVue | None = None
         #: Session -> le nom sous lequel elle s'est assise, pour l'afficher.
         self._named: dict[str, str] = {}
         #: La dernière place annoncée au worker, pour ne pas le rappeler pour
@@ -101,6 +110,8 @@ class RoomController:
         # Une absence de nom ne prouve pas que la personne regarde. Seule une
         # annonce explicite « aucune manette » permet de la classer spectateur.
         self._watching: set[str] = set()
+        #: Les sessions qui ont dit avoir ouvert leur menu (D15).
+        self._au_menu: set[str] = set()
         self._worker_seats: list[str | None] | None = None
         self._syncing = Lock()
         self.preparation: Preparation | None = None
@@ -110,6 +121,10 @@ class RoomController:
         # Cinq cibles possibles : chef (0), puis quatre ports. Un refus sur une
         # autre cible ne doit pas annuler la protection de la première.
         self.recovery_refused: dict[int, tuple[str, float]] = {}
+        #: L'heure murale, pour lire les jalons du worker, qui sont murales.
+        self._horloge_murale = time.time
+        #: Les durées de démarrage, communes aux salles quand le salon les passe.
+        self.demarrages = demarrages or Demarrages(settings.demarrages_file)
 
     async def unlocked_available(self, index: int) -> bool:
         """The worker checks import receipts and real payloads, including after removal."""
@@ -175,11 +190,15 @@ class RoomController:
             response = await self._client.get(f"{self._settings.worker_url}/roms", timeout=2.0)
             response.raise_for_status()
         except httpx.HTTPError as error:
+            # Le jeu d'avant reste affiché, mais pas ses jalons: pendant une
+            # relance, ils diraient « image partie » d'un jeu qui ne tourne plus.
+            self._partie = None
             if self._known is not None:
                 return self._known
             raise WorkerUnreachable(self._settings.worker_url) from error
 
         payload = response.json()
+        self._partie = partie_vue(payload, self._horloge_murale())
         # Le worker décrivait ses jeux par un simple nom; il en dit maintenant
         # quatre choses. On accepte encore l'ancienne forme parce que le worker
         # et ce service se redémarrent séparément, et qu'une salle muette
@@ -198,9 +217,61 @@ class RoomController:
         self._players = (
             players if isinstance(players, int) and 1 <= players <= PADS_MAX else PADS_MAX
         )
+        # Le chrono des démarrages (D05): la première image du jeu attendu.
+        self.demarrages.vu(
+            self.numero,
+            running.key if running else None,
+            _instant_ms(payload.get("depuis_ms")),
+            _instant_ms(payload.get("image_ms")),
+        )
+        games = [
+            game.model_copy(update={"demarrage": habitude})
+            if (habitude := self.demarrages.habituel(game.key))
+            else game
+            for game in games
+        ]
+        running = next((game for game in games if running and game.index == running.index), None)
         self._known = (games, running)
         self.tablee.jeu(jeu_joue(running) if running else None)
         return games, running
+
+    def lance(self, login: str | None, pseudo: str, jeu: JeuJoue, emplacement: int | None) -> None:
+        """Le worker vient d'accepter ce lancement: au journal des parties, et au chrono.
+
+        Une seule entrée pour les deux chemins de lancement du salon, pour
+        qu'aucun n'oublie de démarrer la mesure du démarrage (D05).
+        """
+        self.tablee.lance(login, pseudo, jeu, emplacement)
+        self.demarrages.lance(self.numero, jeu.cle, jeu.console)
+
+    def dernier_jeu(self, library: list[Game]) -> DernierJeu | None:
+        """Le dernier jeu lancé dans CETTE salle, d'après son dossier.
+
+        Le dossier plutôt que la mémoire du salon: le worker y écrit son choix
+        avant de sortir (`chosen-rom`), donc il survit à un redémarrage du salon
+        comme à celui de la salle. Lu sans suivre de lien (ADR D36), quelques
+        centaines d'octets par diffusion; titré par la bibliothèque déjà lue.
+        """
+        return _dernier(jeu_retenu(self._settings.salles_dir, self.numero), library)
+
+    def _lancement_vu(self, people: PeopleController | None) -> LancementVu | None:
+        """Le lancement du jeu qui tourne, tel que toutes les pages le lisent.
+
+        Le repère est calculé ici, pour la page, depuis l'adresse gardée en
+        mémoire par la tablée: l'adresse elle-même ne sort jamais.
+        """
+        lancement = self.tablee.lancement_courant()
+        if lancement is None:
+            return None
+        return LancementVu(
+            par=Person(
+                name=lancement.pseudo or "quelqu'un",
+                id=people.repere(lancement.login) if people and lancement.login else None,
+                seat=None,
+                seat_pending=False,
+            ),
+            sauvegarde=lancement.sauvegarde.value,
+        )
 
     def known_game(self) -> str | None:
         """Le jeu qui tourne, d'après la DERNIÈRE réponse du worker.
@@ -309,6 +380,7 @@ class RoomController:
         self._named.pop(session, None)
         self._receipts.pop(session, None)
         self._watching.discard(session)
+        self._au_menu.discard(session)
 
     def watch(self, session: str) -> bool:
         """Rend la place et confirme le mode spectateur, même à la première annonce."""
@@ -383,6 +455,21 @@ class RoomController:
         session = self._claims.pop(port, None)
         if session is not None:
             self.tablee.leve(session, Fin.REMPLACEE)
+            self._au_menu.discard(session)
+
+    def menu(self, session: str, ouvert: bool) -> bool:
+        """Cette session dit avoir ouvert ou refermé son menu. Rend si ça change.
+
+        La marque tombe aussi quand la session part ou perd sa place (`release`,
+        `free`): une page qui se ferme sans refermer son menu ne doit pas laisser
+        « au menu » sur quelqu'un qui joue sur un autre appareil.
+        """
+        avant = session in self._au_menu
+        if ouvert:
+            self._au_menu.add(session)
+        else:
+            self._au_menu.discard(session)
+        return avant != ouvert
 
     def seat_of(self, session: str) -> int | None:
         """La place que cette session tient, s'il y en a une."""
@@ -397,6 +484,41 @@ class RoomController:
             return session in self._watching and receipt is None
         return self.seat_of(session) == port and self._receipts.get(session) == receipt
 
+    def _tenues(self, people: PeopleController | None) -> tuple[dict[str, int], dict[str, bool]]:
+        """La place de chaque personne de cette salle, et qui attend encore la sienne.
+
+        La place d'une personne se trouve par ses SESSIONS: le nom ne suffit
+        pas, deux appareils d'une même personne portent le même. Une personne
+        attend sa place tant qu'une de ses sessions n'a ni place ni annonce
+        « aucune manette ».
+        """
+        sessions = people.sessions(self.numero) if people else {}
+        held = {
+            login_or_name: port
+            for login_or_name, siennes in sessions.items()
+            for session in siennes
+            if (port := self.seat_of(session)) is not None
+        }
+        pending = {
+            identity: identity not in held and any(sid not in self._watching for sid in siennes)
+            for identity, siennes in sessions.items()
+        }
+        return held, pending
+
+    def regardent(self, people: PeopleController) -> list[str]:
+        """Les pseudos de ceux qui regardent sans manette, une fois par personne.
+
+        Sans aucune question au worker: c'est ce que l'accueil lit pour chaque
+        salle à chaque liste. Quelqu'un qui attend encore sa manette n'est pas
+        un spectateur; un pseudo vide se dit « quelqu'un », jamais l'adresse.
+        """
+        held, pending = self._tenues(people)
+        return [
+            name or "quelqu'un"
+            for login, name in people.present(self.numero)
+            if (login or name) not in held and not pending.get(login or name, True)
+        ]
+
     async def describe(self, people: PeopleController | None = None) -> Room:
         """Toute la salle, telle qu'une page a besoin de la dessiner.
 
@@ -410,17 +532,10 @@ class RoomController:
         seats = self.seats()
         present = people.present(salle) if people else []
         boss = people.owner(salle) if people else None
-        # La place d'une personne se trouve par ses SESSIONS: le nom ne suffit
-        # pas, deux appareils d'une même personne portent le même.
-        held = {
-            login_or_name: port
-            for login_or_name, sessions in (people.sessions(salle) if people else {}).items()
-            for session in sessions
-            if (port := self.seat_of(session)) is not None
-        }
-        pending = {
-            identity: identity not in held and any(sid not in self._watching for sid in sessions)
-            for identity, sessions in (people.sessions(salle) if people else {}).items()
+        held, pending = self._tenues(people)
+        au_menu = {
+            identity: any(sid in self._au_menu for sid in siennes)
+            for identity, siennes in (people.sessions(salle) if people else {}).items()
         }
         if self.preparation and not self.preparation.synchronise(
             [(seat.port, seat.claim, seat.player) for seat in seats if seat.claim is not None],
@@ -434,6 +549,9 @@ class RoomController:
             name=self._settings.room_name,
             game=running,
             library=library,
+            dernier_jeu=self.dernier_jeu(library),
+            partie=self._partie,
+            lancement=self._lancement_vu(people),
             seats=seats,
             # Un repère, jamais l'adresse: cet état part vers toutes les pages.
             # `moi` reste faux ici; `Room.vue_par` le pose pour chaque page.
@@ -443,6 +561,7 @@ class RoomController:
                     id=people.repere(boss[0]) if people else None,
                     seat=held.get(boss[0] or boss[1]),
                     seat_pending=pending.get(boss[0] or boss[1], True),
+                    au_menu=au_menu.get(boss[0] or boss[1], False),
                 )
                 if boss
                 else None
@@ -453,12 +572,47 @@ class RoomController:
                     id=people.repere(login) if people else None,
                     seat=held.get(login or name),
                     seat_pending=pending.get(login or name, True),
+                    au_menu=au_menu.get(login or name, False),
                 )
                 for login, name in present
             ],
             ask_lasts=ASK_LASTS,
             media_url=self._settings.worker_public_url,
         )
+
+
+def _dernier(retenu: JeuRetenu | None, library: list[Game]) -> DernierJeu | None:
+    """Le jeu retenu, titré par la bibliothèque, ou rien s'il n'y est plus."""
+    if retenu is None:
+        return None
+    jeu = next((game for game in library if game.key == retenu.cle), None)
+    if jeu is None or jeu.key is None:
+        return None
+    return DernierJeu(
+        cle=jeu.key, titre=jeu.name, quand=datetime.fromtimestamp(retenu.choisi, tz=UTC)
+    )
+
+
+def _instant_ms(brut: object) -> int | None:
+    """Une heure murale en millisecondes publiée par le worker, ou rien."""
+    return brut if type(brut) is int and brut > 0 else None
+
+
+def partie_vue(payload: object, maintenant: float) -> PartieVue:
+    """Les jalons d'une réponse `/roms`, ou trois « on ne sait pas ».
+
+    Un worker d'avant le 23 novembre 2026 ne publie pas `depuis_ms`: tout est
+    rien, jamais faux. Avec lui, l'absence de `moteur` ou de `image_ms` veut
+    dire « pas encore ».
+    """
+    if not isinstance(payload, dict) or (depuis := _instant_ms(payload.get("depuis_ms"))) is None:
+        return PartieVue()
+    age = maintenant - depuis / 1000
+    return PartieVue(
+        lance=payload.get("moteur") == "lance",
+        image=_instant_ms(payload.get("image_ms")) is not None,
+        depuis_s=int(age) if age >= 0 else None,
+    )
 
 
 def jeu_joue(game: Game) -> JeuJoue:

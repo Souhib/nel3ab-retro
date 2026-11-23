@@ -18,6 +18,8 @@ import re
 
 import anyio
 
+from nel3ab_control.personnes import BLANCS_RUST
+
 #: Ce qui peut mal se passer sur cette socket, et qui ne doit jamais remonter.
 #:
 #: `EndOfStream` et `BrokenResourceError` viennent d'anyio et ne sont PAS des
@@ -180,9 +182,11 @@ async def launch_prepared(
         seat not in range(1, 5)
         or field is None
         or save not in (0, 1, 2)
-        # Un espace couperait la ligne en deux et décalerait tout ce qui suit.
-        or len(person) > 64
-        or any(blanc in person for blanc in " \t\n\r")
+        # Un blanc couperait la ligne en deux et décalerait tout ce qui suit:
+        # ceux de `split_whitespace`, qui la découpe côté worker, et pas
+        # seulement l'espace. La borne compte des octets, comme le worker.
+        or len(person.encode()) > 64
+        or not BLANCS_RUST.isdisjoint(person)
         or len(expected) != 4
         or seat_receipts((" ".join(expected)).encode()) is None
         or len(pads) != 4

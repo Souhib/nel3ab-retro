@@ -1651,6 +1651,268 @@ Eight token mutants each fail the test that names them. Room page weight
 after the amendment: 235 700 bytes in brotli 11, margin 64 300.
 
 
+### D38: What the lobby publishes of each room, and what « open since » means, 2026-11-23
+
+The retro screens read facts about a room that the lobby either did not
+publish or published under a misleading name (plan « donnees », lot 1). The
+lobby publishes only what it can fill; an absent value is `None` and the page
+hides the line (the rule of `api/schemas/salle.py`).
+
+Decision:
+
+- **`Salle.ouverte_depuis` is the time since the LOBBY opened the room;
+  `Salle.jeu_depuis` is the old value.** Measured on lgf on 2026-11-23: a game
+  change makes the worker exit, and systemd 255 passes the unit through the
+  inactive state for one step (« Deactivated successfully » at 07:09:06.65,
+  `InactiveExitTimestamp` 07:09:06, `ActiveEnterTimestamp` 07:09:08). The old
+  field read `ActiveEnterTimestampMonotonic`, so it restarted at every game
+  change: it was the current game's age. It is now `jeu_depuis`. The opening
+  time comes from a marker, `salles_dir/N/ouverte-le` (boot id and monotonic
+  microseconds), written by `ouvrir` AFTER systemd accepts the start and
+  removed by `fermer`, through a directory descriptor without following links
+  (D36).
+- **A stale marker is detected by the length of the last inactive pause, not
+  by `InactiveEnterTimestamp` alone.** The plan proposed ignoring a marker older
+  than `InactiveEnterTimestampMonotonic`; on systemd 255 that timestamp moves at
+  every game change, so the rule would have hidden the opening time after the
+  first game. The marker is ignored when it comes from another boot, or when it
+  is older than `InactiveExitTimestampMonotonic` and the last inactive pause
+  lasted more than one second (a room that closed on its own, then was started
+  by hand outside the lobby). Not covered: such a hand start followed by a game
+  change, since systemd keeps only the last pause.
+- **systemd properties are read by name.** `systemctl show -p A -p B --value`
+  prints values in systemd's own order (`Result`, `ExecMainStatus`,
+  `InactiveExitTimestampMonotonic`, `ActiveEnterTimestampMonotonic`,
+  `InactiveEnterTimestampMonotonic`), not the requested one. The lobby asks
+  once per room for `Name=value` lines.
+- **The fake systemd follows the real one** (`control/tests/faux_systeme.py`):
+  restarts move the three timestamps, an inactivity close leaves `failed` with
+  status 42, calls take time, and properties come back in systemd's order.
+  The old fake had one fixed age per room, which is why nobody saw the field
+  restart.
+- **Closed, restarting, and on but silent are three facts.** `Salle.repond`
+  is true when a running room answered `GET /roms`, false when systemd says
+  it runs and it did not answer usably (an error, or JSON that is not an
+  object, which used to raise `AttributeError` and fail the whole list), and
+  `None` when nobody asked. `Salle.fermee_depuis` and `Salle.fermee_pour`
+  (`inactivite` for exit status 42, `arret` for a clean stop, `panne` for any
+  other result) come from the same `systemctl show`, only for the words
+  `inactive` and `failed`: a `deactivating` unit still carries the inactive
+  timestamp of its last game change. Who closed the room is not published.
+- **The last game comes from the room's own folder.** `Salle.dernier_jeu` and
+  `Room.dernier_jeu` (`{cle, titre, quand}`) read `salles_dir/N/chosen-rom`,
+  which the worker writes before it exits for a new game and which survives a
+  closed room. `quand` is when the game was chosen (the file's mtime), not when
+  play ended. The title comes from the freshest catalogue for the list and from
+  the worker's library for the room; a key that is no longer there gives
+  nothing rather than a title made from a file name. `chosen-person`, an
+  address, is never read. During a restart, `Salle.jeu` is that game when the
+  `game-closed` marker is absent (the worker removes it before exiting); a link
+  at that name means « unknown » and gives no game. `Salle.console` and
+  `Salle.cle` describe the running game (K19); « ? » is not published as a
+  console.
+- **The catalogue is read through the room folder's descriptor too (D36).**
+  `catalogue.read_one` opened `salles_dir/N/catalogue.json` by path, which
+  follows a link and blocks on a named pipe, and the Dolphin container mounts
+  that folder read-write. The defect predates this track (the catalogue route,
+  imports and the profile read the file that way), but this track added three
+  readers, among them the list that the lobby page re-reads every five seconds
+  without an identity. An independent review on 2026-11-23 showed the list
+  titling the last game from a file outside the room folder, and
+  `SallesController.etat()` never returning, one thread held per call.
+  `read_one` now takes `salles_dir` and the room number and reads through
+  `session_salle.dossier` and `session_salle.lire` (`O_NOFOLLOW`,
+  `O_NONBLOCK`, regular file only, 8 MiB), so every caller of `freshest` is
+  covered, and a room folder that is itself a link is refused. A catalogue set
+  aside is logged with its reason. Proof: a link at the file, a link at the
+  room folder and a pipe, each with its ordinary twin, at `freshest`; a link
+  and a pipe at the list. All five were red on the code before; the pipe tests
+  run the call on a thread bounded at five seconds and then open the pipe's
+  write end, so the red run fails instead of hanging. Three mutants of
+  `session_salle` (no `O_NONBLOCK`, no `O_NOFOLLOW` on the file, none on the
+  folder) each fail only their named tests.
+- **Who is there, from what the lobby already holds.** `Salle.chef` is the
+  pseudonym of `people.owner(numero)`; `Salle.sieges` (`{port, nom, tenu}`) and
+  `Salle.regardent` come from the room's controller and the presence register,
+  with no extra worker call: `tenu` is the worker's last read, kept fresh by
+  `follow_seats` only while somebody is connected. An open room nobody is
+  connected to therefore has `sieges = None`, not a stale list. A spectator is
+  someone present with no pad who said so; someone waiting for a pad is not.
+  Only pseudonyms leave, never an address. Field names are this track's (K18).
+- **`Room.lancement` says who launched the running game and on which save.**
+  It reads the table's last launch of that game (`Tablee.lancement_courant`),
+  with the launcher's pseudonym and repère (computed from the address kept in
+  memory only, never published nor written) and the save (`lanceur`,
+  `commune`, `neuve`, `inconnue`). `None` when the lobby saw no launch (it
+  restarted since), and when the game changed more than once since that
+  launch: a game that came back through the worker's own menu was not
+  launched by that person. `Room.vue_par` sets `moi` on the launcher too.
+- **Two socket messages, closed by construction.** `menu {ouvert: bool}` marks
+  `Person.au_menu` until the page closes its menu, leaves, or loses its pad;
+  its rate limit is held per word, so opening then closing within half a
+  second is not lost. `plainte_quoi {quoi}` writes the complaint's reason
+  (`image`, `son`, `manette`, `autre`) to the session journal, on its own
+  twenty-second limit. Every rate-limit refusal now carries `reste_s`, the
+  seconds before the next accepted message.
+- **`Emplacement.cle`** gives a personal save slot the key of its game when
+  the catalogue links it (Dolphin folder key, or a registered title id), so a
+  page can say whether « my save » exists for the game it shows. An unlinked
+  slot has none.
+- **`POST /api/salles` takes an optional body `{numero}`** (D17, first part).
+  A named room is opened, or refused with 409 when it is not closed (open, or
+  restarting), 404 when it is not a room; it is never replaced by another
+  room, since « reopen room 1 » that opened room 2 would split a group. No
+  body keeps the old behaviour. Opening directly on a game (`cle`,
+  `sauvegarde`) was left out of that first part: the worker also reads
+  `chosen-pad`, the per-game pad setup and a pending new-game request written
+  by `remember_choice`, and a room started with only `chosen-rom` could boot a
+  Wii game on the wrong controller or replay a stale new-game request.
+- **Opening on a game is an order the worker follows (D17, second part).**
+  `POST /api/salles {cle, sauvegarde}` (both or neither; `sauvegarde` 0 or 2,
+  since only a running worker can check that « all unlocked » has its import)
+  writes ONE file, `ouvrir-sur`, next to `game-closed`, both through the room
+  folder's descriptor without following a link. The worker takes it at start
+  (`nel3ab_emulator::take_open_order`): it removes the file first, so a crash
+  cannot replay it over a later choice, then resolves the key against its own
+  scan and hands it to `remember_choice` with the pads this room kept for that
+  game. That one function still writes the whole set. A key the scan no longer
+  has keeps the room on its menu, never on `settings.rom`; the lobby refuses
+  it earlier too (422), reading the freshest catalogue just before the start.
+  A Switch-group game is refused (409) while another room holds the Switch.
+  The identity is the proxy's, bounded like the launch line (64 bytes, no
+  blank). « Blank » is Rust's `char::is_whitespace`, the set the worker
+  applies to both the order and the launch line (`personnes.BLANCS_RUST`), and
+  both lobby checks count bytes. After systemd accepts, `RoomController.lance`
+  journals the launch and starts the startup clock, as the two socket paths
+  do. `game-closed` stays set with the order: a worker from before this
+  change ignores the order and
+  opens on its menu. An order left by a refused start, an older opening or a
+  closing is removed by the lobby. The order's text is pinned on both sides,
+  and its read bound (512) is measured against the longest legal order (339
+  bytes). The worker follows the order BEFORE it reads the playback state and
+  the chosen game, in one function (`starting_game`) that a test pins: in the
+  other order the room would read the `game-closed` marker the lobby set, and
+  open on its menu.
+
+
+### D43: The worker publishes the milestones of its start, 2026-11-23
+
+The loading screen said « the game started in the room » by guessing: the page
+only knows what it paints, and the lobby only knows that the worker accepted a
+launch. The worker knows each milestone and did not publish them (plan
+« donnees », lot 2).
+
+Decision:
+
+- **`/roms` gains three fields, added when the route is served**, not by the
+  library (`nel3ab_transport::browser::jalons`): `depuis_ms`, the wall-clock
+  time this worker started its game or menu; `moteur: "lance"` once Dolphin's
+  session or an external room's adapter has started; `image_ms`, the wall-clock
+  time of the first video packet OFFERED by `BrowserServer::send`, set once by
+  a compare-and-swap. A milestone not reached is absent, never `false` or `0`.
+  The library's reference strings are unchanged, `mark_idle` keeps the
+  milestones since they are not stored in the catalogue, and the frame path
+  pays one relaxed atomic load per packet. Adapter rooms (Switch, Xbox 360)
+  send their frames through the same `send` (`ingress.rs`), so they are
+  covered.
+- **Wall clock, on purpose.** The lobby compares these times with its own
+  wall-clock launch time on the same machine; the worker's monotonic clock
+  means nothing outside its process.
+- **`Room.partie {lance, image, depuis_s}`** reads them. A worker that predates
+  these fields gives three `None`, never « not started »; a worker that does
+  not answer (it is restarting) gives `partie = None` even though the previous
+  library stays displayed, because the old game's milestones would claim an
+  image for a game that no longer runs.
+- **What `image` proves.** A packet left the worker, not that a page painted
+  it (rule « A game's frame counter does not prove the picture players see »):
+  the sentence is « the room is sending the picture », and the page keeps its
+  own count of painted frames.
+- **The usual startup time of each game is measured, not assumed (D05).**
+  `nel3ab_control.demarrages` starts a clock when the worker accepts a launch
+  (`RoomController.lance`, the single entry both socket paths now call) and
+  stops it on the first `image_ms` of a NEW worker (`depuis_ms` after the
+  launch) running that key. Both ends are wall-clock times on the same machine,
+  so the result does not depend on the one-second polling. One JSON line per
+  start, with no person in it, in `NEL3AB_DEMARRAGES_FILE` (overridden by the
+  autouse test fixture). `Game.demarrage {mediane_s, p90_s, n}` covers the last
+  twenty successful starts of that key, and only from five: below that the page
+  keeps its constants and does not say « usually ». A launch that comes back
+  on another game or on the menu, or without an image after ten minutes, is an
+  « abandon » line, never counted; an impossible duration is not written. The
+  lobby reads at most the last 4 MiB of that file, from its end: the most
+  recent starts are the ones that count. Each line is written to its last byte
+  (`write(2)` may write less than it is given), and a line that a full disk or
+  a stopped lobby left without its newline gets one before the next, the same
+  guard as the play journal: otherwise the next measurement would be glued to
+  it and lost with it.
+- **« I'm staying » is one byte on the pad socket (D16).** `Reste` (tag `0xE1`,
+  next to the echo's `0xE0`, a length no other message of that channel has)
+  stamps the seat's last gesture like a non-neutral frame, so the inactivity
+  close and the absent-owner rule both see it, and puts nothing in the
+  emulator's input. An unknown single byte is ignored and the socket stays
+  open (before, any one-byte message reached the pad decoder and closed it). A
+  spectator has no pad socket, hence no button. The page method `reste()` in
+  `media/input.ts` waits for the controllers track to merge (K34).
+
+
+### D45: Game pictures without an open room, 2026-11-23
+
+A room serves each game's picture at `/r/N/art/{index}.png` while it runs, from
+memory. The retro screens want the picture where no room runs: the lobby's
+shelf, a closed room's card, the logbook. The lobby cannot decode a GameCube
+banner itself (RGB5A3, the worker's job), and the banner cache holds raw
+`.bnr` blobs, not PNG (plan « donnees », finding M3). The owner chose on
+2026-11-23: pictures come from the owner's own game files or from an image the
+owner drops, and nothing is downloaded.
+
+Decision:
+
+- **The worker writes the PNG it already serves**, at each scan, into
+  `art/<sha256 of the key>.png` beside `catalogue.json`
+  (`nel3ab_emulator::write_art_files`, called after the library file). A game
+  without a picture gets no file; the file of a game that left the library,
+  lost its picture or outgrew one MiB (`ART_MAX_BYTES`, the bound of the
+  dropped-image reader) is removed. An identical picture is not rewritten.
+  Only names of that shape are ever removed. A failure is logged and the room
+  plays.
+- **Named by the SHA-256 of the key**, recomputed by the lobby. A key is a
+  file name with spaces, accents or a leading dot; the hash is 64 plain
+  characters and the key is never joined to a path. Both sides pin the same
+  `sha256sum` values in a test.
+- **No link is followed (D36).** The Dolphin container mounts the session
+  folder read-write. The worker opens `art` with `O_NOFOLLOW` from the session
+  folder's descriptor, writes each picture under a fresh name (`O_EXCL`) and
+  renames it over the old one, which replaces a link instead of following it,
+  and lists the folder through its descriptor. The lobby opens the room
+  folder, `art` and the picture each with `O_NOFOLLOW`, non-blocking, regular
+  files only, one MiB at most.
+- **`GET /api/catalogue/art/{cle}`** serves `image/png` with
+  `X-Content-Type-Options: nosniff`, without an identity, like the catalogue.
+  It reads the room that wrote the FRESHEST catalogue, and only for a game
+  that catalogue says has a picture: a file left behind for a game now said
+  without one stays silent. The file must start with the PNG signature; strict
+  decoding stays in the worker. Every absence is the same 404.
+- **The owner drops an image, the lobby writes it beside the game.**
+  `PUT /api/catalogue/art/{cle}` (the PNG itself as the body) and `DELETE`,
+  for the administrator only, write or remove `<game>.nel3ab.png` in the first
+  game folder of `NEL3AB_ROM_DIR` that holds that file as a regular file (the
+  worker's scan keeps nothing else, so a link of the same name in an earlier
+  folder is not the game), for a game the
+  freshest catalogue lists. The body is read in pieces and cut above one MiB
+  (413); the lobby checks the signature and the PNG header (one to 1024 pixels
+  a side, the worker's bound) and leaves full decoding to the worker. The file
+  is written under a fresh name through the folder's descriptor, to the last
+  byte even when `write(2)` writes less than it was given, then renamed
+  over the old one. A game whose name leaves no room for the image name and
+  its temporary name within 255 bytes is refused. The picture appears at the
+  next start of a room, which scans the library.
+- **For GameCube and Wii, a dropped image now wins over the banner**
+  (`banner::dropped_picture`), with the same bounds as the Switch and Xbox 360
+  sidecar reader (one MiB, 1024 a side, a complete decode). It keeps the
+  banner's publisher and sentence, and gives a Wii game that was never played
+  its first picture. Switch and Xbox 360 already read that same file name.
+
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

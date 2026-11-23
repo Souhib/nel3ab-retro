@@ -299,6 +299,330 @@ fn tempfile_in(dir: &Path) -> std::io::Result<(PathBuf, std::fs::File)> {
     Ok((path, file))
 }
 
+/// Le dossier, à côté du fichier de la bibliothèque, où chaque image attend le
+/// salon (ADR D45).
+pub const ART_FOLDER: &str = "art";
+
+/// La plus grosse image écrite pour le salon, qui refuse plus gros.
+///
+/// La même borne que la lecture d'une image déposée (`switch::art`, un Mio,
+/// l'affiche officielle de Mario Tennis pesant 497 170 octets le 9 septembre
+/// 2026). Une bannière GameCube encodée pèse quelques kilo-octets.
+pub const ART_MAX_BYTES: usize = 1_048_576;
+
+/// Le nom du fichier où l'image d'un jeu est écrite: l'empreinte SHA-256 de
+/// sa clé, en hexadécimal.
+///
+/// Une clé est un nom de fichier, avec ses espaces, ses accents et parfois un
+/// point devant. Une empreinte fait 64 caractères sans surprise, et le salon la
+/// recalcule depuis la clé sans jamais joindre la clé à un chemin.
+#[must_use]
+pub fn art_file_name(key: &str) -> String {
+    use sha2::{Digest as _, Sha256};
+    format!("{:x}.png", Sha256::digest(key.as_bytes()))
+}
+
+/// Ce que [`write_art_files`] a fait, pour le journal et les essais.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ArtWritten {
+    /// Images écrites, neuves ou changées.
+    pub written: usize,
+    /// Images déjà là, octet pour octet.
+    pub kept: usize,
+    /// Images retirées: jeu parti, image perdue ou devenue trop grosse.
+    pub removed: usize,
+}
+
+/// Écrit l'image de chaque jeu là où le salon la lit sans salle ouverte.
+///
+/// `dir` est le dossier du fichier de la bibliothèque. Les images vont dans
+/// `dir/art/`, une par jeu qui en a une, sous [`art_file_name`]. Celles des
+/// jeux partis, ou qui n'ont plus d'image, sont retirées: le salon ne doit pas
+/// servir l'affiche d'un jeu que la salle ne peut plus lancer. Un fichier dont
+/// le nom n'a pas cette forme n'est jamais touché.
+///
+/// Sans suivre aucun lien (ADR D36). Le conteneur de Dolphin monte le dossier
+/// de session en écriture: un lien posé à la place de `art`, ou d'une image,
+/// ferait écrire le worker ailleurs sur l'hôte. Le dossier s'ouvre donc avec
+/// `O_NOFOLLOW`, chaque image s'écrit sous un nom neuf (`O_EXCL`) puis se
+/// renomme par-dessus, ce qui remplace un lien au lieu de le suivre.
+///
+/// Une image identique n'est pas réécrite: chaque démarrage de salle balaie la
+/// bibliothèque, et réécrire changerait l'heure du fichier pour rien.
+///
+/// # Errors
+/// L'erreur du système de fichiers sur le dossier (absent, lien, refusé). Une
+/// image qui ne s'écrit pas fait aussi rendre l'erreur, après avoir essayé les
+/// autres: une salle n'en a pas besoin pour jouer, et le worker le dit.
+pub fn write_art_files(
+    dir: &Path,
+    roms: &[Rom],
+    art: &[Option<crate::banner::Art>],
+) -> std::io::Result<ArtWritten> {
+    use nix::errno::Errno;
+    use nix::fcntl::OFlag;
+    use nix::sys::stat::Mode;
+    use std::os::fd::AsRawFd as _;
+
+    let parent = std::fs::File::open(dir)?;
+    match nix::sys::stat::mkdirat(&parent, ART_FOLDER, Mode::from_bits_truncate(0o755)) {
+        Ok(()) | Err(Errno::EEXIST) => {}
+        Err(errno) => return Err(errno.into()),
+    }
+    let folder = nix::fcntl::openat(
+        &parent,
+        ART_FOLDER,
+        OFlag::O_RDONLY | OFlag::O_DIRECTORY | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+        Mode::empty(),
+    )?;
+    let mut done = ArtWritten::default();
+    let mut wanted = std::collections::HashSet::new();
+    let mut failed = None;
+    for (rom, found) in roms.iter().zip(art) {
+        let Some(found) = found
+            .as_ref()
+            .filter(|found| found.png.len() <= ART_MAX_BYTES)
+        else {
+            continue;
+        };
+        let name = art_file_name(&rom.file);
+        if same_picture(&folder, &name, &found.png) {
+            done.kept += 1;
+        } else if let Err(error) = write_picture(&folder, &name, &found.png) {
+            failed = Some(error);
+            continue;
+        } else {
+            done.written += 1;
+        }
+        wanted.insert(name);
+    }
+    // La liste du dossier ouvert, par son descripteur: un lien posé à la place
+    // de `art` entre-temps ne changerait pas le dossier qu'on lit.
+    let listed = std::fs::read_dir(format!("/proc/self/fd/{}", folder.as_raw_fd()))?;
+    for entry in listed.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if ours(&name) && !wanted.contains(&name) {
+            match nix::unistd::unlinkat(
+                &folder,
+                name.as_str(),
+                nix::unistd::UnlinkatFlags::NoRemoveDir,
+            ) {
+                Ok(()) => done.removed += 1,
+                Err(errno) => failed = Some(errno.into()),
+            }
+        }
+    }
+    failed.map_or(Ok(done), Err)
+}
+
+/// Un nom que [`write_art_files`] a pu écrire: une image ou son fichier
+/// provisoire. Rien d'autre n'est jamais retiré.
+fn ours(name: &str) -> bool {
+    let hex = |part: &str| {
+        part.len() == 64 && part.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    };
+    if let Some(stem) = name.strip_suffix(".png") {
+        return hex(stem);
+    }
+    name.strip_prefix('.')
+        .and_then(|rest| rest.strip_suffix(".tmp"))
+        .and_then(|rest| rest.split_once(".png."))
+        .is_some_and(|(stem, pid)| {
+            hex(stem) && !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit())
+        })
+}
+
+/// Vrai quand ce nom est déjà un fichier ordinaire qui porte ces octets.
+fn same_picture(folder: &std::os::fd::OwnedFd, name: &str, png: &[u8]) -> bool {
+    use nix::fcntl::OFlag;
+    use std::io::Read as _;
+    let Ok(fd) = nix::fcntl::openat(
+        folder,
+        name,
+        OFlag::O_RDONLY | OFlag::O_NOFOLLOW | OFlag::O_NONBLOCK | OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::empty(),
+    ) else {
+        return false;
+    };
+    let file = std::fs::File::from(fd);
+    let Ok(meta) = file.metadata() else {
+        return false;
+    };
+    if !meta.is_file() || meta.len() != png.len() as u64 {
+        return false;
+    }
+    let mut kept = Vec::with_capacity(png.len());
+    file.take(png.len() as u64 + 1)
+        .read_to_end(&mut kept)
+        .is_ok()
+        && kept == png
+}
+
+/// Écrit une image sous un nom neuf, puis la renomme par-dessus l'ancienne.
+fn write_picture(folder: &std::os::fd::OwnedFd, name: &str, png: &[u8]) -> std::io::Result<()> {
+    use nix::fcntl::OFlag;
+    use std::io::Write as _;
+    let provisional = format!(".{name}.{}.tmp", std::process::id());
+    let _ = nix::unistd::unlinkat(
+        folder,
+        provisional.as_str(),
+        nix::unistd::UnlinkatFlags::NoRemoveDir,
+    );
+    let fd = nix::fcntl::openat(
+        folder,
+        provisional.as_str(),
+        OFlag::O_WRONLY | OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::from_bits_truncate(0o644),
+    )?;
+    let written = std::fs::File::from(fd).write_all(png).and_then(|()| {
+        nix::fcntl::renameat(folder, provisional.as_str(), folder, name).map_err(Into::into)
+    });
+    if written.is_err() {
+        let _ = nix::unistd::unlinkat(
+            folder,
+            provisional.as_str(),
+            nix::unistd::UnlinkatFlags::NoRemoveDir,
+        );
+    }
+    written
+}
+
+/// L'ordre d'ouvrir une salle directement sur un jeu, posé par le salon (D17).
+///
+/// Dans le dossier de session, à côté de `chosen-rom`. Le salon l'écrit avant
+/// de démarrer l'unité; le worker le lit et le RETIRE à son démarrage, avant
+/// d'agir, puis le passe à `remember_choice` comme un lancement venu du port
+/// de contrôle. Le salon n'écrit donc ni `chosen-rom`, ni la manette retenue
+/// pour le jeu, ni la demande de partie neuve: une seule fonction écrit cet
+/// ensemble, et un jeu Wii ne démarre pas sur la manette d'un autre jeu.
+pub const OPEN_ORDER: &str = "ouvrir-sur";
+
+/// La première ligne d'un ordre. Une autre version est refusée.
+const OPEN_ORDER_HEADER: &str = "nel3ab-ouvrir 1";
+
+/// Ce qu'un ordre peut peser.
+///
+/// Le plus long ordre légal fait 339 octets: l'en-tête et son retour (16),
+/// une clé de 255 octets (`GameKey::MAX_BYTES`) et le sien, un chiffre
+/// d'emplacement et le sien, une identité de 64 octets (la borne de la ligne
+/// de lancement) et le sien. 512 borne la lecture avec de la marge (règle
+/// « Measure a read bound on the longest legal message »).
+///
+/// Un fichier plus long est lu coupé à la borne plus un octet, et cette coupe
+/// ne peut jamais passer pour un ordre: chaque champ est borné par
+/// [`OpenOrder::parse`], donc un ordre entier fait 339 octets au plus, et un
+/// texte de 513 octets n'en est pas un. Pas de seconde comparaison de taille:
+/// elle ne pourrait échouer que là où l'analyse échoue déjà, et son mutant
+/// survivrait à tout essai.
+pub const OPEN_ORDER_MAX: usize = 512;
+
+/// Un ordre d'ouverture, lu et validé.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOrder {
+    /// Le jeu, par sa clé, résolue contre CETTE bibliothèque par [`position_of`].
+    pub key: nel3ab_protocol::GameKey,
+    /// Le code d'emplacement, celui de la ligne de lancement (0 à 2).
+    pub save: u8,
+    /// Qui ouvre, pour l'emplacement personnel; vide quand personne n'est nommé.
+    pub person: String,
+}
+
+impl OpenOrder {
+    /// L'ordre tel que le salon l'écrit, chaque ligne terminée par `\n`.
+    #[must_use]
+    pub fn encode(&self) -> String {
+        let person = if self.person.is_empty() {
+            "-"
+        } else {
+            &self.person
+        };
+        format!(
+            "{OPEN_ORDER_HEADER}\n{}\n{}\n{person}\n",
+            self.key.as_str(),
+            self.save
+        )
+    }
+
+    /// Un ordre entier, ou rien.
+    ///
+    /// Quatre lignes exactement, la dernière terminée: un fichier coupé n'est
+    /// pas un ordre. Une clé ne peut pas contenir de retour à la ligne (c'est un
+    /// caractère de contrôle, refusé par `GameKey`), et une identité ne porte
+    /// aucun blanc, comme sur la ligne de lancement.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        let body = text.strip_suffix('\n')?;
+        let [header, key, save, person] = body.split('\n').collect::<Vec<_>>()[..] else {
+            return None;
+        };
+        if header != OPEN_ORDER_HEADER || !matches!(save, "0" | "1" | "2") {
+            return None;
+        }
+        if person.is_empty() || person.len() > 64 || person.chars().any(char::is_whitespace) {
+            return None;
+        }
+        Some(Self {
+            key: nel3ab_protocol::GameKey::new(key).ok()?,
+            save: save.parse().ok()?,
+            person: if person == "-" {
+                String::new()
+            } else {
+                person.to_owned()
+            },
+        })
+    }
+}
+
+/// L'ordre d'ouverture posé dans ce dossier, RETIRÉ avant d'être rendu.
+///
+/// Retiré d'abord, et c'est la règle des demandes de partie neuve: un ordre
+/// encore là après un plantage serait rejoué à chaque relance de la salle,
+/// par-dessus le jeu que les joueurs auraient choisi depuis. Un ordre qu'on ne
+/// peut pas retirer n'est donc pas suivi.
+///
+/// Sans suivre de lien (ADR D36): le conteneur écrit ce dossier. Un lien, un
+/// tube ou un dossier à ce nom est retiré sans être lu; un fichier trop gros
+/// ou mal formé aussi. Aucun ordre: `Ok(None)`.
+///
+/// # Errors
+/// Le dossier ne s'ouvre pas, ou l'ordre ne peut pas être retiré.
+pub fn take_open_order(session_dir: &Path) -> std::io::Result<Option<OpenOrder>> {
+    use nix::errno::Errno;
+    use nix::fcntl::OFlag;
+    use std::io::Read as _;
+
+    let dir = std::fs::File::open(session_dir)?;
+    let opened = nix::fcntl::openat(
+        &dir,
+        OPEN_ORDER,
+        OFlag::O_RDONLY | OFlag::O_NOFOLLOW | OFlag::O_NONBLOCK | OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::empty(),
+    );
+    let text = match opened {
+        Err(Errno::ENOENT) => return Ok(None),
+        Err(_) => None,
+        Ok(fd) => {
+            let file = std::fs::File::from(fd);
+            let mut bytes = Vec::new();
+            let regular = file.metadata().is_ok_and(|meta| meta.is_file());
+            (regular
+                && file
+                    .take(OPEN_ORDER_MAX as u64 + 1)
+                    .read_to_end(&mut bytes)
+                    .is_ok())
+            .then(|| String::from_utf8(bytes).ok())
+            .flatten()
+        }
+    };
+    match nix::unistd::unlinkat(&dir, OPEN_ORDER, nix::unistd::UnlinkatFlags::NoRemoveDir) {
+        Ok(()) => {}
+        // Un dossier à ce nom: ce n'est pas un ordre, et il ne se rejoue pas.
+        Err(Errno::EISDIR) => return Ok(None),
+        Err(errno) => return Err(errno.into()),
+    }
+    Ok(text.as_deref().and_then(OpenOrder::parse))
+}
+
 /// The list of games, as both the room and the file describe them.
 fn push_entries(
     out: &mut String,
@@ -827,5 +1151,293 @@ mod tests {
             .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
         assert_eq!(left, ["catalogue.json"]);
+    }
+
+    fn picture(png: &[u8]) -> crate::banner::Art {
+        crate::banner::Art {
+            png: png.to_vec(),
+            maker: String::new(),
+            about: String::new(),
+        }
+    }
+
+    fn game(file: &str) -> Rom {
+        Rom {
+            path: PathBuf::from("/jeux").join(file),
+            name: file.to_owned(),
+            file: file.to_owned(),
+        }
+    }
+
+    fn names_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// Le nom est l'empreinte de la clé, que le salon recalcule de son côté.
+    /// Les valeurs viennent de `sha256sum` et sont épinglées des deux côtés
+    /// (`test_catalogue.py`): un changement de calcul d'un seul côté rougit.
+    #[test]
+    fn a_picture_is_named_by_the_sha256_of_its_key() {
+        assert_eq!(
+            art_file_name("Melee.rvz"),
+            "3b6604996f3f05b611a8f44a29e6a43dbab89fb8cc6e208e7c135e7ec1729c1d.png"
+        );
+        assert_eq!(
+            art_file_name("Zelda (Europe) é.rvz"),
+            "7b361ae8e27b325c40366af2ec35530a00d1154beae45708589e5a1a7456a58e.png"
+        );
+    }
+
+    /// Une image par jeu qui en a une, aucune pour un jeu sans image.
+    #[test]
+    fn each_game_with_a_picture_gets_one_file_and_no_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let roms = [game("Melee.rvz"), game("Sans image.iso")];
+
+        let done =
+            write_art_files(dir.path(), &roms, &[Some(picture(b"png de melee")), None]).unwrap();
+
+        assert_eq!(
+            done,
+            ArtWritten {
+                written: 1,
+                kept: 0,
+                removed: 0
+            }
+        );
+        let folder = dir.path().join(ART_FOLDER);
+        assert_eq!(names_in(&folder), [art_file_name("Melee.rvz")]);
+        assert_eq!(
+            std::fs::read(folder.join(art_file_name("Melee.rvz"))).unwrap(),
+            b"png de melee"
+        );
+    }
+
+    /// Le second balayage garde l'image identique, réécrit celle qui a changé,
+    /// et retire celle d'un jeu parti. Un fichier d'un autre nom reste.
+    #[test]
+    fn a_rescan_keeps_rewrites_and_removes_only_its_own_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join(ART_FOLDER);
+        let three = [game("a.rvz"), game("b.rvz"), game("c.rvz")];
+        write_art_files(
+            dir.path(),
+            &three,
+            &[
+                Some(picture(b"a")),
+                Some(picture(b"b")),
+                Some(picture(b"c")),
+            ],
+        )
+        .unwrap();
+        std::fs::write(folder.join("note.txt"), "à garder").unwrap();
+        // Une image posée par quelqu'un d'autre, sous un nom qui n'est pas une empreinte.
+        std::fs::write(folder.join("affiche.png"), "à garder").unwrap();
+        std::fs::write(
+            folder.join(format!(".{}.42.tmp", art_file_name("x"))),
+            "reste",
+        )
+        .unwrap();
+
+        let two = [game("a.rvz"), game("b.rvz")];
+        let done = write_art_files(
+            dir.path(),
+            &two,
+            &[Some(picture(b"a")), Some(picture(b"b2"))],
+        )
+        .unwrap();
+
+        assert_eq!(
+            done,
+            ArtWritten {
+                written: 1,
+                kept: 1,
+                removed: 2
+            }
+        );
+        let mut expected = vec![
+            art_file_name("a.rvz"),
+            art_file_name("b.rvz"),
+            "affiche.png".to_owned(),
+            "note.txt".to_owned(),
+        ];
+        expected.sort();
+        assert_eq!(names_in(&folder), expected);
+        assert_eq!(
+            std::fs::read(folder.join(art_file_name("b.rvz"))).unwrap(),
+            b"b2"
+        );
+    }
+
+    /// Un jeu qui perd son image, ou dont l'image dépasse la borne, perd aussi
+    /// son fichier: le salon ne sert pas une image que la salle n'a plus.
+    #[test]
+    fn a_picture_lost_or_too_big_is_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let roms = [game("a.rvz"), game("b.rvz")];
+        write_art_files(
+            dir.path(),
+            &roms,
+            &[Some(picture(b"a")), Some(picture(b"b"))],
+        )
+        .unwrap();
+
+        let big = vec![0; ART_MAX_BYTES + 1];
+        let done = write_art_files(dir.path(), &roms, &[None, Some(picture(&big))]).unwrap();
+
+        assert_eq!(
+            done,
+            ArtWritten {
+                written: 0,
+                kept: 0,
+                removed: 2
+            }
+        );
+        assert!(names_in(&dir.path().join(ART_FOLDER)).is_empty());
+        // Le jumeau: exactement la borne passe.
+        let fits = vec![0; ART_MAX_BYTES];
+        let done = write_art_files(dir.path(), &roms, &[None, Some(picture(&fits))]).unwrap();
+        assert_eq!(done.written, 1);
+    }
+
+    /// Un lien posé à la place du dossier `art` n'est pas suivi: rien n'est
+    /// écrit dans le dossier qu'il vise (ADR D36).
+    #[test]
+    fn a_link_in_place_of_the_folder_is_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        std::os::unix::fs::symlink(elsewhere.path(), dir.path().join(ART_FOLDER)).unwrap();
+
+        let done = write_art_files(dir.path(), &[game("a.rvz")], &[Some(picture(b"a"))]);
+
+        assert!(done.is_err());
+        assert!(names_in(elsewhere.path()).is_empty());
+    }
+
+    /// Un lien posé au nom d'une image est remplacé, et son fichier visé reste
+    /// intact. Le jumeau ordinaire est l'essai d'écriture ci-dessus.
+    #[test]
+    fn a_link_in_place_of_a_picture_is_replaced_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join(ART_FOLDER);
+        std::fs::create_dir(&folder).unwrap();
+        let victim = dir.path().join("victime");
+        std::fs::write(&victim, "intact").unwrap();
+        std::os::unix::fs::symlink(&victim, folder.join(art_file_name("a.rvz"))).unwrap();
+
+        write_art_files(dir.path(), &[game("a.rvz")], &[Some(picture(b"a"))]).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "intact");
+        let written = folder.join(art_file_name("a.rvz"));
+        assert!(!written.is_symlink());
+        assert_eq!(std::fs::read(written).unwrap(), b"a");
+    }
+
+    fn order(key: &str, save: u8, person: &str) -> OpenOrder {
+        OpenOrder {
+            key: nel3ab_protocol::GameKey::new(key).unwrap(),
+            save,
+            person: person.to_owned(),
+        }
+    }
+
+    /// Ce que le salon écrit est ce que le worker lit. La chaîne est épinglée
+    /// aussi côté salon (`test_salles.py`): un champ déplacé d'un côté rougit.
+    #[test]
+    fn an_order_reads_back_what_the_lobby_writes() {
+        let written = "nel3ab-ouvrir 1\nZelda (Europe) é.rvz\n2\nnour@example.org\n";
+        let wanted = order("Zelda (Europe) é.rvz", 2, "nour@example.org");
+        assert_eq!(wanted.encode(), written);
+        assert_eq!(OpenOrder::parse(written), Some(wanted));
+        // Personne: un tiret, comme sur la ligne de lancement.
+        let nobody = order("Melee.rvz", 0, "");
+        assert_eq!(nobody.encode(), "nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n");
+        assert_eq!(OpenOrder::parse(&nobody.encode()), Some(nobody));
+    }
+
+    /// Les jumeaux: tout ce qui n'est pas un ordre entier est refusé.
+    #[rstest::rstest]
+    #[case::sans_fin("nel3ab-ouvrir 1\nMelee.rvz\n0\n-")]
+    #[case::autre_version("nel3ab-ouvrir 2\nMelee.rvz\n0\n-\n")]
+    #[case::emplacement_inconnu("nel3ab-ouvrir 1\nMelee.rvz\n3\n-\n")]
+    #[case::cle_en_chemin("nel3ab-ouvrir 1\n../x.rvz\n0\n-\n")]
+    #[case::cle_vide("nel3ab-ouvrir 1\n\n0\n-\n")]
+    #[case::personne_vide("nel3ab-ouvrir 1\nMelee.rvz\n0\n\n")]
+    #[case::personne_avec_blanc("nel3ab-ouvrir 1\nMelee.rvz\n0\nnour x\n")]
+    #[case::ligne_de_trop("nel3ab-ouvrir 1\nMelee.rvz\n0\n-\nplus\n")]
+    fn anything_but_a_whole_order_is_refused(#[case] text: &str) {
+        assert_eq!(OpenOrder::parse(text), None);
+    }
+
+    /// Le plus long ordre légal tient sous la borne et arrive entier; un ordre
+    /// qui atteint la borne est refusé, pas coupé.
+    #[test]
+    fn the_longest_legal_order_fits_and_a_bigger_file_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let longest = order(&"k".repeat(255), 2, &"p".repeat(64));
+        assert_eq!(longest.encode().len(), 339);
+        std::fs::write(dir.path().join(OPEN_ORDER), longest.encode()).unwrap();
+        assert_eq!(take_open_order(dir.path()).unwrap(), Some(longest));
+
+        let padded = format!(
+            "{}{}",
+            order("a.rvz", 0, "").encode(),
+            " ".repeat(OPEN_ORDER_MAX)
+        );
+        std::fs::write(dir.path().join(OPEN_ORDER), padded).unwrap();
+        assert_eq!(take_open_order(dir.path()).unwrap(), None);
+        assert!(
+            !dir.path().join(OPEN_ORDER).exists(),
+            "un ordre refusé reste retiré"
+        );
+    }
+
+    /// L'ordre est retiré en le lisant: une relance de la salle ne le rejoue pas.
+    #[test]
+    fn an_order_is_taken_once() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(OPEN_ORDER), order("a.rvz", 0, "").encode()).unwrap();
+
+        assert!(take_open_order(dir.path()).unwrap().is_some());
+        assert!(!dir.path().join(OPEN_ORDER).exists());
+        assert_eq!(take_open_order(dir.path()).unwrap(), None);
+    }
+
+    /// Un lien à la place de l'ordre est retiré sans être suivi: le fichier
+    /// qu'il vise, un ordre valide, n'est ni lu ni effacé (ADR D36).
+    #[test]
+    fn a_link_in_place_of_the_order_is_removed_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let target = elsewhere.path().join("ordre");
+        std::fs::write(&target, order("a.rvz", 0, "").encode()).unwrap();
+        std::os::unix::fs::symlink(&target, dir.path().join(OPEN_ORDER)).unwrap();
+
+        assert_eq!(take_open_order(dir.path()).unwrap(), None);
+        assert!(!dir.path().join(OPEN_ORDER).is_symlink());
+        assert!(target.exists());
+    }
+
+    /// Un ordre qu'on ne peut pas retirer n'est pas suivi.
+    #[test]
+    fn an_order_that_cannot_be_removed_is_not_followed() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(OPEN_ORDER), order("a.rvz", 0, "").encode()).unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o500)).unwrap();
+        // La condition, vérifiée plutôt que supposée: sous root, le retrait
+        // passerait et l'essai ne prouverait rien.
+        let refused = std::fs::File::create(dir.path().join("sonde")).is_err();
+
+        let taken = take_open_order(dir.path());
+
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(refused, "le dossier devait refuser les écritures");
+        assert!(taken.is_err());
     }
 }

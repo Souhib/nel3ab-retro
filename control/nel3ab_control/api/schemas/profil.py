@@ -153,4 +153,13 @@ class Emplacement(BaseModel):
     )
     console: ConsoleVue
     relie: bool = Field(description="Vrai quand le salon a reconnu le jeu dans le catalogue.")
+    cle: str | None = Field(
+        default=None,
+        description=(
+            "La clé du jeu de cette sauvegarde, son nom de fichier (ADR D23), pour "
+            "qu'une page sache si « ma sauvegarde » existe pour le jeu qu'elle "
+            "montre. Rien quand l'emplacement n'est pas relié au catalogue, ou "
+            "quand le jeu y est connu sans clé (worker d'avant le 21 novembre 2026)."
+        ),
+    )
     sauvegarde: ResumeSauvegarde

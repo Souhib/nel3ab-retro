@@ -303,6 +303,52 @@ impl Echo {
     }
 }
 
+/// « Je reste »: un octet sur la socket de manette (D16, ADR D43).
+///
+/// La salle ferme après une demi-heure sans geste de jeu (`nap.rs`), et elle le
+/// dit cinq minutes avant. Jusqu'ici, seule une trame de manette NON NEUTRE
+/// remettait le compte à zéro: pour rester, il fallait appuyer sur une touche
+/// du jeu, donc agir sur la partie. Ce message compte comme un geste sans rien
+/// envoyer au jeu.
+///
+/// Un octet: aucun autre message de ce canal n'a cette longueur (commande 2,
+/// aller-retour 9, manette GameCube 13, manette Pro 15). La marque est la
+/// voisine de celle de l'aller-retour, et pour la même raison qu'elle: un futur
+/// message d'un octet ne doit pas être lu comme celui-ci.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reste;
+
+impl Reste {
+    /// Octets sur le fil: la marque seule.
+    pub const LEN: usize = 1;
+
+    /// La marque, voisine de celle de [`Echo`].
+    const TAG: u8 = 0xE1;
+
+    /// Sérialise en exactement [`Reste::LEN`] octet.
+    #[must_use]
+    pub const fn encode(self) -> [u8; Self::LEN] {
+        [Self::TAG]
+    }
+
+    /// Lit un « je reste » envoyé par une page.
+    ///
+    /// # Errors
+    /// [`ProtocolError::WrongLength`] ou [`ProtocolError::UnknownCommand`].
+    pub const fn decode(buf: &[u8]) -> Result<Self, ProtocolError> {
+        if buf.len() != Self::LEN {
+            return Err(ProtocolError::WrongLength {
+                expected: Self::LEN,
+                got: buf.len(),
+            });
+        }
+        if buf[0] != Self::TAG {
+            return Err(ProtocolError::UnknownCommand { opcode: buf[0] });
+        }
+        Ok(Self)
+    }
+}
+
 impl Command {
     /// Bytes a command occupies on the wire: the opcode, then its argument.
     pub const LEN: usize = 2;
@@ -846,6 +892,39 @@ mod tests {
         let token = [1, 2, 3, 4, 250, 251, 252, 253];
 
         assert_eq!(Echo::decode(&Echo(token).encode()), Ok(Echo(token)));
+    }
+
+    #[test]
+    fn staying_is_one_byte_and_comes_back_as_itself() {
+        assert_eq!(Reste.encode(), [0xE1]);
+        assert_eq!(Reste::decode(&Reste.encode()), Ok(Reste));
+    }
+
+    #[test]
+    fn another_single_byte_is_not_staying() {
+        // Le jumeau: un octet inconnu, ou la marque de l'aller-retour seule.
+        assert_eq!(
+            Reste::decode(&[0x42]),
+            Err(ProtocolError::UnknownCommand { opcode: 0x42 })
+        );
+        assert_eq!(
+            Reste::decode(&[Echo::TAG]),
+            Err(ProtocolError::UnknownCommand { opcode: Echo::TAG })
+        );
+        assert!(matches!(
+            Reste::decode(&[0xE1, 0xE1]),
+            Err(ProtocolError::WrongLength {
+                expected: 1,
+                got: 2
+            })
+        ));
+    }
+
+    #[test]
+    fn staying_has_a_length_no_other_message_of_the_channel_has() {
+        for other in [Echo::LEN, Command::LEN, WIRE_LEN, crate::switch::SWITCH_LEN] {
+            assert_ne!(Reste::LEN, other);
+        }
     }
 
     #[test]

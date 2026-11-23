@@ -298,8 +298,15 @@ def not_too_often(
             key = base if par is None else f"{base}_{par(data)}"
             session = await sio.get_session(sid)
             now = monotonic()
-            if too_soon(session.get(key), now, gap):
-                return {"ok": False, "error": "Demande trop rapprochée. Réessaie dans un instant."}
+            previous = session.get(key)
+            if too_soon(previous, now, gap):
+                return {
+                    "ok": False,
+                    "error": "Demande trop rapprochée. Réessaie dans un instant.",
+                    # Combien de secondes avant le prochain message accepté, pour
+                    # que la page dise « dans 8 s » plutôt que « plus tard » (D20).
+                    "reste_s": round(max(0.0, gap - (now - previous)), 1),
+                }
             await sio.save_session(sid, {**session, key: now})
             # Une liste vide devenait {}, donc pouvait rendre une manette.
             # Refuser après le quota évite aussi de rendre les erreurs gratuites.
@@ -661,6 +668,31 @@ async def plainte(sid: str, data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+#: Ce qu'un signalement peut dire de son motif. Une liste fermée, comme
+#: `QUALITY_WORDS`: une page ne choisit pas le texte du journal.
+COMPLAINT_WORDS = ("image", "son", "manette", "autre")
+
+
+@sio.event
+@not_too_often(COMPLAINT_EVERY)
+async def plainte_quoi(sid: str, data: dict[str, Any]) -> dict[str, Any]:
+    """Le motif d'un signalement: l'image, le son, la manette ou autre chose (D20).
+
+    À part de `plainte`, qui emporte deux minutes de relevés: le motif est un
+    mot, et il se lit à côté de la trace dans `just sessions`. Même cadence,
+    tenue à part, pour que le motif ne consomme pas le droit de signaler.
+    """
+    quoi = data.get("quoi")
+    if quoi not in COMPLAINT_WORDS:
+        return {"ok": False, "error": "Ce motif n'en est pas un."}
+    session = await sio.get_session(sid)
+    rooms, people, journal, _salle = await _pour(sid)
+    lost = journal.dropped
+    # `motif` et pas `quoi`: le journal prend déjà `quoi` comme nom d'événement.
+    journal.write("plainte_quoi", **_who(sid, session), motif=quoi, salle=_room_now(rooms, people))
+    return {"ok": journal.dropped == lost}
+
+
 @sio.event
 @not_too_often(QUALITY_EVERY, par=_mot_de_qualite)
 async def qualite(sid: str, data: dict[str, Any]) -> None:
@@ -700,6 +732,35 @@ async def son(sid: str, data: dict[str, Any]) -> None:
     session = await sio.get_session(sid)
     rooms, people, journal, _salle = await _pour(sid)
     journal.write("son", **_who(sid, session), etat=quoi, salle=_room_now(rooms, people))
+
+
+def _mot_du_menu(data: object) -> str:
+    """Ce qui découpe la cadence de `menu`: ouvrir et refermer ont chacun la leur."""
+    ouvert = data.get("ouvert") if isinstance(data, dict) else None
+    if ouvert is True:
+        return "ouvert"
+    return "ferme" if ouvert is False else "autre"
+
+
+@sio.event
+@not_too_often(ROOM_EVERY, par=_mot_du_menu)
+async def menu(sid: str, data: dict[str, Any]) -> dict[str, Any]:
+    """« J'ai ouvert mon menu », ou « je l'ai refermé » (D15).
+
+    Les autres pages le lisent sur la place de cette personne (`Person.au_menu`).
+    La cadence est tenue PAR MOT, comme `qualite`: ouvrir puis refermer dans la
+    même demi-seconde garderait sinon la marque « au menu » sur quelqu'un qui
+    est revenu au jeu. Un booléen et rien d'autre; aucune ligne de journal, un
+    menu ouvert n'est pas un fait de la soirée.
+    """
+    ouvert = data.get("ouvert")
+    if type(ouvert) is not bool:
+        return {"ok": False, "error": "Message invalide."}
+    rooms, people, journal, _salle = await _pour(sid)
+    session = await sio.get_session(sid)
+    if rooms.menu(sid, ouvert):
+        await broadcast(rooms, people, journal, bool(session.get("banc")))
+    return {"ok": True}
 
 
 @sio.event
@@ -828,7 +889,7 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     game = library[index].name
     # Ce chemin ne passe pas par la préparation et ne nomme personne au
     # worker: la sauvegarde que le jeu prendra n'est pas connue ici.
-    rooms.tablee.lance(_joueur(session), session["name"], jeu_joue(library[index]), None)
+    rooms.lance(_joueur(session), session["name"], jeu_joue(library[index]), None)
     journal.write(
         "changement",
         **_who(sid, session),
@@ -943,7 +1004,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                 )
             # Au journal des parties, APRÈS l'accord du worker: un
             # lancement refusé n'a choisi la sauvegarde de personne.
-            rooms.tablee.lance(_joueur(session), session["name"], jeu_joue(game), pending.save)
+            rooms.lance(_joueur(session), session["name"], jeu_joue(game), pending.save)
             journal.write(
                 "changement",
                 **_who(sid, session),

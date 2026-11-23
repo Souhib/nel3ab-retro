@@ -51,6 +51,58 @@ et « 23 novembre, l'après-midi : ce que les chantiers d'écran demandaient au
 socle ». Non prouvé : aucun effet vu sur un vrai téléphone, et aucun effet ni
 aucun des nouveaux jetons n'est encore posé dans un vrai écran.
 
+**Au 23 novembre : le chantier « données », sur une branche.** Ce que le
+salon publie de chaque salle, pour les écrans du thème rétro
+(`chantier/retro-donnees`, worktree `~/nel3ab-chantiers/retro-donnees`, partie
+du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
+
+- **Ouverture et temps de jeu.** `Salle.ouverte_depuis` dit depuis quand le
+  salon a ouvert la salle (repère `ouverte-le`) ; l'ancienne valeur, qui
+  repartait à chaque changement de jeu, est `Salle.jeu_depuis`. Le faux
+  systemd des essais suit le vrai (`control/tests/faux_systeme.py`).
+- **Dossier de salle.** Le salon y lit et écrit par `session_salle.py`, sans
+  suivre de lien ni attendre sur un tube ; le marqueur `game-closed` aussi, et
+  la bibliothèque `catalogue.json` depuis la relecture du 23 novembre, qui l'a
+  trouvée lue par son chemin (ADR D38).
+- **Fermeture et silence.** `Salle.fermee_depuis` et `Salle.fermee_pour`
+  (inactivité, arrêt, panne), lus dans systemd ; `Salle.repond` sépare une
+  salle allumée mais muette d'une salle sur son menu.
+- **Jeu en cours et dernier jeu.** `Salle.console` et `Salle.cle` (K19) ;
+  `Salle.dernier_jeu` et `Room.dernier_jeu`, lus dans `chosen-rom` ; une salle
+  qui redémarre dit le jeu qui revient.
+- **Qui est là.** `Salle.chef`, `Salle.sieges` et `Salle.regardent`, tirés de
+  ce que le salon tient déjà, sans question de plus au worker.
+- **Qui a lancé.** `Room.lancement` (lanceur et sauvegarde du jeu en cours),
+  rien après un redémarrage du salon.
+- **Messages de socket.** `menu` et `Person.au_menu` (D15) ; `plainte_quoi`
+  et `reste_s` dans chaque refus de cadence (D20).
+- **Sauvegardes.** `Emplacement.cle` (D19).
+- **Ouvrir une salle précise, et sur un jeu (D17).** `POST /api/salles`
+  accepte `{numero}`, et `{cle, sauvegarde}` (0 ou 2) : le salon pose l'ordre
+  `ouvrir-sur`, que le worker suit et retire à son démarrage. Demande de
+  reconstruire le worker ; un worker d'avant ouvre la salle sur son menu.
+- **Jaquettes sans salle ouverte (D13, ADR D45).** Le worker écrit
+  `art/<sha256 de la clé>.png` à côté de `catalogue.json` à chaque
+  démarrage ; le salon les sert à `GET /api/catalogue/art/{cle}`. Demande de
+  reconstruire le worker ; une salle les écrit à son prochain démarrage.
+- **Image déposée par le propriétaire (ADR D45).** `PUT` et `DELETE
+  /api/catalogue/art/{cle}`, pour l'administrateur : `<jeu>.nel3ab.png` à côté
+  du jeu, prioritaire sur la bannière GameCube et Wii. Le bouton de la page de
+  dépôt (`importer.html`) reste au chantier du salon.
+- **Jalons du worker (lot 2, ADR D43).** `/roms` porte `depuis_ms`, `moteur`
+  et `image_ms` ; le salon publie `Room.partie`. Demande de reconstruire le
+  worker, sans salle ouverte, APRÈS le redémarrage du salon.
+- **Durées de démarrage (D05).** `nel3ab_control/demarrages.py`,
+  `NEL3AB_DEMARRAGES_FILE` (`~/.local/state/nel3ab/demarrages.jsonl`) ;
+  `Game.demarrage` à partir de cinq démarrages réussis.
+- **« Je reste » (D16).** Message `Reste` d'un octet sur la socket de
+  manette ; la méthode `reste()` de `front/src/media/input.ts` reste à écrire
+  après la fusion du chantier des manettes (K34).
+- **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
+  redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
+  maintenant la vraie ouverture ; une salle ouverte avant la mise en service
+  n'a pas de repère et tait la ligne jusqu'à sa prochaine ouverture.
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

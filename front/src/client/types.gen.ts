@@ -192,6 +192,32 @@ export type ConsoleVue = {
 };
 
 /**
+ * Demarrage
+ *
+ * L'habitude d'un jeu, sur ses derniers démarrages réussis.
+ */
+export type Demarrage = {
+    /**
+     * Mediane S
+     *
+     * La durée médiane, en secondes.
+     */
+    mediane_s: number;
+    /**
+     * P90 S
+     *
+     * Le 90e centile (rang le plus proche), en secondes: au-delà, « c'est plus long que d'habitude ».
+     */
+    p90_s: number;
+    /**
+     * N
+     *
+     * Sur combien de démarrages.
+     */
+    n: number;
+};
+
+/**
  * Dernier
  */
 export type Dernier = {
@@ -202,6 +228,32 @@ export type Dernier = {
     console: ConsoleVue;
     /**
      * Quand
+     */
+    quand: string;
+};
+
+/**
+ * DernierJeu
+ *
+ * Le dernier jeu qu'une salle a lancé, d'après son propre dossier.
+ */
+export type DernierJeu = {
+    /**
+     * Cle
+     *
+     * Sa clé, son nom de fichier (ADR D23).
+     */
+    cle: string;
+    /**
+     * Titre
+     *
+     * Son titre, tel que la bibliothèque le nomme.
+     */
+    titre: string;
+    /**
+     * Quand
+     *
+     * Quand il a été CHOISI (l'écriture du choix par le worker), pas quand la partie s'est terminée: « lancé jeudi soir », pas « joué jeudi soir ».
      */
     quand: string;
 };
@@ -225,6 +277,12 @@ export type Emplacement = {
      * Vrai quand le salon a reconnu le jeu dans le catalogue.
      */
     relie: boolean;
+    /**
+     * Cle
+     *
+     * La clé du jeu de cette sauvegarde, son nom de fichier (ADR D23), pour qu'une page sache si « ma sauvegarde » existe pour le jeu qu'elle montre. Rien quand l'emplacement n'est pas relié au catalogue, ou quand le jeu y est connu sans clé (worker d'avant le 21 novembre 2026).
+     */
+    cle?: string | null;
     sauvegarde: ResumeSauvegarde;
 };
 
@@ -271,6 +329,10 @@ export type Game = {
      * Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.
      */
     console?: string;
+    /**
+     * Combien de temps ce jeu met d'habitude à démarrer dans les salles de cette machine, du lancement accepté à la première image offerte. Rien avant cinq démarrages réussis: la page garde alors ses constantes et ne dit pas « d'habitude ».
+     */
+    demarrage?: Demarrage | null;
     /**
      * Art
      *
@@ -403,6 +465,24 @@ export type JeuProfil = {
 };
 
 /**
+ * LancementVu
+ *
+ * Qui a lancé le jeu qui tourne, et dans quelle sauvegarde il écrit.
+ */
+export type LancementVu = {
+    /**
+     * Qui a lancé: son pseudo, et son repère quand il a une identité. Jamais son adresse ni son empreinte. `moi` est vrai pour sa page.
+     */
+    par: Person;
+    /**
+     * Sauvegarde
+     *
+     * « lanceur »: la sauvegarde personnelle de qui a lancé; « commune »: tout débloqué, à tout le monde; « neuve »: la partie neuve partagée (lancement sans identité); « inconnue »: lancé par un chemin qui ne dit pas la sauvegarde.
+     */
+    sauvegarde: 'lanceur' | 'commune' | 'neuve' | 'inconnue';
+};
+
+/**
  * Me
  *
  * Qui le service croit avoir en face.
@@ -436,6 +516,36 @@ export type Me = {
      * Cette personne peut-elle publier la configuration de référence de la salle ? Un booléen et non l'adresse de qui le peut: la page a besoin de savoir ce qu'ELLE peut faire, pas de connaître l'adresse de quelqu'un d'autre.
      */
     publishes?: boolean;
+};
+
+/**
+ * OuvrirSalle
+ *
+ * Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif.
+ *
+ * `cle` et `sauvegarde` vont ensemble: ouvrir sur un jeu sans dire sur quelle
+ * sauvegarde laisserait le salon choisir à la place de la personne, et une
+ * sauvegarde sans jeu ne veut rien dire.
+ */
+export type OuvrirSalle = {
+    /**
+     * Numero
+     *
+     * Ouvrir CETTE salle: « Ouvrir la salle 3 », « Rouvrir la salle 1 ». Refusé (409) si elle n'est pas fermée: une salle qui redémarre n'est pas libre. Sans numéro, le premier emplacement libre.
+     */
+    numero?: number | null;
+    /**
+     * Cle
+     *
+     * Ouvrir directement sur ce jeu, par sa clé (ADR D23): « Jouer maintenant », « Rejouer sur ma sauvegarde ». Refusé (422) s'il n'est pas dans la bibliothèque, (409) si c'est un jeu Switch et qu'une autre salle tient la Switch. Sans clé, la salle arrive sur son menu.
+     */
+    cle?: string | null;
+    /**
+     * Sauvegarde
+     *
+     * L'emplacement, avec `cle`: 0 pour une partie neuve, 2 pour « ma sauvegarde ». Le 1, « tout débloqué », se choisit dans la salle: seul un worker qui tourne vérifie que son import est complet.
+     */
+    sauvegarde?: 0 | 2 | null;
 };
 
 /**
@@ -541,6 +651,32 @@ export type Partie = {
 };
 
 /**
+ * PartieVue
+ *
+ * Où en est le worker de la salle, d'après ses propres jalons (ADR D43).
+ */
+export type PartieVue = {
+    /**
+     * Lance
+     *
+     * Vrai quand l'émulateur ou l'adaptateur a démarré, faux quand le worker dit qu'il ne l'est pas encore (ou qu'il sert son menu). Rien pour un worker qui ne publie pas ce jalon: on ne sait pas, ce qui n'est pas « pas lancé ».
+     */
+    lance?: boolean | null;
+    /**
+     * Image
+     *
+     * Vrai quand le worker a OFFERT sa première image aux pages. Cela prouve que la salle envoie l'image, pas qu'une page la voit: la page garde son propre compte d'images peintes. Rien sans le jalon.
+     */
+    image?: boolean | null;
+    /**
+     * Depuis S
+     *
+     * Depuis combien de secondes ce worker a démarré son jeu ou son menu, à l'heure murale de la machine. Rien sans le jalon.
+     */
+    depuis_s?: number | null;
+};
+
+/**
  * Person
  *
  * Quelqu'un dans la salle, qu'il tienne une manette ou non.
@@ -579,6 +715,12 @@ export type Person = {
      * L'attribution reste à confirmer ; cette personne n'est pas un spectateur.
      */
     seat_pending?: boolean;
+    /**
+     * Au Menu
+     *
+     * Vrai quand une de ses pages a dit avoir ouvert son menu (événement `menu`), jusqu'à ce qu'elle le referme, parte ou perde sa place. Ce que la page dit d'elle-même, rien de plus: le salon ne voit pas l'écran.
+     */
+    au_menu?: boolean;
 };
 
 /**
@@ -718,9 +860,21 @@ export type Room = {
      */
     library: Array<Game>;
     /**
+     * Le dernier jeu que cette salle a lancé, lu dans son dossier (`chosen-rom`), titré par la bibliothèque du worker. Il reste le même quand la salle revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou quand ce jeu n'est plus dans sa bibliothèque.
+     */
+    dernier_jeu?: DernierJeu | null;
+    /**
      * Seats
      */
     seats: Array<Seat>;
+    /**
+     * Les jalons du worker à sa dernière réponse: moteur lancé, première image partie, depuis quand. Rien quand il n'a pas répondu cette fois (il redémarre): les jalons du jeu d'avant ne valent pas pour celui qui démarre.
+     */
+    partie?: PartieVue | null;
+    /**
+     * Qui a lancé le jeu qui tourne et sur quelle sauvegarde, pour une page qui arrive ou recharge pendant la partie. Rien quand le salon ne l'a pas vu (le jeu tournait avant son redémarrage, ou a changé ensuite sans passer par lui): la page dit alors « sauvegarde inconnue ».
+     */
+    lancement?: LancementVu | null;
     /**
      * Le chef choisi après une reprise, sinon le premier arrivé encore connecté. Nul quand personne n'a d'identité, et la salle retombe alors sur sa règle d'avant, où tenir une manette suffit.
      */
@@ -794,9 +948,25 @@ export type Salle = {
     /**
      * Jeu
      *
-     * Le jeu qui tourne, ou rien quand la salle est sur son menu. Rien veut dire « aucun jeu », jamais « on n'a pas pu demander »: une salle injoignable est décrite comme fermée, pas comme vide.
+     * Le jeu qui tourne, ou rien quand la salle est sur son menu. Pour une salle qui redémarre, le jeu qui revient, lu dans son dossier. Rien veut aussi dire « on n'a pas su »: `repond` faux dit une salle allumée mais muette.
      */
     jeu?: string | null;
+    /**
+     * Cle
+     *
+     * La clé du jeu qui tourne, son nom de fichier (ADR D23), lue avec `jeu`. Rien avec lui, et rien pour un worker qui ne la publie pas.
+     */
+    cle?: string | null;
+    /**
+     * Console
+     *
+     * Le code de la console du jeu qui tourne (`consoles/consoles.json`). Rien sans jeu, et rien quand le disque n'a pas dit sa console: « ? » ne se publie pas comme une console.
+     */
+    console?: string | null;
+    /**
+     * Le dernier jeu que cette salle a lancé, lu dans son dossier (`chosen-rom`), ouverte ou non. Il reste le même quand la salle revient sur son menu. Rien quand elle n'a jamais lancé de jeu, ou quand ce jeu n'est plus dans la bibliothèque.
+     */
+    dernier_jeu?: DernierJeu | null;
     /**
      * Switch
      *
@@ -810,11 +980,53 @@ export type Salle = {
      */
     gens?: Array<string>;
     /**
+     * Chef
+     *
+     * Le pseudo de qui choisit le jeu dans cette salle: le chef retenu après une reprise, sinon le premier arrivé identifié encore là. Rien pour une salle qui n'est pas ouverte, et pour une salle où personne n'a d'identité (tenir une manette y suffit alors).
+     */
+    chef?: string | null;
+    /**
+     * Sieges
+     *
+     * Chaque manette, qui l'a annoncée et si le worker la dit tenue, tirés de ce que le salon suit déjà pour la salle, sans question de plus au worker. Vide pour une salle qui n'est pas ouverte. Rien pour une salle ouverte où personne n'est connecté au salon: il ne suit pas ses places, et une dernière lecture vieille de plusieurs minutes dirait des manettes tenues qui ne le sont plus.
+     */
+    sieges?: Array<SiegeVu> | null;
+    /**
+     * Regardent
+     *
+     * Qui est dans la salle sans tenir de manette et l'a dit (spectateur), une fois par personne. Quelqu'un qui vient d'arriver et attend sa manette n'y est pas. Vide pour une salle qui n'est pas ouverte.
+     */
+    regardent?: Array<string>;
+    /**
      * Ouverte Depuis
      *
-     * Depuis combien de SECONDES cette salle tourne, ou rien quand systemd ne le dit pas. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure.
+     * Depuis combien de SECONDES cette salle est ouverte, d'après le repère que le salon pose quand il l'ouvre. Survit aux changements de jeu. Jusqu'au 23 novembre 2026, ce champ disait le temps depuis la dernière relance du worker, c'est-à-dire depuis le dernier changement de jeu: c'est maintenant `jeu_depuis`. Rien pour une salle fermée, pour une salle ouverte sans passer par le salon, et pour une salle ouverte avant ce repère. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure.
      */
     ouverte_depuis?: number | null;
+    /**
+     * Jeu Depuis
+     *
+     * Depuis combien de SECONDES le worker de cette salle tourne sans être sorti, lu dans systemd: le temps du jeu en cours, ou du menu. Il repart à chaque changement de jeu, puisque le worker sort pour changer de jeu et que systemd le relance. Rien quand la salle n'est pas ouverte ou que systemd ne le dit pas.
+     */
+    jeu_depuis?: number | null;
+    /**
+     * Repond
+     *
+     * Vrai quand la salle allumée a répondu à la question de son jeu, faux quand systemd la dit allumée et qu'elle n'a rien répondu d'exploitable: une salle allumée mais muette. Rien quand on n'a pas demandé: salle fermée, salle qui redémarre, ou salon sans client (les essais). Faux n'est pas « sur son menu »: `jeu` est alors rien aussi, mais pour une autre raison.
+     */
+    repond?: boolean | null;
+    /**
+     * Fermee Depuis
+     *
+     * Depuis combien de SECONDES cette salle est fermée, lu dans systemd. Rien pour une salle ouverte ou qui redémarre, et pour une salle jamais démarrée depuis le démarrage de la machine.
+     */
+    fermee_depuis?: number | null;
+    /**
+     * Fermee Pour
+     *
+     * Pourquoi elle est fermée: « inactivite » (personne n'a touché au jeu pendant une demi-heure, le worker sort avec le code 42), « arret » (quelqu'un l'a fermée), « panne » (tout le reste). Qui l'a fermée n'est pas publié. Rien quand `fermee_depuis` est rien.
+     */
+    fermee_pour?: 'inactivite' | 'arret' | 'panne' | null;
     /**
      * Places
      *
@@ -857,6 +1069,32 @@ export type Seat = {
      * Vrai quand la personne qui tient cette prise n'avait jamais tenu de place dans cette salle, d'après le journal des parties. Gardé tant qu'elle tient la prise. Rien quand le salon ne sait pas: sans identité, page de banc ou journal illisible. La page retombe alors sur sa propre mémoire.
      */
     premiere?: boolean | null;
+};
+
+/**
+ * SiegeVu
+ *
+ * Une manette d'une salle, telle que l'accueil la montre.
+ */
+export type SiegeVu = {
+    /**
+     * Port
+     *
+     * Le numéro de la manette.
+     */
+    port: number;
+    /**
+     * Nom
+     *
+     * Le pseudo de qui l'a annoncée au salon, ou rien. Jamais l'adresse: un pseudo vide se dit « quelqu'un ».
+     */
+    nom?: string | null;
+    /**
+     * Tenu
+     *
+     * Vrai quand le worker la dit tenue à sa dernière lecture, faux quand il la dit libre, rien tant qu'il n'a rien dit.
+     */
+    tenu?: boolean | null;
 };
 
 /**
@@ -1149,11 +1387,23 @@ export type ReadSallesResponses = {
 export type ReadSallesResponse = ReadSallesResponses[keyof ReadSallesResponses];
 
 export type OpenSalleData = {
-    body?: never;
+    /**
+     * Demande
+     */
+    body?: OuvrirSalle | null;
     path?: never;
     query?: never;
     url: '/api/salles';
 };
+
+export type OpenSalleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OpenSalleError = OpenSalleErrors[keyof OpenSalleErrors];
 
 export type OpenSalleResponses = {
     /**
@@ -1216,3 +1466,105 @@ export type ReadCatalogueResponses = {
 };
 
 export type ReadCatalogueResponse = ReadCatalogueResponses[keyof ReadCatalogueResponses];
+
+export type RemoveArtData = {
+    body?: never;
+    path: {
+        /**
+         * Cle
+         */
+        cle: string;
+    };
+    query?: never;
+    url: '/api/catalogue/art/{cle}';
+};
+
+export type RemoveArtErrors = {
+    /**
+     * ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveArtError = RemoveArtErrors[keyof RemoveArtErrors];
+
+export type RemoveArtResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveArtResponse = RemoveArtResponses[keyof RemoveArtResponses];
+
+export type ReadArtData = {
+    body?: never;
+    path: {
+        /**
+         * Cle
+         */
+        cle: string;
+    };
+    query?: never;
+    url: '/api/catalogue/art/{cle}';
+};
+
+export type ReadArtErrors = {
+    /**
+     * Ce jeu n'a pas d'image que le salon sert.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadArtError = ReadArtErrors[keyof ReadArtErrors];
+
+export type ReadArtResponses = {
+    /**
+     * L'image du jeu.
+     */
+    200: unknown;
+};
+
+export type DepositArtData = {
+    body?: never;
+    path: {
+        /**
+         * Cle
+         */
+        cle: string;
+    };
+    query?: never;
+    url: '/api/catalogue/art/{cle}';
+};
+
+export type DepositArtErrors = {
+    /**
+     * ce jeu n'est pas dans la bibliothèque, ou son fichier est introuvable
+     */
+    404: unknown;
+    /**
+     * L'image dépasse un Mio.
+     */
+    413: unknown;
+    /**
+     * Une image que la salle ne montrerait pas.
+     */
+    422: unknown;
+};
+
+export type DepositArtResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DepositArtResponse = DepositArtResponses[keyof DepositArtResponses];

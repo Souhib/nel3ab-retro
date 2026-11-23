@@ -67,7 +67,7 @@ async def test_the_list_of_rooms_shows_no_address_even_without_a_name(
     Le cas ne se produit pas par une page aujourd'hui, mais la ligne existait,
     et une adresse est souvent un courriel.
     """
-    systeme.allumees.add(2)
+    systeme.demarrer(2)
     app.state.people.arrived("sid-sans-nom", "sans.nom@example.com", "", 2)
     app.state.people.arrived("sid-vincent", "vincent@example.com", "Vincent", 2)
 

@@ -243,20 +243,20 @@ def partie_vue(run: Run, moi: str) -> Partie:
 class Catalogue:
     """Ce qu'on sait des jeux pour relier une sauvegarde à son titre."""
 
-    #: Clé de dossier Dolphin -> (titre, console), pour GameCube et Wii.
-    dolphin: dict[str, tuple[str, str]]
-    #: Identifiant de titre -> (titre, console), pour les jeux inscrits.
-    inscrits: dict[str, tuple[str, str]]
+    #: Clé de dossier Dolphin -> (titre, console, clé du jeu), pour GameCube et Wii.
+    dolphin: dict[str, tuple[str, str, str | None]]
+    #: Identifiant de titre -> (titre, console, clé du jeu), pour les jeux inscrits.
+    inscrits: dict[str, tuple[str, str, str | None]]
 
     @staticmethod
     def de(jeux: Iterable[JeuJoue]) -> "Catalogue":
-        dolphin: dict[str, tuple[str, str]] = {}
-        inscrits: dict[str, tuple[str, str]] = {}
+        dolphin: dict[str, tuple[str, str, str | None]] = {}
+        inscrits: dict[str, tuple[str, str, str | None]] = {}
         for jeu in jeux:
             if jeu.cle and jeu.console in ("gc", "wii"):
-                dolphin[cle(jeu.cle)] = (jeu.titre, jeu.console)
+                dolphin[cle(jeu.cle)] = (jeu.titre, jeu.console, jeu.cle)
             if jeu.titre_id:
-                inscrits[jeu.titre_id] = (jeu.titre, jeu.console)
+                inscrits[jeu.titre_id] = (jeu.titre, jeu.console, jeu.cle)
         return Catalogue(dolphin=dolphin, inscrits=inscrits)
 
 
@@ -272,11 +272,12 @@ def resume(mesure: Mesure) -> ResumeSauvegarde:
 def emplacement(trouvee: Trouvee, mesure: Mesure, catalogue: Catalogue) -> Emplacement:
     if trouvee.famille == "dolphin":
         relie = catalogue.dolphin.get(trouvee.jeu)
-        titre, code = relie if relie else (trouvee.jeu, "?")
+        titre, code, de_jeu = relie if relie else (trouvee.jeu, "?", None)
         return Emplacement(
             titre=titre,
             console=console_vue(code),
             relie=relie is not None,
+            cle=de_jeu,
             sauvegarde=resume(mesure),
         )
     # Un emplacement Switch porte l'identifiant du titre; le catalogue le
@@ -287,6 +288,7 @@ def emplacement(trouvee: Trouvee, mesure: Mesure, catalogue: Catalogue) -> Empla
         titre=inscrit[0] if inscrit else trouvee.jeu.upper(),
         console=console_vue(inscrit[1] if inscrit else trouvee.famille),
         relie=inscrit is not None,
+        cle=inscrit[2] if inscrit else None,
         sauvegarde=resume(mesure),
     )
 

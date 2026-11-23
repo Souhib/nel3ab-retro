@@ -19,6 +19,7 @@ import {
   type SwitchAxis,
   type SwitchButton,
   type SwitchInput,
+  type SwitchProfile,
   type SwitchTarget,
 } from "../../media/switch";
 import { PadMapView } from "../../components/PadMap";
@@ -28,6 +29,7 @@ import {
   Correspondances,
   Fin,
   PasAPas,
+  Supprime,
   Suspension,
   type Ligne,
 } from "./PasAPas";
@@ -382,6 +384,7 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
   const pareil = (profil: unknown) => JSON.stringify(profil) === JSON.stringify(source.profile);
   const actif = Object.keys(source.named).find((un) => pareil(source.named[un]));
   const [choisi, setChoisi] = useState(actif ?? "");
+  const [parti, setParti] = useState<{ nom: string; profil: SwitchProfile } | null>(null);
   const titre = REGLAGE.mesProfils(trame.console);
   return (
     <section className="n3-profils" aria-label={titre}>
@@ -428,7 +431,9 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
           <Bouton
             onClick={() =>
               geste(() => {
+                const profil = source.named[choisi];
                 source.forget(choisi);
+                if (profil) setParti({ nom: choisi, profil });
                 setChoisi("");
               })
             }
@@ -452,6 +457,17 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
         </Bouton>
         <Bouton onClick={() => fichier.current?.click()}>{REGLAGE.importer}</Bouton>
       </div>
+      {parti ? (
+        <Supprime
+          nom={parti.nom}
+          onAnnuler={() =>
+            geste(() => {
+              source.rendre(parti.nom, parti.profil);
+              setParti(null);
+            })
+          }
+        />
+      ) : null}
       <small>
         {REGLAGE.enService} :{" "}
         {actif ?? (pareil(defaultSwitchProfile()) ? REGLAGE.defaut : REGLAGE.modifies)}

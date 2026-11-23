@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InputStream } from "./input";
 import { BUTTON, standardProfile } from "./pad";
 import { SwitchInput } from "./switch";
+import { ROOM_MARK } from "../lib/keys";
 
 describe("configurer une manette pendant une partie", () => {
   let stream: InputStream;
@@ -578,5 +579,53 @@ describe("configurer une manette pendant une partie", () => {
     stream.start();
     expect(tick).not.toThrow();
     expect(stream.state().profile).toBeNull();
+  });
+});
+
+describe("rendre un profil du clavier supprimé", () => {
+  it("le remet tel qu'il était, en service s'il l'était", () => {
+    const stream = new InputStream(
+      () => "",
+      () => {},
+    );
+    stream.newKeys("Course");
+    const profil = stream.keyProfileNamed("Course")!;
+    stream.forgetKeys("Course");
+    expect(stream.state().keyProfiles).not.toContain("Course");
+    stream.rendreKeys("Course", profil, true);
+    expect(stream.state().keyProfiles).toContain("Course");
+    expect(stream.state().keyProfile).toBe("Course");
+    expect(stream.keyProfileNamed("Course")).toEqual(profil);
+  });
+
+  it("n'écrase pas un nom repris entre-temps, et refuse le préfixe de la salle", () => {
+    const stream = new InputStream(
+      () => "",
+      () => {},
+    );
+    stream.newKeys("Course");
+    const profil = stream.keyProfileNamed("Course")!;
+    const avant = stream.state().keyProfiles;
+    // Un autre contenu sous le même nom : le profil en place ne bouge pas.
+    stream.rendreKeys("Course", {}, false);
+    expect(stream.keyProfileNamed("Course")).toEqual(profil);
+    expect(stream.state().keyProfiles).toEqual(avant);
+    stream.rendreKeys(`${ROOM_MARK}faux`, profil, true);
+    expect(stream.state().keyProfiles).toEqual(avant);
+    expect(stream.state().keyProfile).toBe("Course");
+  });
+});
+
+describe("rendre un profil Pro supprimé", () => {
+  it("le remet une fois, et n'écrase jamais un nom repris", () => {
+    const source = new SwitchInput();
+    source.save("Course");
+    const profil = structuredClone(source.named["Course"]!);
+    source.forget("Course");
+    source.rendre("Course", profil);
+    expect(source.named["Course"]).toEqual(profil);
+    const autre = { ...profil, keys: { A: "KeyQ" } };
+    source.rendre("Course", autre);
+    expect(source.named["Course"]).toEqual(profil);
   });
 });

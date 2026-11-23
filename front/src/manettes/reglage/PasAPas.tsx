@@ -135,6 +135,20 @@ export function Suspension({
   );
 }
 
+/** Un profil vient d'être supprimé : la phrase, et « Annuler » qui le rend
+ * tel qu'il était. Rien ne part au service tant que la personne n'a pas
+ * fermé l'avis : le profil est rangé, et rendu s'il le faut. */
+export function Supprime({ nom, onAnnuler }: { nom: string; onAnnuler: () => void }) {
+  return (
+    <div className="n3-reglage-avis" role="status" data-supprime="">
+      <p>{REGLAGE.supprime(nom)}</p>
+      <div className="n3-reglage-gestes">
+        <Bouton onClick={onAnnuler}>{REGLAGE.annuler}</Bouton>
+      </div>
+    </div>
+  );
+}
+
 /** La fin, comptée, et le chemin vers la première commande passée. */
 export function Fin({
   texte,

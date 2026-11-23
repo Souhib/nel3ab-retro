@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { REGLAGE } from "../../lib/mots";
 import { NAME_MAX, ROOM_MARK } from "../../lib/keys";
 import { EMULATED } from "../../lib/padmap";
+import type { KeyProfile } from "../../lib/keys";
 import type { Pad } from "../../lib/saves";
 import { describePad, identityOf, keyLabel, keyboardLayout, keysFor } from "../../media/describe";
 import { identify } from "../../media/families";
@@ -20,6 +21,7 @@ import {
   Correspondances,
   Fin,
   PasAPas,
+  Supprime,
   Suspension,
   type Ligne,
 } from "./PasAPas";
@@ -40,6 +42,8 @@ export type EntreeDolphin = Pick<
   | "pickKeys"
   | "newKeys"
   | "forgetKeys"
+  | "keyProfileNamed"
+  | "rendreKeys"
   | "surReglage"
 >;
 
@@ -388,6 +392,9 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
   const [nom, setNom] = useState("");
   const [avis, setAvis] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  const [parti, setParti] = useState<{ nom: string; profil: KeyProfile; actif: boolean } | null>(
+    null,
+  );
   const verrouille = state.lockedProfiles.includes(state.keyProfile);
   const siens = state.keyProfiles.filter((un) => !state.lockedProfiles.includes(un)).length;
   const propre = nom.trim();
@@ -458,9 +465,11 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
           <Bouton
             id="forgetKeys"
             onClick={() => {
-              const parti = state.keyProfile;
-              agir(trame, (input) => input.forgetKeys(parti));
-              setAvis(REGLAGE.supprime(parti));
+              const nom = state.keyProfile;
+              const profil = trame.input.keyProfileNamed(nom);
+              agir(trame, (input) => input.forgetKeys(nom));
+              setAvis("");
+              setParti(profil ? { nom, profil, actif: true } : null);
             }}
           >
             {REGLAGE.supprimer}
@@ -490,6 +499,15 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
           </Bouton>
         ) : null}
       </div>
+      {parti ? (
+        <Supprime
+          nom={parti.nom}
+          onAnnuler={() => {
+            agir(trame, (input) => input.rendreKeys(parti.nom, parti.profil, parti.actif));
+            setParti(null);
+          }}
+        />
+      ) : null}
       {avis ? <p role="status">{avis}</p> : null}
     </div>
   );

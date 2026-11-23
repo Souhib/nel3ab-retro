@@ -35,6 +35,8 @@ function doublure() {
     pickKeys: vi.fn(),
     newKeys: vi.fn(),
     forgetKeys: vi.fn(),
+    keyProfileNamed: vi.fn(() => null),
+    rendreKeys: vi.fn(),
     surReglage: (ecoute: (e: EvenementReglage) => void) => {
       ecoutes.add(ecoute);
       return () => ecoutes.delete(ecoute);
@@ -320,6 +322,64 @@ describe("la trame Pro", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "Course" } });
     fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
     expect(Object.keys(source.named)).toEqual([]);
+    // « Annuler » rend le profil tel qu'il était, une seule fois.
+    expect(screen.getByText("Le profil « Course » est supprimé.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(Object.keys(source.named)).toEqual(["Course"]);
+    expect(screen.queryByRole("button", { name: "Annuler" })).toBeNull();
+  });
+
+  it("ne propose pas d'annuler tant que rien n'est supprimé", () => {
+    const source = new SwitchInput();
+    source.save("Course");
+    render(
+      <Reglage
+        onglet="profils"
+        onOnglet={rien}
+        onFermer={rien}
+        autres={false}
+        vit
+        trame={{
+          genre: "pro",
+          console: "Switch",
+          xbox: false,
+          manette: "manette Pro",
+          source,
+          input: { switchActive: () => true, surReglage: () => rien },
+          place: null,
+        }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Annuler" })).toBeNull();
+  });
+});
+
+describe("les profils du clavier", () => {
+  it("rend un profil supprimé sur « Annuler », en service s'il l'était", () => {
+    const vrai = new InputStream(() => "", rien);
+    vrai.newKeys("Course");
+    const { input } = doublure();
+    input.forgetKeys.mockImplementation((nom: string) => vrai.forgetKeys(nom));
+    const rendreKeys = vi.fn((nom: string, profil, actif: boolean) =>
+      vrai.rendreKeys(nom, profil, actif),
+    );
+    const trame: TrameDolphin = {
+      genre: "dolphin",
+      console: "gc",
+      tenue: 0,
+      state: vrai.state(),
+      input: { ...input, keyProfileNamed: (nom) => vrai.keyProfileNamed(nom), rendreKeys },
+      refresh: rien,
+    };
+    render(
+      <Reglage onglet="profils" onOnglet={rien} onFermer={rien} autres={false} vit trame={trame} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+    expect(vrai.state().keyProfiles).not.toContain("Course");
+    fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+    expect(rendreKeys).toHaveBeenCalledTimes(1);
+    expect(vrai.state().keyProfiles).toContain("Course");
+    expect(vrai.state().keyProfile).toBe("Course");
   });
 });
 

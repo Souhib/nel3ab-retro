@@ -889,6 +889,21 @@ export class InputStream {
     keepKeys(this.keySet);
   }
 
+  /** « Annuler » après « Supprimer » : rend le profil tel qu'il était, et en
+   * service s'il l'était. Un nom repris entre-temps ne s'écrase pas, et le
+   * préfixe de la salle reste refusé (voir `added`). */
+  rendreKeys(name: string, profile: KeyProfile, actif: boolean): void {
+    if (this.keySet.byName[name] || name.startsWith(ROOM_MARK)) return;
+    this.capture = null;
+    this.keySet = {
+      ...this.keySet,
+      byName: { ...this.keySet.byName, [name]: structuredClone(profile) },
+      active: actif ? name : this.keySet.active,
+    };
+    this.keys = playingKeys(this.keySet);
+    keepKeys(this.keySet);
+  }
+
   /** Charge les commandes du profil sur cette page, jamais sur une autre place. */
   applySetup(name: string, setup: SetupProfile): void {
     const pad = this.current();

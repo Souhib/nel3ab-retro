@@ -648,6 +648,19 @@ export class SwitchInput implements InputSource {
     if (!this.persist()) throw new Error(this.message);
   }
 
+  /** « Annuler » après « Supprimer » : rend le profil oublié tel qu'il était.
+   * Un nom repris entre-temps ne s'écrase pas. */
+  rendre(name: string, profil: SwitchProfile): void {
+    if (Object.hasOwn(this.named, name)) return;
+    Object.defineProperty(this.named, name, {
+      value: structuredClone(profil),
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    if (!this.persist()) throw new Error(this.message);
+  }
+
   load(name: string): void {
     if (!Object.hasOwn(this.named, name)) throw new Error("Ce profil n’existe pas.");
     this.profile = structuredClone(this.named[name]);

@@ -384,7 +384,6 @@ describe("un bouton commence par une majuscule", () => {
     "components/Recovery.tsx « je suis là, garder »",
     "components/Recovery.tsx « lui passer »",
     "components/Recovery.tsx « fermer »",
-    "components/Sidebar.tsx « activer le son »",
     "components/Swap.tsx « la lui passer »",
     "components/Swap.tsx « garder »",
   ];
@@ -443,7 +442,7 @@ describe("le pli des mesures techniques", () => {
     ).toEqual([]);
     // Et il est vraiment monté quelque part: sinon la permission ne coûte rien.
     const montages = sources.filter(({ source }) => /<Instruments\b/.test(source));
-    expect(montages.map((m) => m.fichier)).toEqual(["components/Sidebar.tsx"]);
+    expect(montages.map((m) => m.fichier)).toEqual(["App.tsx"]);
   });
 });
 

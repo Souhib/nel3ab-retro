@@ -124,14 +124,14 @@ const DRAWER_MUST = {
   "prendre ou rendre sa place": "#takePad, #watchOnly",
   signaler: "#complain",
   "le diagnostic de la liaison": "#connection-diagnostic > summary",
-  "les spectateurs": "section[aria-label='spectateurs']",
+  "les spectateurs": "section[aria-labelledby='ilsRegardent']",
   // Le curseur quand le son joue, le bouton qui l'allume sinon.
   "le son": "#side input[type='range'], #sound",
   quitter: "#leaveRoom",
   "fermer le tiroir": "#foldColumn",
 };
 
-const CONTENEURS = ["#ports", "section[aria-label='spectateurs']"];
+const CONTENEURS = ["#ports", "section[aria-labelledby='ilsRegardent']"];
 /** Ce que la mesure des 44 px laisse de côté, chacun avec sa raison. */
 const EXCEPTIONS_DU_TIROIR = [];
 
@@ -383,6 +383,10 @@ function etat() {
   if (wide > vw + 0.5) bad.push(`la page défile en largeur : ${wide} px pour ${vw}`);
   const shown = (el) => {
     if (el.closest("dialog:not([open])")) return false;
+    // Le contenu d'un `<details>` replié n'est pas rendu (« Autres réglages »
+    // de la colonne) : Chrome lui garde pourtant une boîte, posée sous le
+    // résumé, qui se lisait comme un recouvrement.
+    if (el.closest("details:not([open])") && el.tagName !== "SUMMARY") return false;
     const s = getComputedStyle(el);
     if (s.visibility === "hidden" || s.display === "none" || s.pointerEvents === "none") return false;
     const r = el.getBoundingClientRect();
@@ -590,6 +594,12 @@ try {
                   bad.push(`le tiroir laisse ${Math.round(side.left)} px à sa gauche, tenu droit`);
               }
               bad.push(...(await page.evaluate(petites, { racine: "#tiroir", floor: FLOOR, exceptions: EXCEPTIONS_DU_TIROIR })));
+              // « Rendre ma place » vit dans « Autres réglages » depuis le
+              // 23 novembre 2026 : on le déplie, comme on ouvre le tiroir.
+              await page.evaluate(() => {
+                const autres = document.querySelector("#autresReglages");
+                if (autres) autres.open = true;
+              });
               for (const [label, selector] of Object.entries(DRAWER_MUST)) {
                 await page.evaluate((s) => document.querySelector(s)?.scrollIntoView({ block: "center" }), selector);
                 await sleep(60);

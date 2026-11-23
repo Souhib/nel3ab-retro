@@ -1653,7 +1653,7 @@ after the amendment: 235 700 bytes in brotli 11, margin 64 300.
 
 ### D39: The room frame, and nothing on the picture, 2026-11-23
 
-Status: partly delivered on `chantier/retro-salle` (pass 1 of 2 or more).
+Status: partly delivered on `chantier/retro-salle` (passes 1 and 2).
 Amends D28, D29 and D35 when the steps that change them land; until then
 those entries stay in force, except where this entry says otherwise.
 
@@ -1702,6 +1702,18 @@ Decision:
   (`lieuDesAvis`). The corner buttons of a folded column are gone; an
   enlarged picture shows « Image agrandie : Ctrl pour revenir à la salle »
   for three seconds in a black band, or nothing.
+- **The desk column names its rows.** `components/Colonne.tsx` replaces
+  `Sidebar`: a head (room name and « Quitter la salle », the logo kept small
+  per K26), the state block (D40's track), the role block (`#seat`, with
+  « Prendre une place » for a spectator), what the people track fills, the
+  control panel when it has no room under the picture, then the rows of
+  `rangsDeLaColonne` (report, sound, game menu, keys or controller, keep the
+  last 45 seconds, enlarge, other settings). The « essentiel » and
+  « mesures » tabs are gone: the measures open from the status line of the
+  column corner (`Coin.tsx`, `#mesures`), which also hosts the mascot under
+  the line. A row that does nothing in a state is absent rather than greyed.
+  The column scrolls by itself with a 60 px bottom scroll padding, and a
+  sticky « Plus bas » says that more is hidden.
 - **One mascot place at a time, one arbiter.** `ouEstLaMascotte` names the
   place (stage when there is no picture, column corner on the desk, phone
   bar, panel edge for an arrival). `lib/scenes-salle.ts` ranks the tracks
@@ -1713,10 +1725,18 @@ Delivered in pass 1: the pure layout and its sweeps, the arbiter, the column
 rows, the idle attention loop, the pad-only latency sentence, the root
 attributes and variables, the notice stack off the picture, the corner
 buttons removed, and the browser guard (`cadre.mjs`, `just
-cadre-navigateur`, red against 03b21c0). Not yet delivered: the control
-panel, column, bar, band and single phone sheet as components (steps 3 to
-5), the touch pad under the picture (step 4, which amends D28 and D35), the
-keyboard and controller views (step 6), the frame effects (step 7).
+cadre-navigateur`, red against 03b21c0). Delivered in pass 2 (step 3, desk):
+the column, the corner, the control panel under the picture or at the foot
+of the column, `Sidebar` removed, and one arbiter instance per room created
+by `Cadre` (`useArbitre`). The screen and its stand-ins (idle screen,
+loading, link state) now live in a wrapper above the panel, so an overlay on
+`inset-0` cannot cover the places. Proofs: `cadre.mjs` steps `meuble-place`,
+`une-fois` and `un-plein`, red against the end-of-pass-1 page (0fef99e);
+`focus.mjs` step `colonne-deborde` with its in-page twin (scroll padding at
+0 hides a stop under « Plus bas »). Not yet delivered: the bar, band and
+single phone sheet (step 4, which amends D28 and D35), the idle screen and
+stage (step 5), the keyboard and controller views (step 6), the frame
+effects (step 7).
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

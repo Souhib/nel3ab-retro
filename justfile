@@ -902,6 +902,13 @@ cadre-navigateur-rouge:
     etapes=rien-sur-image,agrandie
     node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page de la fin du passage 1 (0fef99e) a déjà le cadre, mais ni le
+    # panneau de commande ni la colonne nouvelle: elle doit tomber sur le
+    # panneau absent de l'écran et sur les onglets restés là.
+    git show 0fef99e:core/crates/worker/src/page/index.html > "$dossier/cadre-seul.html"
+    etapes=meuble-place,une-fois
+    node cadre.mjs --page "$dossier/cadre-seul.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

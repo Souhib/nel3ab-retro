@@ -63,12 +63,19 @@ des scènes (`lib/scenes-salle.ts`), les rangs de la colonne
 des avis hors de l'image, la fin des boutons de coin d'une colonne repliée,
 la poignée de colonne qui ne mord plus sur l'image. Preuve nouvelle : `just
 cadre-navigateur` et son contrôle `just cadre-navigateur-rouge` (page de
-03b21c0). Reste : le panneau de commande, la colonne, la barre, la bande et la
-feuille unique comme composants, la manette sous l'image au téléphone, les
-vues des touches, le repos sans menu d'office, les effets du cadre, les
-mesures. Poids : 239 638 octets en brotli (3 938 pour la salle).
-Décision : [ADR](adr/0001-architecture.md) D39 (en partie livrée). Récit :
-« 23 novembre, le soir : le cadre de la salle, et rien sur l'image ».
+03b21c0). Au bureau, deuxième passage : la colonne nouvelle (`Colonne.tsx`,
+rangs nommés, « Autres réglages », « Plus bas », marge de défilement de
+60 px), le coin et sa ligne des mesures (les onglets « essentiel » et
+« mesures » sont partis), le panneau de commande sous l'image ou au pied de
+la colonne, `Sidebar` retiré, un arbitre des scènes par salle. Preuves :
+`cadre.mjs` `meuble-place`, `une-fois`, `un-plein` (rouges contre 0fef99e)
+et `focus.mjs` `colonne-deborde`. Reste : la barre, la bande et la feuille
+unique au téléphone, la manette sous l'image, les vues des touches, le repos
+sans menu d'office, les effets du cadre, les mesures. Poids : 243 207
+octets en brotli (7 507 pour la salle). Décision :
+[ADR](adr/0001-architecture.md) D39 (en partie livrée). Récits : « 23
+novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
+novembre, la nuit : la colonne du bureau et le panneau de commande ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

@@ -1,0 +1,183 @@
+/* Le cadre de la salle au bureau : la colonne, ses rangs, le coin et le
+   panneau de commande. Les couleurs viennent des jetons de `regie.css` ; aucune
+   n'est redéclarée ici. Rien dans cette feuille ne vise l'image du jeu. */
+
+/* Un titre de section : Pixelify Sans, casse de phrase, sans interlettrage,
+   encre secondaire (colonne.8). `n3-etiquette`, en capitales espacées, quitte
+   la colonne. */
+.n3-colonne-titre {
+  font-family: var(--police-titre);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--legende);
+}
+
+.n3-colonne-tete {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+/* Le logo, petit (K26) : 14 px de haut au lieu de 20. */
+.n3-colonne-logo {
+  --rt-logo-hauteur: 14px;
+}
+.n3-colonne-salle {
+  font-family: var(--police-titre);
+  font-size: var(--text-fort);
+  color: var(--encre);
+}
+
+/* Un rang : une ligne nommée en clair, avec un filet, 44 px au doigt. */
+.n3-rang {
+  display: flex;
+  width: 100%;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--filet);
+  padding: 0.375rem 0.75rem;
+  text-align: left;
+  font-size: var(--text-corps);
+  color: var(--legende);
+  cursor: pointer;
+  list-style: none;
+}
+.n3-rang::-webkit-details-marker {
+  display: none;
+}
+.n3-rang:hover {
+  border-color: var(--trait);
+  color: var(--encre);
+}
+/* 44 px au doigt pour chaque cible de la colonne et du coin. */
+@media (pointer: coarse) {
+  .n3-rang,
+  .n3-rang-lien,
+  .n3-coin-ligne {
+    min-height: 2.75rem;
+  }
+}
+.n3-rang-lien {
+  font-size: var(--text-corps);
+  color: var(--legende);
+}
+.n3-rang-lien:hover {
+  color: var(--encre);
+  text-decoration: underline;
+}
+.n3-rang-bouton {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+}
+.n3-rang-icone {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.n3-rang-icone > svg {
+  width: 100%;
+  height: 100%;
+}
+.n3-autres[open] > .n3-rang {
+  color: var(--encre);
+}
+
+/* « Plus bas » : collé au bas de ce qui se voit, 40 px, sous la marge de
+   défilement de 60 px (`MARGE_BAS`). */
+.n3-plus-bas {
+  pointer-events: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 -0.75rem;
+  border-top: 1px solid var(--filet);
+  background: var(--plaque);
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+.n3-plus-bas .n3-rang-icone {
+  transform: rotate(90deg);
+}
+
+/* Le coin, au pied de la colonne : la ligne, puis la scène, sans se toucher. */
+.n3-coin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-top: 1px solid var(--filet);
+  padding-top: 0.5rem;
+  padding-bottom: 0.75rem;
+}
+.n3-coin-ligne {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13px;
+  color: var(--legende);
+  text-align: left;
+}
+.n3-coin-ligne:hover,
+.n3-coin-ligne[aria-pressed="true"] {
+  color: var(--encre);
+}
+.n3-coin-scene {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Le panneau de commande. Sous l'image, il prend la hauteur que le cadre lui
+   donne et pas un pixel de plus : l'image garde exactement sa pose. */
+.n3-panneau {
+  position: relative;
+  background: var(--panneau);
+  border-top: 1px solid var(--panneau-filet);
+}
+.n3-panneau[data-forme="sous"] {
+  height: var(--panneau-h);
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 0.375rem 1rem;
+}
+.n3-panneau[data-forme="colonne"] {
+  border: 1px solid var(--panneau-filet);
+  padding: 0.5rem;
+}
+.n3-panneau-bord {
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  width: 4rem;
+  height: 100%;
+  pointer-events: none;
+}
+/* Jusqu'aux places du chantier personnes, les prises de `Seats` tiennent sur
+   une rangée à la hauteur du panneau, et la phrase d'aide à côté d'elles. */
+.n3-panneau[data-forme="sous"] .n3-panneau-places {
+  height: 100%;
+}
+.n3-panneau[data-forme="sous"] .n3-panneau-places > div {
+  height: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+.n3-panneau[data-forme="sous"] #ports {
+  grid-template-columns: repeat(4, calc((var(--panneau-h) - 1.75rem) * 72 / 84));
+}
+.n3-panneau[data-forme="sous"] #ports > button > span.block {
+  max-width: 6rem;
+}

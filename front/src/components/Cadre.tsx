@@ -11,7 +11,16 @@
  * redimensionnement, une taille d'image (l'instantané, deux fois par seconde
  * au plus), un réglage ou un état ; jamais à chaque image peinte.
  */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   SANS_ZONES,
   attributsDuCadre,
@@ -22,6 +31,13 @@ import {
   type ZonesSures,
 } from "../lib/cadre";
 import type { Size } from "../lib/fit";
+import { creerArbitre, type Arbitre } from "../lib/scenes-salle";
+import "./cadre.css";
+
+/** L'arbitre des scènes de cette salle (K10), pour les chantiers qui jouent
+ * une scène de la mascotte dans le cadre. `null` hors d'un `Cadre`. */
+export const ContexteArbitre = createContext<Arbitre | null>(null);
+export const useArbitre = (): Arbitre | null => useContext(ContexteArbitre);
 
 export function Cadre({
   geo,
@@ -32,14 +48,28 @@ export function Cadre({
   className?: string;
   children: ReactNode;
 }) {
+  const racine = useRef<HTMLDivElement>(null);
+  const etat = useRef(geo.etat);
+  useEffect(() => {
+    etat.current = geo.etat;
+  }, [geo.etat]);
+  /* Un arbitre par salle, créé une fois : il trouve ses hôtes dans la racine
+     (`data-hote`), et lit l'état du cadre à chaque demande. */
+  const [arbitre] = useState(() =>
+    creerArbitre({
+      hote: (hote) => racine.current?.querySelector<HTMLElement>(`[data-hote="${hote}"]`) ?? null,
+      etat: () => etat.current,
+    }),
+  );
   return (
     <div
+      ref={racine}
       data-cadre=""
       className={className}
       style={variablesDuCadre(geo) as CSSProperties}
       {...attributsDuCadre(geo)}
     >
-      {children}
+      <ContexteArbitre.Provider value={arbitre}>{children}</ContexteArbitre.Provider>
     </div>
   );
 }

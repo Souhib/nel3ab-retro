@@ -339,6 +339,140 @@ async function principal() {
         await page.close();
       }
     },
+
+    /** colonne.1 et en-jeu-clavier.6: le panneau de commande est sous l'image
+     * quand le cadre l'y met (`data-panneau="sous"`), au pied de la colonne
+     * sinon. Sous l'image, il ne la touche pas, prend toute la largeur de
+     * l'écran et la hauteur que le cadre lui donne, et l'image peinte a la
+     * taille que le cadre a calculée sans lui. Le jumeau: les deux formes
+     * doivent apparaître dans le balayage, sinon il ne prouve rien. */
+    async "meuble-place"() {
+      const vues = new Set();
+      const fautes = [];
+      for (const vue of BUREAUX) {
+        const page = await nouvelle(vue);
+        await entrer(page);
+        await sleep(300);
+        const lu = await page.evaluate(() => {
+          const racine = document.querySelector("[data-cadre]");
+          const forme = racine?.dataset.panneau ?? null;
+          const v = (nom) => Number.parseFloat(getComputedStyle(racine).getPropertyValue(nom)) || 0;
+          const panneau = document.querySelector("#panneau");
+          const image = document.querySelector("#screen").getBoundingClientRect();
+          const p = panneau?.getBoundingClientRect() ?? null;
+          const main = document.querySelector("main").getBoundingClientRect();
+          return {
+            forme,
+            dansMain: Boolean(panneau?.closest("main")),
+            dansColonne: Boolean(panneau?.closest("#side")),
+            formeDuPanneau: panneau?.dataset.forme ?? null,
+            image: { x: image.left, y: image.top, w: image.width, h: image.height },
+            attendue: {
+              w: v("--cadre-image-largeur"),
+              h: v("--cadre-image-hauteur"),
+              p: v("--cadre-panneau-hauteur"),
+            },
+            p: p ? { x: p.left, y: p.top, w: p.width, h: p.height } : null,
+            main: { x: main.left, w: main.width, bas: main.bottom },
+          };
+        });
+        const ici = `${vue.width}×${vue.height}`;
+        vues.add(lu.forme);
+        if (lu.forme === "sous") {
+          if (!lu.dansMain || lu.formeDuPanneau !== "sous") fautes.push(`${ici}: panneau « sous » hors de l'écran`);
+          else {
+            if (lu.p.y < lu.image.y + lu.image.h - 0.5) fautes.push(`${ici}: le panneau monte sur l'image`);
+            if (Math.abs(lu.p.w - lu.main.w) > 1) fautes.push(`${ici}: panneau de ${lu.p.w} px pour un écran de ${lu.main.w}`);
+            if (Math.abs(lu.p.h - lu.attendue.p) > 1) fautes.push(`${ici}: panneau de ${lu.p.h} px, le cadre en donne ${lu.attendue.p}`);
+            if (Math.abs(lu.p.y + lu.p.h - lu.main.bas) > 1) fautes.push(`${ici}: le panneau n'est pas au pied de l'écran`);
+          }
+        } else if (lu.forme === "colonne") {
+          if (!lu.dansColonne || lu.formeDuPanneau !== "colonne")
+            fautes.push(`${ici}: panneau « colonne » absent de la colonne`);
+        } else fautes.push(`${ici}: forme inattendue ${lu.forme}`);
+        if (Math.abs(lu.image.w - lu.attendue.w) > 1 || Math.abs(lu.image.h - lu.attendue.h) > 1)
+          fautes.push(`${ici}: image de ${lu.image.w}×${lu.image.h}, le cadre l'attend à ${lu.attendue.w}×${lu.attendue.h}`);
+        await capture(page, `meuble-${lu.forme}`);
+        await page.close();
+      }
+      // Les fautes d'abord: une page sans panneau du tout doit tomber sur son
+      // défaut, pas sur le jumeau.
+      verdict(fautes);
+      if (!vues.has("sous") || !vues.has("colonne"))
+        throw new Precondition(`le balayage ne montre pas les deux formes: ${[...vues].join(", ")}`);
+    },
+
+    /** colonne.6: une chose, une fois. Quitter, le bloc de rôle, chaque place,
+     * Signaler et les mesures n'existent qu'une fois dans la page, et un
+     * identifiant n'est porté que par un élément. */
+    async "une-fois"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 1280, height: 800 },
+        { width: 1440, height: 900 },
+      ]) {
+        const page = await nouvelle(vue);
+        await entrer(page);
+        const lu = await page.evaluate(() => {
+          const compte = (sel) => document.querySelectorAll(sel).length;
+          const ids = {};
+          for (const el of document.querySelectorAll("[id]")) ids[el.id] = (ids[el.id] ?? 0) + 1;
+          const visibles = (texte) =>
+            [...document.querySelectorAll("button, a, summary")].filter(
+              (el) => el.getClientRects().length > 0 && (el.textContent ?? "").trim() === texte,
+            ).length;
+          return {
+            doubles: Object.entries(ids).filter(([, n]) => n > 1).map(([id]) => id),
+            quitter: compte("#leaveRoom"),
+            quitterTexte: visibles("Quitter la salle"),
+            seat: compte("#seat"),
+            places: [1, 2, 3, 4].map((n) => compte(`#port${n}`)),
+            signaler: [...document.querySelectorAll("button")].filter(
+              (b) => b.getClientRects().length > 0 && /^Signaler/.test((b.textContent ?? "").trim()),
+            ).length,
+            mesures: compte("#mesures"),
+            onglets: compte("#mode-details, #mode-normal"),
+          };
+        });
+        const ici = `${vue.width}×${vue.height}`;
+        if (lu.doubles.length) fautes.push(`${ici}: identifiants portés deux fois: ${lu.doubles.join(", ")}`);
+        if (lu.quitter !== 1 || lu.quitterTexte !== 1) fautes.push(`${ici}: Quitter ${lu.quitter} fois (${lu.quitterTexte} visibles)`);
+        if (lu.seat !== 1) fautes.push(`${ici}: bloc de rôle ${lu.seat} fois`);
+        if (lu.places.some((n) => n !== 1)) fautes.push(`${ici}: places ${lu.places.join("/")}`);
+        if (lu.signaler > 1) fautes.push(`${ici}: Signaler visible ${lu.signaler} fois`);
+        if (lu.mesures !== 1) fautes.push(`${ici}: ligne des mesures ${lu.mesures} fois`);
+        if (lu.onglets !== 0) fautes.push(`${ici}: les onglets essentiel et mesures sont encore là`);
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
+    /** en-jeu-clavier.7: un seul bouton plein par vue. Le joueur en partie
+     * n'en a aucun dans la colonne; le spectateur en a exactement un,
+     * « Prendre une place ». */
+    async "un-plein"() {
+      const pleins = (page) =>
+        page.evaluate(() =>
+          [...document.querySelectorAll(".rt-bouton-plein")]
+            .filter((el) => el.getClientRects().length > 0)
+            .map((el) => (el.textContent ?? "").trim()),
+        );
+      const fautes = [];
+      const joueur = await nouvelle({ width: 1440, height: 900 });
+      await entrer(joueur);
+      const vusJoueur = await pleins(joueur);
+      if (vusJoueur.length > 1) fautes.push(`joueur: ${vusJoueur.length} boutons pleins (${vusJoueur.join(", ")})`);
+      // Rendre sa place, et regarder: le bloc de rôle offre alors la sienne.
+      await joueur.click("#autresReglages > summary");
+      await joueur.click("#watchOnly");
+      if (!(await jusqua(() => joueur.$("#takePad").then(Boolean), 5000)))
+        throw new Precondition("après « Rendre ma place », pas de « Prendre une place »");
+      const vusSpectateur = await pleins(joueur);
+      if (vusSpectateur.length !== 1) fautes.push(`spectateur: ${vusSpectateur.length} boutons pleins (${vusSpectateur.join(", ")})`);
+      await capture(joueur, "un-plein-spectateur");
+      await joueur.close();
+      verdict(fautes);
+    },
   };
 
   const choisies = option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES);

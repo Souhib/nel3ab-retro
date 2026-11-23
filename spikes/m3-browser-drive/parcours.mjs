@@ -223,6 +223,9 @@ const ETAPES = {
     if (!(await jusqua(async () => /place \d/.test(await siege(page)), 8000)))
       throw new Defaut(`le rechargement a rendu la place prise: « ${await siege(page)} »`);
     // Le jumeau: entré pour jouer, puis levé.
+    // « Rendre ma place » vit dans « Autres réglages » depuis le
+    // 23 novembre 2026 (colonne de la salle) : on le déplie d'abord.
+    await page.click("#autresReglages > summary");
     await page.click("#watchOnly");
     if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
       throw new Precondition(`« Rendre ma place » sans effet: « ${await siege(page)} »`);

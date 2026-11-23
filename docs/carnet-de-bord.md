@@ -28337,6 +28337,77 @@ de la maquette, pas encore de `lib/faces.ts`. Rien n'a été essayé sur un vrai
 téléphone. Le panneau de commande, la colonne nouvelle, la barre et la bande
 ne sont pas encore montés.
 
+### 23 novembre, la nuit : la colonne du bureau et le panneau de commande
+
+**Le contexte.** Le cadre de la salle savait déjà, par une fonction pure, où
+poser chaque chose. Ce passage monte au bureau ce que la fonction décrivait :
+la colonne nouvelle, son coin, et le panneau de commande sous l'image.
+
+**Ce qui a changé.** L'ancienne colonne (`Sidebar`) avait deux onglets,
+« essentiel » et « mesures », et montrait tout tout le temps. La nouvelle
+(`Colonne.tsx`) a un en-tête (le nom de la salle et « Quitter la salle », le
+logo gardé petit), un bloc d'état, un bloc de rôle qui dit qui tu es et, à
+qui regarde, offre « Prendre une place », puis des rangs nommés en clair :
+Signaler, Son, Menu du jeu, tes touches, Garder les 45 secondes, Agrandir
+l'image, Autres réglages. Un rang qui ne sert à rien dans un état disparaît
+au lieu d'être grisé. Les mesures s'ouvrent depuis la ligne du coin, au pied
+de la colonne, au-dessus de la place réservée à la mascotte. « Rendre ma
+place » et le micro sont rangés dans « Autres réglages ». Les places quittent
+la colonne pour le panneau de commande, sous l'image, quand l'image n'y perd
+rien ; sinon il reste au pied de la colonne.
+
+**Ce qui a résisté : un écran éteint qui couvrait les places.** Le panneau
+est le voisin du dessous de l'écran. Mais l'écran éteint d'une salle au repos,
+le chargement et la manette seule se posaient sur toute la zone de l'image
+(`inset-0`), et cette zone allait jusqu'en bas : ils auraient couvert les
+places. L'écran et tout ce qui le remplace vivent maintenant dans une boîte à
+eux, au-dessus du panneau.
+
+**Ce qui a résisté : les contrôles rouges.** Huit étapes de `focus.mjs`
+posaient le focus sur l'onglet « détails », qui n'existe plus. Les faire
+pointer sur la nouvelle ligne des mesures aurait cassé leurs contrôles
+rouges : contre les pages d'avant, l'étape se serait arrêtée faute de bouton,
+sur une précondition, au lieu de tomber sur son défaut. Elles prennent donc
+la ligne des mesures quand elle existe, et l'onglet sinon. La règle 4 du
+dépôt le demande : un défaut réintroduit doit laisser courir son essai.
+
+**Ce qui a résisté : « Plus bas » et un pli replié.** La première version
+de « Plus bas » était un bouton collé au bas de la colonne. La preuve des
+téléphones (`salle-telephone.mjs`) l'a trouvé posé sur les places et sur
+« Inviter quelqu'un » dans le tiroir : un doigt qui visait une place pouvait
+toucher « Plus bas ». C'est maintenant un repère sans prise, que le doigt
+traverse. La même preuve voyait aussi « Rendre ma place » posé sur la ligne
+des mesures. Ce n'était pas vrai : Chrome garde une boîte au contenu d'un
+`<details>` replié, sous son résumé, alors que rien n'en est rendu. La preuve
+ne compte plus ce contenu comme une cible, et déplie « Autres réglages »
+avant de toucher « Rendre ma place », comme elle ouvre le tiroir.
+
+**Les preuves.** Trois étapes nouvelles de `cadre.mjs` : `meuble-place`
+(sept tailles de bureau ; sous l'image, le panneau ne la touche pas, a toute
+la largeur et la hauteur que le cadre lui donne, et l'image a la taille
+calculée ; le balayage doit montrer les deux formes), `une-fois` (Quitter, le
+bloc de rôle, chaque place et la ligne des mesures une seule fois, aucun
+identifiant en double, plus d'onglets) et `un-plein` (au plus un bouton plein
+pour le joueur, exactement un pour le spectateur). Les deux premières
+tombent sur leur défaut contre la page de la fin du passage précédent
+(0fef99e). Une étape nouvelle de `focus.mjs`, `colonne-deborde` : à
+1280×720, Tab passe sur chaque arrêt de la colonne et chacun se voit en
+entier. Son jumeau tourne dans la même page : avec la marge de défilement du
+bas remise à 0, au moins un arrêt passe sous « Plus bas ». Sans lui, une
+colonne qui ne déborde pas aurait rendu l'étape verte pour rien.
+
+**Mesures.** Poids de la page en brotli 11 : 243 207 octets, soit 3 569 de
+plus que la fin du passage précédent et 7 507 pour la salle depuis le socle
+(son enveloppe est de 12 000). Mesuré le 23 novembre.
+
+**Ce qui n'est pas prouvé.** Les prises de `Seats` sont serrées dans les 64
+à 88 px du panneau : leurs noms se coupent. C'est provisoire, jusqu'aux
+places START 1P à 4P du chantier personnes. La ligne du coin dit seulement
+« Mesures de la liaison » : l'état en clair viendra des chantiers personnes
+et etats. Le rang « Ta manette » ouvre encore l'onglet manette du réglage,
+pas la vue légère de l'étape 6. Au téléphone, la colonne garde le tiroir
+jusqu'à l'étape 4. Rien n'a été essayé sur un vrai écran par quelqu'un.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -29927,6 +29998,10 @@ grand, posée sur le panneau de commande.
 **Garde de l'image** : la vérification de `cadre.mjs` qui touche l'image du
 jeu en des centaines de points à chaque image d'écran et exige de n'y
 trouver que l'image, sans voile ni déplacement.
+
+**Élément collant (sticky)** : un élément qui défile avec la page jusqu'à
+toucher un bord de la zone visible, puis y reste collé. Dans la colonne de la
+salle, la pile des avis est collée en haut et « Plus bas » en bas.
 
 **Arbitre des scènes** : le module qui décide quelle scène de la mascotte
 joue quand deux chantiers en demandent une au même endroit (`lib/scenes-salle.ts`).

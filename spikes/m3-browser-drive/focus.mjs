@@ -212,6 +212,14 @@ const choisie = (page) =>
 
 /** Maj+Tab jusqu'à la zone de jeu, au plus `fois` appuis. Rend le nombre
  * d'appuis, ou `null` si la zone n'a jamais eu le focus. */
+/** Le bouton de la colonne qui ouvre les mesures, et celui qui les referme:
+ * la ligne du coin (`#mesures`) depuis le 23 novembre 2026, les onglets
+ * « détails » et « normal » avant. Les contrôles rouges rejouent les pages
+ * d'avant: l'étape doit y courir jusqu'à son défaut, pas s'arrêter faute de
+ * bouton. */
+const ouvreMesures = async (page) => ((await page.$("#mesures")) ? "#mesures" : "#mode-details");
+const fermeMesures = async (page) => ((await page.$("#mesures")) ? "#mesures" : "#mode-normal");
+
 async function tabArriereJusquALaZone(page, fois = 25) {
   for (let i = 0; i < fois; i += 1) {
     await page.keyboard.down("Shift");
@@ -266,24 +274,27 @@ const ETAPES = {
   async "entree-colonne"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    if ((await page.$("#mode-details")) === null) throw new Precondition("pas de bouton « détails »");
-    await page.focus("#mode-details");
+    // La ligne du coin, qui ouvre les mesures depuis le 23 novembre 2026 (les
+    // onglets « essentiel » et « mesures » sont partis avec `Sidebar`).
+    const ouvre = await ouvreMesures(page);
+    if ((await page.$(ouvre)) === null) throw new Precondition("pas de bouton pour les mesures");
+    await page.focus(ouvre);
     const depuis = Date.now();
     await appuyer(page, "Enter");
     await sleep(300);
     const details = await page.evaluate(() => document.querySelector("#stats") !== null);
-    if ((recus(depuis) & START_DOLPHIN) !== 0) throw new Defaut("Entrée sur « détails » a envoyé START à la salle");
-    if (!details) throw new Defaut("Entrée sur « détails » n'a pas changé de mode");
+    if ((recus(depuis) & START_DOLPHIN) !== 0) throw new Defaut("Entrée sur « mesures » a envoyé START à la salle");
+    if (!details) throw new Defaut("Entrée sur « mesures » n'a pas ouvert les mesures");
     // Le prix de la règle, dit sur l'image: le clavier n'est plus au jeu.
     if ((await page.$("#clavierEnPause")) === null)
       throw new Defaut("rien ne dit que le clavier ne joue plus pendant que la colonne a le focus");
     await capture(page, "clavier-en-pause");
     // Espace, le jumeau de touche: même bouton, même effet, rien pour le jeu.
-    await page.focus("#mode-normal");
+    await page.focus(await fermeMesures(page));
     await appuyer(page, "Space");
     await sleep(300);
     if (await page.evaluate(() => document.querySelector("#stats") !== null))
-      throw new Defaut("Espace sur « salle » n'a pas changé de mode");
+      throw new Defaut("Espace sur « mesures » ne les a pas refermées");
     // Et une flèche sur ce bouton ne pousse pas le stick: le focus est ailleurs.
     const fleche = Date.now();
     await appuyer(page, "ArrowRight");
@@ -298,7 +309,7 @@ const ETAPES = {
   async "entree-jeu"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await page.focus("#mode-details");
+    await page.focus(await ouvreMesures(page));
     await page.mouse.click(...(await centre(page, "#screen")));
     const depuis = Date.now();
     await page.keyboard.down("Enter");
@@ -332,11 +343,11 @@ const ETAPES = {
       throw new Precondition(`aucune trame Switch reçue: ${JSON.stringify(trames.slice(0, 3))}`);
     if ((recus(depuis) & PLUS_SWITCH) === 0) throw new Defaut("Entrée dans la zone de jeu n'a pas envoyé + (Start)");
     // Et le négatif dans la même salle: Entrée sur un bouton de la colonne.
-    await page.focus("#mode-details");
+    await page.focus(await ouvreMesures(page));
     const colonne = Date.now();
     await appuyer(page, "Enter");
     await sleep(300);
-    if ((recus(colonne) & PLUS_SWITCH) !== 0) throw new Defaut("Entrée sur « détails » a envoyé + à la salle");
+    if ((recus(colonne) & PLUS_SWITCH) !== 0) throw new Defaut("Entrée sur « mesures » a envoyé + à la salle");
     await page.close();
   },
 
@@ -662,7 +673,7 @@ const ETAPES = {
   async "tab-retour"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await page.focus("#mode-details");
+    await page.focus("#leaveRoom");
     const fois = await tabArriereJusquALaZone(page);
     if (fois === null) throw new Defaut("Maj+Tab depuis la colonne n'atteint jamais la zone de jeu");
     const tab = await page.$eval("[data-zone-jeu]", (el) => el.tabIndex);
@@ -671,7 +682,7 @@ const ETAPES = {
     banc.annoncerDemarrage();
     if (!(await attendre(page, () => document.querySelector("[data-zone-jeu]")?.tabIndex === -1, 5000)))
       throw new Defaut("pendant un chargement, la zone de jeu reste dans l'ordre de Tab");
-    await page.focus("#mode-details");
+    await page.focus("#leaveRoom");
     if ((await tabArriereJusquALaZone(page)) !== null)
       throw new Defaut("pendant un chargement, Maj+Tab s'arrête encore sur la zone de jeu");
     await page.close();
@@ -773,7 +784,7 @@ const ETAPES = {
     await capture(page, "anneau-pendant-partie");
     if (pendant !== "none") throw new Defaut(`l'anneau de focus (${pendant}) reste sur l'image pendant la partie`);
     // Le jumeau: arrivé par Tab, l'anneau se montre...
-    await page.focus("#mode-details");
+    await page.focus("#leaveRoom");
     if ((await tabArriereJusquALaZone(page)) === null) throw new Precondition("Maj+Tab n'atteint pas la zone");
     const parTab = await trait();
     if (parTab === "none") throw new Defaut("arrivé par Tab, la zone de jeu ne montre aucun anneau");
@@ -792,7 +803,7 @@ const ETAPES = {
   async "clic-colonne"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    for (const id of ["#mode-details", "#mode-normal", "#port2"]) {
+    for (const id of [await ouvreMesures(page), await fermeMesures(page), "#port2"]) {
       if ((await page.$(id)) === null) throw new Precondition(`pas de bouton ${id}`);
       await page.mouse.click(...(await centre(page, id)));
       await sleep(250);
@@ -803,11 +814,12 @@ const ETAPES = {
         throw new Defaut(`après un clic sur ${id}, la flèche ne pousse plus le stick`);
     }
     // Le jumeau: au clavier, le focus reste sur le bouton qu'on active.
-    await page.focus("#mode-details");
+    const ouvre = await ouvreMesures(page);
+    await page.focus(ouvre);
     await appuyer(page, "Enter");
     await sleep(250);
     const ici = await actif(page);
-    if (ici.id !== "mode-details") throw new Defaut(`Entrée au clavier sur « détails » a mis le focus sur ${ici.tag}#${ici.id}`);
+    if (`#${ici.id}` !== ouvre) throw new Defaut(`Entrée au clavier sur « mesures » a mis le focus sur ${ici.tag}#${ici.id}`);
     await page.close();
   },
 
@@ -898,7 +910,7 @@ const ETAPES = {
   async "avis-haut"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await page.focus("#mode-details");
+    await page.focus(await ouvreMesures(page));
     if (!(await attendre(page, () => document.querySelector("#clavierEnPause") !== null)))
       throw new Precondition("l'avis de pause ne s'affiche pas");
     const lu = await page.evaluate(() => {
@@ -914,6 +926,70 @@ const ETAPES = {
     await capture(page, "avis-haut");
     if (lu.coupe > 0) throw new Defaut(`l'avis est posé sur l'image (${lu.coupe} px²)`);
     if (!lu.libre) throw new Defaut("le bouton de l'avis est couvert");
+    await page.close();
+  },
+
+  /** colonne.10: la colonne déborde à 1280×720. Tab passe sur chaque arrêt
+   * de la colonne, et chacun se voit en entier: ni sous « Plus bas », ni sous
+   * la pile des avis collée en tête. Le jumeau, dans la même page: la marge
+   * de défilement du bas remise à 0, au moins un arrêt passe sous « Plus
+   * bas ». Sans ce jumeau, une colonne qui ne déborde pas passerait pour rien. */
+  async "colonne-deborde"() {
+    const page = await nouvelle({ width: 1280, height: 720 });
+    await entrer(page);
+    await page.evaluate(() => {
+      const autres = document.querySelector("#autresReglages");
+      if (autres) autres.open = true;
+    });
+    const deborde = await page.evaluate(() => {
+      const side = document.querySelector("#side");
+      return side ? side.scrollHeight > side.clientHeight + 40 : false;
+    });
+    if (!deborde) throw new Precondition("la colonne ne déborde pas à 1280×720");
+    if ((await page.$("#leaveRoom")) === null) throw new Precondition("pas de « Quitter » en tête de colonne");
+    /** Les arrêts de Tab dans la colonne, et ceux qu'on ne voit pas en entier. */
+    const parcourir = async () => {
+      await page.evaluate(() => {
+        document.querySelector("#side").scrollTop = 0;
+        document.querySelector("#leaveRoom").focus();
+      });
+      const caches = [];
+      let arrets = 0;
+      for (let i = 0; i < 60; i += 1) {
+        await appuyer(page, "Tab");
+        await sleep(60);
+        const lu = await page.evaluate(() => {
+          const el = document.activeElement;
+          const side = document.querySelector("#side");
+          if (!el || !side?.contains(el)) return null;
+          const r = el.getBoundingClientRect();
+          const c = side.getBoundingClientRect();
+          const plus = document.querySelector("#plusBas")?.getBoundingClientRect();
+          const tete = document.querySelector("#side > .sticky")?.getBoundingClientRect();
+          const bas = plus && plus.height > 0 ? plus.top : c.bottom;
+          const haut = tete && tete.height > 0 ? tete.bottom : c.top;
+          return {
+            nom: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""} « ${(el.textContent ?? "").trim().slice(0, 24)} »`,
+            vu: r.top >= haut - 0.5 && r.bottom <= bas + 0.5,
+          };
+        });
+        if (lu === null) break;
+        arrets += 1;
+        if (!lu.vu) caches.push(lu.nom);
+      }
+      return { arrets, caches };
+    };
+    const juste = await parcourir();
+    if (juste.arrets < 6) throw new Precondition(`seulement ${juste.arrets} arrêts dans la colonne`);
+    await capture(page, "colonne-deborde");
+    await page.evaluate(() => {
+      document.querySelector("#side").style.scrollPaddingBottom = "0px";
+    });
+    const sansMarge = await parcourir();
+    if (sansMarge.caches.length === 0)
+      throw new Precondition("sans marge de défilement, aucun arrêt ne passe sous « Plus bas »: l'étape ne voit rien");
+    if (juste.caches.length > 0)
+      throw new Defaut(`arrêts cachés dans la colonne (${juste.arrets} arrêts): ${juste.caches.join(", ")}`);
     await page.close();
   },
 
@@ -934,8 +1010,10 @@ const ETAPES = {
       const p2 = document.querySelector("#port2");
       return {
         volume: nom(document.querySelector("#volume")),
-        normal: document.querySelector("#mode-normal")?.getAttribute("aria-pressed") ?? null,
-        details: document.querySelector("#mode-details")?.getAttribute("aria-pressed") ?? null,
+        mesures:
+          (document.querySelector("#mesures") ?? document.querySelector("#mode-details"))?.getAttribute(
+            "aria-pressed",
+          ) ?? null,
         p1: p1?.getAttribute("aria-label") ?? null,
         p1Inactif: p1?.disabled ?? null,
         p2: p2?.getAttribute("aria-label") ?? null,
@@ -943,8 +1021,7 @@ const ETAPES = {
     });
     if (lu.volume === null) throw new Precondition("pas de glissière de volume");
     if (!/volume/i.test(lu.volume)) throw new Defaut(`la glissière n'a pas de nom: « ${lu.volume} »`);
-    if (lu.normal !== "true" || lu.details !== "false")
-      throw new Defaut(`les modes ne disent pas lequel est choisi: ${lu.normal}/${lu.details}`);
+    if (lu.mesures !== "false") throw new Defaut(`la ligne des mesures ne dit pas si elles sont ouvertes: ${lu.mesures}`);
     if (!/la tienne/.test(lu.p1 ?? "")) throw new Defaut(`ta prise ne dit pas qu'elle est à toi: « ${lu.p1} »`);
     if (lu.p1Inactif) throw new Defaut("ta prise est retirée de la tabulation (disabled)");
     if (!/libre/.test(lu.p2 ?? "")) throw new Defaut(`une prise libre ne le dit pas: « ${lu.p2} »`);

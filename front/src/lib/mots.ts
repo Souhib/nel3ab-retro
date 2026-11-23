@@ -391,4 +391,23 @@ export const AGRANDIE = {
   tactile: "Image agrandie",
 } as const;
 
+/** La colonne de la salle au bureau (`components/Colonne`) : des rangs
+ * nommés en clair, une chose une fois. Les onglets « essentiel » et
+ * « mesures » sont partis ; les mesures s'ouvrent depuis la ligne du coin. */
+export const COLONNE = {
+  rangs: "Commandes de la salle",
+  role: "Ton rôle",
+  regardent: "Ils regardent",
+  personne: "Personne pour l'instant.",
+  activerSon: "Activer le son",
+  menu: "Menu du jeu",
+  manette: "Ta manette",
+  agrandir: "Agrandir l'image",
+  autres: "Autres réglages",
+  plusBas: "Plus bas",
+  mesures: "Mesures de la liaison",
+  revenir: "Fermer",
+  panneau: "Les places",
+} as const;
+
 // ==== fin salle ====

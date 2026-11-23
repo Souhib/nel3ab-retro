@@ -515,6 +515,48 @@
           }
         }
       }
+    },
+    "/api/catalogue/art/{cle}": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Read Art",
+        "description": "L'image d'un jeu, sans salle ouverte (ADR D45).\n\nCelle que la salle sert déjà à `/r/N/art/{index}.png` pendant qu'elle\ntourne: la bannière d'un disque GameCube, celle d'une sauvegarde Wii, ou\nl'image que le propriétaire a déposée à côté du jeu. Rien n'est téléchargé.\nSans identité, comme le catalogue. Toutes les absences se ressemblent (404):\nun jeu inconnu, sans image ou au fichier refusé ne s'affichent pas.",
+        "operationId": "read_art",
+        "parameters": [
+          {
+            "name": "cle",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Cle"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "L'image du jeu.",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "Ce jeu n'a pas d'image que le salon sert."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

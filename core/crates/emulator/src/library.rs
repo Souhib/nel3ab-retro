@@ -299,6 +299,194 @@ fn tempfile_in(dir: &Path) -> std::io::Result<(PathBuf, std::fs::File)> {
     Ok((path, file))
 }
 
+/// Le dossier, à côté du fichier de la bibliothèque, où chaque image attend le
+/// salon (ADR D45).
+pub const ART_FOLDER: &str = "art";
+
+/// La plus grosse image écrite pour le salon, qui refuse plus gros.
+///
+/// La même borne que la lecture d'une image déposée (`switch::art`, un Mio,
+/// l'affiche officielle de Mario Tennis pesant 497 170 octets le 9 septembre
+/// 2026). Une bannière GameCube encodée pèse quelques kilo-octets.
+pub const ART_MAX_BYTES: usize = 1_048_576;
+
+/// Le nom du fichier où l'image d'un jeu est écrite: l'empreinte SHA-256 de
+/// sa clé, en hexadécimal.
+///
+/// Une clé est un nom de fichier, avec ses espaces, ses accents et parfois un
+/// point devant. Une empreinte fait 64 caractères sans surprise, et le salon la
+/// recalcule depuis la clé sans jamais joindre la clé à un chemin.
+#[must_use]
+pub fn art_file_name(key: &str) -> String {
+    use sha2::{Digest as _, Sha256};
+    format!("{:x}.png", Sha256::digest(key.as_bytes()))
+}
+
+/// Ce que [`write_art_files`] a fait, pour le journal et les essais.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ArtWritten {
+    /// Images écrites, neuves ou changées.
+    pub written: usize,
+    /// Images déjà là, octet pour octet.
+    pub kept: usize,
+    /// Images retirées: jeu parti, image perdue ou devenue trop grosse.
+    pub removed: usize,
+}
+
+/// Écrit l'image de chaque jeu là où le salon la lit sans salle ouverte.
+///
+/// `dir` est le dossier du fichier de la bibliothèque. Les images vont dans
+/// `dir/art/`, une par jeu qui en a une, sous [`art_file_name`]. Celles des
+/// jeux partis, ou qui n'ont plus d'image, sont retirées: le salon ne doit pas
+/// servir l'affiche d'un jeu que la salle ne peut plus lancer. Un fichier dont
+/// le nom n'a pas cette forme n'est jamais touché.
+///
+/// Sans suivre aucun lien (ADR D36). Le conteneur de Dolphin monte le dossier
+/// de session en écriture: un lien posé à la place de `art`, ou d'une image,
+/// ferait écrire le worker ailleurs sur l'hôte. Le dossier s'ouvre donc avec
+/// `O_NOFOLLOW`, chaque image s'écrit sous un nom neuf (`O_EXCL`) puis se
+/// renomme par-dessus, ce qui remplace un lien au lieu de le suivre.
+///
+/// Une image identique n'est pas réécrite: chaque démarrage de salle balaie la
+/// bibliothèque, et réécrire changerait l'heure du fichier pour rien.
+///
+/// # Errors
+/// L'erreur du système de fichiers sur le dossier (absent, lien, refusé). Une
+/// image qui ne s'écrit pas fait aussi rendre l'erreur, après avoir essayé les
+/// autres: une salle n'en a pas besoin pour jouer, et le worker le dit.
+pub fn write_art_files(
+    dir: &Path,
+    roms: &[Rom],
+    art: &[Option<crate::banner::Art>],
+) -> std::io::Result<ArtWritten> {
+    use nix::errno::Errno;
+    use nix::fcntl::OFlag;
+    use nix::sys::stat::Mode;
+    use std::os::fd::AsRawFd as _;
+
+    let parent = std::fs::File::open(dir)?;
+    match nix::sys::stat::mkdirat(&parent, ART_FOLDER, Mode::from_bits_truncate(0o755)) {
+        Ok(()) | Err(Errno::EEXIST) => {}
+        Err(errno) => return Err(errno.into()),
+    }
+    let folder = nix::fcntl::openat(
+        &parent,
+        ART_FOLDER,
+        OFlag::O_RDONLY | OFlag::O_DIRECTORY | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+        Mode::empty(),
+    )?;
+    let mut done = ArtWritten::default();
+    let mut wanted = std::collections::HashSet::new();
+    let mut failed = None;
+    for (rom, found) in roms.iter().zip(art) {
+        let Some(found) = found
+            .as_ref()
+            .filter(|found| found.png.len() <= ART_MAX_BYTES)
+        else {
+            continue;
+        };
+        let name = art_file_name(&rom.file);
+        if same_picture(&folder, &name, &found.png) {
+            done.kept += 1;
+        } else if let Err(error) = write_picture(&folder, &name, &found.png) {
+            failed = Some(error);
+            continue;
+        } else {
+            done.written += 1;
+        }
+        wanted.insert(name);
+    }
+    // La liste du dossier ouvert, par son descripteur: un lien posé à la place
+    // de `art` entre-temps ne changerait pas le dossier qu'on lit.
+    let listed = std::fs::read_dir(format!("/proc/self/fd/{}", folder.as_raw_fd()))?;
+    for entry in listed.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if ours(&name) && !wanted.contains(&name) {
+            match nix::unistd::unlinkat(
+                &folder,
+                name.as_str(),
+                nix::unistd::UnlinkatFlags::NoRemoveDir,
+            ) {
+                Ok(()) => done.removed += 1,
+                Err(errno) => failed = Some(errno.into()),
+            }
+        }
+    }
+    failed.map_or(Ok(done), Err)
+}
+
+/// Un nom que [`write_art_files`] a pu écrire: une image ou son fichier
+/// provisoire. Rien d'autre n'est jamais retiré.
+fn ours(name: &str) -> bool {
+    let hex = |part: &str| {
+        part.len() == 64 && part.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    };
+    if let Some(stem) = name.strip_suffix(".png") {
+        return hex(stem);
+    }
+    name.strip_prefix('.')
+        .and_then(|rest| rest.strip_suffix(".tmp"))
+        .and_then(|rest| rest.split_once(".png."))
+        .is_some_and(|(stem, pid)| {
+            hex(stem) && !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit())
+        })
+}
+
+/// Vrai quand ce nom est déjà un fichier ordinaire qui porte ces octets.
+fn same_picture(folder: &std::os::fd::OwnedFd, name: &str, png: &[u8]) -> bool {
+    use nix::fcntl::OFlag;
+    use std::io::Read as _;
+    let Ok(fd) = nix::fcntl::openat(
+        folder,
+        name,
+        OFlag::O_RDONLY | OFlag::O_NOFOLLOW | OFlag::O_NONBLOCK | OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::empty(),
+    ) else {
+        return false;
+    };
+    let file = std::fs::File::from(fd);
+    let Ok(meta) = file.metadata() else {
+        return false;
+    };
+    if !meta.is_file() || meta.len() != png.len() as u64 {
+        return false;
+    }
+    let mut kept = Vec::with_capacity(png.len());
+    file.take(png.len() as u64 + 1)
+        .read_to_end(&mut kept)
+        .is_ok()
+        && kept == png
+}
+
+/// Écrit une image sous un nom neuf, puis la renomme par-dessus l'ancienne.
+fn write_picture(folder: &std::os::fd::OwnedFd, name: &str, png: &[u8]) -> std::io::Result<()> {
+    use nix::fcntl::OFlag;
+    use std::io::Write as _;
+    let provisional = format!(".{name}.{}.tmp", std::process::id());
+    let _ = nix::unistd::unlinkat(
+        folder,
+        provisional.as_str(),
+        nix::unistd::UnlinkatFlags::NoRemoveDir,
+    );
+    let fd = nix::fcntl::openat(
+        folder,
+        provisional.as_str(),
+        OFlag::O_WRONLY | OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_NOFOLLOW | OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::from_bits_truncate(0o644),
+    )?;
+    let written = std::fs::File::from(fd).write_all(png).and_then(|()| {
+        nix::fcntl::renameat(folder, provisional.as_str(), folder, name).map_err(Into::into)
+    });
+    if written.is_err() {
+        let _ = nix::unistd::unlinkat(
+            folder,
+            provisional.as_str(),
+            nix::unistd::UnlinkatFlags::NoRemoveDir,
+        );
+    }
+    written
+}
+
 /// The list of games, as both the room and the file describe them.
 fn push_entries(
     out: &mut String,
@@ -827,5 +1015,190 @@ mod tests {
             .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
         assert_eq!(left, ["catalogue.json"]);
+    }
+
+    fn picture(png: &[u8]) -> crate::banner::Art {
+        crate::banner::Art {
+            png: png.to_vec(),
+            maker: String::new(),
+            about: String::new(),
+        }
+    }
+
+    fn game(file: &str) -> Rom {
+        Rom {
+            path: PathBuf::from("/jeux").join(file),
+            name: file.to_owned(),
+            file: file.to_owned(),
+        }
+    }
+
+    fn names_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// Le nom est l'empreinte de la clé, que le salon recalcule de son côté.
+    /// Les valeurs viennent de `sha256sum` et sont épinglées des deux côtés
+    /// (`test_catalogue.py`): un changement de calcul d'un seul côté rougit.
+    #[test]
+    fn a_picture_is_named_by_the_sha256_of_its_key() {
+        assert_eq!(
+            art_file_name("Melee.rvz"),
+            "3b6604996f3f05b611a8f44a29e6a43dbab89fb8cc6e208e7c135e7ec1729c1d.png"
+        );
+        assert_eq!(
+            art_file_name("Zelda (Europe) é.rvz"),
+            "7b361ae8e27b325c40366af2ec35530a00d1154beae45708589e5a1a7456a58e.png"
+        );
+    }
+
+    /// Une image par jeu qui en a une, aucune pour un jeu sans image.
+    #[test]
+    fn each_game_with_a_picture_gets_one_file_and_no_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let roms = [game("Melee.rvz"), game("Sans image.iso")];
+
+        let done =
+            write_art_files(dir.path(), &roms, &[Some(picture(b"png de melee")), None]).unwrap();
+
+        assert_eq!(
+            done,
+            ArtWritten {
+                written: 1,
+                kept: 0,
+                removed: 0
+            }
+        );
+        let folder = dir.path().join(ART_FOLDER);
+        assert_eq!(names_in(&folder), [art_file_name("Melee.rvz")]);
+        assert_eq!(
+            std::fs::read(folder.join(art_file_name("Melee.rvz"))).unwrap(),
+            b"png de melee"
+        );
+    }
+
+    /// Le second balayage garde l'image identique, réécrit celle qui a changé,
+    /// et retire celle d'un jeu parti. Un fichier d'un autre nom reste.
+    #[test]
+    fn a_rescan_keeps_rewrites_and_removes_only_its_own_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join(ART_FOLDER);
+        let three = [game("a.rvz"), game("b.rvz"), game("c.rvz")];
+        write_art_files(
+            dir.path(),
+            &three,
+            &[
+                Some(picture(b"a")),
+                Some(picture(b"b")),
+                Some(picture(b"c")),
+            ],
+        )
+        .unwrap();
+        std::fs::write(folder.join("note.txt"), "à garder").unwrap();
+        // Une image posée par quelqu'un d'autre, sous un nom qui n'est pas une empreinte.
+        std::fs::write(folder.join("affiche.png"), "à garder").unwrap();
+        std::fs::write(
+            folder.join(format!(".{}.42.tmp", art_file_name("x"))),
+            "reste",
+        )
+        .unwrap();
+
+        let two = [game("a.rvz"), game("b.rvz")];
+        let done = write_art_files(
+            dir.path(),
+            &two,
+            &[Some(picture(b"a")), Some(picture(b"b2"))],
+        )
+        .unwrap();
+
+        assert_eq!(
+            done,
+            ArtWritten {
+                written: 1,
+                kept: 1,
+                removed: 2
+            }
+        );
+        let mut expected = vec![
+            art_file_name("a.rvz"),
+            art_file_name("b.rvz"),
+            "affiche.png".to_owned(),
+            "note.txt".to_owned(),
+        ];
+        expected.sort();
+        assert_eq!(names_in(&folder), expected);
+        assert_eq!(
+            std::fs::read(folder.join(art_file_name("b.rvz"))).unwrap(),
+            b"b2"
+        );
+    }
+
+    /// Un jeu qui perd son image, ou dont l'image dépasse la borne, perd aussi
+    /// son fichier: le salon ne sert pas une image que la salle n'a plus.
+    #[test]
+    fn a_picture_lost_or_too_big_is_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let roms = [game("a.rvz"), game("b.rvz")];
+        write_art_files(
+            dir.path(),
+            &roms,
+            &[Some(picture(b"a")), Some(picture(b"b"))],
+        )
+        .unwrap();
+
+        let big = vec![0; ART_MAX_BYTES + 1];
+        let done = write_art_files(dir.path(), &roms, &[None, Some(picture(&big))]).unwrap();
+
+        assert_eq!(
+            done,
+            ArtWritten {
+                written: 0,
+                kept: 0,
+                removed: 2
+            }
+        );
+        assert!(names_in(&dir.path().join(ART_FOLDER)).is_empty());
+        // Le jumeau: exactement la borne passe.
+        let fits = vec![0; ART_MAX_BYTES];
+        let done = write_art_files(dir.path(), &roms, &[None, Some(picture(&fits))]).unwrap();
+        assert_eq!(done.written, 1);
+    }
+
+    /// Un lien posé à la place du dossier `art` n'est pas suivi: rien n'est
+    /// écrit dans le dossier qu'il vise (ADR D36).
+    #[test]
+    fn a_link_in_place_of_the_folder_is_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        std::os::unix::fs::symlink(elsewhere.path(), dir.path().join(ART_FOLDER)).unwrap();
+
+        let done = write_art_files(dir.path(), &[game("a.rvz")], &[Some(picture(b"a"))]);
+
+        assert!(done.is_err());
+        assert!(names_in(elsewhere.path()).is_empty());
+    }
+
+    /// Un lien posé au nom d'une image est remplacé, et son fichier visé reste
+    /// intact. Le jumeau ordinaire est l'essai d'écriture ci-dessus.
+    #[test]
+    fn a_link_in_place_of_a_picture_is_replaced_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join(ART_FOLDER);
+        std::fs::create_dir(&folder).unwrap();
+        let victim = dir.path().join("victime");
+        std::fs::write(&victim, "intact").unwrap();
+        std::os::unix::fs::symlink(&victim, folder.join(art_file_name("a.rvz"))).unwrap();
+
+        write_art_files(dir.path(), &[game("a.rvz")], &[Some(picture(b"a"))]).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "intact");
+        let written = folder.join(art_file_name("a.rvz"));
+        assert!(!written.is_symlink());
+        assert_eq!(std::fs::read(written).unwrap(), b"a");
     }
 }

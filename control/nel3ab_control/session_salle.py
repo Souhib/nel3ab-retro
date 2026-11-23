@@ -163,6 +163,24 @@ def poser_vide(fd: int, nom: str) -> None:
     )
 
 
+def lire_dans(salles_dir: Path, numero: int, sous: str, nom: str, plafond: int) -> bytes | None:
+    """Un fichier ordinaire d'un sous-dossier de la salle, ou rien.
+
+    Le sous-dossier s'ouvre lui aussi avec `O_NOFOLLOW` depuis le dossier de la
+    salle: un lien à sa place fait rendre rien, comme un lien au nom du fichier.
+    """
+    try:
+        with dossier(salles_dir, numero) as fd:
+            sous_fd = os.open(sous, DOSSIER, dir_fd=fd)
+            try:
+                lu = lire(sous_fd, nom, plafond)
+            finally:
+                os.close(sous_fd)
+    except OSError:
+        return None
+    return lu.contenu if lu else None
+
+
 @dataclass(frozen=True)
 class JeuRetenu:
     """Le jeu que le worker de cette salle a retenu, et quand il l'a retenu."""

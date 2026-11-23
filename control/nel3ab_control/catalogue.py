@@ -15,12 +15,14 @@ et le suivant prend sa place. Garder la moitié lisible d'un fichier ferait
 afficher une bibliothèque à qui il manque des jeux sans le dire.
 """
 
+import hashlib
 import json
 import logging
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from nel3ab_control import session_salle
 from nel3ab_control.consoles import titre_valide
 from nel3ab_control.worker import valid_key
 
@@ -36,6 +38,18 @@ VERSION = 1
 #: titre, éditeur et phrase compris : huit Mio laissent la place à vingt mille
 #: jeux, et bornent la mémoire si un fichier grossit par erreur.
 SIZE_MAX = 8 * 1024 * 1024
+
+#: Le dossier où le worker écrit l'image de chaque jeu, à côté de ce fichier
+#: (`nel3ab_emulator::ART_FOLDER`, ADR D45).
+ART_FOLDER = "art"
+
+#: La plus grosse image servie, la borne même du worker (`ART_MAX_BYTES`): une
+#: image déposée est lue jusqu'à un Mio, et une bannière GameCube pèse
+#: quelques kilo-octets. Au-delà, le fichier n'est pas celui que le worker écrit.
+ART_MAX = 1024 * 1024
+
+#: Les huit premiers octets de tout fichier PNG.
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 class CatalogueGame(BaseModel):
@@ -151,3 +165,35 @@ def freshest(salles_dir: Path) -> Catalogue | None:
     if not found:
         return None
     return max(found, key=lambda one: (one.scanned_ms, -one.room))
+
+
+def art_file_name(key: str) -> str:
+    """Le nom que le worker donne à l'image d'un jeu: l'empreinte SHA-256 de sa clé.
+
+    Le même calcul que `nel3ab_emulator::art_file_name`; les deux essais
+    épinglent les mêmes valeurs. La clé n'est jamais jointe à un chemin.
+    """
+    return hashlib.sha256(key.encode()).hexdigest() + ".png"
+
+
+def art_of(salles_dir: Path, key: str) -> bytes | None:
+    """L'image d'un jeu, lue dans la salle qui a écrit le catalogue le plus frais.
+
+    Rien pour un jeu absent du catalogue ou annoncé sans
+    image, et un fichier absent, trop gros, qui n'est pas un PNG ou qui est un
+    lien. La salle du catalogue et pas une autre: c'est elle qui a balayé les
+    jeux en dernier, et son dossier `art` suit le même balayage. Le dossier de
+    session est monté en écriture dans un conteneur, donc ni le dossier `art`
+    ni l'image ne sont suivis s'ils sont des liens (ADR D36).
+    """
+    # La clé n'est comparée qu'aux clés du catalogue, que `read_one` a déjà
+    # passées à `valid_key`: une clé en forme de chemin n'y est jamais égale.
+    catalogue = freshest(salles_dir)
+    if catalogue is None or not any(game.key == key and game.art for game in catalogue.games):
+        return None
+    image = session_salle.lire_dans(
+        salles_dir, catalogue.room, ART_FOLDER, art_file_name(key), ART_MAX
+    )
+    if image is None or not image.startswith(PNG_SIGNATURE):
+        return None
+    return image

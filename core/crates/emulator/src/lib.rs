@@ -83,7 +83,8 @@ pub use disc::{
 };
 pub use error::EmulatorError;
 pub use library::{
-    Rom, catalogue_json, library_file, position_of, scan as scan_roms, scan_all as scan_libraries,
+    ART_FOLDER, ART_MAX_BYTES, ArtWritten, Rom, art_file_name, catalogue_json, library_file,
+    position_of, scan as scan_roms, scan_all as scan_libraries, write_art_files,
     write_library_file,
 };
 pub use pipe::{Delivery, PendingPipes, Pipes};

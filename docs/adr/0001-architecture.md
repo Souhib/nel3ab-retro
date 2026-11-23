@@ -1803,6 +1803,45 @@ Decision:
   `media/input.ts` waits for the controllers track to merge (K34).
 
 
+### D45: Game pictures without an open room, 2026-11-23
+
+A room serves each game's picture at `/r/N/art/{index}.png` while it runs, from
+memory. The retro screens want the picture where no room runs: the lobby's
+shelf, a closed room's card, the logbook. The lobby cannot decode a GameCube
+banner itself (RGB5A3, the worker's job), and the banner cache holds raw
+`.bnr` blobs, not PNG (plan « donnees », finding M3). The owner chose on
+2026-11-23: pictures come from the owner's own game files or from an image the
+owner drops, and nothing is downloaded.
+
+Decision:
+
+- **The worker writes the PNG it already serves**, at each scan, into
+  `art/<sha256 of the key>.png` beside `catalogue.json`
+  (`nel3ab_emulator::write_art_files`, called after the library file). A game
+  without a picture gets no file; the file of a game that left the library,
+  lost its picture or outgrew one MiB (`ART_MAX_BYTES`, the bound of the
+  dropped-image reader) is removed. An identical picture is not rewritten.
+  Only names of that shape are ever removed. A failure is logged and the room
+  plays.
+- **Named by the SHA-256 of the key**, recomputed by the lobby. A key is a
+  file name with spaces, accents or a leading dot; the hash is 64 plain
+  characters and the key is never joined to a path. Both sides pin the same
+  `sha256sum` values in a test.
+- **No link is followed (D36).** The Dolphin container mounts the session
+  folder read-write. The worker opens `art` with `O_NOFOLLOW` from the session
+  folder's descriptor, writes each picture under a fresh name (`O_EXCL`) and
+  renames it over the old one, which replaces a link instead of following it,
+  and lists the folder through its descriptor. The lobby opens the room
+  folder, `art` and the picture each with `O_NOFOLLOW`, non-blocking, regular
+  files only, one MiB at most.
+- **`GET /api/catalogue/art/{cle}`** serves `image/png` with
+  `X-Content-Type-Options: nosniff`, without an identity, like the catalogue.
+  It reads the room that wrote the FRESHEST catalogue, and only for a game
+  that catalogue says has a picture: a file left behind for a game now said
+  without one stays silent. The file must start with the PNG signature; strict
+  decoding stays in the worker. Every absence is the same 404.
+
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

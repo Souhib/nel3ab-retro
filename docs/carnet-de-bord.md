@@ -28458,6 +28458,30 @@ directement sur un jeu attend encore : en lisant le worker, il est apparu qu'il
 retient aussi la manette choisie pour le jeu et une demande de partie neuve.
 Écrire seulement le jeu ferait démarrer un jeu Wii sur une manette GameCube.
 
+**Les jaquettes sans salle ouverte.** Une salle sert l'image de chacun de ses
+jeux pendant qu'elle tourne, depuis sa mémoire. Les écrans du thème rétro la
+veulent aussi là où aucune salle ne tourne : l'étagère du salon, la carte
+d'une salle fermée. Le salon ne sait pas décoder une bannière GameCube, et le
+cache des bannières ne garde que les blocs bruts du disque. Le worker écrit
+donc maintenant, à chaque démarrage, l'image qu'il sert déjà dans un dossier
+`art` à côté de la bibliothèque, et le salon la sert à
+`/api/catalogue/art/<clé>`. Le propriétaire a tranché la source le
+23 novembre : les fichiers de jeu, ou une image qu'il dépose ; rien n'est
+téléchargé. Chaque fichier porte l'empreinte SHA-256 de la clé du jeu,
+recalculée par le salon : une clé est un nom de fichier, avec ses espaces et
+ses accents, et elle n'est jamais collée à un chemin. Le conteneur de Dolphin
+écrit dans ce même dossier de session : ni le worker ni le salon ne suivent un
+lien posé à la place du dossier `art` ou d'une image, et chaque essai qui le
+vérifie a son jumeau ordinaire. Six mutants ont été réintroduits un à un côté
+worker (dossier suivi, image écrite à travers un lien, rien retiré, tout
+fichier `.png` pris pour une image du worker, image identique réécrite, borne
+d'un Mio oubliée), quatre côté salon (jeu annoncé sans image, signature PNG,
+salle du catalogue le plus frais, sous-dossier suivi) ; chacun fait échouer
+son essai. Le premier essai de la route prenait `..` tel quel : le client de
+l'essai normalisait le chemin avant de l'envoyer, et la demande arrivait sur
+le catalogue lui-même. La clé est maintenant encodée dans l'essai, pour que ce
+soit le salon qui la refuse.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -30049,3 +30073,11 @@ d'une heure monotone permet de reconnaître une heure d'un démarrage précéden
 **Repère d'ouverture** : le fichier `ouverte-le` que le salon pose dans le
 dossier d'une salle quand il l'ouvre. Il dit depuis quand la salle est
 ouverte, alors que systemd ne dit que depuis quand le jeu en cours tourne.
+
+**PNG** : *Portable Network Graphics*, format d'image sans perte. Tout fichier
+PNG commence par les mêmes huit octets, sa signature ; le salon la vérifie
+avant de servir une image, le décodage complet reste au worker.
+
+**nosniff** : en-tête HTTP (`X-Content-Type-Options: nosniff`) qui interdit au
+navigateur de deviner le type d'un fichier à partir de son contenu. Une image
+annoncée PNG n'est alors jamais lue comme une page.

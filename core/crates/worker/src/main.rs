@@ -953,6 +953,22 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
             "la bibliothèque n'a pas pu être écrite pour le salon"
         );
     }
+    // Les images, à côté de la bibliothèque, pour que le salon les montre sans
+    // salle ouverte (ADR D45). Même règle: un échec se dit et la salle joue.
+    if let Some(dir) = settings.library_file.parent() {
+        match nel3ab_emulator::write_art_files(dir, &library, &art) {
+            Ok(done) => tracing::info!(
+                written = done.written,
+                kept = done.kept,
+                removed = done.removed,
+                "les images de la bibliothèque, pour le salon"
+            ),
+            Err(error) => tracing::warn!(
+                %error,
+                "les images de la bibliothèque n'ont pas pu être écrites pour le salon"
+            ),
+        }
+    }
     tracing::info!(
         wii = consoles
             .iter()

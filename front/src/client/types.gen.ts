@@ -1450,3 +1450,35 @@ export type ReadCatalogueResponses = {
 };
 
 export type ReadCatalogueResponse = ReadCatalogueResponses[keyof ReadCatalogueResponses];
+
+export type ReadArtData = {
+    body?: never;
+    path: {
+        /**
+         * Cle
+         */
+        cle: string;
+    };
+    query?: never;
+    url: '/api/catalogue/art/{cle}';
+};
+
+export type ReadArtErrors = {
+    /**
+     * Ce jeu n'a pas d'image que le salon sert.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadArtError = ReadArtErrors[keyof ReadArtErrors];
+
+export type ReadArtResponses = {
+    /**
+     * L'image du jeu.
+     */
+    200: unknown;
+};

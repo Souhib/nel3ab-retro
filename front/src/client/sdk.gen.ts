@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleErrors, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
+import type { CloseSalleData, CloseSalleErrors, CloseSalleResponses, KeepBindingsData, KeepBindingsErrors, KeepBindingsResponses, OpenSalleData, OpenSalleErrors, OpenSalleResponses, PublishRoomBindingsData, PublishRoomBindingsErrors, PublishRoomBindingsResponses, ReadArtData, ReadArtErrors, ReadArtResponses, ReadBindingsData, ReadBindingsResponses, ReadCatalogueData, ReadCatalogueErrors, ReadCatalogueResponses, ReadMeData, ReadMeResponses, ReadMyConnectionData, ReadMyConnectionResponses, ReadMyGamesData, ReadMyGamesResponses, ReadMyPlaysData, ReadMyPlaysErrors, ReadMyPlaysResponses, ReadMyProfileData, ReadMyProfileResponses, ReadMySavesData, ReadMySavesResponses, ReadRoomBindingsData, ReadRoomBindingsResponses, ReadRoomData, ReadRoomResponses, ReadSallesData, ReadSallesResponses, RenameMeData, RenameMeErrors, RenameMeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -236,3 +236,16 @@ export const closeSalle = <ThrowOnError extends boolean = false>(options: Option
  * elle ne dit que ce que chaque page de salle publie déjà à `/roms`.
  */
 export const readCatalogue = <ThrowOnError extends boolean = false>(options?: Options<ReadCatalogueData, ThrowOnError>): RequestResult<ReadCatalogueResponses, ReadCatalogueErrors, ThrowOnError> => (options?.client ?? client).get<ReadCatalogueResponses, ReadCatalogueErrors, ThrowOnError>({ url: '/api/catalogue', ...options });
+
+/**
+ * Read Art
+ *
+ * L'image d'un jeu, sans salle ouverte (ADR D45).
+ *
+ * Celle que la salle sert déjà à `/r/N/art/{index}.png` pendant qu'elle
+ * tourne: la bannière d'un disque GameCube, celle d'une sauvegarde Wii, ou
+ * l'image que le propriétaire a déposée à côté du jeu. Rien n'est téléchargé.
+ * Sans identité, comme le catalogue. Toutes les absences se ressemblent (404):
+ * un jeu inconnu, sans image ou au fichier refusé ne s'affichent pas.
+ */
+export const readArt = <ThrowOnError extends boolean = false>(options: Options<ReadArtData, ThrowOnError>): RequestResult<ReadArtResponses, ReadArtErrors, ThrowOnError> => (options.client ?? client).get<ReadArtResponses, ReadArtErrors, ThrowOnError>({ url: '/api/catalogue/art/{cle}', ...options });

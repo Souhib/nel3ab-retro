@@ -10,6 +10,7 @@ import { REGLAGE } from "../../lib/mots";
 import { SWITCH_PRO, XBOX_360, physicalMap } from "../../lib/padmap";
 import { labels as switchLabels, physical, keyName, xboxLabels } from "../../lib/switch-labels";
 import { paintPro } from "../../lib/wiring";
+import { secouer } from "../../retro/secousse";
 import { sonMenu } from "../../retro/sons";
 import { identify } from "../../media/families";
 import type { InputStream } from "../../media/input";
@@ -91,13 +92,16 @@ export function usePro(trame: TramePro | null): void {
 }
 
 /** Un geste sur la trame Pro : son refus se dit au lieu de lever, avec le
- * son grave du socle (coupé par défaut, et quand le jeu a le focus). */
+ * son grave du socle (coupé par défaut, et quand le jeu a le focus) et la
+ * secousse de l'avis (niveau tout ; jamais sur l'image du jeu). */
 function useGeste(source: SwitchInput) {
   const [avis, setAvis] = useState("");
   const [, relire] = useReducer((n: number) => n + 1, 0);
+  const avisRef = useRef<HTMLParagraphElement>(null);
   const refuser = (texte: string) => {
     setAvis(texte);
     sonMenu("erreur");
+    if (avisRef.current) secouer(avisRef.current);
   };
   const geste = (change: () => void) => {
     try {
@@ -108,7 +112,7 @@ function useGeste(source: SwitchInput) {
     }
     relire();
   };
-  return { avis: avis || source.message, refuser, geste };
+  return { avis: avis || source.message, avisRef, refuser, geste };
 }
 
 function DessinsPro({ trame }: { trame: TramePro }) {
@@ -183,7 +187,7 @@ export function ManettePro({
   plein?: boolean;
 }) {
   const { source } = trame;
-  const { avis, geste } = useGeste(source);
+  const { avis, avisRef, geste } = useGeste(source);
   const [avant, setAvant] = useState(false);
   const noms = nomsPro(trame);
   const pad = source.pad;
@@ -347,7 +351,9 @@ export function ManettePro({
           ) : null}
         </>
       )}
-      <p role="status">{avis}</p>
+      <p ref={avisRef} role="status">
+        {avis}
+      </p>
     </>
   );
 }
@@ -356,7 +362,7 @@ export function ManettePro({
  * touche essayée allume sa pièce et ne part jamais au jeu. */
 export function ClavierPro({ trame }: { trame: TramePro }) {
   const { source } = trame;
-  const { avis, geste } = useGeste(source);
+  const { avis, avisRef, geste } = useGeste(source);
   const noms = nomsPro(trame);
   return (
     <>
@@ -394,7 +400,9 @@ export function ClavierPro({ trame }: { trame: TramePro }) {
         onEffacer={(cle) => geste(() => source.clear(cle as SwitchTarget, "key"))}
         pied={REGLAGE.nonTransmis(trame.xbox)}
       />
-      <p role="status">{avis}</p>
+      <p ref={avisRef} role="status">
+        {avis}
+      </p>
     </>
   );
 }
@@ -403,7 +411,7 @@ export function ClavierPro({ trame }: { trame: TramePro }) {
  * déclare jamais prêt, et aucun profil n'est « proposé pour ce jeu ». */
 export function ProfilsPro({ trame }: { trame: TramePro }) {
   const { source } = trame;
-  const { avis, refuser, geste } = useGeste(source);
+  const { avis, avisRef, refuser, geste } = useGeste(source);
   const [nom, setNom] = useState("");
   const fichier = useRef<HTMLInputElement>(null);
   const pareil = (profil: unknown) => JSON.stringify(profil) === JSON.stringify(source.profile);
@@ -515,7 +523,9 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
           e.target.value = "";
         }}
       />
-      <p role="status">{avis}</p>
+      <p ref={avisRef} role="status">
+        {avis}
+      </p>
     </section>
   );
 }

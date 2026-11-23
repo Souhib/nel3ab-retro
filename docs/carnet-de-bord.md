@@ -28722,6 +28722,90 @@ processus de rendu dont je n'ai pas établi le propriétaire tournaient
 encore à la fin. La baisse de la quatrième phase peut venir d'eux. C'est une
 tendance, pas une comparaison.
 
+### 23 novembre, avant l'aube : une vraie manette se dit dans la bande
+
+**Le défaut.** Quand une vraie manette se branchait, la page posait un avis
+de cinq secondes. Au téléphone, il couvrait la gâchette L pendant ces cinq
+secondes (audit N1). Le premier passage l'avait sorti de l'image, dans la
+pile des avis ; il restait un objet posé à l'écran pour une information que
+la salle peut dire ailleurs.
+
+**Ce qui a changé.** Le branchement est dit une fois au lecteur d'écran, par
+une ligne invisible (`#controller-status`, classe `sr-only`) qui reste montée
+et dont seul le texte change. Au bureau, le rang « Ta manette Xbox » de la
+colonne dit déjà « à configurer » quand il le faut. Au téléphone, la bande
+dit « Ta manette Xbox joue à la place 1. », avec deux gestes : « Vérifier
+les boutons », qui ouvre la vue des touches dans la feuille agrandie, et les
+commandes tactiles, montrées ou cachées. En automatique, une vraie manette
+branchée efface les touches à l'écran, et elles reviennent quand la manette
+part. Tenu droit sans touches à l'écran, la bande conseille de tourner le
+téléphone, avec une icône en pixels : en travers, l'image prend toute la
+hauteur, et le panneau se tient debout dans la bande gauche.
+
+**La preuve.** Deux étapes de `cadre.mjs`, avec une manette Xbox simulée
+(`navigator.getGamepads` remplacé, comme dans `focus.mjs`).
+`manette-branchee` garde les touches à l'écran à 390 × 844 et touche le
+centre de L toutes les 100 ms pendant 6 s : contre la page d'avant le
+chantier (03b21c0), L est couverte par `#controller-status`.
+`manette-vraie` vérifie l'image entière, le conseil tenu droit et son
+absence en travers ; son jumeau débranche la manette et attend le retour des
+touches. Contre la page de la fin du passage précédent (acfa4c7), elle est
+rouge sur les touches restées à l'écran.
+
+**Une option tuée par la mesure.** La feuille à mi-hauteur devait garder les
+45 dernières secondes à un toucher. Tenue droite, sa grille a deux colonnes,
+et une sixième entrée ne coûte aucune ligne. En travers, elle n'a qu'une
+colonne dans la bande gauche : `salle-telephone` a mesuré 458 px de contenu
+pour 390 de haut à 844 × 390, et « Toute la salle » sortait de la zone sûre.
+L'essai a pris une porte, une dizaine de minutes. En travers, le clip reste
+dans la salle entière, à deux touchers ; la règle est dans `lib/feuille.ts`,
+et l'étape `feuille-clip` vérifie les deux sens.
+
+**Un piège : simuler un état, c'est rejouer ce que le système envoie dans
+cet état.** Pour l'étape `vit-figee-immobile`, il fallait une image arrêtée
+sur le banc. Le premier essai retenait les messages de la socket vidéo : la
+page est passée à « injoignable », pas à « figée ». La page juge la salle
+vivante sur les octets qui arrivent, pas sur les images décodées. Une salle
+dont l'image s'arrête envoie toujours des messages vides, le signe de vie du
+worker. Le banc remplace donc chaque image par un message vide, et la page
+voit alors une image figée, puis vivante quand les images reprennent. Le
+cadre n'y bouge pas d'un demi-pixel.
+
+**Un jumeau qui ne passait pas par le contrôle.** Le premier jumeau de
+`vit-figee-immobile` décalait l'image d'un pixel par une marge et relisait
+sa boîte directement. L'image est centrée dans sa zone : la marge ne la
+déplaçait que d'un demi-pixel, et surtout la relecture ne passait pas par la
+surveillance qu'il devait éprouver. Le jumeau relance maintenant la même
+surveillance et décale l'image de deux pixels par une transformation ; elle
+le voit. La mascotte a le même genre de jumeau : une fausse mascotte posée
+sur l'image doit être vue par la sonde de `mascotte-hors-image`. Ni l'une ni
+l'autre étape n'a de page rouge : aucune page d'avant n'a le cadre qu'elles
+lisent.
+
+**Un petit piège de formatage.** `prettier` lancé sur `cadre.mjs` a réécrit
+819 lignes : ce pilote n'est pas formaté par lui. Le changement a été défait
+et refait à la main. Avant de formater un fichier, regarder quel outil le
+formate déjà.
+
+**L'ancre de l'annonce.** Le socle écrit ses annonces lettre à lettre dans
+un élément qu'on lui donne (`retro/lettres.ts`). La salle en pose un seul à
+la fois, `[data-ancre="annonce"]` (`ANCRE_ANNONCE` dans `lib/cadre.ts`), sur
+la ligne du titre : le fronton au bureau, sinon l'en-tête de la colonne ; la
+barre au téléphone, sinon la bande. En travers avec la manette tactile, il
+n'y a ni barre ni bande, donc pas d'ancre.
+
+**Les captures de nuit et de jour (étape 8).** `cadre.mjs --clair jour` ou
+`--clair nuit` règle la préférence du système. Deux passages, le
+23 novembre 2026, ont pris 54 captures aux tailles des preuves (sept
+bureaux, téléphone droit et en travers, tablette). Elles restent hors du
+dépôt. Relues : les deux régies diffèrent bien, et les deux gestes de la
+bande se lisaient comme du texte ; ils ont pris la boîte et l'ombre des
+boutons du socle. Les prises des places restent recouvertes en partie par le
+micro et la couronne, en attendant les places du chantier personnes.
+
+**Le poids.** 246 764 octets en brotli : la salle en utilise 11 064 sur ses
+12 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -30320,9 +30404,13 @@ salle, la pile des avis est collée en haut et « Plus bas » en bas.
 **Arbitre des scènes** : le module qui décide quelle scène de la mascotte
 joue quand deux chantiers en demandent une au même endroit (`lib/scenes-salle.ts`).
 
-**Élément collant (sticky)** : un élément qui défile avec la page, puis
-reste accroché au bord de la zone visible quand il l'atteint, comme un
-en-tête de tableau.
+**Ancre de l'annonce** : l'élément où le socle écrit une annonce lettre à
+lettre. La salle n'en pose qu'un à la fois, sur la ligne du titre, jamais
+sur l'image.
+
+**sr-only** : une classe qui garde un texte pour le lecteur d'écran sans le
+peindre. La boîte fait un pixel et elle est découpée à zéro : elle ne
+couvre rien et ne reçoit aucun clic.
 
 **Marge de défilement (scroll-padding)** : la place qu'une zone qui défile
 garde libre sur un bord quand elle amène un élément en vue, pour qu'il ne

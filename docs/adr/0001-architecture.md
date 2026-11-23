@@ -1665,7 +1665,7 @@ after the amendment: 235 700 bytes in brotli 11, margin 64 300.
 
 ### D39: The room frame, and nothing on the picture, 2026-11-23
 
-Status: partly delivered on `chantier/retro-salle` (passes 1 to 3).
+Status: partly delivered on `chantier/retro-salle` (passes 1 to 5).
 Amends D28, D29 and D35 when the steps that change them land; until then
 those entries stay in force, except where this entry says otherwise.
 
@@ -1839,8 +1839,22 @@ after the first picture, and a pad appearing then moved the picture); the
 band carries the take-a-seat button. Step 8, in part: the
 alternating effects measurement (`just cadre-mesure`, outside the gate),
 two series of four 60 s phases, showed no repeatable cost in headless
-Chrome under a foreign load (a trend, not a comparison). Not yet delivered:
-the play time wiring (waits for D04), the night and day captures.
+Chrome under a foreign load (a trend, not a comparison). Delivered in pass 5:
+a real controller no longer gets a notice. The plug notice, which covered L
+for five seconds on a phone (audit N1, red against 03b21c0 in
+`manette-branchee`), is now a screen-reader line only (`#controller-status`,
+`sr-only`). Held in hand, the band says « Ta manette Xbox joue à la place 1. »
+with « Vérifier les boutons » and the touch-controls toggle; on automatic, a
+plugged controller hides the touch pad (`showsTouchPad`), and an upright
+phone without it advises turning (`manette-vraie`). The half-height sheet
+carries the clip, except across, where its single column scrolled (458 px of
+content for 390). The socle's announcement anchor (`ANCRE_ANNONCE`) sits on
+the title line, one at a time. `mascotte-hors-image` and
+`vit-figee-immobile` have in-step twins and no red page (no earlier page has
+the frame they read). Step 8 is closed with the night and day captures
+(`cadre.mjs --clair`). Not yet delivered: the play time wiring (waits for
+D04), the stick and Pro activity (waits for K34), the label in the pad's
+slot (en-jeu-tactile.5).
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

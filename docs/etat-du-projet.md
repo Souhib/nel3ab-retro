@@ -94,10 +94,20 @@ l'image), `cadre.mjs` `tenu-rien-sur-image` (rouge contre cf3bba1). Un
 spectateur (qui a choisi de regarder) tenu en main n'a plus de manette, et
 sa place à prendre est dans la bande. Mesure alternée des effets (`just cadre-mesure`, deux séries de
 quatre phases de 60 s) : aucun coût répétable dans Chrome sans écran, sous
-une charge étrangère, donc une tendance. Reste : les captures de nuit et de
-jour, le temps de jeu (D04), la documentation finale et la porte entière.
-Poids : 246 490 octets en brotli (10 790 pour la salle, enveloppe de
-12 000). Décision : [ADR](adr/0001-architecture.md) D39 (en
+une charge étrangère, donc une tendance. Cinquième passage : une vraie
+manette n'a plus d'avis à l'écran. Le branchement est dit au lecteur
+d'écran ; au téléphone, la bande dit quelle manette joue et à quelle place,
+avec « Vérifier les boutons » et les commandes tactiles ; en automatique, la
+manette efface les touches à l'écran, et le téléphone tenu droit conseille
+de se tourner (`cadre.mjs` `manette-branchee`, rouge contre 03b21c0, et
+`manette-vraie`). La feuille à mi-hauteur garde le clip, sauf en travers
+(`feuille-clip`). L'ancre de l'annonce du socle est posée sur la ligne du
+titre. `mascotte-hors-image` et `vit-figee-immobile` vérifient la mascotte
+pendant ses scènes et un cadre immobile quand l'image s'arrête. Les captures
+de nuit et de jour sont prises (`cadre.mjs --clair`). Reste : le temps de jeu
+(D04), l'activité des sticks et de la trame Pro (K34), l'étiquette dans la
+manette, l'amendement de D29 avec etats et la porte entière. Poids :
+246 764 octets en brotli (11 064 pour la salle, enveloppe de 12 000). Décision : [ADR](adr/0001-architecture.md) D39 (en
 partie livrée), qui amende D28 et D35. Récits : « 23
 novembre, le soir : le cadre de la salle, et rien sur l'image » et « 23
 novembre, la nuit : la colonne du bureau et le panneau de commande » et
@@ -105,7 +115,8 @@ novembre, la nuit : la colonne du bureau et le panneau de commande » et
 novembre, encore : la vue des touches, lue dans le produit » et « 23
 novembre, encore plus tard : la borne autour de l'image » et « 23 novembre,
 la nuit encore : la salle tenue en main » et « 23 novembre, au bout de la
-nuit : ce que coûtent les effets ».
+nuit : ce que coûtent les effets » et « 23 novembre, avant l'aube : une
+vraie manette se dit dans la bande ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

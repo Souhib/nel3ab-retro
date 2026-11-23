@@ -462,6 +462,34 @@ const ETAPES = {
     await page.close();
   },
 
+  /** Effet « lettres » (plan personnes) : l'arrivée de Bo s'écrit sur
+   * l'ancre de l'annonce du socle, hors de l'image, puis s'efface. Sur la
+   * page de 54d1f6f, l'ancre restait vide. */
+  async "annonce-lettres"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(800);
+    if (!(await page.$('[data-ancre="annonce"]'))) throw new Precondition("aucune ancre d'annonce dans la salle");
+    banc.regler({ bo: true });
+    if (!(await jusqua(async () => /Bo/.test(await texte(page, "#ligneParlee")), 4000)))
+      throw new Precondition("l'arrivée de Bo n'est pas dite");
+    const phrase = await texte(page, "#ligneParlee");
+    if (!(await jusqua(async () => (await texte(page, '[data-ancre="annonce"]')) === phrase, 3000)))
+      throw new Defaut(`l'ancre ne dit pas l'arrivée : « ${await texte(page, '[data-ancre="annonce"]')} »`);
+    const pose = await page.evaluate(() => {
+      const r = document.querySelector('[data-ancre="annonce"]').getBoundingClientRect();
+      const t = document.querySelector("#screen").getBoundingClientRect();
+      return { coupe: r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom, haut: r.height };
+    });
+    if (pose.coupe) throw new Defaut("l'annonce s'écrit sur l'image");
+    if (pose.haut === 0) throw new Defaut("l'ancre écrite n'a aucune hauteur : personne ne la voit");
+    await capture(page, "annonce-lettres");
+    // Le jumeau : elle s'efface (ANNONCE_RESTE_MS, 6 s après la fin).
+    if (!(await jusqua(async () => (await texte(page, '[data-ancre="annonce"]')) === "", 9000)))
+      throw new Defaut("l'annonce reste écrite sur l'ancre");
+    await page.close();
+  },
+
   /** P7 (plan personnes, signaler 0) : « Signaler un problème » se voit sans
    * défiler dans la colonne, à trois tailles de bureau. Sur 03b21c0, à
    * 1280 × 720, il était sous le pli. */

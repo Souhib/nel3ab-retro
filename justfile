@@ -816,7 +816,8 @@ parcours-navigateur-rouge:
         --etapes "$etapes" --rouge-attendu "$etapes"
     # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
     # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
-    # dite 90 ms après une arrivée l'efface de la ligne parlée. Ce commit ne vit que
+    # dite 90 ms après une arrivée l'efface de la ligne parlée, et l'ancre
+    # de l'annonce du socle reste vide. Ce commit ne vit que
     # sur `chantier/retro-personnes` : sa page est gardée dans `rouges/`,
     # avec son empreinte vérifiée avant usage, comme celles de la salle.
     rouges="$(pwd)/rouges"
@@ -827,7 +828,8 @@ parcours-navigateur-rouge:
         exit 1
     fi
     node parcours.mjs --page "$rouges/personnes-54d1f6f.html" --flux "$dossier/flux.h264" \
-        --etapes places-clavier,annonce-arrivee --rouge-attendu places-clavier,annonce-arrivee
+        --etapes places-clavier,annonce-arrivee,annonce-lettres \
+        --rouge-attendu places-clavier,annonce-arrivee,annonce-lettres
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

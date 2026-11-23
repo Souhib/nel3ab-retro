@@ -31,6 +31,7 @@ import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
+import { AnnonceEnLettres } from "./components/AnnonceEnLettres";
 import { Ouverture } from "./components/Ouverture";
 import { attenteDemarrage, bootingStep, suiteDuChargement } from "./lib/booting";
 import { GardeSignalement } from "./lib/garde-signalement";
@@ -98,7 +99,7 @@ import { IlsRegardent } from "./components/IlsRegardent";
 import { Mesures } from "./components/Mesures";
 import { SuiviPlaces } from "./components/SuiviPlaces";
 import { formeDesPlaces, hoteDesPlaces, REPRISE_REPONSE_S } from "./lib/places";
-import { useDonDiffere, type Annoncer } from "./lib/usePlaces";
+import { useDonDiffere, type Annoncer, type Nature } from "./lib/usePlaces";
 import { forgetName, rememberedName } from "./lib/name";
 import {
   SHELLS,
@@ -2269,9 +2270,13 @@ function Room({
   const [suivi, setSuivi] = useState<SuiviVu>(SANS_SUIVI);
   /** La dernière nouvelle des places, de l'invitation ou du signalement,
    * pour la seule ligne parlée de la salle. */
-  const [nouvelle, setNouvelle] = useState<{ texte: string; cle: number } | null>(null);
+  const [nouvelle, setNouvelle] = useState<{
+    texte: string;
+    cle: number;
+    nature: Nature;
+  } | null>(null);
   const annoncer = useCallback<Annoncer>(
-    (texte) => setNouvelle((avant) => ({ texte, cle: (avant?.cle ?? 0) + 1 })),
+    (texte, nature) => setNouvelle((avant) => ({ texte, nature, cle: (avant?.cle ?? 0) + 1 })),
     [],
   );
   /** « Donner » s'annule pendant 4 s ; la réponse part ensuite au bon chemin. */
@@ -3158,6 +3163,9 @@ function Room({
             peintes={shot?.video.painted ?? 0}
             nouvelle={nouvelle}
           />
+          {/* La même nouvelle, écrite lettre par lettre sur l'ancre de
+              l'annonce du socle (effet « lettres »). */}
+          <AnnonceEnLettres nouvelle={nouvelle} />
           {/* Les arrivées et les départs, suivis sous le cadre pour son
               arbitre des scènes. */}
           <SuiviPlaces

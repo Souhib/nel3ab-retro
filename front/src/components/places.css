@@ -349,3 +349,18 @@
 .n3-mesures dd[data-mauvais] {
   color: var(--alerte);
 }
+
+/* L'annonce des places sur l'ancre du socle (`AnnonceEnLettres`, effet
+   « lettres ») : une ligne en Pixelify, coupée par des points de suspension
+   plutôt que de pousser le titre du jeu hors du fronton. L'ancre vide ne
+   prend aucune place. */
+[data-ancre="annonce"]:not(:empty) {
+  min-width: 0;
+  flex: 0 1 auto;
+  margin-left: 1ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--police-titre);
+  color: var(--signal);
+}

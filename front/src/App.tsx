@@ -171,7 +171,23 @@ import {
   SORTIES,
   sortieDuMenu,
   TACTILE,
+  AGRANDIE,
 } from "./lib/mots";
+import {
+  Cadre,
+  useApresLeClic,
+  useFenetre,
+  useGeometrie,
+  useHauteur,
+  useZonesSures,
+} from "./components/Cadre";
+import {
+  MANETTES as DESSINS_MANETTES,
+  etatDuCadre,
+  lieuDesAvis,
+  modeDuCadre,
+  type Role as RoleDuCadre,
+} from "./lib/cadre";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
 import { abonner, changerNiveau, changerSons, estNiveau, instantane, NIVEAUX } from "./lib/effets";
 import { consoleDesTouches, sauvegardeAnnoncee, sauvegardeRelancee } from "./lib/lancement";
@@ -2082,6 +2098,80 @@ function Room({
       : null;
   /** La largeur d'une bande noire à côté de l'image, où se pose la manette. */
   const bande = Math.max(0, (space.width - posee.width) / 2);
+  /* Le cadre de la salle (`lib/cadre`) : l'état, le rôle et la géométrie,
+     posés sur la racine en attributs et en variables CSS que les feuilles de
+     chaque chantier lisent. */
+  const fenetre = useFenetre();
+  const zonesSures = useZonesSures(fenetre);
+  const roleDuCadre: RoleDuCadre = padOnly ? "seule" : port === null ? "regarde" : "joueur";
+  const geo = useGeometrie({
+    mode: modeDuCadre({
+      largeur: fenetre.width,
+      hauteur: fenetre.height,
+      grossier: coarse,
+      role: roleDuCadre,
+    }),
+    fenetre,
+    zonesSures,
+    image: picture,
+    ajustement: fit,
+    etat: etatDuCadre({
+      liaison: liaison.etat,
+      chargement: booting !== null,
+      jeu: Boolean(room?.game),
+    }),
+    role: roleDuCadre,
+    manette: couches.pave
+      ? usesProInput(room?.game?.console)
+        ? DESSINS_MANETTES.pro
+        : DESSINS_MANETTES.dolphin
+      : null,
+    largeurColonne: column,
+    largeurPanneau: null,
+    agrandie: bare && !compact,
+  });
+  /** La pastille de l'image agrandie : trois secondes après Ctrl, puis
+   * trois secondes après chaque mouvement de la souris (colonne.11). */
+  const [agrandieVue, setAgrandieVue] = useState(false);
+  useEffect(() => {
+    if (!bare || compact) {
+      setAgrandieVue(false);
+      return;
+    }
+    let minuteur = 0;
+    const montrer = () => {
+      setAgrandieVue(true);
+      window.clearTimeout(minuteur);
+      minuteur = window.setTimeout(() => setAgrandieVue(false), 3000);
+    };
+    montrer();
+    window.addEventListener("mousemove", montrer);
+    return () => {
+      window.clearTimeout(minuteur);
+      window.removeEventListener("mousemove", montrer);
+    };
+  }, [bare, compact]);
+  /** Le clavier rendu à la colonne, retenu pendant un clic (`useApresLeClic`). */
+  const pauseClavier = useApresLeClic(
+    clavierEnPause({
+      partie: enPartie,
+      place: port !== null,
+      appareil,
+      menu: menu || configuring,
+      auJeu,
+    }),
+  );
+  /** La pile des avis, mesurée, et son lieu hors de l'image (`lieuDesAvis`). */
+  const [pile, setPile] = useState<HTMLDivElement | null>(null);
+  const hauteurPile = useHauteur(pile);
+  const lieuAvis = lieuDesAvis({
+    zone: space,
+    image: cadre ? { x: cadre.left, y: cadre.top, w: cadre.width, h: cadre.height } : null,
+    colonneACote: couches.colonne === "a-cote",
+    hauteur: hauteurPile,
+  });
+  const pastilleAgrandie =
+    agrandieVue && bare && !compact && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
   const takeHalf = () => {
     session?.video.setHalf(true);
     setHalf(true);
@@ -2107,103 +2197,86 @@ function Room({
   );
   const tenu = pendingSetup ? setupChoice : pad;
 
-  return (
-    <div className="flex h-full">
-      <main className="relative flex min-w-0 flex-1 flex-col">
-        <Screen
-          canvasRef={ref}
-          zoneRef={zone}
-          // Pas pendant un chargement: l'écran de chargement couvre l'image,
-          // et Tab s'arrêterait sur une zone qu'on ne voit pas.
-          jouable={enPartie}
-          libelle={
-            port === null
-              ? "Image du jeu"
-              : "Zone de jeu. Au clavier, tes touches y pilotent ta manette."
-          }
-          connected={shot?.video.connected ?? false}
-          fit={fit}
-          picture={shot?.video.picture ?? { width: 0, height: 0 }}
-          onSpace={setSpace}
-          onPrescale={(times) => session?.video.setPrescale(times)}
-        />
-        {/* Les avis du HAUT de l'image, en une pile: ils s'empilent au lieu de
-            se couvrir. Le bas est déjà pris par la proposition et la pastille
-            de la liaison (`EtatSalle`) et par l'avis du format réduit; l'avis
-            du clavier y était posé aussi, et la proposition, plus tard dans le
-            DOM, pouvait couvrir son bouton (relecture du 22 novembre 2026).
-            `pointer-events-none` sur la pile seule: un clic à côté des avis
-            arrive à l'image. */}
-        <div
-          id="avisDuHaut"
-          className="pointer-events-none absolute top-[calc(var(--zone-haut)+1rem)] right-[calc(var(--zone-droite)+0.75rem)] left-[calc(var(--zone-gauche)+0.75rem)] z-30 flex flex-col items-center gap-2"
-        >
-          {/* Une manette branchée ou débranchée, cinq secondes (choix du
-              7 septembre 2026). Dans la pile depuis le 22 novembre: posée à
-              part en haut à gauche, elle passait sous l'avis du clavier. */}
-          {shot ? (
-            <ControllerStatus
-              visible={port !== null && !menu && !configuring}
-              state={shot.input}
-              onConfigure={() => {
-                setOngletTouches("pad");
-                setBindings(true);
-              }}
-            />
-          ) : null}
-          {/* La salle va fermer faute d'activité. En haut, parce que c'est la
-              seule chose qui vaille qu'on quitte le jeu des yeux, et cliquable
-              pour disparaître: un message qu'on ne peut pas faire taire finit
-              par être contourné en fermant l'onglet. */}
-          {closingSoon !== null ? (
+  /* Les avis de la salle, en une pile, et JAMAIS sur l'image : en tête de
+     la colonne quand elle est à côté, dans une bande noire où la pile tient
+     entière, sinon dans le flux au-dessus de l'écran (`lieuDesAvis`). Jusqu'au
+     23 novembre 2026, cette pile se posait en haut de l'image (`#avisDuHaut`),
+     et l'avis du format réduit en bas. */
+  const avis =
+    (shot && port !== null && !menu && !configuring) ||
+    closingSoon !== null ||
+    reduced ||
+    pastilleAgrandie ||
+    pauseClavier ? (
+      <div
+        id="avisDuCadre"
+        ref={setPile}
+        data-lieu={lieuAvis.lieu}
+        className="pointer-events-none z-30 flex flex-col items-center gap-2 empty:hidden"
+        style={
+          lieuAvis.rect
+            ? {
+                position: "absolute",
+                left: "calc(var(--zone-gauche) + 0.75rem)",
+                right: "calc(var(--zone-droite) + 0.75rem)",
+                top: lieuAvis.rect.y + Math.max(0, (lieuAvis.rect.h - hauteurPile) / 2),
+              }
+            : { padding: lieuAvis.lieu === "flux" ? "0.5rem 0.75rem" : undefined }
+        }
+      >
+        {/* Une manette branchée ou débranchée, cinq secondes (choix du
+            7 septembre 2026). */}
+        {shot ? (
+          <ControllerStatus
+            visible={port !== null && !menu && !configuring}
+            state={shot.input}
+            onConfigure={() => {
+              setOngletTouches("pad");
+              setBindings(true);
+            }}
+          />
+        ) : null}
+        {/* La salle va fermer faute d'activité, cliquable pour disparaître: un
+            message qu'on ne peut pas faire taire finit par être contourné en
+            fermant l'onglet. */}
+        {closingSoon !== null ? (
+          <button
+            type="button"
+            id="closingNotice"
+            onClick={() => setClosingHidden(true)}
+            className="pointer-events-auto w-full max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
+          >
+            <span className="float-left -mt-1 mr-3" aria-hidden="true">
+              <Bobine pose="dort" taille={44} />
+            </span>
+            Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
+            {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
+          </button>
+        ) : null}
+        {/* Le clavier ne joue plus: le focus est sur la colonne (`lib/focus-jeu`,
+            `clavierEnPause`). */}
+        {pauseClavier ? (
+          <div
+            id="clavierEnPause"
+            className="regie-nuit pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border border-rule bg-panel px-3 py-2 text-corps text-muted"
+          >
+            <span>Le jeu ne reçoit plus tes touches.</span>
             <button
               type="button"
-              id="closingNotice"
-              onClick={() => setClosingHidden(true)}
-              className="pointer-events-auto w-full max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
+              id="rejouerAuClavier"
+              onClick={() => zone.current?.focus({ preventScroll: true })}
+              className="flex min-h-11 items-center gap-2 text-indigo hover:underline"
             >
-              <span className="float-left -mt-1 mr-3" aria-hidden="true">
-                <Bobine pose="dort" taille={44} />
-              </span>
-              Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
-              {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
+              Rendre les touches au jeu
             </button>
-          ) : null}
-          {/* Le clavier ne joue plus: le focus est sur la colonne. Sans le
-              dire, un clic sur un bouton de la colonne ressemblait à un jeu qui
-              ne répond plus (`lib/focus-jeu`, `clavierEnPause`). L'effet
-              d'abord, en mots de joueur: « la page » était un mot d'atelier,
-              et « Rejouer » se lisait « recommencer ». */}
-          {clavierEnPause({
-            partie: enPartie,
-            place: port !== null,
-            appareil,
-            menu: menu || configuring,
-            auJeu,
-          }) ? (
-            <div
-              id="clavierEnPause"
-              className="regie-nuit pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border border-rule bg-panel px-3 py-2 text-corps text-muted"
-            >
-              <span>Le jeu ne reçoit plus tes touches.</span>
-              <button
-                type="button"
-                id="rejouerAuClavier"
-                onClick={() => zone.current?.focus({ preventScroll: true })}
-                className="flex min-h-11 items-center gap-2 text-indigo hover:underline"
-              >
-                Rendre les touches au jeu
-              </button>
-            </div>
-          ) : null}
-        </div>
-        {/* L'image est passée en image légère toute seule: on le DIT, et on laisse revenir.
-            Réduire en silence ferait chercher pourquoi l'image est devenue
-            moins nette, ce qui est exactement le temps qu'on essaie de rendre. */}
+          </div>
+        ) : null}
+        {/* L'image est passée en image légère toute seule: on le DIT, et on
+            laisse revenir. */}
         {reduced ? (
           <div
             id="reducedNotice"
-            className="absolute inset-x-0 bottom-[calc(var(--zone-bas)+1rem)] z-20 mx-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
+            className="pointer-events-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
           >
             <p className="text-corps leading-relaxed text-bright">
               Ta connexion ne suivait pas : passage en image légère.
@@ -2233,6 +2306,43 @@ function Room({
             </div>
           </div>
         ) : null}
+        {/* L'image agrandie par Ctrl : trois secondes, puis à chaque mouvement
+            de la souris, et seulement dans une bande noire. Les boutons de
+            coin à 30 % (« montrer (Ctrl) ») posés sur l'image sont partis. */}
+        {pastilleAgrandie ? (
+          <p
+            id="pastilleAgrandie"
+            role="status"
+            className="regie-nuit border border-rule bg-panel px-3 py-1 text-corps text-muted"
+          >
+            {AGRANDIE.pastille}
+          </p>
+        ) : null}
+      </div>
+    ) : null;
+
+  return (
+    <Cadre geo={geo} className="flex h-full">
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {lieuAvis.lieu === "flux" ? avis : null}
+        <Screen
+          canvasRef={ref}
+          zoneRef={zone}
+          // Pas pendant un chargement: l'écran de chargement couvre l'image,
+          // et Tab s'arrêterait sur une zone qu'on ne voit pas.
+          jouable={enPartie}
+          libelle={
+            port === null
+              ? "Image du jeu"
+              : "Zone de jeu. Au clavier, tes touches y pilotent ta manette."
+          }
+          connected={shot?.video.connected ?? false}
+          fit={fit}
+          picture={shot?.video.picture ?? { width: 0, height: 0 }}
+          onSpace={setSpace}
+          onPrescale={(times) => session?.video.setPrescale(times)}
+        />
+        {lieuAvis.rect ? avis : null}
         {/* Ce qu'on voit quand cet appareil ne sert que de manette.
             Un écran noir se lit comme une panne, et c'en est une pour qui a
             oublié avoir choisi ce mode. La toile reste montée derrière: elle
@@ -2310,31 +2420,6 @@ function Room({
             soundOff={soundOff}
             onFeuille={() => setFeuille(true)}
           />
-        ) : null}
-        {bare && !onTouch && !compact ? (
-          /* Replié, il reste de quoi revenir. Discret et dans un coin: une barre
-             permanente par-dessus l'image rendrait le repli inutile. Seulement
-             quand la colonne est à côté de l'image: en tiroir, le « ••• » fait
-             ce travail. */
-          <div className="regie-nuit absolute top-[calc(var(--zone-haut)+0.5rem)] right-[calc(var(--zone-droite)+0.5rem)] flex gap-1 opacity-30 transition-opacity hover:opacity-100">
-            <button
-              type="button"
-              id="unbare"
-              onClick={() => setBare(false)}
-              className="border border-rule bg-panel px-2 py-1 text-note text-muted"
-            >
-              montrer (Ctrl)
-            </button>
-            {plein === "api" ? (
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="border border-rule bg-panel px-2 py-1 text-note text-muted"
-              >
-                {fullscreen ? "fenêtre" : "plein écran"}
-              </button>
-            ) : null}
-          </div>
         ) : null}
         {feuille ? (
           <FeuilleDuBas
@@ -2521,7 +2606,15 @@ function Room({
             /* La largeur choisie, et jamais plus de la moitié de la fenêtre:
              une largeur retenue sur un grand écran ne doit pas écraser le jeu
              sur un petit. Dans le tiroir, c'est lui qui décide. */
-            style={compact ? undefined : { width: column, maxWidth: "50vw" }}
+            style={
+              compact
+                ? undefined
+                : {
+                    width: column,
+                    maxWidth: "50vw",
+                    scrollPaddingTop: lieuAvis.lieu === "colonne" ? hauteurPile + 16 : undefined,
+                  }
+            }
             className={cn(
               "relative flex flex-col gap-3 overflow-y-auto bg-panel",
               !compact && "shrink-0 border-l border-rule px-3 py-3",
@@ -2529,6 +2622,17 @@ function Room({
           >
             {couches.colonne === "tiroir" ? (
               <BarreDuTiroir onFermer={() => setTiroir(false)} />
+            ) : null}
+            {/* En tête de la colonne quand aucune bande noire ne tient la pile
+                (`lieuDesAvis`), collée en haut de ce qui se voit : la colonne
+                défile jusqu'au rang qui a le focus, et une tête qui défile
+                avec elle laissait l'avis hors de vue (focus.mjs, avis-haut).
+                La marge de défilement de la colonne vaut sa hauteur, pour
+                qu'un rang focalisé ne passe pas dessous. L'avis du clavier ne
+                change pas pendant un clic (`useApresLeClic`) : né du clic qui
+                quitte l'image, il poussait le bouton pressé sous le pointeur. */}
+            {lieuAvis.lieu === "colonne" ? (
+              <div className="sticky top-0 z-30 -mx-3 bg-panel px-3 pb-2 empty:hidden">{avis}</div>
             ) : null}
             <header className="flex flex-col gap-0.5">
               <Logo />
@@ -2916,6 +3020,6 @@ function Room({
           }}
         />
       ) : null}
-    </div>
+    </Cadre>
   );
 }

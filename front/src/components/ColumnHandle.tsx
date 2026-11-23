@@ -82,10 +82,12 @@ export function ColumnHandle({
       }}
     >
       {/* La prise, plus large que le trait qu'elle recouvre: un trait d'un pixel
-          ne s'attrape pas à la souris. Elle déborde des deux côtés du bord. */}
+          ne s'attrape pas à la souris. Elle déborde vers la colonne seulement:
+          jusqu'au 23 novembre 2026, elle mordait de 4 px sur le bord droit de
+          l'image, et son survol la teintait (garde de `cadre.mjs`). */}
       <span
         className={cn(
-          "absolute inset-y-0 -left-1 w-2 transition-colors",
+          "absolute inset-y-0 left-0 w-2 transition-colors",
           dragging ? "bg-indigo/60" : "group-hover:bg-indigo/40",
         )}
       />

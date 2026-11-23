@@ -13,6 +13,7 @@ import {
   memePose,
   miseEnPage,
   modeDuCadre,
+  lieuDesAvis,
   ouEstLaMascotte,
   panneauAuBureau,
   variablesDuCadre,
@@ -651,5 +652,60 @@ describe("ce que la racine reçoit", () => {
       "data-sans-image": "oui",
       "data-agrandie": "non",
     });
+  });
+});
+
+describe("la pile des avis dans la page montée", () => {
+  const zone = { width: 1136, height: 900 };
+  const image = { x: 0, y: 130, w: 1136, h: 640 };
+
+  it("va dans une bande noire d'abord, au pied de la colonne ensuite, jamais sur l'image", () => {
+    expect(lieuDesAvis({ zone, image, colonneACote: true, hauteur: 80 }).lieu).toBe("fronton");
+    const pleine = { x: 0, y: 10, w: 1136, h: 880 };
+    expect(lieuDesAvis({ zone, image: pleine, colonneACote: true, hauteur: 80 }).lieu).toBe(
+      "colonne",
+    );
+    // Le jumeau : sans colonne à côté, la même image fait entrer la pile dans le flux.
+    expect(lieuDesAvis({ zone, image: pleine, colonneACote: false, hauteur: 80 }).lieu).toBe(
+      "flux",
+    );
+  });
+
+  it("va dans le fronton quand la pile y tient entière, sinon dans le bas", () => {
+    expect(lieuDesAvis({ zone, image, colonneACote: false, hauteur: 80 }).lieu).toBe("fronton");
+    const haute = lieuDesAvis({
+      zone,
+      image: { ...image, y: 60 },
+      colonneACote: false,
+      hauteur: 80,
+    });
+    expect(haute.lieu).toBe("pied");
+    expect(haute.rect?.y).toBe(700);
+  });
+
+  it("entre dans le flux plutôt que de couvrir l'image, sans bande assez haute", () => {
+    const pleine = { x: 0, y: 0, w: 1136, h: 900 };
+    expect(lieuDesAvis({ zone, image: pleine, colonneACote: false, hauteur: 20 }).lieu).toBe(
+      "flux",
+    );
+    // Le jumeau : 39 px de bande ne suffisent pas même à une pile vide.
+    const etroite = { x: 0, y: 39, w: 1136, h: 822 };
+    expect(lieuDesAvis({ zone, image: etroite, colonneACote: false, hauteur: 0 }).lieu).toBe(
+      "flux",
+    );
+  });
+
+  it("ne pose jamais la pile, à sa hauteur mesurée, sur l'image", () => {
+    for (let y = 0; y <= 200; y += 7) {
+      for (const hauteur of [0, 30, 60, 120]) {
+        const img = { x: 0, y, w: 1136, h: 900 - 2 * y };
+        const lieu = lieuDesAvis({ zone, image: img, colonneACote: false, hauteur });
+        if (lieu.rect) {
+          const pile = { ...lieu.rect, h: hauteur + 16 };
+          const posee = lieu.lieu === "fronton" ? pile : { ...pile, y: lieu.rect.y };
+          expect(coupe(posee, img)).toBe(0);
+        }
+      }
+    }
   });
 });

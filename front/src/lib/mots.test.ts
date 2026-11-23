@@ -370,7 +370,6 @@ describe("un bouton commence par une majuscule", () => {
    * raccourcir: une entrée qui ne correspond plus à rien fait échouer l'essai.
    * Relevé le 22 novembre 2026. */
   const AVANT_LA_CHARTE = [
-    "App.tsx « montrer (Ctrl) »",
     "App.tsx « passer »",
     "components/Booting.tsx « ouvrir le menu »",
     "components/Booting.tsx « arrêter d&apos;attendre »",

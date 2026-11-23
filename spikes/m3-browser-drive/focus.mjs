@@ -892,7 +892,9 @@ const ETAPES = {
   /** L'avis « le jeu ne reçoit plus tes touches » ne se pose pas en bas de
    * l'image, où vivent déjà la proposition, la pastille de liaison et l'avis du
    * format réduit: la proposition, plus tard dans le DOM, pouvait couvrir son
-   * bouton. */
+   * bouton. Depuis le 23 novembre 2026 (chantier salle), il ne se pose plus
+   * du tout sur l'image: une bande noire où il tient, sinon le pied de la
+   * colonne (`lieuDesAvis`). */
   async "avis-haut"() {
     const page = await nouvelle(PC);
     await entrer(page);
@@ -900,15 +902,17 @@ const ETAPES = {
     if (!(await attendre(page, () => document.querySelector("#clavierEnPause") !== null)))
       throw new Precondition("l'avis de pause ne s'affiche pas");
     const lu = await page.evaluate(() => {
-      const zone = document.querySelector("[data-zone-jeu]").getBoundingClientRect();
+      const image = document.querySelector("#screen").getBoundingClientRect();
       const avis = document.querySelector("#clavierEnPause").getBoundingClientRect();
       const bouton = document.querySelector("#clavierEnPause button");
       const b = bouton.getBoundingClientRect();
       const ici = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
-      return { milieu: zone.top + zone.height / 2, bas: avis.bottom, libre: bouton.contains(ici), texte: bouton.textContent };
+      const l = Math.min(image.right, avis.right) - Math.max(image.left, avis.left);
+      const h = Math.min(image.bottom, avis.bottom) - Math.max(image.top, avis.top);
+      return { coupe: l > 0 && h > 0 ? Math.round(l * h) : 0, libre: bouton.contains(ici), texte: bouton.textContent };
     });
     await capture(page, "avis-haut");
-    if (lu.bas > lu.milieu) throw new Defaut(`l'avis descend à ${Math.round(lu.bas)} px, sous le milieu de l'image (${Math.round(lu.milieu)})`);
+    if (lu.coupe > 0) throw new Defaut(`l'avis est posé sur l'image (${lu.coupe} px²)`);
     if (!lu.libre) throw new Defaut("le bouton de l'avis est couvert");
     await page.close();
   },

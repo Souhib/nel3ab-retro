@@ -924,3 +924,49 @@ export function variablesDuCadre(geo: Geometrie): Record<string, string> {
   ecrire("panneau", geo.panneau.rect);
   return sortie;
 }
+
+/* ── Les avis, dans la page telle qu'elle est montée ──────────────────── */
+
+export const LIEUX_DES_AVIS = ["fronton", "pied", "colonne", "flux"] as const;
+export type LieuDesAvis = (typeof LIEUX_DES_AVIS)[number];
+
+/**
+ * Où poser la pile des avis (manette branchée, fermeture proche, clavier en
+ * pause, image légère, image agrandie) dans la page telle qu'elle est montée
+ * aujourd'hui, tant que le panneau, la barre et la bande ne le sont pas
+ * (étapes 3 et 4 du chantier salle).
+ *
+ * Jusqu'au 23 novembre 2026, la pile se posait EN HAUT DE L'IMAGE. Elle n'y
+ * revient jamais :
+ *
+ * - la bande noire du haut (le fronton), si la pile y tient entière, puis
+ *   celle du bas ; `hauteur` est la hauteur mesurée de la pile ;
+ * - sinon la tête de la colonne, quand elle est à côté de l'image ; l'avis
+ *   du clavier y naît du clic même qui quitte l'image, et la salle le retient
+ *   le temps du clic (`useApresLeClic` de `components/Cadre`) : sans cela, la
+ *   pile poussait le bouton pressé sous le pointeur (`clic-colonne` de
+ *   focus.mjs, `place-suit-adresse` de parcours.mjs, 23 novembre 2026) ;
+ * - sinon la pile entre dans le flux, au-dessus de l'écran : elle prend de la
+ *   hauteur à l'image le temps de l'avis, mais ne la couvre pas. Ce dernier
+ *   cas n'arrive qu'au doigt, en travers, quand la manette tient les bandes.
+ *
+ * Les coordonnées sont celles de la zone de l'image (`<main>`).
+ */
+export function lieuDesAvis(e: {
+  zone: Size;
+  /** L'image posée dans la zone, `null` sans image. */
+  image: Rect | null;
+  colonneACote: boolean;
+  /** La pile mesurée, 0 avant la première mesure. */
+  hauteur: number;
+}): { lieu: LieuDesAvis; rect: Rect | null } {
+  const besoin = Math.max(FRONTON_MIN, e.hauteur + 16);
+  if (e.image === null) return { lieu: "fronton", rect: rect(0, 0, e.zone.width, besoin) };
+  const dessus = e.image.y;
+  if (dessus >= besoin) return { lieu: "fronton", rect: rect(0, 0, e.zone.width, dessus) };
+  const bas = e.image.y + e.image.h;
+  const dessous = e.zone.height - bas;
+  if (dessous >= besoin) return { lieu: "pied", rect: rect(0, bas, e.zone.width, dessous) };
+  if (e.colonneACote) return { lieu: "colonne", rect: null };
+  return { lieu: "flux", rect: null };
+}

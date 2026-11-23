@@ -100,12 +100,15 @@ if (!NOTICE) {
   console.log("RATÉ  l'avis de fermeture (#closingNotice) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
   process.exit(1);
 }
-// Depuis le 22 novembre 2026, l'avis vit dans la pile des avis du haut de
-// l'image (`#avisDuHaut`), qui le place: c'est elle qui porte la position et
-// le z-index. La garde copie donc les deux, telles que `App.tsx` les écrit.
-const PILE = /id="avisDuHaut"[\s\S]*?className="([^"]+)"/.exec(APP)?.[1];
+// Depuis le 23 novembre 2026, l'avis vit dans la pile des avis du cadre
+// (`#avisDuCadre`), posée HORS de l'image par `lieuDesAvis` (lib/cadre): en
+// tête de la colonne, dans une bande noire, ou dans le flux. La pile porte le
+// z-index dans sa classe et reçoit sa position en style; la garde copie la
+// classe telle que `App.tsx` l'écrit, et la pose en haut de `<main>`, là où
+// la pile du 22 novembre se posait.
+const PILE = /id="avisDuCadre"[\s\S]*?className="([^"]+)"/.exec(APP)?.[1];
 if (!PILE) {
-  console.log("RATÉ  la pile des avis (#avisDuHaut) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
+  console.log("RATÉ  la pile des avis (#avisDuCadre) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
   process.exit(1);
 }
 
@@ -297,6 +300,7 @@ function notice({ NOTICE, PILE, INSET }) {
   const pile = document.createElement("div");
   pile.id = "garde-pile";
   pile.className = PILE;
+  Object.assign(pile.style, { position: "absolute", top: "8px", left: "12px", right: "12px" });
   pile.append(note);
   main.insertBefore(pile, pad);
   const style = getComputedStyle(pile);

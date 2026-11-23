@@ -384,4 +384,11 @@ export const LATENCE = {
   lentes: (ms: number) => `Tes touches mettent ${ms} ms à arriver.`,
 } as const;
 
+/** L'image agrandie par Ctrl (`lib/fullscreen`) : la seule indication qui
+ * reste, posée trois secondes dans une bande noire, jamais sur l'image. */
+export const AGRANDIE = {
+  pastille: "Image agrandie : Ctrl pour revenir à la salle",
+  tactile: "Image agrandie",
+} as const;
+
 // ==== fin salle ====

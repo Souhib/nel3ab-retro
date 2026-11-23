@@ -861,6 +861,49 @@ focus-navigateur-rouge:
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 
+# ==== chantier salle ====
+# Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni
+# ne la voile, à sept tailles de bureau et au niveau d'effets « tout », en
+# partie, avec la fermeture proche annoncée, avec le clavier rendu à la
+# colonne, et l'image agrandie par Ctrl (`cadre.mjs`, chantier salle du
+# 23 novembre 2026). Même banc que `parcours-navigateur` (Chrome, ffmpeg, rien
+# de vivant, port 5478).
+#
+#   just cadre-navigateur                         toutes les étapes
+#   just cadre-navigateur --etapes agrandie       une seule
+#   just cadre-navigateur --captures /tmp/cadre   avec les captures
+cadre-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node cadre.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Le contrôle négatif du précédent: la page de 03b21c0, d'avant le chantier,
+# doit échouer sur le DÉFAUT de chaque étape (la pile des avis sur l'image, les
+# boutons de coin d'une colonne repliée), pas sur une précondition. La garde
+# elle-même (`garde-voit`) doit rester verte sur cette page: elle ne dépend
+# pas du cadre.
+cadre-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    cd spikes/m3-browser-drive
+    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
+    etapes=rien-sur-image,agrandie
+    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+# ==== fin salle ====
+
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
 # (`systemctl start nel3ab-worker@1`), because the failure only exists against a
 # live stream: a decoder that is fed nothing cannot be caught refusing anything.

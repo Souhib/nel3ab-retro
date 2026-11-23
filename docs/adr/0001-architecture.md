@@ -1833,8 +1833,10 @@ the frame's box at every sampled size with and without iPhone safe areas,
 with a twin replaying the mock-up's boxes; `salle-telephone.mjs` and
 `manette-garde.mjs` rewritten for the single sheet, each with a twin key
 placed on the picture; `cadre.mjs` `tenu-rien-sur-image`, red against the
-step-7 page (cf3bba1, fifth block). A spectator held in hand has no touch
-pad; the band carries the take-a-seat button. Step 8, in part: the
+step-7 page (cf3bba1, fifth block). A page that chose to watch, held in
+hand, has no touch pad (the choice, not a missing seat: the seat arrives
+after the first picture, and a pad appearing then moved the picture); the
+band carries the take-a-seat button. Step 8, in part: the
 alternating effects measurement (`just cadre-mesure`, outside the gate),
 two series of four 60 s phases, showed no repeatable cost in headless
 Chrome under a foreign load (a trend, not a comparison). Not yet delivered:

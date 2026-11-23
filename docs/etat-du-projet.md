@@ -91,8 +91,8 @@ une feuille « La salle » à deux hauteurs ; la colonne sous l'image d'une
 fenêtre étroite à la souris ; la page « manette seule » (`ManetteSeule`).
 Preuves : `salle-telephone` et `manette-garde` récrits (0 px² de touches sur
 l'image), `cadre.mjs` `tenu-rien-sur-image` (rouge contre cf3bba1). Un
-spectateur tenu en main n'a plus de manette, et sa place à prendre est dans
-la bande. Mesure alternée des effets (`just cadre-mesure`, deux séries de
+spectateur (qui a choisi de regarder) tenu en main n'a plus de manette, et
+sa place à prendre est dans la bande. Mesure alternée des effets (`just cadre-mesure`, deux séries de
 quatre phases de 60 s) : aucun coût répétable dans Chrome sans écran, sous
 une charge étrangère, donc une tendance. Reste : les captures de nuit et de
 jour, le temps de jeu (D04), la documentation finale et la porte entière.

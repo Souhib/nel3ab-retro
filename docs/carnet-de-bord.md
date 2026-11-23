@@ -28666,8 +28666,11 @@ une touche posée exprès sur l'image, que la garde doit voir.
 l'étape 7 (cf3bba1), où la croix tombe sur l'image d'une tablette de
 768 × 1024. Poids : 246 511 octets en brotli.
 
-**Le spectateur.** Une page sans place n'a plus de manette à l'écran : elle
-n'aurait rien à envoyer. Tenue droite, sa bande dit « tu regardes » et porte
+**Le spectateur.** Une page qui a choisi de regarder n'a plus de manette à
+l'écran : elle n'aurait rien à envoyer. C'est le choix qui compte, pas
+l'absence de place : à l'entrée, la place arrive après la première image, et
+une manette apparue ensuite déplaçait l'image d'un joueur (`parcours.mjs`
+l'a vu, la place lue dans la bande puis disparue). Tenue droite, sa bande dit « tu regardes » et porte
 « Prendre la place N » ; en travers, le panneau de commande est debout dans
 la bande gauche, les places l'une sous l'autre, et la bande droite porte le
 bouton. La colonne n'étant montée que dans la feuille agrandie, qui couvre

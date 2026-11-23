@@ -1289,15 +1289,20 @@ function Room({
     rideau: dire(liaison, salle(), moteurDe(room?.game?.console)).niveau === "rideau",
     padOnly,
   });
+  /** La page a choisi de regarder (`input.watching`), et ne tient pas de
+   * place. */
+  const regardeParChoix = (shot?.input.watching ?? false) && port === null;
   /** Ce que la salle veut monter, avant ce que la feuille et les écrans
-   * démontent. Une manette pour qui tient une place, ou pour une page
-   * « manette seule » : un spectateur n'a rien à envoyer, et le portrait
-   * sans manette lui donne la bande (`lib/cadre`). */
+   * démontent. Pas de manette pour qui a choisi de regarder : il n'a rien à
+   * envoyer, et le portrait sans manette lui donne la bande (`lib/cadre`).
+   * Le choix, et pas l'absence de place : à l'entrée, la place arrive après
+   * la première image, et une manette apparue ensuite déplaçait l'image (vu
+   * par `parcours.mjs`, 23 novembre 2026). */
   const couchesVoulues = {
     tenu,
     etroit: modeSalle === "etroit",
     feuille,
-    manette: session !== null && onTouch && (port !== null || padOnly),
+    manette: session !== null && onTouch && (!regardeParChoix || padOnly),
     voile,
     bare,
   };
@@ -3028,7 +3033,7 @@ function Room({
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
           <Bande rect={geo.bande}>
             {avis}
-            {roleDuCadre === "regarde" ? blocRole : null}
+            {regardeParChoix ? blocRole : null}
           </Bande>
         ) : null}
         {tenu && geo.manette && couches.pave ? (

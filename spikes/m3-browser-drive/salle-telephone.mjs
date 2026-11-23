@@ -61,8 +61,9 @@
 //  19. la page construite est servie avec la politique du worker (une
 //      empreinte par script) et n'en viole aucune, et son jumeau (une
 //      empreinte oubliée) est vu ;
-//  20. un spectateur tenu en main n'a pas de manette, et « Prendre la place
-//      N » est dans la bande ; en travers, le panneau est debout.
+//  20. un spectateur tenu en main (qui a choisi de regarder) n'a pas de
+//      manette, et « Prendre la place N » est dans la bande ; en travers, le
+//      panneau est debout.
 //
 // Le salon est simulé par une fausse socket (`salon: true`), qui répond à la
 // poignée de main d'engine.io et laisse la garde envoyer un événement : une
@@ -1279,7 +1280,8 @@ try {
     await page.close();
   }
 
-  // 20. Un spectateur tenu en main : pas de manette (il n'a rien à envoyer),
+  // 20. Un spectateur tenu en main (qui a choisi de regarder) : pas de
+  // manette (il n'a rien à envoyer),
   // et « Prendre la place N » dans la bande, joignable sans ouvrir la feuille.
   // En travers, une GameCube : le panneau debout dans la bande gauche. Le
   // jumeau : une page qui tient une place n'a pas ce bouton dans la bande.

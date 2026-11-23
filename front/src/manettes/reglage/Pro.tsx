@@ -27,7 +27,9 @@ import {
   AvantLePas,
   Bouton,
   Correspondances,
+  type Envoi,
   Fin,
+  EnAttente,
   PasAPas,
   Supprime,
   Suspension,
@@ -47,6 +49,7 @@ export type TramePro = {
   input: Pick<InputStream, "switchActive" | "surReglage">;
   guide?: Game["guide"];
   place: 1 | 2 | 3 | 4 | null;
+  envoi?: Envoi;
 };
 
 /** « ZL · gâchette gauche » devient « ZL », et dessous « gâchette gauche » :
@@ -389,6 +392,7 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
   return (
     <section className="n3-profils" aria-label={titre}>
       <h3>{titre}</h3>
+      <EnAttente envoi={trame.envoi} />
       <p>{REGLAGE.pret}</p>
       <ul>
         {Object.keys(source.named).map((un) => (

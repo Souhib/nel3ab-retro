@@ -19,7 +19,9 @@ import {
   AvantLePas,
   Bouton,
   Correspondances,
+  type Envoi,
   Fin,
+  EnAttente,
   PasAPas,
   Supprime,
   Suspension,
@@ -62,6 +64,7 @@ export type TrameDolphin = {
   publier?: (nom: string) => Promise<boolean>;
   /** « Mes profils » complets (`SetupProfiles`), posés par la salle. */
   profils?: ReactNode;
+  envoi?: Envoi;
 };
 
 /** Le geste, puis la relecture de l'instantané. */
@@ -407,6 +410,7 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
         : "";
   return (
     <div className="n3-profils">
+      <EnAttente envoi={trame.envoi} />
       {trame.profils}
       <h3>{REGLAGE.profilsClavier}</h3>
       <label htmlFor="keyProfile">{REGLAGE.enService}</label>

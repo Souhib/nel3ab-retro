@@ -561,6 +561,9 @@ export const REGLAGE = {
   charger: "Charger",
   supprimer: "Supprimer",
   supprime: (nom: string) => `Le profil « ${nom} » est supprimé.`,
+  /** Une copie de tes réglages attend l'accord du service (`enAttente`). */
+  garde: "Gardé ici, envoi au prochain passage.",
+  reessayer: "Réessayer maintenant",
   exporter: "Exporter dans un fichier",
   importer: "Importer un fichier",
   tropGrand: "Fichier trop grand.",

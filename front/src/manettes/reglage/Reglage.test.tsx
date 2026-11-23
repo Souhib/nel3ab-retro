@@ -456,3 +456,48 @@ describe("les marques dans le panneau", () => {
     expect(a).toHaveAttribute("data-marque", "cadre");
   });
 });
+
+describe("une copie qui attend le service", () => {
+  const monterEnvoi = (attend: { valeur: boolean }) => {
+    const reessayer = vi.fn(async () => {
+      attend.valeur = false;
+    });
+    const { input } = doublure();
+    render(
+      <Reglage
+        onglet="profils"
+        onOnglet={rien}
+        onFermer={rien}
+        autres={false}
+        vit
+        trame={{
+          genre: "dolphin",
+          console: "gc",
+          tenue: 0,
+          state: etat(),
+          input,
+          refresh: rien,
+          envoi: { enAttente: () => attend.valeur, reessayer },
+        }}
+      />,
+    );
+    return reessayer;
+  };
+
+  it("dit « gardé ici » et renvoie sur « Réessayer maintenant »", async () => {
+    const reessayer = monterEnvoi({ valeur: true });
+    expect(screen.getByText("Gardé ici, envoi au prochain passage.")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Réessayer maintenant" }));
+    });
+    expect(reessayer).toHaveBeenCalledTimes(1);
+    // L'envoi accepté, la mention s'en va.
+    expect(screen.queryByText("Gardé ici, envoi au prochain passage.")).toBeNull();
+  });
+
+  it("ne dit rien quand rien n'attend", () => {
+    monterEnvoi({ valeur: false });
+    expect(screen.queryByText(/Gardé ici/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Réessayer maintenant" })).toBeNull();
+  });
+});

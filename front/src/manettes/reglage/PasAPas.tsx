@@ -2,7 +2,7 @@
  * deux trames (Dolphin et Pro). Rien ici ne lit une manette : chaque trame
  * passe ses mots et ses gestes, et la machine d'étapes reste dans
  * `media/lesson` (`Pas`). */
-import type { ReactNode } from "react";
+import { useReducer, useState, type ReactNode } from "react";
 import { REGLAGE } from "../../lib/mots";
 
 /** Un bouton du panneau : la boîte en escalier du socle, plein ou non. */
@@ -136,14 +136,47 @@ export function Suspension({
 }
 
 /** Un profil vient d'être supprimé : la phrase, et « Annuler » qui le rend
- * tel qu'il était. Rien ne part au service tant que la personne n'a pas
- * fermé l'avis : le profil est rangé, et rendu s'il le faut. */
+ * tel qu'il était. La suppression est déjà rangée ; « Annuler » range le
+ * profil de nouveau, il ne retient rien entre-temps. */
 export function Supprime({ nom, onAnnuler }: { nom: string; onAnnuler: () => void }) {
   return (
     <div className="n3-reglage-avis" role="status" data-supprime="">
       <p>{REGLAGE.supprime(nom)}</p>
       <div className="n3-reglage-gestes">
         <Bouton onClick={onAnnuler}>{REGLAGE.annuler}</Bouton>
+      </div>
+    </div>
+  );
+}
+
+/** Les réglages personnels qui attendent le service (`lib/bindings` :
+ * `enAttente`, `reessayer`), posés par la salle avec l'identité. */
+export type Envoi = { enAttente: () => boolean; reessayer: () => Promise<void> };
+
+/** « Gardé ici, envoi au prochain passage », et le renvoi sur demande. Rien
+ * quand rien n'attend : un envoi accepté ne laisse aucune mention. */
+export function EnAttente({ envoi }: { envoi?: Envoi }) {
+  const [, relire] = useReducer((n: number) => n + 1, 0);
+  const [envoie, setEnvoie] = useState(false);
+  if (!envoi?.enAttente()) return null;
+  return (
+    <div className="n3-reglage-avis" role="status" data-en-attente="">
+      <p>{REGLAGE.garde}</p>
+      <div className="n3-reglage-gestes">
+        <Bouton
+          disabled={envoie}
+          onClick={async () => {
+            setEnvoie(true);
+            try {
+              await envoi.reessayer();
+            } finally {
+              setEnvoie(false);
+              relire();
+            }
+          }}
+        >
+          {REGLAGE.reessayer}
+        </Bouton>
       </div>
     </div>
   );

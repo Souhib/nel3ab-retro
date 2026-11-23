@@ -822,6 +822,24 @@ export type Salle = {
      */
     jeu_depuis?: number | null;
     /**
+     * Repond
+     *
+     * Vrai quand la salle allumée a répondu à la question de son jeu, faux quand systemd la dit allumée et qu'elle n'a rien répondu d'exploitable: une salle allumée mais muette. Rien quand on n'a pas demandé: salle fermée, salle qui redémarre, ou salon sans client (les essais). Faux n'est pas « sur son menu »: `jeu` est alors rien aussi, mais pour une autre raison.
+     */
+    repond?: boolean | null;
+    /**
+     * Fermee Depuis
+     *
+     * Depuis combien de SECONDES cette salle est fermée, lu dans systemd. Rien pour une salle ouverte ou qui redémarre, et pour une salle jamais démarrée depuis le démarrage de la machine.
+     */
+    fermee_depuis?: number | null;
+    /**
+     * Fermee Pour
+     *
+     * Pourquoi elle est fermée: « inactivite » (personne n'a touché au jeu pendant une demi-heure, le worker sort avec le code 42), « arret » (quelqu'un l'a fermée), « panne » (tout le reste). Qui l'a fermée n'est pas publié. Rien quand `fermee_depuis` est rien.
+     */
+    fermee_pour?: 'inactivite' | 'arret' | 'panne' | null;
+    /**
      * Places
      *
      * Combien de manettes personne ne tient, demandé à la salle. Rien quand elle ne répond pas, jamais quatre: annoncer libre une salle pleine y enverrait du monde pour rien. Ce n'est pas « quatre moins les présents »: on peut regarder une partie sans tenir de manette.

@@ -151,6 +151,45 @@ async def test_une_salle_qui_ne_repond_pas_reste_dans_la_liste(reglages: Setting
 
     assert etat[0].ouverte is True
     assert etat[0].jeu is None
+    assert etat[0].repond is False, "allumée mais muette, et la liste le dit"
+
+
+async def test_une_salle_qui_repond_le_dit(reglages: Settings) -> None:
+    """Le jumeau: la même salle sur son menu répond, sans jeu. `jeu` est rien
+    dans les deux cas; seul `repond` les sépare."""
+
+    def menu(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"current": None, "players": 4, "roms": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(menu)) as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        etat = await salles.etat()
+
+    assert (etat[0].jeu, etat[0].repond) == (None, True)
+    assert [s.repond for s in etat[1:]] == [None, None], "une salle fermée n'est pas demandée"
+
+
+async def test_une_reponse_qui_n_est_pas_un_objet_est_une_salle_muette(
+    reglages: Settings,
+) -> None:
+    """Une liste à la place d'un objet faisait lever `AttributeError` et tomber
+    la liste entière. C'est une réponse inexploitable, pas une panne du salon."""
+
+    def liste(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[1, 2])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(liste)) as client:
+        etat = await SallesController(reglages, FauxSysteme(allumees=[1]), client=client).etat()
+
+    assert (etat[0].ouverte, etat[0].repond) == (True, False)
+
+
+async def test_sans_client_la_liste_ne_dit_pas_si_la_salle_repond(reglages: Settings) -> None:
+    """On n'a pas demandé: ni vrai ni faux."""
+    etat = await SallesController(reglages, FauxSysteme(allumees=[1])).etat()
+
+    assert etat[0].repond is None
 
 
 async def test_une_salle_eteinte_n_est_pas_interrogee(reglages: Settings) -> None:
@@ -251,8 +290,11 @@ async def test_la_liste_dit_depuis_quand_le_jeu_tourne(reglages: Settings) -> No
 
 
 async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> None:
-    """Le jumeau négatif: une salle qui ne tourne pas ne tourne DEPUIS rien, et
-    elle ne doit pas non plus coûter une question à systemd."""
+    """Le jumeau négatif: une salle qui ne tourne pas ne tourne DEPUIS rien.
+
+    Elle coûte une question à systemd depuis le 23 novembre 2026, une seule,
+    pour son heure de fermeture: la liste pose une question par salle.
+    """
     systeme = FauxSysteme(allumees=[1], depuis={1: 300.0}, horloge=HORLOGE)
     salles = SallesController(reglages, systeme, horloge=HORLOGE)
 
@@ -260,7 +302,7 @@ async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> Non
 
     assert [(s.ouverte_depuis, s.jeu_depuis) for s in etat[1:]] == [(None, None), (None, None)]
     interrogees = [c[-1] for c in systeme.commandes if "show" in c]
-    assert interrogees == ["nel3ab-worker@1"]
+    assert interrogees == ["nel3ab-worker@1", "nel3ab-worker@2", "nel3ab-worker@3"]
 
 
 async def test_une_unite_sans_horodatage_ne_dit_pas_zero(reglages: Settings) -> None:
@@ -520,3 +562,86 @@ async def test_un_dossier_de_salle_en_lien_est_refuse(reglages: Settings, tmp_pa
     assert "dossier" in refus.value.detail
 
     assert list(ailleurs.iterdir()) == []
+
+
+async def test_une_salle_fermee_faute_d_activite_dit_quand_et_pourquoi(reglages: Settings) -> None:
+    """« La salle 1 a fermé à 23 h 12 »: systemd le sait sans droit particulier."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(1800)
+    systeme.fermer_seule(1)
+    horloge.avancer(120)
+
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is False
+    assert etat[0].fermee_depuis == pytest.approx(120, abs=1)
+    assert etat[0].fermee_pour == "inactivite"
+
+
+async def test_une_salle_fermee_par_quelqu_un_est_un_arret(reglages: Settings) -> None:
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    await salles.fermer(1)
+    horloge.avancer(60)
+
+    etat = await salles.etat()
+
+    assert etat[0].fermee_depuis == pytest.approx(60, abs=1)
+    assert etat[0].fermee_pour == "arret"
+
+
+async def test_une_autre_sortie_est_une_panne(reglages: Settings) -> None:
+    """Le jumeau du code 42: une sortie que systemd renonce à relancer."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    systeme.fermer_seule(1, statut=1)
+
+    assert (await salles.etat())[0].fermee_pour == "panne"
+
+
+async def test_une_salle_jamais_demarree_n_a_pas_d_heure_de_fermeture(reglages: Settings) -> None:
+    """systemd rend `0`: ni heure ni raison, plutôt que « fermée depuis 0 s »."""
+    etat = await SallesController(reglages, FauxSysteme(horloge=HORLOGE), horloge=HORLOGE).etat()
+
+    assert [(s.fermee_depuis, s.fermee_pour) for s in etat] == [(None, None)] * 3
+
+
+async def test_une_salle_ouverte_n_a_pas_d_heure_de_fermeture(reglages: Settings) -> None:
+    """Après un changement de jeu, l'unité est passée par l'inactif: son heure
+    d'entrée dans l'inactif existe, mais la salle n'est pas fermée."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    systeme.relancer(1)
+
+    etat = await salles.etat()
+
+    assert (etat[0].ouverte, etat[0].fermee_depuis, etat[0].fermee_pour) == (True, None, None)
+
+
+async def test_une_salle_qu_on_ferme_n_a_pas_encore_d_heure_de_fermeture(
+    reglages: Settings,
+) -> None:
+    """« deactivating » compte comme fermée pour la liste, mais son dernier
+    passage par l'inactif est celui de son dernier changement de jeu: le lire
+    dirait « fermée depuis » l'heure de ce changement."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    systeme.relancer(1)
+    horloge.avancer(600)
+    systeme.unite(1).etat = "deactivating"
+
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is False
+    assert (etat[0].fermee_depuis, etat[0].fermee_pour) == (None, None)

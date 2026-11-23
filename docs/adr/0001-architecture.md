@@ -1690,6 +1690,15 @@ Decision:
   status 42, calls take time, and properties come back in systemd's order.
   The old fake had one fixed age per room, which is why nobody saw the field
   restart.
+- **Closed, restarting, and on but silent are three facts.** `Salle.repond`
+  is true when a running room answered `GET /roms`, false when systemd says
+  it runs and it did not answer usably (an error, or JSON that is not an
+  object, which used to raise `AttributeError` and fail the whole list), and
+  `None` when nobody asked. `Salle.fermee_depuis` and `Salle.fermee_pour`
+  (`inactivite` for exit status 42, `arret` for a clean stop, `panne` for any
+  other result) come from the same `systemctl show`, only for the words
+  `inactive` and `failed`: a `deactivating` unit still carries the inactive
+  timestamp of its last game change. Who closed the room is not published.
 
 
 ## Consequences

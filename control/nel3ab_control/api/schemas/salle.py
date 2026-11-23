@@ -1,5 +1,7 @@
 """Ce qu'une salle montre à la liste du salon."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -86,6 +88,35 @@ class Salle(BaseModel):
             "repart à chaque changement de jeu, puisque le worker sort pour "
             "changer de jeu et que systemd le relance. Rien quand la salle n'est "
             "pas ouverte ou que systemd ne le dit pas."
+        ),
+    )
+    repond: bool | None = Field(
+        default=None,
+        description=(
+            "Vrai quand la salle allumée a répondu à la question de son jeu, "
+            "faux quand systemd la dit allumée et qu'elle n'a rien répondu "
+            "d'exploitable: une salle allumée mais muette. Rien quand on n'a pas "
+            "demandé: salle fermée, salle qui redémarre, ou salon sans client "
+            "(les essais). Faux n'est pas « sur son menu »: `jeu` est alors "
+            "rien aussi, mais pour une autre raison."
+        ),
+    )
+    fermee_depuis: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Depuis combien de SECONDES cette salle est fermée, lu dans systemd. "
+            "Rien pour une salle ouverte ou qui redémarre, et pour une salle "
+            "jamais démarrée depuis le démarrage de la machine."
+        ),
+    )
+    fermee_pour: Literal["inactivite", "arret", "panne"] | None = Field(
+        default=None,
+        description=(
+            "Pourquoi elle est fermée: « inactivite » (personne n'a touché au "
+            "jeu pendant une demi-heure, le worker sort avec le code 42), "
+            "« arret » (quelqu'un l'a fermée), « panne » (tout le reste). Qui "
+            "l'a fermée n'est pas publié. Rien quand `fermee_depuis` est rien."
         ),
     )
     places: int | None = Field(

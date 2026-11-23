@@ -62,6 +62,9 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
   systemd des essais suit le vrai (`control/tests/faux_systeme.py`).
 - **Dossier de salle.** Le salon y lit et écrit par `session_salle.py`, sans
   suivre de lien ; le marqueur `game-closed` aussi.
+- **Fermeture et silence.** `Salle.fermee_depuis` et `Salle.fermee_pour`
+  (inactivité, arrêt, panne), lus dans systemd ; `Salle.repond` sépare une
+  salle allumée mais muette d'une salle sur son menu.
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

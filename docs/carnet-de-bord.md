@@ -28309,6 +28309,23 @@ posé avant le démarrage, passait d'abord : le faux changeait l'état de l'unit
 à l'instant même de l'appel. C'est ce qui lui a appris que systemd prend du
 temps.
 
+**Fermée, qui redémarre, ou allumée mais muette.** L'accueil ne savait pas
+distinguer une salle allumée qui ne répond pas d'une salle sur son menu : les
+deux avaient un jeu vide. Le champ `repond` le dit, et il vaut « on ne sait
+pas » quand le salon n'a pas posé la question (salle fermée). Une réponse
+qui n'était pas un objet JSON faisait tomber toute la liste ; elle compte
+maintenant comme une salle muette. L'heure et la raison de la fermeture
+(`fermee_depuis`, `fermee_pour`) viennent de la même question à systemd :
+le code 42 veut dire « personne n'a joué pendant une demi-heure », une sortie
+propre veut dire « quelqu'un l'a fermée », le reste est une panne. Un détail a
+demandé un essai à lui : une salle en train de se fermer (« deactivating »)
+garde l'heure de son dernier changement de jeu comme dernière entrée dans
+l'inactif. La lire aurait dit « fermée depuis vingt minutes » d'une salle qui
+se fermait à l'instant. Le mutant qui la lisait a échoué sur cet essai. Un
+autre mutant, qui taisait la panne au lieu de la dire, passait : le code
+appelant confondait « pas demandé » et « pas répondu ». Il a été simplifié, et
+le mutant échoue maintenant.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

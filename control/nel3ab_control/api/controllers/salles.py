@@ -17,6 +17,7 @@ avec de quoi comprendre.
 import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from typing import Literal
 
 import anyio
@@ -68,6 +69,13 @@ PAUSE_DE_RELANCE_S = 1.0
 
 #: Ce que systemd dit d'une salle. Trois valeurs et pas deux: voir `unite`.
 EtatUnite = Literal["ouverte", "redemarre", "fermee"]
+
+#: Pourquoi une salle est fermée, lu dans systemd. Voir `_fermee`.
+RaisonFermeture = Literal["inactivite", "arret", "panne"]
+
+#: Le code de sortie du worker qui ferme une salle faute d'activité
+#: (`nap.rs`), que `RestartPreventExitStatus=42` empêche de relancer.
+SORTIE_INACTIVITE = "42"
 
 
 def unite(numero: int) -> str:
@@ -210,28 +218,40 @@ class SallesController:
         """
         salles = []
         for numero in SALLES:
-            etat = await self.unite(numero)
+            mot = await self._mot(numero)
+            etat = _etat_du_mot(mot)
             ouverte = etat == "ouverte"
-            # Une seule question à systemd par salle qui n'est pas fermée. Une
-            # salle fermée n'a ni jeu ni ouverture, et ne doit pas coûter une
-            # question de plus.
-            systeme = await self._systemd(numero) if etat != "fermee" else {}
-            jeu, switch = await self._joue(numero) if ouverte else (None, False)
+            # Une seule question à systemd par salle, quel que soit son état:
+            # l'ouverture pour une salle allumée, l'heure et la raison de la
+            # fermeture pour une salle éteinte.
+            systeme = await self._systemd(numero)
+            # « deactivating » est une salle fermée pour la liste, mais elle n'a
+            # pas encore d'heure de fermeture: son dernier passage par l'inactif
+            # est celui de son dernier changement de jeu.
+            fermee_depuis, fermee_pour = (
+                self._fermee(systeme) if mot in ("inactive", "failed") else (None, None)
+            )
+            vu = await self._joue(numero) if ouverte else None
             salles.append(
                 Salle(
                     numero=numero,
                     ouverte=ouverte,
                     redemarre=etat == "redemarre",
                     chemin=chemin(numero),
-                    jeu=jeu,
-                    switch=switch,
+                    jeu=vu.nom if vu else None,
+                    switch=vu.switch if vu else False,
+                    repond=vu.repond if vu else None,
+                    fermee_depuis=fermee_depuis,
+                    fermee_pour=fermee_pour,
                     # Une salle fermée n'a personne: le demander pour elle
                     # laisserait passer un fantôme si le registre traînait.
                     gens=list(present(numero)) if ouverte and present else [],
                     # Une salle fermée ne tourne DEPUIS rien et n'a pas de
                     # places: l'interroger ferait attendre la liste entière pour
                     # la salle la plus morte.
-                    ouverte_depuis=self._ouverte_depuis(numero, systeme),
+                    ouverte_depuis=self._ouverte_depuis(numero, systeme)
+                    if etat != "fermee"
+                    else None,
                     jeu_depuis=self._age(systeme.get("ActiveEnterTimestampMonotonic"))
                     if ouverte
                     else None,
@@ -240,7 +260,7 @@ class SallesController:
             )
         return salles
 
-    async def _joue(self, numero: int) -> tuple[str | None, bool]:
+    async def _joue(self, numero: int) -> "Joue | None":
         """Ce que cette salle fait tourner, demandé à elle-même.
 
         À la salle plutôt qu'à un registre: elle est la seule à savoir ce qui
@@ -248,24 +268,37 @@ class SallesController:
         qu'un joueur change de jeu sans passer par le salon.
 
         Un worker qui ne répond pas rend « aucun jeu connu » plutôt qu'une
-        erreur: la liste doit rester affichable même si une salle boude.
+        erreur: la liste doit rester affichable même si une salle boude. Il le
+        rend en le DISANT (`repond` faux), pour que l'accueil distingue une
+        salle muette d'une salle sur son menu. Rien sans client: on n'a pas
+        demandé, ce qui n'est ni l'un ni l'autre.
         """
         if self._client is None:
-            return None, False
+            return None
         try:
             reponse = await self._client.get(f"{adresse(numero)}/roms", timeout=2.0)
             reponse.raise_for_status()
             dit = reponse.json()
         except (httpx.HTTPError, ValueError):
-            return None, False
+            return Joue(repond=False)
+        if not isinstance(dit, dict):
+            return Joue(repond=False)
         courant = dit.get("current")
         jeux = dit.get("roms") or []
-        if not isinstance(courant, int) or not 0 <= courant < len(jeux):
-            return None, False
+        if not isinstance(jeux, list) or not isinstance(courant, int):
+            return Joue(repond=True)
+        if not 0 <= courant < len(jeux) or not isinstance(jeux[courant], dict):
+            return Joue(repond=True)
         joue = jeux[courant]
-        # « Joue à la Switch » veut dire « tient la place Switch de la machine »:
-        # le groupe de verrou du manifeste, et non la liste de ses consoles.
-        return joue.get("name"), CONSOLES.lock(str(joue.get("console"))) == "switch"
+        nom = joue.get("name")
+        return Joue(
+            repond=True,
+            nom=nom if isinstance(nom, str) else None,
+            # « Joue à la Switch » veut dire « tient la place Switch de la
+            # machine »: le groupe de verrou du manifeste, et non la liste de
+            # ses consoles.
+            switch=CONSOLES.lock(str(joue.get("console"))) == "switch",
+        )
 
     async def _systemd(self, numero: int) -> dict[str, str]:
         """Ce que systemd dit de cette salle, par nom de propriété.
@@ -311,6 +344,32 @@ class SallesController:
             return None
         age = self._horloge() - instant / 1_000_000
         return int(age) if age >= 0 else None
+
+    def _fermee(self, systeme: dict[str, str]) -> tuple[int | None, RaisonFermeture | None]:
+        """Depuis combien de secondes une salle ÉTEINTE l'est, et pourquoi.
+
+        systemd le sait sans aucun droit (relu le 23 novembre 2026 sur la salle
+        1, fermée la veille faute d'activité: `ActiveState=failed`,
+        `Result=exit-code`, `ExecMainStatus=42`). Trois raisons:
+
+        - « inactivite »: le worker est sorti avec le code 42 (`nap.rs`);
+        - « arret »: une sortie propre, c'est-à-dire `systemctl stop` (le salon,
+          l'administrateur);
+        - « panne »: tout le reste, dont systemd qui renonce à relancer.
+
+        Qui a fermé n'est pas publié: le journal des séances le garde déjà.
+        Une unité jamais démarrée depuis le démarrage de la machine rend `0`:
+        rien, ni heure ni raison.
+        """
+        depuis = self._age(systeme.get("InactiveEnterTimestampMonotonic"))
+        if depuis is None:
+            return None, None
+        resultat = systeme.get("Result")
+        if resultat == "exit-code" and systeme.get("ExecMainStatus") == SORTIE_INACTIVITE:
+            return depuis, "inactivite"
+        if resultat == "success":
+            return depuis, "arret"
+        return depuis, "panne" if resultat else None
 
     def _ouverte_depuis(self, numero: int, systeme: dict[str, str]) -> int | None:
         """Depuis quand le SALON a ouvert cette salle, ou rien.
@@ -362,6 +421,11 @@ class SallesController:
             return None
         return sum(1 for tenue in places if tenue is None)
 
+    async def _mot(self, numero: int) -> str:
+        """Le mot que `systemctl is-active` rend pour cette salle, tel quel."""
+        code, dit = await self._lancer(["systemctl", "is-active", unite(numero)])
+        return "active" if code == 0 else dit.strip()
+
     async def unite(self, numero: int) -> EtatUnite:
         """Ce que systemd dit de cette salle: elle tourne, il la relance, ou rien.
 
@@ -381,10 +445,7 @@ class SallesController:
         fermée: c'est aussi l'état d'une salle qu'on ferme, et la page ne croit
         une salle fermée qu'après deux réponses espacées (`front/src/media/veille.ts`).
         """
-        code, dit = await self._lancer(["systemctl", "is-active", unite(numero)])
-        if code == 0:
-            return "ouverte"
-        return "redemarre" if dit.strip() == "activating" else "fermee"
+        return _etat_du_mot(await self._mot(numero))
 
     async def ouvrir(self) -> Salle:
         """Allume le premier emplacement libre, ou refuse."""
@@ -447,3 +508,20 @@ class SallesController:
         """
         with session_salle.dossier(self._settings.salles_dir, numero, creer=True) as fd:
             session_salle.poser_vide(fd, SANS_JEU)
+
+
+def _etat_du_mot(mot: str) -> EtatUnite:
+    """Le mot de `systemctl is-active`, ramené aux trois états d'une salle."""
+    if mot == "active":
+        return "ouverte"
+    return "redemarre" if mot == "activating" else "fermee"
+
+
+@dataclass(frozen=True)
+class Joue:
+    """Ce qu'une salle allumée a répondu à `GET /roms`."""
+
+    #: Faux quand la salle n'a rien répondu d'exploitable.
+    repond: bool
+    nom: str | None = None
+    switch: bool = False

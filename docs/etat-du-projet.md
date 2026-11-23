@@ -230,7 +230,7 @@ versions complètes jouent quand les ancres des autres chantiers sont
 posées, et se replient sinon. `cadre-navigateur` (étape
 `mascotte-hors-image`) joue les 16 scènes de la salle sur chaque hôte et
 vérifie image par image qu'aucun sprite ne touche l'image, un contrôle ou un
-mot, avec son jumeau rouge. La page fait 261 476 octets en brotli (+12 040).
+mot, avec son jumeau rouge. La page fait 261 523 octets en brotli (+12 087).
 Restent : la planche de la mascotte (gardien mascotte), le paquet du salon,
 la mesure dans le navigateur que rien ne tourne entre deux scènes. Récit : « 23 novembre, la dernière vague : Aïn
 entre dans la salle ».

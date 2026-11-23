@@ -29558,10 +29558,19 @@ rouge glisse l'image sous le logo pendant « fier » : la sonde l'y voit. Le
 pilote prend un port à part (`--port`) : un autre chantier tenait le port
 par défaut au même moment.
 
-**Le poids.** La page passe de 249 436 à 261 476 octets en brotli 11 :
-12 040 de plus. Mesurés fichier par fichier (minifiés, sans partage), les
+Deux autres preuves ont parlé. `etats-navigateur` (étape
+`calques-sous-image`) a vu le calque des sprites sur l'image : il couvrait
+toute la fenêtre sans rien peindre, et cette garde-là compte toute boîte qui
+reçoit le point. Le calque n'a plus de boîte : c'est un point en haut à
+gauche, d'où les sprites se placent. Et l'étape `un-plein` de
+`cadre-navigateur` ne pouvait plus ouvrir « Autres réglages » : le coin plus
+haut pousse ce résumé au pied de la colonne, là où « Plus bas » est collé.
+Le pilote le centre avant de cliquer.
+
+**Le poids.** La page passe de 249 436 à 261 523 octets en brotli 11 :
+12 087 de plus. Mesurés fichier par fichier (minifiés, sans partage), les
 cinq modules font environ 16 200 octets et la pièce retirée 1 179 ; dans la
-page, le partage de la compression ramène Aïn à environ 13 200 octets. C'est
+page, le partage de la compression ramène Aïn à environ 13 300 octets. C'est
 le « environ 15 Ko » de la proposition, au-dessus de l'enveloppe de 8 Ko,
 comme le propriétaire l'a accepté.
 

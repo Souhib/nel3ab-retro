@@ -2211,9 +2211,13 @@ Decision:
   he plays large while no picture of the current game is painted; the first
   picture cuts him in the same task, and an observer of `data-sans-image`
   cuts him even when nobody asked.
-- **Weight.** About 13 kB brotli in the room page, against the 8 kB envelope
+- **Weight.** About 13 kB brotli in the room page (249 436 to 261 523
+  bytes, the removed placeholder coin included), against the 8 kB envelope
   of the partition: the owner accepted taking the difference from the
   reserve.
+- **The sprite layer has no box.** It is a fixed point at the top left of
+  the window; a full-window layer painted nothing but covered the picture
+  for the guards that hit-test every box.
 
 Rejected: keeping the arbiter of the proposal beside K10 (two arbiters would
 disagree on ranks); positions written in the scenes (every layout of

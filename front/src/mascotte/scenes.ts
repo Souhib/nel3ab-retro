@@ -6,7 +6,9 @@
  * le rendu, remplaçable en un seul endroit (`rendu.ts`), décide de la jouer.
  * Les identifiants sont communs à tous les chantiers d'écran; ils reprennent
  * les scènes de la proposition du 22 novembre (Quatrou), traduites:
- * « le scotch résiste » devient l'arrivée, « l'oreille » le départ.
+ * « le scotch résiste » devient l'arrivée, « l'oreille » le départ. Aïn
+ * (ADR D46) en ajoute trois : « spectateur », « attente-chargement » et
+ * « hoquet » ; les variantes du salon gardent l'identifiant de leur scène.
  *
  * Chaque scène a une version complète, jouée la première fois dans ce
  * navigateur, et une version courte ensuite (`version`). En mouvement réduit,
@@ -33,6 +35,9 @@ export const SCENES = [
   "pret",
   "fier",
   "demo",
+  "spectateur",
+  "attente-chargement",
+  "hoquet",
 ] as const;
 export type Scene = (typeof SCENES)[number];
 export type Version = "complete" | "courte";
@@ -63,6 +68,13 @@ export const DUREES: Record<Scene, { complete: number; courte: number; sens: str
   pret: { complete: 900, courte: 450, sens: "un joueur est prêt" },
   fier: { complete: 1200, courte: 600, sens: "une belle partie se termine" },
   demo: { complete: 5000, courte: 2500, sens: "le mode démo, quand personne ne touche à rien" },
+  spectateur: { complete: 1100, courte: 820, sens: "quelqu'un regarde la partie" },
+  "attente-chargement": {
+    complete: 1500,
+    courte: 1500,
+    sens: "le jeu démarre depuis plus de 20 s",
+  },
+  hoquet: { complete: 1100, courte: 420, sens: "l'image arrive par à-coups" },
 };
 
 const VUES = "nel3ab:mascotte-vues";
@@ -114,7 +126,9 @@ export type Etat = (typeof ETATS)[number];
 export const EVENEMENTS = {
   place: "arrivee",
   depart: "depart",
-  spectateur: "depart",
+  spectateur: "spectateur",
+  "chargement-long": "attente-chargement",
+  "image-saute": "hoquet",
   pret: "pret",
   fier: "fier",
   "salle-ouverte": "ouvre",
@@ -126,7 +140,13 @@ export type Evenement = keyof typeof EVENEMENTS;
 
 /** Pendant une partie, seules ces scènes se jouent, dans la colonne, jamais
  * devant l'image. */
-const EN_PARTIE: ReadonlySet<Scene> = new Set(["arrivee", "depart", "pret"]);
+const EN_PARTIE: ReadonlySet<Scene> = new Set([
+  "arrivee",
+  "depart",
+  "pret",
+  "spectateur",
+  "hoquet",
+]);
 
 /**
  * Quelle scène pour quel changement: une fonction pure. `avant` et `apres`

@@ -797,59 +797,37 @@ h3,
 }
 
 /* ── La mascotte (`src/mascotte/`) ───────────────────────────────────── */
-/* L'hôte coupe tout ce qui dépasse de sa boîte: une scène ne passe jamais
-   sur ce qui est à côté, et surtout pas sur l'image. Le rendu provisoire est
-   une pièce de dix pixels (`mascotte/rendu.ts`), en or de la mire. */
+/* Aïn, le 3 du logo (ADR D46). Chez lui, il est une toile dans son hôte : le
+   logo au pied de la colonne, sa tête dans la barre. Dehors, il est un
+   sprite du calque, posé au-dessus de la page sans prendre le pointeur ; le
+   planificateur garde ses boîtes hors de l'image (+4 px), des contrôles et
+   des mots. Une toile se peint au pixel de l'écran, sans lissage. */
 .rt-mascotte-hote {
   position: relative;
-  display: inline-block;
-  overflow: hidden;
-  width: var(--rt-mascotte-taille, 40px);
-  height: var(--rt-mascotte-taille, 40px);
 }
 .rt-mascotte {
-  position: absolute;
+  display: block;
+  image-rendering: pixelated;
+}
+canvas.rt-mascotte {
+  margin-inline: auto;
+}
+.rt-ain-calque {
+  position: fixed;
   inset: 0;
-  display: block;
-  --rt-piece-bord: var(--or-700);
-  --rt-piece-coeur: var(--mire-jaune);
-  --rt-piece-reflet: var(--or-100);
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
 }
-.rt-mascotte .rt-piece {
-  display: block;
-  width: 100%;
-  height: 100%;
+.rt-ain-sprite {
+  position: absolute;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  transition: opacity 150ms linear;
 }
-/* Quatre images superposées, une seule visible: la première au repos. */
-.rt-piece-image {
-  visibility: hidden;
-}
-.rt-piece-image[data-image="0"] {
-  visibility: visible;
-}
-.rt-mascotte:is([data-tourne="vite"], [data-tourne="lent"]) .rt-piece-image {
-  animation: rt-piece-image 0.5s steps(1, end) infinite;
-}
-.rt-mascotte[data-tourne="lent"] .rt-piece-image {
-  animation-duration: 1.2s;
-}
-.rt-piece-image[data-image="1"] {
-  animation-delay: -0.375s;
-}
-.rt-piece-image[data-image="2"] {
-  animation-delay: -0.25s;
-}
-.rt-piece-image[data-image="3"] {
-  animation-delay: -0.125s;
-}
-@keyframes rt-piece-image {
-  0% {
-    visibility: visible;
-  }
-  25%,
-  100% {
-    visibility: hidden;
-  }
+.rt-ain-efface {
+  opacity: 0;
 }
 
 /* ── Mouvement réduit: la pose clé, et rien ne bouge ─────────────────── */
@@ -868,8 +846,7 @@ h3,
   .rt-bouton,
   .rt-voile,
   .rt-tuiles > i,
-  .rt-mascotte,
-  .rt-piece-image {
+  .rt-ain-sprite {
     animation: none !important;
     transition: none !important;
   }

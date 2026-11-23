@@ -221,6 +221,9 @@ export class SwitchInput implements InputSource {
   selected: number | null = null;
   pads: readonly Gamepad[] = [];
   reading = emptySwitch();
+  /** La dernière trame posée sur le fil par `frame`, neutre comprise. La vue
+   * des touches en tire l'activité de la trame Pro (`media/activite`). */
+  envoye = emptySwitch();
   raw: Snapshot | null = null;
   capturing: CaptureState | null = null;
   message = "";
@@ -348,12 +351,11 @@ export class SwitchInput implements InputSource {
       this.waitingForRest = false;
   }
   frame(port: number, neutral: boolean): Uint8Array<ArrayBuffer> {
-    return encodeSwitch(
-      port,
+    this.envoye =
       neutral || this.capturing !== null || this.releasing !== null || this.waitingForRest
         ? emptySwitch()
-        : this.reading,
-    );
+        : { ...this.reading };
+    return encodeSwitch(port, this.envoye);
   }
   handlesKey(code: string): boolean {
     return Object.values(this.profile.keys).includes(code);

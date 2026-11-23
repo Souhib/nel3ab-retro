@@ -1,4 +1,5 @@
 import { SwitchInput } from "./switch";
+import { activiteDolphin, activitePro, type ActiviteTrame } from "./activite";
 import { saveSwitchBindings } from "../lib/bindings";
 import type { InputSource } from "./input-source";
 /**
@@ -89,6 +90,9 @@ export type InputState = {
    * Les dessins lisent la course depuis lui (`heldOn`), comme la détection. */
   neutre: Snapshot | null;
   pressed: string[];
+  /** Ce que la dernière trame envoyée presse, en commandes de sa trame :
+   * Dolphin ou Pro (`media/activite`, demandé par la salle, K34). */
+  activite: ActiviteTrame;
   /** True once this page HAD a pad and was told it no longer has one.
    *
    * A page that never got one and a page that was displaced look identical from
@@ -530,6 +534,10 @@ export class InputStream {
       lessonResult: this.lessonResult,
       neutre: this.lesson?.repos ?? this.capture?.machine?.repos ?? null,
       pressed: this.pressedNames(),
+      activite:
+        this.source instanceof SwitchInput && !this.configuringDolphin
+          ? activitePro(this.source.envoye)
+          : activiteDolphin(this.lastReading),
       players: this.players,
       busy: this.busy,
       mics: this.mics,

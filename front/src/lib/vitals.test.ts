@@ -90,6 +90,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       lesson: null,
       lessonResult: null,
       neutre: null,
+      activite: { suivies: new Set(), actives: new Set() },
       pressed: [],
       displaced: false,
       players: 4,

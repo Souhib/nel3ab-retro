@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InputStream } from "./input";
 import { BUTTON, standardProfile } from "./pad";
+import { SwitchInput } from "./switch";
 
 describe("configurer une manette pendant une partie", () => {
   let stream: InputStream;
@@ -340,6 +341,44 @@ describe("configurer une manette pendant une partie", () => {
     expect(stream.state().neutre).toBeNull();
     stream.beginCapture("A", "pad");
     expect(stream.state().neutre?.buttons[6]).toBe(0.62);
+  });
+
+  it("l'instantané dit ce que la trame Dolphin envoyée presse (K34)", () => {
+    press(0);
+    (pad.axes as number[])[0] = 1;
+    tick();
+    expect([...stream.state().activite.actives].sort()).toEqual(["A", "x"]);
+    expect(stream.state().activite.suivies.has("cy")).toBe(true);
+    // Le jumeau : pendant un réglage, la trame part neutre et rien ne s'allume.
+    stream.blockGameplay(true);
+    tick();
+    expect(stream.state().activite.actives.size).toBe(0);
+  });
+
+  it("l'instantané dit ce que la trame Pro envoyée presse (K34)", () => {
+    stream.stop();
+    const pro = new SwitchInput();
+    stream = new InputStream(
+      (path) => path,
+      () => {},
+      () => {},
+      true,
+      pro,
+    );
+    stream.start();
+    Object.assign(stream, {
+      socket: { readyState: 1, send: (b: Uint8Array) => sent.push(b), close: () => {} },
+      port: 1,
+    });
+    press(0);
+    (pad.axes as number[])[1] = -1;
+    tick();
+    expect([...stream.state().activite.actives].sort()).toEqual(["A", "ly+"]);
+    expect(stream.state().activite.suivies.has("ZL")).toBe(true);
+    expect(stream.state().activite.suivies.has("Z")).toBe(false);
+    stream.blockGameplay(true);
+    tick();
+    expect(stream.state().activite.actives.size).toBe(0);
   });
 
   it("un débranchement efface l'identité affichée et annule la capture", () => {

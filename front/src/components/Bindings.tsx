@@ -1,6 +1,7 @@
 /** Les commandes personnelles se règlent ici, indépendamment de la salle. */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "../lib/cn";
+import { REGLAGE } from "../lib/mots";
 import { NAME_MAX, ROOM_MARK } from "../lib/keys";
 import { describePad, identityOf, keyLabel, keyboardLayout, keysFor } from "../media/describe";
 import { identify } from "../media/families";
@@ -341,6 +342,22 @@ export function Bindings({
                           <button type="button" onClick={onCancel}>
                             Annuler
                           </button>
+                        </p>
+                      ) : null}
+                      {!state.lesson && state.lessonResult ? (
+                        <p role="status" data-fin-lecon="">
+                          {REGLAGE.fin(
+                            state.lessonResult.retenues,
+                            state.lessonResult.passees.map(
+                              (key) => controls.find((one) => one.key === key)?.label ?? key,
+                            ),
+                            state.lessonResult.garde,
+                          )}
+                        </p>
+                      ) : null}
+                      {state.suspendu ? (
+                        <p role="status" data-suspendu="">
+                          {REGLAGE.suspendu(state.suspendu.etape)}
                         </p>
                       ) : null}
                       {state.lesson ? (

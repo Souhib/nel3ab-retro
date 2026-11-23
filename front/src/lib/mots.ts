@@ -468,3 +468,41 @@ export const BRANCHEE = {
 } as const;
 
 // ==== fin salle ====
+
+// ==== chantier manettes ====
+
+/** « B, Z et Start » : une liste de noms dite comme une phrase. */
+const enPhrase = (noms: readonly string[]) =>
+  noms.length <= 1 ? (noms[0] ?? "") : `${noms.slice(0, -1).join(", ")} et ${noms.at(-1)}`;
+
+/** Le réglage des touches : la fin du pas à pas et la manette débranchée.
+ * Le panneau « Touches et manettes » (lot L4) y ajoutera ses autres mots. */
+export const REGLAGE = {
+  /** La fin du pas à pas, comptée. `passees` : les commandes passées, nommées
+   * pour la console ; `garde` : ce qu'elles gardent (`FinDe` de la leçon). */
+  fin: (retenues: number, passees: readonly string[], garde: "avant" | "standard" | "rien") => {
+    if (retenues === 0) return "Aucune commande changée.";
+    const reglees =
+      passees.length === 0
+        ? `Tes ${retenues} commandes sont réglées.`
+        : retenues === 1
+          ? "1 commande réglée."
+          : `${retenues} commandes réglées.`;
+    if (passees.length === 0) return reglees;
+    const une = passees.length === 1;
+    const reste =
+      garde === "rien"
+        ? une
+          ? "elle reste sans réglage"
+          : "elles restent sans réglage"
+        : une
+          ? "elle garde son réglage d'avant"
+          : "elles gardent leur réglage d'avant";
+    return `${reglees} Tu as passé ${enPhrase(passees)} : ${reste}. Tu peux ${une ? "la" : "les"} changer dans la liste.`;
+  },
+  /** Une manette débranchée au milieu du pas à pas : rien n'est écrit. */
+  suspendu: (etape: number) =>
+    `Ta manette s'est débranchée. Rien n'a changé. Le pas à pas est arrêté à l'étape ${etape} ; ton réglage d'avant est gardé.`,
+} as const;
+
+// ==== fin manettes ====

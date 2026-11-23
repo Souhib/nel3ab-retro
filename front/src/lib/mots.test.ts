@@ -30,6 +30,7 @@ import {
   placesLibres,
   prixImageLegere,
   prixManetteSeule,
+  REGLAGE,
   SAUVEGARDES,
 } from "./mots";
 import { SLOTS } from "./saves";
@@ -484,5 +485,29 @@ describe("les mots du lexique", () => {
     expect(etatDuSon("suspended")).toBe("en attente d'un geste");
     expect(etatDuSon("closed")).toBe("arrêté");
     expect(etatDuSon("interrupted")).toBe("inconnu");
+  });
+});
+
+describe("chantier manettes : les mots du réglage", () => {
+  it("compte la fin du pas à pas, et nomme les passées", () => {
+    expect(REGLAGE.fin(13, ["B", "Z", "Start"], "avant")).toBe(
+      "13 commandes réglées. Tu as passé B, Z et Start : elles gardent leur réglage d'avant. Tu peux les changer dans la liste.",
+    );
+    expect(REGLAGE.fin(16, [], "standard")).toBe("Tes 16 commandes sont réglées.");
+    expect(REGLAGE.fin(0, ["A", "B"], "avant")).toBe("Aucune commande changée.");
+  });
+
+  it("dit « sans réglage » sur un adaptateur jamais réglé, et accorde le singulier", () => {
+    expect(REGLAGE.fin(15, ["B"], "rien")).toBe(
+      "15 commandes réglées. Tu as passé B : elle reste sans réglage. Tu peux la changer dans la liste.",
+    );
+    // Le jumeau : « standard » garde, comme « avant ».
+    expect(REGLAGE.fin(1, ["B", "X"], "standard")).toContain("1 commande réglée.");
+    expect(REGLAGE.fin(1, ["B", "X"], "standard")).toContain("gardent leur réglage d'avant");
+  });
+
+  it("dit l'étape où le pas à pas s'est arrêté", () => {
+    expect(REGLAGE.suspendu(5)).toContain("arrêté à l'étape 5");
+    expect(REGLAGE.suspendu(5)).not.toMatch(/manette \d/);
   });
 });

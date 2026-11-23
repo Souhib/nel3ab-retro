@@ -2563,6 +2563,7 @@ function Room({
       // Le nom du jeu une seule fois : au fronton quand il a sa bande,
       // sinon dans l'en-tête de la colonne.
       jeu={frontonPossible ? null : (room?.game?.name ?? null)}
+      ancre={!tenu && !frontonVisible}
       onQuitter={onLeave}
       largeur={couches.colonne === "a-cote" ? column : null}
       forme={couches.colonne ?? "a-cote"}
@@ -3023,7 +3024,7 @@ function Room({
           />
         ) : null}
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
-          <Bande rect={geo.bande}>
+          <Bande rect={geo.bande} ancre={!geo.barre}>
             {avis}
             {regardeParChoix ? blocRole : null}
             {shot?.input.padId && port !== null && !padOnly ? (

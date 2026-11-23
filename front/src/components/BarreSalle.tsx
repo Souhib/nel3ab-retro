@@ -46,6 +46,7 @@ export function BarreSalle({
             {jeu}
           </p>
         ) : null}
+        <span data-ancre="annonce" />
       </div>
       <BoutonSalle id="laSalle" sonCoupe={sonCoupe} onSalle={onSalle} />
     </header>

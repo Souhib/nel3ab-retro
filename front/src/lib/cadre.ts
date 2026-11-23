@@ -192,6 +192,14 @@ export const PANNEAU = { min: 64, max: 88, sansImageBas: 820 } as const;
  * ou plus. La pastille d'état et l'ancre de l'annonce s'y posent. */
 export const FRONTON_MIN = 40;
 
+/** L'ancre de l'annonce du socle (`retro/lettres`) : un seul élément
+ * `[data-ancre="annonce"]` à la fois, sur la ligne du titre et jamais sur
+ * l'image. Le fronton au bureau, sinon l'en-tête de la colonne ; la barre
+ * au téléphone, sinon la bande. Un appelant l'écrit avec
+ * `annoncerLettres(ancre, texte, …)`, et la ligne parlée reste celle de la
+ * salle. */
+export const ANCRE_ANNONCE = '[data-ancre="annonce"]';
+
 /** Le décor de borne sur les bandes latérales : 72 px au moins, et seulement
  * quand elles ne portent pas la manette. */
 export const BORNE_MIN = 72;

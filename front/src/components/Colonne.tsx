@@ -56,6 +56,7 @@ export function TitreColonne({ children, id }: { children: ReactNode; id?: strin
 export function Colonne({
   nomSalle,
   jeu,
+  ancre = false,
   onQuitter,
   largeur,
   forme = "a-cote",
@@ -72,6 +73,9 @@ export function Colonne({
 }: {
   nomSalle: string;
   jeu: string | null;
+  /** L'en-tête porte l'ancre de l'annonce (`ANCRE_ANNONCE`) : au bureau,
+   * quand le fronton ne la porte pas. */
+  ancre?: boolean;
   onQuitter: () => void;
   /** La largeur choisie au bureau ; `null` sous l'image ou dans la feuille. */
   largeur: number | null;
@@ -138,6 +142,7 @@ export function Colonne({
           </button>
         </div>
         {jeu ? <p className="truncate text-corps text-muted">{jeu}</p> : null}
+        {ancre ? <span data-ancre="annonce" /> : null}
       </header>
       {etat}
       {role}

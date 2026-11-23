@@ -36,6 +36,7 @@ export function Fronton({ jeu, bande }: { jeu: string; bande: Bande }) {
       style={{ left: place.x, top: place.y, width: place.w, height: place.h }}
     >
       <span className="n3-fronton-titre">{jeu}</span>
+      <span data-ancre="annonce" />
     </div>
   );
 }

@@ -666,9 +666,16 @@ async function principal() {
             dessus: image.y - zone.y,
             tete,
             avis: document.querySelector("#avisDuCadre")?.getBoundingClientRect().height ?? 0,
+            // L'ancre de l'annonce du socle : une seule, sur la ligne du titre.
+            ancres: [...document.querySelectorAll('[data-ancre="annonce"]')].map((a) =>
+              a.closest("#fronton") ? "fronton" : a.closest("#side header") ? "colonne" : (a.closest("[id]")?.id ?? "?"),
+            ),
           };
         });
         const ici = `${vue.width}×${vue.height}`;
+        const ancre = lu.fronton ? "fronton" : "colonne";
+        if (lu.ancres.join() !== ancre)
+          fautes.push(`${ici}: ancres de l'annonce [${lu.ancres.join(", ")}], attendu [${ancre}]`);
         if (lu.fronton) {
           vus.avec += 1;
           const f = lu.fronton;
@@ -777,6 +784,14 @@ async function principal() {
             .filter(Boolean);
         });
         if (coupes.length) fautes.push(`${vue.width}×${vue.height}: sur l'image : ${coupes.join(", ")}`);
+        // L'ancre de l'annonce : une seule, dans la barre, sinon la bande ;
+        // aucune en travers avec la manette, où ni l'une ni l'autre n'existe.
+        const ancres = await page.evaluate(() =>
+          [...document.querySelectorAll('[data-ancre="annonce"]')].map((a) => a.closest("[id]")?.id ?? "?"),
+        );
+        const attendue = (await page.$("#barreSalle")) ? "barreSalle" : (await page.$("#bande")) ? "bande" : "";
+        if (ancres.join() !== attendue)
+          fautes.push(`${vue.width}×${vue.height}: ancres de l'annonce [${ancres.join(", ")}], attendu [${attendue}]`);
         await capture(page, "tenu-rien-sur-image");
         await page.close();
       }

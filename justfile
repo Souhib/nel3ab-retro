@@ -940,9 +940,10 @@ cadre-navigateur-rouge:
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Sixième bloc (passage 5): la page de la fin du passage 4 (acfa4c7) garde
     # ses touches à l'écran devant une vraie manette, sa bande ne dit pas
-    # quelle manette joue, et sa feuille à mi-hauteur n'a pas le clip.
+    # quelle manette joue, sa feuille à mi-hauteur n'a pas le clip, et ni son
+    # fronton, ni sa colonne, ni sa barre ne portent l'ancre de l'annonce.
     git show acfa4c7:core/crates/worker/src/page/index.html > "$dossier/tenu.html"
-    etapes=manette-branchee,manette-vraie,feuille-clip
+    etapes=manette-branchee,manette-vraie,feuille-clip,fronton-bande,tenu-rien-sur-image
     node cadre.mjs --page "$dossier/tenu.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====

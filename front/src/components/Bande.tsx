@@ -12,9 +12,19 @@ import type { Rect } from "../lib/cadre";
 import { placeDe } from "./Cadre";
 import "./telephone.css";
 
-export function Bande({ rect, children }: { rect: Rect; children: React.ReactNode }) {
+export function Bande({
+  rect,
+  ancre,
+  children,
+}: {
+  rect: Rect;
+  /** L'ancre de l'annonce, quand la barre manque (`ANCRE_ANNONCE`). */
+  ancre: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <section id="bande" className="n3-bande" aria-label="La salle en bref" style={placeDe(rect)}>
+      {ancre ? <span data-ancre="annonce" /> : null}
       {children}
     </section>
   );

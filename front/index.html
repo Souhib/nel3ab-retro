@@ -16,12 +16,12 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="nel3ab" />
-    <!-- The room's mark, inline: the worker serves one file and has no static
-         file server, so a favicon at its own URL would be a 404 on every load. -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2308080a'/%3E%3Crect x='3' y='5' width='10' height='6' rx='1' fill='none' stroke='%237c6ce0'/%3E%3C/svg%3E"
-    />
+    <!-- L'icône d'onglet: le 3 du logo, chaque colonne à sa barre de mire
+         (ADR D37). En ligne, parce que le worker ne sert qu'un fichier: une
+         icône à sa propre adresse serait un 404 à chaque chargement. Écrite
+         depuis `iconeOngletDataUrl()` (src/lib/logo.ts), et comparée par
+         `salon-retro.test.ts`. -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%23000%22%2F%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23eef0f2%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23f2e14b%22%2F%3E%3Crect%20x%3D%225%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%2357d3f0%22%2F%3E%3Crect%20x%3D%227%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%2363d488%22%2F%3E%3Crect%20x%3D%229%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23d06fd0%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%221%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%223%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%223%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%234f63e0%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%225%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%225%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%234f63e0%22%2F%3E%3Crect%20x%3D%225%22%20y%3D%227%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%2357d3f0%22%2F%3E%3Crect%20x%3D%227%22%20y%3D%227%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%2363d488%22%2F%3E%3Crect%20x%3D%229%22%20y%3D%227%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23d06fd0%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%227%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%229%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%229%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%234f63e0%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%2211%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3Crect%20x%3D%2213%22%20y%3D%2211%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%234f63e0%22%2F%3E%3Crect%20x%3D%221%22%20y%3D%2213%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23eef0f2%22%2F%3E%3Crect%20x%3D%223%22%20y%3D%2213%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23f2e14b%22%2F%3E%3Crect%20x%3D%225%22%20y%3D%2213%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%2357d3f0%22%2F%3E%3Crect%20x%3D%227%22%20y%3D%2213%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%2363d488%22%2F%3E%3Crect%20x%3D%229%22%20y%3D%2213%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23d06fd0%22%2F%3E%3Crect%20x%3D%2211%22%20y%3D%2213%22%20width%3D%222%22%20height%3D%222%22%20fill%3D%22%23e0604f%22%2F%3E%3C%2Fsvg%3E" />
     <title>nel3ab</title>
     <!-- Le thème choisi, posé AVANT la première image. Le script de la page est
          un module, lancé seulement après la lecture de tout le document: un
@@ -53,6 +53,42 @@
         }
         document.documentElement.dataset.theme = choix;
       })();
+      /* effets: début. Les effets rétro du réglage de l'appareil, posés avant
+         la première image (ADR D37). Écrit depuis `scriptEnTete()`
+         (src/lib/effets.ts) par `N3_SALON_ECRIRE=1 npx vitest run
+         src/lib/salon-retro.test.ts`, qui échoue si ce bloc n'est plus le
+         sien. */
+(function () {
+  var effets = "mire-vide/d/o mire-charge/m/- palette/d/o cycle/m/- tramage/d/o titres/d/o texte-pixel/M/- coins/d/o ombres/d/o nettes/d/o icones/d/o pointeur/m/- chiffres/d/o curseur/d/o boutons/d/o start/m/o arrive/d/o lettres/m/- compteur/m/- sons/m/- secousse/M/- fondu/d/o mosaique/m/o iris/m/- tuiles/m/- coupure/m/- defile/M/- extinction/m/o paliers/m/- balayage/m/o balayage-tout/M/- grille/M/- vignette/m/- halo/d/o bave/m/- neige/m/o roulement/m/- scintille/M/- courbure/M/- fronton/d/o borne/m/- places/d/o initiales/m/- scores/d/o demo/m/- credit/d/o".split(" ");
+  function appliquer() {
+    var niveau = "conseille", sons = false;
+    try {
+      var lu = JSON.parse(localStorage.getItem("nel3ab:effets") || "null");
+      if (lu && typeof lu === "object") {
+        if (lu.niveau === "sobre" || lu.niveau === "conseille" || lu.niveau === "tout") niveau = lu.niveau;
+        if (lu.sons === true) sons = true;
+      }
+    } catch (refus) {}
+    try {
+      var racine = document.documentElement;
+      for (var i = 0; i < effets.length; i++) {
+        var e = effets[i].split("/");
+        var actif = e[0] === "sons" ? sons : niveau === "tout" ? true : niveau === "sobre" ? e[1] === "d" : e[2] === "o";
+        racine.classList.toggle("fx-" + e[0], actif);
+      }
+      racine.setAttribute("data-effets", niveau);
+      racine.setAttribute("data-sons", sons ? "oui" : "non");
+    } catch (refus) {}
+  }
+  appliquer();
+  try {
+    window.nel3abEffets = { appliquer: appliquer };
+    window.addEventListener("storage", function (e) {
+      if (e.key === "nel3ab:effets" || e.key === null) appliquer();
+    });
+  } catch (refus) {}
+})();
+      /* effets: fin */
     </script>
   </head>
   <body>

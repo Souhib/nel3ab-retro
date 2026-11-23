@@ -13,7 +13,8 @@ import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
 import { base, salle, under } from "./lib/base";
 import { Crown } from "./components/Crown";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Logo } from "./components/Logo";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { closeSalle, type Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
 import { GameCard } from "./components/GameCard";
@@ -156,6 +157,7 @@ import {
 } from "./lib/saves";
 import { useClip } from "./lib/useClip";
 import {
+  EFFETS_RETRO,
   IMAGE,
   PLACE,
   SANS_REPONSE,
@@ -171,6 +173,7 @@ import {
   TACTILE,
 } from "./lib/mots";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
+import { abonner, changerNiveau, changerSons, estNiveau, instantane, NIVEAUX } from "./lib/effets";
 import { consoleDesTouches, sauvegardeAnnoncee, sauvegardeRelancee } from "./lib/lancement";
 import {
   entreeDeLAdresse,
@@ -628,6 +631,9 @@ function Room({
    * page: ils servent à chercher une panne, pas à jouer (audit P12). */
   const [avances, setAvances] = useState(false);
   const [theme, setTheme] = useState(storedTheme);
+  // Le réglage des effets rétro de cet appareil (`lib/effets`): lu, jamais
+  // copié, pour qu'un changement fait dans un autre onglet arrive ici aussi.
+  const effets = useSyncExternalStore(abonner, instantane);
   /** Ce que la colonne montre. Retenu, parce que quelqu'un qui veut les mesures
    * les veut encore au prochain chargement. */
   const [mode, setMode] = useState(storedMode);
@@ -1915,6 +1921,32 @@ function Room({
                 },
               },
               {
+                id: "effets",
+                label: EFFETS_RETRO.reglage,
+                value: EFFETS_RETRO.niveaux[effets.niveau].label,
+                hint: pour(appareil, "voir les trois"),
+                icon: <PaletteIcon className="h-full w-full" />,
+                picks: NIVEAUX.map((id) => ({
+                  id,
+                  label: EFFETS_RETRO.niveaux[id].label,
+                  hint: EFFETS_RETRO.niveaux[id].note,
+                })),
+                picked: effets.niveau,
+                onPick: (id) => {
+                  if (estNiveau(id)) changerNiveau(id);
+                },
+              },
+              {
+                // Coupés par défaut, et jamais pendant une partie
+                // (`retro/sons.ts`): ce réglage ne fait que les permettre.
+                id: "sonsMenu",
+                label: EFFETS_RETRO.sons,
+                value: effets.sons ? "oui" : "non",
+                hint: EFFETS_RETRO.sonsNote,
+                icon: <SoundIcon className="h-full w-full" />,
+                onEnter: () => changerSons(!effets.sons),
+              },
+              {
                 id: "shell",
                 // Une entrée nommée « menu », dans un menu, est une devinette. Ce
                 // qu'elle choisit est le tableau de bord de quelle console.
@@ -2499,7 +2531,7 @@ function Room({
               <BarreDuTiroir onFermer={() => setTiroir(false)} />
             ) : null}
             <header className="flex flex-col gap-0.5">
-              <span className="n3-marque">nel3ab</span>
+              <Logo />
               <h1 className="truncate text-fort font-medium">{nomSalle}</h1>
               <p className="truncate text-corps text-muted">{room?.game?.name ?? "aucun jeu"}</p>
               <p id="seat" className="text-corps text-faint">

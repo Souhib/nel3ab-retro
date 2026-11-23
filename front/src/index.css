@@ -7,6 +7,9 @@
    de haut, une tablette en travers 768 et plus. */
 @custom-variant paysage-bas (@media (max-height: 500px) and (orientation: landscape));
 @import "./regie.css";
+/* Les effets rétro (ADR D37): des classes `rt-…` que le niveau choisi sur
+   l'appareil allume ou non, par les classes `fx-…` de `<html>`. */
+@import "./effets.css";
 
 /*
  * Un instrument, pas une vitrine.
@@ -63,6 +66,16 @@
   font-weight: 700;
   font-display: swap;
   src: url("../../control/nel3ab_control/api/routes/polices/anybody-large700.woff2") format("woff2");
+}
+/* Pixelify Sans, la police des titres du thème rétro (ADR D37): une police
+   variable, de 400 à 700, sous-ensemblée au français (10 020 octets, voir
+   `polices/PixelifySans-PROVENANCE.txt`). */
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../../control/nel3ab_control/api/routes/polices/pixelify-titres.woff2") format("woff2");
 }
 @font-face {
   font-family: "Departure";
@@ -246,15 +259,14 @@ body {
   outline-offset: 2px;
 }
 
-/* Le mot-marque, le même qu'au salon: NEL3AB en Departure, espacé de 0,34 em,
-   en encre. Il était indigo et en chasse fixe du système dans la salle, en
-   capitales Departure à l'accueil: deux marques pour un même service. */
+/* La marque: le logo « relief en escalier » (`components/Logo.tsx`, ADR D37),
+   le même qu'au salon. Elle était un mot en Departure jusqu'au 23 novembre
+   2026. Le dessin n'a pas de ligne de base: il se pose au début de la ligne,
+   à 20 px de haut, soit deux pixels d'écran par pixel du dessin. */
 .n3-marque {
-  font-family: var(--police-machine);
-  font-size: var(--text-corps);
-  letter-spacing: 0.34em;
-  text-transform: uppercase;
-  color: var(--encre);
+  display: inline-flex;
+  align-self: flex-start;
+  --rt-logo-hauteur: 20px;
 }
 
 /* L'étiquette de section de la colonne et des mesures. Un seul style là où il

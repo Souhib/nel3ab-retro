@@ -58,6 +58,8 @@ export const SETTINGS: readonly Arranged[] = [
   { id: "sound", group: "image et son" },
   { id: "volume", group: "image et son" },
   { id: "theme", group: "allure" },
+  { id: "effets", group: "allure" },
+  { id: "sonsMenu", group: "allure" },
   { id: "shell", group: "allure" },
   { id: "bare", group: "allure" },
   { id: "columnWidth", group: "allure" },

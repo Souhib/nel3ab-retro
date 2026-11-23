@@ -17,6 +17,7 @@ import { PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
 import { LobbyPlan } from "./LobbyPlan";
+import { Logo } from "./Logo";
 import { ENTREES, placesLibres, SORTIES } from "../lib/mots";
 import { salonAuDessus } from "../lib/entree";
 
@@ -81,19 +82,18 @@ export function Lobby({
      Une encre FIXE par dessin peint est correcte et ne dépend d'aucun des sept
      thèmes, puisque le fond, lui, est fixe. */
   const PEINTURE = {
-    cables: { encre: "#eceff4", sourde: "#aeb6c2", marque: "#8fa4c4" },
-    plan: { encre: "#f0e9e0", sourde: "#9c9086", marque: "#9c9086" },
+    cables: { encre: "#eceff4", sourde: "#aeb6c2" },
+    plan: { encre: "#f0e9e0", sourde: "#9c9086" },
   } as const;
   const peinture = look === "cables" || look === "plan" ? PEINTURE[look] : null;
   const peint = peinture !== null;
-  const marque = peinture?.marque;
 
   const entete = (
     <header className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="n3-marque" style={peint ? { color: marque } : undefined}>
-          nel3ab
-        </span>
+        {/* Le logo lit les jetons de la page. Les dessins peints sont sombres
+            dans les deux thèmes: il y prend ceux de la nuit. */}
+        <Logo className={peint ? "regie-nuit" : undefined} />
         <span className="flex items-baseline gap-3">
           {onLook ? <LookSwitch look={look} onLook={onLook} /> : null}
           {salon ? (

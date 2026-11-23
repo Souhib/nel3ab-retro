@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { client } from "./client/client.gen";
 import { applyTheme, storedTheme } from "./lib/theme";
+import { demarrer as demarrerEffets } from "./lib/effets";
 import { exposeNothingYet } from "./media/session";
 import "./index.css";
 import { salle } from "./lib/base";
@@ -23,6 +24,10 @@ exposeNothingYet();
 /* Le thème AVANT le premier rendu, sinon la page clignote dans l'autre couleur
  * le temps que React se monte. */
 applyTheme(storedTheme());
+
+/* Les effets rétro du réglage de l'appareil, déjà posés par le script de
+ * l'en-tête: ce module les reprend et suit les autres onglets (`lib/effets`). */
+demarrerEffets();
 
 const query = new QueryClient({
   defaultOptions: {

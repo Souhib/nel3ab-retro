@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from "react";
 import { Bobine } from "../bobine/Bobine";
+import { Logo } from "./Logo";
 import "./etat-salle.css";
 
 /** Au-delà, le site ne répond pas, en millisecondes.
@@ -36,7 +37,7 @@ export function Ouverture({
   }, []);
   return (
     <div id="ouverture" className="n3-etat-rideau regie-nuit" data-perdue={longue}>
-      <span className="n3-marque">nel3ab</span>
+      <Logo />
       <section className="n3-etat-carte" aria-labelledby="ouvertureTitre">
         <div className="n3-etat-bob">
           <Bobine

@@ -258,9 +258,12 @@ Nouvelle porte `just reglage-navigateur` et son contrôle
 `reglage-navigateur-rouge`, à ajouter à `local` à la fusion. Les anciens
 dialogues n'hébergent plus que la préparation, jusqu'au chantier des menus.
 Tenu en main, le panneau couvre encore l'image dans la feuille agrandie :
-sa place attend la géométrie du cadre (chantier salle). Page : 258 978
-octets. Récit : « 23 novembre, dans la nuit : les manettes, quatrième
-passage ».
+sa place attend la géométrie du cadre (chantier salle). Après le câblage :
+paliers au niveau tout seulement, compteur d'étape en chiffres d'afficheur,
+son grave sur un refus Pro, icône de manette en pixels, zones de clic de
+24 px à la souris et dessin non cliquable au doigt ; `padmap-visuel` sans
+relais vers la salle. Page : 259 484 octets. Récit : « 23 novembre, dans
+la nuit : les manettes, quatrième passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

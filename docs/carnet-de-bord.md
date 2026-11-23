@@ -29783,6 +29783,26 @@ par le verdict du pilote.
 **Le poids.** La page passe de 251 754 à 258 978 octets en brotli
 (+7 224) : le panneau entier, sans aucun retrait. Le budget est de 300 000.
 
+**Après le câblage, le reste du panneau.** Sans toucher `App.tsx` de
+nouveau, le passage a fini cinq morceaux, chacun écrit rouge d'abord. Les
+marques du pas à pas n'avancent par paliers qu'au niveau tout : elles le
+faisaient à tous les niveaux. Le titre d'une étape porte « 03/16 » en
+chiffres d'afficheur, dont seul le chiffre qui change roule au niveau tout.
+Un fichier refusé dans les profils Pro joue le son grave du socle. La ligne
+de l'appareil porte l'icône de manette en pixels. Et chaque pièce cliquable
+du dessin reçoit une zone de clic invisible de 24 pixels à la souris (la
+cible minimale des règles d'accessibilité du web), sans jamais mordre sur
+une voisine ; au doigt, le dessin n'est plus cliquable du tout, la liste
+est le chemin. Une nouvelle étape de `reglage.mjs` vérifie les zones dans
+Chrome, et rougit sur la page du câblage, qui n'en avait pas.
+
+**Un aperçu qui parlait à la salle.** `padmap-visuel.mjs` servait l'aperçu
+des manettes par `npm run dev`, dont la configuration relaie l'API et les
+sockets vers la salle vivante. Il passe par `vite.planche.config.ts`, sans
+relais, comme le banc. Rien ne s'est mal passé, mais un aperçu n'a aucune
+raison de pouvoir joindre un service en marche. La page pèse maintenant
+259 484 octets en brotli.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

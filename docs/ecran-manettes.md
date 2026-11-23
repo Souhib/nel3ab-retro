@@ -703,8 +703,14 @@ qu'il faut savoir avant d'y toucher :
   prend la largeur du cadre tant que le panneau est ouvert. Retirer l'un ou
   l'autre fait échouer l'étape `place` de `reglage.mjs`.
 - **La preuve dans le navigateur** : `just reglage-navigateur` (place,
-  entrées et focus, activité de la trame Pro, pas à pas sur une manette
-  simulée) et `just reglage-navigateur-rouge` sur la page de 9fb659e.
+  entrées et focus, activité de la trame Pro, zones de clic, pas à pas sur
+  une manette simulée) et `just reglage-navigateur-rouge` sur les pages de
+  9fb659e et de bc72ba9.
+- **Les zones de clic.** À la souris, `PadMap.tsx` pose un disque
+  invisible `.n3-zone` dans chaque pièce cliquable ; `tenirInscriptions`
+  lui donne son rayon à chaque changement de taille (`zones.ts` : 24 px
+  visés, jamais sur une voisine). Au doigt, `Wiring` ne passe pas
+  `onSelect` : aucune pièce n'est un bouton.
 
 - **L'invariant tient.** Le panneau pose `Wiring` tel quel pour Dolphin : la
   gauche lit `readPad`, la droite `heldOn`. Pour la trame Pro, `paintPro`

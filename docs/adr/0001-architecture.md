@@ -2180,6 +2180,16 @@ the panel still lives in the enlarged sheet, which covers the picture: the
 place under the picture (portrait) and right of it (landscape) needs the
 room frame geometry, which belongs to the `salle` work site. The
 `place-tenu` step measures it and stays red, outside the gate.
+After the wiring commit, without touching `App.tsx` again: the lesson
+marks step only under `.fx-paliers` (full level); the step title shows
+"03/16" in display digits that roll at the full level (the socle's
+`chiffres` and `compteur`); a refused Pro file plays the socle's low tone;
+the device row carries the pixel pad icon; and every clickable piece of
+the game drawing gets an invisible hit zone aiming at 24 px rendered,
+never reaching into a neighbour (`zones.ts`), while a coarse pointer gets
+no clickable drawing at all. `padmap-visuel.mjs` serves its preview through
+`vite.planche.config.ts`, which has no relay to the room's ports. The page
+weighs 259 484 bytes brotli.
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

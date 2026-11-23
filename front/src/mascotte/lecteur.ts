@@ -317,6 +317,7 @@ export class Theatre {
       }
     }
     this.cacherObjets(plan.garde);
+    this.air = NEUTRE;
     plan.evts.sort((a, b) => a.t - b.t);
     this.mesure = { images: 0, ms: 0, max: 0, peints: 0, cede: 0 };
     this.courante = { plan, t0: performance.now(), fait: 0, retards: 0, dernier: 0, fin };
@@ -379,6 +380,7 @@ export class Theatre {
       }
     }
     if (mode === "couper") this.air = NEUTRE;
+    else if (plan.airFin && this.present) this.air = { ...plan.airFin, joueur: plan.joueur };
     this.peindreMaison();
     c.fin();
   }

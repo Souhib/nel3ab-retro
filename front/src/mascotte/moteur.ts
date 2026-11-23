@@ -44,6 +44,7 @@ import {
   type Forme,
   type Grille,
   type Joueur,
+  type Maison,
   type Pose,
 } from "./dessin";
 
@@ -350,6 +351,10 @@ export class Plan {
   /** La scène finit dehors : Aïn reste là tant que l'état dure. */
   reste = false;
   finFn: (() => void) | null = null;
+  /** L'air que le logo garde quand la scène finit avec Aïn chez lui. */
+  airFin: Maison | null = null;
+  /** La scène d'où Aïn n'était pas rentré, s'il était dehors. */
+  dehorsDe: string | null;
   garde = new Set<string>();
   refus: string | null = null;
   abaisses = 0;
@@ -362,15 +367,27 @@ export class Plan {
     this.maison = d.maison;
     this.pos = dehors ? [...dehors.pied] : [...d.maison];
     this.depuisDehors = dehors !== null;
+    this.dehorsDe = dehors?.scene ?? null;
     this.forme = dehors?.pose.forme ?? "3";
     this.sortie = dehors ? 0 : null;
     if (dehors?.enLair) this.retombe();
   }
-  /** L'ancre `nom`, son milieu haut ; une ancre absente lève `SansAncre`. */
-  pt(nom: string): Point {
+  /** L'ancre `nom` ; une ancre absente lève `SansAncre`. */
+  ancre(nom: string): Ancre {
     const a = this.d.ancre(nom);
     if (!a) throw new SansAncre(nom);
+    return a;
+  }
+  /** Le milieu du bord haut d'une ancre : là où Aïn se pose. */
+  pt(nom: string): Point {
+    const a = this.ancre(nom);
     return [a.cx, a.y];
+  }
+  /** Le sol `nom` ; absent, `SansAncre`. */
+  sol(nom: string): Sol {
+    const s = this.d.sols().find((x) => x.nom === nom);
+    if (!s) throw new SansAncre(nom);
+    return s;
   }
   piste(
     duree: number,

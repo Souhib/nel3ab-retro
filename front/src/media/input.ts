@@ -86,6 +86,9 @@ export type InputState = {
   lesson: { control: ControlKey; step: number; total: number; waiting: boolean } | null;
   /** La fin du dernier pas à pas, jusqu'au suivant ou à une réassignation. */
   lessonResult: FinDeLecon | null;
+  /** Un pas à pas suspendu par un débranchement : l'étape à reprendre, sur
+   * combien, et la manette qui seule peut le reprendre. Rien n'a été écrit. */
+  suspendu: { etape: number; total: number; id: string } | null;
   /** Le repos pris au clic par la leçon ou la réassignation en cours, ou nul.
    * Les dessins lisent la course depuis lui (`heldOn`), comme la détection. */
   neutre: Snapshot | null;
@@ -372,6 +375,7 @@ export class InputStream {
   private extension: 0 | 1 | 2 = 0;
   private lesson: Lesson | null = null;
   private lessonResult: FinDeLecon | null = null;
+  private suspension: { lesson: Lesson; id: string } | null = null;
   private capture: {
     control: ControlKey;
     source: "pad" | "key";
@@ -532,6 +536,11 @@ export class InputStream {
       learning: this.lesson?.done === false ? this.lesson.asking : null,
       lesson: this.lesson?.progress ?? null,
       lessonResult: this.lessonResult,
+      suspendu: this.suspension && {
+        etape: this.suspension.lesson.step + 1,
+        total: this.suspension.lesson.total,
+        id: this.suspension.id,
+      },
       neutre: this.lesson?.repos ?? this.capture?.machine?.repos ?? null,
       pressed: this.pressedNames(),
       activite:
@@ -992,7 +1001,29 @@ export class InputStream {
     this.held.clear();
     this.sendNeutral();
     this.lessonResult = null;
+    this.suspension = null;
     this.lesson = new Lesson(pad.id, this.lessonSnapshot(pad), console, kind);
+  }
+
+  /** Reprend le pas à pas suspendu, sur la MÊME manette seulement : une
+   * autre apprendrait la suite sur un autre modèle. Rend faux sinon. */
+  reprendreLecon(): boolean {
+    const suspendue = this.suspension;
+    const pad = this.current();
+    if (!suspendue || !pad || pad.id !== suspendue.id) return false;
+    this.cancelCapture();
+    this.suspension = null;
+    this.configuringId = pad.id;
+    this.held.clear();
+    this.sendNeutral();
+    suspendue.lesson.reprendre(this.lessonSnapshot(pad));
+    this.lesson = suspendue.lesson;
+    return true;
+  }
+
+  /** « D'accord » : la suspension s'oublie, le profil d'avant reste. */
+  oublierSuspension(): void {
+    this.suspension = null;
   }
 
   skipLessonStep(): void {
@@ -1267,7 +1298,14 @@ export class InputStream {
       return;
     }
     const pad = this.current();
-    if (this.configuringId !== null && pad?.id !== this.configuringId) this.cancelCapture();
+    if (this.configuringId !== null && pad?.id !== this.configuringId) {
+      // Une leçon débranchée se suspend au lieu de s'annuler (constat C5) ;
+      // une réassignation en cours s'annule sans rien écrire.
+      if (this.lesson !== null && !this.lesson.done)
+        this.suspension = { lesson: this.lesson, id: this.configuringId };
+      this.cancelCapture();
+      this.onSettled();
+    }
     if (!pad) {
       this.padId = null;
       this.padLayout = null;

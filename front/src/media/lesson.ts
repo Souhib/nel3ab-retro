@@ -132,7 +132,7 @@ export class Lesson {
   step = 0;
   /** Waiting for the hand to let go before the next question is asked. */
   waiting = false;
-  private readonly neutral: Snapshot;
+  private neutral: Snapshot;
   private readonly profile: PadProfile;
 
   /** The neutral sample is taken ONCE, with nothing held. Re-reading it after
@@ -154,6 +154,25 @@ export class Lesson {
 
   get done(): boolean {
     return this.step >= this.steps.length;
+  }
+
+  /** Combien d'étapes compte cette leçon. */
+  get total(): number {
+    return this.steps.length;
+  }
+
+  /**
+   * Reprend une leçon suspendue par un débranchement, avec un repos pris au
+   * clic sur « Reprendre ». Les réponses et les passées sont gardées.
+   *
+   * Un repos nouveau et pas l'ancien : la manette rebranchée peut reposer
+   * ailleurs (un adaptateur qui a changé de port), et c'est le même instant
+   * qu'au début, mains hors de la manette. La leçon attend ensuite le repos
+   * avant la question suivante, comme après une réponse.
+   */
+  reprendre(neutre: Snapshot): void {
+    this.neutral = neutre;
+    this.waiting = true;
   }
 
   get asking(): string {

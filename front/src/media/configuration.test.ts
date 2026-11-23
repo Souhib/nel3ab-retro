@@ -381,6 +381,66 @@ describe("configurer une manette pendant une partie", () => {
     expect(stream.state().activite.actives.size).toBe(0);
   });
 
+  /** Répond aux quatre premières étapes sur b0 à b3. */
+  const quatreReponses = () => {
+    for (const index of [0, 1, 2, 3]) {
+      press(index);
+      press(index, 0);
+    }
+    expect(stream.state().lesson?.step).toBe(5);
+  };
+
+  // Constat C5 du plan manettes : le débranchement annulait la leçon, et
+  // « Reprendre à l'étape 5 » n'avait rien à reprendre.
+  it("un débranchement suspend le pas à pas sans rien écrire", () => {
+    stream.beginCapture("B", "pad");
+    press(5);
+    press(5, 0);
+    const avant = structuredClone(stream.state().profile);
+    stream.beginLesson();
+    quatreReponses();
+    connected = [];
+    tick();
+    expect(stream.state().lesson).toBeNull();
+    expect(stream.state().suspendu).toEqual({ etape: 5, total: 16, id: pad.id });
+    connected = [pad];
+    tick();
+    expect(stream.state().profile).toEqual(avant);
+    expect(stream.reprendreLecon()).toBe(true);
+    expect(stream.state().suspendu).toBeNull();
+    expect(stream.state().lesson?.step).toBe(5);
+    for (let etape = 5; etape <= 16; etape += 1) stream.skipLessonStep();
+    const appris = stream.state().profile;
+    expect(appris?.buttons.A).toEqual({ button: 0, rest: 0 });
+    expect(appris?.buttons.Y).toEqual({ button: 3, rest: 0 });
+    // Z, passée après la reprise, garde le réglage d'avant.
+    expect(appris?.buttons.Z).toEqual(avant?.buttons.Z);
+  });
+
+  it("« D'accord » oublie la suspension et garde le profil d'avant", () => {
+    stream.beginLesson();
+    quatreReponses();
+    connected = [];
+    tick();
+    connected = [pad];
+    tick();
+    stream.oublierSuspension();
+    expect(stream.state().suspendu).toBeNull();
+    expect(stream.reprendreLecon()).toBe(false);
+    expect(stream.state().lesson).toBeNull();
+    expect(stream.state().profile).toBeNull();
+  });
+
+  it("une autre manette ne reprend pas le pas à pas d'une autre", () => {
+    stream.beginLesson();
+    quatreReponses();
+    connected = [{ ...pad, id: "une autre manette" } as Gamepad];
+    tick();
+    expect(stream.state().suspendu?.id).toBe(pad.id);
+    expect(stream.reprendreLecon()).toBe(false);
+    expect(stream.state().lesson).toBeNull();
+  });
+
   it("un débranchement efface l'identité affichée et annule la capture", () => {
     stream.beginCapture("A", "pad");
     connected = [];

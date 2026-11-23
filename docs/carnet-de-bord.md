@@ -28409,6 +28409,35 @@ essai. En passant, deux fichiers d'essai que ce chantier ne possède pas
 (`harness.rs`, `stream.rs`) ont reçu une ligne : ils construisent l'état
 partagé du serveur champ par champ.
 
+**« D'habitude, il démarre en 25 secondes. »** L'écran de chargement disait
+« c'est long » au bout de vingt secondes, quel que soit le jeu ; un jeu Switch
+qui recompile ses nuanceurs en met parfois soixante. Le salon chronomètre
+maintenant chaque démarrage, du moment où le worker accepte le lancement à sa
+première image, et retient les vingt derniers par jeu. Il ne publie une
+habitude (la médiane, et le 90e centile au-delà duquel « c'est plus long que
+d'habitude ») qu'à partir de cinq démarrages réussis. Le piège était dans les
+relances du même jeu : pendant quelques secondes, l'ancien worker répond
+encore avec la même clé et l'image d'AVANT. Sans la garde qui exige un worker
+démarré après le lancement, le chrono s'arrêtait sur cette vieille image ; le
+mutant qui retire cette garde fait échouer quatre essais. Un autre essai passe
+par la vraie socket, parce que le lancement est déclenché par deux chemins du
+salon : celui qui appellerait encore l'ancienne fonction laisserait le chrono
+arrêté, et l'essai le voit. Le fichier ne contient personne : ni adresse, ni
+pseudo.
+
+**Médiane et 90e centile.** La médiane est la valeur du milieu : la moitié des
+démarrages ont été plus courts. Le 90e centile est la valeur sous laquelle
+tombent neuf démarrages sur dix ; il sert de seuil à « plus long que
+d'habitude », pour qu'un seul démarrage lent ne déplace pas la phrase.
+
+**Deux commits partis sans leur texte.** Deux fois ce soir, le script qui
+ajoutait l'entrée du carnet a échoué sur un passage recopié avec un autre
+retour à la ligne, et le commit est parti quand même : le script et le
+commit étaient sur deux lignes, pas enchaînés. Les deux commits ont été
+complétés aussitôt. C'est la règle « a newline is not an execution
+dependency » du 10 novembre, appliquée à de la prose : le texte passe
+maintenant par un fichier lancé avec `&&` avant le commit.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

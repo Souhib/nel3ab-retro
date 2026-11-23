@@ -78,6 +78,9 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Jalons du worker (lot 2, ADR D43).** `/roms` porte `depuis_ms`, `moteur`
   et `image_ms` ; le salon publie `Room.partie`. Demande de reconstruire le
   worker, sans salle ouverte, APRÈS le redémarrage du salon.
+- **Durées de démarrage (D05).** `nel3ab_control/demarrages.py`,
+  `NEL3AB_DEMARRAGES_FILE` (`~/.local/state/nel3ab/demarrages.jsonl`) ;
+  `Game.demarrage` à partir de cinq démarrages réussis.
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

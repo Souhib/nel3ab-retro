@@ -192,6 +192,32 @@ export type ConsoleVue = {
 };
 
 /**
+ * Demarrage
+ *
+ * L'habitude d'un jeu, sur ses derniers démarrages réussis.
+ */
+export type Demarrage = {
+    /**
+     * Mediane S
+     *
+     * La durée médiane, en secondes.
+     */
+    mediane_s: number;
+    /**
+     * P90 S
+     *
+     * Le 90e centile (rang le plus proche), en secondes: au-delà, « c'est plus long que d'habitude ».
+     */
+    p90_s: number;
+    /**
+     * N
+     *
+     * Sur combien de démarrages.
+     */
+    n: number;
+};
+
+/**
  * Dernier
  */
 export type Dernier = {
@@ -303,6 +329,10 @@ export type Game = {
      * Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.
      */
     console?: string;
+    /**
+     * Combien de temps ce jeu met d'habitude à démarrer dans les salles de cette machine, du lancement accepté à la première image offerte. Rien avant cinq démarrages réussis: la page garde alors ses constantes et ne dit pas « d'habitude ».
+     */
+    demarrage?: Demarrage | null;
     /**
      * Art
      *

@@ -69,6 +69,9 @@ def isolate_personal_state(
     # ce repère. Un essai qui construit `Settings()` lirait sinon le jeu retenu
     # des vraies salles, et en ouvrirait une sur la vraie salle 1.
     monkeypatch.setenv("NEL3AB_SALLES_DIR", str(racine / "salles"))
+    # Et les durées de démarrage (D05): un essai qui lance un jeu y écrirait
+    # une ligne, et l'habitude de la machine apprendrait des jeux inventés.
+    monkeypatch.setenv("NEL3AB_DEMARRAGES_FILE", str(racine / "demarrages.jsonl"))
 
 
 @pytest.fixture(autouse=True)

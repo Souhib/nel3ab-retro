@@ -1772,6 +1772,18 @@ Decision:
   it (rule « A game's frame counter does not prove the picture players see »):
   the sentence is « the room is sending the picture », and the page keeps its
   own count of painted frames.
+- **The usual startup time of each game is measured, not assumed (D05).**
+  `nel3ab_control.demarrages` starts a clock when the worker accepts a launch
+  (`RoomController.lance`, the single entry both socket paths now call) and
+  stops it on the first `image_ms` of a NEW worker (`depuis_ms` after the
+  launch) running that key. Both ends are wall-clock times on the same machine,
+  so the result does not depend on the one-second polling. One JSON line per
+  start, with no person in it, in `NEL3AB_DEMARRAGES_FILE` (overridden by the
+  autouse test fixture). `Game.demarrage {mediane_s, p90_s, n}` covers the last
+  twenty successful starts of that key, and only from five: below that the page
+  keeps its constants and does not say « usually ». A launch that comes back
+  on another game or on the menu, or without an image after ten minutes, is an
+  « abandon » line, never counted; an impossible duration is not written.
 
 
 ## Consequences

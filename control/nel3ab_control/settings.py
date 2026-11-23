@@ -100,6 +100,14 @@ class Settings(BaseSettings):
             "oublie les parties d'il y a huit jours ne dit pas « ce que j'ai joué »."
         ),
     )
+    demarrages_file: Path = Field(
+        default=Path.home() / ".local/state/nel3ab/demarrages.jsonl",
+        description=(
+            "Où le salon note la durée de chaque démarrage de jeu, une ligne JSON "
+            "sans personne, pour dire « d'habitude, il démarre en 25 s » "
+            "(`nel3ab_control.demarrages`). Un fichier pour la machine."
+        ),
+    )
     personal_save_root: Path = Field(
         default=Path.home() / ".local/state/nel3ab/personal-saves",
         description=(

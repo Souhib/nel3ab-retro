@@ -24,6 +24,7 @@ from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.room import Game, LancementVu, PartieVue, Room, Seat
 from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
+from nel3ab_control.demarrages import Demarrages
 from nel3ab_control.game_controls import guide_for
 from nel3ab_control.parties import Fin, JeuJoue, Parties
 from nel3ab_control.session_salle import JeuRetenu, jeu_retenu
@@ -55,6 +56,7 @@ class RoomController:
         client: httpx.AsyncClient,
         numero: int = 1,
         parties: Parties | None = None,
+        demarrages: Demarrages | None = None,
     ) -> None:
         self._settings = settings
         self._client = client
@@ -121,6 +123,8 @@ class RoomController:
         self.recovery_refused: dict[int, tuple[str, float]] = {}
         #: L'heure murale, pour lire les jalons du worker, qui sont murales.
         self._horloge_murale = time.time
+        #: Les durées de démarrage, communes aux salles quand le salon les passe.
+        self.demarrages = demarrages or Demarrages(settings.demarrages_file)
 
     async def unlocked_available(self, index: int) -> bool:
         """The worker checks import receipts and real payloads, including after removal."""
@@ -213,9 +217,32 @@ class RoomController:
         self._players = (
             players if isinstance(players, int) and 1 <= players <= PADS_MAX else PADS_MAX
         )
+        # Le chrono des démarrages (D05): la première image du jeu attendu.
+        self.demarrages.vu(
+            self.numero,
+            running.key if running else None,
+            _instant_ms(payload.get("depuis_ms")),
+            _instant_ms(payload.get("image_ms")),
+        )
+        games = [
+            game.model_copy(update={"demarrage": habitude})
+            if (habitude := self.demarrages.habituel(game.key))
+            else game
+            for game in games
+        ]
+        running = next((game for game in games if running and game.index == running.index), None)
         self._known = (games, running)
         self.tablee.jeu(jeu_joue(running) if running else None)
         return games, running
+
+    def lance(self, login: str | None, pseudo: str, jeu: JeuJoue, emplacement: int | None) -> None:
+        """Le worker vient d'accepter ce lancement: au journal des parties, et au chrono.
+
+        Une seule entrée pour les deux chemins de lancement du salon, pour
+        qu'aucun n'oublie de démarrer la mesure du démarrage (D05).
+        """
+        self.tablee.lance(login, pseudo, jeu, emplacement)
+        self.demarrages.lance(self.numero, jeu.cle, jeu.console)
 
     def dernier_jeu(self, library: list[Game]) -> DernierJeu | None:
         """Le dernier jeu lancé dans CETTE salle, d'après son dossier.

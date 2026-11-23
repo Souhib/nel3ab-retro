@@ -889,7 +889,7 @@ async def booting(sid: str, data: dict[str, Any]) -> None:
     game = library[index].name
     # Ce chemin ne passe pas par la préparation et ne nomme personne au
     # worker: la sauvegarde que le jeu prendra n'est pas connue ici.
-    rooms.tablee.lance(_joueur(session), session["name"], jeu_joue(library[index]), None)
+    rooms.lance(_joueur(session), session["name"], jeu_joue(library[index]), None)
     journal.write(
         "changement",
         **_who(sid, session),
@@ -1004,7 +1004,7 @@ async def preparation(sid: str, data: object = None) -> dict[str, str | bool]:
                 )
             # Au journal des parties, APRÈS l'accord du worker: un
             # lancement refusé n'a choisi la sauvegarde de personne.
-            rooms.tablee.lance(_joueur(session), session["name"], jeu_joue(game), pending.save)
+            rooms.lance(_joueur(session), session["name"], jeu_joue(game), pending.save)
             journal.write(
                 "changement",
                 **_who(sid, session),

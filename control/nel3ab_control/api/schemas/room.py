@@ -8,6 +8,7 @@ from nel3ab_control.api.controllers.preparation import Preparation
 from nel3ab_control.api.schemas.player import Person
 from nel3ab_control.api.schemas.salle import DernierJeu
 from nel3ab_control.consoles import CONSOLES
+from nel3ab_control.demarrages import Demarrage
 
 
 class GameGuide(BaseModel):
@@ -65,6 +66,15 @@ class Game(BaseModel):
             "un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de "
             "sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien "
             "est pire que ne pas le proposer."
+        ),
+    )
+    demarrage: Demarrage | None = Field(
+        default=None,
+        description=(
+            "Combien de temps ce jeu met d'habitude à démarrer dans les salles de "
+            "cette machine, du lancement accepté à la première image offerte. Rien "
+            "avant cinq démarrages réussis: la page garde alors ses constantes et "
+            "ne dit pas « d'habitude »."
         ),
     )
     art: bool = Field(

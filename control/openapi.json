@@ -719,6 +719,37 @@
         "title": "ConsoleVue",
         "description": "Une console, telle que le manifeste la décrit (ADR D22)."
       },
+      "Demarrage": {
+        "properties": {
+          "mediane_s": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Mediane S",
+            "description": "La durée médiane, en secondes."
+          },
+          "p90_s": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "P90 S",
+            "description": "Le 90e centile (rang le plus proche), en secondes: au-delà, « c'est plus long que d'habitude »."
+          },
+          "n": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 5.0,
+            "title": "N",
+            "description": "Sur combien de démarrages."
+          }
+        },
+        "type": "object",
+        "required": [
+          "mediane_s",
+          "p90_s",
+          "n"
+        ],
+        "title": "Demarrage",
+        "description": "L'habitude d'un jeu, sur ses derniers démarrages réussis."
+      },
       "Dernier": {
         "properties": {
           "titre": {
@@ -874,6 +905,17 @@
             "title": "Console",
             "description": "Quelle console ce disque demande, lue sur le disque ou sur sa fiche: « gc », « wii », « switch », « switch2 », « x360 » (consoles/consoles.json), ou « ? » quand le disque n'a pas répondu. La page s'en sert pour ne pas proposer un choix qui ne déciderait rien: un jeu Wii n'a pas de carte mémoire, donc pas deux emplacements de sauvegarde. « ? » n'est pas « gc »: proposer un choix qui ne fait rien est pire que ne pas le proposer.",
             "default": "?"
+          },
+          "demarrage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Demarrage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Combien de temps ce jeu met d'habitude à démarrer dans les salles de cette machine, du lancement accepté à la première image offerte. Rien avant cinq démarrages réussis: la page garde alors ses constantes et ne dit pas « d'habitude »."
           },
           "art": {
             "type": "boolean",

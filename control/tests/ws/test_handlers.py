@@ -10,6 +10,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+import pytest
 import socketio
 
 from nel3ab_control.api.controllers.rooms import RoomController
@@ -20,6 +21,7 @@ from nel3ab_control.api.ws.handlers import (
     _port,
     too_soon,
 )
+from tests.ws import test_lobby
 from tests.ws.test_lobby import served
 
 #: La fixture du salon sur un vrai port, importée de `test_lobby.py` pour que les
@@ -240,3 +242,27 @@ async def test_an_accepted_message_carries_no_wait(served: tuple[str, RoomContro
         await page.disconnect()
 
     assert "reste_s" not in reponse
+
+
+async def test_a_launch_announced_by_a_page_starts_the_startup_clock(
+    served: tuple[str, RoomController], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D05, par le câblage: le gestionnaire `booting` passe par `rooms.lance`, qui
+    note le lancement au journal des parties ET démarre le chrono. Un appel direct
+    à `rooms.tablee.lance`, comme avant, laisserait le chrono arrêté."""
+    monkeypatch.setattr(
+        test_lobby,
+        "LIBRARY",
+        {"current": None, "roms": [{"name": "Melee", "console": "gc", "key": "Melee.rvz"}]},
+    )
+    url, rooms = served
+    page = socketio.AsyncClient()
+    try:
+        await page.connect(url, auth={"name": "Souhib"})
+        await page.call("booting", {"jeu": 0, "sauvegarde": 0}, timeout=2)
+    finally:
+        await page.disconnect()
+
+    attente = rooms.demarrages._attentes.get(1)
+    assert attente is not None
+    assert (attente.cle, attente.console) == ("Melee.rvz", "gc")

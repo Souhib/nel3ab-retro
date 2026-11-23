@@ -20,6 +20,7 @@ import type { RecoveryNotice } from "../lib/room";
 import { CARTE, PLACE } from "../lib/mots";
 import type { MenuAction } from "../media/menupad";
 import { useReste } from "../lib/usePlaces";
+import { echapFermeLaCarte } from "../lib/places";
 import { CARTE_PLACE } from "./Places";
 import "./places.css";
 
@@ -62,9 +63,25 @@ export function CartePlace({
   onRendre?: () => void;
 }) {
   const titre = useRef<HTMLHeadingElement>(null);
+  const boite = useRef<HTMLElement>(null);
   const attente = notice !== null && notice.asking && notice.reason === null;
   const reste = useReste(attente ? notice.remaining : 0, notice?.id ?? "");
   const ouverte = sujet !== null || notice !== null || erreur !== "";
+  const port = notice?.port ?? sujet?.port ?? null;
+  /* « Fermer » et Échap rendent le focus à la place qui a ouvert la carte,
+     « Prendre » le pose sur la place prise (plan personnes, places-demande
+     1, A11Y-09). La place reste montée (clé stable par numéro) : le focus
+     posé avant que la carte se démonte ne tombe pas sur le corps de page. */
+  const fermer = () => {
+    onFermer();
+    if (port !== null) placeDe(port)?.focus();
+  };
+  const prendre = (n: number) => {
+    onPrendre(n);
+    placeDe(n)?.focus();
+  };
+  const fermerParEchap = useRef(fermer);
+  fermerParEchap.current = fermer;
 
   useEffect(() => {
     if (ouverte && focus) titre.current?.focus();
@@ -82,9 +99,27 @@ export function CartePlace({
     return () => pad(null);
   }, [pad, attente, reste, notice, onAction]);
 
+  /* Échap ferme la carte quand le focus est dedans ou sur sa place ;
+     ailleurs il garde son sens, le menu du jeu, que la salle ouvre depuis
+     `window` : on l'arrête au document pour qu'il n'y arrive pas. Pendant une
+     demande en attente, la carte n'a pas de « Fermer » : Échap n'y annule
+     rien, il faut le geste « Annuler ». */
+  useEffect(() => {
+    if (!ouverte || attente) return;
+    const touche = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const place = port === null ? null : placeDe(port);
+      if (!echapFermeLaCarte(document.activeElement, boite.current, place)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      fermerParEchap.current();
+    };
+    document.addEventListener("keydown", touche);
+    return () => document.removeEventListener("keydown", touche);
+  }, [ouverte, attente, port]);
+
   if (!ouverte) return null;
   const qui = notice?.to ?? (sujet?.type === "autre" ? sujet.nom : "");
-  const port = notice?.port ?? sujet?.port ?? null;
 
   let corps: ReactNode;
   let entete: string;
@@ -93,11 +128,11 @@ export function CartePlace({
     corps = (
       <Actions>
         {libre !== null ? (
-          <Bouton plein onClick={() => onPrendre(libre)}>
+          <Bouton plein onClick={() => prendre(libre)}>
             {CARTE.prendre(libre)}
           </Bouton>
         ) : null}
-        <Bouton onClick={onFermer}>{CARTE.fermer}</Bouton>
+        <Bouton onClick={fermer}>{CARTE.fermer}</Bouton>
       </Actions>
     );
   } else if (attente) {
@@ -142,7 +177,7 @@ export function CartePlace({
           <Bouton id="demanderPlace" plein onClick={() => onDemander(sujet.port)}>
             {CARTE.demander}
           </Bouton>
-          <Bouton onClick={onFermer}>{CARTE.fermer}</Bouton>
+          <Bouton onClick={fermer}>{CARTE.fermer}</Bouton>
         </Actions>
       </>
     );
@@ -152,10 +187,10 @@ export function CartePlace({
       <>
         <p className="n3-carte-phrase">{CARTE.personne}</p>
         <Actions>
-          <Bouton id="reprendrePlace" plein onClick={() => onPrendre(sujet.port)}>
+          <Bouton id="reprendrePlace" plein onClick={() => prendre(sujet.port)}>
             {CARTE.reprendre(sujet.port)}
           </Bouton>
-          <Bouton onClick={onFermer}>{CARTE.fermer}</Bouton>
+          <Bouton onClick={fermer}>{CARTE.fermer}</Bouton>
         </Actions>
       </>
     );
@@ -172,7 +207,7 @@ export function CartePlace({
               {PLACE.rendre}
             </Bouton>
           ) : null}
-          <Bouton onClick={onFermer}>{CARTE.fermer}</Bouton>
+          <Bouton onClick={fermer}>{CARTE.fermer}</Bouton>
         </Actions>
       </>
     );
@@ -180,13 +215,14 @@ export function CartePlace({
     entete = "";
     corps = (
       <Actions>
-        <Bouton onClick={onFermer}>{CARTE.fermer}</Bouton>
+        <Bouton onClick={fermer}>{CARTE.fermer}</Bouton>
       </Actions>
     );
   }
 
   return (
     <section
+      ref={boite}
       id={CARTE_PLACE}
       className="n3-carte rt-boite"
       aria-labelledby={entete ? "cartePlaceTitre" : undefined}
@@ -202,6 +238,11 @@ export function CartePlace({
       {erreur ? <p className="n3-carte-erreur">{erreur}</p> : null}
     </section>
   );
+}
+
+/** La place START d'un numéro, montée par `Places` (`#portN`). */
+function placeDe(n: number): HTMLElement | null {
+  return document.getElementById(`port${n}`);
 }
 
 /** La piste du temps : une barre qui se vide, posée une fois en CSS. */

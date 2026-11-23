@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecoveryNotice } from "../lib/room";
 import type { MenuAction } from "../media/menupad";
@@ -185,5 +186,133 @@ describe("la carte d'une place", () => {
   it("n'existe pas sans sujet, sans demande et sans erreur", () => {
     render(<CartePlace {...rien} sujet={null} notice={null} />);
     expect(document.querySelector("#cartePlace")).toBeNull();
+  });
+});
+
+/* Le focus autour de la carte (plan personnes, places-demande 1) : « Fermer »
+   et Échap rendent le focus à la place qui l'a ouverte ; « Prendre » le pose
+   sur la place prise ; Échap ailleurs garde son sens, le menu du jeu, que la
+   salle ouvre depuis `window`. */
+describe("la carte d'une place au clavier", () => {
+  /** La salle en petit : deux places, une zone de jeu, la carte. Le parent
+   * ferme la carte comme App.tsx (`setCarte(null)`). */
+  function Salle({
+    depart,
+    notice: n = null,
+    onFermer,
+    onAction = rien.onAction,
+  }: {
+    depart: Parameters<typeof CartePlace>[0]["sujet"];
+    notice?: RecoveryNotice | null;
+    onFermer: () => void;
+    onAction?: (a: Record<string, unknown>) => void;
+  }) {
+    const [sujet, setSujet] = useState(depart);
+    return (
+      <>
+        <button type="button" id="zoneJeu">
+          jeu
+        </button>
+        <button type="button" id="port2">
+          2P
+        </button>
+        <button type="button" id="port3">
+          3P
+        </button>
+        <CartePlace
+          {...rien}
+          sujet={sujet}
+          notice={n}
+          onAction={onAction}
+          onPrendre={() => setSujet(null)}
+          onFermer={() => {
+            onFermer();
+            setSujet(null);
+          }}
+        />
+      </>
+    );
+  }
+  const menu = vi.fn();
+  beforeEach(() => {
+    menu.mockReset();
+    window.addEventListener("keydown", menu);
+  });
+  afterEach(() => window.removeEventListener("keydown", menu));
+  const focus = () => document.activeElement?.id;
+
+  it("Échap dans la carte la ferme et rend le focus à sa place, sans ouvrir le menu du jeu", () => {
+    const onFermer = vi.fn();
+    render(
+      <Salle depart={{ type: "autre", port: 2, nom: "Bilel", delai: 20 }} onFermer={onFermer} />,
+    );
+    expect(focus()).toBe("cartePlaceTitre");
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onFermer).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("#cartePlace")).toBeNull();
+    expect(focus()).toBe("port2");
+    expect(menu).not.toHaveBeenCalled();
+  });
+
+  it("Échap sur la place qui l'a ouverte ferme aussi la carte", () => {
+    const onFermer = vi.fn();
+    render(
+      <Salle depart={{ type: "autre", port: 2, nom: "Bilel", delai: 20 }} onFermer={onFermer} />,
+    );
+    act(() => (document.querySelector("#port2") as HTMLElement).focus());
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onFermer).toHaveBeenCalledTimes(1);
+    expect(focus()).toBe("port2");
+  });
+
+  it("Échap depuis la zone de jeu laisse la carte ouverte et ouvre le menu du jeu", () => {
+    const onFermer = vi.fn();
+    render(
+      <Salle depart={{ type: "autre", port: 2, nom: "Bilel", delai: 20 }} onFermer={onFermer} />,
+    );
+    act(() => (document.querySelector("#zoneJeu") as HTMLElement).focus());
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onFermer).not.toHaveBeenCalled();
+    expect(document.querySelector("#cartePlace")).not.toBeNull();
+    expect(menu).toHaveBeenCalledTimes(1);
+  });
+
+  it("Échap sur une autre place n'est pas Échap sur la sienne", () => {
+    const onFermer = vi.fn();
+    render(
+      <Salle depart={{ type: "autre", port: 2, nom: "Bilel", delai: 20 }} onFermer={onFermer} />,
+    );
+    act(() => (document.querySelector("#port3") as HTMLElement).focus());
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onFermer).not.toHaveBeenCalled();
+    expect(menu).toHaveBeenCalledTimes(1);
+  });
+
+  it("« Fermer » rend le focus à la place", () => {
+    const onFermer = vi.fn();
+    render(
+      <Salle depart={{ type: "mienne", port: 2, comment: "au clavier" }} onFermer={onFermer} />,
+    );
+    fireEvent.click(screen.getByText("Fermer"));
+    expect(onFermer).toHaveBeenCalledTimes(1);
+    expect(focus()).toBe("port2");
+  });
+
+  it("« Prendre » pose le focus sur la place prise", () => {
+    render(<Salle depart={{ type: "sans-nom", port: 3 }} onFermer={() => {}} />);
+    fireEvent.click(document.querySelector("#reprendrePlace") as Element);
+    expect(document.querySelector("#cartePlace")).toBeNull();
+    expect(focus()).toBe("port3");
+  });
+
+  it("pendant une demande en attente, Échap n'annule rien et ne ferme rien", () => {
+    const onFermer = vi.fn();
+    const onAction = vi.fn();
+    render(<Salle depart={null} notice={notice()} onFermer={onFermer} onAction={onAction} />);
+    expect(focus()).toBe("cartePlaceTitre");
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(onFermer).not.toHaveBeenCalled();
+    expect(onAction).not.toHaveBeenCalled();
+    expect(document.querySelector("#cartePlace")).not.toBeNull();
   });
 });

@@ -105,8 +105,34 @@ function creer(hote: HTMLElement, el: HTMLElement, sorte: string): Theatre {
       : lireDecor(racine, el, { tete: mode === "tete" });
   const th = new Theatre(el, mode, decor);
   THEATRES.set(el, th);
+  // Un seul Aïn : quand il joue sur le plateau, le logo de la même salle
+  // montre sa place en pointillés, et la retrouve quand il rentre.
+  if (mode === "plateau")
+    th.surPresence = (present) =>
+      pourTous((t) => {
+        if (t.mode === "plateau" || racineDe(t.maison) !== racine) return;
+        t.ailleurs = !present;
+        t.peindreMaison();
+      });
+  else
+    pourTous((t) => {
+      if (t.mode === "plateau" && racineDe(t.maison) === racine && !t.present) th.ailleurs = true;
+    });
+  if (th.ailleurs) th.peindreMaison();
   ecouter(racine);
   return th;
+}
+
+/** Un seul Aïn par salle : une scène qui part coupe celle d'une autre
+ * maison de la même salle, et Aïn y rentre avant de ressortir d'ici. */
+function seul(th: Theatre) {
+  const racine = racineDe(th.maison);
+  pourTous((t) => {
+    if (t === th || racineDe(t.maison) !== racine || !(t.joue || t.dehors)) return;
+    t.terminer("couper");
+    t.rentrer();
+    t.peindreMaison();
+  });
 }
 
 /** Le théâtre d'un élément de mascotte : le sien, ou celui du logo pour le
@@ -311,6 +337,7 @@ export const AIN: Rendu = {
     // planche : une ancre absente, un contact, et à quel instant.
     th.maison.dataset.refus = choix.refus.join(" ; ");
     if (!choix.plan) return [poser(th, id, contexte)];
+    seul(th);
     let finir = () => {};
     const finished = new Promise<void>((r) => {
       finir = r;

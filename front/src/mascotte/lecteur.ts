@@ -168,6 +168,12 @@ export class Theatre {
   decor: () => Decor;
   air: Maison = NEUTRE;
   present = true;
+  /** Aïn joue dans une autre maison de la même salle (le plateau) : celle-ci
+   * montre sa place en pointillés, sans bulle. */
+  ailleurs = false;
+  /** Appelée quand Aïn sort de cette maison ou y rentre (le plateau la
+   * donne au logo du coin). */
+  surPresence: ((present: boolean) => void) | null = null;
   courante: Courante | null = null;
   dehors: Dehors | null = null;
   poseFixe: { minuteur: ReturnType<typeof setTimeout> | 0; reste: boolean } | null = null;
@@ -204,6 +210,7 @@ export class Theatre {
   /** Peint le logo (ou la tête) : Aïn dedans, ou sa place en pointillés. */
   peindreMaison() {
     const m = this.maison;
+    const la = this.present && !this.ailleurs;
     if (m instanceof HTMLCanvasElement && this.mode !== "plateau") {
       const c = this.d.c;
       const tete = this.mode === "tete";
@@ -211,13 +218,15 @@ export class Theatre {
       m.style.height = `${(tete ? TH : LOGO_H) * c}px`;
       const air = this.air.eteint ? { ...this.air, oeil: "ferme" as const, gris: true } : this.air;
       const g = tete
-        ? this.present
+        ? la
           ? dessinerTete(air, this.air.joueur ?? "1")
           : [".".repeat(TW)]
-        : dessinerLogo(this.present, this.air);
+        : dessinerLogo(la, this.air);
       peindre(m, g, this.k, palette);
+      // Lisible par les essais et les pilotes : la place est vide.
+      m.toggleAttribute("data-dehors", !la);
     }
-    if (this.present && !this.courante && this.air.fx?.length) {
+    if (la && !this.courante && this.air.fx?.length) {
       const B = bulleDe(this.air.fx, this.air.joueur ?? "1");
       const [x, y] = placeBulleMaison(this.d, B.g);
       const c = this.d.c;
@@ -243,6 +252,7 @@ export class Theatre {
     if (this.present === v) return;
     this.present = v;
     this.peindreMaison();
+    this.surPresence?.(v);
   }
   private objet(nom: string) {
     let o = this.objets.get(nom);
@@ -414,7 +424,9 @@ export class Theatre {
     this.ain.montrer(false);
     this.bulle.montrer(false);
     this.cacherObjets();
+    if (this.present) return;
     this.present = true;
+    this.surPresence?.(true);
   }
 
   /** La pose clé, sans mouvement : dans le logo, avec sa bulle. Elle reste
@@ -446,7 +458,7 @@ export class Theatre {
 
   /** Change l'air d'Aïn chez lui (le regard qui suit le pointeur). */
   regarder(rx: number, ry: number) {
-    if (this.courante || this.poseFixe || !this.present || this.air.eteint) return;
+    if (this.courante || this.poseFixe || !this.present || this.ailleurs || this.air.eteint) return;
     if ((this.air.rx ?? 0) === rx && (this.air.ry ?? 0) === ry) return;
     this.air = { ...this.air, rx, ry };
     this.peindreMaison();

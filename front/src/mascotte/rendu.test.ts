@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { changerNiveau, oublierPourEssai } from "../lib/effets";
-import { jouer } from "./index";
+import { jouer, poserMascotte } from "./index";
 
 let attente = new Map<number, FrameRequestCallback>();
 let suivant = 1;
@@ -109,6 +109,85 @@ describe("le plateau", () => {
     await Promise.resolve();
     expect(visibles()).toContain("ain");
     expect(enAttente()).toBe(1);
+  });
+});
+
+describe("un seul Aïn", () => {
+  const logo = () => hote("coin").querySelector("canvas.rt-mascotte") as HTMLCanvasElement;
+  const cadre = () => document.querySelector("[data-cadre]") as HTMLElement;
+
+  it("sur le plateau, le logo du coin montre sa place en pointillés, et la retrouve à la première image", async () => {
+    poserMascotte(hote("coin"));
+    jouer("chercher", { hote: hote("plateau") });
+    images(20);
+    expect(visibles()).toContain("ain");
+    expect(logo().hasAttribute("data-dehors")).toBe(true);
+    cadre().setAttribute("data-sans-image", "non");
+    await Promise.resolve();
+    expect(logo().hasAttribute("data-dehors")).toBe(false);
+  });
+
+  it("jumeau : sans scène sur le plateau, le logo garde Aïn", () => {
+    poserMascotte(hote("coin"));
+    poserMascotte(hote("plateau"));
+    images(20);
+    expect(logo().hasAttribute("data-dehors")).toBe(false);
+  });
+
+  it("une scène du coin rentre d'abord Aïn du plateau : jamais deux", () => {
+    poserMascotte(hote("coin"));
+    jouer("chercher", { hote: hote("plateau") });
+    images(20);
+    jouer("fier", { hote: hote("coin") });
+    expect(visibles().filter((a) => a === "ain").length).toBeLessThanOrEqual(1);
+    expect(enAttente()).toBe(1);
+    images(400);
+    expect(logo().hasAttribute("data-dehors")).toBe(false);
+  });
+});
+
+describe("le retour au logo", () => {
+  const cadre = () => document.querySelector("[data-cadre]") as HTMLElement;
+  // jsdom n'a pas de mise en page : le logo, son sol et la marque « devant »
+  // reçoivent la boîte que Chrome leur donnerait au pied d'une colonne
+  // (logo à 2 px par pixel d'Aïn). Sans elles, aucune ancre n'existe et la
+  // scène se replie dans le logo : Aïn ne sortirait jamais.
+  beforeEach(() => {
+    const boites: [string, [number, number, number, number]][] = [
+      ['[data-hote="coin"] > canvas', [40, 600, 228, 62]],
+      ['[data-sol="coin"]', [40, 650, 228, 1]],
+      ['[data-ancre="devant"]', [80, 650, 2, 1]],
+    ];
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const b = boites.find(([sel]) => this.matches(sel))?.[1] ?? [0, 0, 0, 0];
+        return DOMRect.fromRect({ x: b[0], y: b[1], width: b[2], height: b[3] });
+      },
+    );
+  });
+
+  it("Aïn resté dehors pendant une panne rentre quand la salle revit", async () => {
+    cadre().setAttribute("data-sans-image", "non");
+    cadre().setAttribute("data-etat", "decroche");
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(400);
+    expect(visibles()).toContain("ain");
+    cadre().setAttribute("data-etat", "vit");
+    await Promise.resolve();
+    images(400);
+    expect(visibles()).not.toContain("ain");
+    expect(enAttente()).toBe(0);
+  });
+
+  it("jumeau : tant que la panne dure, il reste dehors", async () => {
+    cadre().setAttribute("data-sans-image", "non");
+    cadre().setAttribute("data-etat", "decroche");
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(400);
+    cadre().setAttribute("data-etat", "arret");
+    await Promise.resolve();
+    images(400);
+    expect(visibles()).toContain("ain");
   });
 });
 

@@ -1063,6 +1063,12 @@ own box outside the picture (under it upright, two side clusters sideways),
 sized from `placePad` itself (`encombrement`), and the page gesture is
 « La salle », placed among the keys only when the bar is missing. The
 overlay placement below survives only for a pad forced on at a fine pointer.
+Amended again the same day (D39, pass 6): it no longer survives. The owner's
+rule has no exception (nothing on a live picture), and a pad forced on at a
+fine pointer put eleven pieces on the picture at 1280×720. The frame now
+reserves its place at a fine pointer too: one cluster in a band on each side
+of the picture, or the upright pose under it, whichever leaves the larger
+picture (`manetteALaSouris`).
 
 The on-screen pads placed their groups with CSS: corner anchors, a centred flex
 row, and `bottom: 140px` for the Switch tool row. A phone-sized audit on
@@ -1839,7 +1845,14 @@ after the first picture, and a pad appearing then moved the picture); the
 band carries the take-a-seat button. Step 8, in part: the
 alternating effects measurement (`just cadre-mesure`, outside the gate),
 two series of four 60 s phases, showed no repeatable cost in headless
-Chrome under a foreign load (a trend, not a comparison). Delivered in pass 5:
+Chrome under a foreign load (a trend, not a comparison). Corrected on review
+(pass 6): the two arms differed only by the body font (`texte-pixel`). At
+1440×900 with the bench's 4:3 picture, neither the pediment nor the cabinet
+sides were mounted (no 40 px band above, no 72 px side bands); the pediment
+and the dither are on in « sobre » too; the « tout » layers of the socle, the
+cursor and the counter were not mounted in the room. The measurement says
+nothing about the cost of the pediment, the sides, the dither or the socle's
+« tout » layers. Delivered in pass 5:
 a real controller no longer gets a notice. The plug notice, which covered L
 for five seconds on a phone (audit N1, red against 03b21c0 in
 `manette-branchee`), is now a screen-reader line only (`#controller-status`,
@@ -1855,6 +1868,38 @@ the frame they read). Step 8 is closed with the night and day captures
 (`cadre.mjs --clair`). Not yet delivered: the play time wiring (waits for
 D04), the stick and Pro activity (waits for K34), the label in the pad's
 slot (en-jeu-tactile.5).
+
+Pass 6, after an independent review, nine defects, each seen red first. The
+picture guard (`gardeDeLImage`) found elements only by `elementFromPoint`,
+which never returns an element without pointer events: a full-window veil at
+`pointer-events: none` passed it. Every visible element that paints something
+and crosses the picture now gets the pointer for one hit test at nine points
+of the intersection; a box that paints nothing (the held pad's box spans the
+picture, its keys sit in the bands) is not a fault. Without a bar, the mascot
+had no host: `ouEstLaMascotte` said « barre » and only the bar carried
+`data-hote="barre"`; « La salle » placed alone across (`#laSalleCote`) and
+among the keys (`#laSalleManette`) now carry a 24 px head. A pad forced on at
+a fine pointer gets its place outside the picture (see the D28 amendment):
+the picture shrinks for whoever chose « toujours » (at 1440×900, 890×668
+instead of 1136×852), and nothing touches it. Weighed: keeping the overlay
+as a chosen setting, which the owner's rule does not allow without his word;
+side bands only, which leave a 16:9 picture at 1440×900 808 px wide where the
+pose underneath leaves 1136. « Quitter la salle » plays the
+`sortir-salle` transition (K13; mosaic, a fade in « sobre », nothing under
+reduced motion), the picture hidden before the first step. The column runs
+the socle's ▶ (`activerCurseur`) with a 20 px left margin; the socle's first
+placement measures the hidden ▶ as 0 px wide and lands on its target, and a
+notice born from the same focus pushed the column, so the column places it
+again on the next frame and after each render. The half-height sheet has no
+▶: its two-column grid has 4 px gaps and no room left of an entry. The pads
+and « La salle » take the label promised to the people site (`libelleSalle`,
+`libelle`). `TempsDeJeu` keeps one default clock, so the room's two renders a
+second no longer rebuild its display. `cadre-navigateur-rouge` reads the
+branch-only reference pages from `spikes/m3-browser-drive/rouges/`, each
+checked against the git blob id of its commit's page, so the recipe survives
+the integration rewriting this branch. Cost: the page is 249 436 bytes in
+brotli; the room uses 13 736 of its 12 000, of which 1 947 are the socle's
+transitions and cursor modules, bundled here for the first time.
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

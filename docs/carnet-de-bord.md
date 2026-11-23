@@ -28722,6 +28722,23 @@ processus de rendu dont je n'ai pas établi le propriétaire tournaient
 encore à la fin. La baisse de la quatrième phase peut venir d'eux. C'est une
 tendance, pas une comparaison.
 
+**Corrigé à la relecture, le même jour : les deux bras ne mesuraient pas ce
+que la question disait.** La question nommait le fronton, les flancs de
+borne, la trame et la mire. Une sonde a relu, sur la page mesurée (celle de
+141c9a6) et au même format, les règles `.fx-*` qui trouvent un élément dans
+la salle, au niveau « sobre » puis au niveau « tout ». Une seule règle
+change : la police du texte (`texte-pixel`), qui passe en Pixelify Sans. Le
+fronton et la trame sont du niveau « sobre » aussi. À 1440 × 900, l'image
+4:3 du banc ne laisse ni bande de 40 px au-dessus d'elle ni bandes de 72 px
+sur les côtés : ni le fronton ni les flancs n'étaient montés, dans aucun
+bras. Les calques du niveau « tout » du socle (balayage partout, grille,
+scintillement), le curseur et le compteur ne sont pas montés dans la salle.
+Cette mesure ne dit donc rien du coût du fronton, des flancs, de la trame ni
+des calques du niveau « tout ». La leçon : avant de mesurer le coût d'un
+effet, compter dans chaque bras ce qui est réellement à l'écran. Suite dans
+l'entrée « 23 novembre, après la relecture : neuf défauts du chantier
+salle ».
+
 ### 23 novembre, avant l'aube : une vraie manette se dit dans la bande
 
 **Le défaut.** Quand une vraie manette se branchait, la page posait un avis
@@ -28808,6 +28825,94 @@ micro et la couronne, en attendant les places du chantier personnes.
 
 **Le poids.** 246 764 octets en brotli : la salle en utilise 11 064 sur ses
 12 000.
+
+### 23 novembre, après la relecture : neuf défauts du chantier salle
+
+**Ce qui s'est passé.** Une relecture indépendante du chantier salle a
+relevé neuf défauts importants. Chacun a été reproduit avant d'être
+corrigé, et chaque correction a d'abord été vue rouge.
+
+**Une garde qui ne voyait pas ce qu'elle devait voir.** La garde de l'image
+(`gardeDeLImage` dans `cadre.mjs`), offerte aux autres pilotes comme LA
+preuve de « rien sur l'image », cherchait les éléments par un test de
+touche : quel élément recevrait un clic à ce point ? Or un calque décoratif
+ne prend pas le pointeur (`pointer-events: none`) : la neige, un voile, la
+mascotte, le décor de borne. Une sonde a posé un voile noir à 50 % sur toute
+la fenêtre : la garde n'a rien vu. Son jumeau `garde-voit` posait un leurre
+qui prenait le pointeur, et ne pouvait donc pas rougir pour ce cas. La garde
+donne maintenant le pointeur, le temps d'un test, à chaque élément visible
+qui peint quelque chose et dont la boîte coupe l'image, en neuf points ;
+s'il revient au-dessus de l'image, il la couvre. Le premier essai a rougi
+`tenu-rien-sur-image` à tort : la boîte de la manette tenue en main prend
+toute la largeur, image comprise, mais ne peint rien ; seules ses touches,
+dans les bandes, se voient. Une boîte qui ne peint rien n'est plus une
+faute, et ses enfants sont jugés un par un. `garde-voit` pose trois jumeaux
+de plus : un leurre sans pointeur, le voile, et une boîte vide qui tient un
+enfant peint.
+
+**La mascotte sans maison.** Au téléphone sans barre (en travers, ou tenu
+droit sur un écran court), le cadre envoyait la mascotte dans « la barre »,
+mais seule la barre en portait l'hôte. L'arbitre ne trouvait rien et se
+taisait : aucune scène ne jouait. L'essai pur disait juste, la page non. Le
+bouton « La salle » posé seul en travers et celui posé parmi les touches
+portent maintenant une tête de 24 px, et `mascotte-hors-image` exige une
+scène vue à 844 × 390 et à 375 × 548.
+
+**Aucune exception pour la manette « toujours ».** À la souris, la manette
+à l'écran réglée sur « toujours » se posait encore sur l'image vivante :
+onze pièces à 1280 × 720. C'était classé « réglage choisi », mais la
+consigne du propriétaire n'en connaît pas. Le cadre lui réserve maintenant
+sa place, comme au doigt : une grappe de chaque côté de l'image, ou la pose
+tenue droite sous elle, et la plus grande image gagne. Le prix est payé par
+qui a choisi « toujours » : à 1440 × 900, l'image passe de 1136 × 852 à
+890 × 668 ; à 1280 × 720, de 960 × 720 à 650 × 488 ; à 820 × 900, de
+820 × 615 à 570 × 428. Rien ne la touche.
+
+**Une étape qui ne pouvait pas rougir.** `manette-branchee` touchait les
+deux gestes de la bande seulement s'ils existaient : une page sans eux
+restait verte. Leur absence est maintenant une faute (règle 4 du dépôt).
+
+**Une horloge neuve à chaque rendu.** `TempsDeJeu` prenait par défaut une
+fonction créée à chaque rendu, et elle était dans les dépendances de son
+effet. Branché dans la salle, qui se redessine deux fois par seconde, il
+aurait reposé son afficheur à chaque fois : la minuterie ne battait jamais.
+L'horloge par défaut est maintenant une seule fonction.
+
+**Deux effets promis et jamais branchés.** « Quitter la salle » joue
+maintenant la transition « sortir-salle » (K13) : une mosaïque, un fondu au
+niveau « sobre », rien en mouvement réduit, et l'image cachée avant le
+premier pas. Le ▶ du socle suit la colonne (en-jeu-clavier.5). Deux pièges
+en chemin. Caché, le ▶ n'a pas de taille : sa première pose le calculait à
+0 px de large et le posait sur sa cible. Et l'avis « le jeu ne reçoit plus
+tes touches », qui naît du même focus, poussait la colonne de 97 px et le
+laissait devant le vide. La colonne le repose à l'image suivante et après
+chaque rendu, et sa marge gauche passe de 12 à 20 px pour qu'il tienne.
+La feuille à mi-hauteur n'a pas de ▶ : sa grille de deux colonnes n'a que
+4 px entre deux entrées, et le ▶ couvrirait la voisine.
+
+**Un emplacement promis et absent.** Le contrat des emplacements disait que
+la manette acceptait un libellé pour « La salle » (« Lina · ta place », du
+chantier personnes), qui n'a pas le droit de modifier ces fichiers. Aucune
+ne l'acceptait. `libelleSalle` existe maintenant, et `BoutonSalle` prend le
+même libellé.
+
+**Un contrôle rouge qui dépendait d'une branche.** `cadre-navigateur-rouge`
+lisait cinq pages de référence dont les commits ne vivent que sur la branche
+du chantier. L'intégration refait ces commits : la branche supprimée, la
+recette serait tombée en erreur, et un contrôle rouge en erreur ne contrôle
+plus rien. Les cinq pages sont gardées dans `spikes/m3-browser-drive/rouges/`,
+chacune avec l'empreinte git de la page de son commit, vérifiée avant usage.
+Ce sont les mêmes objets que dans l'historique : la copie ne coûte rien au
+dépôt.
+
+**Une mesure qui mesurait autre chose.** Voir la correction de l'entrée « au
+bout de la nuit » : les deux bras ne différaient que par la police du texte.
+
+**Le poids.** 249 436 octets en brotli. La salle en utilise 13 736, au-delà
+de son enveloppe de 12 000. Les modules du socle pour les transitions
+(1 178 octets) et le ▶ (769) entrent ici dans la page pour la première fois ;
+le salon et les menus les liront aussi. Le reste de la page tient sous le
+plafond de 300 000. Le partage de ce coût revient au chef de chantier.
 
 ## 12. Glossaire complet
 
@@ -30430,3 +30535,8 @@ croix et le stick, à droite le reste.
 **Encombrement** : la place qu'une manette tactile demande au cadre, lue
 dans sa pose réelle (`encombrement` dans `lib/faces`) : la hauteur de sa
 boîte tenue droite, la largeur de chaque grappe en travers.
+
+**Test de touche (hit test)** : la question que le navigateur se pose pour
+savoir quel élément recevrait un clic à un point donné
+(`elementFromPoint`). Un élément à `pointer-events: none` n'y répond
+jamais, même quand il est peint au-dessus de tout.

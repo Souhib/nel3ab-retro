@@ -29563,6 +29563,81 @@ manettes et 8 165 octets bruts de règles d'`index.css`, remplacés par
 `parcours-navigateur`, `salle-telephone` et `manette-garde` passent. Les
 recettes `-rouge` attendent le dernier passage.
 
+### 23 novembre, tard : les manettes, deuxième passage
+
+**Le contexte.** Le premier passage avait fait le dessous (la boucle, la
+leçon, le dessin). Celui-ci écrit le panneau « Touches et manettes » qui
+remplacera les deux dialogues, sans encore le monter dans la salle : le
+câblage dans `App.tsx` est toujours le dernier commit d'une branche, et la
+branche n'est pas finie.
+
+**Une région, plus un dialogue.** L'ancien réglage s'ouvrait en dialogue
+modal (une fenêtre qui bloque tout le reste de la page) de 1 120 × 850 px,
+posé sur l'image de la partie. Le panneau neuf (`front/src/manettes/`) est
+une région ordinaire, que la salle posera à la place des rangs de la colonne.
+Il s'ouvre par une seule entrée, `ouvrirReglage(onglet)`, que le rang de la
+colonne, la vue des touches et l'avis d'une manette à configurer appelleront
+(K05). À la fermeture, le focus revient à ce qui l'a ouvert, ou au rang de la
+colonne quand l'ouvreur est parti avec les rangs.
+
+**Ce que le panneau fait.** Une seule sortie, « Fermer ». Trois onglets en
+vraie liste d'onglets : les flèches passent de l'un à l'autre, Début et Fin
+vont aux bouts, et ils ne bougent pas pendant un pas à pas. Échap annule
+d'abord le changement en cours et rend le focus à « Changer » de la ligne,
+puis ferme. Le pas à pas montre « Étape 3 sur 16 » et une jauge d'un segment
+par étape ; sa fin compte les commandes passées et mène à la première par
+« Régler B dans la liste » ; un débranchement propose « Reprendre à l'étape
+5 » ou « D'accord ». Les salles Switch et Xbox 360 ont enfin le même
+panneau : la Xbox 360 est nommée dans la phrase de tête, la table a ses
+vingt-quatre lignes sans point médian, et le pas à pas Pro du premier
+passage a maintenant un écran.
+
+**Deux dessins pour la trame Pro, deux racines.** Le dessin de la manette
+Pro et celui de la manette qu'on tient nomment tous les deux leurs sticks
+`a0` et `a2`. Peints dans une même racine, le second aurait reçu
+l'inclinaison du premier. `paintPro` les peint chacun dans la sienne : la
+gauche lit la trame envoyée, la droite les indices bruts. Un essai garde le
+jumeau : une trame neutre pendant le réglage n'allume rien à gauche, même
+quand la manette appuie.
+
+**Les marques suivent l'appui, pas React.** Un cadre se pose sur la commande
+attendue, plus large à 4 s, avec la flèche à 8 s, puis plus rien : une longue
+attente ne clignote pas. Une pièce appuyée prend des coins 650 ms, effacés en
+quatre paliers. L'étape suivante coupe ce qui est en cours (D5). Tout est
+posé par la boucle d'entrée, par un attribut, jamais par un rendu de React.
+
+**Les inscriptions ne tombent plus sous 9 px.** Un dessin rendu à 120 px de
+large mettait certaines lettres sous 3 px. Elles sont portées à 9 px quand
+elles tiennent dans leur pièce, et cachées sinon ; leur nom reste dans la
+table. Un `ResizeObserver` (l'outil du navigateur qui prévient quand une
+boîte change de taille) tient ce plancher hors de React.
+
+**La scène de fin.** À la fin d'un pas à pas qui a retenu quelque chose, le
+panneau demande « fier » à l'arbitre des scènes de la salle. Jamais quand la
+salle ne vit pas, jamais quand tout a été passé. Une manette qui arrive ne
+joue rien : « arrivee » appartient aux personnes (K09).
+
+**La place dans la salle, en fonctions pures.** `placeDuReglage` dit où va le
+panneau : la colonne au bureau, dessous en fenêtre étroite ou tenu droit, à
+droite tenu en travers, tablette comprise. `largeurPanneau` élargit la
+colonne à 46 % de la fenêtre, entre 560 et 700 px. Pendant le réglage, la
+manette à l'écran n'est pas montée : elle enverrait au jeu ce qu'on essaie.
+
+**Les essais, et leurs mutants.** Huit mutants ont été lancés contre les
+essais neufs, et chacun tombe sur son essai : Échap qui ferme sans annuler,
+la scène qui joue dans une salle qui ne vit pas, les onglets qui bougent
+pendant un pas à pas, l'aperçu Wii qui montre les actions du jeu, l'étape
+qui ne coupe pas la précédente, la réponse qui laisse insister. Toute la
+suite du front passe.
+
+**Le poids.** La page monte de 250 627 à 251 536 octets en brotli (+909) :
+les mots du panneau, déjà lus par l'ancien dialogue, et le marquage des
+inscriptions. Le panneau n'est pas encore dans la page. Une construction
+d'essai qui l'y ajoute, sans rien retirer, pèse 256 998 octets : il coûte
+environ 5 460 octets avant les retraits de `Bindings`, de la partie réglage
+de `SwitchBindings` et de leurs règles d'`index.css`, qui viendront avec le
+câblage.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31241,3 +31316,10 @@ pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
 **Groupe de processus** : l'ensemble d'un programme et de ceux qu'il lance.
 Arrêter le groupe arrête aussi les enfants ; arrêter le parent seul peut
 laisser un enfant tourner, comme le Vite du banc.
+
+**Liste d'onglets** : des boutons qui choisissent quelle page d'un panneau
+on voit, annoncés comme tels aux lecteurs d'écran (`role="tablist"`). Un
+seul onglet est dans l'ordre de tabulation ; les flèches passent aux autres.
+
+**ResizeObserver** : l'outil du navigateur qui prévient une page quand une
+boîte change de taille, sans qu'elle ait à la mesurer à chaque image.

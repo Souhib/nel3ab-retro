@@ -2121,6 +2121,29 @@ never a player's. A trigger drawn behind the shell is seen against the page,
 so its ring takes the theme's ink: `just banc-visuel`, now run for every seat
 in both themes, found the GameCube triggers at 1.07:1 by day before that.
 
+**Second pass: the panel, not yet mounted.** `front/src/manettes/` holds the
+single panel that replaces `Bindings` and `SwitchBindings`: a region, not a
+modal dialog, opened by one entry (`ouvrirReglage(onglet)`, K05) and hosted
+by `HoteReglage`, which returns focus to the opener or to a fallback the room
+gives when the opener left with the column rows. One "Fermer"; a real tab
+list (arrows, Home, End; inert during a lesson); Escape cancels a capture
+before it closes. Both frames share the lesson view, the end count and the
+resume after an unplug; the Pro frame paints its two drawings in two roots
+(`paintPro`), because both name their sticks `a0` and `a2`. Lesson marks are
+set by the input loop's events, outside React (`marques.ts`: frame, wider at
+4 s, arrow at 8 s, then nothing; corners on the pressed piece for 650 ms; the
+next step cuts the running sequence, D5). Drawing inscriptions keep a 9 px
+rendered floor or hide (`inscriptions.ts`, Anybody kept, D4). The `fier`
+scene goes through the room's arbiter only when the room is live and the
+lesson retained something; a pad arriving plays nothing (K09). Placement is
+pure for now: `placeDuReglage` (column at a desk, below when narrow or held
+upright, right when held sideways, tablets included) and `largeurPanneau`
+(46 % of the window, 560 to 700 px, K24); the touch pad is not mounted while
+the panel is open. The wiring in `App.tsx` stays the branch's last commit.
+The page weighs 251 536 bytes brotli; a trial build that adds the panel
+without removing anything weighs 256 998, so the panel costs about 5 460
+bytes before the old dialogs and their `index.css` rules leave.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

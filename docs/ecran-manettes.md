@@ -684,3 +684,28 @@ la décision à l'ADR D42. Ce qui n'est pas lisible dans le code :
 - **L'activité de la trame est celle qui est partie** (`InputState.activite`) :
   un menu ou un réglage envoie du neutre, et rien ne s'allume alors.
 
+
+## Le panneau qui remplacera les deux dialogues, 23 novembre 2026 (tard)
+
+Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Il n'est
+pas encore monté par `App.tsx` : les deux dialogues servent toujours, et le
+câblage sera le dernier commit de la branche. Ce qu'il faut savoir avant d'y
+toucher :
+
+- **L'invariant tient.** Le panneau pose `Wiring` tel quel pour Dolphin : la
+  gauche lit `readPad`, la droite `heldOn`. Pour la trame Pro, `paintPro`
+  (`lib/wiring.ts`) peint la gauche depuis la trame envoyée et la droite
+  depuis les indices bruts, chacune dans sa racine : les deux dessins
+  nomment leurs sticks `a0` et `a2`, et une racine commune mélangerait leurs
+  inclinaisons.
+- **Une entrée.** `ouvrirReglage(onglet)` (`manettes/entree.ts`) ouvre le
+  panneau ou change d'onglet ; l'ouvreur retenu au premier clic reprend le
+  focus à la fermeture, sinon le repli donné par la salle.
+- **Les marques sont hors de React.** `manettes/reglage/marques.ts` s'abonne
+  à `surReglage` et `surLecon` et ne change que `data-marque` sur les pièces
+  déjà dessinées. La gauche porte les commandes (A, x, LS), la droite les
+  indices (b0, a2) : leurs noms ne se croisent pas.
+- **Le plancher de 9 px** des inscriptions (`inscriptions.ts`) lit
+  `data-taille` et `data-piece`, que `PadMap.tsx` pose sur ses textes.
+  Retirer ces attributs rend le plancher muet sans rien casser d'autre ;
+  `inscriptions.test.tsx` le vérifie sur le vrai dessin.

@@ -234,7 +234,15 @@ la couleur de la place (`components/padmap.css`, ADR D42). Le panneau
 « Touches et manettes », ses marques, sa place dans la salle et le câblage
 dans `App.tsx` restent aux passages suivants. Page : 250 627 octets en
 brotli. Récit : « 23 novembre, la nuit encore : les manettes, premier
-passage ».
+passage ». Deuxième passage : le panneau
+« Touches et manettes » est écrit mais pas encore monté
+(`front/src/manettes/` : `ouvrirReglage`, `HoteReglage`, `Reglage` et ses
+onglets, le pas à pas des deux trames, `paintPro`, les marques hors de
+React, le plancher de 9 px des inscriptions, la scène fier par l'arbitre) ;
+`placeDuReglage` et `largeurPanneau` attendent le câblage. Restent : le
+câblage dans `App.tsx` (dernier commit), le retrait des deux dialogues, les
+pilotes et la recette `reglage-navigateur`. Page : 251 536 octets. Récit :
+« 23 novembre, tard : les manettes, deuxième passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

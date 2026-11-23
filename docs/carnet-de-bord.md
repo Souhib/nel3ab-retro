@@ -28382,6 +28382,13 @@ tout refus « trop rapproché » dit maintenant combien de secondes attendre ;
 le premier essai ne laissait pas passer de temps entre les deux demandes, et
 une attente figée à vingt secondes le passait. Il attend une seconde et demie.
 
+**Ma sauvegarde, pour ce jeu-là.** Le carnet liste les sauvegardes
+personnelles de chacun, avec leur titre, mais sans la clé du jeu : une page
+qui montre un jeu ne pouvait pas dire si « ma sauvegarde » existe pour lui.
+Chaque emplacement relié au catalogue porte maintenant cette clé ; un
+emplacement que le salon ne sait pas relier n'en a pas, plutôt qu'une clé
+devinée.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

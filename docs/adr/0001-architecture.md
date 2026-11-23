@@ -1734,6 +1734,10 @@ Decision:
   (`image`, `son`, `manette`, `autre`) to the session journal, on its own
   twenty-second limit. Every rate-limit refusal now carries `reste_s`, the
   seconds before the next accepted message.
+- **`Emplacement.cle`** gives a personal save slot the key of its game when
+  the catalogue links it (Dolphin folder key, or a registered title id), so a
+  page can say whether « my save » exists for the game it shows. An unlinked
+  slot has none.
 
 
 ## Consequences

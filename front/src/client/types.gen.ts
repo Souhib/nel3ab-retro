@@ -251,6 +251,12 @@ export type Emplacement = {
      * Vrai quand le salon a reconnu le jeu dans le catalogue.
      */
     relie: boolean;
+    /**
+     * Cle
+     *
+     * La clé du jeu de cette sauvegarde, son nom de fichier (ADR D23), pour qu'une page sache si « ma sauvegarde » existe pour le jeu qu'elle montre. Rien quand l'emplacement n'est pas relié au catalogue, ou quand le jeu y est connu sans clé (worker d'avant le 21 novembre 2026).
+     */
+    cle?: string | null;
     sauvegarde: ResumeSauvegarde;
 };
 

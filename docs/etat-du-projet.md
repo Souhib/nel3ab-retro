@@ -74,6 +74,7 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
   rien après un redémarrage du salon.
 - **Messages de socket.** `menu` et `Person.au_menu` (D15) ; `plainte_quoi`
   et `reste_s` dans chaque refus de cadence (D20).
+- **Sauvegardes.** `Emplacement.cle` (D19).
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service

@@ -1058,6 +1058,12 @@ alone loads neither the engine module nor its card. The check does not see
 
 ### D28: Touch pad geometry is computed, not styled, 2026-11-22
 
+Amended on 2026-11-23 by D39 (step 4): a room held in hand gives the pad its
+own box outside the picture (under it upright, two side clusters sideways),
+sized from `placePad` itself (`encombrement`), and the page gesture is
+« La salle », placed among the keys only when the bar is missing. The
+overlay placement below survives only for a pad forced on at a fine pointer.
+
 The on-screen pads placed their groups with CSS: corner anchors, a centred flex
 row, and `bottom: 140px` for the Switch tool row. A phone-sized audit on
 2026-11-22 found page gestures on top of game keys: a tap on R or Z hid the pad
@@ -1408,6 +1414,12 @@ says what it does (`libelleJouer`), because the worker only reads its library at
 start-up.
 
 ### D35: On a phone or tablet, the room column is a drawer, and page gestures live in a bottom sheet, 2026-11-22
+
+Amended on 2026-11-23 by D39 (step 4): the drawer and the bottom sheet are
+one `FeuilleSalle` with two heights, opened by « La salle » in the room bar;
+the mode comes from `modeDuCadre` (`useEnTiroir` is gone), and a fine
+pointer below 900 px puts the column under the picture instead of in a
+drawer. The safe-area tokens are kept and subtracted by the frame.
 
 The mobile audit of 2026-11-22 found the column folded by default on phones. Its
 functions (seats, ask for a seat, report, link diagnosis, spectators, leave)
@@ -1797,9 +1809,32 @@ updated `premiere-visite` and `carte-wii`. Delivered in pass 3 (step 7):
 the marquee, the side decoration, the credit, the dither and the
 first-picture rule; proofs `cadre.mjs` `fronton-bande`, `credit-compte`,
 `tramage-hors-image` and `borne-bandes`, each red against the step-6 page
-(2cb36ba, fourth block of `just cadre-navigateur-rouge`). Not yet delivered:
-the bar, band and single phone sheet (step 4, which amends D28 and D35), the
-play time wiring (waits for D04), the measurements (step 8).
+(2cb36ba, fourth block of `just cadre-navigateur-rouge`). Delivered in
+pass 4 (step 4, which amends D28 and D35): the room held in hand. In
+portrait and landscape every piece is placed absolutely on the rectangle
+`miseEnPage` returns: the bar (`BarreSalle`: room, game, the « La salle »
+button), the screen, the control panel, the band (`Bande`, which carries the
+notice stack on a phone) and the touch pad's own box, under the picture when
+held upright and as two side clusters when held sideways. The pad's sizes
+come from its real placement: `encombrement` in `lib/faces` searches
+`placePad` for the smallest upright height and the smallest side band, and
+`placePad` can treat a piece outside its band as a fault (it shrinks its
+sticks first). The mock-up's 128 px clusters put B, Z and the gesture on the
+picture at 844×390; a GameCube's four buttons need 156 px, so a GameCube at
+844×390 now gets 380 of the 390 px of height. The Pro pad needs 348 px of
+cluster height to stay in a 140 px band, so clusters run down to the bottom
+of the safe area (the pad keeps its own 12 px margin). `FeuilleDuBas` and
+`Tiroir` merge into one `FeuilleSalle`: at half height the game gestures
+(no darkened backdrop, never on the picture; at least 276 px, measured), and
+enlarged the whole column. A fine pointer below 900 px puts the column under
+the picture. A pad-only page shows `ManetteSeule` (its seat, and whether keys
+arrive). Proofs: `faces.test.ts` and `cadre.test.ts` place the real pad in
+the frame's box at every sampled size with and without iPhone safe areas,
+with a twin replaying the mock-up's boxes; `salle-telephone.mjs` and
+`manette-garde.mjs` rewritten for the single sheet, each with a twin key
+placed on the picture; `cadre.mjs` `tenu-rien-sur-image`, red against the
+step-7 page (cf3bba1, fifth block). Not yet delivered: the play time wiring
+(waits for D04), the measurements (step 8).
 
 Weighed: keeping the notices on the picture with a smaller footprint (still
 on the picture, which is what the owner ruled out); putting them at the foot

@@ -28597,6 +28597,85 @@ avec la feuille de l'étape 4.
 dans `Credit.test.tsx`, le banc ne fermant pas la salle sous la page. Aucun
 de ces décors n'a été vu sur un vrai écran par le propriétaire.
 
+### 23 novembre, la nuit encore : la salle tenue en main
+
+**Le contexte.** Au téléphone, la manette tactile se posait par-dessus
+l'écran : rangée dans les bandes noires quand il y en avait, sur l'image
+sinon. Une feuille du bas, ouverte par « ••• », portait le son et le menu ;
+un tiroir, ouvert depuis elle, portait la colonne. Deux couches pour une même
+salle, et un signe sans nom posé sur l'image.
+
+**Ce qui a changé.** Tenue en main (au doigt, ou pour une manette seule),
+chaque pièce de la salle se pose où le cadre la met, en pixels, déjà hors des
+zones sûres : une barre en haut (le nom de la salle, le jeu, et « La salle »),
+l'écran, le panneau de commande, une bande, et la manette dans sa propre
+boîte, sous l'image tenue droite ou en deux grappes sur les côtés en
+travers. La feuille du bas et le tiroir ne font plus qu'une feuille
+« La salle », à deux hauteurs : à mi-hauteur les gestes de la partie (son,
+menu du jeu, cacher la manette, plein écran), sans assombrir le fond et sans
+toucher l'image ; « Toute la salle » l'agrandit et y pose la colonne
+entière. À la souris, une fenêtre de moins de 900 px pose la colonne sous
+l'image, sans tiroir. Une page « manette seule » dit sa place et si les
+touches arrivent, au lieu de capitales espacées.
+
+**Ce qui a résisté : la maquette ne tenait pas la vraie manette.** Le cadre
+gardait les dimensions de la maquette du 22 novembre : des grappes de 128 px
+en travers, une boîte de 390 × 272 tenue droite. Une sonde a posé la vraie
+manette (`placePad`) dans ces boîtes : à 844 × 390, B, Z et le geste
+tombaient sur l'image ; à 375 × 667, la croix de la manette Pro recouvrait
+son stick droit. Les quatre boutons d'une GameCube font 148 px au plancher de
+44 px par touche ; avec 4 px de marge de chaque côté, il faut 156 px. Le
+cadre ne recopie donc plus de mesure : `encombrement` (dans `lib/faces`)
+cherche dans la pose elle-même la plus petite hauteur tenue droite et la plus
+petite bande en travers. Une GameCube à 844 × 390 garde 380 des 390 px de
+haut, pas les 390 promis par la maquette.
+
+**Ce qui a résisté : la manette Pro trop haute pour sa bande.** Sous 348 px
+de haut, la pose plaçait le stick droit de la manette Pro À CÔTÉ de ses
+quatre boutons, et demandait 308 px de chaque côté au lieu de 140. C'est le
+cas d'un iPhone 12 mini tenu en travers : 375 px, moins la barre d'accueil
+de 21 px et une marge de 4 px, il en reste 350, et avec une marge de plus,
+346. La pose sait maintenant tenir chaque pièce dans sa bande en rétrécissant
+ses sticks, et les grappes descendent jusqu'au bas de la zone sûre : la pose
+garde déjà 12 px de marge en dedans.
+
+**Ce qui a résisté, au navigateur.** `salle-telephone` a trouvé quatre
+choses que les essais sans navigateur ne voyaient pas. La boîte de la
+manette, posée sur toute la largeur en travers, prenait l'appui de
+« La salle » dans la barre d'une tablette : elle laisse maintenant passer les
+appuis, seules ses touches les reçoivent. Les places étaient montées deux
+fois, sous l'image et dans la colonne de la feuille : les pilotes trouvaient
+la mauvaise. Les prises des places se réglaient sur la largeur du panneau :
+une prise de 180 px de large en faisait 210 de haut sur une tablette, et sa
+boîte passait sous L et START. Enfin, la feuille à mi-hauteur devait faire
+300 px au moins, une valeur de la maquette ; à 375 × 667, elle montait alors
+de 13 px sur l'image. Mesurée dans Chrome, elle a besoin de 275 px (cinq
+entrées de 44 px sur deux colonnes, son en-tête, et la barre d'accueil d'un
+iPhone) : le plancher est maintenant de 276 px. Le détail des entrées ne se
+montre plus à mi-hauteur : avec lui, le son coupé faisait défiler la feuille.
+
+**Les preuves.** `faces.test.ts` vérifie que la hauteur et la largeur
+rendues tiennent la pose et que 4 px (ou 2 px) de moins ne la tiennent pas.
+`cadre.test.ts` pose la vraie manette dans la boîte du cadre à chaque taille
+essayée, avec et sans les zones sûres d'un iPhone, et rejoue les boîtes de la
+maquette, qui doivent mettre une touche sur l'image. `salle-telephone` et
+`manette-garde` ont été récrits pour la feuille unique ; chacun a un jumeau,
+une touche posée exprès sur l'image, que la garde doit voir.
+`manette-garde` mesure 0 px² sur l'image à sept tailles dans quatre salles.
+`cadre.mjs` a une étape `tenu-rien-sur-image`, rouge contre la page de
+l'étape 7 (cf3bba1), où la croix tombe sur l'image d'une tablette de
+768 × 1024. Poids : 246 511 octets en brotli.
+
+**Ce qui n'est pas prouvé.** Rien de tout cela n'a été tenu dans une vraie
+main : les pilotes émulent le toucher et les zones sûres dans Chrome. La
+manette « toujours » sur un grand écran à la souris se pose encore
+par-dessus l'écran, comme avant ; c'est un réglage choisi, et le seul cas où
+une touche peut encore toucher l'image. La bande et la bande droite en
+travers sont vides en dehors des avis : les phrases des autres chantiers
+(qui regarde, l'état de la liaison) n'y sont pas encore. La carte d'une
+demande de place se pose encore sur l'image, comme avant ; elle appartient
+au chantier des personnes.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -30202,3 +30281,15 @@ en-tête de tableau.
 **Marge de défilement (scroll-padding)** : la place qu'une zone qui défile
 garde libre sur un bord quand elle amène un élément en vue, pour qu'il ne
 passe pas sous un élément collant.
+
+**Salle tenue en main** : la salle au doigt ou pour une page « manette
+seule », tenue droite (portrait) ou en travers (paysage). Chaque pièce y est
+posée par le cadre en pixels, hors des zones sûres.
+
+**Grappe** : en travers, chacune des deux colonnes de touches aux bords de
+l'écran, de part et d'autre de l'image : à gauche les gâchettes de gauche, la
+croix et le stick, à droite le reste.
+
+**Encombrement** : la place qu'une manette tactile demande au cadre, lue
+dans sa pose réelle (`encombrement` dans `lib/faces`) : la hauteur de sa
+boîte tenue droite, la largeur de chaque grappe en travers.

@@ -450,6 +450,13 @@ pas lisible dans le code :
 - **Le losange des quatre boutons est lu sur le dessin** (`diamondOf`, sur
   `XBOX_360` et `SWITCH_PRO`), pas recopié. Un essai retourne le dessin de
   gauche à droite et vérifie que le losange se retourne aussi.
+- **La place d'une manette dans la salle est lue dans sa pose**
+  (`encombrement`, depuis le 23 novembre 2026) : le cadre (`lib/cadre`)
+  demande à `placePad` la hauteur de la boîte tenue droite et la largeur de
+  chaque grappe en travers. Ajouter une touche à une face change donc la
+  place de la manette, sans rien recopier ; `cadre.test.ts` pose la vraie
+  manette dans la boîte du cadre et vérifie qu'aucune pièce ne touche
+  l'image.
 - **Une salle Wii garde les noms de la GameCube.** Elle présente un appareil
   par place, et le pavé ne le connaît pas. Nommer ses touches comme une Wiimote
   mentirait à qui joue avec la manette GameCube.

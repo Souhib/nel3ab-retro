@@ -51,6 +51,22 @@ et « 23 novembre, l'après-midi : ce que les chantiers d'écran demandaient au
 socle ». Non prouvé : aucun effet vu sur un vrai téléphone, et aucun effet ni
 aucun des nouveaux jetons n'est encore posé dans un vrai écran.
 
+**Au 23 novembre : le chantier « données », sur une branche.** Ce que le
+salon publie de chaque salle, pour les écrans du thème rétro
+(`chantier/retro-donnees`, worktree `~/nel3ab-chantiers/retro-donnees`, partie
+du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
+
+- **Ouverture et temps de jeu.** `Salle.ouverte_depuis` dit depuis quand le
+  salon a ouvert la salle (repère `ouverte-le`) ; l'ancienne valeur, qui
+  repartait à chaque changement de jeu, est `Salle.jeu_depuis`. Le faux
+  systemd des essais suit le vrai (`control/tests/faux_systeme.py`).
+- **Dossier de salle.** Le salon y lit et écrit par `session_salle.py`, sans
+  suivre de lien ; le marqueur `game-closed` aussi.
+- **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
+  redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
+  maintenant la vraie ouverture ; une salle ouverte avant la mise en service
+  n'a pas de repère et tait la ligne jusqu'à sa prochaine ouverture.
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

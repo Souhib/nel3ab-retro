@@ -32,7 +32,7 @@ def salle_deux(app: FastAPI, systeme: FauxSysteme) -> None:
     Souhib n'y est pas: c'est l'administrateur des réglages d'essai, et il doit
     pouvoir la fermer sans y être.
     """
-    systeme.allumees.add(2)
+    systeme.demarrer(2)
     app.state.people.arrived("sid-yassine", "yassine@example.com", "Yassine", 2)
     app.state.people.arrived("sid-vincent", "vincent@example.com", "Vincent", 2)
 
@@ -85,7 +85,7 @@ async def test_the_chief_of_another_room_cannot_close_this_one(
     app: FastAPI, client: httpx.AsyncClient, systeme: FauxSysteme
 ) -> None:
     """Être chef quelque part ne donne rien ailleurs."""
-    systeme.allumees.add(1)
+    systeme.demarrer(1)
     app.state.people.arrived("sid-camille", "camille@example.com", "Camille", 1)
 
     answer = await client.delete(
@@ -128,7 +128,7 @@ async def test_an_empty_room_is_closed_by_the_admin_only(
     l'administrateur: sinon quiconque pourrait éteindre une salle dont le chef
     vient de recharger sa page.
     """
-    systeme.allumees.add(3)
+    systeme.demarrer(3)
 
     refused = await client.delete("/api/salles/3", headers=VINCENT)
     assert refused.status_code == 403

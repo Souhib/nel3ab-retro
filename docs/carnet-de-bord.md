@@ -28252,6 +28252,63 @@ chantier mélangera une couleur dans un composant (une opacité, un
 `color-mix`), seul `contraste.mjs --simule` le verra. Les icônes n'ont été
 vues qu'en texte, pas à leur taille réelle.
 
+### 23 novembre, le soir : ce que le salon publie de chaque salle
+
+**Le contexte.** Les écrans du thème rétro lisent sur chaque salle des choses
+que le salon ne publiait pas encore : qui est le chef, qui tient quelle
+manette, le dernier jeu, l'heure de fermeture. Le chantier « données » les
+ajoute au salon, sans toucher à la page. Ce qui suit raconte chaque champ dans
+l'ordre où il est entré.
+
+**« Ouverte depuis » ne disait pas depuis quand la salle était ouverte.**
+L'accueil affiche « EN ANTENNE DEPUIS » sur chaque salle ouverte. Le salon
+lisait cette durée dans systemd, le programme qui lance les salles : l'heure à
+laquelle le worker de la salle est devenu actif. Or le worker s'arrête à chaque
+changement de jeu, et systemd le relance deux secondes plus tard. La salle 1,
+ouverte le 22 novembre à 07:05:47, disait donc son âge depuis 07:09:08, sa
+deuxième relance. Ce n'était pas faux, c'était autre chose : le temps du jeu en
+cours. Ce chiffre garde son utilité et change de nom (`jeu_depuis`). La vraie
+heure d'ouverture vient d'un petit fichier, `ouverte-le`, que le salon pose
+dans le dossier de la salle quand il l'ouvre et retire quand il la ferme.
+
+**Le faux systemd des essais ne relançait jamais rien.** Les essais du salon
+remplacent systemd par un faux qui répond ce qu'on lui dit. Celui-ci donnait à
+chaque salle un âge fixe : il ne pouvait pas montrer qu'un changement de jeu
+remet l'horloge à zéro. Il suit maintenant le vrai, relu sans rien changer sur
+la machine : une relance déplace les trois horodatages, une salle fermée faute
+d'activité finit « failed » avec le code 42, et un appel à systemd prend du
+temps. Avec ce faux, l'essai « l'ouverture survit à un changement de jeu »
+échouait sur l'ancien code (`assert 0 == 602`), puis passe.
+
+**Le plan prévoyait une garde qui aurait tout cassé.** Pour écarter un vieux
+repère (une salle fermée toute seule, puis rallumée à la main), le plan
+proposait de l'ignorer s'il était plus ancien que la dernière entrée de
+l'unité dans l'état inactif. Le journal de la salle 1 montre qu'une relance
+passe par cet état le temps d'un pas : « Deactivated successfully » à
+07:09:06.65, sortie de l'inactif à 07:09:06. Cette garde aurait effacé l'heure
+d'ouverture dès le premier changement de jeu. La garde retenue regarde la
+DURÉE de la dernière pause : un pas pour une relance, des minutes pour une
+salle fermée. Elle a un trou, écrit dans l'ADR (D38) : une salle rallumée à la
+main puis changée de jeu avant que personne ne regarde.
+
+**Un piège de systemd en passant.** `systemctl show` peut rendre plusieurs
+propriétés d'un coup, et l'option `--value` n'en garde que les valeurs. Mais
+elles sortent dans l'ordre de systemd, pas dans celui qu'on a demandé. Le salon
+lit donc les lignes `Nom=valeur`, et le faux rend le même ordre que le vrai,
+pour qu'une lecture par position échoue dans les essais.
+
+**Le marqueur « sans jeu » suivait les liens.** En ouvrant une salle, le salon
+pose un fichier vide, `game-closed`, pour qu'elle arrive sur son menu. Il le
+posait avec `touch`, qui suit un lien : un moteur qui aurait laissé un lien à
+ce nom faisait créer un fichier ailleurs sur la machine (la règle D36 du
+22 novembre). Le marqueur est maintenant retiré puis recréé dans le dossier
+même, et les lectures du dossier de salle passent toutes par
+`session_salle.py`, qui n'y suit aucun lien. Huit mutants ont été réintroduits
+un par un, et chacun a fait échouer l'essai qui le nomme. L'un d'eux, le repère
+posé avant le démarrage, passait d'abord : le faux changeait l'état de l'unité
+à l'instant même de l'appel. C'est ce qui lui a appris que systemd prend du
+temps.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -29834,3 +29891,12 @@ l'image quand elle est assez haute.
 **Panneau de commande** : sur une borne d'arcade, la planche sous l'écran qui
 porte les manettes et les boutons START. Dans la salle, la bande sous l'image
 où se posent les places des joueurs.
+
+**Identifiant de démarrage (boot_id)** : un identifiant que Linux tire au
+hasard à chaque démarrage de la machine (`/proc/sys/kernel/random/boot_id`).
+Une horloge monotone repart à zéro au démarrage ; noter cet identifiant à côté
+d'une heure monotone permet de reconnaître une heure d'un démarrage précédent.
+
+**Repère d'ouverture** : le fichier `ouverte-le` que le salon pose dans le
+dossier d'une salle quand il l'ouvre. Il dit depuis quand la salle est
+ouverte, alors que systemd ne dit que depuis quand le jeu en cours tourne.

@@ -812,9 +812,15 @@ export type Salle = {
     /**
      * Ouverte Depuis
      *
-     * Depuis combien de SECONDES cette salle tourne, ou rien quand systemd ne le dit pas. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure.
+     * Depuis combien de SECONDES cette salle est ouverte, d'après le repère que le salon pose quand il l'ouvre. Survit aux changements de jeu. Jusqu'au 23 novembre 2026, ce champ disait le temps depuis la dernière relance du worker, c'est-à-dire depuis le dernier changement de jeu: c'est maintenant `jeu_depuis`. Rien pour une salle fermée, pour une salle ouverte sans passer par le salon, et pour une salle ouverte avant ce repère. Rien ne s'affiche pas: une salle « ouverte depuis 0 seconde » serait une absence déguisée en mesure.
      */
     ouverte_depuis?: number | null;
+    /**
+     * Jeu Depuis
+     *
+     * Depuis combien de SECONDES le worker de cette salle tourne sans être sorti, lu dans systemd: le temps du jeu en cours, ou du menu. Il repart à chaque changement de jeu, puisque le worker sort pour changer de jeu et que systemd le relance. Rien quand la salle n'est pas ouverte ou que systemd ne le dit pas.
+     */
+    jeu_depuis?: number | null;
     /**
      * Places
      *

@@ -64,6 +64,11 @@ def isolate_personal_state(
     # poserait ses morceaux dans la vraie quarantaine.
     monkeypatch.setenv("NEL3AB_IMPORTEURS_FILE", str(racine / "importeurs.json"))
     monkeypatch.setenv("NEL3AB_IMPORTS_DIR", str(racine / "imports"))
+    # Et les dossiers des salles: depuis le 23 novembre 2026, lister les salles
+    # y LIT le dernier jeu et le repère d'ouverture, et ouvrir une salle y ÉCRIT
+    # ce repère. Un essai qui construit `Settings()` lirait sinon le jeu retenu
+    # des vraies salles, et en ouvrirait une sur la vraie salle 1.
+    monkeypatch.setenv("NEL3AB_SALLES_DIR", str(racine / "salles"))
 
 
 @pytest.fixture(autouse=True)

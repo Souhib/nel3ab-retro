@@ -1651,6 +1651,47 @@ Eight token mutants each fail the test that names them. Room page weight
 after the amendment: 235 700 bytes in brotli 11, margin 64 300.
 
 
+### D38: What the lobby publishes of each room, and what « open since » means, 2026-11-23
+
+The retro screens read facts about a room that the lobby either did not
+publish or published under a misleading name (plan « donnees », lot 1). The
+lobby publishes only what it can fill; an absent value is `None` and the page
+hides the line (the rule of `api/schemas/salle.py`).
+
+Decision:
+
+- **`Salle.ouverte_depuis` is the time since the LOBBY opened the room;
+  `Salle.jeu_depuis` is the old value.** Measured on lgf on 2026-11-23: a game
+  change makes the worker exit, and systemd 255 passes the unit through the
+  inactive state for one step (« Deactivated successfully » at 07:09:06.65,
+  `InactiveExitTimestamp` 07:09:06, `ActiveEnterTimestamp` 07:09:08). The old
+  field read `ActiveEnterTimestampMonotonic`, so it restarted at every game
+  change: it was the current game's age. It is now `jeu_depuis`. The opening
+  time comes from a marker, `salles_dir/N/ouverte-le` (boot id and monotonic
+  microseconds), written by `ouvrir` AFTER systemd accepts the start and
+  removed by `fermer`, through a directory descriptor without following links
+  (D36).
+- **A stale marker is detected by the length of the last inactive pause, not
+  by `InactiveEnterTimestamp` alone.** The plan proposed ignoring a marker older
+  than `InactiveEnterTimestampMonotonic`; on systemd 255 that timestamp moves at
+  every game change, so the rule would have hidden the opening time after the
+  first game. The marker is ignored when it comes from another boot, or when it
+  is older than `InactiveExitTimestampMonotonic` and the last inactive pause
+  lasted more than one second (a room that closed on its own, then was started
+  by hand outside the lobby). Not covered: such a hand start followed by a game
+  change, since systemd keeps only the last pause.
+- **systemd properties are read by name.** `systemctl show -p A -p B --value`
+  prints values in systemd's own order (`Result`, `ExecMainStatus`,
+  `InactiveExitTimestampMonotonic`, `ActiveEnterTimestampMonotonic`,
+  `InactiveEnterTimestampMonotonic`), not the requested one. The lobby asks
+  once per room for `Name=value` lines.
+- **The fake systemd follows the real one** (`control/tests/faux_systeme.py`):
+  restarts move the three timestamps, an inactivity close leaves `failed` with
+  status 42, calls take time, and properties come back in systemd's order.
+  The old fake had one fixed age per room, which is why nobody saw the field
+  restart.
+
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

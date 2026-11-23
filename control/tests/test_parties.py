@@ -68,6 +68,7 @@ def test_personal_state_is_isolated() -> None:
         reglages.personal_save_root,
         reglages.importeurs_file,
         reglages.imports_dir,
+        reglages.salles_dir,
     ):
         assert not dossier.is_relative_to(vrai), dossier
     # La configuration de CHAQUE adaptateur du manifeste, pas une liste écrite

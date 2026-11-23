@@ -12,7 +12,7 @@ from nel3ab_control.api.controllers.salles import (
     SallesController,
 )
 from nel3ab_control.settings import Settings
-from tests.faux_systeme import FauxSysteme
+from tests.faux_systeme import FauxSysteme, Horloge
 
 
 @pytest.fixture
@@ -233,15 +233,21 @@ class FauxWorker:
         return self.places
 
 
-async def test_la_liste_dit_depuis_quand_une_salle_tourne(reglages: Settings) -> None:
-    """Une carte qui ne dit pas depuis quand la salle tourne oblige à entrer pour
-    savoir si on arrive au milieu d'une partie commencée il y a deux heures."""
+async def test_la_liste_dit_depuis_quand_le_jeu_tourne(reglages: Settings) -> None:
+    """Une carte qui ne dit pas depuis quand le jeu tourne oblige à entrer pour
+    savoir si on arrive au milieu d'une partie commencée il y a deux heures.
+
+    C'était `ouverte_depuis` jusqu'au 23 novembre 2026: la valeur de systemd,
+    qui repart à chaque changement de jeu, est le temps du JEU. Une salle
+    allumée hors du salon n'a pas de repère d'ouverture, donc pas d'ouverture.
+    """
     systeme = FauxSysteme(allumees=[1], depuis={1: 300.0}, horloge=HORLOGE)
     salles = SallesController(reglages, systeme, horloge=HORLOGE)
 
     etat = await salles.etat()
 
-    assert etat[0].ouverte_depuis == pytest.approx(300, abs=2)
+    assert etat[0].jeu_depuis == pytest.approx(300, abs=2)
+    assert etat[0].ouverte_depuis is None
 
 
 async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> None:
@@ -252,21 +258,21 @@ async def test_une_salle_eteinte_n_a_pas_d_anciennete(reglages: Settings) -> Non
 
     etat = await salles.etat()
 
-    assert [s.ouverte_depuis for s in etat[1:]] == [None, None]
+    assert [(s.ouverte_depuis, s.jeu_depuis) for s in etat[1:]] == [(None, None), (None, None)]
     interrogees = [c[-1] for c in systeme.commandes if "show" in c]
     assert interrogees == ["nel3ab-worker@1"]
 
 
 async def test_une_unite_sans_horodatage_ne_dit_pas_zero(reglages: Settings) -> None:
     """systemd rend `0` pour une unité qui n'a jamais démarré. Le rendre tel quel
-    afficherait « ouverte depuis 0 seconde », une absence déguisée en mesure,
+    afficherait « depuis 0 seconde », une absence déguisée en mesure,
     c'est-à-dire exactement la faute que le schéma interdit."""
     systeme = FauxSysteme(allumees=[1])
 
     etat = await SallesController(reglages, systeme).etat()
 
     assert etat[0].ouverte is True
-    assert etat[0].ouverte_depuis is None
+    assert etat[0].jeu_depuis is None
 
 
 async def test_la_liste_dit_combien_de_manettes_sont_libres(reglages: Settings) -> None:
@@ -349,3 +355,168 @@ async def test_ouvrir_ne_prend_pas_une_salle_qui_redemarre(reglages: Settings) -
     assert salle.numero == 2
     assert not (reglages.salles_dir / "1" / "game-closed").exists()
     assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@1"] not in systeme.commandes
+
+
+async def test_l_ouverture_survit_a_un_changement_de_jeu(reglages: Settings) -> None:
+    """« Ouverte depuis » dit depuis quand la SALLE est ouverte, pas le jeu.
+
+    Le worker sort à chaque changement de jeu et systemd le relance: son
+    horodatage d'activation repart. Le 23 novembre 2026, la salle 1 ouverte à
+    07:05:47 disait son ancienneté depuis 07:09:08, sa deuxième relance.
+    """
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(600)
+
+    systeme.relancer(1)
+    etat = await salles.etat()
+
+    assert etat[0].ouverte_depuis == pytest.approx(602, abs=1)
+
+
+async def test_le_temps_du_jeu_repart_a_chaque_changement_de_jeu(reglages: Settings) -> None:
+    """Le jumeau du précédent: ce qui survit est l'ouverture, pas le jeu."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(600)
+    assert (await salles.etat())[0].jeu_depuis == pytest.approx(600, abs=1)
+
+    systeme.relancer(1)
+
+    assert (await salles.etat())[0].jeu_depuis == pytest.approx(0, abs=1)
+
+
+async def test_un_repere_d_un_autre_demarrage_ne_vaut_rien(reglages: Settings) -> None:
+    """L'horloge monotone repart à zéro au démarrage de la machine: un repère
+    écrit avant un redémarrage dirait n'importe quoi."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    await SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "avant").ouvrir()
+
+    salles = SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "apres")
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is True
+    assert etat[0].ouverte_depuis is None
+
+
+async def test_le_meme_demarrage_garde_le_repere(reglages: Settings) -> None:
+    """Le jumeau: le même identifiant de démarrage, un autre contrôleur (le salon
+    a redémarré), et le repère vaut encore."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    await SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "lui").ouvrir()
+    horloge.avancer(90)
+
+    salles = SallesController(reglages, systeme, horloge=horloge, demarrage=lambda: "lui")
+
+    assert (await salles.etat())[0].ouverte_depuis == pytest.approx(90, abs=1)
+
+
+async def test_une_salle_fermee_seule_puis_rallumee_a_la_main_n_a_pas_d_ouverture(
+    reglages: Settings,
+) -> None:
+    """Fermée faute d'activité (code 42), le repère reste: seul `fermer` le
+    retire. Rallumée à la main, hors du salon, elle ne doit pas dire « ouverte
+    depuis » l'ouverture d'avant. La longue pause inactive le trahit."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(1800)
+    systeme.fermer_seule(1)
+    horloge.avancer(3600)
+
+    systeme.demarrer(1)
+    etat = await salles.etat()
+
+    assert etat[0].ouverte is True
+    assert etat[0].ouverte_depuis is None
+
+
+async def test_rouvrir_par_le_salon_repose_le_repere(reglages: Settings) -> None:
+    """Le jumeau: la même salle fermée seule, rouverte par le salon, a une
+    ouverture neuve. Le repère est posé APRÈS le démarrage: posé avant, la
+    longue pause le périmerait aussitôt."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    horloge.avancer(1800)
+    systeme.fermer_seule(1)
+    horloge.avancer(3600)
+
+    await salles.ouvrir()
+    horloge.avancer(30)
+
+    assert (await salles.etat())[0].ouverte_depuis == pytest.approx(30, abs=1)
+
+
+async def test_fermer_retire_le_repere(reglages: Settings) -> None:
+    salles = SallesController(reglages, FauxSysteme())
+    await salles.ouvrir()
+    repere = reglages.salles_dir / "1" / "ouverte-le"
+    assert repere.is_file()
+
+    await salles.fermer(1)
+
+    assert not repere.exists()
+
+
+async def test_un_repere_en_lien_n_est_pas_suivi(reglages: Settings, tmp_path: Path) -> None:
+    """ADR D36: un moteur peut laisser un lien dans le dossier de sa salle. Lu,
+    il ne donne rien; écrit, il est remplacé, et sa cible reste intacte."""
+    horloge = Horloge()
+    systeme = FauxSysteme(horloge=horloge)
+    salles = SallesController(reglages, systeme, horloge=horloge)
+    await salles.ouvrir()
+    dossier = reglages.salles_dir / "1"
+    cible = tmp_path / "ailleurs"
+    avant = (dossier / "ouverte-le").read_bytes()
+    cible.write_bytes(avant)
+    (dossier / "ouverte-le").unlink()
+    (dossier / "ouverte-le").symlink_to(cible)
+
+    assert (await salles.etat())[0].ouverte_depuis is None
+
+    horloge.avancer(60)
+    systeme.arreter(1)
+    await salles.ouvrir()
+    assert (dossier / "ouverte-le").is_file()
+    assert not (dossier / "ouverte-le").is_symlink()
+    assert cible.read_bytes() == avant, "la cible du lien a été réécrite"
+
+
+async def test_le_marqueur_sans_jeu_ne_suit_pas_un_lien(reglages: Settings, tmp_path: Path) -> None:
+    """Le marqueur était posé par `Path.touch`, qui suit un lien: un moteur
+    pouvait faire créer ou dater un fichier de l'hôte. Il est maintenant retiré
+    et recréé dans le dossier, et la cible du lien n'est pas touchée."""
+    dossier = reglages.salles_dir / "1"
+    dossier.mkdir(parents=True)
+    cible = tmp_path / "fichier-de-l-hote"
+    (dossier / "game-closed").symlink_to(cible)
+
+    await SallesController(reglages, FauxSysteme()).ouvrir()
+
+    assert not cible.exists(), "le lien a été suivi"
+    assert (dossier / "game-closed").is_file()
+    assert not (dossier / "game-closed").is_symlink()
+
+
+async def test_un_dossier_de_salle_en_lien_est_refuse(reglages: Settings, tmp_path: Path) -> None:
+    """Le dossier numéroté lui-même ne se suit pas non plus: ouvrir refuse."""
+    reglages.salles_dir.mkdir(parents=True)
+    ailleurs = tmp_path / "ailleurs"
+    ailleurs.mkdir()
+    (reglages.salles_dir / "1").symlink_to(ailleurs)
+
+    with pytest.raises(SalleRebelle) as refus:
+        await SallesController(reglages, FauxSysteme()).ouvrir()
+
+    assert "dossier" in refus.value.detail
+
+    assert list(ailleurs.iterdir()) == []

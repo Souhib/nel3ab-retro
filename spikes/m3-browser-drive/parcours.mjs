@@ -139,7 +139,7 @@ async function entrer(page) {
     });
     return false;
   }, 5000, 300);
-  if (!(await jusqua(async () => /place \d|manette \d|P\d/.test(await siege(page)), 8000)))
+  if (!(await jusqua(async () => /place \d|manette \d|\dP|P\d/.test(await siege(page)), 8000)))
     throw new Precondition(`aucune place prise en entrant: « ${await siege(page)} »`);
 }
 

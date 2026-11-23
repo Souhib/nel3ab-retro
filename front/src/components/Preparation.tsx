@@ -11,7 +11,7 @@ import {
   nomAppareil,
   titrePreparation,
 } from "../lib/lancement";
-import { SANS_REPONSE } from "../lib/mots";
+import { pastille, SANS_REPONSE } from "../lib/mots";
 import { useAttente } from "../lib/useAttente";
 import { SetupProfiles } from "./SetupProfiles";
 import { GameCard } from "./GameCard";
@@ -112,7 +112,7 @@ export function Preparation({
       <div className="n3-preparation-players">
         {pending.players.map((p) => (
           <div key={p.claim} data-ready={p.ready}>
-            <span>P{p.port}</span>
+            <span>{pastille(p.port)}</span>
             <strong>{p.name ?? ""}</strong>
             <small>
               {p.claim === pending.starter && !p.ready ? "lance le jeu" : ligneJoueur(p, console)}
@@ -319,7 +319,7 @@ export function usePreparationPro({
           <div className="n3-preparation-players">
             {pending.players.map((p) => (
               <div key={p.claim} data-ready={p.ready}>
-                <span>P{p.port}</span>
+                <span>{pastille(p.port)}</span>
                 <strong>{p.name ?? ""}</strong>
                 <small>
                   {p.claim === pending.starter && !p.ready

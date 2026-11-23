@@ -486,3 +486,43 @@ describe("les mots du lexique", () => {
     expect(etatDuSon("interrupted")).toBe("inconnu");
   });
 });
+
+describe("chantier personnes", () => {
+  it("écrit la pastille d'une place 1P à 4P", async () => {
+    const { pastille } = await import("./mots");
+    expect([1, 2, 3, 4].map(pastille)).toEqual(["1P", "2P", "3P", "4P"]);
+  });
+
+  it("ne donne aucune pastille à 0, 5 ou une place qui n'est pas un entier", async () => {
+    const { pastille } = await import("./mots");
+    for (const faute of [0, 5, -1, 2.5, Number.NaN])
+      expect(pastille(faute), String(faute)).toBe("");
+  });
+
+  it("n'écrit plus « P1 » à « P4 » dans une chaîne visible", () => {
+    // Le passage à « 1P » se fait en un seul changement (partition, mots.ts) :
+    // une pastille oubliée donnerait deux noms à la même place. Deux lectures :
+    // les chaînes visibles pour un « P2 » écrit en clair, et la source pour un
+    // « P » collé à un numéro calculé (`P{seat.port}` en JSX, `P${port}` dans
+    // un gabarit), que le parcours des chaînes voit comme un « P » seul.
+    const enClair = sources.flatMap(({ fichier, source }) =>
+      chainesDe(fichier, source, false, fichier === "lib/mots.ts")
+        .filter((c) => /(?<![\p{L}\p{N}])P[1-4](?![\p{L}\p{N}])/u.test(c.texte))
+        .map((c) => `${fichier} « ${c.texte} »`),
+    );
+    const calcules = sources.flatMap(({ fichier, source }) =>
+      [...source.matchAll(/(?<![\p{L}\p{N}_$.])P(?:\{|\$\{)[^}]*\}/gu)].map(
+        (m) => `${fichier} « ${m[0]} »`,
+      ),
+    );
+    expect([...enClair, ...calcules]).toEqual([]);
+    // Le jumeau : la lecture voit bien les deux formes.
+    expect([
+      ..."<span>P{p.port}</span>".matchAll(/(?<![\p{L}\p{N}_$.])P(?:\{|\$\{)[^}]*\}/gu),
+    ]).toHaveLength(1);
+    expect([..."`P${port}`".matchAll(/(?<![\p{L}\p{N}_$.])P(?:\{|\$\{)[^}]*\}/gu)]).toHaveLength(1);
+    expect([
+      ..."`${pastille(port)}`".matchAll(/(?<![\p{L}\p{N}_$.])P(?:\{|\$\{)[^}]*\}/gu),
+    ]).toHaveLength(0);
+  });
+});

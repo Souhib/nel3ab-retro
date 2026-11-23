@@ -29,7 +29,8 @@
  * - **place**: l'emplacement 1 à 4. « place 2 », « 2 places libres »,
  *   « Prendre une place », « Rendre ma place » (`PLACE`).
  * - **manette**: l'objet qu'on tient, et lui seul. « Aucune manette détectée. »
- * - **P1 à P4**: la pastille de couleur d'une place, jamais un nom.
+ * - **1P à 4P**: la pastille d'une place, comme sur une borne (`pastille`),
+ *   jamais un nom.
  * - **chef**: la personne qui choisit le jeu. « Bo choisit le jeu. »
  * - **nouvelle partie**, **tout débloqué**, **ma sauvegarde**: les trois
  *   sauvegardes. Aux autres: « la sauvegarde de Bo ».
@@ -468,3 +469,16 @@ export const BRANCHEE = {
 } as const;
 
 // ==== fin salle ====
+
+// ==== chantier personnes ====
+
+/** La pastille d'une place, « 1P » à « 4P », comme l'écran de sélection d'une
+ * borne d'arcade (« P1 » jusqu'au 23 novembre 2026). Un numéro hors de 1 à 4
+ * n'est pas une place : il n'a pas de pastille, plutôt qu'un « 0P » ou un
+ * « 5P » sur un bouton. Pas d'exception non plus : le numéro vient du réseau,
+ * et une exception dans un rendu viderait toute la page. */
+export function pastille(place: number): string {
+  return Number.isInteger(place) && place >= 1 && place <= 4 ? `${place}P` : "";
+}
+
+// ==== fin personnes ====

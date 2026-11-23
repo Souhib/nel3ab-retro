@@ -18,7 +18,7 @@ import { LOBBIES, type LobbyLook } from "../lib/theme";
 import { LobbyCables } from "./LobbyCables";
 import { LobbyPlan } from "./LobbyPlan";
 import { Logo } from "./Logo";
-import { ENTREES, placesLibres, SORTIES } from "../lib/mots";
+import { ENTREES, pastille, placesLibres, SORTIES } from "../lib/mots";
 import { salonAuDessus } from "../lib/entree";
 
 /* `salonAuDessus` vit dans `lib/entree`, avec la sortie qu'il décide. Réexporté
@@ -228,7 +228,7 @@ export function Lobby({
                     )}
                   >
                     {person.name}
-                    {person.seat ? ` · P${person.seat}` : ""}
+                    {person.seat ? ` · ${pastille(person.seat)}` : ""}
                   </li>
                 ))}
               </ul>
@@ -261,7 +261,7 @@ export function Lobby({
                       className="font-machine text-mini"
                       style={{ color: PLAYER_INKS[seat.port - 1] ?? PLAYER_INKS[0] }}
                     >
-                      P{seat.port}
+                      {pastille(seat.port)}
                     </span>
                     <span className={cn("truncate text-corps", taken ? "text-text" : "text-faint")}>
                       {seat.player ?? "libre"}

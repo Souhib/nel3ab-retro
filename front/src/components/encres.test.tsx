@@ -54,9 +54,9 @@ it("écrit chaque « Pn » de l'accueil de salle dans l'encre du joueur n", () =
   );
   for (let port = 1; port <= 4; port += 1) {
     const marque = [...document.querySelectorAll(`#lobbySeats [data-port="${port}"] span`)].find(
-      (span) => span.textContent === `P${port}`,
+      (span) => span.textContent === `${port}P`,
     ) as HTMLElement | undefined;
-    expect(marque, `P${port} introuvable`).toBeDefined();
+    expect(marque, `${port}P introuvable`).toBeDefined();
     expect(marque?.style.color).toBe(`var(--p${port}-encre)`);
     // Le jumeau: l'aplat reste sur la barre de la case, qui n'est pas du texte.
     expect(marque?.style.color).not.toContain(PLAYER_COLOURS[port - 1]);

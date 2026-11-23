@@ -16,7 +16,7 @@ it("montre les noms connus et aucun nom inventé sous les prises", () => {
     />,
   );
   expect(screen.getByText("Souhib")).toBeInTheDocument();
-  expect(document.querySelector("#port1")?.textContent).toContain("P1");
+  expect(document.querySelector("#port1")?.textContent).toContain("1P");
   expect(document.querySelector("#port1")?.textContent).not.toContain("TOI");
   expect(screen.queryByText(/occupée|occupé/)).not.toBeInTheDocument();
   expect(document.querySelector("#port2")?.textContent).not.toContain("toi");

@@ -22,6 +22,7 @@
  * avec l'ambiance reviendrait à repeindre le joueur 1 en vert.
  */
 import type { Fiche } from "../bobine/Branchement";
+import { pastille } from "../lib/mots";
 import { ARMING_COLOUR, PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 
 export type SocketState = "free" | "busy" | "mine" | "arming";
@@ -106,7 +107,7 @@ export function Socket({
           font: armed ? "600 11px var(--police-texte)" : "400 11px var(--police-machine)",
         }}
       >
-        {armed ? "PRENDRE ?" : `P${port}`}
+        {armed ? "PRENDRE ?" : pastille(port)}
       </text>
     </svg>
   );

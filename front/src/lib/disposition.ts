@@ -22,6 +22,8 @@
 /** Les deux hauteurs de la feuille « La salle » d'une salle tenue en main :
  * à mi-hauteur les gestes de la partie, agrandie toute la salle (ce qui était
  * le tiroir jusqu'au 23 novembre 2026). */
+import { BUREAU_DES } from "./cadre";
+
 export type HauteurFeuille = "mi" | "agrandie";
 
 /** Ce que la salle sait au moment de poser ses couches. */
@@ -38,6 +40,9 @@ export type EtatDesCouches = {
   voile: boolean;
   /** La colonne est repliée par Ctrl (souris seulement). */
   bare: boolean;
+  /** Le réglage des touches est ouvert : la manette à l'écran n'est pas
+   * montée, elle enverrait au jeu ce qu'on essaie (chantier manettes). */
+  reglage?: boolean;
 };
 
 /** Ce qui est monté : la manette à l'écran, et où vit la colonne. Une seule
@@ -54,7 +59,7 @@ export function couchesDeLaSalle(e: EtatDesCouches): Couches {
   // La manette n'est pas montée sous la feuille : le démontage relâche ce
   // qu'un doigt tenait encore (audit M6). Sa PLACE reste réservée par le
   // cadre, qui la compte qu'elle soit montée ou non : l'image ne bouge pas.
-  const pave = e.manette && !e.voile && e.feuille === null;
+  const pave = e.manette && !e.voile && e.feuille === null && !e.reglage;
   const colonne = e.tenu
     ? e.feuille === "agrandie"
       ? "feuille"
@@ -114,4 +119,20 @@ export function focusApresFermeture(e: {
 }): "salle" | "jeu" | null {
   if (!e.perdu) return null;
   return e.salle ? "salle" : "jeu";
+}
+
+/** Où se pose le panneau « Touches et manettes » (D2 du chantier manettes).
+ *
+ * À la souris, au bureau, il prend la place de la colonne, élargie
+ * (`largeurPanneau`) ; sous 900 px, il passe sous l'image comme la colonne.
+ * Au doigt, tenu en travers (un téléphone couché, une tablette de 900 px et
+ * plus), il se range à droite de l'image ; tenu droit, il monte sous elle.
+ * Jamais par-dessus : pendant le réglage, les autres jouent. */
+export function placeDuReglage(e: {
+  largeur: number;
+  hauteur: number;
+  grossier: boolean;
+}): "colonne" | "dessous" | "droite" {
+  if (e.grossier) return e.largeur > e.hauteur ? "droite" : "dessous";
+  return e.largeur >= BUREAU_DES ? "colonne" : "dessous";
 }

@@ -74,3 +74,19 @@ export function rememberColumn(px: number): void {
     // Navigation privée: la largeur dure le temps de l'onglet, ce qui suffit.
   }
 }
+
+/**
+ * La largeur de la colonne pendant le réglage des touches (K24).
+ *
+ * Le panneau pose deux dessins de manette côte à côte, puis une table à
+ * trois colonnes : il demande plus que la colonne. `clamp(560px, 46vw,
+ * 700px)`, la largeur que la proposition retenue donnait au panneau ; jamais
+ * moins que la colonne choisie. À 1 024 px de large, l'image garde 464 px ;
+ * le menu, lui, garde la largeur de la colonne (l'image ne bouge pas).
+ */
+export const PANNEAU = { min: 560, part: 0.46, max: 700 } as const;
+
+export function largeurPanneau(viewport: number, colonne: number): number {
+  const voulue = Math.min(PANNEAU.max, Math.max(PANNEAU.min, viewport * PANNEAU.part));
+  return Math.round(Math.max(colonne, voulue));
+}

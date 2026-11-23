@@ -203,4 +203,21 @@ describe("les niveaux", () => {
     jouer("arrivee", { hote: hote("coin"), contexte: { joueur: "3" } });
     expect(enAttente()).toBe(1);
   });
+
+  it("le logo dit la version vraiment jouée, pas celle demandée", () => {
+    // Sans START dans ce décor, la complète se replie, et le refus nomme
+    // l'ancre : `jouer()` rend pourtant « complete », la version demandée.
+    const lu = jouer("arrivee", {
+      hote: hote("coin"),
+      version: "complete",
+      contexte: { joueur: "3" },
+    });
+    const logo = hote("coin").querySelector<HTMLElement>(".rt-mascotte");
+    expect(lu.version).toBe("complete");
+    expect(logo?.dataset.version).toMatch(/^(courte|pose|cle)$/);
+    expect(logo?.dataset.refus).toContain("start-3");
+    changerNiveau("sobre");
+    jouer("arrivee", { hote: hote("coin"), contexte: { joueur: "3" } });
+    expect(logo?.dataset.version).toBe("cle");
+  });
 });

@@ -325,7 +325,10 @@ export const AIN: Rendu = {
     }
     const id = idDe(el, scene);
     th.terminer(th.mode === "plateau" ? "couper" : "interrompre");
-    if (niveau() === "sobre") return [poser(th, id, contexte)];
+    if (niveau() === "sobre") {
+      th.maison.dataset.version = "cle";
+      return [poser(th, id, contexte)];
+    }
     const choix = planifier(
       id,
       th.mode === "tete" ? "courte" : version,
@@ -336,6 +339,8 @@ export const AIN: Rendu = {
     // Les replis de la dernière scène, lisibles par les pilotes et la
     // planche : une ancre absente, un contact, et à quel instant.
     th.maison.dataset.refus = choix.refus.join(" ; ");
+    // La version vraiment jouée : `jouer()` rend celle qu'on a demandée.
+    th.maison.dataset.version = choix.version;
     if (!choix.plan) return [poser(th, id, contexte)];
     seul(th);
     let finir = () => {};

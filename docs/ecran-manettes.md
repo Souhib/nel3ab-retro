@@ -685,12 +685,26 @@ la décision à l'ADR D42. Ce qui n'est pas lisible dans le code :
   un menu ou un réglage envoie du neutre, et rien ne s'allume alors.
 
 
-## Le panneau qui remplacera les deux dialogues, 23 novembre 2026 (tard)
+## Le panneau « Touches et manettes », 23 novembre 2026 (tard)
 
-Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Il n'est
-pas encore monté par `App.tsx` : les deux dialogues servent toujours, et le
-câblage sera le dernier commit de la branche. Ce qu'il faut savoir avant d'y
-toucher :
+Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Depuis le
+quatrième passage, `App.tsx` le monte en vue de la colonne (`HoteReglage`) ;
+les dialogues `Bindings` et `SwitchBindings` n'hébergent plus que la
+préparation à plusieurs, jusqu'à ce que le chantier des menus la sorte. Ce
+qu'il faut savoir avant d'y toucher :
+
+- **Le chemin d'ouverture.** Le menu, « Changer » de la vue des touches et
+  « Toutes les touches » (`ToutesLesTouches`, au bout du panneau de
+  commande) passent par `ouvrirLesTouches` d'`App.tsx`, qui ferme le menu
+  modal puis appelle `ouvrirReglage`. Tenu en main, la colonne vit dans la
+  feuille agrandie, qui couvre l'image : la place sous l'image et à droite
+  en travers attend la géométrie du cadre (chantier salle).
+- **La largeur.** Au bureau, le cadre reçoit `largeurPanneau` et la colonne
+  prend la largeur du cadre tant que le panneau est ouvert. Retirer l'un ou
+  l'autre fait échouer l'étape `place` de `reglage.mjs`.
+- **La preuve dans le navigateur** : `just reglage-navigateur` (place,
+  entrées et focus, activité de la trame Pro, pas à pas sur une manette
+  simulée) et `just reglage-navigateur-rouge` sur la page de 9fb659e.
 
 - **L'invariant tient.** Le panneau pose `Wiring` tel quel pour Dolphin : la
   gauche lit `readPad`, la droite `heldOn`. Pour la trame Pro, `paintPro`

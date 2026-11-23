@@ -250,7 +250,17 @@ première manette dite ; silhouette tramée sans manette ; « Annuler » après
 « Supprimer » ; « Réessayer maintenant » ; le banc pour la trame Pro ; la
 bande d'état ; les sons du socle. Page : 251 754 octets ; le panneau, encore
 hors de la page, coûterait environ 6 860 octets avant les retraits. Récit :
-« 23 novembre, très tard : les manettes, troisième passage ».
+« 23 novembre, très tard : les manettes, troisième passage ». Quatrième
+passage : le panneau est câblé dans la colonne (un seul commit d'`App.tsx`),
+avec « Toutes les touches » au bout du panneau de commande, la colonne
+élargie par le cadre et la vue des touches qui lit la trame Pro (K34).
+Nouvelle porte `just reglage-navigateur` et son contrôle
+`reglage-navigateur-rouge`, à ajouter à `local` à la fusion. Les anciens
+dialogues n'hébergent plus que la préparation, jusqu'au chantier des menus.
+Tenu en main, le panneau couvre encore l'image dans la feuille agrandie :
+sa place attend la géométrie du cadre (chantier salle). Page : 258 978
+octets. Récit : « 23 novembre, dans la nuit : les manettes, quatrième
+passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

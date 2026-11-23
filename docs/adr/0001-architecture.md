@@ -2056,9 +2056,9 @@ neighbour: `clic-colonne` red without the hold).
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
-**Status:** three passes of the `manettes` work site, on
+**Status:** four passes of the `manettes` work site, on
 `chantier/retro-manettes`. The panel that replaces the two modal dialogs is
-written and not yet mounted; this entry will grow with it.
+mounted in the column at the fourth; this entry will grow with it.
 
 **The on-demand module is not taken (K38).** The plan proposed a second
 artefact, `/reglage.js`, served by the worker and loaded on first opening, to
@@ -2162,6 +2162,24 @@ from the room (its action then holds the only filled button). Menu sounds
 follow the loop's events: a coin for a retained answer, a low tone on unplug.
 The page weighs 251 754 bytes brotli; the trial build with the panel weighs
 258 610, so the panel costs about 6 860 bytes before the removals.
+
+**Fourth pass: mounted in the column.** The one `App.tsx` wiring commit
+replaces the `bindings` state with `useReglage`: the menu entry, "Changer" of
+the key view and a new "Toutes les touches" button at the end of the command
+panel all call `ouvrirReglage`, through a room helper that closes the modal
+menu (it would make the column inert) and opens the enlarged sheet when the
+room is held in hand. `HoteReglage` is the column's view; the frame gets
+`largeurPanneau` and the column takes the frame's width while the panel is
+open. The key view now reads `InputState.activite` for both frames (K34).
+The old dialogs only host the multi-player preparation until the menus work
+site moves it to the column, so nothing of their weight is removed yet: the
+page weighs 258 978 bytes brotli (+7 224). `reglage-navigateur` proves the
+placement at desk and narrow sizes, the entries and focus, the Pro activity
+and a lesson on a simulated pad; its red twin runs on 9fb659e. Held in hand,
+the panel still lives in the enlarged sheet, which covers the picture: the
+place under the picture (portrait) and right of it (landscape) needs the
+room frame geometry, which belongs to the `salle` work site. The
+`place-tenu` step measures it and stays red, outside the gate.
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

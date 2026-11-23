@@ -29715,6 +29715,74 @@ passage précédent). Les retraits de `Bindings`, de la partie réglage de
 `SwitchBindings` et de leurs règles d'`index.css` viendront avec le
 câblage.
 
+### 23 novembre, dans la nuit : les manettes, quatrième passage
+
+**Le contexte.** Le panneau « Touches et manettes » était écrit depuis deux
+passages, sans qu'aucune page le monte. Ses preuves étaient toutes en jsdom,
+qui n'a ni mise en page, ni vrai focus, ni vraie manette. Ce passage le
+câble dans la salle, puis le fait vérifier par Chrome.
+
+**Le câblage.** Un seul commit touche `App.tsx`, comme la partition le
+demande. L'état `bindings` disparaît : le menu, « Changer » de la vue des
+touches et le nouveau bouton « Toutes les touches », au bout du panneau de
+commande, appellent tous `ouvrirReglage`. Le panneau prend la place de la
+vue dans la colonne, et le cadre élargit la colonne à 46 % de la fenêtre,
+entre 560 et 700 pixels : l'image se range dans le reste. Le menu se ferme
+à l'ouverture, parce qu'un menu modal rend la colonne inerte. La vue des
+touches lit enfin l'activité de la trame qui part (K34) : dans une salle
+Xbox 360, ses lignes ont une case, et un appui coche la sienne.
+
+**Ce qui reste dans les anciens dialogues.** La préparation à plusieurs vit
+encore dans `Bindings` et `SwitchBindings`, avec le réglage d'avant dedans.
+Le chantier des menus doit la sortir dans la colonne ; tant qu'il ne l'a pas
+fait, les deux dialogues restent, et ne servent plus qu'à elle. La page ne
+perd donc rien de leur poids.
+
+**Un pilote, et trois défauts qu'il a trouvés.** `reglage.mjs` ouvre le
+panneau dans Chrome sur la page committée, avec une manette Xbox simulée, et
+mesure ce qu'il couvre. Il a d'abord trouvé trois défauts que les essais ne
+voyaient pas. Le focus ne revenait pas à « Toutes les touches » après Échap :
+le bouton est remonté pendant que le panneau est ouvert, et l'ouvreur retenu
+n'était plus dans la page. En fenêtre étroite, la colonne gardait le
+défilement de la vue d'avant, et le titre du panneau s'ouvrait caché sous
+l'image. Enfin, la colonne ne s'élargissait pas : le cadre calculait la
+place de l'image avec la largeur du panneau, mais la colonne gardait sa
+largeur choisie. Chacun a été écrit rouge d'abord, puis corrigé.
+
+**Deux attentes fausses, dans le pilote cette fois.** La vue des touches est
+une liste à cocher : une ligne cochée le reste après le relâché. Le pilote
+attendait l'inverse, et c'est lui qui a été corrigé, avec un jumeau plus
+juste (A coche une ligne, B une deuxième). « Arrêter » abandonne le pas à
+pas et garde le réglage d'avant entier ; la fin ne se montre qu'au bout des
+étapes. Le pilote passe donc les quinze dernières étapes et lit la fin :
+« 1 commande réglée ».
+
+**Ce qui n'est pas réglé : tenu en main.** Sur un téléphone ou une tablette,
+la colonne vit dans la feuille « La salle », et la feuille agrandie couvre
+l'image. Le panneau y couvre donc l'image, comme la vue des touches avant
+lui. Le plan voulait le panneau sous l'image en portrait et à droite en
+travers : cela demande que le cadre de la salle (`lib/cadre.ts`, au chantier
+salle) lui fasse sa place. L'étape `place-tenu` le mesure et reste rouge,
+hors de la porte. Elle a aussi montré qu'à 1 024 × 768 tactile, « Vérifier
+les boutons » n'ouvre aucune feuille, déjà sur la page d'avant ce chantier.
+
+**Le contrôle rouge.** `reglage-navigateur-rouge` lance les quatre étapes de
+la porte sur la page de la base du chantier (9fb659e). Chacune y rougit sur
+son défaut : l'ancien dialogue couvre 829 600 pixels carrés de l'image à
+1 440 × 900, « Toutes les touches » n'existe pas, la vue de la manette n'a
+aucune case en trame Pro, et « Changer » n'ouvre aucun panneau dans la
+colonne. Trois mutants du câblage (la largeur donnée au cadre, la largeur de
+la colonne, l'onglet ouvert par « Toutes les touches ») tombent chacun sur
+son étape. Un quatrième mutant n'avait rien prouvé au premier essai : il
+laissait un import sans usage, la construction échouait, et le pilote avait
+testé la page d'avant. Le script de mutation l'a dit (« construction en
+échec ») : le mutant a été refait en gardant l'import utilisé, et il tombe.
+Leçon : un mutant de la page se prouve par sa construction, pas seulement
+par le verdict du pilote.
+
+**Le poids.** La page passe de 251 754 à 258 978 octets en brotli
+(+7 224) : le panneau entier, sans aucun retrait. Le budget est de 300 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31405,3 +31473,11 @@ boîte change de taille, sans qu'elle ait à la mesurer à chaque image.
 élément ou un attribut change, sans qu'elle ait à le relire à chaque image.
 Il prévient aussi pour une écriture qui ne change rien : la page n'écrit donc
 que ce qui change.
+
+**Pilote (de navigateur)** : un script qui ouvre la page dans un vrai Chrome
+sans écran, clique, appuie et mesure ce que le navigateur affiche, là où un
+essai jsdom ne voit ni mise en page ni vrai focus. `reglage.mjs` en est un.
+
+**Trame (de manette)** : ce que la page envoie à la salle pour une place à
+chaque instant. La trame Dolphin porte les commandes d'une manette GameCube,
+la trame Pro celles d'une manette Switch Pro ou Xbox 360.

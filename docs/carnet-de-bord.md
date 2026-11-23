@@ -28252,6 +28252,91 @@ chantier mélangera une couleur dans un composant (une opacité, un
 `color-mix`), seul `contraste.mjs --simule` le verra. Les icônes n'ont été
 vues qu'en texte, pas à leur taille réelle.
 
+### 23 novembre, le soir : le cadre de la salle, et rien sur l'image
+
+**Le contexte.** La proposition « Scotch et feutre » avait été refusée pour
+son thème, mais le propriétaire en gardait les remaniements d'écran. Le plus
+important tenait en une phrase : rien ne se pose sur l'image du jeu. Ce soir,
+sept choses s'y posaient encore ou lui prenaient de la hauteur : la pile des
+avis du haut (manette branchée, fermeture proche, clavier en pause), l'avis
+de l'image légère, les deux boutons de coin à 30 % d'une colonne repliée, la
+manette tactile, l'état de la liaison, la bande d'apprentissage d'une
+manette. Le chantier « salle » leur donne un emplacement autour de l'image.
+Ce premier passage pose les fondations ; les écrans eux-mêmes viennent
+ensuite.
+
+**Une fonction pure pour toute la salle.** `front/src/lib/cadre.ts` calcule
+où va chaque chose à partir de ce que la salle sait : la fenêtre, les zones
+sûres d'un téléphone (l'encoche, la barre d'accueil), la taille de l'image
+reçue, le réglage de la pose, l'état, le rôle. Elle ne tourne que quand une
+de ces entrées change, jamais à chaque image : la page ne doit rien faire de
+plus pendant qu'elle peint. Quatre modes : le bureau (souris, 900 px et
+plus), l'étroit (souris, moins de 900 px : l'image en haut, la colonne
+dessous), le portrait et le paysage (au doigt).
+
+**Le panneau de commande se décide sur la vraie pose.** Sur une borne, la
+planche sous l'écran porte les boutons START ; dans la salle, c'est là que
+les places iront. La maquette le posait sous l'image s'il restait 64 px
+libres sous une image qui remplit l'écran. C'est faux dès que l'image ne
+remplit pas : en « agrandissement entier » ou en « taille d'origine »,
+l'image est plus petite et laisse bien plus de place. La fonction calcule
+donc la pose deux fois, avec et sans le panneau, et ne le pose dessous que
+si l'image n'y perd rien. Un piège trouvé en chemin : un panneau de 88 px
+fixes ferait perdre un cran d'agrandissement à une image 640×480 dans une
+fenêtre de 1596×1030 (deux fois devient une fois). Le panneau prend donc la
+place libre, entre 64 et 88 px. Le balayage de l'essai passe 1024 à 1920 px
+de large, 640 à 1200 de haut, trois formats et quatre réglages : plus de
+mille cas de chaque côté de la frontière. Six mutants ont été vus rouges,
+dont la règle de la maquette elle-même.
+
+**Un arbitre pour la mascotte.** Cinq chantiers font jouer des scènes à la
+mascotte dans la salle. La fonction `jouer()` du socle coupe la scène en
+cours sans regarder qui la jouait : une panne et une arrivée au même instant
+se seraient coupées selon l'ordre d'affichage. `lib/scenes-salle.ts` donne
+un rang à chacun (les états d'abord, puis les menus, les personnes, les
+manettes, la salle), refuse une scène plus basse pendant une plus haute, et
+ne laisse parler que les états pendant une panne.
+
+**La garde de l'image.** Une nouvelle preuve, `just cadre-navigateur`, ouvre
+la page dans un vrai navigateur à sept tailles de bureau, effets au niveau
+« tout », et touche l'image à chaque image d'écran : une grille de 20 × 20
+points, plus le milieu de chaque élément dont la boîte coupe l'image. Une
+grille de 9 × 9, prévue au plan, laissait passer les boutons de coin, qui
+tenaient dans les 40 premiers pixels. La garde a trouvé un défaut que
+personne n'avait vu : la prise de la poignée qui règle la largeur de la
+colonne mordait de 4 px sur le bord droit de l'image, et son survol la
+teintait. Contre la page d'avant (03b21c0), elle échoue sur ce qu'il faut :
+l'avis de fermeture et celui du clavier sur l'image, « montrer (Ctrl) » sur
+l'image agrandie, la poignée.
+
+**Ce qui a résisté : l'avis qui naît d'un clic.** Les avis sont partis vers
+une bande noire où ils tiennent entiers, sinon vers la tête de la colonne.
+Trois preuves existantes sont alors devenues rouges. L'avis « le jeu ne
+reçoit plus tes touches » apparaît au moment même où un clic dans la colonne
+prend le focus à l'image : il naissait en tête de colonne pendant le clic,
+poussait le bouton pressé vers le bas, et le relâchement tombait sur le
+bouton d'à côté. Le poser au pied de la colonne, collé au bas de ce qui se
+voit, couvrait les derniers boutons : le bouton du menu a été cliqué à
+travers lui. La solution retenue : la tête de la colonne, collée en haut de
+ce qui se voit (une colonne qui défile jusqu'au rang focalisé laissait
+sinon l'avis hors de vue), une marge de défilement de sa hauteur, et un avis
+qui ne change pas pendant qu'un bouton de souris est enfoncé. Sans cette
+retenue, l'étape `clic-colonne` redevient rouge. La leçon : un élément qui
+apparaît à cause d'un geste ne doit pas déplacer la cible de ce geste.
+
+**Mesures.** Poids de la page de salle en brotli 11 : 235 700 octets sur le
+socle, 239 638 après ce passage, soit 3 938 pour la salle (son enveloppe est
+de 12 000). Les cinq preuves de la porte, la nouvelle et les contrôles rouges
+de `focus` et du cadre ont tourné vertes le 23 novembre sur cette machine.
+
+**Ce qui n'est pas prouvé.** La géométrie du portrait et du paysage est
+celle du cadre cible : elle est vérifiée par balayage, mais le téléphone
+garde encore son ancienne mise en page (le tiroir, la manette sur les
+bandes) jusqu'à l'étape 4. Les dimensions des manettes viennent des dessins
+de la maquette, pas encore de `lib/faces.ts`. Rien n'a été essayé sur un vrai
+téléphone. Le panneau de commande, la colonne nouvelle, la barre et la bande
+ne sont pas encore montés.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -29834,3 +29919,22 @@ l'image quand elle est assez haute.
 **Panneau de commande** : sur une borne d'arcade, la planche sous l'écran qui
 porte les manettes et les boutons START. Dans la salle, la bande sous l'image
 où se posent les places des joueurs.
+
+**Plateau** : dans la salle, l'écran noir quand il n'y a pas d'image (salle
+au repos, jeu qui démarre, arrivée, salle fermée), où la mascotte se tient en
+grand, posée sur le panneau de commande.
+
+**Garde de l'image** : la vérification de `cadre.mjs` qui touche l'image du
+jeu en des centaines de points à chaque image d'écran et exige de n'y
+trouver que l'image, sans voile ni déplacement.
+
+**Arbitre des scènes** : le module qui décide quelle scène de la mascotte
+joue quand deux chantiers en demandent une au même endroit (`lib/scenes-salle.ts`).
+
+**Élément collant (sticky)** : un élément qui défile avec la page, puis
+reste accroché au bord de la zone visible quand il l'atteint, comme un
+en-tête de tableau.
+
+**Marge de défilement (scroll-padding)** : la place qu'une zone qui défile
+garde libre sur un bord quand elle amène un élément en vue, pour qu'il ne
+passe pas sous un élément collant.

@@ -1651,6 +1651,81 @@ Eight token mutants each fail the test that names them. Room page weight
 after the amendment: 235 700 bytes in brotli 11, margin 64 300.
 
 
+### D39: The room frame, and nothing on the picture, 2026-11-23
+
+Status: partly delivered on `chantier/retro-salle` (pass 1 of 2 or more).
+Amends D28, D29 and D35 when the steps that change them land; until then
+those entries stay in force, except where this entry says otherwise.
+
+Until 2026-11-23, seven layers sat on the game picture or took height from
+it: the top-of-picture notice stack (controller plugged, room closing, keyboard
+paused), the reduced-picture notice, the 30 % corner buttons of a folded
+column, the touch pad (D28 allowed it onto the picture when the black bands
+were too narrow), the link state (D29 drew it on the picture's rectangle), and
+the controller-learning strip. The « Scotch et feutre » proposal kept the
+picture clear by giving every one of them a place around it; the owner kept
+that reorganisation and dropped its theme (D37).
+
+Decision:
+
+- **The picture is the only occupant of its rectangle.** Nothing is drawn on
+  it, nothing veils it (no opacity, filter or transform on `#screen` or an
+  ancestor), nothing moves it during play. One exception may be admitted for
+  the link-state work (D40): a still picture may be darkened, lifted on the
+  first new frame; a cut connection may show snow instead of the picture.
+  Never anything on a live picture, and no layer, cursor or mascot inside
+  `[data-zone-jeu]`.
+- **One pure function lays the room out.** `front/src/lib/cadre.ts`
+  `miseEnPage` returns the whole geometry (screen, posed picture, control
+  panel, column, bar, band, touch pad, top band, side bands, phone sheet) from
+  what the room knows. It recomputes on a resize, a picture size (the 2 Hz
+  snapshot), a setting or a state, never per frame. Four modes: desk (fine
+  pointer, 900 px and wider, the threshold of D35 kept rather than the
+  mock-up's 760), narrow (fine pointer below 900: picture on top, column
+  below, no drawer), portrait and landscape (coarse pointer or pad-only).
+- **The control panel goes under the picture only if the real pose is
+  unchanged.** The panel (START places, credit, play time) is 64 to 88 px
+  high. It sits under the picture when `lib/fit.place` gives the same size,
+  smoothing and integer step with and without it; otherwise it goes to the
+  foot of the column. The mock-up's rule, « 64 px free under a picture that
+  fills », is wrong for the integer and original sizes, and a fixed 88 px
+  panel loses an integer step (640×480 in 1596×1030). Both cases are tests.
+- **Nine frame states**, derived from the link state, the page's own launch
+  and the room's game by an exhaustive switch: live, still, cut, unreachable,
+  restarting, idle, starting, connecting, closed. The root carries them as
+  `data-etat`, with `data-mode`, `data-role`, `data-panneau`,
+  `data-sans-image`, `data-agrandie`, and the geometry as
+  `--cadre-<name>-{gauche,haut,largeur,hauteur}` CSS variables.
+- **Notices leave the picture.** The notice stack (`#avisDuCadre`) goes to a
+  black band where it fits whole, otherwise to the head of the column, stuck
+  to the top of what is visible, otherwise into the flow above the screen
+  (`lieuDesAvis`). The corner buttons of a folded column are gone; an
+  enlarged picture shows « Image agrandie : Ctrl pour revenir à la salle »
+  for three seconds in a black band, or nothing.
+- **One mascot place at a time, one arbiter.** `ouEstLaMascotte` names the
+  place (stage when there is no picture, column corner on the desk, phone
+  bar, panel edge for an arrival). `lib/scenes-salle.ts` ranks the tracks
+  that play scenes (states, menus, people, controllers, room): a lower scene
+  is refused during a higher one, only the states track plays during a fault,
+  and only the room plays the first-picture scene.
+
+Delivered in pass 1: the pure layout and its sweeps, the arbiter, the column
+rows, the idle attention loop, the pad-only latency sentence, the root
+attributes and variables, the notice stack off the picture, the corner
+buttons removed, and the browser guard (`cadre.mjs`, `just
+cadre-navigateur`, red against 03b21c0). Not yet delivered: the control
+panel, column, bar, band and single phone sheet as components (steps 3 to
+5), the touch pad under the picture (step 4, which amends D28 and D35), the
+keyboard and controller views (step 6), the frame effects (step 7).
+
+Weighed: keeping the notices on the picture with a smaller footprint (still
+on the picture, which is what the owner ruled out); putting them at the foot
+of the column (a sticky foot covered the bottom buttons, and the menu button
+was clicked through it in `focus.mjs`); at the head without holding them
+during a click (the keyboard notice is born from the click that leaves the
+picture, pushed the pressed button down, and the release landed on its
+neighbour: `clic-colonne` red without the hold).
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

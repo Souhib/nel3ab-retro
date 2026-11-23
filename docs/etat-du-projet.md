@@ -51,6 +51,25 @@ et « 23 novembre, l'après-midi : ce que les chantiers d'écran demandaient au
 socle ». Non prouvé : aucun effet vu sur un vrai téléphone, et aucun effet ni
 aucun des nouveaux jetons n'est encore posé dans un vrai écran.
 
+**Au 23 novembre, le soir : le chantier salle, premier passage.** Sur
+`chantier/retro-salle` (worktree `~/nel3ab-chantiers/retro-salle`), parti du
+socle ; rien dans `main`, rien d'installé, rien de poussé. Livré : la mise en
+page pure de la salle (`front/src/lib/cadre.ts` : modes, neuf états,
+panneau décidé sur la vraie pose, emplacements, lieu de la mascotte), l'arbitre
+des scènes (`lib/scenes-salle.ts`), les rangs de la colonne
+(`lib/colonne.ts`), la boucle d'attention de l'écran éteint
+(`lib/attention.ts`), la phrase de latence de la manette seule
+(`lib/manette-seule.ts`), la racine `[data-cadre]` et ses variables, la pile
+des avis hors de l'image, la fin des boutons de coin d'une colonne repliée,
+la poignée de colonne qui ne mord plus sur l'image. Preuve nouvelle : `just
+cadre-navigateur` et son contrôle `just cadre-navigateur-rouge` (page de
+03b21c0). Reste : le panneau de commande, la colonne, la barre, la bande et la
+feuille unique comme composants, la manette sous l'image au téléphone, les
+vues des touches, le repos sans menu d'office, les effets du cadre, les
+mesures. Poids : 239 638 octets en brotli (3 938 pour la salle).
+Décision : [ADR](adr/0001-architecture.md) D39 (en partie livrée). Récit :
+« 23 novembre, le soir : le cadre de la salle, et rien sur l'image ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

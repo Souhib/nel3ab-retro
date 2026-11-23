@@ -915,9 +915,37 @@ const ETAPES = {
     const pendant = await trait();
     await capture(page, "anneau-pendant-partie");
     if (pendant !== "none") throw new Defaut(`l'anneau de focus (${pendant}) reste sur l'image pendant la partie`);
-    // Le jumeau: arrivé par Tab, l'anneau se montre...
+    // Le ▶ du socle (effet « curseur », allumé à tous les niveaux) suit le
+    // focus dans la colonne, à gauche du rang visé et hors de l'image ; il
+    // se cache quand le focus part dans la zone de jeu, et ne se pose
+    // jamais sur l'image. Jusqu'à la relecture du 23 novembre 2026, la salle
+    // n'activait aucun ▶ (en-jeu-clavier.5).
+    const fleche = () =>
+      page.evaluate(() => {
+        const t = document.querySelector("#screen").getBoundingClientRect();
+        return [...document.querySelectorAll(".rt-curseur[data-visible]")].map((f) => {
+          const r = f.getBoundingClientRect();
+          const sur =
+            Math.min(r.right, t.right) - Math.max(r.left, t.left) > 0.5 &&
+            Math.min(r.bottom, t.bottom) - Math.max(r.top, t.top) > 0.5;
+          const cible = document.activeElement?.getBoundingClientRect();
+          return {
+            dansColonne: f.closest("#side") !== null,
+            sur,
+            aGauche: cible ? r.right <= cible.left + 1 && r.bottom > cible.top && r.top < cible.bottom : false,
+          };
+        });
+      });
     await page.focus("#leaveRoom");
+    await sleep(150);
+    const surQuitter = await fleche();
+    if (surQuitter.length !== 1 || !surQuitter[0].dansColonne || !surQuitter[0].aGauche)
+      throw new Defaut(`le ▶ ne se pose pas devant « Quitter la salle » dans la colonne (${JSON.stringify(surQuitter)})`);
+    if (surQuitter[0].sur) throw new Defaut("le ▶ de la colonne se pose sur l'image");
+    // Le jumeau: arrivé par Tab, l'anneau se montre...
     if ((await tabArriereJusquALaZone(page)) === null) throw new Precondition("Maj+Tab n'atteint pas la zone");
+    const dansLaZone = await fleche();
+    if (dansLaZone.length) throw new Defaut(`le focus dans la zone de jeu, un ▶ reste visible (${JSON.stringify(dansLaZone)})`);
     const parTab = await trait();
     if (parTab === "none") throw new Defaut("arrivé par Tab, la zone de jeu ne montre aucun anneau");
     // ... puis s'efface à la première touche qui joue.

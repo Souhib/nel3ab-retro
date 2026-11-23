@@ -897,6 +897,70 @@ async function principal() {
       verdict(fautes);
     },
 
+    /** K13 : « Quitter la salle » part par la transition « sortir-salle »
+     * (mosaïque au niveau « tout », fondu en « sobre »), et l'image est
+     * cachée AVANT que la transition ne commence : rien ne passe sur une
+     * image vivante. Le jumeau : en mouvement réduit, la page part d'un coup,
+     * sans transition. Jusqu'à la relecture du 23 novembre 2026, Quitter
+     * partait sans transition. Ce qui se voit est écrit dans le stockage de
+     * session à chaque changement : la sortie peut recharger la page. */
+    async "sortir-salle"() {
+      const fautes = [];
+      for (const cas of [
+        { niveau: "tout", attendu: "filtre" },
+        { niveau: "sobre", attendu: "voile" },
+        { niveau: "tout", attendu: "rien", reduit: true },
+      ]) {
+        const nom = `${cas.niveau}${cas.reduit ? ", mouvement réduit" : ""}`;
+        const page = await nouvelle({ width: 1440, height: 900 }, { niveau: cas.niveau });
+        if (cas.reduit) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+        await entrer(page);
+        await page.evaluate(() => {
+          sessionStorage.removeItem("sortie");
+          const vus = [];
+          const lire = () => {
+            const zone = document.querySelector("[data-zone-jeu]");
+            const filtre = [document.body, document.querySelector("#root")].some((el) => el && /url\(/.test(el.style.filter));
+            const voile = document.querySelector(".rt-voile, .rt-tuiles") !== null;
+            const cachee = zone === null || getComputedStyle(zone).visibility === "hidden";
+            const ici = `${filtre ? "filtre" : ""}${voile ? "voile" : ""}|${cachee ? "cachee" : "vue"}`;
+            if (vus.at(-1) !== ici) {
+              vus.push(ici);
+              sessionStorage.setItem("sortie", JSON.stringify(vus));
+            }
+          };
+          new MutationObserver(lire).observe(document.documentElement, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ["style", "data-transition-image", "class"],
+          });
+          lire();
+        });
+        await page.click("#leaveRoom");
+        // La page quitte la salle : l'avant-salle, ou le salon du banc.
+        const partie = await jusqua(
+          () => page.evaluate(() => document.querySelector("[data-zone-jeu]") === null).catch(() => false),
+          5000,
+        );
+        await sleep(800);
+        if (!partie) throw new Precondition(`${nom}: Quitter ne quitte pas la salle`);
+        const vus = JSON.parse((await page.evaluate(() => sessionStorage.getItem("sortie"))) ?? "[]");
+        console.log(JSON.stringify({ sortie: nom, vus }));
+        const transition = vus.filter((v) => !v.startsWith("|"));
+        if (cas.attendu === "rien") {
+          if (transition.length) fautes.push(`${nom}: une transition en mouvement réduit (${transition.join(", ")})`);
+        } else {
+          if (!transition.some((v) => v.startsWith(cas.attendu)))
+            fautes.push(`${nom}: Quitter part sans la transition « sortir-salle » (${vus.join(" → ")})`);
+          const surImage = transition.filter((v) => v.endsWith("|vue"));
+          if (surImage.length) fautes.push(`${nom}: la transition passe sur l'image visible (${surImage.join(", ")})`);
+        }
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
     /** La manette à l'écran réglée sur « toujours », à la souris. Jusqu'à
      * la relecture du 23 novembre 2026, elle se posait par-dessus l'image
      * vivante au bureau et en fenêtre étroite : onze pièces sur elle à

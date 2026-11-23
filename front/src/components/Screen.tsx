@@ -150,6 +150,8 @@ export function Screen({
       ref={poser}
       id="zone-jeu"
       {...{ [ZONE_JEU]: "" }}
+      // Le ▶ du socle ne se pose jamais ici (plan salle, en-jeu-clavier.5).
+      data-sans-curseur=""
       role="application"
       aria-label={libelle}
       aria-describedby={aide ? "aideZoneJeu" : undefined}

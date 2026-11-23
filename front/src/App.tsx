@@ -146,6 +146,7 @@ import { clavierEnPause, useFocusJeu } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
 import { keyLabel, keyboardLayout } from "./media/describe";
 import { HoteDesSurcouches, Surcouche } from "./components/Surcouche";
+import { choisirTransition, transition } from "./retro/transitions";
 import { useMe, useMenuIdentity, useRename } from "./lib/me";
 import {
   useLobby,
@@ -2359,6 +2360,21 @@ function Room({
    * la colonne dépliée à la souris (la manette « toujours » d'un grand écran
    * le pose parmi ses touches). */
   const ouvrirLaFeuille = () => (tenu ? setFeuille("mi") : setBare(false));
+  /** K13 : « Quitter la salle » part par la transition « sortir-salle »
+   * (mosaïque, ou fondu en « sobre »), sur toute la page. `transition` cache
+   * l'image AVANT de commencer : rien ne passe sur une image vivante. En
+   * mouvement réduit, la page part d'un coup. Un second clic pendant la
+   * transition ne repart pas. Le menu garde sa propre sortie (chantier
+   * menus). */
+  const quitte = useRef(false);
+  const quitterLaSalle = () => {
+    if (quitte.current) return;
+    quitte.current = true;
+    const surface = document.getElementById("root") ?? document.body;
+    void transition(choisirTransition("sortir-salle"), surface, onLeave).finally(() => {
+      quitte.current = false;
+    });
+  };
   /** La manette à l'écran, dans la boîte du cadre ou par-dessus l'écran. */
   const manetteTactile = (cadreDeLaManette: BoiteDuCadre | undefined) =>
     session === null ? null : usesProInput(room?.game?.console) ? (
@@ -2566,7 +2582,7 @@ function Room({
       // sinon dans l'en-tête de la colonne.
       jeu={frontonPossible ? null : (room?.game?.name ?? null)}
       ancre={!tenu && !frontonVisible}
-      onQuitter={onLeave}
+      onQuitter={quitterLaSalle}
       largeur={couches.colonne === "a-cote" ? column : null}
       forme={couches.colonne ?? "a-cote"}
       margeHaut={lieuAvis.lieu === "colonne" ? hauteurPile : undefined}
@@ -2909,7 +2925,7 @@ function Room({
               cadre={cadre}
               onRelancer={() => session?.relancerImage()}
               onReessayer={() => session?.relancerImage()}
-              onQuitter={onLeave}
+              onQuitter={quitterLaSalle}
               onSignaler={complain}
               garde={garde.current}
               onReduire={takeHalf}

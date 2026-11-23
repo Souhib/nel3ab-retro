@@ -477,6 +477,8 @@ export function Pave<K extends string>({
       ref={root}
       id={id}
       className={cadre ? "n3-pave n3-pave-cadre" : "n3-pave"}
+      // Ni ▶ du socle ni anneau de menu sur une touche de jeu.
+      data-sans-curseur=""
       role="group"
       aria-label={face.title}
       // Une pose qui n'a pas tout tenu le dit, pour les pilotes et les outils

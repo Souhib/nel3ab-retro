@@ -355,3 +355,10 @@
 #screen {
   background: var(--ecran);
 }
+
+/* Le ▶ du socle (effet « curseur ») se pose à 16 px à gauche du rang visé
+   (10 px de flèche, 6 d'écart). La marge de 12 px de la colonne le coupait
+   au bord : 20 px quand l'effet est allumé (relecture du 23 novembre 2026). */
+.fx-curseur .n3-colonne {
+  padding-left: 20px;
+}

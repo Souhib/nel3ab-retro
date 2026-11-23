@@ -16,12 +16,13 @@
  * pas sous « Plus bas », et « Plus bas » lui-même, qui dit qu'une suite est
  * cachée tant que le bas n'est pas visible (focus.mjs, colonne-deborde).
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Person } from "../client";
 import type { Appareil } from "../lib/appareil";
 import { cn } from "../lib/cn";
 import type { Rang } from "../lib/colonne";
 import { COLONNE, SORTIES, TOUCHES, placeN, prendreLaPlace } from "../lib/mots";
+import { activerCurseur, type Curseur } from "../retro/curseur";
 import { iconePixelSVG, type IconePixel } from "../retro/icones";
 import { Crown } from "./Crown";
 import { Logo } from "./Logo";
@@ -104,6 +105,34 @@ export function Colonne({
 }) {
   const [boite, setBoite] = useState<HTMLElement | null>(null);
   const suite = useSuiteCachee(boite);
+  // Le ▶ du socle devant le rang visé, au clavier comme à la souris. La
+  // colonne ne contient jamais l'image : `activerCurseur` refuserait.
+  const [curseur, setCurseur] = useState<Curseur | null>(null);
+  useEffect(() => {
+    if (!boite) return;
+    const actif = activerCurseur(boite);
+    setCurseur(actif);
+    // Caché, le ▶ n'a pas de taille : sa première pose le met 10 px trop à
+    // droite, sur sa cible. Il se repose à l'image suivante, visible.
+    const reposer = () =>
+      requestAnimationFrame(() => {
+        const ici = document.activeElement;
+        if (ici && ici !== boite && boite.contains(ici)) actif.placer(ici);
+      });
+    boite.addEventListener("focusin", reposer);
+    return () => {
+      boite.removeEventListener("focusin", reposer);
+      actif.arreter();
+    };
+  }, [boite]);
+  // Le ▶ se pose au focus, puis ne bouge plus : l'avis du clavier qui naît
+  // du même focus pousse la colonne de 97 px, et le ▶ restait devant le
+  // vide (vu par focus.mjs, anneau, 23 novembre 2026). Après chaque rendu
+  // de la colonne, il se repose devant ce qui a le focus.
+  useLayoutEffect(() => {
+    const ici = document.activeElement;
+    if (curseur && boite && ici && ici !== boite && boite.contains(ici)) curseur.placer(ici);
+  });
   return (
     <aside
       id="side"

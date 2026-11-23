@@ -29338,6 +29338,73 @@ de son enveloppe de 12 000. Les modules du socle pour les transitions
 le salon et les menus les liront aussi. Le reste de la page tient sous le
 plafond de 300 000. Le partage de ce coût revient au chef de chantier.
 
+### 23 novembre, la nuit : la vague A sur une branche d'intégration
+
+**Le contexte.** Deux chantiers d'écran ont fini un passage relu : « données »
+(ce que le salon et le worker publient) et « salle » (le cadre autour de
+l'image). Avant d'en ouvrir d'autres, on les réunit sur une branche à part,
+`integration/retro`, partie du socle (`chantier/retro-socle`, 49be09c), dans
+le worktree `~/nel3ab-chantiers/retro-integration`. Rien ne va dans `main`,
+rien n'est poussé ni installé. L'ordre est celui de la partition : données
+d'abord, puis la salle.
+
+**Données, sans conflit.** Les deux branches partent du même commit du socle,
+et du côté de la page, données ne change que le client généré : la fusion
+aurait pu se faire par avance rapide. Elle passe quand même par un commit de fusion, pour que la
+frontière de chaque chantier reste visible dans l'historique. La page
+construite est identique à celle du socle, au même objet git près
+(`bb9a71c`) ; seule la marque des sources change, parce que le client
+régénéré par données en fait partie. Il n'y avait donc rien à reconstruire,
+et `stamp.mjs --check` le confirme. La branche porte aussi le lot 2 (les
+jalons du worker, « je reste » dans le protocole), que la partition plaçait
+après les manettes. Ce rang protégeait `front/src/media/input.ts`, qui
+appartient aux manettes : données n'y a pas touché, et son correctif pour la
+page attend toujours à part (K34). La fusion ne change donc rien à ce que la
+règle gardait. La mise en service garde son ordre : le salon d'abord, le
+worker ensuite, sans salle ouverte.
+
+**La salle, quatre conflits d'ajout.** Les deux chantiers avaient écrit à la
+fin des mêmes fichiers : l'ADR, le carnet (le récit et le glossaire), l'état
+du projet, et la marque de la page. Chaque conflit est résolu par l'union des
+deux côtés, dans l'ordre de fusion. Dans l'ADR, l'entrée D39 de la salle se
+place entre D38 et D43 de données, pour garder l'ordre des numéros ; aucune
+entrée n'est réécrite. Une vérification compare le résultat à chaque côté :
+aucune ligne retirée, ni d'un côté ni de l'autre. La marque de la page n'est
+pas fusionnée à la main : le commit de fusion garde celle de la salle, et
+`just front-build` reconstruit la page au commit suivant. La page reconstruite
+a les mêmes octets que celle de la salle (empreinte `1aad4348`) ; seule la
+marque des sources change.
+
+**Le poids.** 249 436 octets en brotli, 50 564 sous le plafond de 300 000.
+Il reste cinq chantiers dont l'enveloppe compte dans la page : personnes
+(8 000), états (7 000), menus (8 000), mascotte (8 000) et manettes (12 000,
+puisque le réglage reste dans la page, K38). Le salon n'en a pas. S'ils
+remplissent tous leur enveloppe, il restera 7 564 octets, au lieu des 9 853
+prévus : 553 octets de plus pour le socle que sa mesure du début, et 1 736
+de plus pour la salle que son enveloppe.
+
+**Les portes.** Après la fusion de données, `just check` est vert (1 284
+essais Python, 1 389 essais de la page). Les preuves navigateur n'ont pas
+été relancées à ce moment : elles servent la page committée, dont les
+octets n'avaient pas changé depuis le socle, qui les avait passées. Après
+la salle et la page reconstruite, tout est vert : `just check` (1 284
+essais Python, 1 573 essais de la page, page à jour), `focus-navigateur`
+(27 étapes), `etats-navigateur` (12), `parcours-navigateur` (13),
+`salle-telephone`, `manette-garde`, et `cadre-navigateur` de la salle
+(20 étapes). Les contrôles rouges tombent tous sur leur défaut nommé :
+`cadre-navigateur-rouge` dans ses six blocs, avec `garde-voit` vert sur la
+page d'avant, `focus-navigateur-rouge` (15 puis 9 étapes),
+`parcours-navigateur-rouge` et `etats-navigateur-rouge`. Les pages de
+référence gardées dans `spikes/m3-browser-drive/rouges/` ont passé la
+vérification de leur empreinte sur cette branche.
+
+**Ce qui n'est pas prouvé.** La porte entière n'a pas tourné : `gpu-test`,
+`clip-audio-test`, `switch-saves-test`, `switch-capture-test`,
+`xbox360-test`, `abri-test` et `deploy-check` attendent l'intégration finale.
+Aucun worker n'est reconstruit ni installé, et aucune vraie salle n'a servi
+la page. `TempsDeJeu` peut maintenant lire `PartieVue.depuis_s` sur cette
+branche, mais le brancher reste le travail de la salle, à refaire ici à sa
+prochaine fusion.
 
 ## 12. Glossaire complet
 
@@ -30988,3 +31055,11 @@ savoir quel élément recevrait un clic à un point donné
 (`elementFromPoint`). Un élément à `pointer-events: none` n'y répond
 jamais, même quand il est peint au-dessus de tout.
 
+**Avance rapide (fast-forward)** : une fusion où la branche reçue part du
+dernier commit de celle qui la reçoit. Git n'a alors qu'à avancer le nom de
+la branche, sans commit de fusion ; `--no-ff` en crée un quand même, pour
+que la frontière reste visible dans l'historique.
+
+**Conflit de fusion** : deux branches ont changé les mêmes lignes d'un
+fichier, et git ne sait pas laquelle garder. Il écrit les deux versions
+entre des marques et attend qu'on choisisse.

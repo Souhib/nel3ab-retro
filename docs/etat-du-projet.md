@@ -190,6 +190,22 @@ nuit : ce que coûtent les effets » et « 23 novembre, avant l'aube : une
 vraie manette se dit dans la bande » et « 23 novembre, après la relecture :
 neuf défauts du chantier salle ».
 
+**Au 23 novembre, la nuit : la vague A sur `integration/retro`.** Les
+chantiers données et salle sont réunis sur la branche `integration/retro`
+(worktree `~/nel3ab-chantiers/retro-integration`), partie du socle, dans
+l'ordre de la partition ; rien dans `main`, rien de poussé ni d'installé.
+Données s'est fusionné sans conflit. La salle a apporté quatre conflits
+d'ajout (ADR, carnet, état, marque de la page), résolus par l'union des
+deux côtés ; dans l'ADR, D39 se range entre D38 et D43. La page est
+reconstruite par `just front-build` et garde les octets de celle de la
+salle : 249 436 octets en brotli, 50 564 sous le plafond, et 7 564 si les
+cinq chantiers suivants remplissent leur enveloppe. Après la dernière
+fusion, `just check`, les cinq preuves navigateur de la porte locale,
+`cadre-navigateur` et les quatre contrôles rouges sont verts. Restent :
+le branchement de `TempsDeJeu` sur `PartieVue.depuis_s`, maintenant
+présent sur cette branche (salle) ; `reste()` côté page après les manettes
+(données, K34) ; la porte entière à l'intégration finale. Récit : « 23
+novembre, la nuit : la vague A sur une branche d'intégration ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

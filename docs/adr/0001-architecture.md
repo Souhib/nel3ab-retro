@@ -1812,6 +1812,7 @@ Decision:
   other order the room would read the `game-closed` marker the lobby set, and
   open on its menu.
 
+
 ### D39: The room frame, and nothing on the picture, 2026-11-23
 
 Status: partly delivered on `chantier/retro-salle` (passes 1 to 5).
@@ -2051,6 +2052,7 @@ was clicked through it in `focus.mjs`); at the head without holding them
 during a click (the keyboard notice is born from the click that leaves the
 picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
+
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

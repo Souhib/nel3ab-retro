@@ -133,7 +133,9 @@ const DRAWER_MUST = {
   "demander la place d'un autre (la 2)": "#port2",
   "prendre ou rendre sa place": "#takePad, #watchOnly",
   signaler: "#complain",
-  "le diagnostic de la liaison": "#connection-diagnostic > summary",
+  // Les mesures de la liaison, ouvertes par la ligne du coin (23 novembre
+  // 2026 : `ConnectionDiagnostic` est parti dans `Mesures`).
+  "les mesures de la liaison": "#mesures",
   "les spectateurs": "section[aria-labelledby='ilsRegardent']",
   // Le curseur quand le son joue, le bouton qui l'allume sinon.
   "le son": "#side input[type='range'], #sound",
@@ -1348,8 +1350,18 @@ try {
       await page.waitForSelector(OPENER, { timeout: 20000 });
       if (!(await attendre(page, () => window.__salonConnecte === true, null, 6000))) bad.push("le faux salon ne se connecte pas");
       await sleep(400);
+      // La demande vit dans la bande tenue droite, jamais sur l'image. En
+      // travers, la bande manque : « La salle » dit « Bo · ta place » et
+      // s'ouvre sur la feuille agrandie, où la carte attend.
+      const montrer = async (titre) => {
+        if (await attendre(page, () => document.querySelector("#demandeRecue") !== null, null, 2000)) return true;
+        const libelle = await page.evaluate((s) => document.querySelector(s)?.getAttribute("aria-label") ?? "", OPENER);
+        if (!libelle.includes("Bo")) bad.push(`${titre} : « La salle » ne la dit pas (« ${libelle} »)`);
+        await page.click(OPENER);
+        return attendre(page, () => document.querySelector("#feuilleSalle #demandeRecue") !== null, null, 3000);
+      };
       await page.evaluate(() => window.__salon.emit("asked", { from: "Bo", port: 1 }));
-      if (!(await attendre(page, () => document.querySelector("#asked") !== null))) bad.push("la demande de place ne se montre pas");
+      if (!(await montrer("la demande de place"))) bad.push("la demande de place ne se montre pas");
       else {
         await sleep(400);
         await page.screenshot({ path: join(OUT, `demande-${width}x${height}.png`) });
@@ -1358,27 +1370,29 @@ try {
             const r = document.querySelector(s)?.getBoundingClientRect();
             return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
           };
-          return { demande: box("#asked"), plus: box('[data-geste="feuille"]') };
+          return { demande: box("#demandeRecue"), plus: box('[data-geste="feuille"]'), image: box("#screen canvas") };
         });
-        const { demande, plus } = deux;
-        if (demande && plus) {
-          const w = Math.min(demande.right, plus.right) - Math.max(demande.left, plus.left);
-          const h = Math.min(demande.bottom, plus.bottom) - Math.max(demande.top, plus.top);
-          if (w > 0.5 && h > 0.5) bad.push(`« La salle » mord sur la demande de place : ${Math.round(w)}x${Math.round(h)} px`);
-        }
+        const { demande, plus, image } = deux;
+        const croise = (a, b) =>
+          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+        if (demande && plus && croise(demande, plus)) bad.push("« La salle » mord sur la demande de place");
+        if (demande && image && croise(demande, image)) bad.push("la demande de place touche l'image du jeu");
         if (demande && demande.top < zone.top - 0.5) bad.push(`la demande commence à ${Math.round(demande.top)} px, sous l'encoche`);
         bad.push(...(await page.evaluate(etat)));
         for (const s of ["#giveSeat", "#keepSeat"]) bad.push(...dansLaZone(s, await page.evaluate(boite, s), zone, width, height));
         await page.click("#keepSeat");
+        await page.evaluate(() => document.querySelector("#fermerFeuille")?.click());
       }
       await page.evaluate(() =>
         window.__salon.emit("recovery", { id: "banc", port: 1, from: "Bo", to: "Ami", asking: false, remaining: 30, reason: null }),
       );
-      if (!(await attendre(page, () => document.querySelector("#recovery") !== null))) bad.push("la reprise de la salle ne se montre pas");
+      if (!(await montrer("la reprise"))) bad.push("la reprise de la salle ne se montre pas");
       else {
         await sleep(300);
         await page.screenshot({ path: join(OUT, `reprise-${width}x${height}.png`) });
-        const r = await page.evaluate(boite, "#recovery");
+        if (!(await page.$("#keepRecovery"))) bad.push("la reprise reçue n'offre pas « Garder ma place »");
+        const r = await page.evaluate(boite, "#demandeRecue");
         if (r && (r.top < zone.top - 0.5 || r.left < zone.left - 0.5 || r.right > width - zone.right + 0.5))
           bad.push(`la reprise sort des zones sûres : [${Math.round(r.left)}, ${Math.round(r.top)}, ${Math.round(r.right)}]`);
       }

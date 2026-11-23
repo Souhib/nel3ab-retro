@@ -270,8 +270,11 @@ const ETAPES = {
     await page.close();
   },
 
-  /** P11: « Inviter quelqu'un » copie le lien qui entre dans CETTE salle pour
-   * jouer. Sans feuille de partage (un ordinateur), c'est le presse-papiers. */
+  /** P11: « Inviter quelqu'un » déplie un panneau (23 novembre 2026) : le code
+   * QR n'est dessiné qu'à l'ouverture, « Copier le lien » copie le lien qui
+   * entre dans CETTE salle pour jouer, et la ligne parlée le dit. Le jumeau :
+   * « pour regarder » copie le lien qui entre pour regarder. Sans feuille de
+   * partage (un ordinateur), c'est le presse-papiers. */
   async invitation() {
     const page = await nouvelle(PC, {
       avant: () => {
@@ -284,12 +287,30 @@ const ETAPES = {
     });
     await entrer(page);
     if (!(await page.$("#inviter"))) throw new Defaut("aucun bouton pour inviter");
+    if (await page.$(".n3-qr")) throw new Defaut("le code QR est dessiné avant l'ouverture");
     await page.click("#inviter");
+    if (!(await jusqua(() => page.$("#copierLien").then(Boolean), 2000)))
+      throw new Defaut("« Inviter » ne déplie aucun panneau avec « Copier le lien »");
+    const deplie = await page.$eval("#inviter", (b) => b.getAttribute("aria-expanded"));
+    if (deplie !== "true") throw new Defaut(`#inviter dit aria-expanded=${deplie}`);
+    if (!(await jusqua(() => page.$(".n3-qr path").then(Boolean), 3000)))
+      throw new Defaut("le code QR n'est pas dessiné à l'ouverture");
+    await page.click("#copierLien");
     if (!(await jusqua(() => page.evaluate(() => typeof window.__copie === "string"), 3000)))
-      throw new Defaut("« Inviter » n'a rien copié");
+      throw new Defaut("« Copier le lien » n'a rien copié");
     const copie = await page.evaluate(() => window.__copie);
     if (copie !== `${banc.base}/r/1/?entrer=jouer`) throw new Defaut(`lien copié: ${copie}`);
-    if (!/Lien copié/.test(await texte(page, "#side"))) throw new Defaut("la copie n'est pas dite");
+    if (!(await jusqua(async () => /Lien copié/.test(await texte(page, "#ligneParlee")), 2000)))
+      throw new Defaut("la copie n'est pas dite par la ligne parlée");
+    // Le jumeau : regarder.
+    await page.evaluate(() => (window.__copie = undefined));
+    await page.click("input[type=radio][value=watch]");
+    await page.click("#copierLien");
+    if (!(await jusqua(() => page.evaluate(() => typeof window.__copie === "string"), 3000)))
+      throw new Defaut("« Copier le lien » n'a rien copié pour regarder");
+    const regarder = await page.evaluate(() => window.__copie);
+    if (regarder !== `${banc.base}/r/1/?entrer=regarder`)
+      throw new Defaut(`lien pour regarder copié: ${regarder}`);
     await capture(page, "invitation");
     await page.close();
   },

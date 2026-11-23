@@ -800,6 +800,12 @@ parcours-navigateur-rouge:
     etapes=place-suit-adresse,menu-chef,cibles-tactiles,avant-salle-places
     node parcours.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # 03b21c0, la page de main avant le thème rétro : « Inviter » y copie
+    # d'un coup, sans panneau ni code, et l'étape réécrite le 23 novembre
+    # 2026 doit y tomber sur ce défaut.
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes invitation --rouge-attendu invitation
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

@@ -29642,6 +29642,84 @@ personnes en est à +6 050, pour une enveloppe de 8 000. La construction est
 déterministe : la page reconstruite depuis l'archive du commit a le même
 poids, à l'octet, que la page committée.
 
+### 23 novembre, la nuit, troisième passage : Échap, la ligne parlée et les preuves au vrai clavier
+
+**Le contexte.** Après le second passage, les places START étaient montées
+dans la salle, mais plusieurs gestes n'avaient été prouvés qu'en jsdom, qui
+n'a ni vrai focus ni vraie touche. Ce passage écrit les preuves navigateur
+que le plan demandait, et chacune a trouvé ou confirmé un défaut.
+
+**Une fonction pure testée n'est pas une fonction câblée.**
+`echapFermeLaCarte` existait depuis le premier passage, avec ses essais
+verts : elle dit si Échap doit fermer la carte d'une place (le focus est
+dans la carte, ou sur sa place). Personne ne l'appelait. Au vrai clavier,
+Échap dans la carte ouvrait le menu du jeu par-dessus, et « Fermer » laissait
+le focus tomber sur le corps de la page. La carte écoute maintenant Échap au
+niveau du document et l'arrête là quand il la concerne : le menu, que la
+salle ouvre depuis `window`, ne le reçoit plus. Ailleurs, Échap garde son
+sens. « Fermer » rend le focus à la place, « Prendre » le pose sur la place
+prise. Pendant une demande en attente, Échap n'annule rien : la carte n'a
+pas de « Fermer », seulement « Annuler la demande ».
+
+**Cinq étapes de navigateur, dans `parcours.mjs`.** Le plan les rangeait dans
+trois pilotes ; elles vivent toutes dans celui des parcours, parce que son
+banc sait asseoir Bo à la place 2 et noter ce que la page envoie au salon.
+Le banc répond aussi à une demande de reprise comme le salon (20 s, puis
+« Demande annulée. »). Les étapes : `places-clavier` (Tab, Entrée, Échap, et
+la place qui garde le focus quand Bo part et revient), `demande-place` (la
+demande hors de l'image, avec la règle du salon), `signaler-visible`
+(« Signaler un problème » sans défiler à trois tailles de bureau),
+`annonce-arrivee` et `annonce-lettres`. Chacune rougit sur son défaut dans
+`parcours-navigateur-rouge` : la page de `main` (03b21c0) pose la demande sur
+l'image et cache « Signaler » sous le pli ; la page du second passage
+(54d1f6f) ouvre le menu par la carte, efface l'arrivée et laisse l'ancre
+vide. Ce commit ne vit que sur la branche du chantier : sa page est gardée
+dans `spikes/m3-browser-drive/rouges/`, avec son empreinte vérifiée avant
+usage, comme celles du chantier salle.
+
+**Une arrivée effacée avant d'être lue.** La ligne parlée est une région
+polie : un lecteur d'écran la lit quand elle se calme. Quand Bo s'assied et
+que le salon annonce un démarrage 90 ms plus tard, « Bo prend la place 2. »
+était remplacé par « Le jeu démarre. » avant d'être lu. Une phrase d'état qui
+suit une nouvelle de moins de 1,5 s s'y ajoute maintenant ; au-delà, elle
+la remplace comme avant. Deux phrases d'état de suite ne s'additionnent pas.
+L'étape a aussi compté les régions parlées de la salle et en a trouvé deux :
+la ligne, et `#controller-status`, qui dit les manettes branchées. Celle-là
+appartient au chantier manettes ; l'étape la nomme et l'exclut, et un mutant
+qui remet une région sur la rangée des places la fait rougir.
+
+**L'annonce en lettres.** La même nouvelle s'écrit lettre par lettre sur
+l'ancre de l'annonce que le cadre pose (le fronton, l'en-tête de la colonne,
+la barre du téléphone), puis s'efface 6 s après. Le socle veut une région
+pour écrire lettre par lettre, afin que le lecteur reçoive la phrase
+entière d'un coup. On lui donne un élément détaché que personne ne lit, et
+pas `#ligneParlee` : React tient le nœud de texte de cette ligne, et
+remplacer son texte de l'extérieur détacherait ce nœud. Les mises à jour
+suivantes de React iraient dans un nœud qui n'est plus dans la page, et la
+ligne se tairait sans erreur.
+
+**Un essai qui lisait la racine du disque.** Les mesures techniques passent de
+six panneaux à quatre (L'image, Le son, La manette, La liaison), et « p95 »
+devient « au pire (1 fois sur 20) ». Un instantané complet de la page ne se
+construit pas en jsdom, alors l'essai lit la source. Écrit
+`new URL("./Instruments.tsx", import.meta.url)`, il cherchait
+`/src/components/Instruments.tsx` à la racine du disque : Vite réécrit cette
+forme exacte en adresse de ressource, au moment de transformer le fichier.
+Passer par une fonction (`ici(…)`), comme les autres essais qui lisent une
+source, garde le vrai chemin.
+
+**Quatre pilotes corrigés sans être relancés.** `swap`, `steal`, `claim` et
+`preparation-room` lisaient encore `data-armed`, `#asked`, `#recovery`,
+`disabled` sur la confirmation et « chef de la salle ». Ils suivent
+maintenant la carte de la place. Les trois premiers visent la salle vivante,
+le dernier monte une vraie salle jetable : deux choses interdites à ce
+chantier. Leur syntaxe est vérifiée, leur relance revient au propriétaire.
+
+**Le poids.** La page passe de 255 536 à 255 962 octets en brotli (+426), sans
+rien retirer : la carte au clavier, la tenue de la ligne parlée, l'annonce
+en lettres et les mots des mesures. Depuis son départ (249 486), le chantier
+personnes en est à +6 476, pour une enveloppe de 8 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31330,3 +31408,13 @@ données pour éviter de grandes plages d'une seule couleur, difficiles à lire.
 **Oracle (dans un essai)** : un autre programme, déjà fiable, dont on
 compare les réponses à celles du code essayé. Il ne doit jamais dépendre du
 code qu'il juge.
+
+**Région polie (aria-live="polite", role="status")** : une région vivante
+que le lecteur d'écran lit quand elle cesse de changer, sans couper ce qu'il
+dit. Un texte remplacé aussitôt après avoir été écrit peut donc n'être
+jamais lu.
+
+**Propagation (d'un événement)** : le trajet d'une touche ou d'un clic dans
+la page, de l'élément touché jusqu'au document puis à la fenêtre. Un
+écouteur placé plus bas peut l'arrêter (`stopPropagation`) : ceux du dessus
+ne le reçoivent pas.

@@ -219,7 +219,7 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
-**Au 23 novembre, la nuit : le chantier personnes, deux passages.** Sur
+**Au 23 novembre, la nuit : le chantier personnes, trois passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de
 poussé. Montés dans la salle par un seul commit de câblage d'`App.tsx` :
@@ -239,17 +239,31 @@ ligne parlée pour toutes ces nouvelles. Retirés : `Seats`, `Socket`, `Swap`,
 et les règles provisoires de `Seats` dans `cadre.css` et `telephone.css`.
 Prêts, non montés : `ChampNom` et l'aperçu de l'étiquette, que le chantier
 salon montera dans « Qui joue ? » (K03). Mise en service : le salon d'abord
-(`api/ws/recovery.py`, raisons qui nomment une place), la page ensuite. La
-page fait 255 536 octets en brotli, 6 050 de plus que le départ du chantier
-(enveloppe 8 000) : +3 889 avant le câblage (Inviter, le code QR, Signaler),
-+5 886 au câblage, et 4 142 rendus par les retraits. Restent : les preuves navigateur nouvelles
-(`places-clavier`, `demande-place`, `nom-champ`, `nom-apercu`,
-`annonce-arrivee`, `arrivee-hors-image`, `places-sous-image`) et leurs
-recettes rouges, les quatre groupes des mesures techniques, l'annonce en
-lettres sur l'ancre du socle, et le refus du mot « chef » dans les chaînes
-visibles, qui attend le menu. Récits : « 23 novembre, la nuit : les places
-deviennent des boutons START » et « 23 novembre, la nuit, second passage :
-les places montées dans la salle ».
+(`api/ws/recovery.py`, raisons qui nomment une place), la page ensuite. Le
+troisième passage branche Échap sur la carte d'une place (le focus revient
+à la place, le menu du jeu ne s'ouvre plus par la carte), garde une arrivée
+dans la ligne parlée quand l'état change aussitôt après (1,5 s), écrit la
+même nouvelle lettre par lettre sur l'ancre de l'annonce du socle
+(`AnnonceEnLettres`), et range les mesures techniques en quatre groupes
+(L'image, Le son, La manette, La liaison). Preuves navigateur dans
+`parcours.mjs` : `places-clavier`, `demande-place`, `signaler-visible`,
+`annonce-arrivee`, `annonce-lettres`, chacune rouge sur son défaut dans
+`parcours-navigateur-rouge` (03b21c0, et la page de 54d1f6f gardée dans
+`spikes/m3-browser-drive/rouges/`). `swap`, `steal`, `claim` et
+`preparation-room` suivent la carte de la place, sans avoir été relancés
+(salle vivante, ou vraie salle jetable). La page fait 255 962 octets en
+brotli, 6 476 de plus que le départ du chantier (enveloppe 8 000) :
++3 889 avant le câblage, +5 886 au câblage, 4 142 rendus par les retraits,
++426 au troisième passage. Restent : `nom-champ` et `nom-apercu`, qui
+attendent « Qui joue ? » du salon ; `arrivee-hors-image` et
+`places-sous-image` dans `salle-telephone` ; la ligne du coin en bouton qui
+déplie les mesures et l'entrée « Ta liaison » de la feuille (avec le
+chantier salle) ; le refus du mot « chef » dans les chaînes visibles, qui
+attend le menu ; la région `#controller-status` du chantier manettes, à
+réunir à la ligne parlée. Récits : « 23 novembre, la nuit : les places
+deviennent des boutons START », « 23 novembre, la nuit, second passage :
+les places montées dans la salle » et « 23 novembre, la nuit, troisième
+passage : Échap, la ligne parlée et les preuves au vrai clavier ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

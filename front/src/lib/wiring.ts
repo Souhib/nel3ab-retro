@@ -30,6 +30,7 @@ import {
   type StickAxis,
 } from "../media/pad";
 import type { Snapshot } from "../media/lesson";
+import { SWITCH_BUTTONS, type SwitchReading } from "../media/switch";
 import { paintBench } from "./bench";
 
 /** Une manette réduite à ce qu'on lit d'elle. Un objet plutôt que `Gamepad`,
@@ -204,6 +205,11 @@ export function paintReading(
     x: upward(reading.x, reading.y),
     cx: upward(reading.cx, reading.cy),
   };
+  tiltSticks(root, tilts);
+}
+
+/** Incline le capot de chaque stick dessiné selon son `Tilt`. */
+function tiltSticks(root: Element, tilts: Record<string, Tilt>): void {
   for (const piece of root.querySelectorAll<SVGGElement>("[data-stick]")) {
     const body = piece.querySelector<SVGGElement>(".n3-stick-body");
     const push = tilts[piece.dataset["stick"] ?? ""];
@@ -214,4 +220,34 @@ export function paintReading(
       `translate(${(Math.max(-1, Math.min(1, push.along)) * travel).toFixed(2)} ${(Math.max(-1, Math.min(1, push.down)) * travel).toFixed(2)})`,
     );
   }
+}
+
+/** Les deux dessins de la trame Pro, chacun dans sa racine : les deux
+ * portent des sticks nommés `a0` et `a2`, et une seule racine les confondrait.
+ * La gauche lit la trame envoyée (`reading`, vertical vers le haut), la droite
+ * les indices bruts de la manette (`heldOn`, vertical vers le bas), comme
+ * pour Dolphin : l'écart entre les deux dit la correspondance qui manque. */
+export function paintPro(
+  gauche: Element,
+  droite: Element | null,
+  reading: SwitchReading,
+  live: Raw | null,
+  device: Reglage | null,
+  neutre: Snapshot | null = null,
+): void {
+  const on = new Set<string>(SWITCH_BUTTONS.filter((_, at) => reading.buttons & (1 << at)));
+  for (const piece of gauche.querySelectorAll<SVGGElement>("[data-part]")) {
+    piece.dataset["lit"] = on.has(piece.dataset["part"] ?? "") ? "oui" : "non";
+  }
+  tiltSticks(gauche, { a0: upward(reading.lx, reading.ly), a2: upward(reading.rx, reading.ry) });
+  if (!droite) return;
+  const tenus = new Set(live ? heldOn(live, device, neutre) : []);
+  for (const piece of droite.querySelectorAll<SVGGElement>("[data-part]")) {
+    piece.dataset["lit"] = tenus.has(piece.dataset["part"] ?? "") ? "oui" : "non";
+  }
+  const axes = live?.axes ?? [];
+  tiltSticks(droite, {
+    a0: downward(axes[0] ?? 0, axes[1] ?? 0),
+    a2: downward(axes[2] ?? 0, axes[3] ?? 0),
+  });
 }

@@ -475,9 +475,96 @@ export const BRANCHEE = {
 const enPhrase = (noms: readonly string[]) =>
   noms.length <= 1 ? (noms[0] ?? "") : `${noms.slice(0, -1).join(", ")} et ${noms.at(-1)}`;
 
-/** Le réglage des touches : la fin du pas à pas et la manette débranchée.
- * Le panneau « Touches et manettes » (lot L4) y ajoutera ses autres mots. */
+/** « la Xbox 360 », ou « le jeu » quand la console n'a pas de nom propre. */
+const laConsole = (nom: string | null) => (nom ? `la ${nom}` : "le jeu");
+
+/** Le panneau « Touches et manettes » (`manettes/reglage`), ses phrases et
+ * ses boutons. La fin du pas à pas et la manette débranchée suivent. */
 export const REGLAGE = {
+  titre: "Touches et manettes",
+  fermer: "Fermer",
+  /** La phrase de tête : `console` est nommée pour une salle Pro. */
+  tete: (console: string | null) =>
+    `Pendant ce réglage, ${laConsole(console)} ne reçoit pas tes appuis.`,
+  autres: "Les autres continuent de jouer.",
+  onglets: { manette: "Manette", clavier: "Clavier", profils: "Profils" },
+  ongletsNom: "Ce que tu règles",
+  recoit: (console: string | null) => `Ce que ${laConsole(console)} reçoit`,
+  taManette: "Ta manette",
+  aucune:
+    "Cette page ne voit aucune manette. Le navigateur ne la montre qu'après un premier appui.",
+  branche: "Branche-la, puis appuie sur un bouton.",
+  standard: "branchée, disposition standard",
+  nonStandard: "branchée, disposition non standard",
+  adaptateur:
+    "Le navigateur ne garantit pas la place des boutons de cet adaptateur. Règle-le pas à pas.",
+  tuRegles: "Tu règles",
+  plusieurs: (n: number, place: number | null) =>
+    `${n} manettes parlent à cette page. Elles jouent toutes à ${place ? `ta ${placeN(place)}` : "ta place"}.`,
+  regler: "Régler pas à pas",
+  repos: "Lâche tout : boutons, sticks et gâchettes. Ton réglage d'avant reste si tu arrêtes.",
+  commencer: "Commencer",
+  annuler: "Annuler",
+  etape: (n: number, total: number) => `Étape ${n} sur ${total}`,
+  appuie: (nom: string) => `Appuie sur ce que tu veux pour ${nom}.`,
+  pousse: (sens: string) => `Pousse ${sens}.`,
+  relache: "Relâche avant de continuer.",
+  passer: "Passer cette commande",
+  arreter: "Arrêter",
+  reprendre: (etape: number) => `Reprendre à l'étape ${etape}`,
+  daccord: "D'accord",
+  reglerDans: (nom: string) => `Régler ${nom} dans la liste`,
+  correspondances: "Toutes les correspondances",
+  dansLeJeu: "Dans le jeu",
+  changer: "Changer",
+  changerNom: (nom: string) => `Changer ${nom}`,
+  effacerNom: (nom: string) => `Effacer ${nom}`,
+  rien: "aucune",
+  attendManette: "Appuie sur un bouton de ta manette",
+  attendTouche: "Appuie sur une touche",
+  nombres: "Les nombres de ta manette",
+  lecture: "Ce que le jeu reçoit, vu comme",
+  taPlace: "ta place",
+  apercu: (appareil: string) =>
+    `Aperçu seulement. Ta place présente ${appareil} au jeu : les actions du jeu suivent cet appareil.`,
+  essai: "Clique ici, puis tape.",
+  essaiNom: "Zone d'essai du clavier",
+  touche: "Touche",
+  oppose: (nom: string) => `${nom}, sens opposé`,
+  bouton: "Bouton",
+  axe: "Axe",
+  inverse: "inversé",
+  /** Le sens demandé d'un stick de la trame Pro : droite ou haut (D6). */
+  sensPro: (gauche: boolean, haut: boolean) =>
+    `le stick ${gauche ? "gauche" : "droit"} vers ${haut ? "le haut" : "la droite"}`,
+  sticks: "Les sticks, direction par direction",
+  nonTransmis: (xbox: boolean) =>
+    xbox
+      ? "Pas transmis au jeu : le bouton Guide."
+      : "Pas transmis au jeu : Home, Capture, gyroscope.",
+  retablirManette: "Rétablir la manette",
+  retablirClavier: "Rétablir le clavier",
+  retablir: "Rétablir",
+  retablirQuestion: (quoi: "pad" | "key") =>
+    `Rétablir ${quoi === "pad" ? "la manette" : "le clavier"} ? Tes changements seront remplacés par le réglage d'origine.`,
+  retabli: "Réglage d'origine rétabli.",
+  mesProfils: (console: string | null) => (console ? `Mes profils ${console}` : "Mes profils"),
+  profilsClavier: "Profils du clavier",
+  enService: "en service",
+  defaut: "Profil par défaut",
+  modifies: "réglages modifiés",
+  nomProfil: "Nom",
+  enregistrer: "Enregistrer ce profil sous",
+  charger: "Charger",
+  supprimer: "Supprimer",
+  supprime: (nom: string) => `Le profil « ${nom} » est supprimé.`,
+  exporter: "Exporter dans un fichier",
+  importer: "Importer un fichier",
+  tropGrand: "Fichier trop grand.",
+  refuse: "Réglage refusé.",
+  pret: "Charger un profil ne te déclare pas prêt.",
+  /** Le profil Pro rangé : il part au service dès que la salle répond. */
+  enregistre: "Profil enregistré. Il rejoint tes réglages personnels dès que la salle répond.",
   /** La fin du pas à pas, comptée. `passees` : les commandes passées, nommées
    * pour la console ; `garde` : ce qu'elles gardent (`FinDe` de la leçon). */
   fin: (retenues: number, passees: readonly string[], garde: "avant" | "standard" | "rien") => {

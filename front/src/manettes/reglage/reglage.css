@@ -1,0 +1,152 @@
+/* Le panneau « Touches et manettes » : une région dans la colonne, jamais
+   sur l'image. Couleurs du thème seulement (`regie.css`) ; les manettes ont
+   leur feuille (`components/padmap.css`). Les coins en escalier et la lèvre
+   des boutons viennent des effets du socle (`.rt-boite`, `.rt-bouton`). */
+.n3-reglage {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--espace-4);
+  color: var(--encre);
+  outline-offset: -2px;
+}
+.n3-reglage-tete {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--espace-2) var(--espace-3);
+}
+.n3-reglage-tete > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--legende);
+}
+.n3-reglage-bouton {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem;
+}
+.n3-reglage-gestes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espace-2);
+}
+.n3-onglets {
+  display: flex;
+  gap: var(--espace-1);
+  border-bottom: 2px solid var(--filet);
+}
+.n3-onglets > [role="tab"] {
+  min-height: 2.75rem;
+  padding: 0 var(--espace-3);
+  border: 2px solid transparent;
+  border-bottom: 0;
+  color: var(--legende);
+}
+.n3-onglets > [aria-selected="true"] {
+  border-color: var(--filet);
+  background: var(--plaque);
+  color: var(--encre);
+}
+.n3-onglets > [aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.n3-reglage-page {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+.n3-appareil {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espace-3);
+}
+.n3-appareil p,
+.n3-reglage-avis p {
+  margin: 0;
+}
+.n3-reglage-avis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  padding: var(--espace-3);
+  border: 2px solid var(--filet);
+  background: var(--plaque);
+}
+.n3-pas h3 {
+  margin: 0;
+}
+.n3-jauge {
+  display: flex;
+  gap: 2px;
+  margin-block: var(--espace-2);
+}
+.n3-jauge > span {
+  height: 0.75rem;
+  flex: 1;
+  border: 2px solid var(--filet);
+}
+.n3-jauge > [data-plein="oui"] {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+.n3-lecture {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  border: 0;
+  padding: 0;
+}
+.n3-lecture > legend {
+  margin-bottom: var(--espace-2);
+}
+.n3-lecture > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.n3-lecture [aria-pressed="true"] {
+  --rt-bord: var(--signal);
+}
+.n3-correspondances {
+  width: 100%;
+  border-collapse: collapse;
+}
+.n3-correspondances :is(th, td) {
+  padding: var(--espace-1) var(--espace-2);
+  border-bottom: 1px solid var(--filet);
+  text-align: left;
+  vertical-align: middle;
+}
+.n3-correspondances th small {
+  display: block;
+  color: var(--legende);
+  font-weight: 400;
+}
+.n3-correspondances td:last-child {
+  white-space: nowrap;
+}
+.n3-correspondances [aria-current="true"] > th {
+  box-shadow: inset 4px 0 0 var(--signal);
+}
+.n3-correspondances [data-attend="oui"] {
+  background: var(--plaque);
+}
+.n3-essai-clavier {
+  padding: var(--espace-4);
+  border: 2px dashed var(--filet);
+  text-align: center;
+}
+.n3-profils {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+.n3-nombres pre {
+  overflow: auto;
+  max-height: 16rem;
+}

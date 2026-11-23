@@ -193,7 +193,7 @@
    pièce (`PadMap.tsx`). Le cadre se referme en trois paliers (240 ms), revient
    plus large quand la commande insiste, puis la flèche arrive du bord. La
    pièce appuyée prend des coins d'encre et la ligne pointillée qui la relie à
-   la commande ; les deux s'effacent en quatre paliers. Chaque animation joue
+   la commande ; les deux s'effacent. Chaque animation joue
    une fois : rien ne clignote, rien ne tourne après la fin. */
 .n3-dessins {
   position: relative;
@@ -205,7 +205,7 @@
   transform-origin: center;
 }
 .n3-reglage [data-marque="cadre"] > .n3-coins {
-  animation: n3-marque-cadre 240ms steps(3) both;
+  animation: n3-marque-cadre 240ms ease-out both;
 }
 .n3-reglage :is([data-marque="insiste"], [data-marque="fleche"]) > .n3-coins {
   transform: scale(1.25);
@@ -213,7 +213,7 @@
 }
 .n3-reglage [data-marque="fleche"] > .n3-fleche {
   display: inline;
-  animation: n3-marque-fleche 240ms steps(3) both;
+  animation: n3-marque-fleche 240ms ease-out both;
 }
 .n3-reglage :is([data-marque="coins"], [data-marque="efface"]) > .n3-coins {
   stroke: var(--encre);
@@ -234,7 +234,14 @@
 }
 .n3-reglage [data-marque="efface"] > .n3-coins,
 .n3-liaison[data-marque="efface"] line {
-  animation: n3-marque-efface 400ms steps(4) forwards;
+  animation: n3-marque-efface 400ms linear forwards;
+}
+/* « paliers » (niveau tout) : le cadre, la flèche, les coins et la liaison
+   avancent par quatre marches, jamais l'inclinaison des sticks, qui est une
+   lecture. Sans l'effet, ils glissent. */
+.fx-paliers .n3-reglage [data-marque] > :is(.n3-coins, .n3-fleche),
+.fx-paliers .n3-liaison[data-marque] line {
+  animation-timing-function: steps(4);
 }
 @keyframes n3-marque-cadre {
   from {

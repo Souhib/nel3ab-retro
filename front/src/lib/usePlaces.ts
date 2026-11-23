@@ -24,7 +24,7 @@
  * animations sont des attributs posés une fois (`data-joue`, `data-part`)
  * et retirés par un minuteur ; aucune boucle d'image ici.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { pourTransition, type Scene } from "../mascotte";
 import { sonMenu } from "../retro/sons";
 import { differences, type Occupation } from "./arrivees";
@@ -207,3 +207,64 @@ export function usePlaces(s: SuiviDesPlaces): {
 }
 
 const VIDE: ReadonlySet<number> = new Set();
+
+/** Les secondes qui restent, à 1 Hz, depuis la valeur du salon. `cle`
+ * change avec la demande : une nouvelle demande repart de son temps. */
+export function useReste(secondes: number, cle: string): number {
+  const [reste, setReste] = useState(Math.max(0, Math.ceil(secondes)));
+  useEffect(() => {
+    if (secondes <= 0) {
+      setReste(0);
+      return;
+    }
+    const fin = performance.now() + secondes * 1000;
+    const battre = () => setReste(Math.max(0, Math.ceil((fin - performance.now()) / 1000)));
+    battre();
+    const id = window.setInterval(battre, 1000);
+    return () => window.clearInterval(id);
+  }, [secondes, cle]);
+  return reste;
+}
+
+/** Combien de temps « Donner ma place » reste annulable. */
+export const DON_ANNULABLE_MS = 4000;
+
+/** La réponse « oui » différée de 4 s, annulable. « Garder » part tout de
+ * suite et annule un don en attente. */
+export function useDonDiffere(envoyer: (ok: boolean) => void): {
+  donne: boolean;
+  donner: () => void;
+  annuler: () => void;
+  garder: () => void;
+} {
+  const [donne, setDonne] = useState(false);
+  const minuteur = useRef<number | null>(null);
+  const envoi = useRef(envoyer);
+  envoi.current = envoyer;
+  const arreter = () => {
+    if (minuteur.current !== null) window.clearTimeout(minuteur.current);
+    minuteur.current = null;
+  };
+  useEffect(() => arreter, []);
+  return {
+    donne,
+    donner: useCallback(() => {
+      arreter();
+      setDonne(true);
+      minuteur.current = window.setTimeout(() => {
+        minuteur.current = null;
+        setDonne(false);
+        envoi.current(true);
+      }, DON_ANNULABLE_MS);
+    }, []),
+    annuler: useCallback(() => {
+      arreter();
+      setDonne(false);
+    }, []),
+    garder: useCallback(() => {
+      arreter();
+      setDonne(false);
+      envoi.current(false);
+    }, []),
+  };
+}

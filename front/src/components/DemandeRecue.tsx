@@ -18,15 +18,13 @@
  * pour garder, et ne peut jamais donner la place : c'est le geste qu'on fait
  * sans regarder.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { DEMANDE } from "../lib/mots";
 import type { MenuAction } from "../media/menupad";
-import { Actions, Bouton, Piste, useReste } from "./CartePlace";
+import { useReste } from "../lib/usePlaces";
+import { Actions, Bouton, Piste } from "./CartePlace";
 import { Etiquette } from "./Etiquette";
 import "./places.css";
-
-/** Combien de temps « Donner ma place » reste annulable. */
-export const DON_ANNULABLE_MS = 4000;
 
 export type DemandeEnCours = {
   from: string;
@@ -37,46 +35,6 @@ export type DemandeEnCours = {
   /** La place de qui demande, pour la couleur de son étiquette. */
   sa?: number | null;
 };
-
-/** La réponse « oui » différée de 4 s, annulable. « Garder » part tout de
- * suite et annule un don en attente. */
-export function useDonDiffere(envoyer: (ok: boolean) => void): {
-  donne: boolean;
-  donner: () => void;
-  annuler: () => void;
-  garder: () => void;
-} {
-  const [donne, setDonne] = useState(false);
-  const minuteur = useRef<number | null>(null);
-  const envoi = useRef(envoyer);
-  envoi.current = envoyer;
-  const arreter = () => {
-    if (minuteur.current !== null) window.clearTimeout(minuteur.current);
-    minuteur.current = null;
-  };
-  useEffect(() => arreter, []);
-  return {
-    donne,
-    donner: useCallback(() => {
-      arreter();
-      setDonne(true);
-      minuteur.current = window.setTimeout(() => {
-        minuteur.current = null;
-        setDonne(false);
-        envoi.current(true);
-      }, DON_ANNULABLE_MS);
-    }, []),
-    annuler: useCallback(() => {
-      arreter();
-      setDonne(false);
-    }, []),
-    garder: useCallback(() => {
-      arreter();
-      setDonne(false);
-      envoi.current(false);
-    }, []),
-  };
-}
 
 export function DemandeRecue({
   demande,

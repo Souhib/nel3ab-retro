@@ -15,10 +15,11 @@
  * carte ouverte, caché au lecteur d'écran (une durée qui avance serait relue).
  * Aucune région vivante ici : la ligne parlée de la salle dit les nouvelles.
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { RecoveryNotice } from "../lib/room";
 import { CARTE, PLACE } from "../lib/mots";
 import type { MenuAction } from "../media/menupad";
+import { useReste } from "../lib/usePlaces";
 import { CARTE_PLACE } from "./Places";
 import "./places.css";
 
@@ -201,24 +202,6 @@ export function CartePlace({
       {erreur ? <p className="n3-carte-erreur">{erreur}</p> : null}
     </section>
   );
-}
-
-/** Les secondes qui restent, à 1 Hz, depuis la valeur du salon. `cle`
- * change avec la demande : une nouvelle demande repart de son temps. */
-export function useReste(secondes: number, cle: string): number {
-  const [reste, setReste] = useState(Math.max(0, Math.ceil(secondes)));
-  useEffect(() => {
-    if (secondes <= 0) {
-      setReste(0);
-      return;
-    }
-    const fin = performance.now() + secondes * 1000;
-    const battre = () => setReste(Math.max(0, Math.ceil((fin - performance.now()) / 1000)));
-    battre();
-    const id = window.setInterval(battre, 1000);
-    return () => window.clearInterval(id);
-  }, [secondes, cle]);
-  return reste;
 }
 
 /** La piste du temps : une barre qui se vide, posée une fois en CSS. */

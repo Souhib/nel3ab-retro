@@ -1,7 +1,8 @@
 import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MenuAction } from "../media/menupad";
-import { DemandeRecue, DON_ANNULABLE_MS, useDonDiffere, type DemandeEnCours } from "./DemandeRecue";
+import { DON_ANNULABLE_MS, useDonDiffere } from "../lib/usePlaces";
+import { DemandeRecue, type DemandeEnCours } from "./DemandeRecue";
 
 const demande = (d: Partial<DemandeEnCours> = {}): DemandeEnCours => ({
   from: "Lina",

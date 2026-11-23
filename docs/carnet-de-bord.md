@@ -29630,7 +29630,12 @@ planche n'a pas de boucle vidéo : le pilote compte TOUS les appels de la
 page. Avant une scène, 0 en une seconde ; pendant, 26 en 400 ms ; après la
 fin, 0 en deux secondes, et aucune animation en cours. Un lecteur mutant,
 dont la boucle se redemande toujours, donne 96 appels en deux secondes après
-chaque scène : la mesure le voit.
+chaque scène : la mesure le voit. La porte complète a pourtant échoué une fois, lancée juste
+après six autres pilotes : pendant « arrivee », 3 appels seulement. Ce
+n'était pas le compteur. Deux images de suite à plus de 50 ms font CÉDER une
+scène (elle saute à sa fin, pour rendre la main à la page) ; c'est voulu, et
+c'est ce qui est arrivé sous la charge. Une scène finie avant 400 ms a cédé :
+le pilote la rejoue, trois fois au plus, et le dit (`cede`).
 
 Dans la vraie page, la même mesure a d'abord échoué : 125 appels en deux
 secondes au repos. Les piles d'appel ont montré `pumpOnRefresh`, la pompe

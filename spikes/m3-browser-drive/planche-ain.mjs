@@ -225,10 +225,26 @@ if (MESURES.includes("immobile")) {
       await new Promise((r) => setTimeout(r, 1000));
       return window.__ain.appels;
     });
-    await page.evaluate((l, s) => window.planche.jouer(l, s, "complete"), lieu, scene);
-    await sleep(400);
-    const pendant = await page.evaluate(() => window.__ain.appels);
-    await page.waitForFunction(() => !document.querySelector(".rt-mascotte[data-scene]"), { timeout: 6000 });
+    // Une scène cède quand deux images de suite arrivent à plus de 50 ms
+    // (la page a du retard) : elle saute à sa fin en trois appels. Sous la
+    // charge des autres portes, « arrivee » a cédé ainsi le 23 novembre 2026.
+    // Une scène finie avant 400 ms a cédé : on la rejoue, trois fois au plus.
+    let pendant = 0;
+    let cede = 0;
+    for (;;) {
+      await page.evaluate(() => {
+        window.__ain.appels = 0;
+      });
+      await page.evaluate((l, s) => window.planche.jouer(l, s, "complete"), lieu, scene);
+      await sleep(400);
+      const vu = await page.evaluate(() => ({ appels: window.__ain.appels, joue: !!document.querySelector(".rt-mascotte[data-scene]") }));
+      pendant = vu.appels;
+      await page.waitForFunction(() => !document.querySelector(".rt-mascotte[data-scene]"), { timeout: 6000 });
+      if (vu.joue) break;
+      cede += 1;
+      if (cede > 3) break;
+      await sleep(500);
+    }
     // Le pointeur passe au niveau Tout : un calcul par geste, puis plus rien.
     if (niveau === "tout") for (const [x, y] of [[700, 300], [900, 600], [300, 700]]) await page.mouse.move(x, y, { steps: 3 });
     await sleep(300);
@@ -242,7 +258,8 @@ if (MESURES.includes("immobile")) {
       return { appels: window.__ain.appels, animations };
     });
     await page.close();
-    releve.push({ lieu, scene, niveau, avant, pendant, apres });
+    releve.push({ lieu, scene, niveau, avant, pendant, cede, apres });
+    if (cede > 3) throw new Error(`« ${scene} » a cédé à chaque essai : la page a trop de retard pour mesurer`);
     if (pendant < 10) throw new Error(`jumeau : pendant « ${scene} », ${pendant} appels seulement : le compteur ne voit pas la boucle`);
     if (avant !== 0) fautes.push(`${lieu} : ${avant} appels en 1 s avant toute scène`);
     if (apres.appels !== 0) fautes.push(`${lieu} ${scene} (${niveau}) : ${apres.appels} appels en 2 s après la fin`);

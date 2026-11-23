@@ -317,3 +317,13 @@ describe("la trame Pro", () => {
     expect(Object.keys(source.named)).toEqual([]);
   });
 });
+
+describe("les marques dans le panneau", () => {
+  it("la boucle pose le cadre sur la commande attendue, sans passer par React", () => {
+    const { container, emettre } = monterDolphin({ state: etat(XBOX) });
+    const a = container.querySelector('[data-part="A"]');
+    expect(a).not.toHaveAttribute("data-marque");
+    emettre({ type: "etape", control: "A", etape: 1, total: 16 });
+    expect(a).toHaveAttribute("data-marque", "cadre");
+  });
+});

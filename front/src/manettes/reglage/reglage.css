@@ -150,3 +150,33 @@
   overflow: auto;
   max-height: 16rem;
 }
+
+/* Les marques du pas à pas (`marques.ts`) : un trait au signal autour des
+   formes de la pièce attendue, plus large quand elle insiste ; rien ne
+   clignote. La pièce appuyée prend un trait d'encre en tirets, qui s'efface
+   en quatre paliers. */
+.n3-reglage [data-marque] > :not(text) {
+  stroke: var(--signal);
+  stroke-width: 1.2;
+}
+.n3-reglage :is([data-marque="insiste"], [data-marque="fleche"]) > :not(text) {
+  stroke-width: 2.2;
+}
+.n3-reglage :is([data-marque="coins"], [data-marque="efface"]) > :not(text) {
+  stroke: var(--encre);
+  stroke-dasharray: 2 1;
+}
+.n3-reglage [data-marque="efface"] > :not(text) {
+  animation: n3-marque-efface 400ms steps(4) forwards;
+}
+@keyframes n3-marque-efface {
+  to {
+    stroke-opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-reglage [data-marque="efface"] > :not(text) {
+    animation: none;
+    stroke-opacity: 0;
+  }
+}

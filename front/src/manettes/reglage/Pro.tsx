@@ -31,6 +31,7 @@ import {
   Suspension,
   type Ligne,
 } from "./PasAPas";
+import { poserMarques } from "./marques";
 
 export type TramePro = {
   genre: "pro";
@@ -117,10 +118,15 @@ function DessinsPro({ trame }: { trame: TramePro }) {
     frame = requestAnimationFrame(peindre);
     return () => cancelAnimationFrame(frame);
   }, [source]);
+  const paire = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const racine = paire.current;
+    return racine ? poserMarques(racine, (ecoute) => source.surLecon(ecoute)) : undefined;
+  }, [source]);
   const pad = source.pad;
   const identite = pad ? identify(pad.id, pad.mapping) : null;
   return (
-    <div className="n3-controller-pair">
+    <div className="n3-controller-pair" ref={paire}>
       <div ref={gauche}>
         <PadMapView
           map={trame.xbox ? XBOX_360 : SWITCH_PRO}

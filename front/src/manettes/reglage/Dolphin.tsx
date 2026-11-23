@@ -2,7 +2,7 @@
  * du clavier. La même trame part toujours ; GameCube, Wiimote et guitare en
  * sont trois lectures (`docs/ecran-manettes.md`). La gauche des dessins lit
  * `readPad`, la droite `heldOn` : ne jamais faire passer l'une par l'autre. */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { REGLAGE } from "../../lib/mots";
 import { NAME_MAX, ROOM_MARK } from "../../lib/keys";
 import { EMULATED } from "../../lib/padmap";
@@ -23,6 +23,7 @@ import {
   Suspension,
   type Ligne,
 } from "./PasAPas";
+import { poserMarques } from "./marques";
 
 export type EntreeDolphin = Pick<
   InputStream,
@@ -77,7 +78,13 @@ export function ManetteDolphin({ trame }: { trame: TrameDolphin }) {
   const [avant, setAvant] = useState(false);
   const [courante, setCourante] = useState<ControlKey | null>(null);
   const [retablir, setRetablir] = useState(false);
+  const dessins = useRef<HTMLDivElement>(null);
   useEffect(() => setVu(console === "wii" ? tenue : 0), [console, tenue]);
+  // Les marques du pas à pas suivent la boucle, hors de React.
+  useEffect(() => {
+    const racine = dessins.current;
+    return racine ? poserMarques(racine, (ecoute) => trame.input.surReglage(ecoute)) : undefined;
+  }, [trame.input]);
   const controls = controlsFor("wii", vu);
   const nomDe = (key: string) => controls.find((one) => one.key === key)?.label ?? key;
   // Les actions du jeu suivent l'appareil de la place : un aperçu les cache.
@@ -197,16 +204,18 @@ export function ManetteDolphin({ trame }: { trame: TrameDolphin }) {
           {vu === tenue ? null : <p>{REGLAGE.apercu(EMULATED[tenue]!.name)}</p>}
         </fieldset>
       ) : null}
-      <Wiring
-        state={state}
-        pad={vu}
-        selected={lecon?.control ?? state.capturing?.control ?? courante ?? "A"}
-        onSelect={(key) => {
-          if (occupe) return;
-          setCourante(key);
-          document.querySelector(`tr[data-cle="${key}"]`)?.scrollIntoView({ block: "nearest" });
-        }}
-      />
+      <div ref={dessins}>
+        <Wiring
+          state={state}
+          pad={vu}
+          selected={lecon?.control ?? state.capturing?.control ?? courante ?? "A"}
+          onSelect={(key) => {
+            if (occupe) return;
+            setCourante(key);
+            document.querySelector(`tr[data-cle="${key}"]`)?.scrollIntoView({ block: "nearest" });
+          }}
+        />
+      </div>
       {lecon ? null : (
         <>
           <h3>{REGLAGE.correspondances}</h3>

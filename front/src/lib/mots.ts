@@ -611,6 +611,29 @@ export const REGARDENT = {
     `${nom} arrive : sa place n'est pas encore annoncée. Si c'est toi sur un autre appareil, recharge cette page pour la retrouver.`,
 } as const;
 
+/** Les mesures de la liaison (`components/Mesures`), au premier niveau : ce
+ * que le joueur lit. Un chiffre qu'on n'a pas encore se dit « pas encore
+ * mesuré », jamais une valeur de repli ni un zéro. Les mots d'atelier restent
+ * sous le pli des mesures techniques. */
+export const MESURES = {
+  titre: "Ta liaison",
+  peintes: (n: number) => `${n} images peintes par seconde`,
+  jeu: (n: number) => `le jeu en fait ${n}`,
+  sousLeJeu: "moins que le jeu",
+  allerRetour: (ms: number) => `${ms} ms d'aller-retour pour tes touches`,
+  pire: (ms: number) => `${ms} ms au pire entre deux images, une fois sur vingt`,
+  pasEncore: "pas encore mesuré",
+  peintesSans: "Images peintes par seconde",
+  jeuSans: "Le jeu",
+  allerRetourSans: "Aller-retour de tes touches",
+  pireSans: "Écart au pire entre deux images",
+  direct: "Trajet direct jusqu'à la salle.",
+  relais: "Trajet par un relais : souvent plus lent, rarement la seule cause d'une saccade.",
+  inconnu: "Trajet inconnu pour l'instant : la page n'a pas encore pu le lire.",
+  legereRefusee: "L'image légère n'existe pas pour la taille d'image de ce jeu.",
+  technique: "Mesures techniques, pour chercher une panne",
+} as const;
+
 /** Le champ du nom (`components/ChampNom`), à l'entrée et dans l'avant-salle :
  * un libellé visible, son aide, la raison d'un refus, et l'aperçu de
  * l'étiquette telle que les autres la verront. */

@@ -1,0 +1,17 @@
+# Le paquet d'Aïn pour le salon, et ce qu'il a été construit depuis.
+# Écrit par `just ain-salon`; relu par front/src/mascotte/salon.test.ts.
+paquet 3b27492cbc2a5f07c97d95f5d0fea8bdb94cb96a35fadbc6d0722c89c31daf7e
+entree 06d310b3f7f275bb13c4ba3fc85b47b1bf0c5383718146ccdd193c6f259e09ba front/package-lock.json
+entree b558e0ab4fbbfdb65d32448bfd940ee0b8d5af4661873e6b5a8cd9a743c00789 front/src/lib/effets.ts
+entree a1400f51754bebe4015a479c40eab83a54685464e7ed1ba70af4da0bf1866bc0 front/src/lib/focus-jeu.ts
+entree ce4e2001da491c5f3a6cce12a48c588f03c887515d4d385ad01e853a87c6e419 front/src/lib/logo.ts
+entree fa1aab8fa0ee555b34a8ec48002e4c35caca95b229279b40086529b52683a462 front/src/mascotte/dessin.ts
+entree 3a9b742ff894b5e13f366553f16b617aca87272a797648ded681eb5ff675ac62 front/src/mascotte/index.ts
+entree 7991239ee4d2fa65ed1d3fc3cb1cf8f7c81299bbdb18d5a1655cf6a5b3b36e3f front/src/mascotte/lecteur.ts
+entree e12fbc286db76f14be658060299b5e370b2f340659d427caabe1691c54c9fecc front/src/mascotte/moteur.ts
+entree f887e60732ebc3de2897d982ce9703a14324cb4259459f1600ceb8b1c1a7182b front/src/mascotte/rendu.ts
+entree 3d68ce0bf84f88ebdb54838b72cb0752e2a5d2bcd2cbf898f9cc6a53812fa0b0 front/src/mascotte/salon.ts
+entree 1936dce6418a7ffcbe6df600608e1c9fe2af362c37c0a177389ab5d50a3d3ea5 front/src/mascotte/scenes-ain.ts
+entree 87b15c9ca8b84789dc5996f7caf4d952365802764747cef42dc28559aaa720bf front/src/mascotte/scenes.ts
+entree 902f9d6f59ffc734142d86a9fd6d98916ab7836af153f0a46a732b1863898982 front/src/retro/image.ts
+entree 40e978671590547401be2580969e3fdab618383e0622935714f70468ffcc3a2c front/vite.ain-salon.config.ts

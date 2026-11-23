@@ -97,6 +97,15 @@ planche port="5391":
 #   just planche-garde --lieux salon --port 5490
 planche-garde *args:
     cd spikes/m3-browser-drive && node planche-ain.mjs {{args}}
+
+# Le paquet d'Aïn pour les pages du salon (`src/mascotte/salon.ts`): un seul
+# fichier sans React, écrit avec sa marque dans
+# `control/nel3ab_control/api/routes/retro/` (`ain.js`, `ain.SOURCES`).
+# `front-build` le reconstruit avec la page; `salon.test.ts` (dans `check`)
+# refuse un paquet plus vieux que ses sources, ou plus lourd que son plafond.
+# Le chantier salon le branche dans ses pages.
+ain-salon:
+    cd front && npx vite build --config vite.ain-salon.config.ts --logLevel warn
 # ==== fin mascotte ====
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
@@ -138,6 +147,7 @@ contract-check:
 # and stamps it with a hash of what it was built from.
 front-build:
     cd front && npm run build && node stamp.mjs
+    just ain-salon
 
 # Les unités installées sont-elles celles du dépôt ?
 #

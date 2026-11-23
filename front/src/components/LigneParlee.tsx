@@ -17,6 +17,14 @@ import { useEffect, useRef, useState } from "react";
 import { phraseDemande, phraseLiaison } from "../lib/liaison-mots";
 import type { Liaison } from "../media/liaison";
 
+/** Le temps qu'une nouvelle garde la ligne : une phrase d'état qui arrive
+ * avant s'ajoute à elle au lieu de la remplacer. Un lecteur d'écran lit une
+ * région polie quand elle se calme ; une arrivée remplacée 90 ms plus tard
+ * par « La salle 1 redémarre. » n'était jamais lue (plan personnes,
+ * places-demande 14, A11Y-18). 1,5 s couvre une phrase courte dite par une
+ * synthèse vocale ; au-delà, la phrase d'état remplace, comme avant. */
+export const TENUE_NOUVELLE_MS = 1500;
+
 export function LigneParlee({
   liaison,
   salle,
@@ -44,20 +52,30 @@ export function LigneParlee({
   images.current = peintes;
   // La clé de l'état sans ses durées: c'est elle qui décide s'il y a du neuf.
   const cle = JSON.stringify({ ...liaison, depuisMs: undefined, niveau: undefined });
+  /** La dernière nouvelle dite et son heure, pour `TENUE_NOUVELLE_MS`. */
+  const derniere = useRef<{ texte: string; a: number } | null>(null);
   useEffect(() => {
     const phrase = phraseLiaison(avant.current, liaison, salle, images.current);
     avant.current = liaison;
-    if (phrase !== "") setDit(phrase);
+    if (phrase === "") return;
+    const tenue = derniere.current;
+    derniere.current = null;
+    setDit(tenue && Date.now() - tenue.a < TENUE_NOUVELLE_MS ? `${tenue.texte} ${phrase}` : phrase);
     // `liaison` change deux fois par seconde par ses durées; seule sa clé
     // compte ici.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle, salle]);
   const demandee = phraseDemande(demande, delai);
   useEffect(() => {
-    if (demandee !== "") setDit(demandee);
+    if (demandee === "") return;
+    // La demande a remplacé la nouvelle : une phrase d'état ne la ramène pas.
+    derniere.current = null;
+    setDit(demandee);
   }, [demandee]);
   useEffect(() => {
-    if (nouvelle !== null && nouvelle.texte !== "") setDit(nouvelle.texte);
+    if (nouvelle === null || nouvelle.texte === "") return;
+    setDit(nouvelle.texte);
+    derniere.current = { texte: nouvelle.texte, a: Date.now() };
     // La clé seule décide : le texte voyage avec elle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nouvelle?.cle]);

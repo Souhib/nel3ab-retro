@@ -1,7 +1,7 @@
 /** La ligne parlée dit aussi les nouvelles des places et de l'invitation,
  * une fois chacune, sans seconde région. */
 import { render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { LigneParlee } from "./LigneParlee";
 
 const ligne = (nouvelle: { texte: string; cle: number } | null) => (
@@ -42,4 +42,65 @@ it("jumeau : la même clé ne redit rien après une autre phrase", () => {
     />,
   );
   expect(screen.getByRole("status")).not.toHaveTextContent("Lien copié.");
+});
+
+/* Plan personnes, places-demande 14 : une arrivée dite, puis l'état de la
+   salle qui change 90 ms après. Un lecteur d'écran lit la région quand elle
+   se calme : remplacée aussitôt, l'arrivée n'était jamais lue. */
+const avec = (
+  liaison: Parameters<typeof LigneParlee>[0]["liaison"],
+  nouvelle: { texte: string; cle: number } | null,
+) => (
+  <LigneParlee
+    liaison={liaison}
+    salle={1}
+    demande={null}
+    delai={10}
+    peintes={0}
+    nouvelle={nouvelle}
+  />
+);
+
+it("une phrase d'état qui suit de près une arrivée s'y ajoute au lieu de l'effacer", () => {
+  vi.useFakeTimers();
+  try {
+    const rendu = render(avec({ etat: "ok" }, { texte: "Bo prend la place 2.", cle: 1 }));
+    vi.advanceTimersByTime(90);
+    rendu.rerender(
+      avec({ etat: "redemarre", arrivee: false }, { texte: "Bo prend la place 2.", cle: 1 }),
+    );
+    const dit = screen.getByRole("status").textContent ?? "";
+    expect(dit).toContain("Bo prend la place 2.");
+    expect(dit).toContain("redémarre");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("jumeau : une phrase d'état qui vient longtemps après l'arrivée la remplace", () => {
+  vi.useFakeTimers();
+  try {
+    const rendu = render(avec({ etat: "ok" }, { texte: "Bo prend la place 2.", cle: 1 }));
+    vi.advanceTimersByTime(5000);
+    rendu.rerender(
+      avec({ etat: "redemarre", arrivee: false }, { texte: "Bo prend la place 2.", cle: 1 }),
+    );
+    const dit = screen.getByRole("status").textContent ?? "";
+    expect(dit).not.toContain("Bo prend la place 2.");
+    expect(dit).toContain("redémarre");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("jumeau : deux phrases d'état de suite ne s'additionnent pas", () => {
+  vi.useFakeTimers();
+  try {
+    const rendu = render(avec({ etat: "redemarre", arrivee: false }, null));
+    vi.advanceTimersByTime(90);
+    rendu.rerender(avec({ etat: "fermee" }, null));
+    expect(screen.getByRole("status").textContent ?? "").not.toContain("redémarre");
+  } finally {
+    vi.useRealTimers();
+  }
 });

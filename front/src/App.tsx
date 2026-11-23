@@ -51,13 +51,7 @@ import { CoteBorne } from "./components/CoteBorne";
 import { Credit } from "./components/Credit";
 import { Fronton } from "./components/Fronton";
 import { identify } from "./media/families";
-import {
-  activiteDolphin,
-  SANS_ACTIVITE,
-  verificationDolphin,
-  verificationPro,
-  type ManetteLue,
-} from "./lib/verification";
+import { verificationDolphin, verificationPro, type ManetteLue } from "./lib/verification";
 import { Coin } from "./components/Coin";
 import { EcranEteint, phraseDuRepos } from "./components/EcranEteint";
 import { PanneauCommande } from "./components/PanneauCommande";
@@ -137,8 +131,21 @@ import { Bande } from "./components/Bande";
 import { BarreSalle, BoutonSalle } from "./components/BarreSalle";
 import { FeuilleSalle } from "./components/FeuilleSalle";
 import { ManetteSeule } from "./components/ManetteSeule";
-import { COLUMN, rememberColumn, storedColumn, widest } from "./lib/column";
-import { publishProfile, useBindings, useRoomReference } from "./lib/bindings";
+import { COLUMN, largeurPanneau, rememberColumn, storedColumn, widest } from "./lib/column";
+import {
+  enAttente,
+  publishProfile,
+  reessayer,
+  useBindings,
+  useRoomReference,
+} from "./lib/bindings";
+import { ouvrirReglage, useReglage, type Onglet } from "./manettes/entree";
+import { HoteReglage } from "./manettes/HoteReglage";
+import { ToutesLesTouches } from "./manettes/ToutesLesTouches";
+import type { TrameDolphin } from "./manettes/reglage/Dolphin";
+import type { TramePro } from "./manettes/reglage/Pro";
+import type { Bande as BandeDuReglage } from "./manettes/reglage/Reglage";
+import { deviceLabel } from "./lib/faces";
 import { cn } from "./lib/cn";
 import { arrange, avecAvances, MANETTES, selonAppareil } from "./lib/settings";
 import { aideDeLaSalle, appareilDe, pour } from "./lib/appareil";
@@ -170,7 +177,14 @@ import type { ControlKey } from "./media/pad";
 import type { Session, Snapshot } from "./media/session";
 import { clipAide, clipLabel, micAide } from "./lib/clip";
 import { SwitchBindings } from "./components/SwitchBindings";
-import { CONSOLES, launchable, moteurDe, preparable, usesProInput } from "./lib/consoles";
+import {
+  CONSOLES,
+  consoleName,
+  launchable,
+  moteurDe,
+  preparable,
+  usesProInput,
+} from "./lib/consoles";
 import {
   PADS,
   launchPicks,
@@ -216,6 +230,7 @@ import {
   etatDuCadre,
   lieuDesAvis,
   modeDuCadre,
+  ouEstLaMascotte,
   type Role as RoleDuCadre,
 } from "./lib/cadre";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
@@ -635,10 +650,9 @@ function Room({
   const [volume, setVolume] = useState(START_VOLUME);
   const [deviceRate, setDeviceRate] = useState(false);
   const [lipsync, setLipsync] = useState(false);
-  const [bindings, setBindings] = useState(false);
-  /** L'onglet où s'ouvre « touches et manettes »: la carte du clavier l'ouvre
-   * sur les touches, le menu sur la manette. */
-  const [ongletTouches, setOngletTouches] = useState<"pad" | "key">("pad");
+  /** Le panneau « Touches et manettes », ouvert par `ouvrirReglage` (K05) :
+   * il prend la place des rangs de la colonne, jamais celle de l'image. */
+  const reglage = useReglage();
   /** La préparation est-elle mise de côté par quelqu'un qui ne l'a pas lancée ?
    *
    * Locale, et surtout pas partagée: mettre le panneau de côté ne quitte pas la
@@ -663,7 +677,15 @@ function Room({
      dit maintenant qu'il n'y a pas de jeu, et « Choisir un jeu » l'ouvre
      (`EcranEteint`, 23 novembre 2026). */
   const [menu, setMenu] = useState(false);
-  pourCtrl.current = { feuille, menu, touches: bindings };
+  /** Ouvre « Touches et manettes » sur `onglet`. Le menu modal se ferme : il
+   * rendrait la colonne inerte. Tenue en main, la colonne vit dans la feuille
+   * agrandie, qui s'ouvre avec lui. */
+  const ouvrirLesTouches = (onglet: Onglet) => {
+    setMenu(false);
+    if (tenu) setFeuille("agrandie");
+    ouvrirReglage(onglet);
+  };
+  pourCtrl.current = { feuille, menu, touches: reglage !== null };
   // Le menu, ou quelqu'un qui demande ta place, passent avant la feuille :
   // c'est un dialogue modal, qui rendrait le menu ou la demande inertes
   // dessous. La demande ne dure que dix secondes.
@@ -976,7 +998,8 @@ function Room({
       if (typingIn(event.target)) return;
       // La feuille se ferme elle-même par Échap: un `preventDefault` ici la
       // garderait ouverte.
-      if (event.key !== "Escape" || menu || bindings || feuille) return;
+      // Le panneau des touches garde son Échap : il annule d'abord, puis ferme.
+      if (event.key !== "Escape" || menu || reglage !== null || feuille) return;
       // Sans `preventDefault`, la fin de ce même appui est une « demande de
       // fermeture » pour le navigateur, et le menu, ouvert en dialogue modal
       // pendant l'événement, la recevait: il s'ouvrait et se refermait aussitôt
@@ -986,7 +1009,7 @@ function Room({
     };
     addEventListener("keydown", press);
     return () => removeEventListener("keydown", press);
-  }, [menu, bindings, feuille]);
+  }, [menu, reglage, feuille]);
 
   /* Le modèle de focus (`lib/focus-jeu`): le clavier du jeu vit dans la zone de
      jeu, et partout ailleurs Entrée, Espace et les flèches font ce que fait le
@@ -1267,7 +1290,11 @@ function Room({
      c'est `setupPlayer` qui monte le panneau — et le seul bouton d'annulation
      appartient à l'initiateur. Le menu, « quitter la salle » et l'image sont
      dessous. C'était le seul endroit de la page dont on ne pouvait pas sortir. */
-  const configuring = bindings || (Boolean(setupPlayer) && !setupHidden);
+  /** La préparation montée en dialogue : elle héberge encore son propre
+   * réglage (`Bindings`, `SwitchBindings`) tant que le chantier des menus ne
+   * l'a pas sortie dans la colonne. */
+  const preparationMontee = Boolean(setupPlayer) && !setupHidden;
+  const configuring = reglage !== null || preparationMontee;
   /* Une NOUVELLE préparation se montre, même si la précédente avait été mise de
      côté: ce qu'on a écarté est cette préparation-là, pas toutes les suivantes. */
   const setupId = pendingSetup?.id ?? null;
@@ -1310,6 +1337,7 @@ function Room({
     manette: session !== null && onTouch && (!regardeParChoix || padOnly),
     voile,
     bare,
+    reglage: reglage !== null,
   };
   /** Ce qui est monté par-dessus l'image, décidé en un seul endroit. */
   const couches = couchesDeLaSalle(couchesVoulues);
@@ -1680,10 +1708,10 @@ function Room({
             icon: <KeysIcon className="h-full w-full" />,
             // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
             // pour changer une touche est exactement ce qu'on ne veut pas.
-            onEnter: () => {
-              setOngletTouches("pad");
-              setBindings(true);
-            },
+            // Le panneau vit dans la colonne, que le menu modal rendrait
+            // inerte : le menu se ferme, et le jeu de cette place reçoit un
+            // état neutre tant que le panneau est ouvert.
+            onEnter: () => ouvrirLesTouches("manette"),
           },
           {
             id: "pad",
@@ -2233,7 +2261,10 @@ function Room({
     role: roleDuCadre,
     manette: manetteDuCadre,
     largeurColonne: column,
-    largeurPanneau: null,
+    // Le panneau des touches demande plus que la colonne : deux dessins côte
+    // à côte, puis une table à trois colonnes (`lib/column`, K24).
+    largeurPanneau:
+      reglage !== null && modeSalle === "bureau" ? largeurPanneau(fenetre.width, column) : null,
     agrandie: bare && !tenu,
   });
   /* Le panneau de commande sous l'image, au bureau, quand l'image n'y perd
@@ -2298,11 +2329,9 @@ function Room({
    * manettes ajoute à l'instantané (K34). */
   const lireLEntree = (): Releve => {
     const etat = session?.input.state();
-    if (!etat) return { activite: SANS_ACTIVITE, sinceHeardMs: null };
-    return {
-      activite: usesProInput(consoleDuJeu) ? SANS_ACTIVITE : activiteDolphin(etat.pressed),
-      sinceHeardMs: etat.sinceHeardMs,
-    };
+    if (!etat) return { activite: { suivies: new Set(), actives: new Set() }, sinceHeardMs: null };
+    // La trame qui part, Dolphin ou Pro : sticks et gâchettes compris (K34).
+    return { activite: etat.activite, sinceHeardMs: etat.sinceHeardMs };
   };
   /** La pastille de l'image agrandie : trois secondes après Ctrl, puis
    * trois secondes après chaque mouvement de la souris (colonne.11). */
@@ -2425,6 +2454,16 @@ function Room({
   const panneauTenu = tenu && !padOnly && couches.colonne !== "feuille" ? geo.panneau.rect : null;
   /** Le crédit de la borne : les places libres, compté comme les places. */
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
+  /** Le bout droit du panneau de commande : « Toutes les touches », qui ouvre
+   * le panneau des touches sur le clavier, puis le crédit. */
+  const finDuPanneau = (
+    <>
+      {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
+          « Touches et manettes » passe par la feuille. */}
+      {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
+      {credit}
+    </>
+  );
   const pastilleAgrandie =
     agrandieVue && bare && !tenu && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
   const takeHalf = () => {
@@ -2451,6 +2490,78 @@ function Room({
     room?.game?.console,
   );
   const manetteTenue = pendingSetup ? setupChoice : pad;
+  /** Le jeu dont le panneau des touches lit la fiche : celui qu'on prépare,
+   * sinon celui de la salle. */
+  const jeuDesTouches = setupGame ?? room?.game;
+  const envoiDuReglage = { enAttente: () => enAttente(), reessayer };
+  /** La trame que règle « Touches et manettes » : la trame Pro pour une
+   * Switch ou une Xbox 360, la trame Dolphin sinon. Rien sans session. */
+  const trameDuReglage: TrameDolphin | TramePro | null =
+    !shot || !session
+      ? null
+      : configuringSwitch
+        ? {
+            genre: "pro",
+            console:
+              consoleName(jeuDesTouches?.console) ??
+              (jeuDesTouches?.console === "x360" ? "Xbox 360" : "Switch"),
+            xbox: jeuDesTouches?.console === "x360",
+            manette:
+              deviceLabel(4, jeuDesTouches?.console) ??
+              (jeuDesTouches?.console === "x360" ? "manette Xbox 360" : "manette Pro"),
+            source: session.input.switch,
+            input: session.input,
+            guide: jeuDesTouches?.guide,
+            place: port as 1 | 2 | 3 | 4 | null,
+            envoi: envoiDuReglage,
+          }
+        : {
+            genre: "dolphin",
+            console: consoleTouches,
+            tenue: manetteTenue,
+            actions: jeuDesTouches?.guide?.actions[String(manetteTenue)],
+            state: shot.input,
+            input: session.input,
+            refresh: () => session.refresh(),
+            /* Le bouton n'existe que pour celui qui tient la salle. Le service
+               vérifie l'adresse de son côté: cacher un bouton n'est pas une
+               règle, c'est du confort. */
+            publier: publishes
+              ? async (chosen) => {
+                  const profile = session.input.keyProfileNamed(chosen);
+                  if (!profile) return false;
+                  const published = await publishProfile(chosen, profile);
+                  if (published) {
+                    session.input.refreshRoomKeys();
+                    session.refresh();
+                  }
+                  return published;
+                }
+              : undefined,
+            profils: (
+              <section className="n3-preparation" aria-label="Mes profils complets">
+                {room?.game ? <GameCard game={room.game} kind={pad} compact /> : null}
+                <SetupProfiles
+                  key={room?.game ? setupGameKey(room.game) : "idle"}
+                  game={room?.game ?? undefined}
+                  input={session.input}
+                  state={shot.input}
+                  selected={pad}
+                  allowed={[pad]}
+                  onSelect={() => session.refresh()}
+                  disabled={shot.input.capturing !== null || shot.input.lesson !== null}
+                />
+              </section>
+            ),
+            envoi: envoiDuReglage,
+          };
+  /** Ce que la salle dit d'elle quand elle ne vit pas, en tête du panneau. */
+  const ditDuReglage = dire(liaison, salle(), moteurDe(room?.game?.console));
+  const bandeDuReglage: BandeDuReglage | null =
+    geo.etat === "vit" || !ditDuReglage.titre ? null : { phrase: ditDuReglage.titre };
+  /** Une partie tourne et une autre place que la mienne est tenue. */
+  const autresJouent =
+    Boolean(room?.game) && occupied.some((tenue, index) => tenue && index + 1 !== port);
 
   /* Les avis de la salle, en une pile, et JAMAIS sur l'image : en tête de
      la colonne quand elle est à côté, dans une bande noire où la pile tient
@@ -2583,7 +2694,15 @@ function Room({
       jeu={frontonPossible ? null : (room?.game?.name ?? null)}
       ancre={!tenu && !frontonVisible}
       onQuitter={quitterLaSalle}
-      largeur={couches.colonne === "a-cote" ? column : null}
+      // Le panneau des touches élargit la colonne : la largeur que le cadre
+      // a donnée (`largeurPanneau`), l'image se range dans le reste.
+      largeur={
+        couches.colonne === "a-cote"
+          ? reglage !== null && geo.colonne
+            ? geo.colonne.w
+            : column
+          : null
+      }
       forme={couches.colonne ?? "a-cote"}
       margeHaut={lieuAvis.lieu === "colonne" ? hauteurPile : undefined}
       avis={lieuAvis.lieu === "colonne" ? avis : null}
@@ -2630,7 +2749,7 @@ function Room({
       }
       panneau={
         panneauSous || panneauTenu ? null : (
-          <PanneauCommande forme="colonne" fin={credit}>
+          <PanneauCommande forme="colonne" fin={finDuPanneau}>
             {places}
           </PanneauCommande>
         )
@@ -2765,7 +2884,24 @@ function Room({
         ),
       }}
       vue={
-        mode === "details" ? (
+        reglage !== null ? (
+          <HoteReglage
+            trame={trameDuReglage}
+            autres={autresJouent}
+            vit={geo.etat === "vit"}
+            hote={ouEstLaMascotte(geo, "fier")}
+            bande={bandeDuReglage}
+            // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
+            // revient à « Changer » de la vue remontée, sinon au rang des
+            // touches, ou à celui de la manette.
+            repli={() =>
+              document.getElementById("changerTouches") ??
+              document.getElementById("tesTouches") ??
+              document.getElementById("taManette") ??
+              document.getElementById("openMenu")
+            }
+          />
+        ) : mode === "details" ? (
           <div id="stats">
             <MesuresTechniques>
               {shot ? (
@@ -2793,10 +2929,7 @@ function Room({
               setVueFermee(true);
               retenirAideVue(true);
             }}
-            onChanger={() => {
-              setOngletTouches(vueMontree === "clavier" ? "key" : "pad");
-              setBindings(true);
-            }}
+            onChanger={() => ouvrirLesTouches(vueMontree === "clavier" ? "clavier" : "manette")}
           />
         ) : null
       }
@@ -2896,7 +3029,9 @@ function Room({
             />
           ) : null}
 
-          {learning ? (
+          {/* Le panneau des touches dit lui-même l'étape : la bande sous
+              l'image ne le répète pas (une préparation mise de côté la garde). */}
+          {learning && reglage === null ? (
             <div className="flex items-center justify-between gap-4 border-t border-indigo/40 bg-indigo/10 px-4 py-2 text-corps">
               <span>
                 apprentissage de la manette, appuie sur{" "}
@@ -3020,7 +3155,7 @@ function Room({
           </div>
         ) : null}
         {panneauSous ? (
-          <PanneauCommande forme="sous" hauteur={panneauSous.h} fin={credit}>
+          <PanneauCommande forme="sous" hauteur={panneauSous.h} fin={finDuPanneau}>
             {places}
           </PanneauCommande>
         ) : null}
@@ -3050,7 +3185,7 @@ function Room({
             <PanneauCommande
               forme={geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme}
               hauteur={panneauTenu.h}
-              fin={credit}
+              fin={finDuPanneau}
             >
               {places}
             </PanneauCommande>
@@ -3231,97 +3366,60 @@ function Room({
           </div>
         </Surcouche>
       ) : null}
-      {configuring && shot && session && configuringSwitch ? (
+      {/* La préparation à plusieurs garde son dialogue, avec le réglage
+          d'avant dedans, tant que le chantier des menus ne l'a pas sortie
+          dans la colonne. « Touches et manettes » hors préparation est le
+          panneau de la colonne (`HoteReglage`). */}
+      {preparationMontee && shot && session && configuringSwitch ? (
         <SwitchBindings
           source={session.input.switch}
           input={session.input}
           pending={pendingSetup}
-          game={setupGame ?? room?.game}
+          game={jeuDesTouches}
           send={tell.prepare}
-          close={() => {
-            setBindings(false);
-            setSetupHidden(true);
-          }}
+          close={() => setSetupHidden(true)}
         />
-      ) : configuring && shot ? (
+      ) : preparationMontee && shot && session && pendingSetup ? (
         <Bindings
-          onglet={ongletTouches}
           console={consoleTouches}
           held={manetteTenue}
           readOnly={Boolean(setupPlayer?.ready)}
-          actions={(setupGame ?? room?.game)?.guide?.actions[String(manetteTenue)]}
+          actions={jeuDesTouches?.guide?.actions[String(manetteTenue)]}
           preparation={
-            pendingSetup && session ? (
-              <Preparation
-                key={pendingSetup.id}
-                pending={pendingSetup}
-                game={setupGame}
-                input={session.input}
-                state={shot.input}
-                selected={setupChoice}
-                onSelect={(kind) => {
-                  setSetupChoice(kind);
-                  session.refresh();
-                }}
-                send={tell.prepare}
-                onLater={() => setSetupHidden(true)}
-              />
-            ) : undefined
+            <Preparation
+              key={pendingSetup.id}
+              pending={pendingSetup}
+              game={setupGame}
+              input={session.input}
+              state={shot.input}
+              selected={setupChoice}
+              onSelect={(kind) => {
+                setSetupChoice(kind);
+                session.refresh();
+              }}
+              send={tell.prepare}
+              onLater={() => setSetupHidden(true)}
+            />
           }
-          profiles={
-            !pendingSetup && session ? (
-              <section className="n3-preparation" aria-label="Mes profils complets">
-                {room?.game ? <GameCard game={room.game} kind={pad} compact /> : null}
-                <SetupProfiles
-                  key={room?.game ? setupGameKey(room.game) : "idle"}
-                  game={room?.game ?? undefined}
-                  input={session.input}
-                  state={shot.input}
-                  selected={pad}
-                  allowed={[pad]}
-                  onSelect={() => session.refresh()}
-                  disabled={shot.input.capturing !== null || shot.input.lesson !== null}
-                />
-              </section>
-            ) : undefined
-          }
-          onPickKeys={puis((chosen: string) => session?.input.pickKeys(chosen))}
-          onNewKeys={puis((chosen: string) => session?.input.newKeys(chosen))}
-          onForgetKeys={puis((chosen: string) => session?.input.forgetKeys(chosen))}
-          /* Le bouton n'existe que pour celui qui tient la salle. Le service
-             vérifie l'adresse de son côté: cacher un bouton n'est pas une
-             règle, c'est du confort. */
-          onPublish={
-            publishes
-              ? async (chosen) => {
-                  const profile = session?.input.keyProfileNamed(chosen);
-                  if (!profile) return false;
-                  const published = await publishProfile(chosen, profile);
-                  if (published) {
-                    session?.input.refreshRoomKeys();
-                    session?.refresh();
-                  }
-                  return published;
-                }
-              : undefined
-          }
+          onPickKeys={puis((chosen: string) => session.input.pickKeys(chosen))}
+          onNewKeys={puis((chosen: string) => session.input.newKeys(chosen))}
+          onForgetKeys={puis((chosen: string) => session.input.forgetKeys(chosen))}
+          onPublish={trameDuReglage?.genre === "dolphin" ? trameDuReglage.publier : undefined}
           state={shot.input}
           // Chaque action est suivie d'un `refresh` (`puis`).
-          onUse={puis((index: number | null) => session?.input.useP(index))}
+          onUse={puis((index: number | null) => session.input.useP(index))}
           onCapture={puis((control: ControlKey, source: "pad" | "key", sign?: 1 | -1) =>
-            session?.input.beginCapture(control, source, sign),
+            session.input.beginCapture(control, source, sign),
           )}
-          onCancel={puis(() => session?.input.cancelCapture())}
-          onLearn={puis(() => session?.input.beginLesson(consoleTouches, manetteTenue))}
-          onSkip={puis(() => session?.input.skipLessonStep())}
-          onResetPad={puis(() => session?.input.resetPad(consoleTouches, manetteTenue))}
-          onResetKeys={puis(() => session?.input.resetKeys())}
+          onCancel={puis(() => session.input.cancelCapture())}
+          onLearn={puis(() => session.input.beginLesson(consoleTouches, manetteTenue))}
+          onSkip={puis(() => session.input.skipLessonStep())}
+          onResetPad={puis(() => session.input.resetPad(consoleTouches, manetteTenue))}
+          onResetKeys={puis(() => session.input.resetKeys())}
           onClose={() => {
-            session?.input.cancelCapture();
-            setBindings(false);
-            // Échap et le clic sur le fond doivent aussi pouvoir écarter une
-            // préparation, sinon ils ne font rien du tout quand c'est elle qui
-            // monte le panneau.
+            session.input.cancelCapture();
+            // Échap et le clic sur le fond écartent la préparation : sa
+            // croix est cachée, et c'est elle qui monte le panneau.
             setSetupHidden(true);
           }}
         />

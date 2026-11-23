@@ -623,6 +623,11 @@ async function principal() {
       const vusJoueur = await pleins(joueur);
       if (vusJoueur.length > 1) fautes.push(`joueur: ${vusJoueur.length} boutons pleins (${vusJoueur.join(", ")})`);
       // Rendre sa place, et regarder: le bloc de rôle offre alors la sienne.
+      // Le résumé au milieu de la colonne d'abord. Depuis que la maison
+      // d'Aïn agrandit le coin (23 novembre 2026), il arrive au pied de la
+      // colonne, là où « Plus bas » est collé, et le clic ne l'ouvrait plus
+      // (« Node is either not clickable » sur #watchOnly) ; centré, il s'ouvre.
+      await joueur.$eval("#autresReglages > summary", (el) => el.scrollIntoView({ block: "center" }));
       await joueur.click("#autresReglages > summary");
       await joueur.click("#watchOnly");
       if (!(await jusqua(() => joueur.$("#takePad").then(Boolean), 5000)))

@@ -30,7 +30,7 @@ from nel3ab_control import session_salle
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.schemas.salle import DernierJeu, Salle, SiegeVu
-from nel3ab_control.catalogue import Catalogue, freshest
+from nel3ab_control.catalogue import Catalogue, CatalogueGame, freshest
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.session_salle import Ouverture, demarrage_actuel
 from nel3ab_control.settings import Settings
@@ -78,6 +78,10 @@ EtatUnite = Literal["ouverte", "redemarre", "fermee"]
 
 #: Pourquoi une salle est fermée, lu dans systemd. Voir `_fermee`.
 RaisonFermeture = Literal["inactivite", "arret", "panne"]
+
+#: L'identité la plus longue qui voyage jusqu'au worker, la borne de la ligne
+#: de lancement (`worker.launch_prepared`, `control.rs`).
+PERSONNE_MAX = 64
 
 #: Le code de sortie du worker qui ferme une salle faute d'activité
 #: (`nap.rs`), que `RestartPreventExitStatus=42` empêche de relancer.
@@ -149,6 +153,50 @@ class SallePrise(HTTPException):
             status_code=status.HTTP_409_CONFLICT,
             detail=f"la salle {numero} n'est pas fermée ; rejoins-la plutôt que de l'ouvrir",
         )
+
+
+class JeuInconnu(HTTPException):
+    """Le jeu demandé n'est pas dans la bibliothèque que les salles ont écrite."""
+
+    def __init__(self, cle: str) -> None:
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"le jeu « {cle} » n'est pas dans la bibliothèque",
+        )
+
+
+class SwitchPrise(HTTPException):
+    """Une autre salle tient la Switch de la machine (`switch.py`)."""
+
+    def __init__(self, numero: int) -> None:
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"la salle {numero} joue déjà à la Switch, et une seule salle le peut ; "
+                "rejoins-la ou choisis un autre jeu"
+            ),
+        )
+
+
+class IdentiteIntransmissible(HTTPException):
+    """L'identité ne peut pas voyager jusqu'au worker: le même refus qu'un lancement."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="ton identité ne peut pas être transmise à la salle pour ta sauvegarde",
+        )
+
+
+@dataclass(frozen=True)
+class SurUnJeu:
+    """Ouvrir la salle sur ce jeu, cet emplacement, pour cette personne (D17)."""
+
+    cle: str
+    #: 0 partie neuve, 2 « ma sauvegarde ».
+    sauvegarde: int
+    #: L'identité authentifiée de qui ouvre, jamais un nom envoyé par la page.
+    login: str
 
 
 class SalleRebelle(HTTPException):
@@ -496,24 +544,39 @@ class SallesController:
         """
         return _etat_du_mot(await self._mot(numero))
 
-    async def ouvrir(self, voulue: int | None = None) -> Salle:
+    async def ouvrir(self, voulue: int | None = None, sur: SurUnJeu | None = None) -> Salle:
         """Allume la salle demandée, ou le premier emplacement libre, ou refuse.
 
         Une salle demandée qui n'est pas fermée est refusée (409) plutôt que
         remplacée par une autre: « Rouvrir la salle 1 » qui ouvrirait la 2
         enverrait chacun dans une salle différente (D17).
+
+        `sur` ouvre la salle directement sur un jeu. Le jeu est cherché dans la
+        bibliothèque JUSTE avant le démarrage: une clé absente fait démarrer le
+        worker sur son jeu par défaut si on la lui donne (`chosen_rom`), et c'est
+        ici qu'on la refuse. Le worker la vérifie encore contre sa propre
+        bibliothèque et reste sur son menu si elle a disparu entre-temps. Rendue
+        avec le jeu demandé: le salon l'a demandé, la salle le démarre.
         """
         if voulue is not None:
             if voulue not in SALLES:
                 raise SalleInconnue(voulue)
             if await self.unite(voulue) != "fermee":
                 raise SallePrise(voulue)
+        jeu = await self._jeu_demande(sur) if sur else None
         for numero in SALLES if voulue is None else (voulue,):
             # Une salle que systemd relance n'est PAS libre: voir `unite`.
             if await self.unite(numero) != "fermee":
                 continue
+            ordre = (
+                session_salle.OrdreOuverture(
+                    cle=sur.cle, sauvegarde=sur.sauvegarde, personne=sur.login
+                )
+                if sur
+                else None
+            )
             try:
-                self._preparer(numero)
+                self._preparer(numero, ordre)
             except OSError as erreur:
                 # Un dossier de salle remplacé par un lien, ou illisible: la
                 # salle ne démarre pas, et la raison remonte au lieu d'une 500.
@@ -522,10 +585,46 @@ class SallesController:
                 ) from erreur
             code, dit = await self._lancer(["sudo", "-n", "systemctl", "start", unite(numero)])
             if code != 0:
+                # L'ordre ne doit pas attendre le prochain démarrage de la salle.
+                session_salle.retirer_ordre(self._settings.salles_dir, numero)
                 raise SalleRebelle(numero, dit)
             self._noter_ouverture(numero)
-            return Salle(numero=numero, ouverte=True, chemin=chemin(numero))
+            return Salle(
+                numero=numero,
+                ouverte=True,
+                chemin=chemin(numero),
+                jeu=jeu.name if jeu else None,
+                cle=jeu.key if jeu else None,
+                console=_console_connue(jeu.console) if jeu else None,
+                switch=jeu is not None and CONSOLES.lock(jeu.console) == "switch",
+            )
         raise PlusDeSalle
+
+    async def _jeu_demande(self, sur: SurUnJeu) -> CatalogueGame:
+        """Le jeu demandé tel que la bibliothèque le décrit, ou un refus.
+
+        L'identité part au worker sur une ligne, comme la ligne de lancement:
+        les mêmes limites, et le même refus quand elle ne peut pas voyager.
+        """
+        if len(sur.login.encode()) > PERSONNE_MAX or any(b in sur.login for b in " \t\n\r"):
+            raise IdentiteIntransmissible()
+        if sur.login in ("", "-"):
+            raise IdentiteIntransmissible()
+        catalogue = await to_thread.run_sync(freshest, self._settings.salles_dir)
+        jeu = (
+            next((one for one in catalogue.games if one.key == sur.cle), None)
+            if catalogue
+            else None
+        )
+        if jeu is None:
+            raise JeuInconnu(sur.cle)
+        if CONSOLES.lock(jeu.console) == "switch":
+            # Une seule salle peut jouer à la Switch. Une salle fermée ne la
+            # tient pas; une salle qui redémarre vers un jeu Switch, si.
+            for salle in await self.etat():
+                if salle.switch:
+                    raise SwitchPrise(salle.numero)
+        return jeu
 
     async def fermer(self, numero: int) -> Salle:
         """Éteint une salle. Éteindre une salle déjà éteinte ne fait rien."""
@@ -535,6 +634,7 @@ class SallesController:
         if code != 0:
             raise SalleRebelle(numero, dit)
         session_salle.retirer_ouverture(self._settings.salles_dir, numero)
+        session_salle.retirer_ordre(self._settings.salles_dir, numero)
         return Salle(numero=numero, ouverte=False, chemin=chemin(numero))
 
     def _noter_ouverture(self, numero: int) -> None:
@@ -554,19 +654,29 @@ class SallesController:
         except OSError:
             LOG.warning("le repère d'ouverture de la salle %s n'a pas pu être posé", numero)
 
-    def _preparer(self, numero: int) -> None:
-        """Une salle qu'on ouvre arrive sur son menu, pas sur un jeu.
+    def _preparer(self, numero: int, ordre: session_salle.OrdreOuverture | None = None) -> None:
+        """Une salle qu'on ouvre arrive sur son menu, ou sur le jeu de l'ordre.
 
         Sans ce marqueur, le worker relance le dernier jeu retenu dans ce
         dossier, et une salle qu'on vient d'ouvrir démarrerait un émulateur que
         personne n'a demandé. Posé ici plutôt que par l'unité: systemd sait
         créer un dossier, pas y écrire un fichier.
 
+        Le marqueur est posé AUSSI avec un ordre: c'est le worker qui le retire
+        en suivant l'ordre. Un worker d'avant D17, qui ne lit pas l'ordre, ouvre
+        donc la salle sur son menu plutôt que sur le dernier jeu. Sans ordre,
+        un ordre resté d'une ouverture précédente est retiré: il ne doit pas
+        décider de celle-ci.
+
         Par le descripteur du dossier, sans suivre de lien (ADR D36): un lien
         laissé à ce nom par un moteur est retiré, pas suivi.
         """
         with session_salle.dossier(self._settings.salles_dir, numero, creer=True) as fd:
             session_salle.poser_vide(fd, SANS_JEU)
+            if ordre is None:
+                session_salle.retirer(fd, session_salle.ORDRE)
+            else:
+                session_salle.ecrire(fd, session_salle.ORDRE, ordre.texte())
 
 
 def _etat_du_mot(mot: str) -> EtatUnite:

@@ -28482,6 +28482,36 @@ l'essai normalisait le chemin avant de l'envoyer, et la demande arrivait sur
 le catalogue lui-même. La clé est maintenant encodée dans l'essai, pour que ce
 soit le salon qui la refuse.
 
+**Rejouer sur ma sauvegarde, sans passer par le menu.** La seconde moitié de
+« ouvrir une salle précise » : l'ouvrir directement sur un jeu et une
+sauvegarde, pour « Jouer maintenant » après un dépôt ou « Rejouer » depuis le
+carnet. Le premier passage s'était arrêté sur un constat : le worker, quand on
+lance un jeu, écrit six choses (le jeu, la manette retenue pour ce jeu,
+l'emplacement, la personne, la demande de partie neuve, et la sortie du menu).
+Les recopier côté salon aurait fait deux auteurs pour le même ensemble, et le
+premier écart aurait démarré un jeu Wii sur une manette GameCube. Le salon ne
+pose donc qu'un ordre d'une ligne par champ, `ouvrir-sur`, et le worker le
+lit à son démarrage puis le passe à la fonction qui écrit déjà tout le reste.
+Il retire l'ordre AVANT d'agir : un ordre resté là après un plantage serait
+rejoué à chaque relance, par-dessus le jeu choisi depuis. Une clé que la
+bibliothèque n'a plus laisse la salle sur son menu, alors qu'un choix
+ordinaire retombe sur le jeu par défaut. Le salon refuse aussi un jeu inconnu
+avant de démarrer quoi que ce soit, et un jeu Switch quand une autre salle
+tient la Switch. « Tout débloqué » n'est pas proposé ici : seul un worker qui
+tourne vérifie que son import est complet. Le marqueur « sans jeu » reste posé
+avec l'ordre ; c'est le worker qui le retire en le suivant, si bien qu'un
+worker d'avant ce changement ouvre la salle sur son menu au lieu de deviner.
+Douze mutants ont été réintroduits un à un, cinq côté worker et sept côté
+salon (dont l'ordre jamais retiré, la manette oubliée, la clé absente qui
+démarre le premier jeu, la Switch non vérifiée, l'ordre écrit à travers un
+lien) ; onze font échouer leur essai. Le douzième a survécu : retirer la
+comparaison de taille de l'ordre. Elle ne pouvait jamais échouer seule, parce
+qu'un ordre entier fait 339 octets au plus et qu'une lecture coupée à 513
+n'en est jamais un ; la comparaison a été retirée plutôt que gardée comme une
+garde qu'aucun essai ne peut prendre en défaut. Non prouvé : l'appel dans le
+démarrage du worker n'est couvert que par la lecture du code, puisque ce
+démarrage lance Docker ; la première vraie ouverture sur un jeu le montrera.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres

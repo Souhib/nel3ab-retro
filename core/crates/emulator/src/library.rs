@@ -487,6 +487,142 @@ fn write_picture(folder: &std::os::fd::OwnedFd, name: &str, png: &[u8]) -> std::
     written
 }
 
+/// L'ordre d'ouvrir une salle directement sur un jeu, posé par le salon (D17).
+///
+/// Dans le dossier de session, à côté de `chosen-rom`. Le salon l'écrit avant
+/// de démarrer l'unité; le worker le lit et le RETIRE à son démarrage, avant
+/// d'agir, puis le passe à `remember_choice` comme un lancement venu du port
+/// de contrôle. Le salon n'écrit donc ni `chosen-rom`, ni la manette retenue
+/// pour le jeu, ni la demande de partie neuve: une seule fonction écrit cet
+/// ensemble, et un jeu Wii ne démarre pas sur la manette d'un autre jeu.
+pub const OPEN_ORDER: &str = "ouvrir-sur";
+
+/// La première ligne d'un ordre. Une autre version est refusée.
+const OPEN_ORDER_HEADER: &str = "nel3ab-ouvrir 1";
+
+/// Ce qu'un ordre peut peser.
+///
+/// Le plus long ordre légal fait 339 octets: l'en-tête et son retour (16),
+/// une clé de 255 octets (`GameKey::MAX_BYTES`) et le sien, un chiffre
+/// d'emplacement et le sien, une identité de 64 octets (la borne de la ligne
+/// de lancement) et le sien. 512 borne la lecture avec de la marge (règle
+/// « Measure a read bound on the longest legal message »).
+///
+/// Un fichier plus long est lu coupé à la borne plus un octet, et cette coupe
+/// ne peut jamais passer pour un ordre: chaque champ est borné par
+/// [`OpenOrder::parse`], donc un ordre entier fait 339 octets au plus, et un
+/// texte de 513 octets n'en est pas un. Pas de seconde comparaison de taille:
+/// elle ne pourrait échouer que là où l'analyse échoue déjà, et son mutant
+/// survivrait à tout essai.
+pub const OPEN_ORDER_MAX: usize = 512;
+
+/// Un ordre d'ouverture, lu et validé.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OpenOrder {
+    /// Le jeu, par sa clé, résolue contre CETTE bibliothèque par [`position_of`].
+    pub key: nel3ab_protocol::GameKey,
+    /// Le code d'emplacement, celui de la ligne de lancement (0 à 2).
+    pub save: u8,
+    /// Qui ouvre, pour l'emplacement personnel; vide quand personne n'est nommé.
+    pub person: String,
+}
+
+impl OpenOrder {
+    /// L'ordre tel que le salon l'écrit, chaque ligne terminée par `\n`.
+    #[must_use]
+    pub fn encode(&self) -> String {
+        let person = if self.person.is_empty() {
+            "-"
+        } else {
+            &self.person
+        };
+        format!(
+            "{OPEN_ORDER_HEADER}\n{}\n{}\n{person}\n",
+            self.key.as_str(),
+            self.save
+        )
+    }
+
+    /// Un ordre entier, ou rien.
+    ///
+    /// Quatre lignes exactement, la dernière terminée: un fichier coupé n'est
+    /// pas un ordre. Une clé ne peut pas contenir de retour à la ligne (c'est un
+    /// caractère de contrôle, refusé par `GameKey`), et une identité ne porte
+    /// aucun blanc, comme sur la ligne de lancement.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        let body = text.strip_suffix('\n')?;
+        let [header, key, save, person] = body.split('\n').collect::<Vec<_>>()[..] else {
+            return None;
+        };
+        if header != OPEN_ORDER_HEADER || !matches!(save, "0" | "1" | "2") {
+            return None;
+        }
+        if person.is_empty() || person.len() > 64 || person.chars().any(char::is_whitespace) {
+            return None;
+        }
+        Some(Self {
+            key: nel3ab_protocol::GameKey::new(key).ok()?,
+            save: save.parse().ok()?,
+            person: if person == "-" {
+                String::new()
+            } else {
+                person.to_owned()
+            },
+        })
+    }
+}
+
+/// L'ordre d'ouverture posé dans ce dossier, RETIRÉ avant d'être rendu.
+///
+/// Retiré d'abord, et c'est la règle des demandes de partie neuve: un ordre
+/// encore là après un plantage serait rejoué à chaque relance de la salle,
+/// par-dessus le jeu que les joueurs auraient choisi depuis. Un ordre qu'on ne
+/// peut pas retirer n'est donc pas suivi.
+///
+/// Sans suivre de lien (ADR D36): le conteneur écrit ce dossier. Un lien, un
+/// tube ou un dossier à ce nom est retiré sans être lu; un fichier trop gros
+/// ou mal formé aussi. Aucun ordre: `Ok(None)`.
+///
+/// # Errors
+/// Le dossier ne s'ouvre pas, ou l'ordre ne peut pas être retiré.
+pub fn take_open_order(session_dir: &Path) -> std::io::Result<Option<OpenOrder>> {
+    use nix::errno::Errno;
+    use nix::fcntl::OFlag;
+    use std::io::Read as _;
+
+    let dir = std::fs::File::open(session_dir)?;
+    let opened = nix::fcntl::openat(
+        &dir,
+        OPEN_ORDER,
+        OFlag::O_RDONLY | OFlag::O_NOFOLLOW | OFlag::O_NONBLOCK | OFlag::O_CLOEXEC,
+        nix::sys::stat::Mode::empty(),
+    );
+    let text = match opened {
+        Err(Errno::ENOENT) => return Ok(None),
+        Err(_) => None,
+        Ok(fd) => {
+            let file = std::fs::File::from(fd);
+            let mut bytes = Vec::new();
+            let regular = file.metadata().is_ok_and(|meta| meta.is_file());
+            (regular
+                && file
+                    .take(OPEN_ORDER_MAX as u64 + 1)
+                    .read_to_end(&mut bytes)
+                    .is_ok())
+            .then(|| String::from_utf8(bytes).ok())
+            .flatten()
+        }
+    };
+    match nix::unistd::unlinkat(&dir, OPEN_ORDER, nix::unistd::UnlinkatFlags::NoRemoveDir) {
+        Ok(()) => {}
+        // Un dossier à ce nom: ce n'est pas un ordre, et il ne se rejoue pas.
+        Err(Errno::EISDIR) => return Ok(None),
+        Err(errno) => return Err(errno.into()),
+    }
+    Ok(text.as_deref().and_then(OpenOrder::parse))
+}
+
 /// The list of games, as both the room and the file describe them.
 fn push_entries(
     out: &mut String,
@@ -1200,5 +1336,108 @@ mod tests {
         let written = folder.join(art_file_name("a.rvz"));
         assert!(!written.is_symlink());
         assert_eq!(std::fs::read(written).unwrap(), b"a");
+    }
+
+    fn order(key: &str, save: u8, person: &str) -> OpenOrder {
+        OpenOrder {
+            key: nel3ab_protocol::GameKey::new(key).unwrap(),
+            save,
+            person: person.to_owned(),
+        }
+    }
+
+    /// Ce que le salon écrit est ce que le worker lit. La chaîne est épinglée
+    /// aussi côté salon (`test_salles.py`): un champ déplacé d'un côté rougit.
+    #[test]
+    fn an_order_reads_back_what_the_lobby_writes() {
+        let written = "nel3ab-ouvrir 1\nZelda (Europe) é.rvz\n2\nnour@example.org\n";
+        let wanted = order("Zelda (Europe) é.rvz", 2, "nour@example.org");
+        assert_eq!(wanted.encode(), written);
+        assert_eq!(OpenOrder::parse(written), Some(wanted));
+        // Personne: un tiret, comme sur la ligne de lancement.
+        let nobody = order("Melee.rvz", 0, "");
+        assert_eq!(nobody.encode(), "nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n");
+        assert_eq!(OpenOrder::parse(&nobody.encode()), Some(nobody));
+    }
+
+    /// Les jumeaux: tout ce qui n'est pas un ordre entier est refusé.
+    #[rstest::rstest]
+    #[case::sans_fin("nel3ab-ouvrir 1\nMelee.rvz\n0\n-")]
+    #[case::autre_version("nel3ab-ouvrir 2\nMelee.rvz\n0\n-\n")]
+    #[case::emplacement_inconnu("nel3ab-ouvrir 1\nMelee.rvz\n3\n-\n")]
+    #[case::cle_en_chemin("nel3ab-ouvrir 1\n../x.rvz\n0\n-\n")]
+    #[case::cle_vide("nel3ab-ouvrir 1\n\n0\n-\n")]
+    #[case::personne_vide("nel3ab-ouvrir 1\nMelee.rvz\n0\n\n")]
+    #[case::personne_avec_blanc("nel3ab-ouvrir 1\nMelee.rvz\n0\nnour x\n")]
+    #[case::ligne_de_trop("nel3ab-ouvrir 1\nMelee.rvz\n0\n-\nplus\n")]
+    fn anything_but_a_whole_order_is_refused(#[case] text: &str) {
+        assert_eq!(OpenOrder::parse(text), None);
+    }
+
+    /// Le plus long ordre légal tient sous la borne et arrive entier; un ordre
+    /// qui atteint la borne est refusé, pas coupé.
+    #[test]
+    fn the_longest_legal_order_fits_and_a_bigger_file_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let longest = order(&"k".repeat(255), 2, &"p".repeat(64));
+        assert_eq!(longest.encode().len(), 339);
+        std::fs::write(dir.path().join(OPEN_ORDER), longest.encode()).unwrap();
+        assert_eq!(take_open_order(dir.path()).unwrap(), Some(longest));
+
+        let padded = format!(
+            "{}{}",
+            order("a.rvz", 0, "").encode(),
+            " ".repeat(OPEN_ORDER_MAX)
+        );
+        std::fs::write(dir.path().join(OPEN_ORDER), padded).unwrap();
+        assert_eq!(take_open_order(dir.path()).unwrap(), None);
+        assert!(
+            !dir.path().join(OPEN_ORDER).exists(),
+            "un ordre refusé reste retiré"
+        );
+    }
+
+    /// L'ordre est retiré en le lisant: une relance de la salle ne le rejoue pas.
+    #[test]
+    fn an_order_is_taken_once() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(OPEN_ORDER), order("a.rvz", 0, "").encode()).unwrap();
+
+        assert!(take_open_order(dir.path()).unwrap().is_some());
+        assert!(!dir.path().join(OPEN_ORDER).exists());
+        assert_eq!(take_open_order(dir.path()).unwrap(), None);
+    }
+
+    /// Un lien à la place de l'ordre est retiré sans être suivi: le fichier
+    /// qu'il vise, un ordre valide, n'est ni lu ni effacé (ADR D36).
+    #[test]
+    fn a_link_in_place_of_the_order_is_removed_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let target = elsewhere.path().join("ordre");
+        std::fs::write(&target, order("a.rvz", 0, "").encode()).unwrap();
+        std::os::unix::fs::symlink(&target, dir.path().join(OPEN_ORDER)).unwrap();
+
+        assert_eq!(take_open_order(dir.path()).unwrap(), None);
+        assert!(!dir.path().join(OPEN_ORDER).is_symlink());
+        assert!(target.exists());
+    }
+
+    /// Un ordre qu'on ne peut pas retirer n'est pas suivi.
+    #[test]
+    fn an_order_that_cannot_be_removed_is_not_followed() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(OPEN_ORDER), order("a.rvz", 0, "").encode()).unwrap();
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o500)).unwrap();
+        // La condition, vérifiée plutôt que supposée: sous root, le retrait
+        // passerait et l'essai ne prouverait rien.
+        let refused = std::fs::File::create(dir.path().join("sonde")).is_err();
+
+        let taken = take_open_order(dir.path());
+
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert!(refused, "le dossier devait refuser les écritures");
+        assert!(taken.is_err());
     }
 }

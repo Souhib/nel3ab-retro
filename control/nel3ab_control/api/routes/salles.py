@@ -4,9 +4,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, status
 
-from nel3ab_control.api.controllers.salles import PresencesDuSalon
+from nel3ab_control.api.controllers.salles import PresencesDuSalon, SurUnJeu
 from nel3ab_control.api.schemas.salle import OuvrirSalle, Salle
 from nel3ab_control.dependencies import CallerDep, PeopleDep, SallesDep, SalonsDep, SettingsDep
+from nel3ab_control.parties import JeuJoue
 
 router = APIRouter(prefix="/api", tags=["salles"])
 
@@ -34,12 +35,16 @@ async def read_salles(salles: SallesDep, people: PeopleDep, salons: SalonsDep) -
 async def open_salle(
     salles: SallesDep,
     caller: CallerDep,
+    people: PeopleDep,
+    salons: SalonsDep,
     demande: Annotated[OuvrirSalle | None, Body()] = None,
 ) -> Salle:
     """Ouvre la salle demandée, ou le premier emplacement libre, ou refuse.
 
     Sans corps, le comportement d'avant le 23 novembre 2026: le premier
-    emplacement libre. Avec `numero`, cette salle-là ou un refus (D17).
+    emplacement libre. Avec `numero`, cette salle-là ou un refus (D17). Avec
+    `cle` et `sauvegarde`, la salle démarre directement sur ce jeu, pour la
+    personne qui l'ouvre: son identité vient du proxy, comme pour un lancement.
 
     Demande une identité, n'importe laquelle. Ouvrir un emplacement libre ne
     décide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur
@@ -51,7 +56,23 @@ async def open_salle(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="aucune identité: ouvrir une salle demande de savoir qui l'ouvre",
         )
-    return await salles.ouvrir(demande.numero if demande else None)
+    login, affiche = caller
+    sur = (
+        SurUnJeu(cle=demande.cle, sauvegarde=demande.sauvegarde, login=login)
+        if demande and demande.cle is not None and demande.sauvegarde is not None
+        else None
+    )
+    ouverte = await salles.ouvrir(demande.numero if demande else None, sur)
+    if sur and ouverte.cle and ouverte.jeu:
+        # Au journal des parties et au chrono des démarrages, APRÈS l'accord de
+        # systemd, par la même entrée que les deux lancements de la socket.
+        salons.pour(ouverte.numero).lance(
+            login,
+            people.name_for(login, affiche),
+            JeuJoue(cle=ouverte.cle, console=ouverte.console or "?", titre=ouverte.jeu),
+            sur.sauvegarde,
+        )
+    return ouverte
 
 
 @router.delete("/salles/{numero}", response_model=Salle)

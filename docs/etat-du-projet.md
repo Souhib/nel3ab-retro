@@ -75,8 +75,10 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
 - **Messages de socket.** `menu` et `Person.au_menu` (D15) ; `plainte_quoi`
   et `reste_s` dans chaque refus de cadence (D20).
 - **Sauvegardes.** `Emplacement.cle` (D19).
-- **Ouvrir une salle précise (D17, première partie).** `POST /api/salles`
-  accepte `{numero}` ; ouvrir sur un jeu et une sauvegarde reste à faire.
+- **Ouvrir une salle précise, et sur un jeu (D17).** `POST /api/salles`
+  accepte `{numero}`, et `{cle, sauvegarde}` (0 ou 2) : le salon pose l'ordre
+  `ouvrir-sur`, que le worker suit et retire à son démarrage. Demande de
+  reconstruire le worker ; un worker d'avant ouvre la salle sur son menu.
 - **Jaquettes sans salle ouverte (D13, ADR D45).** Le worker écrit
   `art/<sha256 de la clé>.png` à côté de `catalogue.json` à chaque
   démarrage ; le salon les sert à `GET /api/catalogue/art/{cle}`. Demande de

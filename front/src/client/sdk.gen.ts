@@ -193,7 +193,9 @@ export const readSalles = <ThrowOnError extends boolean = false>(options?: Optio
  * Ouvre la salle demandée, ou le premier emplacement libre, ou refuse.
  *
  * Sans corps, le comportement d'avant le 23 novembre 2026: le premier
- * emplacement libre. Avec `numero`, cette salle-là ou un refus (D17).
+ * emplacement libre. Avec `numero`, cette salle-là ou un refus (D17). Avec
+ * `cle` et `sauvegarde`, la salle démarre directement sur ce jeu, pour la
+ * personne qui l'ouvre: son identité vient du proxy, comme pour un lancement.
  *
  * Demande une identité, n'importe laquelle. Ouvrir un emplacement libre ne
  * décide rien de la partie de quelqu'un d'autre, mais allume un émulateur sur

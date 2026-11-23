@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DernierJeu(BaseModel):
@@ -219,7 +219,12 @@ class Salle(BaseModel):
 
 
 class OuvrirSalle(BaseModel):
-    """Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif."""
+    """Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif.
+
+    `cle` et `sauvegarde` vont ensemble: ouvrir sur un jeu sans dire sur quelle
+    sauvegarde laisserait le salon choisir à la place de la personne, et une
+    sauvegarde sans jeu ne veut rien dire.
+    """
 
     numero: int | None = Field(
         default=None,
@@ -230,3 +235,26 @@ class OuvrirSalle(BaseModel):
             "pas libre. Sans numéro, le premier emplacement libre."
         ),
     )
+    cle: str | None = Field(
+        default=None,
+        description=(
+            "Ouvrir directement sur ce jeu, par sa clé (ADR D23): « Jouer maintenant », "
+            "« Rejouer sur ma sauvegarde ». Refusé (422) s'il n'est pas dans la "
+            "bibliothèque, (409) si c'est un jeu Switch et qu'une autre salle tient la "
+            "Switch. Sans clé, la salle arrive sur son menu."
+        ),
+    )
+    sauvegarde: Literal[0, 2] | None = Field(
+        default=None,
+        description=(
+            "L'emplacement, avec `cle`: 0 pour une partie neuve, 2 pour « ma "
+            "sauvegarde ». Le 1, « tout débloqué », se choisit dans la salle: seul un "
+            "worker qui tourne vérifie que son import est complet."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _jeu_et_sauvegarde_ensemble(self) -> "OuvrirSalle":
+        if (self.cle is None) != (self.sauvegarde is None):
+            raise ValueError("cle et sauvegarde vont ensemble")
+        return self

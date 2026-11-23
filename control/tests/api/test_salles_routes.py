@@ -10,10 +10,14 @@ Le systemd est celui de papier de `conftest.py`: ces essais lisent ce qu'on lui
 a demandé, et aucune vraie salle ne s'allume ni ne s'éteint.
 """
 
+import json
+
 import httpx
 import pytest
 from fastapi import FastAPI
 
+from nel3ab_control.parties import JeuJoue
+from nel3ab_control.settings import Settings
 from tests.conftest import SOUHIB, VINCENT
 from tests.faux_systeme import FauxSysteme
 
@@ -320,3 +324,93 @@ async def test_without_a_body_the_first_free_room_opens_as_before(
 
     assert answer.status_code == 201
     assert answer.json()["numero"] == 2
+
+
+def _bibliotheque(settings: Settings) -> None:
+    """Le catalogue qu'une salle a écrit (ADR D24): un jeu GameCube."""
+    dossier = settings.salles_dir / "3"
+    dossier.mkdir(parents=True, exist_ok=True)
+    (dossier / "catalogue.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "scanned_ms": 1_763_700_000_000,
+                "roms": [
+                    {
+                        "key": "Melee.rvz",
+                        "name": "Super Smash Bros Melee",
+                        "console": "gc",
+                        "art": False,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+async def test_a_room_opened_on_a_game_names_who_launched_it(
+    client: httpx.AsyncClient, app: FastAPI, settings: Settings, systeme: FauxSysteme
+) -> None:
+    """D17: « Rejouer sur ma sauvegarde ». L'ordre part au worker, et le
+    lancement entre au journal de qui ouvre, comme un lancement de la socket."""
+    _bibliotheque(settings)
+
+    answer = await client.post(
+        "/api/salles", headers=VINCENT, json={"cle": "Melee.rvz", "sauvegarde": 2}
+    )
+
+    assert answer.status_code == 201
+    assert (answer.json()["numero"], answer.json()["cle"]) == (1, "Melee.rvz")
+    assert (settings.salles_dir / "1" / "ouvrir-sur").read_bytes() == (
+        b"nel3ab-ouvrir 1\nMelee.rvz\n2\nvincent@example.com\n"
+    )
+    lignes = app.state.parties.lire("vincent@example.com")
+    assert [(ligne["quoi"], ligne.get("emplacement")) for ligne in lignes] == [
+        ("lancement", "ma sauvegarde")
+    ]
+    # Quand la salle tourne ce jeu, elle dit qui l'a lancé (D08).
+    tablee = app.state.salons.pour(1).tablee
+    tablee.jeu(JeuJoue(cle="Melee.rvz", console="gc", titre="Super Smash Bros Melee"))
+    lancement = tablee.lancement_courant()
+    assert lancement is not None
+    assert lancement.pseudo == "Vincent"
+    assert lancement.login == "vincent@example.com"
+
+
+@pytest.mark.parametrize(
+    "corps",
+    [
+        {"cle": "Melee.rvz"},
+        {"sauvegarde": 2},
+        {"cle": "Melee.rvz", "sauvegarde": 1},
+        {"cle": "Parti.rvz", "sauvegarde": 0},
+    ],
+)
+async def test_a_game_request_that_cannot_be_kept_opens_nothing(
+    client: httpx.AsyncClient, app: FastAPI, settings: Settings, systeme: FauxSysteme, corps: dict
+) -> None:
+    """Les jumeaux: un jeu sans sauvegarde, une sauvegarde sans jeu, « tout
+    débloqué » (vérifié seulement par un worker qui tourne) et un jeu absent."""
+    _bibliotheque(settings)
+
+    answer = await client.post("/api/salles", headers=VINCENT, json=corps)
+
+    assert answer.status_code == 422
+    assert _ordres(systeme) == []
+    assert app.state.parties.lire("vincent@example.com") == []
+
+
+async def test_a_refused_start_journals_no_launch(
+    client: httpx.AsyncClient, app: FastAPI, settings: Settings, systeme: FauxSysteme
+) -> None:
+    """Un démarrage que systemd refuse n'a lancé le jeu de personne."""
+    _bibliotheque(settings)
+    systeme.refuse = True
+
+    answer = await client.post(
+        "/api/salles", headers=VINCENT, json={"cle": "Melee.rvz", "sauvegarde": 0}
+    )
+
+    assert answer.status_code == 502
+    assert app.state.parties.lire("vincent@example.com") == []

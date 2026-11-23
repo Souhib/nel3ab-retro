@@ -1743,10 +1743,30 @@ Decision:
   restarting), 404 when it is not a room; it is never replaced by another
   room, since « reopen room 1 » that opened room 2 would split a group. No
   body keeps the old behaviour. Opening directly on a game (`cle`,
-  `sauvegarde`) is not built yet: the worker also reads `chosen-pad`, the
-  per-game pad setup and a pending new-game request written by
-  `remember_choice`, and a room started with only `chosen-rom` could boot a
+  `sauvegarde`) was left out of that first part: the worker also reads
+  `chosen-pad`, the per-game pad setup and a pending new-game request written
+  by `remember_choice`, and a room started with only `chosen-rom` could boot a
   Wii game on the wrong controller or replay a stale new-game request.
+- **Opening on a game is an order the worker follows (D17, second part).**
+  `POST /api/salles {cle, sauvegarde}` (both or neither; `sauvegarde` 0 or 2,
+  since only a running worker can check that « all unlocked » has its import)
+  writes ONE file, `ouvrir-sur`, next to `game-closed`, both through the room
+  folder's descriptor without following a link. The worker takes it at start
+  (`nel3ab_emulator::take_open_order`): it removes the file first, so a crash
+  cannot replay it over a later choice, then resolves the key against its own
+  scan and hands it to `remember_choice` with the pads this room kept for that
+  game. That one function still writes the whole set. A key the scan no longer
+  has keeps the room on its menu, never on `settings.rom`; the lobby refuses
+  it earlier too (422), reading the freshest catalogue just before the start.
+  A Switch-group game is refused (409) while another room holds the Switch.
+  The identity is the proxy's, bounded like the launch line (64 bytes, no
+  blank). After systemd accepts, `RoomController.lance` journals the launch and
+  starts the startup clock, as the two socket paths do. `game-closed` stays
+  set with the order: a worker from before this change ignores the order and
+  opens on its menu. An order left by a refused start, an older opening or a
+  closing is removed by the lobby. The order's text is pinned on both sides,
+  and its read bound (512) is measured against the longest legal order (339
+  bytes).
 
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23

@@ -522,6 +522,10 @@ export type Me = {
  * OuvrirSalle
  *
  * Ce qu'une demande d'ouverture peut préciser (D17). Tout est facultatif.
+ *
+ * `cle` et `sauvegarde` vont ensemble: ouvrir sur un jeu sans dire sur quelle
+ * sauvegarde laisserait le salon choisir à la place de la personne, et une
+ * sauvegarde sans jeu ne veut rien dire.
  */
 export type OuvrirSalle = {
     /**
@@ -530,6 +534,18 @@ export type OuvrirSalle = {
      * Ouvrir CETTE salle: « Ouvrir la salle 3 », « Rouvrir la salle 1 ». Refusé (409) si elle n'est pas fermée: une salle qui redémarre n'est pas libre. Sans numéro, le premier emplacement libre.
      */
     numero?: number | null;
+    /**
+     * Cle
+     *
+     * Ouvrir directement sur ce jeu, par sa clé (ADR D23): « Jouer maintenant », « Rejouer sur ma sauvegarde ». Refusé (422) s'il n'est pas dans la bibliothèque, (409) si c'est un jeu Switch et qu'une autre salle tient la Switch. Sans clé, la salle arrive sur son menu.
+     */
+    cle?: string | null;
+    /**
+     * Sauvegarde
+     *
+     * L'emplacement, avec `cle`: 0 pour une partie neuve, 2 pour « ma sauvegarde ». Le 1, « tout débloqué », se choisit dans la salle: seul un worker qui tourne vérifie que son import est complet.
+     */
+    sauvegarde?: 0 | 2 | null;
 };
 
 /**

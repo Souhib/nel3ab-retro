@@ -37,6 +37,10 @@ SANS_JEU = "game-closed"
 #: Le repère que le salon pose quand IL ouvre la salle. Voir `Ouverture`.
 OUVERTE_LE = "ouverte-le"
 
+#: L'ordre d'ouvrir la salle sur un jeu, lu et retiré par le worker à son
+#: démarrage (`nel3ab_emulator::OPEN_ORDER`, D17). Voir `OrdreOuverture`.
+ORDRE = "ouvrir-sur"
+
 #: Ce qu'une clé de jeu peut peser: un nom de fichier Linux, 255 octets
 #: (`worker.KEY_MAX_BYTES`), plus un retour à la ligne. 512 laisse la marge d'un
 #: fichier mal fini sans laisser lire autre chose qu'une clé.
@@ -259,6 +263,29 @@ class Ouverture:
         return cls(demarrage=mots[0], monotone_us=int(mots[1]))
 
 
+@dataclass(frozen=True)
+class OrdreOuverture:
+    """Ouvrir la salle directement sur ce jeu, dans cet emplacement (D17).
+
+    Le salon n'écrit QUE cet ordre. Le worker le passe à `remember_choice`, qui
+    écrit seul le jeu retenu, la manette retenue pour ce jeu et la demande de
+    partie neuve: écrire `chosen-rom` d'ici aurait pu démarrer un jeu Wii sur la
+    manette d'un autre jeu, ou rejouer une vieille demande de partie neuve.
+    """
+
+    cle: str
+    #: 0 partie neuve, 2 « ma sauvegarde »: les codes de la ligne de lancement.
+    sauvegarde: int
+    #: L'identité de qui ouvre, pour l'emplacement personnel; vide pour personne.
+    personne: str
+
+    def texte(self) -> bytes:
+        """Les octets exacts que `OpenOrder::parse` lit, épinglés des deux côtés."""
+        return (
+            f"nel3ab-ouvrir 1\n{self.cle}\n{self.sauvegarde}\n{self.personne or '-'}\n"
+        ).encode()
+
+
 def poser_ouverture(salles_dir: Path, numero: int, ouverture: Ouverture) -> None:
     """Écrit le repère d'ouverture de cette salle. Lève `OSError`."""
     with dossier(salles_dir, numero, creer=True) as fd:
@@ -284,6 +311,16 @@ def retirer_ouverture(salles_dir: Path, numero: int) -> None:
     """
     with contextlib.suppress(OSError), dossier(salles_dir, numero) as fd:
         retirer(fd, OUVERTE_LE)
+
+
+def retirer_ordre(salles_dir: Path, numero: int) -> None:
+    """Retire l'ordre d'ouverture de cette salle, sans jamais lever.
+
+    Après un démarrage refusé et à la fermeture: un ordre resté là déciderait du
+    jeu d'un démarrage que personne n'a demandé sur lui.
+    """
+    with contextlib.suppress(OSError), dossier(salles_dir, numero) as fd:
+        retirer(fd, ORDRE)
 
 
 def demarrage_actuel() -> str | None:

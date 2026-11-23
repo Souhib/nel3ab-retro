@@ -9,12 +9,17 @@ import httpx
 import pytest
 
 from nel3ab_control.api.controllers.salles import (
+    IdentiteIntransmissible,
+    JeuInconnu,
     PlusDeSalle,
     SalleInconnue,
     SalleRebelle,
     SallesController,
+    SurUnJeu,
+    SwitchPrise,
 )
 from nel3ab_control.api.schemas.salle import SiegeVu
+from nel3ab_control.session_salle import OrdreOuverture
 from nel3ab_control.settings import Settings
 from tests.faux_systeme import FauxSysteme, Horloge
 
@@ -861,3 +866,172 @@ async def test_qui_a_lance_n_est_jamais_lu(reglages: Settings) -> None:
     etat = await SallesController(reglages, FauxSysteme(relancees=[1])).etat()
 
     assert "alice" not in json.dumps([salle.model_dump(mode="json") for salle in etat])
+
+
+#: Les octets exacts que `OpenOrder::encode` écrit, épinglés par l'essai Rust
+#: `an_order_reads_back_what_the_lobby_writes`: un champ déplacé d'un côté rougit.
+ORDRE_ECRIT_PAR_LE_WORKER = "nel3ab-ouvrir 1\nZelda (Europe) é.rvz\n2\nnour@example.org\n"
+
+
+def test_l_ordre_est_ce_que_le_worker_lit() -> None:
+    ordre = OrdreOuverture(cle="Zelda (Europe) é.rvz", sauvegarde=2, personne="nour@example.org")
+    assert ordre.texte() == ORDRE_ECRIT_PAR_LE_WORKER.encode()
+    sans_personne = OrdreOuverture(cle="Melee.rvz", sauvegarde=0, personne="")
+    assert sans_personne.texte() == b"nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n"
+
+
+async def test_ouvrir_sur_un_jeu_pose_l_ordre_et_le_menu(reglages: Settings) -> None:
+    """Le salon n'écrit que l'ordre: le worker écrit le reste en le suivant.
+    Le marqueur du menu reste posé, pour un worker qui ne lirait pas l'ordre."""
+    bibliotheque(reglages, MELEE, MARIO)
+    systeme = FauxSysteme()
+    salles = SallesController(reglages, systeme)
+
+    salle = await salles.ouvrir(2, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org"))
+
+    dossier = reglages.salles_dir / "2"
+    assert (dossier / "ouvrir-sur").read_bytes() == b"nel3ab-ouvrir 1\nMelee.rvz\n0\nnour@x.org\n"
+    assert (dossier / "game-closed").exists()
+    assert not (dossier / "chosen-rom").exists(), "le salon a écrit le choix du worker"
+    assert (salle.numero, salle.cle, salle.jeu, salle.console) == (
+        2,
+        "Melee.rvz",
+        "Super Smash Bros Melee",
+        "gc",
+    )
+    assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@2"] in systeme.commandes
+
+
+async def test_ouvrir_sans_jeu_retire_un_vieil_ordre(reglages: Settings) -> None:
+    """Le jumeau: un ordre resté d'une ouverture précédente ne décide pas de
+    celle-ci, qui arrive sur son menu."""
+    vieux = reglages.salles_dir / "1" / "ouvrir-sur"
+    vieux.parent.mkdir(parents=True)
+    vieux.write_bytes(b"nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n")
+
+    await SallesController(reglages, FauxSysteme()).ouvrir()
+
+    assert not vieux.exists()
+    assert (reglages.salles_dir / "1" / "game-closed").exists()
+
+
+async def test_un_jeu_absent_de_la_bibliotheque_est_refuse_avant_le_demarrage(
+    reglages: Settings,
+) -> None:
+    """Le worker démarrerait son jeu par défaut sur une clé qu'il n'a plus."""
+    bibliotheque(reglages, MELEE)
+    systeme = FauxSysteme()
+
+    with pytest.raises(JeuInconnu) as refus:
+        await SallesController(reglages, systeme).ouvrir(
+            None, SurUnJeu(cle="Parti.rvz", sauvegarde=0, login="nour@x.org")
+        )
+
+    assert refus.value.status_code == 422
+    assert not [c for c in systeme.commandes if "start" in c]
+    assert not (reglages.salles_dir / "2" / "ouvrir-sur").exists()
+
+
+async def test_sans_bibliotheque_aucun_jeu_n_est_connu(reglages: Settings) -> None:
+    with pytest.raises(JeuInconnu):
+        await SallesController(reglages, FauxSysteme()).ouvrir(
+            None, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org")
+        )
+
+
+async def test_un_jeu_switch_est_refuse_quand_une_autre_salle_tient_la_switch(
+    reglages: Settings,
+) -> None:
+    bibliotheque(reglages, MELEE, MARIO)
+    systeme = FauxSysteme(allumees=[1])
+    async with worker_qui_joue("Mario Tennis Aces", "switch") as client:
+        salles = SallesController(reglages, systeme, client=client)
+
+        with pytest.raises(SwitchPrise) as refus:
+            await salles.ouvrir(None, SurUnJeu(cle=MARIO[0], sauvegarde=2, login="nour@x.org"))
+        # Le jumeau: un jeu GameCube s'ouvre à côté de la Switch.
+        salle = await salles.ouvrir(None, SurUnJeu(cle=MELEE[0], sauvegarde=2, login="nour@x.org"))
+
+    assert refus.value.status_code == 409
+    assert "salle 1" in refus.value.detail
+    assert salle.numero == 2
+    assert ["sudo", "-n", "systemctl", "start", "nel3ab-worker@2"] in systeme.commandes
+
+
+async def test_un_jeu_switch_s_ouvre_quand_la_switch_est_libre(reglages: Settings) -> None:
+    """Le jumeau du refus: une salle ouverte sur un jeu GameCube ne tient pas la Switch."""
+    bibliotheque(reglages, MELEE, MARIO)
+    async with worker_qui_joue("Super Smash Bros Melee", "gc") as client:
+        salles = SallesController(reglages, FauxSysteme(allumees=[1]), client=client)
+
+        salle = await salles.ouvrir(None, SurUnJeu(cle=MARIO[0], sauvegarde=2, login="nour@x.org"))
+
+    assert (salle.numero, salle.switch) == (2, True)
+
+
+@pytest.mark.parametrize("login", ["", "-", "nour x@y.org", "n\t@y.org", "x" * 65])
+async def test_une_identite_qui_ne_peut_pas_voyager_est_refusee(
+    reglages: Settings, login: str
+) -> None:
+    """Les limites de la ligne de lancement: un blanc couperait la ligne."""
+    bibliotheque(reglages, MELEE)
+    systeme = FauxSysteme()
+
+    with pytest.raises(IdentiteIntransmissible):
+        await SallesController(reglages, systeme).ouvrir(
+            None, SurUnJeu(cle="Melee.rvz", sauvegarde=2, login=login)
+        )
+
+    assert not [c for c in systeme.commandes if "start" in c]
+
+
+async def test_la_plus_longue_identite_voyage(reglages: Settings) -> None:
+    """Le jumeau: 64 octets passent."""
+    bibliotheque(reglages, MELEE)
+    login = "x" * 60 + "@y.o"
+
+    await SallesController(reglages, FauxSysteme()).ouvrir(
+        None, SurUnJeu(cle="Melee.rvz", sauvegarde=2, login=login)
+    )
+
+    assert (reglages.salles_dir / "1" / "ouvrir-sur").read_bytes().endswith(login.encode() + b"\n")
+
+
+async def test_un_demarrage_refuse_retire_l_ordre(reglages: Settings) -> None:
+    bibliotheque(reglages, MELEE)
+    systeme = FauxSysteme(refuse=True)
+
+    with pytest.raises(SalleRebelle):
+        await SallesController(reglages, systeme).ouvrir(
+            None, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org")
+        )
+
+    assert not (reglages.salles_dir / "1" / "ouvrir-sur").exists()
+
+
+async def test_fermer_retire_l_ordre(reglages: Settings) -> None:
+    ordre = reglages.salles_dir / "1" / "ouvrir-sur"
+    ordre.parent.mkdir(parents=True)
+    ordre.write_bytes(b"nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n")
+
+    await SallesController(reglages, FauxSysteme(allumees=[1])).fermer(1)
+
+    assert not ordre.exists()
+
+
+async def test_un_lien_au_nom_de_l_ordre_est_remplace_sans_etre_suivi(
+    reglages: Settings, tmp_path: Path
+) -> None:
+    bibliotheque(reglages, MELEE)
+    victime = tmp_path / "victime"
+    victime.write_text("intact")
+    (reglages.salles_dir / "1" / "ouvrir-sur").symlink_to(victime)
+
+    await SallesController(reglages, FauxSysteme()).ouvrir(
+        None, SurUnJeu(cle="Melee.rvz", sauvegarde=0, login="nour@x.org")
+    )
+
+    assert victime.read_text() == "intact"
+    ordre = reglages.salles_dir / "1" / "ouvrir-sur"
+    assert not ordre.is_symlink()
+    assert ordre.read_bytes().startswith(b"nel3ab-ouvrir 1\nMelee.rvz\n")

@@ -866,6 +866,9 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         &settings.session_dir,
         &adapter_state,
     );
+    // Une salle ouverte directement sur un jeu (D17): l'ordre du salon passe
+    // par `remember_choice` AVANT de lire le jeu retenu, comme un lancement.
+    open_on_order(&library, &settings.session_dir);
     let mut idle = nel3ab_emulator::playback::Playback::read(&settings.session_dir)?
         == nel3ab_emulator::playback::Playback::Idle;
     let rom = chosen_rom(settings, &library);
@@ -2162,6 +2165,64 @@ fn remember_choice(
     true
 }
 
+/// Suit l'ordre d'ouverture que le salon a posé, s'il y en a un (D17).
+///
+/// Le jeu est résolu par sa clé contre CETTE bibliothèque. Une clé absente
+/// laisse la salle sur son menu, et pas sur `settings.rom`: on a ouvert la
+/// salle pour un jeu précis, en démarrer un autre serait une surprise. La
+/// manette est celle retenue pour ce jeu dans cette salle, sinon la dernière
+/// retenue, comme au démarrage ordinaire; un jeu GameCube garde la sienne.
+///
+/// Tout échec laisse la salle sur son menu (`Playback::Idle`), que le salon a
+/// déjà posé en l'ouvrant: un ordre qu'on ne suit pas n'allume aucun jeu.
+fn open_on_order(library: &[Rom], session_dir: &Path) {
+    let order = match nel3ab_emulator::take_open_order(session_dir) {
+        Ok(Some(order)) => order,
+        Ok(None) => return,
+        Err(error) => {
+            tracing::warn!(%error, "l'ordre d'ouverture n'a pas pu être retiré ; il n'est pas suivi");
+            return;
+        }
+    };
+    let stays_on_menu = |why: &str| {
+        tracing::warn!(
+            key = order.key.as_str(),
+            why,
+            "la salle s'ouvre sur son menu"
+        );
+        if let Err(error) = nel3ab_emulator::playback::Playback::Idle.store(session_dir) {
+            tracing::error!(%error, "le menu n'a pas pu être retenu");
+        }
+    };
+    let Some(index) = nel3ab_emulator::position_of(library, &order.key) else {
+        stays_on_menu("ce jeu n'est plus dans la bibliothèque");
+        return;
+    };
+    let pads = nel3ab_emulator::PadSetup::load_for(session_dir, &library[index].file)
+        .unwrap_or_else(|| {
+            let code = std::fs::read_to_string(session_dir.join(PAD_CHOICE))
+                .ok()
+                .and_then(|kept| kept.trim().parse::<u8>().ok())
+                .unwrap_or(0);
+            nel3ab_emulator::PadKind::from_code(code).into()
+        });
+    if remember_choice(
+        library,
+        index,
+        saves::Slot::from_code(order.save),
+        &order.person,
+        pads,
+        session_dir,
+    ) {
+        tracing::info!(
+            key = order.key.as_str(),
+            "la salle s'ouvre sur le jeu demandé"
+        );
+    } else {
+        stays_on_menu("le choix n'a pas pu être retenu");
+    }
+}
+
 /// Le même ordre et la même écriture au repos ou pendant une partie.
 fn remember_request(server: &BrowserServer, library: &[Rom], session_dir: &Path) -> bool {
     // La position vient du serveur, qui a résolu la clé contre CETTE
@@ -2468,5 +2529,111 @@ mod tests {
         }
         left.sort_unstable();
         assert_eq!(left, ["pad", "sound"]);
+    }
+
+    fn library() -> Vec<nel3ab_emulator::Rom> {
+        ["Kart.rvz", "Melee.rvz"]
+            .iter()
+            .map(|file| nel3ab_emulator::Rom {
+                path: std::path::PathBuf::from("/jeux").join(file),
+                name: (*file).to_owned(),
+                file: (*file).to_owned(),
+            })
+            .collect()
+    }
+
+    /// Une salle ouverte comme le salon l'ouvre: sur son menu, l'ancien jeu
+    /// retenu, et l'ordre posé à côté.
+    fn opened_with(order: Option<&str>) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(super::CHOICE), "Kart.rvz").unwrap();
+        nel3ab_emulator::playback::Playback::Idle
+            .store(dir.path())
+            .unwrap();
+        if let Some(order) = order {
+            std::fs::write(dir.path().join(nel3ab_emulator::OPEN_ORDER), order).unwrap();
+        }
+        dir
+    }
+
+    fn read(dir: &tempfile::TempDir, name: &str) -> Option<String> {
+        std::fs::read_to_string(dir.path().join(name)).ok()
+    }
+
+    /// L'ordre passe par `remember_choice`: le jeu, l'emplacement, la personne
+    /// et la demande de partie neuve, puis la salle quitte son menu.
+    #[test]
+    fn an_open_order_boots_its_game_through_remember_choice() {
+        let dir = opened_with(Some("nel3ab-ouvrir 1\nMelee.rvz\n0\nnour@example.org\n"));
+
+        super::open_on_order(&library(), dir.path());
+
+        assert_eq!(read(&dir, super::CHOICE).as_deref(), Some("Melee.rvz"));
+        assert_eq!(read(&dir, super::SAVE_CHOICE).as_deref(), Some("0"));
+        assert_eq!(
+            read(&dir, super::SAVE_PERSON).as_deref(),
+            Some("nour@example.org")
+        );
+        assert!(
+            read(&dir, nel3ab_emulator::personal::NEW_REQUEST).is_some(),
+            "une partie neuve nommée attend son archivage, comme un lancement"
+        );
+        assert_eq!(
+            nel3ab_emulator::playback::Playback::read(dir.path()).unwrap(),
+            nel3ab_emulator::playback::Playback::Playing
+        );
+        assert!(
+            read(&dir, nel3ab_emulator::OPEN_ORDER).is_none(),
+            "l'ordre est consommé"
+        );
+    }
+
+    /// La manette retenue pour CE jeu dans cette salle est gardée: un jeu Wii
+    /// ne repart pas sur la manette GameCube parce qu'on l'ouvre directement.
+    #[test]
+    fn an_open_order_keeps_the_pads_this_room_kept_for_the_game() {
+        let dir = opened_with(Some("nel3ab-ouvrir 1\nMelee.rvz\n2\n-\n"));
+        let wiimotes = nel3ab_emulator::PadSetup::from(nel3ab_emulator::PadKind::Wiimote);
+        wiimotes.save_for(dir.path(), "Melee.rvz").unwrap();
+
+        super::open_on_order(&library(), dir.path());
+
+        assert_eq!(
+            nel3ab_emulator::PadSetup::load_for(dir.path(), "Melee.rvz"),
+            Some(wiimotes)
+        );
+        // Le jumeau: personne n'est nommé, aucune demande de partie neuve.
+        assert!(read(&dir, nel3ab_emulator::personal::NEW_REQUEST).is_none());
+        assert_eq!(read(&dir, super::SAVE_PERSON).as_deref(), Some(""));
+    }
+
+    /// Une clé que la bibliothèque n'a plus laisse la salle sur son menu, sans
+    /// toucher au jeu retenu: surtout pas le jeu par défaut.
+    #[test]
+    fn an_order_for_a_game_that_is_gone_stays_on_the_menu() {
+        let dir = opened_with(Some("nel3ab-ouvrir 1\nParti.rvz\n0\n-\n"));
+
+        super::open_on_order(&library(), dir.path());
+
+        assert_eq!(read(&dir, super::CHOICE).as_deref(), Some("Kart.rvz"));
+        assert_eq!(
+            nel3ab_emulator::playback::Playback::read(dir.path()).unwrap(),
+            nel3ab_emulator::playback::Playback::Idle
+        );
+        assert!(read(&dir, nel3ab_emulator::OPEN_ORDER).is_none());
+    }
+
+    /// Sans ordre, rien ne bouge: la salle reste sur son menu.
+    #[test]
+    fn no_order_changes_nothing() {
+        let dir = opened_with(None);
+
+        super::open_on_order(&library(), dir.path());
+
+        assert_eq!(read(&dir, super::CHOICE).as_deref(), Some("Kart.rvz"));
+        assert_eq!(
+            nel3ab_emulator::playback::Playback::read(dir.path()).unwrap(),
+            nel3ab_emulator::playback::Playback::Idle
+        );
     }
 }

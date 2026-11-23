@@ -135,37 +135,117 @@ export class Capture {
   }
 }
 
-export class Lesson {
+/** Ce qu'un pas à pas a laissé : combien de commandes ont reçu une réponse,
+ * lesquelles ont été passées, et ce que gardent les passées. « avant » : le
+ * réglage rangé de cette manette ; « standard » : la disposition standard
+ * d'une manette qui n'en avait pas ; « rien » : un adaptateur jamais réglé,
+ * où une commande passée reste sans réglage. */
+export type FinDe<K extends string> = {
+  retenues: number;
+  passees: K[];
+  garde: "avant" | "standard" | "rien";
+};
+
+/**
+ * Ce que la boucle dit d'un réglage, au moment où ça arrive.
+ *
+ * L'instantané React se lit deux fois par seconde (règle 8) : les marques
+ * d'une étape (cadre de la touche attendue, coins d'un appui) ne peuvent pas
+ * le suivre. Elles s'abonnent à la boucle, dans un module ordinaire (constat
+ * C9). `indice` est nommé comme les pièces du dessin de droite (`heldOn`).
+ */
+export type EvenementDe<K extends string> =
+  | { type: "etape"; control: K; etape: number; total: number }
+  | { type: "recu"; control: K; indice: string }
+  | { type: "relache" }
+  | { type: "fin"; resultat: FinDe<K> }
+  | { type: "suspendu"; etape: number }
+  | { type: "premiere-manette"; id: string };
+
+/** Les abonnés aux moments d'un réglage. Un abonné qui lève ne doit jamais
+ * arrêter la boucle d'entrée : elle porte aussi la partie des autres. */
+export class Annonces<E> {
+  private readonly ecoutes = new Set<(evenement: E) => void>();
+
+  /** S'abonne ; rend la fonction qui désabonne. */
+  ecouter(ecoute: (evenement: E) => void): () => void {
+    this.ecoutes.add(ecoute);
+    return () => {
+      this.ecoutes.delete(ecoute);
+    };
+  }
+
+  emettre(evenement: E): void {
+    for (const ecoute of this.ecoutes) {
+      try {
+        ecoute(evenement);
+      } catch {
+        /* l'abonné est seul responsable de ce qu'il fait */
+      }
+    }
+  }
+}
+
+/**
+ * La machine d'étapes commune aux deux trames : une question à la fois, un
+ * repos pris UNE fois, l'attente du relâchement entre deux réponses, et la
+ * liste des étapes passées. Ce qu'une réponse écrit appartient à la trame
+ * (`retenir`) : un profil Dolphin pour `Lesson`, un `SwitchDevice` pour la
+ * leçon Pro de `media/switch`.
+ */
+export class Pas<K extends string> {
   step = 0;
   /** Waiting for the hand to let go before the next question is asked. */
   waiting = false;
-  private neutral: Snapshot;
-  private readonly profile: PadProfile;
+  /** La dernière réponse retenue, et la valeur qui l'a donnée. */
+  dernier: { key: K; control: Control; value: number } | null = null;
+  /** Les commandes passées, dans l'ordre où elles ont été demandées. */
+  readonly passees: K[] = [];
 
   /** The neutral sample is taken ONCE, with nothing held. Re-reading it after
    * each answer was the bug: the sample was taken while the button was still
    * down, so RELEASING it moved just as far as pressing and answered the next
    * question. One press of A took the counter from 1 to 3. */
-  /** Les questions, nommées pour la console qu'on joue.
-   *
-   * La manette apprise est la même — la page envoie toujours la même trame — mais
-   * personne ne cherche « le bouton X » sur une Wiimote. Ce sont les mots qui
-   * changent, pas ce qu'on enregistre. */
-  private readonly steps: { key: StepKey; ask: string }[];
+  private neutral: Snapshot;
+  private readonly keys: readonly K[];
+  private readonly estStick: (key: K) => boolean;
+  private readonly retenir: (key: K, control: Control, value: number) => void;
 
-  constructor(id: string, neutral: Snapshot, console = "gc", pad: 0 | 1 | 2 | 3 = 0) {
+  constructor(
+    neutral: Snapshot,
+    keys: readonly K[],
+    estStick: (key: K) => boolean,
+    retenir: (key: K, control: Control, value: number) => void,
+  ) {
     this.neutral = neutral;
-    this.profile = { id, buttons: {}, triggers: {}, sticks: {} };
-    this.steps = controlsFor(console, pad).map(({ key, ask }) => ({ key, ask }));
+    this.keys = keys;
+    this.estStick = estStick;
+    this.retenir = retenir;
   }
 
   get done(): boolean {
-    return this.step >= this.steps.length;
+    return this.step >= this.keys.length;
   }
 
   /** Combien d'étapes compte cette leçon. */
   get total(): number {
-    return this.steps.length;
+    return this.keys.length;
+  }
+
+  /** La commande demandée maintenant, ou rien quand c'est fini. */
+  get demandee(): K | null {
+    return this.keys[this.step] ?? null;
+  }
+
+  /** Combien de commandes ont reçu une réponse. */
+  get retenues(): number {
+    return this.step - this.passees.length;
+  }
+
+  /** Le repos pris au clic sur « Commencer ». Les dessins le lisent pendant la
+   * leçon (`heldOn`), à la même échelle que la détection. */
+  get repos(): Snapshot {
+    return this.neutral;
   }
 
   /**
@@ -182,6 +262,88 @@ export class Lesson {
     this.waiting = true;
   }
 
+  /** Skips the control being asked for: not every pad has every button. */
+  skip(): void {
+    const current = this.keys[this.step];
+    if (current !== undefined) this.passees.push(current);
+    this.step += 1;
+    this.waiting = true;
+  }
+
+  /** Feeds one frame. Returns true when something was recorded. */
+  feed(now: Snapshot): boolean {
+    if (this.done) return false;
+    if (this.waiting) {
+      if (this.atRest(now)) this.waiting = false;
+      return false;
+    }
+
+    const best = furthest(this.neutral, now);
+    if (best === null) return false;
+
+    const key = this.keys[this.step]!;
+    // Un bouton ne valide pas une question de stick.
+    if (this.estStick(key) && !("axis" in best.control)) return false;
+    this.retenir(key, best.control, best.value);
+    this.dernier = { key, control: best.control, value: best.value };
+    this.step += 1;
+    this.waiting = true;
+    return true;
+  }
+
+  atRest(now: Snapshot): boolean {
+    return (
+      now.buttons.every(
+        (value, index) => Math.abs(value - (this.neutral.buttons[index] ?? 0)) <= MOVED,
+      ) &&
+      now.axes.every((value, index) => Math.abs(value - (this.neutral.axes[index] ?? 0)) <= MOVED)
+    );
+  }
+}
+
+/** La leçon de la trame Dolphin : seize commandes, dans un profil GameCube. */
+export class Lesson extends Pas<StepKey> {
+  private readonly profile: PadProfile;
+  /** Les questions, nommées pour la console qu'on joue.
+   *
+   * La manette apprise est la même — la page envoie toujours la même trame — mais
+   * personne ne cherche « le bouton X » sur une Wiimote. Ce sont les mots qui
+   * changent, pas ce qu'on enregistre. */
+  private readonly steps: { key: StepKey; ask: string }[];
+
+  constructor(id: string, neutral: Snapshot, console = "gc", pad: 0 | 1 | 2 | 3 = 0) {
+    const profile: PadProfile = { id, buttons: {}, triggers: {}, sticks: {} };
+    const steps = controlsFor(console, pad).map(({ key, ask }) => ({ key, ask }));
+    super(
+      neutral,
+      steps.map((one) => one.key),
+      isStick,
+      (key, control, value) => {
+        if (key === "L" || key === "R") {
+          profile.triggers[key] = control;
+        } else if (key === "x" || key === "y" || key === "cx" || key === "cy") {
+          // A stick is signed, and the sign is whichever way the player just
+          // pushed: asking for RIGHT and UP means the recorded direction IS
+          // positive.
+          if ("axis" in control) {
+            profile.sticks[key] = {
+              axis: control.axis,
+              sign: value >= control.rest ? 1 : -1,
+              // Un stick de GameCube ne revient pas au centre. Le garder ici
+              // est ce qui évite un personnage qui marche tout seul pendant
+              // tout un match.
+              rest: control.rest,
+            };
+          }
+        } else {
+          profile.buttons[key as ButtonName] = control;
+        }
+      },
+    );
+    this.profile = profile;
+    this.steps = steps;
+  }
+
   get asking(): string {
     return this.done ? "" : (this.steps[this.step]?.ask ?? "");
   }
@@ -196,23 +358,6 @@ export class Lesson {
           waiting: this.waiting,
         }
       : null;
-  }
-
-  /** La dernière réponse retenue, et la valeur qui l'a donnée. */
-  dernier: { key: StepKey; control: Control; value: number } | null = null;
-
-  /** Les commandes passées, dans l'ordre où elles ont été demandées. */
-  readonly passees: StepKey[] = [];
-
-  /** Combien de commandes ont reçu une réponse. */
-  get retenues(): number {
-    return this.step - this.passees.length;
-  }
-
-  /** Le repos pris au clic sur « Commencer ». Les dessins le lisent pendant la
-   * leçon (`heldOn`), à la même échelle que la détection. */
-  get repos(): Snapshot {
-    return this.neutral;
   }
 
   /**
@@ -241,59 +386,6 @@ export class Lesson {
       }
     }
     return out;
-  }
-
-  /** Skips the control being asked for: not every pad has every button. */
-  skip(): void {
-    const current = this.steps[this.step];
-    if (current) this.passees.push(current.key);
-    this.step += 1;
-    this.waiting = true;
-  }
-
-  /** Feeds one frame. Returns true when something was recorded. */
-  feed(now: Snapshot): boolean {
-    if (this.done) return false;
-    if (this.waiting) {
-      if (this.atRest(now)) this.waiting = false;
-      return false;
-    }
-
-    const best = furthest(this.neutral, now);
-    if (best === null) return false;
-
-    const { key } = this.steps[this.step];
-    if (isStick(key) && !("axis" in best.control)) return false;
-    if (key === "L" || key === "R") {
-      this.profile.triggers[key] = best.control;
-    } else if (key === "x" || key === "y" || key === "cx" || key === "cy") {
-      // A stick is signed, and the sign is whichever way the player just pushed:
-      // asking for RIGHT and UP means the recorded direction IS positive.
-      if ("axis" in best.control) {
-        this.profile.sticks[key] = {
-          axis: best.control.axis,
-          sign: best.value >= best.control.rest ? 1 : -1,
-          // Un stick de GameCube ne revient pas au centre. Le garder ici est ce
-          // qui évite un personnage qui marche tout seul pendant tout un match.
-          rest: best.control.rest,
-        };
-      }
-    } else {
-      this.profile.buttons[key as ButtonName] = best.control;
-    }
-    this.dernier = { key, control: best.control, value: best.value };
-    this.step += 1;
-    this.waiting = true;
-    return true;
-  }
-
-  atRest(now: Snapshot): boolean {
-    return (
-      now.buttons.every(
-        (value, index) => Math.abs(value - (this.neutral.buttons[index] ?? 0)) <= MOVED,
-      ) &&
-      now.axes.every((value, index) => Math.abs(value - (this.neutral.axes[index] ?? 0)) <= MOVED)
-    );
   }
 }
 

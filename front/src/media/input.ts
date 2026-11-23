@@ -10,7 +10,16 @@ import type { InputSource } from "./input-source";
  */
 import { Window } from "./clock";
 import { Touch } from "./touch";
-import { Capture, indiceDe, Lesson, modelSnapshot, type Snapshot } from "./lesson";
+import {
+  Annonces,
+  Capture,
+  indiceDe,
+  Lesson,
+  modelSnapshot,
+  type EvenementDe,
+  type FinDe,
+  type Snapshot,
+} from "./lesson";
 import { MenuPad, type MenuAction } from "./menupad";
 import type { SetupProfile } from "../lib/setups";
 import { readProfile } from "./profile";
@@ -61,32 +70,11 @@ import {
  * identical states, so a redundant send costs one decode and a compare. */
 const PAD_PERIOD_MS = 4;
 
-/** Ce qu'un pas à pas a laissé : combien de commandes ont reçu une réponse,
- * lesquelles ont été passées, et ce que gardent les passées. « avant » : le
- * profil rangé de cette manette ; « standard » : la disposition standard d'une
- * manette qui n'en avait pas ; « rien » : un adaptateur jamais réglé, où une
- * commande passée reste sans réglage. */
-export type FinDeLecon = {
-  retenues: number;
-  passees: ControlKey[];
-  garde: "avant" | "standard" | "rien";
-};
+/** Ce qu'un pas à pas Dolphin a laissé (`FinDe`). */
+export type FinDeLecon = FinDe<ControlKey>;
 
-/**
- * Ce que la boucle dit d'un réglage, au moment où ça arrive.
- *
- * L'instantané React se lit deux fois par seconde (règle 8) : les marques
- * d'une étape (cadre de la touche attendue, coins d'un appui) ne peuvent pas
- * le suivre. Elles s'abonnent ici, dans un module ordinaire (constat C9).
- * `indice` est nommé comme les pièces du dessin de droite (`heldOn`).
- */
-export type EvenementReglage =
-  | { type: "etape"; control: ControlKey; etape: number; total: number }
-  | { type: "recu"; control: ControlKey; indice: string }
-  | { type: "relache" }
-  | { type: "fin"; resultat: FinDeLecon }
-  | { type: "suspendu"; etape: number }
-  | { type: "premiere-manette"; id: string };
+/** Les moments d'un réglage Dolphin (`EvenementDe`). */
+export type EvenementReglage = EvenementDe<ControlKey>;
 
 export type InputState = {
   /** Appareil confirmé par le worker pour cette place. */
@@ -392,7 +380,7 @@ export class InputStream {
   private lesson: Lesson | null = null;
   private lessonResult: FinDeLecon | null = null;
   private suspension: { lesson: Lesson; id: string } | null = null;
-  private readonly ecoutes = new Set<(evenement: EvenementReglage) => void>();
+  private readonly annonces = new Annonces<EvenementReglage>();
   /** Vrai dès que cette page a vu une manette : la première s'annonce une
    * fois par chargement, pas à chaque rebranchement. */
   private manetteVue = false;
@@ -1050,22 +1038,11 @@ export class InputStream {
 
   /** S'abonne aux moments d'un réglage ; rend la fonction qui désabonne. */
   surReglage(ecoute: (evenement: EvenementReglage) => void): () => void {
-    this.ecoutes.add(ecoute);
-    return () => {
-      this.ecoutes.delete(ecoute);
-    };
+    return this.annonces.ecouter(ecoute);
   }
 
-  /** Un abonné qui lève ne doit jamais arrêter la boucle d'entrée : elle
-   * porte aussi la partie des autres. */
   private emettre(evenement: EvenementReglage): void {
-    for (const ecoute of this.ecoutes) {
-      try {
-        ecoute(evenement);
-      } catch {
-        /* l'abonné est seul responsable de ce qu'il fait */
-      }
-    }
+    this.annonces.emettre(evenement);
   }
 
   /** L'étape demandée maintenant, si la leçon en a une. */

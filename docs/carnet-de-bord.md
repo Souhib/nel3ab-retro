@@ -28750,7 +28750,10 @@ chantier (03b21c0), L est couverte par `#controller-status`.
 `manette-vraie` vérifie l'image entière, le conseil tenu droit et son
 absence en travers ; son jumeau débranche la manette et attend le retour des
 touches. Contre la page de la fin du passage précédent (acfa4c7), elle est
-rouge sur les touches restées à l'écran.
+rouge sur les touches restées à l'écran. `manette-branchee` touche aussi les
+deux gestes de la bande pour de vrai : un mutant d'`App.tsx` dont « Vérifier
+les boutons » n'ouvre plus la feuille agrandie, et dont le bouton des
+commandes tactiles ne fait rien, la rend rouge sur ces deux défauts.
 
 **Une option tuée par la mesure.** La feuille à mi-hauteur devait garder les
 45 dernières secondes à un toucher. Tenue droite, sa grille a deux colonnes,

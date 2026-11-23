@@ -37,6 +37,7 @@ import {
   Suspension,
   type Ligne,
 } from "./PasAPas";
+import { IconeRang } from "../../components/Colonne";
 import { tenirDessins } from "./inscriptions";
 import { poserMarques } from "./marques";
 
@@ -272,7 +273,9 @@ export function ManettePro({
                   </select>
                 </label>
               ) : (
-                <strong className="rt-titre">{identite.name}</strong>
+                <strong className="rt-titre">
+                  <IconeRang nom="manette" /> {identite.name}
+                </strong>
               )}
               <p>
                 {(appareil?.standard ?? identite.standard) ? REGLAGE.standard : REGLAGE.nonStandard}

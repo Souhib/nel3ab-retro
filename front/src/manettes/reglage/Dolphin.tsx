@@ -26,6 +26,7 @@ import {
   Suspension,
   type Ligne,
 } from "./PasAPas";
+import { IconeRang } from "../../components/Colonne";
 import { tenirDessins } from "./inscriptions";
 import { poserMarques } from "./marques";
 
@@ -162,7 +163,9 @@ export function ManetteDolphin({
                   </select>
                 </label>
               ) : (
-                <strong className="rt-titre">{identity.name}</strong>
+                <strong className="rt-titre">
+                  <IconeRang nom="manette" /> {identity.name}
+                </strong>
               )}
               <p>{identity.standard ? REGLAGE.standard : REGLAGE.nonStandard}</p>
               {identity.standard ? null : <p>{REGLAGE.adaptateur}</p>}

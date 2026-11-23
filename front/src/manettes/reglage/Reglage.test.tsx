@@ -265,6 +265,18 @@ describe("le pas à pas", () => {
     monterDolphin({ state: etat(XBOX) });
     expect(screen.getByRole("button", { name: "Régler pas à pas" })).toBeTruthy();
   });
+
+  it("pose l'icône de manette en pixels devant le nom, cachée au lecteur d'écran", () => {
+    monterDolphin({ state: etat(XBOX) });
+    const icone = document.querySelector("[data-appareil] strong .rt-icone-pixel");
+    expect(icone).not.toBeNull();
+    expect(icone?.closest('[aria-hidden="true"]')).not.toBeNull();
+  });
+
+  it("n'a pas d'icône de manette quand aucune manette n'est vue", () => {
+    monterDolphin();
+    expect(document.querySelector("[data-appareil] .rt-icone-pixel")).toBeNull();
+  });
 });
 
 describe("la scène de fin", () => {
@@ -331,6 +343,33 @@ describe("la trame Pro", () => {
     expect(dessins[1]).toHaveAttribute("data-absente", "oui");
     expect(dessins[0]).not.toHaveAttribute("data-absente");
     expect(screen.getAllByText("Pas transmis au jeu : le bouton Guide.").length).toBeGreaterThan(0);
+  });
+
+  it("pose aussi l'icône de manette en pixels devant le nom d'une manette Pro", () => {
+    const source = new SwitchInput();
+    const pad = {
+      id: "Xbox 360 Controller (STANDARD GAMEPAD Vendor: 045e Product: 028e)",
+      index: 0,
+      connected: true,
+      mapping: "standard",
+      axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+      timestamp: 1,
+    } as unknown as Gamepad;
+    source.poll(new Set(), [pad]);
+    const trame: TramePro = {
+      genre: "pro",
+      console: "Xbox 360",
+      xbox: true,
+      manette: "manette Xbox 360",
+      source,
+      input: { switchActive: () => true, surReglage: () => rien },
+      place: 1,
+    };
+    render(
+      <Reglage onglet="manette" onOnglet={rien} onFermer={rien} autres={false} vit trame={trame} />,
+    );
+    expect(document.querySelector("[data-appareil] strong .rt-icone-pixel")).not.toBeNull();
   });
 
   it("a les mêmes onglets que Dolphin, et vingt-quatre lignes sans point médian", () => {

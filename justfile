@@ -893,14 +893,29 @@ cadre-mesure:
 
 # Le contrôle négatif du précédent: la page de 03b21c0, d'avant le chantier,
 # doit échouer sur le DÉFAUT de chaque étape (la pile des avis sur l'image, les
-# boutons de coin d'une colonne repliée), pas sur une précondition. La garde
-# elle-même (`garde-voit`) doit rester verte sur cette page: elle ne dépend
-# pas du cadre.
+# boutons de coin d'une colonne repliée, la manette « toujours » posée sur
+# l'image à la souris), pas sur une précondition. La garde elle-même
+# (`garde-voit`) doit rester verte sur cette page: elle ne dépend pas du cadre.
+#
+# Les étapes nouvelles du chantier lisent aussi des pages de la branche du
+# chantier (0fef99e, 3cada57, 2cb36ba, cf3bba1, acfa4c7). Ces commits ne vivent
+# que sur `chantier/retro-salle`, que l'intégration refait : leurs pages sont
+# gardées dans le dépôt (`spikes/m3-browser-drive/rouges/`, relecture du
+# 23 novembre 2026), chacune avec l'empreinte git de la page de son commit
+# (`EMPREINTES`), vérifiée avant usage. Une copie changée arrête la recette.
 cadre-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
     trap 'rm -rf "$dossier"' EXIT
+    rouges="$(pwd)/spikes/m3-browser-drive/rouges"
+    while read -r empreinte commit fichier; do
+        lue=$(git hash-object "$rouges/$fichier")
+        if [ "$lue" != "$empreinte" ]; then
+            echo "$fichier n'est plus la page de $commit ($lue au lieu de $empreinte)" >&2
+            exit 1
+        fi
+    done < "$rouges/EMPREINTES"
     ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
         -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
@@ -908,43 +923,42 @@ cadre-navigateur-rouge:
     cd spikes/m3-browser-drive
     node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
     # manette-branchee: l'avis de branchement de cette page couvre L.
-    etapes=rien-sur-image,agrandie,manette-branchee
+    # souris-toujours: la manette « toujours » se pose sur l'image à la souris.
+    # sortir-salle: Quitter part sans la transition « sortir-salle » (K13).
+    etapes=rien-sur-image,agrandie,manette-branchee,souris-toujours,sortir-salle
     node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # La page de la fin du passage 1 (0fef99e) a déjà le cadre, mais ni le
     # panneau de commande ni la colonne nouvelle: elle doit tomber sur le
     # panneau absent de l'écran et sur les onglets restés là.
-    git show 0fef99e:core/crates/worker/src/page/index.html > "$dossier/cadre-seul.html"
     etapes=meuble-place,une-fois
-    node cadre.mjs --page "$dossier/cadre-seul.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --page "$rouges/salle-0fef99e.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # La page de la colonne du bureau (3cada57) ouvre encore son menu d'office
     # dans une salle au repos.
-    git show 3cada57:core/crates/worker/src/page/index.html > "$dossier/colonne.html"
     etapes=repos-sans-menu
-    node cadre.mjs --page "$dossier/colonne.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --page "$rouges/salle-3cada57.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Quatrième bloc (étape 7): la page de l'étape 6 (2cb36ba) n'a ni
     # fronton, ni crédit, ni trame, ni décor de borne; chaque étape doit y
     # rougir sur son défaut, pas sur le jumeau de son balayage.
-    git show 2cb36ba:core/crates/worker/src/page/index.html > "$dossier/touches.html"
     etapes=fronton-bande,credit-compte,tramage-hors-image,borne-bandes
-    node cadre.mjs --page "$dossier/touches.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --page "$rouges/salle-2cb36ba.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Cinquième bloc (étape 4): la page de l'étape 7 (cf3bba1) pose la
     # manette tactile par-dessus l'écran; tenue en main, elle doit rougir sur
     # les touches posées sur l'image, pas sur une manette absente.
-    git show cf3bba1:core/crates/worker/src/page/index.html > "$dossier/borne.html"
     etapes=tenu-rien-sur-image
-    node cadre.mjs --page "$dossier/borne.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --page "$rouges/salle-cf3bba1.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Sixième bloc (passage 5): la page de la fin du passage 4 (acfa4c7) garde
     # ses touches à l'écran devant une vraie manette, sa bande ne dit pas
     # quelle manette joue, sa feuille à mi-hauteur n'a pas le clip, et ni son
     # fronton, ni sa colonne, ni sa barre ne portent l'ancre de l'annonce.
-    git show acfa4c7:core/crates/worker/src/page/index.html > "$dossier/tenu.html"
-    etapes=manette-branchee,manette-vraie,feuille-clip,fronton-bande,tenu-rien-sur-image
-    node cadre.mjs --page "$dossier/tenu.html" --flux "$dossier/flux.h264" \
+    # Passage 6: sans barre (844×390, 375×548), aucune scène de la mascotte
+    # n'y joue, faute d'hôte dans « La salle ».
+    etapes=manette-branchee,manette-vraie,feuille-clip,fronton-bande,tenu-rien-sur-image,mascotte-hors-image
+    node cadre.mjs --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 

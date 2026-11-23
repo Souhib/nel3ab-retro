@@ -219,6 +219,23 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
+**Au 23 novembre, la nuit : le chantier manettes, premier passage.** Sur
+`chantier/retro-manettes` (worktree `~/nel3ab-chantiers/retro-manettes`),
+parti d'`integration/retro`. Rien n'est fusionné, poussé ni installé. Fait :
+une commande passée au pas à pas garde son réglage d'avant (elle
+s'effaçait), sauf si une réponse a pris son entrée ; le dessin lit la course
+depuis le repos de la leçon ; un débranchement suspend le pas à pas au lieu
+de l'annuler ; une machine d'étapes commune (`Pas`, `media/lesson.ts`) et un
+pas à pas Pro en vingt étapes (`SwitchInput.commencerLecon`) ; les
+événements du réglage hors de React (`surReglage`, `surLecon`) ; l'activité
+de la trame envoyée dans l'instantané (`InputState.activite`, K34) ;
+`enAttente` et `reessayer` des profils ; les manettes en aplats, l'appui à
+la couleur de la place (`components/padmap.css`, ADR D42). Le panneau
+« Touches et manettes », ses marques, sa place dans la salle et le câblage
+dans `App.tsx` restent aux passages suivants. Page : 250 627 octets en
+brotli. Récit : « 23 novembre, la nuit encore : les manettes, premier
+passage ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

@@ -168,7 +168,8 @@ code :
 - **Un plan ne déclare que des formes et des couleurs de matière.** Le volume
   (dégradés, reflet, bords assombris, logements, reflets bombés, ombre) est le
   même pour toutes, dans le composant. Une manette nouvelle ne touche pas au
-  composant.
+  composant. **Remplacé le 23 novembre 2026** : plus de volume, des aplats
+  (section « Les aplats et le pas à pas » plus bas).
 - **Trois sortes de pièces sortent de la coque, et seulement elles.** Une
   gâchette `under` est dessinée derrière et doit en dépasser ; une pièce
   `hangs` (le vibrato) est posée dessus et doit à la fois la toucher et en
@@ -207,8 +208,9 @@ son repos, comme la leçon complète.
 
 La boucle envoie un état neutre pendant la capture et la leçon. Elle attend aussi
 le relâchement du dernier appui avant de rendre la main au jeu ou au menu.
-Débrancher la manette annule la configuration, et Échap annule avant de fermer
-le dialogue. Les profils JSON sont validés avant d'être lus par la boucle.
+Débrancher la manette annule une réassignation ; depuis le 23 novembre 2026, il
+suspend un pas à pas au lieu de l'annuler (voir la section de cette date).
+Échap annule avant de fermer le dialogue. Les profils JSON sont validés avant d'être lus par la boucle.
 
 ## Portée des réglages
 
@@ -238,7 +240,9 @@ préparation, pour ne pas faire tester un appareil différent de celui confirmé
 |---|---|
 | `front/src/lib/padmap.ts` | Plans relevés sur photos, Wiimote seule, manette Pro et choix de famille |
 | `front/src/lib/wiring.ts` | Lecture brute, repères verticaux et `paintWiring` |
-| `front/src/components/PadMap.tsx` | Volume commun à toutes les manettes, libellés, sélection et balisage animé |
+| `front/src/components/PadMap.tsx` | Dessin commun à toutes les manettes (aplats depuis le 23 novembre 2026), libellés, sélection, place et balisage animé |
+| `front/src/components/padmap.css` | Matières, contour, appui à la couleur de la place |
+| `front/src/media/activite.ts` | Ce que la trame envoyée presse, pour la vue des touches |
 | `front/src/components/SwitchBindings.tsx` | Configurateur Switch ; il dessine la manette Pro avec `PadMapView` |
 | `spikes/manettes-relevees/` | Outils et mesures des relevés sur photos |
 | `front/src/components/Wiring.tsx` | Assemblage et abonnement à l'animation |
@@ -642,3 +646,41 @@ Leur fermeture manuelle reste possible. La disparition du message ne change pas
 la manette choisie et ne ferme pas un configurateur ouvert volontairement.
 Le diagnostic de connexion indique séparément la vidéo, l'entrée et le salon :
 une image encore visible ne prouve pas que la place est toujours attribuée.
+
+## Les aplats et le pas à pas, 23 novembre 2026
+
+Premier passage du chantier manettes (thème rétro). Le récit est au carnet,
+entrée « 23 novembre, la nuit encore : les manettes, premier passage », et
+la décision à l'ADR D42. Ce qui n'est pas lisible dans le code :
+
+- **Le dessin n'a plus de volume.** Une matière est un aplat lu dans la
+  section « chantier manettes » de `regie.css` ; la coque prend le milieu
+  exact de son ancien dégradé. Seul le contour de la coque suit le thème.
+  Un essai refuse un dégradé, un motif ou un filtre dans le dessin rendu.
+- **L'appui prend la couleur de la place** (`place` de `PadMapView`,
+  `data-place`). L'aplat est la teinte de joueur de l'autre clarté que les
+  touches ; l'anneau est un blanc ou un noir d'objet de l'autre clarté que
+  la coque. L'anneau dans l'autre teinte du même joueur ne suffisait pas sur
+  la Wiimote et la manette standard. Une gâchette dessinée derrière la coque
+  se voit sur la page : son anneau prend l'encre du thème. Sans place, un
+  aplat d'objet, jamais une couleur de joueur. `lib/manettes-couleurs.test.ts`
+  lit les feuilles telles qu'elles partent ; `just banc-visuel` mesure chaque
+  place dans les deux thèmes.
+- **Une commande passée garde son réglage d'avant**, sauf si une réponse a
+  pris son entrée : une entrée fait une seule chose. Une leçon où tout est
+  passé n'écrit rien. Avant ce jour, passer une commande l'effaçait.
+- **Le repos de la leçon vaut pour le dessin.** `heldOn` reçoit le neutre pris
+  au clic (`InputState.neutre`) pour les indices que le profil ignore. Sans
+  lui, une gâchette d'adaptateur au repos restait allumée pendant la leçon.
+- **Débrancher suspend le pas à pas** (`InputState.suspendu`). Rien n'est
+  écrit ; seule la même manette reprend (`reprendreLecon`), avec un repos
+  pris au clic.
+- **Les deux trames partagent la machine d'étapes** (`Pas`). Le pas à pas
+  Pro fait vingt étapes et non vingt-quatre : un `SwitchDevice` garde un axe
+  signé par axe de stick.
+- **Les marques suivent des événements, pas l'instantané** (`surReglage`,
+  `surLecon`). L'instantané React se lit deux fois par seconde ; un abonné
+  qui lève ne casse pas la boucle.
+- **L'activité de la trame est celle qui est partie** (`InputState.activite`) :
+  un menu ou un réglage envoie du neutre, et rien ne s'allume alors.
+

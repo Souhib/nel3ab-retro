@@ -29467,6 +29467,102 @@ la page, page à jour), comme `focus-navigateur` (27 étapes),
 et 932×430) et `parcours-navigateur` (13 étapes, dont
 `preparation-x360`). La porte entière attend toujours l'intégration finale.
 
+### 23 novembre, la nuit encore : les manettes, premier passage
+
+**Le contexte.** Le chantier des manettes remplacera les deux dialogues de
+réglage (`Bindings`, `SwitchBindings`) par un seul panneau, posé à la place
+de la colonne, et redessinera les manettes pour le thème rétro. Le
+propriétaire a refusé le module chargé à la demande (`/reglage.js`, K38) :
+le panneau restera dans la page, et son poids se mesure à chaque passage.
+Ce premier passage fait le dessous : la boucle d'entrée et la leçon, que le
+panneau lira, puis le dessin des manettes. Le panneau lui-même viendra
+ensuite.
+
+**Trois défauts trouvés en lisant le code, chacun vu rouge d'abord.**
+
+- **Passer une commande l'effaçait.** Le pas à pas propose « Passer cette
+  commande » pour une touche qu'on veut garder. Mais la leçon ne notait rien
+  au passage, et sa fin remplaçait tout le profil de la manette par les
+  seules réponses. Comme la lecture d'une manette ne retombe pas sur la
+  disposition standard dès qu'un profil existe, B passé ne faisait plus rien
+  du tout. Deux essais de `configuration.test.ts` échouaient sur l'arbre de
+  départ ; ils retombent quand on retire la fusion. Maintenant, une
+  commande passée garde son réglage d'avant (le profil rangé, ou la
+  disposition standard d'une manette standard), et une leçon où tout est
+  passé n'écrit rien.
+- **Le dessin s'allumait au repos pendant une leçon.** Un adaptateur
+  GameCube pose une gâchette à 0,62 au repos, et le navigateur la déclare
+  appuyée. Sans profil, le dessin de droite lisait ce drapeau et restait
+  allumé, alors que la détection de la leçon lisait déjà la course depuis le
+  repos pris au clic. Le dessin reçoit maintenant ce même repos
+  (`InputState.neutre`).
+- **Débrancher annulait tout.** La leçon disparaissait avec ses réponses.
+  Elle est maintenant suspendue : rien n'est écrit, et seule la même manette
+  la reprend, avec un repos pris au clic. Une autre manette apprendrait la
+  suite sur un autre modèle.
+
+**Un défaut trouvé en écrivant un essai.** Garder le réglage d'avant d'une
+commande passée a un piège. Sur une manette standard, Y est sur le bouton 3.
+Si l'on répond « bouton 3 » pour A puis qu'on passe Y, le bouton 3 presse A
+et Y à la fois. L'essai de la trame Pro l'a montré : il attendait A seul et
+recevait A et Y. Règle retenue : une entrée prise par une réponse quitte la
+commande passée qui la tenait, comme une touche du clavier quitte son ancien
+poste. Y reste alors sans réglage, et la liste le montrera.
+
+**Une machine d'étapes pour les deux trames.** Les salles Switch et Xbox 360
+n'avaient pas de pas à pas. La leçon de Dolphin est devenue une machine
+commune (`Pas`), et la trame Pro a la sienne en vingt étapes : seize
+boutons, puis la droite et le haut de chaque stick. Pas vingt-quatre : la
+trame Pro garde un seul axe signé par axe de stick, donc demander la gauche
+après la droite réécrirait la même entrée. À dire au propriétaire.
+
+**Les événements du réglage.** L'écran React ne relit l'état de la boucle que
+deux fois par seconde. Les marques du pas à pas (le cadre autour de la
+touche attendue, les coins d'un appui) doivent suivre l'appui lui-même : la
+boucle annonce donc chaque moment (étape, réponse, relâchement, fin,
+suspension, première manette vue) à des abonnés ordinaires, hors de React.
+Un abonné qui plante ne peut pas arrêter la boucle : elle porte aussi la
+partie des autres.
+
+**L'activité de la trame, pour la salle.** La vue des touches de la colonne
+allume une ligne quand la trame envoyée la presse. Elle ne voyait que les
+douze boutons de Dolphin, rien des sticks ni de la trame Pro. L'état de la
+boucle dit maintenant, pour les deux trames, ce que la dernière trame
+envoyée presse. Envoyée, et pas lue sur la manette : pendant un menu ou un
+réglage, la trame part neutre, et rien ne doit s'allumer.
+
+**Les manettes en aplats.** Le dessin des manettes perd son volume :
+dégradés, reflets, ombres et filtres. Chaque matière devient un aplat (la
+coque prend le milieu exact de son ancien dégradé), et la coque a un contour
+net à l'encre du thème. Une touche appuyée prend la couleur de la place de
+la page : la teinte de joueur de l'autre clarté que les touches, avec un
+anneau blanc ou noir de l'autre clarté que la coque. Le calcul a montré
+qu'un anneau dans l'autre teinte du même joueur ne suffisait pas sur la
+Wiimote blanche ni sur la manette standard grise (2,4:1 et 2,0:1) ; un blanc
+ou un noir d'objet tient partout. Sur la GameCube violette, l'aplat seul
+tombe à 1,36:1 et c'est l'anneau qui tient. Un essai lit les deux feuilles
+telles qu'elles partent et l'exige pour dix manettes et quatre places, avec
+deux mutants refusés.
+
+**Ce que le banc a trouvé.** `just banc-visuel` mesure maintenant aussi
+chaque place, sous un système sombre puis clair. Il a trouvé les gâchettes
+de la GameCube à 1,07:1 de jour, sans place : elles sont dessinées derrière
+la coque, donc vues sur la page, et leur anneau était clair. Leur anneau
+prend désormais l'encre du thème. Le banc laissait aussi son Vite écouter
+sur le port 5471 après la fin, ce qui faisait échouer le lancement suivant
+(« Vite n'a pas démarré ») : il tuait `npx` mais pas Vite, son enfant. Il
+tue maintenant tout son groupe de processus.
+
+**Le poids.** La page passe de 249 436 à 250 627 octets en brotli : 1 191
+de plus, net. Entrent la machine d'étapes, le pas à pas Pro, la suspension,
+les événements, l'activité et les phrases de fin. Sortent le volume des
+manettes et 8 165 octets bruts de règles d'`index.css`, remplacés par
+`components/padmap.css`.
+
+**Les portes.** `just check` est vert. `focus-navigateur`,
+`parcours-navigateur`, `salle-telephone` et `manette-garde` passent. Les
+recettes `-rouge` attendent le dernier passage.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31132,3 +31228,16 @@ effet. Son état appartient au composant qui l'appelle.
 **Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
 composant modifié sans recharger la page ni perdre son état. Il ne le fait
 que pour un fichier qui n'exporte que des composants.
+
+**Pas à pas** : le réglage d'une manette question par question (« Appuie sur
+ce que tu veux pour A »). Chaque réponse retient l'entrée qui a bougé depuis
+le repos pris au départ ; « Passer cette commande » garde son réglage
+d'avant.
+
+**Repos (d'une commande)** : la valeur qu'un bouton ou un axe rapporte quand
+personne n'y touche. Elle n'est pas toujours zéro : un adaptateur GameCube
+pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
+
+**Groupe de processus** : l'ensemble d'un programme et de ceux qu'il lance.
+Arrêter le groupe arrête aussi les enfants ; arrêter le parent seul peut
+laisser un enfant tourner, comme le Vite du banc.

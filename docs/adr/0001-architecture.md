@@ -2054,6 +2054,73 @@ picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
 
+### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
+
+**Status:** first pass of the `manettes` work site, on `chantier/retro-manettes`.
+The panel that replaces the two modal dialogs comes in later passes; this
+entry will grow with it.
+
+**The on-demand module is not taken (K38).** The plan proposed a second
+artefact, `/reglage.js`, served by the worker and loaded on first opening, to
+keep the room page under its 300 000-byte budget. The owner declined it: the
+page stays one file (D13 unchanged), and the panel will live in the page,
+measured at every pass. After this pass the page weighs 250 627 bytes brotli
+(+1 191 on `integration/retro`).
+
+**A passed command keeps its previous binding.** `Lesson.skip()` recorded
+nothing and the end of a lesson replaced the whole profile with the answers
+alone; since `readPad` does not fall back to the standard layout once a
+profile exists, skipping B to keep it erased it. The lesson now lists its
+passed steps and `learned(previous)` gives each one the stored profile's
+entry, or the standard layout for a standard pad without a profile. An
+adapter never configured keeps them unset. A lesson where everything was
+passed writes nothing. One exception, found while writing the Pro test: an
+input taken by an answer leaves the passed command that held it (answering
+A on b3 with Y passed and standard on b3 made b3 press A and Y). The lesson is
+a new plan of the pad, and an input does one thing, as a keyboard key already
+does (`bindKey`). Weighed: keeping both (the capture's behaviour) leaves a
+silent double press; dropping all passed commands (the old behaviour) is
+the defect.
+
+**An unplugged pad suspends a lesson instead of cancelling it.** Nothing is
+written; the lesson, its answers and its passed steps wait under the pad's
+identifier, and only the same pad resumes, with a rest sample taken at the
+click. A different pad would learn the rest of a different model.
+
+**One step machine for both frames.** `Pas<K>` (`media/lesson.ts`) holds the
+rest taken once, the wait for release, the refusal of a button for a stick
+step, the passed list and the resume; `Lesson` writes a GameCube profile and
+`LeconPro` a `SwitchDevice`. The Pro lesson has 20 steps, not 24: a
+`SwitchDevice` keeps one signed axis per stick axis, so asking « left » after
+« right » would overwrite the same entry. The sign comes from the push, as
+for Dolphin.
+
+**Lesson events leave the loop outside React.** The React snapshot is read
+twice a second (rule 8), too slow for the step marks to come. `surReglage`
+and `surLecon` deliver `etape`, `recu` (with the input named as the right-hand
+drawing names it), `relache`, `fin`, `suspendu` and, once per page load,
+`premiere-manette`. A subscriber that throws cannot stop the input loop.
+
+**The snapshot says what the sent frame presses (K34).** `InputState.activite`
+holds the commands the frame can carry and those it carries now, for the
+Dolphin frame and the Pro frame, read from what was SENT: a menu or a lesson
+sends a neutral frame, and nothing lights then.
+
+**Flat drawings, pressed in the seat's colour.** The controller drawings lose
+their volume (gradients, sheen, rim, inner shadow, drop shadow, filters, the
+card around them): one flat colour per material from the manettes section of
+`regie.css`, the shell at the exact middle of its former gradient, and a
+crisp outline in the theme's ink (the one thing that follows the theme). A
+pressed piece takes the page's seat colour, the player shade of the other
+lightness than the keys, with an object white or black ring of the other
+lightness than the shell. One of the two holds 3:1 against the key, its well
+and the shell for ten plans and four seats (`lib/manettes-couleurs.test.ts`);
+on the purple GameCube the fill alone falls to 1.36:1 and the ring carries
+it. Without a seat (spectator, preview) the press is a neutral object colour,
+never a player's. A trigger drawn behind the shell is seen against the page,
+so its ring takes the theme's ink: `just banc-visuel`, now run for every seat
+in both themes, found the GameCube triggers at 1.07:1 by day before that.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

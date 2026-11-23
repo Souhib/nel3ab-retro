@@ -504,6 +504,9 @@ export const PLACES = {
   roleJoue: (n: number) => `Tu joues à la place ${n}.`,
   roleLibre: "Tu regardes : prends une place libre pour jouer.",
   rolePlein: "Tu regardes : touche la place d'un joueur pour la lui demander.",
+  /** Le worker a donné ma place à quelqu'un d'autre. */
+  deplace:
+    "Quelqu'un a repris ta place. Choisis une place libre, ou demande la sienne à un joueur.",
 } as const;
 
 /** Les arrivées et les départs, dits une fois par la ligne parlée de la salle
@@ -543,6 +546,10 @@ export const CARTE = {
   choisir: "Choisir le jeu",
   fermer: "Fermer",
   restant: (s: number) => `${s} s`,
+  /** Comment je joue, sur la carte de ma place (`tuJoues`). */
+  auClavier: "au clavier",
+  auDoigt: "au doigt",
+  aLaManette: "à la manette",
 } as const;
 
 /** La demande reçue (`components/DemandeRecue`) : jamais sur l'image, un
@@ -558,6 +565,8 @@ export const DEMANDE = {
   annuler: "Annuler",
   prise: (nom: string, n: number) => `${nom} a pris ta place ${n}.`,
   redemander: "Redemander une place",
+  /** Le libellé du bouton « La salle » pendant une demande, en paysage. */
+  libelle: (nom: string) => `${nom} · ta place`,
 } as const;
 
 /** Inviter quelqu'un (`components/Inviter`) : un panneau déplié dans la

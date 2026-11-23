@@ -128,3 +128,9 @@ export function echapFermeLaCarte(
   if (focus === null || carte === null) return false;
   return carte.contains(focus) || (place !== null && place === focus);
 }
+
+/** Le temps que le salon laisse à qui tient une place pour répondre à une
+ * reprise, en secondes : `ANSWER_WITHIN` de
+ * `control/nel3ab_control/api/controllers/recovery.py`. La carte le dit
+ * AVANT la demande ; pendant, elle lit le temps restant que le salon envoie. */
+export const REPRISE_REPONSE_S = 20;

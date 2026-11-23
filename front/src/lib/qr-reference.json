@@ -1,0 +1,466 @@
+{
+  "oracle": "qrcode-terminal 0.12.0, vendor/QRCode (Kazuhiko Arase, MIT)",
+  "niveau": "M",
+  "mode": "octet",
+  "empreinte": "sha256 des lignes, « 1 » pour un module sombre, jointes par « \\n »",
+  "liens": [
+    {
+      "texte": "h",
+      "version": 1,
+      "empreintes": [
+        "1391567a70f543125a12de8a6e6c60d68a81102b5513c04b000a2c5b6c3a677d",
+        "848f621f7ecfca7e8abac5667957ac0b8ca2bcec6a91aa72d50e535501840768",
+        "96c91fc5925d67a230051f1cfb9c691a744059daf6e18fd698c4cccb396ddcec",
+        "d0ff08053f8dc1bfdcfb5d5cf3f13f4d0c90c8c4aa0431b8bc81566fbfa4c1f2",
+        "aad9569a842202d917f21dba2fa6873099bfc7279ad53b371a938fe9904bd4c8",
+        "66aa0e04f6184cf54cde17b027bdc00365c0f889aec83b54d17436b529a6a516",
+        "ebbf8c3965c4e7cbb897cb5db553cc833bba78188876a5892eca2cb12f637fea",
+        "553011f1ecefc1e07048e4cc0db8c340ea7e8b01a6a7202c7d12d61f9076f3a1"
+      ]
+    },
+    {
+      "texte": "https://",
+      "version": 1,
+      "empreintes": [
+        "b9c3be83ff510e365a58c30dd0990bc2258a51dce7c530d944485565baf271c9",
+        "768268440545cbd899ef852ce8eb01fed972f5cdc26f38cdb5202271b4ec69d2",
+        "c44684a6bf837fecc816a33ee2b5595479e429c19fbd6277845cb348218bbaf1",
+        "a7e3f7a7de65c8abb8a32cc8e531dc60f5a7f956fa6b7ef5dc4bc05a5e37f20d",
+        "cb1245cc6974fa8c8415aaca70007786289788ec8e853fdd0b7721131b9a418f",
+        "1ec148e860b3f2d238a36ec2573d984f65e30df8ec8ed847c99fc0a073cff6ae",
+        "e71c49dfd9394783a6bc81d6dc1f814ac650df9aa64957ad52c86326bf88af17",
+        "beffbbe63fdd154e5927df7d43f19a3ab269c8497fb63d2fbbe45293010edc76"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.",
+      "version": 2,
+      "empreintes": [
+        "26ade40eef5f0905eba753bcbd858165f1629b4b4e050af9d2dbd4b25c795835",
+        "9b737f7d2f7f261c6cd200315c3071398fcfdf206eb5801b59ef6d6e58d879b4",
+        "c37fcc3b6d47ee720159ac16e284b585ba72fdc780d90d6001f8435a26c1debc",
+        "f78eb047e902356daff68a530e277b76ac03f922bd0a237e9159680c786f4e39",
+        "1b16b0109741aed51da94ced30bc9af87669296f9eb3003b5d7e792c460ab4e5",
+        "de97b51272c825943770da37d0776921d4ae3750a95a157a15d92191205dbabd",
+        "ac8c34ad56a99c71dcd4bbf58c7f9fe2e2f502369cc3b3f6690deaa370025c58",
+        "0173df593407d4b67c29b49db0716c7411ade948df9a0dbe67b9116e645523c1"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple",
+      "version": 2,
+      "empreintes": [
+        "1cf2530babc380254a13cf7b49d393bd74d731cf0614ad2acf917375cba9bbfe",
+        "8cca165896c8b9d9da221b05e126663b472c3d57e89dc9c36a38f1312a17e86e",
+        "a6869851bd9a10f1c611a5f5dcd0597c1ebaa00530a16d59427e80177aef5965",
+        "b30bb6a068b365044fcc7adfc9d4be0b14ebcdd82c44975a51394918e1b3ac58",
+        "3e0cf3bac7ee492e114a469ad2dba27c51a42a5e0cf55176245bf5c6e8efe3ed",
+        "bf434e4a5a3ed137639f4adac4e9e984532723579cd8fb09adc568c58fb58df6",
+        "88ba42517a4b81588a16b9f219b821b697db48ad5484ce6726e3d076ae864cff",
+        "af17a33c8264964e72596472d1969aa00f0f1f90947522e726cefc402418c0b9"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?e",
+      "version": 3,
+      "empreintes": [
+        "337ba28a75059d6f094bc92f861090a424564ca58662f241f1fe2801384e582f",
+        "bf99c9a1c79b3040d9903f91999d62504750a31c3eb9b3d867f7d8ce9116b02a",
+        "2f2890c7e9caec056c26465e18fc853adbe5e71908508172b6d394e4b24eec86",
+        "868683eb56108792bdd51a61be5b39b13c1ab57420bd45cde403884b3ee133c7",
+        "87bb7c31c0a4895d14b23cfbfe3ec8611837adb779b92eff6c5c3a8e2b52777e",
+        "deb066ff1e22f55cc52ee263527845719cf5a9705ba423b1166ed762d6884bf8",
+        "441caab35ce9ed5bd2fd882d8545fc7f865b470fb2b51df8d51e492347e0ace9",
+        "e224e3ff2cc9faf95680b127f9feb3211559ee8c1fe534a9dc95fd4cd057c283"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=j",
+      "version": 3,
+      "empreintes": [
+        "fc7b3d8754d096892f9ff4186e1cb2160bad7c6a205d67473b23bb2a38598540",
+        "1045289c1433ba6b971b4efa7d993ade6f1f4bc9bb596d96ea1691db30385f94",
+        "46db91d6870acc188b98e4c6cbf54cf084beaadd6020b7e5f6870690aa8632b2",
+        "39322600b5fc3ae557cac6743a9b3963b2724348bcbd658e258cc28b00d8ea3b",
+        "a39ba25de3f4ce2b84c109a7f4de74b2a4346d9a9e395d07cf6c4a657c5df3cb",
+        "b8d1657b820ef66292e0a0a5e41207a3e713e44f9e2b59265f6bd43193c73ee8",
+        "5386f3606538389dd2462bee89ff8d8e0a71e33e940ab38a2c4f981b7b93652c",
+        "5e96e869c1c9ac99752e86bf25720d176765807c654e5dfb5facafe1e5934f1d"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=",
+      "version": 4,
+      "empreintes": [
+        "c439587aa500be419d86d528a4ccbf0e4b5c05dbb37a2f10fcda016e616e35c0",
+        "36a3ec6a3c4b95c987dd5dbebe219fe1d3dc8315944b2a2045ac5fe28dbd7e47",
+        "16ff0a70ad59360ae137ffacfc05fd7c7231ca6a28be3f7b2752e1cf31a5b139",
+        "d4e63358c254f7075543fadb91a5dcc6071cf001059ef1a55f5ddb42028d9e13",
+        "49566ccb32b900d1393822cde647ec6ea48cb0da257982ddb93465258e26a29e",
+        "1f404805661f5ed79caedabc7e769d538f54de9fb511817719aa0a46f802a5e3",
+        "8ff888e0c70ef1b27b7922103fc59a4f3eec303d1781121a5e9468e6929c2f3c",
+        "e9cad52196295b93307ebda992c26bf1057030f7547884d00eeac0d3dc20b9c0"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaa",
+      "version": 4,
+      "empreintes": [
+        "b4c7b49ab1dd385b877d2c3b37d8af3f2660db13cf5b456bb87b781ba811f504",
+        "57b5ad8d2e6606e76843f36b8baf45c2edb79454a7811773774fb25285b0b3a1",
+        "3681805e08c71a87b8c913c2b2588a477fa630672f8b3e564dfc6fbe76815c8c",
+        "8408e69671fe052479901b79fdc3b488643f267fda6f3a37f96a85bc2a99497e",
+        "601f62aeaf782fef32cdabe1f1e9dc1de89b7e40913110f5154279047f1266ba",
+        "97cfa4b370e821e7c99285d6a15f828a775a4ce5fdc8377fa414cd740bb42150",
+        "843337da39e6c7edc7fe09933bdc4c520ac89ade2a323c7dc5a04e9b6f1311c2",
+        "a6d6ee6fe535dce41983bc263ac83812c70bb00a31bffe35421b38e78efe82c7"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaa",
+      "version": 4,
+      "empreintes": [
+        "a96a634fc789c027158c8a16bc74c12759f8fd941bbd958a03d36e1b3cf97ac6",
+        "c9d479066547494cf0098cb8ed6561fb17b9e860346bbf9f40ea974ef976d3dd",
+        "b15e65097b5bf91642d8982693c97cf7d5f3d43e66b33f4cc47c8eef7378a435",
+        "29c586e0e3524d7bef50cf18af4a1d3be00383d0052c9e17bc91f177d729bb4b",
+        "198eab30c3911b9590a596fb926d48773decb63495300d951470e156a82e4d5f",
+        "1c862f2ca7c2abaae1ede3874c01e5376572e4fb14a59a0a0702072f7e3b7ff9",
+        "1035d0475c62cbf7fafffd0d71a23d5343c27eb0da2f9a5d52ffd2fb7d87c7bf",
+        "f4d15aa51bab4e83869d1ec95df07c457f202ee00605932f053ced3e5bd8b6e1"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaa",
+      "version": 5,
+      "empreintes": [
+        "e590e1c6c1a22f1b01fc85f4f41a2af6f3a4b52634c8756b00d21cbedfb41127",
+        "fcf50fcce8233036a70a9e9d10d60bbcd1062291def723b83198331180227237",
+        "7781eac3f0ee72a5a421e2d965a13f3512a7668db239cf38912f46a15b9c1759",
+        "d2166a78dbbf3cf06c601a3138ccc713dc0659c6e318fbb530765f088d54099b",
+        "38f1ac0951dbce2a1336940e475abdec758257ded46ec6523575da82290f057c",
+        "de7f344c1a5ab3b0128f5dd88856a8facda01e666e5286706b2e2e848c448b06",
+        "cb76be59c2474548a78a2b5b7a41b9d2f4ac29b6be95524c2d8bf7b66f13fe06",
+        "6fab0492f912e857f42e2559ef736d838348ea509f9d606c8fca29f5f49db3f2"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 5,
+      "empreintes": [
+        "581880e45d76baea8ba9623a96ac2477fea90c4874b64736285b21a64a716cbe",
+        "a5706896355417bdecd8a9d45d909ac64c74d300b6b124bfc3b90598a4e152cb",
+        "ccfe66e98e7095c33619d4e3620d68660660f74a63a29e2a80d712a56a337b0b",
+        "d79c3d98e872ae66ea86951c8031a37f798055cd94738ae6b6e43fb47463fad6",
+        "fb83498cd509f3829270ce9cdae50f0f9247dfb1051c1e1ac1604fb8c2b6b80b",
+        "789ee8a31bb22bb58597f4a980afe51f252c0502b46dad8d9c42a9412d4daea9",
+        "f914a6f8b6c6d6e723431e6cfbb1c2f6051f3778a8caff65f6b6ef98affba549",
+        "e0a353f88b07cafba2b1a18a9a3e69cac51cb075cf7a9f63691c49eea5e672b9"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 5,
+      "empreintes": [
+        "507a2e897fb549ad3e2a50e9ae04515ff6f05757ddf469cb22ae5a56190e1ec4",
+        "de45f936ed92e4b2827d33e1caac45e37da02523273c4c2174f48c64b88ba31b",
+        "03deccc762833799d71f216950c3d76864b7b30eafc64e4ed61cf93710ee7429",
+        "f0cb79ef90586a590b6f98b3d032d8830fe707b15251a8feccc02a86d2770f31",
+        "9b49a9eac8d8f8d56aef6c0ca810952cc25590d03e0ecb0c9a07a53adf96ac1e",
+        "ad8737b16f01c32890501587c3f7e0c146ae670d416467383bb5681c5ee68b3e",
+        "d9ce7c97fd28bc42bef5d16a7c4a94c25dac40d8eda497acba700af696fd7c70",
+        "994d8c87d162637a67226022a6041570aa2a5b7534e2c9f9611397e51d0a7613"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 6,
+      "empreintes": [
+        "ba4160c7664b8822278d8d5a59764b7d0a7f88c414dca9f51148c28ae57a3a30",
+        "55adf6de25eeddcda009ea55357feb28c0640bbfe2fa7bdbf1d70ad1dafb5ece",
+        "877b6d1f7b47cc2f598339e14d5c2d6336500f3d20c7a608442f6b2e8f87bfb5",
+        "97cc0653d569ae4ea129be65216ccd0eac16a060b1e43313f0a861cf2b1b656b",
+        "60c953d39d66ef249acee67b10a13412220ba166e8b3343c84c0596bdeb303f1",
+        "0c014ce7f92956ab61f8e7bed15df8b53b5f24226563bd5dcb833d6aa0156acc",
+        "d826f7ad455a9656181c8a737c1aa0438fc7950b399c34e043a21b06531038a6",
+        "30e8962723858c293f8599557d8d3d8a68070f4bd4242a8df5e7204673a25684"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 6,
+      "empreintes": [
+        "0756afb8fe33e9d8e3aafbc14b6757878af796d3ffc9c386c74dc6062b63e84f",
+        "8ab42179f69d330a4c6a33189ae018349e78ea19b16d440e9abc4ae803d3c47f",
+        "5ff72cf69bb2e29c4de197aedfcc108f498b6de1678182db477149e5549cfaa8",
+        "77c9217863030fe8b56ef535bf246c467e3556ca51196c4dbacf6fd61e212fce",
+        "e5017fea69f324c426874a90fd387098709996e118a705c8eb1f5038639c2bee",
+        "787fe452a74063b5010297e263067011c51b3220261391905c73bfb76cb54d01",
+        "17df6fb4f176dd73013f6b82f9f501bfc71eb80acf4e9ebaa8e59b40b4d08550",
+        "45276a44d94f0c782d90f3f3b2837cce0310bf21c1be8da3bd486ecafa1eed4c"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 6,
+      "empreintes": [
+        "d5973638a41f3c2909442517d73a09913e525d29f4f22ca604280c5a8e203e14",
+        "91901570bde6b535c25e016486c2559182becebbd67f08dac3a2139df8579ff9",
+        "8ad82dbe7a85fe42fe60a04344eb804e7542eac3e0a7b7b8efa675ae11e69e88",
+        "3665b530b2f1e262bde85da1bf52fbac7e2f9541e01f68e1c9454f9913ba2dff",
+        "432feb31884968784f329beae31bb04948388532332706148d6fbd004812e7ee",
+        "502c38de79fd5fb7185f9e3d6946f58ba983b067473e70e4dd7acc6013620b77",
+        "16c4cd8a537795c4095bdba844d15fbbcfa91cd841ff256f1d368edca6caf055",
+        "ac60b6d898653973e88980040040f258e307e4cd5804214d203971b692f1cebc"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 6,
+      "empreintes": [
+        "1b2a2db37012544d7b55552f6b3601c8bf52a7473fe09f17b4bc8f1b072136d5",
+        "25d37bd5ea2e10a9dff9a7585be1b0d701b257fb23996c8f52b9d9706a860e76",
+        "d82d0bcd01f1a511180e2fd62cad237b3b5816876be99c0eca051a33f15d39c9",
+        "cdba36a64c49b46fdeee738d0702db627dec7304f077185444b61040c7a091d2",
+        "71ed5debf67ada8efe8844426a91a95842333e4a5dd9ae1a8aa04a42045bebed",
+        "c7e052d4666e29e714c64d108082d9bd02c648ae5106fa4fe90607d4714bdf82",
+        "0e332378ce4a36d6bc015364e1a1235ed1d2f787a88c2aed0fa3406d15ca5f9c",
+        "0ccec269fd7875bd5895826fecd2a5394e4617da88391562b3a99ea739a61c86"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 7,
+      "empreintes": [
+        "7c9e85226d7ed59ff852d86baed5fb6155047eb45bd93f6543c995169d9c4da3",
+        "b0b0688077f28d57a23e5a3c1204399dd3e29fcf866c6ff677f7cfe3d139d591",
+        "71ae81cf6b8bd8c349d3cae80241f3c67ae23d2a94d9e83682dd82924b576079",
+        "82d7e50498271563d2108b7fb7570cde6a0a1ecf562e972e7291020f2b85dac6",
+        "6c763222e531f1a071c16d8a07d4ed269c1ef09a0a0f2243634dd4c7b9daeb39",
+        "1a3f31749f91658eb4404d44f2d8cd8dd63744303e0aa728b50b30df7c14e6c7",
+        "f28f42bf13686efd047dc86b31a1ceb1780408a8e74e86ee5372bb41ac6931c6",
+        "c4e49c0c22db8783cbf94b5b975cb266338d276503979a43e6b88dcd041e3023"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 7,
+      "empreintes": [
+        "14e2796a77a1246c7fdf1f2f583ed98d2b3e35097466a2b464bed3510b0097c4",
+        "36cbc5040319ce3eeb495c437e98989572b976f755f2a2dcccad8fef429799fd",
+        "33a141664465e09634d663c43566aa19b0b9b67beb4e5c62382d20064047fe3c",
+        "1338ba9651ed92a82804fd8166af067c70c1b73a58a02c7c3eaff3ed018f9e84",
+        "ed108fe47058d9ecef8b9186fc56e38d6500093d1ab6931523288603fb9c3ac5",
+        "313eea59a89b0b2c3cc7009aea0958941412208eded91d6e73e12c703c126449",
+        "67cb0925dbaf37071c559eda086c926f67d47c0736364986963ca79c1c951012",
+        "fe4452c83ddd2378b7158ffde2d5bfdc1c331916ff27ab325478bb6448056023"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 8,
+      "empreintes": [
+        "88f3ce559aa838480d69eb63da5c59145f5386889b94a725c700b0b55ff74040",
+        "288bd26a0647e1ee32998afbeffbef51be460f76e4692f1c59615af913f08eec",
+        "cc204255079011f5c1d3f5aa4d243ce9b5096b399c6a02fdae240130f03f5f6f",
+        "caad38dcc4f3f1942e92dc805d36e6fb0460f9fadef86bf96817213c981d5d6a",
+        "cc9ac0e3db401c9cbc1f18b68aa051c91d56b0da8954dd536b9afa7dd248539c",
+        "302fcc81763f61d095d049d82cdcf0d200f41348027a680f47e5b7e9e87ade65",
+        "c321a4eafe5628e0b167aaf7f270e175c886ea71fc5f0e29e410c8202d8773e9",
+        "14114ae0905550fca87c5493c0f3e7badd66e6ea985da7697de1d8b1e9c5a62c"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 8,
+      "empreintes": [
+        "13084b615c801450c8b0fca8632c20380680da43e80d1fb2bbc517345b5c3523",
+        "58a26095ce0d66a0a042093fdb6dc99d1e6318eb27fdbfebe26dc23ceba870b7",
+        "c109a2daa1b3cbc9295c3b35fb03290f250de105c4434b3ac5d5a548cee1756d",
+        "b88f1667e988a5c50b4ff89664b67b3514e281d8697db75350d17ec57d448d23",
+        "ca87d8efd527a5f792f7d49e8b27d4fc569208e057ff700f44d9b16f52899095",
+        "fd11d0ae54ef706ab59232d677626e0e71062e54529bb3457a1bd4c07ac57664",
+        "59a8b6fbab9ad68e08993f71d020a86118bb6727961f85f88e705f33badc2581",
+        "75d8021407725240848ae3813a5305388708c5d910daa821db4996c8ad4c011d"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 8,
+      "empreintes": [
+        "c9f7c9b08baae426505231dddbb7c82116f5dbe79aa9e1e861e18edcd7689784",
+        "4e8bb7dd92227ed710ee99be4f2cba964ef5c48c90e11b822673bc9355a0aaff",
+        "90b71a31172cecee21fd0bdce59c49eb449fcc5bb746bf77b4cb60bfb7204cf9",
+        "d1ba439d22da1ca2336fb21e7742c6ae04e928c19f5f3bae21a7aa7dd4e3183f",
+        "e34699085e273deeeb30ebca49285f866d0f060fa60f32325769e54649bf42db",
+        "4c6c5fc19561c0c00a7c7766802d0576a58a64dd8f1090618c44f1c5f7f6a2a4",
+        "aebd91510747f3a40a938fba512eb2dbbef85d465c2fefcf8e919bf3e9b519a9",
+        "2877be885dfedd88a0268e3c5a88a4126719a44206b941fefbd96b87276dca8d"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 8,
+      "empreintes": [
+        "4f6195a0be1b67635204fbd41be7aca0d80fe9a2fe1e6864d4ce6c58a12fc756",
+        "70c3aedabcd38c26eda271547f422a97d82e4a9169c8902f7f6324d544d712fd",
+        "a4efe4c6df54bec40adae95525348076e1406b21def3bf95fb767505071d0afb",
+        "800fb829bddd9cfa066852061c3e8fd6d0a6a33d8bf271847302f487dbae1924",
+        "460647b14bd68d88d333df96629b8852840a8b57f590d37daf9a80122d68b23e",
+        "b28aceac003182b56b07e0ee05854d6e2c15af109864336608b758f5c693c1f0",
+        "60bfbf2ee02b1ff327b78bd6a4fa5ad4f3953ac08ca0fa3cd8b7dde9e6f39dde",
+        "86fcaa5302cadf02214bfecb137698e413a0c096a92931c7565452a1c22622ae"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 9,
+      "empreintes": [
+        "f7cd4377dc0640a1dd36755c26b8935d4da2b68e45ce3a18602020e836c43ede",
+        "e2a2170d5d882c5b8a39d8c43e822166a3c4cd14a1bf5cf1989bc55008c035d6",
+        "75f4a462055224e6bcd21d8c22406458809c114563c2ca8c5b82912ecd64bf92",
+        "e6787b36443ce8f049bc76926663f5a3e1b653f8f9618dfa6c969e30d58cfc27",
+        "5780065d403149d142ab9e4fa59deb6fc92dfb422bfaf28845414d8d528fc098",
+        "c3e84584ac9b8a3f7e4fe908f76046c3061a7e7885a4bc2def49424c12eab209",
+        "6961ad97276a13e54215b74232f83bf7d5dfc9867fcbf7d1e062507611a94b65",
+        "9a02bae878b38e58bb7ba4f6c31e267a44aa4e582dc728a1620227b5a5c2e1e4"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 9,
+      "empreintes": [
+        "337c67c90bb3ef1932f1fa8d60793ce6bfddb9cf00c702696bd3b67291c19810",
+        "7093fc9c565146067d63d6f331fefda698ac07746ba0fd00785efedf22ba9a42",
+        "4fcad44b045ca4e0d72adfd026a9000e7a02ea35ab67b37f6f1e043c0b9f80d9",
+        "6a8c0e5f4ad1151b2db852a5dddf9fa791bc285da58cfa13818e3ce3ead359e2",
+        "3d996c4bf4d5450a5d2a6af3943a8c7d63ae57edbc60ba2c9b0a5f448b4b43a8",
+        "b3af2ed70f09da558d23cb98d42b3a4953ee9aaa1463c8b82f90729332629ee6",
+        "59587638c96e9175f1594833e6e5f33f4e7ad08fa44bec48f9dd10b3c769ab89",
+        "84d9b98dfc9e0a4be450dcdefabda29efadb50ff1033aa03a37c028d2ff173ac"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 9,
+      "empreintes": [
+        "8980ace534d12ad4a7bd56d07816af1dedb5192f7e1f790b77e08d6bbb486fb3",
+        "9d172f7026beb3609ae84fb260ebbfafa02906101180e0666552dff57a7b6617",
+        "d13b39592cfe05d18a0c6e1957c3439652de3187638c8e3032cfa3263f83c7a2",
+        "851c58751219c79fc29a0675c11cbdfc4bf7d8f3179d97dacd54dde79ec7ff8f",
+        "38dee8eef040a16acb839a33f20096301bd07df3ce3c386f1fe2cf6b1aa2ef77",
+        "794c31e3f99019712fc1046619dc7f4b829130c7cf1e8306e2c69ada8d42887a",
+        "ad0cb6f285e835d5f0c9ee1a911f26ae251484ab8f27df65160a4252999aca33",
+        "aea820fd4579d06b1da1507b5156351c6ddbda7785614f1a30b3661a791417ff"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer&x=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "version": 9,
+      "empreintes": [
+        "39f6d1287f612f7b8048354a273d6232e9c89a364e63569233777f7934fa2f64",
+        "10d3bb2354cc980d57c3ef835a08fb4c4eba7dd0f59c3319cb8e50bce58fa0d5",
+        "f872395f7d0ecd474b4d642c3201952e9aaa1e0cd2ca1a65579044a1871d31b5",
+        "cd3e9811e7d45d8b2a470085fbdd5cdad372c47c00b427d876bed21d8a6892ba",
+        "b8aa76831b727a67db7f5c89aad2bd48260c845b4ce104d8d9ed49692fbef97a",
+        "f1e606bf8ebf584f952afff05bfee46f763da0aef6d2723469ccd75fb2adcb9d",
+        "16c3b0b3699370cef632044499f77e3aa99ccb38fe1173dc8fa039e968b69c20",
+        "119c14cfff6412bf301234acde3823786547862f732ad8a2e3d8e40795842777"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/1/?entrer=jouer",
+      "version": 3,
+      "empreintes": [
+        "6facdf489209502e2d0d95d94973571999aac11f8cc9f306d983f9288753a37f",
+        "bf4ef0b32e1ec9fcf59e840c6359f3c9a39433d86f6320979a5f404de06830b3",
+        "965fed264bae7d43f4c765f9fe6651148066c941bf3debe2535d1e1a71ec6166",
+        "1a024cf5078e4da1fcd4f5f5f284cfa2dde566b7ca697d68d387ff40947483ce",
+        "56290850066ac23c16d5e4d93c734314f80bd562ff0bb01ee275eabb1cdda9c6",
+        "af3b8275fe30aa8547c36e570cf90e81d1415fe03c16ae75e970e3b96e865b9f",
+        "3869de084bffd7c19e4f4e2b77267842299cf0c2f4f3e96582c9998415e8ebaa",
+        "217b7951b0f45e51ffb202cbb57be857b0ec6933b0138ff52caeff8bdbf84542"
+      ],
+      "masque2": [
+        "11111110011001001111001111111",
+        "10000010010011110100101000001",
+        "10111010101110100000101011101",
+        "10111010101101100100001011101",
+        "10111010111000101001101011101",
+        "10000010101100111110001000001",
+        "11111110101010101010101111111",
+        "00000000100000111010100000000",
+        "10111110000001101111001111100",
+        "00000101111010000111111110001",
+        "01011111001000110100010100000",
+        "10101000010100100000000011010",
+        "01110010110101111110100101100",
+        "11101001011010101001111010001",
+        "10000111001111011010110011100",
+        "11101000010100011000111100010",
+        "01011011111000010111010001100",
+        "10001101001101001111111110101",
+        "10111110110111110100101110100",
+        "10110100011111000000111110010",
+        "10101011000100111110111110111",
+        "00000000110000001100100011111",
+        "11111110000000010101101011100",
+        "10000010111000111001100010010",
+        "10111010100110011100111110111",
+        "10111010111010101010000001111",
+        "10111010100100010000111111110",
+        "10000010010110101001100001010",
+        "11111110100001000101000100100"
+      ]
+    },
+    {
+      "texte": "https://nel3ab.exemple/r/3/?entrer=regarder",
+      "version": 4,
+      "empreintes": [
+        "6210df045cd628c7f316b87a1f1c137e918e868eabea4b22921e85309e260ffa",
+        "2668b445e74219c7104ad2aea0cde094f8e10f26e1121d2fb305856e6ad3627c",
+        "faf35a2aa7a91b47fefe9eb104cff39e1f9719ec403dfbd693735462491a61b6",
+        "78e1b42571bed26be4a2d6a1e44c43107eae0def0199e7444987c233c8a51ac9",
+        "3e615b1618b9848b404c905d88b20a229dabe6ff77862e88e5303ec081f1a0e7",
+        "dc974156a8085cc58c2b004b107529f0ee33db05487e018fd9ebd5d2c57a04b3",
+        "71a6e723679c167bc98572eca29c89ae4dff6ce046c16b300c528af50b6f24e6",
+        "562889440454e220c607b633e9997e690e04dc685eccd66d26dd861fda3a338c"
+      ],
+      "masque2": [
+        "111111100000000010111101001111111",
+        "100000100011100110100100001000001",
+        "101110101101001110001110101011101",
+        "101110101001000100110100101011101",
+        "101110101010011110001110001011101",
+        "100000101011111000010001101000001",
+        "111111101010101010101010101111111",
+        "000000001000000010011101000000000",
+        "101111100111111001110001101111100",
+        "101011011110111011111001001101111",
+        "110111111110011111000010000010110",
+        "000000010010010011100001110011110",
+        "001010101111101010001110110111010",
+        "110010011000100101100000111000111",
+        "111010101100000111001010111010010",
+        "110101011010101100000101111000100",
+        "110111101010101111001010010111001",
+        "101101011101011000011101101101101",
+        "001001110110110110101100100110110",
+        "111010000110101010001110001111101",
+        "110010101000111000110101010111000",
+        "110101001111111110001111001001001",
+        "101010100011000001110110011001110",
+        "100100011101100010111110001001111",
+        "100111110010100001110010111111001",
+        "000000001100001001111010100010111",
+        "111111100101100111001011101010110",
+        "100000101100000001101001100011100",
+        "101110101101001110001110111111010",
+        "101110101000011101100001110010101",
+        "101110101111111111001101101100000",
+        "100000100101110100000100010011100",
+        "111111101100110111100011100100010"
+      ]
+    }
+  ]
+}

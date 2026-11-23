@@ -130,6 +130,48 @@ describe("la tête du panneau", () => {
   });
 });
 
+describe("l'état de la salle dans le panneau", () => {
+  const pleins = (container: HTMLElement) =>
+    [...container.querySelectorAll(".rt-bouton-plein")].map((b) => b.textContent);
+
+  it("une salle figée a sa bande, et son action est le seul bouton plein", () => {
+    const relancer = vi.fn();
+    const { input } = doublure();
+    const { container } = render(
+      <Reglage
+        onglet="manette"
+        onOnglet={rien}
+        onFermer={rien}
+        autres={false}
+        vit={false}
+        bande={{
+          phrase: "L'image ne bouge plus.",
+          action: { nom: "Relancer l'image", faire: relancer },
+        }}
+        trame={{
+          genre: "dolphin",
+          console: "gc",
+          tenue: 0,
+          state: etat(XBOX),
+          input,
+          refresh: rien,
+        }}
+      />,
+    );
+    const bande = container.querySelector("[data-bande]")!;
+    expect(bande.textContent).toContain("L'image ne bouge plus.");
+    expect(pleins(container)).toEqual(["Relancer l'image"]);
+    fireEvent.click(screen.getByRole("button", { name: "Relancer l'image" }));
+    expect(relancer).toHaveBeenCalledTimes(1);
+  });
+
+  it("une salle qui vit n'a pas de bande, et « Régler pas à pas » reste plein", () => {
+    const { container } = monterDolphin({ state: etat(XBOX) });
+    expect(container.querySelector("[data-bande]")).toBeNull();
+    expect(pleins(container)).toEqual(["Régler pas à pas"]);
+  });
+});
+
 describe("les onglets", () => {
   it("passent d'un onglet à l'autre aux flèches, Début et Fin, et le focus suit", () => {
     monterDolphin();

@@ -7,7 +7,7 @@ import type { Hote } from "../lib/cadre";
 import { changerOnglet, fermerReglage, focusRendu, useReglage } from "./entree";
 import type { TrameDolphin } from "./reglage/Dolphin";
 import type { TramePro } from "./reglage/Pro";
-import { Reglage } from "./reglage/Reglage";
+import { Reglage, type Bande } from "./reglage/Reglage";
 
 export function HoteReglage({
   trame,
@@ -15,6 +15,7 @@ export function HoteReglage({
   vit,
   hote,
   repli,
+  bande,
 }: {
   /** La trame de la salle, ou `null` sans session : rien à régler. */
   trame: TrameDolphin | TramePro | null;
@@ -22,6 +23,8 @@ export function HoteReglage({
   vit: boolean;
   hote?: Hote | null;
   repli: () => HTMLElement | null;
+  /** L'état de la salle quand elle ne vit pas (voir `Reglage`). */
+  bande?: Bande | null;
 }) {
   const ouverture = useReglage();
   if (!ouverture || !trame) return null;
@@ -37,6 +40,7 @@ export function HoteReglage({
       vit={vit}
       hote={hote}
       trame={trame}
+      bande={bande}
     />
   );
 }

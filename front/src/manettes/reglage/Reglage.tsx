@@ -34,7 +34,12 @@ export type ReglageProps = {
   /** Où la mascotte joue la fin du pas à pas (`ouEstLaMascotte`). */
   hote?: Hote | null;
   trame: TrameDolphin | TramePro;
+  /** Quand la salle ne vit pas : la phrase de l'état et son action, posées
+   * par la salle (groupe états). L'action prend alors le seul bouton plein. */
+  bande?: Bande | null;
 };
+
+export type Bande = { phrase: string; action?: { nom: string; faire: () => void } };
 
 /** Un pas à pas ou un changement en cours. */
 export const occupeDe = (trame: TrameDolphin | TramePro): boolean =>
@@ -107,6 +112,7 @@ export function Reglage({
   vit,
   hote = "coin",
   trame,
+  bande = null,
 }: ReglageProps) {
   const racine = useRef<HTMLElement>(null);
   usePro(trame.genre === "pro" ? trame : null);
@@ -122,17 +128,18 @@ export function Reglage({
     // À l'ouverture seulement : changer d'onglet garde le focus où il est.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const plein = !bande?.action;
   const contenu =
     trame.genre === "dolphin" ? (
       onglet === "manette" ? (
-        <ManetteDolphin trame={trame} />
+        <ManetteDolphin trame={trame} plein={plein} />
       ) : onglet === "clavier" ? (
         <ClavierDolphin trame={trame} />
       ) : (
         <ProfilsDolphin trame={trame} />
       )
     ) : onglet === "manette" ? (
-      <ManettePro trame={trame} />
+      <ManettePro trame={trame} plein={plein} />
     ) : onglet === "clavier" ? (
       <ClavierPro trame={trame} />
     ) : (
@@ -173,6 +180,18 @@ export function Reglage({
           {autres ? ` ${REGLAGE.autres}` : ""}
         </p>
       </header>
+      {bande ? (
+        <div className="n3-reglage-avis n3-bande" role="status" data-bande="">
+          <p>{bande.phrase}</p>
+          {bande.action ? (
+            <div className="n3-reglage-gestes">
+              <Bouton plein onClick={bande.action.faire}>
+                {bande.action.nom}
+              </Bouton>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <Onglets onglet={onglet} inactifs={occupe} onChoisir={onOnglet} />
       {arrivee ? (
         <p role="status" data-arrivee="" className="n3-arrivee">

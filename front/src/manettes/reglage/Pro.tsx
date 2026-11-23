@@ -167,7 +167,14 @@ function nomsPro(trame: TramePro) {
   };
 }
 
-export function ManettePro({ trame }: { trame: TramePro }) {
+export function ManettePro({
+  trame,
+  plein = true,
+}: {
+  trame: TramePro;
+  /** Faux quand la bande d'état porte le seul bouton plein du panneau. */
+  plein?: boolean;
+}) {
   const { source } = trame;
   const { avis, geste } = useGeste(source);
   const [avant, setAvant] = useState(false);
@@ -276,7 +283,7 @@ export function ManettePro({ trame }: { trame: TramePro }) {
             </div>
           )}
           {identite && !avant ? (
-            <Bouton plein id="learnPad" disabled={occupe} onClick={() => setAvant(true)}>
+            <Bouton plein={plein} id="learnPad" disabled={occupe} onClick={() => setAvant(true)}>
               {REGLAGE.regler}
             </Bouton>
           ) : null}

@@ -77,7 +77,14 @@ const agir = (trame: TrameDolphin, geste: (input: EntreeDolphin) => void) => {
 const viserLigne = (prefixe: string, cle: string) =>
   requestAnimationFrame(() => document.getElementById(`${prefixe}-${cle}`)?.focus());
 
-export function ManetteDolphin({ trame }: { trame: TrameDolphin }) {
+export function ManetteDolphin({
+  trame,
+  plein = true,
+}: {
+  trame: TrameDolphin;
+  /** Faux quand la bande d'état porte le seul bouton plein du panneau. */
+  plein?: boolean;
+}) {
   const { state, console, tenue, actions } = trame;
   const identity = identityOf(state);
   const physical = state.pads.find((one) => one.index === state.using);
@@ -171,7 +178,7 @@ export function ManetteDolphin({ trame }: { trame: TrameDolphin }) {
             </div>
           )}
           {identity && !avant ? (
-            <Bouton plein id="learnPad" disabled={occupe} onClick={() => setAvant(true)}>
+            <Bouton plein={plein} id="learnPad" disabled={occupe} onClick={() => setAvant(true)}>
               {REGLAGE.regler}
             </Bouton>
           ) : null}

@@ -34,7 +34,7 @@ d'écran :
   tableaux de bord (XMB, Wii, Switch) et les dessins de manettes de la régie :
   les sept chantiers d'écran les remplaceront écran par écran.
 
-Poids de la page de salle : 235 147 octets en brotli, 64 853 sous le budget.
+Poids de la page de salle : 235 158 octets en brotli, 64 842 sous le budget.
 Décision : [ADR](adr/0001-architecture.md) D37. Récit : entrée « 23 novembre :
 le thème rétro, et ses effets derrière un réglage ». Non prouvé : aucun effet
 vu sur un vrai téléphone, et aucun effet n'est encore posé dans un vrai écran.

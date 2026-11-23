@@ -28145,9 +28145,22 @@ renvoi `#…` vers un filtre de la page, et ses jumeaux exigent qu'une vraie
 adresse extérieure reste refusée. Leçon : un motif avec une partie facultative
 avant une garde négative peut contourner la garde en sautant la partie.
 
+**Un sélecteur que seul le rendu voyait.** L'essai des jetons était vert. Le
+pilote qui mesure le contraste dans un vrai rendu (`contraste.mjs`, lancé
+contre un Vite sans relais, sans salle) a trouvé deux textes sous le seuil :
+l'explication d'un choix, sur la ligne choisie du sélecteur, la nuit, à
+4,31:1. Cette ligne est teintée du signal à 18 %. Avec le violet d'avant,
+sombre, la teinte restait sombre ; avec le jaune de la mire, elle éclaircit
+le fond juste assez pour faire tomber la légende. La teinte passe à 12 %
+(5,2:1), et l'essai des jetons lit maintenant la teinte du sélecteur et y
+exige la légende autant que le signal : il était rouge à 4,32:1 avant la
+correction. Leçon : un essai qui calcule les paires connues ne voit pas une
+couleur mélangée dans un composant ; changer d'accent oblige à relancer la
+mesure du rendu, pas seulement le calcul.
+
 **Le poids.** La page de la salle pesait 219 695 octets en brotli avant ce
-chantier, 235 147 après : 15 452 octets de plus, dont environ 10 300 pour la
-police. Il reste 64 853 octets sous le budget de 300 000. Les outils des
+chantier, 235 158 après : 15 463 octets de plus, dont environ 10 300 pour la
+police. Il reste 64 842 octets sous le budget de 300 000. Les outils des
 effets et la mascotte ne pèsent encore rien : aucun écran ne les appelle, et
 la construction écarte ce qui n'est pas appelé. Ils pèseront quand les
 chantiers d'écran les poseront.

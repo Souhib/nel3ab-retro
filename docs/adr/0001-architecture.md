@@ -1604,9 +1604,11 @@ the effects page's function, night and day, with a wrong-order twin),
 `effets.test.ts`, `retro/retro.test.ts`, `mascotte/mascotte.test.ts`,
 `salon-retro.test.ts`, `control/tests/test_accueil.py`, and in a browser
 `salle-telephone` (effects classes and the title font set before the body
-starts, under the worker's policy) and `etats-navigateur`
-(`calques-sous-image`). Room page weight, brotli 11: 219 695 bytes before,
-235 147 after, margin 64 853 under the 300 000 budget; the font is 10 020
+starts, under the worker's policy), `etats-navigateur`
+(`calques-sous-image`) and `contraste.mjs --simule` (31 rendered screens; it
+found the légende at 4.31:1 on the picker's selected row, tinted with 18 % of
+the yellow signal: the tint is now 12 % and `regie.test.ts` reads it). Room page weight, brotli 11: 219 695 bytes before,
+235 158 after, margin 64 842 under the 300 000 budget; the font is 10 020
 bytes. Not proven: any effect on a real phone (cost of the mosaic filter, moiré
 of dithering), menu sounds on iOS, the effects inside real screens (the tracks
 will place them), and the provisional coin as a character.

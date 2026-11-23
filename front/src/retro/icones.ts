@@ -116,6 +116,36 @@ export const ICONES_PIXEL = {
     "#.........##",
     "############",
   ],
+  // Chantier personnes : la couronne de qui choisit le jeu, et le micro d'une
+  // place, ouvert ou coupé. Elles marquent une place START ; le mot reste
+  // dans son nom accessible.
+  couronne: [
+    "#....##....#",
+    "##..####..##",
+    "###.####.###",
+    "############",
+    "############",
+    "............",
+    "############",
+  ],
+  micro: [
+    "....####....",
+    "....####....",
+    "....####....",
+    "..#.####.#..",
+    "..#..##..#..",
+    "...######...",
+    ".....##.....",
+  ],
+  "micro-coupe": [
+    "#...####....",
+    ".#..####....",
+    "..#.####....",
+    "..#.#.##.#..",
+    "..#..#...#..",
+    "...####.#...",
+    ".....##..#..",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconePixel = keyof typeof ICONES_PIXEL;

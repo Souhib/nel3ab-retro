@@ -1,0 +1,163 @@
+/* Les places START, l'étiquette tapée, et les cartes du chantier personnes.
+   Aucune couleur n'est déclarée ici : tout vient des jetons de la régie
+   (`src/regie.css`), dont `lib/regie.test.ts` calcule les contrastes. */
+
+/* ── L'étiquette tapée ─────────────────────────────────────────────── */
+.n3-etiquette {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  padding: 1px 5px;
+  border-left: 3px solid var(--rt-joueur, var(--trait));
+  background: var(--creux);
+  color: var(--etiquette-encre, var(--encre));
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.n3-etiquette-nom {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Les places START ─────────────────────────────────────────────── */
+.n3-places {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.n3-places-rangee {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.n3-place {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.375rem;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--encre);
+  text-align: left;
+  cursor: pointer;
+}
+.n3-place-start {
+  grid-row: 1 / span 2;
+  font-size: var(--text-note);
+}
+.n3-place-texte {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+.n3-place-vide {
+  color: var(--legende);
+  font-size: var(--text-note);
+}
+.n3-place-toi {
+  flex-shrink: 0;
+  color: var(--legende);
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  text-transform: uppercase;
+}
+.n3-place-signes {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.n3-places-role {
+  margin: 0;
+  color: var(--legende);
+  font-size: var(--text-note);
+  line-height: 1.35;
+}
+
+/* Le bouton START s'enfonce au clic, comme sur une borne (effet « boutons »). */
+.fx-boutons .n3-place:active .rt-bouton-start {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+/* Sous l'image : une rangée, la phrase du rôle à droite des places. */
+.n3-places[data-forme="rangee"] {
+  height: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+.n3-places[data-forme="rangee"] .n3-places-rangee {
+  flex: 0 1 36rem;
+  min-width: 0;
+}
+.n3-places[data-forme="rangee"] .n3-places-role {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* Au pied de la colonne : deux rangées de deux. */
+.n3-places[data-forme="deux-rangees"] .n3-places-rangee {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Debout dans la bande d'un téléphone couché : une place sous l'autre. */
+.n3-places[data-forme="debout"] .n3-places-rangee {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* En petit au téléphone : le rond seul, 44 px, et les initiales si l'effet
+   est allumé ; le nom et la phrase restent dans la feuille. */
+.n3-places[data-forme="petite"] .n3-place {
+  grid-template-columns: 44px;
+  justify-items: center;
+}
+.n3-places[data-forme="petite"] .n3-place-start {
+  grid-row: auto;
+}
+.n3-places[data-forme="petite"] .n3-place-texte .rt-nom-plein,
+.n3-places[data-forme="petite"] .n3-place-vide,
+.n3-places[data-forme="petite"] .n3-place-toi,
+.n3-places[data-forme="petite"] .n3-place-signes {
+  display: none;
+}
+.n3-places[data-forme="petite"] .n3-places-role {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Un départ : la place reste allumée 420 ms et s'éteint en trois paliers,
+   puis elle devient libre ; son numéro reste écrit. Rien ne bouge : seule
+   la clarté change, une fois. */
+.fx-arrive .n3-place[data-part] .rt-bouton-start {
+  animation: n3-place-eteint 0.42s steps(3, end) 1 forwards;
+}
+@keyframes n3-place-eteint {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-arrive .n3-place[data-part] .rt-bouton-start {
+    animation: none;
+  }
+}

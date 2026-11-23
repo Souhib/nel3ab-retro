@@ -37,10 +37,10 @@ it("place la couronne sur la place du chef, même si ce n'est pas le premier jou
     onAsk: vi.fn(),
   };
   const { rerender } = render(<Seats {...props} ownerSeat={2} />);
-  expect(document.querySelector('#port2 [aria-label="chef de la salle"]')).not.toBeNull();
-  expect(document.querySelector('#port1 [aria-label="chef de la salle"]')).toBeNull();
+  expect(document.querySelector('#port2 [aria-label="choisit le jeu"]')).not.toBeNull();
+  expect(document.querySelector('#port1 [aria-label="choisit le jeu"]')).toBeNull();
   rerender(<Seats {...props} ownerSeat={null} />);
-  expect(screen.queryByLabelText("chef de la salle")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("choisit le jeu")).not.toBeInTheDocument();
 });
 
 /* La couronne marque la PRISE, elle ne partage pas le cadre du nom.
@@ -71,11 +71,11 @@ it("garde la couronne hors du cadre qui tronque le nom", () => {
   );
   const prise = document.querySelector("#port2");
   expect(
-    prise?.querySelector('[aria-label="chef de la salle"]'),
+    prise?.querySelector('[aria-label="choisit le jeu"]'),
     "la couronne marque bien la prise du chef",
   ).not.toBeNull();
   expect(
-    prise?.querySelector('.truncate [aria-label="chef de la salle"]'),
+    prise?.querySelector('.truncate [aria-label="choisit le jeu"]'),
     "mais jamais DANS le cadre qui tronque, où elle vole sa place au nom",
   ).toBeNull();
   expect(prise?.querySelector(".truncate")?.textContent?.trim()).toBe("Yassine");
@@ -130,7 +130,7 @@ it("ne couronne pas une place libre, même désignée comme celle du chef", () =
       onAsk={vi.fn()}
     />,
   );
-  expect(screen.queryByLabelText("chef de la salle")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("choisit le jeu")).not.toBeInTheDocument();
 });
 
 describe("ce qu'un toucher fait, écrit et pas seulement en infobulle (audit T10)", () => {

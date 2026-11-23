@@ -481,4 +481,41 @@ export function pastille(place: number): string {
   return Number.isInteger(place) && place >= 1 && place <= 4 ? `${place}P` : "";
 }
 
+/** Les places START du panneau (`components/Places`) : le nom accessible de
+ * chaque bouton dit la place, qui la tient et ce que fait un toucher, parce
+ * que le dessin seul ne le dit à personne (audit A11Y-11). En casse normale :
+ * les capitales d'arcade viennent de la feuille. */
+export const PLACES = {
+  /** Écrit sur sa propre place, à la place de son nom d'étiquette. */
+  toi: "toi",
+  /** Ce que dit une place sans nom à la place d'une étiquette. */
+  vide: "libre",
+  sansNom: "tenue",
+  /** Le badge qui saute sur une place qui s'allume (effet « arrive »). */
+  pret: "prêt !",
+  libre: (n: number) => `Place ${n}, libre : la prendre`,
+  tenue: (n: number) => `Place ${n}, tenue : la reprendre`,
+  aToi: (n: number) => `Place ${n} : toi`,
+  aQuelquun: (n: number, nom: string) => `Place ${n} : ${nom}`,
+  choisit: "choisit le jeu",
+  tuChoisis: "tu choisis le jeu",
+  microCoupe: "micro coupé",
+  demander: "lui demander sa place",
+  roleJoue: (n: number) => `Tu joues à la place ${n}.`,
+  roleLibre: "Tu regardes : prends une place libre pour jouer.",
+  rolePlein: "Tu regardes : touche la place d'un joueur pour la lui demander.",
+} as const;
+
+/** Les arrivées et les départs, dits une fois par la ligne parlée de la salle
+ * (`lib/usePlaces`). Aucune durée qui avance : la ligne serait relue. */
+export const ARRIVEES = {
+  premiere: (nom: string, n: number) => `${nom} prend la place ${n}.`,
+  retour: (nom: string, n: number) => `${nom} revient à la place ${n}.`,
+  sansNom: (n: number) => `La place ${n} est prise.`,
+  depart: (nom: string, n: number) => `${nom} rend la place ${n}.`,
+  departSansNom: (n: number) => `La place ${n} est libre.`,
+  prisePar: (n: number, nom: string) => `Ta place ${n} est à ${nom}. Tu regardes.`,
+  regarde: (nom: string) => `${nom} regarde la partie.`,
+} as const;
+
 // ==== fin personnes ====

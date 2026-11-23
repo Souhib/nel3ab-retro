@@ -141,27 +141,9 @@
 .n3-panneau-tenu #credit {
   display: none;
 }
-.n3-panneau-tenu #ports {
-  grid-template-columns: repeat(4, minmax(48px, 88px));
-}
-/* La prise se règle sur la hauteur du panneau, pas sur sa largeur : dessinée
-   en 72 × 84, une prise de 180 px de large en faisait 210 de haut sur une
-   tablette, et sa boîte passait sous L et START (salle-telephone, 768x1024). */
-.n3-panneau-tenu #ports svg {
-  width: auto;
-  height: max(20px, calc(var(--panneau-h) - 2.5rem));
-  margin-inline: auto;
-}
-/* Debout dans la bande gauche, les quatre prises s'empilent : chacune a le
-   quart de la hauteur, son nom et son numéro compris. Réglée sur toute la
-   hauteur, la première dépassait par le haut et passait sous « La salle »
-   (salle-telephone, 844x390, 23 novembre 2026). */
-.n3-panneau-tenu .n3-panneau[data-forme="debout"] #ports {
-  grid-template-columns: minmax(48px, 1fr);
-}
-.n3-panneau-tenu .n3-panneau[data-forme="debout"] #ports svg {
-  height: max(20px, calc(var(--panneau-h) / 4 - 2.5rem));
-}
+/* Les places START règlent elles-mêmes leur rangée, debout comprise
+   (`places.css`, chantier personnes) : les règles des prises dessinées de
+   `Seats` sont parties avec elles le 23 novembre 2026. */
 .n3-manette-seule {
   box-sizing: border-box;
   display: flex;

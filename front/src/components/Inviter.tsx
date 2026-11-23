@@ -28,22 +28,19 @@ import type { Annoncer } from "../lib/usePlaces";
 import { CodeQR, type ModuleQR } from "./CodeQR";
 import "./places.css";
 
-const rien: Annoncer = () => {};
-
 export function Inviter({
   lien,
-  libre = null,
-  annoncer = rien,
+  libre,
+  annoncer,
   outils,
   chargerQR,
 }: {
-  /** Le lien pour jouer ou pour regarder (`lienDInvitation`). Une chaîne seule
-   * est le lien pour jouer de la page d'avant le câblage : pas de choix. */
-  lien: string | ((entree: Entree) => string);
+  /** Le lien pour jouer ou pour regarder (`lienDInvitation`). */
+  lien: (entree: Entree) => string;
   /** La place libre que l'invité prendrait, ou `null` quand la salle est pleine. */
-  libre?: number | null;
+  libre: number | null;
   /** La ligne parlée de la salle. */
-  annoncer?: Annoncer;
+  annoncer: Annoncer;
   outils?: Outils;
   /** L'encodeur du code QR, remplacé dans un essai. */
   chargerQR?: () => Promise<ModuleQR>;
@@ -57,9 +54,8 @@ export function Inviter({
   const nomRadios = useId();
   // Les outils sont lus au rendu : un essai les passe, la page lit le navigateur.
   const lesOutils = outils ?? outilsDuNavigateur();
-  const unSeul = typeof lien === "string";
-  const entree: Entree = unSeul ? "play" : libre === null ? "watch" : voulue;
-  const adresse = typeof lien === "string" ? lien : lien(entree);
+  const entree: Entree = libre === null ? "watch" : voulue;
+  const adresse = lien(entree);
 
   const apres = (fait: Awaited<ReturnType<typeof copier>>) => {
     if (fait === "copiee") {
@@ -90,32 +86,30 @@ export function Inviter({
       </button>
       {ouvert ? (
         <div id={panneau} className="n3-invitation flex flex-col gap-2">
-          {unSeul ? null : (
-            <fieldset className="flex flex-col gap-1">
-              <legend className="text-corps text-muted">{INVITER.legende}</legend>
-              <label className="n3-invitation-choix">
-                <input
-                  type="radio"
-                  name={nomRadios}
-                  value="play"
-                  checked={entree === "play"}
-                  disabled={libre === null}
-                  onChange={() => setVoulue("play")}
-                />
-                {INVITER.pourJouer}
-              </label>
-              <label className="n3-invitation-choix">
-                <input
-                  type="radio"
-                  name={nomRadios}
-                  value="watch"
-                  checked={entree === "watch"}
-                  onChange={() => setVoulue("watch")}
-                />
-                {INVITER.pourRegarder}
-              </label>
-            </fieldset>
-          )}
+          <fieldset className="flex flex-col gap-1">
+            <legend className="text-corps text-muted">{INVITER.legende}</legend>
+            <label className="n3-invitation-choix">
+              <input
+                type="radio"
+                name={nomRadios}
+                value="play"
+                checked={entree === "play"}
+                disabled={libre === null}
+                onChange={() => setVoulue("play")}
+              />
+              {INVITER.pourJouer}
+            </label>
+            <label className="n3-invitation-choix">
+              <input
+                type="radio"
+                name={nomRadios}
+                value="watch"
+                checked={entree === "watch"}
+                onChange={() => setVoulue("watch")}
+              />
+              {INVITER.pourRegarder}
+            </label>
+          </fieldset>
           {entree === "play" && libre !== null ? (
             <p className="flex items-center gap-2 text-corps text-muted">
               <span
@@ -127,7 +121,7 @@ export function Inviter({
               </span>
               {INVITER.attend(libre)}
             </p>
-          ) : libre === null && !unSeul ? (
+          ) : libre === null ? (
             <p className="text-corps text-muted">{INVITER.pleine}</p>
           ) : null}
           <CodeQR

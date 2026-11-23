@@ -13,7 +13,7 @@ import { expect, it, vi } from "vitest";
 
 import { PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
 import { Lobby } from "./Lobby";
-import { Socket } from "./Socket";
+import { Etiquette } from "./Etiquette";
 
 const salle = {
   name: "salle 1",
@@ -63,12 +63,21 @@ it("écrit chaque « Pn » de l'accueil de salle dans l'encre du joueur n", () =
   }
 });
 
-it("écrit le libellé d'une prise branchée dans l'encre, et celui d'une prise libre en légende", () => {
+it("écrit l'étiquette d'une place dans l'encre de son joueur, et celle de qui regarde sans encre", () => {
   for (let port = 1; port <= 4; port += 1) {
-    const { container, unmount } = render(<Socket port={port} state="mine" />);
-    expect(container.querySelector("text")?.getAttribute("fill")).toBe(`var(--p${port}-encre)`);
+    const { container, unmount } = render(<Etiquette nom="Ami" place={port} />);
+    const etiquette = container.querySelector(".n3-etiquette") as HTMLElement;
+    expect(etiquette.style.getPropertyValue("--etiquette-encre")).toBe(`var(--p${port}-encre)`);
+    // Le jumeau: l'aplat du joueur reste sur le liseré, jamais sur le texte.
+    expect(etiquette.style.getPropertyValue("--etiquette-encre")).not.toContain(
+      PLAYER_COLOURS[port - 1],
+    );
     unmount();
   }
-  const { container } = render(<Socket port={3} state="free" />);
-  expect(container.querySelector("text")?.getAttribute("fill")).toBe("var(--legende)");
+  const { container } = render(<Etiquette nom="Cleo" />);
+  expect(
+    (container.querySelector(".n3-etiquette") as HTMLElement).style.getPropertyValue(
+      "--etiquette-encre",
+    ),
+  ).toBe("");
 });

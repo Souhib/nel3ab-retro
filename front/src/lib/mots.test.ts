@@ -189,7 +189,9 @@ describe("le parcours des chaînes visibles", () => {
     expect(chaines.length).toBeGreaterThan(800);
     const textes = new Set(chaines.map((c) => c.texte));
     // Un texte JSX, une entrée de menu (propriété), un attribut, un avis.
-    for (const attendu of ["Choisir un jeu", "touches et manettes", "reprise de la salle"])
+    // « reprise de la salle » était l'attribut du panneau `Recovery`, retiré
+    // le 23 novembre 2026 avec la carte de place.
+    for (const attendu of ["Choisir un jeu", "touches et manettes", "mesures techniques"])
       expect(textes, attendu).toContain(attendu);
   });
 
@@ -379,13 +381,6 @@ describe("un bouton commence par une majuscule", () => {
     "components/Lobby.tsx « annuler »",
     "components/Lobby.tsx « changer de pseudo »",
     "components/Lobby.tsx « ce n'est pas toi ? »",
-    "components/Recovery.tsx « reprendre maintenant »",
-    "components/Recovery.tsx « annuler »",
-    "components/Recovery.tsx « je suis là, garder »",
-    "components/Recovery.tsx « lui passer »",
-    "components/Recovery.tsx « fermer »",
-    "components/Swap.tsx « la lui passer »",
-    "components/Swap.tsx « garder »",
   ];
 
   it("aucun nouveau bouton de la page n'est en minuscules", () => {

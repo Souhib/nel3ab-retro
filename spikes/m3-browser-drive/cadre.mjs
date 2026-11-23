@@ -223,6 +223,17 @@ async function principal() {
         constructor(...args) {
           super(...args);
           window.__sockets.push(this);
+          // `window.__geler = true` change chaque image de la salle en
+          // message vide, celui que le worker envoie pour dire qu'il est là
+          // sans rien de nouveau (media/video.ts) : l'image s'arrête, la
+          // liaison reste entendue, et la page voit une image figée. Posé
+          // avant les écouteurs de la page, il passe avant eux.
+          this.addEventListener("message", (e) => {
+            if (!window.__geler || !new URL(this.url).pathname.endsWith("/video")) return;
+            if (!(e.data instanceof ArrayBuffer) || e.data.byteLength === 0) return;
+            e.stopImmediatePropagation();
+            this.dispatchEvent(new MessageEvent("message", { data: new ArrayBuffer(0) }));
+          });
         }
       };
     }, niveau);
@@ -926,6 +937,182 @@ async function principal() {
           }
         } else if (lu) fautes.push(`${nom}: une entrée du clip dans la feuille en travers`);
         await capture(page, "feuille-clip");
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
+    /** colonne.2 : pendant chaque scène que la mascotte joue dans le cadre,
+     * à chaque image d'écran, sa boîte ne coupe ni l'image, ni un contrôle,
+     * ni la ligne d'état. Quatre cas : premiere-image au bureau (deux
+     * tailles) et au téléphone, attente au repos. Le jumeau : une mascotte
+     * posée sur l'image par l'essai est vue. */
+    async "mascotte-hors-image"() {
+      const sonde = () => {
+        const etat = { images: 0, scenes: {}, fautes: {} };
+        window.__mascotte = etat;
+        const coupe = (a, b) =>
+          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+        const AUTRES = 'button, a[href], input, select, [role="button"], #liaison, #fronton, #mesures';
+        const tour = () => {
+          for (const m of document.querySelectorAll(".rt-mascotte")) {
+            const r = m.getBoundingClientRect();
+            if (r.width < 1 || r.height < 1) continue;
+            // Une scène : une animation Web posée par `jouer`. L'image CSS
+            // de la pièce provisoire tourne hors scène (K15) et ne compte pas.
+            const scene = m
+              .getAnimations({ subtree: true })
+              .some((a) => a.playState === "running" && !(a instanceof CSSAnimation));
+            if (!scene) continue;
+            const nom = m.dataset.scene ?? "?";
+            etat.scenes[nom] = (etat.scenes[nom] ?? 0) + 1;
+            etat.images += 1;
+            const toile = document.querySelector("#screen");
+            const peintes = globalThis.nel3abTest?.counters?.().painted ?? 0;
+            if (toile && peintes > 0 && coupe(r, toile.getBoundingClientRect())) etat.fautes[`${nom} sur l'image`] = 1;
+            for (const c of document.querySelectorAll(AUTRES)) {
+              if (c.contains(m) || m.contains(c)) continue;
+              const b = c.getBoundingClientRect();
+              if (b.width < 1 || b.height < 1 || c.closest("details:not([open]) > :not(summary)")) continue;
+              if (coupe(r, b)) {
+                const nomC = c.id ? `#${c.id}` : c.tagName.toLowerCase();
+                etat.fautes[`${nom} sur ${nomC} « ${(c.textContent ?? "").trim().slice(0, 30)} »`] = 1;
+              }
+            }
+          }
+          requestAnimationFrame(tour);
+        };
+        requestAnimationFrame(tour);
+      };
+      const lire = (page) => page.evaluate(() => window.__mascotte);
+      const fautes = [];
+      const telephone = { width: 390, height: 844, isMobile: true, hasTouch: true };
+      const cas = [
+        { nom: "1280×720 premiere-image", vue: { width: 1280, height: 720 }, salle: {} },
+        { nom: "1440×900 premiere-image", vue: { width: 1440, height: 900 }, salle: {} },
+        { nom: "390×844 premiere-image", vue: telephone, salle: {} },
+        {
+          nom: "1440×900 attente au repos",
+          vue: { width: 1440, height: 900 },
+          salle: { jeu: null, chef: "moi", decide: true },
+          repos: true,
+        },
+      ];
+      for (const un of cas) {
+        const page = await nouvelle(un.vue, { salle: un.salle });
+        await page.evaluateOnNewDocument(sonde);
+        if (un.repos) await entrerAuRepos(page);
+        else await entrer(page);
+        await jusqua(async () => ((await lire(page))?.images ?? 0) > 0, 6000);
+        await sleep(1500);
+        const lu = await lire(page);
+        if (!lu || lu.images === 0) throw new Precondition(`${un.nom}: aucune scène vue pendant l'étape`);
+        console.log(JSON.stringify({ cas: un.nom, scenes: lu.scenes }));
+        fautes.push(...Object.keys(lu.fautes).map((f) => `${un.nom}: ${f}`));
+        await capture(page, `mascotte-${un.repos ? "repos" : "jeu"}`);
+        await page.close();
+      }
+      // Le jumeau : la sonde voit une mascotte posée sur l'image.
+      const page = await nouvelle({ width: 1280, height: 720 });
+      await page.evaluateOnNewDocument(sonde);
+      await entrer(page);
+      await page.evaluate(() => {
+        const t = document.querySelector("#screen").getBoundingClientRect();
+        const m = document.createElement("div");
+        m.className = "rt-mascotte";
+        m.dataset.scene = "essai";
+        const ici = { left: `${t.x + t.width / 2}px`, top: `${t.y + t.height / 2}px` };
+        Object.assign(m.style, { position: "fixed", width: "40px", height: "40px", pointerEvents: "none", ...ici });
+        document.body.append(m);
+        m.animate([{ opacity: 1 }, { opacity: 0.99 }], { duration: 2000 });
+      });
+      await sleep(300);
+      const essai = await lire(page);
+      await page.close();
+      if (!essai?.fautes?.["essai sur l'image"])
+        throw new Precondition(`la sonde ne voit pas une mascotte posée sur l'image (${JSON.stringify(essai)})`);
+      verdict(fautes);
+    },
+
+    /** Une image vivante, puis arrêtée, puis vivante : le cadre ne bouge
+     * pas. À chaque image d'écran, le rectangle de #screen reste le même,
+     * rien d'autre que l'image (et son aide cachée) ne vit dans
+     * [data-zone-jeu], et aucune animation ne touche l'image ni ce qui la
+     * contient. Le jumeau : la même surveillance voit deux pixels de
+     * décalage posés par l'essai. Ce qui couvre une image ARRÊTÉE
+     * appartient à etats (K20). */
+    async "vit-figee-immobile"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 1280, height: 720 },
+        { width: 390, height: 844, isMobile: true, hasTouch: true },
+      ]) {
+        const nom = `${vue.width}×${vue.height}`;
+        const page = await nouvelle(vue);
+        await entrer(page);
+        await sleep(500);
+        await page.evaluate(() => {
+          window.__surveiller = () => {
+            const toile = document.querySelector("#screen");
+            const zone = document.querySelector("[data-zone-jeu]");
+            const r0 = toile.getBoundingClientRect();
+            const etat = { images: 0, etats: {}, fautes: {}, fin: false };
+            window.__immobile = etat;
+            const tour = () => {
+              if (etat.fin) return;
+              etat.images += 1;
+              const e = document.querySelector("[data-cadre]")?.dataset.etat ?? "?";
+              etat.etats[e] = (etat.etats[e] ?? 0) + 1;
+              const r = toile.getBoundingClientRect();
+              for (const k of ["x", "y", "width", "height"])
+                if (Math.abs(r[k] - r0[k]) > 0.5) etat.fautes[`#screen ${k} ${r0[k]} → ${r[k]} (${e})`] = 1;
+              for (const el of zone.querySelectorAll("*"))
+                if (el !== toile && !el.closest("[hidden]"))
+                  etat.fautes[`${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""} dans la zone de jeu (${e})`] = 1;
+              for (const a of document.getAnimations()) {
+                const cible = a.effect?.target;
+                if (a.playState === "running" && cible && (cible.contains(toile) || zone.contains(cible)))
+                  etat.fautes[`animation sur ${cible.id ? `#${cible.id}` : cible.tagName.toLowerCase()} (${e})`] = 1;
+              }
+              requestAnimationFrame(tour);
+            };
+            requestAnimationFrame(tour);
+          };
+          window.__surveiller();
+        });
+        const etatDuCadre = () => page.evaluate(() => document.querySelector("[data-cadre]")?.dataset.etat);
+        await page.evaluate(() => {
+          window.__geler = true;
+        });
+        if (!(await jusqua(async () => (await etatDuCadre()) === "figee", 6000)))
+          throw new Precondition(`${nom}: l'image retenue ne passe pas à « figee » (${await etatDuCadre()})`);
+        await sleep(4000);
+        await page.evaluate(() => {
+          window.__geler = false;
+        });
+        if (!(await jusqua(async () => (await etatDuCadre()) === "vit", 8000)))
+          throw new Precondition(`${nom}: l'image ne revient pas (${await etatDuCadre()})`);
+        await sleep(1000);
+        const lu = await page.evaluate(() => {
+          window.__immobile.fin = true;
+          return window.__immobile;
+        });
+        if (!lu.etats.figee || !lu.etats.vit) throw new Precondition(`${nom}: états vus ${JSON.stringify(lu.etats)}`);
+        fautes.push(...Object.keys(lu.fautes).map((f) => `${nom}: ${f}`));
+        fautes.push(...(await garder(page, `${nom} revenue`)));
+        // Le jumeau : la même surveillance voit deux pixels de décalage.
+        const jumeau = await page.evaluate(async () => {
+          window.__surveiller();
+          const toile = document.querySelector("#screen");
+          toile.style.transform = "translateX(2px)";
+          for (let i = 0; i < 3; i += 1) await new Promise((r) => requestAnimationFrame(() => r()));
+          toile.style.transform = "";
+          window.__immobile.fin = true;
+          return Object.keys(window.__immobile.fautes);
+        });
+        if (!jumeau.some((f) => f.startsWith("#screen x")))
+          throw new Precondition(`${nom}: un décalage posé par l'essai ne se voit pas (${jumeau.join(" ; ")})`);
         await page.close();
       }
       verdict(fautes);

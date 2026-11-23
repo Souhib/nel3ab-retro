@@ -60,7 +60,9 @@
 //      prennent tout l'écran tenu en travers ;
 //  19. la page construite est servie avec la politique du worker (une
 //      empreinte par script) et n'en viole aucune, et son jumeau (une
-//      empreinte oubliée) est vu.
+//      empreinte oubliée) est vu ;
+//  20. un spectateur tenu en main n'a pas de manette, et « Prendre la place
+//      N » est dans la bande ; en travers, le panneau est debout.
 //
 // Le salon est simulé par une fausse socket (`salon: true`), qui répond à la
 // poignée de main d'engine.io et laisse la garde envoyer un événement : une
@@ -1268,6 +1270,53 @@ try {
       } else {
         if (!vu.chargement) bad.push("pas d'écran de chargement : l'annonce du faux salon n'est pas arrivée");
         if (vu.pave) bad.push("la manette reste montée sous l'écran de chargement");
+      }
+    } catch (error) {
+      bad.push(`le parcours s'arrête : ${error.message}`);
+    }
+    bad.push(...errors.map((e) => `erreur de page : ${e}`));
+    say(bad.length === 0, what, bad);
+    await page.close();
+  }
+
+  // 20. Un spectateur tenu en main : pas de manette (il n'a rien à envoyer),
+  // et « Prendre la place N » dans la bande, joignable sans ouvrir la feuille.
+  // En travers, une GameCube : le panneau debout dans la bande gauche. Le
+  // jumeau : une page qui tient une place n'a pas ce bouton dans la bande.
+  for (const [width, height, place] of part("spectateur")
+    ? [
+        [390, 844, "aucune"],
+        [844, 390, "aucune"],
+        [390, 844, "1"],
+      ]
+    : []) {
+    const what = `${place === "aucune" ? "spectateur" : "joueur"} ${width}x${height}`;
+    const { page, errors, zone } = await ouvrir({
+      width,
+      height,
+      url: `${BASE}/r/1/?entrer=jouer&place=${place}`,
+      stockage: { "nel3ab:touchpad": "auto" },
+    });
+    const bad = [];
+    try {
+      await page.waitForSelector("#screen", { timeout: 20000 });
+      await page.waitForSelector("#bande", { timeout: 8000 });
+      await sleep(700);
+      await page.screenshot({ path: join(OUT, `${what.replace(" ", "-")}.png`) });
+      const vu = await page.evaluate(() => ({
+        pave: document.querySelector(".n3-pave") !== null,
+        dansLaBande: document.querySelector("#bande #takePad") !== null,
+        debout: document.querySelector('#panneau[data-forme="debout"]') !== null,
+      }));
+      if (place === "aucune") {
+        if (vu.pave) bad.push("un spectateur a une manette à l'écran");
+        if (!vu.dansLaBande) bad.push("« Prendre la place » n'est pas dans la bande");
+        else bad.push(...dansLaZone("« Prendre la place »", await page.evaluate(boite, "#bande #takePad"), zone, width, height));
+        if (width > height && !vu.debout) bad.push("en travers, le panneau n'est pas debout dans la bande gauche");
+        bad.push(...(await page.evaluate(etat)));
+      } else {
+        if (!vu.pave) bad.push("la page qui tient une place n'a pas sa manette");
+        if (vu.dansLaBande) bad.push("« Prendre la place » dans la bande d'une page qui tient une place");
       }
     } catch (error) {
       bad.push(`le parcours s'arrête : ${error.message}`);

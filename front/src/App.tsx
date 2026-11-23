@@ -663,9 +663,9 @@ function Room({
      (`EcranEteint`, 23 novembre 2026). */
   const [menu, setMenu] = useState(false);
   pourCtrl.current = { feuille, menu, touches: bindings };
-  // Le menu, ou quelqu'un qui demande ta place, passent avant le tiroir et la
-  // feuille: les deux sont des dialogues modaux, qui rendraient le menu ou la
-  // demande inertes dessous. La demande ne dure que dix secondes.
+  // Le menu, ou quelqu'un qui demande ta place, passent avant la feuille :
+  // c'est un dialogue modal, qui rendrait le menu ou la demande inertes
+  // dessous. La demande ne dure que dix secondes.
   useEffect(() => {
     if (!menu && asked === null) return;
     setFeuille(null);
@@ -969,8 +969,8 @@ function Room({
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
       if (typingIn(event.target)) return;
-      // Le tiroir et la feuille se ferment eux-mêmes par Échap: leur
-      // `preventDefault` ici les garderait ouverts.
+      // La feuille se ferme elle-même par Échap: un `preventDefault` ici la
+      // garderait ouverte.
       if (event.key !== "Escape" || menu || bindings || feuille) return;
       // Sans `preventDefault`, la fin de ce même appui est une « demande de
       // fermeture » pour le navigateur, et le menu, ouvert en dialogue modal
@@ -1275,10 +1275,10 @@ function Room({
   const configuringSwitch = usesProInput(setupGame?.console ?? room?.game?.console);
   /** Un écran couvre toute l'image: la salle au repos, un chargement, ou le
    * rideau d'une arrivée sans image. Personne n'y joue, et ces écrans
-   * recouvraient la manette à l'écran avec son « ••• »: sur un téléphone, le
-   * tiroir de la salle (places, signaler, quitter) devenait introuvable
-   * pendant une panne (audit P4, E7). La manette n'est donc pas montée, et le
-   * « ••• » se pose seul, au-dessus de ces écrans.
+   * recouvraient la manette à l'écran et son « ••• » : sur un téléphone, la
+   * salle (places, signaler, quitter) devenait introuvable pendant une panne
+   * (audit P4, E7). La manette n'est donc pas montée, et « La salle » reste
+   * dans la barre, hors de ces écrans (23 novembre 2026).
    *
    * Pas pour une page « manette seule »: elle n'a ni image ni écran de
    * chargement, et c'est elle qu'on tient pendant que le jeu démarre
@@ -1289,23 +1289,28 @@ function Room({
     rideau: dire(liaison, salle(), moteurDe(room?.game?.console)).niveau === "rideau",
     padOnly,
   });
-  /** Ce qui est monté par-dessus l'image, décidé en un seul endroit. */
-  const couches = couchesDeLaSalle({
+  /** Ce que la salle veut monter, avant ce que la feuille et les écrans
+   * démontent. Une manette pour qui tient une place, ou pour une page
+   * « manette seule » : un spectateur n'a rien à envoyer, et le portrait
+   * sans manette lui donne la bande (`lib/cadre`). */
+  const couchesVoulues = {
     tenu,
     etroit: modeSalle === "etroit",
     feuille,
-    manette: session !== null && onTouch,
+    manette: session !== null && onTouch && (port !== null || padOnly),
     voile,
     bare,
-  });
-  /* Le focus revient à ce qui a ouvert la feuille ou le tiroir.
+  };
+  /** Ce qui est monté par-dessus l'image, décidé en un seul endroit. */
+  const couches = couchesDeLaSalle(couchesVoulues);
+  /* Le focus revient à ce qui a ouvert la feuille.
 
-     Le « ••• » de la manette est démonté pendant que la feuille est ouverte
-     (le démontage relâche les touches tenues), donc le dialogue ne peut plus
-     lui rendre le focus: il tombait sur le document, et un lecteur d'écran
-     repartait du début de la page (relecture du 22 novembre 2026, WCAG
-     2.4.3). Seulement quand rien d'autre ne s'ouvre à la place: une entrée
-     de la feuille peut ouvrir le tiroir ou le menu. */
+     « La salle » posé parmi les touches est démonté avec la manette pendant
+     que la feuille est ouverte (le démontage relâche les touches tenues),
+     donc le dialogue ne peut plus lui rendre le focus : il tombait sur le
+     document, et un lecteur d'écran repartait du début de la page (relecture
+     du 22 novembre 2026, WCAG 2.4.3). Seulement quand rien d'autre ne s'ouvre
+     à la place : une entrée de la feuille peut ouvrir le menu. */
   const coucheAvant = useRef(false);
   useEffect(() => {
     const ouverte = feuille !== null;
@@ -1447,8 +1452,8 @@ function Room({
   const shown =
     folder === null ? (room?.library ?? []) : (shelves.find((s) => s.code === folder)?.games ?? []);
 
-  /** Le détail de la connexion, dans la colonne: le tiroir sur un téléphone,
-   * la colonne dépliée ailleurs (`ouvrirLaSalle`). */
+  /** Le détail de la connexion, dans la colonne : la feuille agrandie d'une
+   * salle tenue en main, la colonne dépliée ailleurs (`ouvrirLaSalle`). */
   const voirDetail = () => {
     setMode("details");
     if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
@@ -1766,8 +1771,8 @@ function Room({
       // demander sa manette à quelqu'un. La COLONNE fait déjà exactement ça, y
       // compris les deux clics pour reprendre une place tenue par un fantôme.
       // Elle n'est pas « visible en permanence » partout, comme ce commentaire
-      // l'a cru: sur un téléphone, elle est un tiroir fermé (audit P5). Ce
-      // rayon l'ouvre donc, sous 900 px ou au doigt (« places et spectateurs »).
+      // l'a cru: sur un téléphone, elle vit dans la feuille fermée (audit P5).
+      // Ce rayon l'ouvre donc, quand la salle est tenue en main.
       //
       // Deux endroits pour un même geste, c'est deux endroits à tenir d'accord.
       // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
@@ -1860,14 +1865,14 @@ function Room({
         //
         // Déplacé, pas dupliqué: deux endroits pour un même geste sont deux
         // endroits à tenir d'accord, et c'est la leçon des quatre places.
-        // Le tiroir de la colonne, quand elle en est un: les places, demander
-        // celle d'un autre, signaler, le diagnostic, les spectateurs.
+        // La feuille agrandie, quand la salle est tenue en main : les places,
+        // demander celle d'un autre, signaler, le diagnostic, les spectateurs.
         ...(tenu
           ? [
               {
                 id: "places",
-                // Le même nom que l'entrée de la feuille et que le tiroir:
-                // « places et spectateurs » nommait un quatrième endroit.
+                // Le même nom que le bouton de la barre : « places et
+                // spectateurs » nommait un quatrième endroit.
                 label: "la salle",
                 hint: aideDeLaSalle(appareil),
                 icon: <RoomIcon className="h-full w-full" />,
@@ -2199,7 +2204,7 @@ function Room({
    * qu'elle soit montée ou non (sous la feuille, pendant un chargement), pour
    * que l'image ne bouge pas quand elle se démonte. */
   const manetteDuCadre =
-    tenu && session !== null && onTouch
+    tenu && couchesVoulues.manette
       ? usesProInput(room?.game?.console)
         ? DESSINS_MANETTES.pro
         : DESSINS_MANETTES.dolphin
@@ -2222,8 +2227,8 @@ function Room({
     agrandie: bare && !tenu,
   });
   /* Le panneau de commande sous l'image, au bureau, quand l'image n'y perd
-     rien (`panneauAuBureau`) ; sinon au pied de la colonne. Au téléphone, il
-     reste dans la colonne du tiroir jusqu'à la feuille unique (étape 4). */
+     rien (`panneauAuBureau`) ; sinon au pied de la colonne. Tenue en main,
+     le cadre le pose lui-même (`panneauTenu`, plus bas). */
   const panneauSous =
     geo.mode === "bureau" && geo.panneau.forme === "sous" ? geo.panneau.rect : null;
   /* Les places, que le chantier personnes remplacera par START 1P à 4P. */
@@ -2546,6 +2551,18 @@ function Room({
       </div>
     ) : null;
 
+  /** Qui tient cette page : sa place, ou « Prendre la place N » pour qui
+   * regarde. Dans la colonne, et dans la bande d'une salle tenue en main
+   * pour qui regarde : la colonne n'y est montée que dans la feuille
+   * agrandie, qui démonte la bande. Jamais deux fois. */
+  const blocRole = (
+    <BlocRole
+      nom={name}
+      place={port}
+      libre={premiereLibre}
+      onPrendre={salleFermee ? undefined : () => session?.input.play()}
+    />
+  );
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (
     <Colonne
@@ -2569,14 +2586,7 @@ function Room({
           />
         ) : null
       }
-      role={
-        <BlocRole
-          nom={name}
-          place={port}
-          libre={premiereLibre}
-          onPrendre={salleFermee ? undefined : () => session?.input.play()}
-        />
-      }
+      role={blocRole}
       personnes={
         <>
           {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
@@ -3015,7 +3025,12 @@ function Room({
             entenduIlYaMs={shot?.input.sinceHeardMs ?? null}
           />
         ) : null}
-        {avisDansLaBande && geo.bande ? <Bande rect={geo.bande}>{avis}</Bande> : null}
+        {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
+          <Bande rect={geo.bande}>
+            {avis}
+            {roleDuCadre === "regarde" ? blocRole : null}
+          </Bande>
+        ) : null}
         {tenu && geo.manette && couches.pave ? (
           <div className="n3-manette-boite" style={placeDe(geo.manette.rect)}>
             {manetteTactile(boiteDeLaManette)}

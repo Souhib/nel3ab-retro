@@ -180,3 +180,41 @@ describe("le panneau de commande", () => {
     expect(container.querySelector('[data-hote="bord-panneau"]')).toBeNull();
   });
 });
+
+describe("les trois formes de la colonne", () => {
+  const poser = (forme: "a-cote" | "dessous" | "feuille") =>
+    render(
+      <Colonne
+        nomSalle="Salle 1"
+        jeu={null}
+        onQuitter={() => {}}
+        largeur={forme === "a-cote" ? 304 : null}
+        forme={forme}
+        role={null}
+        rangs={[]}
+        contenus={{}}
+        vue={null}
+        coin={null}
+      />,
+    ).container.querySelector<HTMLElement>("#side");
+
+  it("à côté de l'image, a sa largeur et son filet de gauche", () => {
+    const side = poser("a-cote");
+    expect(side?.style.width).toBe("304px");
+    expect(side?.className).toContain("border-l");
+  });
+
+  it("sous l'image d'une fenêtre étroite, prend le reste de la hauteur, filet en haut", () => {
+    const side = poser("dessous");
+    expect(side?.style.width).toBe("");
+    expect(side?.className).toContain("flex-1");
+    expect(side?.className).toContain("border-t");
+    expect(side?.className).not.toContain("border-l");
+  });
+
+  it("dans la feuille, ne pose ni largeur ni filet : la feuille les porte", () => {
+    const side = poser("feuille");
+    expect(side?.style.width).toBe("");
+    expect(side?.className).not.toMatch(/border-[lt]\b/);
+  });
+});

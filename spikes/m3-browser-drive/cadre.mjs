@@ -173,12 +173,12 @@ async function principal() {
   /** Une page neuve sur une salle remise à zéro, effets au niveau « tout ».
    * Les sockets de la page sont retenues, pour qu'une étape puisse rejouer un
    * message de la salle (la fermeture proche, que le banc n'envoie pas). */
-  async function nouvelle(vue, { salle = {} } = {}) {
+  async function nouvelle(vue, { salle = {}, niveau = "tout" } = {}) {
     banc.reinitialiser();
     banc.regler(salle);
     const page = await browser.newPage();
     await page.setViewport(vue);
-    await page.evaluateOnNewDocument(() => {
+    await page.evaluateOnNewDocument((niveau) => {
       try {
         // Un onglet neuf part d'un stockage vide: la colonne repliée par une
         // étape précédente (le repli est retenu) ne doit pas suivre.
@@ -187,7 +187,7 @@ async function principal() {
           sessionStorage.setItem("banc-cadre", "1");
         }
         localStorage.setItem("nel3ab:name", "banc");
-        localStorage.setItem("nel3ab:effets", '{"niveau":"tout","sons":false}');
+        localStorage.setItem("nel3ab:effets", JSON.stringify({ niveau, sons: false }));
         // La vue des touches de la première visite prend la place des rangs
         // (étape 6) ; le cadre se vérifie sur une vue déjà lue.
         localStorage.setItem("nel3ab:aide-clavier", "vue");
@@ -202,7 +202,7 @@ async function principal() {
           window.__sockets.push(this);
         }
       };
-    });
+    }, niveau);
     await page.setRequestInterception(true);
     page.on("request", (req) => {
       const u = new URL(req.url());
@@ -741,6 +741,64 @@ async function principal() {
       verdict(fautes);
     },
 
+    /** Étape 8 : ce que coûtent les effets, mesuré en alternance. Quatre
+     * phases de 60 s, sobre, tout, sobre, tout, chacune sur une page neuve à
+     * 1440×900, après 5 s de mise en route. Chaque phase compte les images
+     * peintes (le compteur de la page, daté à l'horloge du mur par une
+     * boucle d'images d'écran) et le plus long écart entre deux. Pas un
+     * verdict : une mesure, écrite au carnet. Hors de la porte (trop longue)
+     * : `just cadre-mesure`. */
+    async "mesure-effets"() {
+      const phases = [];
+      for (const niveau of ["sobre", "tout", "sobre", "tout"]) {
+        const page = await nouvelle({ width: 1440, height: 900 }, { niveau });
+        await entrer(page);
+        await sleep(5000);
+        const mesure = await page.evaluate(
+          (duree) =>
+            new Promise((fini) => {
+              const lire = () => globalThis.nel3abTest?.counters?.().painted ?? 0;
+              const debut = performance.now();
+              const premier = lire();
+              let dernier = premier;
+              let vu = debut;
+              let pire = 0;
+              const tour = () => {
+                const ici = performance.now();
+                const n = lire();
+                if (n !== dernier) {
+                  pire = Math.max(pire, ici - vu);
+                  vu = ici;
+                  dernier = n;
+                }
+                if (ici - debut < duree) requestAnimationFrame(tour);
+                else
+                  fini({
+                    images: n - premier,
+                    secondes: (ici - debut) / 1000,
+                    pireEcartMs: Math.round(pire),
+                    niveau: document.documentElement.dataset.effets ?? null,
+                  });
+              };
+              requestAnimationFrame(tour);
+            }),
+          60_000,
+        );
+        const phase = {
+          niveau,
+          lu: mesure.niveau,
+          imagesParSeconde: Math.round((mesure.images / mesure.secondes) * 10) / 10,
+          pireEcartMs: mesure.pireEcartMs,
+          charge: (await import("node:os")).loadavg().map((x) => Math.round(x * 100) / 100),
+        };
+        console.log(JSON.stringify({ phase }));
+        phases.push(phase);
+        await page.close();
+      }
+      if (phases.some((one) => one.imagesParSeconde < 1))
+        throw new Precondition(`une phase n'a presque rien peint : ${JSON.stringify(phases)}`);
+    },
+
     async "borne-bandes"() {
       const fautes = [];
       const vus = { avec: 0, sans: 0 };
@@ -796,7 +854,10 @@ async function principal() {
     },
   };
 
-  const choisies = option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES);
+  /** Les étapes hors de la porte : une mesure de quatre minutes. */
+  const HORS_PORTE = new Set(["mesure-effets"]);
+  const choisies =
+    option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES).filter((nom) => !HORS_PORTE.has(nom));
   const resultats = [];
   try {
     for (const nom of choisies) {

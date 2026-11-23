@@ -883,6 +883,14 @@ cadre-navigateur *args:
     cd spikes/m3-browser-drive
     node cadre.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
 
+# Ce que coûtent les effets (étape 8 du chantier salle) : quatre phases de
+# 60 s en alternance, sobre, tout, sobre, tout, sur la page committée et le
+# banc H.264, images peintes par seconde et plus long écart. Hors de la porte:
+# quatre minutes de mesure, à lancer sur une machine au repos (aucune autre
+# porte, aucun profileur), dont la charge est écrite à chaque phase.
+cadre-mesure:
+    just cadre-navigateur --etapes mesure-effets
+
 # Le contrôle négatif du précédent: la page de 03b21c0, d'avant le chantier,
 # doit échouer sur le DÉFAUT de chaque étape (la pile des avis sur l'image, les
 # boutons de coin d'une colonne repliée), pas sur une précondition. La garde

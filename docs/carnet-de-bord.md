@@ -28666,6 +28666,14 @@ une touche posée exprès sur l'image, que la garde doit voir.
 l'étape 7 (cf3bba1), où la croix tombe sur l'image d'une tablette de
 768 × 1024. Poids : 246 511 octets en brotli.
 
+**Le spectateur.** Une page sans place n'a plus de manette à l'écran : elle
+n'aurait rien à envoyer. Tenue droite, sa bande dit « tu regardes » et porte
+« Prendre la place N » ; en travers, le panneau de commande est debout dans
+la bande gauche, les places l'une sous l'autre, et la bande droite porte le
+bouton. La colonne n'étant montée que dans la feuille agrandie, qui couvre
+la bande, le bouton n'est jamais là deux fois. `salle-telephone` le vérifie,
+avec son jumeau : une page qui tient une place n'a pas ce bouton.
+
 **Ce qui n'est pas prouvé.** Rien de tout cela n'a été tenu dans une vraie
 main : les pilotes émulent le toucher et les zones sûres dans Chrome. La
 manette « toujours » sur un grand écran à la souris se pose encore

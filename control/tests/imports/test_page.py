@@ -49,11 +49,32 @@ async def test_la_page_de_depot_est_servie_garnie(client: httpx.AsyncClient) -> 
     assert "export async function empreinteRapide" in page
 
 
+#: Une adresse CSS qui sortirait de la page. Permis: une adresse `data:`, avec
+#: ou sans guillemets, et un renvoi `#id` à un élément de la page (le filtre de
+#: l'écran bombé, ADR D37). Le premier motif laissait le guillemet facultatif
+#: AVANT la garde: devant `url("data:…")`, il sautait le guillemet et la garde
+#: voyait `"data:`, si bien qu'une adresse `data:` entre guillemets passait
+#: pour une sortie (23 novembre 2026, la flèche de souris du thème rétro).
+URL_SORTANTE = re.compile(r"""url\(\s*(?!['"]?(?:data:|#))""")
+
+
+def test_le_garde_des_adresses_css_voit_une_sortie_et_laisse_la_page() -> None:
+    """Les jumeaux du motif: ce qu'il doit voir, et ce qu'il doit laisser."""
+    for sortie in ('url("https://x.test/a.png")', "url(//x.test/a)", "url( 'police.woff2')"):
+        assert URL_SORTANTE.search(sortie), sortie
+    for permis in (
+        'url("data:image/svg+xml,%3Csvg")',
+        "url(data:font/woff2;base64,AA)",
+        'url("#rt-bombe")',
+    ):
+        assert not URL_SORTANTE.search(permis), permis
+
+
 async def test_la_page_ne_demande_rien_a_un_autre_site(client: httpx.AsyncClient) -> None:
     page = (await client.get("/importer")).text
 
     assert not re.findall(r"""(?:src|href|action)\s*=\s*["'](?!/|#|data:)""", page)
-    assert not re.findall(r"url\(\s*['\"]?(?!data:)", page)
+    assert not URL_SORTANTE.findall(page)
     assert not re.findall(r"""fetch\(\s*["'`](?!/|\$\{API|\$\{CLES)""", page)
     assert 'const CLES = "/api/importeurs";' in page
     assert "https://" not in page.split("<script", 1)[1]

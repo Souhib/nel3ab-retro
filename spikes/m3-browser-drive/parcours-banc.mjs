@@ -46,6 +46,14 @@ const DEPART = {
   decide: true,
   /** La préparation que le salon annonce, ou `null`. */
   preparation: null,
+  /** D'autres personnes de la salle, telles que le salon les dit
+   * (`{ name, id, moi: false, seat, seat_pending }`). */
+  autres: [],
+  /** Ce que Bo répond à une reprise de sa place : « garde », « donne », ou
+   * `null` pour ne pas répondre. */
+  boRepond: null,
+  /** L'image s'arrête : la salle n'envoie plus d'image, la socket reste. */
+  fige: false,
 };
 
 export async function demarrerParcours({ port, page, flux }) {
@@ -87,9 +95,13 @@ export async function demarrerParcours({ port, page, flux }) {
       library: BIBLIOTHEQUE,
       seats: [1, 2, 3, 4].map(siege),
       owner,
+      // `seat_pending` faux : le salon a fini de placer ces personnes. Le
+      // banc l'omettait, et le schéma du salon lit un champ absent comme
+      // « place à confirmer » (24 novembre 2026).
       people: [
-        { name: "Ami", id: "a", moi: true, seat: moi },
-        ...(state.bo ? [{ name: "Bo", id: "b", moi: false, seat: 2 }] : []),
+        { name: "Ami", id: "a", moi: true, seat: moi, seat_pending: false },
+        ...(state.bo ? [{ name: "Bo", id: "b", moi: false, seat: 2, seat_pending: false }] : []),
+        ...state.autres,
       ],
       ask_lasts: 10,
       media_url: "",
@@ -161,7 +173,7 @@ export async function demarrerParcours({ port, page, flux }) {
     const t0 = Date.now();
     let dernierTic = -1;
     const timer = setInterval(() => {
-      if (ws.readyState !== 1) return;
+      if (ws.readyState !== 1 || state.fige) return;
       const tic = Math.floor((Date.now() - t0) / (1000 / 60));
       if (tic === dernierTic) return;
       dernierTic = tic;
@@ -236,14 +248,23 @@ export async function demarrerParcours({ port, page, flux }) {
 
   /** La reprise d'une place, comme `api/ws/recovery.py` la dit à qui
    * demande : la place, les deux noms, 20 s pour répondre (`ANSWER_WITHIN`),
-   * puis « Demande annulée. » à l'annulation. Le banc ne fait pas répondre Bo :
-   * l'étape `demande-place` regarde où et comment la demande s'écrit. */
+   * puis « Demande annulée. » à l'annulation. Bo répond quand `boRepond` le
+   * dit, 300 ms après : « garde » envoie la raison du refus, « donne » un
+   * reste à 0 sans raison avec `accepted`, comme le salon depuis le
+   * 24 novembre 2026. */
   function reprise(ws, demande) {
     if (demande === null || typeof demande !== "object") return;
-    const avis = (champs) => ws.send(`42["recovery",${JSON.stringify({ id: "banc-reprise", from: "Ami", to: "Bo", asking: true, ...champs })}]`);
-    if (demande.action === "begin" && demande.port === 2 && state.bo)
+    const avis = (champs) =>
+      ws.send(
+        `42["recovery",${JSON.stringify({ id: "banc-reprise", from: "Ami", to: "Bo", asking: true, accepted: false, ...champs })}]`,
+      );
+    if (demande.action === "begin" && demande.port === 2 && state.bo) {
       avis({ port: 2, remaining: 20, reason: null });
-    else if (demande.action === "cancel" && demande.id === "banc-reprise")
+      if (state.boRepond === "garde")
+        setTimeout(() => avis({ port: 2, remaining: 0, reason: "Bo garde sa place 2." }), 300);
+      else if (state.boRepond === "donne")
+        setTimeout(() => avis({ port: 2, remaining: 0, reason: null, accepted: true }), 300);
+    } else if (demande.action === "cancel" && demande.id === "banc-reprise")
       avis({ port: 2, remaining: 0, reason: "Demande annulée." });
   }
 
@@ -269,6 +290,11 @@ export async function demarrerParcours({ port, page, flux }) {
       journal.entrees = 0;
       journal.suppressions.length = 0;
       journal.evenements.length = 0;
+    },
+    /** Un avis de reprise tel que le salon l'envoie à la page, pour la voir
+     * du côté de qui tient la place (`asking` faux). */
+    avisDeReprise(avis) {
+      for (const ws of lobbies) ws.send(`42["recovery",${JSON.stringify(avis)}]`);
     },
     /** Un démarrage annoncé par le salon, comme après un lancement. */
     annoncer(booting) {

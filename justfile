@@ -760,7 +760,11 @@ etats-navigateur-rouge:
 # (`parcours.mjs`). Le 23 novembre 2026, le chantier personnes y a ajouté les
 # places au vrai clavier, la demande de place hors de l'image avec la règle
 # du salon, l'arrivée qui reste dite quand l'état change aussitôt après, et
-# « Signaler » visible sans défiler à trois tailles de bureau.
+# « Signaler » visible sans défiler à trois tailles de bureau. Le 24 novembre
+# 2026, sa relecture a ajouté huit étapes : la raison du salon chez qui tient
+# la place, la carte qui ne revient pas seule, le refus et le don dits, qui
+# arrive n'est pas un spectateur, l'annonce lisible sur le fronton, les
+# ancres START d'Aïn et la cadence d'une image figée.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
 # salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
@@ -830,6 +834,22 @@ parcours-navigateur-rouge:
     node parcours.mjs --page "$rouges/personnes-54d1f6f.html" --flux "$dossier/flux.h264" \
         --etapes places-clavier,annonce-arrivee,annonce-lettres \
         --rouge-attendu places-clavier,annonce-arrivee,annonce-lettres
+    # cc8c8a6, la page que la relecture du 24 novembre 2026 a refusée : la
+    # raison du salon ouvre la carte chez qui tient la place, la carte se
+    # rouvre seule au retour de Bo, aucune issue de reprise n'est dite, un
+    # don se lit comme un silence, qui arrive est annoncé spectateur,
+    # l'annonce du fronton tient 3,28:1 de jour, les START n'ont pas
+    # d'ancre d'Aïn, et une image figée garde sa cadence. Gardée dans
+    # `rouges/` comme celle de 54d1f6f.
+    lue=$(git hash-object "$rouges/personnes-cc8c8a6.html")
+    attendue=$(awk '$3 == "personnes-cc8c8a6.html" { print $1 }' "$rouges/EMPREINTES")
+    if [ "$lue" != "$attendue" ]; then
+        echo "personnes-cc8c8a6.html n'est plus la page de cc8c8a6 ($lue au lieu de $attendue)" >&2
+        exit 1
+    fi
+    etapes=carte-cible,carte-revient,refus-dit,don-dit,arrivee-a-confirmer,annonce-fronton,ancres-start,mesures-figee
+    node parcours.mjs --page "$rouges/personnes-cc8c8a6.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

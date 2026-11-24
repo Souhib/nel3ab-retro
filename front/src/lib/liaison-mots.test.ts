@@ -369,6 +369,44 @@ describe("la ligne parlée", () => {
     expect(phraseLiaison({ etat: "ok" }, { etat: "ok" }, 1, 1)).toBe("");
     expect(phraseLiaison({ etat: "ok" }, { etat: "cachee" }, 1, 1)).toBe("");
   });
+  it("dit un démarrage qui traîne, puis un démarrage perdu, une fois chacun (A11Y-07)", () => {
+    const debut: Liaison = { etat: "demarrage", depuisMs: 2000 };
+    const long: Liaison = { etat: "demarrage", depuisMs: 25_000, attente: "long", habitude: true };
+    const echec: Liaison = { etat: "demarrage", depuisMs: 61_000, attente: "echec" };
+    expect(phraseLiaison({ etat: "ok" }, debut, 1, 1)).toBe("Le jeu démarre.");
+    expect(phraseLiaison(debut, long, 1, 1)).toBe("Le jeu met plus longtemps que d'habitude.");
+    // C5 : sans habitude mesurée (D05), la lenteur ne dit pas « d'habitude » ;
+    // elle dit le seuil des vingt secondes d'avant.
+    expect(phraseLiaison(debut, { ...long, habitude: false }, 1, 1)).toBe(
+      "Le jeu démarre encore, depuis 20 s.",
+    );
+    // Le bouton « arrêter d'attendre » n'existe plus (C7a) : la phrase ne
+    // l'offre plus.
+    expect(phraseLiaison(long, echec, 1, 1)).toBe("Aucune image du jeu.");
+  });
+  it("nomme le jeu qui démarre et le seuil mesuré, sans que le compteur parle (C9)", () => {
+    const debut: Liaison = { etat: "demarrage", depuisMs: 2000, jeu: "Chantier Royal" };
+    // Un seuil mesuré (le 90e centile du jeu, `seuilLong`) remplace les
+    // vingt secondes : la phrase dit celui que l'écran a franchi.
+    const long: Liaison = { ...debut, depuisMs: 36_000, attente: "long", seuilS: 35 };
+    expect(phraseLiaison({ etat: "ok" }, debut, 1, 1)).toBe("Chantier Royal démarre.");
+    expect(phraseLiaison(debut, long, 1, 1)).toBe("Chantier Royal démarre encore, depuis 35 s.");
+    // Le jumeau : trois secondes de plus ne changent pas un mot.
+    expect(phraseLiaison(debut, { ...long, depuisMs: 39_000 }, 1, 1)).toBe(
+      phraseLiaison(debut, long, 1, 1),
+    );
+    expect(phraseLiaison(debut, { ...long, habitude: true }, 1, 1)).toBe(
+      "Chantier Royal met plus longtemps que d'habitude.",
+    );
+    const echec: Liaison = { ...debut, depuisMs: 61_000, attente: "echec" };
+    expect(phraseLiaison(long, { ...echec, relance: { nom: "Sami" } }, 1, 1)).toBe(
+      "Aucune image de Chantier Royal. Sami peut le relancer.",
+    );
+    expect(phraseLiaison(long, { ...echec, relance: "moi" }, 1, 1)).toBe(
+      "Aucune image de Chantier Royal. Tu peux le relancer.",
+    );
+    expect(phraseLiaison(long, echec, 1, 1)).toBe("Aucune image de Chantier Royal.");
+  });
   it("la salle qui redémarre, puis l'image qui revient", () => {
     const redemarre: Liaison = { etat: "redemarre", arrivee: false };
     expect(phraseLiaison({ etat: "ok" }, redemarre, 1, 1)).toBe("La salle 1 redémarre.");

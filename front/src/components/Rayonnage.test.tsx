@@ -1,0 +1,272 @@
+/**
+ * Le rayonnage de l'écran éteint (B1 à B11) : les rangées, la fiche à la
+ * place des rangées, le clavier et la manette, le dernier jeu.
+ */
+import { act, fireEvent, render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import type { Game } from "../client";
+import type { MenuAction } from "../media/menupad";
+import type { FicheDeLigne } from "../lib/menu";
+import { Rayonnage } from "./Rayonnage";
+
+type Fs = { readFileSync: (chemin: string, codage: "utf-8") => string };
+const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
+// Par une fonction : Vite réécrit `new URL("…", import.meta.url)` littéral
+// en adresse de ressource (`Screen.test.tsx`).
+const ici = (relatif: string) => new URL(relatif, import.meta.url).pathname;
+const css = fs.readFileSync(ici("./rayonnage.css"), "utf-8");
+
+const BANC: Game[] = [
+  { index: 0, key: "mp4.iso", name: "Mario Party 4", console: "gc", art: true },
+  { index: 1, key: "sonic.iso", name: "Sonic Generations", console: "x360" },
+  { index: 2, key: "mkw.rvz", name: "Mario Kart Wii", console: "wii" },
+  { index: 3, key: "f-zero.iso", name: "F-Zero GX", console: "gc" },
+];
+
+const ficheDe = (onAgir = vi.fn()) =>
+  vi.fn((game: Game): FicheDeLigne => ({
+    consequence: "Le jeu part tout de suite.",
+    agir: "Lancer",
+    annuler: "Revenir à la liste",
+    choix: [
+      { id: "neuve", label: "nouvelle partie" },
+      { id: "commune", label: "tout débloqué" },
+    ],
+    onAgir: (choix) => onAgir(game.index, choix),
+  }));
+
+const cartouche = (i: number) => document.querySelector<HTMLElement>(`[data-jeu="${i}"]`)!;
+
+describe("Rayonnage", () => {
+  it("une rangée par console dans l'ordre du manifeste, une cartouche par jeu", () => {
+    const { container } = render(
+      <Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />,
+    );
+    const titres = [...container.querySelectorAll(".n3-rangee-titre")].map((t) => t.textContent);
+    expect(titres).toEqual(["GameCube, 2 jeux", "Wii, 1 jeu", "Xbox 360, 1 jeu"]);
+    expect(container.querySelectorAll("[data-jeu]")).toHaveLength(BANC.length);
+    // La jaquette servie pour le seul jeu qui en a une.
+    expect(cartouche(0).querySelector("img")).not.toBeNull();
+    expect(cartouche(3).querySelector("img")).toBeNull();
+    // B2b : rien du cordon ni de la prise de l'ancienne mascotte.
+    expect(container.innerHTML).not.toMatch(/cordon|prise/);
+  });
+
+  it("prend le focus à l'arrivée sur la première cartouche, et pas quand on ne le lui demande pas", () => {
+    const { unmount } = render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree />);
+    expect(document.activeElement).toBe(cartouche(0));
+    unmount();
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />);
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("Entrée ouvre la fiche à la place des rangées, le focus sur la sauvegarde cochée", () => {
+    const onAgir = vi.fn();
+    const { container } = render(
+      <Rayonnage library={BANC} ficheDe={ficheDe(onAgir)} focusEntree />,
+    );
+    fireEvent.click(cartouche(3));
+    expect(cartouche(3).getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector<HTMLElement>(".n3-rayonnage-rangees")?.hidden).toBe(true);
+    expect(document.getElementById("rayonnage")?.dataset.fiche).toBe("place");
+    expect(document.getElementById("ficheJeuTitre")?.textContent).toBe("F-Zero GX");
+    expect(document.activeElement).toBe(document.getElementById("ficheJeu-neuve"));
+    fireEvent.click(document.getElementById("ficheJeu-commune")!);
+    fireEvent.click(document.getElementById("ficheJeuAgir")!);
+    expect(onAgir).toHaveBeenCalledWith(3, "commune");
+  });
+
+  it("au bureau, la fiche s'ouvre à côté : les rangées restent et se parcourent, une autre cartouche la remplace", () => {
+    const { container } = render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree cote />);
+    fireEvent.click(cartouche(3));
+    const rayonnage = document.getElementById("rayonnage")!;
+    expect(rayonnage.dataset.fiche).toBe("cote");
+    expect(container.querySelector<HTMLElement>(".n3-rayonnage-rangees")?.hidden).toBe(false);
+    expect(document.activeElement).toBe(document.getElementById("ficheJeu-neuve"));
+    fireEvent.keyDown(cartouche(0), { key: "ArrowRight" });
+    expect(document.activeElement).toBe(cartouche(3));
+    fireEvent.click(cartouche(2));
+    expect(document.getElementById("ficheJeuTitre")?.textContent).toBe("Mario Kart Wii");
+    expect(cartouche(3).getAttribute("aria-expanded")).toBe("false");
+    // Le jumeau : sans « cote », la fiche prend la place des rangées.
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(rayonnage.dataset.fiche).toBeUndefined();
+  });
+
+  it("à côté, la manette parcourt aussi les rangées fiche ouverte", () => {
+    let pad: ((action: MenuAction) => void) | null = null;
+    render(
+      <Rayonnage
+        library={BANC}
+        ficheDe={ficheDe()}
+        focusEntree
+        cote
+        onPad={(h) => {
+          pad = h;
+        }}
+      />,
+    );
+    fireEvent.click(cartouche(0));
+    act(() => cartouche(0).focus());
+    act(() => pad?.("right"));
+    expect(document.activeElement).toBe(cartouche(3));
+  });
+
+  it("Échap ferme la fiche, rend le focus à la cartouche et ne remonte pas jusqu'à la page", () => {
+    const page = vi.fn();
+    addEventListener("keydown", page);
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree />);
+    fireEvent.click(cartouche(2));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(document.getElementById("ficheJeu")).toBeNull();
+    expect(document.activeElement).toBe(cartouche(2));
+    expect(cartouche(2).getAttribute("aria-expanded")).toBe("false");
+    expect(page).not.toHaveBeenCalled();
+    // Le jumeau : sans fiche ouverte, Échap remonte à la page (qui ouvre le menu).
+    fireEvent.keyDown(cartouche(2), { key: "Escape" });
+    expect(page).toHaveBeenCalledOnce();
+    removeEventListener("keydown", page);
+  });
+
+  it("chaque fiche ouverte demande une relecture des sauvegardes ; les flèches et Échap non", () => {
+    const onOuvrir = vi.fn();
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree onOuvrir={onOuvrir} />);
+    fireEvent.keyDown(cartouche(0), { key: "ArrowRight" });
+    fireEvent.keyDown(cartouche(3), { key: "ArrowLeft" });
+    expect(onOuvrir).not.toHaveBeenCalled();
+    fireEvent.click(cartouche(0));
+    expect(onOuvrir).toHaveBeenCalledOnce();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onOuvrir).toHaveBeenCalledOnce();
+    fireEvent.click(cartouche(0));
+    expect(onOuvrir).toHaveBeenCalledTimes(2);
+  });
+
+  it("une fiche qui relit ses sauvegardes garde le focus sur son titre, puis le passe au choix coché", () => {
+    const relue = (occupe: boolean) =>
+      vi.fn((game: Game): FicheDeLigne => ({ ...ficheDe()(game), occupe }));
+    const { rerender } = render(<Rayonnage library={BANC} ficheDe={relue(true)} focusEntree />);
+    fireEvent.click(cartouche(3));
+    // Les choix sont grisés : sans attente, le focus tombait sur « Revenir ».
+    expect(document.activeElement).toBe(document.getElementById("ficheJeuTitre"));
+    rerender(<Rayonnage library={BANC} ficheDe={relue(true)} focusEntree />);
+    expect(document.activeElement).toBe(document.getElementById("ficheJeuTitre"));
+    rerender(<Rayonnage library={BANC} ficheDe={relue(false)} focusEntree />);
+    expect(document.activeElement).toBe(document.getElementById("ficheJeu-neuve"));
+  });
+
+  it("pendant l'attente, un focus déplacé ailleurs n'est pas repris à la réponse", () => {
+    const relue = (occupe: boolean) =>
+      vi.fn((game: Game): FicheDeLigne => ({ ...ficheDe()(game), occupe }));
+    const { rerender } = render(<Rayonnage library={BANC} ficheDe={relue(true)} focusEntree />);
+    fireEvent.click(cartouche(3));
+    const revenir = document.getElementById("ficheJeuRevenir")!;
+    act(() => revenir.focus());
+    rerender(<Rayonnage library={BANC} ficheDe={relue(false)} focusEntree />);
+    expect(document.activeElement).toBe(revenir);
+  });
+
+  it("les flèches passent d'une cartouche à l'autre ; ↑ sur la première rangée ne bouge pas", () => {
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree />);
+    fireEvent.keyDown(cartouche(0), { key: "ArrowRight" });
+    expect(document.activeElement).toBe(cartouche(3));
+    fireEvent.keyDown(cartouche(3), { key: "ArrowUp" });
+    expect(document.activeElement).toBe(cartouche(3));
+    fireEvent.keyDown(cartouche(3), { key: "ArrowDown" });
+    // jsdom n'a pas de mise en page : tous les centres valent 0, et la
+    // première cartouche de la rangée suivante gagne.
+    expect(document.activeElement).toBe(cartouche(2));
+    expect(document.getElementById("ficheJeu")).toBeNull();
+  });
+
+  it("la manette : ↓ comme ArrowDown, A ouvre, B referme", () => {
+    let pad: ((action: MenuAction) => void) | null = null;
+    const onPad = vi.fn((h: ((action: MenuAction) => void) | null) => {
+      pad = h;
+    });
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree onPad={onPad} />);
+    act(() => pad?.("down"));
+    expect(document.activeElement).toBe(cartouche(2));
+    act(() => pad?.("confirm"));
+    expect(document.getElementById("ficheJeu")).not.toBeNull();
+    act(() => pad?.("back"));
+    expect(document.getElementById("ficheJeu")).toBeNull();
+    expect(document.activeElement).toBe(cartouche(2));
+  });
+
+  it("dit le dernier jeu et ouvre sa fiche ; rien sans la donnée ni pour un jeu parti", () => {
+    const dernier = { cle: "mkw.rvz", titre: "Mario Kart Wii", quand: "2026-11-24T19:00:00" };
+    const maintenant = () => new Date(2026, 10, 24, 21, 0);
+    const { container, unmount } = render(
+      <Rayonnage
+        library={BANC}
+        ficheDe={ficheDe()}
+        focusEntree={false}
+        dernier={dernier}
+        maintenant={maintenant}
+      />,
+    );
+    expect(container.textContent).toContain(
+      "Le dernier jeu de cette salle : Mario Kart Wii, ce soir.",
+    );
+    fireEvent.click(document.getElementById("ouvrirDernier")!);
+    expect(document.getElementById("ficheJeuTitre")?.textContent).toBe("Mario Kart Wii");
+    unmount();
+    const sans = render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />);
+    expect(sans.container.textContent).not.toContain("dernier jeu");
+    sans.unmount();
+    const parti = render(
+      <Rayonnage
+        library={BANC}
+        ficheDe={ficheDe()}
+        focusEntree={false}
+        dernier={{ ...dernier, cle: "parti.iso" }}
+        maintenant={maintenant}
+      />,
+    );
+    expect(parti.container.textContent).not.toContain("dernier jeu");
+  });
+});
+
+// Relecture du 24 novembre 2026 : trois effets du rayonnage prévus par le
+// plan n'étaient pas branchés (tramage, pointeur, boîte tirée).
+describe("les effets du rayonnage", () => {
+  it("chaque rangée a sa planche tramée, sans texte ; ni le nom ni les titres ne la portent", () => {
+    const { container } = render(
+      <Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />,
+    );
+    const rangees = [...container.querySelectorAll(".n3-rangee")];
+    expect(rangees).toHaveLength(3);
+    for (const rangee of rangees) {
+      const planches = rangee.querySelectorAll(".rt-tramage");
+      expect(planches).toHaveLength(1);
+      expect(planches[0]!.textContent).toBe("");
+      expect(planches[0]!.getAttribute("aria-hidden")).toBe("true");
+    }
+    // Le jumeau : aucun texte sur un fond tramé.
+    for (const texte of container.querySelectorAll(
+      ".n3-rangee-titre, .n3-cartouche-titre, .n3-cartouche",
+    ))
+      expect(texte.classList.contains("rt-tramage")).toBe(false);
+  });
+
+  it("pose la marque du pointeur en pixels sur le rayonnage", () => {
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />);
+    expect(document.getElementById("rayonnage")!.classList.contains("rt-pointeur")).toBe(true);
+  });
+
+  it("tire la seule cartouche dont la fiche est ouverte, de 4 px, en deux paliers", () => {
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree cote />);
+    fireEvent.click(cartouche(2));
+    expect(cartouche(2).getAttribute("aria-expanded")).toBe("true");
+    // Le jumeau : les autres restent dans leur rangée.
+    for (const i of [0, 1, 3]) expect(cartouche(i).getAttribute("aria-expanded")).toBe("false");
+    expect(css).toMatch(
+      /\.n3-cartouche\[aria-expanded="true"\] \{\s*transform: translateY\(-4px\);/,
+    );
+    expect(css).toMatch(/\.n3-cartouche \{\s*transition: transform 120ms steps\(2, end\);/);
+    expect(css).toMatch(
+      /prefers-reduced-motion: reduce\) \{\s*\.n3-cartouche \{\s*transition: none;/,
+    );
+  });
+});

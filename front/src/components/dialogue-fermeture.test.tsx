@@ -8,7 +8,8 @@
  * réouverture, et fermait la feuille du bas qu'on venait d'ouvrir (devenue
  * la feuille « La salle » le 23 novembre 2026); le menu du
  * jeu, lui, ne s'ouvrait jamais en développement (`salle-telephone.mjs`,
- * 22 novembre 2026). La page construite n'a pas ce double passage, d'où un
+ * 22 novembre 2026). Le menu n'est plus un dialogue depuis le 24 novembre
+ * 2026 (ADR D30 amendé) : seules les deux hauteurs de la feuille restent. La page construite n'a pas ce double passage, d'où un
  * défaut invisible aux bancs qui servent la page construite.
  *
  * Le remplaçant de `setup.ts` envoie `close` tout de suite; ici, il est mis en
@@ -18,7 +19,6 @@ import { act, render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FeuilleSalle } from "./FeuilleSalle";
-import { Xmb } from "./Xmb";
 
 const fermerTout = HTMLDialogElement.prototype.close;
 beforeEach(() => {
@@ -60,18 +60,9 @@ const agrandie = (onFermer: () => void) => (
     <aside id="side" />
   </FeuilleSalle>
 );
-const menu = (onFermer: () => void) => (
-  <Xmb
-    categories={[{ id: "salle", label: "salle", icon: null, items: [] }]}
-    onClose={vi.fn()}
-    onQuitte={onFermer}
-  />
-);
-
 describe.each([
   ["la feuille à mi-hauteur", "#feuilleSalle", feuille],
   ["la feuille agrandie", "#feuilleSalle", agrandie],
-  ["le menu du jeu", "#menu", menu],
 ] as const)("%s", (_, selecteur, monter) => {
   it("reste ouvert après le double passage des effets", async () => {
     const onFermer = vi.fn();

@@ -67,3 +67,21 @@ describe("la cadence d'un menu", () => {
     expect(pad.feed(push({ y: 1, buttons: BUTTON.B }), 4)).toBe("back");
   });
 });
+
+describe("Start au menu (M6)", () => {
+  // Start rend la main au jeu: sur une console, c'est le bouton qui ferme le
+  // menu de pause. Il valait « confirm », si bien que Start sur la ligne
+  // « Fermer la salle » ouvrait sa fiche au lieu de rendre le jeu.
+  it("rend « jeu » au front montant de Start", () => {
+    const pad = new MenuPad();
+    expect(pad.feed(push({ buttons: BUTTON.START }), 0)).toBe("jeu");
+    expect(pad.feed(push({ buttons: BUTTON.START }), 4)).toBeNull();
+  });
+
+  // Le jumeau: A et B gardent leur sens.
+  it("laisse A valider et B revenir", () => {
+    const pad = new MenuPad();
+    expect(pad.feed(push({ buttons: BUTTON.A }), 0)).toBe("confirm");
+    expect(pad.feed(push({ buttons: BUTTON.B }), 4)).toBe("back");
+  });
+});

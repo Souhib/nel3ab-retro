@@ -1293,6 +1293,252 @@ plan in `EMULATED` (one frame, three readings, `docs/ecran-manettes.md`). jsdom
 has no `showModal`; the proof is `just focus-navigateur` (24 steps) and
 `just focus-navigateur-rouge`, and both browser recipes run in `local`.
 
+#### D30 amendment, 2026-11-24: one room menu, not modal, never on a visible picture
+
+Amended by the menus work of the retro theme (K21 of its partition), for the
+menu, the key settings panel and the place cards. Points 2, 3 and 4 above are
+replaced; point 1 stands.
+
+The three menu shells (the PlayStation 3 cross, the Wii channels, the Switch
+home row) are retired with their `nel3ab:shell` key, which the page now erases
+at start. One menu (`components/menu/Menu.tsx`) has four tabs, Jeux, Manettes,
+Salle and Réglages, and full-width lines. Its pure half (`lib/menu.ts`) says
+what each line draws (fiche, choice, slider, switch, disclosure, action), how
+arrows move and where the menu goes.
+
+Decision:
+
+1. **The menu is a `<section id="menu">`, not a dialog.** On a desktop it takes
+   the place of the column's rows (the role, people and panel blocks step
+   aside while it is open; the place cards stay). Held in hand it is placed
+   below the picture, or in the wider side band in landscape
+   (`placeDuMenu`). The picture keeps its rectangle and nothing covers it.
+   A landscape 16:9 picture leaves two 75 px bands: the menu then falls back to
+   the room sheet's rectangle, which covers the picture's edge, and says so
+   with `data-sur-image="oui"`. That case is a known defect for the room frame
+   to settle. (Replaced the same day by the addendum « after the review »
+   below: the fallback covered 42 to 48 % of the live picture, not its edge;
+   the menu now takes the screen's place and hides the picture meanwhile.)
+2. **Focus.** Opening puts focus on the first line. The cursor is the focus,
+   with a roving tabindex inside the panel: one control has `tabIndex` 0 and
+   its line carries `aria-current`. Up and down move between lines without
+   wrapping; left and right change tab, except on a radio or a range, which
+   keep them. Escape closes a fiche, then the menu. A `focusin` inside
+   `[data-zone-jeu]` (a click on the picture, or Tab reaching it) closes the
+   menu. On close, focus goes to the game zone during a game (point 1) and
+   back to the opener otherwise.
+3. **Decisions open a fiche inside the panel**: launching a game on a save,
+   closing the game, closing the room. The fiche states the consequence above
+   the button that acts, and a second button returns without doing anything.
+   A refusal or notice born from a menu gesture is written inside the menu
+   (`avis`), so `Surcouche` is no longer needed above the menu.
+4. **Pad and footer.** The pad drives the same focus through
+   `input.setMenu`; A activates, B goes back, Start returns to the game
+   (`menupad` now reports `jeu` for Start). The footer appears only after a
+   first keyboard or pad use: « ← → rubriques, Échap revenir au jeu » or
+   « A valider, B revenir, Start au jeu »; none by touch.
+
+Weighed:
+
+- A dialog laid inside the column (the room frame's proposal). Rejected:
+  `showModal()` makes the rest of the page inert, including the picture's
+  zone, so a click on the picture could not return to the game.
+- Keeping `showModal()` and shrinking the dialog to the column's rectangle.
+  Rejected for the same reason, and because the place cards and the state
+  block would have needed `Surcouche` again.
+- Keeping the three shells as a setting. Rejected by the owner with the
+  « Scotch et feutre » proposal: each shell indexed its selection on its own
+  geometry, and three keyboard models had to be kept in agreement.
+
+Consequences. The menu is no longer modal: Tab can leave it, into the column
+or the picture, and the arrows do not wrap. `Surcouche` stays for the
+preparation status outside the menu. The loading screen lost its « ouvrir le
+menu » button; « Menu du jeu » in the column opens the menu beside it. A
+desktop room whose column was folded by Ctrl unfolds it while the menu is open
+and folds it back on close. Proof: `menu-en-colonne`, `une-seule-forme`,
+`refus-dans-le-bloc`, `curseur-focus`, `aides-clavier` and `aides-manette` in
+`just focus-navigateur`, `chargement-menu` in `just etats-navigateur`,
+`fermer-salle` and `menu-chef` in `just parcours-navigateur`. The page lost
+5 139 bytes in brotli 11 (281 760 to 276 621).
+
+
+#### D30 addendum, 2026-11-24 evening: the idle room shows its games
+
+The idle screen (`EcranEteint`, K23) now holds the library: one row per
+console, one cartridge per game, its label being the game's art
+(`components/Rayonnage.tsx`, `lib/bibliotheque.ts`). A cartridge opens the
+game's fiche in place of the rows. The fiche is the menu's own
+(`components/menu/Fiche.tsx`), with an id prefix so that the menu and the
+idle screen can each hold one open on a desktop.
+
+1. **Focus.** On entry, the chooser's focus goes to the first cartridge
+   when nothing else has it. Arrows move between cartridges without moving
+   anything; Enter opens the fiche with focus on the checked save; Escape
+   closes it, returns focus to the cartridge and stops there, so it does not
+   also open the menu. Escape without an open fiche still opens the menu.
+   The pad drives the same focus through `input.setMenu` while the menu
+   does not hold it.
+2. **Saves and identity are read while idle**, not only while the menu is
+   open; otherwise every fiche of the idle screen stayed disabled.
+3. **What follows « Lancer »** is computed like the lobby's
+   `Preparation.directe`, from the manifest's `devices` and `players`.
+   Someone who does not choose reads the fiche without the button that acts.
+
+Weighed: the fiche beside the rows on a desktop (the proposal). Deferred:
+replacing the rows keeps one focus model for every size, and the side
+layout needs the frame's measures.
+
+#### D30 addendum, 2026-11-24 night: the preparation is a block, not a dialog
+
+The multiplayer preparation left the keys dialogs (`Bindings`,
+`SwitchBindings`) for a non-modal block, `#preparation`
+(`components/Preparation.tsx`), for every console.
+
+1. **Where.** Under the column header on a desktop (`Colonne`'s
+   `preparation` prop), and in the expanded sheet of a hand-held room; the
+   band of a hand-held room says who launches which game, and « Choisir ma
+   manette » opens the sheet. The menu open in the column hides the block,
+   like the role block.
+2. **Input.** The block does not hold the game's input: only the keys
+   panel, opened by « Essayer mes touches » (`ouvrirReglage`), blocks
+   gameplay. « Plus tard » and the watching overlay are gone, since nothing
+   needs to be put aside.
+3. **Speech.** The room's spoken line stays the only polite region: a
+   player who becomes ready is said once; the chief's countdown is silent;
+   a refusal is written in the block, said, and plays Aïn's « refus » scene
+   through the arbiter.
+4. **Closing a game** is a state of its menu line and fiche
+   (« fermeture… »), no longer a message in the error notice.
+
+Weighed: a panel replacing the touch pad on a phone (the proposal, P8).
+Deferred: the sheet already carries the column, and the band keeps the pad
+mounted. `Bindings` and `SwitchBindings` are no longer mounted by the room;
+their removal belongs to the controllers workstream.
+
+#### D30 addendum, 2026-11-24 late night: the loading screen and the room section
+
+1. **Loading steps** are three 22 px pixel boxes computed by
+   `etapesAffichees` (`lib/booting.ts`): done, in progress with a counter
+   written by the socle's digit display outside React, to come, unknown
+   (« ? ») past the long-wait threshold, and failed (« ✕ ») when no picture
+   came. A done box never goes back.
+2. **Loading gestures depend on the role** (`gestesDuChargement`): none
+   during a normal wait; past the threshold, whoever chooses the game can
+   stop the launch (`closeGame` on the requested index), and, without a
+   picture, choose another game; everyone can report. The report button is
+   the people workstream's `Signaler`, and the column hides its own while
+   the loading screen carries one (K25: never two on screen). « arrêter
+   d'attendre », which removed the screen without stopping anything, is gone.
+3. **Who launched, on which save** (`sauvegardeDuLancement`): the launcher
+   reads « Sur ta sauvegarde. », others read the launcher's typed label at
+   their seat's colour, and an unknown launcher falls back to the lobby's
+   words without a label. The spoken line names the game and the crossed
+   threshold; the counter never speaks.
+4. **The start-up test card** is visible at every level, static; at
+   « tout » one bar lights at a time, one step per second (K14), overriding
+   the socle's 0.3 s offsets in `components/chargement.css`. The socle's
+   tube layers sit inside `#booting`, under an opaque text plate.
+5. **The room section** is built by `lignesSalle` (`lib/rubriques.ts`). Its
+   head says who chooses the game with their label (`Rubrique.tete`). On a
+   desktop the menu replaces the column's ranks, so `Signaler` becomes a
+   line of the section (a « composant » line, the same component); a
+   hand-held room or a speaking loading screen does not repeat it.
+
+Weighed: a separate `RubriqueSalle` component, as the plan proposed. A pure
+function of lines keeps the section testable without React, like the
+controllers section, and the menu renders both the same way. Deferred: the
+« coupure » snow on a game change waits for the states workstream's snow;
+the « fier » scene for « all ready » is not in this workstream's arbiter
+list, so « pret » in « tous » mode stays.
+
+#### D30 addendum, 2026-11-24 end of night: the card beside the rows, and sticky bars
+
+1. **Every card opening rereads the saves and a missing identity.** At rest
+   the shelf stays on screen, so `/saves` and `/api/me` were read once on
+   arrival. A read now carries a key (menu or rest, plus the card count);
+   an answer for another key is ignored, so no render shows a stale choice
+   as safe. While it reads, the card's choices are disabled and the focus
+   waits on its title, then moves to the checked choice unless the user
+   moved it. `save-options.mjs` drives the shelf and the menu.
+2. **On a desktop the card sits beside the rows** (`cote`, from
+   `modeSalle === "bureau"`); the rows stay visible and keyboard and pad
+   still move between cartridges. On a phone, in landscape and in a narrow
+   window, the card replaces the rows.
+3. **Sticky bars never cover the focus.** The preparation's gesture row
+   sticks above Aïn's corner and « Plus bas » (D46); a choice that takes the
+   focus under that row scrolls above it, on focus and after every render,
+   with a margin equal to the row's current height. A pastille is
+   positioned, so its hidden absolute radio no longer belongs to the column
+   and no longer stretches its scroll area.
+
+Weighed: a fixed `scroll-margin` alone (the browser's focus scroll does not
+move an element that fits in the column, even under a sticky bar), and a
+column-level padding in `Colonne.tsx` (another workstream's file, and the
+row's height varies from one to three lines). Not taken: the « ouvre » and
+« fier » scenes, which the partition's scene table gives to the lobby and
+to the controllers and room workstreams.
+
+#### D30 addendum, 2026-11-24, after the review: never on a visible picture
+
+An independent review of the menus work found seven defects; four change
+what this entry says.
+
+1. **No menu on a visible picture.** A phone held sideways with a 16:9
+   picture and the Pro touch pad (Switch, Switch 2, Xbox 360) leaves two
+   148 px bands, below the 150 px a menu needs (`BANDE_MIN`); without a touch
+   pad, two 75 px bands. The fallback laid the menu on the sheet's 380 px:
+   measured on the bench, it covered 42 % of the live picture at 844×390 and
+   48 % at 780×360, while the page painted 60 pictures a second under it, and
+   « La salle » (with Aïn's head) sat on one of its lines. The rule of the
+   owner (K20: never anything on a live picture) applies to the menu too.
+   `placeDuMenu` now tries a side band first, the left one, cut above or
+   below « La salle » and the player's label; with none readable (150 px
+   wide, 200 px high) it takes the screen's own rectangle (`lieu: "ecran"`)
+   and the picture hides there for as long as the menu is open
+   (`data-image-sous-menu`, `visibility: hidden`). The picture keeps its size
+   and its pixels, the media loop keeps painting underneath, and closing the
+   menu shows it again. A spectator's line says so (« Elle revient à la
+   fermeture »). The menu's marker is its own: the snow of a lost connection
+   sets and clears `IMAGE_CACHEE` of the socle, and the end of one must not
+   show a picture the other still hides.
+2. **A greyed control never keeps the focus.** A fiche aims at its checked
+   choice, then its acting button, then « Revenir », only if they take the
+   focus; while it reads its saves, the focus waits on its title and moves
+   to the checked choice when the answer comes. When « Fermer le jeu » turns
+   to « Fermeture du jeu en cours… » under the focus, or the fiche's line
+   leaves its tab, the focus goes back into the menu. Before, it fell on
+   `<body>`, where Escape did nothing.
+3. **The focus ring is whole.** `#menu` scrolls, and a scroll box clips what
+   overflows it: the ring (3 px, 2 px outside) lost both sides of every
+   full-width line. The menu now keeps 5 px of padding, and the shelf's
+   rows too (a cartridge lost one pixel).
+4. **« Plus bas » inside the menu** (M11). The menu scrolls in its own box,
+   so the column's marker never saw it: Réglages hid eight lines at
+   1280×720. The menu has its own sticky marker, outside the tab order.
+
+Weighed for point 1: shrinking the picture to free a band, as the desktop
+column does. Rejected: this entry promised that the picture keeps its
+rectangle when the menu opens, a resize on every opening moves what the
+others watch on that screen, and the room frame (`lib/cadre.ts`) belongs to
+another workstream. Covering the picture and saying so (the first version)
+is what the review refused.
+
+Also from the review: the effects of the plan now run. A new refusal shakes
+the block that writes it at the « tout » level (`secouer`); « Fermer le
+jeu » plays the `quitter-partie` transition (iris) on the menu; the page of
+whoever closes the room leaves only after the `fermer-salle` transition
+(extinction) ends; the shelf's rows have a dithered plank, the pixel arrow
+marks the shelf and an idle room's menu, and an open card's cartridge
+stands out by 4 px. The Jeux and Réglages tabs, the game card, the saves'
+reading key and the column unfolding moved out of `App.tsx` into
+`components/menu/`.
+
+Proof: `menu-en-colonne` (a 16:9 view on a second bench), `fermeture-en-cours`,
+`anneau-menu` and `plus-bas-menu` in `just focus-navigateur`, red on the
+reviewed page cd2d5b3 in `just focus-navigateur-rouge`; `fiche-a-cote` in
+`just parcours-navigateur`; the menu of `salle-telephone` now also opens on a
+16:9 picture.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),

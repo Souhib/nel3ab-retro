@@ -482,6 +482,10 @@ machine".
   kept setting seven theme names that no selector matches any more: it
   measured one palette seven times. A guard that loops over variants requires
   them to give different results (`--panel` differs between `nuit` and `jour`).
+  The preview entries (`front/*.entry.tsx`) sit outside `tsc -b`: on
+  2026-11-24 one still imported two deleted menus while the type check, the
+  unit tests and the page build were green, and only the Vite server of
+  `salle-telephone` failed. Search the whole repository for a retired module.
 - **The host never follows a link in a folder a container writes.** On
   2026-11-22, the final review found the room scripts writing `docker logs`,
   `exit.json` and the lock, and copying saves, through links an engine could
@@ -692,7 +696,10 @@ Page conventions since 2026-11-22 (ADR D26 to D35): colours live in
 `front/src/regie.css`, and no page redeclares a token; the game keyboard lives
 in the game zone (`lib/focus-jeu.ts`); a full-screen layer is a `<dialog>`
 opened by `showModal()` whose cursor is the focus, and what must stay above it
-goes through `Surcouche`; visible words come from `lib/mots.ts`.
+goes through `Surcouche`; the room menu is not such a layer since 2026-11-24
+(D30 amended): a non-modal section beside the picture, never on a visible
+picture (sideways with no readable band, it takes the screen's place and the
+picture hides until it closes); visible words come from `lib/mots.ts`.
 
 Since 2026-11-23 (ADR D37), a retro effect is an `rt-…` class of
 `front/src/effets.css`, lit or not by the device's level (`fx-<id>` on

@@ -180,25 +180,15 @@ export const SORTIES = {
   autres: "autres salles",
 } as const;
 
-/** La sortie du menu, sous un seul nom dans ses trois formes.
- *
- * Le menu XMB disait « Fermer le menu » et « Reprendre la partie », l'accueil
- * et les chaînes « Fermer » et « reprendre », et la page leur passait deux
- * textes différents pour remonter aux consoles (vérification finale du
- * 22 novembre 2026). Un bouton l'écrit avec sa majuscule, une pastille en
- * minuscules (`enMenu`). */
+/** La sortie du menu, sous un seul nom (vérification finale du 22 novembre
+ * 2026) : « Reprendre la partie » pendant une partie, « Fermer le menu » dans
+ * une salle au repos. « Retour aux consoles » est parti avec les dossiers du
+ * menu unique (W3, 24 novembre 2026). Un bouton l'écrit avec sa majuscule,
+ * une ligne en minuscules (`enMenu`). */
 export const SORTIES_MENU = {
   fermer: "Fermer le menu",
   reprendre: "Reprendre la partie",
-  remonter: "Retour aux consoles",
 } as const;
-
-/** Ce que fait la sortie du menu: remonter d'un dossier, fermer un menu sans
- * partie, ou reprendre la partie. */
-export function sortieDuMenu({ dossier, idle }: { dossier: boolean; idle: boolean }): string {
-  if (dossier) return SORTIES_MENU.remonter;
-  return idle ? SORTIES_MENU.fermer : SORTIES_MENU.reprendre;
-}
 
 /** Le réglage des effets rétro, dans le menu de la salle et au pied de la
  * liste des salles (ADR D37). Les mêmes mots aux deux endroits: le salon les
@@ -1196,3 +1186,173 @@ export function motsDuSalon(): Record<string, string> {
 }
 
 // ==== fin salon ====
+
+// ==== chantier menus ====
+
+/** Le menu unique de la salle (chantier menus, 24 novembre 2026) : quatre
+ * rubriques en onglets, nommées en casse de phrase (M5). Les capitales
+ * d'arcade, quand le niveau les veut, viennent du CSS. */
+export const MENU = {
+  /** Le nom du menu pour un lecteur d'écran : celui du rang qui l'ouvre. */
+  nom: "Menu du jeu",
+  /** La tête de la rubrique Salle (M10) : l'étiquette du chef, puis ceci. */
+  choisitLeJeu: "choisit le jeu.",
+  tuChoisis: "Tu choisis le jeu.",
+  /** La ligne Signaler, quand le menu remplace la colonne (K25). */
+  signaler: "Signaler un problème",
+  rubriques: {
+    jeux: "Jeux",
+    manettes: "Manettes",
+    salle: "Salle",
+    reglages: "Réglages",
+  },
+  /** Ce que deviennent tes touches, en tête du menu (M3a). */
+  tesTouches: "Le jeu continue pour les autres. Tes touches pilotent ce menu.",
+  /** Le même, pour qui regarde : il n'a rien à piloter. */
+  regarde: "L'image continue, pour toi comme pour les autres.",
+  /** Qui regarde, quand le menu prend la place de l'écran et cache l'image
+   * (téléphone couché, image 16:9) : elle ne continue plus « pour toi ». */
+  regardeCachee: "L'image continue pour les autres. Elle revient à la fermeture.",
+  /** Les groupes de Réglages (M7a). */
+  groupes: {
+    image: "Image et son",
+    appareil: "Cet appareil",
+    avances: "Réglages avancés",
+    manette: "Ta manette",
+    wii: "Jeux Wii",
+    telephone: "Ce téléphone",
+  },
+  /** Une ligne sans aide encore n'est pas vide pour autant : elle se lit. */
+  aucuneLigne: "Rien ici pour l'instant.",
+  /** Le pied, nommé pour un lecteur d'écran. */
+  pied: "Touches du menu",
+  /** La rubrique Manettes (M9). */
+  touches: "touches et manettes",
+  clavier: "toutes les touches du clavier",
+  aideClavier: "Chaque touche du clavier, et ce qu'elle fait dans le jeu.",
+  attendCorrespondances: "La manette branchée attend ses correspondances.",
+  profilClavier: (nom: string) => `Profil clavier « ${nom} ».`,
+  appareilWii: "appareil des jeux Wii",
+  /** Ce qui suit un nouvel appareil Wii, selon le jeu en cours. */
+  wiiRelance: "Passer à la Wiimote relance le jeu.",
+  wiiSansRelance: "Entre Nunchuk et guitare, rien ne relance.",
+  wiiProchain: "Appareil du prochain jeu Wii.",
+  aideTactile: "Pour jouer au téléphone, avec ou sans clavier et manettes.",
+  avecImage: "non, avec l'image",
+  sansImage: "oui, sans image",
+} as const;
+
+/** La fiche d'une décision, dans le menu (M10, M15) : elle dit ce que le
+ * geste fait, et un bouton revient sans rien faire. */
+export const FICHE = {
+  revenir: "Revenir à la liste",
+  continuer: "Continuer à jouer",
+  lancer: "Lancer",
+  /** Le nom de la liste des sauvegardes d'une fiche. */
+  sauvegarde: "Sauvegarde",
+  /** Le résumé de la connexion mène au détail. */
+  detail: "Voir le détail",
+  /** La fermeture demandée, comme état de la ligne et de sa fiche (P10). */
+  fermeture: "fermeture…",
+  fermetureEnCours: "Fermeture du jeu en cours…",
+} as const;
+
+/** La bibliothèque : les rangées de l'écran éteint et la fiche d'un jeu
+ * (B1 à B11, `lib/bibliotheque`). */
+export const BIBLIO = {
+  /** Le nom de la bibliothèque pour un lecteur d'écran. */
+  nom: "Les jeux de la salle",
+  titre: (console: string, n: number) => `${console}, ${n} ${n > 1 ? "jeux" : "jeu"}`,
+  /** La note d'une console à l'essai, sous le titre de sa rangée. */
+  essai: "Un jeu peut ralentir ou s'arrêter.",
+  /** Ce qui suit « Lancer » (`suiteDuLancement`). */
+  toutDeSuite: "Le jeu part tout de suite.",
+  chacunPret: "Chacun dit qu'il est prêt, puis le jeu part.",
+  /** Ce que « Lancer » arrête (`consequence`). */
+  arrete: (jeu: string, n: number, assis: boolean) =>
+    n === 0
+      ? `${jeu} s'arrête.`
+      : n === 1
+        ? `${jeu} s'arrête ${assis ? "pour toi" : "pour 1 joueur"}.`
+        : `${jeu} s'arrête pour les ${n} joueurs.`,
+  repart: "La partie repart de la sauvegarde choisie.",
+  relancer: "Relancer",
+  /** Qui ne choisit pas lit la fiche, sans « Lancer » (B8). */
+  choisit: (nom: string) => `${nom} choisit le jeu et la sauvegarde.`,
+  pasJouable: "Cette console n'est pas encore jouable ici.",
+  /** Le dernier jeu de la salle (D06), sous les rangées. */
+  dernier: (titre: string, quand: string) => `Le dernier jeu de cette salle : ${titre}, ${quand}.`,
+  ouvrirFiche: "Ouvrir sa fiche",
+} as const;
+
+/** La préparation à plusieurs, en bloc dans la colonne (P1 à P9). Le titre
+ * dit qui lance ; la console et la sauvegarde viennent dessous, sans
+ * sur-titre en capitales (P4). */
+export const PREPARATION = {
+  /** Le nom du bloc pour un lecteur d'écran. */
+  nom: "Préparation du lancement",
+  moi: "Tu prépares le prochain jeu",
+  lance: (nom: string) => `${nom} lance le prochain jeu`,
+  /** Le nom de qui lance, quand la préparation ne le dit pas. */
+  quelquun: "Quelqu'un",
+  /** La ligne du jeu, sous le titre. */
+  sauvegarde: (slot: string) => `Sauvegarde : ${slot}`,
+  avecQuoi: "Avec quoi joues-tu ?",
+  appareil: (nom: string) => `Ton appareil : ${nom}`,
+  essayer: "Essayer mes touches",
+  /** Qui regarde lit le compte, sans bouton (P9). */
+  prets: (n: number, sur: number) =>
+    n === 0
+      ? `Aucun joueur sur ${sur} n'est prêt.`
+      : `${n} ${n > 1 ? "joueurs" : "joueur"} sur ${sur} ${n > 1 ? "sont prêts" : "est prêt"}.`,
+  regarde: "Tu regardes. Prends une place pour participer.",
+  annuler: "Annuler le lancement",
+  /** Un jeu tourne : l'annulation le garde (P6). */
+  garder: (jeu: string) => `Garder ${jeu}`,
+  /** Tenu en main, la bande dit la préparation en une ligne et ouvre le
+   * bloc dans la feuille (P8). */
+  choisir: "Choisir ma manette",
+  voir: "Voir qui est prêt",
+} as const;
+
+/** L'écran de chargement (`Booting`, C5, C12, D05). */
+export const CHARGEMENT = {
+  titre: (jeu: string) => `${jeu} démarre.`,
+  habitude: (s: number) => `D'habitude, il démarre en ${Math.round(s)} s.`,
+  plusLong: "Le jeu met plus longtemps que d'habitude.",
+  /** Sans habitude mesurée, la lenteur se dit sans « d'habitude ». */
+  encore: (s: number) => `Le jeu démarre encore, depuis ${s} s.`,
+  /** Calé : aucune image depuis le lancement (C4). */
+  aucuneImage: (duree: string) => `Aucune image en ${duree}.`,
+  /** À qui ne choisit pas le jeu, quand il n'a pas démarré (C7a). */
+  relancePar: (nom: string | null) =>
+    `${nom ?? "Qui choisit le jeu"} peut le relancer ou choisir un autre jeu.`,
+  /** Les trois étapes, dans l'ordre de `STEPS` (C4). */
+  etapes: ["La salle a reçu la demande", "Le jeu démarre", "Première image"],
+  /** Ce que dit chaque case à qui ne la voit pas. */
+  cases: {
+    faite: "faite",
+    "en-cours": "en cours",
+    "a-venir": "à venir",
+    inconnue: "on ne sait pas",
+    echec: "pas arrivée",
+  },
+  arreter: "Arrêter le lancement",
+  autre: "Choisir un autre jeu",
+  /** Sur quelle sauvegarde (C6). */
+  taSauvegarde: "Sur ta sauvegarde.",
+  saSauvegarde: "l'a lancé sur sa sauvegarde.",
+  sur: (save: string) => `Sur « ${save} ».`,
+} as const;
+
+/** « Manette seule » en une aide du menu, sous 70 caractères (M8) : la
+ * phrase de `prixManetteSeule` (salle), et son chiffre seulement là où il a
+ * été mesuré. Posée ici, dans le bloc du chantier qui la lit (relecture du
+ * 24 novembre 2026 : elle était entrée dans la section de la salle). */
+export function aideManetteSeule(moteur: string | null | undefined): string {
+  return moteur === "dolphin"
+    ? "Sans image ni son : 13,6 Mbit/s de wifi rendus par appareil."
+    : "Sans image ni son : du wifi et de la batterie rendus.";
+}
+
+// ==== fin menus ====

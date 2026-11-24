@@ -55,39 +55,35 @@ export function gestes(appareil: Appareil): Gestes {
 export type Repere = { touche: string; fait: string };
 
 /**
- * Le pied d'un menu: comment se déplacer, choisir, revenir.
+ * Le pied du menu: une ligne, dite après un premier usage du clavier ou de la
+ * manette (M6 du chantier menus, 24 novembre 2026).
  *
- * « rubrique » et « entrée » ont disparu de cette ligne: « entrée » y voulait
- * dire une ligne de la liste, alors que les jeux disaient « entrée: … » pour
- * la touche Entrée (audit T13). On dit ce qu'on FAIT, pas le nom des pièces.
+ * Au clavier, ↑ ↓ et Entrée font ce qu'ils font partout dans la page: la ligne
+ * ne dit que ce qui est propre au menu, ← → qui changent de rubrique et Échap
+ * qui en sort. À la manette, Start rend la main au jeu (`menupad`). Au doigt,
+ * pas de pied: la sortie est un vrai bouton en tête du menu.
  *
- * Au doigt, pas de touche à nommer: on glisse et on touche, et la sortie est
- * un vrai bouton, à part.
+ * `partie` faux, dans une salle au repos, Échap et Start ferment le menu: il
+ * n'y a pas de jeu où revenir.
  */
-export function piedDuMenu(appareil: Appareil): Repere[] {
-  const ici = gestes(appareil);
-  if (appareil === "tactile")
+export function piedDuMenu(appareil: Appareil, partie = true): Repere[] {
+  const sortie = partie ? "revenir au jeu" : "fermer le menu";
+  if (appareil === "tactile") return [];
+  if (appareil === "manette")
     return [
-      { touche: ici.deplacer, fait: "pour te déplacer" },
-      { touche: ici.choisir, fait: "pour choisir" },
+      { touche: "A", fait: "valider" },
+      { touche: "B", fait: "revenir" },
+      { touche: "Start", fait: partie ? "au jeu" : "fermer le menu" },
     ];
   return [
-    { touche: ici.deplacer, fait: "se déplacer" },
-    { touche: ici.choisir, fait: "choisir" },
-    { touche: ici.retour, fait: "retour" },
+    { touche: "← →", fait: "rubriques" },
+    { touche: "Échap", fait: sortie },
   ];
 }
 
 /** « Entrée pour ouvrir la glissière », « A pour… », « Appuie pour… ». */
 export function pour(appareil: Appareil, quoi: string): string {
   return `${gestes(appareil).choisir} pour ${quoi}`;
-}
-
-/** Le pied d'un sélecteur: valider et annuler, nommés pour cet appareil. */
-export function piedDuSelecteur(appareil: Appareil): { valider: string; annuler: string } {
-  if (appareil === "tactile") return { valider: "Valider", annuler: "Annuler" };
-  const ici = gestes(appareil);
-  return { valider: `${ici.choisir} valider`, annuler: `${ici.retour} annuler` };
 }
 
 /** Comment on ouvre le menu, dit dans la colonne. Il n'existe pas de bouton de

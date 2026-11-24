@@ -6,8 +6,6 @@ import type { Preparation as Pending, Game } from "./src/client";
 import type { Pad } from "./src/lib/saves";
 import { Bindings } from "./src/components/Bindings";
 import { SwitchBindings } from "./src/components/SwitchBindings";
-import { Channels } from "./src/components/Channels";
-import { Home } from "./src/components/Home";
 import { InputStream } from "./src/media/input";
 import { Reglage } from "./src/manettes/reglage/Reglage";
 import type { Onglet } from "./src/manettes/entree";
@@ -29,8 +27,8 @@ Object.assign(window, { previewPad: pad });
 function Preview() {
   const [stream] = useState(() => new InputStream((path) => path, () => {}, () => refresh(), true));
   const [state, setState] = useState(() => stream.state());
-  const preparing = new URLSearchParams(location.search).has("preparation");
-  const wii = preparing || new URLSearchParams(location.search).get("console") === "wii";
+  const preparing = false;
+  const wii = new URLSearchParams(location.search).get("console") === "wii";
   const [selected, setSelected] = useState<Pad>(1);
   const [pending, setPending] = useState<Pending>({ id: "preview", game: 0, save: 0, starter: "preview-one", allowed: [1, 0], players: [
     { port: 1, claim: "preview-one", name: "Souhib", ready: false, pad: null },
@@ -64,11 +62,6 @@ function Preview() {
       onForgetKeys={(name) => act(() => stream.forgetKeys(name))}
       onClose={() => { stream.cancelCapture(); setOpen(false); }} /> : null}</>;
 }
-// Quatorze réglages suffisent à faire déborder la grille Wii. Aucun n'agit sur
-// une session : cet aperçu ne construit même pas la boucle d'entrée.
-const categories = [{ id: "settings", label: "Réglages", icon: null,
-  items: Array.from({ length: 14 }, (_, at) => ({ id: String(at), label: `Réglage ${at + 1}`, icon: null })),
-}];
 /** Le configurateur des salles Pro (Switch, Xbox 360), seul ou pendant une
  * préparation: `?pro=switch` ou `?pro=x360`, et `&preparation`. */
 function PreviewPro({ console: kind }: { console: "switch" | "x360" }) {
@@ -119,14 +112,52 @@ function PreviewReglage({ pro }: { pro: "switch" | "x360" | null }) {
     </main>
   );
 }
-const shell = new URLSearchParams(location.search).get("shell");
+/** La préparation à plusieurs, en bloc de colonne (chantier menus, P1) :
+ * `?preparation` pour un jeu Wii, `&pro=x360` pour la manette Pro. La
+ * colonne prend toute la page, comme dans la feuille agrandie d'une salle
+ * tenue en main, et défile en elle-même (`salle-telephone.mjs`). */
+function PreviewPreparation({ pro }: { pro: "switch" | "x360" | null }) {
+  // L'attribution posée avant le premier rendu : le bloc la lit en rendant.
+  const [stream] = useState(() =>
+    Object.assign(new InputStream((path) => path, () => {}, () => {}, true), {
+      receipt: new URLSearchParams(location.search).get("moi") ?? "preview-one",
+    }),
+  );
+  const allowed = pro ? [4] : [1, 0];
+  const [selected, setSelected] = useState<Pad>((pro ? 4 : 1) as Pad);
+  const [pending, setPending] = useState<Pending>({ id: "preview", game: 0, save: 0, starter: "preview-one", allowed, players: [
+    { port: 1, claim: "preview-one", name: "Souhib", ready: false, pad: null },
+    { port: 2, claim: "preview-two", name: "Yassine", ready: false, pad: null },
+  ] });
+  useEffect(() => {
+    stream.start();
+    Object.assign(window, { previewReady: () => setPending(p => ({ ...p, players: p.players.map(one => one.port === 2 ? { ...one, ready: true, pad: allowed[0] } : one) })) });
+    return () => stream.stop();
+  }, [stream]);
+  const game: Game = pro
+    ? { index: 0, name: pro === "x360" ? "Sonic Generations" : "Mario Kart 8 Deluxe", console: pro }
+    : { index: 0, name: "Mario Kart Wii", console: "wii" };
+  return (
+    <main style={{ height: "100dvh", display: "flex", padding: "var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche)" }}>
+      <aside id="side" className="n3-colonne flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-panel px-3 pt-3">
+        <Preparation pending={pending} game={game} input={stream} state={{ capturing: null, lesson: null, port: 1 }}
+          selected={selected} onSelect={setSelected} enCours="Mario Party 4"
+          onEssayer={() => Object.assign(window, { previewEssai: true })}
+          send={async (action) => {
+            if (action.action === "choose") setPending(p => ({ ...p, players: p.players.map(one => one.port === 1 ? { ...one, ready: Boolean(action.ready), pad: Number(action.pad) } : one) }));
+            if (action.action === "launch") Object.assign(window, { previewLaunched: true, previewLaunch: action });
+          }} />
+      </aside>
+    </main>
+  );
+}
 const pro = new URLSearchParams(location.search).get("pro");
 const reglage = new URLSearchParams(location.search).has("reglage");
+const preparation = new URLSearchParams(location.search).has("preparation");
 createRoot(document.getElementById("root")!).render(reglage
   ? <PreviewReglage pro={pro === "switch" || pro === "x360" ? pro : null} />
+  : preparation
+  ? <PreviewPreparation pro={pro === "switch" || pro === "x360" ? pro : null} />
   : pro === "switch" || pro === "x360"
   ? <PreviewPro console={pro} />
-  : shell === "wii"
-  ? <Channels categories={categories} onClose={() => {}} />
-  : shell === "switch" ? <Home categories={categories} onClose={() => {}} who="Aperçu" />
-    : <Preview />);
+  : <Preview />);

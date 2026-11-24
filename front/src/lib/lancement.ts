@@ -22,7 +22,7 @@
 import type { Participant, Preparation } from "../client";
 import { consoleName } from "./consoles";
 import { deviceLabel } from "./faces";
-import { de } from "./mots";
+import { CHARGEMENT, de, PREPARATION } from "./mots";
 import { padLabel, slotLabel, type Slot } from "./saves";
 
 /** Après combien de temps le chef peut lancer sans un joueur.
@@ -87,17 +87,31 @@ export function consoleDesTouches(
   return enPreparation ? (consolePreparee ?? "wii") : (consoleEnCours ?? "gc");
 }
 
-/** Ce que l'écran de chargement dit de la sauvegarde.
+/** Sur quelle sauvegarde un jeu démarre, et qui l'a lancé (C6). */
+export type SauvegardeDuLancement =
+  | { qui: "moi"; texte: string }
+  | { qui: "autre"; nom: string; place: number; texte: string }
+  | { qui: "salon"; texte: string };
+
+/** Ce que l'écran de chargement dit de la sauvegarde (C6).
  *
- * Le salon écrit « la sauvegarde de Bo » pour tout le monde; celui qui a lancé
- * lit son propre mot, « ma sauvegarde » (audit T06). `moi` est l'attribution
- * de cette page. */
-export function sauvegardeAnnoncee(
+ * « Ma sauvegarde » (2) est celle de qui lance. Qui l'a lancé lit « Sur ta
+ * sauvegarde. » ; les autres lisent son étiquette, retrouvée par son
+ * attribution dans les places. Quand la page ne sait pas qui (un salon
+ * d'avant, ou qui a lancé n'a plus de place), le mot du salon tel quel, sans
+ * étiquette : une étiquette devinée serait pire que pas d'étiquette. */
+export function sauvegardeDuLancement(
   annonce: { save: string; saveSlot?: number; starter?: string },
   moi: string | null | undefined,
-): string {
-  const mienne = annonce.saveSlot === 2 && moi != null && annonce.starter === moi;
-  return mienne ? slotLabel(2) : annonce.save;
+  places: readonly { port: number; player?: string | null; claim?: string | null }[],
+): SauvegardeDuLancement | null {
+  if (annonce.save === "") return null;
+  const salon = { qui: "salon", texte: CHARGEMENT.sur(annonce.save) } as const;
+  if (annonce.saveSlot !== 2 || annonce.starter === undefined) return salon;
+  if (moi != null && annonce.starter === moi) return { qui: "moi", texte: CHARGEMENT.taSauvegarde };
+  const place = places.find((p) => p.claim === annonce.starter && p.player);
+  if (!place?.player) return salon;
+  return { qui: "autre", nom: place.player, place: place.port, texte: CHARGEMENT.saSauvegarde };
 }
 
 /** La sauvegarde qu'un changement d'appareil Wii relancera, d'après l'annonce
@@ -239,3 +253,50 @@ export function gestesDuLancement(
  * GameCube », puis une seconde liste qui semblait choisir la même chose
  * (audit P6). Avec un seul appareil, on le nomme. */
 export const choixAppareil = (allowed: readonly number[]): boolean => allowed.length > 1;
+
+/** La scène « pret » d'Aïn à jouer entre deux annonces de la préparation :
+ * « un » quand un joueur vient de dire qu'il est prêt, « tous » quand le
+ * dernier le dit, `null` sinon.
+ *
+ * Seul un passage de non prêt à prêt compte, entre deux messages lus par
+ * CETTE page : une page qui arrive quand tous sont prêts n'a rien vu passer,
+ * et le même message deux fois ne joue rien. */
+export function scenePret(
+  avant: readonly Participant[] | null,
+  apres: readonly Participant[],
+): "un" | "tous" | null {
+  if (avant === null) return null;
+  const etait = new Map(avant.map((p) => [p.claim, p.ready]));
+  if (!apres.some((p) => p.ready && etait.get(p.claim) === false)) return null;
+  return apres.every((p) => p.ready) ? "tous" : "un";
+}
+
+/** Le titre du bloc de préparation : qui lance le prochain jeu (P4, P8).
+ *
+ * Il remplace « Avant de jouer · Console » en capitales : la console va dans
+ * la ligne du jeu (`ligneDuJeu`), et le titre dit ce qui se passe. */
+export function titreDuBloc(pending: Preparation, moi: string | null): string {
+  if (pending.starter === moi) return PREPARATION.moi;
+  const chef = pending.players.find((p) => p.claim === pending.starter);
+  return PREPARATION.lance(chef?.name ?? PREPARATION.quelquun);
+}
+
+/** La ligne sous le titre : la console du jeu préparé et sa sauvegarde
+ * (P4, P5). Une console inconnue de la page ne se nomme pas. */
+export function ligneDuJeu(console: string | undefined, save: number): string {
+  const sauvegarde = PREPARATION.sauvegarde(slotLabel(save as Slot));
+  const nom = consoleName(console);
+  return nom ? `${nom} · ${sauvegarde}` : sauvegarde;
+}
+
+/** Ce que dit le bouton START d'une place pendant une préparation (P3) :
+ * « pret » ou « choisit », par numéro de place. Une place hors de la
+ * préparation n'y figure pas. */
+export function etatParPlace(pending: Preparation): ReadonlyMap<number, "pret" | "choisit"> {
+  return new Map(pending.players.map((p) => [p.port, p.ready ? "pret" : "choisit"]));
+}
+
+/** Le compte de qui regarde (P9) : « 1 joueur sur 2 est prêt. » */
+export function comptePrets(pending: Preparation): string {
+  return PREPARATION.prets(pending.players.filter((p) => p.ready).length, pending.players.length);
+}

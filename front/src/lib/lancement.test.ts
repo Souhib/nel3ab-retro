@@ -4,19 +4,24 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import type { Preparation } from "../client";
+import type { Participant, Preparation } from "../client";
 import {
   ATTENTE_SANS_MS,
   attenteDesAbsents,
   choixAppareil,
+  comptePrets,
   consoleDesTouches,
   enUneListe,
+  etatParPlace,
   gestesDuLancement,
   lancerEnChef,
+  ligneDuJeu,
   ligneJoueur,
   retenirArrivees,
-  sauvegardeAnnoncee,
+  sauvegardeDuLancement,
   sauvegardeRelancee,
+  scenePret,
+  titreDuBloc,
   titrePreparation,
 } from "./lancement";
 
@@ -168,24 +173,6 @@ describe("l'écran des touches pendant une préparation", () => {
   });
 });
 
-describe("la sauvegarde annoncée au chargement", () => {
-  const annonce = { save: "la sauvegarde d'Ami", saveSlot: 2 as const, starter: AMI };
-
-  it("dit « ma sauvegarde » à qui a lancé", () => {
-    expect(sauvegardeAnnoncee(annonce, AMI)).toBe("ma sauvegarde");
-  });
-
-  it("garde le mot du salon pour les autres et pour les autres emplacements", () => {
-    expect(sauvegardeAnnoncee(annonce, BO)).toBe("la sauvegarde d'Ami");
-    expect(sauvegardeAnnoncee(annonce, null)).toBe("la sauvegarde d'Ami");
-    expect(sauvegardeAnnoncee({ save: "nouvelle partie", saveSlot: 0, starter: AMI }, AMI)).toBe(
-      "nouvelle partie",
-    );
-    // Un salon d'avant n'envoie pas `starter`: son mot reste.
-    expect(sauvegardeAnnoncee({ save: "reprendre", saveSlot: 2 }, AMI)).toBe("reprendre");
-  });
-});
-
 describe("le lancement du chef devant un salon d'avant", () => {
   // Pendant une mise en service, la page peut être neuve et le salon ancien.
   // Ce salon ignore le `pad` du lancement et refuse un chef qui n'a pas
@@ -282,5 +269,111 @@ describe("l'attente d'un absent", () => {
     const p = preparation([0]);
     p.players[1].name = "Éloi";
     expect(gestesDuLancement(p, AMI, 0, "gc").attente).toBe("En attente d'Éloi.");
+  });
+});
+
+describe("scenePret", () => {
+  const joueur = (claim: string, ready: boolean): Participant => ({
+    port: 1,
+    claim,
+    name: claim,
+    ready,
+    pad: null,
+  });
+
+  it("joue « un » quand un joueur devient prêt, « tous » pour le dernier", () => {
+    const avant = [joueur("a", false), joueur("b", false)];
+    expect(scenePret(avant, [joueur("a", true), joueur("b", false)])).toBe("un");
+    expect(
+      scenePret([joueur("a", true), joueur("b", false)], [joueur("a", true), joueur("b", true)]),
+    ).toBe("tous");
+  });
+
+  it("ne joue rien à l'arrivée, sur le même message, ni pour un joueur qui arrive déjà prêt", () => {
+    const tous = [joueur("a", true), joueur("b", true)];
+    expect(scenePret(null, tous)).toBeNull();
+    expect(scenePret(tous, tous)).toBeNull();
+    expect(scenePret([joueur("a", true)], tous)).toBeNull();
+    // Un joueur qui redevient non prêt ne joue rien non plus.
+    expect(scenePret(tous, [joueur("a", true), joueur("b", false)])).toBeNull();
+  });
+});
+
+describe("le bloc de préparation (P3, P4, P9)", () => {
+  it("dit qui lance : moi, ou le nom de qui a lancé", () => {
+    expect(titreDuBloc(preparation([0]), AMI)).toBe("Tu prépares le prochain jeu");
+    // Le jumeau : vue par Bo, la même préparation nomme Ami.
+    expect(titreDuBloc(preparation([0]), BO)).toBe("Ami lance le prochain jeu");
+    // Un lanceur absent de la liste ne laisse pas un trou dans la phrase.
+    expect(titreDuBloc({ ...preparation([0]), starter: "x".repeat(34) }, BO)).toBe(
+      "Quelqu'un lance le prochain jeu",
+    );
+  });
+
+  it("nomme la console du jeu préparé dans la ligne du jeu, sans sur-titre", () => {
+    expect(ligneDuJeu("gc", 0)).toMatch(/^GameCube · Sauvegarde : /);
+    expect(ligneDuJeu("x360", 0)).toMatch(/^Xbox 360 · /);
+    // Le jumeau : une console inconnue de la page ne s'invente pas un nom.
+    expect(ligneDuJeu("inconnue", 0)).toMatch(/^Sauvegarde : /);
+    expect(ligneDuJeu("gc", 0)).not.toContain("Avant de jouer");
+  });
+
+  it("donne à chaque place de la préparation « pret » ou « choisit », et rien aux autres", () => {
+    const etats = etatParPlace(preparation([0], { [BO]: true }));
+    expect(etats.get(1)).toBe("choisit");
+    expect(etats.get(2)).toBe("pret");
+    expect(etats.has(3)).toBe(false);
+    expect(etats.has(4)).toBe(false);
+  });
+
+  it("compte qui est prêt pour qui regarde, au singulier comme au pluriel", () => {
+    expect(comptePrets(preparation([0]))).toBe("Aucun joueur sur 2 n'est prêt.");
+    expect(comptePrets(preparation([0], { [BO]: true }))).toBe("1 joueur sur 2 est prêt.");
+    expect(comptePrets(preparation([0], { [AMI]: true, [BO]: true }))).toBe(
+      "2 joueurs sur 2 sont prêts.",
+    );
+  });
+});
+
+describe("qui a lancé, sur quoi (C6)", () => {
+  const sieges = [
+    { port: 1, player: "Ami", claim: AMI },
+    { port: 3, player: "Bo", claim: BO },
+  ];
+  const annonce = { save: "la sauvegarde de Bo", saveSlot: 2 as const, starter: BO };
+
+  it("à qui a lancé : « Sur ta sauvegarde. »", () => {
+    expect(sauvegardeDuLancement(annonce, BO, sieges)).toEqual({
+      qui: "moi",
+      texte: "Sur ta sauvegarde.",
+    });
+  });
+
+  it("aux autres : l'étiquette de qui a lancé, avec sa place", () => {
+    expect(sauvegardeDuLancement(annonce, AMI, sieges)).toEqual({
+      qui: "autre",
+      nom: "Bo",
+      place: 3,
+      texte: "l'a lancé sur sa sauvegarde.",
+    });
+    expect(sauvegardeDuLancement(annonce, null, sieges)).toMatchObject({ qui: "autre", nom: "Bo" });
+  });
+
+  it("le mot du salon tel quel, sans étiquette, quand la page ne sait pas qui", () => {
+    // Un salon d'avant n'envoie pas `starter`.
+    expect(sauvegardeDuLancement({ save: "reprendre", saveSlot: 2 }, AMI, sieges)).toEqual({
+      qui: "salon",
+      texte: "Sur « reprendre ».",
+    });
+    // Qui a lancé n'a plus de place.
+    expect(sauvegardeDuLancement({ ...annonce, starter: CLEO }, AMI, sieges)).toEqual({
+      qui: "salon",
+      texte: "Sur « la sauvegarde de Bo ».",
+    });
+    // Un autre emplacement n'est la sauvegarde de personne.
+    expect(
+      sauvegardeDuLancement({ save: "nouvelle partie", saveSlot: 0, starter: BO }, AMI, sieges),
+    ).toEqual({ qui: "salon", texte: "Sur « nouvelle partie »." });
+    expect(sauvegardeDuLancement({ save: "" }, AMI, sieges)).toBeNull();
   });
 });

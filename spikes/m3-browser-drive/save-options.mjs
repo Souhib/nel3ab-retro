@@ -120,88 +120,122 @@ try {
     void request.continue();
   });
   const checks = [];
+  const sleep = ms => new Promise(done => setTimeout(done, ms));
+  // Depuis le 24 novembre 2026, une salle sans jeu montre ses jeux debout sur
+  // l'écran éteint (#rayonnage) et le menu ne s'ouvre plus d'office : la
+  // fiche d'un jeu porte le choix de sauvegarde (#ficheJeu-0, -1, -2). Le
+  // menu garde la même fiche dans sa rubrique Jeux (#fiche-0, -1, -2). Ce
+  // pilote visait le XMB (#item-shelf-*, #picker), retiré ce jour-là.
+  const cartouche = index => `#rayonnage [data-jeu="${index}"]`;
+  const ouvrirFiche = async index => {
+    await page.waitForSelector(cartouche(index));
+    await page.click(cartouche(index));
+    await page.waitForSelector("#ficheJeu");
+  };
+  const fermerFiche = async () => {
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("#ficheJeu", { hidden: true });
+  };
+  /** Ni le choix ni « Lancer » ne répondent. */
+  const ficheGrisee = async message => {
+    assert.equal(await page.$eval("#ficheJeuChoix", node => node.disabled), true, message);
+    assert.equal(await page.$eval("#ficheJeuAgir", node => node.disabled), true, message);
+  };
+  const libre = () => page.evaluate(() => {
+    const choix = document.getElementById("ficheJeuChoix");
+    const agir = document.getElementById("ficheJeuAgir");
+    return Boolean(choix && !choix.disabled && agir && !agir.disabled);
+  });
+  /** La fiche d'un jeu ouverte et libre. Recevoir la vraie identité peut aussi
+   * charger ses réglages de manette et remonter la salle, fiche comprise. */
+  const ficheLibre = async index => {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      if (!(await page.$("#ficheJeu"))) await ouvrirFiche(index);
+      if (await libre()) return;
+      await sleep(50);
+    }
+    throw new Error(`The card of game ${index} never let a save be chosen`);
+  };
+  const etiquette = id => page.$eval(id, node => node.closest("label").textContent);
   await page.goto(url); await page.waitForSelector("#enter"); await page.click("#enter");
   const gc = fixtures.find(fixture => fixture.code === "gc");
-  await page.waitForSelector("#item-shelf-gc");
-  await page.$eval("#item-shelf-gc", node => node.click());
-  await page.waitForFunction(index => {
-    const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
-  }, {}, gc.index);
-  await page.$eval(`#item-game${gc.index}`, node => node.click());
-  await page.waitForSelector("#picker");
-  assert.ok(await page.$("#pick-0"));
-  assert.equal(await page.$("#pick-2"), null, "A nickname alone offered a personal save");
-  await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
-  await page.click("#closeMenu"); await page.waitForSelector("#closeMenu", { hidden: true });
+  await page.waitForSelector("#rayonnage");
+  assert.equal(await page.$("#menu"), null, "The idle room opened its menu by itself");
+  await ficheLibre(gc.index);
+  assert.ok(await page.$("#ficheJeu-0"));
+  assert.equal(await page.$("#ficheJeu-2"), null, "A nickname alone offered a personal save");
+  await fermerFiche();
   const previousIdentityRequests = identityRequests;
   identityAvailable = true; holdIdentity = true;
-  await page.keyboard.press("Escape"); await page.waitForSelector("#item-shelf-gc");
+  await ouvrirFiche(gc.index);
   const identityDeadline = Date.now() + 5000;
-  while (!heldIdentity && Date.now() < identityDeadline) await new Promise(done => setTimeout(done, 20));
-  assert.ok(heldIdentity, "Menu did not refresh the missing identity");
+  while (!heldIdentity && Date.now() < identityDeadline) await sleep(20);
+  assert.ok(heldIdentity, "Opening a game's card did not refresh the missing identity");
   assert.ok(identityRequests > previousIdentityRequests);
-  await page.$eval("#item-shelf-gc", node => node.click());
-  assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.getAttribute("aria-disabled") === "true"), true,
-    "Save choices are interactive while the account is being checked");
-  await page.$eval(`#item-game${gc.index}`, node => node.click());
-  assert.equal(await page.$("#picker"), null, "Pending identity opened a changing save selection");
+  await ficheGrisee("Save choices are interactive while the account is being checked");
+  // Un clic sur le bouton grisé n'envoie rien : le catalogue relu à la fin
+  // prouve qu'aucun jeu n'a démarré.
+  await page.$eval("#ficheJeuAgir", node => node.click());
   holdIdentity = false;
   await heldIdentity.respond({ status: 200, contentType: "application/json", body: identityBody() });
   heldIdentity = null;
-  await page.waitForSelector("#item-shelf-gc");
-  // Receiving the real identity can also load its controller settings and remount the room.
-  await page.$eval("#item-shelf-gc", node => node.click());
-  await page.waitForFunction(index => {
-    const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
-  }, {}, gc.index);
-  await page.$eval(`#item-game${gc.index}`, node => node.click());
-  await page.waitForSelector("#pick-2");
+  await ficheLibre(gc.index);
+  await page.waitForSelector("#ficheJeu-2");
   // « ma sauvegarde » depuis le 22 novembre 2026 (front/src/lib/mots.ts).
-  assert.match(await page.$eval("#pick-2", node => node.textContent), /ma sauvegarde/);
-  await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
+  assert.match(await etiquette("#ficheJeu-2"), /ma sauvegarde/);
+  await fermerFiche();
   for (const present of [true, false]) {
     if (!present) {
       for (const fixture of fixtures) await rm(join(fixture.slot, "progress.fixture"));
-      await page.click("#closeMenu");
-      await page.waitForSelector("#closeMenu", { hidden: true });
       holdSaves = true;
-      await page.keyboard.press("Escape");
-      await page.waitForSelector("#item-shelf-gc");
+      await ouvrirFiche(gc.index);
       const deadline = Date.now() + 5000;
-      while (!heldSaves && Date.now() < deadline) await new Promise(done => setTimeout(done, 20));
-      assert.ok(heldSaves, "No catalogue request when reopening the menu");
-      await page.$eval("#item-shelf-gc", node => node.click());
-      const gc = fixtures.find(fixture => fixture.code === "gc");
-      assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.getAttribute("aria-disabled") === "true"), true, "Old choices are interactive while the refreshed catalogue is pending");
-      await page.$eval(`#item-game${gc.index}`, node => node.click());
-      assert.equal(await page.$("#picker"), null, "A pending catalogue opened a changing selection");
-      await page.keyboard.press("Escape");
+      while (!heldSaves && Date.now() < deadline) await sleep(20);
+      assert.ok(heldSaves, "No catalogue request when opening a game's card");
+      await ficheGrisee("Old choices are interactive while the refreshed catalogue is pending");
+      await page.$eval("#ficheJeuAgir", node => node.click());
+      await fermerFiche();
       holdSaves = false; await heldSaves.continue(); heldSaves = null;
     }
     assert.deepEqual(await json(new URL("saves", url)), fixtures.map(() => present));
     for (const fixture of fixtures) {
-      await page.waitForSelector(`#item-shelf-${fixture.code}`);
-      await page.$eval(`#item-shelf-${fixture.code}`, node => node.click());
-      await page.waitForFunction(index => {
-        const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
-      }, {}, fixture.index);
-      await page.$eval(`#item-game${fixture.index}`, node => node.click());
-      await page.waitForSelector("#picker");
-      assert.equal(await page.$("#pick-1") !== null, present, fixture.code);
-      assert.ok(await page.$("#pick-0")); assert.ok(await page.$("#pick-2"));
-      assert.match(await page.$eval("#pick-2", node => node.textContent), /ma sauvegarde/);
-      checks.push({ console: fixture.code, importedPayloadPresent: present, unlockedOffered: present });
-      await page.keyboard.press("Escape");
-      await page.keyboard.press("Escape");
+      await ficheLibre(fixture.index);
+      assert.equal(await page.$("#ficheJeu-1") !== null, present, fixture.code);
+      assert.ok(await page.$("#ficheJeu-0")); assert.ok(await page.$("#ficheJeu-2"));
+      assert.match(await etiquette("#ficheJeu-2"), /ma sauvegarde/);
+      checks.push({ console: fixture.code, from: "rayonnage", importedPayloadPresent: present, unlockedOffered: present });
+      await fermerFiche();
     }
   }
+  // Le menu de la salle relit le catalogue à son ouverture, et sa fiche perd
+  // le choix débloqué comme celle du rayonnage.
+  holdSaves = true;
+  await page.click("#openMenu");
+  await page.waitForSelector("#menu");
+  const menuDeadline = Date.now() + 5000;
+  while (!heldSaves && Date.now() < menuDeadline) await sleep(20);
+  assert.ok(heldSaves, "No catalogue request when opening the menu");
+  await page.click("#ray-jeux");
+  await page.waitForSelector(`#item-game${gc.index}`);
+  assert.equal(await page.$eval(`#item-game${gc.index}`, node => node.getAttribute("aria-disabled")), "true",
+    "Menu choices are interactive while the refreshed catalogue is pending");
+  holdSaves = false; await heldSaves.continue(); heldSaves = null;
+  await page.waitForFunction(index => {
+    const node = document.getElementById(`item-game${index}`); return node && node.getAttribute("aria-disabled") !== "true";
+  }, {}, gc.index);
+  await page.click(`#item-game${gc.index}`);
+  await page.waitForSelector("#fiche-0");
+  assert.equal(await page.$("#fiche-1"), null, "The menu still offers an unlocked save without its payload");
+  assert.ok(await page.$("#fiche-2"));
+  checks.push({ console: gc.code, from: "menu", importedPayloadPresent: false, unlockedOffered: false });
   assert.deepEqual(errors, []);
   assert.equal((await json(new URL("roms", url))).current, null, "The driver booted a game");
-  await writeFile(join(root, "report.json"), JSON.stringify({ checks, missingIdentityRefreshedOnMenu: true,
+  await writeFile(join(root, "report.json"), JSON.stringify({ checks, missingIdentityRefreshedOnCard: true,
     saveChoicesWaitForIdentity: true, nicknameAloneNeverOffersResume: true,
-    refreshedMenuWaitsForCatalogue: true, noGameStarted: true,
+    refreshedCardWaitsForCatalogue: true, refreshedMenuWaitsForCatalogue: true, noGameStarted: true,
     scope: "Real idle worker, Python receipts, browser choices; synthetic payloads do not prove game unlocks or the original user session's cause." }, null, 2));
-  console.log("PASS: receipt/payload detection and personal resume in all four console menus", root);
+  console.log("PASS: receipt/payload detection and personal resume in all four console cards, and in the menu", root);
 } finally {
   await browser?.close();
   if (worker.exitCode === null) { worker.kill("SIGTERM"); await once(worker, "exit"); }

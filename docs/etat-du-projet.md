@@ -680,6 +680,189 @@ leurs autres étapes vertes une à une (`vit-figee-immobile` rouge une fois sous
 une charge de 61, verte trois fois seule) ; `just docs` vert. Récit :
 « 24 novembre, le soir : la relecture du salon, deux constats ».
 
+**Au 24 novembre, après la relecture : le chantier menus, sixième
+passage.** Sur la même branche, rien dans `main`, rien de poussé ni
+d'installé. Une relecture indépendante a rendu sept constats ; tous
+reproduits et corrigés :
+
+- **Jamais sur une image visible.** Couché avec une image 16:9, le repli
+  couvrait 42 % (844×390) à 48 % (780×360) de l'image vivante, et non son
+  bord comme l'entrée du premier passage le disait. Sans bande lisible, le
+  menu prend maintenant la place de l'écran et l'image s'y cache le temps
+  du menu, sans changer de taille ; « La salle » ne passe plus sur lui. Le
+  propriétaire n'a pas encore vu ce choix : à lui montrer avec la salle.
+- **Le focus d'une fiche grisée** reste dans la fiche (choix coché, bouton
+  qui agit ou « Revenir », titre pendant une lecture), et Échap revient à
+  la liste après « Fermer le jeu ».
+- **L'anneau de focus** du menu et du rayonnage se voit en entier.
+- **« Plus bas »** dans le menu, qui défile dans sa propre boîte.
+- **Les effets du plan** : secousse d'un refus (niveau « tout »), iris de
+  « Fermer le jeu », extinction avant de partir après « Fermer la salle »,
+  planche tramée, flèche en pixels et cartouche tirée de 4 px.
+- **`App.tsx`** : les rubriques Jeux et Réglages, la fiche d'un jeu, la
+  lecture des sauvegardes et le dépli de la colonne sortent dans
+  `components/menu/` ; ce passage n'y touche que par son dernier commit.
+- **Les pilotes** : focus (`menu-en-colonne` avec un banc 16:9,
+  `fermeture-en-cours`, `anneau-menu`, `plus-bas-menu`, rouges sur
+  cd2d5b3), parcours (`fiche-a-cote` lit la cartouche tirée),
+  `salle-telephone` (le menu sur une image Xbox 360).
+
+Page : 277 956 octets en brotli 11 (1 441 de plus, aucun retrait). Récit :
+« 24 novembre, après la relecture : sept constats sur le chantier menus ».
+Reste au chantier : celui du cinquième passage, moins rien de nouveau ;
+les treize commits d'`App.tsx` des passages d'avant ne sont pas réécrits en
+un seul (les contrôles rouges nomment des pages de cette branche par leur
+commit).
+
+**Au 24 novembre, au bout de la nuit : le chantier menus, cinquième
+passage.** Sur la même branche, rien dans `main`, rien de poussé ni
+d'installé. Livré :
+
+- **Les sauvegardes relues** à chaque fiche ouverte, avec l'identité qui
+  manque ; le focus attend la lecture sur le titre de la fiche.
+  `save-options.mjs` lit le rayonnage et le menu, et `just
+  save-options-test` passe.
+- **La fiche à côté des rangées** au bureau (B1), à leur place ailleurs.
+- **Trois barres collées corrigées** : la rangée de gestes de la
+  préparation colle au-dessus du coin d'Aïn, un choix du bloc défile
+  au-dessus d'elle, et les radios des pastilles n'étirent plus la colonne.
+- **Les pilotes** : parcours (`fiche-a-cote`, `garde-focus`),
+  `salle-telephone` (`menu-etroit` à 320, 375 et 390 px au niveau
+  « tout »), `padmenu.mjs` (sélecteurs seulement, K40).
+
+Page : 276 515 octets en brotli 11 (359 de plus). Récit : « 24 novembre, au
+bout de la nuit : la fiche à côté des rangées, et trois barres collées qui
+cachaient le focus ». Reste au chantier : PRÊT ou CHOISIT… sur les START
+(avec personnes), la neige « coupure » (avec les états), les poses clés du
+chargement (avec la mascotte), le menu qui s'ouvre défilé à 320 sur 568 et
+en bande étroite (avec la salle), B6b (donnée absente), les pilotes hors
+porte autres que `padmenu.mjs`, et le retrait de `Bindings` avec le
+chantier des manettes. Les scènes « ouvre » et « fier » ne reviennent pas
+à ce chantier (table des scènes de la partition).
+
+**Au 24 novembre, plus tard dans la nuit : le chantier menus, quatrième
+passage.** Sur la même branche, rien dans `main`, rien de poussé ni
+d'installé. Livré :
+
+- **Le chargement** (`components/Booting.tsx`, `chargement.css`,
+  `lib/booting.ts`) : trois cases en pixels avec leur compteur, « Aucune
+  image en 1 min 02 » ; « Arrêter le lancement » et « Choisir un autre jeu »
+  pour qui choisit, Signaler pour tous, la colonne cachant alors le sien ;
+  « Sur ta sauvegarde. » ou l'étiquette de qui a lancé ; la ligne parlée
+  nomme le jeu ; la mire fixe, une barre par seconde au niveau « tout » ;
+  le tube sous la plaque du texte. « arrêter d'attendre » est retiré.
+- **La rubrique Salle** construite hors d'`App.tsx` (`lignesSalle`) :
+  « [Bo] choisit le jeu. » en tête avec l'étiquette, Signaler en ligne au
+  bureau quand le menu remplace la colonne.
+- **Les pilotes** : etats (`chargement-annonces`, `clip-chargement`,
+  `mire-charge`, `chargement-paysage`), parcours (`lanceur-ma-sauvegarde`
+  réécrit, `arrivee-sans-chargement`, `menu-salle`), focus (`pastilles`).
+
+Page : 276 156 octets en brotli 11 (1 619 de plus). Récit : « 24 novembre,
+plus tard dans la nuit : le chargement en cases, la rubrique Salle ».
+Reste au chantier : PRÊT ou CHOISIT… sur les START (avec personnes), la
+scène « fier » (à trancher avec la mascotte), la neige « coupure » (avec
+les états), la fiche à côté des rangées au bureau, `garde-focus`, le menu
+à 320 px au niveau « tout », `save-options.mjs` depuis le rayonnage, et le
+retrait de `Bindings` avec le chantier des manettes.
+
+**Au 24 novembre, la nuit : le chantier menus, troisième passage.** Sur
+la même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
+
+- **La préparation en bloc** (`components/Preparation.tsx`,
+  `preparation.css`) : `#preparation` sous l'en-tête de la colonne et dans
+  la feuille agrandie, pour toutes les consoles ; le jeu continue et garde
+  ses touches ; titre de qui lance, ligne du jeu, radios, « Essayer mes
+  touches » vers le réglage des manettes, rangée de gestes collée,
+  « Garder X » ; qui regarde lit le compte. La salle ne monte plus
+  `Bindings` ni `SwitchBindings` ; « Plus tard » et la pastille
+  « Préparation de … » sont partis. Au téléphone, la bande dit la
+  préparation et « Choisir ma manette » ouvre la feuille.
+- **Ce qui se dit** : « Bo est prêt. » une fois dans la ligne parlée ; un
+  refus écrit dans le bloc, dit, et joué par Aïn (« refus ») ; une
+  fermeture de jeu acceptée est l'état de sa ligne et de sa fiche.
+- **La rubrique Manettes** construite hors d'`App.tsx` (`lib/rubriques.ts`),
+  aides sous 70 caractères pour chaque console, et « toutes les touches du
+  clavier ». Une icône en pixels par onglet du menu.
+- **Les pilotes** : parcours (`preparation-gamecube`, `preparation-wii`,
+  `preparation-x360`, `preparation-telephone`), focus (`fermeture-en-cours`,
+  `aides-fixes`, `mouvement-menu`, `fiche-lancer`, `refus-dans-le-bloc`
+  avec un vrai refus du banc), salle-telephone mesure le bloc.
+
+Page : 274 537 octets en brotli 11 (4 213 de moins). Récit : « 24 novembre,
+la nuit : la préparation sort du dialogue ». Reste au chantier : l'état
+PRÊT ou CHOISIT… sur les boutons START (avec le chantier personnes), les
+étapes du chargement en cases de pixels et ses actions par rôle, « Signaler »
+et « [Nour] choisit le jeu. » dans la rubrique Salle, la fiche à côté des
+rangées au bureau, les étapes `garde-focus` et `pastilles`.
+
+**Au 24 novembre, le soir : le chantier menus, deuxième passage.** Sur la
+même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
+
+- **Le rayonnage** (`components/Rayonnage.tsx`, `lib/bibliotheque.ts`) :
+  les jeux d'une salle sans jeu debout sur l'écran éteint, une rangée par
+  console, la Switch 2 « à l'essai » ; la fiche d'un jeu à la place des
+  rangées, partagée avec le menu (`components/menu/Fiche.tsx`) ; flèches,
+  Entrée, Échap et manette ; le dernier jeu de la salle (D06).
+- **La fiche d'un jeu** dit ce qui suit « Lancer » (règle de
+  `Preparation.directe`) ou ce qu'il arrête, et « Bo choisit le jeu et la
+  sauvegarde. » à qui ne choisit pas ; `GameCard` ne dit plus « non
+  vérifié » ; les jaquettes absentes sont une étiquette en pointillé.
+- **Le chargement** : « X démarre. », l'habitude mesurée du jeu (D05) et la
+  lenteur à son 90e centile ; sans mesure, ni le mot « habitude » ni à
+  l'écran ni dans la ligne parlée. Aïn y cherche le jeu, puis attend au
+  seuil long, par l'arbitre ; la bobine de Bobine n'y est plus importée.
+- **Prêt** : Aïn salue un joueur qui se dit prêt, puis tous au dernier.
+- **Mesures techniques** sous les réglages avancés (M5).
+
+Page : 278 750 octets en brotli 11. Récit : « 24 novembre, le soir : les
+jeux debout sur l'écran éteint ». Reste au chantier : la préparation dans la
+colonne (avec le chantier manettes), les étapes du chargement en cases de
+pixels et ses actions par rôle, les aides construites hors d'`App.tsx`, la
+ligne « Toutes les touches du clavier », « Signaler » dans la rubrique
+Salle, les icônes de rubrique, la fiche à côté des rangées au bureau.
+
+**Au 24 novembre : le chantier menus, premier passage.** Sur
+`chantier/retro-menus` (worktree `~/nel3ab-chantiers/retro-menus`), parti
+d'`integration/retro` 87bc2b3 ; rien dans `main`, rien de poussé ni
+d'installé. Livré :
+
+- **Un seul menu** (`components/menu/Menu.tsx`, `lib/menu.ts`) : quatre
+  onglets Jeux, Manettes, Salle, Réglages ; les formes XMB, chaînes Wii et
+  accueil Switch sont retirées avec `Picker`, `shell.ts`, `lib/menu-xmb.ts`,
+  `SHELLS` et la clé `nel3ab:shell`, effacée au démarrage.
+- **Non modal, jamais sur l'image** (ADR D30 amendé) : à la place des rangs
+  de la colonne au bureau, sous l'image tenu droit, dans la bande la plus
+  large couché. Une image 16:9 couchée ne laisse pas de bande lisible : le
+  menu prend alors la feuille agrandie, qui couvre le bord de l'image, et le
+  dit (`data-sur-image`) ; à trancher avec le chantier salle. Remplacé au
+  sixième passage : le repli couvrait 42 à 48 % de l'image vivante, et le
+  menu prend désormais la place de l'écran, l'image cachée le temps du menu.
+- **Fiches** pour lancer un jeu sur une sauvegarde, fermer le jeu et fermer
+  la salle ; Fermer le jeu et Fermer la salle seulement pour qui choisit le
+  jeu ; le refus d'un geste s'écrit dans le menu. « Quitter la salle » passe
+  par la transition sortir-salle de la salle.
+- **Clavier et manette** : le curseur est le focus, flèches sans tour,
+  Start rend la main au jeu (`menupad`), pied après le premier usage.
+- **Réglages** en « Image et son », « Cet appareil » (avec les effets
+  rétro du socle) et « Réglages avancés » repliés.
+- **Chargement** sans bouton de menu (C2).
+
+Page : 276 621 octets en brotli 11, 5 139 de moins qu'à la base.
+`just check`, `focus-navigateur`, `etats-navigateur`, `salle-telephone`,
+`manette-garde` et les contrôles rouges de focus, d'états et de parcours
+sont verts ; `parcours-navigateur` (invitation) et `cadre-navigateur`
+(mascotte-hors-image, ain-immobile) gardent les rouges connus de la vague
+B1, leurs autres étapes vertes.
+Reste au chantier : la bibliothèque en rayonnage et la fiche d'un jeu avec
+ses jaquettes (D13), la préparation dans la colonne et le retrait de
+l'ancienne préparation de `Bindings`, le chargement réécrit (durée
+habituelle D05), le dernier jeu (D06), les scènes chercher, attente et prêt,
+les aides de moins de 70 caractères construites hors d'`App.tsx`, et les
+étapes nouvelles des pilotes (`garde-focus`, `pastilles`, `aides-fixes`,
+`mouvement-menu`, `fiche-lancer`). Récit : « 24 novembre, l'après-midi : un
+seul menu, dans la colonne ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

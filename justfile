@@ -914,6 +914,19 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
         --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
         --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique
+    # 2f2ea39, la page du chantier menus avant le chargement réécrit (24
+    # novembre 2026) : la ligne parlée dit « Le jeu démarre. » sans le nom du
+    # jeu, et l'écran n'a pas de mire. clip-chargement n'a pas de page rouge :
+    # la colonne cachait déjà le clip pendant un chargement (C8, gardé).
+    git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
+    node etats.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
+        --etapes chargement-annonces,mire-charge --rouge-attendu chargement-annonces,mire-charge
+    # 03b21c0, la page de main avant le thème rétro : téléphone en travers,
+    # l'écran de chargement coupe ses deux boutons au bas de la fenêtre (C3).
+    # La page de 2f2ea39 n'en avait plus qu'un, qui tenait : pas de rouge là.
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
+    node etats.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes chargement-paysage --rouge-attendu chargement-paysage
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -986,11 +999,53 @@ parcours-navigateur-rouge:
         --etapes place-precise --rouge-attendu place-precise
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes salle-pleine-avant-salle --rouge-attendu salle-pleine-avant-salle
+    # Sur la même page, la salle sans jeu ouvre son menu d'office et n'a pas
+    # de rayonnage : les trois étapes du chantier menus (24 novembre 2026)
+    # doivent y tomber sur ce défaut.
+    etapes=rayonnage,lancer-seul,bibliotheque-clavier
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Sur la même page, la préparation est un dialogue modal qui coupe le jeu
+    # et propose une liste au lieu de radios (chantier menus, P1, P7).
+    etapes=preparation-gamecube,preparation-wii,preparation-x360
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # ae1725a, la page du chantier menus juste avant le bloc de préparation :
+    # la bande du téléphone existe, mais elle ne dit rien de la préparation.
+    # La page de main n'a pas encore de bande : l'étape y tombe sur sa
+    # précondition, et ne prouverait rien.
+    git show ae1725a:core/crates/worker/src/page/index.html > "$dossier/menus-ae1725a.html"
+    node parcours.mjs --page "$dossier/menus-ae1725a.html" --flux "$dossier/flux.h264" \
+        --etapes preparation-telephone --rouge-attendu preparation-telephone
+    # 2f2ea39, la page du chantier menus avant le chargement réécrit : qui a
+    # lancé y lit « sur « ma sauvegarde » » au lieu de « Sur ta sauvegarde. »
+    # (C6), et la rubrique Salle du menu ne dit pas qui choisit le jeu (M10).
+    # arrivee-sans-chargement n'a pas de page rouge : aucune page n'a montré
+    # le chargement à l'arrivée (C10, une preuve qui manquait).
+    git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
+    node parcours.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
+        --etapes lanceur-ma-sauvegarde,menu-salle --rouge-attendu lanceur-ma-sauvegarde,menu-salle
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # 742b011, la page du chantier menus avant B1 : au bureau, la fiche d'un
+    # jeu prenait la place des rangées au lieu de se poser à côté.
+    git show 742b011:core/crates/worker/src/page/index.html > "$dossier/menus-742b011.html"
+    node parcours.mjs --page "$dossier/menus-742b011.html" --flux "$dossier/flux.h264" \
+        --etapes fiche-a-cote --rouge-attendu fiche-a-cote
+    # 1ee8b49, la même page un commit plus tard : à 1280x720, la rangée de
+    # gestes de la préparation descend sous le coin d'Aïn, et les radios du
+    # menu font défiler la colonne sous lui.
+    git show 1ee8b49:core/crates/worker/src/page/index.html > "$dossier/menus-1ee8b49.html"
+    node parcours.mjs --page "$dossier/menus-1ee8b49.html" --flux "$dossier/flux.h264" \
+        --etapes garde-focus --rouge-attendu garde-focus
+    # cd2d5b3, la page relue le 24 novembre 2026 : la fiche se pose à côté
+    # des rangées, mais la cartouche ouverte ne sort pas de sa rangée.
+    git show cd2d5b3:core/crates/worker/src/page/index.html > "$dossier/menus-cd2d5b3.html"
+    node parcours.mjs --page "$dossier/menus-cd2d5b3.html" --flux "$dossier/flux.h264" \
+        --etapes fiche-a-cote --rouge-attendu fiche-a-cote
     # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
     # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
     # dite 90 ms après une arrivée l'efface de la ligne parlée, et l'ancre
@@ -1056,8 +1111,15 @@ focus-navigateur *args:
     ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
         -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    # Le même flux en 16:9 (Switch, Xbox 360), sur un second banc : un
+    # téléphone couché ne pose pas le menu au même endroit (menu-en-colonne,
+    # relecture du 24 novembre 2026).
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=1280x720:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux-large.h264"
     cd spikes/m3-browser-drive
-    node focus.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+    node focus.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" \
+        --flux-large "$dossier/flux-large.h264" {{args}}
 
 # Le contrôle négatif du précédent: la page d'avant ce chantier (f4b90c5) doit
 # échouer sur le DÉFAUT de chaque étape, pas sur une précondition. Les jumeaux
@@ -1083,10 +1145,10 @@ focus-navigateur-rouge:
     git show f4b90c5:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     git show 55047a9:core/crates/worker/src/page/index.html > "$dossier/relue.html"
     cd spikes/m3-browser-drive
-    etapes=entree-colonne,entree-jeu-pro,menu-entree-focus,menu-modal,curseur-focus,aides-clavier,aides-manette,premiere-visite,rubriques,telephone,noms,entree-sans-clic,tab-retour,surcouche,coques-telephone
+    etapes=entree-colonne,entree-jeu-pro,premiere-visite,rubriques,telephone,noms,entree-sans-clic,tab-retour
     node focus.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
-    etapes=telephone,tablette,coques-telephone,surcouche,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
+    etapes=telephone,tablette,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # aeac1ab, la page des états avant leur quatrième passage : le geste de
@@ -1095,6 +1157,44 @@ focus-navigateur-rouge:
     git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/fiche.html"
     node focus.mjs --page "$dossier/fiche.html" --flux "$dossier/flux.h264" \
         --etapes fiche-focus-rendu --rouge-attendu fiche-focus-rendu
+    # Le menu unique (chantier menus, 24 novembre 2026) : ses étapes réécrites
+    # rougissent sur la page de main 03b21c0, qui a encore le menu plein cadre,
+    # les trois formes, le pied toujours là et le sélecteur. menu-entree-focus
+    # et menu-entree-curseur sont des jumeaux : ils passent sur les deux pages.
+    # aides-fixes y lit l'aide sous la seule ligne choisie, mouvement-menu un
+    # grossissement de 200 ms. fiche-lancer n'a pas de page d'avant qui
+    # rougisse sur son défaut (main n'a pas de fiche) : elle a été vue rouge
+    # sur un mutant sans barre collée (`position: sticky` retiré), le
+    # 24 novembre 2026. pastilles y voit la ligne des couleurs sans ses
+    # trois choix ; son contrôle des points a été vu rouge sur un mutant
+    # dont chaque point est plein (passage 4 du chantier).
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
+    etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette,aides-fixes,mouvement-menu,pastilles
+    node focus.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # 49be12b, la page du chantier menus juste avant P10 : une fermeture
+    # acceptée s'y écrit encore comme une erreur, dans l'avis du menu. La
+    # page de main n'a pas de fiche pour « fermer le jeu » : l'étape y
+    # tomberait sur sa précondition.
+    git show 49be12b:core/crates/worker/src/page/index.html > "$dossier/menus-49be12b.html"
+    node focus.mjs --page "$dossier/menus-49be12b.html" --flux "$dossier/flux.h264" \
+        --etapes fermeture-en-cours --rouge-attendu fermeture-en-cours
+    # 41e9b33, la page suivante : le refus s'écrit dans le bloc, mais Aïn ne
+    # joue pas « refus » au coin.
+    git show 41e9b33:core/crates/worker/src/page/index.html > "$dossier/menus-41e9b33.html"
+    node focus.mjs --page "$dossier/menus-41e9b33.html" --flux "$dossier/flux.h264" \
+        --etapes refus-dans-le-bloc --rouge-attendu refus-dans-le-bloc
+    # cd2d5b3, la page que la relecture du 24 novembre 2026 a trouvée
+    # fausse : couché en 16:9, le menu couvre 42 % de l'image vivante ; « Fermer
+    # le jeu » grisé sous le focus le laisse sur <body> ; l'anneau d'une ligne
+    # est coupé des deux côtés ; Réglages cache huit lignes sans « Plus bas ».
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=1280x720:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux-large.h264"
+    git show cd2d5b3:core/crates/worker/src/page/index.html > "$dossier/menus-cd2d5b3.html"
+    etapes=menu-en-colonne,fermeture-en-cours,anneau-menu,plus-bas-menu
+    node focus.mjs --page "$dossier/menus-cd2d5b3.html" --flux "$dossier/flux.h264" \
+        --flux-large "$dossier/flux-large.h264" --etapes "$etapes" --rouge-attendu "$etapes"
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni

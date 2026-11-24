@@ -31927,6 +31927,537 @@ regardée sous charge par le chantier qui la possède. `deploy-check` n'a pas
 tourné : rien d'installé ne change, et il reste rouge tant que la
 redirection de Caddy n'est pas installée.
 
+### 24 novembre, l'après-midi : un seul menu, dans la colonne
+
+**Le contexte.** La salle avait trois menus, au choix de chacun : la croix
+du XMB de la PlayStation 3, les chaînes de la Wii et la rangée d'accueil de
+la Switch. Les trois couvraient tout l'écran, image comprise, et chacun
+rangeait sa sélection selon sa propre géométrie : une colonne qui glisse,
+une grille de quatre, une file horizontale. La proposition « Scotch et
+feutre » les remplaçait par un seul menu à quatre rubriques ; le
+propriétaire l'a retenue sans son thème. Ce passage du chantier « menus »
+livre ce menu, dans le worktree `~/nel3ab-chantiers/retro-menus`, sur la
+branche `chantier/retro-menus` partie d'`integration/retro`.
+
+**Ce qui change pour qui joue.** Échap, ou « Menu du jeu » dans la colonne,
+ouvre le menu à la place des rangs de la colonne. L'image reste à côté,
+vivante, de la même taille : on règle « image à l'écran » en la regardant.
+Quatre onglets, Jeux, Manettes, Salle et Réglages, puis des lignes pleine
+largeur, chacune avec son aide toujours visible. Un choix court se fait en
+pastilles sur sa ligne (un carré plein pour le choix coché), le volume avec
+un curseur. Lancer un jeu, fermer le jeu et fermer la salle passent par une
+fiche, dans le menu même : elle dit ce que le geste arrête, avec un bouton
+qui agit et un autre qui revient sans rien faire. Les jeux ne sont plus
+rangés dans des dossiers par console : ils sont tous dans la rubrique Jeux,
+sous le nom de leur console. Tenu en main, le menu se pose sous l'image, ou
+dans la bande à côté d'elle quand le téléphone est couché.
+
+**Pourquoi plus de dialogue modal.** Depuis le 22 novembre (D30), le menu
+était un `<dialog>` ouvert par `showModal()` : le reste de la page devenait
+inerte, ce qui gardait Tab dans le menu. Posé dans la colonne, un dialogue
+modal rendrait aussi l'image inerte, et un clic sur l'image ne pourrait plus
+rendre la main au jeu. Le menu est donc une simple section : le focus y
+entre à l'ouverture, Échap le ferme, un focus qui arrive dans la zone de
+jeu (un clic sur l'image, ou Tab) le ferme aussi, et sans partie le focus
+revient à ce qui l'avait ouvert. L'amendement de D30 l'écrit dans l'ADR.
+
+**Le clavier et la manette.** Le curseur est le focus : une seule ligne
+est dans la tabulation, et elle porte `aria-current`. Les flèches haut et
+bas passent de ligne en ligne sans faire le tour : après la dernière ligne,
+bas reste sur la dernière. Gauche et droite changent de rubrique, sauf sur
+une pastille ou un curseur, qui les gardent pour leur valeur. À la manette,
+A valide, B revient, et Start rend maintenant la main au jeu : il valait
+« valider » et ouvrait la fiche sous le curseur. Le pied du menu ne se
+montre qu'après un premier usage du clavier ou de la manette.
+
+**Ce qui a résisté.** Trois choses, toutes vues dans Chrome et pas dans les
+essais unitaires. D'abord, les quatre onglets coupaient leurs mots dans la
+colonne de 304 px (« Je ux », « Manet tes ») : ils vont maintenant par deux
+sous 22 rem de large, grâce à une requête de conteneur. Ensuite, le panneau
+des touches du chantier manettes avait déjà une classe `.n3-onglets`, en
+rangée flexible : posée sur celle du menu, elle faisait sortir « Réglages »
+de l'écran. Toutes les classes du menu portent maintenant le préfixe
+`n3-menu-` ; deux autres collisions attendaient (`.n3-ligne` de la vue des
+touches, `.n3-fiche` de la Bobine). Enfin, au niveau d'effets « tout », le
+panneau défile en entrant, et le ▶ posé à l'ouverture restait devant le
+vide pendant 120 ms : le menu le repose à la fin de chaque animation.
+
+**Un import que la vérification des types ne voyait pas.** Après le
+retrait des trois menus, `tsc -b`, les 2 000 essais de la page et sa
+construction étaient verts. `salle-telephone` est tombé sur tous ses
+panneaux d'aperçu : `front/bindings-preview.entry.tsx` importait encore
+`Channels` et `Home`. Ce fichier vit hors de `src/`, donc hors du périmètre
+de `tsc`, et seul le serveur Vite du pilote le compile. La leçon : un
+retrait de fichier se cherche dans tout le dépôt, aperçus compris, et pas
+seulement là où le vérificateur de types regarde.
+
+**L'écran de chargement.** Il avait un bouton « ouvrir le menu », qui
+posait le menu plein cadre dessus. Il part : « Menu du jeu » de la colonne
+ouvre le menu à côté, et le titre du chargement reste visible
+(`etats.mjs`, `chargement-menu`, rouge d'abord sur la page d'avant).
+
+**Une limite dite.** Un téléphone couché avec une image 16:9 ne laisse que
+deux bandes de 75 px à côté de l'image : aucun menu lisible n'y tient. Le
+menu prend alors la place de la feuille agrandie de la salle, qui couvre le
+bord de l'image, et l'attribut `data-sur-image="oui"` le dit. C'est un
+défaut connu, à trancher avec le chantier salle, qui a le même avec sa
+feuille. (Remplacé le soir même : mesuré, ce n'était pas le bord mais 42 à
+48 % de l'image vivante ; voir « 24 novembre, après la relecture : sept
+constats sur le chantier menus ».) Dans une bande étroite, le focus posé sur la première ligne fait
+aussi défiler l'en-tête et les onglets hors de la vue : ils restent à un
+geste, mais ne se voient pas à l'ouverture.
+
+**Le poids.** La page passe de 281 760 à 276 621 octets en brotli 11 :
+5 139 de moins. Le menu ajoute environ 5 Ko ; les trois menus, le
+sélecteur, `shell.ts` et `lib/menu-xmb.ts` en retirent davantage.
+
+**Les portes.** `just check` est vert (1 288 essais Python, 2 060 essais
+de la page). `focus-navigateur` (27 étapes), `etats-navigateur`,
+`salle-telephone` (104 lignes) et `manette-garde` (41 lignes) sont verts.
+`parcours-navigateur` reste rouge sur `invitation`, le conflit connu de la
+vague B1 entre personnes et la salle ; ses autres étapes, lancées par leur
+nom, sont vertes. `cadre-navigateur` reste rouge sur `mascotte-hors-image`
+et `ain-immobile`, les deux défauts connus de la mascotte ; ses autres
+étapes sont vertes. Les contrôles rouges de focus, d'états et de parcours
+tombent chacun sur leur défaut nommé ; les six étapes réécrites du menu ont
+un bloc à elles contre la page de `main` (03b21c0). Les pilotes ont tourné
+sur des ports à eux (5463 à 5468), pour ne pas croiser les chantiers qui
+travaillent en même temps.
+
+**Ce qui n'est pas prouvé.** Aucun essai avec une vraie manette, ni avec un
+lecteur d'écran : les onglets, les pastilles et l'interrupteur sont vérifiés
+dans le DOM seulement. Le choix d'un seul menu n'a pas été soumis aux
+joueurs qui aimaient les formes XMB, Wii ou Switch.
+
+### 24 novembre, le soir : les jeux debout sur l'écran éteint
+
+Deuxième passage du chantier menus. Une salle sans jeu n'ouvre plus son
+menu d'office depuis la veille ; il restait à y montrer les jeux. Ils sont
+maintenant **debout sur l'écran éteint**, une rangée par console, chaque jeu
+une **cartouche** dont l'étiquette est sa jaquette (`components/Rayonnage.tsx`,
+`lib/bibliotheque.ts`). Une cartouche ouvre la **fiche** du jeu à la place
+des rangées : la sauvegarde, « Lancer », et ce qui suit. La fiche est la
+même que celle du menu : elle a quitté `Menu.tsx` pour `components/menu/Fiche.tsx`,
+et ses identifiants prennent un préfixe, parce qu'au bureau le menu et
+l'écran éteint peuvent tenir chacun une fiche ouverte.
+
+**Ce que la fiche dit.** Seul dans la salle, sur un jeu à un seul appareil,
+« Le jeu part tout de suite. » ; sinon « Chacun dit qu'il est prêt, puis le
+jeu part. ». La règle est recopiée de `Preparation.directe` du salon, avec
+les mêmes champs du manifeste (`devices`, `players`) : la page ne devine
+pas. Pendant une partie, la fiche dit ce que « Lancer » arrête : « Kart des
+Ruelles s'arrête pour les 4 joueurs. ». Qui ne choisit pas lit la fiche,
+avec « Bo choisit le jeu et la sauvegarde. » à la place du bouton : un
+bouton grisé se lit comme une panne. La fiche du jeu (`GameCard`) ne dit
+plus « non vérifié » trois fois : elle nomme les appareils de la console et
+ne parle du nombre de joueurs et des commandes que quand le guide les dit.
+
+**Un piège évité.** Les sauvegardes débloquées et l'identité n'étaient lues
+que menu ouvert. Le rayonnage vit hors du menu : sans changer cette lecture,
+toutes ses fiches seraient restées grisées. L'étape `lancer-seul` du pilote
+le prouve dans un vrai navigateur, et un mutant d'`App.tsx` qui ne lit les
+sauvegardes que menu ouvert la fait rougir sur « Lancer reste grisé ». C'est
+la règle « muter le câblage, pas seulement les fonctions pures » : tous les
+essais unitaires passaient avec ce mutant.
+
+**Le clavier et la manette.** Les flèches passent d'une cartouche à l'autre
+sans rien déplacer : gauche et droite dans l'ordre, haut et bas vers la
+cartouche de la rangée voisine dont le centre est le plus proche. Entrée
+ouvre la fiche, le focus sur la sauvegarde cochée ; Échap la ferme et rend
+le focus à la cartouche, sans ouvrir le menu (l'événement s'arrête dans le
+rayonnage). La manette fait pareil tant que le menu ne la tient pas : sans
+cela, une manette ne pouvait plus choisir un jeu dans une salle vide.
+
+**Le dernier jeu (D06).** Sous les rangées, « Le dernier jeu de cette
+salle : Mario Kart Wii, jeudi soir. » et « Ouvrir sa fiche », seulement si
+ce jeu est encore dans la bibliothèque. Le moment se dit comme on le dit :
+« ce soir », « hier soir », « jeudi soir », puis la date au-delà de six
+jours, parce que « mardi soir » serait ambigu un mardi.
+
+**Le chargement.** Le titre dit le fait, « Mario Kart démarre. », sans
+sur-titre en capitales. L'habitude de chaque jeu (D05, publiée par le salon
+après cinq démarrages réussis) se dit : « D'habitude, il démarre en 12 s. »,
+et la lenteur arrive à son 90e centile. Sans habitude mesurée, la page garde
+ses vingt secondes et dit « Le jeu démarre encore, depuis 20 s. », sans le
+mot « habitude » : une valeur non mesurée ne s'affiche pas comme une mesure.
+La ligne parlée suit la même règle. La bobine de Bobine quitte l'écran de
+chargement : Aïn y cherche le jeu sur un plateau, en entier au premier
+chargement de la soirée dans ce navigateur et en court ensuite, puis attend
+une fois quand le chargement devient long. Il passe par l'arbitre de la
+salle, et la première image le renvoie au logo.
+
+**Prêt.** Quand un joueur dit qu'il est prêt, Aïn le salue ; quand le
+dernier le dit, il salue tout le monde. Seul un passage de « pas prêt » à
+« prêt » entre deux messages compte : une page qui arrive quand tous sont
+prêts n'a rien vu passer.
+
+**Les portes.** Les trois étapes nouvelles du parcours (`rayonnage`,
+`lancer-seul`, `bibliotheque-clavier`) tombent sur leur défaut nommé contre
+la page de `main` (03b21c0), dans `parcours-navigateur-rouge`. L'étape
+`repos-sans-menu` du cadre accepte le focus d'entrée sur la première
+cartouche. La page passe de 276 621 à 278 750 octets en brotli 11 : le
+rayonnage ajoute environ 2 200 octets, et le retrait de la bobine de
+chargement en reprend un peu.
+
+**Ce qui n'est pas prouvé.** Le rayonnage n'a été vu qu'au bureau, avec des
+étiquettes sans jaquette (le banc n'en sert pas) ; les vraies bannières et
+illustrations dans une étiquette 3:1 restent à voir. Au bureau, la fiche
+prend la place des rangées au lieu de se poser à côté. Aucune vraie manette.
+
+### 24 novembre, la nuit : la préparation sort du dialogue
+
+Troisième passage du chantier menus. Quand quelqu'un lance un jeu à
+plusieurs, chacun dit avec quoi il joue, puis « Je suis prêt ». Ce panneau,
+la **préparation**, vivait jusqu'ici dans le dialogue des touches
+(`Bindings` pour les consoles Dolphin, `SwitchBindings` pour la Switch et la
+Xbox 360) : un calque modal qui couvrait l'image, coupait les touches du jeu
+et ne se refermait qu'avec « Plus tard ». Les autres lisaient une pastille
+posée par-dessus, « Préparation de Mario Kart · 1/2 joueurs prêts ».
+
+**Ce qui change.** La préparation est un bloc, `#preparation`, posé sous
+l'en-tête de la colonne au bureau, et dans la feuille agrandie d'une salle
+tenue en main. Le jeu continue, visible, et les touches restent au jeu :
+le pilote le prouve en envoyant une flèche dans la zone de jeu pendant une
+préparation, et le banc la reçoit. Le titre dit qui lance (« Tu prépares le
+prochain jeu », « Bo lance le prochain jeu ») ; la ligne dessous dit la
+console et la sauvegarde, sans sur-titre en capitales. Les appareils se
+choisissent en radios, pas dans une liste. « Essayer mes touches » ouvre le
+réglage du chantier des manettes au lieu de le porter, et c'est le seul
+moment où les touches du jeu sont retenues. Les gestes (« Lancer le jeu »,
+« Je suis prêt », « Garder Mario Party 4 ») forment une rangée de boutons
+de borne collée au bas de ce qui se voit. Qui regarde lit « 1 joueur sur 2
+est prêt. », sans bouton, et la pastille par-dessus disparaît. Au
+téléphone, la bande dit « Bo lance le prochain jeu, Mario Party 4 » et
+« Choisir ma manette » ouvre la feuille où le bloc attend ; la manette à
+l'écran reste montée. Une seule mise en page pour toutes les consoles : la
+préparation Pro n'a plus son propre panneau dans la salle.
+
+**Ce qui se dit.** La ligne parlée de la salle reste la seule région
+polie : « Bo est prêt. » s'y dit une fois, le compte à rebours du chef ne
+parle pas, et un refus du salon s'écrit dans le bloc et s'y dit aussi. Un
+refus fait jouer « refus » à Aïn par l'arbitre, et sonne l'erreur quand les
+sons du menu sont allumés. Une fermeture de jeu acceptée n'est plus écrite
+dans l'avis des erreurs : la ligne « fermer le jeu » dit « fermeture… », et
+sa fiche le dit sous ses boutons en grisant « Fermer le jeu ».
+
+**Un piège du pilote.** Au téléphone, l'aide `entrer` du parcours ouvre la
+feuille de la salle pour lire la place. L'étape de la bande voyait donc le
+bloc dans la feuille et pas la bande, et tombait sur une fausse panne. Elle
+referme la feuille avant de regarder. Et sur la page de `main`, qui n'a pas
+encore de bande, l'étape tombe sur sa précondition : son contrôle rouge
+utilise la page de ce chantier juste avant le changement (ae1725a).
+
+**Un piège du contrôle.** La relecture demandait une étape « aides-fixes »
+qui rougisse sur la page de `main` parce que la ligne choisie y changeait de
+hauteur. Mesuré, ce n'est pas le cas : le menu façon XMB avait des lignes de
+74 px fixes. Son défaut était ailleurs : l'aide ne se montrait que sous la
+ligne choisie, tronquée. L'étape vérifie donc les deux : chaque ligne montre
+son aide entière, et ni les lignes ni leurs écarts ne bougent après huit
+flèches. L'étape « fiche-lancer » n'a aucune page d'avant qui rougisse sur
+son défaut (`main` n'a pas de fiche) : elle a été vue rouge sur un mutant
+sans barre collée, à 1280x720, la barre « Lancer » finissant à 756 px.
+
+**Hors d'App.tsx.** La rubrique Manettes se construit maintenant dans
+`lib/rubriques.ts`, essayée pour chaque console : chaque aide tient sous 70
+caractères. Celle de la manette seule en faisait 107 dans une salle
+GameCube. Elle gagne « toutes les touches du clavier », qui ouvre le réglage
+des manettes sur son onglet Clavier. Chaque onglet du menu porte une icône
+en pixels au niveau qui les montre : une cartouche, ajoutée au jeu du
+socle, pour Jeux, puis la manette, la porte et les curseurs. Posée à côté
+du mot, l'icône faisait sortir « Réglages » de 4 px d'un téléphone de
+390 px : seule la course complète de la porte l'a vu, pas les étapes
+lancées une à une sur le bureau. Elle est au-dessus du mot.
+
+**Le poids.** La page passe de 278 750 à 274 537 octets en brotli 11, soit
+4 213 de moins : `Bindings` et la branche de préparation de `SwitchBindings`
+ne sont plus dans le paquet. Leurs fichiers restent, pour l'aperçu des
+touches et leurs essais ; le chantier des manettes les retire.
+
+**Ce qui n'est pas prouvé.** Le bloc n'a été vu qu'au banc : aucune vraie
+préparation à quatre, aucune vraie manette. En paysage sans bande, la
+préparation ne se dit qu'en ouvrant la feuille. Les boutons START ne disent
+pas encore « PRÊT » ou « CHOISIT… » par place (la fonction existe,
+`etatParPlace`, la rangée des places appartient au chantier personnes).
+
+### 24 novembre, plus tard dans la nuit : le chargement en cases, la rubrique Salle
+
+Quatrième passage du chantier menus. Deux écrans changent : celui du
+chargement, quand la salle change de jeu, et la rubrique Salle du menu.
+
+**Le chargement.** Les trois étapes (« La salle a reçu la demande », « Le
+jeu démarre », « Première image ») deviennent trois **cases** de 22 px
+dessinées en pixels : cochée quand l'étape est faite, en pointillé avec un
+compteur de secondes quand elle est en cours, vide quand elle est à venir.
+Passé le seuil d'une attente longue, la case en cours devient un point
+d'interrogation : la page ne sait plus si l'étape avance, et le dit. Sans
+image au bout d'une minute, la dernière case devient une croix, et l'écran
+dit « Aucune image en 1 min 02 ». La règle d'avant reste : une case faite
+ne recule jamais. Le compteur est écrit par l'afficheur de chiffres du
+socle, hors de React ; au niveau « tout », ses chiffres roulent.
+
+Les gestes dépendent du rôle. Rien pendant une attente normale : une
+dizaine de secondes de noir est normale, et un bouton d'annulation ferait
+croire à une panne. Passé le seuil, qui choisit le jeu peut « Arrêter le
+lancement », qui ferme le jeu demandé ; sans image, il peut « Choisir un
+autre jeu ». Les autres lisent « Sami peut le relancer ou choisir un autre
+jeu. ». Tout le monde peut signaler, avec le bouton Signaler du chantier
+personnes, posé tel quel. Pendant ce temps la colonne cache le sien : une
+règle de la partition (K25) dit qu'il n'y en a jamais deux à l'écran.
+L'ancien bouton « arrêter d'attendre », qui retirait l'écran sans rien
+arrêter dans la salle, disparaît, et la ligne parlée ne le propose plus.
+
+L'écran dit sur quoi on joue et qui l'a lancé : « Sur ta sauvegarde. » à
+qui a lancé ; aux autres, l'**étiquette** de Sami (son nom tapé à la
+couleur de sa place) suivie de « l'a lancé sur sa sauvegarde. ». Quand la
+page ne sait pas qui (un salon d'avant, ou Sami n'a plus de place), elle
+recopie le mot du salon, sans étiquette : une étiquette devinée serait
+pire. La ligne parlée nomme le jeu : « Chantier Royal démarre. », puis
+« Chantier Royal démarre encore, depuis 20 s. ». Le « 20 s » est le seuil
+franchi, pas l'attente du moment : une phrase qui changerait chaque seconde
+serait relue chaque seconde par un lecteur d'écran.
+
+La **mire** du démarrage, sept barres de couleur, se voit maintenant à tous
+les niveaux, fixe. Au niveau « tout », une seule barre s'allume à la fois
+et avance d'une barre par seconde. La page des effets les décalait de
+0,3 s, ce qui faisait clignoter l'écran trois fois par seconde ; la
+partition fixe un pas par seconde au plus (K14). Le **tube** du socle
+(lignes de balayage, coins assombris, bande qui roule) se pose dans
+l'écran de chargement, sous une plaque de fond plein qui porte le texte.
+
+**La rubrique Salle.** Au bureau, le menu s'ouvre à la place des rangs de
+la colonne, et la phrase « Bo choisit le jeu. » partait avec eux. Elle
+revient en tête de la rubrique Salle, avec l'étiquette de Bo. Signaler
+partait aussi : il revient comme une ligne de la rubrique, le même
+composant, que les flèches et la manette atteignent. Tenue en main, la
+feuille de la salle le porte déjà, et le menu ne le répète pas. La rubrique
+se construit hors d'`App.tsx`, dans `lib/rubriques.ts`, avec ses essais :
+Fermer le jeu et Fermer la salle n'existent que pour qui choisit, la ligne
+seule n'agit pas, seule sa fiche agit.
+
+**Les preuves.** Sept étapes de pilote sont nouvelles ou réécrites :
+`chargement-annonces` (la ligne parlée ne bouge pas pendant que le compteur
+avance de trois secondes, puis change une fois au seuil), `mire-charge` (au
+plus un pas par seconde, mesuré par échantillons de 100 ms ; sept barres
+fixes au niveau conseillé ; le tube sous la plaque), `clip-chargement`,
+`chargement-paysage`, `lanceur-ma-sauvegarde`, `arrivee-sans-chargement`,
+`menu-salle` et `pastilles`. Chacune est vue rouge sur une page d'avant,
+sauf deux qui le disent : la colonne cachait déjà le clip pendant un
+chargement, et aucune page n'a montré le chargement à l'arrivée dans une
+salle où un jeu tourne. Ce sont des preuves qui manquaient, pas des
+défauts corrigés. Un mutant qui garde le décalage de 0,3 s du socle fait
+rougir `mire-charge` ; un autre, dont chaque point de pastille est plein,
+fait rougir `pastilles`.
+
+**Un piège du pilote.** `pastilles` cliquait sur le bouton radio natif,
+caché sous le point dessiné et hors de la vue : le clic tombait à côté, et
+l'étape s'arrêtait sur sa précondition. Elle fait défiler la pastille dans
+la vue, demande à `elementFromPoint` ce qui reçoit le point, puis clique à
+la souris.
+
+**Une phrase a un lecteur ailleurs.** Dans la course complète des
+parcours, l'étape `annonce-arrivee` du chantier personnes s'est arrêtée sur
+sa précondition : elle attendait « Le jeu démarre » dans la ligne parlée,
+qui dit maintenant « Sonic Generations démarre. ». Changer une phrase, c'est
+chercher qui la lit, pilotes compris. L'étape accepte les deux formes, pour
+que sa page rouge d'avant tombe toujours sur son propre défaut.
+
+**Le poids.** La page passe de 274 537 à 276 156 octets en brotli 11, soit
+1 619 de plus : 1 144 pour le chargement (cases, mire, gestes, feuille de
+style) et 475 pour la rubrique Salle. Ce passage ne retire rien du paquet.
+
+**Ce qui n'est pas prouvé.** Rien de ceci n'a été vu avec un vrai jeu qui
+démarre : le banc envoie une annonce et garde sa socket. « Arrêter le
+lancement » n'a été essayé qu'avec un double du salon. En travers, au
+téléphone, le plateau d'Aïn passe sous le bas de l'écran de chargement au
+lieu de laisser la pose à la tête de la barre (C3 complet attend le
+chantier salle). La neige d'un changement de jeu (« coupure ») attend
+celle du chantier des états. La scène « fier » au passage à tous prêts
+n'est pas jouée : l'arbitre ne la donne pas au chantier menus, et la scène
+« pret » en mode « tous » la remplace.
+
+### 24 novembre, au bout de la nuit : la fiche à côté des rangées, et trois barres collées qui cachaient le focus
+
+Cinquième passage du chantier menus. Il reprend trois preuves que les
+passages d'avant laissaient en plan, et chacune a trouvé un défaut.
+
+**Les sauvegardes relues à chaque fiche.** `CLAUDE.md` exige
+`just save-options-test` pour tout changement du choix de sauvegarde. Son
+pilote visait encore le XMB, retiré l'après-midi même. Réécrit pour le
+rayonnage, il a rougi tout de suite : au repos, le rayonnage reste à
+l'écran, si bien que `/saves` et l'identité n'étaient lus qu'une fois, à
+l'arrivée. Une sauvegarde débloquée dont le contenu avait disparu restait
+proposée, et une adresse arrivée après la page ne se voyait qu'en
+rechargeant. Chaque fiche ouverte relit maintenant les deux. La lecture
+porte une **clé de lecture** (menu ou repos, et le numéro de la fiche) : une
+réponse arrivée pour une autre clé ne compte pas, et aucun rendu ne montre
+un ancien choix comme sûr. Pendant la lecture, les choix sont grisés, et un
+élément grisé ne prend pas le focus : il attend sur le titre de la fiche,
+puis passe au choix coché quand la lecture répond, sauf si quelqu'un l'a
+déplacé entre-temps. Le pilote est rouge sur la page d'avant (l'identité
+n'est pas redemandée) et sur un mutant du câblage qui ne relit pas les
+sauvegardes (« No catalogue request when opening a game's card »).
+
+**La fiche à côté des rangées (B1).** Au bureau, la fiche d'un jeu se pose
+à droite des rangées au lieu de les cacher. Les rangées restent visibles et
+se parcourent au clavier et à la manette, fiche ouverte ; une autre
+cartouche remplace la fiche. Au téléphone, en paysage et dans une fenêtre
+étroite, la fiche prend encore leur place : la largeur ne suffit pas aux
+deux. L'étape `fiche-a-cote` mesure les deux boîtes et touche la cartouche
+par `elementFromPoint` ; elle est rouge sur la page d'avant.
+
+**Trois barres collées.** L'étape `garde-focus` était demandée depuis le
+premier passage : chaque arrêt du focus dans la préparation et dans le
+menu doit rester visible, hors des **éléments collants**. Le passage
+d'avant ne l'avait pas écrite, faute de pouvoir la voir rougir : rien ne
+débordait au banc. Avec une préparation à deux appareils, la colonne
+déborde à 1280 sur 720, et trois défauts sont apparus.
+
+- La rangée de gestes de la préparation (« Je suis prêt ») passait sous le
+  coin d'Aïn. Depuis D46, le coin colle lui aussi au bas de la colonne, et
+  les deux collaient au même bord, le coin par-dessus. La rangée colle
+  maintenant au-dessus du coin et de « Plus bas » ; un essai relit cette
+  hauteur contre `HAUTEUR_DU_COIN` et `cadre.css`.
+- Un choix du bloc restait sous la rangée. Le défilement que le navigateur
+  fait au focus ne bouge rien tant que l'élément tient dans la colonne,
+  même sous une barre collée ; et l'avis du clavier, né du même focus,
+  pousse ensuite la colonne vers le bas. Le bloc le vérifie donc au focus
+  et après chaque rendu, et sa marge de défilement suit la hauteur de la
+  rangée, qui tient sur une à trois lignes.
+- Les radios des pastilles du menu faisaient défiler la colonne dans le
+  vide. Elles sont cachées en position absolue, et aucun parent n'était
+  positionné : leur **bloc conteneur** était la colonne. Chacune gardait sa
+  place hors de la zone qui défile du menu, jusqu'à 1 424 px plus bas, et
+  la colonne défilait dans ce vide en remontant le coin d'Aïn sur les
+  lignes. La pastille est maintenant positionnée.
+
+La leçon générale : un élément en absolu sans parent positionné appartient
+à un ancêtre lointain, et, même invisible, il agrandit la zone qui défile
+de cet ancêtre. Chaque garde a son jumeau, une feuille de style qui la
+retire : l'étape ne compte que si chaque jumeau cache un arrêt. Elle est
+dans `parcours.mjs` et pas dans `focus.mjs` comme prévu, parce que seul ce
+banc tient une préparation. Elle est rouge sur la page d'avant.
+
+**Le menu à 320 px.** `salle-telephone` ouvre le menu à 320, 375 et 390 px
+de large au niveau « tout » : les quatre onglets tiennent sans défiler de
+côté ni couper un mot, et chacun fait 44 px de haut. Son jumeau force
+quatre onglets par rang à 320 px, et la mesure y voit un mot coupé.
+L'image de 320 sur 568 montre ce qui reste : le menu s'ouvre défilé
+jusqu'à la ligne qui a le focus, et la sortie et le premier rang d'onglets
+sont hors de vue. C'est le même défaut que la bande étroite en travers,
+noté au premier passage, à trancher avec le chantier de la salle.
+
+Ce qui n'est pas fait, et pourquoi : la scène « ouvre » à l'ouverture d'une
+fiche et la scène « fier » quand tous sont prêts. La table des scènes de la
+partition range « ouvre » au salon et donne « fier » aux chantiers manettes
+et salle ; l'arbitre les refuse à ce chantier. Le reste attend un autre
+chantier : PRÊT ou CHOISIT… sur les START (personnes), la neige d'un
+changement de jeu (états), les poses clés du chargement (mascotte). Des
+pilotes hors porte, seul `padmenu.mjs` suit la page ; les autres visent des
+salles vivantes (K40) et lisent encore le XMB.
+
+Page : 276 515 octets en brotli 11, 359 de plus qu'au passage d'avant.
+
+### 24 novembre, après la relecture : sept constats sur le chantier menus
+
+Une relecture indépendante du chantier menus a rendu sept constats, un
+bloquant et six importants. Chacun a été reproduit sur la page relue
+(cd2d5b3) avant d'être corrigé, et chaque correction a son essai rouge
+d'abord.
+
+**Le menu couvrait l'image vivante.** C'est le constat bloquant. Un
+téléphone couché, avec une image 16:9 et la manette Pro à l'écran (Switch,
+Switch 2, Xbox 360), laisse deux bandes de 148 px à côté de l'image ; il en
+faut 150 au menu. Sans manette à l'écran, il en reste 75. Le repli du
+premier passage posait alors le menu sur 380 px à gauche, et le carnet
+disait « le bord de l'image ». Mesuré au banc, il en couvrait 42 % à
+844 sur 390 et 48 % à 780 sur 360, pendant que la page peignait soixante
+images par seconde dessous. « La salle », qui porte la tête d'Aïn, passait
+en plus sur une ligne du menu. La règle du propriétaire (K20 : jamais rien
+sur une image vivante) vaut pour le menu aussi.
+
+Deux corrections respectaient la règle. Rétrécir l'image pour faire une
+bande, comme la colonne le fait au bureau : refusée, parce que D30 promet
+que l'image garde son rectangle à l'ouverture, qu'un redimensionnement à
+chaque ouverture bouge ce que les autres regardent sur cet écran, et que la
+géométrie du cadre (`lib/cadre.ts`) appartient au chantier de la salle.
+L'autre, retenue : quand aucune bande ne se lit, le menu prend la place de
+l'écran, et l'image s'y cache le temps du menu. Elle est cachée, pas
+modifiée : elle garde sa taille et ses pixels, la boucle média continue de
+peindre dessous, et elle revient à la fermeture. Qui regarde lit « L'image
+continue pour les autres. Elle revient à la fermeture. » La place cherche
+d'abord une bande, la gauche, et la coupe au-dessus ou au-dessous de « La
+salle » et de ton étiquette : le même calcul a révélé qu'avec une image
+4:3 et la manette Pro, le menu du premier passage tombait à 2 px de haut,
+écrasé sous « La salle ».
+
+Un piège évité en route. Le socle a déjà une marque pour cacher l'image
+pendant une transition. La neige d'une connexion coupée la pose et la
+retire aussi : si le menu s'en servait, la fin de la neige rendrait une
+image que le menu cache encore. Le menu pose donc sa propre marque.
+
+Pourquoi aucun pilote ne l'avait vu : le banc de `focus.mjs` ne sert qu'un
+flux 4:3, et à 844 sur 390 une image 4:3 avec la manette GameCube laisse
+une bande de 164 px, où le menu tient. Le repli n'y était jamais pris.
+Une preuve qui ne sert qu'une forme d'image ne prouve rien pour les
+autres. `menu-en-colonne` ouvre maintenant un second banc avec
+un flux 16:9, et `salle-telephone` ouvre aussi le menu sur une image
+Xbox 360. Le propriétaire n'a pas encore vu ce choix sur son téléphone :
+c'est la première chose à lui montrer.
+
+**Le focus tombait sur la page.** Une fiche visait le choix coché ou le
+bouton qui agit, sans vérifier qu'ils prenaient le focus. Un élément grisé
+ne le prend pas. Au clavier, « Fermer le jeu » confirmé passait à
+« Fermeture du jeu en cours… », le bouton se grisait sous le focus, et le
+focus tombait sur `<body>`, où Échap ne faisait plus rien : le menu et la
+fiche restaient ouverts. Les fiches en refus et celles qui lisent leurs
+sauvegardes le perdaient dès l'ouverture. La fiche suit maintenant la règle
+du rayonnage : le choix coché, le bouton qui agit, ou « Revenir », pourvu
+qu'ils le prennent, et le titre pendant une lecture. Une fiche dont la
+ligne disparaît (le jeu fermé emporte « Fermer le jeu ») rend le focus à la
+liste.
+
+**L'anneau de focus était coupé.** Le menu défile dans sa propre boîte, et
+une **boîte qui défile** coupe ce qui dépasse d'elle. L'anneau de focus se
+dessine 5 px hors de l'élément : sur une ligne pleine largeur, il ne
+restait que deux traits, en haut et en bas. Le premier passage avait
+retiré d'`index.css` la règle qui le rentrait, et son commentaire décrivait
+exactement ce défaut. Le menu garde maintenant 5 px de marge sur ses bords.
+L'étape `anneau-menu` mesure chaque arrêt contre la boîte qui le coupe ;
+elle a trouvé au passage une cartouche du rayonnage qui perdait un pixel.
+
+**« Plus bas » ne voyait pas le menu.** Le repère de la colonne observe le
+défilement de la colonne, et le menu défile dans sa boîte à lui : au
+bureau, Réglages cachait huit lignes sous le bord, dont les effets rétro,
+sans repère. Le menu a maintenant le sien.
+
+**Cinq effets du plan n'étaient pas branchés.** La secousse d'un refus
+nouveau, au niveau « tout », sur le bloc qui l'écrit ; l'iris de
+`quitter-partie` sur le menu quand « Fermer le jeu » est accepté ;
+l'extinction de `fermer-salle` sur la page de qui ferme la salle, qui
+partait avant de la voir ; la planche tramée sous chaque rangée et la
+flèche en pixels sur le rayonnage ; la cartouche dont la fiche est ouverte,
+sortie de 4 px. Chacun a son essai et son jumeau.
+
+**Le protocole d'`App.tsx`.** La partition ne donne à chaque chantier qu'un
+commit de câblage dans `App.tsx`, le dernier de sa branche. Treize commits
+du chantier y touchent, et de la logique y était restée : les rubriques
+Jeux et Réglages, la fiche d'un jeu, la clé de lecture des sauvegardes, le
+dépli de la colonne. Elles sont sorties dans `components/menu/`, et ce
+passage ne touche `App.tsx` que par son dernier commit. Les treize d'avant
+ne sont pas réécrits en un seul : les contrôles rouges nomment des pages
+de cette branche par leur commit (1ee8b49, 742b011, 49be12b, 41e9b33…), et
+la vague B1 a montré que la fusion applique la différence d'`App.tsx`
+entre la base et la branche, ce qui revient au rejeu dans l'ordre. Une
+aide du menu rangée dans la section des mots de la salle et un essai de
+contraste écrit dans le bloc du socle sont revenus dans les blocs du
+chantier.
+
+Le poids : 276 515 octets en brotli 11 avant, 277 956 après, soit 1 441 de
+plus (la place du menu, les gardes du focus, le repère, les effets ; aucun
+retrait dans ce passage). La leçon générale : un banc d'essai qui ne sert
+qu'une forme de ce qu'il mesure (une image 4:3) ne dit rien des autres
+formes, même quand le code a une branche écrite pour elles.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -33487,6 +34018,52 @@ qu'elle est ouverte. En HTML, un `<dialog>` ouvert par `showModal()`.
 **Inerte** : ni cliquable, ni atteignable par Tab, ni lu par un lecteur
 d'écran.
 
+**Onglet (role=tab)** : un bouton d'une rangée qui choisit le panneau
+affiché dessous, comme les quatre rubriques du menu. Un seul onglet est
+choisi (`aria-selected`) et seul lui est dans la tabulation ; les flèches
+passent aux voisins.
+
+**Fiche (du menu)** : la vue d'une décision dans le panneau du menu :
+lancer un jeu sur une sauvegarde, fermer le jeu, fermer la salle. Elle dit
+ce que le geste arrête, au-dessus d'un bouton qui agit et d'un autre qui
+revient sans rien faire. Depuis le 24 novembre au soir, la même fiche sert
+aussi au rayonnage de l'écran éteint.
+
+**Cartouche (dans la salle)** : un jeu debout sur l'écran éteint d'une salle
+sans jeu, son étiquette étant sa jaquette. Un clic ou Entrée ouvre sa fiche.
+À ne pas confondre avec le cartouche d'un plan technique, plus haut.
+
+**Rayonnage** : les jeux d'une salle sans jeu, une rangée par console,
+posés sur l'écran éteint (`components/Rayonnage.tsx`).
+
+**90e centile** : la durée sous laquelle tombent neuf démarrages sur dix.
+Au-delà, un démarrage est « plus long que d'habitude » ; la médiane, elle,
+dit la durée ordinaire.
+
+**Préparation (à plusieurs)** : le moment entre « Lancer » et le
+démarrage d'un jeu à plusieurs, où chacun dit avec quel appareil il joue
+puis « Je suis prêt ». Depuis le 24 novembre dans la nuit, c'est un bloc de
+la colonne, plus un dialogue.
+
+**Case (du chargement)** : un carré de 22 px dessiné en pixels, un par
+étape d'un démarrage : cochée, en pointillé avec ses secondes, vide, point
+d'interrogation quand la page ne sait plus, croix quand aucune image n'est
+venue. Elle remplace la liste de « ✓ » et de « · » depuis le 24 novembre.
+
+**Tube (effet)** : les calques du socle qui imitent un écran cathodique sur
+un écran sans jeu : lignes de balayage, coins assombris, bande claire qui
+roule. Rien à voir avec un tube nommé (FIFO) ; ils ne passent jamais sur
+l'image du jeu ni sur le texte.
+
+**Rangée collée** : une rangée de boutons qui reste au bas de ce qui se
+voit quand le reste défile (`position: sticky` en CSS). Ce qui défile passe
+dessous : un bouton posé au-dessus d'elle peut se retrouver caché, d'où les
+gestes rangés dans la rangée elle-même.
+
+**Fondu par paliers** : une apparition en quatre marches d'opacité en
+120 ms, au lieu d'un fondu continu, comme sur une console d'époque. C'est la
+transition du menu quand on change de rubrique ou qu'on ouvre une fiche.
+
 **Tabulation tournante (roving tabindex)** : un seul élément d'un groupe est
 dans l'ordre de Tab, et les flèches déplacent ce rôle d'un élément à l'autre.
 
@@ -33831,3 +34408,18 @@ l'élément contient. Un contenu caché ne compte pas.
 chaque élément utile de la page avec son rôle (lien, bouton, image) et son
 nom accessible. Chrome le montre à un pilote, qui peut donc lire le nom qu'un
 lecteur d'écran dirait.
+
+**Clé de lecture** : l'étiquette qu'une lecture du réseau porte avec sa
+réponse, pour qu'une réponse arrivée trop tard pour une autre demande ne
+soit pas prise pour la bonne. Le rayonnage en donne une à chaque fiche
+ouverte.
+
+**Bloc conteneur (containing block)** : la boîte par rapport à laquelle un
+élément en position absolue se place. C'est le plus proche ancêtre
+positionné ; sans lui, un ancêtre lointain, dont l'élément agrandit la zone
+qui défile même s'il est invisible.
+
+**Boîte qui défile (scroll container)** : un élément dont le contenu
+défile dans ses bords (`overflow: auto`). Il coupe tout ce qui dépasse de
+sa boîte, y compris un anneau de focus dessiné hors de l'élément : un
+contrôle collé à son bord perd le côté de son anneau.

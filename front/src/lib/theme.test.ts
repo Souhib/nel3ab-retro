@@ -1,44 +1,43 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  SHELLS,
+  CLE_DE_LA_COQUE,
   THEMES,
   applyTheme,
   rememberTheme,
   rememberPadOnly,
   showsTouchPad,
   storedPadOnly,
-  storedShell,
   storedTheme,
   storedTouch,
+  oublierLaCoque,
 } from "./theme";
+
+describe("la forme du menu, retirée (M1)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("efface la clé de la forme au démarrage", () => {
+    localStorage.setItem(CLE_DE_LA_COQUE, "wii");
+    oublierLaCoque();
+    expect(localStorage.getItem("nel3ab:shell")).toBeNull();
+  });
+
+  // Le jumeau : un stockage qui refuse ne casse pas le démarrage, et les
+  // autres réglages restent.
+  it("ne lève rien quand le stockage refuse, et ne touche pas aux autres clés", () => {
+    const refuse = {
+      removeItem: () => {
+        throw new DOMException("refusé", "SecurityError");
+      },
+    };
+    expect(() => oublierLaCoque(refuse)).not.toThrow();
+    localStorage.setItem("nel3ab:theme", "nuit");
+    oublierLaCoque();
+    expect(localStorage.getItem("nel3ab:theme")).toBe("nuit");
+  });
+});
 
 describe("le choix retenu", () => {
   beforeEach(() => localStorage.clear());
-
-  it("rend ce qui a été retenu quand ça existe encore", () => {
-    localStorage.setItem("nel3ab:shell", "wii");
-    expect(storedShell()).toBe("wii");
-  });
-
-  /** Le cas réel: le menu Xbox 360 a existé et a été retiré. Quelqu'un qui
-   * l'avait choisi garde son nom dans le navigateur, et rendre ce nom-là
-   * donnerait une salle sans menu — un écran vide, sans erreur nulle part. */
-  it("retombe sur un menu qui existe quand celui d'avant a disparu", () => {
-    localStorage.setItem("nel3ab:shell", "xbox360");
-    const found = storedShell();
-    expect(SHELLS.some((choice) => choice.id === found)).toBe(true);
-  });
-
-  it("retombe aussi sur n'importe quoi d'autre", () => {
-    // Le jumeau: un stockage bricolé à la main ne doit pas casser la page non
-    // plus, et c'est la même ligne de code qui répond.
-    localStorage.setItem("nel3ab:shell", "n'importe quoi");
-    expect(SHELLS.some((choice) => choice.id === storedShell())).toBe(true);
-  });
-
-  it("rend un menu valide quand rien n'a jamais été retenu", () => {
-    expect(SHELLS.some((choice) => choice.id === storedShell())).toBe(true);
-  });
 
   it("applique la même règle aux ambiances", () => {
     localStorage.setItem("nel3ab:theme", "une ambiance qui n'existe pas");

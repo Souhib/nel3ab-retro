@@ -390,11 +390,16 @@ export type Relance = NonNullable<Extract<Liaison, { etat: "demarrage" }>["relan
 
 /** Ce que la ligne parlée dit d'un démarrage, demandé par le chantier menus
  * (C1a, C5, C9) : le nom du jeu, la lenteur au seuil, puis l'échec et qui peut
- * relancer. Jamais « d'habitude » : aucune habitude n'est mesurée (C5). */
+ * relancer. « d'habitude » seulement quand le salon a mesuré l'habitude du
+ * jeu (C5, D05) ; sinon le seuil que l'écran a franchi (`seuilLong`), vingt
+ * secondes sans mesure. Réuni à la fusion de menus (vague B2) : les deux
+ * chantiers avaient écrit cette phrase, la forme est celle des états et la
+ * mesure celle des menus. */
 export function phraseDemarrage(
   attente: "long" | "echec" | undefined,
   jeu: string | null = null,
   relance: Relance = null,
+  mesure: { habitude: boolean; seuilS: number | null } = { habitude: false, seuilS: null },
 ): string {
   const nom = jeu ?? "Le jeu";
   if (attente === "echec") {
@@ -403,7 +408,10 @@ export function phraseDemarrage(
     if (relance !== null) return `${aucune} ${relance.nom} peut le relancer.`;
     return aucune;
   }
-  if (attente === "long") return `${nom} démarre encore, depuis ${ATTENTE_LONGUE_S} s.`;
+  if (attente === "long")
+    return mesure.habitude
+      ? `${nom} met plus longtemps que d'habitude.`
+      : `${nom} démarre encore, depuis ${mesure.seuilS ?? ATTENTE_LONGUE_S} s.`;
   return `${nom} démarre.`;
 }
 
@@ -442,7 +450,10 @@ function parlee(liaison: Liaison, salle: number): string {
     case "demarrage":
       // Ce que l'écran de chargement montre, dit aussi pour qui ne le voit
       // pas (audit A11Y-07) : la lenteur, puis l'échec et sa sortie.
-      return phraseDemarrage(liaison.attente, liaison.jeu ?? null, liaison.relance ?? null);
+      return phraseDemarrage(liaison.attente, liaison.jeu ?? null, liaison.relance ?? null, {
+        habitude: liaison.habitude ?? false,
+        seuilS: liaison.seuilS ?? null,
+      });
     case "arrivee":
       if (liaison.perdue)
         return liaison.salleRepond

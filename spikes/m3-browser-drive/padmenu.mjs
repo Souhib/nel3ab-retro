@@ -127,7 +127,9 @@ await wait(800);
 
 const seen = () => clavier.evaluate(() => {
   const ids = [...document.querySelectorAll('#menu [id^="item-"]')].map((el) => el.id);
-  const here = document.querySelector('#menu [data-selected="true"][id^="item-"]')?.id ?? "";
+  // Depuis le menu unique (24 novembre 2026), le curseur EST le focus (M4) :
+  // la ligne choisie est celle qui l'a, plus un data-selected.
+  const here = document.activeElement?.closest('#menu [id^="item-"]')?.id ?? "";
   return ids.indexOf(here);
 });
 
@@ -146,34 +148,11 @@ await wait(500);
 const backUp = await seen();
 say(backUp === 1, `et la flèche haut revient d'un cran (${twoDown} → ${backUp})`);
 
-// ── Changer de console depuis N'IMPORTE quelle console ───────────────────
-//
-// Le défaut: en mode rangée, gauche et droite parcourent la file, donc pousser à
-// droite sur « menu » changeait de page au lieu de changer de menu. Un réglage
-// doit se régler pareil partout, et « A » est partout.
-for (const from of ["switch", "wii", "taverne"]) {
-  await clavier.evaluate((id) => localStorage.setItem("nel3ab:shell", id), from);
-  await clavier.reload({ waitUntil: "domcontentloaded" });
-  await enterRoom(clavier);
-  await wait(5000);
-  await clavier.evaluate(() => document.getElementById("openMenu")?.click());
-  await wait(700);
-  await clavier.evaluate(() => document.getElementById("ray-reglages")?.click());
-  await wait(500);
-  // « A » ouvre le sélecteur des consoles, et on désigne une console PRÉCISE.
-  //
-  // Précise et non « la suivante »: une liste ne boucle pas, donc partir de la
-  // dernière et pousser vers le bas ne va nulle part. Un pilote qui suppose le
-  // contraire échoue sur une seule des quatre, ce qui ressemble à un défaut et
-  // n'en est pas un.
-  const wanted = from === "ps3" ? "wii" : "ps3";
-  await clavier.evaluate(() => document.getElementById("item-shell")?.click());
-  await wait(600);
-  await clavier.evaluate((id) => document.getElementById(`pick-${id}`)?.click(), wanted);
-  await wait(700);
-  const now = await clavier.evaluate(() => localStorage.getItem("nel3ab:shell"));
-  say(now === wanted, `depuis ${from}, le sélecteur mène à ${wanted} (→ ${now})`);
-}
+// « Changer de console depuis n'importe quelle console » est retiré le
+// 24 novembre 2026 avec les trois menus (XMB, chaînes Wii, accueil Switch),
+// la clé nel3ab:shell et la ligne #item-shell : il n'y a plus qu'un menu.
+// Ce pilote vise une salle vivante (K40) : il n'est pas lancé par les
+// chantiers, seuls ses sélecteurs suivent la page.
 
 console.log(bad === 0 ? "PASS — la manette conduit le menu, et une touche vaut un cran" : `FAIL — ${bad} écart(s)`);
 await browser.close();

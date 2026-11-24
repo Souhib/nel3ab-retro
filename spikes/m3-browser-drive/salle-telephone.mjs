@@ -117,7 +117,7 @@ const BUILT = resolve(
 const OUT = resolve(args.find((one, i) => !one.startsWith("--") && args[i - 1] !== "--page") ?? join(tmpdir(), "salle-telephone"));
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
-// SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,
+// SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,menu-etroit,
 // manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court,
 // arrivee-telephone,pastille.
 const SEUL = process.env.SEUL?.split(",") ?? null;
@@ -804,27 +804,42 @@ try {
               await sleep(300);
             }
             // Le menu du jeu, depuis la feuille, puis retour à la feuille.
-            if (name === "gc") {
+            // L'image 16:9 aussi (x360) : couchée, elle ne laisse aucune
+            // bande lisible, et le menu la couvrait (relecture du
+            // 24 novembre 2026).
+            if (name === "gc" || name === "x360") {
               await tap(page, '[data-entree="menu"]');
-              if (!(await attendre(page, () => document.querySelector("#menu")?.open === true)))
+              // Depuis le menu unique (24 novembre 2026), le menu n'est plus
+              // un dialogue plein cadre : une section posée hors de l'image,
+              // sous elle tenu droit, à côté couché (ADR D30 amendé).
+              if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
                 bad.push("« Menu du jeu » n'ouvre pas le menu");
               else {
                 await sleep(300);
                 await page.screenshot({ path: join(OUT, `menu-${name}-${size}.png`) });
                 if (await page.$("#feuilleSalle")) bad.push("la feuille reste ouverte sous le menu");
-                // Le fond du menu va jusqu'aux bords : posé dans la zone sûre,
-                // il laissait une bande de fond uni sous l'encoche.
-                const fond = await page.evaluate(() => {
-                  const r = document
-                    .querySelector("#menu .pointer-events-none.absolute.inset-0.overflow-hidden")
-                    ?.getBoundingClientRect();
-                  return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+                const lu = await page.evaluate(() => {
+                  const m = document.querySelector("#menu").getBoundingClientRect();
+                  const t = document.querySelector("#screen canvas")?.getBoundingClientRect();
+                  const s = document.querySelector("#closeMenu")?.getBoundingClientRect();
+                  const w = t ? Math.min(m.right, t.right) - Math.max(m.left, t.left) : 0;
+                  const h = t ? Math.min(m.bottom, t.bottom) - Math.max(m.top, t.top) : 0;
+                  const zone = document.querySelector("[data-zone-jeu]");
+                  return {
+                    coupe: w > 0.5 && h > 0.5 ? Math.round(w * h) : 0,
+                    cachee: zone ? getComputedStyle(zone).visibility === "hidden" : false,
+                    lieu: document.querySelector("#menu").dataset.lieu,
+                    sortie: s ? Math.round(s.height) : 0,
+                    touch: getComputedStyle(document.querySelector("#menu")).touchAction,
+                  };
                 });
-                if (!fond) bad.push("le fond du menu est absent");
-                else if (fond.left > 0.5 || fond.top > 0.5 || fond.right < width - 0.5 || fond.bottom < height - 0.5)
-                  bad.push(
-                    `le fond du menu s'arrête à [${Math.round(fond.left)}, ${Math.round(fond.top)}, ${Math.round(fond.right)}, ${Math.round(fond.bottom)}] dans ${width}x${height}`,
-                  );
+                // Rien sur une image qu'on voit : à côté d'elle, ou à la place
+                // de l'écran quand aucune bande ne se lit, l'image cachée le
+                // temps du menu (`placeDuMenu`, lieu « ecran »).
+                if (lu.coupe > 0 && !lu.cachee) bad.push(`le menu couvre ${lu.coupe} px² de l'image visible`);
+                if (lu.cachee && lu.lieu !== "ecran") bad.push(`l'image est cachée sous un menu posé ${lu.lieu}`);
+                if (lu.sortie < 44) bad.push(`la sortie du menu fait ${lu.sortie} px de haut`);
+                if (lu.touch === "none") bad.push("le menu bloque le défilement au doigt (touch-action: none)");
                 await page.evaluate(() => document.querySelector("#closeMenu")?.click());
                 await attendre(page, () => document.querySelector("#menu") === null);
               }
@@ -1254,26 +1269,12 @@ try {
     await page.close();
   }
 
-  // La préparation en paysage (M11) : elle garde ses dialogues, avec le
-  // réglage d'avant dedans, tant que le chantier des menus ne l'a pas sortie
-  // dans la colonne. Hors préparation, le réglage est le panneau, mesuré
-  // plus bas.
-  const PANNEAUX = {
-    preparation: {
-      url: "bindings-preview.html?preparation",
-      dialog: ".n3-bindings",
-      header: ".n3-bindings-header",
-      content: ".n3-bindings-scroll",
-      close: null,
-    },
-    "pro-preparation": {
-      url: "bindings-preview.html?pro=x360&preparation",
-      dialog: ".n3-switch-setup",
-      header: ".n3-switch-setup > header",
-      content: ".n3-switch-body",
-      close: null,
-    },
-  };
+  // La préparation à plusieurs (chantier menus, P1, P2, P8, 24 novembre
+  // 2026) : un bloc de la colonne, dans la feuille agrandie d'une salle
+  // tenue en main. Il n'est plus un dialogue plein écran. Au téléphone comme
+  // en paysage : la page ne défile pas en largeur, chaque bouton et chaque
+  // choix fait 44 px au moins, et le geste principal se voit sans défiler
+  // (la rangée des gestes colle au bas de la colonne).
   for (const [width, height] of part("touches")
     ? [
         [844, 390],
@@ -1281,44 +1282,34 @@ try {
         [390, 844],
       ]
     : []) {
-    for (const [nom, panneau] of Object.entries(PANNEAUX)) {
-      // Tenu droit, les dialogues de préparation prennent déjà tout l'écran
-      // par leur propre règle.
-      if (height > width) continue;
-      const { page, errors } = await ouvrir({ width, height, url: `${BASE}/${panneau.url}` });
+    for (const [nom, suffixe] of [
+      ["preparation", ""],
+      ["pro-preparation", "&pro=x360"],
+    ]) {
+      const { page, errors, zone } = await ouvrir({ width, height, url: `${BASE}/bindings-preview.html?preparation${suffixe}` });
       const bad = [];
       try {
-        await page.waitForSelector(`${panneau.dialog}[open]`, { timeout: 20000 });
-        await sleep(700);
+        await page.waitForSelector("#preparation", { timeout: 20000 });
+        await sleep(500);
         await page.screenshot({ path: join(OUT, `${nom}-${width}x${height}.png`) });
-        const m = await page.evaluate((panneau) => {
-          // Un objet simple : un DOMRect revient vide de `evaluate`, ses
-          // champs vivent sur son prototype.
-          const box = (s) => {
-            const r = s ? document.querySelector(s)?.getBoundingClientRect() : null;
-            return r ? { width: r.width, height: r.height } : null;
-          };
-          return {
-            dialog: box(panneau.dialog),
-            header: box(panneau.header),
-            content: box(panneau.content),
-            close: box(panneau.close),
-          };
-        }, panneau);
-        if (!m.dialog || m.dialog.height < height - 1)
-          bad.push(`le panneau fait ${Math.round(m.dialog?.height ?? 0)} px de haut sur ${height}`);
-        if (!m.dialog || m.dialog.width < width - 1)
-          bad.push(`le panneau fait ${Math.round(m.dialog?.width ?? 0)} px de large sur ${width}`);
-        if (!m.header) bad.push(`${panneau.header} est absent`);
-        else if (m.header.height > height * 0.3) bad.push(`l'en-tête prend ${Math.round(m.header.height)} px sur ${height}`);
-        if (!m.content || m.content.height < height * 0.4) bad.push(`le contenu n'a que ${Math.round(m.content?.height ?? 0)} px de haut`);
-        if (panneau.close && (!m.close || Math.min(m.close.width, m.close.height) < FLOOR - 0.5))
-          bad.push(`fermer mesure ${Math.round(m.close?.width ?? 0)}x${Math.round(m.close?.height ?? 0)} px`);
+        if (await page.$("dialog[open]")) bad.push("un dialogue est ouvert pendant la préparation");
+        bad.push(...(await page.evaluate(etat)));
+        bad.push(...dansLaZone("#launchPrepared", await page.evaluate(boite, "#launchPrepared"), zone, width, height));
+        const petits = await page.evaluate((floor) =>
+          [...document.querySelectorAll("#preparation :is(button, label)")]
+            .map((el) => [el, el.getBoundingClientRect()])
+            .filter(([, r]) => r.width > 0 && Math.min(r.width, r.height) < floor - 0.5)
+            .map(([el, r]) => `${el.id || el.textContent.trim().slice(0, 24)} mesure ${Math.round(r.width)}x${Math.round(r.height)} px`),
+        FLOOR);
+        bad.push(...petits);
+        // Rien à mesurer ne prouve rien : un bloc sans gestes passerait.
+        const gestes = await page.evaluate(() => document.querySelectorAll("#preparation button").length);
+        if (gestes < 3) bad.push(`le bloc n'a que ${gestes} boutons`);
       } catch (error) {
-        bad.push(`le panneau ne s'ouvre pas : ${error.message}`);
+        bad.push(`la préparation ne se montre pas : ${error.message}`);
       }
       bad.push(...errors.map((e) => `erreur de page : ${e}`));
-      say(bad.length === 0, `réglage « ${nom} » ${width}x${height}`, bad);
+      say(bad.length === 0, `préparation « ${nom} » ${width}x${height}`, bad);
       await page.close();
     }
   }
@@ -1525,12 +1516,89 @@ try {
   // 14. Ctrl seule. Tenue en main (une tablette au clavier), sous le menu
   // puis sous la feuille à mi-hauteur : la feuille agrandie s'ouvre SEULE.
   // Deux dialogues modaux empilés rendaient le bouton « menu » sans effet.
+  // M11 (chantier menus) : à 320, 375 et 390 px de large, au niveau « tout »
+  // (texte en pixels, icônes au-dessus du mot), les quatre onglets du menu
+  // tiennent sans défilement de côté ni mot coupé, et le menu laisse
+  // défiler au doigt. Le jumeau force quatre onglets par rang : à 320 px,
+  // un mot doit sortir de son onglet, sans quoi la mesure ne voit rien.
+  if (part("menu-etroit")) {
+    const lire = (page) =>
+      page.evaluate(() => {
+        const liste = document.querySelector("#menu [role=tablist]");
+        const onglets = [...document.querySelectorAll("#menu [role=tab]")];
+        return {
+          niveau: document.documentElement.dataset.effets ?? null,
+          police: onglets[0] ? getComputedStyle(onglets[0]).fontFamily : "",
+          liste: liste ? { large: liste.scrollWidth, vue: liste.clientWidth } : null,
+          coupes: onglets.filter((o) => o.scrollWidth > o.clientWidth + 1).map((o) => o.textContent.trim()),
+          bas: onglets.map((o) => Math.round(o.getBoundingClientRect().height)),
+          doigt: getComputedStyle(document.querySelector("#menu")).touchAction,
+          page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+    const ouvrirLeMenu = async (page) => {
+      await page.waitForSelector(OPENER, { timeout: 20000 });
+      await sleep(600);
+      await tap(page, OPENER);
+      await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
+      await sleep(300);
+      await tap(page, '[data-entree="menu"]');
+      return attendre(page, () => document.querySelector("#menu [role=tab]") !== null);
+    };
+    for (const [width, height] of [
+      [320, 568],
+      [375, 667],
+      [390, 844],
+    ]) {
+      const what = `menu à ${width}x${height}, effets tout : quatre onglets entiers, rien de côté`;
+      const { page, errors } = await ouvrir({
+        width,
+        height,
+        url: `${BASE}/r/1/?entrer=jouer`,
+        stockage: effetsAuNiveau("tout"),
+      });
+      const bad = [];
+      try {
+        if (!(await ouvrirLeMenu(page))) bad.push("« Menu du jeu » n'ouvre pas le menu");
+        else {
+          await sleep(300);
+          await page.screenshot({ path: join(OUT, `menu-tout-${width}x${height}.png`) });
+          const lu = await lire(page);
+          if (lu.niveau !== "tout" || !lu.police.startsWith('"Pixelify Sans"'))
+            bad.push(`précondition : niveau ${lu.niveau}, police des onglets ${lu.police}`);
+          if (!lu.liste) bad.push("le menu n'a pas de liste d'onglets");
+          else if (lu.liste.large > lu.liste.vue + 1)
+            bad.push(`les onglets défilent de côté (${lu.liste.large} px pour ${lu.liste.vue})`);
+          if (lu.coupes.length > 0) bad.push(`mot coupé dans ${lu.coupes.join(", ")}`);
+          if (lu.bas.some((h) => h < 44)) bad.push(`un onglet fait moins de 44 px de haut (${lu.bas.join(", ")})`);
+          if (lu.doigt === "none") bad.push("le menu bloque le défilement au doigt (touch-action: none)");
+          if (lu.page > 0) bad.push(`la page défile de côté de ${lu.page} px`);
+          // Le jumeau, à 320 px seulement : quatre onglets par rang.
+          if (width === 320) {
+            await page.addStyleTag({
+              content: ".n3-menu-onglets { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }",
+            });
+            await sleep(200);
+            const casse = await lire(page);
+            if (casse.coupes.length === 0 && casse.liste?.large <= casse.liste?.vue + 1)
+              bad.push("jumeau : quatre onglets par rang à 320 px, et la mesure ne voit aucun mot coupé");
+          }
+        }
+        if (errors.length > 0) bad.push(...errors.map((e) => `erreur de page : ${e}`));
+      } finally {
+        await page.close();
+      }
+      say(bad.length === 0, what, bad);
+    }
+  }
+
   // Étroite à la souris : la colonne est sous l'image, sans feuille, et Ctrl
   // agrandit l'image puis la rend.
   if (part("ctrl")) {
     const ouverts = (page) =>
       page.evaluate(() =>
-        [...document.querySelectorAll("dialog[open]")]
+        // Le menu n'est plus un dialogue (D30 amendé) : il compte quand même.
+        [...document.querySelectorAll("dialog[open], section#menu")]
           .map((d) => (d.dataset.hauteur ? `${d.id}:${d.dataset.hauteur}` : d.id))
           .join(", "),
       );
@@ -1546,7 +1614,7 @@ try {
         await page.waitForSelector("#laSalle", { timeout: 20000 });
         await sleep(700);
         await page.keyboard.press("Escape");
-        if (!(await attendre(page, () => document.querySelector("#menu")?.open === true))) bad.push("Échap n'ouvre pas le menu");
+        if (!(await attendre(page, () => document.querySelector("#menu") !== null))) bad.push("Échap n'ouvre pas le menu");
         await sleep(400);
         await ctrl(page);
         const sousMenu = await ouverts(page);

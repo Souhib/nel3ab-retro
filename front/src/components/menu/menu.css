@@ -1,0 +1,376 @@
+/* Le menu unique de la salle (chantier menus, 24 novembre 2026).
+ *
+ * Aucune couleur écrite ici : chaque teinte vient d'un jeton de `regie.css`.
+ * Le menu n'a ni dégradé ni décor animé (M12, M13) : il se pose à côté de
+ * l'image vivante, et un fond qui bouge tirerait l'oeil hors du jeu. */
+
+.n3-menu-unique {
+  /* L'anneau de focus du socle (3 px, décalé de 2 px) se dessine HORS de
+     l'élément, et #menu, qui défile, coupe ce qui dépasse de sa boîte : une
+     ligne pleine largeur ne gardait que ses traits du haut et du bas, 5 px
+     coupés de chaque côté (relecture du 24 novembre 2026). Le menu réserve
+     cette place sur ses bords, et le défilement la garde en haut. */
+  --menu-marge: calc(var(--focus-largeur) + 2px);
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding: var(--menu-marge);
+  scroll-padding-top: var(--menu-marge);
+  /* Le focus qui défile garde sa place au-dessus de la barre « Lancer »
+     collée au bas d'une fiche (M4, M15). */
+  scroll-padding-bottom: 7rem;
+  color: var(--encre);
+  touch-action: auto;
+}
+
+/* Tenu en main : posé en absolu sur la place que `placeDuMenu` calcule, hors
+   de l'image. Au-dessus de la manette à l'écran, dont la place reste
+   réservée sous lui. */
+.n3-menu-pose {
+  --menu-marge: 0.75rem;
+  position: fixed;
+  z-index: 30;
+  padding: var(--menu-marge);
+  background: var(--panel);
+  border-top: 1px solid var(--filet);
+}
+
+/* Sur l'écran d'un téléphone couché (`placeDuMenu`, lieu « ecran ») : la zone
+   de jeu est cachée sous le menu, pas modifiée ; elle garde sa taille et la
+   boucle média peint dessous. */
+[data-zone-jeu][data-image-sous-menu] {
+  visibility: hidden;
+}
+
+.n3-menu-tete {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.n3-menu-sortie {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.75rem;
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  color: var(--encre);
+}
+
+.n3-menu-phrase,
+.n3-menu-ligne-aide {
+  font-family: var(--police-texte);
+  font-size: var(--text-note);
+  line-height: 1.4;
+  color: var(--legende);
+}
+
+/* Les quatre onglets tiennent dans 320 px, en Pixelify Sans comme au niveau
+   « tout » (M11) : deux par rang dans une colonne étroite, quatre dès que le
+   menu a la place, jamais un défilement horizontal ni un mot coupé. L'écart
+   entre deux colonnes laisse sa place au ▶ du socle, posé devant l'onglet
+   qui a le focus. */
+.n3-menu-unique {
+  container-type: inline-size;
+}
+.n3-menu-onglets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 1.25rem;
+  padding-left: 1rem;
+  border-bottom: 1px solid var(--filet);
+}
+@container (min-width: 22rem) {
+  .n3-menu-onglets {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.n3-menu-onglet {
+  min-height: 2.75rem;
+  padding: 0.25rem 0.125rem;
+  border-bottom: 3px solid transparent;
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  color: var(--legende);
+  text-align: center;
+  white-space: nowrap;
+}
+.n3-menu-onglet[aria-selected="true"] {
+  border-bottom-color: var(--signal);
+  color: var(--encre);
+}
+.n3-menu-onglet:hover {
+  color: var(--encre);
+}
+/* L'icône d'une rubrique (M14) ne prend sa place qu'au niveau qui montre
+   les icônes : sans lui, une case vide de 16 px décalait chaque mot. Elle
+   se pose AU-DESSUS du mot : à côté, « Réglages » sortait de 4 px d'un
+   téléphone de 390 px (focus.mjs, une-seule-forme). */
+.n3-menu-onglet .n3-rang-icone {
+  display: none;
+}
+.fx-icones .n3-menu-onglet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+}
+.fx-icones .n3-menu-onglet .n3-rang-icone {
+  display: inline-flex;
+}
+
+.n3-menu-panneau {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.n3-menu-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.n3-menu-titre {
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+
+/* Une ligne : pleine largeur, son libellé et sa valeur sur une rangée, son
+   aide dessous, toujours visible (M8). Rien ne change de hauteur quand le
+   focus bouge : le fond et l'anneau seulement. */
+.n3-menu-ligne {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  border: 1px solid var(--filet);
+  padding: 0.375rem 0.625rem;
+  text-align: left;
+  font-size: var(--text-corps);
+  color: var(--encre);
+}
+.n3-menu-ligne[data-selected="true"] {
+  border-color: var(--trait);
+  background: var(--survol);
+}
+.n3-menu-ligne-bouton:hover {
+  border-color: var(--trait);
+}
+.n3-menu-ligne[aria-disabled="true"] .n3-menu-ligne-libelle {
+  color: var(--legende);
+}
+
+.n3-menu-ligne-tete {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0;
+}
+.n3-menu-ligne-libelle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.n3-menu-ligne-valeur {
+  flex-shrink: 0;
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+
+/* Les pastilles d'un choix, côte à côte sur leur ligne (M7a) : le point
+   coché est un carré plein, les autres un carré vide. */
+.n3-menu-pastilles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
+/* Le bouton radio caché est posé en absolu DANS sa pastille. Sans
+   `position: relative` ici, son bloc conteneur était la colonne : chaque
+   radio du menu gardait sa place statique hors de la zone qui défile,
+   jusqu'à 1 424 px plus bas, et la colonne défilait dans ce vide en
+   remontant le coin d'Aïn sur les lignes (parcours.mjs, garde-focus,
+   24 novembre 2026). */
+.n3-menu-pastille {
+  position: relative;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: pointer;
+}
+/* 44 px au doigt pour chaque pastille. */
+@media (pointer: coarse) {
+  .n3-menu-pastille {
+    min-height: 2.75rem;
+  }
+}
+.n3-menu-pastille input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.n3-menu-point {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+  border: 2px solid var(--trait);
+}
+.n3-menu-point::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--encre);
+  opacity: 0;
+}
+.n3-menu-pastille input:checked + .n3-menu-point::after {
+  opacity: 1;
+}
+.n3-menu-pastille input:focus-visible + .n3-menu-point {
+  outline: var(--focus-largeur) solid var(--focus);
+  outline-offset: 2px;
+}
+
+.n3-menu-glissiere {
+  width: 100%;
+  accent-color: var(--signal);
+}
+
+/* La fiche : la conséquence et ses boutons forment une barre collée au bas
+   de la zone qui défile (M15). */
+.n3-menu-fiche {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.n3-menu-fiche-choix {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.n3-menu-fiche-barre {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-block: 0.5rem;
+  background: var(--panel);
+}
+.n3-menu-fiche-consequence {
+  font-size: var(--text-corps);
+}
+.n3-menu-fiche-boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.n3-menu-fiche-agir,
+.n3-menu-fiche-revenir {
+  display: flex;
+  min-height: 2.75rem;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.75rem;
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+}
+
+.n3-menu-avis {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* « Plus bas » (M11) : #menu défile dans sa propre boîte, et le repère de la
+   colonne ne voyait pas ce défilement (relecture du 24 novembre 2026 : au
+   bureau, huit lignes de Réglages sous le bord, sans repère). Le même
+   repère que la colonne (`.n3-plus-bas` de cadre.css), collé au bas de ce
+   qui se voit du menu, d'un bord à l'autre. */
+.n3-menu-unique > .n3-menu-plus-bas {
+  /* Collé au bord de la boîte, pas au bord de sa marge : la marge de 5 px
+     laissait voir une ligne sous lui. */
+  bottom: calc(-1 * var(--menu-marge));
+  margin-inline: calc(-1 * var(--menu-marge));
+  font-family: var(--police-titre);
+}
+
+.n3-menu-pied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.75rem;
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+
+/* Le fondu par paliers du socle : 120 ms, quatre paliers d'opacité, à
+   l'ouverture d'une rubrique ou d'une fiche (M12). Rien d'autre ne bouge. */
+@keyframes n3-menu-fondu {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fx-fondu .n3-menu-panneau {
+  animation: n3-menu-fondu 120ms steps(4, end) both;
+}
+/* Au seul niveau « tout », la rubrique défile en entrant. */
+@keyframes n3-menu-defile {
+  from {
+    transform: translateX(1.5rem);
+  }
+  to {
+    transform: none;
+  }
+}
+.fx-defile .n3-menu-panneau {
+  animation:
+    n3-menu-fondu 120ms steps(4, end) both,
+    n3-menu-defile 120ms steps(4, end) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-fondu .n3-menu-panneau,
+  .fx-defile .n3-menu-panneau {
+    animation: none;
+  }
+}
+
+/* La tête d'une rubrique (« [Nour] choisit le jeu. », M10) et une ligne
+   qui porte le composant d'un autre chantier (Signaler, K25). */
+.n3-menu-tete-rubrique {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0 0.5rem;
+  font-size: var(--text-corps);
+}
+.n3-menu-ligne-composant {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}

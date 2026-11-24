@@ -67,6 +67,10 @@ const DEPART = {
   // manette : 1, ou 0 pour un spectateur. Ajouté pour « Je reste », qu'un
   // spectateur n'a pas (D16).
   place: 1,
+  // Le refus que le salon renvoie à chaque demande de la page (le texte de
+  // son `error`), ou nul : tout est accepté. Ajouté pour voir un refus
+  // s'écrire dans le bloc du menu (focus.mjs, refus-dans-le-bloc).
+  refus: null,
 };
 
 export async function demarrerBanc({ port, page, flux }) {
@@ -318,7 +322,12 @@ export async function demarrerBanc({ port, page, flux }) {
         ws.send(`42["room",${JSON.stringify(room())}]`);
       }
       const ack = /^42(\d+)\[/.exec(text);
-      if (ack) ws.send(`43${ack[1]}[{"ok":true,"port":null,"claim":null}]`);
+      if (ack)
+        ws.send(
+          state.refus === null
+            ? `43${ack[1]}[{"ok":true,"port":null,"claim":null}]`
+            : `43${ack[1]}[${JSON.stringify({ ok: false, error: state.refus, port: null, claim: null })}]`,
+        );
     });
     ws.on("close", () => {
       clearInterval(ping);

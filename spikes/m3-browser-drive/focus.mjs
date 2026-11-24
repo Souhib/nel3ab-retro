@@ -34,6 +34,13 @@
 //
 //   node focus.mjs --page <index.html> --flux <flux.h264> [--port 5481]
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
+//        [--flux-large <flux 16:9>] [--port-large 5480]
+//
+// `--flux-large` sert une image 16:9 sur un second banc (`--port-large`, le
+// port d'avant par défaut ; le suivant, 5482, est celui de reglage.mjs). Un
+// banc ne sert qu'un flux, et un téléphone couché ne pose pas le menu au même
+// endroit pour une image 4:3 et 16:9 (menu-en-colonne, relecture du
+// 24 novembre 2026).
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
@@ -68,6 +75,11 @@ const START_DOLPHIN = 1 << 7;
 const PLUS_SWITCH = 1 << 9;
 
 const banc = await demarrerBanc({ port: PORT, page: PAGE, flux: FLUX });
+const FLUX_LARGE = option("flux-large");
+const PORT_LARGE = Number(option("port-large", String(PORT - 1)));
+/** Le second banc, à l'image 16:9, démarré par la première étape qui le
+ * demande. */
+let bancLarge = null;
 const empreinte = createHash("sha256").update(readFileSync(PAGE)).digest("hex");
 const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url, { headers: { "accept-encoding": "identity" } })).arrayBuffer()))
@@ -280,6 +292,78 @@ async function centre(page, selecteur) {
   return r;
 }
 
+/** Une page sur le banc 16:9 (une Xbox 360, sa manette Pro), entrée et
+ * peinte : 30 images au moins. */
+async function nouvelleLarge(vue) {
+  if (!FLUX_LARGE) throw new Precondition("pas de flux 16:9 (--flux-large)");
+  bancLarge ??= await demarrerBanc({ port: PORT_LARGE, page: PAGE, flux: FLUX_LARGE });
+  bancLarge.reinitialiser();
+  bancLarge.regler({ console: "x360", format: "switch" });
+  const page = await browser.newPage();
+  await page.setViewport(vue);
+  await page.evaluateOnNewDocument(() => {
+    try {
+      if (!sessionStorage.getItem("banc-focus")) {
+        localStorage.clear();
+        sessionStorage.setItem("banc-focus", "1");
+      }
+      localStorage.setItem("nel3ab:name", "banc");
+      localStorage.setItem("nel3ab:banc", "1");
+      localStorage.setItem("nel3ab:aide-clavier", "vue");
+    } catch {}
+  });
+  page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
+  await page.goto(bancLarge.url, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#enter", { timeout: 15000 });
+  await page.click("#enter");
+  const debut = Date.now();
+  while ((await peintes(page)) < 30) {
+    if (Date.now() - debut > 20000) throw new Precondition("la page 16:9 n'a pas peint 30 images en 20 s");
+    await sleep(100);
+  }
+  return page;
+}
+
+/** Ce que le menu ouvert couvre : l'image VISIBLE (la zone cachée ne compte
+ * pas), « La salle », et ce qui reçoit le doigt sur la partie visible de ses
+ * lignes. `elementFromPoint` et non les boîtes : une boîte ne dit pas qui
+ * est dessus. */
+const couvertureDuMenu = (page) =>
+  page.evaluate(() => {
+    const m = document.querySelector("#menu");
+    const mb = m.getBoundingClientRect();
+    const zone = document.querySelector("[data-zone-jeu]");
+    const c = zone.querySelector("canvas").getBoundingClientRect();
+    const coupe = (a, b) =>
+      Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+      Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const cachee = getComputedStyle(zone).visibility === "hidden";
+    const bouton = document.querySelector("#laSalleCote, #laSalle");
+    const dessus = [];
+    for (const el of m.querySelectorAll("[id^=item-], [role=tab], #closeMenu")) {
+      const r = el.getBoundingClientRect();
+      for (let fx = 0.05; fx < 1; fx += 0.15)
+        for (let fy = 0.2; fy < 1; fy += 0.3) {
+          const x = r.x + r.width * fx;
+          const y = r.y + r.height * fy;
+          // La partie visible seulement : une ligne qui a défilé sous le bord
+          // du menu n'est pas couverte, elle est cachée par lui.
+          if (x <= mb.left || x >= mb.right || y <= mb.top || y >= mb.bottom) continue;
+          const t = document.elementFromPoint(x, y);
+          if (t && !m.contains(t) && !t.closest(".rt-curseur"))
+            dessus.push(`${el.id || el.getAttribute("role")} <- ${t.closest("[id]")?.id ?? t.className}`);
+        }
+    }
+    return {
+      lieu: m.dataset.lieu,
+      cachee,
+      surImage: cachee ? 0 : Math.round(coupe(mb, c)),
+      part: cachee ? 0 : +(coupe(mb, c) / (c.width * c.height)).toFixed(3),
+      surBouton: bouton ? Math.round(coupe(mb, bouton.getBoundingClientRect())) : null,
+      dessus: [...new Set(dessus)],
+    };
+  });
+
 const ETAPES = {
   /** A11Y-01: Entrée sur un bouton de la colonne active CE bouton, et la salle
    * ne reçoit pas START. */
@@ -382,78 +466,167 @@ const ETAPES = {
   },
 
   /** A11Y-02: dans le menu, Entrée et Espace sur le bouton qui a le focus
-   * activent CE bouton, pas l'entrée sous le curseur. */
+   * activent CE bouton, pas la ligne sous le curseur. Depuis le menu unique
+   * (24 novembre 2026), la ligne choisie d'abord est un jeu, qui ouvre sa
+   * fiche : Entrée sur « Reprendre la partie » ferme le menu sans l'ouvrir. */
   async "menu-entree-focus"() {
     for (const touche of ["Enter", "Space"]) {
       const page = await nouvelle(PC);
       await entrer(page);
       await ouvrirMenu(page);
-      if ((await page.$("#item-shelf-gc")) === null) throw new Precondition("pas de dossier GameCube dans « jeux »");
-      const selon = await page.$eval("#item-shelf-gc", (el) => el.getAttribute("data-selected"));
-      if (selon !== "true") {
-        // Le curseur sur le dossier GameCube, comme dans le relevé de l'audit.
-        await page.keyboard.press("ArrowDown");
-        await sleep(200);
-      }
+      const jeu = await choisie(page);
+      if (jeu === null || !jeu.startsWith("item-game")) throw new Precondition(`la ligne choisie n'est pas un jeu (${jeu})`);
       await page.focus("#closeMenu");
       await page.keyboard.press(touche);
       await sleep(400);
-      if (await page.evaluate(() => document.querySelector("[id^=item-game]") !== null))
-        throw new Defaut(`${touche} sur « reprendre » a ouvert le dossier sous le curseur`);
+      if (await page.evaluate(() => document.querySelector("#fiche, [id^=item-shelf]") !== null))
+        throw new Defaut(`${touche} sur « reprendre » a ouvert la ligne sous le curseur`);
       if (await menuOuvert(page)) throw new Defaut(`${touche} sur « reprendre » n'a pas fermé le menu`);
       await page.close();
     }
   },
 
-  /** Le jumeau: Entrée sur l'entrée choisie l'active, au clavier seul. */
+  /** Le jumeau (M4): Entrée sur la ligne d'un jeu l'active, au clavier seul,
+   * ouvre sa fiche et met le focus sur la sauvegarde cochée. */
   async "menu-entree-curseur"() {
     const page = await nouvelle(PC);
     await entrer(page);
     await ouvrirMenu(page);
-    // Le curseur sur le dossier GameCube, par les flèches.
-    for (let i = 0; i < 3 && (await page.$eval("#item-shelf-gc", (el) => el.dataset.selected)) !== "true"; i += 1) {
+    // Le jeu GameCube du banc a des sauvegardes : sa ligne ouvre une fiche.
+    // Elle reste grisée tant que la page n'a pas lu /saves.
+    if ((await page.$("#item-game1")) === null) throw new Precondition("pas de ligne pour le jeu GameCube");
+    if (!(await attendre(page, () => document.querySelector("#item-game1")?.getAttribute("aria-disabled") !== "true", 4000)))
+      throw new Precondition("la ligne du jeu GameCube reste grisée");
+    for (let i = 0; i < 4 && (await choisie(page)) !== "item-game1"; i += 1) {
       await page.keyboard.press("ArrowDown");
       await sleep(150);
     }
+    if ((await choisie(page)) !== "item-game1") throw new Precondition("les flèches n'atteignent pas le jeu GameCube");
     await page.keyboard.press("Enter");
-    if (!(await attendre(page, () => document.querySelector("[id^=item-game]") !== null)))
-      throw new Defaut("Entrée sur le dossier choisi ne l'a pas ouvert");
-    await capture(page, "menu-dossier");
+    if (!(await attendre(page, () => document.querySelector("#fiche") !== null)))
+      throw new Defaut("Entrée sur la ligne choisie n'a pas ouvert sa fiche");
+    const focus = await page.evaluate(() => {
+      const el = document.activeElement;
+      return { id: el?.id ?? "", coche: el instanceof HTMLInputElement && el.type === "radio" && el.checked };
+    });
+    if (!focus.coche) throw new Defaut(`le focus de la fiche n'est pas la sauvegarde cochée (${focus.id})`);
+    await capture(page, "menu-fiche");
     await page.close();
   },
 
-  /** A11Y-04: le menu prend le focus, Tab ne sort pas du menu, et la fermeture
-   * rend le focus à quelque chose de vivant. */
-  async "menu-modal"() {
+  /** M2 et W2 (ADR D30 amendé): le menu se pose hors de l'image, l'image
+   * garde son rectangle, le focus entre dans le menu, et Échap pendant une
+   * partie rend le focus au jeu. Le menu n'est plus modal : Tab peut en
+   * sortir, et un focus qui arrive dans la zone de jeu le ferme. */
+  async "menu-en-colonne"() {
+    for (const vue of [{ width: 1280, height: 720 }, PC, TELEPHONE, TRAVERS]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      const rect = () =>
+        page.evaluate(() => {
+          const c = document.querySelector("[data-zone-jeu] canvas")?.getBoundingClientRect();
+          return c ? [c.x, c.y, c.width, c.height].map(Math.round).join(",") : null;
+        });
+      const avant = await rect();
+      if (avant === null) throw new Precondition(`à ${vue.width} px, pas d'image`);
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition(`à ${vue.width} px, Échap n'a pas ouvert le menu`);
+      await sleep(300);
+      const lu = await page.evaluate(() => {
+        const m = document.querySelector("#menu").getBoundingClientRect();
+        const z = document.querySelector("[data-zone-jeu] canvas").getBoundingClientRect();
+        const l = Math.max(0, Math.min(m.right, z.right) - Math.max(m.left, z.left));
+        const h = Math.max(0, Math.min(m.bottom, z.bottom) - Math.max(m.top, z.top));
+        return {
+          aire: Math.round(l * h),
+          bas: Math.round(m.bottom),
+          H: innerHeight,
+          modal: document.querySelector("dialog#menu") !== null,
+          focus: Boolean(document.activeElement?.closest("#menu")),
+        };
+      });
+      await capture(page, "menu-en-colonne");
+      if (lu.modal) throw new Defaut(`à ${vue.width} px, le menu est encore un dialogue`);
+      if (lu.aire > 0) throw new Defaut(`à ${vue.width} px, le menu couvre ${lu.aire} px² de l'image`);
+      if ((await rect()) !== avant) throw new Defaut(`à ${vue.width} px, l'image a bougé à l'ouverture (${avant} → ${await rect()})`);
+      if (lu.bas > lu.H + 1) throw new Defaut(`à ${vue.width} px, le bas du menu sort de la fenêtre (${lu.bas} > ${lu.H})`);
+      if (!lu.focus) throw new Defaut(`à ${vue.width} px, le focus n'est pas dans le menu à l'ouverture`);
+      // M3a : menu ouvert, une flèche ne pousse pas le stick (→ change de
+      // rubrique, et c'est le stick horizontal que le banc relève).
+      const depuis = Date.now();
+      await appuyer(page, "ArrowRight");
+      await sleep(200);
+      if (banc.trames(depuis).some((t) => t.x !== undefined && t.x !== 0))
+        throw new Defaut(`à ${vue.width} px, une flèche dans le menu a poussé le stick`);
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") === null)))
+        throw new Defaut(`à ${vue.width} px, Échap n'a pas fermé le menu`);
+      await sleep(200);
+      const ferme = await actif(page);
+      if (!ferme.dansZone) throw new Defaut(`à ${vue.width} px, la fermeture ne rend pas le focus au jeu (${ferme.tag}#${ferme.id})`);
+      await page.close();
+    }
+    // Relecture du 24 novembre 2026 : couché avec une image 16:9 et la
+    // manette Pro, aucune bande ne se lit ; le menu couvrait alors 42 % de
+    // l'image vivante, et « La salle » une de ses lignes. Il prend la place
+    // de l'écran, et l'image s'y cache le temps du menu, sans bouger.
+    {
+      const page = await nouvelleLarge(TRAVERS);
+      const rect = () =>
+        page.evaluate(() => {
+          const c = document.querySelector("[data-zone-jeu] canvas").getBoundingClientRect();
+          return [c.x, c.y, c.width, c.height].map(Math.round).join(",");
+        });
+      const avant = await rect();
+      const format = await page.evaluate(() => {
+        const c = document.querySelector("[data-zone-jeu] canvas").getBoundingClientRect();
+        return c.width / c.height;
+      });
+      if (Math.abs(format - 16 / 9) > 0.05) throw new Precondition(`l'image du banc large n'est pas en 16:9 (${format.toFixed(2)})`);
+      await page.evaluate(() => document.querySelector("[data-zone-jeu]")?.focus());
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition("couché 16:9, Échap n'a pas ouvert le menu");
+      await sleep(400);
+      const lu = await couvertureDuMenu(page);
+      const p0 = await peintes(page);
+      await sleep(600);
+      const p1 = await peintes(page);
+      await capture(page, "menu-en-colonne-16-9");
+      if (lu.surImage > 0)
+        throw new Defaut(`couché 16:9, le menu couvre ${lu.surImage} px² de l'image visible (${Math.round(lu.part * 100)} %)`);
+      if (lu.surBouton !== 0) throw new Defaut(`couché 16:9, « La salle » et le menu se couvrent (${lu.surBouton} px²)`);
+      if (lu.dessus.length) throw new Defaut(`couché 16:9, des lignes du menu sont sous autre chose : ${lu.dessus.join(", ")}`);
+      if ((await rect()) !== avant) throw new Defaut(`couché 16:9, l'image a bougé à l'ouverture (${avant} → ${await rect()})`);
+      // L'image cachée n'est pas arrêtée : la boucle peint dessous.
+      if (p1 - p0 < 10) throw new Defaut(`couché 16:9, la page ne peint plus sous le menu (${p1 - p0} images en 600 ms)`);
+      // Le jumeau : fermé, l'image revient à sa place et le focus au jeu.
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") === null)))
+        throw new Defaut("couché 16:9, Échap n'a pas fermé le menu");
+      await sleep(200);
+      const apres = await page.evaluate(() => getComputedStyle(document.querySelector("[data-zone-jeu]")).visibility);
+      if (apres !== "visible") throw new Defaut(`couché 16:9, l'image reste cachée après le menu (${apres})`);
+      if ((await rect()) !== avant) throw new Defaut("couché 16:9, l'image a bougé à la fermeture");
+      if (!(await actif(page)).dansZone) throw new Defaut("couché 16:9, la fermeture ne rend pas le focus au jeu");
+      await page.close();
+    }
+    // Le jumeau : un clic sur l'image, menu ouvert, ferme le menu et donne
+    // le clavier au jeu.
     const page = await nouvelle(PC);
     await entrer(page);
     await page.click("#openMenu");
     if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
-      throw new Precondition("« menu » n'a pas ouvert le menu");
-    await sleep(300);
-    const ouvert = await actif(page);
-    if (!ouvert.dansMenu) throw new Defaut(`le focus n'est pas dans le menu à l'ouverture (${ouvert.tag}#${ouvert.id})`);
-    for (let i = 0; i < 14; i += 1) {
-      await page.keyboard.press("Tab");
-      const ici = await actif(page);
-      if (!ici.dansMenu && ici.tag !== "BODY") throw new Defaut(`Tab ${i + 1} sort du menu vers ${ici.tag}#${ici.id}`);
-    }
-    await page.keyboard.press("Escape");
+      throw new Precondition("« Menu du jeu » n'a pas ouvert le menu");
+    await page.mouse.click(...(await centre(page, "#screen")));
     if (!(await attendre(page, () => document.querySelector("#menu") === null)))
-      throw new Defaut("Échap n'a pas fermé le menu");
-    await sleep(200);
-    const ferme = await actif(page);
-    if (ferme.tag === "BODY" || ferme.id === "openMenu")
-      throw new Defaut(`le focus retombe sur ${ferme.tag}#${ferme.id} et non sur le jeu`);
-    if (!ferme.dansZone) throw new Defaut(`la fermeture ne rend pas le focus au jeu (${ferme.tag}#${ferme.id})`);
-    // Le jumeau: menu fermé, la colonne se rejoint au clavier.
-    await page.keyboard.press("Tab");
-    const suite = await actif(page);
-    if (suite.dansMenu || suite.tag === "BODY") throw new Defaut(`Tab après le menu ne va nulle part (${suite.tag})`);
+      throw new Defaut("un clic sur l'image ne ferme pas le menu");
     await page.close();
   },
 
-  /** A11Y-02 et A11Y-11: le curseur EST le focus, et il est dit. */
+  /** A11Y-02, A11Y-11 et M4: le curseur EST le focus, et il est dit. Une
+   * ligne de choix reçoit le focus sur sa pastille cochée. */
   async "curseur-focus"() {
     const page = await nouvelle(PC);
     await entrer(page);
@@ -464,45 +637,56 @@ const ETAPES = {
     await sleep(250);
     const lu = await page.evaluate(() => {
       const choisi = [...document.querySelectorAll("#menu [id^=item-]")].find((el) => el.dataset.selected === "true");
+      const ici = document.activeElement;
       return {
         choisi: choisi?.id ?? null,
-        focus: document.activeElement?.id ?? "",
+        focus: ici?.id ?? "",
+        dedans: Boolean(choisi && ici && choisi.contains(ici)),
         courant: choisi?.getAttribute("aria-current") ?? null,
-        rayon: document.querySelector("#menu [id^=ray-][aria-current=true]")?.id ?? null,
-        autres: [...document.querySelectorAll("#menu [id^=item-]")].filter((el) => el.tabIndex === 0).length,
+        rayon: document.querySelector("#menu [role=tab][aria-selected=true]")?.id ?? null,
+        tabulables: [...document.querySelectorAll("#menuPanneau *")].filter((el) => el.tabIndex === 0).length,
       };
     });
-    if (lu.choisi === null) throw new Precondition("aucune entrée choisie dans le menu");
-    if (lu.focus !== lu.choisi) throw new Defaut(`le focus (${lu.focus || "rien"}) n'est pas l'entrée choisie (${lu.choisi})`);
-    if (lu.courant !== "true") throw new Defaut("l'entrée choisie ne porte pas aria-current");
-    if (lu.rayon === null) throw new Defaut("la rubrique choisie ne porte pas aria-current");
-    if (lu.autres !== 1) throw new Defaut(`${lu.autres} entrées sont dans l'ordre de tabulation, une seule devrait l'être`);
+    if (lu.choisi === null) throw new Precondition("aucune ligne choisie dans le menu");
+    if (!lu.dedans) throw new Defaut(`le focus (${lu.focus || "rien"}) n'est pas dans la ligne choisie (${lu.choisi})`);
+    if (lu.courant !== "true") throw new Defaut("la ligne choisie ne porte pas aria-current");
+    if (lu.rayon !== "ray-manettes") throw new Defaut(`→ n'a pas choisi la rubrique Manettes (${lu.rayon})`);
+    if (lu.tabulables !== 1) throw new Defaut(`${lu.tabulables} éléments du panneau sont dans la tabulation, un seul devrait l'être`);
     await capture(page, "menu-curseur");
     await page.close();
   },
 
-  /** T02: au clavier, le menu parle Entrée et Échap. */
+  /** M6: le pied ne vient qu'après un premier usage du clavier, et dit les
+   * rubriques et Échap. Ouvert à la souris, pas de pied. */
   async "aides-clavier"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await ouvrirMenu(page);
-    const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "");
-    if (/A choisi/.test(pied)) throw new Defaut(`le pied parle encore de la manette au clavier: « ${pied} »`);
-    if (!/Entrée/.test(pied) || !/Échap/.test(pied)) throw new Defaut(`le pied ne dit ni Entrée ni Échap: « ${pied} »`);
-    if (/rayon/.test(pied)) throw new Defaut(`le pied parle de « rayon »: « ${pied} »`);
+    await page.click("#openMenu");
+    if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+      throw new Precondition("« Menu du jeu » n'a pas ouvert le menu");
+    await sleep(300);
+    if ((await page.$("#menu footer")) !== null) throw new Defaut("ouvert à la souris, le menu montre déjà son pied");
+    await page.keyboard.press("ArrowDown");
+    await sleep(200);
+    const pied = await page.evaluate(() => document.querySelector("#menu footer")?.textContent ?? null);
+    if (pied === null) throw new Defaut("après une flèche, le menu n'a pas de pied");
+    if (!/Échap/.test(pied) || !/rubriques/.test(pied)) throw new Defaut(`le pied ne dit ni Échap ni les rubriques: « ${pied} »`);
+    if (/\bA\b|Start/.test(pied)) throw new Defaut(`le pied parle de la manette au clavier: « ${pied} »`);
     await capture(page, "menu-clavier");
     await page.close();
   },
 
-  /** Le jumeau: avec une manette branchée, le même pied parle A et B. */
+  /** Le jumeau: avec une manette branchée, le même pied parle A, B et
+   * Start, et jamais Échap. */
   async "aides-manette"() {
     const page = await nouvelle(PC, { manette: true, premiere: true });
     await entrer(page);
     await ouvrirMenu(page);
-    const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "");
-    if (!/A\s*choisir/.test(pied) || !/B\s*(retour|reprendre)/i.test(pied))
-      throw new Defaut(`avec une manette, le pied ne parle pas A et B: « ${pied} »`);
-    if (/Entrée/.test(pied)) throw new Defaut(`avec une manette, le pied parle encore Entrée: « ${pied} »`);
+    const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "").catch(() => null);
+    if (pied === null) throw new Defaut("avec une manette, le menu n'a pas de pied");
+    if (!/A\s*valider/.test(pied) || !/B\s*revenir/.test(pied) || !/Start/.test(pied))
+      throw new Defaut(`avec une manette, le pied ne parle pas A, B et Start: « ${pied} »`);
+    if (/Échap/.test(pied)) throw new Defaut(`avec une manette, le pied parle encore Échap: « ${pied} »`);
     // Et la colonne ne montre pas la carte du clavier à qui tient une manette.
     await page.keyboard.press("Escape");
     await sleep(300);
@@ -678,12 +862,18 @@ const ETAPES = {
     await page.click("#ray-manettes");
     await sleep(300);
     if ((await page.$("#item-bindings")) === null) throw new Defaut("« manettes » ne porte pas le réglage de la manette");
+    if ((await page.$("#item-touches-clavier")) === null)
+      throw new Defaut("« manettes » ne mène pas à toutes les touches du clavier (M9)");
     await capture(page, "menu-manettes");
     await page.click("#ray-reglages");
     await sleep(300);
     const reglages = await page.$$eval("#menu [id^=item-]", (els) => els.map((el) => el.id));
     if (reglages.length > 12) throw new Defaut(`« réglages » montre encore ${reglages.length} entrées à plat`);
-    if (reglages.some((id) => ["item-bindings", "item-pad", "item-touchpad", "item-padonly"].includes(id)))
+    if (
+      reglages.some((id) =>
+        ["item-bindings", "item-touches-clavier", "item-pad", "item-touchpad", "item-padonly"].includes(id),
+      )
+    )
       throw new Defaut(`des réglages de manette restent dans « réglages »: ${reglages}`);
     await capture(page, "menu-reglages");
     await page.close();
@@ -744,40 +934,53 @@ const ETAPES = {
     }
   },
 
-  /** Les coques Wii et Switch sur un téléphone: la sortie est entière dans
-   * l'écran et fait 44 px. La sortie de la Switch « Reprendre » sortait à
-   * droite (x 324 à 430 sur 390). */
-  async "coques-telephone"() {
-    for (const coque of ["switch", "wii"]) {
-      const page = await nouvelle(TELEPHONE, { stockage: { "nel3ab:shell": coque } });
-      await entrer(page);
-      await page.keyboard.press("Escape");
-      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
-        throw new Precondition(`Échap n'a pas ouvert le menu ${coque}`);
-      await sleep(400);
-      await capture(page, `menu-${coque}`);
-      const sortie = await page.evaluate(() => {
-        const el = document.querySelector("#closeMenu");
-        if (!el) return null;
-        const r = el.getBoundingClientRect();
-        const ici = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-        return {
-          gauche: Math.round(r.left),
-          droite: Math.round(r.right),
-          h: Math.round(r.height),
-          w: Math.round(r.width),
-          libre: Boolean(ici && el.contains(ici)),
-          W: innerWidth,
-          H: innerHeight,
-          bas: Math.round(r.bottom),
-        };
-      });
-      if (sortie === null) throw new Precondition(`pas de sortie dans la coque ${coque}`);
-      if (sortie.gauche < 0 || sortie.droite > sortie.W || sortie.bas > sortie.H)
-        throw new Defaut(`coque ${coque}: la sortie sort de l'écran ${JSON.stringify(sortie)}`);
-      if (sortie.h < 44 || sortie.w < 44) throw new Defaut(`coque ${coque}: la sortie fait ${sortie.w}x${sortie.h}`);
-      if (!sortie.libre) throw new Defaut(`coque ${coque}: la sortie est couverte`);
-      await page.close();
+  /** M1, W1 et S1: une seule forme de menu. Avec l'ancienne clé de forme
+   * (Wii, Switch), le menu a ses quatre onglets, ses lignes ont toutes le
+   * même bord gauche, rien ne déborde en largeur, la sortie est entière et
+   * fait 44 px, et la clé est effacée. */
+  async "une-seule-forme"() {
+    for (const coque of ["wii", "switch"]) {
+      for (const vue of [PC, TELEPHONE]) {
+        const page = await nouvelle(vue, { stockage: { "nel3ab:shell": coque } });
+        await entrer(page);
+        await page.keyboard.press("Escape");
+        if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+          throw new Precondition(`Échap n'a pas ouvert le menu (${coque})`);
+        await sleep(400);
+        await capture(page, `menu-${coque}`);
+        const lu = await page.evaluate(() => {
+          const menu = document.querySelector("#menu");
+          const bords = new Set(
+            [...menu.querySelectorAll("[id^=item-]")].map((el) => Math.round(el.getBoundingClientRect().left)),
+          );
+          const s = document.querySelector("#closeMenu")?.getBoundingClientRect();
+          const ici = s ? document.elementFromPoint(s.x + s.width / 2, s.y + s.height / 2) : null;
+          let cle = "?";
+          try {
+            cle = localStorage.getItem("nel3ab:shell");
+          } catch {}
+          return {
+            onglets: menu.querySelectorAll("[role=tab]").length,
+            bords: [...bords],
+            deborde: menu.scrollWidth > menu.clientWidth + 1,
+            sortie: s ? { g: Math.round(s.left), d: Math.round(s.right), h: Math.round(s.height), bas: Math.round(s.bottom) } : null,
+            libre: Boolean(ici && document.querySelector("#closeMenu").contains(ici)),
+            W: innerWidth,
+            H: innerHeight,
+            cle,
+          };
+        });
+        const ou = `${coque} à ${vue.width} px`;
+        if (lu.onglets !== 4) throw new Defaut(`${ou}: ${lu.onglets} onglets au lieu de quatre`);
+        if (lu.bords.length !== 1) throw new Defaut(`${ou}: les lignes ont ${lu.bords.length} bords gauches (${lu.bords})`);
+        if (lu.deborde) throw new Defaut(`${ou}: le menu déborde en largeur`);
+        if (lu.sortie === null) throw new Defaut(`${ou}: pas de sortie`);
+        if (lu.sortie.g < 0 || lu.sortie.d > lu.W || lu.sortie.bas > lu.H || lu.sortie.h < 44)
+          throw new Defaut(`${ou}: la sortie sort de l'écran ou fait moins de 44 px ${JSON.stringify(lu.sortie)}`);
+        if (!lu.libre) throw new Defaut(`${ou}: la sortie est couverte`);
+        if (lu.cle !== null) throw new Defaut(`${ou}: la clé nel3ab:shell est restée (${lu.cle})`);
+        await page.close();
+      }
     }
   },
 
@@ -820,28 +1023,408 @@ const ETAPES = {
     await page.close();
   },
 
-  /** Les avis posés au-dessus du menu (`Surcouche`): l'avis d'un lancement est
-   * DANS le menu ouvert, visible, ne couvre pas la sortie, et garde ses touches:
-   * ni une flèche ni Échap sur son bouton ne conduisent le menu. Aucun essai ne
-   * citait `Surcouche` dans la première version, et le mutant qui retirait la
-   * garde `[data-surcouche]` passait. */
-  async "surcouche"() {
+  /** M7a (chantier menus) : un choix court est une rangée de pastilles, et
+   * seul le point du choix coché est plein, 400 ms après le clic, en nuit
+   * comme en jour (le clic change justement de régie). Sur la page de main,
+   * la ligne des couleurs ne montrait qu'une valeur. */
+  async "pastilles"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.click("#ray-reglages");
+    await sleep(300);
+    const choix = await page.evaluate(
+      () =>
+        [...document.querySelectorAll("#item-theme input[type=radio]")].filter(
+          (r) => r.closest("label")?.getClientRects().length > 0,
+        ).length,
+    );
+    if (choix < 3) throw new Defaut(`la ligne des couleurs montre ${choix} choix au lieu de ses trois`);
+    const points = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("#item-theme input[type=radio]")].map((r) => {
+          const point = r.parentElement?.querySelector(".n3-menu-point");
+          return {
+            id: r.value,
+            coche: r.checked,
+            opacite: point ? Number(getComputedStyle(point, "::after").opacity) : null,
+          };
+        }),
+      );
+    for (const regie of ["jour", "nuit"]) {
+      // Un vrai clic sur la pastille, à son centre : le rond natif est caché
+      // sous le point dessiné.
+      await page.$eval(`label:has(#pick-theme-${regie})`, (l) => l.scrollIntoView({ block: "center" }));
+      await sleep(100);
+      const [x, y] = await centre(page, `label:has(#pick-theme-${regie})`);
+      const recoit = await page.evaluate((x, y) => document.elementFromPoint(x, y)?.closest("label")?.textContent ?? null, x, y);
+      if (recoit === null) throw new Precondition(`la pastille ${regie} ne reçoit pas le point (${x}, ${y})`);
+      await page.mouse.click(x, y);
+      await sleep(400);
+      const lus = await points();
+      const coche = lus.filter((p) => p.coche);
+      if (coche.length !== 1 || coche[0].id !== regie)
+        throw new Precondition(`après un clic sur ${regie}, cochés : ${JSON.stringify(coche)}`);
+      const faux = lus.filter((p) => p.opacite !== (p.coche ? 1 : 0));
+      if (faux.length > 0) throw new Defaut(`en ${regie}, des points ne disent pas le choix : ${JSON.stringify(lus)}`);
+    }
+    await capture(page, "pastilles");
+    await page.close();
+  },
+
+  /** M8 : chaque ligne porte son aide, toujours visible et entière ; rien
+   * ne change de hauteur quand le focus descend. Le menu façon XMB tenait
+   * des lignes de hauteur fixe, mais n'y montrait l'aide que sous la ligne
+   * choisie, tronquée. */
+  async "aides-fixes"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.click("#ray-reglages");
+    await sleep(300);
+    // La hauteur de chaque ligne et l'écart jusqu'à la suivante : une aide
+    // posée SOUS la ligne choisie, hors d'elle, pousse la suivante sans
+    // changer la hauteur de la ligne elle-même. L'écart ne dépend pas du
+    // défilement.
+    const hauteurs = () =>
+      page.evaluate(() => {
+        const lignes = [...document.querySelectorAll("#menu [id^=item-]")];
+        return Object.fromEntries(
+          lignes.flatMap((el, i) => {
+            const r = el.getBoundingClientRect();
+            const suivante = lignes[i + 1]?.getBoundingClientRect();
+            return [
+              [el.id, r.height],
+              ...(suivante ? [[`${el.id}→suivante`, suivante.top - r.top]] : []),
+            ];
+          }),
+        );
+      });
+    /** Les aides qui se voient en entier : présentes, non vides, et sans
+     * texte coupé par leur boîte. */
+    const aides = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("#menu [id^=item-]")].map((el) => {
+          const aide = document.getElementById(`aide-${el.id.slice(5)}`);
+          if (!aide || aide.textContent.trim() === "") return "absente";
+          const r = aide.getBoundingClientRect();
+          if (r.height === 0 || getComputedStyle(aide).visibility === "hidden") return "cachée";
+          return aide.scrollWidth > aide.clientWidth + 1 || aide.scrollHeight > aide.clientHeight + 1 ? "coupée" : "vue";
+        }),
+      );
+    const avant = await hauteurs();
+    if (Object.keys(avant).length < 9) throw new Precondition(`moins de cinq lignes sous « réglages »`);
+    const vuesAvant = await aides();
+    if (vuesAvant.filter((v) => v === "vue").length < 4)
+      throw new Defaut(`les aides ne se voient pas sur chaque ligne : ${vuesAvant.join(", ")}`);
+    const premiere = await choisie(page);
+    const premier = Object.keys(avant)[0];
+    await page.focus(`#${premier}`);
+    for (let i = 0; i < 8; i += 1) {
+      await page.keyboard.press("ArrowDown");
+      await sleep(80);
+    }
+    await sleep(300);
+    if ((await choisie(page)) === premiere && premiere !== null)
+      throw new Precondition("huit flèches n'ont pas déplacé la ligne choisie");
+    const apres = await hauteurs();
+    const vuesApres = await aides();
+    if (vuesApres.join() !== vuesAvant.join())
+      throw new Defaut(`les aides changent avec le focus : ${vuesAvant.join(", ")} puis ${vuesApres.join(", ")}`);
+    const sautes = Object.keys(avant).filter((id) => id in apres && Math.abs(avant[id] - apres[id]) > 0.5);
+    if (sautes.length)
+      throw new Defaut(
+        `des lignes changent de hauteur avec le focus : ${sautes.map((id) => `${id} ${Math.round(avant[id])}→${Math.round(apres[id])}`).join(", ")}`,
+      );
+    await page.close();
+  },
+
+  /** M12, M13, W4, S4 : au niveau conseillé, ce qui bouge dans le menu ne
+   * fait que paraître (opacité), en 120 ms au plus, et rien n'y tourne en
+   * boucle. Le XMB respirait sans fin et grossissait la ligne choisie. */
+  async "mouvement-menu"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    const vus = [];
+    const lire = () =>
+      page.evaluate(() =>
+        document
+          .getAnimations()
+          .filter((a) => {
+            const cible = a.effect?.target;
+            return cible instanceof Element && cible.closest("#menu, .n3-menu, .n3-xmb, dialog[open]") !== null;
+          })
+          .map((a) => {
+            const t = a.effect.getTiming();
+            const proprietes = new Set(
+              a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p))),
+            );
+            return {
+              nom: a.animationName ?? a.transitionProperty ?? a.constructor.name,
+              duree: Number(t.duration) || 0,
+              infinie: t.iterations === Infinity,
+              proprietes: [...proprietes],
+            };
+          }),
+      );
+    for (const touche of ["ArrowRight", "ArrowDown", "ArrowDown", "ArrowRight", "ArrowDown", "ArrowLeft", "ArrowDown", "ArrowRight"]) {
+      await page.keyboard.press(touche);
+      await sleep(40);
+      vus.push(...(await lire()));
+    }
+    if (vus.length === 0) throw new Precondition("aucune animation vue dans le menu : rien à juger");
+    const fautes = vus.filter(
+      (a) => a.infinie || a.duree > 120 || a.proprietes.some((p) => p !== "opacity"),
+    );
+    if (fautes.length)
+      throw new Defaut(`le menu anime autre chose qu'un fondu court : ${JSON.stringify(fautes.slice(0, 3))}`);
+    await page.close();
+  },
+
+  /** M15 : dans la fiche d'un jeu, la barre « Lancer » se voit sans défiler,
+   * dans la zone qui défile et dans la fenêtre, au bureau comme au
+   * téléphone. */
+  async "fiche-lancer"() {
+    for (const vue of [{ width: 1280, height: 720 }, PC, TELEPHONE]) {
+      const page = await nouvelle(vue, { console: "wii" });
+      await entrer(page);
+      await ouvrirMenu(page);
+      await page.click("#ray-jeux");
+      await sleep(300);
+      if (!(await attendre(page, () => document.querySelector("#item-game2:not([aria-disabled=true]):not(:disabled)") !== null, 5000)))
+        throw new Precondition(`à ${vue.width} px, le jeu Wii ne se choisit pas`);
+      await page.click("#item-game2");
+      if (!(await attendre(page, () => document.querySelector("#menu #fiche [data-lancer]") !== null, 3000)))
+        throw new Precondition(`à ${vue.width} px, la fiche du jeu ne s'ouvre pas`);
+      await sleep(300);
+      const lu = await page.evaluate(() => {
+        const barre = document.querySelector("#menu [data-lancer]").getBoundingClientRect();
+        let zone = document.querySelector("#menu [data-lancer]").parentElement;
+        while (zone && !["auto", "scroll"].includes(getComputedStyle(zone).overflowY)) zone = zone.parentElement;
+        const z = (zone ?? document.documentElement).getBoundingClientRect();
+        const dans = (a, b) => a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5 && a.left >= b.left - 0.5 && a.right <= b.right + 0.5;
+        const fenetre = { top: 0, left: 0, bottom: innerHeight, right: innerWidth };
+        return { zone: dans(barre, z), fenetre: dans(barre, fenetre), haut: Math.round(barre.top), bas: Math.round(barre.bottom) };
+      });
+      if (!lu.zone || !lu.fenetre)
+        throw new Defaut(`à ${vue.width}x${vue.height}, la barre « Lancer » sort de ${lu.zone ? "la fenêtre" : "sa zone"} (${lu.haut} à ${lu.bas} px)`);
+      await page.close();
+    }
+  },
+
+  /** P10 et M10: « Fermer le jeu » passe par sa fiche ; accepté, la
+   * fermeture est l'état de la fiche et de sa ligne, pas un avis ; refusé,
+   * le refus s'écrit dans le bloc du menu, visible, sans couvrir sa sortie,
+   * et ses touches restent à l'avis. Échap dans la fiche revient à la liste
+   * sans fermer le menu. */
+  async "fermeture-en-cours"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    if ((await page.$("#ray-salle")) === null) throw new Precondition("pas de rubrique « salle »");
+    await page.click("#ray-salle");
+    await sleep(300);
+    if ((await page.$("#item-close-game")) === null) throw new Precondition("pas de ligne « fermer le jeu »");
+    await page.click("#item-close-game");
+    if (!(await attendre(page, () => document.querySelector("#menu #fiche #ficheAgir") !== null)))
+      throw new Precondition("« fermer le jeu » ne s'ouvre pas en fiche");
+    await page.click("#ficheAgir");
+    const vu = await attendre(page, () => document.querySelector("#fiche")?.textContent.includes("Fermeture du jeu en cours…"), 4000);
+    if (await page.evaluate(() => document.querySelector(".n3-preparation-error") !== null))
+      throw new Defaut("une fermeture acceptée s'écrit comme une erreur");
+    if (!vu) throw new Defaut("la fiche ne dit pas que la fermeture est en cours");
+    if (!(await page.evaluate(() => document.querySelector("#ficheAgir")?.disabled === true)))
+      throw new Defaut("« Fermer le jeu » reste actif pendant la fermeture");
+    // Relecture du 24 novembre 2026 : le bouton grisé sous le focus le
+    // laissait tomber sur <body>, où Échap ne faisait plus rien. Le focus
+    // reste dans la fiche, sur un élément qui le prend, et Échap revient à
+    // la liste.
+    await sleep(300);
+    const ici = await page.evaluate(() => {
+      const el = document.activeElement;
+      return { id: el?.id || el?.tagName, dansFiche: Boolean(el?.closest("#fiche")), grise: Boolean(el?.matches(":disabled")) };
+    });
+    if (!ici.dansFiche || ici.grise) throw new Defaut(`la fermeture en cours, le focus est sur ${ici.id}, hors de la fiche ou grisé`);
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#fiche") === null && document.querySelector("#menu") !== null)))
+      throw new Defaut("la fermeture en cours, Échap ne revient pas à la liste du menu");
+    await capture(page, "fermeture-en-cours");
+    await page.close();
+  },
+
+  /** L'anneau de focus du menu et du rayonnage se voit en entier : ses
+   * quatre côtés tiennent dans la boîte qui défile. Relecture du 24 novembre
+   * 2026 : chaque ligne du menu avait la largeur de #menu, qui défile, et
+   * l'anneau (3 px, décalé de 2 px) en sortait des deux côtés ; il ne
+   * restait que deux traits. Le jumeau : la même mesure, menu sans sa
+   * marge, voit l'anneau coupé. */
+  async "anneau-menu"() {
+    const mesurer = (page) =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        const cs = getComputedStyle(el);
+        if (cs.outlineStyle === "none") return { id: el.id || el.className, sans: true };
+        const r = el.getBoundingClientRect();
+        const dehors = Math.max(0, parseFloat(cs.outlineWidth) + parseFloat(cs.outlineOffset));
+        let p = el.parentElement;
+        while (p) {
+          const s = getComputedStyle(p);
+          if (s.overflowX !== "visible" || s.overflowY !== "visible") break;
+          p = p.parentElement;
+        }
+        const c = p.getBoundingClientRect();
+        const g = c.left + p.clientLeft;
+        const h = c.top + p.clientTop;
+        return {
+          id: el.id || el.className,
+          gauche: Math.max(0, g - (r.left - dehors)),
+          droite: Math.max(0, r.right + dehors - (g + p.clientWidth)),
+          haut: Math.max(0, h - (r.top - dehors)),
+          bas: Math.max(0, r.bottom + dehors - (h + p.clientHeight)),
+        };
+      });
+    /** Les arrêts du clavier dans le menu : chaque ligne de chaque rubrique,
+     * par ↓ (le focus posé après une touche est visible). */
+    const arrets = async (page) => {
+      const vus = [];
+      for (const id of RUBRIQUES) {
+        await page.click(`#ray-${id}`);
+        await sleep(250);
+        await page.keyboard.press("ArrowDown");
+        await sleep(150);
+        for (let i = 0; i < 14; i += 1) {
+          vus.push(await mesurer(page));
+          const avant = await page.evaluate(() => document.activeElement?.id);
+          await page.keyboard.press("ArrowDown");
+          await sleep(120);
+          if ((await page.evaluate(() => document.activeElement?.id)) === avant) break;
+        }
+      }
+      return vus;
+    };
+    const coupes = (vus) => vus.filter((v) => !v.sans && v.gauche + v.droite + v.haut + v.bas > 0.5);
+    for (const vue of [PC, { width: 1280, height: 720 }, TELEPHONE]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await page.evaluate(() => document.querySelector("[data-zone-jeu]")?.focus());
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition(`à ${vue.width} px, Échap n'a pas ouvert le menu`);
+      await sleep(300);
+      const vus = await arrets(page);
+      if (vus.filter((v) => !v.sans).length < 8) throw new Precondition(`à ${vue.width} px, moins de huit arrêts avec un anneau`);
+      const mal = coupes(vus);
+      if (mal.length)
+        throw new Defaut(`à ${vue.width} px, l'anneau est coupé sur ${mal.length} arrêt(s) : ${JSON.stringify(mal.slice(0, 3))}`);
+      // Le jumeau, à la première taille : sans sa marge, la mesure voit
+      // l'anneau coupé. Sinon elle ne prouverait rien.
+      if (vue === PC) {
+        await page.addStyleTag({ content: ".n3-menu-unique { padding: 0 !important; }" });
+        await sleep(100);
+        if (coupes(await arrets(page)).length === 0)
+          throw new Precondition("le jumeau : menu sans marge, la mesure ne voit aucun anneau coupé");
+      }
+      await page.close();
+    }
+    // Le rayonnage de l'écran éteint : la cartouche qui a le focus.
+    const page = await nouvelle(PC);
+    banc.regler({ game: false });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    if ((await page.$("#enter")) !== null) await page.click("#enter");
+    if (!(await attendre(page, () => document.querySelector("#rayonnage [data-jeu]") !== null, 15000)))
+      throw new Precondition("pas de rayonnage au repos");
+    await sleep(1500);
+    await page.focus("#rayonnage [data-jeu]");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await sleep(250);
+    const cartouche = await mesurer(page);
+    if (!String(cartouche.id).includes("n3-cartouche")) throw new Precondition(`le focus n'est pas sur une cartouche (${cartouche.id})`);
+    if (coupes([cartouche]).length) throw new Defaut(`l'anneau d'une cartouche est coupé : ${JSON.stringify(cartouche)}`);
+    await page.close();
+  },
+
+  /** « Plus bas » (M11) dans le menu, qui défile dans sa propre boîte : la
+   * rubrique Réglages à 1280x720 cache des lignes sous le bord, et le repère
+   * le dit. Le jumeau : une rubrique qui tient n'en a pas, et le repère
+   * s'efface quand on arrive en bas. */
+  async "plus-bas-menu"() {
+    let page = await nouvelle({ width: 1280, height: 720 });
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.click("#ray-reglages");
+    await sleep(500);
+    const lire = () =>
+      page.evaluate(() => {
+        const m = document.querySelector("#menu");
+        const mb = m.getBoundingClientRect();
+        const r = document.querySelector("#menuPlusBas")?.getBoundingClientRect();
+        const sous = [...m.querySelectorAll("[id^=item-]")].filter((el) => el.getBoundingClientRect().top >= mb.bottom).length;
+        return {
+          sous,
+          repere: r ? r.height > 0 && r.bottom <= mb.bottom + 1 && r.top >= mb.top && r.bottom >= mb.bottom - 2 : false,
+          police: r ? getComputedStyle(document.querySelector("#menuPlusBas")).fontFamily : null,
+        };
+      });
+    const reglages = await lire();
+    if (reglages.sous === 0) throw new Precondition("à 1280x720, Réglages tient sans défiler");
+    if (!reglages.repere) throw new Defaut(`à 1280x720, ${reglages.sous} lignes de Réglages sous le bord, sans « Plus bas » au bas du menu`);
+    if (!/Pixelify/i.test(reglages.police ?? "")) throw new Defaut(`« Plus bas » n'est pas en Pixelify Sans (${reglages.police})`);
+    await page.evaluate(() => {
+      const m = document.querySelector("#menu");
+      m.scrollTop = m.scrollHeight;
+    });
+    await sleep(300);
+    if ((await lire()).repere) throw new Defaut("en bas du menu, « Plus bas » reste");
+    // Le jumeau, au grand bureau : la première rubrique qui tient sans
+    // défiler (à 1280x720, aucune ne tient).
+    await page.close();
+    const page2 = await nouvelle(PC);
+    await entrer(page2);
+    await ouvrirMenu(page2);
+    page = page2;
+    let courte = null;
+    for (const id of ["jeux", "manettes", "salle"]) {
+      await page.click(`#ray-${id}`);
+      await sleep(500);
+      const lu = await lire();
+      if (lu.sous === 0) {
+        courte = { id, ...lu };
+        break;
+      }
+    }
+    if (courte === null) throw new Precondition("à 1280x720, aucune rubrique ne tient sans défiler");
+    if (courte.repere) throw new Defaut(`la rubrique ${courte.id} tient, et « Plus bas » s'affiche`);
+    await page.close();
+  },
+
+  async "refus-dans-le-bloc"() {
     for (const vue of [PC, TELEPHONE]) {
       const page = await nouvelle(vue);
       await entrer(page);
+      banc.regler({ refus: "Le salon refuse : le jeu ne se ferme pas." });
       await ouvrirMenu(page);
       if ((await page.$("#ray-salle")) === null) throw new Precondition("pas de rubrique « salle »");
       await page.click("#ray-salle");
       await sleep(300);
-      if ((await page.$("#item-close-game")) === null) throw new Precondition("pas d'entrée « fermer le jeu »");
+      if ((await page.$("#item-close-game")) === null) throw new Precondition("pas de ligne « fermer le jeu »");
       await page.click("#item-close-game");
-      if (!(await attendre(page, () => document.querySelector("#pick-close") !== null)))
-        throw new Precondition("le sélecteur de « fermer le jeu » ne s'ouvre pas");
-      await page.click("#pick-close");
+      // Le défaut d'avant le menu unique : la confirmation était un
+      // sélecteur posé par-dessus, pas une fiche dans le bloc du menu.
+      if (!(await attendre(page, () => document.querySelector("#menu #fiche #ficheAgir") !== null)))
+        throw new Defaut("« fermer le jeu » ne s'ouvre pas en fiche dans le menu");
+      if (await page.evaluate(() => document.querySelector(".n3-preparation-error") !== null))
+        throw new Defaut("un clic sur la ligne seule a fermé le jeu");
+      await page.click("#ficheAgir");
       if (!(await attendre(page, () => document.querySelector(".n3-preparation-error") !== null, 4000)))
-        throw new Precondition("aucun avis après « fermer le jeu »");
+        throw new Precondition("aucun avis après un refus de « fermer le jeu »");
+      // Au bureau, Aïn joue « refus » au coin, par l'arbitre (sa maison
+      // porte la scène qu'elle joue).
+      if (vue === PC && !(await attendre(page, () => document.querySelector('[data-scene="refus"]') !== null, 3000)))
+        throw new Defaut("un refus du salon ne joue pas la scène « refus »");
       await sleep(300);
-      await capture(page, "surcouche");
+      await capture(page, "refus-dans-le-bloc");
       const lu = await page.evaluate(() => {
         const avis = document.querySelector(".n3-preparation-error");
         const r = avis.getBoundingClientRect();
@@ -857,38 +1440,27 @@ const ETAPES = {
           bouton: Math.round(bouton?.getBoundingClientRect().height ?? 0),
         };
       });
-      if (!lu.dansMenu) throw new Defaut("l'avis n'est pas dans le menu ouvert: le dialogue modal le rend inerte");
-      if (!lu.visible) throw new Defaut("l'avis est couvert par le menu");
+      if (!lu.dansMenu) throw new Defaut("l'avis n'est pas dans le bloc du menu");
+      if (!lu.visible) throw new Defaut("l'avis est couvert");
       if (!lu.sortieLibre) throw new Defaut(`à ${vue.width} px, l'avis couvre la sortie du menu`);
       if (lu.bouton < 44) throw new Defaut(`à ${vue.width} px, le bouton de l'avis fait ${lu.bouton} px de haut`);
-      // Les touches de l'avis lui restent.
-      const avant = await choisie(page);
-      if (avant === null) throw new Precondition("aucune entrée choisie dans « salle »");
-      const rang = await page.$$eval("#menu [id^=item-]", (els, id) => els.findIndex((el) => el.id === id), avant);
-      const fleche = rang > 0 ? "ArrowUp" : "ArrowDown";
+      // Les flèches sur le bouton de l'avis ne déplacent rien dans la fiche.
       await page.focus(".n3-preparation-error button");
-      await page.keyboard.press(fleche);
-      await sleep(250);
-      if ((await choisie(page)) !== avant) throw new Defaut("une flèche sur le bouton de l'avis a déplacé le curseur du menu");
+      await page.keyboard.press("ArrowDown");
+      await sleep(200);
+      if (await page.evaluate(() => !document.activeElement?.closest(".n3-preparation-error")))
+        throw new Defaut("une flèche sur le bouton de l'avis a déplacé le focus");
+      // Échap dans la fiche revient à la liste, le menu reste ouvert.
+      await page.focus("#ficheRevenir");
       await page.keyboard.press("Escape");
-      await sleep(400);
-      if (!(await menuOuvert(page))) throw new Defaut("Échap sur le bouton de l'avis a fermé le menu");
-      // Le geste « retour » d'Android arrive par l'événement `cancel` du
-      // dialogue, sans touche: le même, le focus sur l'avis.
-      const retour = () =>
-        page.evaluate(() => document.querySelector("#menu")?.dispatchEvent(new Event("cancel", { cancelable: true })));
-      await retour();
-      await sleep(400);
-      if (!(await menuOuvert(page))) throw new Defaut("le geste retour, le focus sur l'avis, a fermé le menu");
-      // Le jumeau: la même flèche, sur l'entrée choisie, déplace le curseur.
-      await page.focus(`#${avant}`);
-      await page.keyboard.press(fleche);
-      await sleep(250);
-      if ((await choisie(page)) === avant) throw new Defaut("une flèche sur l'entrée choisie ne déplace plus le curseur");
-      // Et le geste retour, le focus sur une entrée, ferme le menu.
-      await retour();
+      await sleep(300);
+      if (!(await menuOuvert(page))) throw new Defaut("Échap dans la fiche a fermé le menu");
+      if (await page.evaluate(() => document.querySelector("#fiche") !== null))
+        throw new Defaut("Échap dans la fiche n'est pas revenu à la liste");
+      // Le jumeau : Échap sur la liste ferme le menu.
+      await page.keyboard.press("Escape");
       if (!(await attendre(page, () => document.querySelector("#menu") === null)))
-        throw new Defaut("le geste retour, le focus sur une entrée, ne ferme plus le menu");
+        throw new Defaut("Échap sur la liste ne ferme plus le menu");
       await page.close();
     }
   },
@@ -983,7 +1555,7 @@ const ETAPES = {
     await page.close();
   },
 
-  /** « état de la connexion » sur un téléphone: le résumé s'ouvre dans le
+  /** « mesures techniques » sur un téléphone: le résumé s'ouvre dans le
    * menu, et la colonne ne coupe pas l'écran en deux moitiés de 195 px. La
    * valeur dit l'état, pas un compte d'images (relecture du 22 novembre 2026). */
   async "connexion-telephone"() {
@@ -1003,14 +1575,14 @@ const ETAPES = {
         await page.$eval("#item-advanced", (el) => el.click());
         await sleep(300);
       }
-      if ((await page.$("#item-connexion")) === null) throw new Precondition("pas d'entrée « état de la connexion »");
+      if ((await page.$("#item-connexion")) === null) throw new Precondition("pas d'entrée « mesures techniques »");
       // `data-valeur` depuis la relecture; avant, la valeur était le dernier
       // enfant de l'entrée.
       const valeur = await page.$eval(
         "#item-connexion",
         (el) => (el.querySelector("[data-valeur]") ?? el.lastElementChild)?.textContent?.trim() ?? "",
       );
-      if (/images?$/.test(valeur)) throw new Defaut(`la valeur de « état de la connexion » est un compte: « ${valeur} »`);
+      if (/images?$/.test(valeur)) throw new Defaut(`la valeur de « mesures techniques » est un compte: « ${valeur} »`);
       await page.$eval("#item-connexion", (el) => el.click());
       await sleep(400);
       return page;
@@ -1018,18 +1590,18 @@ const ETAPES = {
     const tel = await ouvrir(TELEPHONE);
     const lu = await tel.evaluate(() => ({
       menu: document.querySelector("#menu") !== null,
-      resume: document.querySelector("#picker dl")?.textContent ?? null,
+      resume: document.querySelector("#fiche dl")?.textContent ?? null,
       colonne: Math.round(document.querySelector("aside")?.getBoundingClientRect().width ?? 0),
     }));
     await capture(tel, "connexion");
     if (!lu.menu || lu.resume === null)
-      throw new Defaut(`sur un téléphone, « état de la connexion » n'ouvre pas son résumé dans le menu (${JSON.stringify(lu)})`);
+      throw new Defaut(`sur un téléphone, « mesures techniques » n'ouvre pas son résumé dans la fiche du menu (${JSON.stringify(lu)})`);
     if (!/en marche/.test(lu.resume)) throw new Defaut(`le résumé ne dit pas l'état: « ${lu.resume} »`);
     await tel.close();
     // Le jumeau: sur un ordinateur, le détail s'ouvre dans la colonne.
     const pc = await ouvrir(PC);
     if (!(await attendre(pc, () => document.querySelector("#stats") !== null && document.querySelector("#menu") === null)))
-      throw new Defaut("sur un ordinateur, « état de la connexion » n'ouvre plus le détail dans la colonne");
+      throw new Defaut("sur un ordinateur, « mesures techniques » n'ouvre plus le détail dans la colonne");
     await pc.close();
   },
 
@@ -1276,6 +1848,7 @@ for (const nom of voulues) {
 }
 await browser.close();
 await banc.fermer();
+await bancLarge?.fermer();
 
 if (ROUGE) {
   const rate = ROUGE.filter((nom) => resultats.find((r) => r.nom === nom)?.verdict !== "defaut");

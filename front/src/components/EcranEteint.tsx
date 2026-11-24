@@ -14,7 +14,7 @@
  * l'onglet se cache (`lib/attention`). Elle passe par l'arbitre de la salle
  * (K10) : une scène plus haute ou une panne la refuse.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { demarrerAttention } from "../lib/attention";
 import type { Role } from "../lib/chef";
 import { ZONE_JEU } from "../lib/focus-jeu";
@@ -40,10 +40,15 @@ export const PLATEAU = 96;
 export function EcranEteint({
   phrase,
   onChoisir,
+  rayonnage,
 }: {
   /** `null` pour qui choisit le jeu ; sinon pourquoi pas (`pourquoiPasChoisir`). */
   phrase: string | null;
   onChoisir: () => void;
+  /** Les jeux de la salle (chantier menus) : à la place de « Choisir un
+   * jeu » pour qui choisit, sous la phrase pour les autres. Ils prennent
+   * alors eux-mêmes le focus d'entrée. */
+  rayonnage?: ReactNode;
 }) {
   const arbitre = useArbitre();
   const bouton = useRef<HTMLButtonElement>(null);
@@ -76,7 +81,7 @@ export function EcranEteint({
       <h2 className="n3-ecran-titre" data-texte="">
         {REPOS.titre}
       </h2>
-      {decide ? (
+      {decide && rayonnage ? null : decide ? (
         <button
           ref={bouton}
           type="button"
@@ -92,6 +97,7 @@ export function EcranEteint({
           {phrase}
         </p>
       )}
+      {rayonnage}
       <div
         className="n3-plateau"
         data-hote="plateau"

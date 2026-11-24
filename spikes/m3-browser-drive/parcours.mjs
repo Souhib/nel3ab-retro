@@ -20,7 +20,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
-import { BO, MOI, demarrerParcours } from "./parcours-banc.mjs";
+import { BIBLIOTHEQUE, BO, MOI, demarrerParcours } from "./parcours-banc.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
@@ -454,8 +454,10 @@ const ETAPES = {
 
   /** A11Y-18 (plan personnes, places-demande 14) : Bo arrive, sa phrase est
    * écrite dans la ligne parlée, et 90 ms plus tard le salon annonce un
-   * démarrage. La ligne dit « Sonic Generations démarre. » sans avoir effacé
-   * l'arrivée. Sur la page de 54d1f6f, la phrase d'état la remplaçait. */
+   * démarrage. La ligne dit « Sonic Generations démarre. » sans avoir
+   * effacé l'arrivée. Sur la page de 54d1f6f, la phrase d'état la
+   * remplaçait. Depuis le chargement réécrit (chantier menus, C9), la ligne
+   * nomme le jeu ; les pages d'avant disaient « Le jeu démarre. ». */
   async "annonce-arrivee"() {
     const page = await nouvelle(PC);
     await entrer(page);
@@ -821,10 +823,13 @@ const ETAPES = {
     await menu(page, "salle");
     if (!(await page.$("#item-close-room"))) throw new Defaut("le chef n'a pas « fermer la salle »");
     await page.click("#item-close-room");
-    if (!(await jusqua(() => page.$("#pick-close").then(Boolean), 2000)))
+    // Depuis le menu unique (24 novembre 2026), la confirmation est la fiche
+    // de la ligne, dans le menu : sa conséquence et « Fermer la salle ».
+    if (!(await jusqua(() => page.$("#fiche #ficheAgir").then(Boolean), 2000)))
       throw new Defaut("« fermer la salle » ne demande pas de confirmer");
+    if (banc.journal.suppressions.length !== 0) throw new Defaut("un clic sur la ligne seule a fermé la salle");
     await capture(page, "fermer-salle");
-    await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.click("#pick-close")]);
+    await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.click("#ficheAgir")]);
     if (!(await jusqua(async () => banc.journal.suppressions.length === 1, 3000)))
       throw new Defaut("aucune demande de fermeture n'est partie");
     if (!(await jusqua(async () => (await adresse(page)) === "/", 3000)))
@@ -837,6 +842,320 @@ const ETAPES = {
     await autre.close();
   },
 
+  /** B1 et B12 (chantier menus) : une salle sans jeu montre ses jeux sur
+   * l'écran éteint, une cartouche par jeu, sans ouvrir le menu, et le focus
+   * d'entrée est sur la première cartouche. Le jumeau : un jeu en cours n'a
+   * pas de rayonnage, et la rubrique Jeux du menu liste les mêmes jeux. */
+  async rayonnage() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    // Les pages d'avant le rayonnage n'ont pas toutes l'écran éteint : son
+    // absence est le défaut cherché, pas une précondition.
+    await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000);
+    await sleep(800);
+    const vu = await page.evaluate(() => {
+      const premiere = document.querySelector("#rayonnage [data-jeu]");
+      const r = premiere?.getBoundingClientRect();
+      const ici = r ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
+      return {
+        rayonnage: document.querySelector("#rayonnage") !== null,
+        menu: document.querySelector("#menu") !== null,
+        jeux: document.querySelectorAll("#rayonnage [data-jeu]").length,
+        focus: document.activeElement === premiere && premiere !== null,
+        touche: premiere !== null && ici !== null && premiere.contains(ici),
+      };
+    });
+    if (!vu.rayonnage) throw new Defaut("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    if (vu.menu) throw new Defaut("la salle sans jeu ouvre le menu d'office");
+    if (vu.jeux !== BIBLIOTHEQUE.length)
+      throw new Defaut(`${vu.jeux} cartouches pour ${BIBLIOTHEQUE.length} jeux`);
+    if (!vu.focus) throw new Defaut(`le focus d'entrée est sur « ${await idActif(page)} », pas sur la première cartouche`);
+    if (!vu.touche) throw new Defaut("le centre de la première cartouche ne la touche pas (elementFromPoint)");
+    await capture(page, "rayonnage");
+    await page.close();
+    const partie = await nouvelle(PC);
+    await entrer(partie);
+    await sleep(800);
+    if (await partie.$("#rayonnage")) throw new Defaut("un jeu en cours garde le rayonnage");
+    await menu(partie, "jeux");
+    const lignes = await partie.$$eval('[id^="item-game"]', (l) => l.length);
+    if (lignes !== BIBLIOTHEQUE.length)
+      throw new Defaut(`la rubrique Jeux liste ${lignes} jeux pour ${BIBLIOTHEQUE.length}`);
+    await partie.close();
+  },
+
+  /** B1 (chantier menus) : au bureau, la fiche d'un jeu s'ouvre À CÔTÉ des
+   * rangées, qui restent visibles et se parcourent ; une autre cartouche
+   * remplace la fiche. Le jumeau : au téléphone, la fiche prend la place
+   * des rangées. Rouge sur la page d'avant, où la fiche les cachait partout. */
+  async "fiche-a-cote"() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Precondition("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    await page.click('#rayonnage [data-jeu="0"]');
+    if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Precondition("la cartouche n'ouvre pas la fiche du jeu");
+    await sleep(300);
+    const mesure = () =>
+      page.evaluate(() => {
+        const boite = (n) => {
+          const r = n?.getBoundingClientRect();
+          return r && r.width > 0 && r.height > 0
+            ? { gauche: r.left, droite: r.right, haut: r.top, bas: r.bottom }
+            : null;
+        };
+        const visible = (n) => {
+          const r = n?.getBoundingClientRect();
+          if (!r || r.width === 0) return false;
+          const ici = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 20));
+          return ici !== null && n.contains(ici);
+        };
+        const autre = document.querySelector('#rayonnage [data-jeu]:not([data-jeu="0"])');
+        return {
+          rangees: boite(document.querySelector(".n3-rayonnage-rangees")),
+          fiche: boite(document.querySelector("#ficheJeu")),
+          cartoucheVue: visible(document.querySelector('#rayonnage [data-jeu="0"]')),
+          ficheVue: visible(document.querySelector("#ficheJeuTitre")),
+          autre: autre?.getAttribute("data-jeu") ?? null,
+          titre: document.querySelector("#ficheJeuTitre")?.textContent ?? "",
+        };
+      });
+    const vu = await mesure();
+    if (!vu.rangees || !vu.cartoucheVue)
+      throw new Defaut("au bureau, la fiche ouverte cache les rangées");
+    if (!vu.fiche || !vu.ficheVue) throw new Defaut("la fiche ouverte n'est pas visible");
+    if (vu.fiche.gauche < vu.rangees.droite - 1)
+      throw new Defaut(
+        `la fiche (${Math.round(vu.fiche.gauche)} px) n'est pas à côté des rangées (bord droit ${Math.round(vu.rangees.droite)} px)`,
+      );
+    // La cartouche dont la fiche est ouverte sort de 4 px de sa rangée, et
+    // les autres restent (« boîte tirée », relecture du 24 novembre 2026 :
+    // l'effet n'était pas branché). Lu contre sa place dans la rangée (son
+    // <li>), que la translation ne déplace pas.
+    const tirees = await page.evaluate(() =>
+      [...document.querySelectorAll("#rayonnage [data-jeu]")].map((b) => ({
+        jeu: b.getAttribute("data-jeu"),
+        sortie: Math.round(b.parentElement.getBoundingClientRect().top - b.getBoundingClientRect().top),
+      })),
+    );
+    const ouverte = tirees.find((t) => t.jeu === "0");
+    if (ouverte?.sortie !== 4)
+      throw new Defaut(`la cartouche ouverte ne sort pas de 4 px de sa rangée (${ouverte?.sortie} px)`);
+    const bougees = tirees.filter((t) => t.jeu !== "0" && t.sortie !== 0);
+    if (bougees.length) throw new Defaut(`des cartouches fermées sortent de leur rangée : ${JSON.stringify(bougees)}`);
+    // Les rangées se parcourent fiche ouverte, et une autre cartouche la remplace.
+    await page.focus('#rayonnage [data-jeu="0"]');
+    await page.keyboard.press("ArrowRight");
+    const apres = await page.evaluate(() => document.activeElement?.getAttribute("data-jeu") ?? null);
+    if (apres === null || apres === "0")
+      throw new Defaut("fiche ouverte, → ne passe pas à la cartouche suivante");
+    if (!vu.autre) throw new Precondition("le banc n'a qu'un jeu");
+    await page.click(`#rayonnage [data-jeu="${vu.autre}"]`);
+    await sleep(300);
+    const remplace = await mesure();
+    if (remplace.titre === vu.titre)
+      throw new Defaut("une autre cartouche ne remplace pas la fiche ouverte");
+    await capture(page, "fiche-a-cote");
+    await page.close();
+    // Le jumeau : au téléphone, la fiche prend la place des rangées.
+    const tel = await nouvelle(TELEPHONE, { salle: { jeu: null } });
+    await entrer(tel);
+    if (await tel.$("#fermerFeuille")) await tel.click("#fermerFeuille");
+    if (!(await jusqua(() => tel.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Precondition("au téléphone, la salle sans jeu ne montre pas ses jeux");
+    await tel.$eval('#rayonnage [data-jeu="0"]', (b) => b.click());
+    if (!(await jusqua(() => tel.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Precondition("au téléphone, la cartouche n'ouvre pas la fiche");
+    const cachees = await tel.$eval(".n3-rayonnage-rangees", (n) => n.getBoundingClientRect().height === 0);
+    if (!cachees) throw new Defaut("au téléphone, les rangées restent sous la fiche");
+    await tel.close();
+  },
+
+  /** P2 et M4 (chantier menus) : à 1280x720, chaque arrêt de Tab du bloc de
+   * préparation et chaque ligne du menu (↓) reste visible, hors des barres
+   * collées (la rangée de gestes, « Plus bas », le coin d'Aïn), et la rangée
+   * ne descend jamais sous le coin. Trois gardes, chacune avec son jumeau
+   * qui doit cacher un arrêt : la rangée collée au-dessus du coin, la marge
+   * de défilement d'un choix du bloc, la radio du menu posée dans sa
+   * pastille. Écrite ici plutôt que dans focus.mjs : seul ce banc tient une
+   * préparation. Rouge sur 1ee8b49. */
+  async "garde-focus"() {
+    const VUE = { width: 1280, height: 720 };
+    /** Les arrêts dans `bloc`, chacun mesuré contre les barres collées. Un
+     * arrêt est caché s'il sort de la colonne ou croise une barre collée qui
+     * ne le contient pas. Un calque de scène d'Aïn ne compte pas : il passe,
+     * une barre reste. */
+    const course = async (page, bloc, premier, touche = "Tab") => {
+      await page.$eval(premier, (n) => n.focus());
+      const arrets = [];
+      for (let i = 0; i < 40; i++) {
+        await sleep(80);
+        const vu = await page.evaluate((b) => {
+          const ici = document.activeElement;
+          if (!ici || !ici.closest(b)) return null;
+          const cible = ici.closest("label") ?? ici;
+          const r = cible.getBoundingClientRect();
+          const cadre = document.querySelector("#side").getBoundingClientRect();
+          const barres = [...document.querySelectorAll(".n3-colonne-pied, .n3-plus-bas, .n3-prep-actions, .n3-menu-fiche-barre")]
+            .filter((barre) => !barre.contains(cible))
+            .map((barre) => ({ nom: barre.className.split(" ").find((c) => c.startsWith("n3-")), r: barre.getBoundingClientRect() }))
+            .filter(({ r: br }) => br.height > 0);
+          const croise = barres.find(({ r: br }) => r.bottom > br.top + 1 && r.top < br.bottom - 1 && r.right > br.left && r.left < br.right);
+          const dedans = r.top >= cadre.top - 1 && r.bottom <= cadre.bottom + 1;
+          return {
+            id: ici.id || ici.textContent.trim().slice(0, 24),
+            vu: dedans && !croise,
+            dessus: croise ? croise.nom : dedans ? null : "hors de la colonne",
+            haut: Math.round(r.top),
+            bas: Math.round(r.bottom),
+          };
+        }, bloc);
+        if (vu === null) break;
+        if (arrets.length > 0 && arrets.at(-1).id === vu.id) break;
+        arrets.push(vu);
+        await page.keyboard.press(touche);
+      }
+      return arrets;
+    };
+    /** Les trois gardes, chacune rendue seule par son jumeau. */
+    const JUMEAUX = {
+      rangee: { partie: "prep", css: ".n3-prep-actions { bottom: 0 !important; }" },
+      marge: { partie: "prep", css: "#preparation * { scroll-margin: 0 !important; }" },
+      radios: { partie: "menu", css: ".n3-menu-pastille { position: static !important; }" },
+    };
+    const mesurer = async (jumeau) => {
+      const page = await nouvelle(VUE, { salle: { bo: true, preparation: preparation(0, [0, 1], false) } });
+      await entrer(page);
+      if (!(await jusqua(() => page.$("#preparation").then(Boolean), 8000)))
+        throw new Precondition("la préparation ne se montre pas");
+      if (jumeau) await page.addStyleTag({ content: JUMEAUX[jumeau].css });
+      // La rangée de gestes elle-même, colonne au plus haut puis au plus bas :
+      // elle colle au bas de ce qui se voit, jamais sous le coin d'Aïn.
+      const gestes = [];
+      for (const ou of [0, 1e6]) {
+        gestes.push(
+          await page.evaluate((y) => {
+            document.querySelector("#side").scrollTop = y;
+            const g = document.querySelector(".n3-prep-actions")?.getBoundingClientRect();
+            const coin = document.querySelector(".n3-colonne-pied")?.getBoundingClientRect();
+            return { croise: Boolean(g && coin && g.bottom > coin.top + 1), bas: g?.bottom ?? null, coin: coin?.top ?? null };
+          }, ou),
+        );
+      }
+      await page.evaluate(() => (document.querySelector("#side").scrollTop = 0));
+      const deborde = await page.$eval("#side", (c) => c.scrollHeight > c.clientHeight + 40);
+      const prep = await course(page, "#preparation", "#preparation input:not(:disabled), #preparation button:not(:disabled)");
+      // Dans le menu, Tab passe d'un groupe à l'autre et ↓ de ligne en ligne
+      // (le focus itinérant, M4) : la course suit ↓ dans la plus longue rubrique.
+      await menu(page, "reglages");
+      const menuArrets = await course(page, "#menu", '#menu [id^="item-"]', "ArrowDown");
+      if (!jumeau) await capture(page, "garde-focus");
+      await page.close();
+      return { deborde, gestes, prep, menu: menuArrets };
+    };
+    const vu = await mesurer(null);
+    if (process.env.GARDE_MESURE) console.error(JSON.stringify({ vu }, null, 1));
+    if (!vu.deborde) throw new Precondition(`à ${VUE.width}x${VUE.height}, la colonne ne déborde pas`);
+    if (vu.prep.length < 3) throw new Precondition(`le bloc n'a que ${vu.prep.length} arrêt(s)`);
+    const caches = (m) => [...m.prep, ...m.menu].filter((a) => !a.vu);
+    // Chaque garde a son jumeau, qui doit cacher un arrêt : deux gardes dont
+    // l'une suffirait se cacheraient l'une l'autre.
+    for (const [nom, { partie }] of Object.entries(JUMEAUX)) {
+      const casse = await mesurer(nom);
+      if (process.env.GARDE_MESURE) console.error(JSON.stringify({ [nom]: casse }, null, 1));
+      if (casse[partie].every((a) => a.vu) && !(partie === "prep" && casse.gestes.some((g) => g.croise)))
+        throw new Precondition(
+          `à ${VUE.width}x${VUE.height}, sans la garde « ${nom} », aucun arrêt de ${partie} n'est caché : elle n'est pas prouvée ici`,
+        );
+    }
+    const sous = vu.gestes.find((g) => g.croise);
+    if (sous) throw new Defaut(`la rangée de gestes descend sous le coin d'Aïn (bas ${Math.round(sous.bas)} px, coin ${Math.round(sous.coin)} px)`);
+    const perdus = caches(vu);
+    if (perdus.length > 0)
+      throw new Defaut(
+        `${perdus.length} arrêt(s) caché(s) : ${perdus.map((a) => `${a.id} sous ${a.dessus}`).join(", ")}`,
+      );
+  },
+
+  /** B4 : seul dans la salle, la cartouche puis « Lancer », sauvegarde déjà
+   * cochée : un seul « begin » part au salon, avec direct. Le jumeau : la
+   * cartouche seule n'envoie rien. */
+  async "lancer-seul"() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Defaut("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    const avant = banc.journal.evenements.length;
+    await page.click('#rayonnage [data-jeu="0"]');
+    if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Defaut("la cartouche n'ouvre pas la fiche du jeu");
+    await sleep(500);
+    const partis = () =>
+      banc.journal.evenements.slice(avant).filter((e) => Array.isArray(e.quoi) && e.quoi[0] === "preparation");
+    if (partis().length !== 0) throw new Defaut("ouvrir la fiche a déjà envoyé une préparation");
+    const fiche = await texte(page, "#ficheJeu");
+    if (!fiche.includes("Le jeu part tout de suite."))
+      throw new Defaut(`seul, la fiche ne dit pas que le jeu part tout de suite: « ${fiche.slice(0, 120)} »`);
+    if (!(await jusqua(() => page.$eval("#ficheJeuAgir", (b) => !b.disabled).catch(() => false), 5000)))
+      throw new Defaut("« Lancer » reste grisé : les sauvegardes ne sont pas lues au repos");
+    await page.click("#rayonnage [data-lancer] #ficheJeuAgir");
+    if (!(await jusqua(() => partis().length > 0, 3000))) throw new Defaut("« Lancer » n'envoie rien au salon");
+    await sleep(300);
+    const envois = partis().map((e) => e.quoi[1]);
+    if (envois.length !== 1) throw new Defaut(`${envois.length} préparations envoyées pour un « Lancer »`);
+    const [begin] = envois;
+    if (begin?.action !== "begin" || begin.direct !== true || begin.game !== 0)
+      throw new Defaut(`la préparation envoyée: ${JSON.stringify(begin)}`);
+    await capture(page, "lancer-seul");
+    await page.close();
+  },
+
+  /** B11 : Entrée ouvre la fiche, le focus sur la sauvegarde cochée ; Échap
+   * la ferme, rend le focus à la même cartouche et n'ouvre pas le menu. Le
+   * jumeau : Échap sans fiche ouverte ouvre le menu. */
+  async "bibliotheque-clavier"() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Defaut("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    await page.focus('#rayonnage [data-jeu="0"]');
+    await page.keyboard.press("ArrowDown");
+    const apresFleche = await page.evaluate(() => document.activeElement?.getAttribute("data-jeu"));
+    if (apresFleche !== "2") throw new Defaut(`↓ depuis la GameCube mène à « ${apresFleche} », pas au jeu Wii`);
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Defaut("Entrée sur une cartouche n'ouvre pas la fiche");
+    // Depuis le 24 novembre 2026 au soir, chaque fiche relit les sauvegardes :
+    // le focus attend sur son titre, puis passe au choix coché à la réponse.
+    await jusqua(
+      () => page.evaluate(() => document.activeElement instanceof HTMLInputElement && document.activeElement.checked),
+      2000,
+    );
+    const ouvert = await page.evaluate(() => ({
+      etendu: document.querySelector('[data-jeu="2"]')?.getAttribute("aria-expanded"),
+      coche: document.activeElement instanceof HTMLInputElement && document.activeElement.checked,
+      agir: document.activeElement?.id,
+    }));
+    if (ouvert.etendu !== "true") throw new Defaut("la cartouche ouverte ne dit pas aria-expanded=true");
+    // Un jeu Wii a ses sauvegardes : le focus va sur celle qui est cochée.
+    if (!ouvert.coche) throw new Defaut(`le focus de la fiche est sur « ${ouvert.agir} », pas sur la sauvegarde cochée`);
+    await page.keyboard.press("Escape");
+    await sleep(400);
+    const ferme = await page.evaluate(() => ({
+      fiche: document.querySelector("#ficheJeu") !== null,
+      menu: document.querySelector("#menu") !== null,
+      focus: document.activeElement?.getAttribute("data-jeu"),
+    }));
+    if (ferme.fiche) throw new Defaut("Échap ne ferme pas la fiche");
+    if (ferme.menu) throw new Defaut("Échap sur la fiche ouvre aussi le menu");
+    if (ferme.focus !== "2") throw new Defaut(`après Échap, le focus est sur « ${ferme.focus} », pas sur la cartouche`);
+    await page.keyboard.press("Escape");
+    if (!(await jusqua(() => page.$("#menu").then(Boolean), 3000)))
+      throw new Defaut("Échap sans fiche ouverte n'ouvre plus le menu");
+    await page.close();
+  },
+
   /** T12: un seul verbe pour le chef, et la reprise du rôle seulement quand le
    * chef ne joue plus. */
   async "menu-chef"() {
@@ -845,10 +1164,13 @@ const ETAPES = {
     if (await page.$("#recoverOwner"))
       throw new Defaut("« Prendre le rôle de chef » proposé alors que le chef joue");
     await menu(page, "jeux");
-    // Un AUTRE jeu que celui qui tourne: celui-là se relance, il n'est pas grisé.
+    // Un AUTRE jeu que celui qui tourne: celui-là se relance, il n'est pas
+    // grisé. Plus de dossier par console depuis le menu unique : les jeux sont
+    // rangés sous le nom de leur console. Les pages d'avant des contrôles
+    // rouges ont encore le dossier Wii : on l'ouvre s'il existe.
     await page.evaluate(() => document.querySelector("#item-shelf-wii")?.click());
     if (!(await jusqua(() => page.$("#item-game2").then(Boolean), 3000)))
-      throw new Precondition("le dossier Wii ne montre pas le jeu");
+      throw new Precondition("la rubrique Jeux ne montre pas le jeu Wii");
     await page.evaluate(() => document.querySelector("#item-game2")?.click());
     await sleep(500);
     const aide = await page.evaluate(() => document.querySelector("#item-game2")?.innerText ?? "");
@@ -864,64 +1186,239 @@ const ETAPES = {
     await parti.close();
   },
 
-  /** T04: une préparation GameCube dit GameCube, et l'écran des touches lit
-   * une manette GameCube; le jumeau Wii garde sa lecture des commandes. */
+  /** M10 et K25 (chantier menus, 24 novembre 2026) : au bureau, le menu prend
+   * la place des rangs de la colonne. Sa rubrique Salle dit « [Bo] choisit le
+   * jeu. » avec l'étiquette de Bo à sa place, et porte Signaler en ligne : un
+   * seul Signaler à l'écran. Le jumeau : menu fermé, Signaler est dans la
+   * colonne et plus dans le menu. */
+  async "menu-salle"() {
+    const page = await nouvelle(PC, { salle: { chef: "bo", bo: true, decide: false } });
+    await entrer(page);
+    const signaler = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("button")]
+          .filter((b) => /Signaler/.test(b.textContent ?? "") && b.getClientRects().length > 0)
+          .map((b) => b.id),
+      );
+    const avant = await signaler();
+    if (avant.length !== 1 || avant[0] !== "complain")
+      throw new Precondition(`menu fermé, les Signaler visibles sont ${JSON.stringify(avant)}`);
+    await menu(page, "salle");
+    const tete = await page.evaluate(() => {
+      const p = document.querySelector("#menuPanneau #menuQuiChoisit");
+      return {
+        texte: p?.textContent ?? null,
+        place: p?.querySelector(".n3-etiquette")?.getAttribute("data-place") ?? null,
+      };
+    });
+    if (tete.texte === null || !/Bo.*choisit le jeu\./.test(tete.texte))
+      throw new Defaut(`la rubrique Salle ne dit pas qui choisit le jeu : « ${tete.texte} »`);
+    if (tete.place !== "2") throw new Defaut(`l'étiquette de Bo n'est pas à sa place 2 : ${tete.place}`);
+    const ouverts = await signaler();
+    await capture(page, "menu-salle");
+    if (ouverts.length !== 1 || ouverts[0] !== "signalerMenu")
+      throw new Defaut(`menu ouvert, les Signaler visibles sont ${JSON.stringify(ouverts)}`);
+    await page.close();
+  },
+
+  /** T04 et P1: la préparation est un bloc de la colonne, pas un dialogue ;
+   * elle dit GameCube, n'ouvre pas l'écran des touches, et le jeu reçoit
+   * encore les touches. Le jumeau : « Essayer mes touches » ouvre le réglage,
+   * qui, lui, retient les gestes, et la flèche n'arrive plus. */
   async "preparation-gamecube"() {
     const page = await nouvelle(PC, { salle: { bo: true, preparation: preparation(0, [0], false) } });
     await entrer(page);
-    if (!(await jusqua(() => page.$(".n3-preparation").then(Boolean), 8000)))
-      throw new Precondition("le panneau de préparation ne s'ouvre pas");
-    const panneau = await texte(page, ".n3-preparation");
-    if (!panneau.includes("Avant de jouer · GameCube"))
-      throw new Defaut(`l'en-tête d'une préparation GameCube: « ${panneau.slice(0, 60)} »`);
+    if (!(await jusqua(() => page.$("#preparation, .n3-preparation").then(Boolean), 8000)))
+      throw new Precondition("la préparation ne se montre pas");
+    const bloc = await page.evaluate(() => {
+      const b = document.querySelector("#preparation");
+      return {
+        colonne: b?.closest("#side") != null,
+        dialogue: document.querySelector("dialog[open]") !== null,
+        texte: (b?.textContent ?? "").replace(/\s+/g, " "),
+      };
+    });
+    if (!bloc.colonne) throw new Defaut("la préparation n'est pas un bloc de la colonne (#side #preparation)");
+    if (bloc.dialogue) throw new Defaut("un dialogue reste ouvert pendant la préparation");
+    if (!bloc.texte.includes("GameCube")) throw new Defaut(`le bloc ne dit pas GameCube: « ${bloc.texte.slice(0, 80)} »`);
+    if (bloc.texte.includes("Avant de jouer")) throw new Defaut("le bloc garde le sur-titre « Avant de jouer »");
     if ((await page.$("#reading")) || /Lecture des commandes/.test(await texte(page)))
-      throw new Defaut("l'écran des touches lit les commandes d'un jeu Wii");
+      throw new Defaut("l'écran des touches lit les commandes pendant une préparation");
+    const fleche = async () => {
+      const avant = banc.journal.droite;
+      await page.focus("[data-zone-jeu]");
+      await page.keyboard.down("ArrowRight");
+      await sleep(400);
+      await page.keyboard.up("ArrowRight");
+      await sleep(300);
+      return banc.journal.droite > avant;
+    };
+    if (!(await fleche())) throw new Defaut("pendant la préparation, une flèche dans la zone de jeu n'arrive pas au jeu");
     await capture(page, "preparation-gamecube");
+    await page.click("#essayerTouches");
+    if (!(await jusqua(() => page.$("#side #preparation").then(Boolean), 2000)))
+      throw new Defaut("« Essayer mes touches » fait disparaître la préparation");
+    await sleep(500);
+    if (await fleche()) throw new Defaut("le réglage ouvert par « Essayer mes touches » laisse passer la flèche au jeu");
     await page.close();
+  },
+
+  /** P7 et P9 : une préparation Wii se choisit en radios ; qui regarde lit
+   * le compte, sans bouton. */
+  async "preparation-wii"() {
     const wii = await nouvelle(PC, {
-      salle: { jeu: 2, bo: true, preparation: preparation(2, [1, 0], false) },
+      salle: { jeu: 2, bo: true, chef: "bo", preparation: { ...preparation(2, [1, 0], false), starter: BO } },
     });
     await entrer(wii);
-    if (!(await jusqua(() => wii.$("#reading").then(Boolean), 8000)))
-      throw new Defaut("une préparation Wii n'a plus sa lecture des commandes");
+    if (!(await jusqua(() => wii.$("#preparation, .n3-preparation").then(Boolean), 8000)))
+      throw new Precondition("la préparation Wii ne se montre pas");
+    const choix = await wii.evaluate(() => ({
+      radios: document.querySelectorAll("#preparation input[type=radio]").length,
+      listes: document.querySelectorAll("#preparation select, .n3-preparation select").length,
+      titre: document.querySelector("#preparationTitre")?.textContent ?? "",
+    }));
+    if (choix.radios !== 2 || choix.listes !== 0)
+      throw new Defaut(`les appareils Wii: ${choix.radios} radios et ${choix.listes} listes`);
+    if (choix.titre !== "Bo lance le prochain jeu") throw new Defaut(`le titre dit « ${choix.titre} »`);
+    if (!(await wii.$("#pretPrepared"))) throw new Defaut("un joueur de la préparation n'a pas « Je suis prêt »");
     await wii.close();
   },
 
-  /** T03 et P6: une préparation Xbox 360 nomme sa manette, ne regrette pas des
-   * boutons Switch, et le chef lance en un geste. */
+  /** T03 et P6: une préparation Xbox 360 est le même bloc, nomme sa manette,
+   * ne regrette pas des boutons Switch, et le chef lance en un geste. */
   async "preparation-x360"() {
     const page = await nouvelle(PC, {
       salle: { jeu: 1, bo: true, preparation: preparation(1, [4], true, 4) },
     });
     await entrer(page);
-    if (!(await jusqua(() => page.$(".n3-switch-setup[open]").then(Boolean), 8000)))
-      throw new Precondition("le panneau de la manette Pro ne s'ouvre pas");
-    const panneau = await texte(page, ".n3-switch-setup[open]");
-    if (!panneau.includes("manette Xbox 360 · prêt") || /Manette Pro · prêt|manette Pro · prêt/.test(panneau))
+    if (!(await jusqua(() => page.$("#preparation, .n3-switch-setup[open]").then(Boolean), 8000)))
+      throw new Precondition("la préparation Xbox 360 ne se montre pas");
+    if (!(await page.$("#side #preparation")))
+      throw new Defaut("la préparation Xbox 360 garde son dialogue au lieu du bloc de la colonne");
+    const panneau = await texte(page, "#preparation");
+    if (!panneau.includes("manette Xbox 360 · prêt") || /manette Pro · prêt/i.test(panneau))
       throw new Defaut("la ligne de Bo ne nomme pas la manette Xbox 360");
     if (panneau.includes("Home, Capture")) throw new Defaut("une salle Xbox 360 regrette Home et Capture");
-    const pret = await page.evaluate(() =>
-      [...document.querySelectorAll(".n3-switch-setup[open] button")].some((b) => b.textContent.trim() === "Je suis prêt"),
-    );
-    if (pret) throw new Defaut("le chef doit encore dire « Je suis prêt »");
+    if (await page.$("#pretPrepared")) throw new Defaut("le chef doit encore dire « Je suis prêt »");
+    if (!(await page.evaluate(() => document.querySelector("#cancelPrepared")?.textContent.trim() === "Garder Sonic Generations")))
+      throw new Defaut("l'annulation ne dit pas qu'elle garde le jeu en cours");
+    const avant = banc.journal.evenements.length;
+    await page.click("#launchPrepared");
+    const lance = () =>
+      banc.journal.evenements
+        .slice(avant)
+        .some((e) => Array.isArray(e.quoi) && e.quoi[0] === "preparation" && e.quoi[1]?.action === "launch" && e.quoi[1]?.pad === 4);
+    if (!(await jusqua(lance, 3000))) throw new Defaut("« Lancer le jeu » n'envoie pas le lancement avec la manette Pro");
     await capture(page, "preparation-x360");
     await page.close();
   },
 
-  /** T06: qui a lancé lit « ma sauvegarde »; les autres, le mot du salon. */
+  /** P8 : au téléphone, la bande dit la préparation en une ligne et ouvre
+   * le bloc dans la feuille de la salle ; la manette à l'écran reste montée
+   * et rien ne se pose sur l'image. Le jumeau : sans préparation, la bande
+   * n'en dit rien. */
+  async "preparation-telephone"() {
+    const page = await nouvelle(TELEPHONE, {
+      salle: { bo: true, chef: "bo", preparation: { ...preparation(0, [0], false), starter: BO } },
+      stockage: { "nel3ab:touchpad": "on" },
+    });
+    await entrer(page);
+    // `entrer` ouvre la feuille de la salle pour lire la place : la refermer.
+    await page.evaluate(() => document.querySelector("#fermerFeuille")?.click());
+    if (!(await jusqua(() => page.$("#bande").then(Boolean), 8000)))
+      throw new Precondition("la feuille refermée, la bande ne revient pas");
+    if (!(await jusqua(() => page.$("#bande #ouvrirPreparation").then(Boolean), 4000))) {
+      const vu = await page.evaluate(() => ({
+        bande: document.querySelector("#bande") !== null,
+        bref: document.querySelector("#preparationEnBref")?.parentElement?.id ?? null,
+        bloc: document.querySelector("#preparation")?.parentElement?.closest("[id]")?.id ?? null,
+      }));
+      throw new Defaut(`la bande ne dit pas la préparation (${JSON.stringify(vu)})`);
+    }
+    const bref = await page.evaluate(() => ({
+      ligne: document.querySelector("#preparationEnBref p")?.textContent ?? "",
+      bouton: document.querySelector("#ouvrirPreparation")?.textContent.trim() ?? "",
+      pave: document.querySelector(".n3-pave") !== null,
+      dialogue: document.querySelector("dialog[open]:not(#feuilleSalle)") !== null,
+    }));
+    if (bref.ligne !== "Bo lance le prochain jeu, Mario Party 4") throw new Defaut(`la bande dit « ${bref.ligne} »`);
+    if (bref.bouton !== "Choisir ma manette") throw new Defaut(`le bouton de la bande dit « ${bref.bouton} »`);
+    if (!bref.pave) throw new Defaut("la manette à l'écran disparaît pendant la préparation");
+    if (bref.dialogue) throw new Defaut("un dialogue s'ouvre de lui-même pendant la préparation");
+    await page.click("#ouvrirPreparation");
+    if (!(await jusqua(() => page.$("#preparation #pretPrepared").then(Boolean), 3000)))
+      throw new Defaut("« Choisir ma manette » n'ouvre pas le bloc de la préparation");
+    await capture(page, "preparation-telephone");
+    await page.close();
+    const sans = await nouvelle(TELEPHONE, { stockage: { "nel3ab:touchpad": "on" } });
+    await entrer(sans);
+    await sans.evaluate(() => document.querySelector("#fermerFeuille")?.click());
+    if (!(await jusqua(() => sans.$("#bande").then(Boolean), 8000)))
+      throw new Precondition("sans préparation, la bande ne revient pas");
+    await sleep(500);
+    if (await sans.$("#preparationEnBref")) throw new Defaut("la bande dit une préparation qui n'existe pas");
+    await sans.close();
+  },
+
+  /** T06 et C6 (chantier menus, 24 novembre 2026) : qui a lancé lit « Sur ta
+   * sauvegarde. » ; les autres lisent l'étiquette de qui a lancé, à la place
+   * que la salle lui donne, et « l'a lancé sur sa sauvegarde. ». */
   async "lanceur-ma-sauvegarde"() {
-    const page = await nouvelle(PC);
+    const page = await nouvelle(PC, { salle: { bo: true } });
     await entrer(page);
     banc.annoncer({ game: "Mario Party 4", save: "la sauvegarde d'Ami", saveSlot: 2, starter: MOI });
     if (!(await jusqua(() => page.$("#booting").then(Boolean), 3000)))
       throw new Precondition("l'annonce de démarrage n'affiche pas d'écran de chargement");
     const vu = await texte(page, "#booting");
-    if (!vu.includes("ma sauvegarde")) throw new Defaut(`le lanceur lit « ${vu.replace(/\s+/g, " ")} »`);
+    if (!vu.includes("Sur ta sauvegarde.")) throw new Defaut(`le lanceur lit « ${vu.replace(/\s+/g, " ")} »`);
+    if (await page.$("#booting .n3-etiquette"))
+      throw new Defaut("le lanceur lit sa propre étiquette au lieu de « ta sauvegarde »");
     await capture(page, "lanceur-ma-sauvegarde");
-    // Le jumeau: lancé par Bo, la même page lit le mot du salon.
+    // Le jumeau : lancé par Bo, assis à la place 2, la même page lit
+    // l'étiquette de Bo à la couleur de sa place.
     banc.annoncer({ game: "Mario Party 4", save: "la sauvegarde de Bo", saveSlot: 2, starter: BO });
-    if (!(await jusqua(async () => (await texte(page, "#booting")).includes("la sauvegarde de Bo"), 3000)))
-      throw new Defaut("lancé par un autre, la page ne lit pas « la sauvegarde de Bo »");
+    const lu = () =>
+      page.evaluate(() => {
+        const ligne = document.querySelector("#booting .n3-charge-sauvegarde");
+        const etiquette = ligne?.querySelector(".n3-etiquette");
+        return {
+          texte: ligne?.textContent ?? "",
+          place: etiquette?.getAttribute("data-place") ?? null,
+        };
+      });
+    if (!(await jusqua(async () => (await lu()).place !== null, 3000))) {
+      const l = await lu();
+      throw new Defaut(`lancé par Bo, la page lit « ${l.texte} » sans étiquette`);
+    }
+    const l = await lu();
+    if (l.place !== "2" || !l.texte.includes("Bo") || !l.texte.includes("l'a lancé sur sa sauvegarde."))
+      throw new Defaut(`lancé par Bo, la page lit « ${l.texte} » (place ${l.place})`);
+    await page.close();
+  },
+
+  /** C10 (chantier menus) : entrer dans une salle où un jeu tourne ne montre
+   * jamais l'écran de chargement ; une annonce de démarrage le montre. */
+  async "arrivee-sans-chargement"() {
+    const page = await nouvelle(PC);
+    let vu = false;
+    await page.exposeFunction("__vuChargement", () => {
+      vu = true;
+    });
+    await page.evaluateOnNewDocument(() => {
+      new MutationObserver(() => {
+        if (document.getElementById("booting")) window.__vuChargement?.();
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#screen").then(Boolean), 5000)))
+      throw new Precondition("la salle n'a pas d'image");
+    await sleep(5000);
+    if (vu) throw new Defaut("l'écran de chargement s'est montré à l'arrivée dans une salle où un jeu tourne");
+    // Le jumeau : une annonce de démarrage le montre en moins de 3 s.
+    banc.annoncer({ game: "Mario Party 4", save: "nouvelle partie", saveSlot: 0, starter: BO });
+    if (!(await jusqua(() => page.$("#booting").then(Boolean), 3000)))
+      throw new Precondition("une annonce de démarrage ne montre pas l'écran de chargement");
+    if (!vu) throw new Precondition("l'observateur n'a pas vu l'écran de chargement qui est là");
     await page.close();
   },
 

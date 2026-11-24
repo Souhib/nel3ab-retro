@@ -151,6 +151,12 @@ export type Liaison =
       /** Qui peut le relancer après un échec : cette page, quelqu'un de
        * nommé, ou personne qu'on connaisse. */
       relance?: "moi" | { nom: string } | null;
+      /** L'habitude de ce jeu est mesurée (D05) : la lenteur peut dire
+       * « d'habitude ». Sans elle, elle ne le dit pas (C5). */
+      habitude?: boolean;
+      /** Le seuil de l'attente longue, en secondes : « depuis 20 s » se dit
+       * au passage, et ne change plus ensuite (le compteur ne parle pas). */
+      seuilS?: number;
     }
   | {
       etat: "arrivee";

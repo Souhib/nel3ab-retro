@@ -1565,25 +1565,248 @@ const ETAPES = {
     await page.close();
   },
 
-  /** « ouvrir le menu » depuis l'écran de chargement: le menu doit être
-   * au-dessus, pas caché dessous en captant le clavier (audit P2, E5). */
+  /** C2 (chantier menus, 24 novembre 2026): l'écran de chargement n'a plus
+   * de bouton de menu ; « Menu du jeu » de la colonne ouvre le menu À CÔTÉ,
+   * et le titre du chargement reste visible. Le jumeau : menu fermé, la même
+   * sonde au centre de la place du menu tombe dans la colonne. */
   async "chargement-menu"() {
     const page = await nouvelle(PC);
     await entrer(page);
     banc.annoncerDemarrage();
     if ((await page.waitForSelector("#booting", { timeout: 3000 }).catch(() => null)) === null)
       throw new Precondition("pas d'écran de chargement après l'annonce");
-    const bouton = await page.waitForSelector("#bootingMenu", { timeout: 12000 }).catch(() => null);
-    if (bouton === null) throw new Precondition("pas de bouton « ouvrir le menu » en 12 s");
-    await bouton.click();
-    await sleep(400);
-    const dessus = await page.evaluate(() => {
-      const sous = document.elementFromPoint(innerWidth * 0.3, innerHeight / 2);
-      return sous?.closest("#menu") ? "menu" : (sous?.closest("[id]")?.id ?? "rien");
-    });
-    if (dessus !== "menu") throw new Defaut(`le menu ouvert depuis le chargement est sous « ${dessus} »`);
+    // Le bouton de l'écran venait au bout de 8 s : on attend au-delà.
+    await sleep(9000);
+    if ((await page.$("#booting")) === null) throw new Precondition("l'écran de chargement est parti avant 9 s");
+    if ((await page.$("#bootingMenu")) !== null) throw new Defaut("l'écran de chargement porte encore un bouton de menu");
+    if ((await page.$("#openMenu")) === null) throw new Precondition("pas de « Menu du jeu » dans la colonne");
+    const titre = () =>
+      page.evaluate(() => {
+        const t = document.querySelector("#booting h1, #booting h2, #booting [data-titre]") ?? document.querySelector("#booting");
+        const r = t.getBoundingClientRect();
+        return [r.x + r.width / 2, r.y + r.height / 2];
+      });
+    await page.click("#openMenu");
+    if ((await page.waitForFunction(() => document.querySelector("#menu") !== null, { timeout: 2000 }).catch(() => null)) === null)
+      throw new Precondition("« Menu du jeu » n'a pas ouvert le menu pendant le chargement");
+    await sleep(300);
+    const [tx, ty] = await titre();
+    const lu = await page.evaluate(
+      (tx, ty) => {
+        const m = document.querySelector("#menu").getBoundingClientRect();
+        const centre = document.elementFromPoint(m.x + m.width / 2, m.y + Math.min(m.height / 2, 200));
+        const surTitre = document.elementFromPoint(tx, ty);
+        return {
+          menu: Boolean(centre?.closest("#menu")),
+          titre: Boolean(surTitre?.closest("#booting")),
+          sous: surTitre?.closest("[id]")?.id ?? "rien",
+          place: [m.x + m.width / 2, m.y + Math.min(m.height / 2, 200)],
+        };
+      },
+      tx,
+      ty,
+    );
     await capture(page, "chargement-menu");
+    if (!lu.menu) throw new Defaut("le centre du menu ouvert pendant le chargement n'est pas dans le menu");
+    if (!lu.titre) throw new Defaut(`le titre du chargement est sous « ${lu.sous} »`);
+    // Le jumeau : menu fermé, la même sonde tombe dans la colonne.
+    await page.keyboard.press("Escape");
+    if ((await page.waitForFunction(() => document.querySelector("#menu") === null, { timeout: 2000 }).catch(() => null)) === null)
+      throw new Precondition("Échap ne ferme pas le menu");
+    const ferme = await page.evaluate(([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest("#side")), lu.place);
+    if (!ferme) throw new Defaut("menu fermé, sa place n'est pas la colonne");
     await page.close();
+  },
+
+  /** C4 et C9 (chantier menus, 24 novembre 2026) : la ligne parlée nomme le
+   * jeu qui démarre et ne change pas pendant que le compteur avance ; les
+   * trois cases ont la même largeur. Le jumeau : au passage à l'attente
+   * longue, la ligne change une fois, et dit le seuil franchi. */
+  async "chargement-annonces"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    banc.annoncerDemarrage();
+    if ((await page.waitForSelector("#booting", { timeout: 3000 }).catch(() => null)) === null)
+      throw new Precondition("pas d'écran de chargement après l'annonce");
+    await sleep(1500);
+    const lire = () =>
+      page.evaluate(() => ({
+        ligne: document.getElementById("ligneParlee")?.textContent ?? null,
+        compteur: document.querySelector("#booting .n3-charge-compteur")?.textContent ?? null,
+        cases: [...document.querySelectorAll("#booting .n3-charge-case")].map(
+          (c) => c.getBoundingClientRect().width,
+        ),
+      }));
+    const avant = await lire();
+    if (avant.ligne === null) throw new Precondition("pas de ligne parlée");
+    if (!avant.ligne.includes("Autre jeu du banc"))
+      throw new Defaut(`la ligne parlée ne nomme pas le jeu : « ${avant.ligne} »`);
+    if (avant.cases.length !== 3) throw new Defaut(`${avant.cases.length} cases au lieu de 3`);
+    if (new Set(avant.cases).size !== 1 || avant.cases[0] < 20)
+      throw new Defaut(`les cases n'ont pas la même largeur : ${avant.cases}`);
+    const changements = [];
+    let lu = avant;
+    for (let i = 0; i < 35; i++) {
+      await sleep(100);
+      const l = await lire();
+      if (l.ligne !== lu.ligne) changements.push(l.ligne);
+      lu = l;
+    }
+    const secondes = (t) => Number((t ?? "").replace(/\D/g, ""));
+    if (secondes(lu.compteur) - secondes(avant.compteur) < 3)
+      throw new Precondition(`le compteur n'avance pas de 3 s : « ${avant.compteur} » puis « ${lu.compteur} »`);
+    if (changements.length > 0) throw new Defaut(`la ligne parlée change avec le compteur : ${changements}`);
+    // Le jumeau : au passage à long (20 s sans habitude), elle change une fois.
+    const vus = new Set([lu.ligne]);
+    const debut = Date.now();
+    while (Date.now() - debut < 20_000) {
+      await sleep(250);
+      vus.add((await lire()).ligne);
+    }
+    const dites = [...vus];
+    if (dites.length !== 2) throw new Defaut(`la ligne parlée a dit ${dites.length} phrases : ${dites}`);
+    if (!dites[1].includes("depuis 20 s")) throw new Defaut(`l'attente longue se dit « ${dites[1]} »`);
+    await capture(page, "chargement-annonces");
+    await page.close();
+  },
+
+  /** C3 (chantier menus) : téléphone en travers, à 844x390 et 780x360,
+   * l'écran de chargement garde ses gestes entiers dans la fenêtre, et ni le
+   * texte, ni un bouton, ni le plateau d'Aïn ne se recouvrent, au démarrage
+   * comme à l'attente longue. */
+  async "chargement-paysage"() {
+    for (const [width, height] of [
+      [844, 390],
+      [780, 360],
+    ]) {
+      const page = await nouvelle({ width, height, isMobile: true, hasTouch: true });
+      await entrer(page);
+      banc.annoncerDemarrage();
+      if ((await page.waitForSelector("#booting", { timeout: 3000 }).catch(() => null)) === null)
+        throw new Precondition("pas d'écran de chargement après l'annonce");
+      const mesurer = () =>
+        page.evaluate(() => {
+          const boite = (el) => {
+            const r = el.getBoundingClientRect();
+            return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, d: r.right };
+          };
+          const croise = (a, b) =>
+            Math.max(0, Math.min(a.d, b.d) - Math.max(a.x, b.x)) *
+            Math.max(0, Math.min(a.b, b.b) - Math.max(a.y, b.y));
+          const booting = document.getElementById("booting");
+          const plaque = booting.querySelector(".n3-charge-plaque");
+          const plateau = booting.querySelector('[data-hote="plateau"]');
+          const boutons = [...booting.querySelectorAll("button")].filter((b) => b.getClientRects().length > 0);
+          const fautes = [];
+          const zone = boite(booting);
+          for (const b of boutons) {
+            const r = boite(b);
+            if (r.y < Math.max(0, zone.y) - 1 || r.b > Math.min(innerHeight, zone.b) + 1 || r.x < 0 || r.d > innerWidth + 1)
+              fautes.push(`${b.textContent.trim()} coupé (${Math.round(r.y)}..${Math.round(r.b)} dans ${Math.round(zone.y)}..${Math.round(Math.min(innerHeight, zone.b))})`);
+          }
+          if (plaque && plateau && plateau.getClientRects().length > 0) {
+            const aire = croise(boite(plaque), boite(plateau));
+            if (aire > 0) fautes.push(`le plateau recouvre la plaque sur ${Math.round(aire)} px²`);
+          }
+          return { fautes, boutons: boutons.map((b) => b.textContent.trim()) };
+        });
+      const debut = await mesurer();
+      if (debut.fautes.length > 0) throw new Defaut(`${width}x${height}, démarre : ${debut.fautes}`);
+      await sleep(21_000);
+      const long = await mesurer();
+      await capture(page, `chargement-paysage-${width}x${height}`);
+      if (long.boutons.length === 0) throw new Precondition(`${width}x${height} : aucun geste à 21 s`);
+      if (long.fautes.length > 0) throw new Defaut(`${width}x${height}, plus long : ${long.fautes}`);
+      await page.close();
+    }
+  },
+
+  /** C8 (chantier menus) : tant qu'aucune image n'est arrivée, « Garder les
+   * 45 dernières secondes » n'est ni dans la colonne ni dans le menu. Le
+   * jumeau : en partie, la colonne le montre. */
+  async "clip-chargement"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    if ((await page.$("#side #clip")) === null) throw new Precondition("en partie, la colonne n'a pas le clip");
+    banc.annoncerDemarrage();
+    if ((await page.waitForSelector("#booting", { timeout: 3000 }).catch(() => null)) === null)
+      throw new Precondition("pas d'écran de chargement après l'annonce");
+    await page.click("#openMenu").catch(() => {});
+    await sleep(500);
+    const clips = await page.evaluate(() => document.querySelectorAll("#side #clip, #menu #clip").length);
+    await capture(page, "clip-chargement");
+    if (clips !== 0) throw new Defaut(`${clips} clip pendant le chargement`);
+    await page.close();
+  },
+
+  /** La mire du démarrage (effets mire-charge et balayage, chantier menus) :
+   * au niveau « tout », une seule barre allumée à la fois, et elle change au
+   * plus une fois par seconde (K14) ; le tube est sous la plaque du texte.
+   * Le jumeau : au niveau conseillé, les sept barres sont là, fixes. */
+  async "mire-charge"() {
+    const mesurer = async (niveau) => {
+      const page = await nouvelle(PC, { "nel3ab:effets": JSON.stringify({ niveau, sons: false }) });
+      await entrer(page);
+      banc.annoncerDemarrage();
+      if ((await page.waitForSelector("#booting .rt-mire-charge", { timeout: 3000 }).catch(() => null)) === null)
+        throw new Defaut(`niveau ${niveau} : pas de mire dans l'écran de chargement`);
+      await sleep(300);
+      const allumees = [];
+      for (let i = 0; i < 45; i++) {
+        allumees.push(
+          await page.evaluate(() =>
+            [...document.querySelectorAll("#booting .rt-mire-charge > i")]
+              .map((b, rang) => (Number(getComputedStyle(b).opacity) > 0.9 ? rang : -1))
+              .filter((r) => r >= 0)
+              .join(","),
+          ),
+        );
+        await sleep(100);
+      }
+      const plaque = await page.evaluate(() => {
+        const style = document.createElement("style");
+        style.textContent = '[class^="rt-calque"] { pointer-events: auto !important; }';
+        document.head.append(style);
+        const p = document.querySelector("#booting .n3-charge-plaque")?.getBoundingClientRect();
+        const vu = p ? document.elementFromPoint(p.x + p.width / 2, p.y + p.height / 2) : null;
+        style.remove();
+        return {
+          balayage: getComputedStyle(document.querySelector("#booting .rt-calque-balayage") ?? document.body).display,
+          sur: vu?.closest(".n3-charge-plaque") ? "plaque" : (vu?.className ?? "rien"),
+          animees: [...document.querySelectorAll("#booting .rt-mire-charge > i")].reduce(
+            (n, b) => n + b.getAnimations().length,
+            0,
+          ),
+        };
+      });
+      await capture(page, `mire-charge-${niveau}`);
+      await page.close();
+      return { allumees, plaque };
+    };
+    const tout = await mesurer("tout");
+    if (tout.allumees.some((a) => a.split(",").length !== 1))
+      throw new Defaut(`au niveau tout, plusieurs barres ou aucune allumées : ${tout.allumees}`);
+    // Les durées de chaque barre allumée, échantillonnées toutes les 100 ms :
+    // la première et la dernière sont coupées par la mesure.
+    const durees = [];
+    let n = 1;
+    for (let i = 1; i < tout.allumees.length; i++) {
+      if (tout.allumees[i] === tout.allumees[i - 1]) n += 1;
+      else {
+        durees.push(n);
+        n = 1;
+      }
+    }
+    const pleines = durees.slice(1);
+    if (pleines.length < 2) throw new Precondition(`trop peu de pas mesurés : ${tout.allumees}`);
+    if (pleines.some((d) => d < 8)) throw new Defaut(`une barre reste allumée moins d'une seconde : ${durees} (pas de 100 ms)`);
+    if (tout.plaque.balayage === "none") throw new Defaut("au niveau tout, pas de balayage dans l'écran de chargement");
+    if (tout.plaque.sur !== "plaque") throw new Defaut(`le tube passe sur la plaque du texte : ${tout.plaque.sur}`);
+    const conseille = await mesurer("conseille");
+    if (conseille.plaque.animees !== 0) throw new Defaut(`au niveau conseillé, ${conseille.plaque.animees} animations de barre`);
+    if (conseille.allumees.some((a) => a.split(",").length !== 7))
+      throw new Defaut(`au niveau conseillé, les sept barres ne sont pas pleines : ${conseille.allumees[0]}`);
+    if (conseille.plaque.sur !== "plaque") throw new Defaut(`au niveau conseillé, le tube passe sur le texte : ${conseille.plaque.sur}`);
   },
 
   /** Le calendrier de l'audit E4: 36 s d'images, puis 30 s de gel avec le son.

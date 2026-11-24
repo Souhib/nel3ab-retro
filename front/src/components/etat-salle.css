@@ -219,9 +219,26 @@ button.n3-pastille {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--espace-3);
-  padding: var(--espace-4);
+  padding: var(--espace-3);
   overflow: hidden;
+}
+/* Le texte du plein cadre, sur une plaque pleine AU-DESSUS des calques du
+   tube (balayage, vignette, roulement, que `poserCalquesAttente` pose après
+   lui) : leurs lignes ne passent jamais sur une phrase, et le contraste du
+   texte est celui de la plaque (plan des états, effet « balayage »). Le
+   24 novembre 2026, le calque du balayage était posé après le titre et le
+   couvrait (relecture du chantier). */
+.n3-plein-plaque {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espace-3);
+  max-width: 100%;
+  min-height: 0;
+  padding: var(--espace-2) var(--espace-3);
+  background: var(--ecran);
 }
 .n3-plein-titre {
   margin: 0;
@@ -287,8 +304,11 @@ button.n3-pastille {
    2026 par l'étape arrivee-courte : 8 px débordaient avant. */
 @container (max-height: 260px) {
   .n3-plein-ecran {
+    padding: var(--espace-1) var(--espace-2);
+  }
+  .n3-plein-plaque {
     gap: var(--espace-2);
-    padding: var(--espace-2) var(--espace-3);
+    padding: var(--espace-1) var(--espace-2);
   }
   .n3-plein-titre {
     font-size: var(--text-fort);
@@ -300,8 +320,15 @@ button.n3-pastille {
   }
 }
 
-/* L'extinction d'une salle fermée : l'écran s'écrase en une ligne puis en
-   un point, une fois, et seulement si l'effet est allumé. */
+/* L'extinction d'une salle fermée (niveaux « conseillé » et « tout »), une
+   fois, 650 ms : l'écran part du noir, deux rideaux noirs viennent du haut et
+   du bas et se ferment sur une ligne claire, la ligne se resserre en un
+   point, puis le plein cadre « fermée » paraît (plan des états). Le fond noir
+   couvre le texte le temps de l'effet, la lumière est son `::after`, découpée
+   par `clip-path` : seule la bande entre les rideaux s'allume, et elle n'est
+   claire qu'une fois mince. Le 24 novembre 2026, la version d'avant
+   commençait par un rectangle presque blanc sur tout l'écran (relecture du
+   chantier). La toile du jeu n'est jamais transformée ni filtrée. */
 .n3-extinction {
   display: none;
 }
@@ -310,22 +337,39 @@ button.n3-pastille {
     display: block;
     position: absolute;
     inset: 0;
-    z-index: 1;
+    z-index: 2;
     pointer-events: none;
+    background: var(--ecran);
+    animation: n3-extinction-fond 650ms step-end forwards;
+  }
+  .fx-extinction .n3-extinction::after {
+    content: "";
+    position: absolute;
+    inset: 0;
     background: var(--encre-ecran);
-    animation: n3-extinction 600ms steps(6, end) forwards;
+    animation: n3-extinction 650ms steps(3, end) forwards;
+  }
+}
+/* Le noir reste tant que dure l'effet, puis laisse voir le plein cadre. */
+@keyframes n3-extinction-fond {
+  to {
+    visibility: hidden;
   }
 }
 @keyframes n3-extinction {
   0% {
     clip-path: inset(0 0 0 0);
-    opacity: 1;
+    opacity: 0;
   }
-  50% {
+  40% {
+    clip-path: inset(calc(50% - 8px) 0 calc(50% - 8px) 0);
+    opacity: 0.25;
+  }
+  55% {
     clip-path: inset(calc(50% - 1px) 0 calc(50% - 1px) 0);
     opacity: 1;
   }
-  90% {
+  85% {
     clip-path: inset(calc(50% - 1px) calc(50% - 1px) calc(50% - 1px) calc(50% - 1px));
     opacity: 1;
   }

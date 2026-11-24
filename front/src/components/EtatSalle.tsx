@@ -367,31 +367,35 @@ function PleinCadreMonte({ modele, rappels }: { modele: Modele; rappels: Rappels
       {premier.current === "arrivee" ? <Coupure /> : null}
       <EcranNoir>
         {modele.id === "fermee" ? <i className="n3-extinction" aria-hidden="true" /> : null}
-        <h2 className="n3-plein-titre" data-texte="">
-          {modele.titre}
-        </h2>
-        {modele.etapes ? (
-          <ol className="n3-plein-etapes">
-            {modele.etapes.map((etape) => (
-              <li key={etape.texte} data-fait={etape.fait}>
-                <span className="n3-plein-marque" aria-hidden="true" />
-                {etape.texte}
-                <span className="sr-only">, {etape.fait ? ETAT.fait : ETAT.enCours}</span>
-              </li>
-            ))}
-          </ol>
-        ) : null}
-        {modele.detail ? (
-          <p className="n3-plein-fait" data-texte="">
-            {modele.detail}
-          </p>
-        ) : null}
-        <Gestes modele={modele} rappels={rappels} />
-        {modele.cout ? (
-          <p className="n3-plein-cout" data-texte="">
-            {modele.cout}
-          </p>
-        ) : null}
+        {/* Le texte sur une plaque pleine, au-dessus des lignes du tube : le
+            balayage ne passe jamais sur une phrase (plan des états). */}
+        <div className="n3-plein-plaque">
+          <h2 className="n3-plein-titre" data-texte="">
+            {modele.titre}
+          </h2>
+          {modele.etapes ? (
+            <ol className="n3-plein-etapes">
+              {modele.etapes.map((etape) => (
+                <li key={etape.texte} data-fait={etape.fait}>
+                  <span className="n3-plein-marque" aria-hidden="true" />
+                  {etape.texte}
+                  <span className="sr-only">, {etape.fait ? ETAT.fait : ETAT.enCours}</span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+          {modele.detail ? (
+            <p className="n3-plein-fait" data-texte="">
+              {modele.detail}
+            </p>
+          ) : null}
+          <Gestes modele={modele} rappels={rappels} />
+          {modele.cout ? (
+            <p className="n3-plein-cout" data-texte="">
+              {modele.cout}
+            </p>
+          ) : null}
+        </div>
       </EcranNoir>
       <div className="n3-plein-plateau" data-hote="plateau" aria-hidden="true" />
     </div>
@@ -437,7 +441,8 @@ export function CeSoir({
 }
 
 /** L'écran noir, et les lignes du tube posées une fois sur lui (balayage,
- * vignette, roulement), refusées d'office sur l'image du jeu. */
+ * vignette, roulement), refusées d'office sur l'image du jeu. Elles passent
+ * sous la plaque du texte (`etat-salle.css`). */
 function EcranNoir({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => (ref.current ? poserCalquesAttente(ref.current) : undefined), []);

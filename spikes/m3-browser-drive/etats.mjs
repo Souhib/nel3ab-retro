@@ -269,6 +269,76 @@ const CONTRASTE_PASTILLE = () => {
   };
 };
 
+/** Les pixels clairs d'un rectangle de l'écran, lus sur une vraie capture :
+ * leur nombre et la boîte qu'ils occupent. Clair : une luminance de plus de
+ * 128 sur 255. La capture est décodée par la page, qui sait lire un PNG. */
+async function clairs(page, r) {
+  const png = await page.screenshot({ clip: { x: r.x, y: r.y, width: r.w, height: r.h }, encoding: "base64" });
+  return page.evaluate(async (b64) => {
+    const image = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+    const toile = new OffscreenCanvas(image.width, image.height);
+    const g = toile.getContext("2d");
+    g.drawImage(image, 0, 0);
+    const d = g.getImageData(0, 0, image.width, image.height).data;
+    let n = 0;
+    let haut = Infinity;
+    let bas = -1;
+    let gauche = Infinity;
+    let droite = -1;
+    for (let y = 0; y < image.height; y++)
+      for (let x = 0; x < image.width; x++) {
+        const k = (y * image.width + x) * 4;
+        if (0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2] <= 128) continue;
+        n += 1;
+        haut = Math.min(haut, y);
+        bas = Math.max(bas, y);
+        gauche = Math.min(gauche, x);
+        droite = Math.max(droite, x);
+      }
+    return { n, total: image.width * image.height, w: image.width, hauteur: n ? bas - haut + 1 : 0, largeur: n ? droite - gauche + 1 : 0 };
+  }, png);
+}
+
+/** Deux images d'écran : ce qui vient d'être réglé est rendu. */
+const rendu = (page) => page.evaluate(() => new Promise((fin) => requestAnimationFrame(() => requestAnimationFrame(fin))));
+
+/** Ce qui reçoit le point au centre et aux quatre coins (à 2 px du bord) de
+ * chaque pièce du texte du plein cadre, chaque calque du tube rendu cible du
+ * pointeur le temps de la mesure : un calque est `pointer-events: none`, et
+ * `elementFromPoint` passerait au travers sans le voir. */
+const TEXTE_SOUS_CALQUE = () => {
+  const style = document.createElement("style");
+  style.textContent = '.n3-plein [class^="rt-calque"], .n3-plein .n3-extinction { pointer-events: auto !important; }';
+  document.head.append(style);
+  const pieces = [...document.querySelectorAll("#arrivee :is(.n3-plein-titre, .n3-plein-etapes li, .n3-plein-fait, .n3-plein-cout, .n3-geste)")];
+  const fautes = [];
+  let points = 0;
+  for (const el of pieces) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 6 || r.height < 6) continue;
+    for (const [x, y] of [
+      [r.left + r.width / 2, r.top + r.height / 2],
+      [r.left + 2, r.top + 2],
+      [r.right - 3, r.top + 2],
+      [r.left + 2, r.bottom - 3],
+      [r.right - 3, r.bottom - 3],
+    ]) {
+      points += 1;
+      const vu = document.elementFromPoint(Math.round(x), Math.round(y));
+      if (vu === null || !el.contains(vu))
+        fautes.push(`${el.className.split(" ")[0] || el.tagName} ${Math.round(x)},${Math.round(y)}: ${vu?.tagName ?? "rien"}.${vu?.className ?? ""}`);
+    }
+  }
+  style.remove();
+  return { pieces: pieces.length, points, fautes };
+};
+
+/** Les calques du tube visibles dans la page : posés, affichés, avec une aire. */
+const CALQUES_VUS = () =>
+  [...document.querySelectorAll(".rt-calque-balayage, .rt-calque-vignette, .rt-calque-roulement")]
+    .filter((c) => getComputedStyle(c).display !== "none" && c.getBoundingClientRect().width > 0)
+    .map((c) => c.className);
+
 /** La pastille de la proposition de l'image légère (ADR D40). */
 const OFFRE = '#pastilleEtat[data-etat="irreguliere"]';
 
@@ -602,6 +672,207 @@ const ETAPES = {
       throw new Defaut(`le carnet n'est pas proposé une fois sur l'écran de la salle fermée: ${JSON.stringify(carnet)}`);
     await capture(page, "fermee");
     await page.close();
+  },
+
+  /** L'extinction d'une salle fermée (plan des états, effet « extinction »),
+   * lue sur de vraies captures, l'effet arrêté à trois instants. À son début,
+   * l'écran est noir : aucun pixel clair. À 60 %, une ligne claire de 4 px
+   * de haut au plus, sur la moitié de l'écran au moins. À 90 %, un point de
+   * 4 px au plus. Elle est jouée une fois (un « animationstart » par
+   * animation), rien ne tourne ensuite, et la toile du jeu garde son
+   * transform, son filtre et son opacité. Jumeaux : une salle qui redémarre,
+   * et le niveau « sobre », n'en jouent aucune. La version d'avant partait
+   * d'un rectangle presque blanc sur tout l'écran : 813 376 px² clairs sur
+   * les 922 432 du plein cadre (relecture du 24 novembre 2026). */
+  async "extinction"() {
+    const ecouter = (page) =>
+      page.evaluate(() => {
+        const e = { debuts: [], fins: [], arretee: false };
+        window.__ext = e;
+        const les = () => document.getAnimations().filter((a) => a.animationName?.startsWith("n3-extinction"));
+        document.addEventListener(
+          "animationstart",
+          (ev) => {
+            if (!ev.animationName.startsWith("n3-extinction")) return;
+            e.debuts.push(ev.animationName);
+            if (e.arretee) return;
+            e.arretee = true;
+            // Arrêtée à son début : la suite se règle de l'extérieur.
+            for (const a of les()) {
+              a.pause();
+              a.currentTime = 0;
+            }
+          },
+          true,
+        );
+        document.addEventListener("animationend", (ev) => ev.animationName.startsWith("n3-extinction") && e.fins.push(ev.animationName), true);
+        window.__extRegler = (t) => {
+          for (const a of les()) a.currentTime = t;
+          return les().length;
+        };
+        window.__extReprendre = () => {
+          for (const a of les()) a.play();
+        };
+        window.__extTournent = () => les().filter((a) => a.playState === "running").length;
+      });
+    const toile = (page) =>
+      page.evaluate(() => {
+        const s = getComputedStyle(document.querySelector("#screen"));
+        return [s.transform, s.filter, s.opacity].join(" | ");
+      });
+    const fermer = (redemarre) => banc.regler({ video: "drop", ouverte: false, redemarre, fermeeDepuis: 30 });
+    const conseille = JSON.stringify({ niveau: "conseille", sons: false });
+
+    const page = await nouvelle(PC, { "nel3ab:effets": conseille });
+    await entrer(page);
+    await sleep(1500);
+    await ecouter(page);
+    const avant = await toile(page);
+    fermer(false);
+    const dite = await jusqua(page, (v) => /La salle 1 (est fermée|a fermé à)/.test(v.texte), 9000);
+    if (dite.apres === null) throw new Precondition(`la salle fermée n'est pas dite fermée en 9 s: ${dite.vu.texte}`);
+    const jouee = await page.waitForFunction(() => window.__ext.arretee, { timeout: 2000 }).catch(() => null);
+    if (jouee === null) throw new Defaut("aucune extinction à la fermeture, au niveau « conseillé »");
+    const ecran = await page.evaluate(() => {
+      const r = document.querySelector("#arrivee .n3-plein-ecran").getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), w: Math.floor(r.width), h: Math.floor(r.height) };
+    });
+    const duree = await page.evaluate(() =>
+      Math.max(...document.getAnimations().filter((a) => a.animationName?.startsWith("n3-extinction")).map((a) => a.effect.getTiming().duration)),
+    );
+    const instants = {};
+    for (const [nom, part] of [
+      ["debut", 0],
+      ["ligne", 0.6],
+      ["point", 0.9],
+    ]) {
+      await page.evaluate((t) => window.__extRegler(t), duree * part);
+      await rendu(page);
+      instants[nom] = await clairs(page, ecran);
+    }
+    const pendant = await toile(page);
+    const lu = JSON.stringify({ duree, ...instants });
+    if (instants.debut.n > instants.debut.total * 0.001)
+      throw new Defaut(`l'extinction commence par ${instants.debut.n} px² clairs sur ${instants.debut.total}, au lieu du noir: ${lu}`);
+    if (instants.ligne.hauteur === 0 || instants.ligne.hauteur > 4 || instants.ligne.largeur < instants.ligne.w / 2)
+      throw new Defaut(`pas de ligne claire à 60 % de l'extinction: ${lu}`);
+    if (instants.point.hauteur > 4 || instants.point.largeur > 4) throw new Defaut(`pas de point à 90 % de l'extinction: ${lu}`);
+    if (pendant !== avant) throw new Defaut(`la toile du jeu change pendant l'extinction: ${avant} puis ${pendant}`);
+    await page.evaluate(() => window.__extReprendre());
+    await sleep(1500);
+    const fin = await page.evaluate(() => ({ ...window.__ext, tournent: window.__extTournent() }));
+    const noms = new Set(fin.debuts);
+    if (!noms.has("n3-extinction") || fin.debuts.length !== noms.size)
+      throw new Defaut(`l'extinction n'est pas jouée une fois: ${JSON.stringify(fin.debuts)}`);
+    if (fin.tournent > 0 || fin.fins.length !== noms.size) throw new Defaut(`l'extinction tourne encore après sa fin: ${JSON.stringify(fin)}`);
+    console.log(JSON.stringify({ extinction: { duree, debut: instants.debut.n, ligne: [instants.ligne.largeur, instants.ligne.hauteur], point: [instants.point.largeur, instants.point.hauteur] } }));
+    await capture(page, "extinction-fin");
+    await page.close();
+
+    // Jumeaux : une salle qui redémarre, puis une salle fermée au niveau sobre.
+    for (const [cas, effets, redemarre, texte] of [
+      ["redémarrage", conseille, true, /redémarre/],
+      ["sobre", JSON.stringify({ niveau: "sobre", sons: false }), false, /La salle 1 (est fermée|a fermé à)/],
+    ]) {
+      const jumeau = await nouvelle(PC, { "nel3ab:effets": effets });
+      await entrer(jumeau);
+      await sleep(1500);
+      await ecouter(jumeau);
+      fermer(redemarre);
+      const vu = await jusqua(jumeau, (v) => texte.test(v.texte), 9000);
+      if (vu.apres === null) throw new Precondition(`${cas}: l'état attendu n'est pas dit en 9 s: ${vu.vu.texte}`);
+      await sleep(1500);
+      const debuts = await jumeau.evaluate(() => window.__ext.debuts);
+      if (debuts.length) throw new Defaut(`${cas}: une extinction est jouée (${debuts})`);
+      await jumeau.close();
+    }
+  },
+
+  /** Les lignes du tube sur l'écran noir (plan des états : balayage,
+   * vignette, roulement), sur le plein cadre de l'arrivée, SOUS le texte :
+   * au centre et aux coins de chaque pièce du texte, c'est le texte qui
+   * reçoit le point, chaque calque rendu cible du pointeur. Au niveau
+   * « tout », les trois calques, de jour comme de nuit : le titre se lit à
+   * 4,5:1 au moins sur le fond qui est sous lui, la vignette a son ombre et
+   * ses coins, le roulement tourne, un cycle par seconde au plus. Au niveau
+   * « conseillé », le balayage seul (la vignette et le roulement sont « à
+   * doser », `lib/effets`). Jumeaux : un calque passé au-dessus du titre est
+   * vu ; la fiche d'une image figée n'a aucun calque ; le niveau « sobre »
+   * n'en montre aucun. Le 24 novembre 2026, le balayage était posé après le
+   * titre et le couvrait (relecture du chantier). */
+  async "calques-attente"() {
+    const fautes = [];
+    for (const [theme, niveau, attendus] of [
+      ["jour", "tout", ["rt-calque-balayage", "rt-calque-vignette", "rt-calque-roulement"]],
+      ["nuit", "tout", ["rt-calque-balayage", "rt-calque-vignette", "rt-calque-roulement"]],
+      ["jour", "conseille", ["rt-calque-balayage"]],
+    ]) {
+      const cas = `${theme} ${niveau}`;
+      const page = await nouvelle(PC, { "nel3ab:theme": theme, "nel3ab:effets": JSON.stringify({ niveau, sons: false }) });
+      banc.regler({ video: "freeze" });
+      await page.click("#enter");
+      if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+        throw new Precondition(`${cas}: pas de plein cadre à l'arrivée`);
+      await sleep(600);
+      const vus = await page.evaluate(CALQUES_VUS);
+      if (JSON.stringify([...vus].sort()) !== JSON.stringify([...attendus].sort()))
+        fautes.push(`${cas}: calques posés ${JSON.stringify(vus)}, attendus ${JSON.stringify(attendus)}`);
+      const sous = await page.evaluate(TEXTE_SOUS_CALQUE);
+      if (sous.pieces < 2) throw new Precondition(`${cas}: ${sous.pieces} pièces de texte dans le plein cadre`);
+      fautes.push(...sous.fautes.slice(0, 4).map((f) => `${cas}: une ligne du tube sur le texte, ${f}`));
+      const m = await page.evaluate(() => {
+        const rgb = (c) => {
+          const v = /rgba?\(([^)]+)\)/.exec(c)?.[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+          return v ? { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 } : null;
+        };
+        const lum = ({ r, g, b }) =>
+          [r, g, b].map((x) => (x / 255 <= 0.03928 ? x / 255 / 12.92 : ((x / 255 + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+        const titre = document.querySelector("#arrivee .n3-plein-titre");
+        let fond = null;
+        for (let e = titre; e && !fond; e = e.parentElement) {
+          const c = rgb(getComputedStyle(e).backgroundColor);
+          if (c && c.a === 1) fond = c;
+        }
+        const [x, y] = [lum(rgb(getComputedStyle(titre).color)), lum(fond)].sort((p, q) => q - p);
+        const vignette = getComputedStyle(document.querySelector("#arrivee .rt-calque-vignette"));
+        const roule = document.querySelector("#arrivee .rt-calque-roulement").getAnimations();
+        return {
+          rapport: Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100,
+          vignette: [vignette.boxShadow, vignette.borderTopLeftRadius],
+          roulement: roule.map((a) => [a.effect.getTiming().duration, a.effect.getTiming().iterations]),
+        };
+      });
+      if (m.rapport < 4.5) fautes.push(`${cas}: le titre du plein cadre à ${m.rapport}:1 sur son fond`);
+      if (attendus.includes("rt-calque-vignette") && (m.vignette[0] === "none" || m.vignette[1] === "0px"))
+        fautes.push(`${cas}: la vignette n'a pas son ombre et ses coins: ${m.vignette}`);
+      if (attendus.includes("rt-calque-roulement") && (m.roulement.length !== 1 || !(m.roulement[0][0] >= 1000)))
+        fautes.push(`${cas}: le roulement ne tourne pas en un cycle par seconde au plus: ${JSON.stringify(m.roulement)}`);
+      console.log(JSON.stringify({ calques: cas, titre: m.rapport, roulement: m.roulement, texte: `${sous.pieces} pièces, ${sous.points} points` }));
+      // Le jumeau de la mesure : le balayage passé au-dessus de la plaque.
+      await page.evaluate(() => {
+        document.querySelector("#arrivee .rt-calque-balayage").style.zIndex = "5";
+      });
+      const dessus = await page.evaluate(TEXTE_SOUS_CALQUE);
+      if (dessus.fautes.length === 0) throw new Precondition(`${cas}: un balayage posé sur le titre n'est pas vu`);
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+    // Jumeaux : la fiche d'une image figée, puis l'arrivée au niveau sobre.
+    const fiche = await nouvelle(PC);
+    await entrer(fiche);
+    await jusquALaFiche(fiche);
+    const surFiche = await fiche.evaluate(CALQUES_VUS);
+    if (surFiche.length) throw new Defaut(`des calques du tube avec la fiche d'une image figée: ${surFiche}`);
+    await fiche.close();
+    const sobre = await nouvelle(PC, { "nel3ab:effets": JSON.stringify({ niveau: "sobre", sons: false }) });
+    banc.regler({ video: "freeze" });
+    await sobre.click("#enter");
+    if ((await sobre.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+      throw new Precondition("sobre: pas de plein cadre à l'arrivée");
+    await sleep(600);
+    const auSobre = await sobre.evaluate(CALQUES_VUS);
+    if (auSobre.length) throw new Defaut(`des calques du tube au niveau « sobre »: ${auSobre}`);
+    await sobre.close();
   },
 
   /** Une salle qui refuse l'arrivée n'a jamais répondu: « ne répond pas ». */
@@ -1287,7 +1558,8 @@ const ETAPES = {
       const e = ecran.getBoundingClientRect();
       const fautes = [];
       if (ecran.scrollHeight > ecran.clientHeight + 1) fautes.push(`l'écran déborde de ${ecran.scrollHeight - ecran.clientHeight} px`);
-      for (const el of ecran.querySelectorAll(":scope > :not(i), .n3-geste")) {
+      // Chaque pièce du texte, sur sa plaque depuis le 24 novembre 2026.
+      for (const el of ecran.querySelectorAll(":scope > :not(i), .n3-plein-plaque > *, .n3-geste")) {
         const r = el.getBoundingClientRect();
         if (r.width === 0) continue;
         const nom = el.id || el.className.split(" ")[0] || el.tagName;

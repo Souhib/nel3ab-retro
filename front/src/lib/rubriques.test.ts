@@ -6,7 +6,13 @@ import { describe, expect, it, vi } from "vitest";
 import { moteurDe } from "./consoles";
 import { aidesTropLongues, type Ligne } from "./menu";
 import { MENU } from "./mots";
-import { lignesManettes, type EntreeManettes } from "./rubriques";
+import {
+  lignesManettes,
+  lignesSalle,
+  qui,
+  type EntreeManettes,
+  type EntreeSalle,
+} from "./rubriques";
 
 const CONSOLES = ["gc", "wii", "switch", "switch2", "x360", "inconnue", undefined] as const;
 
@@ -103,5 +109,101 @@ describe("la rubrique Manettes (M9)", () => {
       expect(
         ligne(manettes({ console, moteur: moteurDe(console) }).lignes, "padonly").hint,
       ).not.toMatch(/[0-9]/);
+  });
+});
+
+describe("la rubrique Salle (M10, K25)", () => {
+  const base = (plus: Partial<EntreeSalle> = {}): EntreeSalle => ({
+    chef: { nom: "Nour", place: 1, moi: false },
+    reprise: false,
+    jeu: { index: 3 },
+    peutFermer: false,
+    fermeture: null,
+    tenues: 4,
+    sousUnSalon: true,
+    nomSalle: "salle 1",
+    tenu: false,
+    aideSalle: "Places, qui regarde, signaler, quitter.",
+    regarde: false,
+    signaler: null,
+    reprendre: vi.fn(),
+    fermerJeu: vi.fn(),
+    fermerSalle: vi.fn(),
+    ouvrirSalle: vi.fn(),
+    basculerPlace: vi.fn(),
+    quitter: vi.fn(),
+    ...plus,
+  });
+  const ids = (lignes: Ligne[]) => lignes.map((l) => l.id);
+
+  it("qui choisit le jeu ferme le jeu par une fiche qui dit la conséquence", () => {
+    const e = base({ peutFermer: true, chef: { nom: "Nour", place: 1, moi: true } });
+    const lignes = lignesSalle(e);
+    const fermer = lignes.find((l) => l.id === "close-game");
+    expect(fermer?.fiche?.consequence).toBe(
+      "La partie s'arrête pour les 4 joueurs. La salle reste ouverte.",
+    );
+    // Le jumeau : la ligne seule n'agit pas, seule la fiche agit.
+    fermer?.onEnter?.();
+    expect(e.fermerJeu).not.toHaveBeenCalled();
+    fermer?.fiche?.onAgir(null);
+    expect(e.fermerJeu).toHaveBeenCalledOnce();
+    expect(e.fermerJeu).toHaveBeenCalledWith(3);
+    expect(ids(lignes)).toContain("close-room");
+  });
+
+  it("à qui ne choisit pas le jeu, ni Fermer le jeu ni Fermer la salle", () => {
+    expect(ids(lignesSalle(base()))).not.toContain("close-game");
+    expect(ids(lignesSalle(base()))).not.toContain("close-room");
+    // Sans salon, pas de salle à fermer, même pour qui choisit.
+    expect(ids(lignesSalle(base({ peutFermer: true, sousUnSalon: false })))).toEqual([
+      "close-game",
+      "watch",
+      "leave",
+    ]);
+  });
+
+  it("Signaler est une ligne quand le menu remplace la colonne, et seulement là", () => {
+    const signaler = "le bouton Signaler";
+    const lignes = lignesSalle(base({ signaler }));
+    expect(lignes[0]).toMatchObject({ id: "signaler", element: signaler });
+    expect(ids(lignesSalle(base()))).not.toContain("signaler");
+  });
+
+  it("une fermeture demandée est l'état de la ligne et de sa fiche", () => {
+    const lignes = lignesSalle(base({ peutFermer: true, fermeture: 3 }));
+    const fermer = lignes.find((l) => l.id === "close-game");
+    expect(fermer?.value).toBe("fermeture…");
+    expect(fermer?.fiche?.occupe).toBe(true);
+  });
+
+  it("aucune aide ne dépasse 70 caractères, pour chaque rôle", () => {
+    for (const plus of [
+      {},
+      { peutFermer: true },
+      { reprise: true },
+      { tenu: true },
+      { regarde: true },
+      { sousUnSalon: false },
+    ])
+      expect(
+        aidesTropLongues([{ id: "salle", label: "", lignes: lignesSalle(base(plus)) }]),
+      ).toEqual([]);
+  });
+});
+
+describe("la tête de la rubrique Salle (M10)", () => {
+  it("dit qui choisit le jeu, avec la place de son étiquette", () => {
+    expect(qui({ nom: "Nour", place: 2, moi: false })).toEqual({
+      nom: "Nour",
+      place: 2,
+      texte: "choisit le jeu.",
+    });
+    expect(qui({ nom: "Nour", place: null, moi: true })).toEqual({
+      nom: null,
+      place: null,
+      texte: "Tu choisis le jeu.",
+    });
+    expect(qui(null)).toBeNull();
   });
 });

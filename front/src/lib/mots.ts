@@ -846,6 +846,11 @@ export const REGLAGE = {
 export const MENU = {
   /** Le nom du menu pour un lecteur d'écran : celui du rang qui l'ouvre. */
   nom: "Menu du jeu",
+  /** La tête de la rubrique Salle (M10) : l'étiquette du chef, puis ceci. */
+  choisitLeJeu: "choisit le jeu.",
+  tuChoisis: "Tu choisis le jeu.",
+  /** La ligne Signaler, quand le menu remplace la colonne (K25). */
+  signaler: "Signaler un problème",
   rubriques: {
     jeux: "Jeux",
     manettes: "Manettes",

@@ -95,16 +95,22 @@ export type Ligne = {
   deplie?: boolean;
   /** Une décision : elle s'ouvre dans une fiche au lieu d'agir. */
   fiche?: FicheDeLigne;
+  /** Un composant d'un autre chantier, posé tel quel comme une ligne :
+   * Signaler, quand le menu prend la place de la colonne (K25). */
+  element?: ReactNode;
 };
 
-export type Rubrique = { id: IdRubrique; label: string; lignes: Ligne[] };
+/** `tete` : ce que la rubrique dit avant ses lignes (« [Nour] choisit le
+ * jeu. », M10). */
+export type Rubrique = { id: IdRubrique; label: string; lignes: Ligne[]; tete?: ReactNode };
 
 /** Ce qu'une ligne dessine. Une décision l'emporte sur tout le reste : une
  * ligne qui ouvre une fiche n'agit jamais d'un seul geste. */
-export type Forme = "fiche" | "choix" | "glissiere" | "bascule" | "depli" | "action";
+export type Forme = "fiche" | "composant" | "choix" | "glissiere" | "bascule" | "depli" | "action";
 
 export function formeDe(ligne: Ligne): Forme {
   if (ligne.fiche) return "fiche";
+  if (ligne.element !== undefined) return "composant";
   if (ligne.deplie !== undefined) return "depli";
   if (ligne.picks) return "choix";
   if (ligne.slide) return "glissiere";

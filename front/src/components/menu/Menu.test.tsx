@@ -464,3 +464,44 @@ describe("le ▶ après une animation", () => {
     expect(vus).toEqual([]);
   });
 });
+
+describe("la rubrique Salle tient la colonne (M10, K25)", () => {
+  const salle = (): Rubrique[] =>
+    rubriques({
+      salle: [
+        {
+          id: "signaler",
+          label: "Signaler un problème",
+          element: (
+            <button type="button" id="signalerMenu">
+              Signaler un problème
+            </button>
+          ),
+        },
+        { id: "leave", label: "quitter la salle", onEnter: () => {} },
+      ],
+    }).map((r) =>
+      r.id === "salle" ? { ...r, tete: <p id="menuQuiChoisit">Nour choisit le jeu.</p> } : r,
+    );
+
+  it("dit qui choisit le jeu en tête, et seulement dans sa rubrique", () => {
+    menu({ rubriques: salle(), initiale: "salle" });
+    expect(document.querySelector("#menuPanneau #menuQuiChoisit")?.textContent).toBe(
+      "Nour choisit le jeu.",
+    );
+    // Le jumeau : une autre rubrique n'a pas cette tête.
+    act(() => screen.getByRole("tab", { name: /Jeux/ }).click());
+    expect(document.getElementById("menuQuiChoisit")).toBeNull();
+  });
+
+  it("pose Signaler comme une ligne, que les flèches atteignent", () => {
+    menu({ rubriques: salle(), initiale: "salle" });
+    const ligne = document.getElementById("item-signaler");
+    expect(ligne?.getAttribute("data-forme")).toBe("composant");
+    expect(ligne?.querySelector("#signalerMenu")).not.toBeNull();
+    const quitter = document.getElementById("item-leave")!;
+    act(() => quitter.focus());
+    fireEvent.keyDown(quitter, { key: "ArrowUp" });
+    expect(document.activeElement?.id).toBe("signalerMenu");
+  });
+});

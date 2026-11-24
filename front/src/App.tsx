@@ -19,7 +19,7 @@ import { GameCard } from "./components/GameCard";
 import { Rayonnage } from "./components/Rayonnage";
 import { setupGameKey } from "./lib/setups";
 import { Preparation, PreparationEnBref, SceneRefus } from "./components/Preparation";
-import { lignesManettes } from "./lib/rubriques";
+import { lignesManettes, lignesSalle, qui } from "./lib/rubriques";
 import { useSetupChoice } from "./lib/useSetupChoice";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
@@ -64,6 +64,7 @@ import { PanneauCommande } from "./components/PanneauCommande";
 import { Instruments } from "./components/Instruments";
 import { MesuresTechniques } from "./components/MesuresTechniques";
 import { Signaler } from "./components/Signaler";
+import { Etiquette } from "./components/Etiquette";
 import { rangsDeLaColonne } from "./lib/colonne";
 import { ColumnHandle } from "./components/ColumnHandle";
 import { Menu } from "./components/menu/Menu";
@@ -203,9 +204,7 @@ import {
   SANS_REPONSE,
   chefAbsent,
   chefChoisit,
-  enMenu,
   prixImageLegere,
-  SORTIES,
   MENU,
   BIBLIO,
   FICHE,
@@ -1708,131 +1707,95 @@ function Room({
     {
       id: "salle",
       label: MENU.rubriques.salle,
-      // Les places, le clip et Signaler vivent dans la colonne : deux
-      // endroits pour un même geste sont deux endroits à tenir d'accord. Ce
-      // qui reste ici n'existe nulle part ailleurs.
-      lignes: [
-        // Seulement quand le chef ne joue plus (`repriseDuRole`) : proposé à
-        // tous, c'était la première action offerte à un nouveau venu (T12).
-        ...(boss && repriseDuRole(role, login !== null)
-          ? [
-              {
-                id: "recover-owner",
-                label: "prendre le rôle de chef",
-                hint: `${chefAbsent(boss.name)} ${boss.name} sera prévenu.`,
-                onEnter: () => {
-                  setMenu(false);
-                  onRecover(null);
-                },
-              },
-            ]
-          : []),
-        // Fermer le jeu et fermer la salle, seulement pour qui choisit le
-        // jeu, et par une fiche qui dit ce que ça arrête (M10).
-        ...(room?.game && canClose
-          ? [
-              {
-                id: "close-game",
-                label: "fermer le jeu",
-                // Une fermeture demandée est l'état de la ligne et de sa
-                // fiche, pas une erreur dans un avis (P10).
-                value: fermeture === room.game.index ? FICHE.fermeture : undefined,
-                hint: "Les sauvegardes sont conservées.",
-                fiche: {
-                  consequence:
-                    tenues > 1
-                      ? `La partie s'arrête pour les ${tenues} joueurs. La salle reste ouverte.`
-                      : "La partie s'arrête. La salle reste ouverte.",
-                  agir: "Fermer le jeu",
-                  annuler: FICHE.continuer,
-                  occupe: fermeture === room.game.index,
-                  suite: fermeture === room.game.index ? FICHE.fermetureEnCours : undefined,
-                  onAgir: () => {
-                    if (!room.game) return;
-                    const index = room.game.index;
-                    void tell
-                      .closeGame(index)
-                      .then(() => setFermeture(index))
-                      .catch((error: unknown) =>
-                        setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
-                      );
-                  },
-                },
-              } satisfies Ligne,
-            ]
-          : []),
-        // Fermer la SALLE : pour le chef, et seulement sous un salon (P14).
-        ...(canClose && sortie !== null
-          ? [
-              {
-                id: "close-room",
-                label: "fermer la salle",
-                hint: "Libère la carte graphique. Les sauvegardes sont conservées.",
-                fiche: {
-                  consequence: `La partie s'arrête pour tous, et ${nomSalle} ferme.`,
-                  agir: "Fermer la salle",
-                  annuler: FICHE.continuer,
-                  onAgir: () => {
-                    void closeSalle({ path: { numero: salle() }, throwOnError: true })
-                      .then(() => location.assign("/"))
-                      .catch((error: unknown) =>
-                        // Le client généré rejette avec le corps de la
-                        // réponse, `{ detail }`, et non avec une `Error`.
-                        setPreparationError(
-                          typeof error === "object" &&
-                            error !== null &&
-                            "detail" in error &&
-                            typeof error.detail === "string"
-                            ? `La salle n'a pas fermé : ${error.detail}.`
-                            : "La salle n'a pas pu fermer. Réessaie.",
-                        ),
-                      );
-                  },
-                },
-              } satisfies Ligne,
-            ]
-          : []),
-        // La feuille agrandie, quand la salle est tenue en main : les places,
-        // demander celle d'un autre, signaler, le diagnostic, les spectateurs.
-        ...(tenu
-          ? [
-              {
-                id: "places",
-                label: "la salle",
-                hint: aideDeLaSalle(appareil),
-                onEnter: () => {
-                  setMenu(false);
-                  setFeuille("agrandie");
-                },
-              },
-            ]
-          : []),
-        {
-          id: "watch",
-          label: enMenu(watchingNow ? PLACE.prendre : PLACE.rendre),
-          value: watchingNow ? "tu regardes" : undefined,
-          hint: watchingNow
-            ? "la première place libre"
-            : "tu regardes, l'image et le son continuent",
-          onEnter: () => {
-            if (watchingNow) session?.input.play();
-            else session?.input.watchOnly();
-            setMenu(false);
-          },
+      // « [Nour] choisit le jeu. », avec l'étiquette de Nour (M10) : la
+      // colonne le disait, et le menu prend sa place au bureau.
+      tete: (() => {
+        const dit = qui(
+          boss && !salleFermee
+            ? { nom: boss.name, place: boss.seat ?? null, moi: boss.moi === true }
+            : null,
+        );
+        if (dit === null) return undefined;
+        return (
+          <p id="menuQuiChoisit">
+            {dit.nom !== null ? (
+              <>
+                <Etiquette nom={dit.nom} place={dit.place} />{" "}
+              </>
+            ) : null}
+            {dit.texte}
+          </p>
+        );
+      })(),
+      // Construite hors d'ici, avec ses essais (`lib/rubriques`, M10).
+      lignes: lignesSalle({
+        chef: boss ? { nom: boss.name, place: boss.seat ?? null, moi: boss.moi === true } : null,
+        reprise: repriseDuRole(role, login !== null),
+        jeu: room?.game ? { index: room.game.index } : null,
+        peutFermer: canClose,
+        fermeture,
+        tenues,
+        sousUnSalon: sortie !== null,
+        nomSalle,
+        tenu,
+        aideSalle: aideDeLaSalle(appareil),
+        regarde: watchingNow,
+        // Au bureau, le menu prend la place des rangs de la colonne, et
+        // Signaler avec eux : il revient ici, en ligne (K25). Tenue en
+        // main, la feuille de la salle le porte ; un chargement qui offre
+        // ses gestes le porte aussi : jamais deux à l'écran.
+        signaler:
+          tenu || chargementParle ? null : (
+            <Signaler
+              id="signalerMenu"
+              variante="fiche"
+              // Plus bas dans ce composant : appelés au clic, jamais ici.
+              onComplain={() => complain()}
+              garde={garde.current}
+              annoncer={(phrase, nature) => annoncer(phrase, nature)}
+            />
+          ),
+        reprendre: () => {
+          setMenu(false);
+          onRecover(null);
         },
-        {
-          id: "leave",
-          label: enMenu(SORTIES.quitter),
-          // « retour à l'accueil » désignait deux pages différentes (P8).
-          hint:
-            sortie === null
-              ? "retour à l'entrée de la salle. La partie continue sans toi."
-              : "vers les autres salles. La partie continue sans toi.",
-          // La même sortie que la colonne : la transition sortir-salle du
-          // socle, puis le départ (`quitterLaSalle`).
-          onEnter: () => quitterLaSalle(),
+        fermerJeu: (index) => {
+          void tell
+            .closeGame(index)
+            .then(() => setFermeture(index))
+            .catch((error: unknown) =>
+              setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
+            );
         },
-      ],
+        fermerSalle: () => {
+          void closeSalle({ path: { numero: salle() }, throwOnError: true })
+            .then(() => location.assign("/"))
+            .catch((error: unknown) =>
+              // Le client généré rejette avec le corps de la réponse,
+              // `{ detail }`, et non avec une `Error`.
+              setPreparationError(
+                typeof error === "object" &&
+                  error !== null &&
+                  "detail" in error &&
+                  typeof error.detail === "string"
+                  ? `La salle n'a pas fermé : ${error.detail}.`
+                  : "La salle n'a pas pu fermer. Réessaie.",
+              ),
+            );
+        },
+        ouvrirSalle: () => {
+          setMenu(false);
+          setFeuille("agrandie");
+        },
+        basculerPlace: () => {
+          if (watchingNow) session?.input.play();
+          else session?.input.watchOnly();
+          setMenu(false);
+        },
+        // La même sortie que la colonne : la transition sortir-salle du
+        // socle, puis le départ (`quitterLaSalle`).
+        quitter: () => quitterLaSalle(),
+      }),
     },
     {
       id: "reglages",

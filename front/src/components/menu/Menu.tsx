@@ -79,9 +79,11 @@ function sousLeFocus(cible: EventTarget | null): Sous {
 function cibleDe(ligne: HTMLElement | null): HTMLElement | null {
   if (!ligne) return null;
   if (ligne.matches("button")) return ligne;
+  // Une ligne « composant » (Signaler, K25) : son premier bouton.
   return (
     ligne.querySelector<HTMLElement>("input[type=radio]:checked") ??
-    ligne.querySelector<HTMLElement>("input")
+    ligne.querySelector<HTMLElement>("input") ??
+    ligne.querySelector<HTMLElement>("button")
   );
 }
 
@@ -425,21 +427,26 @@ export function Menu({
         ) : lignes.length === 0 ? (
           <p className="n3-menu-ligne-aide">{MENU.aucuneLigne}</p>
         ) : (
-          enGroupes(lignes).map((bloc) => (
-            // Un bloc se nomme par sa première ligne : un groupe peut revenir
-            // après un autre, et son titre seul ne suffirait pas.
-            <div key={bloc.lignes[0]?.id} className="n3-menu-groupe">
-              {bloc.group ? <h3 className="n3-menu-titre">{bloc.group}</h3> : null}
-              {bloc.lignes.map((ligne) => (
-                <LigneDuMenu
-                  key={ligne.id}
-                  ligne={ligne}
-                  actif={lignes[courante]?.id === ligne.id}
-                  onFiche={ouvrirFiche}
-                />
-              ))}
-            </div>
-          ))
+          <>
+            {rubriques[rubrique]?.tete ? (
+              <div className="n3-menu-tete-rubrique">{rubriques[rubrique]?.tete}</div>
+            ) : null}
+            {enGroupes(lignes).map((bloc) => (
+              // Un bloc se nomme par sa première ligne : un groupe peut revenir
+              // après un autre, et son titre seul ne suffirait pas.
+              <div key={bloc.lignes[0]?.id} className="n3-menu-groupe">
+                {bloc.group ? <h3 className="n3-menu-titre">{bloc.group}</h3> : null}
+                {bloc.lignes.map((ligne) => (
+                  <LigneDuMenu
+                    key={ligne.id}
+                    ligne={ligne}
+                    actif={lignes[courante]?.id === ligne.id}
+                    onFiche={ouvrirFiche}
+                  />
+                ))}
+              </div>
+            ))}
+          </>
         )}
       </div>
       {reperes.length > 0 ? (
@@ -562,6 +569,17 @@ function LigneDuMenu({
           onChange={(event) => g.onSet(Number(event.target.value))}
           className="n3-menu-glissiere"
         />
+        <Aide ligne={ligne} />
+      </div>
+    );
+  }
+
+  if (forme === "composant") {
+    // Un composant d'un autre chantier, tel quel (Signaler, K25) : il porte
+    // son propre bouton et ses propres mots.
+    return (
+      <div {...marques(ligne, actif)} className="n3-menu-ligne n3-menu-ligne-composant">
+        {ligne.element}
         <Aide ligne={ligne} />
       </div>
     );

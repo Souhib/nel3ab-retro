@@ -22,7 +22,7 @@
 import type { Participant, Preparation } from "../client";
 import { consoleName } from "./consoles";
 import { deviceLabel } from "./faces";
-import { de } from "./mots";
+import { de, PREPARATION } from "./mots";
 import { padLabel, slotLabel, type Slot } from "./saves";
 
 /** Après combien de temps le chef peut lancer sans un joueur.
@@ -255,4 +255,34 @@ export function scenePret(
   const etait = new Map(avant.map((p) => [p.claim, p.ready]));
   if (!apres.some((p) => p.ready && etait.get(p.claim) === false)) return null;
   return apres.every((p) => p.ready) ? "tous" : "un";
+}
+
+/** Le titre du bloc de préparation : qui lance le prochain jeu (P4, P8).
+ *
+ * Il remplace « Avant de jouer · Console » en capitales : la console va dans
+ * la ligne du jeu (`ligneDuJeu`), et le titre dit ce qui se passe. */
+export function titreDuBloc(pending: Preparation, moi: string | null): string {
+  if (pending.starter === moi) return PREPARATION.moi;
+  const chef = pending.players.find((p) => p.claim === pending.starter);
+  return PREPARATION.lance(chef?.name ?? PREPARATION.quelquun);
+}
+
+/** La ligne sous le titre : la console du jeu préparé et sa sauvegarde
+ * (P4, P5). Une console inconnue de la page ne se nomme pas. */
+export function ligneDuJeu(console: string | undefined, save: number): string {
+  const sauvegarde = PREPARATION.sauvegarde(slotLabel(save as Slot));
+  const nom = consoleName(console);
+  return nom ? `${nom} · ${sauvegarde}` : sauvegarde;
+}
+
+/** Ce que dit le bouton START d'une place pendant une préparation (P3) :
+ * « pret » ou « choisit », par numéro de place. Une place hors de la
+ * préparation n'y figure pas. */
+export function etatParPlace(pending: Preparation): ReadonlyMap<number, "pret" | "choisit"> {
+  return new Map(pending.players.map((p) => [p.port, p.ready ? "pret" : "choisit"]));
+}
+
+/** Le compte de qui regarde (P9) : « 1 joueur sur 2 est prêt. » */
+export function comptePrets(pending: Preparation): string {
+  return PREPARATION.prets(pending.players.filter((p) => p.ready).length, pending.players.length);
 }

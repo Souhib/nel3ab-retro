@@ -9,15 +9,19 @@ import {
   ATTENTE_SANS_MS,
   attenteDesAbsents,
   choixAppareil,
+  comptePrets,
   consoleDesTouches,
   enUneListe,
+  etatParPlace,
   gestesDuLancement,
   lancerEnChef,
+  ligneDuJeu,
   ligneJoueur,
   retenirArrivees,
   sauvegardeAnnoncee,
   sauvegardeRelancee,
   scenePret,
+  titreDuBloc,
   titrePreparation,
 } from "./lancement";
 
@@ -310,5 +314,41 @@ describe("scenePret", () => {
     expect(scenePret([joueur("a", true)], tous)).toBeNull();
     // Un joueur qui redevient non prêt ne joue rien non plus.
     expect(scenePret(tous, [joueur("a", true), joueur("b", false)])).toBeNull();
+  });
+});
+
+describe("le bloc de préparation (P3, P4, P9)", () => {
+  it("dit qui lance : moi, ou le nom de qui a lancé", () => {
+    expect(titreDuBloc(preparation([0]), AMI)).toBe("Tu prépares le prochain jeu");
+    // Le jumeau : vue par Bo, la même préparation nomme Ami.
+    expect(titreDuBloc(preparation([0]), BO)).toBe("Ami lance le prochain jeu");
+    // Un lanceur absent de la liste ne laisse pas un trou dans la phrase.
+    expect(titreDuBloc({ ...preparation([0]), starter: "x".repeat(34) }, BO)).toBe(
+      "Quelqu'un lance le prochain jeu",
+    );
+  });
+
+  it("nomme la console du jeu préparé dans la ligne du jeu, sans sur-titre", () => {
+    expect(ligneDuJeu("gc", 0)).toMatch(/^GameCube · Sauvegarde : /);
+    expect(ligneDuJeu("x360", 0)).toMatch(/^Xbox 360 · /);
+    // Le jumeau : une console inconnue de la page ne s'invente pas un nom.
+    expect(ligneDuJeu("inconnue", 0)).toMatch(/^Sauvegarde : /);
+    expect(ligneDuJeu("gc", 0)).not.toContain("Avant de jouer");
+  });
+
+  it("donne à chaque place de la préparation « pret » ou « choisit », et rien aux autres", () => {
+    const etats = etatParPlace(preparation([0], { [BO]: true }));
+    expect(etats.get(1)).toBe("choisit");
+    expect(etats.get(2)).toBe("pret");
+    expect(etats.has(3)).toBe(false);
+    expect(etats.has(4)).toBe(false);
+  });
+
+  it("compte qui est prêt pour qui regarde, au singulier comme au pluriel", () => {
+    expect(comptePrets(preparation([0]))).toBe("Aucun joueur sur 2 n'est prêt.");
+    expect(comptePrets(preparation([0], { [BO]: true }))).toBe("1 joueur sur 2 est prêt.");
+    expect(comptePrets(preparation([0], { [AMI]: true, [BO]: true }))).toBe(
+      "2 joueurs sur 2 sont prêts.",
+    );
   });
 });

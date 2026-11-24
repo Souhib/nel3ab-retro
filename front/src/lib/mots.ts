@@ -904,6 +904,36 @@ export const BIBLIO = {
   ouvrirFiche: "Ouvrir sa fiche",
 } as const;
 
+/** La préparation à plusieurs, en bloc dans la colonne (P1 à P9). Le titre
+ * dit qui lance ; la console et la sauvegarde viennent dessous, sans
+ * sur-titre en capitales (P4). */
+export const PREPARATION = {
+  /** Le nom du bloc pour un lecteur d'écran. */
+  nom: "Préparation du lancement",
+  moi: "Tu prépares le prochain jeu",
+  lance: (nom: string) => `${nom} lance le prochain jeu`,
+  /** Le nom de qui lance, quand la préparation ne le dit pas. */
+  quelquun: "Quelqu'un",
+  /** La ligne du jeu, sous le titre. */
+  sauvegarde: (slot: string) => `Sauvegarde : ${slot}`,
+  avecQuoi: "Avec quoi joues-tu ?",
+  appareil: (nom: string) => `Ton appareil : ${nom}`,
+  essayer: "Essayer mes touches",
+  /** Qui regarde lit le compte, sans bouton (P9). */
+  prets: (n: number, sur: number) =>
+    n === 0
+      ? `Aucun joueur sur ${sur} n'est prêt.`
+      : `${n} ${n > 1 ? "joueurs" : "joueur"} sur ${sur} ${n > 1 ? "sont prêts" : "est prêt"}.`,
+  regarde: "Tu regardes. Prends une place pour participer.",
+  annuler: "Annuler le lancement",
+  /** Un jeu tourne : l'annulation le garde (P6). */
+  garder: (jeu: string) => `Garder ${jeu}`,
+  /** Tenu en main, la bande dit la préparation en une ligne et ouvre le
+   * bloc dans la feuille (P8). */
+  choisir: "Choisir ma manette",
+  voir: "Voir qui est prêt",
+} as const;
+
 /** L'écran de chargement (`Booting`, C5, C12, D05). */
 export const CHARGEMENT = {
   titre: (jeu: string) => `${jeu} démarre.`,

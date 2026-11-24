@@ -49,6 +49,15 @@ describe("le menu unique", () => {
     expect(document.querySelectorAll("#menu [class*=uppercase]")).toHaveLength(0);
   });
 
+  it("pose l'icône de chaque rubrique dans son onglet, et garde le mot (M14)", () => {
+    menu();
+    for (const id of ["jeux", "manettes", "salle", "reglages"]) {
+      const onglet = document.getElementById(`ray-${id}`)!;
+      expect(onglet.querySelector("svg.rt-icone-pixel")).not.toBeNull();
+      expect(onglet.querySelector("[data-nom]")?.textContent).not.toBe("");
+    }
+  });
+
   it("n'est pas un dialogue modal, et n'anime rien en SMIL (M2, M13)", () => {
     menu();
     const boite = document.getElementById("menu")!;

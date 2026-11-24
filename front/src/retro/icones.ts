@@ -157,6 +157,17 @@ export const ICONES_PIXEL = {
     "..#.........",
     ".###........",
   ],
+  // Chantier menus (M14) : la rubrique Jeux, une cartouche vue de face,
+  // son étiquette en creux et ses contacts dessous.
+  cartouche: [
+    ".##########.",
+    ".#........#.",
+    ".#.######.#.",
+    ".#.######.#.",
+    ".#........#.",
+    ".##########.",
+    "..#.#..#.#..",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconePixel = keyof typeof ICONES_PIXEL;

@@ -92,6 +92,16 @@
 .n3-menu-onglet:hover {
   color: var(--encre);
 }
+/* L'icône d'une rubrique (M14) ne prend sa place qu'au niveau qui montre
+   les icônes : sans lui, une case vide de 16 px décalait chaque mot. */
+.n3-menu-onglet .n3-rang-icone {
+  display: none;
+}
+.fx-icones .n3-menu-onglet .n3-rang-icone {
+  display: inline-flex;
+  margin-inline-end: 0.375rem;
+  vertical-align: -0.125rem;
+}
 
 .n3-menu-panneau {
   display: flex;

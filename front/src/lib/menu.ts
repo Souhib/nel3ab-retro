@@ -13,11 +13,22 @@
  * ordre, et le composant les dessine.
  */
 import type { ReactNode } from "react";
+import type { IconePixel } from "../retro/icones";
 import type { Geometrie, Rect, ZonesSures } from "./cadre";
 
 /** Les quatre rubriques, dans l'ordre des onglets. */
 export const RUBRIQUES = ["jeux", "manettes", "salle", "reglages"] as const;
 export type IdRubrique = (typeof RUBRIQUES)[number];
+
+/** L'icône en pixels de chaque rubrique (M14), une par sens, du jeu
+ * d'icônes du socle. Elle ne se montre qu'avec l'effet « icones », et
+ * l'onglet garde son mot. */
+export const ICONE_DE_RUBRIQUE = {
+  jeux: "cartouche",
+  manettes: "manette",
+  salle: "porte",
+  reglages: "curseurs",
+} as const satisfies Record<IdRubrique, IconePixel>;
 
 /** Une aide se lit d'un coup d'œil : moins de 70 caractères (M8). */
 export const AIDE_MAX = 70;

@@ -4,6 +4,7 @@
  * jumeau : une flèche qui ne bouge pas doit aussi savoir bouger.
  */
 import { describe, expect, it } from "vitest";
+import { ICONES_PIXEL } from "../retro/icones";
 import { MANETTES, miseEnPage, SANS_ZONES, type Entree, type Rect } from "./cadre";
 import {
   AIDE_MAX,
@@ -11,6 +12,7 @@ import {
   BANDE_MIN,
   enGroupes,
   formeDe,
+  ICONE_DE_RUBRIQUE,
   pas,
   placeDuMenu,
   RUBRIQUES,
@@ -28,6 +30,13 @@ const ligne = (plus: Partial<Ligne> = {}): Ligne => ({
 describe("les rubriques", () => {
   it("sont quatre, dans l'ordre des onglets", () => {
     expect(RUBRIQUES).toEqual(["jeux", "manettes", "salle", "reglages"]);
+  });
+
+  it("ont chacune une icône du jeu du socle, et jamais la même (M14)", () => {
+    const icones = RUBRIQUES.map((r) => ICONE_DE_RUBRIQUE[r]);
+    for (const nom of icones) expect(Object.keys(ICONES_PIXEL)).toContain(nom);
+    // Le jumeau : deux rubriques au même dessin ne se distinguent plus.
+    expect(new Set(icones).size).toBe(RUBRIQUES.length);
   });
 });
 

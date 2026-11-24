@@ -32,6 +32,7 @@ import { cn } from "../../lib/cn";
 import {
   enGroupes,
   formeDe,
+  ICONE_DE_RUBRIQUE,
   pas,
   RUBRIQUES,
   voisin,
@@ -43,6 +44,7 @@ import {
   type Sous,
 } from "../../lib/menu";
 import { MENU, SORTIES_MENU } from "../../lib/mots";
+import { IconeRang } from "../Colonne";
 import { activerCurseur, sonMenu } from "../../retro";
 import { Reperes } from "../Reperes";
 import { Fiche } from "./Fiche";
@@ -399,6 +401,7 @@ export function Menu({
               aPoser.current = "onglet";
             }}
           >
+            <IconeRang nom={ICONE_DE_RUBRIQUE[r.id]} />
             <span data-nom>{r.label}</span>
           </button>
         ))}

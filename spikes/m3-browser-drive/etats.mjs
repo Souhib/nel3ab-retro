@@ -310,6 +310,23 @@ const ETAPES = {
     await capture(page, "gel-pastille");
     await sleep(Math.max(0, 5600 - (Date.now() - gel)));
     if ((await page.$("#relancerImage")) === null) throw new Defaut("pas de bandeau ni de « Relancer l'image » à 5,6 s");
+    // Les faits, repliés sous la fiche, et dépliés par un vrai clic.
+    const pli = await page.evaluate(() => {
+      const d = document.querySelector("#liaison details#ceQueTaPageVoit");
+      if (!d) return null;
+      d.scrollIntoView({ block: "center" });
+      const r = d.querySelector("summary").getBoundingClientRect();
+      return { ouvert: d.open, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    if (pli === null) throw new Defaut("pas de « Ce que ta page voit » sous la fiche du gel");
+    if (pli.ouvert) throw new Defaut("« Ce que ta page voit » est déplié d'office");
+    await page.mouse.click(pli.x, pli.y);
+    const deplie = await page.evaluate(() => {
+      const d = document.querySelector("#ceQueTaPageVoit");
+      return { ouvert: d.open, texte: d.textContent };
+    });
+    if (!deplie.ouvert || !deplie.texte.includes("Son : arrive") || !deplie.texte.includes("Image : arrêtée depuis"))
+      throw new Defaut(`« Ce que ta page voit » ne dit pas les faits du gel: ${JSON.stringify(deplie)}`);
     await capture(page, "gel-bandeau");
     // La colonne reste atteignable, et Signaler y est UNE fois : dans la
     // fiche quand elle le porte, la ligne de la colonne repliée (K25). Le

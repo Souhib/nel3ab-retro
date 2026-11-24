@@ -107,12 +107,14 @@
 .fx-mire-charge #booting .rt-mire-charge > i:nth-child(7) {
   animation-delay: 6s;
 }
+/* Allumée un septième du cycle, une seconde : la suivante prend le relais
+   à la même milliseconde, aucune seconde sans barre ni deux barres. */
 @keyframes n3-charge-barre {
   0%,
-  14% {
+  14.28% {
     opacity: 1;
   }
-  14.3%,
+  14.29%,
   100% {
     opacity: 0.35;
   }

@@ -1120,20 +1120,65 @@ const ETAPES = {
     await sans.close();
   },
 
-  /** T06: qui a lancé lit « ma sauvegarde »; les autres, le mot du salon. */
+  /** T06 et C6 (chantier menus, 24 novembre 2026) : qui a lancé lit « Sur ta
+   * sauvegarde. » ; les autres lisent l'étiquette de qui a lancé, à la place
+   * que la salle lui donne, et « l'a lancé sur sa sauvegarde. ». */
   async "lanceur-ma-sauvegarde"() {
-    const page = await nouvelle(PC);
+    const page = await nouvelle(PC, { salle: { bo: true } });
     await entrer(page);
     banc.annoncer({ game: "Mario Party 4", save: "la sauvegarde d'Ami", saveSlot: 2, starter: MOI });
     if (!(await jusqua(() => page.$("#booting").then(Boolean), 3000)))
       throw new Precondition("l'annonce de démarrage n'affiche pas d'écran de chargement");
     const vu = await texte(page, "#booting");
-    if (!vu.includes("ma sauvegarde")) throw new Defaut(`le lanceur lit « ${vu.replace(/\s+/g, " ")} »`);
+    if (!vu.includes("Sur ta sauvegarde.")) throw new Defaut(`le lanceur lit « ${vu.replace(/\s+/g, " ")} »`);
+    if (await page.$("#booting .n3-etiquette"))
+      throw new Defaut("le lanceur lit sa propre étiquette au lieu de « ta sauvegarde »");
     await capture(page, "lanceur-ma-sauvegarde");
-    // Le jumeau: lancé par Bo, la même page lit le mot du salon.
+    // Le jumeau : lancé par Bo, assis à la place 2, la même page lit
+    // l'étiquette de Bo à la couleur de sa place.
     banc.annoncer({ game: "Mario Party 4", save: "la sauvegarde de Bo", saveSlot: 2, starter: BO });
-    if (!(await jusqua(async () => (await texte(page, "#booting")).includes("la sauvegarde de Bo"), 3000)))
-      throw new Defaut("lancé par un autre, la page ne lit pas « la sauvegarde de Bo »");
+    const lu = () =>
+      page.evaluate(() => {
+        const ligne = document.querySelector("#booting .n3-charge-sauvegarde");
+        const etiquette = ligne?.querySelector(".n3-etiquette");
+        return {
+          texte: ligne?.textContent ?? "",
+          place: etiquette?.getAttribute("data-place") ?? null,
+        };
+      });
+    if (!(await jusqua(async () => (await lu()).place !== null, 3000))) {
+      const l = await lu();
+      throw new Defaut(`lancé par Bo, la page lit « ${l.texte} » sans étiquette`);
+    }
+    const l = await lu();
+    if (l.place !== "2" || !l.texte.includes("Bo") || !l.texte.includes("l'a lancé sur sa sauvegarde."))
+      throw new Defaut(`lancé par Bo, la page lit « ${l.texte} » (place ${l.place})`);
+    await page.close();
+  },
+
+  /** C10 (chantier menus) : entrer dans une salle où un jeu tourne ne montre
+   * jamais l'écran de chargement ; une annonce de démarrage le montre. */
+  async "arrivee-sans-chargement"() {
+    const page = await nouvelle(PC);
+    let vu = false;
+    await page.exposeFunction("__vuChargement", () => {
+      vu = true;
+    });
+    await page.evaluateOnNewDocument(() => {
+      new MutationObserver(() => {
+        if (document.getElementById("booting")) window.__vuChargement?.();
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#screen").then(Boolean), 5000)))
+      throw new Precondition("la salle n'a pas d'image");
+    await sleep(5000);
+    if (vu) throw new Defaut("l'écran de chargement s'est montré à l'arrivée dans une salle où un jeu tourne");
+    // Le jumeau : une annonce de démarrage le montre en moins de 3 s.
+    banc.annoncer({ game: "Mario Party 4", save: "nouvelle partie", saveSlot: 0, starter: BO });
+    if (!(await jusqua(() => page.$("#booting").then(Boolean), 3000)))
+      throw new Precondition("une annonce de démarrage ne montre pas l'écran de chargement");
+    if (!vu) throw new Precondition("l'observateur n'a pas vu l'écran de chargement qui est là");
     await page.close();
   },
 

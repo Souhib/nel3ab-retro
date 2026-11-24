@@ -821,6 +821,13 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
         --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
+    # 2f2ea39, la page du chantier menus avant le chargement réécrit (24
+    # novembre 2026) : la ligne parlée dit « Le jeu démarre. » sans le nom du
+    # jeu, et l'écran n'a pas de mire. clip-chargement n'a pas de page rouge :
+    # la colonne cachait déjà le clip pendant un chargement (C8, gardé).
+    git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
+    node etats.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
+        --etapes chargement-annonces,mire-charge --rouge-attendu chargement-annonces,mire-charge
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -904,6 +911,13 @@ parcours-navigateur-rouge:
     git show ae1725a:core/crates/worker/src/page/index.html > "$dossier/menus-ae1725a.html"
     node parcours.mjs --page "$dossier/menus-ae1725a.html" --flux "$dossier/flux.h264" \
         --etapes preparation-telephone --rouge-attendu preparation-telephone
+    # 2f2ea39, la page du chantier menus avant le chargement réécrit : qui a
+    # lancé y lit « sur « ma sauvegarde » » au lieu de « Sur ta sauvegarde. »
+    # (C6). arrivee-sans-chargement n'a pas de page rouge : aucune page n'a
+    # montré le chargement à l'arrivée (C10, une preuve qui manquait).
+    git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
+    node parcours.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
+        --etapes lanceur-ma-sauvegarde --rouge-attendu lanceur-ma-sauvegarde
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible

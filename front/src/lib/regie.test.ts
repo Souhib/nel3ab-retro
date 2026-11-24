@@ -86,23 +86,6 @@ describe("le texte, dans les deux régies", () => {
     }
   }
 
-  it("l'encre et la légende se lisent sur la ligne choisie du menu", () => {
-    // Le menu unique (chantier menus, 24 novembre 2026) teinte la ligne
-    // choisie du survol, et non plus du signal à 12 % comme le sélecteur des
-    // trois anciennes formes : son libellé est à l'encre, sa valeur et son
-    // aide en légende (components/menu/menu.css).
-    for (const theme of ["nuit", "jour"] as const) {
-      const fond = couleur(theme, "--survol");
-      expect(contrast(couleur(theme, "--encre"), fond), `${theme}: encre`).toBeGreaterThanOrEqual(
-        AA_TEXT,
-      );
-      expect(
-        contrast(couleur(theme, "--legende"), fond),
-        `${theme}: légende`,
-      ).toBeGreaterThanOrEqual(AA_TEXT);
-    }
-  });
-
   it("le bouton plein se lit: son encre sur son fond", () => {
     for (const theme of ["nuit", "jour"] as const) {
       const fond = couleur(theme, "--bouton-plein-fond");
@@ -711,3 +694,36 @@ describe("chantier personnes : l'annonce des places sur ses hôtes", () => {
   });
 });
 /* ==== fin personnes ==== */
+
+/* ==== chantier menus ==== */
+// L'essai du socle sur la teinte du sélecteur (`TEINTE_SELECTION` de
+// Picker.tsx) est parti avec le sélecteur des trois anciennes formes de
+// menu ; celui-ci le remplace dans son propre bloc (protocole de la
+// partition, relecture du 24 novembre 2026). Le jumeau : la légende ne se
+// lirait pas sur le signal plein.
+describe("chantier menus : la ligne choisie du menu", () => {
+  it("l'encre et la légende se lisent sur la ligne choisie du menu", () => {
+    // Le menu unique (chantier menus, 24 novembre 2026) teinte la ligne
+    // choisie du survol, et non plus du signal à 12 % comme le sélecteur des
+    // trois anciennes formes : son libellé est à l'encre, sa valeur et son
+    // aide en légende (components/menu/menu.css).
+    for (const theme of ["nuit", "jour"] as const) {
+      const fond = couleur(theme, "--survol");
+      expect(contrast(couleur(theme, "--encre"), fond), `${theme}: encre`).toBeGreaterThanOrEqual(
+        AA_TEXT,
+      );
+      expect(
+        contrast(couleur(theme, "--legende"), fond),
+        `${theme}: légende`,
+      ).toBeGreaterThanOrEqual(AA_TEXT);
+    }
+  });
+
+  it("jumeau : la légende ne se lirait pas sur le signal plein", () => {
+    for (const theme of ["nuit", "jour"] as const)
+      expect(contrast(couleur(theme, "--legende"), couleur(theme, "--signal")), theme).toBeLessThan(
+        AA_TEXT,
+      );
+  });
+});
+/* ==== fin menus ==== */

@@ -160,13 +160,6 @@ export function prixManetteSeule(moteur: string | null | undefined): string {
     : "c'est autant de wifi et de batterie rendus";
 }
 
-/** La même chose en une aide du menu, sous 70 caractères (M8). */
-export function aideManetteSeule(moteur: string | null | undefined): string {
-  return moteur === "dolphin"
-    ? "Sans image ni son : 13,6 Mbit/s de wifi rendus par appareil."
-    : "Sans image ni son : du wifi et de la batterie rendus.";
-}
-
 /** Les commandes dessinées à l'écran d'un téléphone, sous un seul nom.
  *
  * Le menu disait « commandes tactiles », la feuille du bas « Cacher la manette »
@@ -861,6 +854,9 @@ export const MENU = {
   tesTouches: "Le jeu continue pour les autres. Tes touches pilotent ce menu.",
   /** Le même, pour qui regarde : il n'a rien à piloter. */
   regarde: "L'image continue, pour toi comme pour les autres.",
+  /** Qui regarde, quand le menu prend la place de l'écran et cache l'image
+   * (téléphone couché, image 16:9) : elle ne continue plus « pour toi ». */
+  regardeCachee: "L'image continue pour les autres. Elle revient à la fermeture.",
   /** Les groupes de Réglages (M7a). */
   groupes: {
     image: "Image et son",
@@ -992,5 +988,15 @@ export const CHARGEMENT = {
   saSauvegarde: "l'a lancé sur sa sauvegarde.",
   sur: (save: string) => `Sur « ${save} ».`,
 } as const;
+
+/** « Manette seule » en une aide du menu, sous 70 caractères (M8) : la
+ * phrase de `prixManetteSeule` (salle), et son chiffre seulement là où il a
+ * été mesuré. Posée ici, dans le bloc du chantier qui la lit (relecture du
+ * 24 novembre 2026 : elle était entrée dans la section de la salle). */
+export function aideManetteSeule(moteur: string | null | undefined): string {
+  return moteur === "dolphin"
+    ? "Sans image ni son : 13,6 Mbit/s de wifi rendus par appareil."
+    : "Sans image ni son : du wifi et de la batterie rendus.";
+}
 
 // ==== fin menus ====

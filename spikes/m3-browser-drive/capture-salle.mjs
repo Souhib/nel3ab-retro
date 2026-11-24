@@ -46,15 +46,17 @@ try {
   if (!(await menuOuvert())) throw new Error("le menu ne s'ouvre pas: rien à capturer");
   await nomme.screenshot({ path: join(dossier, "4-menu.png") });
 
-  // 5. Le panneau des touches. C'est une boîte de hauteur FIXE dont le contenu
-  //    ne défile pas hors préparation: ce qui y grossit trop se coupe sans
-  //    prévenir, et aucun essai ne le dirait. Il faut donc le regarder.
+  // 5. Le panneau des touches. C'était une boîte de hauteur FIXE dont le
+  //    contenu ne défilait pas hors préparation: ce qui y grossissait trop se
+  //    coupait sans prévenir. Depuis le 24 novembre 2026, c'est le panneau
+  //    « Touches et manettes » de la colonne (`#reglage`), que le menu ouvre
+  //    encore par `#item-bindings`. Il faut toujours le regarder.
   await nomme.evaluate(() => document.querySelector("#ray-manettes")?.click());
   await new Promise((done) => setTimeout(done, 500));
   await nomme.evaluate(() => document.querySelector("#item-bindings")?.click());
   await new Promise((done) => setTimeout(done, 1_200));
   // On VÉRIFIE qu'on regarde bien le panneau avant de le prendre en photo.
-  if ((await nomme.$("#bindingsPanel")) === null)
+  if ((await nomme.$("#reglage")) === null)
     throw new Error("le panneau des touches ne s'est pas ouvert: la photo montrerait autre chose");
   await nomme.screenshot({ path: join(dossier, "5-touches.png") });
 

@@ -35,29 +35,25 @@ const say = (ok, line) => {
   if (!ok) bad += 1;
   console.log(`  ${ok ? "ok    " : "FAUX  "} ${line}`);
 };
-/** Ouvre l'écran des touches PAR LE MENU, qui est le seul chemin depuis que les
- * réglages ont quitté la colonne. L'écran s'ouvre par-dessus le menu: on ne
- * renvoie plus personne dans la partie pour changer une touche. */
+/** Ouvre le panneau « Touches et manettes » par son rang, en tête de la
+ * colonne. Jusqu'au 24 novembre 2026, ce pilote passait par le menu et
+ * l'ancien dialogue (`#view-schema`, `#command`, `.n3-current-binding`), retiré
+ * ce jour-là ; ses sélecteurs sont ceux du panneau, et il vise une vraie salle
+ * (K40) : aucun chantier ne l'a relancé. */
 const openBindings = async () => {
-  await press(page, "#openMenu");
-  await wait(700);
-  await press(page, "#ray-manettes");
-  await wait(500);
-  await press(page, "#item-bindings");
+  await press(page, "#touchesEtManettes");
   await wait(600);
 };
 
+/** Ce que la table des correspondances dit d'une commande : `pad-A` dans
+ * l'onglet Manette, `key-B` dans l'onglet Clavier (la cellule de la ligne
+ * `tr[data-cle]`). */
 const text = async (id) => {
-  if (id.startsWith("pad-")) {
-    await page.click("#view-schema");
-    await page.select("#command", id.slice(4));
-    return page.$eval(".n3-current-binding", (node) => node.textContent.trim());
-  }
-  if (id.startsWith("key-")) {
-    await page.click("#view-table");
-    return page.$eval(`#${id} > span`, (node) => node.textContent.trim());
-  }
-  return page.$eval(`#${id}`, (node) => node.textContent);
+  const [quoi, cle] = [id.slice(0, 3), id.slice(4)];
+  const onglet = quoi === "pad" ? "manette" : "clavier";
+  await press(page, `#onglet-${onglet}`);
+  await wait(200);
+  return page.$eval(`#page-${onglet} tr[data-cle="${cle}"] td`, (node) => node.textContent.trim());
 };
 /** Cliquer depuis la page: deux allers-retours de moins qu'avec la souris de
  * puppeteer, sur une page qui décode soixante images par seconde. */
@@ -71,11 +67,10 @@ say((await text("pad-A")) === "✕ (bas)", `A se lit « ${await text("pad-A")} �
 say((await text("pad-L")) === "L1 ou L2", `L se lit « ${await text("pad-L")} »`);
 say((await text("key-A")) === "X", `A au clavier se lit « ${await text("key-A")} »`);
 
-await page.click("#view-schema");
-await page.select("#command", "A");
+await press(page, "#onglet-manette");
 await press(page, "#pad-A");
 await wait(300);
-say(!!(await page.$(".n3-inline-capture")), "la commande attend un appui");
+say(!!(await page.$('tr[data-cle="A"][data-attend="oui"]')), "la commande attend un appui");
 
 const before = await page.evaluate(() => globalThis.nel3abTest.counters().attempts);
 await page.evaluate(() => {
@@ -91,7 +86,8 @@ say((await text("pad-A")) === "▢ (gauche)", `A est passé sur « ${await text(
 const during = (await page.evaluate(() => globalThis.nel3abTest.counters().attempts)) - before;
 say(during > 0, `la page a continué d'envoyer pendant la capture (${during} trames, en neutre)`);
 
-await page.click("#view-table");
+await press(page, "#onglet-clavier");
+await wait(200);
 await press(page, "#key-B");
 await wait(300);
 await page.keyboard.press("KeyM");
@@ -116,9 +112,11 @@ say((await text("key-B")) === "M", "le clavier réassigné survit au rechargemen
 // le profil du disque, la boucle le relisait de la mémoire au tic suivant, et le
 // bouton n'avait donc rien fait. L'écran, lui, affichait la bonne valeur pendant
 // un instant. D'où l'attente avant de regarder.
-await page.click("#view-schema");
+await press(page, "#onglet-manette");
+await wait(200);
 await press(page, "#resetPad");
-await page.click("#confirmReset");
+await wait(200);
+await press(page, "#confirmReset");
 await wait(400);
 say((await text("pad-A")) === "✕ (bas)", `après remise à zéro, A se lit « ${await text("pad-A")} »`);
 

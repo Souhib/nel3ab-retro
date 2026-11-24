@@ -1,7 +1,11 @@
 // Ce qui est COUPÉ à l'écran, mesuré au lieu d'être regardé.
 //
-// Le panneau des touches est une boîte de hauteur fixe dont le contenu ne
-// défile pas hors préparation: ce qui y grossit trop se coupe sans prévenir.
+// Le panneau des touches était une boîte de hauteur fixe dont le contenu ne
+// défilait pas hors préparation: ce qui y grossissait trop se coupait sans
+// prévenir. Depuis le 24 novembre 2026, c'est le panneau « Touches et
+// manettes » de la colonne (`#reglage`, ses onglets `[role="tab"]`) : le
+// dialogue `#bindingsPanel` est retiré, et ce pilote vise vivant (K40),
+// donc ses sélecteurs sont mis à jour sans qu'un chantier l'ait relancé.
 // `capture-salle.mjs` le dit depuis longtemps et s'en remettait à l'oeil, qui
 // rate la moitié des cas. Le 13 septembre 2026, agrandir l'échelle de texte a
 // coupé « Modifier cette commande » en « Modifier cette comman » sans qu'aucun
@@ -49,7 +53,7 @@ await page.evaluate(() => document.querySelector("#ray-manettes")?.click());
 await attendre(600);
 await page.evaluate(() => document.querySelector("#item-bindings")?.click());
 await attendre(1500);
-if ((await page.$("#bindingsPanel")) === null) {
+if ((await page.$("#reglage")) === null) {
   console.log("RIEN MESURÉ — le panneau des touches ne s'est pas ouvert.");
   await browser.close();
   process.exit(1);
@@ -57,7 +61,7 @@ if ((await page.$("#bindingsPanel")) === null) {
 
 const mesurer = () => page.evaluate(() => {
   const dehors = [];
-  for (const el of document.querySelectorAll("#bindingsPanel *")) {
+  for (const el of document.querySelectorAll("#reglage *")) {
     const style = getComputedStyle(el);
     // Ce qui défile est censé dépasser: ce n'est pas une coupure.
     const defile = /auto|scroll/.test(style.overflow + style.overflowX + style.overflowY);
@@ -94,7 +98,7 @@ const mesurer = () => page.evaluate(() => {
 // libellés les plus longs du panneau vivent ailleurs: un vert partiel présenté
 // comme un vert complet est exactement ce que ce fichier existe pour empêcher.
 const onglets = await page.evaluate(() =>
-  [...document.querySelectorAll(".n3-bindings-tabs button")].map((b) => b.textContent.trim()),
+  [...document.querySelectorAll('#reglage [role="tab"]')].map((b) => b.textContent.trim()),
 );
 const coupes = [];
 for (const taille of LARGEURS) {
@@ -105,7 +109,7 @@ for (const taille of LARGEURS) {
   // cette ligne, un `setViewport` sans effet rendrait un PASS identique à un
   // balayage réel, et rien ne distinguerait les deux.
   const vue = await page.evaluate(() => {
-    const p = document.getElementById("bindingsPanel");
+    const p = document.getElementById("reglage");
     const r = p?.getBoundingClientRect();
     return { ecran: window.innerWidth, panneau: r ? Math.round(r.width) : null };
   });
@@ -113,7 +117,7 @@ for (const taille of LARGEURS) {
   for (const nom of onglets.length > 0 ? onglets : ["(onglet unique)"]) {
     if (onglets.length > 0) {
       await page.evaluate((voulu) => {
-        const node = [...document.querySelectorAll(".n3-bindings-tabs button")].find(
+        const node = [...document.querySelectorAll('#reglage [role="tab"]')].find(
           (b) => b.textContent.trim() === voulu,
         );
         node?.click();

@@ -700,9 +700,13 @@ Since 2026-11-23 (ADR D37), a retro effect is an `rt-…` class of
 Its off state must stay flat and readable. Nothing passes over the game
 picture: layers live inside a UI surface, and every helper in `front/src/retro/`
 and `front/src/mascotte/` refuses an element that touches the game zone
-(`retro/image.ts`). The lobby receives the sheet, the head script, the logo and
-the setting as generated copies (`routes/retro/`, `N3_SALON_ECRIRE=1 npx vitest
-run src/lib/salon-retro.test.ts`); edit the source, never the copy.
+(`retro/image.ts`). The lobby receives the sheet, the head script, the logo,
+the setting and its words as generated copies (`routes/retro/`,
+`N3_SALON_ECRIRE=1 npx vitest run src/lib/salon-retro.test.ts`); edit the
+source, never the copy. Since 2026-11-24 the lobby pages' words live in
+`lib/mots.ts` too (`SALON_*` tables, `retro/mots.json`): a page writes
+`<!--MOT:groupe.cle-->` or `mots("groupe.cle", { trou })`, never the text, and
+`test_mots_salon.py` refuses a text or a sentence written in the page.
 
 ### 9. The logbook is part of the work, not a write-up afterwards
 
@@ -762,8 +766,8 @@ Markdown alone does not update the site.
 | `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; `--etapes place-tenu` measures the held sizes, red until the room geometry gives the panel its place |
-| `just salon-navigateur` | the lobby's home page in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list |
-| `just salon-navigateur-rouge` | the pages of a32de82 (no Aïn), 2a98279 (old home) and 84b969f (before the two browser fixes), assembled from an archive of `control/`, must fail each step on its named defect |
+| `just salon-navigateur` | the lobby's three pages in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list, Enter and a pad's Start at zero rooms, the return banner, the announcement line, the credit, the logbook and upload steps |
+| `just salon-navigateur-rouge` | the pages of a32de82 (no Aïn), 2a98279 (old home), 84b969f (before the two browser fixes), cb0909b and 5fae6b0, assembled from an archive of `control/`, must fail each step on its named defect |
 | `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9 and 9b1c8e8 for the later steps, must fail each step on its named defect; both are in `local` since the merge of 2026-11-24 |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |

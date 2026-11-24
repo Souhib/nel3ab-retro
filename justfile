@@ -139,6 +139,10 @@ salon-navigateur *args:
 # troisième passage). 5fae6b0: l'en-tête recopié dans chaque page, qui avait
 # dérivé (le dépôt sans « Tu es »), et que le carnet ne rafraîchissait pas;
 # la zone de dépôt aux quatre carrés de joueur et le trousseau à « clé ».
+# Sur 2a98279 aussi: Entrée et Start n'ouvrent rien, la bannière de retour ne
+# nomme pas la salle, l'accueil n'a pas de crédit et le carnet ne range rien
+# (24 novembre 2026, cinquième passage). L'étape « annonce » est plus vieille
+# que toutes ces pages: son contrôle est un mutant qui tait l'annonce.
 salon-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -155,7 +159,7 @@ salon-navigateur-rouge:
     done
     cd spikes/m3-browser-drive
     node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
-    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur,demo,courbure
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur,demo,courbure,start,retour,credit,carnet-range
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
     node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
     node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse,rangee-entre

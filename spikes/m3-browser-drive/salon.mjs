@@ -847,6 +847,142 @@ ETAPES["depot-glisse"] = async () => {
   await deja.close();
 };
 
+/** « start » : Entrée ou le Start d'une manette ouvrent une salle à zéro
+ * salle, une demande par pression, même tenue (plan salon, risque « Entrée et
+ * Start »). Les jumeaux : une salle ouverte, ou le niveau « sobre », et la
+ * même pression ne demande rien. La manette est simulée par
+ * `navigator.getGamepads`, que la page lit à chaque image. */
+ETAPES.start = async () => {
+  const manette = () => {
+    const boutons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+    window.__manette = { id: "banc", index: 0, connected: true, buttons: boutons, axes: [0, 0, 0, 0] };
+    navigator.getGamepads = () => [window.__manette];
+  };
+  const tenir = async (page, ms) => {
+    await page.keyboard.down("Enter");
+    // Une touche tenue se répète: la page ne doit compter que la première.
+    for (let t = 0; t < ms; t += 100) { await page.keyboard.down("Enter"); await sleep(100); }
+    await page.keyboard.up("Enter");
+  };
+  // Le niveau est posé ici: le stockage du navigateur est commun aux étapes,
+  // et une étape d'avant peut avoir laissé « sobre ».
+  const page = await nouvelle(PC, { reglage: { salles: VIDE, apres: VIDE }, avant: `(${manette})(); ${niveau("conseille")}` });
+  await dessinee(page);
+  await tenir(page, 600);
+  await sleep(500);
+  defaut(banc.envois.length === 1, `Entrée tenue: ${banc.envois.length} demande(s), une attendue`);
+  await page.evaluate(() => { window.__manette.buttons[9].pressed = true; });
+  await sleep(600);
+  await page.evaluate(() => { window.__manette.buttons[9].pressed = false; });
+  await sleep(500);
+  defaut(banc.envois.length === 2, `Start tenu: ${banc.envois.length - 1} demande(s), une attendue`);
+  await page.close();
+  for (const [nom, reglage, avant] of [
+    ["une salle ouverte", { salles: RANGEE }, niveau("conseille")],
+    ["niveau sobre", { salles: VIDE }, niveau("sobre")],
+  ]) {
+    const jumeau = await nouvelle(PC, { reglage, avant });
+    await dessinee(jumeau);
+    await sleep(300);
+    await tenir(jumeau, 300);
+    await sleep(500);
+    defaut(banc.envois.length === 0, `${nom} : Entrée a demandé ${banc.envois.length} ouverture(s)`);
+    await jumeau.close();
+  }
+};
+
+/** « retour » (K39) : revenu d'une salle fermée par /?salle=fermee&n=2, la
+ * bannière dit ce qui est arrivé à CETTE salle, l'adresse est nettoyée, et
+ * « Compris » la ferme d'un vrai clic. Le jumeau : sans l'adresse, rien. */
+ETAPES.retour = async () => {
+  const fermee = [salle(1), salle(2, { fermee_pour: "inactivite" }), salle(3)];
+  const page = await nouvelle(PC, { reglage: { salles: fermee }, chemin: "/?salle=fermee&n=2" });
+  await dessinee(page);
+  await page.waitForFunction(() => document.getElementById("retour")?.hidden === false, { timeout: 4000 })
+    .catch(() => { throw new Defaut("revenu d'une salle fermée, aucune bannière"); });
+  const vu = await page.evaluate(() => ({ mot: document.getElementById("retour-mot")?.textContent, adresse: location.pathname + location.search }));
+  defaut(vu.mot === "La salle 2 s'est fermée faute d'activité. Tu peux la rouvrir : les sauvegardes sont intactes.", `bannière: ${vu.mot}`);
+  defaut(vu.adresse === "/", `l'adresse n'est pas nettoyée: ${vu.adresse}`);
+  defaut((await atteint(page, "#retour-fermer")).length === 0, "« Compris » ne reçoit pas le point");
+  await page.click("#retour-fermer");
+  defaut(await page.$eval("#retour", (e) => e.hidden), "« Compris » ne ferme pas la bannière");
+  await page.close();
+  const jumeau = await nouvelle(PC, { reglage: { salles: fermee } });
+  await dessinee(jumeau);
+  await sleep(500);
+  defaut(await jumeau.$eval("#retour", (e) => e.hidden), "sans retour, une bannière s'affiche quand même");
+  await jumeau.close();
+};
+
+/** « annonce » : la ligne lue par un lecteur d'écran dit ce qui a changé
+ * entre deux relevés, en une phrase, et rien quand rien ne change. */
+ETAPES.annonce = async () => {
+  const accelere = () => {
+    const vrai = window.setInterval.bind(window);
+    window.setInterval = (f, ms, ...r) => vrai(f, ms === 5000 ? 400 : ms, ...r);
+  };
+  const page = await nouvelle(PC, { reglage: { salles: RANGEE }, avant: accelere });
+  await dessinee(page);
+  await sleep(1200);
+  const calme = await page.$eval("#annonce", (e) => ({ mot: e.textContent, role: e.getAttribute("role") }));
+  exiger(calme.role === "status", `la ligne d'annonce n'est pas un statut: ${calme.role}`);
+  defaut(calme.mot === "", `rien n'a changé, et l'annonce dit: ${calme.mot}`);
+  banc.regler({ salles: [RANGEE[0], RANGEE[1], ouverte(3, [null, null, null, null])] });
+  await page.waitForFunction(() => document.getElementById("annonce").textContent !== "", { timeout: 4000 })
+    .catch(() => { throw new Defaut("la salle 3 s'ouvre, et l'annonce ne dit rien"); });
+  const mot = await page.$eval("#annonce", (e) => e.textContent);
+  defaut(mot === "la salle 3 vient de s'ouvrir", `annonce: ${mot}`);
+  await page.close();
+};
+
+/** « credit » : le crédit de la borne compte les salles ouvertes et leurs
+ * places libres, en capitales d'arcade. Le jumeau : une salle dont les
+ * places ne sont pas connues, et le crédit ne dit plus de places. */
+ETAPES.credit = async () => {
+  const lire = (page) => page.$eval("#credit", (e) => e.innerText.trim()).catch(() => null);
+  const page = await nouvelle(PC, { reglage: { salles: RANGEE } });
+  await dessinee(page);
+  const vu = await lire(page);
+  defaut(vu === "SALLES OUVERTES 2 · PLACES LIBRES 2", `crédit: ${vu}`);
+  await page.close();
+  const inconnue = ouverte(3, [], { sieges: null, places: null });
+  const jumeau = await nouvelle(PC, { reglage: { salles: [RANGEE[0], RANGEE[1], inconnue] } });
+  await dessinee(jumeau);
+  const sans = await lire(jumeau);
+  defaut(sans === "SALLES OUVERTES 3", `places inconnues, crédit: ${sans}`);
+  await jumeau.close();
+};
+
+/** « carnet-range » : une partie que cet appareil n'a pas encore vue fait
+ * jouer à Aïn la scène « range », et sa ligne s'allume. Les jumeaux : la même
+ * partie déjà vue, et la toute première visite, ne jouent rien. */
+ETAPES["carnet-range"] = async () => {
+  const vue = (id) => (id === null ? "localStorage.removeItem('nel3ab:carnet-vu')"
+    : `localStorage.setItem('nel3ab:carnet-vu', ${JSON.stringify(id)})`);
+  const ouvrir = async (id) => {
+    // Le niveau aussi: une étape d'avant peut avoir laissé « sobre », où Aïn
+    // ne joue pas.
+    const page = await nouvelle(PC, { reglage: CARNET, chemin: "/profil", avant: `${vue(id)}; ${niveau("conseille")}` });
+    await page.waitForFunction(() => document.querySelector("#parties tr.partie, #parties li") !== null, { timeout: 5000 })
+      .catch(() => { throw new Precondition("le carnet ne s'ouvre pas sur le banc"); });
+    const vus = new Set();
+    for (let t = 0; t < 15; t += 1) {
+      vus.add(await page.evaluate(() => document.querySelector('[data-hote="logo"] .rt-mascotte')?.dataset.scene ?? null));
+      await sleep(100);
+    }
+    const allumee = await page.evaluate(() => document.querySelector("tr.partie[data-nouvelle]")?.dataset.id ?? null);
+    await page.close();
+    return { range: vus.has("range"), allumee };
+  };
+  const nouvellePartie = await ouvrir("a".repeat(16));
+  defaut(nouvellePartie.range, "une partie pas encore vue, et Aïn ne range rien");
+  defaut(nouvellePartie.allumee === "b".repeat(16), `ligne allumée: ${nouvellePartie.allumee}`);
+  for (const [nom, id] of [["déjà vue", "b".repeat(16)], ["première visite", null]]) {
+    const jumeau = await ouvrir(id);
+    defaut(!jumeau.range && jumeau.allumee === null, `${nom} : ${JSON.stringify(jumeau)}`);
+  }
+};
+
 // ── Le déroulé ───────────────────────────────────────────────────────────
 const noms = SEULE ? [SEULE] : ROUGE ?? Object.keys(ETAPES);
 let echecs = 0;

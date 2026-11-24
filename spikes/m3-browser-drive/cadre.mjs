@@ -1572,8 +1572,9 @@ async function principal() {
      * centre (rien ne le couvre). Au pied d'une colonne qui défilait, il était
      * hors de vue à cinq tailles sur sept (relecture du 24 novembre 2026).
      * Le coin mesure `HAUTEUR_DU_COIN` (161 px), la marge de défilement que
-     * la colonne garde pour lui. Le jumeau : le pied décollé par l'essai, le
-     * logo sort de la vue à 1440 × 900. */
+     * la colonne garde pour lui, et « Autres réglages » ouvert juste au-dessus
+     * de lui ne laisse pas « Rendre ma place » dessous. Le jumeau : le pied
+     * décollé par l'essai, le logo sort de la vue à 1440 × 900. */
     async "maison-en-vue"() {
       const lire = (page) =>
         page.evaluate(() => {
@@ -1623,6 +1624,35 @@ async function principal() {
           else if (!lu.auPoint) fautes.push(`${ici} ${quand}: le logo est couvert`);
           if (quand === "à l'entrée" && lu.coin !== 161)
             fautes.push(`${ici}: le coin mesure ${lu.coin} px, la colonne en garde 161 (HAUTEUR_DU_COIN)`);
+        }
+        // Le prix du pied collé : ce qui s'ouvre au bas de la colonne ne doit
+        // pas rester dessous. « Autres réglages », amené juste au-dessus du
+        // pied (le coin, et « Plus bas » quand il s'y pose) puis ouvert d'un
+        // vrai clic : « Rendre ma place » reçoit le point de son centre
+        // (un-plein, 24 novembre 2026).
+        const resume = await page.$("#autresReglages > summary");
+        if (resume) {
+          await page.evaluate(() => {
+            const s = document.querySelector("#autresReglages > summary");
+            const c = document.querySelector("#side");
+            const pied = document.querySelector("#coin")?.parentElement?.getBoundingClientRect();
+            if (!s || !c || !pied) return;
+            // Le résumé posé 8 px au-dessus du pied.
+            c.scrollTop += s.getBoundingClientRect().bottom - (pied.top - 8);
+          });
+          await sleep(150);
+          await page.click("#autresReglages > summary");
+          await sleep(300);
+          if (!(await page.$eval("#autresReglages", (d) => d.open)))
+            throw new Precondition(`${ici}: le clic n'ouvre pas « Autres réglages »`);
+          const recoit = await page.evaluate(() => {
+            const b = document.querySelector("#watchOnly");
+            if (!b) return null;
+            const r = b.getBoundingClientRect();
+            const ici = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { oui: ici === b || b.contains(ici), sous: ici?.id || ici?.className || null };
+          });
+          if (recoit && !recoit.oui) fautes.push(`${ici}: « Autres réglages » ouvert, « Rendre ma place » est sous ${recoit.sous}`);
         }
         await page.close();
       }

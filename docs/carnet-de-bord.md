@@ -31213,7 +31213,21 @@ lui (la condition sur la panne retirée, celle du mouvement réduit, celle du
 niveau). Pour les places, `fermee-vraie` lit le panneau avant et après la
 fermeture ; le banc publie ensuite la salle sans ses joueurs. Une page
 mutante qui oublie les places d'avant rougit sur son défaut : « la salle
-fermée a perdu qui jouait ».
+fermée a perdu qui jouait ». Les deux étapes entrent dans
+`etats-navigateur-rouge`, contre la page d'avant ce passage (9a4519b), où
+chacune rougit sur son défaut.
+
+**Les portes du passage.** La machine tournait à une charge moyenne de 57 :
+d'autres chantiers lançaient leurs pilotes en même temps, et l'un tenait le
+port fixe de `etats-navigateur-rouge`. Ses quatre blocs ont été relancés à
+l'identique sur un port privé, et sont rouges comme attendu. L'étape
+`clic-court` de `salle-telephone` a rougi (des tâches longues de 84 à 213 ms
+au clic sur une place) : lancée seule trois fois en alternance avec la page
+d'avant ce passage, elle a rougi deux fois de chaque côté, sur des tâches de
+50 à 58 ms, et le clic lui-même prenait 8 à 9 ms des deux côtés. C'est la
+charge, pas ce passage. `parcours-navigateur` et `cadre-navigateur` gardent
+les rouges connus de la vague B1 (invitation, `mascotte-hors-image`,
+`ain-immobile`) ; leurs autres étapes, lancées par leur nom, passent.
 
 **Un piège évité de justesse.** Pour construire cette page mutante, la
 première commande remettait le fichier d'origine par `git checkout`. Or

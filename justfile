@@ -831,6 +831,12 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/sur-image.html" --flux "$dossier/flux.h264" \
         --etapes premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image \
         --rouge-attendu premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image
+    # 9a4519b, la page des états avant leur troisième passage : aucune
+    # coupure à l'entrée au niveau « tout », et une salle fermée qui
+    # proposait encore ses places libres à prendre (ADR D40).
+    git show 9a4519b:core/crates/worker/src/page/index.html > "$dossier/sans-passe.html"
+    node etats.mjs --page "$dossier/sans-passe.html" --flux "$dossier/flux.h264" \
+        --etapes coupure-entree,fermee-vraie --rouge-attendu coupure-entree,fermee-vraie
 
 # Les parcours de la salle, dans un vrai navigateur.
 #

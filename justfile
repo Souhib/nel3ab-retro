@@ -1009,6 +1009,13 @@ focus-navigateur-rouge:
     etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette
     node focus.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # 49be12b, la page du chantier menus juste avant P10 : une fermeture
+    # acceptée s'y écrit encore comme une erreur, dans l'avis du menu. La
+    # page de main n'a pas de fiche pour « fermer le jeu » : l'étape y
+    # tomberait sur sa précondition.
+    git show 49be12b:core/crates/worker/src/page/index.html > "$dossier/menus-49be12b.html"
+    node focus.mjs --page "$dossier/menus-49be12b.html" --flux "$dossier/flux.h264" \
+        --etapes fermeture-en-cours --rouge-attendu fermeture-en-cours
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni

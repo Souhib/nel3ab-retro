@@ -888,14 +888,38 @@ const ETAPES = {
     await page.close();
   },
 
-  /** P10 et M10: le refus ou l'avis d'un geste du menu s'écrit dans le
-   * bloc du menu, visible, sans couvrir sa sortie. « Fermer le jeu » passe
-   * par sa fiche ; ses touches restent à l'avis. Échap dans la fiche revient
-   * à la liste sans fermer le menu. */
+  /** P10 et M10: « Fermer le jeu » passe par sa fiche ; accepté, la
+   * fermeture est l'état de la fiche et de sa ligne, pas un avis ; refusé,
+   * le refus s'écrit dans le bloc du menu, visible, sans couvrir sa sortie,
+   * et ses touches restent à l'avis. Échap dans la fiche revient à la liste
+   * sans fermer le menu. */
+  async "fermeture-en-cours"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    if ((await page.$("#ray-salle")) === null) throw new Precondition("pas de rubrique « salle »");
+    await page.click("#ray-salle");
+    await sleep(300);
+    if ((await page.$("#item-close-game")) === null) throw new Precondition("pas de ligne « fermer le jeu »");
+    await page.click("#item-close-game");
+    if (!(await attendre(page, () => document.querySelector("#menu #fiche #ficheAgir") !== null)))
+      throw new Precondition("« fermer le jeu » ne s'ouvre pas en fiche");
+    await page.click("#ficheAgir");
+    const vu = await attendre(page, () => document.querySelector("#fiche")?.textContent.includes("Fermeture du jeu en cours…"), 4000);
+    if (await page.evaluate(() => document.querySelector(".n3-preparation-error") !== null))
+      throw new Defaut("une fermeture acceptée s'écrit comme une erreur");
+    if (!vu) throw new Defaut("la fiche ne dit pas que la fermeture est en cours");
+    if (!(await page.evaluate(() => document.querySelector("#ficheAgir")?.disabled === true)))
+      throw new Defaut("« Fermer le jeu » reste actif pendant la fermeture");
+    await capture(page, "fermeture-en-cours");
+    await page.close();
+  },
+
   async "refus-dans-le-bloc"() {
     for (const vue of [PC, TELEPHONE]) {
       const page = await nouvelle(vue);
       await entrer(page);
+      banc.regler({ refus: "Le salon refuse : le jeu ne se ferme pas." });
       await ouvrirMenu(page);
       if ((await page.$("#ray-salle")) === null) throw new Precondition("pas de rubrique « salle »");
       await page.click("#ray-salle");
@@ -910,7 +934,7 @@ const ETAPES = {
         throw new Defaut("un clic sur la ligne seule a fermé le jeu");
       await page.click("#ficheAgir");
       if (!(await attendre(page, () => document.querySelector(".n3-preparation-error") !== null, 4000)))
-        throw new Precondition("aucun avis après « fermer le jeu »");
+        throw new Precondition("aucun avis après un refus de « fermer le jeu »");
       await sleep(300);
       await capture(page, "refus-dans-le-bloc");
       const lu = await page.evaluate(() => {

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-import type { Preparation } from "../client";
+import type { Participant, Preparation } from "../client";
 import {
   ATTENTE_SANS_MS,
   attenteDesAbsents,
@@ -17,6 +17,7 @@ import {
   retenirArrivees,
   sauvegardeAnnoncee,
   sauvegardeRelancee,
+  scenePret,
   titrePreparation,
 } from "./lancement";
 
@@ -282,5 +283,32 @@ describe("l'attente d'un absent", () => {
     const p = preparation([0]);
     p.players[1].name = "Éloi";
     expect(gestesDuLancement(p, AMI, 0, "gc").attente).toBe("En attente d'Éloi.");
+  });
+});
+
+describe("scenePret", () => {
+  const joueur = (claim: string, ready: boolean): Participant => ({
+    port: 1,
+    claim,
+    name: claim,
+    ready,
+    pad: null,
+  });
+
+  it("joue « un » quand un joueur devient prêt, « tous » pour le dernier", () => {
+    const avant = [joueur("a", false), joueur("b", false)];
+    expect(scenePret(avant, [joueur("a", true), joueur("b", false)])).toBe("un");
+    expect(
+      scenePret([joueur("a", true), joueur("b", false)], [joueur("a", true), joueur("b", true)]),
+    ).toBe("tous");
+  });
+
+  it("ne joue rien à l'arrivée, sur le même message, ni pour un joueur qui arrive déjà prêt", () => {
+    const tous = [joueur("a", true), joueur("b", true)];
+    expect(scenePret(null, tous)).toBeNull();
+    expect(scenePret(tous, tous)).toBeNull();
+    expect(scenePret([joueur("a", true)], tous)).toBeNull();
+    // Un joueur qui redevient non prêt ne joue rien non plus.
+    expect(scenePret(tous, [joueur("a", true), joueur("b", false)])).toBeNull();
   });
 });

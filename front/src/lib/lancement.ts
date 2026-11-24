@@ -239,3 +239,20 @@ export function gestesDuLancement(
  * GameCube », puis une seconde liste qui semblait choisir la même chose
  * (audit P6). Avec un seul appareil, on le nomme. */
 export const choixAppareil = (allowed: readonly number[]): boolean => allowed.length > 1;
+
+/** La scène « pret » d'Aïn à jouer entre deux annonces de la préparation :
+ * « un » quand un joueur vient de dire qu'il est prêt, « tous » quand le
+ * dernier le dit, `null` sinon.
+ *
+ * Seul un passage de non prêt à prêt compte, entre deux messages lus par
+ * CETTE page : une page qui arrive quand tous sont prêts n'a rien vu passer,
+ * et le même message deux fois ne joue rien. */
+export function scenePret(
+  avant: readonly Participant[] | null,
+  apres: readonly Participant[],
+): "un" | "tous" | null {
+  if (avant === null) return null;
+  const etait = new Map(avant.map((p) => [p.claim, p.ready]));
+  if (!apres.some((p) => p.ready && etait.get(p.claim) === false)) return null;
+  return apres.every((p) => p.ready) ? "tous" : "un";
+}

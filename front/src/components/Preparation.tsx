@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import type { Game, Preparation as Pending } from "../client";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { Game, Participant, Preparation as Pending } from "../client";
 import type { InputState, InputStream } from "../media/input";
 import { PADS, slotLabel, type Pad, type Slot } from "../lib/saves";
 import {
@@ -9,12 +9,32 @@ import {
   lancerEnChef,
   ligneJoueur,
   nomAppareil,
+  scenePret,
   titrePreparation,
 } from "../lib/lancement";
 import { pastille, SANS_REPONSE } from "../lib/mots";
 import { useAttente } from "../lib/useAttente";
 import { SetupProfiles } from "./SetupProfiles";
 import { GameCard } from "./GameCard";
+import { useArbitre } from "./Cadre";
+
+/** Aïn salue un joueur qui se dit prêt, puis tous quand le dernier le dit
+ * (scène « pret », `scenePret`), par l'arbitre de la salle (K10). Au coin
+ * au bureau, à la tête de la barre au téléphone : là où sa maison est
+ * montée. */
+export function useScenePret(players: readonly Participant[] | null): void {
+  const arbitre = useArbitre();
+  const avant = useRef<readonly Participant[] | null>(null);
+  useEffect(() => {
+    const precedent = avant.current;
+    avant.current = players;
+    if (!arbitre || players === null) return;
+    const mode = scenePret(precedent, players);
+    if (mode === null) return;
+    const hote = document.querySelector('[data-hote="coin"]') ? "coin" : "barre";
+    arbitre.demander({ scene: "pret", par: "menus", hote, contexte: { mode } });
+  }, [arbitre, players]);
+}
 
 /**
  * Le panneau de lancement d'un jeu Dolphin, en un seul bloc.
@@ -58,6 +78,7 @@ export function Preparation({
   /** Depuis quand le chef attend: depuis l'arrivée du dernier absent, vue
    * par CETTE page (`useAttente`). */
   const attendu = useAttente(pending, moi);
+  useScenePret(pending.players);
   const player = pending.players.find((p) => p.claim === moi);
   const starter = pending.starter === moi;
   const ready = player?.ready ?? false;
@@ -274,6 +295,7 @@ export function usePreparationPro({
   /** Depuis quand le chef attend: depuis l'arrivée du dernier absent, compté
    * comme dans `Preparation` (`useAttente`). */
   const attendu = useAttente(pending ?? null, input.attribution());
+  useScenePret(pending?.players ?? null);
   const run = async (geste: () => Promise<void>) => {
     setBusy(true);
     dire("");

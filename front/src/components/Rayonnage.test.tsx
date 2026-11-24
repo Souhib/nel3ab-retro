@@ -9,6 +9,13 @@ import type { MenuAction } from "../media/menupad";
 import type { FicheDeLigne } from "../lib/menu";
 import { Rayonnage } from "./Rayonnage";
 
+type Fs = { readFileSync: (chemin: string, codage: "utf-8") => string };
+const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
+// Par une fonction : Vite réécrit `new URL("…", import.meta.url)` littéral
+// en adresse de ressource (`Screen.test.tsx`).
+const ici = (relatif: string) => new URL(relatif, import.meta.url).pathname;
+const css = fs.readFileSync(ici("./rayonnage.css"), "utf-8");
+
 const BANC: Game[] = [
   { index: 0, key: "mp4.iso", name: "Mario Party 4", console: "gc", art: true },
   { index: 1, key: "sonic.iso", name: "Sonic Generations", console: "x360" },
@@ -218,5 +225,48 @@ describe("Rayonnage", () => {
       />,
     );
     expect(parti.container.textContent).not.toContain("dernier jeu");
+  });
+});
+
+// Relecture du 24 novembre 2026 : trois effets du rayonnage prévus par le
+// plan n'étaient pas branchés (tramage, pointeur, boîte tirée).
+describe("les effets du rayonnage", () => {
+  it("chaque rangée a sa planche tramée, sans texte ; ni le nom ni les titres ne la portent", () => {
+    const { container } = render(
+      <Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />,
+    );
+    const rangees = [...container.querySelectorAll(".n3-rangee")];
+    expect(rangees).toHaveLength(3);
+    for (const rangee of rangees) {
+      const planches = rangee.querySelectorAll(".rt-tramage");
+      expect(planches).toHaveLength(1);
+      expect(planches[0]!.textContent).toBe("");
+      expect(planches[0]!.getAttribute("aria-hidden")).toBe("true");
+    }
+    // Le jumeau : aucun texte sur un fond tramé.
+    for (const texte of container.querySelectorAll(
+      ".n3-rangee-titre, .n3-cartouche-titre, .n3-cartouche",
+    ))
+      expect(texte.classList.contains("rt-tramage")).toBe(false);
+  });
+
+  it("pose la marque du pointeur en pixels sur le rayonnage", () => {
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree={false} />);
+    expect(document.getElementById("rayonnage")!.classList.contains("rt-pointeur")).toBe(true);
+  });
+
+  it("tire la seule cartouche dont la fiche est ouverte, de 4 px, en deux paliers", () => {
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree cote />);
+    fireEvent.click(cartouche(2));
+    expect(cartouche(2).getAttribute("aria-expanded")).toBe("true");
+    // Le jumeau : les autres restent dans leur rangée.
+    for (const i of [0, 1, 3]) expect(cartouche(i).getAttribute("aria-expanded")).toBe("false");
+    expect(css).toMatch(
+      /\.n3-cartouche\[aria-expanded="true"\] \{\s*transform: translateY\(-4px\);/,
+    );
+    expect(css).toMatch(/\.n3-cartouche \{\s*transition: transform 120ms steps\(2, end\);/);
+    expect(css).toMatch(
+      /prefers-reduced-motion: reduce\) \{\s*\.n3-cartouche \{\s*transition: none;/,
+    );
   });
 });

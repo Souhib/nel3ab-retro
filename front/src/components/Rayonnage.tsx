@@ -197,7 +197,9 @@ export function Rayonnage({
       id="rayonnage"
       ref={boite}
       aria-label={BIBLIO.nom}
-      className="n3-rayonnage"
+      // La flèche en pixels au niveau « tout » (effet « pointeur ») : le
+      // rayonnage ne vit que sans partie, sur l'écran éteint.
+      className="n3-rayonnage rt-pointeur"
       data-fiche={ouvert === null ? undefined : cote ? "cote" : "place"}
       onKeyDown={touche}
     >
@@ -230,6 +232,9 @@ export function Rayonnage({
                 </li>
               ))}
             </ul>
+            {/* La planche sous les cartouches : un fond sans texte, tramé
+                par le socle (effet « tramage »). */}
+            <i className="n3-rangee-planche rt-tramage" aria-hidden="true" />
           </section>
         ))}
         {leDernier && dernier && quand ? (

@@ -51,7 +51,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  padding: 0.5rem 0.25rem;
+  /* L'anneau de focus (3 px décalés de 2 px) tient dans #rayonnage, qui
+     défile et coupe ce qui dépasse : à 4 px, la cartouche du bord gauche en
+     perdait un pixel (focus.mjs, anneau-menu, 24 novembre 2026). */
+  padding: 0.5rem calc(var(--focus-largeur) + 2px);
   list-style: none;
 }
 .n3-cartouche {
@@ -64,6 +67,29 @@
   padding: 0.375rem;
   background: var(--ecran);
   color: var(--encre-ecran);
+}
+/* La planche d'une rangée : sans l'effet « tramage », un trait plein ; avec
+   lui, le dégradé en points du socle. Jamais de texte dessus. */
+.n3-rangee-planche {
+  display: block;
+  height: 0.5rem;
+  margin-top: -0.25rem;
+  background: var(--filet);
+}
+/* La cartouche dont la fiche est ouverte sort de 4 px de sa rangée, en deux
+   paliers, et reste sortie (« boîte tirée », AVANT-APRES des menus). Aller
+   d'une cartouche à l'autre ne bouge rien : seule `aria-expanded` la tire.
+   Mouvement réduit : posée sortie, sans mouvement. */
+.n3-cartouche {
+  transition: transform 120ms steps(2, end);
+}
+.n3-cartouche[aria-expanded="true"] {
+  transform: translateY(-4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-cartouche {
+    transition: none;
+  }
 }
 .n3-cartouche-titre {
   font-family: var(--police-pixel);

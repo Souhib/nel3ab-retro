@@ -31064,9 +31064,19 @@ téléphone tenu droit : mesurée à 390x844, la bande ne tient que la pastille,
 et les gestes passaient sous la manette à l'écran ; elle va dans la feuille.
 Et la garde des manettes, qui posait une copie de l'ancien avis en haut de
 l'écran, a montré qu'à 375x667 et en paysage 16:9 la pastille n'a aucune
-place hors de l'image : ni bande, ni grappe libre, ni barre assez large. La
-page ne la pose nulle part plutôt que sur l'image ; la ligne parlée et la
-feuille disent l'état. C'est une place à trouver avec la salle.
+place hors de l'image : ni bande, ni grappe libre, ni barre assez large. Le
+même trou existe dans la vraie salle à 844x390, où le panneau « petit » prend
+la place au-dessus de la grappe droite. La page ne la pose nulle part plutôt
+que sur l'image ; la ligne parlée et la feuille disent l'état. C'est une
+place à trouver avec la salle.
+
+**Une étape qui guettait au mauvais moment.** `lien-qui-cale` lisait le
+journal pour « proposé ». Depuis que la fiche de l'offre vit dans la feuille
+au téléphone, « proposé » ne part qu'à son ouverture (E3) : l'étape guette
+maintenant la pastille « L'image saute » pendant la phase où la liaison va
+bien, car la panne suivante la remplace, puis la touche. Les comptes de
+propositions d'avant et d'après ce changement ne se comparent plus
+directement : une proposition décidée mais jamais ouverte n'est plus notée.
 
 **Un faux pas à ne pas refaire.** Un `npx prettier --write` sur `src/media`
 a reformaté cinquante et un fichiers à la largeur de prettier : le projet

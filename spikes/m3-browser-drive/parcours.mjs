@@ -1047,7 +1047,13 @@ const ETAPES = {
    * sont trouvés). Bo revient : « arrivee ». Le jumeau : la page ouverte
    * avec Bo déjà assis ne joue rien. */
   async "avant-salle-ain"() {
-    const page = await nouvelle(PC, { salle: { bo: true } });
+    // Le niveau d'effets nommé : le stockage passe d'une étape à l'autre, et
+    // une étape d'avant qui laissait « sobre » réduisait Aïn à sa pose clé
+    // (porte complète du 24 novembre 2026).
+    const page = await nouvelle(PC, {
+      salle: { bo: true },
+      stockage: { "nel3ab:effets": JSON.stringify({ niveau: "conseille", sons: false }) },
+    });
     await page.goto(banc.url, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#enter", { timeout: 15000 });
     const ain = () =>

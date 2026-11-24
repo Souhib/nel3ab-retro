@@ -104,6 +104,7 @@ export function Ouverture({
     largeurColonne: largeur,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
   });
   const tenu = mode === "portrait" || mode === "paysage";
 

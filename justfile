@@ -1339,11 +1339,13 @@ cadre-navigateur-rouge port="5478":
 # fenêtre étroite), « Toutes les touches » ouvre le clavier et Échap rend le
 # focus, la vue de la manette suit la trame Pro (K34), le pas à pas tourne
 # sur une manette simulée, et la pièce attendue d'un « Changer » reste à
-# l'écran (vignette). La page COMMITTÉE, le banc des parcours, une
-# manette Xbox simulée ; rien de vivant, port 5482.
+# l'écran (vignette). Tenu en main, il a sa place du cadre, sous l'image ou
+# à sa droite, sans la recouvrir (place-tenu, dans la porte depuis le
+# 24 novembre 2026). La page COMMITTÉE, le banc des parcours, une manette
+# Xbox simulée ; rien de vivant, port 5482.
 #
-#   just reglage-navigateur                        les étapes de la porte
-#   just reglage-navigateur --etapes place-tenu    hors porte : tenu en main
+#   just reglage-navigateur                        toutes les étapes
+#   just reglage-navigateur --etapes place-tenu    une seule
 #   just reglage-navigateur --captures <dossier>   avec les captures
 reglage-navigateur *args:
     #!/usr/bin/env bash
@@ -1396,6 +1398,12 @@ reglage-navigateur-rouge:
     git -C ../.. show 9b1c8e8:core/crates/worker/src/page/index.html > "$dossier/relue.html"
     node reglage.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes marques,focus-pas --rouge-attendu marques,focus-pas
+    # La page de la vague B2 (4ecbc23) : tenu en main, le panneau vivait dans
+    # la feuille agrandie, qui couvrait l'image à 390 × 844, 844 × 390 et
+    # 1024 × 768 (place-tenu, chantier de fin de la salle, 24 novembre 2026).
+    git -C ../.. show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
+    node reglage.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
+        --etapes place-tenu --rouge-attendu place-tenu
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

@@ -470,3 +470,17 @@
   font-size: var(--text-note);
   color: var(--etiquette-encre, var(--encre));
 }
+
+/* Le panneau « Touches et manettes » tenu en main, à la place que le cadre
+   lui donne (`Geometrie.reglage`, `lib/cadre.ts`) : sous l'image tenu droit,
+   à sa droite en travers. Il défile en lui-même, sur le fond de la salle,
+   et ne déborde jamais sur l'image (24 novembre 2026). */
+.n3-reglage-tenu {
+  box-sizing: border-box;
+  z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--espace-2) var(--espace-3);
+  background: var(--plaque);
+  border-top: 2px solid var(--trait);
+}

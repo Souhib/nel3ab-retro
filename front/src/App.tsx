@@ -693,11 +693,13 @@ function Room({
      (`EcranEteint`, 23 novembre 2026). */
   const [menu, setMenu] = useState(false);
   /** Ouvre « Touches et manettes » sur `onglet`. Le menu modal se ferme : il
-   * rendrait la colonne inerte. Tenue en main, la colonne vit dans la feuille
-   * agrandie, qui s'ouvre avec lui. */
+   * rendrait la colonne inerte. Tenue en main, la feuille se ferme aussi : le
+   * panneau a sa place à côté de l'image (`Geometrie.reglage`), et la
+   * feuille agrandie qui le portait jusqu'au 24 novembre 2026 couvrait
+   * l'image. */
   const ouvrirLesTouches = (onglet: Onglet) => {
     setMenu(false);
-    if (tenu) setFeuille("agrandie");
+    if (tenu) setFeuille(null);
     ouvrirReglage(onglet);
   };
   pourCtrl.current = { feuille, menu, touches: reglage !== null };
@@ -1852,6 +1854,9 @@ function Room({
     largeurPanneau:
       reglage !== null && modeSalle === "bureau" ? largeurPanneau(fenetre.width, column) : null,
     agrandie: bare && !tenu,
+    // Tenu en main, le panneau des touches a sa place à côté de l'image
+    // (`reglageTenu`), et non plus dans la feuille qui la couvrait.
+    reglage: reglage !== null,
   });
   /* Le panneau de commande sous l'image, au bureau, quand l'image n'y perd
      rien (`panneauAuBureau`) ; sinon au pied de la colonne. Tenue en main,
@@ -2498,6 +2503,30 @@ function Room({
   /* La colonne repliée par Ctrl se déplie quand le menu s'y ouvre, et se
      replie à sa fermeture (focus.mjs, agrandir-ctrl). */
   useColonneDuMenu({ menu, bare, dansLaColonne: placeMenu.lieu === "colonne", setBare });
+  /** Le panneau « Touches et manettes » ouvert : dans la colonne au bureau,
+   * à sa place du cadre tenu en main (`Geometrie.reglage`). */
+  const hoteReglage = (
+    <HoteReglage
+      trame={trameDuReglage}
+      autres={autresJouent}
+      vit={geo.etat === "vit"}
+      hote={ouEstLaMascotte(geo, "fier")}
+      bande={bandeDuReglage}
+      // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
+      // revient à « Changer » de la vue remontée, sinon au rang des touches,
+      // ou à celui de la manette. Tenu en main, la feuille qui portait la vue
+      // s'est fermée : à « Vérifier les boutons », sinon à « La salle ».
+      repli={() =>
+        document.getElementById("changerTouches") ??
+        document.getElementById("tesTouches") ??
+        document.getElementById("taManette") ??
+        document.getElementById("verifierManette") ??
+        document.getElementById("laSalle") ??
+        document.getElementById("laSalleCote") ??
+        document.getElementById("openMenu")
+      }
+    />
+  );
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (
     <Colonne
@@ -2712,23 +2741,8 @@ function Room({
       vue={
         menuEnColonne ? (
           menuMonte
-        ) : reglage !== null ? (
-          <HoteReglage
-            trame={trameDuReglage}
-            autres={autresJouent}
-            vit={geo.etat === "vit"}
-            hote={ouEstLaMascotte(geo, "fier")}
-            bande={bandeDuReglage}
-            // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
-            // revient à « Changer » de la vue remontée, sinon au rang des
-            // touches, ou à celui de la manette.
-            repli={() =>
-              document.getElementById("changerTouches") ??
-              document.getElementById("tesTouches") ??
-              document.getElementById("taManette") ??
-              document.getElementById("openMenu")
-            }
-          />
+        ) : reglage !== null && !tenu ? (
+          hoteReglage
         ) : mode === "details" ? (
           <div id="stats">
             {shot ? (
@@ -3153,6 +3167,11 @@ function Room({
               />
             ) : null}
           </Bande>
+        ) : null}
+        {tenu && geo.reglage && reglage !== null ? (
+          <div className="n3-reglage-tenu" style={placeDe(geo.reglage)}>
+            {hoteReglage}
+          </div>
         ) : null}
         {pastille.aPart ? (
           <div className="n3-pastille-place" style={placeDe(pastille.aPart)}>

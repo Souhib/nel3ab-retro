@@ -134,6 +134,7 @@ export function useGeometrie(e: EntreeDuCadre): Geometrie {
       e.largeurColonne,
       e.largeurPanneau,
       e.agrandie,
+      e.reglage,
       formatAttendu?.width,
       formatAttendu?.height,
     ],

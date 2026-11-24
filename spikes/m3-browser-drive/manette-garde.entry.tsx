@@ -105,6 +105,7 @@ function Salle() {
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
   });
   useEffect(() => {
     if (canvas.current) paint(canvas.current);

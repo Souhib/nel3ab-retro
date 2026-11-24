@@ -26,6 +26,7 @@ function geo(largeur: number, hauteur: number, image = { width: 640, height: 480
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
   });
 }
 
@@ -48,6 +49,7 @@ function bureau(largeur: number, hauteur: number, image: Size, attendu: Size) {
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
   });
 }
 type Size = { width: number; height: number };

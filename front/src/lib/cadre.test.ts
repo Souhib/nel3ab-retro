@@ -29,6 +29,7 @@ import {
   type Rect,
   type ZonesSures,
   premiereImage,
+  REGLAGE_TENU,
   sansImage,
 } from "./cadre";
 import { DOLPHIN_FACE, FENTE, gapBetween, placePad, SWITCH_FACE, XBOX_FACE } from "./faces";
@@ -59,6 +60,7 @@ const entree = (plus: Partial<Entree>): Entree => {
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
     ...plus,
   };
 };
@@ -310,6 +312,7 @@ describe("la base du panneau : la première image ne déplace rien", () => {
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
     ...plus,
   });
   /** Les calculs successifs, comme `useGeometrie` les enchaîne. */
@@ -446,6 +449,104 @@ describe("la base du panneau : la première image ne déplace rien", () => {
     expect(image.geo.colonne).toEqual(noir.geo.colonne);
     // Le jumeau : sur l'image reçue, la colonne descendait à 645 px.
     expect(miseEnPage(entree({ ...etroit, image: QUATRE_TIERS })).colonne?.y).toBe(645);
+  });
+});
+
+describe("le panneau des touches tenu en main (L6)", () => {
+  const IPHONE_DROIT: ZonesSures = { haut: 47, droite: 0, bas: 34, gauche: 0 };
+  const IPHONE_TRAVERS: ZonesSures = { haut: 0, droite: 47, bas: 21, gauche: 47 };
+  const tenue = (fenetre: Size, plus: Partial<Entree> = {}) =>
+    entree({
+      mode: fenetre.width > fenetre.height ? "paysage" : "portrait",
+      fenetre,
+      image: QUATRE_TIERS,
+      manette: MANETTES.dolphin,
+      ...plus,
+    });
+
+  it("tenu droit, prend tout ce qui est sous l'image, et l'image ne bouge pas", () => {
+    const sans = miseEnPage(tenue({ width: 390, height: 844 }));
+    const avec = miseEnPage(tenue({ width: 390, height: 844 }, { reglage: true }));
+    expect(avec.image).toEqual(sans.image);
+    expect(avec.ecran).toEqual(sans.ecran);
+    const ecran = avec.ecran;
+    if (!ecran) throw new Error("pas d'écran");
+    expect(avec.reglage).toEqual({
+      x: 0,
+      y: ecran.y + ecran.h,
+      w: 390,
+      h: 844 - ecran.y - ecran.h,
+    });
+    // Ce qu'il remplace n'est pas monté pendant le réglage.
+    expect(avec.panneau).toEqual({ forme: "absent", rect: null });
+    expect(avec.bande).toBeNull();
+    expect(avec.manette).toBeNull();
+    // Le jumeau : fermé, aucune place, et la manette revient.
+    expect(sans.reglage).toBeNull();
+    expect(sans.manette).not.toBeNull();
+  });
+
+  it("tenu droit et court, l'image rapetisse au-dessus de lui, jamais l'inverse", () => {
+    const geo = miseEnPage(tenue({ width: 375, height: 548 }, { reglage: true }));
+    const { image, reglage } = geo;
+    if (!image || !reglage) throw new Error("pas d'image ou pas de place");
+    expect(reglage.h).toBe(REGLAGE_TENU.hauteurMin);
+    expect(image.y + image.h).toBeLessThanOrEqual(reglage.y);
+  });
+
+  it("en travers, se range à droite de l'image, qui se pose dans le reste", () => {
+    const geo = miseEnPage(tenue({ width: 844, height: 390 }, { reglage: true }));
+    const { image, reglage } = geo;
+    if (!image || !reglage) throw new Error("pas d'image ou pas de place");
+    // 42 % de 844 px : 354 px.
+    expect(reglage).toEqual({ x: 490, y: 0, w: 354, h: 390 });
+    expect(image.x + image.w).toBeLessThanOrEqual(reglage.x);
+    // « La salle » et la manette s'effacent.
+    expect(geo.boutonSalle).toBeNull();
+    expect(geo.manette).toBeNull();
+  });
+
+  it("au bureau et en fenêtre étroite, la colonne le porte : le cadre ne lui donne rien", () => {
+    for (const mode of ["bureau", "etroit"] as const) {
+      const fenetre =
+        mode === "bureau" ? { width: 1440, height: 900 } : { width: 860, height: 900 };
+      const avec = miseEnPage(entree({ mode, fenetre, reglage: true }));
+      expect(avec.reglage, mode).toBeNull();
+      expect(avec).toEqual(miseEnPage(entree({ mode, fenetre })));
+    }
+  });
+
+  it("ne touche jamais l'image et tient dans la zone sûre, à toutes les tailles tenues", () => {
+    let cas = 0;
+    // Un joueur à la manette à l'écran, et un spectateur sans manette : le
+    // rôle ne compte que par elle. Pas de 30 px : 4 300 cas, sous la seconde.
+    for (let largeur = 320; largeur <= 1400; largeur += 30)
+      for (const hauteur of [320, 360, 375, 390, 430, 548, 568, 667, 740, 768, 844, 932, 1024])
+        for (const image of FORMATS)
+          for (const manette of [MANETTES.dolphin, MANETTES.pro, null]) {
+            const role = manette ? "joueur" : "regarde";
+            const fenetre = { width: largeur, height: hauteur };
+            const zones = largeur > hauteur ? IPHONE_TRAVERS : IPHONE_DROIT;
+            const geo = miseEnPage(
+              tenue(fenetre, { image, manette, role, zonesSures: zones, reglage: true }),
+            );
+            const ici = `${largeur}x${hauteur} ${image.width} ${role}`;
+            const r = geo.reglage;
+            if (!r) throw new Error(`${ici} : pas de place pour le panneau`);
+            cas += 1;
+            expect(r.x, ici).toBeGreaterThanOrEqual(zones.gauche);
+            expect(r.y, ici).toBeGreaterThanOrEqual(zones.haut);
+            expect(r.x + r.w, ici).toBeLessThanOrEqual(largeur - zones.droite);
+            expect(r.y + r.h, ici).toBeLessThanOrEqual(hauteur - zones.bas);
+            if (geo.image) expect(coupe(r, geo.image), ici).toBe(0);
+            if (geo.mode === "portrait" && hauteur - zones.haut - zones.bas >= 600)
+              expect(r.h, ici).toBeGreaterThanOrEqual(REGLAGE_TENU.hauteurMin);
+            // Un téléphone couché fait 568 px de large au moins ; en dessous,
+            // la colonne du panneau prend tout, et l'image attend sa fermeture.
+            if (geo.mode === "paysage" && largeur >= 568)
+              expect(r.w, ici).toBeGreaterThanOrEqual(REGLAGE_TENU.largeurMin);
+          }
+    expect(cas).toBeGreaterThan(4000);
   });
 });
 

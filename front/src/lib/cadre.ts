@@ -325,6 +325,10 @@ export type Entree = {
   largeurPanneau: number | null;
   /** L'image agrandie par Ctrl : la colonne et le panneau s'effacent. */
   agrandie: boolean;
+  /** Le panneau « Touches et manettes » est ouvert. Tenu en main, le cadre
+   * lui donne sa place (`Geometrie.reglage`) ; au bureau et en fenêtre
+   * étroite, il vit dans la colonne (`largeurPanneau`). */
+  reglage: boolean;
 };
 
 export const FORMES_PANNEAU = ["sous", "colonne", "debout", "petit", "absent"] as const;
@@ -397,6 +401,10 @@ export type Geometrie = {
   feuille: { mi: Rect; agrandie: Rect } | null;
   /** Le panneau a cédé sa place à l'état (écran court, état à réparer). */
   cedeAuxEtats: boolean;
+  /** Tenu en main, la place du panneau « Touches et manettes » ouvert : sous
+   * l'image tenu droit, à sa droite en travers (`reglageTenu`). `null`
+   * fermé, et au bureau, où il vit dans la colonne. */
+  reglage: Rect | null;
 };
 
 const rect = (x: number, y: number, w: number, h: number): Rect => ({ x, y, w, h });
@@ -448,6 +456,7 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   bordures: null,
   feuille: null,
   cedeAuxEtats: false,
+  reglage: null,
 });
 
 /** Ce que la salle donne à `useGeometrie` : l'entrée du cadre, avec le
@@ -480,7 +489,8 @@ function changementNaturel(a: EntreeDuCadre, b: EntreeDuCadre): boolean {
     a.ajustement !== b.ajustement ||
     a.largeurColonne !== b.largeurColonne ||
     a.largeurPanneau !== b.largeurPanneau ||
-    a.agrandie !== b.agrandie
+    a.agrandie !== b.agrandie ||
+    a.reglage !== b.reglage
   );
 }
 
@@ -1078,6 +1088,80 @@ function paysage(e: Entree): Geometrie {
   };
 }
 
+/**
+ * La place du panneau « Touches et manettes » tenu en main (décision du chef
+ * de chantier, 24 novembre 2026 ; L6 du chantier manettes).
+ *
+ * Jusque-là, il vivait dans la feuille agrandie de la salle, qui couvrait
+ * l'image : à 390×844, 113 880 px² de panneau sur elle (`place-tenu` de
+ * reglage.mjs). Pendant un réglage, les autres jouent.
+ *
+ * - tenu droit : l'image ne bouge pas, et le panneau prend tout ce qui est
+ *   sous elle (le panneau de commande, la bande et la place de la manette,
+ *   qui n'est pas montée pendant un réglage). S'il y reste moins de
+ *   `hauteurMin`, l'image rapetisse au-dessus de lui, jamais l'inverse ;
+ * - en travers : le panneau prend une colonne à droite, `part` de la largeur
+ *   entre `largeurMin` et `largeurMax`, et l'image se pose dans le reste,
+ *   comme au bureau quand le panneau élargit la colonne (K24). « La salle »
+ *   et la barre s'effacent : « Fermer » et Échap ferment le panneau.
+ *
+ * L'état, les places et la manette reviennent tels quels à la fermeture,
+ * qui est un changement de mise en page ordinaire.
+ */
+export const REGLAGE_TENU = {
+  /** Tenu droit : de quoi montrer l'en-tête, les onglets et la première
+   * ligne du panneau sans défiler. */
+  hauteurMin: 280,
+  /** En travers : la colonne du panneau, en px et en part de la largeur. */
+  largeurMin: 300,
+  largeurMax: 520,
+  part: 0.42,
+} as const;
+
+function reglageTenu(e: Entree, geo: Geometrie): Geometrie {
+  if (e.mode !== "portrait" && e.mode !== "paysage") return geo;
+  const sa = e.zonesSures;
+  const L = sa.gauche;
+  const T = sa.haut;
+  const W = Math.max(0, e.fenetre.width - sa.gauche - sa.droite);
+  const H = Math.max(0, e.fenetre.height - sa.haut - sa.bas);
+  const libere: Geometrie = {
+    ...geo,
+    panneau: { forme: "absent", rect: null },
+    bande: null,
+    manette: null,
+    salleDansLaManette: false,
+    etiquette: null,
+    cedeAuxEtats: false,
+  };
+  if (e.mode === "portrait" || geo.ecran === null) {
+    let ecran = geo.ecran;
+    if (ecran && T + H - (ecran.y + ecran.h) < REGLAGE_TENU.hauteurMin) {
+      const h = Math.max(0, T + H - REGLAGE_TENU.hauteurMin - ecran.y);
+      const w = Math.min(W, Math.floor(h * formatDe(e.image)));
+      ecran = h > 0 && w > 0 ? rect(L + (W - w) / 2, ecran.y, w, h) : null;
+    }
+    const haut = ecran ? ecran.y + ecran.h : geo.barre ? geo.barre.y + geo.barre.h : T;
+    return { ...libere, ecran, ...poser(e, ecran), reglage: rect(L, haut, W, T + H - haut) };
+  }
+  const P = Math.min(
+    W,
+    Math.max(
+      REGLAGE_TENU.largeurMin,
+      Math.min(REGLAGE_TENU.largeurMax, Math.round(W * REGLAGE_TENU.part)),
+    ),
+  );
+  const ecran = W - P > 0 ? rect(L, T, W - P, H) : null;
+  return {
+    ...libere,
+    barre: null,
+    boutonSalle: null,
+    ecran,
+    ...poser(e, ecran),
+    reglage: rect(L + W - P, T, P, H),
+  };
+}
+
 /** Les bandes autour de l'image : le fronton au-dessus, la borne sur les côtés. */
 function bandes(geo: Geometrie): Pick<Geometrie, "fronton" | "bordures"> {
   const { ecran, image } = geo;
@@ -1097,7 +1181,7 @@ function bandes(geo: Geometrie): Pick<Geometrie, "fronton" | "bordures"> {
 
 /** La géométrie entière de la salle. */
 export function miseEnPage(e: Entree): Geometrie {
-  const geo =
+  const brute =
     e.mode === "bureau"
       ? bureau(e)
       : e.mode === "etroit"
@@ -1105,6 +1189,7 @@ export function miseEnPage(e: Entree): Geometrie {
         : e.mode === "portrait"
           ? portrait(e)
           : paysage(e);
+  const geo = e.reglage ? reglageTenu(e, brute) : brute;
   return { ...geo, ...bandes(geo) };
 }
 

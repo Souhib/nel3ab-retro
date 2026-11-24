@@ -169,6 +169,7 @@ const entree = (plus: Partial<Entree>): Entree => {
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
     ...plus,
   };
 };

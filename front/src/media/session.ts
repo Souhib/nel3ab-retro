@@ -93,6 +93,7 @@ export class Session {
     this.mic = new MicStream(socketUrl, () => this.input.attribution());
     this.veille = new VeilleLiaison({
       now: () => performance.now(),
+      horloge: () => Date.now(),
       enLigne: () => navigator.onLine !== false,
       visible: () => document.visibilityState !== "hidden",
       salle,

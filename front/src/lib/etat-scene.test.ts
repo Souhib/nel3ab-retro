@@ -60,8 +60,10 @@ describe("la scène de chaque état, jouée à son entrée", () => {
     const redemarre: Liaison = { etat: "redemarre", arrivee: false };
     expect(passe(OK, redemarre)).toBe("redemarre");
     expect(passe(redemarre, redemarre)).toBeNull();
-    expect(passe(injoignable("repond"), { etat: "fermee" })).toBe("dort");
-    expect(passe({ etat: "fermee" }, { etat: "fermee" })).toBeNull();
+    expect(passe(injoignable("repond"), { etat: "fermee", a: null, pour: null })).toBe("dort");
+    expect(
+      passe({ etat: "fermee", a: null, pour: null }, { etat: "fermee", a: null, pour: null }),
+    ).toBeNull();
   });
   it("hoquet quand l'image saute et que la proposition paraît", () => {
     expect(passe(OK, { etat: "irreguliere" })).toBe("hoquet");
@@ -80,7 +82,7 @@ describe("la scène de chaque état, jouée à son entrée", () => {
       injoignable("repond"),
       injoignable("relais"),
       { etat: "redemarre", arrivee: true },
-      { etat: "fermee" },
+      { etat: "fermee", a: null, pour: null },
       { etat: "irreguliere" },
     ];
     for (const liaison of etats) {
@@ -111,10 +113,10 @@ describe("la fermeture proche", () => {
     expect(
       sceneDeTransition(
         { liaison: OK, fermeDans: 1 },
-        { liaison: { etat: "fermee" }, fermeDans: 0 },
+        { liaison: { etat: "fermee", a: null, pour: null }, fermeDans: 0 },
       ),
     ).toBe("dort");
-    const fermee: Liaison = { etat: "fermee" };
+    const fermee: Liaison = { etat: "fermee", a: null, pour: null };
     expect(
       sceneDeTransition({ liaison: fermee, fermeDans: 1 }, { liaison: fermee, fermeDans: 0 }),
     ).toBeNull();

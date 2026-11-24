@@ -56,7 +56,7 @@ const TOUS: Liaison[] = [
   { etat: "injoignable", site: null, arrivee: true, depuisMs: 6000 },
   { etat: "redemarre", arrivee: false },
   { etat: "redemarre", arrivee: true },
-  { etat: "fermee" },
+  { etat: "fermee", a: null, pour: null },
   { etat: "demarrage", depuisMs: 3000 },
   { etat: "demarrage", depuisMs: 25_000, attente: "long" },
   { etat: "demarrage", depuisMs: 61_000, attente: "echec" },
@@ -182,14 +182,46 @@ describe("chaque panne dit de quel côté elle est, sans le supposer", () => {
     expect(dit.actions).toEqual(["salles"]);
   });
   it("la salle fermée n'est pas une salle qui ne répond pas", () => {
-    const fermee = dire({ etat: "fermee" }, 1, { salon: true });
+    const fermee = dire({ etat: "fermee", a: null, pour: null }, 1, { salon: true });
     expect(fermee.titre).toBe("La salle 1 est fermée.");
     expect(fermee.niveau).toBe("plein");
-    expect(fermee.actions).toEqual(["salles"]);
-    expect(fermee.detail).toContain("sauvegardé dans le jeu est gardé");
+    // Les autres salles, et le carnet une seule fois (D12, décidé le
+    // 24 novembre 2026) ; « Rouvrir la salle » attend toujours D17.
+    expect(fermee.actions).toEqual(["salles", "carnet"]);
+    expect(fermee.detail).toBe(
+      "Ce que tu as sauvegardé dans le jeu est gardé. " +
+        "Le reste de la partie s'est arrêté avec la salle.",
+    );
     expect(
       dire({ etat: "injoignable", site: "repond", arrivee: false, depuisMs: 3000 }, 1).titre,
     ).not.toContain("fermée");
+  });
+  it("la salle fermée dit l'heure et la raison que le salon a lues (K37)", () => {
+    const a = new Date(2026, 10, 24, 23, 12, 40).getTime();
+    const inactive = dire({ etat: "fermee", a, pour: "inactivite" }, 1, { salon: true });
+    expect(inactive.titre).toBe("La salle 1 a fermé à 23 h 12.");
+    expect(inactive.detail).toBe(
+      "Personne n'avait touché au jeu depuis longtemps. " +
+        "Ce que tu as sauvegardé dans le jeu est gardé. " +
+        "Le reste de la partie s'est arrêté avec la salle.",
+    );
+    const matin = new Date(2026, 10, 24, 9, 5, 0).getTime();
+    expect(dire({ etat: "fermee", a: matin, pour: "arret" }, 2).titre).toBe(
+      "La salle 2 a fermé à 9 h 05.",
+    );
+    expect(dire({ etat: "fermee", a: matin, pour: "arret" }, 2).detail).toMatch(
+      /^Quelqu'un l'a fermée\. /,
+    );
+    expect(dire({ etat: "fermee", a: matin, pour: "panne" }, 2).detail).toMatch(
+      /^Elle s'est arrêtée sur une panne\. /,
+    );
+  });
+  it("jumeau: sans heure, jamais « a fermé à » ; servie seule, ni carnet ni autres salles", () => {
+    const seule = dire({ etat: "fermee", a: null, pour: "inactivite" }, 1);
+    expect(seule.titre).toBe("La salle 1 est fermée.");
+    expect(seule.titre).not.toContain("a fermé à");
+    expect(seule.actions).toEqual(["quitter"]);
+    expect(seule.detail).toMatch(/^Personne n'avait touché au jeu/);
   });
   it("ta connexion coupée: le fait, sans geste tant que la page réessaie toute seule", () => {
     const reseau = dire({ etat: "coupee", cause: "reseau", depuisMs: 1 }, 1);

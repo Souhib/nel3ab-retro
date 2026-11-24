@@ -93,7 +93,7 @@ describe("la ligne de la liaison en clair", () => {
   });
 
   it("dit l'état de la liaison quand elle n'est pas en marche, avec sa majuscule", () => {
-    expect(ligneDeLaLiaison({ etat: "fermee" } as Liaison, image())).toEqual({
+    expect(ligneDeLaLiaison({ etat: "fermee", a: null, pour: null } as Liaison, image())).toEqual({
       texte: "Salle fermée",
       bonne: false,
     });

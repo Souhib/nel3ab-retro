@@ -71,7 +71,7 @@ describe("ce qui couvre l'image (K20, ADR D40)", () => {
   it("le plein cadre pour une arrivée, une salle fermée, et une salle muette à l'arrivée", () => {
     for (const liaison of [
       ARRIVEE,
-      { etat: "fermee" },
+      { etat: "fermee", a: null, pour: null },
       { etat: "redemarre", arrivee: true },
       { etat: "injoignable", site: "repond", arrivee: true, depuisMs: 6000 },
     ] as Liaison[])

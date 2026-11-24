@@ -18,7 +18,7 @@
  * tout. Bobine est partie ; la mascotte joue ses scènes ailleurs
  * (`lib/etat-scene.ts`), et ces mots ne dépendent plus d'un dessin.
  */
-import type { Liaison } from "../media/liaison";
+import type { Liaison, PourFermee } from "../media/liaison";
 import { ATTENTE_LONGUE_S } from "./booting";
 import { enBouton, IMAGE, placeN, prixImageLegere } from "./mots";
 import { ROUGH_IN_A_ROW, VITALS_EVERY } from "./vitals";
@@ -30,6 +30,7 @@ export type Action =
   | "reessayer"
   | "quitter"
   | "salles"
+  | "carnet"
   | "reduire"
   | "garder"
   | "rester"
@@ -113,6 +114,21 @@ const enSecondes = (ms: number) => Math.max(0, Math.floor(ms / 1000));
 
 /** La place et la manette ne bougent pas pendant qu'on relance. */
 const GARDEES = "Ta place et ta manette restent.";
+
+/** Pourquoi la salle a fermé, dit en une phrase. L'inactivité ne donne pas
+ * de durée : la demi-heure par défaut se remplace par
+ * `NEL3AB_CLOSE_AFTER_SECS`, que la page ne lit pas. */
+const RAISON_FERMEE: Record<PourFermee, string> = {
+  inactivite: "Personne n'avait touché au jeu depuis longtemps.",
+  arret: "Quelqu'un l'a fermée.",
+  panne: "Elle s'est arrêtée sur une panne.",
+};
+
+/** « 23 h 12 », « 9 h 05 » : l'heure murale de `a`, à l'heure de l'appareil. */
+export function heureDite(a: number): string {
+  const quand = new Date(a);
+  return `${quand.getHours()} h ${String(quand.getMinutes()).padStart(2, "0")}`;
+}
 
 /** « Rien ne répond » : un titre pour un fait, quelle que soit la panne qui
  * le montre (coupée par silence, ou injoignable derrière un relais). */
@@ -254,11 +270,19 @@ export function dire(liaison: Liaison, salle: number, contexte: Contexte = {}): 
     case "fermee":
       return {
         niveau: "plein",
-        titre: `La salle ${salle} est fermée.`,
+        // L'heure et la raison que le salon publie (K37) ; sans elles, le
+        // fait seul, jamais une heure inventée.
+        titre:
+          liaison.a === null
+            ? `La salle ${salle} est fermée.`
+            : `La salle ${salle} a fermé à ${heureDite(liaison.a)}.`,
         detail:
+          (liaison.pour ? `${RAISON_FERMEE[liaison.pour]} ` : "") +
           "Ce que tu as sauvegardé dans le jeu est gardé. " +
           "Le reste de la partie s'est arrêté avec la salle.",
-        actions: [sortie],
+        // Le carnet une seule fois, sous un salon seulement : servie seule,
+        // la page n'a pas de carnet (D12).
+        actions: contexte.salon ? [sortie, "carnet"] : [sortie],
         signaler: null,
         pastille: null,
       };

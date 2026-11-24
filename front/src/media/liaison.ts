@@ -88,6 +88,21 @@ export type Signaux = {
    * n'arrive ici que CONFIRMÉE par deux sondes (`veille.ts`): une seule réponse
    * « fermée » tombe aussi pendant les deux secondes d'un redémarrage. */
   salle: "ouverte" | "redemarre" | "fermee" | null;
+  /** L'heure et la raison de la fermeture, telles que le salon les publie
+   * (`Salle.fermee_depuis`, `Salle.fermee_pour`, lus par `veille.ts`, K37).
+   * Rien quand le salon ne les dit pas : une salle jamais démarrée depuis le
+   * démarrage de la machine, ou un salon d'avant ces champs. */
+  fermeture?: Fermeture | null;
+};
+
+/** Pourquoi le salon dit la salle fermée : personne n'a touché au jeu,
+ * quelqu'un l'a fermée, ou tout le reste. */
+export type PourFermee = "inactivite" | "arret" | "panne";
+
+export type Fermeture = {
+  /** L'heure murale de la fermeture (`Date.now()`), `null` si inconnue. */
+  a: number | null;
+  pour: PourFermee | null;
 };
 
 export type Liaison =
@@ -124,7 +139,7 @@ export type Liaison =
       /** Pendant l'arrivée, l'état se pose sur le rideau. */
       arrivee: boolean;
     }
-  | { etat: "fermee" }
+  | ({ etat: "fermee" } & Fermeture)
   | {
       etat: "demarrage";
       depuisMs: number;
@@ -315,7 +330,7 @@ export function lireLiaison(
     s.site === "muet"
       ? { etat: "coupee", cause: "silence", depuisMs }
       : s.site === "repond" && s.salle === "fermee"
-        ? { etat: "fermee" }
+        ? { etat: "fermee", a: s.fermeture?.a ?? null, pour: s.fermeture?.pour ?? null }
         : s.site === "repond" && s.salle === "redemarre"
           ? { etat: "redemarre", arrivee }
           : { etat: "injoignable", site: s.site, arrivee, depuisMs };

@@ -27,9 +27,14 @@ function flux(video: Partial<Flux["video"]> = {}, rest: Partial<Omit<Flux, "vide
 const tombee = (coupee = 3000) =>
   flux({ connected: false, sinceOpenedMs: null, downForMs: coupee, sinceHeardMs: null });
 
+/** L'heure murale du banc : le 24 novembre 2026, 23 h 14 min 5 s, à l'heure
+ * de la machine qui lance l'essai. `horloge.t` avance les deux. */
+const MUR = new Date(2026, 10, 24, 23, 14, 5).getTime();
+
 function veille(fetch: (url: string) => Promise<Response>, horloge = { t: 1_000_000 }) {
   const v = new VeilleLiaison({
     now: () => horloge.t,
+    horloge: () => MUR + horloge.t - 1_000_000,
     enLigne: () => true,
     visible: () => true,
     salle: () => 1,
@@ -94,6 +99,59 @@ describe("la sonde du site", () => {
     v.lire(tombee());
     await attendre();
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("une salle fermée dit à quelle heure et pourquoi, lus dans le salon (K37)", async () => {
+    // Fermée depuis 125 s à 23 h 14 min 5 s : elle a fermé à 23 h 12 min 0 s.
+    const reponses = [125, 128].map(
+      (depuis) =>
+        new Response(
+          JSON.stringify([
+            { numero: 1, ouverte: false, fermee_depuis: depuis, fermee_pour: "inactivite" },
+          ]),
+          { status: 200 },
+        ),
+    );
+    const fetch = vi.fn(() => Promise.resolve(reponses.shift() as Response));
+    const { v, horloge } = veille(fetch);
+    v.lire(tombee());
+    await attendre();
+    horloge.t += SONDE_EVERY_MS;
+    v.lire(tombee());
+    await attendre();
+    // La deuxième sonde, trois secondes plus tard, dit 128 s : même instant.
+    expect(v.lire(tombee())).toEqual({
+      etat: "fermee",
+      a: new Date(2026, 10, 24, 23, 12, 0).getTime(),
+      pour: "inactivite",
+    });
+  });
+
+  it("jumeau: une salle fermée sans heure connue ne dit ni heure ni raison", async () => {
+    const { v, horloge } = veille(vi.fn(() => Promise.resolve(salles(false))));
+    v.lire(tombee());
+    await attendre();
+    horloge.t += SONDE_EVERY_MS;
+    v.lire(tombee());
+    await attendre();
+    expect(v.lire(tombee())).toEqual({ etat: "fermee", a: null, pour: null });
+  });
+
+  it("jumeau: une raison inconnue du salon n'est pas répétée", async () => {
+    const etrange = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify([{ numero: 1, ouverte: false, fermee_depuis: 5, fermee_pour: "lune" }]),
+          { status: 200 },
+        ),
+      );
+    const { v, horloge } = veille(vi.fn(etrange));
+    v.lire(tombee());
+    await attendre();
+    horloge.t += SONDE_EVERY_MS;
+    v.lire(tombee());
+    await attendre();
+    expect(v.lire(tombee())).toMatchObject({ etat: "fermee", pour: null });
   });
 
   it("oublie une réponse trop vieille plutôt que de la croire encore", async () => {

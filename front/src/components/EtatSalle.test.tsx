@@ -142,11 +142,27 @@ describe("le plein cadre", () => {
     expect(onQuitter).toHaveBeenCalledTimes(1);
   });
 
-  it("la salle fermée : l'extinction, la phrase et la liste des salles", () => {
-    montrer({ etat: "fermee" });
+  it("la salle fermée : l'extinction, l'heure, les salles et le carnet une fois", () => {
+    const a = new Date(2026, 10, 24, 23, 12).getTime();
+    montrer({ etat: "fermee", a, pour: "arret" });
     expect(document.querySelector("#arrivee")?.getAttribute("data-etat")).toBe("fermee");
     expect(document.querySelector("#arrivee .n3-extinction")).not.toBeNull();
+    expect(document.querySelector("#arrivee h2")?.textContent).toBe(
+      "La salle 1 a fermé à 23 h 12.",
+    );
     expect(document.querySelector("#arrivee #lesSalles")).not.toBeNull();
+    const carnet = document.querySelectorAll("#dernieresParties");
+    expect(carnet).toHaveLength(1);
+    expect(carnet[0]?.getAttribute("href")).toBe("/profil#parties");
+    expect(carnet[0]?.textContent).toBe("Dernières parties");
+  });
+
+  it("jumeau : servie seule, une salle fermée n'a ni carnet ni autres salles", () => {
+    montrer({ etat: "fermee", a: null, pour: null }, { contexte: { jeu: null, salon: false } });
+    expect(document.querySelector("#arrivee h2")?.textContent).toBe("La salle 1 est fermée.");
+    expect(document.querySelector("#dernieresParties")).toBeNull();
+    expect(document.querySelector("#lesSalles")).toBeNull();
+    expect(document.querySelector("#arrivee #quitterSalle")).not.toBeNull();
   });
 
   it("jumeau : une image figée n'a pas de plein cadre", () => {

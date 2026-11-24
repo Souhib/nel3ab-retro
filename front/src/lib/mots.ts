@@ -853,6 +853,8 @@ export const ETAT = {
   rester: "Je reste",
   revenir: enBouton(`revenir en ${IMAGE.complete}`),
   garder: "Garder",
+  /** Le lien d'une salle fermée vers le carnet du salon (D12). */
+  parties: "Dernières parties",
   /** Les étapes de l'arrivée, dites pour un lecteur d'écran. */
   fait: "fait",
   enCours: "en cours",

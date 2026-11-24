@@ -104,6 +104,20 @@ function Gestes({ modele, rappels }: { modele: Modele; rappels: Rappels }) {
             {enBouton(SORTIES.autres)}
           </a>
         );
+      case "carnet":
+        // Le carnet du salon, au tableau des dernières parties (D12) : qui a
+        // joué et qui a regardé ce soir.
+        return (
+          <a
+            key={action}
+            href="/profil#parties"
+            id="dernieresParties"
+            className={classeGeste(plein)}
+          >
+            <i className="rt-ombre" aria-hidden="true" />
+            {enBouton(ETAT.parties)}
+          </a>
+        );
       case "reduire":
         return bouton("takeHalf", rappels.onReduire, IMAGE.passer);
       case "garder":

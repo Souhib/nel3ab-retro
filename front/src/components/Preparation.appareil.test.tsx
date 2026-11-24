@@ -38,7 +38,7 @@ function ligne(allowed: number[], pad: number): string {
       send={vi.fn().mockResolvedValue(undefined)}
     />,
   );
-  const said = container.querySelector(".n3-preparation-players small")?.textContent;
+  const said = container.querySelector(".n3-prep-joueurs small")?.textContent;
   // La précondition: sans ligne de joueur, les attentes d'en dessous ne
   // vérifieraient rien.
   if (said === undefined || said === null) throw new Error("aucune ligne de joueur rendue");
@@ -84,10 +84,10 @@ function panneau(console: string, pad: number, allowed: number[]): string {
 
 it("une préparation GameCube s'annonce GameCube, pas Wii (audit T04)", () => {
   const texte = panneau("gc", 0, [0]);
-  expect(texte).toContain("Avant de jouer · GameCube");
-  expect(texte).not.toContain("· Wii");
+  expect(texte).toContain("GameCube · Sauvegarde");
+  expect(texte).not.toContain("Wii");
   // Le jumeau: une préparation Wii reste une préparation Wii.
-  expect(panneau("wii", 1, [1, 0])).toContain("Avant de jouer · Wii");
+  expect(panneau("wii", 1, [1, 0])).toContain("Wii · Sauvegarde");
 });
 
 it("un joueur prêt d'une salle Xbox 360 a la manette Xbox 360 (audit T03)", () => {

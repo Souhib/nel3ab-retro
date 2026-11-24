@@ -206,3 +206,40 @@ describe("un jeu demandé par sa clé", () => {
     expect(seatless.sent).toHaveLength(0);
   });
 });
+
+describe("« je reste »", () => {
+  /** Un flux d'entrée, sa place et sa socket, et ce que la socket a reçu. */
+  const wired = (port: number | null = 1, readyState = 1) => {
+    const sent: (string | Uint8Array)[] = [];
+    const stream = Object.create(InputStream.prototype) as InputStream;
+    Object.assign(stream, {
+      socket: { readyState, send: (what: string | Uint8Array) => sent.push(what) },
+      port,
+      pad: 0,
+    });
+    return { stream, sent };
+  };
+
+  it("part en un seul octet, la marque que le worker lit", () => {
+    // Les mêmes octets que `Reste.encode()` dans le protocole (`[0xE1]`): un
+    // octet de plus ou une autre marque, et le worker l'ignorerait en silence.
+    const { stream, sent } = wired();
+
+    expect(stream.reste()).toBe(true);
+
+    expect(sent).toHaveLength(1);
+    expect([...(sent[0] as Uint8Array)]).toEqual([0xe1]);
+    // Le jumeau: ce n'est pas un aller-retour, que le worker renverrait.
+    expect(readEcho(sent[0] as Uint8Array)).toBeNull();
+  });
+
+  it("ne part pas sans place, ni sur une socket fermée", () => {
+    const sansPlace = wired(null);
+    expect(sansPlace.stream.reste()).toBe(false);
+    expect(sansPlace.sent).toHaveLength(0);
+
+    const fermee = wired(1, 3);
+    expect(fermee.stream.reste()).toBe(false);
+    expect(fermee.sent).toHaveLength(0);
+  });
+});

@@ -221,6 +221,12 @@ const ECHO_TAG = 0xe0;
 /** Combien d'octets un aller-retour occupe. La même que `Echo::LEN`. */
 const ECHO_LEN = 9;
 
+/** La marque de « je reste », la même que `Reste::TAG` côté worker (D16).
+ *
+ * Un octet seul: aucun autre message de ce canal n'en fait un, et le worker les
+ * distingue tous par leur longueur. */
+const RESTE_TAG = 0xe1;
+
 /** Prépare un aller-retour portant ce numéro.
  *
  * Le jeton est un compteur, pas une horodate: le worker le rend tel quel sans
@@ -740,6 +746,25 @@ export class InputStream {
     this.extension = kind;
     if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
     this.socket.send(new Uint8Array([4, kind]));
+    return true;
+  }
+
+  /**
+   * « Je reste »: la salle compte cette place comme active, sans que le jeu
+   * reçoive rien (D16, ADR D43).
+   *
+   * Un octet, `Reste::TAG`, sur la socket de la place. Le worker remet à zéro
+   * le compte d'inactivité de CETTE place, comme une trame non neutre, et
+   * n'envoie aucune trame à l'émulateur: répondre à l'avis de fermeture ne
+   * presse aucune touche dans la partie des autres. Un spectateur n'a pas de
+   * place, donc pas de « je reste ».
+   *
+   * Rend si le message est parti, pour que l'écran ne dise pas « gardée »
+   * quand la socket était fermée.
+   */
+  reste(): boolean {
+    if (this.port === null || this.socket?.readyState !== WebSocket.OPEN) return false;
+    this.socket.send(new Uint8Array([RESTE_TAG]));
     return true;
   }
 

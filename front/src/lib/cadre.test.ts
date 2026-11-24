@@ -10,6 +10,7 @@ import {
   SANS_IMAGE,
   SANS_ZONES,
   attributsDuCadre,
+  BANDE_BORD,
   baseDuPanneau,
   emplacementPastille,
   etatDuCadre,
@@ -850,6 +851,18 @@ describe("ta place se lit tenue en main (en-jeu-tactile.5)", () => {
       if (!lampes || !bords)
         throw new Error("la règle des lampes ou les bords du panneau manquent");
       expect(Number(lampes[1]) + 2 * Number(bords[1]) * 16).toBe(PANNEAU_RANGEE);
+      // Les bords de la bande et la boîte de ton étiquette en tête : le
+      // rectangle que le menu évite (`BANDE_BORD`).
+      const bande = /\.n3-bande \{[^}]*padding: (\d+)px (\d+)px;/.exec(telephone);
+      const etiquette = /\.n3-etiquette-bande \{[^}]*height: (\d+)px;[^}]*max-width: (\d+)px;/.exec(
+        telephone,
+      );
+      if (!bande || !etiquette) throw new Error("les bords de la bande ou son étiquette manquent");
+      expect({ haut: Number(bande[1]), cote: Number(bande[2]) }).toEqual(BANDE_BORD);
+      expect({ h: Number(etiquette[1]), w: Number(etiquette[2]) }).toEqual({
+        h: FENTE.HAUT,
+        w: FENTE.MAX,
+      });
     });
   });
 });

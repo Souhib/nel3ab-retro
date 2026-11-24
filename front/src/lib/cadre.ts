@@ -237,9 +237,27 @@ const rangeeTient = (panneau: Rect | null): boolean =>
  *   (`fente`, `lib/faces`) ;
  * - cote : en travers, sous « La salle », au-dessus de la grappe gauche ;
  * - bande : en travers, quand le panneau n'a que ses lampes, en tête de la
- *   bande, sous « La salle ».
+ *   bande, sous « La salle ». Le cadre donne son rectangle (`BANDE_BORD`),
+ *   que le menu évite (`placeDuMenu`, décision du 24 novembre 2026).
  */
-export type LieuEtiquette = { lieu: "fente" } | { lieu: "cote"; rect: Rect } | { lieu: "bande" };
+export type LieuEtiquette =
+  | { lieu: "fente" }
+  | { lieu: "cote"; rect: Rect }
+  | { lieu: "bande"; rect: Rect };
+
+/** Les bords intérieurs de la bande du téléphone, en px : ceux de `.n3-bande`
+ * dans `components/telephone.css` (`padding: 8px 12px`), que `cadre.test.ts`
+ * relit. Ton étiquette s'y pose en tête, sur la hauteur de la fente et au
+ * plus sur sa largeur (`FENTE`, `.n3-etiquette-bande`). */
+export const BANDE_BORD = { haut: 8, cote: 12 } as const;
+
+/** Le rectangle de ton étiquette en tête de la bande. */
+const enTeteDeBande = (b: Rect): Rect => ({
+  x: b.x + BANDE_BORD.cote,
+  y: b.y + BANDE_BORD.haut,
+  w: Math.max(0, Math.min(b.w - 2 * BANDE_BORD.cote, FENTE.MAX)),
+  h: FENTE.HAUT,
+});
 
 /**
  * La hauteur la plus petite de la feuille « La salle » à mi-hauteur, tenue
@@ -1030,7 +1048,7 @@ function paysage(e: Entree): Geometrie {
       const y = T + m + 44 + FENTE.ECART;
       etiquette = { lieu: "cote", rect: rect(L + m + 4, y, g.gl - 8, FENTE.HAUT) };
     } else if (bande) {
-      etiquette = { lieu: "bande" };
+      etiquette = { lieu: "bande", rect: enTeteDeBande(bande) };
     } else if (panneau.rect) {
       const y = panneau.rect.y + panneau.rect.h + m;
       if (T + H - y >= FENTE.HAUT + m) {

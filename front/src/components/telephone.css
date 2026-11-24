@@ -425,8 +425,15 @@
   min-width: 0;
   pointer-events: none;
 }
+/* En tête de la bande, le rectangle que le cadre donne au menu pour qu'il
+   l'évite (`BANDE_BORD`, `lib/cadre.ts`) : la hauteur et la largeur la plus
+   grande de la fente (`FENTE`, 24 et 180 px), au bord haut et gauche du
+   contenu de la bande. */
 .n3-etiquette-bande {
   flex-shrink: 0;
+  align-self: flex-start;
+  height: 24px;
+  max-width: 180px;
 }
 .n3-etiquette-cote > .n3-etiquette,
 .n3-etiquette-bande > .n3-etiquette {

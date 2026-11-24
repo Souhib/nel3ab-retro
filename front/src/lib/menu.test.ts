@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { ICONES_PIXEL } from "../retro/icones";
 import { MANETTES, miseEnPage, SANS_ZONES, type Entree, type Rect } from "./cadre";
+import { FENTE } from "./faces";
 import {
   AIDE_MAX,
   aidesTropLongues,
@@ -357,5 +358,67 @@ describe("la place du menu (M2)", () => {
     expect(cas.cachee).toBeGreaterThan(20);
     expect(cas.cote).toBeGreaterThan(20);
     expect(cas.grappes).toBeGreaterThan(10);
+  });
+
+  // Ton étiquette en tête de la bande, quand le panneau n'a que ses lampes
+  // (décision du chef de chantier, 24 novembre 2026) : le cadre donne son
+  // rectangle, le menu l'évite. salle-telephone le mesure dans Chrome.
+  it("couché, ne couvre jamais ton étiquette posée en tête de la bande", () => {
+    let vus = 0;
+    for (let width = 480; width <= 1000; width += 4)
+      for (let height = 300; height <= Math.min(width - 1, 480); height += 4)
+        for (const image of [
+          { width: 640, height: 480 },
+          { width: 1280, height: 720 },
+        ])
+          for (const manette of [MANETTES.pro, MANETTES.dolphin]) {
+            const fenetre = { width, height };
+            const geo = miseEnPage(entree({ mode: "paysage", fenetre, image, manette }));
+            if (geo.etiquette?.lieu !== "bande" || !geo.bande || !geo.ecran?.w) continue;
+            vus += 1;
+            const ici = `${width}x${height} ${image.width}`;
+            // Calcul indépendant : les bords intérieurs de la bande
+            // (`.n3-bande`, 8 px en haut, 12 de côté), la hauteur et la
+            // largeur la plus grande de la fente.
+            expect(geo.etiquette.rect, ici).toEqual({
+              x: geo.bande.x + 12,
+              y: geo.bande.y + 8,
+              w: Math.max(0, Math.min(geo.bande.w - 24, FENTE.MAX)),
+              h: FENTE.HAUT,
+            });
+            const place = placeDuMenu(geo, fenetre, SANS_ZONES);
+            if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
+            expect(coupe(place.rect, geo.etiquette.rect), ici).toBe(0);
+          }
+    // Le balayage rencontre l'étiquette dans la bande (GameCube à 568×320,
+    // 640×360, 667×375 ; manette Pro à 640×360 en 16:9).
+    expect(vus).toBeGreaterThan(100);
+  });
+
+  it("le jumeau : une étiquette de bande posée dans la bande gauche y est évitée", () => {
+    // La géométrie d'aujourd'hui ne met jamais la bande sous la bande gauche
+    // du menu : l'image la couvre en largeur. Ce cas construit le prouve
+    // quand même, pour qu'un menu qui oublierait l'étiquette rougisse.
+    const fenetre = { width: 667, height: 375 };
+    const geo = miseEnPage(
+      entree({
+        mode: "paysage",
+        fenetre,
+        image: { width: 640, height: 480 },
+        manette: MANETTES.dolphin,
+      }),
+    );
+    if (geo.etiquette?.lieu !== "bande") throw new Error("pas d'étiquette dans la bande à 667×375");
+    const avant = placeDuMenu(geo, fenetre, SANS_ZONES);
+    if (avant.lieu !== "cote") throw new Error("le menu n'est pas dans une bande à 667×375");
+    const surLeMenu = { x: avant.rect.x + 8, y: 180, w: 120, h: FENTE.HAUT };
+    const apres = placeDuMenu(
+      { ...geo, etiquette: { lieu: "bande", rect: surLeMenu } },
+      fenetre,
+      SANS_ZONES,
+    );
+    if (apres.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
+    expect(coupe(avant.rect, surLeMenu)).toBeGreaterThan(0);
+    expect(coupe(apres.rect, surLeMenu)).toBe(0);
   });
 });

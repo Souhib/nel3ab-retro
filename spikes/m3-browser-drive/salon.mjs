@@ -374,6 +374,113 @@ ETAPES.depot = async () => {
   }
 };
 
+/** Le niveau d'effets de l'appareil, posé avant le script de la page. */
+const niveau = (n) => `localStorage.setItem("nel3ab:effets", ${JSON.stringify(JSON.stringify({ niveau: n, sons: false }))})`;
+const scene = (page) => page.evaluate(() =>
+  document.querySelector('header [data-hote="logo"] .rt-mascotte')?.dataset.scene ?? null);
+
+/** La boucle d'attention à zéro salle (24 novembre 2026) : Aïn joue
+ * « attente » à 2,5 s. Le jumeau : une salle ouverte, ou un clic avant
+ * 2,5 s, et rien ne joue. */
+ETAPES.attention = async () => {
+  const page = await nouvelle(PC, { reglage: { salles: VIDE } });
+  await dessinee(page);
+  const vues = new Set();
+  for (let t = 0; t < 40 && !vues.has("attente"); t += 1) { vues.add(await scene(page)); await sleep(100); }
+  defaut(vues.has("attente"), `à zéro salle, aucune « attente » en 4 s: ${[...vues]}`);
+  await page.close();
+  for (const [nom, reglage, geste] of [["salle ouverte", { salles: RANGEE }, false], ["clic", { salles: VIDE }, true]]) {
+    const jumeau = await nouvelle(PC, { reglage });
+    await dessinee(jumeau);
+    if (geste) await jumeau.mouse.click(5, 5);
+    const vus = new Set();
+    for (let t = 0; t < 40; t += 1) { vus.add(await scene(jumeau)); await sleep(100); }
+    exiger(!vus.has("attente"), `${nom} : « attente » a joué quand même: ${[...vus]}`);
+    await jumeau.close();
+  }
+};
+
+/** « cycle » au niveau « tout » : les barres de la mire glissent, au plus un
+ * pas par seconde (K14). Le jumeau : en « conseillé », la mire ne bouge pas. */
+ETAPES.cycle = async () => {
+  // La mire est le bloc `.vide` de la rangée ; c'est la classe `rt-mire` du
+  // socle qui lui donne ses barres et leur glissement.
+  const lire = (page) => page.evaluate(() => {
+    const mire = document.querySelector("#salles .vide");
+    return mire ? { position: getComputedStyle(mire).backgroundPosition, animations: mire.getAnimations().length } : null;
+  });
+  const page = await nouvelle(PC, { reglage: { salles: VIDE }, avant: niveau("tout") });
+  await dessinee(page);
+  const releves = [];
+  const debut = Date.now();
+  while (Date.now() - debut < 5000) { releves.push({ t: Date.now() - debut, ...(await lire(page)) }); await sleep(50); }
+  exiger(releves[0].position !== undefined, "pas de bloc vide à zéro salle");
+  const pas = releves.filter((r, i) => i > 0 && r.position !== releves[i - 1].position).map((r) => r.t);
+  defaut(pas.length >= 3, `la mire ne glisse pas en « tout » : ${pas.length} pas en 5 s`);
+  const serres = pas.filter((t, i) => i > 0 && t - pas[i - 1] < 900);
+  defaut(serres.length === 0, `plus d'un pas par seconde : ${pas.join(", ")} ms`);
+  await page.close();
+  const jumeau = await nouvelle(PC, { reglage: { salles: VIDE }, avant: niveau("conseille") });
+  await dessinee(jumeau);
+  const calme = await lire(jumeau);
+  defaut(calme.animations === 0, `en « conseillé », la mire a ${calme.animations} animation(s)`);
+  await jumeau.close();
+};
+
+/** « start » : Appuie sur Start clignote une fois par seconde sans jamais
+ * s'éteindre (35 %). Le jumeau : en mouvement réduit, le texte reste, sans
+ * clignoter. */
+ETAPES.clignotement = async () => {
+  const lire = (page) => page.evaluate(() => {
+    const s = document.getElementById("start");
+    const a = s?.getAnimations()[0];
+    return s && {
+      visible: s.getBoundingClientRect().height > 0,
+      duree: a?.effect?.getComputedTiming().duration ?? null,
+      opacites: null,
+    };
+  });
+  const page = await nouvelle(PC, { reglage: { salles: VIDE } });
+  await dessinee(page);
+  const vu = await lire(page);
+  defaut(vu?.visible, "« Appuie sur Start » ne se voit pas à zéro salle");
+  defaut(vu.duree === 1000, `le clignotement dure ${vu.duree} ms, 1000 attendues`);
+  const opacites = [];
+  for (let i = 0; i < 30; i += 1) {
+    opacites.push(await page.$eval("#start", (e) => Number(getComputedStyle(e).opacity)));
+    await sleep(70);
+  }
+  defaut(Math.min(...opacites) >= 0.3, `le texte s'éteint : opacité ${Math.min(...opacites)}`);
+  defaut(Math.max(...opacites) === 1 && Math.min(...opacites) < 1, `il ne clignote pas : ${[...new Set(opacites)]}`);
+  await page.close();
+  const jumeau = await nouvelle(PC, { reglage: { salles: VIDE } });
+  await jumeau.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+  await dessinee(jumeau);
+  const calme = await lire(jumeau);
+  defaut(calme.visible && calme.duree === null, `en mouvement réduit : ${JSON.stringify(calme)}`);
+  await jumeau.close();
+};
+
+/** « pointeur » au niveau « tout » : la flèche en pixels sur la page et ses
+ * boutons. Le jumeau : en « conseillé », la flèche du système. */
+ETAPES.pointeur = async () => {
+  const lire = (page) => page.evaluate(() => ({
+    corps: getComputedStyle(document.body).cursor,
+    bouton: getComputedStyle(document.getElementById("ouvrir")).cursor,
+  }));
+  const page = await nouvelle(PC, { reglage: { salles: VIDE }, avant: niveau("tout") });
+  await dessinee(page);
+  const vu = await lire(page);
+  defaut(vu.corps.startsWith('url("data:'), `en « tout », le pointeur est ${vu.corps.slice(0, 40)}`);
+  defaut(vu.bouton.startsWith('url("data:'), `sur « Ouvrir une salle », ${vu.bouton.slice(0, 40)}`);
+  await page.close();
+  const jumeau = await nouvelle(PC, { reglage: { salles: VIDE }, avant: niveau("conseille") });
+  await dessinee(jumeau);
+  const calme = await lire(jumeau);
+  defaut(!calme.corps.startsWith("url("), `en « conseillé », le pointeur est ${calme.corps.slice(0, 40)}`);
+  await jumeau.close();
+};
+
 // ── Le déroulé ───────────────────────────────────────────────────────────
 const noms = SEULE ? [SEULE] : ROUGE ?? Object.keys(ETAPES);
 let echecs = 0;

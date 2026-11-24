@@ -31327,6 +31327,113 @@ sur « La salle » dans la manette, ou une place que la salle réserve.
 `avertissement-fermeture.mjs` n'est pas lancé : il demande un worker construit
 et une ROM.
 
+### 24 novembre, au bout de la nuit : les états, la relecture et ses sept constats
+
+**Ce que la relecture a trouvé, et ce qui en reste.** Une relecture
+indépendante du chantier a relevé sept points. Chacun a été rejoué avant
+d'être corrigé ou écarté.
+
+- **Aïn sur l'image à la première image : pas reproduit comme peint.** La
+  relecture voyait le sprite d'Aïn (4 219 px² à 1440x900) sur la toile du
+  jeu au rendu de la première image peinte. Sa sonde relevait par un
+  observateur de taille (`ResizeObserver`, voir le glossaire) créé tôt. Le
+  navigateur sert ces observateurs dans l'ordre où ils ont été créés, tous
+  avant de peindre. Tracé rappel par rappel : l'observateur de la mascotte
+  (`observateurDe`, dans `mascotte/rendu.ts`) voit le plateau du plein cadre
+  s'effondrer quand la couverture « plein » est levée, et retire le sprite
+  dans la même mise à jour du rendu. Un observateur créé après lui ne voit
+  plus rien, à 1440x900, à 390x844 et en mouvement réduit. Le code n'a donc
+  pas changé. `premiere-image-coupe` relève maintenant Aïn sur la toile à
+  + 4 px par un observateur créé après ceux de la mascotte, et exige qu'Aïn
+  ait été sur le plateau au dernier rendu sans image, sans quoi le cas n'est
+  pas exercé. Elle rougit sur un mutant dont la mascotte n'observe plus le
+  plateau : Aïn reste sur la toile pendant 21 à 25 rendus.
+- **La pastille illisible de jour.** Son fond est l'écran noir de la borne
+  dans les deux thèmes, mais elle prenait les couleurs du thème de la page :
+  de jour, le compteur du gel était bleu nuit sur noir, à 1,16:1. Elle porte
+  maintenant la régie de nuit, comme les deux autres avis de la pile.
+  `pastille-contraste` mesure son texte, son compteur et son bord, de jour
+  et de nuit ; elle rougit sur la page d'avant.
+- **La pastille sur la tête d'Aïn.** Au téléphone tenu droit, posée dans la
+  barre, elle partait de 8 px du bord et couvrait la tête d'Aïn, qui est sa
+  maison au téléphone. Elle commence maintenant après la tête et son écart,
+  à 50 px. La tête entre dans les zones que mesurent `salle-telephone` et
+  `pastille-hors-image`, toutes deux vues rouges avant (de 104 à 419 px²
+  selon l'état). La pastille couvre toujours le nom de la salle et celui du
+  jeu, comme D40 le décide : ces noms restent lus par les lecteurs d'écran.
+- **La logique des états écrite dans `App.tsx`.** La partition ne laisse à
+  un chantier qu'un commit de câblage dans `App.tsx` (voir le glossaire).
+  Six commits y avaient mis de la logique. Elle vit maintenant dans des
+  fichiers d'etats : `useEtatDeLaSalle.ts` (le modèle et sa couverture, ce
+  que fait chaque geste, le chemin de la pastille au geste de sa fiche, ce
+  qu'une salle montrait avant de fermer), `etat-place.ts`, `etat-modele.ts`,
+  et `PlacesAuPasse.tsx` pour les places d'une salle fermée. Chaque essai
+  nouveau a été vu rouge sur son mutant. `Places.tsx`, son essai,
+  `places.css` et les mots `PLACES` de personnes sont revenus à leur état de
+  la branche d'intégration. Le câblage d'`App.tsx` tient en un commit, le
+  dernier commit de code de la branche, suivi de la page. L'histoire n'a pas
+  été réécrite : les contrôles rouges lisent des pages de cette branche par
+  leur commit (9a4519b, aeac1ab, 884c105). Trois touches aux blocs de
+  personnes restent dans le câblage, et leur sont demandées : `BlocRole` et
+  « Ils regardent » se taisent dans une salle fermée, les places passent à
+  `PlacesAuPasse`, et la ligne du coin se tait quand une fiche dit déjà
+  l'état.
+- **`colonne-stable` rouge.** Toujours rouge, pour la même raison : à
+  1440x900, le panneau de commande passe de sous l'écran à la colonne à la
+  première image 4:3 (`panneauAuBureau`, un fichier de la salle, que
+  `chantier/retro-salle-2` ne touche pas). La porte `etats-navigateur` est
+  rouge sur cette branche, et la branche ne se fusionne pas avant que la
+  salle tranche la place du panneau.
+- **« Je reste » sans preuve.** Aucune porte ne cliquait `#jeReste`, et le
+  seul pilote qui le faisait appuyait sur une touche du jeu quand le bouton
+  manquait. Le banc annonce maintenant la fermeture dans le message de salle
+  et compte les octets de « je reste ». `je-reste` clique le bouton, exige un
+  octet et un seul, puis le départ de la pastille ; son jumeau est un
+  spectateur, sans bouton ni octet. Elle rougit sur un mutant du câblage où
+  « Je reste » ne fait rien (0 octet reçu). `avertissement-fermeture.mjs`
+  perd son repli au clavier.
+- **L'extinction et les lignes du tube.** L'extinction d'une salle fermée
+  commençait par un rectangle presque blanc sur tout l'écran : 813 376 px²
+  clairs sur une capture. Elle part maintenant du noir. Deux rideaux noirs
+  viennent du haut et du bas et se ferment sur une ligne claire, la ligne se
+  resserre en un point, puis l'écran « fermée » paraît, en 650 ms. Le
+  balayage passait aussi sur le titre de l'écran noir : le texte a
+  maintenant une plaque pleine, posée au-dessus des lignes du tube.
+  `extinction` arrête l'effet à 0, 60 et 90 % et lit trois captures (le
+  noir, une ligne de 2 px sur toute la largeur, un point de 2 px), exige une
+  seule lecture et une toile intacte, et ses jumeaux (le redémarrage, le
+  niveau sobre) n'en ont aucune. `calques-attente` rend chaque calque cible
+  du pointeur et exige que le texte reçoive le point au centre et aux coins
+  de chaque pièce ; le titre se lit à 18,38:1 de jour comme de nuit. Les
+  deux étapes rougissent sur la page d'avant.
+
+**Ce que la mesure a corrigé.** Le plan voulait la vignette et le roulement
+au niveau « conseillé ». Le socle les range « à doser » : ils ne sont qu'au
+niveau « tout ». L'étape suit le socle, et le vérifie dans les deux sens
+(les trois calques au niveau « tout », le balayage seul au niveau
+« conseillé », aucun au niveau « sobre »).
+
+**Les portes.** `just check` passe sur l'arbre final. Les pilotes ont tourné
+l'un après l'autre, chacun sur un port privé : `focus-navigateur` (28
+étapes), `salle-telephone` (121 relevés justes) et `manette-garde` (41)
+passent. `etats-navigateur` passe ses 25 premières étapes et rougit sur
+`colonne-stable`, comme avant. `parcours-navigateur` rougit sur
+`invitation`, et `cadre-navigateur` sur `mascotte-hors-image` (précondition)
+et `ain-immobile`, les rouges connus de la vague B1 ; les étapes qui les
+suivent, lancées par leur nom, passent. Les quatre recettes rouges
+rougissent comme attendu ; celle d'etats gagne un sixième bloc contre la
+page relue (884c105).
+
+**Le poids.** 285 884 octets en brotli, contre 285 540 au quatrième passage :
+64 pour les trois corrections de l'écran (285 604 au commit f792f38), 280 pour
+la logique sortie d'`App.tsx` et les places au passé. Rien de mesurable n'est
+retiré : Bobine reste dans la page tant que menus et salon l'importent.
+
+**Ce qui reste.** `colonne-stable`, à la salle. La pastille du téléphone tenu
+droit et court n'a toujours pas de place. Les trois touches aux blocs de
+personnes, à reprendre par personnes. `avertissement-fermeture.mjs` n'est
+pas lancé : il demande un worker construit et une ROM.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -33177,3 +33284,15 @@ la bande, le panneau de commande, la manette tactile.
 conflit de texte, et dont le résultat ne marche plus, parce que chacune
 supposait ce que l'autre change. Git ne peut pas le voir ; seules les
 preuves lancées sur le résultat le montrent.
+
+**Observateur de taille (`ResizeObserver`)** : un rappel que le navigateur
+appelle quand un élément change de taille. Il est servi pendant la mise à
+jour du rendu, après les rappels d'animation et avant de peindre l'image
+d'écran. Plusieurs observateurs sont servis dans l'ordre où ils ont été
+créés : un relevé fait par le premier ne voit pas ce que les suivants
+changent encore avant la peinture.
+
+**Commit de câblage** : le seul commit qu'un chantier du thème rétro peut
+faire dans `App.tsx`, selon la partition : ses imports, le montage de ses
+pièces dans les emplacements du cadre, et le retrait des blocs qu'il
+remplace. La logique vit dans les fichiers du chantier.

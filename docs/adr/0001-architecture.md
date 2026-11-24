@@ -2196,6 +2196,51 @@ pastille still has no place in short portrait (390x664, 375x548), where
 the room's track to decide. Weight: 285 540 bytes brotli (+247 on the third
 pass).
 
+Amended 2026-11-24, fifth pass (independent review, seven findings, each
+replayed first). Aïn over the first painted image was not reproduced as
+painted: the review read the render with a `ResizeObserver` created before
+the mascot's, and the browser serves observers in creation order before it
+paints. Traced callback by callback, the mascot's observer (`observateurDe`
+in `mascotte/rendu.ts`) sees the full frame's plateau collapse when the
+"plein" token is lifted and removes the sprite in the same rendering update;
+an observer created after it sees nothing at 1440x900, 390x844 and under
+reduced motion. No code change; `premiere-image-coupe` now records Aïn's
+sprites over the canvas at + 4 px from an observer created after the
+mascot's, requires Aïn on the plateau at the last render without a picture,
+and is red on a mutant whose mascot no longer observes the plateau (21 to 25
+renders). The pastille now carries the night régie: its background is the
+cabinet's black in both themes, and by day its counter fell to 1.16:1
+(`pastille-contraste`, text 4.5:1, border 3:1, both themes). In the phone's
+bar it starts after Aïn's head (`BARRE_TETE_PX`, 50 px), the head being his
+home on a phone; `salle-telephone` and `pastille-hors-image` measure the head.
+It still covers the room and game names, which stay readable by screen
+readers. The extinction starts from black: two black curtains from top and
+bottom close on a light line, the line narrows to a point, 650 ms; the old
+one opened on an almost white full screen. The full frame's text sits on a
+solid plaque above the tube layers, which drew over the title. `extinction`
+reads three screenshots with the effect paused at 0, 60 and 90 %, one play,
+an untouched canvas, none on restart or at "sobre"; `calques-attente`
+hit-tests every text piece with the layers made targetable, reads the
+title's contrast by day and by night, and the vignette and roll at "tout"
+(the base layer rates them "à doser", so not at "conseillé", unlike the
+plan). `je-reste` clicks `#jeReste` and requires one "reste" byte at the
+bench and the pastille gone, with a spectator twin; red on a wiring mutant
+where "Je reste" does nothing. The etats logic left `App.tsx` for etats
+files (`components/useEtatDeLaSalle.ts`, `lib/etat-place.ts`,
+`lib/etat-modele.ts`, `components/PlacesAuPasse.tsx`); `Places.tsx`, its
+test, `places.css` and `PLACES` are back to the integration branch. The
+`App.tsx` change is one wiring commit, the last code commit, followed by the
+page; history was not rewritten, because the negative controls read this
+branch's pages by commit. Three touches to the people blocks stay in the
+wiring and are requested from that track: the role block and "Ils
+regardent" fall silent in a closed room, the seats switch to
+`PlacesAuPasse`, and the corner line falls silent when a sheet already says
+the state. `colonne-stable` stays red (`panneauAuBureau`, a room file that
+`chantier/retro-salle-2` does not touch): this branch does not merge until
+the room's track decides where the panel goes. Weight: 285 884 bytes brotli
+(+344 on the fourth pass: +64 for the three screen fixes, +280 for the
+extraction and the past-tense seats).
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on

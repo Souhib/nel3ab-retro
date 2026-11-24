@@ -264,6 +264,20 @@ droit et court (390x664, 375x548), la pastille n'est posée nulle part : à
 décider avec la salle. `colonne-stable` reste ROUGE (fichier de la salle).
 Page : 285 540 octets en brotli.
 
+**Au 24 novembre, au bout de la nuit : les états, la relecture.** Même
+branche, hors de `main`, rien d'installé ni de poussé. Sept constats rejoués :
+la pastille porte la régie de nuit (son compteur était à 1,16:1 de jour) ;
+dans la barre du téléphone, elle commence après la tête d'Aïn ; l'extinction
+part du noir et le texte du plein cadre a sa plaque au-dessus des lignes du
+tube ; « Je reste » est prouvé par un vrai clic et l'octet reçu au banc ; la
+logique des états a quitté `App.tsx` (un seul commit de câblage, le dernier
+de code), et les fichiers de personnes sont revenus à l'intégration. Aïn sur
+la première image n'a pas été reproduit comme peint (un observateur créé
+après celui de la mascotte ne le voit pas) ; `premiere-image-coupe` le garde.
+Trois touches aux blocs de personnes leur sont demandées. `colonne-stable`
+reste ROUGE (fichier de la salle) : pas de fusion avant que la salle tranche.
+Page : 285 884 octets en brotli.
+
 **Au 24 novembre : le chantier personnes, cinq passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de

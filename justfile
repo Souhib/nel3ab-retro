@@ -1403,6 +1403,12 @@ reglage-navigateur-rouge port="5482":
     etapes=place-tenu,rang,etiquette,feuille-reglage
     node reglage.mjs --port {{port}} --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page du premier câblage de la place tenue (672dcb6) : une page
+    # « manette seule » n'a pas de place tenue, et le panneau ouvert par le
+    # menu ne se montrait nulle part.
+    git -C ../.. show 672dcb6:core/crates/worker/src/page/index.html > "$dossier/tenue.html"
+    node reglage.mjs --port {{port}} --page "$dossier/tenue.html" --flux "$dossier/flux.h264" \
+        --etapes manette-seule --rouge-attendu manette-seule
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

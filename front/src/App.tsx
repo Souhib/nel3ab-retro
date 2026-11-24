@@ -689,10 +689,12 @@ function Room({
    * rendrait la colonne inerte. Tenue en main, le panneau a sa place sous
    * l'image ou à droite d'elle (`Geometrie.reglage`) : la feuille se ferme,
    * elle le couvrirait. Il vivait dans la feuille agrandie, qui couvrait
-   * l'image (constat 4 de la relecture des manettes). */
+   * l'image (constat 4 de la relecture des manettes). Une manette seule n'a
+   * pas d'image à épargner ni de place tenue : la feuille agrandie le porte
+   * encore. */
   const ouvrirLesTouches = (onglet: Onglet) => {
     setMenu(false);
-    if (tenu) setFeuille(null);
+    if (tenu) setFeuille(padOnly ? "agrandie" : null);
     ouvrirReglage(onglet);
   };
   pourCtrl.current = { feuille, menu, touches: reglage !== null };
@@ -2728,7 +2730,7 @@ function Room({
       vue={
         menuEnColonne ? (
           menuMonte
-        ) : reglage !== null && !tenu ? (
+        ) : reglage !== null && geo.reglage === null ? (
           hoteReglage
         ) : mode === "details" ? (
           <div id="stats">
@@ -3098,7 +3100,7 @@ function Room({
             {tonEtiquette}
           </div>
         ) : null}
-        {tenu && geo.reglage && reglage !== null ? (
+        {geo.reglage && reglage !== null ? (
           <div id="reglageTenu" className="n3-reglage-tenu" style={placeDe(geo.reglage)}>
             {hoteReglage}
           </div>

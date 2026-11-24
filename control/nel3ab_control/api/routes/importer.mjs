@@ -48,6 +48,15 @@ export function nomsConsoles(page = globalThis.document) {
 
 export const CONSOLES = nomsConsoles();
 
+/**
+ * Les mots de la page (`front/src/lib/mots.ts`, groupe `depot`), que
+ * `retro.py` pose avant ce module (`retro/mots.js`). Sans eux la page ne dirait
+ * rien: le module refuse de se charger. Sous Node, l'essai les pose d'abord
+ * (`control/tests/imports/mots_du_salon.mjs`).
+ */
+const mots = globalThis.nel3abMots;
+if (typeof mots !== "function") throw new Error("la page de dépôt n'a pas reçu ses mots");
+
 function egal(b, a, texte) {
   if (a + texte.length > b.length) return false;
   for (let i = 0; i < texte.length; i += 1) if (b[a + i] !== texte.charCodeAt(i)) return false;
@@ -229,7 +238,7 @@ export function octets(n) {
 
 export function duree(secondes) {
   if (!Number.isFinite(secondes)) return "";
-  if (secondes < 60) return "moins d'une minute";
+  if (secondes < 60) return mots("commun.moinsDUneMinute");
   const minutes = Math.round(secondes / 60);
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")}`;
@@ -273,10 +282,10 @@ export function aRejoindre(salles) {
  */
 export function libelleJouer(salles) {
   const salle = aRejoindre(salles);
-  if (!salle) return { texte: "Jouer maintenant", note: "" };
+  if (!salle) return { texte: mots("depot.jouer"), note: "" };
   return {
-    texte: `Aller dans la salle ${salle.numero}`,
-    note: "Le jeu apparaîtra au prochain changement de jeu.",
+    texte: mots("depot.allerDans", { n: salle.numero }),
+    note: mots("depot.auProchainJeu"),
   };
 }
 
@@ -302,9 +311,9 @@ export async function ouJouer(demander = fetch) {
     const ouvre = await demander("/api/salles", { method: "POST" });
     const dit = await lireJson(ouvre);
     if (ouvre.ok && typeof dit.chemin === "string") return { vers: `${dit.chemin}?entrer=jouer`, ouverte: false };
-    return { vers: null, refus: dit.detail ?? "la salle n'a pas voulu s'ouvrir" };
+    return { vers: null, refus: dit.detail ?? mots("accueil.refusOuvrir") };
   } catch {
-    return { vers: null, refus: "pas de réponse, réessaie dans un instant" };
+    return { vers: null, refus: mots("commun.sansReponse") };
   }
 }
 
@@ -371,14 +380,18 @@ class Carte {
   boutons({ pause = false, reprendre = false, annuler = false } = {}) {
     const bouton = this.ici("pause");
     bouton.hidden = !(pause || reprendre);
-    bouton.textContent = reprendre ? "reprendre" : "pause";
+    bouton.textContent = mots(reprendre ? "depot.reprendre" : "depot.pause");
     this.ici("annuler").hidden = !annuler;
   }
 
   progres(recus, taille) {
     const part = taille ? recus / taille : 0;
     this.ici("barre").style.transform = `scaleX(${part})`;
-    this.ici("compte").textContent = `${Math.floor(part * 100)} % · ${octets(recus)} sur ${octets(taille)}`;
+    this.ici("compte").textContent = mots("depot.compte", {
+      pourcent: Math.floor(part * 100),
+      recus: octets(recus),
+      taille: octets(taille),
+    });
     const maintenant = performance.now();
     this.mesures.push([maintenant, recus]);
     while (this.mesures.length > 2 && maintenant - this.mesures[0][0] > 8000) this.mesures.shift();
@@ -386,7 +399,7 @@ class Carte {
     const debit = maintenant > t0 ? ((recus - o0) * 1000) / (maintenant - t0) : 0;
     this.ici("debit").textContent =
       debit > 0 && recus < taille
-        ? `${octets(Math.round(debit))}/s · reste ${duree((taille - recus) / debit)}`
+        ? mots("depot.debit", { debit: octets(Math.round(debit)), duree: duree((taille - recus) / debit) })
         : "";
   }
 
@@ -394,8 +407,8 @@ class Carte {
     this.ici("nature").textContent = trouve.console
       ? `${CONSOLES[trouve.console] ?? trouve.console} · ${trouve.format.toUpperCase()}`
       : trouve.format === "inconnu"
-        ? "console non reconnue au début du fichier"
-        : `${trouve.format.toUpperCase()} · console lue par le serveur`;
+        ? mots("depot.nonReconnue")
+        : mots("depot.lueParLeServeur", { format: trouve.format.toUpperCase() });
     this.ici("titre").textContent = trouve.titre || "";
   }
 
@@ -406,10 +419,10 @@ class Carte {
     this.ici("nom").textContent = fichier.name;
     this.ici("compte").textContent = octets(fichier.size);
     this.pose("loupe");
-    this.dire("lecture du début du fichier…");
+    this.dire(mots("depot.lecture"));
     const debut = new Uint8Array(await fichier.slice(0, LU).arrayBuffer());
     this.estimation(estimer(debut));
-    this.dire("calcul de l'empreinte rapide…");
+    this.dire(mots("depot.empreinte"));
     const empreinte = await empreinteRapide(fichier);
     const reponse = await fetch(API, {
       method: "POST",
@@ -428,25 +441,28 @@ class Carte {
       if (detail.etat === "envoi") return this.envoyer();
       return this.suivre();
     }
-    // Refusé dès l'annonce: rien n'existe sur le serveur, « retirer » ne fait
+    // Refusé dès l'annonce: rien n'existe sur le serveur, « Retirer » ne fait
     // qu'enlever la carte.
     this.pose("rate");
     this.boutons({ annuler: true });
-    this.ici("annuler").textContent = "retirer";
+    this.ici("annuler").textContent = mots("depot.retirer");
     if (reponse.status === 409 && detail.raison === "deja-la") {
       this.etat = "fini";
       this.ici("barre").style.transform = "scaleX(1)";
-      return this.dire(`Déjà dans la bibliothèque: ${detail.fichier}.`, true);
+      return this.dire(mots("depot.dejaLa", { fichier: detail.fichier }), true);
     }
     this.etat = "rate";
-    this.dire(detail.message ?? (typeof detail === "string" ? detail : `refus ${reponse.status}`), true);
+    this.dire(
+      detail.message ?? (typeof detail === "string" ? detail : mots("depot.refusStatut", { statut: reponse.status })),
+      true,
+    );
   }
 
   async envoyer() {
     this.etat = "envoi";
     this.pose("loupe");
     this.boutons({ pause: true, annuler: true });
-    this.dire("envoi en cours");
+    this.dire(mots("depot.enCours"));
     let decalage = this.envoi.decalage;
     let ratees = 0;
     const taille = this.fichier.size;
@@ -478,7 +494,7 @@ class Carte {
         this.etat = "rate";
         this.pose("rate");
         this.boutons({ annuler: true });
-        return this.dire(detail.message ?? `refus ${status}`, true);
+        return this.dire(detail.message ?? mots("depot.refusStatut", { statut: status }), true);
       } catch (erreur) {
         this.enCours = null;
         if (erreur.name === "AbortError") return;
@@ -487,9 +503,9 @@ class Carte {
           this.etat = "pause";
           this.pose("pause");
           this.boutons({ reprendre: true, annuler: true });
-          return this.dire("La connexion a coupé. « reprendre » repart d'où le serveur en est.", true);
+          return this.dire(mots("depot.coupee"), true);
         }
-        this.dire(`connexion coupée, nouvel essai (${ratees}/${RETENTES})…`, true);
+        this.dire(mots("depot.nouvelEssai", { n: ratees, max: RETENTES }), true);
         await attendre(Math.min(30000, 1000 * 2 ** (ratees - 1)));
         decalage = await this.decalageServeur(decalage);
       }
@@ -510,13 +526,13 @@ class Carte {
 
   async terminer() {
     this.boutons({ annuler: true });
-    this.dire("vérification par le serveur: empreinte complète, console, rangement…");
+    this.dire(mots("depot.verification"));
     const reponse = await fetch(`${API}/${this.envoi.id}/fin`, { method: "POST" });
     if (!reponse.ok && reponse.status !== 202) {
       const detail = (await lireJson(reponse)).detail ?? {};
       this.etat = "rate";
       this.pose("rate");
-      return this.dire(detail.message ?? `refus ${reponse.status}`, true);
+      return this.dire(detail.message ?? mots("depot.refusStatut", { statut: reponse.status }), true);
     }
     return this.suivre();
   }
@@ -531,13 +547,13 @@ class Carte {
     for (;;) {
       const reponse = await fetch(`${API}/${this.envoi.id}`, { cache: "no-store" });
       const envoi = await lireJson(reponse);
-      if (!reponse.ok) return this.dire("le serveur ne retrouve plus cet envoi", true);
+      if (!reponse.ok) return this.dire(mots("depot.perdu"), true);
       if (envoi.etat === "envoi") {
         this.envoi = envoi;
         return this.fichier ? this.envoyer() : this.montrer(envoi);
       }
       if (envoi.etat === "termine" || envoi.etat === "erreur") return this.montrer(envoi);
-      this.dire("vérification par le serveur…");
+      this.dire(mots("depot.verifie"));
       await attendre(1000);
     }
   }
@@ -552,7 +568,7 @@ class Carte {
     this.ici("debit").textContent = "";
     this.ici("estimation").hidden = true;
     this.boutons({ annuler: true });
-    this.ici("annuler").textContent = "retirer";
+    this.ici("annuler").textContent = mots("depot.retirer");
     if (envoi.etat === "erreur" || envoi.etat === "envoi") {
       this.pose(envoi.etat === "erreur" ? "rate" : "pause");
       const { texte, alerte } = phraseEnvoi(envoi);
@@ -567,7 +583,7 @@ class Carte {
     // Un jeu rangé se joue: le dépôt finit sur l'action, pas sur une phrase.
     this.ici("jouer").hidden = !range;
     if (range) void this.nommerJouer();
-    this.dire(envoi.elements.length > 1 ? `${envoi.elements.length} fichiers dans l'archive` : "");
+    this.dire(envoi.elements.length > 1 ? mots("depot.archive", { n: envoi.elements.length }) : "");
   }
 
   /** Le bouton dit ce qu'il fera: rejoindre une salle ouverte, ou en ouvrir
@@ -592,7 +608,7 @@ class Carte {
       this.enCours?.arreter();
       this.pose("pause");
       this.boutons({ reprendre: true, annuler: true });
-      this.dire("en pause");
+      this.dire(mots("depot.enPause"));
     } else if (this.etat === "pause") {
       this.decalageServeur(this.envoi.decalage).then((decalage) => {
         this.envoi.decalage = decalage;
@@ -610,7 +626,7 @@ class Carte {
       if (!reponse.ok && reponse.status !== 404) {
         this.etat = avant;
         const detail = (await lireJson(reponse)).detail ?? {};
-        return this.dire(detail.message ?? `refus ${reponse.status}`, true);
+        return this.dire(detail.message ?? mots("depot.refusStatut", { statut: reponse.status }), true);
       }
     }
     this.noeud.dataset.part = "oui";
@@ -631,10 +647,10 @@ class Carte {
 export function phraseEnvoi(envoi) {
   if (envoi.etat === "envoi") {
     const pourcent = envoi.taille ? Math.floor((envoi.decalage / envoi.taille) * 100) : 0;
-    return { texte: `Arrêté à ${pourcent} %. Redépose « ${envoi.nom} » pour reprendre.`, alerte: false };
+    return { texte: mots("depot.arrete", { pourcent, nom: envoi.nom }), alerte: false };
   }
-  const raison = (envoi.message || "La vérification a échoué").replace(/[.\s]+$/, "");
-  return { texte: `${raison}. Retire-le, puis redépose « ${envoi.nom} » pour réessayer.`, alerte: true };
+  const raison = (envoi.message || mots("depot.echec")).replace(/[.\s]+$/, "");
+  return { texte: mots("depot.reparer", { raison, nom: envoi.nom }), alerte: true };
 }
 
 /** Une ligne de résultat: l'étiquette de la console, l'état, et ce qui suit. */
@@ -650,7 +666,7 @@ function resultat(element) {
   haut.className = "resultat-etat";
   const quoi = [element.libelle];
   if (element.titre) quoi.push(`« ${element.titre} »`);
-  if (element.destination) quoi.push(`dans ${element.destination}`);
+  if (element.destination) quoi.push(mots("depot.dans", { destination: element.destination }));
   haut.textContent = quoi.join(" · ");
   const bas = document.createElement("p");
   bas.className = "resultat-mot";
@@ -678,16 +694,16 @@ export function nomDe(personne) {
  */
 export function phraseDe(personne) {
   const morceaux = [];
-  if (personne.droit === "administrateur") morceaux.push("administrateur du salon");
-  if (personne.droit === "configuration") morceaux.push("droit fixé par la configuration du salon");
+  if (personne.droit === "administrateur") morceaux.push(mots("depot.administrateur"));
+  if (personne.droit === "configuration") morceaux.push(mots("depot.configuration"));
   if (personne.sources.includes("tailnet")) {
-    morceaux.push(personne.partage ? "arrive par un partage du tailnet" : "sur le tailnet");
+    morceaux.push(mots(personne.partage ? "depot.partage" : "depot.tailnet"));
   }
-  if (personne.sources.includes("salon")) morceaux.push("a déjà un nom au salon");
-  if (personne.en_ligne) morceaux.push("en ligne maintenant");
-  if (personne.appareils > 1) morceaux.push(`sur ${personne.appareils} appareils`);
+  if (personne.sources.includes("salon")) morceaux.push(mots("depot.connu"));
+  if (personne.en_ligne) morceaux.push(mots("depot.enLigne"));
+  if (personne.appareils > 1) morceaux.push(mots("depot.appareils", { n: personne.appareils }));
   if (personne.sources.length === 0 && personne.droit === "nomme") {
-    morceaux.push("n'est plus sur le tailnet");
+    morceaux.push(mots("depot.parti"));
   }
   if (morceaux.length === 0) return "";
   const phrase = morceaux.join(", ");
@@ -696,8 +712,8 @@ export function phraseDe(personne) {
 
 /** Le bouton d'une personne: donner ou retirer le droit, ou rien. */
 export function boutonDe(personne) {
-  if (personne.droit === "nomme") return "Retirer le droit";
-  if (personne.droit === "aucun") return "Donner le droit";
+  if (personne.droit === "nomme") return mots("depot.retirerLeDroit");
+  if (personne.droit === "aucun") return mots("depot.donnerLeDroit");
   return null;
 }
 
@@ -750,14 +766,10 @@ class Trousseau {
     this.ecrire = liste.registre_lisible !== false;
     const avis = [];
     if (liste.tailnet === false) {
-      avis.push(
-        "tailscaled n'a pas répondu: la liste ne montre que les personnes déjà venues et celles qui ont la clé.",
-      );
+      avis.push(mots("depot.tailnetMuet"));
     }
     if (!this.ecrire) {
-      avis.push(
-        "Le fichier des droits ne se lit pas, donc rien n'y sera écrit. Répare-le ou retire-le, puis redémarre le salon.",
-      );
+      avis.push(mots("depot.droitsIlisibles"));
     }
     this.avis.textContent = avis.join(" ");
     this.avis.dataset.alerte = this.ecrire ? "non" : "oui";
@@ -790,7 +802,7 @@ class Trousseau {
     bouton.hidden = geste === null;
     bouton.disabled = !this.ecrire;
     bouton.textContent = geste ?? "";
-    bouton.setAttribute("aria-label", `${geste ?? ""} à ${nomDe(personne)} (${personne.login})`);
+    bouton.setAttribute("aria-label", mots("depot.gesteA", { geste: geste ?? "", nom: nomDe(personne), login: personne.login }));
   }
 
   async basculer(li) {
@@ -809,7 +821,7 @@ class Trousseau {
     }
     if (!reponse?.ok) {
       const detail = reponse ? (await lireJson(reponse)).detail : null;
-      this.dire(`Rien n'a changé: ${detail ?? "le salon n'a pas répondu"}.`, true);
+      this.dire(mots("depot.rienNAChange", { detail: detail ?? mots("depot.sansReponse") }), true);
       bouton.disabled = !this.ecrire;
       return;
     }
@@ -825,8 +837,8 @@ class Trousseau {
     });
     this.dire(
       donner
-        ? `${nomDe(apres)} peut maintenant déposer des jeux.`
-        : `${nomDe(apres)} ne peut plus déposer de jeux.`,
+        ? mots("depot.peutDeposer", { nom: nomDe(apres) })
+        : mots("depot.nePeutPlus", { nom: nomDe(apres) }),
     );
     li.querySelector('[data-ici="bouton"]').focus({ preventScroll: true });
   }
@@ -843,10 +855,10 @@ const fantomes = new Map();
 
 /** Ce que la page dit d'un dépôt ou d'un retrait d'image refusé. */
 export function refusImage(statut, detail) {
-  if (statut === 413) return "L'image dépasse un Mio.";
-  if (statut === 401 || statut === 403) return "Seul l'administrateur du salon change une image.";
+  if (statut === 413) return mots("depot.imageTropGrande");
+  if (statut === 401 || statut === 403) return mots("depot.imageAdministrateur");
   if (typeof detail === "string" && detail !== "") return detail;
-  return "L'image n'a pas été gardée. Réessaie dans un instant.";
+  return mots("depot.imageNonGardee");
 }
 
 /**
@@ -900,7 +912,7 @@ export function pileDe(envois) {
 /** La phrase de la pile ; vide sans envoi en attente. */
 export function phrasePile(n) {
   if (n <= 0) return "";
-  return n === 1 ? "Sur la pile : 1 envoi pas encore rangé." : `Sur la pile : ${n} envois pas encore rangés.`;
+  return n === 1 ? mots("depot.pileUn") : mots("depot.pile", { n });
 }
 
 /**
@@ -925,7 +937,7 @@ async function remplirRayon(racine, pile) {
   tas.querySelector(".pile-dit").textContent = phrase;
   const reponse = await fetch("/api/catalogue", { cache: "no-store" }).catch(() => null);
   if (!reponse?.ok) {
-    dit.textContent = "La bibliothèque n'a pas encore été lue : ouvre une salle une fois.";
+    dit.textContent = mots("depot.pasLue");
     racine.hidden = false;
     return null;
   }
@@ -952,7 +964,7 @@ async function remplirRayon(racine, pile) {
       return li;
     }),
   );
-  dit.textContent = jeux.length === 1 ? "1 jeu dans la bibliothèque." : `${jeux.length} jeux dans la bibliothèque.`;
+  dit.textContent = jeux.length === 1 ? mots("depot.unJeu") : mots("depot.jeux", { n: jeux.length });
   racine.hidden = false;
   return jeux.length;
 }
@@ -983,7 +995,7 @@ async function ouvrirJaquettes(racine) {
   const avis = racine.querySelector("#jaquettes-avis");
   const reponse = await fetch("/api/catalogue", { cache: "no-store" });
   if (!reponse.ok) {
-    avis.textContent = "Aucune salle n'a encore lu la bibliothèque : ouvre une salle une fois.";
+    avis.textContent = mots("depot.aucuneLue");
     avis.hidden = false;
     racine.hidden = false;
     return;
@@ -1011,18 +1023,18 @@ async function ouvrirJaquettes(racine) {
     titre.append(" ", console_);
     const choisir = document.createElement("label");
     choisir.className = "bouton-cadre";
-    choisir.textContent = "Déposer une image";
+    choisir.textContent = mots("depot.deposerImage");
     const entree = document.createElement("input");
     entree.type = "file";
     entree.accept = "image/png";
     entree.className = "cache-fichier";
-    entree.setAttribute("aria-label", `Déposer une image pour ${jeu.name}`);
+    entree.setAttribute("aria-label", mots("depot.deposerImagePour", { jeu: jeu.name }));
     choisir.append(entree);
     const retirer = document.createElement("button");
     retirer.type = "button";
     retirer.className = "bouton-cadre";
-    retirer.textContent = "Retirer l'image";
-    retirer.setAttribute("aria-label", `Retirer l'image de ${jeu.name}`);
+    retirer.textContent = mots("depot.retirerImage");
+    retirer.setAttribute("aria-label", mots("depot.retirerImageDe", { jeu: jeu.name }));
     const dit = document.createElement("p");
     dit.className = "jeu-dit";
     dit.setAttribute("role", "status");
@@ -1033,7 +1045,7 @@ async function ouvrirJaquettes(racine) {
         ain("refus");
         return;
       }
-      dit.textContent = issue.art ? "Image gardée." : "Image retirée.";
+      dit.textContent = mots(issue.art ? "depot.imageGardee" : "depot.imageRetiree");
       montrer(issue.art);
       if (issue.art) ain("depot");
     };
@@ -1074,7 +1086,7 @@ async function demarrerPage() {
       const carte = new Carte(liste, modele);
       carte.demarrer(fichier).catch((erreur) => {
         carte.pose("rate");
-        carte.dire(`L'envoi a échoué (${erreur.message}). Redépose « ${fichier.name} » pour reprendre.`, true);
+        carte.dire(mots("depot.envoiEchoue", { message: erreur.message, nom: fichier.name }), true);
       });
     }
   };
@@ -1087,7 +1099,7 @@ async function demarrerPage() {
   const auRepos = motDeZone.textContent;
   const survol = (oui) => {
     zone.dataset.survol = oui ? "oui" : "non";
-    motDeZone.textContent = oui ? "Lâche-les : ils se rangent dès qu'ils sont lus." : auRepos;
+    motDeZone.textContent = oui ? mots("depot.zoneSurvol") : auRepos;
   };
   for (const type of ["dragenter", "dragover"]) {
     zone.addEventListener(type, (e) => {

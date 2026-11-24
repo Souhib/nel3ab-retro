@@ -6,6 +6,7 @@
 // requêtes qu'il a faites.
 import { text } from "node:stream/consumers";
 
+import "./mots_du_salon.mjs";
 import * as page from "../../nel3ab_control/api/routes/importer.mjs";
 
 const { ouJouer } = page;

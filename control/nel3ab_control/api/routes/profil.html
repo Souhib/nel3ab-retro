@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab · ton carnet</title>
+<title><!--MOT:carnet.onglet--></title>
 <!--RETRO:EN-TETE-->
+<!--RETRO:MOTS-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      TON CARNET (ADR D41, D44). Le tableau des dernières parties d'une borne
@@ -96,36 +97,37 @@
     </header>
 
     <section aria-labelledby="bonjour">
-      <h1 id="bonjour">Ton carnet</h1>
-      <p class="phrase" id="depuis">On ouvre ton carnet…</p>
+      <h1 id="bonjour"><!--MOT:entete.carnet--></h1>
+      <p class="phrase" id="depuis"><!--MOT:carnet.ouvre--></p>
       <p class="legende" id="aussi"></p>
-      <a class="plein" id="voir-salles" href="/" hidden>Voir les salles</a>
+      <a class="plein" id="voir-salles" href="/" hidden><!--MOT:carnet.voirSalles--></a>
     </section>
 
     <div id="avec" hidden>
       <section aria-labelledby="titre-parties">
-        <h2 id="titre-parties">Dernières parties</h2>
+        <h2 id="titre-parties"><!--MOT:carnet.dernieres--></h2>
         <div class="regle" data-ancre="regle-carnet"></div>
         <div class="table-boite">
           <table class="scores rt-scores" id="parties">
-            <thead><tr><th scope="col">Quand</th><th scope="col">Jeu</th><th scope="col">Durée</th>
-              <th scope="col">Lancée par</th><th scope="col">Sauvegarde</th></tr></thead>
+            <thead><tr><th scope="col"><!--MOT:carnet.quand--></th><th scope="col"><!--MOT:carnet.jeu--></th>
+              <th scope="col"><!--MOT:carnet.duree--></th><th scope="col"><!--MOT:carnet.lanceePar--></th>
+              <th scope="col"><!--MOT:carnet.sauvegarde--></th></tr></thead>
           </table>
         </div>
-        <p class="legende" id="aucune" hidden>Aucune partie notée pour l'instant.</p>
-        <button class="cadre" id="plus" type="button" hidden>Voir les plus anciennes</button>
+        <p class="legende" id="aucune" hidden><!--MOT:carnet.aucune--></p>
+        <button class="cadre" id="plus" type="button" hidden><!--MOT:carnet.plusAnciennes--></button>
       </section>
 
       <section aria-labelledby="titre-sauvegardes" style="margin-top: clamp(1.4rem, 3vh, 2.4rem)">
-        <h2 id="titre-sauvegardes">Tes sauvegardes</h2>
+        <h2 id="titre-sauvegardes"><!--MOT:carnet.sauvegardes--></h2>
         <ul class="sauvegardes" id="sauvegardes"></ul>
       </section>
 
       <section aria-labelledby="titre-nom" style="margin-top: clamp(1.4rem, 3vh, 2.4rem)">
-        <h2 id="titre-nom">Ton étiquette</h2>
+        <h2 id="titre-nom"><!--MOT:carnet.etiquette--></h2>
         <div class="ton-nom">
           <span class="etiquette" id="etiquette"></span>
-          <button class="cadre" id="changer-nom" type="button">Changer ton nom</button>
+          <button class="cadre" id="changer-nom" type="button"><!--MOT:entete.changerNom--></button>
         </div>
       </section>
     </div>
@@ -133,14 +135,14 @@
 
   <dialog id="nom" aria-labelledby="nom-titre">
     <form method="dialog" id="nom-forme">
-      <h2 id="nom-titre">Changer ton nom</h2>
-      <label for="nom-champ">Ton nom, tel que les autres le voient</label>
+      <h2 id="nom-titre"><!--MOT:entete.changerNom--></h2>
+      <label for="nom-champ"><!--MOT:carnet.nomChamp--></label>
       <input id="nom-champ" name="nom" maxlength="32" autocomplete="nickname" required>
-      <p class="legende">Ton étiquette : <span class="etiquette" id="nom-apercu"></span></p>
+      <p class="legende"><!--MOT:carnet.etiquetteApercu--> <span class="etiquette" id="nom-apercu"></span></p>
       <p class="legende erreur" id="nom-erreur" role="alert" hidden></p>
       <div class="boutons">
-        <button class="plein" type="submit" value="garder">Garder ce nom</button>
-        <button class="cadre" type="button" id="nom-annuler">Annuler</button>
+        <button class="plein" type="submit" value="garder"><!--MOT:carnet.garder--></button>
+        <button class="cadre" type="button" id="nom-annuler"><!--MOT:carnet.annuler--></button>
       </div>
     </form>
   </dialog>
@@ -155,6 +157,8 @@
   const soiree = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: ZONE });
   const heure = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: ZONE });
   const ain = (quoi) => { try { window.nel3abAin?.scene(quoi); } catch {} };
+  /** Les mots de la page (`mots.ts`, posés par `retro.py`). */
+  const mots = window.nel3abMots;
 
   function el(tag, classe, texte) {
     const noeud = document.createElement(tag);
@@ -166,7 +170,7 @@
 
   /** « 17 h 02 », « 12 min », « moins d'une minute ». */
   function duree(secondes) {
-    if (secondes < 60) return "moins d'une minute";
+    if (secondes < 60) return mots("commun.moinsDUneMinute");
     const minutes = Math.floor(secondes / 60);
     if (minutes < 60) return `${minutes} min`;
     return `${Math.floor(minutes / 60)} h ${deux(minutes % 60)}`;
@@ -176,10 +180,10 @@
     return `${deux(Math.floor(secondes / 3600))}:${deux(Math.floor(secondes / 60) % 60)}:${deux(secondes % 60)}`;
   }
   /** « 1 partie », « 3 parties »: le pluriel est donné, pas deviné. */
-  function compte(n, un, plusieurs) { return `${n} ${n > 1 ? plusieurs : un}`; }
+  function compte(n, un, plusieurs) { return mots(n > 1 ? plusieurs : un, { n }); }
   function octets(n) {
     const nombre = (x) => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-    if (n < 1024) return `${n} octets`;
+    if (n < 1024) return mots("carnet.octets", { n });
     if (n < 1024 * 1024) return `${nombre(n / 1024)} Ko`;
     return `${nombre(n / (1024 * 1024))} Mo`;
   }
@@ -194,11 +198,11 @@
 
   /** Le nom de la sauvegarde où la partie s'est écrite. */
   const SAUVEGARDE = {
-    mienne: () => "ta sauvegarde",
-    du_lanceur: (p) => `la sauvegarde de ${p.lance_par ?? "quelqu'un"}`,
-    commune: () => "tout débloqué",
-    neuve: () => "nouvelle partie",
-    inconnue: () => "inconnue",
+    mienne: () => mots("carnet.perso"),
+    du_lanceur: (p) => mots("carnet.duLanceur", { de: mots.de(p.lance_par ?? mots("commun.quelquun")) }),
+    commune: () => mots("carnet.debloque"),
+    neuve: () => mots("carnet.neuve"),
+    inconnue: () => mots("carnet.inconnue"),
   };
 
   /** « Ben », « Ben et Clara », « Ben, Clara et Dora ». */
@@ -210,10 +214,13 @@
     const avec = partie.avec ?? [];
     const regardaient = partie.regardaient ?? [];
     const phrases = [];
-    if (avec.length > 0)
-      phrases.push(`Tu as joué avec ${enListe.format(avec.map((un) => `${un.nom} (${un.place}P)`))}.`);
+    if (avec.length > 0) {
+      const joueurs = avec.map((un) => mots("carnet.joueur", { nom: un.nom, place: un.place }));
+      phrases.push(mots("carnet.avec", { noms: enListe.format(joueurs) }));
+    }
     if (regardaient.length > 0)
-      phrases.push(`${enListe.format(regardaient)} ${regardaient.length > 1 ? "ont" : "a"} regardé.`);
+      phrases.push(mots(regardaient.length > 1 ? "carnet.ontRegarde" : "carnet.aRegarde",
+        { noms: enListe.format(regardaient) }));
     return phrases.length > 0 ? el("small", "partie-avec", phrases.join(" ")) : null;
   }
 
@@ -223,16 +230,16 @@
     tr.append(el("td", "quand", heure.format(new Date(partie.debut))));
     const jeu = el("td");
     jeu.append(el("span", "jeu-titre", partie.titre),
-      el("span", "jeu-console", `${partie.console.label} · salle ${partie.salle}`));
+      el("span", "jeu-console", mots("carnet.consoleSalle", { console: partie.console.label, n: partie.salle })));
     const avec = avecQui(partie);
     if (avec) jeu.append(avec);
     tr.append(jeu);
-    const temps = el("td", "duree", partie.en_cours ? "en cours"
+    const temps = el("td", "duree", partie.en_cours ? mots("carnet.enCours")
       : partie.complete ? afficheur(partie.secondes) : "--:--:--");
     temps.dataset.inconnue = partie.complete || partie.en_cours ? "non" : "oui";
-    if (!partie.complete && !partie.en_cours) temps.setAttribute("aria-label", "durée inconnue");
+    if (!partie.complete && !partie.en_cours) temps.setAttribute("aria-label", mots("carnet.dureeInconnue"));
     tr.append(temps);
-    tr.append(el("td", "lance-par", partie.lance_par ?? "toi"));
+    tr.append(el("td", "lance-par", partie.lance_par ?? mots("carnet.toi")));
     tr.append(el("td", "sauvegarde", (SAUVEGARDE[partie.sauvegarde] ?? SAUVEGARDE.inconnue)(partie)));
     return tr;
   }
@@ -289,10 +296,10 @@
       $("aucune").hidden = !(page.parties.length === 0 && !suivant);
       suivant = page.suivant;
       bouton.hidden = suivant === null;
-      bouton.textContent = "Voir les plus anciennes";
+      bouton.textContent = mots("carnet.plusAnciennes");
     } catch {
       bouton.hidden = false;
-      bouton.textContent = "Réessayer";
+      bouton.textContent = mots("carnet.reessayer");
     }
     bouton.disabled = false;
   }
@@ -302,16 +309,19 @@
     const lieu = $("sauvegardes");
     lieu.replaceChildren();
     if (emplacements.length === 0) {
-      lieu.append(el("li", "", "Aucune sauvegarde à toi pour l'instant. Lance un jeu sur « ma sauvegarde » et elle apparaîtra ici."));
+      lieu.append(el("li", "", mots("carnet.aucuneSauvegarde")));
       return;
     }
     for (const un of emplacements) {
       const s = un.sauvegarde;
       const ecrite = s.derniere_ecriture
-        ? `écrite le ${jour.format(new Date(s.derniere_ecriture))} à ${heure.format(new Date(s.derniere_ecriture)).replace(":", " h ")}`
-        : "encore vide";
-      const versions = s.versions === 0 ? "Aucune version précédente gardée"
-        : compte(s.versions, "version précédente gardée", "versions précédentes gardées");
+        ? mots("carnet.ecrite", {
+          jour: jour.format(new Date(s.derniere_ecriture)),
+          heure: heure.format(new Date(s.derniere_ecriture)).replace(":", " h "),
+        })
+        : mots("carnet.encoreVide");
+      const versions = s.versions === 0 ? mots("carnet.aucuneVersion")
+        : compte(s.versions, "carnet.uneVersion", "carnet.versions");
       const li = el("li");
       li.append(el("strong", "", un.titre), ` · ${un.console.label}, ${ecrite}. ${versions}, ${octets(s.octets)}.`);
       lieu.append(li);
@@ -351,7 +361,7 @@
   $("nom-forme").addEventListener("submit", async (e) => {
     e.preventDefault();
     const nom = $("nom-champ").value.trim();
-    if (nom === "") { $("nom-erreur").textContent = "Écris un nom : les autres te voient par lui."; $("nom-erreur").hidden = false; return; }
+    if (nom === "") { $("nom-erreur").textContent = mots("carnet.nomVide"); $("nom-erreur").hidden = false; return; }
     try {
       const reponse = await fetch("/api/me", {
         method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: nom }),
@@ -363,7 +373,7 @@
       window.nel3abBandeau?.nom(monNom);
       fermerNom();
     } catch {
-      $("nom-erreur").textContent = "Le nom n'a pas été gardé. Réessaie dans un instant.";
+      $("nom-erreur").textContent = mots("carnet.nomRefuse");
       $("nom-erreur").hidden = false;
     }
   });
@@ -376,13 +386,17 @@
       ]);
       monNom = moi?.name || profil.pseudo;
       $("etiquette").textContent = monNom;
-      $("depuis").textContent = profil.parties === 0
-        ? `${profil.pseudo}, ton carnet est encore vide. Il commence à ta première partie dans une salle.`
-        : `${profil.pseudo}, ${compte(profil.parties, "partie", "parties")} sur ${compte(profil.jeux, "jeu", "jeux")}`
-          + (profil.depuis ? ` depuis le ${jour.format(new Date(profil.depuis))}` : "")
-          + ` : ${duree(profil.secondes)} de jeu en tout.`;
+      const resume = {
+        pseudo: profil.pseudo,
+        parties: compte(profil.parties, "carnet.unePartie", "carnet.parties"),
+        jeux: compte(profil.jeux, "carnet.unJeu", "carnet.jeux"),
+        duree: duree(profil.secondes),
+      };
+      $("depuis").textContent = profil.parties === 0 ? mots("carnet.vide", { pseudo: profil.pseudo })
+        : profil.depuis ? mots("carnet.resumeDepuis", { ...resume, date: jour.format(new Date(profil.depuis)) })
+        : mots("carnet.resume", resume);
       $("aussi").textContent = profil.inconnues > 0
-        ? `${compte(profil.inconnues, "partie sans fin connue ne compte", "parties sans fin connue ne comptent")} pas dans ce temps.`
+        ? compte(profil.inconnues, "carnet.uneInconnue", "carnet.inconnues")
         : "";
       // Un carnet vide: « Voir les salles » est le seul bouton plein.
       $("voir-salles").hidden = profil.parties > 0;
@@ -392,13 +406,13 @@
       if (location.hash === "#nom") ouvrirNom($("changer-nom"));
     } catch (erreur) {
       if (erreur instanceof SansIdentite) {
-        $("depuis").textContent = "nel3ab ne sait pas qui tu es sur cet appareil.";
-        $("aussi").textContent = "Tu peux quand même jouer : entre dans une salle, et donne ton nom à l'entrée.";
+        $("depuis").textContent = mots("carnet.sansIdentite");
+        $("aussi").textContent = mots("carnet.jouerQuandMeme");
         $("voir-salles").hidden = false;
         return;
       }
-      $("depuis").textContent = "Le carnet ne s'ouvre pas.";
-      $("aussi").textContent = "Pas de réponse. Recharge la page dans un instant.";
+      $("depuis").textContent = mots("carnet.neSOuvrePas");
+      $("aussi").textContent = mots("carnet.rechargeDansUnInstant");
       $("aussi").className = "legende erreur";
     }
   }

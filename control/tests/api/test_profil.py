@@ -991,6 +991,34 @@ async def test_le_carnet_range_ses_parties_par_soiree_au_tableau_des_scores(
 
 
 @AVEC_JSDOM
+async def test_le_carnet_nomme_les_sauvegardes_comme_le_lexique(client: httpx.AsyncClient) -> None:
+    """« ma sauvegarde », comme le panneau de lancement de la salle, et « la
+    sauvegarde d'Ami », élidée comme la salle élide (`de`, `elisions.json`).
+
+    Le carnet écrivait « ta sauvegarde » et « la sauvegarde de Ami » avant que
+    ses mots passent par `mots.ts` (24 novembre 2026). Le jumeau sans élision,
+    « la sauvegarde de Sami », est dans l'essai du tableau.
+    """
+    parties = [
+        _partie("b" * 16, "2026-11-21T20:00:00+00:00", sauvegarde="du_lanceur", lance_par="Ami"),
+        _partie("a" * 16, "2026-11-21T19:00:00+00:00"),
+    ]
+    vue = await _carnet(
+        client,
+        {
+            "/api/me/profil": _profil(2),
+            "/api/me/sauvegardes": [],
+            "/api/me/parties": {"parties": parties, "suivant": None},
+        },
+    )
+    assert parties[1]["sauvegarde"] == "mienne", "précondition: la seconde est la sienne"
+    assert [ligne["sauvegarde"] for ligne in vue["lignes"]] == [
+        "la sauvegarde d'Ami",
+        "ma sauvegarde",
+    ]
+
+
+@AVEC_JSDOM
 async def test_sans_identite_le_carnet_le_dit_et_mene_aux_salles(
     client: httpx.AsyncClient,
 ) -> None:

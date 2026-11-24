@@ -5,6 +5,7 @@
 // pas fini, la phrase de sa carte.
 import { text } from "node:stream/consumers";
 
+import "./mots_du_salon.mjs";
 import { boutonDe, nomDe, phraseDe, phraseEnvoi, rangDe } from "../../nel3ab_control/api/routes/importer.mjs";
 
 const { personnes = [], envois = [] } = JSON.parse(await text(process.stdin));

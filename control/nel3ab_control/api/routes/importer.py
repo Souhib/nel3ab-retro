@@ -55,13 +55,17 @@ def assembler() -> str:
     Xbox 360 rangée par l'import depuis le 21 novembre 2026.
 
     Le module est posé APRÈS `garnir`: une marque du thème écrite dans une
-    chaîne du script serait sinon remplacée par sa pièce.
+    chaîne du script serait sinon remplacée par sa pièce. Ses clés de mots
+    sont donc vérifiées à part, au même démarrage.
     """
     page = (DOSSIER / "importer.html").read_text(encoding="utf-8")
-    page = page.replace("/*__RANGEES__*/", html.escape(enumerer(rangees())))
+    phrase = retro.mot("depot.rangees", consoles=enumerer(rangees()))
+    page = page.replace("/*__RANGEES__*/", html.escape(phrase))
     page = page.replace("/*__CONSOLES__*/", noms_en_json(noms()))
     page = retro.garnir(page.replace("/*__POLICES__*/", faces()).replace("/*__REGIE__*/", regie()))
-    return page.replace("/*__SCRIPT__*/", SCRIPT.read_text(encoding="utf-8"))
+    module = SCRIPT.read_text(encoding="utf-8")
+    retro.verifier_cles(module)
+    return page.replace("/*__SCRIPT__*/", module)
 
 
 PAGE = assembler()

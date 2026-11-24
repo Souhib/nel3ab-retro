@@ -4,6 +4,7 @@
 // et la phrase de chaque nombre de `piles`.
 import { text } from "node:stream/consumers";
 
+import "./mots_du_salon.mjs";
 import { phrasePile, pileDe, rayonDe } from "../../nel3ab_control/api/routes/importer.mjs";
 
 const entree = JSON.parse(await text(process.stdin));

@@ -10,7 +10,9 @@
  * - `en-tete.html`, l'icône d'onglet et le script qui pose le réglage de
  *   l'appareil avant la première image (`scriptEnTete`);
  * - `logo.svg`, le logo, qui lit ses couleurs dans les jetons de la page;
- * - `reglage.html`, le réglage des effets au pied de l'accueil.
+ * - `reglage.html`, le réglage des effets au pied de l'accueil;
+ * - `mots.json`, les mots des pages du salon, tirés de `mots.ts`
+ *   (`motsDuSalon`), que `mots.js` lit dans la page.
  *
  * Le même essai tient la page de la salle: son en-tête porte le même script
  * et la même icône (`front/index.html`), et la page construite aussi.
@@ -21,9 +23,22 @@
  */
 import { describe, expect, it } from "vitest";
 
+import elisions from "../test/elisions.json";
 import { CLE, scriptEnTete } from "./effets";
 import { reglageSalonHTML } from "./effets-salon";
 import { iconeOngletDataUrl, logoSVG } from "./logo";
+import {
+  AVANT_SALLE,
+  chefChoisit,
+  de,
+  ENTREES,
+  motsDuSalon,
+  pastille,
+  PLACES,
+  prendreLaPlace,
+  SANS_REPONSE,
+  SAUVEGARDES,
+} from "./mots";
 
 type Fs = {
   readFileSync: (chemin: string, codage: "utf-8") => string;
@@ -48,6 +63,7 @@ const COPIES: Record<string, () => string> = {
   "en-tete.html": enTeteSalon,
   "logo.svg": () => `${logoSVG({ unite: 2 })}\n`,
   "reglage.html": reglageSalonHTML,
+  "mots.json": () => `${JSON.stringify(motsDuSalon(), null, 1)}\n`,
 };
 
 /** Le bloc du script des effets dans l'en-tête de `index.html`. */
@@ -177,5 +193,72 @@ describe("le réglage au pied de l'accueil", () => {
     const html = reglageSalonHTML();
     for (const mot of ["effets rétro", "sobre", "conseillé", "tout", "sons de menu"])
       expect(html).toContain(mot);
+  });
+});
+
+describe("les mots des pages du salon", () => {
+  type Vm = { runInNewContext: (code: string, contexte: Record<string, unknown>) => unknown };
+  type Mots = ((cle: string, trous?: Record<string, unknown>) => string) & {
+    de: (nom: string) => string;
+  };
+
+  /** `mots.js` tel que `retro.py` le pose, la table de `mots.json` dedans,
+   * exécuté dans un contexte neuf: rien ne vient de ce module. */
+  async function charger(): Promise<Mots> {
+    const { runInNewContext } = (await import(/* @vite-ignore */ `node:${"vm"}`)) as Vm;
+    const code = fs
+      .readFileSync(`${SALON}mots.js`, "utf-8")
+      .replace("/*__MOTS__*/", fs.readFileSync(`${SALON}mots.json`, "utf-8"));
+    const contexte: Record<string, unknown> = {};
+    contexte.globalThis = contexte;
+    runInNewContext(code, contexte);
+    return contexte.nel3abMots as Mots;
+  }
+
+  it("rend un texte et remplit ses trous", async () => {
+    const mots = await charger();
+    expect(mots("entete.salles")).toBe("Les salles");
+    expect(mots("accueil.ouverteTaPlace", { n: 2, place: 3 })).toBe(
+      "La salle 2 est ouverte : prends la place 3.",
+    );
+    // Une valeur qui ressemble à un trou n'est pas relue.
+    expect(mots("accueil.passeA", { n: 1, jeu: "{n}" })).toBe("la salle 1 passe à {n}");
+  });
+
+  it("refuse une clé inconnue et un trou sans valeur", async () => {
+    const mots = await charger();
+    expect(() => mots("accueil.inconnue")).toThrow("mot inconnu du salon : accueil.inconnue");
+    expect(() => mots("toString")).toThrow("mot inconnu");
+    expect(() => mots("accueil.ouverteTaPlace", { n: 2 })).toThrow("trou sans valeur");
+    expect(() => mots("accueil.ouverteTaPlace")).toThrow("trou sans valeur");
+  });
+
+  it("élide « de » comme la salle, sur la même table d'exemples", async () => {
+    const mots = await charger();
+    expect(elisions.exemples.length).toBeGreaterThan(5);
+    for (const [nom, attendu] of elisions.exemples) {
+      expect(mots.de(nom), nom).toBe(attendu);
+      expect(mots.de(nom), nom).toBe(de(nom));
+    }
+    expect(mots("carnet.duLanceur", { de: mots.de("Ami") })).toBe("la sauvegarde d'Ami");
+  });
+
+  it("dit un geste du lexique comme la salle le dit", async () => {
+    // Le salon ne peut pas appeler les fonctions du lexique: ses gabarits
+    // doivent rendre la même phrase. Un écart ici est une dérive.
+    const mots = await charger();
+    expect(mots("accueil.prendreLaPlace", { place: 3 })).toBe(prendreLaPlace(3));
+    expect(`Bo ${mots("accueil.choisit")}`).toBe(chefChoisit("Bo"));
+    expect(mots("accueil.placeDe", { place: 2, nom: "Bo" })).toBe(PLACES.aQuelquun(2, "Bo"));
+    expect(`Ana ${mots("accueil.regarde")}`).toBe(AVANT_SALLE.regarde(["Ana"]));
+    expect(`Ana et Bo ${mots("accueil.regardent")}`).toBe(AVANT_SALLE.regarde(["Ana", "Bo"]));
+    expect(mots("carnet.joueur", { nom: "Ben", place: 2 })).toBe(`Ben (${pastille(2)})`);
+    expect(mots("accueil.regarder")).toBe(ENTREES.regarder);
+    expect(mots("commun.sansReponse")).toBe(SANS_REPONSE);
+    expect([mots("carnet.perso"), mots("carnet.debloque"), mots("carnet.neuve")]).toEqual([
+      SAUVEGARDES.perso,
+      SAUVEGARDES.debloque,
+      SAUVEGARDES.neuve,
+    ]);
   });
 });

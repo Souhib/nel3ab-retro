@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab · déposer un jeu</title>
+<title><!--MOT:depot.onglet--></title>
 <!--RETRO:EN-TETE-->
+<!--RETRO:MOTS-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      LE QUAI DE CHARGEMENT. Même régie que l'accueil: graphite de studio,
@@ -259,12 +260,8 @@
       <!--RETRO:BANDEAU /importer-->
     </header>
 
-    <h1>Déposer un jeu</h1>
-    <p class="chapeau">
-      Lâche un ou plusieurs fichiers de jeu, ou une archive. La page estime la
-      console en lisant le début du fichier. Le serveur relit ensuite le fichier
-      entier, reconnaît la console, puis range le jeu dans la bibliothèque.
-    </p>
+    <h1><!--MOT:entete.depot--></h1>
+    <p class="chapeau"><!--MOT:depot.chapeau--></p>
 
     <!-- La rangée de la bibliothèque : une boîte ou une cartouche par jeu,
          sur une planche. Elle défile seule. La place libre en tête est
@@ -275,7 +272,7 @@
          tes fichiers ici » pour monter sur la planche, et la scène se
          repliait sur la pose clé (salon-navigateur, depot-scene). -->
     <section class="rayon" id="rayon" hidden aria-labelledby="rayon-titre">
-      <h2 id="rayon-titre">La bibliothèque</h2>
+      <h2 id="rayon-titre"><!--MOT:depot.bibliotheque--></h2>
       <p class="rayon-dit" id="rayon-dit"></p>
       <div class="rayon-etagere">
         <ul class="rayon-jeux" id="rayon-jeux"></ul>
@@ -289,58 +286,45 @@
     </section>
 
     <label class="depot" id="depot" for="fichiers" data-survol="non" data-ancre="depot">
-      <span class="depot-mot" id="depot-mot" data-ancre="depot-mot" data-texte>Pose tes fichiers ici, ou</span>
-      <span class="depot-choisir">Choisir des fichiers</span>
-      <span class="depot-sous">Les jeux /*__RANGEES__*/ sont rangés tout de suite; mises à
-        jour, contenus additionnels et autres consoles restent de côté, avec la raison.</span>
+      <span class="depot-mot" id="depot-mot" data-ancre="depot-mot" data-texte><!--MOT:depot.zone--></span>
+      <span class="depot-choisir"><!--MOT:depot.choisir--></span>
+      <span class="depot-sous">/*__RANGEES__*/</span>
       <input type="file" id="fichiers" multiple>
     </label>
 
-    <p class="refus" id="refus" hidden>
-      Déposer un jeu est réservé à l'administrateur du salon et aux personnes
-      qu'il a nommées. Demande-lui de t'ajouter, ou envoie-lui le fichier.
-    </p>
+    <p class="refus" id="refus" hidden><!--MOT:depot.reserve--></p>
 
     <section class="cartes" id="cartes" aria-live="polite"></section>
 
     <section class="cles" id="cles" hidden aria-labelledby="cles-titre">
       <div class="cles-tete">
         <div>
-          <h2 id="cles-titre">Qui peut déposer</h2>
-          <p class="cles-sous">Les personnes qui ont accès au salon, d'après le tailnet et
-            les noms déjà choisis. Donne le droit de déposer à qui doit pouvoir ranger des
-            jeux; tu peux le retirer quand tu veux.</p>
+          <h2 id="cles-titre"><!--MOT:depot.quiPeut--></h2>
+          <p class="cles-sous"><!--MOT:depot.quiPeutSous--></p>
         </div>
       </div>
       <p class="cles-avis" id="cles-avis" hidden></p>
       <div class="trousseau">
         <div class="crochets">
-          <h3>Peuvent déposer</h3>
-          <ul id="avec-cle" data-vide="Personne d'autre que toi."></ul>
+          <h3><!--MOT:depot.peuvent--></h3>
+          <ul id="avec-cle" data-vide="<!--MOT:depot.personneDAutre-->"></ul>
         </div>
         <div class="crochets">
-          <h3>Ne peuvent pas</h3>
-          <ul id="sans-cle" data-vide="Tout le monde peut déposer."></ul>
+          <h3><!--MOT:depot.peuventPas--></h3>
+          <ul id="sans-cle" data-vide="<!--MOT:depot.toutLeMonde-->"></ul>
         </div>
       </div>
       <p class="personne-dit" id="cles-dit" role="status" aria-live="polite"></p>
     </section>
 
     <section class="jaquettes" id="jaquettes" hidden aria-labelledby="jaquettes-titre">
-      <h2 id="jaquettes-titre">Les jaquettes</h2>
-      <p class="cles-sous">L'image d'un jeu s'affiche sur sa borne, à l'accueil, et dans
-        le menu d'une salle. Dépose un PNG d'un Mio au plus : il passe avant la bannière
-        du disque, et une salle le montre à son prochain démarrage.</p>
+      <h2 id="jaquettes-titre"><!--MOT:depot.jaquettes--></h2>
+      <p class="cles-sous"><!--MOT:depot.jaquettesSous--></p>
       <p class="cles-avis" id="jaquettes-avis" hidden></p>
       <ul class="jeux" id="jeux"></ul>
     </section>
 
-    <p class="pied">
-      Un envoi coupé reprend où il s'était arrêté: redépose le même fichier,
-      même après avoir fermé la page. Après un dépôt, le bouton ouvre une salle,
-      où le jeu rangé est déjà là, ou rejoint celle qui est ouverte: elle le
-      montre à son prochain changement de jeu.
-    </p>
+    <p class="pied"><!--MOT:depot.pied--></p>
   </main>
 
   <template id="modele-carte">
@@ -349,16 +333,16 @@
         <div class="carte-tete">
           <p class="carte-nom" data-ici="nom"></p>
           <div class="carte-boutons">
-            <button type="button" data-ici="pause" hidden>pause</button>
-            <button type="button" data-ici="annuler" hidden>annuler</button>
+            <button type="button" data-ici="pause" hidden><!--MOT:depot.pause--></button>
+            <button type="button" data-ici="annuler" hidden><!--MOT:depot.annuler--></button>
           </div>
         </div>
-        <p class="estimation" data-ici="estimation">Au début du fichier : <span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
+        <p class="estimation" data-ici="estimation"><!--MOT:depot.auDebut--> <span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
         <div class="piste"><span class="barre" data-ici="barre"></span></div>
         <p class="mesures"><span data-ici="compte"></span><span data-ici="debit"></span></p>
         <p class="etat" data-ici="etat" role="status"></p>
         <div class="resultats" data-ici="resultats"></div>
-        <button type="button" class="jouer" data-ici="jouer" hidden>Jouer maintenant</button>
+        <button type="button" class="jouer" data-ici="jouer" hidden><!--MOT:depot.jouer--></button>
         <p class="jouer-note" data-ici="jouer-note" hidden></p>
       </div>
     </article>

@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab · les salles</title>
+<title><!--MOT:accueil.onglet--></title>
 <!--RETRO:EN-TETE-->
+<!--RETRO:MOTS-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      LE SALON D'ARCADE (ADR D37, D41). La page d'accueil est une rangée de
@@ -171,27 +172,27 @@
   <main class="page">
     <header class="entete">
       <!--RETRO:BANDEAU /-->
-      <span id="horloge" title="L'heure du dernier relevé de la liste">--:--:--</span>
+      <span id="horloge" title="<!--MOT:accueil.horloge-->">--:--:--</span>
     </header>
 
     <div class="retour" id="retour" role="status" hidden>
       <p id="retour-mot"></p>
-      <button type="button" class="cadre" id="retour-fermer">Compris</button>
+      <button type="button" class="cadre" id="retour-fermer"><!--MOT:accueil.compris--></button>
     </div>
 
-    <h1 class="accroche" id="accroche">Les salles</h1>
+    <h1 class="accroche" id="accroche"><!--MOT:entete.salles--></h1>
     <p class="sous-accroche" id="sous-accroche"></p>
 
     <!-- La liste n'est pas une région vivante: réécrite toutes les cinq secondes,
          elle se faisait relire sans changer (A11Y-08, audit du 21 novembre 2026).
          Ce qui change vraiment est dit en une phrase, dans la ligne d'annonce. -->
-    <section class="rangee" id="salles" data-ancre="salles" aria-label="Les salles"></section>
+    <section class="rangee" id="salles" data-ancre="salles" aria-label="<!--MOT:entete.salles-->"></section>
     <p class="annonce" id="annonce" role="status"></p>
 
     <div class="panneau" id="panneau">
-      <button type="button" class="plein" id="ouvrir" hidden>Ouvrir une salle</button>
-      <button type="button" class="plein" id="recharger" hidden>Recharger la page</button>
-      <p class="rt-start" id="start" hidden>Appuie sur Start</p>
+      <button type="button" class="plein" id="ouvrir" hidden><!--MOT:accueil.ouvrirUne--></button>
+      <button type="button" class="plein" id="recharger" hidden><!--MOT:accueil.recharger--></button>
+      <p class="rt-start" id="start" hidden><!--MOT:accueil.start--></p>
       <p class="mot" id="mot" data-texte></p>
       <p class="rt-credit" id="credit"></p>
     </div>
@@ -220,6 +221,8 @@
    * aucune scène. */
   const ain = (quoi) => { try { window.nel3abAin?.scene(quoi); } catch {} };
   const arcade = window.nel3abSalon ?? null;
+  /** Les mots de la page (`mots.ts`, posés par `retro.py`). */
+  const mots = window.nel3abMots;
 
   /** Écrit un texte seulement s'il change: réécrire le même texte remplace
    * quand même son noeud, et un lecteur d'écran peut le relire (A11Y-08). */
@@ -236,14 +239,14 @@
     return el;
   }
 
-  const NOMBRES = ["zéro", "une", "deux", "trois", "quatre"];
+  const NOMBRES = mots("accueil.nombres").split(" ");
   const deux = (n) => String(n).padStart(2, "0");
 
   /** « 1 h 06 », « 12 min », « moins d'une minute ». On tronque: « depuis »
    * compte le temps écoulé, et deux minutes au bout de 90 secondes feraient
    * croire à une partie plus avancée qu'elle ne l'est. */
   function duree(secondes) {
-    if (secondes < 60) return "moins d'une minute";
+    if (secondes < 60) return mots("commun.moinsDUneMinute");
     const minutes = Math.floor(secondes / 60);
     if (minutes < 60) return `${minutes} min`;
     return `${Math.floor(minutes / 60)} h ${deux(minutes % 60)}`;
@@ -274,7 +277,7 @@
       const siege = par.get(port);
       const nom = siege?.nom ?? null;
       const tenu = siege?.tenu === true;
-      return { port, nom: nom ?? (tenu ? "quelqu'un" : null), libre: nom === null && !tenu };
+      return { port, nom: nom ?? (tenu ? mots("commun.quelquun") : null), libre: nom === null && !tenu };
     });
   }
 
@@ -314,11 +317,12 @@
     for (const salle of salles) {
       const avant = vues?.get(salle.numero);
       if (!avant) continue;
-      if (salle.ouverte && !avant.ouverte) dites.push(`la salle ${salle.numero} vient de s'ouvrir`);
-      else if (!salle.ouverte && avant.ouverte) dites.push(`la salle ${salle.numero} s'est fermée`);
+      const n = salle.numero;
+      if (salle.ouverte && !avant.ouverte) dites.push(mots("accueil.vientDeSOuvrir", { n }));
+      else if (!salle.ouverte && avant.ouverte) dites.push(mots("accueil.sEstFermee", { n }));
       else if (salle.ouverte && (salle.jeu ?? null) !== avant.jeu) {
-        dites.push(salle.jeu ? `la salle ${salle.numero} passe à ${salle.jeu}`
-          : `la salle ${salle.numero} revient à son menu`);
+        dites.push(salle.jeu ? mots("accueil.passeA", { n, jeu: salle.jeu })
+          : mots("accueil.revientAuMenu", { n }));
       }
     }
     return dites;
@@ -346,8 +350,8 @@
     tete.append(cartouche, corps);
     const commande = element("div", "commande");
     const starts = element("ol", "starts");
-    starts.setAttribute("aria-label", `Les places de la salle ${salle.numero}`);
-    commande.append(starts, element("a", "regarder", "Regarder"));
+    starts.setAttribute("aria-label", mots("accueil.lesPlaces", { n: salle.numero }));
+    commande.append(starts, element("a", "regarder", mots("accueil.regarder")));
     art.append(tete, commande);
     return art;
   }
@@ -366,11 +370,11 @@
     ligne.replaceChildren();
     // Des espaces entre les étiquettes et les mots: un lecteur d'écran lit
     // le texte, et « nourchoisit » n'est pas un mot.
-    if (salle.chef) ligne.append(etiquette(salle.chef), " choisit le jeu. ");
+    if (salle.chef) ligne.append(etiquette(salle.chef), ` ${mots("accueil.choisit")} `);
     const regardent = salle.regardent ?? [];
     if (regardent.length > 0) {
       for (const nom of regardent) ligne.append(etiquette(nom), " ");
-      ligne.append(regardent.length > 1 ? "regardent." : "regarde.");
+      ligne.append(mots(regardent.length > 1 ? "accueil.regardent" : "accueil.regarde"));
     }
   }
 
@@ -398,12 +402,13 @@
       cible.append(rond);
       if (libre) {
         cible.href = lienPlace(salle, port);
-        cible.append(element("span", "start-mot", plein === port ? `Prendre la place ${port}` : "Prendre"));
-        cible.setAttribute("aria-label", `Prendre la place ${port} de la salle ${salle.numero}`);
+        cible.append(element("span", "start-mot",
+          plein === port ? mots("accueil.prendreLaPlace", { place: port }) : mots("accueil.prendre")));
+        cible.setAttribute("aria-label", mots("accueil.prendreLaPlaceDe", { place: port, n: salle.numero }));
         if (plein === port) { cible.dataset.plein = ""; cible.dataset.ancre = "place-libre"; }
       } else if (place) {
         cible.append(etiquette(place.nom, port));
-        cible.setAttribute("aria-label", `Place ${port} : ${place.nom}`);
+        cible.setAttribute("aria-label", mots("accueil.placeDe", { place: port, nom: place.nom }));
         // Une place qui se remplit SOUS les yeux s'allume une fois (effet
         // « arrive »); une page qui s'ouvre sur une salle pleine ne bouge pas.
         if (avant && avant[port - 1] === null) {
@@ -412,7 +417,7 @@
           setTimeout(() => cible.removeAttribute("data-joue"), 1300);
         }
       } else {
-        cible.setAttribute("aria-label", `Place ${port} : la salle ne la dit pas encore`);
+        cible.setAttribute("aria-label", mots("accueil.placeInconnue", { place: port }));
       }
       const li = element("li");
       li.append(cible);
@@ -424,23 +429,23 @@
     const etat = etatDe(salle);
     poser(art, "data-etat", etat);
     const n = salle.numero;
-    ecrire(art.querySelector(".titre"), etat === "redemarre" ? `Salle ${n}, elle redémarre…`
-      : etat === "muette" ? `Salle ${n}, elle ne répond pas.`
-      : salle.ouverte_depuis == null ? `Salle ${n}, ouverte.`
-      : `Salle ${n}, ouverte depuis ${duree(salle.ouverte_depuis)}.`);
+    ecrire(art.querySelector(".titre"), etat === "redemarre" ? mots("accueil.redemarre", { n })
+      : etat === "muette" ? mots("accueil.muette", { n })
+      : salle.ouverte_depuis == null ? mots("accueil.ouverte", { n })
+      : mots("accueil.ouverteDepuis", { n, duree: duree(salle.ouverte_depuis) }));
 
     const places = placesDe(salle);
     const libres = places ? places.filter((p) => p.libre).length : null;
     ecrire(art.querySelector(".places-mot"),
       etat !== "ouverte" ? ""
-        : libres === null ? "Ses places s'affichent dès qu'elle répond."
-        : libres === 0 ? "Les 4 places sont prises."
-        : libres === 1 ? "Une place libre."
-        : `${NOMBRES[libres][0].toUpperCase()}${NOMBRES[libres].slice(1)} places libres.`);
+        : libres === null ? mots("accueil.placesQuandElleRepond")
+        : libres === 0 ? mots("accueil.quatrePrises")
+        : libres === 1 ? mots("accueil.unePlaceLibre")
+        : mots("accueil.placesLibres", { nombre: `${NOMBRES[libres][0].toUpperCase()}${NOMBRES[libres].slice(1)}` }));
 
     const jeu = art.querySelector(".jeu");
     const titreJeu = salle.jeu ?? (etat === "redemarre" ? salle.dernier_jeu?.titre : null) ?? null;
-    ecrire(jeu, titreJeu ?? "Aucun jeu pour l'instant");
+    ecrire(jeu, titreJeu ?? mots("accueil.aucunJeu"));
     poser(jeu, "data-menu", titreJeu ? "non" : "oui");
     remplirGens(art.querySelector(".gens"), salle);
 
@@ -454,7 +459,7 @@
     remplirStarts(art.querySelector(".starts"), salle, places, conseil);
     const regarder = art.querySelector(".regarder");
     poser(regarder, "href", `${salle.chemin}?entrer=regarder`);
-    poser(regarder, "aria-label", `Regarder la salle ${n}`);
+    poser(regarder, "aria-label", mots("accueil.regarderLaSalle", { n }));
     // Rien à regarder dans une salle qui redémarre ou se tait: aucun bouton.
     cacher(regarder, etat !== "ouverte");
   }
@@ -462,11 +467,11 @@
   function emplacementEteint(salle) {
     const bloc = element("div", "eteint");
     bloc.dataset.salle = String(salle.numero);
-    const ouvrir = element("button", "cadre", `Ouvrir la salle ${salle.numero}`);
+    const ouvrir = element("button", "cadre", mots("accueil.ouvrirLaSalle", { n: salle.numero }));
     ouvrir.type = "button";
     ouvrir.dataset.ouvrir = String(salle.numero);
     ouvrir.addEventListener("click", () => ouvrirSalle(salle.numero));
-    bloc.append(element("h2", "titre", `Salle ${salle.numero}, éteinte.`), ouvrir);
+    bloc.append(element("h2", "titre", mots("accueil.eteinte", { n: salle.numero })), ouvrir);
     return bloc;
   }
 
@@ -475,10 +480,10 @@
     const bloc = element("div", "vide rt-mire rt-bombe");
     const dedans = element("div", "vide-bloc");
     dedans.append(
-      element("p", "vide-titre rt-bave", "Hors antenne"),
-      element("p", "vide-mot", "Aucune salle ne tourne, donc rien ne consomme sur le serveur."),
+      element("p", "vide-titre rt-bave", mots("accueil.horsAntenne")),
+      element("p", "vide-mot", mots("accueil.rienNeTourne")),
       // Ce que la démo montre quand personne ne touche au salon (niveau « tout »).
-      element("p", "rt-demo demo-mot", "Démo · touche une touche pour reprendre"),
+      element("p", "rt-demo demo-mot", mots("accueil.demo")),
     );
     bloc.append(dedans);
     try { arcade?.poserCalquesAttente(bloc); } catch {}
@@ -563,25 +568,25 @@
     let sous = "";
     if (fige) {
       const h = dernierReleve ?? new Date();
-      titre = `La liste date de ${h.getHours()} h ${deux(h.getMinutes())}.`;
-      sous = "Elle ne se met plus à jour : recharge la page.";
+      titre = mots("accueil.listeDate", { h: h.getHours(), mm: deux(h.getMinutes()) });
+      sous = mots("accueil.plusAJour");
     } else if (ouverte) {
       titre = conseil && conseil.salle.numero === ouverte.numero
-        ? `La salle ${ouverte.numero} est ouverte : prends la place ${conseil.port}.`
-        : `La salle ${ouverte.numero} est ouverte.`;
-      sous = "Tu choisiras le jeu une fois dedans.";
+        ? mots("accueil.ouverteTaPlace", { n: ouverte.numero, place: conseil.port })
+        : mots("accueil.estOuverte", { n: ouverte.numero });
+      sous = mots("accueil.choisirasDedans");
     } else if (zero) {
-      titre = "Aucune salle ouverte ce soir.";
-      sous = "Ouvre une salle : tu choisiras le jeu une fois dedans.";
+      titre = mots("accueil.aucuneCeSoir");
+      sous = mots("accueil.ouvreUne");
     } else if (conseil) {
       titre = conseil.libres === 1
-        ? `Joue en salle ${conseil.salle.numero} : une place t'attend.`
-        : `Joue en salle ${conseil.salle.numero} : ${NOMBRES[conseil.libres]} places t'attendent.`;
-      sous = "Ou ouvre une autre salle, pour un autre jeu.";
+        ? mots("accueil.uneTAttend", { n: conseil.salle.numero })
+        : mots("accueil.tAttendent", { n: conseil.salle.numero, nombre: NOMBRES[conseil.libres] });
+      sous = mots("accueil.ouUneAutre");
     } else if (salles.some((s) => placesDe(s) !== null)) {
-      titre = "Toutes les places sont prises : regarde une partie.";
+      titre = mots("accueil.toutesPrises");
     } else {
-      titre = "Les places s'affichent dès qu'une salle répond.";
+      titre = mots("accueil.placesQuandUneRepond");
     }
     ecrire(accroche, titre);
     ecrire(sousAccroche, sous);
@@ -593,8 +598,8 @@
     // autre allume un second émulateur sur la carte graphique commune.
     cacher(start, !zero || fige);
     if (!mot.dataset.refus) {
-      ecrire(mot, enCours ? "La salle s'ouvre…"
-        : ouverte && placesDe(ouverte) === null ? "Elle n'a pas encore répondu." : "");
+      ecrire(mot, enCours ? mots("accueil.sOuvre")
+        : ouverte && placesDe(ouverte) === null ? mots("accueil.pasEncoreRepondu") : "");
     }
     const jouent = salles.filter((s) => etatDe(s) === "ouverte");
     const places = jouent.map(placesDe);
@@ -602,8 +607,8 @@
       ? places.reduce((n, p) => n + p.filter((x) => x.libre).length, 0) : null;
     // Les places libres seulement quand toutes sont connues: un total qui
     // en oublie une salle muette dirait moins de places qu'il n'y en a.
-    ecrire(credit, libres === null ? `Salles ouvertes ${jouent.length}`
-      : `Salles ouvertes ${jouent.length} · Places libres ${libres}`);
+    ecrire(credit, libres === null ? mots("accueil.credit", { n: jouent.length })
+      : mots("accueil.creditLibres", { n: jouent.length, libres }));
   }
 
   // ── Le relevé ─────────────────────────────────────────────────────────
@@ -658,12 +663,12 @@
         ain("pret");
       } else {
         mot.dataset.refus = "oui";
-        ecrire(mot, typeof dit.detail === "string" ? dit.detail : "La salle n'a pas voulu s'ouvrir.");
+        ecrire(mot, typeof dit.detail === "string" ? dit.detail : mots("accueil.refusOuvrir"));
         ain("refus");
       }
     } catch {
       mot.dataset.refus = "oui";
-      ecrire(mot, "Pas de réponse : réessaie dans un instant.");
+      ecrire(mot, mots("commun.sansReponse"));
       ain("refus");
     }
     enCours = false;
@@ -686,7 +691,7 @@
     // une nouvelle qui date d'il y a dix minutes.
     history.replaceState(null, "", location.pathname);
   }
-  const RAISONS = { inactivite: " faute d'activité", arret: "", panne: " après une panne" };
+  const RAISONS = { inactivite: "accueil.fermeeInactivite", panne: "accueil.fermeePanne" };
   /** Dit pourquoi on est revenu ici, une fois, quand la liste le confirme. */
   function expliquerRetour(salles) {
     if (retourDe === null) return;
@@ -694,18 +699,17 @@
     const etat = salle ? etatDe(salle) : null;
     let phrase;
     if (etat === "redemarre") {
-      phrase = `La salle ${salle.numero} redémarre : elle revient dans quelques secondes.`;
+      phrase = mots("accueil.revient", { n: salle.numero });
       ain("redemarre");
     } else if (etat === "muette") {
-      phrase = `La salle ${salle.numero} ne répond pas.`;
+      phrase = mots("accueil.neRepondPas", { n: salle.numero });
       ain("decroche");
     } else if (etat === "ouverte") {
-      phrase = `La salle ${salle.numero} est de nouveau ouverte.`;
+      phrase = mots("accueil.deNouveau", { n: salle.numero });
     } else {
       phrase = salle
-        ? `La salle ${salle.numero} s'est fermée${RAISONS[salle.fermee_pour] ?? ""}. `
-          + "Tu peux la rouvrir : les sauvegardes sont intactes."
-        : "Cette salle s'est fermée, et le jeu avec elle. Tu peux en rouvrir une : les sauvegardes sont intactes.";
+        ? `${mots(Object.hasOwn(RAISONS, salle.fermee_pour) ? RAISONS[salle.fermee_pour] : "accueil.fermee", { n: salle.numero })} ${mots("accueil.rouvrir")}`
+        : mots("accueil.cetteSalle");
       ain("arret");
     }
     retourDe = null;

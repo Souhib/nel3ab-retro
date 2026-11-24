@@ -5,6 +5,7 @@
 // le faux salon et l'issue que la page en tire.
 import { text } from "node:stream/consumers";
 
+import "./mots_du_salon.mjs";
 import { changerImage } from "../../nel3ab_control/api/routes/importer.mjs";
 
 const cas = JSON.parse(await text(process.stdin));

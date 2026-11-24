@@ -6,6 +6,7 @@
 // servie, et ses jumeaux cassés.
 import { text } from "node:stream/consumers";
 
+import "./mots_du_salon.mjs";
 import { nomsConsoles } from "../../nel3ab_control/api/routes/importer.mjs";
 
 const cas = JSON.parse(await text(process.stdin));

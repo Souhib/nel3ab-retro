@@ -649,7 +649,7 @@ async def test_les_trois_pages_du_salon_portent_le_meme_en_tete(
 
 def test_l_en_tete_d_une_page_inconnue_est_refuse() -> None:
     """Le jumeau: une marque d'en-tête pour une page qui n'existe pas lève au démarrage."""
-    page = "<!--RETRO:EN-TETE--><style>/*__EFFETS__*/</style><header>{}</header>"
+    page = "<!--RETRO:EN-TETE--><!--RETRO:MOTS--><style>/*__EFFETS__*/</style><header>{}</header>"
     with pytest.raises(ValueError, match="/inconnue"):
         retro.garnir(page.format("<!--RETRO:BANDEAU /inconnue-->"))
     garnie = retro.garnir(page.format("<!--RETRO:BANDEAU /importer-->"))
@@ -667,12 +667,18 @@ def test_un_paquet_qui_fermerait_sa_balise_est_refuse() -> None:
 
 
 def test_une_page_sans_en_tete_ni_feuille_du_theme_est_refusee() -> None:
-    """Une marque oubliée se voit au démarrage du salon, pas dans une page servie."""
+    """Une marque oubliée se voit au démarrage du salon, pas dans une page servie.
+
+    Sans ses mots, une page ne dirait rien: leur marque est exigée aussi.
+    """
     with pytest.raises(ValueError, match="EN-TETE"):
-        retro.garnir("<style>/*__EFFETS__*/</style>")
+        retro.garnir("<!--RETRO:MOTS--><style>/*__EFFETS__*/</style>")
     with pytest.raises(ValueError, match="EFFETS"):
-        retro.garnir("<!--RETRO:EN-TETE--><style></style>")
-    # Le jumeau: une page qui porte les deux marques passe, et les perd.
-    garnie = retro.garnir("<!--RETRO:EN-TETE--><style>/*__EFFETS__*/</style>")
+        retro.garnir("<!--RETRO:EN-TETE--><!--RETRO:MOTS--><style></style>")
+    with pytest.raises(ValueError, match="MOTS"):
+        retro.garnir("<!--RETRO:EN-TETE--><style>/*__EFFETS__*/</style>")
+    # Le jumeau: une page qui porte les trois marques passe, et les perd.
+    garnie = retro.garnir("<!--RETRO:EN-TETE--><!--RETRO:MOTS--><style>/*__EFFETS__*/</style>")
     assert "RETRO" not in garnie
     assert "__EFFETS__" not in garnie
+    assert "globalThis.nel3abMots" in garnie

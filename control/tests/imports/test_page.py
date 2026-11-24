@@ -285,9 +285,9 @@ def test_le_trousseau_nomme_chaque_personne_en_phrase_sans_couleur_de_joueur() -
     assert [r["nom"] for r in rendus] == ["Alice A", "Vince", "parti", "config"]
     assert [r["phrase"] for r in rendus] == [
         "Arrive par un partage du tailnet, en ligne maintenant, sur 2 appareils.",
-        "Sur le tailnet, a déjà un nom au salon.",
+        "Sur le tailnet, a déjà un nom ici.",
         "N'est plus sur le tailnet.",
-        "Droit fixé par la configuration du salon.",
+        "Droit fixé par la configuration.",
     ]
     # Le jumeau du bouton: qui peut déposer se le voit retirer, les autres
     # se le voient donner, et un droit fixé n'a pas de bouton.
@@ -585,7 +585,7 @@ async def test_une_jaquette_se_depose_et_se_retire_par_la_cle_du_jeu() -> None:
     assert trop["issue"] == {"refus": "L'image dépasse un Mio."}
     assert refus["issue"] == {"refus": "ce n'est pas un PNG"}
     assert inconnu["issue"] == {"refus": "ce jeu n'est pas dans la bibliothèque"}
-    assert interdit["issue"] == {"refus": "Seul l'administrateur du salon change une image."}
+    assert interdit["issue"] == {"refus": "Seul l'administrateur de nel3ab change une image."}
     assert coupe["issue"] == {"refus": "L'image n'a pas été gardée. Réessaie dans un instant."}
 
 

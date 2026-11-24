@@ -1,61 +1,81 @@
 /**
- * A name, and nothing else.
+ * « Qui joue ? » : un nom, et rien d'autre, pour une page sans identité.
  *
- * The video does not start until a name is given. Not because anything checks
- * it, but because a picture running behind a form is a picture nobody is
- * watching, decoded on a machine somebody else is playing on.
+ * La vidéo ne démarre pas tant qu'aucun nom n'est donné. Non parce que quoi
+ * que ce soit le vérifie, mais parce qu'une image qui tourne derrière un
+ * formulaire est une image que personne ne regarde, décodée sur une machine
+ * où quelqu'un d'autre joue.
+ *
+ * Depuis le 24 novembre 2026, le champ est celui du chantier personnes
+ * (`ChampNom`, `useNom`) : un libellé visible, une aide, l'aperçu de
+ * l'étiquette tapée telle que les autres la verront, et un bouton TOUJOURS
+ * actif. Un nom vide est refusé avec sa raison et le focus revient au champ,
+ * au lieu d'un bouton grisé qui ne disait pas pourquoi (audits A11Y-10 et
+ * A11Y-17). Une personne identifiée change son nom dans l'avant-salle : cet
+ * écran ne sert qu'à une page sans identité. « Ce n'est pas toi ? » y mène,
+ * champ vide, et le dit (`autreNom`).
  */
-import { useState } from "react";
-import { NAME_MAX, rememberName } from "../lib/name";
+import { useEffect, useRef } from "react";
+
+import { rememberName } from "../lib/name";
+import { QUI_JOUE } from "../lib/mots";
+import { useNom } from "../lib/useNom";
+import { poserMascotte } from "../mascotte";
+import { ChampNom } from "./ChampNom";
 import { Logo } from "./Logo";
+import "./lobby.css";
 
-export function Entrance({ onName }: { onName: (name: string) => void }) {
-  const [typed, setTyped] = useState("");
-  const name = typed.trim().slice(0, NAME_MAX);
-
+export function Entrance({
+  onName,
+  salle = null,
+  oublie = false,
+}: {
+  onName: (name: string) => void;
+  /** « salle 1 », pour le bouton ; rien quand la page ne la connaît pas. */
+  salle?: string | null;
+  /** Vrai quand cet appareil vient d'oublier un autre nom (« Ce n'est pas toi ? »). */
+  oublie?: boolean;
+}) {
+  const nom = useNom();
+  // La maison d'Aïn sur cet écran : le logo au-dessus du formulaire (plan
+  // salon, entree-nom#3, traduit pour Aïn). Posé au montage, au repos :
+  // aucune scène ne joue pendant qu'on tape son nom.
+  const maison = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (maison.current) poserMascotte(maison.current);
+  }, []);
   return (
-    <div className="flex h-full items-center justify-center p-8">
+    <div className="flex min-h-full items-center justify-center p-6">
       <form
+        noValidate
         className="flex w-full max-w-sm flex-col gap-5"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!name) return;
-          rememberName(name);
-          onName(name);
+          nom.soumettre((garde) => {
+            rememberName(garde);
+            onName(garde);
+          });
         }}
       >
-        <div className="flex flex-col gap-1">
-          <Logo />
-          <h1 className="text-large font-medium tracking-tight">Qui joue&nbsp;?</h1>
-          <p className="text-corps text-muted">
-            Quatre manettes, une machine, une image. Ton nom sert à ce qu'une place puisse dire qui
-            l'occupe, et à rien d'autre.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          {/* Le placeholder seul nommait le champ, et il disparaît dès la
-              première lettre (audit A11Y-10). */}
-          <label htmlFor="name" className="sr-only">
-            ton nom
-          </label>
-          <input
-            id="name"
-            autoFocus
-            maxLength={NAME_MAX}
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            placeholder="ton nom"
-            className="border border-rule bg-panel px-3 py-2 text-fort text-text placeholder:text-faint focus:border-indigo"
-          />
+        <header className="flex flex-col gap-2">
+          <div ref={maison} className="n3-avant-maison" data-hote="logo">
+            <Logo />
+          </div>
+          <h1 className="rt-titre text-large">{QUI_JOUE.titre}</h1>
+          <p className="text-corps text-muted">{QUI_JOUE.intro}</p>
+          {oublie ? <p className="text-corps text-muted">{QUI_JOUE.autreNom}</p> : null}
+        </header>
+        <main className="flex flex-col gap-3">
+          <ChampNom nom={nom} autoFocus />
           <button
             type="submit"
-            disabled={!name}
-            className="border border-indigo bg-indigo/10 px-3 py-2 text-corps text-indigo transition-colors hover:bg-indigo/20 disabled:opacity-30"
+            id="entrerNom"
+            className="rt-boite rt-bouton rt-bouton-plein n3-avant-bouton"
           >
-            entrer
+            <i className="rt-ombre" aria-hidden="true" />
+            {QUI_JOUE.entrer(salle)}
           </button>
-        </div>
+        </main>
       </form>
     </div>
   );

@@ -513,6 +513,173 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre : le chantier salon, premier passage.** Sur
+`chantier/retro-salon`, partie d'`integration/retro` (87bc2b3), dans
+`~/nel3ab-chantiers/retro-salon`. Rien dans `main`, rien poussé ni installé.
+Fait : le carnet commun (D12, ADR D44) : un spectateur identifié écrit un
+regard au journal des parties, chaque début porte le pseudo du moment, et la
+liste des parties dit `avec` (pseudo et place) et `regardaient`, relus dans
+les fichiers des autres sans en rendre ni adresse ni empreinte ; le carnet
+l'écrit sous chaque partie. La redirection de Caddy dit le numéro de la
+salle (`/?salle=fermee&n=N`, K39), prouvée par un vrai Caddy sur un port de
+boucle locale ; `deploy-check` divergera jusqu'à l'installation par le
+propriétaire. La place précise `?entrer=jouer&place=N`, l'avant-salle à un
+seul dessin (la borne et son panneau START ; « câbles », « plan »,
+`browser-lobby` et `lobby-visuel.mjs` retirés) et « Qui joue ? » avec le
+champ du nom de personnes (ADR D41). Page : 279 903 octets en brotli,
+1 857 de moins qu'à la base. Portes : `just check`, `just docs`,
+`focus-navigateur`, `etats-navigateur`, `salle-telephone`, `manette-garde`
+et `parcours-navigateur-rouge` verts ; `parcours-navigateur` rouge sur
+« Copier le lien », le défaut déjà connu de la vague B1, ses vingt-deux
+étapes suivantes vertes par leur nom, dont `avant-salle-places` réécrite et
+`place-precise`, chacune rouge sur sa page de référence ;
+`cadre-navigateur` rouge sur `mascotte-hors-image` (précondition) et
+`ain-immobile` (défaut), connus de la vague B1 et à la mascotte, ses cinq
+étapes suivantes vertes. Reste au passage suivant : l'accueil (rangée, mire HORS
+ANTENNE, APPUIE SUR START, démo, crédits, cycle, pointeur, courbure), le
+dépôt et son image de jaquette, le carnet en tableau DERNIÈRES PARTIES,
+l'ouverture, Aïn dans les pages du salon et les scènes de l'avant-salle, la
+preuve `salon-navigateur`. Récit : « 24 novembre, l'après-midi : le salon,
+premier passage ».
+
+**Au 24 novembre, le soir : le chantier salon, deuxième passage.** Même
+branche et même worktree ; rien dans `main`, rien poussé ni installé. Fait
+(ADR D41, deuxième partie) : le paquet du salon (`front/src/salon/paquet.ts`
+construit en `retro/ain.js` : Aïn et les gestes d'arcade du socle, posé par
+`<!--RETRO:AIN-->`, 18 170 octets en brotli hors de la page de salle) ; Aïn
+peint dans le logo des trois pages ; l'accueil en rangée de bornes (quatre
+START, place conseillée seule pleine, salles qui redémarrent ou se taisent
+en pointillés, « Ouvrir la salle N » par `POST {numero}`, mire Hors antenne,
+Appuie sur Start, démo, liste figée, retour `?salle=fermee&n=N`) ; le carnet
+en tableau des dernières parties groupé par soirée, et « Changer ton nom »
+dans une boîte sur la page ; les jaquettes déposées ou retirées au dépôt par
+l'administrateur ; Bobine retiré du salon. Nouvelle preuve
+`salon-navigateur` et son contrôle rouge, dans `local` ; elle a trouvé et
+fait corriger deux défauts que jsdom passait. Page de salle : 279 903 octets
+en brotli, inchangée. Portes : `just check` (1 319 essais Python, 2 049 de
+la page), `salon-navigateur` (12 étapes) et `salon-navigateur-rouge` verts,
+`just docs` vert. Les preuves de la salle n'ont pas été relancées : la page
+de salle n'a pas changé de contenu (seul son tampon). Reste : l'ouverture
+(squelette, scène attente), les scènes de départ et d'arrivée de
+l'avant-salle et ses transitions, la scène d'attente de l'accueil, la rangée
+de jeux de la proposition au dépôt, une pièce partagée pour l'en-tête commun
+(recopié dans les trois pages), et toutes les portes au dernier passage.
+`regie-visuel` (hors porte) tombe sur V6, dans la salle, avant d'atteindre
+la nouvelle V8 de l'accueil. Récit : « 24 novembre, le soir : le salon,
+deuxième passage ».
+
+**Au 24 novembre, la nuit : le chantier salon, troisième passage.** Même
+branche (`chantier/retro-salon`) et même worktree ; rien dans `main`, rien
+poussé ni installé. Fait (ADR D41, troisième partie) : l'ouverture en
+squelette de la salle (colonne à la largeur gardée, panneau aux START éteints,
+maison d'Aïn au coin, thème suivi, « nel3ab ne répond pas encore. » à 8 s,
+« Entrer en tant que [nom] », scène « attente » une fois), et le même
+squelette dans `front/index.html` avant le script ; Aïn dans le logo de
+l'avant-salle (« depart » et « arrivee », ancres `start-N`, sol du panneau,
+deux points de passage) et la transition « entrer-salle » (K13) sur
+l'avant-salle seule, la mosaïque y cédant au fondu (elle retardait la
+première image de 800 ms) ; la boucle d'attention de l'accueil (`salon/attention.ts`, trois
+« attente » puis « dort ») ; la bibliothèque en rangée de jeux au dépôt, avec
+la pile des envois et le décor complet de la scène « depot ». Preuves
+nouvelles : `ouverture-sans-saut`, `ouverture-theme` et `ouverture-statique`
+dans `etats-navigateur`, `avant-salle-ain` dans `parcours-navigateur`,
+`attention`, `cycle`, `clignotement`, `pointeur`, `rayon` et `depot-scene`
+dans `salon-navigateur`, chacune rouge sur une page d'avant dans sa recette
+`-rouge`. Page de salle : 281 661 octets en brotli (279 903 avant) ; paquet
+du salon : 18 304. Portes : `just check` vert (1 325 essais Python, 2 081 de
+la page) ; `etats`, `salon`, `focus`, `salle-telephone`, `manette-garde`,
+`reglage`, leurs contrôles rouges et `just docs` verts ; `parcours`
+(« invitation ») et `cadre` (`mascotte-hors-image`, `ain-immobile`) rouges sur
+les défauts connus de la vague B1, toutes leurs autres étapes vertes une à
+une ; `gpu-test`, `deploy-check` et les autres portes de `just` non lancées
+(`deploy-check` divergera sur `deploy/Caddyfile` tant qu'il n'est pas
+installé). Reste : une pièce partagée pour
+l'en-tête commun des trois pages du salon, Aïn endormi sur la pile du dépôt
+et la boîte qui glisse dans la rangée, les mots du salon dans `lib/mots.ts`.
+Récit : « 24 novembre, la nuit : le salon, troisième passage ».
+
+**Au 24 novembre, le soir tard : le chantier salon, quatrième passage.** Même
+branche (`chantier/retro-salon`) et même worktree ; rien dans `main`, rien
+poussé ni installé. Fait (ADR D41, quatrième partie) : un seul en-tête pour
+les trois pages du salon, posé par `retro.py` (`retro/bandeau.html`,
+`retro/salon.css`, marque `<!--RETRO:BANDEAU /chemin-->`), qui corrige la
+dérive des copies (le dépôt sans « Tu es », « Ton carnet » caché) ; le dépôt
+sans couleur de joueur ni tampon (zone « Pose tes fichiers ici, ou » et
+« Choisir des fichiers » seul plein, phrases des envois, trousseau
+« Peuvent déposer » et « Ne peuvent pas » en étiquettes et en phrases) et la
+boîte d'un jeu rangé qui glisse de la pile à la rangée ; Aïn au repos dans le
+logo de « Qui joue ? » ; la rangée de l'accueil qui entre en fondu quand elle
+remplace la mire. Preuves nouvelles : `depot-zone`, `trousseau`,
+`depot-glisse`, `demo` (temps virtuel de Chrome), `courbure` et
+`rangee-entre` dans `salon-navigateur`, `entete` et `changer-nom` étendues
+aux trois pages, `salle-pleine-avant-salle` dans `parcours-navigateur` (le
+banc tient les quatre places), chacune rouge sur une page d'avant dans sa
+recette `-rouge`. Page de salle : 281 607 octets en brotli (281 661 avant) ;
+paquet du salon inchangé. Portes : `just check` vert (2 082 essais de la page) ; `salon`, `focus`,
+`etats`, `salle-telephone`, `manette-garde`, `reglage` et tous les contrôles
+rouges (`salon`, `focus`, `etats`, `parcours`, `cadre`, `reglage`) verts ;
+`gpu-test` (81 essais, Jellyfin vérifié au repos avant), `clip-audio-test`,
+`switch-saves-test`, `switch-capture-test`, `xbox360-test` et `abri-test`
+verts ; `parcours` rouge sur « invitation » et `cadre` sur
+`mascotte-hors-image` (précondition) et `ain-immobile`, les défauts connus de
+la vague B1, toutes leurs autres étapes vertes une à une ; `deploy-check`
+rouge comme prévu : `deploy/Caddyfile` (K39) n'est pas installé, et les
+services tournent avec un code plus ancien que ce worktree. Pas fait, par choix : Aïn
+couché à côté du tableau du carnet (une seconde maison peindrait un second
+Aïn ; à confirmer par le propriétaire). Reste : Aïn endormi sur la pile du
+dépôt (une variante de la scène « dort », au chantier de la mascotte), les
+mots du salon dans `lib/mots.ts`. Récit : « 24 novembre, le soir tard : le
+salon, quatrième passage ».
+
+**Au 24 novembre, en fin d'après-midi : le chantier salon, cinquième
+passage.** Même branche (`chantier/retro-salon`) et même worktree ; rien dans
+`main`, rien poussé ni installé. Fait (ADR D41, cinquième partie) : les mots
+des trois pages du salon vivent dans `lib/mots.ts` (tables `SALON_*`), où la
+charte les juge ; `retro.py` les pose depuis `retro/mots.json` par
+`<!--MOT:groupe.cle-->` et `nel3abMots(cle, trous)`, et une clé inconnue lève
+au démarrage du salon. La charte appliquée : plus de « salon » dans les mots
+visibles, `SANS_REPONSE` à l'accueil, « ma sauvegarde » et l'élision au
+carnet, des majuscules aux boutons du dépôt. Preuves nouvelles :
+`test_mots_salon.py`, les gabarits reliés au lexique de la salle dans
+`salon-retro.test.ts`, et cinq étapes de `salon-navigateur` (`start`,
+`retour`, `annonce`, `credit`, `carnet-range`), rouges sur une page d'avant
+ou sur un mutant. Page de salle : 281 539 octets en brotli (281 607 avant).
+Pas fait, par choix : Aïn couché à côté du tableau du carnet (à confirmer
+par le propriétaire). Reste, hors de ce chantier : Aïn endormi sur la pile du
+dépôt (une variante de la scène « dort », au chantier de la mascotte) ;
+`deploy-check` divergera sur `deploy/Caddyfile` tant qu'il n'est pas
+installé. Portes : `just check` vert (2 087 essais de la page) ; `gpu-test`
+(Jellyfin vérifié au repos avant), `clip-audio-test`, `switch-saves-test`,
+`switch-capture-test`, `xbox360-test`, `abri-test` verts ; `focus`, `etats`,
+`salle-telephone`, `manette-garde`, `reglage`, `salon` (29 étapes) et tous
+les contrôles rouges verts (celui d'`etats` relancé seul après une collision
+de port avec un autre chantier) ; `parcours` rouge sur « invitation » et
+`cadre` sur `mascotte-hors-image` et `ain-immobile`, défauts connus de la
+vague B1, toutes leurs autres étapes vertes une à une ; `deploy-check` rouge
+comme prévu (Caddyfile pas installé, services plus anciens) ; `just docs`
+vert. Récit : « 24 novembre, en fin d'après-midi : le salon, cinquième
+passage ».
+
+**Au 24 novembre, le soir : la relecture du salon, deux corrections.** Même
+branche et même worktree ; rien dans `main`, rien poussé ni installé. Une
+relecture indépendante de 323aa52 a relevé deux défauts, reproduits par ses
+sondes avant toute correction. Le lien du logo de l'en-tête n'avait plus de
+nom une fois Aïn peint : il porte maintenant `aria-label` « nel3ab, les
+salles » (`SALON_ENTETE.logo`). `remplirStarts` refaisait les quatre places
+d'une borne à chaque changement, et le focus du clavier tombait sur le corps
+de la page quand une autre place se remplissait : chaque place est mise à jour
+sur place (ADR D41, corrections de la relecture). Preuves : un essai jsdom au
+témoin dans `test_accueil.py`, l'étape `start-focus` et le nom du lien dans
+`ain-logo` (`salon-navigateur`), toutes deux rouges sur 323aa52 dans
+`salon-navigateur-rouge`. Page de salle : 281 539 octets en brotli, identique
+octet pour octet. Portes : `just check` vert ; `salon` (30 étapes), `focus`,
+`etats`, `salle-telephone`, `manette-garde`, `reglage` et tous les contrôles
+rouges verts ; `parcours` rouge sur « invitation » et `cadre` sur
+`mascotte-hors-image` et `ain-immobile`, défauts connus de la vague B1, toutes
+leurs autres étapes vertes une à une (`vit-figee-immobile` rouge une fois sous
+une charge de 61, verte trois fois seule) ; `just docs` vert. Récit :
+« 24 novembre, le soir : la relecture du salon, deux constats ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

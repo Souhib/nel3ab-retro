@@ -206,7 +206,7 @@
           "profil"
         ],
         "summary": "Read My Plays",
-        "description": "Mes parties, de la plus récente à la plus ancienne.",
+        "description": "Mes parties, de la plus récente à la plus ancienne, avec qui j'ai joué (D12).",
         "operationId": "read_my_plays",
         "parameters": [
           {
@@ -785,6 +785,28 @@
         ],
         "title": "Chez",
         "description": "Un lanceur chez qui la personne a joué, dans SA sauvegarde."
+      },
+      "Compagnon": {
+        "properties": {
+          "nom": {
+            "type": "string",
+            "title": "Nom",
+            "description": "Son pseudo actuel, ou celui qu'il avait ce soir-là."
+          },
+          "place": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Place",
+            "description": "La place qu'il tenait, la première vue pendant la partie."
+          }
+        },
+        "type": "object",
+        "required": [
+          "nom",
+          "place"
+        ],
+        "title": "Compagnon",
+        "description": "Quelqu'un qui tenait une place dans la même salle, au même jeu, en même temps (D12)."
       },
       "Connection": {
         "properties": {
@@ -1513,6 +1535,22 @@
             ],
             "title": "Lance Par",
             "description": "Le pseudo de qui a lancé, quand ce n'est pas la personne elle-même."
+          },
+          "avec": {
+            "items": {
+              "$ref": "#/components/schemas/Compagnon"
+            },
+            "type": "array",
+            "title": "Avec",
+            "description": "Ceux qui ont joué avec elle: une place tenue dans la même salle, au même jeu, pendant la partie (carnet commun, D12). Rangés par place."
+          },
+          "regardaient": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Regardaient",
+            "description": "Les pseudos de ceux qui regardaient sans place pendant la partie, dans l'ordre de leur arrivée. Vide pour une partie d'avant le 24 novembre 2026."
           }
         },
         "type": "object",

@@ -25,10 +25,8 @@ try {
   await page.goto(SALON, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => document.querySelector("article.salle") !== null, { timeout: 15_000 });
 
-  // La cascade: le CSS lit `--rang`, que personne ne posait.
-  const rang = await page.$eval("article.salle", (e) => e.style.getPropertyValue("--rang"));
-  assert.notEqual(rang, "", "la carte n'a pas de `--rang`: la cascade est morte");
-
+  // La rangée apparaît d'un coup depuis le 24 novembre 2026 (ADR D41): plus
+  // de cascade, donc plus de `--rang` à vérifier.
   await page.$eval("article.salle", (e) => { e.dataset.temoin = "pose"; });
   // Deux tours de sondage pleins (la page relit toutes les cinq secondes).
   await dors(11_500);
@@ -36,7 +34,7 @@ try {
   const apres = await page.$eval("article.salle", (e) => e.dataset.temoin ?? "perdu");
   assert.equal(apres, "pose",
     "la carte a été REFAITE entre deux tours: le témoin a disparu");
-  console.log(`la carte a survécu à deux tours de sondage (--rang = ${rang})`);
+  console.log("la carte a survécu à deux tours de sondage");
 
   // Le jumeau: réconcilier ne veut pas dire garder pour toujours. Une salle
   // fermée doit voir sa carte partir, sinon la page mentirait dans l'autre sens.

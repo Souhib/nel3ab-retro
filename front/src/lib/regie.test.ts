@@ -24,7 +24,7 @@ import { JETONS_LOGO, LOGO_JOUR, LOGO_NUIT, MIRE } from "./logo";
 import { THEMES as CHOIX } from "./theme";
 
 /* Les modules de Node sont importés à l'exécution, comme dans
-   `bobine/statique.test.tsx`: la page n'a pas les types de Node, et ne doit pas
+   `salon-retro.test.ts`: la page n'a pas les types de Node, et ne doit pas
    les avoir. */
 type Fs = {
   readFileSync: (chemin: string, codage: "utf-8") => string;
@@ -607,7 +607,8 @@ describe("les feuilles ne visent que les deux régies", () => {
       .readdirSync(ici("../"), { recursive: true })
       .filter((f) => f.endsWith(".css"))
       .map((f) => [`src/${f}`, ici(`../${f}`)] as const),
-    ...["accueil.html", "importer.html", "profil.html", "bobine/bobine.css"].map(
+    // La copie de Bobine pour le salon est partie le 24 novembre 2026 (ADR D41).
+    ...["accueil.html", "importer.html", "profil.html"].map(
       (f) => [`salon/${f}`, ici(`../../../control/nel3ab_control/api/routes/${f}`)] as const,
     ),
   ].map(

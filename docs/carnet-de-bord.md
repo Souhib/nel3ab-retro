@@ -31434,6 +31434,499 @@ droit et court n'a toujours pas de place. Les trois touches aux blocs de
 personnes, à reprendre par personnes. `avertissement-fermeture.mjs` n'est
 pas lancé : il demande un worker construit et une ROM.
 
+### 24 novembre, l'après-midi : le salon, premier passage
+
+**Le contexte.** Dernière vague du thème rétro. Le chantier « salon » a les
+pages du salon (l'accueil, le dépôt d'un jeu, le carnet), les écrans
+d'entrée de la salle (l'ouverture, « Qui joue ? », l'avant-salle) et, depuis
+que le propriétaire l'a décidé le matin même, le carnet commun. Il part
+d'`integration/retro` (87bc2b3), dans le worktree
+`~/nel3ab-chantiers/retro-salon`, à côté des chantiers « états » et
+« menus » qui travaillent en même temps. Ce premier passage fait ce que
+les autres attendent : les données du carnet commun, la redirection de
+Caddy, la place précise dans l'adresse, l'avant-salle et « Qui joue ? ».
+L'accueil, le dépôt et le carnet en tableau suivent au passage suivant.
+
+**Le carnet commun.** Le propriétaire a dit oui : le salon note qui a joué
+et qui a regardé chaque partie, et chacun voit dans SON carnet les gens avec
+qui il a joué. Une place tenue était déjà écrite au journal des parties ;
+un spectateur, non. Un spectateur identifié ouvre donc un « regard », écrit
+comme une place sans manette, et fermé aux mêmes moments : changement de
+jeu, départ, fermeture de la salle, ou la place qu'on lui accorde. Une
+place refusée le laisse regarder, et son regard continue. Pour savoir avec
+qui j'ai joué, le salon relit les fichiers des autres et ne garde que les
+places et les regards de la même salle, au même jeu, qui touchent une des
+miennes. Il ne rend que des pseudos : ni adresse, ni empreinte. Le carnet
+de chacun dit, sous chaque partie, « Tu as joué avec Ben (2P) et Clara
+(3P). Dora a regardé. ». Un intervalle n'est jamais prolongé : une place
+dont la fin n'a pas été vue (le salon a redémarré) compte pour un instant.
+
+**Ce que ça coûte, mesuré.** Vingt personnes de cinq mille lignes chacune,
+des années de soirées, font 19,8 Mo. Les relire prend 0,74 s. Comparer
+chaque partie d'une page de cinquante à chaque présence des autres prenait
+1,7 s de plus ; rangées par salle et par jeu, puis parcourues à rebours en
+gardant la fin la plus tardive vue, 0,87 s en tout. C'est un plafond pour
+un volume que le journal, commencé le 21 novembre, mettra des années à
+atteindre. Un essai a d'abord laissé passer un mutant de ce parcours : un
+long regard caché derrière une place courte finie avant ma partie. Un essai
+de plus le tue.
+
+**Le numéro de salle dans la redirection.** Une salle éteinte renvoyait au
+salon par `/?salle=fermee`, sans dire laquelle. Caddy dit maintenant
+`&n=3`. L'essai sert le vrai bloc des salles par un vrai Caddy, sur un port
+de la boucle locale, les ports des salles remplacés par un port fermé : il
+était rouge sur l'ancien fichier, vert sur le nouveau. Le fichier installé
+ne change qu'avec le propriétaire, donc `deploy-check` diverge jusque-là.
+
+**Une place précise, et un seul dessin d'avant-salle.** `?entrer=jouer&place=3`
+entre pour jouer à la place 3. La salle reçoit d'abord la première place
+libre, puis demande la 3 si la salle la dit encore libre, et l'oublie dans
+l'adresse : un rechargement ne doit pas la redemander à quelqu'un qui l'a
+prise entre-temps. Les trois dessins de l'avant-salle (« classique »,
+« câbles », « plan ») laissent la place à un seul : la borne de la salle et
+son panneau de quatre boutons START, la première place libre en seul bouton
+plein. La page de salle y gagne 1 857 octets en brotli (281 760 avant,
+279 903 après), les deux dessins retirés pesant plus que la borne et
+« Qui joue ? ».
+
+**Un piège : deux feuilles, un nom.** La borne de l'avant-salle s'appelait
+`.n3-borne`. La salle a aussi sa borne, dans `cadre.css`, cachée hors de
+l'effet « borne ». Dans Chrome, toute la borne de l'avant-salle
+disparaissait, boutons compris. Tous les essais de jsdom passaient : jsdom
+ne fait pas de mise en page, il ne voit ni largeur ni `display`. L'étape du
+navigateur passait aussi, parce qu'elle lisait le DOM et pas l'écran. Trois
+corrections : les classes de l'avant-salle prennent un préfixe à elles,
+`n3-avant` ; un essai refuse qu'une autre feuille en déclare une (rouge sur
+l'ancien nom) ; l'étape vérifie que le centre de chaque place rend bien la
+place (`elementFromPoint`), rouge sur la page cachée. La leçon : un nom de
+classe est un espace partagé entre chantiers, comme un fichier.
+
+**Ce qui reste rouge et n'est pas d'ici.** `parcours-navigateur` tombe sur
+« Copier le lien » sous le pied collé de la colonne, le défaut déjà relevé
+à l'intégration de la vague B1 (personnes et mascotte) ; les vingt-deux
+étapes suivantes, lancées par leur nom, passent. `cadre-navigateur` tombe
+sur les deux étapes d'Aïn déjà relevées au même endroit
+(`mascotte-hors-image`, `ain-immobile`) ; les cinq suivantes passent. Les
+autres preuves du navigateur et les contrôles rouges de `parcours` sont
+verts.
+
+
+### 24 novembre, le soir : le salon, deuxième passage
+
+**Le contexte.** Le même chantier, dans le même worktree. Le premier passage
+avait fait ce que les autres attendaient (données du carnet commun,
+redirection de Caddy, place précise, avant-salle). Celui-ci fait les trois
+pages du salon : l'accueil, le carnet et le dépôt, avec Aïn dans leur logo.
+
+**Le paquet du salon.** Les pages du salon sont du HTML écrit à la main,
+servi par Python : elles ne peuvent pas importer un module TypeScript. Aïn
+arrivait déjà en un fichier construit, `retro/ain.js`, préparé par le
+chantier mascotte. Le salon y ajoute ce dont ses pages ont besoin du socle :
+la touche Entrée et le bouton Start d'une manette (`surStart`), le mode
+démo (`surInactivite`), les calques de la mire, le filtre de l'écran bombé
+et la flèche en pixels. Une entrée, `front/src/salon/paquet.ts`, les réunit ;
+`retro.py` pose le paquet par une marque de plus, `<!--RETRO:AIN-->`, dans
+un script classique. Un paquet qui contiendrait `</script` fermerait sa
+balise au milieu du code : le salon refuse alors de démarrer, plutôt que de
+servir une page coupée. Le paquet pesait 16 222 octets en brotli ; il en
+pèse 18 170. Il ne compte pas dans la page de la salle, qui reste à 279 903.
+
+**L'accueil devient une rangée de bornes.** Chaque salle ouverte est une
+borne : la cartouche ou la jaquette, le jeu, qui choisit et qui regarde en
+étiquettes tapées, puis quatre boutons START. Une place libre est un lien
+vers `?entrer=jouer&place=K` ; la place conseillée est le seul bouton plein
+de la page, et la phrase du haut la nomme : « Joue en salle 2 : deux places
+t'attendent. ». La jauge et ses « 3 PRESENTS » disparaissent : elle comptait
+des personnes sans dire qui tient quelle manette, et le salon le sait
+maintenant. Une salle qui redémarre ou ne répond pas garde sa borne, en
+pointillés, sans bouton ; seule une salle éteinte propose « Ouvrir la
+salle 3 ». Quand rien ne tourne, la mire « Hors antenne » du socle prend la
+place, avec « Ouvrir une salle » seul plein et « Appuie sur Start ». Entrée
+et Start n'ouvrent une salle qu'à ce moment-là : en ouvrir une seconde
+allumerait un second émulateur sur la carte graphique commune. Après
+« Ouvrir », la page ne part plus vers la salle : la salle arrive dans la
+rangée, et sa place 1 devient le bouton plein dès qu'elle répond.
+
+**Deux défauts que seul un vrai navigateur a vus.** Les essais de l'accueil
+exécutent sa vraie page dans jsdom, tour après tour : ils lisent ce que la
+page écrit, jamais ce qu'elle dessine. La nouvelle preuve,
+`salon-navigateur`, sert les pages assemblées par les modules du salon à un
+vrai Chrome, avec des API simulées, sans salon ni salle. Au premier essai,
+elle a trouvé le lien du logo à 31 px de haut au téléphone, sous les 44 px
+de la charte, et la ligne du crédit (« Salles ouvertes 2 · Places libres
+2 »), qui ne passe pas à la ligne dans la feuille du socle et poussait la
+page 37 px au-delà d'un écran de 320 px. Les deux sont corrigés. Son
+contrôle rouge assemble les pages de trois commits plus anciens depuis une
+archive de `control/` : chaque étape y tombe sur son défaut. Il faut
+`python -S` pour cela, sinon le paquet installé en mode éditable passe
+devant l'archive et l'on teste, sans le savoir, la page du jour.
+
+**Le carnet en tableau des scores.** L'étagère des tranches, le compteur à
+tambours et la bulle laissent la place au tableau « Dernières parties » :
+une tête par soirée, puis l'heure, le jeu, avec qui tu as joué, la durée en
+chiffres d'afficheur (4 360 secondes s'écrivent 01:12:40), qui l'a lancée et
+la sauvegarde. Une partie lancée à 1 h 30 appartient à la soirée de la
+veille : on recule de six heures avant de lire la date. Une fin inconnue
+s'écrit `--:--:--`, jamais zéro. « Changer ton nom » ouvre une boîte sur la
+page même, au lieu d'obliger à entrer dans une salle. Aïn range la soirée
+quand la partie la plus récente n'a pas encore été vue sur cet appareil.
+
+**Les jaquettes au dépôt.** La route qui reçoit l'image d'un jeu existait
+(D45) ; le dépôt lui donne un bouton. L'administrateur voit la liste des
+jeux de la bibliothèque, chacun avec son image, « Déposer une image » et
+« Retirer l'image ». Un refus se dit en mots : trop lourde, pas un PNG, jeu
+inconnu. Bobine quitte le salon avec ce passage : ses copies, son module et
+ses essais partent ; le reste de `front/src/bobine/` est au chantier
+d'intégration.
+
+**Un commit à refaire.** En retirant Bobine, une suppression déjà préparée
+par `git rm` est entrée dans le commit du dépôt, avant le changement
+d'`accueil.py` qui l'importait encore : ce commit-là n'aurait pas démarré.
+Les deux commits, tout juste créés et jamais partagés, ont été défaits et
+refaits dans le bon ordre. La leçon : `git rm` prépare la suppression tout
+de suite, et le `git commit` suivant l'emporte, quels que soient les
+fichiers nommés à `git add`.
+
+### 24 novembre, la nuit : le salon, troisième passage
+
+**Le contexte.** Le même chantier, toujours dans son worktree, sans rien
+pousser ni installer. Ce passage fait ce qui restait côté salle et ce qui
+manquait à Aïn dans le salon : l'écran d'ouverture, les scènes de
+l'avant-salle, la boucle d'attention de l'accueil et la rangée de jeux du
+dépôt.
+
+**L'ouverture devient un squelette.** Pendant que le site dit qui on est, la
+page montrait une carte au milieu d'un fond de nuit, avec Bobine qui marchait.
+Quand la salle arrivait, sa colonne apparaissait d'un coup à droite : un saut.
+L'ouverture dessine maintenant la salle avant qu'elle arrive, ce qu'on appelle
+un écran squelette : l'écran noir, le panneau et ses quatre START éteints en
+pointillés, la colonne avec « Salle 1 », et la maison d'Aïn là où sera le
+coin. Les rectangles viennent du même calcul que la salle, avec la largeur de
+colonne que ce navigateur a gardée. Le fond suit le thème ; l'écran reste noir.
+À huit secondes, la colonne dit « nel3ab ne répond pas encore. », compte les
+secondes hors de la région que lit un lecteur d'écran (une seconde de plus ne
+se relit pas à voix haute), et propose « Réessayer » ou « Entrer en tant que
+Bilel ». Aïn joue « attente » une fois, à ce moment-là, et rien d'autre.
+`front/index.html` porte le même squelette pour les premières images, avant
+que le script de la page ait tourné, avec un petit script qui écrit le numéro
+de la salle.
+
+**Trois défauts trouvés par la mesure.** Une nouvelle étape de
+`etats-navigateur`, `ouverture-sans-saut`, tient l'identité en suspens (le
+navigateur retient la requête), mesure la colonne, son titre et la maison
+d'Aïn, puis lâche l'identité et mesure la salle. Elle a d'abord vu Aïn
+descendre de 44 px : le coin de la salle a une ligne d'état au-dessus de la
+maison, que le squelette n'avait pas. Une autre, `ouverture-statique`, sert la
+page sans son script : la colonne du squelette d'avant React tombait sous
+l'écran, parce que la règle CSS demandait un pointeur « fin », que Chrome sans
+écran ne déclare pas. La règle suit maintenant celle de la salle : un doigt
+n'est jamais au bureau. Chaque étape a son jumeau (un squelette décalé de 20 px
+doit être vu), et les trois rougissent sur la page d'avant.
+
+**Aïn dans l'avant-salle.** Le logo de l'en-tête devient sa maison. Quand une
+place se libère, il va chercher l'étiquette de qui part sur son START
+(« depart ») ; quand quelqu'un d'autre prend une place, il la lui rend
+(« arrivee »). Ouvrir la page sur une salle pleine ne joue rien : ce n'est pas
+voir quatre personnes arriver. Dans Chrome, la version complète se repliait :
+son chemin du logo au panneau touchait « Changer ton nom ». Deux points de
+passage à gauche de la fiche lui font contourner la ligne, et le sol posé au
+bord bas du panneau garde l'étiquette, sur sa tête, loin du titre du jeu. Un
+mutant sans les points de passage retombe sur `#rename`. Entrer passe par la
+transition « entrer-salle » (des tuiles, une mosaïque ou un fondu selon le
+niveau d'effets), décidée par la partition (K13).
+
+**Une transition qui retardait l'image.** Les portes du navigateur ont fait
+tomber une étape d'un autre chantier, `demande-place`, qui regarde l'image
+peu après qu'on a pris sa place : un voile d'arrivée la couvrait encore. La
+transition jouait d'abord sur toute la page, donc aussi sur la salle montée
+en son milieu ; elle joue maintenant sur l'avant-salle seule. Mais l'étape
+tombait encore. Mesuré dans Chrome sans écran, quatre entrées de chaque
+côté : la première image arrivait 460 ms après la place prise sans
+transition, 1 295 ms avec la mosaïque du niveau « conseillé », 485 ms avec
+les tuiles de « tout », 483 ms avec le fondu de « sobre ». La mosaïque passe
+par des filtres SVG sur toute la fenêtre, qui occupent le navigateur. À
+l'entrée, elle cède donc au fondu. Ce chiffre vient d'un navigateur sans
+écran sur cette machine : c'est une tendance, pas une mesure sur un vrai
+téléphone. L'étape `demande-place` elle-même mesure avant de savoir qu'une
+image est peinte ; c'est à son chantier de l'attendre.
+
+**L'accueil attire l'œil, puis s'endort.** À zéro salle, Aïn lève les yeux à
+2,5 s, puis toutes les 6 s, trois fois, puis s'endort. Un clic ou une touche
+l'arrête ; passer la souris non, puisque c'est justement à qui regarde sans
+rien faire qu'il s'adresse. La boucle vit dans le paquet du salon, pour être
+essayée sous une horloge simulée ; l'accueil l'arme et la coupe. Quatre
+étapes nouvelles de `salon-navigateur` vérifient aussi, dans Chrome, ce que
+le socle donne à l'accueil : la mire qui glisse au plus d'un pas par seconde,
+« Appuie sur Start » qui clignote sans s'éteindre, la flèche en pixels.
+
+**La bibliothèque sur une étagère.** Au dépôt, la bibliothèque devient une
+rangée de boîtes et de cartouches sur une planche, au-dessus de la zone où
+l'on lâche ses fichiers, avec la pile des envois pas encore rangés. La place
+libre en tête et la planche sont le décor de la scène « depot ». Posée sous la
+zone, la rangée obligeait la boîte à traverser « Lâche tes fichiers ici » pour
+monter sur la planche, et la scène se repliait sur une pose immobile : la
+rangée vit donc au-dessus.
+
+**Un essai rouge passé dans un commit.** Le coureur jsdom de l'accueil jouait
+« attente » dès que la boucle était armée. Les essais nouveaux, lancés seuls
+avec `-k attention`, passaient ; un essai voisin, qui lit les scènes dans
+l'ordre, est devenu rouge, et le commit est parti avec lui. Il est corrigé au
+commit suivant. La leçon, déjà écrite pour les portes : relancer le fichier
+entier, pas seulement les essais qu'on vient d'écrire.
+
+**Les portes.** `just check` est vert (1 325 essais Python, 2 081 essais de
+la page). Dans un vrai navigateur, `etats`, `salon`, `focus`,
+`salle-telephone`, `manette-garde`, `reglage` et leurs contrôles rouges sont
+verts, comme `just docs`. Deux restent rouges sur des défauts connus de la
+vague B1, hors du salon : `parcours` sur « invitation » (« Copier le lien »
+ne copie rien) et `cadre` sur `mascotte-hors-image` (précondition) et
+`ain-immobile` ; les vingt-sept autres étapes de `parcours` et les
+vingt-deux autres de `cadre` passent quand on les nomme. Deux faux rouges en
+chemin : `salon-navigateur-rouge` n'a pas pu ouvrir son port, qu'un autre
+chantier occupait au même moment (relancée, verte), et `avant-salle-ain`
+tombait sur la pose clé après une étape qui laisse le niveau « sobre » dans
+le stockage du navigateur : l'étape nomme maintenant son niveau.
+
+**Le poids.** La page de salle passe de 279 903 à 281 661 octets en brotli :
+1 314 pour le squelette de l'ouverture, 444 pour Aïn dans l'avant-salle et sa
+transition. Le paquet du salon passe de 18 170 à 18 304 octets.
+
+### 24 novembre, le soir tard : le salon, quatrième passage
+
+**Le contexte.** Le même chantier, dans son worktree, sans rien pousser ni
+installer. Ce passage reprend ce que le troisième avait laissé : l'en-tête
+recopié dans les trois pages du salon, la suite du dépôt, une étape de
+parcours pour la salle pleine, et deux effets de l'accueil que rien ne
+vérifiait dans un vrai navigateur.
+
+**Un en-tête recopié avait déjà dérivé.** L'accueil, le dépôt et le carnet
+portaient chacun leur copie de l'en-tête : le logo, les trois pages, « Tu es »
+et « Changer ton nom ». Au moment de les réunir, la copie du dépôt n'avait ni
+« Tu es » ni « Changer ton nom », et son lien « Ton carnet » restait caché à
+tout le monde : le script qui le montre n'était que dans l'accueil. Le carnet,
+lui, ne changeait pas le nom de l'en-tête quand on changeait le sien.
+L'en-tête est maintenant une seule pièce, posée par `retro.py` comme le logo :
+la page dit où elle est (`<!--RETRO:BANDEAU /importer-->`), et son lien porte
+la marque de la page courante. Ce lien reste visible même à qui n'a pas le
+droit d'y être : la page le lui dit elle-même. Un essai compare l'en-tête des
+trois pages servies, et l'étape `entete` de `salon-navigateur` les ouvre
+toutes les trois. Un mutant qui cache le lien courant sans droit est tué.
+
+**Le dépôt parle en phrases.** Les quatre carrés de couleur de joueur de la
+zone de dépôt, l'étiquette ESTIMATION des cartes et le mot « interrompu »
+disparaissent. Une couleur de joueur ne sert qu'aux joueurs, et personne n'est
+à une place sur cette page. La zone dit « Pose tes fichiers ici, ou », avec
+« Choisir des fichiers » comme seul bouton plein ; quand on y glisse des
+fichiers, « Lâche-les : ils se rangent dès qu'ils sont lus. ». Un envoi arrêté
+dit « Arrêté à 27 %. Redépose « x » pour reprendre. » ; un envoi raté le dit
+en alerte, avec la réparation. La liste de qui peut déposer devient « Peuvent
+déposer » et « Ne peuvent pas » : une étiquette tapée par personne, une phrase
+(« Sur le tailnet, a déjà un nom au salon. ») au lieu des puces en capitales,
+et « Donner le droit » ou « Retirer le droit ». Quand un jeu se range pendant
+la visite, sa boîte quitte le haut de la pile et glisse à sa place dans la
+rangée. Le banc de `salon-navigateur` sait maintenant faire passer un envoi de
+la vérification au rangé, et simuler la liste des personnes.
+
+**Aïn n'a qu'une maison par page.** Le plan prévoyait la mascotte posée à
+côté du formulaire de « Qui joue ? », et couchée à côté du tableau du carnet.
+Il avait été écrit pour Quatrou, avant qu'Aïn soit choisi. Pour « Qui joue ? »,
+le logo au-dessus du formulaire devient sa maison, comme à l'avant-salle :
+il y est posé, et ne joue rien pendant qu'on tape son nom. Pour le carnet, le
+logo de l'en-tête est déjà sa maison ; une seconde maison peindrait un second
+Aïn sur la même page, alors que la décision dit qu'il vit dans le logo et en
+sort pour une scène. Ce point n'est donc pas fait, et attend l'avis du
+propriétaire. Aïn endormi sur la pile du dépôt attend aussi : sa scène
+« dort » finit dans la maison, et une variante posée sur la pile appartient
+au chantier de la mascotte.
+
+**Une salle pleine.** Le banc du parcours ne savait tenir que deux places.
+Il en tient maintenant quatre, et l'étape `salle-pleine-avant-salle` vérifie
+qu'une salle pleine n'offre aucune place, que « Regarder la partie » est son
+seul bouton plein et qu'il reçoit le clic. Quand une place se libère,
+« Prendre la place N » redevient le seul plein. La page de `main` n'avait,
+dans ce cas, aucun bouton plein.
+
+**Trente secondes en une.** La démo de l'accueil part après trente secondes
+sans geste, au niveau « tout ». Attendre trente secondes dans chaque essai
+aurait allongé la porte. Chrome sait faire avancer l'horloge d'une page sans
+attendre : c'est le temps virtuel. Le premier essai a laissé l'horloge en
+avance libre après le budget, et la démo est tombée entre deux gestes du
+pilote, ce qui a fait passer le jumeau (« un geste à 20 s repousse la démo »)
+pour un défaut. L'horloge reste maintenant en pause entre deux avances. Une
+autre étape vérifie l'écran bombé de la mire, au même niveau. Enfin, la rangée de
+l'accueil ne s'anime plus au premier rendu : elle n'entre, en un fondu d'un
+quart de seconde, que quand elle remplace la mire parce qu'une salle répond.
+
+**Les portes.** Toutes ont tourné cette fois, y compris celles qui ne
+regardent pas le salon. `just check` est vert (2 082 essais de la page), comme
+les preuves du navigateur et leurs contrôles rouges, les essais de la carte
+graphique (après avoir vérifié que Jellyfin ne transcodait rien), du clip, des
+sauvegardes Switch, de la capture, de la Xbox 360 et de la copie chiffrée.
+Trois restent rouges, sans que le salon y soit pour rien : `parcours` sur
+« invitation » et `cadre` sur deux étapes d'Aïn dans la salle, des défauts
+connus de la vague B1 (leurs autres étapes passent une à une), et
+`deploy-check`, qui voit que la nouvelle redirection de Caddy n'est pas
+installée et que les services tournent avec un code plus ancien que ce
+chantier. C'est attendu : rien n'est installé avant la fusion. Chaque étape
+nouvelle rougit sur la page qu'elle remplace.
+
+**Le poids.** La page de salle passe de 281 661 à 281 607 octets en brotli.
+Le seul changement de la page est la maison d'Aïn dans « Qui joue ? » ; le
+reste de l'écart vient du minifieur. Le paquet du salon ne change pas.
+
+### 24 novembre, en fin d'après-midi : le salon, cinquième passage
+
+**Le contexte.** Le même chantier, dans son worktree, sans rien pousser ni
+installer. Le quatrième passage avait laissé un point du plan : les mots des
+trois pages du salon. La salle range les siens dans `lib/mots.ts`, et un essai
+y applique la charte (le tutoiement, l'effet avant l'action, aucun mot
+d'atelier, aucun tiret cadratin). Les pages du salon, elles, sont du HTML servi
+par le salon sans paquet : elles ne peuvent pas importer ce fichier, et
+chacune écrivait ses mots à la main.
+
+**Ce que la charte a trouvé dès qu'elle a pu lire.** Les mots ont d'abord été
+recopiés tels quels dans `mots.ts`, en tables plates par page
+(`SALON_ACCUEIL`, `SALON_DEPOT`, `SALON_CARNET`, l'en-tête et ce qui est
+commun). La garde de la charte les a lus aussitôt. Le dépôt disait
+« l'administrateur du salon », « a déjà un nom au salon », « redémarre le
+salon » : « salon » est le nom d'un programme, que le joueur ne connaît pas.
+Ces phrases disent maintenant « l'administrateur de nel3ab », « a déjà un nom
+ici », « redémarre nel3ab ». En les relisant contre le lexique, trois autres
+écarts sont apparus, qu'aucune garde ne pouvait voir. L'accueil disait « Pas
+de réponse : réessaie dans un instant. » quand la salle dit « Pas de réponse.
+Réessaie dans un instant. ». Le carnet disait « ta sauvegarde » quand le
+panneau de lancement dit « ma sauvegarde », et « la sauvegarde de Ami » sans
+l'élision que la salle fait (« d'Ami »). Les boutons d'un envoi au dépôt
+étaient en minuscules (« pause », « annuler »), contre la règle des boutons.
+Tout passe maintenant par le lexique ; « Regarder », « Prendre » et les noms
+des trois sauvegardes y sont écrits une seule fois.
+
+**Comment les mots arrivent dans la page.** Le même mécanisme que la feuille
+des effets et le logo. Un essai de la page écrit la table dans
+`retro/mots.json` et la compare à chaque `just check`. `retro.py` la pose dans
+l'en-tête de chaque page avec un petit script, `nel3abMots(cle, trous)`, qui
+rend le texte et remplit ses trous (« Salle {n}, éteinte. »). Un texte fixe
+s'écrit par une marque, `<!--MOT:accueil.compris-->`, remplacée et échappée au
+démarrage ; une marque ne sait pas remplir un trou, et la refuse. Une clé
+inconnue, dans une marque ou dans une chaîne d'un script, lève une erreur au
+démarrage du salon, comme une marque oubliée. Le module du dépôt est posé
+après cet assemblage, pour qu'une marque écrite dans une de ses chaînes ne
+soit pas remplacée : ses clés sont vérifiées à part, au même démarrage. Sous
+Node, ses essais posent la même table avant de l'importer.
+
+**Les gardes.** Un essai lit les sources des quatre morceaux (l'accueil, le
+dépôt, le carnet, l'en-tête) et refuse tout texte visible qui ne passe pas
+par une marque, attributs lus par un lecteur d'écran compris. Un autre lit
+leurs scripts et refuse une phrase écrite entre guillemets ; une liste de
+classes de la page n'est pas une phrase, et les preuves de l'estimation du
+dépôt (« « HEAD » à 0x100 ») restent dans le module : ce sont des positions
+et des octets lus dans le fichier, une mesure et pas une phrase. Sur les pages
+d'avant ce passage, ces deux gardes trouvent 55 textes et 133 phrases écrits
+en dur. Un troisième refuse un mot de la table que rien ne dit. Les gabarits
+du salon qui répètent un geste de la salle (« Prendre la place 3 »,
+« Place 2 : Bo », « Ben (2P) ») sont comparés à la fonction de la salle qui
+dit la même chose ; un mutant qui change « Prendre la place » en « Prendre
+place » est refusé. L'élision du carnet lit la même table d'exemples que la
+salle et le salon Python.
+
+**Cinq étapes de plus dans Chrome.** Le plan les demandait : Entrée et le
+Start d'une manette ouvrent une salle à zéro salle, une seule demande même
+touche tenue ; la bannière de retour nomme la salle fermée et sa raison ; la
+ligne lue par un lecteur d'écran dit ce qui a changé, et rien sinon ; le
+crédit compte les salles et leurs places ; le carnet range une partie pas
+encore vue. La première course complète a fait rougir la dernière alors
+qu'elle passait seule. Les étapes d'un même pilote partagent le stockage du
+navigateur, et le jumeau « sobre » de l'étape Start y laissait un niveau
+d'effets où Aïn ne joue pas. La leçon était déjà écrite pour le parcours ;
+elle vaut ici aussi : une étape qui dépend du niveau le pose elle-même.
+
+**Le poids.** La page de salle passe de 281 607 à 281 539 octets en brotli.
+Les tables du salon vivent dans `mots.ts` sans entrer dans la page : rien ne
+les y importe, et la construction les laisse de côté. L'écart vient du
+minifieur.
+
+**Les portes.** Toutes ont tourné, une à une, après le dernier commit de
+code. `just check` est vert (2 087 essais de la page), comme les essais de la
+carte graphique (Jellyfin vérifié au repos avant), du clip, des sauvegardes
+Switch, de la capture, de la Xbox 360 et de la copie chiffrée, et les preuves
+`focus`, `etats`, `salle-telephone`, `manette-garde`, `reglage` et `salon`
+(29 étapes), avec tous leurs contrôles rouges. Le contrôle rouge d'`etats` a
+d'abord échoué en une seconde : un autre chantier tenait son port. Relancé
+seul, il est vert. Trois restent rouges sans que le salon y soit pour rien,
+comme au passage précédent : `parcours` sur « invitation » et `cadre` sur
+`mascotte-hors-image` et `ain-immobile`, des défauts connus de la vague B1
+(leurs autres étapes passent une à une), et `deploy-check`, qui voit la
+redirection de Caddy pas encore installée et des services plus anciens que ce
+chantier.
+
+### 24 novembre, le soir : la relecture du salon, deux constats
+
+**Le contexte.** Une relecture indépendante a lu le chantier du salon à la
+fin de son cinquième passage (323aa52). Elle a écrit deux sondes dans Chrome
+et relevé deux défauts, tous deux introduits par le chantier. Les deux ont
+été reproduits tels quels avant d'y toucher.
+
+**Un lien qui ne disait plus son nom.** Sur les trois pages du salon, le logo
+de l'en-tête est devenu un lien vers « / » ; avant, c'était un simple texte.
+Ce lien tirait son nom du logo qu'il contient, une image nommée « nel3ab ».
+Mais dès qu'Aïn est peint, ce logo passe en `display:none`, et la toile d'Aïn
+est muette pour un lecteur d'écran (`aria-hidden`). Le lien restait dans
+l'ordre de la touche Tab sans aucun nom : un lecteur d'écran disait « lien »,
+rien d'autre. La sonde l'a lu dans l'arbre d'accessibilité de Chrome, sur les
+trois pages : un nom vide. La correction donne au lien son propre nom,
+« nel3ab, les salles », écrit dans `mots.ts` comme tous les mots du salon. La
+leçon dépasse ce lien : un élément qui tire son nom de son contenu le perd
+quand ce contenu se cache. Un nom qui doit tenir se pose sur l'élément.
+
+**Un focus perdu quand quelqu'un d'autre s'assoit.** Une personne qui se
+déplace au clavier peut s'arrêter sur « Prendre la place 4 ». Si une autre
+personne prenait la place 2 de la même salle, le relevé suivant, cinq
+secondes plus tard, faisait tomber ce focus sur le corps de la page. La
+cause : `remplirStarts` refaisait les quatre places d'une borne dès que l'une
+d'elles, ou la place conseillée, changeait. Le lien de la place 4 était
+remplacé par un lien neuf, au même texte et au même nom, mais ce n'était plus
+le même élément. Le code disait pourtant, quelques lignes plus bas, que les
+bornes sont mises à jour et pas refaites, justement pour garder ce focus : la
+règle s'arrêtait à la borne et ne descendait pas jusqu'aux places. Chaque
+place est maintenant mise à jour sur place : son rond, son mot, son
+étiquette, son lien et son nom. Seule une place qui passe de libre à prise,
+ou l'inverse, change d'élément, puisqu'un lien devient une étiquette.
+
+**Les preuves.** Un essai jsdom, dans `just check`, pose un témoin sur le lien
+focalisé et exige le même élément après le relevé. Il échouait avant la
+correction, et il échoue encore quand on remet la reconstruction complète.
+Comparer le nom de l'élément focalisé ne suffirait pas : un lien refait au
+même nom a le même nom, et il n'a plus le focus. Son jumeau : la place
+focalisée elle-même prise, et le focus quitte l'élément sorti de la page.
+Dans Chrome, `salon-navigateur` gagne l'étape `start-focus` (la même scène,
+avec un jumeau où rien ne change), et l'étape `ain-logo` lit le nom du lien
+sur les trois pages. Le contrôle rouge prend la page de 323aa52 : les deux
+étapes y tombent sur leur défaut, « le lien du logo s'appelle «  » » et « le
+focus du clavier tombe sur BODY ».
+
+**Le poids.** La page de salle ne change pas : 281 539 octets en brotli,
+identique octet pour octet. Le nom du lien vit dans une table du salon que la
+page n'importe pas ; seul son tampon change, parce que `mots.ts` est une de
+ses entrées.
+
+**Les portes.** Elles ont tourné après le dernier commit de code, une à une.
+`just check` est vert (1 358 essais du salon, 2 087 de la page). Les preuves
+`salon` (30 étapes), `focus`, `etats`, `salle-telephone`, `manette-garde` et
+`reglage` sont vertes, avec tous les contrôles rouges, ceux de `parcours` et de
+`cadre` compris. Trois étapes restent rouges sans que ce changement y soit
+pour rien, et la page qu'elles lisent est celle de 323aa52, octet pour
+octet : `parcours` sur « invitation » (« Copier le lien » n'a rien copié),
+`cadre` sur `mascotte-hors-image` et `ain-immobile`, les défauts connus de la
+vague B1 ; les autres étapes des deux pilotes passent une à une. Une
+quatrième, `vit-figee-immobile`, a rougi une fois dans la série : la carte
+« L'image arrive, mais ton appareil ne l'a pas » restait sur l'image au
+téléphone. La machine portait alors une charge moyenne de 61, d'autres
+navigateurs de test tournant à côté. Relancée seule trois fois, elle passe
+trois fois. C'est une tendance, pas une preuve : l'étape mérite d'être
+regardée sous charge par le chantier qui la possède. `deploy-check` n'a pas
+tourné : rien d'installé ne change, et il reste rouge tant que la
+redirection de Caddy n'est pas installée.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -31460,10 +31953,34 @@ toucheraient l'image du jeu, un contrôle ou un mot.
 **Sprite** : une petite image qu'on déplace d'un bloc au-dessus du décor,
 comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
 
+**Écran squelette** : ce qu'une page montre pendant qu'elle attend ses
+données : les rectangles de l'écran final, vides, à leur place. Quand le
+contenu arrive, rien ne saute.
+
+**Point de passage (d'Aïn)** : une marque invisible de la page par laquelle
+le planificateur peut faire passer Aïn quand le chemin direct toucherait un
+contrôle ou un mot.
+
+**Gabarit (de mot)** : un texte de `mots.ts` qui garde des trous nommés,
+comme « Salle {n}, éteinte. ». La page remplit les trous au moment de
+l'écrire ; un trou sans valeur est une erreur, pas un « undefined » à l'écran.
+
+**Temps virtuel** : une horloge que Chrome fait avancer à la demande, sans
+attendre : les minuteries d'une page tombent dans leur ordre, mais trente
+secondes passent en une fraction de seconde. Un pilote s'en sert pour
+vérifier ce qui n'arrive qu'après une longue attente, comme la démo de
+l'accueil.
+
 **Ancre (d'Aïn)** : un élément de la page marqué `data-ancre`, là où Aïn va
 se poser ou d'où part un objet : le haut d'un bouton START, la prise de la
 pastille, une marque sur un sol. Une ancre absente replie la scène en
 version courte, puis en pose clé.
+
+**Installation éditable** : une façon d'installer un paquet Python qui
+pointe vers son dossier de travail au lieu d'en copier les fichiers. Python
+le trouve alors avant un autre dossier du même nom ; `python -S` désactive ce
+mécanisme, ce qui permet d'importer une archive d'un ancien commit
+(`salon-navigateur-rouge`).
 
 **IIFE (immediately invoked function expression)** : un script dont tout le
 code tient dans une fonction appelée aussitôt définie. Ses noms restent
@@ -33296,3 +33813,21 @@ changent encore avant la peinture.
 faire dans `App.tsx`, selon la partition : ses imports, le montage de ses
 pièces dans les emplacements du cadre, et le retrait des blocs qu'il
 remplace. La logique vit dans les fichiers du chantier.
+
+**Regard (au journal des parties)** : la trace d'une personne qui regarde
+une salle sans tenir de manette, écrite comme une place : un début, une fin,
+une durée. Elle sert au carnet commun à dire qui regardait une partie.
+
+**Carnet commun** : ce que chaque carnet dit des autres depuis le
+24 novembre 2026 : avec qui tu as joué, à quelle place, et qui regardait.
+Chacun ne lit que le sien.
+
+**Nom accessible** : le nom qu'un lecteur d'écran annonce pour un élément de
+la page, par exemple « nel3ab, les salles, lien ». Le navigateur le calcule
+depuis `aria-label`, ou à défaut depuis le texte et les images nommées que
+l'élément contient. Un contenu caché ne compte pas.
+
+**Arbre d'accessibilité** : ce que le navigateur donne aux lecteurs d'écran :
+chaque élément utile de la page avec son rôle (lien, bouton, image) et son
+nom accessible. Chrome le montre à un pilote, qui peut donc lire le nom qu'un
+lecteur d'écran dirait.

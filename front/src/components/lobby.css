@@ -1,0 +1,149 @@
+/* L'avant-salle (`Lobby.tsx`) : la borne de la salle et son panneau START,
+   comme à l'accueil du salon (24 novembre 2026). Couleurs : jetons de la
+   régie seulement (`regie.css`), aucune couleur redéclarée ici. */
+
+.n3-avant-lien {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--legende);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.n3-avant-lien:hover {
+  color: var(--signal);
+}
+
+.n3-avant-nom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.n3-avant-bouton {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.875rem;
+}
+
+/* La borne : la console et le jeu, puis le panneau de commande. */
+.n3-avant-borne {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--plaque);
+  border: 2px solid var(--trait);
+}
+.n3-avant-borne-titre {
+  font-size: var(--text-titre);
+  line-height: 1.1;
+}
+.n3-avant-borne-jeu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--filet);
+}
+.n3-avant-cartouche {
+  align-self: flex-start;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--police-titre);
+  font-size: var(--text-mini);
+  color: var(--legende);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+}
+.n3-avant-borne-titre-jeu {
+  font-size: var(--text-fort);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.n3-avant-borne-gens {
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+
+/* Le panneau : quatre places, chacune 44 px au moins de haut. */
+.n3-avant-borne-panneau {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--filet);
+}
+.n3-avant-place {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0;
+  color: var(--encre);
+}
+button.n3-avant-place {
+  cursor: pointer;
+}
+.n3-avant-place .n3-etiquette {
+  max-width: 100%;
+}
+.n3-avant-mot {
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+button.n3-avant-place:hover .n3-avant-mot,
+button.n3-avant-place:focus-visible .n3-avant-mot {
+  color: var(--signal);
+}
+
+/* La maison d'Aïn : le logo de l'en-tête. Une fois Aïn peint, le logo
+   statique se cache (`rt-mascotte-hote`, posé par `poserMascotte`), comme au
+   salon (`accueil.html`, `.marque`). */
+.n3-avant-maison {
+  display: block;
+  width: clamp(114px, 30vw, 152px);
+}
+.n3-avant-maison.rt-mascotte-hote > span:not(.rt-mascotte) {
+  display: none;
+}
+
+/* Le sol d'Aïn sur le panneau : une ligne d'un pixel au bord BAS, hors de la
+   grille des places. Au bord haut, Aïn debout près de son START montait
+   jusqu'au titre du jeu (`data-texte`) avec l'étiquette sur la tête, et la
+   scène se repliait (parcours.mjs, avant-salle-ain). */
+.n3-avant-borne-panneau {
+  position: relative;
+}
+.n3-avant-sol {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* Les points de passage d'Aïn (`passage-1`, `passage-2`) : deux marques de
+   2 × 1 px à gauche de la fiche, à hauteur de l'espace sous l'en-tête et du
+   bord haut du panneau. Le planificateur y fait passer Aïn quand le chemin
+   direct toucherait un contrôle. */
+.n3-avant-passage {
+  position: absolute;
+  width: 2px;
+  height: 1px;
+  pointer-events: none;
+}
+.n3-avant-passage-haut {
+  left: -4rem;
+  bottom: -0.625rem;
+}
+.n3-avant-passage-bas {
+  bottom: 0;
+  left: calc(-5rem - 2px);
+}

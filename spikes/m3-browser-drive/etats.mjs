@@ -374,6 +374,107 @@ const SUR_IMAGE = () => {
   return { points, fautes };
 };
 
+/** Une page de salle ouverte pendant que `/api/me` est tenu : elle reste sur
+ * l'ouverture jusqu'à `lacher()`. `sansModule` : le document servi sans son
+ * script de page, pour voir le squelette d'avant React (`front/index.html`). */
+async function ouvrirTenue({ vue = PC, schema = null, sansModule = false, stockage = {} } = {}) {
+  banc.reinitialiser();
+  const page = await browser.newPage();
+  await page.setViewport(taille(vue));
+  if (schema) await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: schema }]);
+  await page.evaluateOnNewDocument((stockage) => {
+    try {
+      // Une page neuve : la largeur gardée par une étape d'avant ne passe pas.
+      localStorage.clear();
+      localStorage.setItem("nel3ab:name", "banc");
+      localStorage.setItem("nel3ab:banc", "1");
+      localStorage.setItem("nel3ab:aide-clavier", "vue");
+      for (const [cle, valeur] of Object.entries(stockage)) localStorage.setItem(cle, valeur);
+    } catch {}
+  }, stockage);
+  page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
+  let lacher = () => {};
+  const tenue = new Promise((r) => {
+    lacher = r;
+  });
+  await page.setRequestInterception(true);
+  page.on("request", (req) => {
+    const chemin = new URL(req.url()).pathname;
+    if (chemin === "/api/me") void tenue.then(() => req.continue().catch(() => {}));
+    else if (sansModule && req.isNavigationRequest())
+      void fetch(req.url(), { headers: { "accept-encoding": "identity" } })
+        .then((r) => r.text())
+        .then((html) =>
+          req.respond({
+            status: 200,
+            contentType: "text/html; charset=utf-8",
+            body: html.replace(/<script type="module"[^>]*>[\s\S]*?<\/script>/, ""),
+          }),
+        )
+        .catch(() => req.abort().catch(() => {}));
+    else void req.continue().catch(() => {});
+  });
+  await page.goto(`${banc.url}?entrer=jouer`, { waitUntil: "domcontentloaded" });
+  return { page, lacher };
+}
+
+/** Une salle ouverte pendant que `/api/me` est tenu : la boîte de la colonne,
+ * de son titre et de la maison d'Aïn dans l'ouverture, puis dans la salle une
+ * fois l'identité lâchée. `mutant` : une feuille posée sur l'ouverture seule.
+ * Rend le saut vu, en mots, ou `null`. */
+async function mesurerSaut(mutant) {
+  const { page, lacher } = await ouvrirTenue();
+  if (!(await page.waitForSelector("#ouverture", { timeout: 15000 }).catch(() => null)))
+    throw new Precondition("l'ouverture ne s'est pas montrée pendant que /api/me était tenu");
+  if (mutant) await page.addStyleTag({ content: mutant });
+  const boites = (colonne) =>
+    page.evaluate((colonne) => {
+      const boite = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.x, y: r.y, w: r.width, h: r.height };
+      };
+      const c = document.querySelector(colonne);
+      return {
+        colonne: boite(c),
+        titre: boite(c?.querySelector("h1") ?? null),
+        maison: boite(c?.querySelector("[data-hote]") ?? null),
+      };
+    }, colonne);
+  // Deux images : la colonne prend sa largeur gardée au premier rendu.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const avant = await boites("#ouvertureColonne");
+  await capture(page, mutant ? "ouverture-decalee" : "ouverture");
+  lacher();
+  if (!(await page.waitForSelector("#side", { timeout: 15000 }).catch(() => null)))
+    throw new Precondition("la salle ne s'est pas montée après l'identité");
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const apres = await boites("#side");
+  await capture(page, mutant ? "ouverture-decalee-salle" : "ouverture-salle");
+  await page.close();
+  if (!apres.colonne || !apres.titre) throw new Precondition(`la salle n'a pas de colonne titrée: ${JSON.stringify(apres)}`);
+  if (!avant.colonne)
+    return { saut: "l'ouverture n'a pas de colonne : celle de la salle apparaît d'un coup", avant, apres };
+  if (!avant.titre) return { saut: "la colonne de l'ouverture n'a pas de titre", avant, apres };
+  const ecart = (a, b, champs) => Math.max(...champs.map((k) => Math.abs(a[k] - b[k])));
+  const colonne = ecart(avant.colonne, apres.colonne, ["x", "y", "w", "h"]);
+  // Le titre : sa place et sa hauteur ; sa largeur suit « Quitter la salle ».
+  const titre = ecart(avant.titre, apres.titre, ["x", "y", "h"]);
+  // La maison d'Aïn : le logo ne descend pas quand la salle arrive.
+  const maison = avant.maison && apres.maison ? ecart(avant.maison, apres.maison, ["x", "y", "w", "h"]) : null;
+  const saut =
+    colonne >= 2
+      ? `la colonne saute de ${colonne.toFixed(1)} px à l'arrivée de la salle`
+      : titre >= 2
+        ? `le titre saute de ${titre.toFixed(1)} px à l'arrivée de la salle`
+        : maison === null
+          ? `la maison d'Aïn manque (${avant.maison ? "dans la salle" : "dans l'ouverture"})`
+          : maison >= 2
+            ? `la maison d'Aïn saute de ${maison.toFixed(1)} px à l'arrivée de la salle`
+            : null;
+  return { saut, colonne, titre, maison, avant, apres };
+}
+
 const ETAPES = {
   /** Le thème rétro (ADR D37): au niveau « tout », aucun effet ne passe sur
    * l'image du jeu. Le point au centre et sur une grille de l'image doit
@@ -1728,6 +1829,94 @@ const ETAPES = {
     const jumeau = await boites();
     if (jumeau.every((b, i) => b === apres[i])) throw new Precondition("un enfant déplacé d'un pixel n'est pas vu");
     await page.close();
+  },
+
+  /** L'ouverture dessine la salle avant qu'elle arrive (plan salon,
+   * ouverture#1, 24 novembre 2026) : pendant que l'identité tarde, la page
+   * montre la colonne, l'écran noir et le panneau, aux rectangles que la
+   * salle prendra. Quand la salle se monte, sa colonne (`#side`) et son titre
+   * sont là où le squelette les avait posés, à moins de 2 px. Une ancienne
+   * ouverture, une carte au milieu de la page, fait apparaître la colonne
+   * d'un coup : c'est le défaut. Le jumeau, dans la même étape : le même
+   * squelette décalé de 20 px doit être vu. */
+  async "ouverture-sans-saut"() {
+    const sans = await mesurerSaut(null);
+    console.log(JSON.stringify({ colonne: sans.colonne, titre: sans.titre, maison: sans.maison, avant: sans.avant, apres: sans.apres }));
+    if (sans.saut) throw new Defaut(sans.saut);
+    const decale = await mesurerSaut("#ouvertureColonne { transform: translate(20px, 20px); }");
+    console.log(JSON.stringify({ jumeau: decale.saut }));
+    if (!decale.saut)
+      throw new Precondition(`la mesure ne voit pas un squelette décalé de 20 px: ${JSON.stringify(decale)}`);
+  },
+
+  /** L'ouverture suit le thème (plan salon, ouverture#4) : sous un système
+   * clair, son fond est clair ; sous un système sombre, sombre. L'écran reste
+   * noir dans les deux. L'ancienne ouverture forçait la régie de nuit. */
+  async "ouverture-theme"() {
+    const lus = {};
+    for (const schema of ["light", "dark"]) {
+      const { page } = await ouvrirTenue({ schema });
+      if (!(await page.waitForSelector("#ouverture", { timeout: 15000 }).catch(() => null)))
+        throw new Precondition(`${schema}: l'ouverture ne s'est pas montrée`);
+      lus[schema] = await page.evaluate(() => {
+        const clarte = (couleur) => {
+          const [r, g, b] = (couleur.match(/[\d.]+/g) ?? []).map(Number);
+          return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        };
+        const fond = getComputedStyle(document.getElementById("ouverture")).backgroundColor;
+        const ecran = document.querySelector("#ouverture .n3-ouverture-ecran");
+        return {
+          fond,
+          clarte: clarte(fond),
+          ecran: ecran ? getComputedStyle(ecran).backgroundColor : null,
+        };
+      });
+      await capture(page, `ouverture-${schema}`);
+      await page.close();
+    }
+    console.log(JSON.stringify(lus));
+    if (!(lus.light.clarte > 0.6)) throw new Defaut(`fond sombre sous un système clair: ${lus.light.fond}`);
+    if (!(lus.dark.clarte < 0.25)) throw new Defaut(`fond clair sous un système sombre: ${lus.dark.fond}`);
+    for (const schema of ["light", "dark"])
+      if (lus[schema].ecran !== "rgb(0, 0, 0)")
+        throw new Defaut(`${schema}: l'écran de l'ouverture n'est pas noir (${lus[schema].ecran})`);
+  },
+
+  /** Le squelette d'avant le script (`front/index.html`) pose la colonne où
+   * l'ouverture de React la posera : même boîte à 2 px près, à la largeur
+   * gardée (400 px), et « Salle 1 » écrit par son petit script. Le jumeau :
+   * sans largeur gardée, 304 px des deux côtés. */
+  async "ouverture-statique"() {
+    for (const stockage of [{ "nel3ab:colonne": "400" }, {}]) {
+      const attendue = stockage["nel3ab:colonne"] ? 400 : 304;
+      const statique = await ouvrirTenue({ sansModule: true, stockage });
+      const vu = await statique.page.evaluate(() => {
+        const c = document.querySelector("#root .n3-ouverture-statique > aside");
+        const r = c?.getBoundingClientRect();
+        return {
+          colonne: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null,
+          titre: c?.querySelector("h1")?.textContent ?? null,
+          dit: document.querySelector("#root [role=status]")?.textContent ?? null,
+        };
+      });
+      await capture(statique.page, `ouverture-statique-${attendue}`);
+      await statique.page.close();
+      if (!vu.colonne) throw new Defaut(`le squelette d'avant le script n'a pas de colonne: ${JSON.stringify(vu)}`);
+      const reacte = await ouvrirTenue({ stockage });
+      if (!(await reacte.page.waitForSelector("#ouvertureColonne", { timeout: 15000 }).catch(() => null)))
+        throw new Precondition("l'ouverture de React n'a pas de colonne");
+      const r = await reacte.page.$eval("#ouvertureColonne", (c) => {
+        const b = c.getBoundingClientRect();
+        return { x: b.x, y: b.y, w: b.width, h: b.height };
+      });
+      await reacte.page.close();
+      console.log(JSON.stringify({ attendue, statique: vu, react: r }));
+      if (Math.abs(r.w - attendue) >= 1) throw new Precondition(`la colonne de React fait ${r.w} px, ${attendue} attendus`);
+      const ecart = Math.max(...["x", "y", "w", "h"].map((k) => Math.abs(vu.colonne[k] - r[k])));
+      if (ecart >= 2) throw new Defaut(`la colonne saute de ${ecart.toFixed(1)} px entre le squelette statique et React`);
+      if (vu.titre !== "Salle 1" || vu.dit !== "On ouvre la salle 1…")
+        throw new Defaut(`le squelette statique dit « ${vu.titre} » et « ${vu.dit} »`);
+    }
   },
 };
 

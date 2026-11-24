@@ -18,6 +18,8 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from nel3ab_control.api.routes import retro
+from nel3ab_control.api.routes.accueil import regie
 from nel3ab_control.imports.empreinte import empreinte_rapide
 from nel3ab_control.imports.identifier import identifier
 from tests.imports import fabrique as f
@@ -37,12 +39,12 @@ async def test_la_page_de_depot_est_servie_garnie(client: httpx.AsyncClient) -> 
     assert reponse.headers["content-type"].startswith("text/html")
     page = reponse.text
     assert "Déposer un jeu" in page
-    assert page.count('class="bob"') == 5, (
-        "la zone, puis loupe, tampon et repos dans le modèle, puis le trousseau"
-    )
+    # Bobine est parti (ADR D41, 24 novembre 2026): Aïn joue dans le logo, et
+    # la zone de dépôt porte les ancres de ses scènes « depot » et « refus ».
+    assert 'class="bob"' not in page
+    assert 'data-ancre="depot"' in page and 'data-ancre="depot-mot"' in page
+    assert 'aria-current="page">Déposer un jeu' in page
     assert 'id="cles"' in page and 'id="modele-personne"' in page
-    assert 'data-pose="loupe"' in page
-    assert 'data-pose="salue"' in page
     assert "<!--BOBINE" not in page
     assert "/*__" not in page
     assert "@font-face" in page
@@ -72,6 +74,12 @@ def test_le_garde_des_adresses_css_voit_une_sortie_et_laisse_la_page() -> None:
 
 async def test_la_page_ne_demande_rien_a_un_autre_site(client: httpx.AsyncClient) -> None:
     page = (await client.get("/importer")).text
+    # Le paquet du salon (ADR D41) pose le filtre de l'écran bombé par
+    # `<feImage href="${carte}">`, où `carte` est une adresse `data:` calculée
+    # dans la page (`retro/calques.ts`): un motif ne peut pas lire une valeur
+    # de gabarit. Le paquet a sa provenance (`ain.SOURCES`); on lit le reste.
+    assert retro.piece("ain.js") in page
+    page = page.replace(retro.piece("ain.js"), "")
 
     assert not re.findall(r"""(?:src|href|action)\s*=\s*["'](?!/|#|data:)""", page)
     assert not URL_SORTANTE.findall(page)
@@ -100,7 +108,9 @@ async def test_l_accueil_ne_montre_le_lien_qu_apres_avoir_demande_les_droits(
     accueil = (await client.get("/")).text
 
     assert "/api/imports/droits" in accueil
-    assert re.search(r'<a[^>]*id="importer"[^>]*hidden', accueil), "caché par défaut"
+    assert re.search(r'<li id="lien-depot" hidden><a href="/importer">', accueil), (
+        "caché par défaut"
+    )
 
 
 def ecrire(dossier: Path, nom: str, octets: bytes) -> Path:
@@ -214,76 +224,133 @@ def test_ce_que_la_page_ne_peut_pas_lire_elle_le_laisse_au_serveur(tmp_path: Pat
         )
 
 
-TROUSSEAU = Path(__file__).with_name("trousseau_module.mjs")
+PHRASES = Path(__file__).with_name("phrases_module.mjs")
 
 
-@AVEC_NODE
-def test_le_trousseau_nomme_range_et_colore_chaque_personne_toujours_pareil() -> None:
-    """Les fonctions pures du trousseau, exécutées sous Node comme dans la page."""
-    personnes = [
-        {
-            "login": "alice@github",
-            "nom": "Alice A",
-            "pseudo": None,
-            "sources": ["tailnet"],
-            "appareils": 2,
-            "en_ligne": True,
-            "partage": True,
-            "droit": "aucun",
-        },
-        {
-            "login": "vincent@example.com",
-            "nom": "Vincent L",
-            "pseudo": "Vince",
-            "sources": ["tailnet", "salon"],
-            "appareils": 1,
-            "en_ligne": False,
-            "partage": False,
-            "droit": "nomme",
-        },
-        {
-            "login": "parti@example.com",
-            "nom": "",
-            "pseudo": None,
-            "sources": [],
-            "appareils": 0,
-            "en_ligne": False,
-            "partage": False,
-            "droit": "nomme",
-        },
-        {
-            "login": "config@example.com",
-            "nom": "",
-            "pseudo": None,
-            "sources": [],
-            "appareils": 0,
-            "en_ligne": False,
-            "partage": False,
-            "droit": "configuration",
-        },
-    ]
+def _phrases(entree: dict) -> dict:
+    """Les phrases de la page, exécutées sous Node comme dans la page."""
     assert NODE is not None
     sortie = subprocess.run(  # noqa: S603 - node et un fichier du dépôt, aucun texte du dehors
-        [NODE, str(TROUSSEAU)],
-        input=json.dumps(personnes),
+        [NODE, str(PHRASES)],
+        input=json.dumps(entree),
         capture_output=True,
         text=True,
         check=True,
     )
-    rendus = json.loads(sortie.stdout)
+    return json.loads(sortie.stdout)
+
+
+def _personne(login: str, **champs: object) -> dict:
+    return {
+        "login": login,
+        "nom": "",
+        "pseudo": None,
+        "sources": [],
+        "appareils": 0,
+        "en_ligne": False,
+        "partage": False,
+        "droit": "aucun",
+        **champs,
+    }
+
+
+@AVEC_NODE
+def test_le_trousseau_nomme_chaque_personne_en_phrase_sans_couleur_de_joueur() -> None:
+    """Plan salon, salon-importer#7 : une étiquette au nom de `nomDe`, une
+    phrase au lieu des puces TAILNET ou DÉJÀ VENU, et « Donner le droit » ou
+    « Retirer le droit ». Personne n'y est à une place: aucune couleur de
+    joueur, ni dans la page ni dans le module.
+    """
+    personnes = [
+        _personne(
+            "alice@github",
+            nom="Alice A",
+            sources=["tailnet"],
+            appareils=2,
+            en_ligne=True,
+            partage=True,
+        ),
+        _personne(
+            "vincent@example.com",
+            nom="Vincent L",
+            pseudo="Vince",
+            sources=["tailnet", "salon"],
+            droit="nomme",
+        ),
+        _personne("parti@example.com", droit="nomme"),
+        _personne("config@example.com", droit="configuration"),
+    ]
+    rendus = _phrases({"personnes": personnes})["personnes"]
 
     assert [r["nom"] for r in rendus] == ["Alice A", "Vince", "parti", "config"]
-    assert rendus[0]["puces"] == [
-        ["INVITÉ PAR PARTAGE", False],
-        ["EN LIGNE", True],
-        ["2 APPAREILS", False],
+    assert [r["phrase"] for r in rendus] == [
+        "Arrive par un partage du tailnet, en ligne maintenant, sur 2 appareils.",
+        "Sur le tailnet, a déjà un nom ici.",
+        "N'est plus sur le tailnet.",
+        "Droit fixé par la configuration.",
     ]
-    assert rendus[1]["puces"] == [["TAILNET", False], ["DÉJÀ VENU", False]]
-    assert rendus[2]["puces"] == [["PLUS SUR LE TAILNET", False]]
-    assert rendus[3]["puces"] == [["CONFIGURATION", False]]
-    assert all(r["prise"] in (1, 2, 3, 4) for r in rendus)
-    assert rendus[0]["prise"] == rendus[0]["prise_encore"], "la même adresse, la même couleur"
+    # Le jumeau du bouton: qui peut déposer se le voit retirer, les autres
+    # se le voient donner, et un droit fixé n'a pas de bouton.
+    assert [r["bouton"] for r in rendus] == [
+        "Donner le droit",
+        "Retirer le droit",
+        "Retirer le droit",
+        None,
+    ]
     assert sorted(rendus, key=lambda r: r["rang"])[0]["nom"] == "config", "la configuration d'abord"
+    assert not any(
+        mot in r["phrase"] for r in rendus for mot in ("TAILNET", "DÉJÀ VENU", "EN LIGNE")
+    )
+
+
+async def test_le_trousseau_et_la_zone_ne_portent_aucune_couleur_de_joueur(
+    client: httpx.AsyncClient,
+) -> None:
+    """Plan salon, salon-importer#4 et #7 : les quatre carrés de la zone et la
+    couleur de prise du trousseau disparaissent. La régie et le paquet d'Aïn,
+    posés dans la page, nomment les couleurs de joueur: on les retire avant
+    de chercher.
+    """
+    page = (await client.get("/importer", headers={})).text
+    propre = page.replace(regie(), "").replace(retro.piece("ain.js"), "")
+    assert "--joueur-" not in propre
+    assert "--prise" not in propre
+    modele = re.search(r'<template id="modele-personne">(.*?)</template>', page, re.S)
+    assert modele
+    assert 'class="etiquette personne-nom"' in modele.group(1)
+    zone = re.search(r'<label class="depot".*?</label>', page, re.S)
+    assert zone
+    assert "Pose tes fichiers ici, ou" in zone.group(0)
+    assert '<span class="depot-choisir">Choisir des fichiers</span>' in zone.group(0)
+
+
+@AVEC_NODE
+async def test_une_carte_dit_ce_qui_est_arrive_et_ce_que_tu_peux_faire(
+    client: httpx.AsyncClient,
+) -> None:
+    """Plan salon, salon-importer#5 : plus de tampon « ESTIMATION » ni de mot
+    « interrompu » ; un envoi arrêté dit où il s'est arrêté et comment
+    reprendre, un envoi en erreur le dit en alerte, avec la réparation.
+    """
+    page = (await client.get("/importer", headers={})).text
+    modele = re.search(r'<template id="modele-carte">(.*?)</template>', page, re.S)
+    assert modele
+    assert "ESTIMATION" not in modele.group(1)
+    assert "tampon" not in modele.group(1)
+    assert '"interrompu"' not in page
+    envois = [
+        {"etat": "envoi", "nom": "x.iso", "taille": 100, "decalage": 27},
+        {"etat": "erreur", "nom": "y.iso", "message": "L'empreinte ne correspond pas."},
+        {"etat": "erreur", "nom": "z.iso", "message": ""},
+    ]
+    arrete, rate, muet = _phrases({"envois": envois})["envois"]
+    assert arrete == {"texte": "Arrêté à 27 %. Redépose « x.iso » pour reprendre.", "alerte": False}
+    assert rate["alerte"] is True
+    assert rate["texte"] == (
+        "L'empreinte ne correspond pas. Retire-le, puis redépose « y.iso » pour réessayer."
+    )
+    assert muet["alerte"] is True
+    assert muet["texte"].startswith("La vérification a échoué. ")
 
 
 # ── Les noms des consoles et ce qui se range, venus du manifeste ──────────────
@@ -477,3 +544,137 @@ async def test_un_jeu_range_propose_de_jouer(client: httpx.AsyncClient) -> None:
     )
     module = MODULE.read_text(encoding="utf-8")
     assert 'this.ici("jouer").hidden = !range;' in module
+
+
+JAQUETTE = Path(__file__).with_name("jaquette_module.mjs")
+
+
+@AVEC_NODE
+async def test_une_jaquette_se_depose_et_se_retire_par_la_cle_du_jeu() -> None:
+    """D13: l'administrateur dépose le PNG lui-même, ou le retire (ADR D45).
+
+    La clé est encodée dans l'adresse; un refus du salon se dit en mots, jamais
+    comme un succès. Les jumeaux: chaque refus (413, 422, 404, 403, réseau).
+    """
+    cas = [
+        {"octets": [137, 80, 78, 71], "statut": 204},
+        {"octets": None, "statut": 204},
+        {"octets": [1, 2], "statut": 413, "detail": "l'image dépasse un Mio"},
+        {"octets": [1, 2], "statut": 422, "detail": "ce n'est pas un PNG"},
+        {"octets": [1, 2], "statut": 404, "detail": "ce jeu n'est pas dans la bibliothèque"},
+        {"octets": [1, 2], "statut": 403, "detail": "réservé"},
+        {"octets": [1, 2], "statut": 0},
+    ]
+    assert NODE is not None
+    with anyio.fail_after(30):
+        sortie = await anyio.run_process(
+            [NODE, str(JAQUETTE)], input=json.dumps(cas).encode(), check=False
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    depose, retire, trop, refus, inconnu, interdit, coupe = json.loads(sortie.stdout)
+
+    assert depose["vue"] == {
+        "adresse": "/api/catalogue/art/Zelda%3A%20Wind%20Waker.iso",
+        "methode": "PUT",
+        "type": "image/png",
+        "octets": [137, 80, 78, 71],
+    }
+    assert depose["issue"] == {"art": True}
+    assert retire["vue"]["methode"] == "DELETE" and retire["vue"]["octets"] is None
+    assert retire["issue"] == {"art": False}
+    assert trop["issue"] == {"refus": "L'image dépasse un Mio."}
+    assert refus["issue"] == {"refus": "ce n'est pas un PNG"}
+    assert inconnu["issue"] == {"refus": "ce jeu n'est pas dans la bibliothèque"}
+    assert interdit["issue"] == {"refus": "Seul l'administrateur de nel3ab change une image."}
+    assert coupe["issue"] == {"refus": "L'image n'a pas été gardée. Réessaie dans un instant."}
+
+
+async def test_la_rangee_des_jaquettes_attend_l_administrateur(client: httpx.AsyncClient) -> None:
+    """La section est cachée par défaut; la page ne l'ouvre qu'à l'administrateur."""
+    page = (await client.get("/importer")).text
+    assert re.search(r'<section class="jaquettes" id="jaquettes" hidden', page)
+    assert 'ouvrirJaquettes(document.getElementById("jaquettes"))' in page
+    # Le jumeau: l'appel vit dans la branche de l'administrateur, pas avant.
+    debut = page.index("if (droits.administrateur) {")
+    assert debut < page.index('ouvrirJaquettes(document.getElementById("jaquettes"))')
+
+
+RAYON = Path(__file__).with_name("rayon_module.mjs")
+
+
+async def _rayon(entree: dict) -> dict:
+    assert NODE is not None
+    with anyio.fail_after(30):
+        sortie = await anyio.run_process(
+            [NODE, str(RAYON)], input=json.dumps(entree).encode(), check=False
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    return json.loads(sortie.stdout)
+
+
+@AVEC_NODE
+async def test_la_rangee_montre_chaque_jeu_du_catalogue_en_boite_ou_en_cartouche() -> None:
+    """Plan salon, salon-importer#0 : un élément par jeu, dans l'ordre du
+    catalogue, le nom de la console, et une cartouche pour la Switch. Le
+    jumeau : aucun jeu laissé de côté, même trente."""
+    jeux = [
+        {"key": "ww.iso", "name": "The Wind Waker", "console": "gc", "art": False},
+        {"key": "zelda.nsp", "name": "Tears of the Kingdom", "console": "switch", "art": True},
+        {"key": "sonic.iso", "name": "Sonic Generations", "console": "x360", "art": False},
+    ]
+    dit = await _rayon({"jeux": jeux, "noms": {"gc": "GameCube", "switch": "Switch"}})
+    assert dit["rayon"] == [
+        {"cle": "ww.iso", "titre": "The Wind Waker", "console": "GameCube", "support": "boite"},
+        {
+            "cle": "zelda.nsp",
+            "titre": "Tears of the Kingdom",
+            "console": "Switch",
+            "support": "cartouche",
+        },
+        {"cle": "sonic.iso", "titre": "Sonic Generations", "console": "x360", "support": "boite"},
+    ]
+    trente = [
+        {"key": f"{n}.iso", "name": f"Jeu {n}", "console": "wii", "art": False} for n in range(30)
+    ]
+    assert [j["cle"] for j in (await _rayon({"jeux": trente}))["rayon"]] == [
+        f"{n}.iso" for n in range(30)
+    ]
+    assert (await _rayon({"jeux": None}))["rayon"] == []
+
+
+@AVEC_NODE
+async def test_la_pile_compte_les_envois_pas_encore_ranges() -> None:
+    """La pile : un envoi arrêté ou en vérification y est, un envoi fini ou
+    refusé n'y est pas. La phrase s'accorde, et se tait à zéro."""
+    envois = [
+        {"etat": "envoi"},
+        {"etat": "verification"},
+        {"etat": "termine"},
+        {"etat": "erreur"},
+        {"etat": "envoi"},
+    ]
+    dit = await _rayon({"jeux": [], "envois": envois, "piles": [0, 1, 3]})
+    assert dit["pile"] == 3
+    assert dit["phrases"] == [
+        "",
+        "Sur la pile : 1 envoi pas encore rangé.",
+        "Sur la pile : 3 envois pas encore rangés.",
+    ]
+
+
+async def test_la_rangee_porte_le_decor_de_la_scene_depot(client: httpx.AsyncClient) -> None:
+    """La scène « depot » d'Aïn demande `depot`, `depot-mot`, `place-libre`
+    et les sols `etagere-haut` et `etagere-bas` (ADR D46) : sans eux, elle
+    se repliait sur la pose clé. Les sols ne contiennent rien : le
+    planificateur exempte ce qui est dedans."""
+    page = (await client.get("/importer")).text
+    for marque in (
+        'data-ancre="depot"',
+        'data-ancre="depot-mot"',
+        '<div class="rayon-planche" data-sol="etagere-haut" aria-hidden="true"></div>',
+        '<div class="rayon-sol" data-sol="etagere-bas" aria-hidden="true"></div>',
+    ):
+        assert page.count(marque) == 1, marque
+    module = MODULE.read_text(encoding="utf-8")
+    assert 'libre.dataset.ancre = "place-libre";' in module
+    assert re.search(r'<section class="rayon" id="rayon" hidden', page)

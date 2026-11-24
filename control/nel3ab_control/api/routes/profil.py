@@ -16,9 +16,10 @@ from anyio import to_thread
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
 
+from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.profil import Carnet
 from nel3ab_control.api.controllers.salons import Salons
-from nel3ab_control.api.routes import bobine, retro
+from nel3ab_control.api.routes import retro
 from nel3ab_control.api.routes.accueil import faces, regie
 from nel3ab_control.api.schemas.profil import Emplacement, JeuProfil, PageParties, Profil
 from nel3ab_control.catalogue import freshest
@@ -45,9 +46,18 @@ def _qui(caller: tuple[str, str] | None) -> tuple[str, str]:
 
 
 def _assembler(
-    login: str, settings: Settings, parties: Parties, ouvertes: dict[str, float]
+    login: str,
+    settings: Settings,
+    parties: Parties,
+    ouvertes: dict[str, float],
+    noms: dict[str, str] | None,
 ) -> Carnet:
-    """Tout ce que le carnet lit sur le disque, sur un fil."""
+    """Tout ce que le carnet lit sur le disque, sur un fil.
+
+    Les fichiers des autres aussi quand `noms` est donné, pour le carnet commun
+    (D12): le contrôleur n'en rend que des pseudos. Seule la liste des parties
+    les montre; les autres lectures ne les ouvrent pas.
+    """
     trouvees = trouver(login, settings.personal_save_root, racines(settings))
     catalogue = freshest(settings.salles_dir)
     jeux = (
@@ -64,16 +74,30 @@ def _assembler(
         ouvertes=ouvertes,
         sauvegardes=[(trouvee, mesurer(trouvee)) for trouvee in trouvees],
         catalogue=jeux,
+        autres=parties.tous() if noms is not None else None,
+        noms=noms,
     )
 
 
-async def _carnet(login: str, settings: Settings, parties: Parties, salons: Salons) -> Carnet:
+async def _carnet(
+    login: str,
+    settings: Settings,
+    parties: Parties,
+    salons: Salons,
+    people: PeopleController | None = None,
+) -> Carnet:
     # Les places ouvertes sont lues ICI, sur la boucle qui les tient, puis
-    # passées au fil: il ne touche à rien de ce que la salle modifie.
+    # passées au fil: il ne touche à rien de ce que la salle modifie. Celles de
+    # tout le monde, pour le carnet commun: leurs `id` ne disent rien d'une adresse.
     ouvertes: dict[str, float] = {}
     for _numero, rooms in salons.eveilles():
-        ouvertes.update(rooms.tablee.ouvertes(login))
-    return await to_thread.run_sync(_assembler, login, settings, parties, ouvertes)
+        ouvertes.update(rooms.tablee.toutes())
+    noms = (
+        {empreinte(qui): nom for qui, nom in people.connus().items()}
+        if people is not None
+        else None
+    )
+    return await to_thread.run_sync(_assembler, login, settings, parties, ouvertes, noms)
 
 
 @router.get("/profil", response_model=Profil)
@@ -102,6 +126,7 @@ async def read_my_games(
 @router.get("/parties", response_model=PageParties)
 async def read_my_plays(
     caller: CallerDep,
+    people: PeopleDep,
     settings: SettingsDep,
     parties: PartiesDep,
     salons: SalonsDep,
@@ -114,9 +139,9 @@ async def read_my_plays(
     ] = None,
     limite: Annotated[int, Query(ge=1, le=LIMITE_MAX)] = 50,
 ) -> PageParties:
-    """Mes parties, de la plus récente à la plus ancienne."""
+    """Mes parties, de la plus récente à la plus ancienne, avec qui j'ai joué (D12)."""
     login, _ = _qui(caller)
-    carnet = await _carnet(login, settings, parties, salons)
+    carnet = await _carnet(login, settings, parties, salons, people)
     try:
         return carnet.parties(avant, limite)
     except KeyError as error:
@@ -140,14 +165,13 @@ async def read_my_saves(
     return (await _carnet(login, settings, parties, salons)).emplacements()
 
 
-#: La page, garnie une fois au démarrage: polices, régie, thème rétro et Bobine.
+#: La page, garnie une fois au démarrage: polices, régie, et le thème rétro
+#: avec le paquet du salon (Aïn, ADR D41).
 PAGE = retro.garnir(
-    bobine.garnir(
-        (Path(__file__).parent / "profil.html")
-        .read_text(encoding="utf-8")
-        .replace("/*__POLICES__*/", faces())
-        .replace("/*__REGIE__*/", regie())
-    )
+    (Path(__file__).parent / "profil.html")
+    .read_text(encoding="utf-8")
+    .replace("/*__POLICES__*/", faces())
+    .replace("/*__REGIE__*/", regie())
 )
 
 

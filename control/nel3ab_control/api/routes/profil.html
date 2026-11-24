@@ -3,323 +3,162 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab · carnet de jeu</title>
+<title><!--MOT:carnet.onglet--></title>
 <!--RETRO:EN-TETE-->
+<!--RETRO:MOTS-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
-     LE CARNET DE JEU. Pas un tableau de bord: une étagère de salon.
+     TON CARNET (ADR D41, D44). Le tableau des dernières parties d'une borne
+     d'arcade (effet « scores »), groupé par soirée; puis tes sauvegardes, et
+     ton étiquette. La proposition « Scotch et feutre » du 22 novembre 2026
+     sans son thème: plus d'étagère, plus de compteur à tambours, plus de
+     bulle; le temps de jeu est dans la phrase du haut.
 
-     Chaque jeu joué est une tranche rangée sur une planche, comme les
-     boîtiers et les cartouches qu'on alignait sous la télévision. La
-     tranche s'épaissit avec le temps de jeu, et sa forme dit le support:
-     un boîtier de disque, une cartouche striée, une carte. Une sauvegarde
-     à soi est une carte mémoire posée devant, avec sa date et ses versions. Un jeu joué chez quelqu'un d'autre est une
-     tranche sans carte: la partie s'est écrite dans SA sauvegarde. Le temps
-     total roule une fois sur un compteur mécanique, celui des
-     magnétoscopes.
-
-     Même régie que l'accueil et la salle (`front/src/regie.css`, posée au
-     démarrage du salon): graphite la nuit, craie le jour. Departure n'a
-     que des capitales, des chiffres et quelques signes: tout ce qui porte
-     un accent ou une minuscule est en Anybody.
-
-     Seules `transform` et `opacity` bougent, et `prefers-reduced-motion`
-     arrête tout en bas de cette feuille. Aucune requête ne sort de la
-     machine: polices et dessins sont dans la page.
+     Même régie que l'accueil et la salle (`front/src/regie.css`). Aucune
+     requête ne sort de la machine: polices et dessins sont dans la page.
      ───────────────────────────────────────────────────────────────── */
   /*__POLICES__*/
-  /*__BOBINE__*/
   /*__REGIE__*/
   /* Les effets rétro, communs à la salle et au salon (`front/src/effets.css`). */
   /*__EFFETS__*/
-
-  /* L'étagère, les boîtiers, le compteur et les cartes mémoire sont des
-     OBJETS: ils gardent leurs couleurs d'objet dans les deux thèmes, comme
-     les manettes dessinées de la salle, et prennent pour cela les primitives
-     de la régie plutôt que ses rôles. Un boîtier sombre se lit sur la craie
-     comme sur le graphite; un texte de page posé dessus, non. */
-  :root {
-    --bois: #6d4f2f;
-    --bois-clair: #8a6a43;
-    --bois-ombre: #3c2a17;
-    --objet: #2c3038;
-    --objet-encre: var(--mire-blanc);
-    --objet-legende: var(--marine-400);
-    /* Les bandes de console, une par `rang` du manifeste. Elles étaient sept
-       teintes (violet, cyan, corail, vert, jaune, magenta, craie): le cyan
-       était aussi la salle 2 de l'accueil, le corail de la Switch voisinait
-       le rouge du joueur 1. Une teinte, un sens: les quatre couleurs de
-       joueur ne servent qu'aux joueurs. La console se lit à son nom sur la
-       fiche, et le support à la forme de la tranche et au motif de sa
-       bande. Le script lit encore `--c0` à `--c6`. */
-    --c0: var(--objet-encre);
-    --c1: var(--objet-encre);
-    --c2: var(--objet-encre);
-    --c3: var(--objet-encre);
-    --c4: var(--objet-encre);
-    --c5: var(--objet-encre);
-    --c6: var(--objet-encre);
-  }
+  /*__SALON__*/
   * { box-sizing: border-box; }
-  /* `geometricPrecision`: sans lui, Chrome sous Linux dessine le « é » des
-     sous-ensembles Anybody SANS son accent sous une vingtaine de pixels
-     (relevé le 21 novembre 2026 sur une capture à 17 px: « epaisse »,
-     « Benoit »). L'accent grave, lui, restait. Désactiver le calage des
-     contours sur la grille rend l'accent. */
-  body {
-    margin: 0; min-height: 100vh;
-    background: var(--fond); color: var(--encre);
-    text-rendering: geometricPrecision;
-    font: 400 17px/1.5 var(--police-texte);
-    padding: clamp(1rem, 2.5vh, 2rem) clamp(1rem, 3vw, 3rem);
-  }
-  .carnet { width: 100%; max-width: 1200px; margin-inline: auto;
-            display: flex; flex-direction: column; gap: clamp(1.6rem, 4vh, 2.8rem); }
-  a { color: inherit; }
+  body { margin: 0; min-height: 100vh; background: var(--fond); color: var(--encre);
+         font: 400 18px/1.5 var(--police-texte);
+         padding: clamp(.75rem, 2.5vh, 2rem) clamp(1rem, 3vw, 3rem); }
+  .page { width: 100%; max-width: 1100px; margin-inline: auto;
+          display: flex; flex-direction: column; gap: clamp(1rem, 2.4vh, 1.8rem); }
   :focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
+  [hidden] { display: none !important; }
 
-  /* ── Le rail, comme à l'accueil ─────────────────────────────────── */
-  .rail { display: flex; align-items: baseline; gap: 1.2rem; flex-wrap: wrap;
-          border-bottom: 2px solid var(--trait); padding-bottom: .7rem; }
-  /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon
-     depuis `front/src/lib/logo.ts`. Centré sur la ligne: un dessin n'a pas
-     de ligne de base. */
-  .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
-            --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
-  .rail-fait { font-family: var(--police-machine); letter-spacing: .14em; color: var(--legende);
-               font-size: clamp(13px, 1.2vw, 16px); }
-  .rail a { margin-left: auto; color: var(--legende); text-decoration: none; }
-  .rail a:hover { color: var(--encre); }
-
-  .etiquette { font: 700 clamp(13px, 1.2vw, 15px)/1.2 var(--police-texte); letter-spacing: .2em;
-               text-transform: uppercase; color: var(--legende); margin: 0 0 .9rem; }
-  .legende { color: var(--legende); font-size: clamp(14px, 1.3vw, 16px); margin: 0; }
-
-  /* ── Bobine dit bonjour ─────────────────────────────────────────── */
-  .bonjour { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 1rem; }
-  .bob-place { width: 76px; }
-  .bob-place .bob { width: 76px; height: auto; }
-  .bulle { position: relative; background: var(--plaque); border: 2px solid var(--trait);
-           padding: .9rem 1.2rem; min-width: 0; margin-bottom: 1.4rem;
-           animation: bulle .45s .25s cubic-bezier(.2, .8, .3, 1.2) both; }
-  .bulle::before { content: ""; position: absolute; left: -11px; bottom: 14px;
-                   width: 18px; height: 18px; background: var(--plaque);
-                   border-left: 2px solid var(--trait); border-bottom: 2px solid var(--trait);
-                   transform: rotate(45deg); }
-  .bulle h1 { font: 700 clamp(24px, 3.4vw, 40px)/1.1 var(--police-texte); margin: 0 0 .3rem;
-              overflow-wrap: anywhere; }
-  @keyframes bulle { from { opacity: 0; transform: translateY(8px) scale(.96); } }
-
-  /* ── Le compteur mécanique ──────────────────────────────────────── */
-  .compteur { background: var(--creux); border: 2px solid var(--trait); padding: 1.1rem clamp(.8rem, 2vw, 1.4rem); }
-  .tambours { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-              font: 400 clamp(38px, 8vw, 84px)/1 var(--police-machine); }
-  /* Une fenêtre d'un chiffre, et derrière elle un rouleau de vingt: le
-     tambour fait un tour complet avant de s'arrêter sur le sien. */
-  .tambour { --pas: 1.12em; display: inline-block; height: var(--pas); width: .78em; overflow: hidden;
-             background: linear-gradient(#0b0c0f, #23272e 45%, #23272e 55%, #0b0c0f);
-             border: 2px solid #2d3138; border-radius: 3px; position: relative; }
-  .tambour::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-                    background: linear-gradient(rgba(0,0,0,.55), transparent 30%, transparent 70%, rgba(0,0,0,.55)); }
-  .rouleau { display: flex; flex-direction: column; text-align: center;
-             transform: translateY(calc(var(--cran, 0) * var(--pas) * -1));
-             transition: transform calc(900ms + var(--rang, 0) * 160ms) cubic-bezier(.22, .9, .3, 1.04); }
-  .rouleau span { height: var(--pas); line-height: var(--pas); color: var(--objet-encre); }
-  .tambour[data-unite] { width: auto; background: none; border: 0; }
-  .unite { font-size: .36em; letter-spacing: .1em; color: var(--legende); padding: 0 .35em 0 .15em;
-           align-self: flex-end; margin-bottom: .2em; }
-  .totaux { margin: .8rem 0 0; color: var(--legende); }
-  .totaux strong { color: var(--encre); font-weight: 600; }
-
-  /* ── L'étagère ──────────────────────────────────────────────────── */
-  /* Les rangées ont toutes la même hauteur, et la planche est un dégradé
-     qui se répète à cette hauteur: chaque rangée a sa planche sans en compter. */
-  .etagere { --rangee: 268px; --planche: 14px;
-             display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 5px;
-             padding: 0 12px; min-height: var(--rangee);
-             background:
-               repeating-linear-gradient(to bottom,
-                 transparent 0 calc(var(--rangee) - var(--planche)),
-                 var(--bois-clair) calc(var(--rangee) - var(--planche)) calc(var(--rangee) - var(--planche) + 3px),
-                 var(--bois) calc(var(--rangee) - var(--planche) + 3px) calc(var(--rangee) - 4px),
-                 var(--bois-ombre) calc(var(--rangee) - 4px) var(--rangee)),
-               linear-gradient(90deg, var(--marine-975), #181b20 50%, var(--marine-975));
-             border-left: 6px solid var(--bois-ombre); border-right: 6px solid var(--bois-ombre); }
-  .case { height: var(--rangee); padding: 0 6px var(--planche) 0; display: flex; align-items: flex-end;
-          position: relative; }
-  .tranche { --bande: var(--c6); --epaisseur: 28px; --haut: 232px;
-             position: relative; width: var(--epaisseur); height: var(--haut);
-             display: flex; flex-direction: column; align-items: center;
-             padding: 0; border: 0; cursor: pointer; color: var(--objet-encre);
-             background: linear-gradient(90deg, #2a2e35, #363b44 40%, #2a2e35);
-             box-shadow: inset 0 0 0 1px #0b0c0f;
-             border-radius: 3px 3px 1px 1px;
-             transform-origin: 50% 100%;
-             animation: range .55s cubic-bezier(.2, .8, .3, 1.1) both;
-             animation-delay: calc(240ms + var(--rang, 0) * 55ms); }
-  .tranche:hover, .tranche[aria-expanded="true"] { transform: translateY(-10px); }
-  /* La tranche prise est SÉLECTIONNÉE: le signal, dans sa valeur de nuit
-     (le jaune de la mire) puisque le boîtier reste sombre dans les deux
-     thèmes. */
-  .tranche[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--mire-jaune); }
-  /* Un boîtier de disque: grand, coins arrondis. Une cartouche: plus
-     courte, le haut strié pour les doigts. Une carte: petite et mince. */
-  .tranche[data-media="cartridge"] { --haut: 184px; border-radius: 6px 6px 2px 2px;
-             background: repeating-linear-gradient(to bottom, #3a3f48 0 3px, #2a2e35 3px 6px) top / 100% 22px no-repeat,
-                         linear-gradient(90deg, #2a2e35, #363b44 40%, #2a2e35); }
-  .tranche[data-media="card"] { --haut: 156px; border-radius: 2px; }
-  .tranche[data-chez="oui"] { background: repeating-linear-gradient(135deg, #23272e 0 6px, #2b3038 6px 12px);
-                              box-shadow: inset 0 0 0 1px var(--trait); }
-  .tranche-bande { width: 100%; height: 14px; background: var(--bande); border-radius: 3px 3px 0 0; flex: none; }
-  /* Le motif de la bande redit le support, pour qui ne compare pas les
-     hauteurs: plein pour un disque, rayé pour une cartouche, pointillé pour
-     une carte. */
-  .tranche[data-media="cartridge"] .tranche-bande { margin-top: 22px; border-radius: 0;
-    background: repeating-linear-gradient(90deg, var(--bande) 0 4px, transparent 4px 7px); }
-  .tranche[data-media="card"] .tranche-bande {
-    background: radial-gradient(circle, var(--bande) 0 2px, transparent 2.5px) 0 0 / 7px 7px; }
-  .tranche-titre { writing-mode: vertical-rl; transform: rotate(180deg); flex: 1; min-height: 0;
-                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-                   font: 600 clamp(11px, calc(var(--epaisseur) * .36), 15px)/1 var(--police-texte);
-                   padding: 8px 0; letter-spacing: .02em; }
-  /* La carte mémoire glissée devant la tranche: il y a une sauvegarde à soi. */
-  /* Une petite carte mémoire appuyée contre le bas de la tranche: un coin
-     coupé, une étiquette claire. Assez grande pour se voir à côté d'une
-     tranche mince. */
-  .tranche-carte { position: absolute; bottom: -4px; right: -9px; width: 22px; height: 28px;
-                   transform: rotate(8deg); background: var(--objet);
-                   border-top: 5px solid var(--bande);
-                   clip-path: polygon(0 0, 68% 0, 100% 24%, 100% 100%, 0 100%); z-index: 1; }
-  .tranche-carte::after { content: ""; position: absolute; left: 4px; right: 5px; top: 5px; height: 8px;
-                          background: var(--objet-encre); }
-  .tranche-enCours { position: absolute; top: 20px; right: 4px; width: 7px; height: 7px; border-radius: 50%;
-                     background: #63d28f; animation: diode 1.6s ease-in-out infinite; }
-  @keyframes range { from { opacity: 0; transform: translateY(-36px) rotate(-5deg); } }
-  @keyframes diode { 50% { opacity: .25; } }
-  .etagere-vide { width: 100%; align-self: center; padding: 2.4rem 0; text-align: center; color: var(--objet-legende); }
-
-  /* La fiche d'un jeu, sous l'étagère, quand on prend sa tranche. */
-  .fiche { margin-top: 1rem; background: var(--plaque); border-left: var(--barre-etat) solid var(--encre);
-           padding: 1rem 1.2rem; animation: glisse .35s cubic-bezier(.2, .8, .3, 1) both; }
-  .fiche[hidden] { display: none; }
-  .fiche h3 { font: 700 clamp(20px, 2.6vw, 30px)/1.15 var(--police-texte); margin: 0 0 .2rem; overflow-wrap: anywhere; }
-  .fiche ul { margin: .6rem 0 0; padding-left: 1.1rem; }
-  .fiche li { margin: .15rem 0; }
-  .console-mot { font-family: var(--police-machine); letter-spacing: .14em; color: var(--legende); font-size: 13px; }
-  @keyframes glisse { from { opacity: 0; transform: translateY(10px); } }
-
-  /* ── Les cartes mémoire ─────────────────────────────────────────── */
-  .cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 14px; }
-  /* Le contour d'une carte mémoire GameCube: un coin coupé, une encoche
-     à droite, et l'étiquette collée au milieu. */
-  .carte { --bande: var(--c6); position: relative; background: var(--objet); min-height: 168px;
-           padding: 14px 16px 14px 18px; display: flex; flex-direction: column; gap: .35rem;
-           clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 62%, calc(100% - 7px) 66%, calc(100% - 7px) 78%, 100% 82%, 100% 100%, 0 100%);
-           border-top: 8px solid var(--bande);
-           animation: glisse .45s cubic-bezier(.2, .8, .3, 1) both;
-           animation-delay: calc(400ms + var(--rang, 0) * 70ms); }
-  .carte-etiquette { background: var(--objet-encre); color: var(--marine-950); padding: .45rem .6rem; }
-  .carte-etiquette strong { display: block; font: 700 16px/1.2 var(--police-texte); overflow-wrap: anywhere; }
-  .carte-etiquette span { font-size: 13px; }
-  .carte p { margin: 0; font-size: 14px; color: var(--objet-legende); }
-  .carte p strong { color: var(--objet-encre); font-weight: 600; }
-  .cartes-vide { color: var(--legende); }
-
-  /* ── Les dernières parties: un relevé de bande ──────────────────── */
-  .parties { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--trait); }
-  .parties li { display: grid; grid-template-columns: minmax(92px, 9rem) 1fr auto; gap: .2rem 1rem;
-                padding: .65rem 0; border-bottom: 1px solid var(--filet); align-items: baseline; }
-  .partie-quand { font-family: var(--police-machine); font-size: 13px; letter-spacing: .06em; color: var(--legende); }
-  .partie-jeu { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-  .partie-jeu small { display: block; font-weight: 400; color: var(--legende); font-size: 14px; }
-  .partie-duree { font-family: var(--police-machine); font-size: 14px; text-align: right; white-space: nowrap; }
-  .partie-duree[data-inconnue="oui"] { color: var(--legende); }
-  #plus { margin-top: 1rem; font: 600 16px var(--police-texte); padding: .6rem 1.2rem; min-height: 48px;
-          background: transparent; color: var(--encre); border: 2px solid var(--trait); cursor: pointer; }
-  #plus:hover { border-color: var(--encre); }
-  #plus[hidden] { display: none; }
-
-  .sans-identite[hidden], .avec-identite[hidden] { display: none; }
+  h1 { margin: 0; font-family: var(--police-titre); font-weight: 400; font-size: clamp(26px, 3.6vw, 44px); line-height: 1.1; }
+  h2 { margin: 0 0 .6rem; font-family: var(--police-titre); font-weight: 400; font-size: clamp(18px, 1.8vw, 24px);
+       text-transform: uppercase; letter-spacing: .06em; }
+  .phrase { margin: .3rem 0 0; font-size: clamp(16px, 1.6vw, 20px); font-variant-numeric: tabular-nums; }
+  .legende { margin: 0; color: var(--legende); font-size: clamp(14px, 1.3vw, 17px); }
   .erreur { color: var(--alerte); }
+  .plein, .cadre { cursor: pointer; border-radius: var(--rayon); font-family: var(--police-titre);
+                   display: inline-flex; align-items: center; text-decoration: none; }
+  .plein { min-height: 52px; padding: .6rem 1.6rem; font-size: clamp(16px, 1.6vw, 20px);
+           color: var(--bouton-plein-encre); background: var(--bouton-plein-fond);
+           border: 2px solid var(--bouton-plein-fond); }
+  .plein:hover { background: var(--bouton-plein-survol); }
+  .cadre { min-height: 44px; padding: .4rem 1.1rem; font-size: clamp(14px, 1.3vw, 17px);
+           color: var(--bouton-cadre-encre); background: transparent; border: 2px solid var(--bouton-cadre-trait); }
+  .cadre:hover:not(:disabled) { background: var(--survol); }
+  .cadre:disabled { opacity: .6; cursor: not-allowed; }
 
-  @media (max-width: 620px) {
-    .bob-place, .bob-place .bob { width: 58px; }
-    .parties li { grid-template-columns: 1fr auto; }
-    .partie-quand { grid-column: 1 / -1; }
-    .etagere { --rangee: 236px; padding: 0 6px; }
-    .tranche { --haut: 204px; }
-    .tranche[data-media="cartridge"] { --haut: 162px; }
-    .tranche[data-media="card"] { --haut: 138px; }
-  }
-  /* Rien ici n'est nécessaire pour comprendre la page: sans mouvement, le
-     compteur affiche directement son chiffre et les tranches sont rangées. */
+  /* ── Le tableau DERNIÈRES PARTIES (effet « scores ») ───────────────── */
+  /* Une règle sous le titre: Aïn y range la soirée (scène « range »). */
+  .regle { height: 2px; background: var(--trait); margin: 0 0 .4rem; }
+  .table-boite { overflow-x: auto; }
+  table.scores { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.scores th, table.scores td { padding: .45rem .6rem; text-align: left; vertical-align: top; }
+  table.scores thead th { font-family: var(--police-titre); font-weight: 400; color: var(--legende);
+                          font-size: 14px; border-bottom: 2px solid var(--trait); }
+  table.scores tbody th { font-family: var(--police-titre); font-weight: 400; padding-top: 1rem;
+                          color: var(--signal); border-bottom: 1px solid var(--trait); }
+  table.scores td { border-bottom: 1px solid var(--filet); }
+  .jeu-titre { font-weight: 700; }
+  .jeu-console, .partie-avec { display: block; color: var(--legende); font-size: 14px; }
+  .partie-avec { color: var(--encre); }
+  .duree { font-family: var(--police-machine); letter-spacing: .06em; white-space: nowrap; }
+  .duree[data-inconnue="oui"] { color: var(--legende); }
+  /* La partie que cet appareil n'avait pas encore vue s'allume une fois. */
+  .fx-arrive tr[data-nouvelle] td { animation: rt-allumage .6s steps(3, end) 1; }
+  #plus { margin-top: .8rem; }
+
+  /* ── Tes sauvegardes ───────────────────────────────────────────────── */
+  .sauvegardes { margin: 0; padding: 0; list-style: none; display: grid; gap: .4rem; }
+  .sauvegardes li { padding: .5rem .7rem; background: var(--plaque); border-left: 4px solid var(--trait); }
+
+  /* ── Ton étiquette, et la boîte qui la change ──────────────────────── */
+  .ton-nom { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; }
+  .ton-nom .etiquette { font-size: 1.1rem; }
+  dialog { max-width: min(32rem, calc(100vw - 2rem)); padding: 1.2rem 1.4rem; color: var(--encre);
+           background: var(--plaque); border: 2px solid var(--trait); border-radius: var(--rayon); }
+  dialog::backdrop { background: color-mix(in srgb, var(--noir) 60%, transparent); }
+  dialog form { display: flex; flex-direction: column; gap: .8rem; }
+  dialog label { font-family: var(--police-titre); }
+  dialog input { min-height: 44px; font: inherit; padding: .3rem .6rem; color: var(--encre);
+                 background: var(--champ-fond); border: 2px solid var(--champ-trait); border-radius: var(--rayon); }
+  .boutons { display: flex; flex-wrap: wrap; gap: .6rem; }
+  .boutons .plein { min-height: 44px; font-size: 16px; padding: .4rem 1.2rem; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
-    .tranche:hover, .tranche[aria-expanded="true"] { transform: none; }
   }
 </style>
 </head>
-<body>
-  <main class="carnet">
-    <nav class="rail" aria-label="nel3ab">
-      <span class="marque"><!--RETRO:LOGO--></span>
-      <span class="rail-fait">CARNET DE JEU</span>
-      <a href="/">revenir aux salles</a>
-    </nav>
+<body class="rt-pointeur">
+  <main class="page">
+    <header class="entete">
+      <!--RETRO:BANDEAU /profil-->
+    </header>
 
-    <section class="bonjour" aria-live="polite">
-      <div class="bob-place">
-        <span id="bob-salue"><!--BOBINE:aucune:salue--></span>
-        <span id="bob-loupe" hidden><!--BOBINE:loupe:loupe--></span>
-      </div>
-      <div class="bulle">
-        <h1 id="bonjour">On ouvre ton carnet…</h1>
-        <p class="legende" id="depuis"></p>
-      </div>
+    <section aria-labelledby="bonjour">
+      <h1 id="bonjour"><!--MOT:entete.carnet--></h1>
+      <p class="phrase" id="depuis"><!--MOT:carnet.ouvre--></p>
+      <p class="legende" id="aussi"></p>
+      <a class="plein" id="voir-salles" href="/" hidden><!--MOT:carnet.voirSalles--></a>
     </section>
 
-    <div class="avec-identite" id="avec" hidden>
-      <section class="compteur" aria-labelledby="titre-compteur">
-        <h2 class="etiquette" id="titre-compteur">Temps de jeu</h2>
-        <div class="tambours" id="tambours" role="img"></div>
-        <p class="totaux" id="totaux"></p>
+    <div id="avec" hidden>
+      <section aria-labelledby="titre-parties">
+        <h2 id="titre-parties"><!--MOT:carnet.dernieres--></h2>
+        <div class="regle" data-ancre="regle-carnet"></div>
+        <div class="table-boite">
+          <table class="scores rt-scores" id="parties">
+            <thead><tr><th scope="col"><!--MOT:carnet.quand--></th><th scope="col"><!--MOT:carnet.jeu--></th>
+              <th scope="col"><!--MOT:carnet.duree--></th><th scope="col"><!--MOT:carnet.lanceePar--></th>
+              <th scope="col"><!--MOT:carnet.sauvegarde--></th></tr></thead>
+          </table>
+        </div>
+        <p class="legende" id="aucune" hidden><!--MOT:carnet.aucune--></p>
+        <button class="cadre" id="plus" type="button" hidden><!--MOT:carnet.plusAnciennes--></button>
       </section>
 
-      <section aria-labelledby="titre-etagere" style="margin-top: clamp(1.6rem, 4vh, 2.8rem)">
-        <h2 class="etiquette" id="titre-etagere">L'étagère</h2>
-        <p class="legende" style="margin-bottom: 1rem">
-          Une tranche par jeu, plus épaisse quand tu y as joué longtemps. Une carte
-          mémoire devant la tranche : ce jeu a une sauvegarde à toi. Une tranche hachurée :
-          tu y as joué chez quelqu'un, dans sa sauvegarde.
-        </p>
-        <div class="etagere" id="etagere"></div>
-        <div class="fiche" id="fiche" hidden></div>
+      <section aria-labelledby="titre-sauvegardes" style="margin-top: clamp(1.4rem, 3vh, 2.4rem)">
+        <h2 id="titre-sauvegardes"><!--MOT:carnet.sauvegardes--></h2>
+        <ul class="sauvegardes" id="sauvegardes"></ul>
       </section>
 
-      <section aria-labelledby="titre-cartes" style="margin-top: clamp(1.6rem, 4vh, 2.8rem)">
-        <h2 class="etiquette" id="titre-cartes">Tes cartes mémoire</h2>
-        <div class="cartes" id="cartes"></div>
-      </section>
-
-      <section aria-labelledby="titre-parties" style="margin-top: clamp(1.6rem, 4vh, 2.8rem)">
-        <h2 class="etiquette" id="titre-parties">Tes dernières parties</h2>
-        <ol class="parties" id="parties"></ol>
-        <button id="plus" type="button" hidden>voir les plus anciennes</button>
+      <section aria-labelledby="titre-nom" style="margin-top: clamp(1.4rem, 3vh, 2.4rem)">
+        <h2 id="titre-nom"><!--MOT:carnet.etiquette--></h2>
+        <div class="ton-nom">
+          <span class="etiquette" id="etiquette"></span>
+          <button class="cadre" id="changer-nom" type="button"><!--MOT:entete.changerNom--></button>
+        </div>
       </section>
     </div>
   </main>
 
+  <dialog id="nom" aria-labelledby="nom-titre">
+    <form method="dialog" id="nom-forme">
+      <h2 id="nom-titre"><!--MOT:entete.changerNom--></h2>
+      <label for="nom-champ"><!--MOT:carnet.nomChamp--></label>
+      <input id="nom-champ" name="nom" maxlength="32" autocomplete="nickname" required>
+      <p class="legende"><!--MOT:carnet.etiquetteApercu--> <span class="etiquette" id="nom-apercu"></span></p>
+      <p class="legende erreur" id="nom-erreur" role="alert" hidden></p>
+      <div class="boutons">
+        <button class="plein" type="submit" value="garder"><!--MOT:carnet.garder--></button>
+        <button class="cadre" type="button" id="nom-annuler"><!--MOT:carnet.annuler--></button>
+      </div>
+    </form>
+  </dialog>
+
+<!--RETRO:AIN-->
 <script>
   // Tout ce que la page écrit passe par textContent: un pseudo ou un titre ne
   // devient jamais du HTML, même s'il en contient.
   const $ = (id) => document.getElementById(id);
   const ZONE = "Europe/Paris";
-  const jour = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: ZONE });
-  const court = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: ZONE });
+  const jour = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: ZONE });
+  const soiree = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: ZONE });
   const heure = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: ZONE });
-  const BANDES = 7;
-  let mouvement = true;
-  try { mouvement = !matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { mouvement = true; }
+  const ain = (quoi) => { try { window.nel3abAin?.scene(quoi); } catch {} };
+  /** Les mots de la page (`mots.ts`, posés par `retro.py`). */
+  const mots = window.nel3abMots;
 
   function el(tag, classe, texte) {
     const noeud = document.createElement(tag);
@@ -327,209 +166,167 @@
     if (texte !== undefined) noeud.textContent = texte;
     return noeud;
   }
+  const deux = (n) => String(n).padStart(2, "0");
 
+  /** « 17 h 02 », « 12 min », « moins d'une minute ». */
   function duree(secondes) {
-    if (secondes < 60) return "moins d'une minute";
+    if (secondes < 60) return mots("commun.moinsDUneMinute");
     const minutes = Math.floor(secondes / 60);
     if (minutes < 60) return `${minutes} min`;
-    return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")}`;
+    return `${Math.floor(minutes / 60)} h ${deux(minutes % 60)}`;
   }
-
-  /** « 1 partie », « 3 parties », « 2 jeux »: le pluriel est donné, pas deviné. */
-  function compte(n, un, plusieurs) { return `${n} ${n > 1 ? plusieurs : un}`; }
-  /** Pareil, mais zéro se dit « aucune ». */
-  function aucune(n, un, plusieurs) { return n === 0 ? `aucune ${un}` : compte(n, un, plusieurs); }
-
-  function bande(console) {
-    return typeof console.rang === "number" ? `var(--c${console.rang % BANDES})` : "var(--c6)";
+  /** La durée d'une partie en chiffres d'afficheur: 4 360 s s'écrit 01:12:40. */
+  function afficheur(secondes) {
+    return `${deux(Math.floor(secondes / 3600))}:${deux(Math.floor(secondes / 60) % 60)}:${deux(secondes % 60)}`;
   }
-
+  /** « 1 partie », « 3 parties »: le pluriel est donné, pas deviné. */
+  function compte(n, un, plusieurs) { return mots(n > 1 ? plusieurs : un, { n }); }
   function octets(n) {
     const nombre = (x) => x.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
-    if (n < 1024) return `${n} octets`;
-    if (n < 1024 * 1024) return `${nombre(n / 1024)} Kio`;
-    return `${nombre(n / (1024 * 1024))} Mio`;
+    if (n < 1024) return mots("carnet.octets", { n });
+    if (n < 1024 * 1024) return `${nombre(n / 1024)} Ko`;
+    return `${nombre(n / (1024 * 1024))} Mo`;
   }
 
-  /** Le compteur: chaque chiffre est un tambour qui fait un tour, une fois. */
-  function compteur(secondes) {
-    const minutes = Math.floor(secondes / 60);
-    const heures = String(Math.floor(minutes / 60)).padStart(3, "0");
-    const reste = String(minutes % 60).padStart(2, "0");
-    const lieu = $("tambours");
-    lieu.replaceChildren();
-    lieu.setAttribute("aria-label", `${duree(secondes)} de jeu au total`);
-    const rouleaux = [];
-    let rang = 0;
-    const groupe = (chiffres, unite) => {
-      for (const chiffre of chiffres) {
-        const tambour = el("span", "tambour");
-        tambour.setAttribute("aria-hidden", "true");
-        const rouleau = el("span", "rouleau");
-        rouleau.style.setProperty("--rang", String(rang));
-        rang += 1;
-        for (let tour = 0; tour < 2; tour += 1) {
-          for (let n = 0; n < 10; n += 1) rouleau.append(el("span", "", String(n)));
-        }
-        tambour.append(rouleau);
-        lieu.append(tambour);
-        // Un tour complet, puis le bon chiffre: le cran 10 + chiffre.
-        rouleaux.push([rouleau, 10 + Number(chiffre)]);
-      }
-      const mot = el("span", "unite", unite);
-      mot.setAttribute("aria-hidden", "true");
-      lieu.append(mot);
-    };
-    groupe(heures, "H");
-    groupe(reste, "MIN");
-    const poser = () => { for (const [rouleau, cran] of rouleaux) rouleau.style.setProperty("--cran", String(cran)); };
-    if (!mouvement) { poser(); return; }
-    // Deux images: la première pose le rouleau à zéro, la seconde le lance.
-    requestAnimationFrame(() => requestAnimationFrame(poser));
+  /** La soirée d'une partie: une partie lancée à 1 h 30 appartient à la
+   * soirée de la veille. On recule de six heures avant de lire la date. */
+  const SIX_HEURES = 6 * 3600 * 1000;
+  function soireeDe(debut) {
+    const mot = soiree.format(new Date(new Date(debut).getTime() - SIX_HEURES));
+    return mot.charAt(0).toUpperCase() + mot.slice(1);
   }
 
-  /** Une tranche par jeu: l'épaisseur suit le temps de jeu, sans écraser les petits. */
-  function epaisseur(secondes) {
-    const minutes = secondes / 60;
-    return Math.round(Math.min(74, 22 + 9 * Math.log2(1 + minutes / 10)));
-  }
-
-  function fiche(jeu, bouton) {
-    const lieu = $("fiche");
-    for (const autre of document.querySelectorAll(".tranche[aria-expanded='true']")) {
-      if (autre !== bouton) autre.setAttribute("aria-expanded", "false");
-    }
-    const ouverte = bouton.getAttribute("aria-expanded") === "true";
-    bouton.setAttribute("aria-expanded", ouverte ? "false" : "true");
-    if (ouverte) { lieu.hidden = true; return; }
-    lieu.replaceChildren();
-    lieu.style.setProperty("--bande", bande(jeu.console));
-    lieu.append(el("span", "console-mot", jeu.console.label.toUpperCase()));
-    lieu.append(el("h3", "", jeu.titre));
-    const lignes = el("ul");
-    lignes.append(el("li", "", `${compte(jeu.parties, "partie", "parties")}, ${duree(jeu.secondes)} en tout${jeu.en_cours ? ", une en cours" : ""}.`));
-    lignes.append(el("li", "", jeu.parties > 1
-      ? `Première fois le ${jour.format(new Date(jeu.premiere_fois))}, dernière le ${jour.format(new Date(jeu.derniere_fois))}.`
-      : `Joué le ${jour.format(new Date(jeu.premiere_fois))}.`));
-    if (jeu.lancements > 0) lignes.append(el("li", "", `Lancé ${compte(jeu.lancements, "fois", "fois")} par toi.`));
-    for (const chez of jeu.chez) {
-      lignes.append(el("li", "", `Joué chez ${chez.pseudo} : ${compte(chez.parties, "partie", "parties")}, ${duree(chez.secondes)}. Elles se sont écrites dans sa sauvegarde, pas dans la tienne.`));
-    }
-    if (jeu.communes > 0) lignes.append(el("li", "", `${compte(jeu.communes, "partie", "parties")} sur « tout débloqué », la sauvegarde commune.`));
-    if (jeu.sauvegarde) {
-      const ecrite = jeu.sauvegarde.derniere_ecriture ? `écrite le ${jour.format(new Date(jeu.sauvegarde.derniere_ecriture))}` : "encore vide";
-      lignes.append(el("li", "", `Ta sauvegarde : ${ecrite}, ${aucune(jeu.sauvegarde.versions, "version précédente gardée", "versions précédentes gardées")}.`));
-    } else if (jeu.chez.length > 0 && jeu.lancements === 0) {
-      lignes.append(el("li", "", "Pas de sauvegarde à toi pour ce jeu."));
-    }
-    lieu.append(lignes);
-    lieu.hidden = false;
-  }
-
-  function etagere(jeux) {
-    const lieu = $("etagere");
-    lieu.replaceChildren();
-    if (jeux.length === 0) {
-      lieu.append(el("p", "etagere-vide", "L'étagère attend ton premier jeu."));
-      return;
-    }
-    jeux.forEach((jeu, rang) => {
-      const caseVide = el("div", "case");
-      const bouton = el("button", "tranche");
-      bouton.type = "button";
-      bouton.dataset.media = jeu.console.media ?? "disc";
-      const chezSeul = jeu.chez.length > 0 && !jeu.sauvegarde && jeu.lancements === 0;
-      bouton.dataset.chez = chezSeul ? "oui" : "non";
-      bouton.style.setProperty("--epaisseur", `${epaisseur(jeu.secondes)}px`);
-      bouton.style.setProperty("--bande", bande(jeu.console));
-      bouton.style.setProperty("--rang", String(rang));
-      bouton.setAttribute("aria-expanded", "false");
-      bouton.setAttribute("aria-controls", "fiche");
-      const qui = chezSeul ? `, joué chez ${jeu.chez.map((c) => c.pseudo).join(" et ")}` : "";
-      const carte = jeu.sauvegarde ? ", avec ta sauvegarde" : "";
-      bouton.setAttribute("aria-label", `${jeu.titre}, ${jeu.console.label}, ${duree(jeu.secondes)}${qui}${carte}`);
-      bouton.title = chezSeul ? `${jeu.titre} · joué chez ${jeu.chez[0].pseudo}` : jeu.titre;
-      bouton.append(el("span", "tranche-bande"), el("span", "tranche-titre", jeu.titre));
-      if (jeu.en_cours) bouton.append(el("span", "tranche-enCours"));
-      if (jeu.sauvegarde) bouton.append(el("span", "tranche-carte"));
-      bouton.addEventListener("click", () => fiche(jeu, bouton));
-      caseVide.append(bouton);
-      lieu.append(caseVide);
-    });
-  }
-
-  function cartes(emplacements) {
-    const lieu = $("cartes");
-    lieu.replaceChildren();
-    if (emplacements.length === 0) {
-      lieu.append(el("p", "cartes-vide", "Aucune sauvegarde à toi pour l'instant. Lance un jeu sur « ma sauvegarde » et elle apparaîtra ici."));
-      return;
-    }
-    emplacements.forEach((un, rang) => {
-      const carte = el("article", "carte");
-      carte.style.setProperty("--bande", bande(un.console));
-      carte.style.setProperty("--rang", String(rang));
-      const etiquette = el("div", "carte-etiquette");
-      etiquette.append(el("strong", "", un.titre), el("span", "", un.console.label));
-      carte.append(etiquette);
-      const s = un.sauvegarde;
-      const quand = el("p");
-      if (s.derniere_ecriture) {
-        const d = new Date(s.derniere_ecriture);
-        quand.append("Écrite le ", el("strong", "", jour.format(d)), ` à ${heure.format(d)}`);
-      } else {
-        quand.textContent = "Encore vide.";
-      }
-      carte.append(quand);
-      const versions = el("p");
-      versions.textContent = s.versions === 0
-        ? "Aucune version précédente gardée"
-        : compte(s.versions, "version précédente gardée", "versions précédentes gardées");
-      carte.append(versions);
-      if (s.copies > 0) carte.append(el("p", "", compte(s.copies, "copie automatique", "copies automatiques")));
-      carte.append(el("p", "", octets(s.octets)));
-      if (!un.relie) carte.append(el("p", "", "Jeu pas encore relié au catalogue."));
-      lieu.append(carte);
-    });
-  }
-
-  const OU = {
-    mienne: () => "ta sauvegarde",
-    du_lanceur: (p) => `chez ${p.lance_par ?? "quelqu'un"}, dans sa sauvegarde`,
-    commune: () => "sauvegarde commune « tout débloqué »",
-    neuve: () => "nouvelle partie partagée",
-    inconnue: () => "sauvegarde inconnue",
+  /** Le nom de la sauvegarde où la partie s'est écrite. */
+  const SAUVEGARDE = {
+    mienne: () => mots("carnet.perso"),
+    du_lanceur: (p) => mots("carnet.duLanceur", { de: mots.de(p.lance_par ?? mots("commun.quelquun")) }),
+    commune: () => mots("carnet.debloque"),
+    neuve: () => mots("carnet.neuve"),
+    inconnue: () => mots("carnet.inconnue"),
   };
 
+  /** « Ben », « Ben et Clara », « Ben, Clara et Dora ». */
+  const enListe = new Intl.ListFormat("fr", { type: "conjunction" });
+
+  /** Le carnet commun (D12, 24 novembre 2026): qui jouait avec toi, à quelle
+   * place, et qui regardait. Rien quand tu étais seul. */
+  function avecQui(partie) {
+    const avec = partie.avec ?? [];
+    const regardaient = partie.regardaient ?? [];
+    const phrases = [];
+    if (avec.length > 0) {
+      const joueurs = avec.map((un) => mots("carnet.joueur", { nom: un.nom, place: un.place }));
+      phrases.push(mots("carnet.avec", { noms: enListe.format(joueurs) }));
+    }
+    if (regardaient.length > 0)
+      phrases.push(mots(regardaient.length > 1 ? "carnet.ontRegarde" : "carnet.aRegarde",
+        { noms: enListe.format(regardaient) }));
+    return phrases.length > 0 ? el("small", "partie-avec", phrases.join(" ")) : null;
+  }
+
   function ligneDePartie(partie) {
-    const li = el("li");
-    li.append(el("span", "partie-quand", court.format(new Date(partie.debut)).replace(",", "")));
-    const jeu = el("span", "partie-jeu", partie.titre);
-    jeu.append(el("small", "", `salle ${partie.salle} · ${partie.console.label} · ${(OU[partie.sauvegarde] ?? OU.inconnue)(partie)}`));
-    li.append(jeu);
-    const temps = el("span", "partie-duree", partie.en_cours ? "en cours" : partie.complete ? duree(partie.secondes) : "durée inconnue");
+    const tr = el("tr", "partie");
+    tr.dataset.id = partie.id;
+    tr.append(el("td", "quand", heure.format(new Date(partie.debut))));
+    const jeu = el("td");
+    jeu.append(el("span", "jeu-titre", partie.titre),
+      el("span", "jeu-console", mots("carnet.consoleSalle", { console: partie.console.label, n: partie.salle })));
+    const avec = avecQui(partie);
+    if (avec) jeu.append(avec);
+    tr.append(jeu);
+    const temps = el("td", "duree", partie.en_cours ? mots("carnet.enCours")
+      : partie.complete ? afficheur(partie.secondes) : "--:--:--");
     temps.dataset.inconnue = partie.complete || partie.en_cours ? "non" : "oui";
-    li.append(temps);
-    return li;
+    if (!partie.complete && !partie.en_cours) temps.setAttribute("aria-label", mots("carnet.dureeInconnue"));
+    tr.append(temps);
+    tr.append(el("td", "lance-par", partie.lance_par ?? mots("carnet.toi")));
+    tr.append(el("td", "sauvegarde", (SAUVEGARDE[partie.sauvegarde] ?? SAUVEGARDE.inconnue)(partie)));
+    return tr;
+  }
+
+  /** Range des parties dans le tableau, une tête de groupe par soirée. Une
+   * page suivante continue le groupe de la dernière soirée lue. */
+  function ranger(parties) {
+    const table = $("parties");
+    for (const partie of parties) {
+      const nom = soireeDe(partie.debut);
+      let groupe = table.tBodies[table.tBodies.length - 1];
+      if (!groupe || groupe.dataset.soiree !== nom) {
+        groupe = el("tbody");
+        groupe.dataset.soiree = nom;
+        const tete = el("tr");
+        const th = el("th", "", nom);
+        th.colSpan = 5;
+        th.scope = "rowgroup";
+        tete.append(th);
+        groupe.append(tete);
+        table.append(groupe);
+      }
+      groupe.append(ligneDePartie(partie));
+    }
+  }
+
+  /** La scène « range »: la partie la plus récente n'a pas encore été vue sur
+   * cet appareil. Une mémoire du navigateur, propre à l'appareil; refusée
+   * (navigation privée), la scène ne joue pas et la page reste juste. */
+  const VUE = "nel3ab:carnet-vu";
+  function rangerLaSoiree(parties) {
+    const recente = parties[0];
+    if (!recente) return;
+    let vue = null;
+    try { vue = localStorage.getItem(VUE); } catch { return; }
+    if (vue === recente.id) return;
+    try { localStorage.setItem(VUE, recente.id); } catch { return; }
+    // La toute première ouverture ne joue rien: rien n'était rangé avant.
+    if (vue === null) return;
+    [...document.querySelectorAll("tr.partie")].find((tr) => tr.dataset.id === recente.id)
+      ?.setAttribute("data-nouvelle", "");
+    ain("range");
   }
 
   let suivant = null;
+  let premiere = true;
   async function plusDeParties() {
     const bouton = $("plus");
     bouton.disabled = true;
     try {
       const page = await lire(`/api/me/parties?limite=20${suivant ? `&avant=${suivant}` : ""}`);
-      for (const partie of page.parties) $("parties").append(ligneDePartie(partie));
-      if (page.parties.length === 0 && !suivant) $("parties").append(el("li", "legende", "Aucune partie notée pour l'instant."));
+      ranger(page.parties);
+      if (premiere) { rangerLaSoiree(page.parties); premiere = false; }
+      $("aucune").hidden = !(page.parties.length === 0 && !suivant);
       suivant = page.suivant;
       bouton.hidden = suivant === null;
+      bouton.textContent = mots("carnet.plusAnciennes");
     } catch {
       bouton.hidden = false;
-      bouton.textContent = "réessayer";
+      bouton.textContent = mots("carnet.reessayer");
     }
     bouton.disabled = false;
   }
   $("plus").addEventListener("click", plusDeParties);
+
+  function sauvegardes(emplacements) {
+    const lieu = $("sauvegardes");
+    lieu.replaceChildren();
+    if (emplacements.length === 0) {
+      lieu.append(el("li", "", mots("carnet.aucuneSauvegarde")));
+      return;
+    }
+    for (const un of emplacements) {
+      const s = un.sauvegarde;
+      const ecrite = s.derniere_ecriture
+        ? mots("carnet.ecrite", {
+          jour: jour.format(new Date(s.derniere_ecriture)),
+          heure: heure.format(new Date(s.derniere_ecriture)).replace(":", " h "),
+        })
+        : mots("carnet.encoreVide");
+      const versions = s.versions === 0 ? mots("carnet.aucuneVersion")
+        : compte(s.versions, "carnet.uneVersion", "carnet.versions");
+      const li = el("li");
+      li.append(el("strong", "", un.titre), ` · ${un.console.label}, ${ecrite}. ${versions}, ${octets(s.octets)}.`);
+      lieu.append(li);
+    }
+  }
 
   class SansIdentite extends Error {}
   async function lire(adresse) {
@@ -539,39 +336,84 @@
     return reponse.json();
   }
 
+  // ── Changer ton nom: une boîte de dialogue sur la page même ───────────
+  let monNom = "";
+  const boite = $("nom");
+  let ouvreur = null;
+  function ouvrirNom(depuis) {
+    ouvreur = depuis ?? null;
+    $("nom-champ").value = monNom;
+    $("nom-apercu").textContent = monNom;
+    $("nom-erreur").hidden = true;
+    if (typeof boite.showModal === "function") boite.showModal(); else boite.setAttribute("open", "");
+    $("nom-champ").focus();
+  }
+  function fermerNom() {
+    if (typeof boite.close === "function") boite.close(); else boite.removeAttribute("open");
+    ouvreur?.focus();
+  }
+  $("changer-nom").addEventListener("click", (e) => ouvrirNom(e.currentTarget));
+  // « Changer ton nom » de l'en-tête commun mène à /profil#nom; ici, la même
+  // boîte s'ouvre sur place, et le focus revient au lien.
+  $("changer-ton-nom").addEventListener("click", (e) => { e.preventDefault(); ouvrirNom(e.currentTarget); });
+  $("nom-annuler").addEventListener("click", fermerNom);
+  $("nom-champ").addEventListener("input", () => { $("nom-apercu").textContent = $("nom-champ").value.trim(); });
+  $("nom-forme").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nom = $("nom-champ").value.trim();
+    if (nom === "") { $("nom-erreur").textContent = mots("carnet.nomVide"); $("nom-erreur").hidden = false; return; }
+    try {
+      const reponse = await fetch("/api/me", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: nom }),
+      });
+      if (!reponse.ok) throw new Error(String(reponse.status));
+      const moi = await reponse.json();
+      monNom = moi.name || nom;
+      $("etiquette").textContent = monNom;
+      window.nel3abBandeau?.nom(monNom);
+      fermerNom();
+    } catch {
+      $("nom-erreur").textContent = mots("carnet.nomRefuse");
+      $("nom-erreur").hidden = false;
+    }
+  });
+
   async function ouvrir() {
     try {
-      const [profil, jeux, emplacements] = await Promise.all([
-        lire("/api/me/profil"), lire("/api/me/jeux"), lire("/api/me/sauvegardes"),
+      const [profil, emplacements, moi] = await Promise.all([
+        // Le nom choisi vient de /api/me; s'il manque, le pseudo du carnet.
+        lire("/api/me/profil"), lire("/api/me/sauvegardes"), lire("/api/me").catch(() => null),
       ]);
-      $("bonjour").textContent = `Salut ${profil.pseudo} !`;
-      $("depuis").textContent = profil.parties === 0
-        ? "Ton carnet est encore vide. Il commence à ta première partie dans une salle."
-        : `${compte(profil.jeux, "jeu", "jeux")}, ${compte(profil.parties, "partie", "parties")}`
-          + (profil.dernier ? `, le dernier : ${profil.dernier.titre}.` : ".")
-          + (profil.depuis ? ` Carnet tenu depuis le ${jour.format(new Date(profil.depuis))}.` : "");
-      compteur(profil.secondes);
-      $("totaux").replaceChildren(
-        el("strong", "", compte(profil.parties, "partie", "parties")),
-        ` sur ${compte(profil.jeux, "jeu", "jeux")}, et `,
-        el("strong", "", aucune(profil.sauvegardes, "sauvegarde", "sauvegardes")),
-        ` à toi.${profil.inconnues > 0 ? ` ${compte(profil.inconnues, "partie sans fin connue ne compte", "parties sans fin connue ne comptent")} pas dans ce temps.` : ""}`,
-      );
-      etagere(jeux);
-      cartes(emplacements);
+      monNom = moi?.name || profil.pseudo;
+      $("etiquette").textContent = monNom;
+      const resume = {
+        pseudo: profil.pseudo,
+        parties: compte(profil.parties, "carnet.unePartie", "carnet.parties"),
+        jeux: compte(profil.jeux, "carnet.unJeu", "carnet.jeux"),
+        duree: duree(profil.secondes),
+      };
+      $("depuis").textContent = profil.parties === 0 ? mots("carnet.vide", { pseudo: profil.pseudo })
+        : profil.depuis ? mots("carnet.resumeDepuis", { ...resume, date: jour.format(new Date(profil.depuis)) })
+        : mots("carnet.resume", resume);
+      $("aussi").textContent = profil.inconnues > 0
+        ? compte(profil.inconnues, "carnet.uneInconnue", "carnet.inconnues")
+        : "";
+      // Un carnet vide: « Voir les salles » est le seul bouton plein.
+      $("voir-salles").hidden = profil.parties > 0;
+      sauvegardes(emplacements);
       $("avec").hidden = false;
       await plusDeParties();
+      if (location.hash === "#nom") ouvrirNom($("changer-nom"));
     } catch (erreur) {
       if (erreur instanceof SansIdentite) {
-        $("bob-salue").hidden = true;
-        $("bob-loupe").hidden = false;
-        $("bonjour").textContent = "Je ne sais pas qui tu es.";
-        $("depuis").textContent = "Ce carnet s'ouvre depuis le réseau privé, à ton nom. Sans identité, il n'y a pas de carnet à montrer.";
+        $("depuis").textContent = mots("carnet.sansIdentite");
+        $("aussi").textContent = mots("carnet.jouerQuandMeme");
+        $("voir-salles").hidden = false;
         return;
       }
-      $("bonjour").textContent = "Le carnet ne s'ouvre pas.";
-      $("depuis").textContent = "Pas de réponse. Recharge la page dans un instant.";
-      $("depuis").className = "legende erreur";
+      $("depuis").textContent = mots("carnet.neSOuvrePas");
+      $("aussi").textContent = mots("carnet.rechargeDansUnInstant");
+      $("aussi").className = "legende erreur";
     }
   }
   ouvrir();

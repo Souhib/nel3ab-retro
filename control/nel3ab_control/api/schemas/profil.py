@@ -115,6 +115,15 @@ class JeuProfil(BaseModel):
     )
 
 
+class Compagnon(BaseModel):
+    """Quelqu'un qui tenait une place dans la même salle, au même jeu, en même temps (D12)."""
+
+    nom: str = Field(description="Son pseudo actuel, ou celui qu'il avait ce soir-là.")
+    place: int = Field(
+        ge=1, description="La place qu'il tenait, la première vue pendant la partie."
+    )
+
+
 class Partie(BaseModel):
     """Une partie: des places tenues de suite, au même jeu, dans la même salle.
 
@@ -137,6 +146,20 @@ class Partie(BaseModel):
     lance_par: str | None = Field(
         default=None,
         description="Le pseudo de qui a lancé, quand ce n'est pas la personne elle-même.",
+    )
+    avec: list[Compagnon] = Field(
+        default_factory=list,
+        description=(
+            "Ceux qui ont joué avec elle: une place tenue dans la même salle, au même "
+            "jeu, pendant la partie (carnet commun, D12). Rangés par place."
+        ),
+    )
+    regardaient: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Les pseudos de ceux qui regardaient sans place pendant la partie, dans "
+            "l'ordre de leur arrivée. Vide pour une partie d'avant le 24 novembre 2026."
+        ),
     )
 
 

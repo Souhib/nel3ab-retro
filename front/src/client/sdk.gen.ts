@@ -100,7 +100,7 @@ export const readMyGames = <ThrowOnError extends boolean = false>(options?: Opti
 /**
  * Read My Plays
  *
- * Mes parties, de la plus récente à la plus ancienne.
+ * Mes parties, de la plus récente à la plus ancienne, avec qui j'ai joué (D12).
  */
 export const readMyPlays = <ThrowOnError extends boolean = false>(options?: Options<ReadMyPlaysData, ThrowOnError>): RequestResult<ReadMyPlaysResponses, ReadMyPlaysErrors, ThrowOnError> => (options?.client ?? client).get<ReadMyPlaysResponses, ReadMyPlaysErrors, ThrowOnError>({ url: '/api/me/parties', ...options });
 

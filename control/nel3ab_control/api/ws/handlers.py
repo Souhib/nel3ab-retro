@@ -423,7 +423,7 @@ async def seat(sid: str, data: dict[str, Any]) -> None:
         return
     if data.get("port") is None:
         port = None
-        if not rooms.watch(sid):
+        if not rooms.watch(sid, login=_joueur(session), pseudo=session["name"]):
             return
     else:
         port = _port(data)

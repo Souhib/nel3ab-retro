@@ -8,9 +8,11 @@ dossiers jetables, aux noms que le worker leur donne.
 import json
 import os
 import re
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import anyio
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -408,12 +410,16 @@ async def test_le_carnet_est_servi_sans_identite_et_sans_rien_demander_ailleurs(
     assert "/*__BOBINE__*/" not in page
     assert "/*__POLICES__*/" not in page
     assert "@font-face" in page
-    assert 'class="bob"' in page
+    # Le tableau des dernières parties remplace l'étagère, les tambours et
+    # Bobine (ADR D41, 24 novembre 2026).
+    assert 'class="scores rt-scores"' in page
+    for parti in ('id="tambours"', 'id="etagere"', 'class="bob', 'class="bulle"'):
+        assert parti not in page, parti
     # Aucune requête vers une autre machine: ni police, ni image, ni script.
     assert not re.search(r"""(src|href)=["']?(https?:)?//""", page)
     assert "url(http" not in page
     # Il demande ses données au salon, et à lui seul.
-    for route in ("/api/me/profil", "/api/me/jeux", "/api/me/sauvegardes", "/api/me/parties"):
+    for route in ("/api/me/profil", "/api/me/sauvegardes", "/api/me/parties"):
         assert route in page
 
 
@@ -613,3 +619,461 @@ async def test_un_titre_xbox_360_sous_la_racine_switch_n_est_pas_liste(
 
 def test_le_reglage_xbox_360_de_la_fixture_est_jetable(settings: Settings, tmp_path: Path) -> None:
     assert settings.xbox360_config == tmp_path / "xbox360.json"
+
+
+# ---- Le carnet commun (D12, 24 novembre 2026): avec qui, et qui regardait ----
+
+CLARA = {"Tailscale-User-Login": "clara@example.com", "Tailscale-User-Name": "Clara"}
+DORA = {"Tailscale-User-Login": "dora@example.com", "Tailscale-User-Name": "Dora"}
+
+
+def presence(
+    parties: Parties,
+    login: str,
+    ident: str,
+    debut: datetime,
+    secondes: float | None,
+    *,
+    regard: bool = False,
+    place_tenue: int = 1,
+    pseudo: str | None = None,
+    salle: int = 1,
+    jeu: dict | None = MARIO,
+) -> None:
+    """Une place ou un regard au journal, telle que la tablée l'écrit depuis D12."""
+    quoi = "regard" if regard else "place"
+    champs: dict = {"id": ident, "salle": salle, "jeu": jeu}
+    if not regard:
+        champs.update(place=place_tenue, lance=None, sauvegarde="inconnue")
+    if pseudo is not None:
+        champs["pseudo"] = pseudo
+    parties.ecrire(login, f"{quoi}_debut", quand=debut, **champs)
+    if secondes is not None:
+        parties.ecrire(
+            login,
+            f"{quoi}_fin",
+            quand=debut + timedelta(seconds=secondes),
+            id=ident,
+            salle=salle,
+            secondes=secondes,
+            raison="deconnectee",
+        )
+
+
+async def une_partie(client: httpx.AsyncClient, qui: dict[str, str]) -> dict:
+    reponse = await client.get("/api/me/parties", headers=qui)
+    assert reponse.status_code == 200, reponse.text
+    (partie,) = reponse.json()["parties"]
+    return partie
+
+
+async def test_deux_joueurs_de_la_meme_soiree_se_voient_chacun_dans_son_carnet(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 3600, pseudo="Alice")
+    presence(
+        parties,
+        "benoit@example.com",
+        "b" * 16,
+        SOIR + timedelta(minutes=10),
+        600,
+        place_tenue=3,
+        pseudo="Benoît",
+    )
+    vue_alice = await une_partie(client, ALICE)
+    vue_benoit = await une_partie(client, BENOIT)
+    assert vue_alice["avec"] == [{"nom": "Benoît", "place": 3}]
+    assert vue_benoit["avec"] == [{"nom": "Alice", "place": 1}]
+    assert vue_alice["regardaient"] == vue_benoit["regardaient"] == []
+
+
+async def test_le_carnet_commun_ne_nomme_que_la_meme_salle_le_meme_jeu_et_le_meme_moment(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Les jumeaux: une autre salle, un autre jeu, après la fin, et avant le début."""
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(parties, "benoit@example.com", "b" * 16, SOIR, 600, salle=2, pseudo="Benoît")
+    presence(parties, "clara@example.com", "c" * 16, SOIR, 600, jeu=TENNIS, pseudo="Clara")
+    presence(
+        parties, "dora@example.com", "d" * 16, SOIR + timedelta(seconds=600), 60, pseudo="Dora"
+    )
+    presence(parties, "eve@example.com", "e" * 16, SOIR - timedelta(seconds=60), 60, pseudo="Eve")
+    assert (await une_partie(client, ALICE))["avec"] == []
+    # Et chacun d'eux ne voit pas Alice non plus.
+    assert (await une_partie(client, BENOIT))["avec"] == []
+    assert (await une_partie(client, DORA))["avec"] == []
+
+
+async def test_qui_regardait_est_dit_a_part_de_qui_jouait(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(
+        parties,
+        "clara@example.com",
+        "c" * 16,
+        SOIR + timedelta(seconds=30),
+        120,
+        regard=True,
+        pseudo="Clara",
+    )
+    presence(
+        parties,
+        "dora@example.com",
+        "d" * 16,
+        SOIR + timedelta(seconds=10),
+        60,
+        regard=True,
+        pseudo="Dora",
+    )
+    # Le jumeau: un regard après la fin de la partie.
+    presence(
+        parties,
+        "eve@example.com",
+        "e" * 16,
+        SOIR + timedelta(seconds=700),
+        60,
+        regard=True,
+        pseudo="Eve",
+    )
+    partie = await une_partie(client, ALICE)
+    assert partie["avec"] == []
+    assert partie["regardaient"] == ["Dora", "Clara"]
+    # Qui regardait puis a pris une place compte comme joueur, une seule fois.
+    presence(
+        parties,
+        "dora@example.com",
+        "f" * 16,
+        SOIR + timedelta(seconds=70),
+        100,
+        place_tenue=2,
+        pseudo="Dora",
+    )
+    partie = await une_partie(client, ALICE)
+    assert partie["avec"] == [{"nom": "Dora", "place": 2}]
+    assert partie["regardaient"] == ["Clara"]
+
+
+async def test_le_pseudo_actuel_l_emporte_et_sans_pseudo_personne_n_est_nomme(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(parties, "benoit@example.com", "b" * 16, SOIR, 600, place_tenue=2, pseudo="Ben")
+    # Une ligne d'avant D12, sans pseudo, d'une personne qui n'en a jamais choisi.
+    presence(parties, "clara@example.com", "c" * 16, SOIR, 600, place_tenue=3)
+    assert (await une_partie(client, ALICE))["avec"] == [{"nom": "Ben", "place": 2}]
+    renomme = await client.put(
+        "/api/me",
+        headers={**BENOIT, "Origin": "https://nel3ab.app", "Sec-Fetch-Site": "same-origin"},
+        json={"name": "Benoît le grand"},
+    )
+    assert renomme.status_code == 200, renomme.text
+    assert (await une_partie(client, ALICE))["avec"] == [{"nom": "Benoît le grand", "place": 2}]
+
+
+async def test_une_place_sans_fin_ne_compte_que_si_elle_commence_pendant_la_mienne(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Jamais prolongée: un salon redémarré au milieu ne fait pas inventer un compagnon."""
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(
+        parties, "benoit@example.com", "b" * 16, SOIR + timedelta(seconds=300), None, pseudo="Ben"
+    )
+    presence(
+        parties, "clara@example.com", "c" * 16, SOIR - timedelta(seconds=1), None, pseudo="Clara"
+    )
+    assert (await une_partie(client, ALICE))["avec"] == [{"nom": "Ben", "place": 1}]
+
+
+async def test_le_carnet_commun_ne_rend_ni_adresse_ni_empreinte(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(parties, "benoit@example.com", "b" * 16, SOIR, 600, place_tenue=2, pseudo="Ben")
+    presence(parties, "clara@example.com", "c" * 16, SOIR, 60, regard=True, pseudo="Clara")
+    texte = (await client.get("/api/me/parties", headers=ALICE)).text
+    assert "Ben" in texte and "Clara" in texte
+    for login in ("benoit@example.com", "clara@example.com"):
+        assert login not in texte
+        assert empreinte(login) not in texte
+    # Les autres lectures n'ouvrent pas les fichiers des autres.
+    for route in ("/api/me/profil", "/api/me/jeux"):
+        assert "Ben" not in (await client.get(route, headers=ALICE)).text
+
+
+async def test_une_longue_presence_reste_trouvee_derriere_une_courte_finie_avant(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Deux onglets de Benoît: l'un regarde toute la soirée, l'autre tient une
+    place dix secondes avant la partie d'Alice. Le regard la touche encore."""
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(
+        parties,
+        "benoit@example.com",
+        "b" * 16,
+        SOIR - timedelta(seconds=60),
+        3600,
+        regard=True,
+        pseudo="Ben",
+    )
+    presence(
+        parties, "benoit@example.com", "c" * 16, SOIR - timedelta(seconds=30), 10, pseudo="Ben"
+    )
+    assert (await une_partie(client, ALICE))["regardaient"] == ["Ben"]
+
+
+# ---- La page du carnet dit avec qui (D12) ----
+
+RACINE = Path(__file__).resolve().parents[3]
+NODE = shutil.which("node")
+AVEC_JSDOM = pytest.mark.skipif(
+    NODE is None or not (RACINE / "front/node_modules/jsdom/package.json").exists(),
+    reason="node ou front/node_modules/jsdom absent",
+)
+
+
+def partie_lue(id_: str, avec: list[dict], regardaient: list[str]) -> dict:
+    return {
+        "id": id_,
+        "salle": 1,
+        "titre": "Mario Kart Double Dash",
+        "console": {"code": "gc", "label": "GameCube"},
+        "debut": "2026-11-14T20:00:00+00:00",
+        "fin": "2026-11-14T20:10:00+00:00",
+        "secondes": 600,
+        "complete": True,
+        "en_cours": False,
+        "sauvegarde": "mienne",
+        "lance_par": None,
+        "avec": avec,
+        "regardaient": regardaient,
+    }
+
+
+@AVEC_JSDOM
+async def test_la_page_du_carnet_dit_avec_qui_et_qui_regardait(
+    client: httpx.AsyncClient,
+) -> None:
+    page = (await client.get("/profil")).text
+    reponses = {
+        "/api/me/profil": {
+            "pseudo": "Alice",
+            "depuis": None,
+            "jeux": 1,
+            "parties": 3,
+            "secondes": 1800,
+            "inconnues": 0,
+            "sauvegardes": 0,
+            "dernier": None,
+        },
+        "/api/me/jeux": [],
+        "/api/me/sauvegardes": [],
+        "/api/me/parties": {
+            "parties": [
+                partie_lue(
+                    "a" * 16, [{"nom": "Ben", "place": 2}, {"nom": "Clara", "place": 3}], ["Dora"]
+                ),
+                partie_lue("b" * 16, [], ["Dora", "Eve"]),
+                # Le jumeau: seule, personne à nommer.
+                partie_lue("c" * 16, [], []),
+            ],
+            "suivant": None,
+        },
+    }
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(Path(__file__).parents[1] / "profil_module.mjs")],
+            input=json.dumps({"page": page, "reponses": reponses}).encode(),
+            check=False,
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    une, deux, seule = json.loads(sortie.stdout)
+    assert une["avec"] == "Tu as joué avec Ben (2P) et Clara (3P). Dora a regardé."
+    assert deux["avec"] == "Dora et Eve ont regardé."
+    assert seule["avec"] is None
+    assert "joué avec" not in seule["texte"]
+
+
+async def _carnet(client: httpx.AsyncClient, reponses: dict, **entree: object) -> dict:
+    """La vraie page du carnet, ouverte dans jsdom, vue entière."""
+    page = (await client.get("/profil")).text
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(Path(__file__).parents[1] / "profil_module.mjs")],
+            input=json.dumps(
+                {"page": page, "reponses": reponses, "complet": True, **entree}
+            ).encode(),
+            check=False,
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    return json.loads(sortie.stdout)
+
+
+def _profil(parties: int) -> dict:
+    return {
+        "pseudo": "Bilel",
+        "depuis": "2026-08-14T18:00:00+00:00",
+        "jeux": 4,
+        "parties": parties,
+        "secondes": 61320,
+        "inconnues": 0,
+        "sauvegardes": 1,
+        "dernier": None,
+    }
+
+
+def _partie(id_: str, debut: str, **champs: object) -> dict:
+    return {**partie_lue(id_, [], []), "debut": debut, **champs}
+
+
+#: Cinq parties sur deux soirées. Celle de 1 h 30 (heure de Paris) le dimanche
+#: 22 appartient à la soirée du samedi 21: on ne se couche pas à minuit.
+CINQ = [
+    _partie("e" * 16, "2026-11-22T00:30:00+00:00", secondes=4360),
+    _partie("d" * 16, "2026-11-21T20:00:00+00:00", complete=False),
+    _partie("c" * 16, "2026-11-21T19:00:00+00:00", sauvegarde="du_lanceur", lance_par="Sami"),
+    _partie("b" * 16, "2026-11-14T20:30:00+00:00", sauvegarde="commune"),
+    _partie("a" * 16, "2026-11-14T20:00:00+00:00", en_cours=True, complete=False),
+]
+
+
+@AVEC_JSDOM
+async def test_le_carnet_range_ses_parties_par_soiree_au_tableau_des_scores(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le tableau DERNIÈRES PARTIES: une tête par soirée, une ligne par partie.
+
+    La durée s'écrit en chiffres d'afficheur, une fin inconnue ne s'invente
+    pas, et la sauvegarde est nommée.
+    """
+    vue = await _carnet(
+        client,
+        {
+            "/api/me/profil": _profil(23),
+            "/api/me/sauvegardes": [],
+            "/api/me/parties": {"parties": CINQ, "suivant": None},
+        },
+    )
+
+    assert vue["groupes"] == [
+        {"soiree": "Samedi 21 novembre", "lignes": 3},
+        {"soiree": "Samedi 14 novembre", "lignes": 2},
+    ]
+    assert [ligne["duree"] for ligne in vue["lignes"]] == [
+        "01:12:40",
+        "--:--:--",
+        "00:10:00",
+        "00:10:00",
+        "en cours",
+    ]
+    assert vue["lignes"][2]["sauvegarde"] == "la sauvegarde de Sami"
+    assert vue["lignes"][2]["lancePar"] == "Sami"
+    assert vue["lignes"][0]["lancePar"] == "toi"
+    assert vue["lignes"][3]["sauvegarde"] == "tout débloqué"
+    assert (
+        vue["phrase"] == "Bilel, 23 parties sur 4 jeux depuis le 14 août : 17 h 02 de jeu en tout."
+    )
+    assert vue["voirSalles"] is False
+
+    # Le jumeau: un carnet vide n'a qu'un bouton plein, « Voir les salles ».
+    vide = await _carnet(
+        client,
+        {
+            "/api/me/profil": _profil(0),
+            "/api/me/sauvegardes": [],
+            "/api/me/parties": {"parties": [], "suivant": None},
+        },
+    )
+    assert vide["voirSalles"] is True
+    assert vide["groupes"] == []
+
+
+@AVEC_JSDOM
+async def test_le_carnet_nomme_les_sauvegardes_comme_le_lexique(client: httpx.AsyncClient) -> None:
+    """« ma sauvegarde », comme le panneau de lancement de la salle, et « la
+    sauvegarde d'Ami », élidée comme la salle élide (`de`, `elisions.json`).
+
+    Le carnet écrivait « ta sauvegarde » et « la sauvegarde de Ami » avant que
+    ses mots passent par `mots.ts` (24 novembre 2026). Le jumeau sans élision,
+    « la sauvegarde de Sami », est dans l'essai du tableau.
+    """
+    parties = [
+        _partie("b" * 16, "2026-11-21T20:00:00+00:00", sauvegarde="du_lanceur", lance_par="Ami"),
+        _partie("a" * 16, "2026-11-21T19:00:00+00:00"),
+    ]
+    vue = await _carnet(
+        client,
+        {
+            "/api/me/profil": _profil(2),
+            "/api/me/sauvegardes": [],
+            "/api/me/parties": {"parties": parties, "suivant": None},
+        },
+    )
+    assert parties[1]["sauvegarde"] == "mienne", "précondition: la seconde est la sienne"
+    assert [ligne["sauvegarde"] for ligne in vue["lignes"]] == [
+        "la sauvegarde d'Ami",
+        "ma sauvegarde",
+    ]
+
+
+@AVEC_JSDOM
+async def test_sans_identite_le_carnet_le_dit_et_mene_aux_salles(
+    client: httpx.AsyncClient,
+) -> None:
+    vue = await _carnet(
+        client,
+        {"/api/me/profil": 401, "/api/me/sauvegardes": 401, "/api/me/parties": 401},
+    )
+    assert vue["phrase"] == "nel3ab ne sait pas qui tu es sur cet appareil."
+    assert vue["voirSalles"] is True
+
+
+@AVEC_JSDOM
+async def test_ain_range_la_soiree_que_cet_appareil_n_avait_pas_vue(
+    client: httpx.AsyncClient,
+) -> None:
+    """La scène « range », une fois, et la ligne nouvelle s'allume.
+
+    Le jumeau: la même partie déjà vue ne rejoue rien; un appareil qui ouvre le
+    carnet pour la première fois retient la partie sans scène.
+    """
+    reponses = {
+        "/api/me/profil": _profil(23),
+        "/api/me/sauvegardes": [],
+        "/api/me/parties": {"parties": CINQ, "suivant": None},
+    }
+    neuve = await _carnet(client, reponses, stockage={"nel3ab:carnet-vu": "a" * 16})
+    assert neuve["scenes"] == ["range"]
+    assert neuve["vu"] == "e" * 16
+    assert [ligne["nouvelle"] for ligne in neuve["lignes"]] == [True] + [False] * 4
+
+    vue = await _carnet(client, reponses, stockage={"nel3ab:carnet-vu": "e" * 16})
+    assert vue["scenes"] == []
+    assert not any(ligne["nouvelle"] for ligne in vue["lignes"])
+
+    premiere = await _carnet(client, reponses)
+    assert premiere["scenes"] == []
+    assert premiere["vu"] == "e" * 16
+
+
+@AVEC_JSDOM
+async def test_changer_ton_nom_se_fait_dans_le_carnet(client: httpx.AsyncClient) -> None:
+    """« Changer ton nom » ouvre une boîte sur la page même (PUT /api/me)."""
+    reponses = {
+        "/api/me/profil": _profil(23),
+        "/api/me/sauvegardes": [],
+        "/api/me/parties": {"parties": [], "suivant": None},
+        "/api/me": {"login": "bilel@exemple", "name": "Bilel", "display": "Bilel"},
+    }
+    vue = await _carnet(client, reponses, nom="  Zoé ")
+    assert vue["puts"] == [{"name": "Zoé"}]
+    assert vue["etiquette"] == "Zoé"
+    assert vue["boiteOuverte"] is False
+
+    # Le jumeau: un nom vide n'est pas envoyé, et la boîte reste ouverte.
+    vide = await _carnet(client, reponses, nom="   ")
+    assert vide["puts"] == []
+    assert vide["etiquette"] == "Bilel"
+    assert vide["boiteOuverte"] is True

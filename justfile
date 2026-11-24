@@ -72,7 +72,7 @@ default: local
 # garde ses pages de référence. Même prix de nature (Chrome, la page
 # committée, rien de vivant), mesuré ce jour-là sur cette machine: 43 s et
 # 42 s.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge salon-navigateur salon-navigateur-rouge
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -114,6 +114,59 @@ planche-garde *args:
 # Le chantier salon le branche dans ses pages.
 ain-salon:
     cd front && npx vite build --config vite.ain-salon.config.ts --logLevel warn
+
+# Le salon dans un vrai Chrome (ADR D41): l'accueil tel que les modules du
+# salon l'assemblent, servi par un banc aux API simulées
+# (`spikes/m3-browser-drive/salon.mjs`, port 5462 par défaut). Aucun salon ne
+# démarre et aucune salle ne s'ouvre (K40). jsdom exécute la même page dans
+# `test_accueil.py`, mais ne voit ni une cible de 31 px, ni une page qui
+# déborde de 37 px à 320 px: les deux défauts que ce pilote a trouvés le
+# 24 novembre 2026.
+salon-navigateur *args:
+    cd spikes/m3-browser-drive && node salon.mjs {{args}}
+
+# Le contrôle négatif de salon-navigateur: chaque étape doit échouer sur son
+# DÉFAUT contre les pages d'un commit plus ancien, assemblées par SES modules
+# (une archive de `control/`, importée sans le paquet installé en mode
+# éditable, d'où `python -S`). a32de82: le salon sans Aïn. 2a98279: Aïn, et
+# l'ancien accueil (en-tête, jauge, deux pleins, départ vers la salle) et
+# l'ancien carnet (son nom se changeait dans une salle).
+# 84b969f: le nouvel accueil avant les deux corrections du navigateur.
+# Sur 2a98279 encore, la mire ne glisse pas, Appuie sur Start n'existe pas et
+# le pointeur reste celui du système, la démo ne joue pas et la mire reste
+# plate au niveau « tout ». cb0909b: l'accueil avant la boucle
+# d'attention d'Aïn et la rangée de jeux du dépôt (24 novembre 2026,
+# troisième passage). 5fae6b0: l'en-tête recopié dans chaque page, qui avait
+# dérivé (le dépôt sans « Tu es »), et que le carnet ne rafraîchissait pas;
+# la zone de dépôt aux quatre carrés de joueur et le trousseau à « clé ».
+# Sur 2a98279 aussi: Entrée et Start n'ouvrent rien, la bannière de retour ne
+# nomme pas la salle, l'accueil n'a pas de crédit et le carnet ne range rien
+# (24 novembre 2026, cinquième passage). L'étape « annonce » est plus vieille
+# que toutes ces pages: son contrôle est un mutant qui tait l'annonce.
+# 323aa52: la fin du cinquième passage, que la relecture du 24 novembre 2026
+# a prise en défaut deux fois: le lien du logo sans nom une fois Aïn peint,
+# et le focus du clavier perdu quand une autre place de la salle se remplit.
+salon-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    python="$PWD/control/.venv/bin/python"
+    site=$("$python" -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+    for commit in a32de82 2a98279 84b969f cb0909b 5fae6b0 323aa52; do
+        mkdir -p "$dossier/$commit"
+        git archive "$commit" control consoles | tar -x -C "$dossier/$commit"
+        (cd "$dossier/$commit/control" && PYTHONPATH="$PWD:$site" "$python" -S -c "import json, sys
+    from nel3ab_control.api.routes import accueil, importer, profil
+    json.dump({'/': accueil.PAGE, '/importer': importer.PAGE, '/profil': profil.PAGE}, sys.stdout)") > "$dossier/$commit.json"
+    done
+    cd spikes/m3-browser-drive
+    node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur,demo,courbure,start,retour,credit,carnet-range
+    node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
+    node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
+    node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse,rangee-entre
+    node salon.mjs --pages "$dossier/323aa52.json" --rouge-attendu ain-logo,start-focus
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
 # du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit
@@ -804,7 +857,11 @@ etats-navigateur *args:
 # DÉFAUT de chaque étape, pas sur une précondition. 8b58526 est la page d'avant
 # le chantier, e5d6edf celle que la relecture a refusée, 03b21c0 celle de main
 # avant que l'état ne quitte l'image. Une étape qui passe
-# sur l'une d'elles ne prouve rien.
+# sur l'une d'elles ne prouve rien. cb0909b est la dernière page dont
+# l'ouverture était une carte au milieu de l'écran (24 novembre 2026) : la
+# colonne de la salle y apparaît d'un coup (`ouverture-sans-saut`), sur le fond
+# de nuit quel que soit le thème (`ouverture-theme`), après une phrase seule
+# au milieu de la page (`ouverture-statique`).
 etats-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -816,6 +873,7 @@ etats-navigateur-rouge:
     git show 8b58526:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     git show e5d6edf:core/crates/worker/src/page/index.html > "$dossier/refusee.html"
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/sur-image.html"
+    git show cb0909b:core/crates/worker/src/page/index.html > "$dossier/sans-squelette.html"
     cd spikes/m3-browser-drive
     node etats.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale \
@@ -853,6 +911,9 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes pastille-contraste,pastille-hors-image,extinction,calques-attente \
         --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente
+    node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
+        --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
+        --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -914,10 +975,17 @@ parcours-navigateur-rouge:
         --etapes "$etapes" --rouge-attendu "$etapes"
     # 03b21c0, la page de main avant le thème rétro : « Inviter » y copie
     # d'un coup, sans panneau ni code, et l'étape réécrite le 23 novembre
-    # 2026 doit y tomber sur ce défaut.
+    # 2026 doit y tomber sur ce défaut. Une salle pleine n'y avait aucun
+    # bouton plein (salle-pleine-avant-salle, 24 novembre 2026).
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes invitation --rouge-attendu invitation
+    # Et la place précise (`?place=N`, 24 novembre 2026) : cette page ne lit
+    # pas le paramètre, le worker lui donne la première libre.
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes place-precise --rouge-attendu place-precise
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes salle-pleine-avant-salle --rouge-attendu salle-pleine-avant-salle
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible
@@ -955,6 +1023,12 @@ parcours-navigateur-rouge:
     etapes=carte-cible,carte-revient,refus-dit,don-dit,arrivee-a-confirmer,annonce-fronton,ancres-start,mesures-figee
     node parcours.mjs --page "$rouges/personnes-cc8c8a6.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # 77fae49, la page du salon avant Aïn dans l'avant-salle (24 novembre
+    # 2026) : le logo de l'en-tête est une image, rien ne joue quand une
+    # place se libère.
+    git show 77fae49:core/crates/worker/src/page/index.html > "$dossier/avant-ain.html"
+    node parcours.mjs --page "$dossier/avant-ain.html" --flux "$dossier/flux.h264" \
+        --etapes avant-salle-ain --rouge-attendu avant-salle-ain
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #
@@ -1624,7 +1698,7 @@ browser-polite:
 # `just check`, qui était verte les deux fois.
 #
 # En DÉPENDANCES et non par des `just` imbriqués, comme `check` lui-même.
-browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition browser-lobby
+browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition
 
 # La colonne se voit-elle à travers la bande des rayons ? Needs the worker RUNNING.
 #
@@ -1715,18 +1789,10 @@ browser-steal:
 browser-contraste:
     cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8110/
 
-# Le contraste et les coupures de la page d'ENTRÉE, ses trois dessins.
-#
-# Un pilote à part parce que `browser-contraste` et `browser-debordement`
-# entrent tous les deux dans la salle avant de mesurer: la page qu'on voit
-# AVANT d'entrer n'était vue par aucun garde. Les rapports écrits dans l'en-tête
-# du dessin « câbles » le 13 septembre 2026 étaient donc des calculs sur des
-# couleurs choisies, pas des mesures dans un rendu.
-#
-# N'ENTRE PAS dans la salle et ne lance rien: il lit la page d'accueil de la
-# salle, à trois dessins et deux largeurs.
-browser-lobby url="http://localhost:8110/":
-    cd spikes/m3-browser-drive && node lobby-visuel.mjs "{{url}}"
+# `browser-lobby` (lobby-visuel.mjs) mesurait les trois dessins de la page
+# d'entrée. Retiré le 24 novembre 2026 avec les dessins « câbles » et « plan »
+# (chantier salon) : l'avant-salle n'a plus qu'un dessin, mesuré sur banc par
+# `parcours-navigateur` (avant-salle-places) et `salle-telephone`.
 
 # Ce que la page MONTRE pendant un changement de jeu.
 #

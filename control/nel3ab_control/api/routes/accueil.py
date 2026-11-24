@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-from nel3ab_control.api.routes import bobine, retro
+from nel3ab_control.api.routes import retro
 
 router = APIRouter(tags=["accueil"])
 
@@ -76,12 +76,10 @@ def regie() -> str:
 
 
 PAGE = retro.garnir(
-    bobine.garnir(
-        (Path(__file__).parent / "accueil.html")
-        .read_text(encoding="utf-8")
-        .replace("/*__POLICES__*/", faces())
-        .replace("/*__REGIE__*/", regie())
-    )
+    (Path(__file__).parent / "accueil.html")
+    .read_text(encoding="utf-8")
+    .replace("/*__POLICES__*/", faces())
+    .replace("/*__REGIE__*/", regie())
 )
 
 

@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nel3ab · déposer un jeu</title>
+<title><!--MOT:depot.onglet--></title>
 <!--RETRO:EN-TETE-->
+<!--RETRO:MOTS-->
 <style>
   /* ─────────────────────────────────────────────────────────────────────
      LE QUAI DE CHARGEMENT. Même régie que l'accueil: graphite de studio,
@@ -12,24 +13,24 @@
 
      Chaque fichier déposé reçoit une carte. Elle prenait la couleur d'une
      des quatre prises de la salle, dans l'ordre; depuis le 22 novembre
-     2026, les quatre couleurs de joueur ne servent plus qu'aux joueurs. La
-     carte garde un cadre neutre et une jauge en craie, et c'est son TAMPON
-     qui dit l'issue, en couleur et en mots: vert pour un jeu rangé, corail
-     pour un refus. Le script pose encore `--joueur` sur chaque carte; la
-     feuille ne le lit plus.
+     2026, les quatre couleurs de joueur ne servent plus qu'aux joueurs: ni
+     la zone, ni les cartes, ni le trousseau n'en portent (ADR D41). Une
+     carte dit son issue en mots, et la console reconnue par le serveur est
+     une étiquette tapée dont le liseré dit l'issue: vert pour un jeu rangé,
+     corail pour un refus. Plus de tampon « ESTIMATION »: une phrase dit ce
+     qu'on lit au début du fichier, puis ce qu'on peut faire.
 
-     Seuls `transform` et `opacity` bougent, comme dans la feuille de
-     Bobine: la jauge s'allonge par `scaleX`, le tampon tombe par `scale`.
+     Seuls `transform` et `opacity` bougent: la jauge s'allonge par
+     `scaleX`. Aïn, dans le logo, joue « depot » quand un jeu vérifié est
+     rangé, « refus » quand il ne l'est pas.
      ───────────────────────────────────────────────────────────────── */
   /*__POLICES__*/
-  /*__BOBINE__*/
   /* La régie de la salle et de l'accueil (`front/src/regie.css`), posée ici
-     au démarrage du salon: graphite la nuit, craie le jour. Les quatre
-     prises du dessin de la zone de dépôt lisent `--joueur-1` à `--joueur-4`,
-     des primitives de la régie. */
+     au démarrage du salon: graphite la nuit, craie le jour. */
   /*__REGIE__*/
   /* Les effets rétro, communs à la salle et au salon (`front/src/effets.css`). */
   /*__EFFETS__*/
+  /*__SALON__*/
   * { box-sizing: border-box; }
   body {
     margin: 0; min-height: 100vh;
@@ -41,16 +42,6 @@
           display: flex; flex-direction: column; gap: clamp(1rem, 2vh, 1.6rem); }
   [hidden] { display: none !important; }
 
-  .rail { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
-          border-bottom: 2px solid var(--trait); padding-bottom: .7rem; }
-  /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon
-     depuis `front/src/lib/logo.ts`. Centré sur la ligne: un dessin n'a pas
-     de ligne de base. */
-  .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
-            --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
-  .rail-fait { font-family: var(--police-machine); font-size: clamp(13px, 1.2vw, 16px);
-               color: var(--legende); letter-spacing: .12em; }
-
   h1 { font-weight: 700; font-size: clamp(30px, 4vw, 52px); line-height: 1.05;
        letter-spacing: -.01em; margin: 0; }
   .chapeau { margin: 0; max-width: 60ch; color: var(--legende);
@@ -59,7 +50,7 @@
   /* ── La zone de dépôt ───────────────────────────────────────────── */
   .depot {
     position: relative; display: grid; align-items: center; gap: .3rem 1.6rem;
-    grid-template-columns: auto 1fr; grid-template-rows: auto auto auto;
+    grid-template-columns: 1fr;
     padding: clamp(1.2rem, 3vh, 2.2rem) clamp(1rem, 3vw, 2.4rem);
     background: var(--plaque); border: 2px dashed var(--trait); cursor: pointer;
   }
@@ -70,12 +61,15 @@
   .depot[data-survol="oui"]::after, .depot:hover::after { opacity: 1; }
   .depot:focus-within { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
   .depot input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-  .depot-bobine { grid-row: 1 / 4; }
-  .depot-bobine svg { width: 72px; height: auto; }
   .depot-mot { font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); line-height: 1.1; }
   .depot-sous { color: var(--legende); font-size: clamp(14px, 1.4vw, 17px); }
-  .prises { display: flex; gap: 6px; margin-top: .4rem; }
-  .prises span { width: 26px; height: 10px; background: var(--c); }
+  /* « Choisir des fichiers »: le seul plein de la page au repos. Toute la
+     zone est l'étiquette du champ; ce bouton dessiné dit où cliquer. */
+  .depot-choisir { justify-self: start; display: inline-flex; align-items: center; min-height: 48px;
+                   padding: .55rem 1.4rem; font: 400 17px var(--police-titre);
+                   border: 2px solid var(--bouton-plein-fond); border-radius: var(--rayon);
+                   background: var(--bouton-plein-fond); color: var(--bouton-plein-encre); }
+  .depot:hover .depot-choisir { background: var(--bouton-plein-survol); border-color: var(--bouton-plein-survol); }
 
   .refus { margin: 0; padding: 1rem 1.2rem; border-left: 6px solid var(--alerte);
            background: var(--creux); }
@@ -83,7 +77,7 @@
   /* ── Une carte par fichier ──────────────────────────────────────── */
   .cartes { display: flex; flex-direction: column; gap: .7rem; }
   .carte {
-    display: grid; grid-template-columns: 64px 1fr; gap: 1.2rem; align-items: start;
+    display: grid; grid-template-columns: 1fr; gap: 1.2rem; align-items: start;
     padding: 1rem clamp(.9rem, 2vw, 1.5rem); background: var(--plaque);
     border-left: var(--barre-etat) solid var(--trait);
     animation: entre .28s cubic-bezier(.2, .7, .3, 1) both;
@@ -91,7 +85,6 @@
   }
   .carte[data-part="oui"] { opacity: 0; transform: translateX(24px); }
   @keyframes entre { from { opacity: 0; transform: translateY(10px); } }
-  .carte-bobine svg { width: 56px; height: auto; }
   .carte-corps { min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
   .carte-tete { display: flex; gap: 1rem; align-items: baseline; justify-content: space-between; }
   .carte-nom { margin: 0; font-weight: 700; font-size: clamp(17px, 1.8vw, 22px);
@@ -105,9 +98,6 @@
   .carte-boutons button:hover { border-color: var(--encre); }
   .carte-boutons button:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 2px; }
   .estimation { margin: 0; color: var(--legende); font-size: 16px; }
-  .etiquette { font-family: var(--police-machine); font-size: 12px; letter-spacing: .16em;
-               color: var(--fond); background: var(--legende); padding: 1px 6px;
-               margin-right: .4rem; }
   .carte-titre:not(:empty)::before { content: "« "; }
   .carte-titre:not(:empty)::after { content: " »"; }
 
@@ -143,42 +133,25 @@
   .resultat-etat { font-weight: 600; overflow-wrap: anywhere; }
   .resultat-mot { color: var(--encre); font-size: 16px; }
   .resultat-preuve { color: var(--legende); font-size: 13px; overflow-wrap: anywhere; }
-  /* Le tampon: la console reconnue par le SERVEUR, posée de biais.
-     Sa couleur dit l'issue, et le mot la dit aussi: vert rangé, craie à
+  /* La console reconnue par le SERVEUR: une étiquette tapée, dont le
+     liseré dit l'issue. Vert pour un jeu rangé, encre pour un jeu à
      confirmer, légende pour un jeu reconnu mais gardé de côté (pas jouable,
-     mise à jour, contenu additionnel), corail pour le reste. Ce n'étaient
-     pas des issues mais les quatre prises de joueur; une teinte n'a plus
-     qu'un sens. Le jeton local s'appelle `--tampon`, et non plus `--encre`,
-     qui est désormais le texte de la régie. */
-  .tampon {
-    --tampon: var(--alerte);
-    display: inline-block; min-width: 7.5rem; text-align: center; justify-self: start;
-    font: 700 14px var(--police-texte); letter-spacing: .12em; text-transform: uppercase;
-    color: var(--tampon); border: 3px solid var(--tampon); padding: .25rem .6rem;
-    transform: rotate(-4deg);
-    animation: tamponne .42s cubic-bezier(.3, .6, .4, 1.3) both;
-  }
-  .resultat[data-etat="range"] .tampon { --tampon: var(--ok); }
-  .resultat[data-etat="a-confirmer"] .tampon { --tampon: var(--encre); }
-  .resultat[data-etat="pas-jouable"] .tampon,
-  .resultat[data-etat="mise-a-jour"] .tampon,
-  .resultat[data-etat="contenu-additionnel"] .tampon { --tampon: var(--legende); }
-  @keyframes tamponne {
-    0% { opacity: 0; transform: scale(1.7) rotate(-9deg); }
-    60% { opacity: 1; transform: scale(.94) rotate(-4deg); }
-    100% { transform: scale(1) rotate(-4deg); }
-  }
+     mise à jour, contenu additionnel), corail pour le reste. */
+  .resultat > .etiquette { justify-self: start; border-left-color: var(--alerte); }
+  .resultat[data-etat="range"] > .etiquette { border-left-color: var(--ok); }
+  .resultat[data-etat="a-confirmer"] > .etiquette { border-left-color: var(--encre); }
+  .resultat[data-etat="pas-jouable"] > .etiquette,
+  .resultat[data-etat="mise-a-jour"] > .etiquette,
+  .resultat[data-etat="contenu-additionnel"] > .etiquette { border-left-color: var(--legende); }
 
-  /* ── Le trousseau: qui a la clé du quai ───────────────────────────
-     Une personne par crochet. Sa fiche, à gauche, est en craie: elle
-     prenait une des quatre couleurs de joueur, tirée de son adresse, alors
-     que personne ici n'est à une place. Avec la clé, la fiche est enfoncée
-     dans le quai et pleine; sans, elle pend, creuse. Donner la clé: Bobine tamponne, la fiche s'enfonce, la ligne
-     passe de l'autre côté. Reprendre: Bobine tire, la fiche ressort. */
+  /* ── Qui peut déposer ─────────────────────────────────────────────
+     Une ligne par personne: son étiquette tapée, sans couleur de joueur
+     (personne n'y est à une place), une phrase qui dit d'où elle vient, et
+     le bouton qui donne ou retire le droit. Elle passe alors de l'autre
+     côté en glissant. */
   .cles { display: flex; flex-direction: column; gap: 1rem;
           border-top: 2px solid var(--trait); padding-top: 1.2rem; }
-  .cles-tete { display: grid; grid-template-columns: auto 1fr; gap: 1.2rem; align-items: center; }
-  .cles-bobine svg { width: 64px; height: auto; }
+  .cles-tete { display: block; }
   .cles h2 { margin: 0; font-weight: 700; font-size: clamp(22px, 2.6vw, 32px); line-height: 1.1; }
   .cles-sous { margin: .3rem 0 0; color: var(--legende); font-size: clamp(14px, 1.4vw, 17px);
                max-width: 64ch; }
@@ -193,60 +166,89 @@
   /* En légende et non en trait: c'est du texte, et le trait ne tient que 3:1. */
   .crochets ul:empty::before { content: attr(data-vide); color: var(--legende); font-size: 15px; }
   .personne {
-    display: grid; grid-template-columns: 22px 1fr auto; gap: .9rem; align-items: center;
-    padding: .65rem .9rem .65rem 0; background: var(--plaque); position: relative;
+    display: grid; grid-template-columns: 1fr auto; gap: .9rem; align-items: center;
+    padding: .65rem .9rem; background: var(--plaque); position: relative;
   }
-  /* La fiche: un tenon qui dépasse du bord gauche. Creuse sans clé. */
-  .personne-fiche { justify-self: start; width: 22px; height: 30px; position: relative;
-                    transform: translateX(-6px); transition: transform .32s;
-                    transition-timing-function: cubic-bezier(.3, .7, .4, 1.4); }
-  .personne-fiche::before { content: ""; position: absolute; inset: 0;
-                            border: 3px solid var(--encre); border-left: 0; }
-  .personne-fiche::after { content: ""; position: absolute; inset: 0; background: var(--encre);
-                           opacity: 0; transition: opacity .25s ease-out; }
-  .personne[data-cle="oui"] .personne-fiche { transform: translateX(0); }
-  .personne[data-cle="oui"] .personne-fiche::after { opacity: 1; }
-  .personne-corps { min-width: 0; }
+  .personne-corps { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; }
   .personne-corps p { margin: 0; }
-  .personne-nom { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+  .personne-nom { font-size: 17px; }
   .personne-adresse { font-family: var(--police-machine); font-size: 13px; color: var(--legende);
                       overflow-wrap: anywhere; }
-  .personne-puces { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .25rem !important; }
-  .puce { font-family: var(--police-machine); font-size: 11px; letter-spacing: .12em;
-          border: 1px solid var(--trait); color: var(--legende); padding: 0 5px; }
-  .puce[data-en-ligne="oui"] { border-color: var(--ok); color: var(--ok); }
-  .personne-geste { display: flex; align-items: center; gap: .6rem; }
+  .personne-phrase { font-size: 15px; color: var(--legende); }
   .personne button {
-    font: 600 15px var(--police-texte); min-height: 40px; padding: .3rem .9rem; white-space: nowrap;
+    font: 400 15px var(--police-titre); min-height: 44px; padding: .3rem .9rem; white-space: nowrap;
     background: transparent; color: var(--encre); border: 2px solid var(--trait);
-    border-radius: 0; cursor: pointer;
+    border-radius: var(--rayon); cursor: pointer;
   }
   .personne button:hover:not(:disabled) { border-color: var(--encre); }
   .personne button:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 2px; }
   .personne button:disabled { opacity: .5; cursor: progress; }
-  .personne[data-cle="non"] button { border-color: var(--encre); }
-  .personne .tampon { min-width: 0; font-size: 12px; padding: .15rem .45rem; --tampon: var(--ok); }
   .personne-dit { margin: 0; min-height: 1.5em; font-size: 16px; }
   .personne-dit[data-alerte="oui"] { color: var(--alerte); }
+
+  /* ── La rangée de la bibliothèque ─────────────────────────────────── */
+  .rayon { display: grid; gap: .5rem; min-width: 0; }
+  .rayon h2 { margin: 0; font-family: var(--police-titre); font-weight: 400; font-size: 20px; }
+  .rayon-dit { margin: 0; color: var(--legende); }
+  .rayon-etagere { position: relative; min-width: 0; }
+  .rayon-jeux { display: flex; gap: .5rem; margin: 0; padding: 0 0 .5rem; list-style: none;
+                overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
+  .rayon-jeux > li { flex: none; scroll-snap-align: start; }
+  .rayon-jeu { display: flex; flex-direction: column; justify-content: space-between; gap: .25rem;
+               width: 92px; height: 128px; padding: .4rem; background: var(--plaque);
+               border: 2px solid var(--trait); border-radius: var(--rayon); }
+  .rayon-jeu[data-support="cartouche"] { height: 96px; margin-top: 32px;
+               border-radius: var(--rayon) var(--rayon) 2px 2px; }
+  .rayon-console { font-family: var(--police-titre); font-size: 11px; color: var(--legende); }
+  .rayon-titre { font-size: 13px; line-height: 1.2; overflow-wrap: anywhere;
+                 display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .rayon-libre { width: 92px; height: 128px; border: 2px dashed var(--trait); border-radius: var(--rayon); }
+  .rayon-planche { height: 6px; background: var(--trait); border-radius: 2px; }
+  .rayon-sol { height: 1px; }
+  .pile { display: flex; align-items: flex-end; gap: .75rem; }
+  .pile-boites { display: flex; flex-direction: column-reverse; gap: 2px; }
+  .pile-boite { display: block; width: 72px; height: 14px; background: var(--plaque);
+                border: 2px solid var(--trait); border-radius: 2px; }
+  .pile-dit { margin: 0; color: var(--legende); }
 
   .pied { margin: 0; color: var(--legende); font-size: 15px; border-top: 2px solid var(--trait);
           padding-top: .8rem; }
 
   @media (max-width: 620px) {
     .depot { grid-template-columns: 1fr; }
-    .depot-bobine { grid-row: auto; }
     .carte { grid-template-columns: 1fr; }
-    .carte-bobine { display: none; }
     .carte-tete { flex-direction: column; }
     .resultat { grid-template-columns: 1fr; }
     .trousseau { grid-template-columns: 1fr; }
     .cles-tete { grid-template-columns: 1fr; }
-    .cles-bobine { display: none; }
-    .personne { grid-template-columns: 22px 1fr; }
-    .personne-geste { grid-column: 2; }
+    .personne { grid-template-columns: 1fr; }
+    .personne button { justify-self: start; }
   }
   /* Rien ici n'a besoin de bouger pour être compris: la jauge garde sa
-     longueur, le tampon sa place, Bobine sa pose finale. */
+     longueur, l'étiquette sa place. */
+  /* ── Les jaquettes, pour l'administrateur (D13, ADR D45) ───────────── */
+  .jaquettes { display: flex; flex-direction: column; gap: .8rem;
+               border-top: 2px solid var(--trait); padding-top: 1.2rem; }
+  .jeux { margin: 0; padding: 0; list-style: none; display: grid; gap: .5rem; }
+  .jeu { display: grid; grid-template-columns: 56px 1fr auto auto; gap: .4rem .9rem; align-items: center;
+         padding: .5rem .7rem; background: var(--plaque); }
+  .jeu-image { width: 56px; height: 56px; object-fit: cover; grid-column: 1; }
+  .jeu-titre { margin: 0; grid-column: 2; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .jeu-console { font-weight: 400; color: var(--legende); }
+  .jeu-dit { margin: 0; grid-column: 2 / -1; color: var(--legende); }
+  .jeu-dit:empty { display: none; }
+  .bouton-cadre { display: inline-flex; align-items: center; min-height: 44px; padding: .3rem 1rem;
+                  font: inherit; font-family: var(--police-titre); cursor: pointer;
+                  color: var(--bouton-cadre-encre); background: transparent;
+                  border: 2px solid var(--bouton-cadre-trait); border-radius: var(--rayon); }
+  .bouton-cadre:focus-within { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
+  /* Le champ de fichier reste au clavier, dans son étiquette qui sert de bouton. */
+  .cache-fichier { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  @media (max-width: 640px) {
+    .jeu { grid-template-columns: 56px 1fr; }
+    .jeu > label, .jeu > button { grid-column: 1 / -1; justify-self: start; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
@@ -254,91 +256,93 @@
 </head>
 <body>
   <main class="page">
-    <div class="rail">
-      <a class="marque" href="/"><!--RETRO:LOGO--></a>
-      <span class="rail-fait">DEPOT DE JEUX</span>
-    </div>
+    <header class="entete">
+      <!--RETRO:BANDEAU /importer-->
+    </header>
 
-    <h1>Déposer un jeu</h1>
-    <p class="chapeau">
-      Lâche un ou plusieurs fichiers de jeu, ou une archive. La page estime la
-      console en lisant le début du fichier. Le serveur relit ensuite le fichier
-      entier, reconnaît la console, puis range le jeu dans la bibliothèque.
-    </p>
+    <h1><!--MOT:entete.depot--></h1>
+    <p class="chapeau"><!--MOT:depot.chapeau--></p>
 
-    <label class="depot" id="depot" for="fichiers" data-survol="non">
-      <span class="depot-bobine"><!--BOBINE:loupe:repos--></span>
-      <span class="depot-mot">Lâche tes fichiers ici</span>
-      <span class="depot-sous">ou clique pour les choisir. Les jeux /*__RANGEES__*/ sont rangés
-        tout de suite; mises à jour, contenus additionnels et autres consoles restent de côté,
-        avec la raison.</span>
-      <span class="prises" aria-hidden="true">
-        <span style="--c: var(--joueur-1)"></span><span style="--c: var(--joueur-2)"></span>
-        <span style="--c: var(--joueur-3)"></span><span style="--c: var(--joueur-4)"></span>
-      </span>
+    <!-- La rangée de la bibliothèque : une boîte ou une cartouche par jeu,
+         sur une planche. Elle défile seule. La place libre en tête est
+         l'ancre « place-libre » de la scène « depot », la planche et le sol
+         sous elle sont ses sols « etagere-haut » et « etagere-bas ». La pile
+         des envois pas encore rangés finit la rangée. Elle vit AU-DESSUS de
+         la zone de dépôt : dessous, la boîte de la scène traversait « Lâche
+         tes fichiers ici » pour monter sur la planche, et la scène se
+         repliait sur la pose clé (salon-navigateur, depot-scene). -->
+    <section class="rayon" id="rayon" hidden aria-labelledby="rayon-titre">
+      <h2 id="rayon-titre"><!--MOT:depot.bibliotheque--></h2>
+      <p class="rayon-dit" id="rayon-dit"></p>
+      <div class="rayon-etagere">
+        <ul class="rayon-jeux" id="rayon-jeux"></ul>
+        <div class="rayon-planche" data-sol="etagere-haut" aria-hidden="true"></div>
+      </div>
+      <div class="pile" id="pile" hidden>
+        <span class="pile-boites" aria-hidden="true"></span>
+        <p class="pile-dit"></p>
+      </div>
+      <div class="rayon-sol" data-sol="etagere-bas" aria-hidden="true"></div>
+    </section>
+
+    <label class="depot" id="depot" for="fichiers" data-survol="non" data-ancre="depot">
+      <span class="depot-mot" id="depot-mot" data-ancre="depot-mot" data-texte><!--MOT:depot.zone--></span>
+      <span class="depot-choisir"><!--MOT:depot.choisir--></span>
+      <span class="depot-sous">/*__RANGEES__*/</span>
       <input type="file" id="fichiers" multiple>
     </label>
 
-    <p class="refus" id="refus" hidden>
-      Déposer un jeu est réservé à l'administrateur du salon et aux personnes
-      qu'il a nommées. Demande-lui de t'ajouter, ou envoie-lui le fichier.
-    </p>
+    <p class="refus" id="refus" hidden><!--MOT:depot.reserve--></p>
 
     <section class="cartes" id="cartes" aria-live="polite"></section>
 
     <section class="cles" id="cles" hidden aria-labelledby="cles-titre">
       <div class="cles-tete">
-        <span class="cles-bobine" id="cles-bobine"><!--BOBINE:tampon:repos--></span>
         <div>
-          <h2 id="cles-titre">Qui peut déposer</h2>
-          <p class="cles-sous">Les personnes qui ont accès au salon, d'après le tailnet et
-            les pseudos déjà choisis. Donne la clé du quai à qui doit pouvoir déposer des
-            jeux; tu peux la reprendre quand tu veux.</p>
+          <h2 id="cles-titre"><!--MOT:depot.quiPeut--></h2>
+          <p class="cles-sous"><!--MOT:depot.quiPeutSous--></p>
         </div>
       </div>
       <p class="cles-avis" id="cles-avis" hidden></p>
       <div class="trousseau">
         <div class="crochets">
-          <h3>Ont la clé</h3>
-          <ul id="avec-cle" data-vide="Personne d'autre que toi."></ul>
+          <h3><!--MOT:depot.peuvent--></h3>
+          <ul id="avec-cle" data-vide="<!--MOT:depot.personneDAutre-->"></ul>
         </div>
         <div class="crochets">
-          <h3>Sans clé</h3>
-          <ul id="sans-cle" data-vide="Tout le monde a la clé."></ul>
+          <h3><!--MOT:depot.peuventPas--></h3>
+          <ul id="sans-cle" data-vide="<!--MOT:depot.toutLeMonde-->"></ul>
         </div>
       </div>
       <p class="personne-dit" id="cles-dit" role="status" aria-live="polite"></p>
     </section>
 
-    <p class="pied">
-      Un envoi coupé reprend où il s'était arrêté: redépose le même fichier,
-      même après avoir fermé la page. Après un dépôt, le bouton ouvre une salle,
-      où le jeu rangé est déjà là, ou rejoint celle qui est ouverte: elle le
-      montre à son prochain changement de jeu.
-    </p>
+    <section class="jaquettes" id="jaquettes" hidden aria-labelledby="jaquettes-titre">
+      <h2 id="jaquettes-titre"><!--MOT:depot.jaquettes--></h2>
+      <p class="cles-sous"><!--MOT:depot.jaquettesSous--></p>
+      <p class="cles-avis" id="jaquettes-avis" hidden></p>
+      <ul class="jeux" id="jeux"></ul>
+    </section>
+
+    <p class="pied"><!--MOT:depot.pied--></p>
   </main>
 
   <template id="modele-carte">
     <article class="carte">
-      <div class="carte-bobine">
-        <span data-tenue="loupe"><!--BOBINE:loupe:loupe--></span>
-        <span data-tenue="tampon" hidden><!--BOBINE:tampon:salue--></span>
-        <span data-tenue="aucune" hidden><!--BOBINE:aucune:dort--></span>
-      </div>
       <div class="carte-corps">
         <div class="carte-tete">
           <p class="carte-nom" data-ici="nom"></p>
           <div class="carte-boutons">
-            <button type="button" data-ici="pause" hidden>pause</button>
-            <button type="button" data-ici="annuler" hidden>annuler</button>
+            <button type="button" data-ici="pause" hidden><!--MOT:depot.pause--></button>
+            <button type="button" data-ici="annuler" hidden><!--MOT:depot.annuler--></button>
           </div>
         </div>
-        <p class="estimation" data-ici="estimation"><span class="etiquette">ESTIMATION</span><span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
+        <p class="estimation" data-ici="estimation"><!--MOT:depot.auDebut--> <span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
         <div class="piste"><span class="barre" data-ici="barre"></span></div>
         <p class="mesures"><span data-ici="compte"></span><span data-ici="debit"></span></p>
         <p class="etat" data-ici="etat" role="status"></p>
         <div class="resultats" data-ici="resultats"></div>
-        <button type="button" class="jouer" data-ici="jouer" hidden>Jouer maintenant</button>
+        <button type="button" class="jouer" data-ici="jouer" hidden><!--MOT:depot.jouer--></button>
         <p class="jouer-note" data-ici="jouer-note" hidden></p>
       </div>
     </article>
@@ -346,16 +350,12 @@
 
   <template id="modele-personne">
     <li class="personne" data-cle="non">
-      <span class="personne-fiche" aria-hidden="true"></span>
       <div class="personne-corps">
-        <p class="personne-nom" data-ici="nom"></p>
+        <span class="etiquette personne-nom" data-ici="nom"></span>
         <p class="personne-adresse" data-ici="adresse"></p>
-        <p class="personne-puces" data-ici="puces"></p>
+        <p class="personne-phrase" data-ici="phrase"></p>
       </div>
-      <div class="personne-geste">
-        <span class="tampon" data-ici="tampon" hidden></span>
-        <button type="button" data-ici="bouton" hidden></button>
-      </div>
+      <button type="button" data-ici="bouton" hidden></button>
     </li>
   </template>
 
@@ -363,5 +363,6 @@
 <script type="module">
 /*__SCRIPT__*/
 </script>
+<!--RETRO:AIN-->
 </body>
 </html>

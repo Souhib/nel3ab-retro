@@ -1,0 +1,116 @@
+/* L'ouverture (`Ouverture.tsx`) : le squelette de la salle pendant que le site
+   répond. Elle remplace le rideau de nuit d'`etat-salle.css` (24 novembre
+   2026) : le fond et la colonne suivent le thème, l'écran reste noir dans les
+   deux. Couleurs : jetons de la régie seulement (`regie.css`).
+
+   Les rectangles (colonne, panneau) reprennent les classes du cadre
+   (`cadre.css`) : `n3-colonne`, `n3-colonne-tete`, `n3-panneau`. Une règle
+   ajoutée ici ne doit pas changer leur boîte, sinon la colonne saute quand
+   la salle arrive (etats.mjs, `ouverture-sans-saut`). */
+
+.n3-ouverture {
+  background: var(--fond);
+  color: var(--encre);
+}
+
+.n3-ouverture-ecran {
+  min-height: 0;
+  flex: 1 1 auto;
+  background: var(--ecran);
+}
+
+.n3-ouverture-colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.n3-ouverture-parole {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.n3-ouverture-titre {
+  font-size: var(--text-corps);
+  color: var(--encre);
+}
+.n3-ouverture-compte {
+  font-size: var(--text-note);
+  color: var(--legende);
+  font-variant-numeric: tabular-nums;
+}
+.n3-ouverture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.n3-ouverture-bouton {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.875rem;
+}
+
+/* Les START éteints : en pointillés (`.rt-bouton-start[data-libre]`), sans
+   prise. Sous l'écran, une rangée ; dans la colonne, deux. */
+.n3-ouverture-panneau .n3-panneau-places {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.n3-ouverture-start {
+  display: flex;
+  align-items: center;
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+}
+
+/* Le squelette posé avant le script (`front/index.html`) : les mêmes
+   classes, sans React. Au bureau la colonne à droite, sinon dessous. */
+.n3-ouverture-statique {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+.n3-ouverture-statique > .n3-ouverture-colonne {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+/* La hauteur du panneau sans image (`PANNEAU` de `lib/cadre`) : 88 px, 64
+   sous 820 px de haut. */
+.n3-ouverture-statique .n3-panneau {
+  --panneau-h: 88px;
+}
+@media (max-height: 820px) {
+  .n3-ouverture-statique .n3-panneau {
+    --panneau-h: 64px;
+  }
+}
+/* Au bureau (`BUREAU_DES`, 900 px, sans doigt), la colonne à droite, à la
+   largeur gardée que le script de `index.html` écrit, sinon 304 px. Comme
+   `modeDuCadre` : un pointeur grossier n'est jamais au bureau. La première
+   version demandait `(pointer: fine)`, que Chrome sans écran ne déclare pas :
+   la colonne y passait dessous (etats.mjs, `ouverture-statique`). */
+@media (min-width: 900px) {
+  .n3-ouverture-statique {
+    flex-direction: row;
+  }
+  .n3-ouverture-statique > .n3-ouverture-colonne {
+    width: var(--ouverture-colonne, 304px);
+    max-width: 50vw;
+    flex: none;
+  }
+}
+@media (pointer: coarse) {
+  .n3-ouverture-statique {
+    flex-direction: column;
+  }
+  .n3-ouverture-statique > .n3-ouverture-colonne {
+    width: auto;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+}

@@ -15,6 +15,7 @@ import pytest
 
 from nel3ab_control.api.controllers.rooms import RoomController
 from nel3ab_control.api.controllers.tablee import Tablee
+from nel3ab_control.api.schemas.error import SeatTaken
 from nel3ab_control.api.ws.handlers import _joueur
 from nel3ab_control.consoles import CONSOLES
 from nel3ab_control.parties import Fin, JeuJoue, Parties, Sauvegarde, sauvegarde_de
@@ -343,3 +344,114 @@ def test_une_ligne_d_un_autre_format_est_ignoree(parties: Parties) -> None:
     )
     assert parties.lire(ALICE) == []
     assert parties.deja_assis(ALICE, 1) is False
+
+
+# ---- Le carnet commun (D12, 24 novembre 2026): qui regardait ----
+
+
+def quois(parties: Parties, login: str) -> list[str]:
+    return [ligne["quoi"] for ligne in lignes(parties, login)]
+
+
+def test_un_spectateur_identifie_ouvre_un_regard_puis_le_ferme_avec_sa_duree(
+    salle: RoomController, parties: Parties, horloge: Horloge
+) -> None:
+    salle.tablee.jeu(MARIO)
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    horloge.maintenant += 90.04
+    salle.release("v", Fin.DECONNECTEE)
+
+    debut, fin = lignes(parties, BENOIT)
+    assert debut["quoi"] == "regard_debut"
+    assert (debut["salle"], debut["pseudo"]) == (1, "Benoît")
+    assert debut["jeu"] == MARIO.ligne()
+    assert "place" not in debut
+    assert fin["quoi"] == "regard_fin"
+    assert (fin["id"], fin["secondes"], fin["raison"]) == (debut["id"], 90.0, "deconnectee")
+
+
+def test_un_spectateur_sans_identite_ou_de_banc_n_ecrit_rien(
+    salle: RoomController, parties: Parties
+) -> None:
+    """Le jumeau: pas de fichier à qui attribuer le regard."""
+    salle.tablee.jeu(MARIO)
+    salle.watch("anonyme")
+    salle.watch("banc", login=_joueur({"login": ALICE, "banc": True}), pseudo="Alice")
+    salle.release("anonyme", Fin.DECONNECTEE)
+    assert not parties.dossier.exists()
+
+
+def test_une_annonce_repetee_garde_le_meme_regard(salle: RoomController, parties: Parties) -> None:
+    """Une page redit « aucune manette » à chaque reconnexion de sa socket."""
+    salle.tablee.jeu(MARIO)
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    salle.forget_absent({"v"})
+    assert quois(parties, BENOIT) == ["regard_debut"]
+
+
+def test_prendre_une_place_ferme_le_regard_et_ouvre_la_place_avec_le_pseudo(
+    salle: RoomController, parties: Parties
+) -> None:
+    salle.tablee.jeu(MARIO)
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    salle.claim(2, "v", "Benoît", login=BENOIT)
+    assert quois(parties, BENOIT) == ["regard_debut", "regard_fin", "place_debut"]
+    fin, place = lignes(parties, BENOIT)[1:]
+    assert fin["raison"] == "quittee"
+    assert (place["place"], place["pseudo"]) == (2, "Benoît")
+    # Rendre la place pour regarder rouvre un regard.
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    assert quois(parties, BENOIT)[-2:] == ["place_fin", "regard_debut"]
+
+
+def test_une_place_refusee_laisse_le_regard_ouvert(salle: RoomController, parties: Parties) -> None:
+    """Le jumeau: la page qui demandait reste devant l'image."""
+    salle.tablee.jeu(MARIO)
+    salle.claim(1, "a", "Alice", login=ALICE)
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    with pytest.raises(SeatTaken):
+        salle.claim(1, "v", "Benoît", login=BENOIT)
+    assert quois(parties, BENOIT) == ["regard_debut"]
+
+
+def test_chaque_chemin_qui_finit_un_regard_ecrit_sa_raison(
+    salle: RoomController, parties: Parties
+) -> None:
+    salle.tablee.jeu(MARIO)
+    salle.watch("a", login=BENOIT, pseudo="Benoît")
+    salle.tablee.jeu(SMASH)
+    salle.forget_absent(set())
+    salle.watch("b", login=BENOIT, pseudo="Benoît")
+    salle.forget_absent({"b"})
+    salle.tablee.fermee()
+
+    vues = [
+        (ligne["quoi"], ligne.get("raison"), (ligne.get("jeu") or {}).get("titre"))
+        for ligne in lignes(parties, BENOIT)
+    ]
+    assert vues == [
+        ("regard_debut", None, MARIO.titre),
+        ("regard_fin", "jeu_change", None),
+        ("regard_debut", None, SMASH.titre),
+        ("regard_fin", "deconnectee", None),
+        ("regard_debut", None, SMASH.titre),
+        ("regard_fin", "salle_fermee", None),
+    ]
+
+
+def test_toutes_rend_les_places_et_les_regards_de_tout_le_monde_sans_adresse(
+    salle: RoomController, parties: Parties, horloge: Horloge
+) -> None:
+    salle.tablee.jeu(MARIO)
+    salle.claim(1, "a", "Alice", login=ALICE)
+    salle.watch("v", login=BENOIT, pseudo="Benoît")
+    horloge.maintenant += 12
+    ouvertes = salle.tablee.toutes()
+    ids = {ligne["id"] for login in (ALICE, BENOIT) for ligne in lignes(parties, login)}
+    assert set(ouvertes) == ids
+    assert set(ouvertes.values()) == {12.0}
+    assert all("@" not in ident for ident in ouvertes)
+    # Le jumeau: ce qui est fini n'y est plus.
+    salle.release("v", Fin.DECONNECTEE)
+    assert len(salle.tablee.toutes()) == 1

@@ -87,3 +87,17 @@ export function preparable(code: string | undefined): boolean {
 export function launchable(code: string | undefined): boolean {
   return described(code)?.playable !== false;
 }
+
+/** Ce que le disque a répondu, en clair, pour l'étiquette d'une cartouche.
+ *
+ * « ? » n'est pas « gc »: le type le dit lui-même, et ce dépôt a déjà vu un
+ * glyphe seul se lire comme une panne. On écrit donc la phrase entière. Venue
+ * de l'ancien dessin « plan » de l'avant-salle, retiré le 24 novembre 2026.
+ */
+export function consoleLue(code: string | undefined): string | null {
+  if (!code) return null;
+  // Le nom vient du manifeste des consoles. Cette fonction en tenait une copie
+  // de deux noms, et affichait « CONSOLE NON LUE » pour une Switch, que le
+  // disque avait pourtant bien dite (audit du 20 novembre 2026).
+  return consoleName(code)?.toUpperCase() ?? "CONSOLE NON LUE";
+}

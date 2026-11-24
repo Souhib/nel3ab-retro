@@ -1,29 +1,131 @@
 /**
- * La salle, avant d'y entrer.
+ * La salle, avant d'y entrer : l'avant-salle.
  *
  * Une salle et non une liste, parce qu'il y a un émulateur sur un GPU sur une
- * machine: en montrer une liste d'un élément serait une page pour un clic. Ce
+ * machine : en montrer une liste d'un élément serait une page pour un clic. Ce
  * que cet écran apporte n'est pas le choix, c'est de **voir la salle avant d'y
- * entrer**: quel jeu tourne, qui est déjà là, et s'il reste une manette.
+ * entrer** : quel jeu tourne, qui est déjà là, et quelle place est libre.
  *
  * Rien ne démarre tant qu'on n'est pas entré. Une image décodée derrière un
  * écran que personne ne regarde coûte à la machine sur laquelle un autre joue.
+ *
+ * # Un seul dessin (24 novembre 2026)
+ *
+ * Trois dessins existaient depuis le 13 septembre 2026 (« classique »,
+ * « câbles », « plan »), choisis par un bouton de la page et retenus dans le
+ * navigateur. Ils sont remplacés par UN dessin, celui de l'accueil du salon :
+ * la borne de la salle (sa console, son jeu, qui le choisit) et son panneau
+ * de commande, quatre boutons START 1P à 4P. Une place prise porte l'étiquette
+ * tapée de son joueur, à sa couleur ; une place libre se prend d'un clic, et
+ * la PREMIÈRE libre est le seul bouton plein, « Prendre la place N ». Une
+ * salle pleine donne ce plein à « Regarder la partie ».
+ *
+ * Prendre une place précise entre avec `?entrer=jouer&place=N`
+ * (`lib/entree`) : la salle demande CETTE place, au lieu de la première libre.
+ *
+ * Aïn vit dans le logo de l'en-tête (`data-hote="logo"`). Quand une place se
+ * libère, il joue « depart » vers son START ; quand quelqu'un d'autre en
+ * prend une, « arrivee ». Le premier état reçu ne joue rien : ouvrir la page
+ * sur une salle pleine n'est pas voir quatre personnes arriver
+ * (`lib/arrivees`). Chaque place porte l'ancre `start-N`, et le panneau son
+ * sol `panneau`. Entrer, à une place ou pour regarder, passe par la
+ * transition « entrer-salle » (K13) ; ton propre clic n'attend aucune scène.
+ *
+ * Les identifiants `#toRooms`, `#rename`, `#newName`, `#enter`, `#watch`,
+ * `#room` et `#lobbySeats [data-port][data-state]` sont un contrat avec les
+ * pilotes de navigateur.
  */
-import { useState } from "react";
-import type { Room } from "../client";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import type { Room, Seat } from "../client";
+import { differences, type Occupation } from "../lib/arrivees";
 import { NAME_MAX } from "../lib/name";
-import { cn } from "../lib/cn";
-import { PLAYER_COLOURS, PLAYER_INKS } from "../media/players";
-import { LOBBIES, type LobbyLook } from "../lib/theme";
-import { LobbyCables } from "./LobbyCables";
-import { LobbyPlan } from "./LobbyPlan";
-import { Logo } from "./Logo";
-import { ENTREES, pastille, placesLibres, SORTIES } from "../lib/mots";
+import { consoleLue } from "../lib/consoles";
+import { aplatDuJoueur } from "../lib/etiquette";
+import { AVANT_SALLE, chefChoisit, pastille, prendreLaPlace } from "../lib/mots";
 import { salonAuDessus } from "../lib/entree";
+import { jouer, poserMascotte } from "../mascotte";
+import type { Joueur } from "../mascotte/dessin";
+import { effetActif } from "../lib/effets";
+import { choisirTransition, transition } from "../retro/transitions";
+import { Etiquette } from "./Etiquette";
+import { Logo } from "./Logo";
+import "./lobby.css";
 
 /* `salonAuDessus` vit dans `lib/entree`, avec la sortie qu'il décide. Réexporté
    ici pour les essais et les pilotes qui le lisaient dans ce fichier. */
 export { salonAuDessus } from "../lib/entree";
+
+/** Une place se prend quand personne ne la nomme ET que le worker ne la dit
+ * pas tenue : une page sans nom qui tient une manette n'est pas une place
+ * libre. Un ancien worker ne dit rien de `held` : seul le nom compte alors. */
+export const estLibre = (seat: Seat): boolean => !seat.player && seat.held !== true;
+
+/** Ce que `lib/arrivees` compare : les places tenues et leurs noms. */
+const occupation = (seats: readonly Seat[]): Occupation => ({
+  tenues: seats.map((seat) => !estLibre(seat)),
+  noms: new Map(seats.flatMap((seat) => (seat.player ? [[seat.port, seat.player] as const] : []))),
+});
+
+const JOUEURS: readonly Joueur[] = ["1", "2", "3", "4"];
+
+/**
+ * Aïn dans le logo de l'avant-salle : peint au montage, puis une scène par
+ * changement de places, jamais au premier état reçu. Un départ passe avant
+ * une arrivée quand les deux arrivent ensemble : c'est la place qui s'ouvre
+ * qu'on attend.
+ */
+function useAinDeLAvantSalle(seats: readonly Seat[] | undefined) {
+  const maison = useRef<HTMLDivElement>(null);
+  const avant = useRef<Occupation | null>(null);
+  useEffect(() => {
+    if (maison.current) poserMascotte(maison.current);
+  }, []);
+  useEffect(() => {
+    if (!seats || seats.length === 0) return;
+    const apres = occupation(seats);
+    const { arrivees, departs } = differences(avant.current, apres, new Set());
+    avant.current = apres;
+    const hote = maison.current;
+    const port = departs[0]?.port ?? arrivees[0]?.port;
+    const joueur = port === undefined ? undefined : JOUEURS[port - 1];
+    if (!hote || !joueur) return;
+    jouer(departs.length > 0 ? "depart" : "arrivee", { hote, contexte: { joueur } });
+  }, [seats]);
+  return maison;
+}
+
+/** Entrer par la transition « entrer-salle » (K13) : des tuiles en « tout »,
+ * une mosaïque en « conseillé », un fondu en « sobre », rien en mouvement
+ * réduit. Elle joue sur l'avant-salle SEULE, et le geste part au milieu,
+ * quand l'avant-salle est couverte ; un second clic pendant ce temps ne
+ * repart pas.
+ *
+ * Pas sur toute la page : la salle se monte au milieu, et la seconde moitié
+ * filtrait la salle neuve, son écran compris, une demi-seconde. Une carte
+ * posée pendant ce temps couvrait l'image (parcours.mjs, demande-place,
+ * 24 novembre 2026), et la règle de l'image ne connaît pas d'exception. */
+function useEntrerParTransition(avantSalle: { current: HTMLElement | null }) {
+  const enCours = useRef(false);
+  return (geste: () => void) => {
+    const voulue = choisirTransition("entrer-salle");
+    // La mosaïque (« conseillé ») retardait la première image de la salle de
+    // 800 ms dans Chrome sans écran : 1 295 ms après la place prise au lieu
+    // de 460, quatre essais de chaque côté le 24 novembre 2026, alors que les
+    // tuiles (« tout », 485 ms) et le fondu (« sobre », 483 ms) ne coûtent
+    // rien. Ses filtres SVG pleine page occupent le navigateur. Ici, elle
+    // cède au fondu, le dernier recours du moment (`MOMENTS`).
+    const type = voulue === "mosaique" ? (effetActif("fondu") ? "fondu" : null) : voulue;
+    const surface = avantSalle.current;
+    // Sans animation, le geste part tout de suite, sans garde : rien n'est
+    // en cours qu'un second clic pourrait doubler.
+    if (type === null || !surface || typeof surface.animate !== "function") return geste();
+    if (enCours.current) return;
+    enCours.current = true;
+    void transition(type, surface, geste).finally(() => {
+      enCours.current = false;
+    });
+  };
+}
 
 export function Lobby({
   room,
@@ -35,278 +137,190 @@ export function Lobby({
   onForget,
   onRename,
   salon = typeof window === "undefined" ? false : salonAuDessus(window.location.pathname),
-  look = "classique",
-  onLook,
 }: {
   room: Room | undefined;
   name: string;
   login: string | null;
   failed: boolean;
-  onEnter: () => void;
+  /** Entrer pour jouer, à cette place quand elle est donnée. */
+  onEnter: (place?: number) => void;
   /** Entrer sans prendre de manette. Une porte séparée plutôt qu'un réglage à
-   * changer après: quelqu'un qui vient regarder ne doit pas occuper une place le
-   * temps de la rendre. */
+   * changer après : quelqu'un qui vient regarder ne doit pas occuper une place
+   * le temps de la rendre. */
   onWatch: () => void;
   onForget: () => void;
   onRename: (name: string) => void;
   /** Vrai quand un salon existe au-dessus. Passé explicitement par les essais,
    * lu sur l'adresse autrement. */
   salon?: boolean;
-  /** Lequel des deux dessins. Le classique tant que rien n'est choisi. */
-  look?: LobbyLook;
-  /** Changer de dessin. Absent dans les essais qui n'en testent qu'un. */
-  onLook?: (look: LobbyLook) => void;
 }) {
   const seats = room?.seats ?? [];
-  const people = room?.people ?? [];
-  const free = seats.filter((seat) => !seat.player).length;
-
-  /* L'en-tête et les commandes sont PARTAGÉS par les deux dessins.
-     Les identifiants `#toRooms`, `#rename`, `#newName`, `#enter` et `#watch`
-     sont un contrat avec les pilotes de navigateur. Les écrire deux fois, une
-     par dessin, serait deux endroits à tenir d'accord, et c'est exactement la
-     faute que ce dépôt a déjà payée sur les quatre places. */
-  /* Les dessins PEINTS posent leur propre fond, donc l'encre d'accent du
-     classique n'y tient pas son contraste. Nommer la propriété plutôt que le
-     dessin évite d'ajouter une condition par dessin à chaque fois. */
-  /* Les dessins PEINTS posent leur propre fond, donc les encres du thème n'y
-     tiennent pas leur contraste: elles sont calibrées contre `--panel`, qui vaut
-     `#0e0e11` en sombre, et non contre l'ardoise `#2f3238` ni le sol `#191512`.
-     Mesuré le 13 septembre 2026 par `just browser-lobby`, le premier garde qui
-     ait jamais regardé cette page: sur l'ardoise, « changer de pseudo » tombait
-     à 3:1, « entrer et jouer » à 3,34:1 et la phrase d'explication à 3:1; sur le
-     sol, 4,24:1 et 4,47:1. Ces chiffres sont des MESURES dans un rendu, pas des
-     calculs sur des couleurs choisies — c'est toute la différence avec l'en-tête
-     du dessin câbles, écrit le matin même à partir d'un calcul.
-
-     Une encre FIXE par dessin peint est correcte et ne dépend d'aucun des sept
-     thèmes, puisque le fond, lui, est fixe. */
-  const PEINTURE = {
-    cables: { encre: "#eceff4", sourde: "#aeb6c2" },
-    plan: { encre: "#f0e9e0", sourde: "#9c9086" },
-  } as const;
-  const peinture = look === "cables" || look === "plan" ? PEINTURE[look] : null;
-  const peint = peinture !== null;
-
-  const entete = (
-    <header className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-3">
-        {/* Le logo lit les jetons de la page. Les dessins peints sont sombres
-            dans les deux thèmes: il y prend ceux de la nuit. */}
-        <Logo className={peint ? "regie-nuit" : undefined} />
-        <span className="flex items-baseline gap-3">
-          {onLook ? <LookSwitch look={look} onLook={onLook} /> : null}
-          {salon ? (
-            <a
-              id="toRooms"
-              href="/"
-              className={cn(
-                "text-note underline transition-colors",
-                peint ? "opacity-70 hover:opacity-100" : "text-faint hover:text-indigo",
-              )}
-            >
-              {SORTIES.autres}
-            </a>
-          ) : null}
-        </span>
-      </div>
-      <NameTag
-        name={name}
-        login={login}
-        onRename={onRename}
-        onForget={onForget}
-        encre={peinture?.encre}
-        sourde={peinture?.sourde}
-      />
-    </header>
-  );
-
-  const commandes = (
-    <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-[2fr_1fr] gap-2">
-        <button
-          type="button"
-          id="enter"
-          onClick={onEnter}
-          disabled={free === 0 && seats.length > 0}
-          className={cn(
-            "border px-3 py-2.5 text-corps transition-colors disabled:opacity-40",
-            peint ? "" : "border-indigo bg-indigo/10 text-indigo hover:bg-indigo/20",
-          )}
-          style={peinture ? { borderColor: peinture.sourde, color: peinture.encre } : undefined}
-        >
-          {free === 0 && seats.length > 0 ? "salle pleine" : ENTREES.rejoindre}
-        </button>
-        <button
-          type="button"
-          id="watch"
-          onClick={onWatch}
-          className={cn(
-            "border px-3 py-2.5 text-corps transition-colors",
-            peint ? "" : "border-rule text-muted hover:border-indigo hover:text-indigo",
-          )}
-          style={peinture ? { borderColor: peinture.sourde, color: peinture.sourde } : undefined}
-        >
-          {ENTREES.regarder}
-        </button>
-      </div>
-      <p
-        className={cn("text-note leading-relaxed", peint ? "" : "text-faint")}
-        style={peinture ? { color: peinture.sourde } : undefined}
-      >
-        {/* Ce que fait le bouton, et rien d'autre: l'avertissement sur le
-            changement de jeu arrivait ici avant le contexte qui le rend utile,
-            et le menu le donne déjà (audit T07). */}
-        {failed
-          ? "Les noms des joueurs ne s'affichent pas pour l'instant. Tu peux jouer quand même."
-          : free === 0 && seats.length > 0
-            ? `Les ${seats.length} places sont prises. Entre pour regarder : une place peut se libérer.`
-            : "Tu prends la première place libre. Tu pourras en changer dans la salle."}
-      </p>
-    </div>
-  );
-
-  if (look === "plan") {
-    return (
-      <LobbyPlan room={room} free={free} failed={failed} actions={commandes}>
-        {entete}
-      </LobbyPlan>
-    );
-  }
-
-  if (look === "cables") {
-    return (
-      <LobbyCables room={room} free={free} actions={commandes}>
-        {entete}
-      </LobbyCables>
-    );
-  }
+  const libres = seats.filter(estLibre).map((seat) => seat.port);
+  const conseillee = libres[0] ?? null;
+  const pleine = seats.length > 0 && conseillee === null;
+  const spectateurs = (room?.people ?? []).filter((p) => !p.seat).map((p) => p.name);
+  const chef = room?.owner?.name ?? null;
+  const console = consoleLue(room?.game?.console);
+  const maison = useAinDeLAvantSalle(room?.seats);
+  const avantSalle = useRef<HTMLDivElement>(null);
+  const entrer = useEntrerParTransition(avantSalle);
 
   return (
-    /* `min-h-full` et `my-auto` plutôt que `h-full` et un centrage: centrée
+    /* `min-h-full` et `my-auto` plutôt que `h-full` et un centrage : centrée
        dans une boîte plus petite qu'elle, la fiche débordait par le HAUT, où
-       l'on ne peut pas défiler. Mesuré le 22 novembre 2026 sur un téléphone
-       tenu en travers: « autres salles » commençait à -25 px en 844 sur 390,
-       à -33 px en 667 sur 375 (audit M9). */
-    <div className="flex min-h-full flex-col items-center p-6 paysage-bas:px-6 paysage-bas:py-3">
-      {/* Tenu en travers, la fiche et les commandes côte à côte: en colonne,
-          « Rejoindre » finissait à 438 px sur un écran de 390 (vérification
-          finale du 22 novembre 2026). */}
+       l'on ne peut pas défiler (audit M9, 22 novembre 2026). */
+    <div
+      ref={avantSalle}
+      className="n3-avant-salle flex min-h-full flex-col items-center p-6 paysage-bas:px-6 paysage-bas:py-3"
+    >
       <div className="my-auto flex w-full max-w-md flex-col gap-5 paysage-bas:grid paysage-bas:max-w-3xl paysage-bas:grid-cols-[3fr_2fr] paysage-bas:items-start paysage-bas:gap-x-5 paysage-bas:gap-y-3">
-        <div className="paysage-bas:col-span-2">{entete}</div>
-
-        <section
-          id="room"
-          data-look="classique"
-          className="flex flex-col gap-3 border border-rule bg-panel p-4 paysage-bas:row-span-2"
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <h1 className="truncate text-titre font-medium tracking-tight">{room?.name ?? "…"}</h1>
-            <span className={cn("font-mono text-note", free > 0 ? "text-good" : "text-alert")}>
-              {seats.length === 0 ? "" : free > 0 ? placesLibres(free) : "salle pleine"}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-0.5 border-t border-rule pt-3">
-            <span className="text-mini uppercase tracking-[0.2em] text-faint">au programme</span>
-            <span className="text-fort">{room?.game?.name ?? "aucun jeu chargé"}</span>
-          </div>
-
-          <div className="flex flex-col gap-1.5 border-t border-rule pt-3">
-            <span className="text-mini uppercase tracking-[0.2em] text-faint">
-              {people.length === 0 ? "personne pour l'instant" : `${people.length} dans la salle`}
-            </span>
-            {people.length > 0 ? (
-              <ul id="people" className="flex flex-wrap gap-1.5 pb-1">
-                {people.map((person) => (
-                  <li
-                    key={person.id ?? person.name}
-                    title={person.id ? "identité vérifiée" : "sans identité"}
-                    className={cn(
-                      "border px-2 py-0.5 text-note",
-                      person.seat ? "border-indigo/50 text-indigo" : "border-rule text-muted",
-                    )}
-                  >
-                    {person.name}
-                    {person.seat ? ` · ${pastille(person.seat)}` : ""}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <div id="lobbySeats" className="grid grid-cols-4 gap-px border border-rule">
-              {seats.map((seat) => {
-                const colour = PLAYER_COLOURS[seat.port - 1] ?? PLAYER_COLOURS[0];
-                const taken = Boolean(seat.player);
-                return (
-                  <div
-                    key={seat.port}
-                    data-port={seat.port}
-                    data-state={taken ? "busy" : "free"}
-                    className="flex min-w-0 flex-col gap-1 px-2 py-2"
-                    style={{
-                      borderTop: `3px solid ${colour}`,
-                      backgroundColor: taken ? `${colour}1f` : "transparent",
-                    }}
-                  >
-                    {/* L'encre PLEINE, jamais un alpha.
-                      `opacity: 0.7` faisait tomber « P1 » à 2,92:1 et « P2 » à
-                      3,12:1, mesurés le 13 septembre 2026, sur l'écran que ce
-                      dépôt regarde le plus souvent. Aucun garde ne l'avait vu
-                      parce qu'aucun garde ne regardait cette page. Le carnet
-                      écrivait déjà la règle pour les sept thèmes: on atténue en
-                      changeant d'encre, pas en baissant l'alpha.
-                      Et l'encre du JOUEUR, pas son aplat: l'aplat du joueur 3
-                      tombait à 1,81:1 sur le thème clair (22 novembre 2026). */}
-                    <span
-                      className="font-machine text-mini"
-                      style={{ color: PLAYER_INKS[seat.port - 1] ?? PLAYER_INKS[0] }}
-                    >
-                      {pastille(seat.port)}
-                    </span>
-                    <span className={cn("truncate text-corps", taken ? "text-text" : "text-faint")}>
-                      {seat.player ?? "libre"}
-                    </span>
-                  </div>
-                );
-              })}
+        <header className="relative flex flex-col gap-2 paysage-bas:col-span-2">
+          {/* Un point de passage d'Aïn, à gauche de la fiche, entre l'en-tête
+              et la borne : le chemin direct du logo au panneau touchait
+              « Changer ton nom » (parcours.mjs, avant-salle-ain). */}
+          <span
+            className="n3-avant-passage n3-avant-passage-haut"
+            data-ancre="passage-1"
+            aria-hidden="true"
+          />
+          <div className="flex items-center justify-between gap-3">
+            {/* La maison d'Aïn : le logo, qu'il remplace une fois peint. */}
+            <div ref={maison} className="n3-avant-maison" data-hote="logo">
+              <Logo />
             </div>
+            {salon ? (
+              <a id="toRooms" href="/" className="n3-avant-lien">
+                {AVANT_SALLE.autres}
+              </a>
+            ) : null}
           </div>
-        </section>
+          <NameTag name={name} login={login} onRename={onRename} onForget={onForget} />
+        </header>
 
-        {commandes}
+        <main className="contents">
+          <section id="room" className="n3-avant-borne paysage-bas:row-span-2">
+            <h1 className="n3-avant-borne-titre rt-titre">{room?.name ?? "…"}</h1>
+            <div className="n3-avant-borne-jeu">
+              {console ? <span className="n3-avant-cartouche">{console}</span> : null}
+              <span className="n3-avant-borne-titre-jeu" data-texte="">
+                {room?.game?.name ?? AVANT_SALLE.aucunJeu}
+              </span>
+              {chef || spectateurs.length > 0 ? (
+                <span id="people" className="n3-avant-borne-gens">
+                  {chef ? `${chefChoisit(chef)} ` : ""}
+                  {spectateurs.length > 0 ? AVANT_SALLE.regarde(spectateurs) : ""}
+                </span>
+              ) : null}
+            </div>
+            <div id="lobbySeats" className="n3-avant-borne-panneau">
+              {/* Le sol d'Aïn : le bord haut du panneau, où « depart » le pose,
+                  et son second point de passage, à gauche de la borne. */}
+              <span className="n3-avant-sol" data-sol="panneau" aria-hidden="true" />
+              <span
+                className="n3-avant-passage n3-avant-passage-bas"
+                data-ancre="passage-2"
+                aria-hidden="true"
+              />
+              {seats.map((seat) => (
+                <PlaceDuPanneau
+                  key={seat.port}
+                  seat={seat}
+                  conseillee={seat.port === conseillee}
+                  onPrendre={() => entrer(() => onEnter(seat.port))}
+                />
+              ))}
+            </div>
+          </section>
+
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr]">
+              {conseillee !== null || seats.length === 0 ? (
+                <button
+                  type="button"
+                  id="enter"
+                  onClick={() => entrer(() => onEnter(conseillee ?? undefined))}
+                  className="rt-boite rt-bouton rt-bouton-plein n3-avant-bouton"
+                >
+                  <i className="rt-ombre" aria-hidden="true" />
+                  {conseillee !== null ? prendreLaPlace(conseillee) : AVANT_SALLE.prendre}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                id="watch"
+                onClick={() => entrer(onWatch)}
+                className={
+                  pleine
+                    ? "rt-boite rt-bouton rt-bouton-plein n3-avant-bouton sm:col-span-2"
+                    : "rt-boite rt-bouton n3-avant-bouton"
+                }
+              >
+                <i className="rt-ombre" aria-hidden="true" />
+                {pleine ? AVANT_SALLE.regarderLaPartie : AVANT_SALLE.regarderSansPlace}
+              </button>
+            </div>
+            <p className="text-note leading-relaxed text-faint">
+              {failed
+                ? AVANT_SALLE.injoignable
+                : pleine
+                  ? AVANT_SALLE.pleine(seats.length)
+                  : AVANT_SALLE.libre}
+            </p>
+          </div>
+        </main>
       </div>
     </div>
   );
 }
 
-/** Le petit bouton qui change de dessin.
- *
- * Sur la PAGE et pas dans un menu: il n'y a aucun menu avant d'entrer, et un
- * réglage qu'on ne peut atteindre qu'après être entré ne sert à rien pour
- * choisir l'écran d'entrée. Il annonce le dessin vers lequel il emmène, pas
- * celui où l'on est: un bouton dit ce qu'il FAIT.
- */
-function LookSwitch({ look, onLook }: { look: LobbyLook; onLook: (look: LobbyLook) => void }) {
-  /* Un CYCLE, pas « la première autre ».
-     `LOBBIES.find((choice) => choice.id !== look)` marchait tant qu'il n'y avait
-     que deux dessins et rendait le troisième inatteignable: depuis `classique`
-     elle donnait `cables`, depuis `cables` elle redonnait `classique`, et `sol`
-     n'était jamais proposé. Un dessin qu'aucun chemin n'atteint est un dessin
-     mort. `findIndex` rend -1 sur une valeur inconnue, donc le modulo retombe
-     sur la première entrée. */
-  const suivant = LOBBIES[(LOBBIES.findIndex((choice) => choice.id === look) + 1) % LOBBIES.length];
+/** Une place du panneau : prise, avec l'étiquette de son joueur ; libre, un
+ * bouton qui la prend. `data-state` reste lu par les pilotes et `encres.test`. */
+function PlaceDuPanneau({
+  seat,
+  conseillee,
+  onPrendre,
+}: {
+  seat: Seat;
+  conseillee: boolean;
+  onPrendre: () => void;
+}) {
+  const couleur = { "--rt-joueur": aplatDuJoueur(seat.port) } as CSSProperties;
+  if (!estLibre(seat)) {
+    return (
+      <div
+        className="n3-avant-place"
+        data-port={seat.port}
+        data-state="busy"
+        data-ancre={`start-${seat.port}`}
+        style={couleur}
+      >
+        <span className="rt-bouton-start" aria-hidden="true">
+          {pastille(seat.port)}
+        </span>
+        {seat.player ? (
+          <Etiquette nom={seat.player} place={seat.port} />
+        ) : (
+          <span className="n3-avant-mot">{pastille(seat.port)}</span>
+        )}
+      </div>
+    );
+  }
   return (
     <button
       type="button"
-      id="lookSwitch"
-      onClick={() => onLook(suivant.id)}
-      title={suivant.note}
-      // « câbles » seul ne disait pas que le bouton change le dessin de
-      // l'écran (audit A11Y-10).
-      aria-label={`dessin suivant : ${suivant.label}`}
-      className="text-note underline opacity-60 transition-opacity hover:opacity-100"
+      className="n3-avant-place"
+      data-port={seat.port}
+      data-state="free"
+      data-ancre={`start-${seat.port}`}
+      data-conseillee={conseillee ? "" : undefined}
+      aria-label={prendreLaPlace(seat.port)}
+      onClick={onPrendre}
+      style={couleur}
     >
-      affichage : {suivant.label}
+      <span className="rt-bouton-start" data-libre="" aria-hidden="true">
+        {pastille(seat.port)}
+      </span>
+      <span className="n3-avant-mot">{AVANT_SALLE.prendre}</span>
     </button>
   );
 }
@@ -315,32 +329,27 @@ function LookSwitch({ look, onLook }: { look: LobbyLook; onLook: (look: LobbyLoo
  * Le nom qu'on porte, et le seul morceau qu'on a le droit de changer.
  *
  * Quand le proxy dit qui on est, l'adresse est affichée et n'est pas
- * modifiable: c'est ce qui rend le pseudo sûr, puisqu'il est rangé sous elle.
- * Sans identité, on retombe sur « ce n'est pas toi ? », qui oublie le prénom
- * gardé dans le navigateur.
+ * modifiable : c'est ce qui rend le pseudo sûr, puisqu'il est rangé sous elle.
+ * Sans identité, « Ce n'est pas toi ? » oublie le prénom gardé dans le
+ * navigateur et mène à « Qui joue ? ».
  */
 function NameTag({
   name,
   login,
   onRename,
   onForget,
-  encre,
-  sourde,
 }: {
   name: string;
   login: string | null;
   onRename: (name: string) => void;
   onForget: () => void;
-  /** Les encres du dessin peint, absentes sur le classique qui suit son thème. */
-  encre?: string;
-  sourde?: string;
 }) {
   const [typing, setTyping] = useState<string | null>(null);
 
   if (typing !== null) {
     return (
       <form
-        className="flex items-center gap-1.5"
+        className="flex flex-wrap items-center gap-1.5"
         onSubmit={(event) => {
           event.preventDefault();
           const chosen = typing.trim().slice(0, NAME_MAX);
@@ -350,64 +359,40 @@ function NameTag({
       >
         <input
           id="newName"
-          aria-label="nouveau pseudo"
+          aria-label={AVANT_SALLE.nouveauNom}
           autoFocus
           maxLength={NAME_MAX}
           value={typing}
           onChange={(event) => setTyping(event.target.value)}
-          className="min-w-0 flex-1 border border-rule bg-panel px-2 py-1 text-corps focus:border-indigo"
+          className="n3-champ min-w-0 flex-1"
         />
-        <button type="submit" className="border border-indigo px-2 py-1 text-note text-indigo">
-          garder
+        <button type="submit" className="rt-boite rt-bouton n3-avant-bouton">
+          <i className="rt-ombre" aria-hidden="true" />
+          {AVANT_SALLE.garder}
         </button>
-        <button
-          type="button"
-          onClick={() => setTyping(null)}
-          className="px-1 text-note text-faint hover:text-text"
-        >
-          annuler
+        <button type="button" onClick={() => setTyping(null)} className="n3-avant-lien">
+          {AVANT_SALLE.annuler}
         </button>
       </form>
     );
   }
 
   return (
-    <p
-      className={cn("text-corps", sourde ? "" : "text-muted")}
-      style={sourde ? { color: sourde } : undefined}
-    >
-      bonjour{" "}
-      <span className={encre ? "" : "text-text"} style={encre ? { color: encre } : undefined}>
-        {name}
-      </span>
-      .{" "}
-      <button
-        type="button"
-        id="rename"
-        onClick={() => setTyping(name)}
-        className={cn("underline", sourde ? "" : "text-faint hover:text-indigo")}
-        style={sourde ? { color: encre } : undefined}
-      >
-        changer de pseudo
+    <p className="n3-avant-nom">
+      <span className="text-muted">{AVANT_SALLE.bonjour}</span> <Etiquette nom={name} />{" "}
+      <button type="button" id="rename" onClick={() => setTyping(name)} className="n3-avant-lien">
+        {AVANT_SALLE.changer}
       </button>
       {login ? (
-        <span
-          className={cn("ml-1", sourde ? "" : "text-faint")}
-          style={sourde ? { color: sourde } : undefined}
-          title="l'adresse que Tailscale garantit"
-        >
-          · {login}
+        <span className="text-faint" title="l'adresse que Tailscale garantit">
+          {" · "}
+          {login}
         </span>
       ) : (
         <>
           {" · "}
-          <button
-            type="button"
-            onClick={onForget}
-            className={cn("underline", sourde ? "" : "text-faint hover:text-indigo")}
-            style={sourde ? { color: encre } : undefined}
-          >
-            ce n'est pas toi ?
+          <button type="button" id="pasToi" onClick={onForget} className="n3-avant-lien">
+            {AVANT_SALLE.pasToi}
           </button>
         </>
       )}

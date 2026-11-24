@@ -376,12 +376,6 @@ describe("un bouton commence par une majuscule", () => {
     "App.tsx « passer »",
     "components/Booting.tsx « ouvrir le menu »",
     "components/Booting.tsx « arrêter d&apos;attendre »",
-    "components/Entrance.tsx « entrer »",
-    "components/Lobby.tsx « affichage : »",
-    "components/Lobby.tsx « garder »",
-    "components/Lobby.tsx « annuler »",
-    "components/Lobby.tsx « changer de pseudo »",
-    "components/Lobby.tsx « ce n'est pas toi ? »",
   ];
 
   it("aucun nouveau bouton de la page n'est en minuscules", () => {

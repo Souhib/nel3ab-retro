@@ -48,6 +48,15 @@ export function nomsConsoles(page = globalThis.document) {
 
 export const CONSOLES = nomsConsoles();
 
+/**
+ * Les mots de la page (`front/src/lib/mots.ts`, groupe `depot`), que
+ * `retro.py` pose avant ce module (`retro/mots.js`). Sans eux la page ne dirait
+ * rien: le module refuse de se charger. Sous Node, l'essai les pose d'abord
+ * (`control/tests/imports/mots_du_salon.mjs`).
+ */
+const mots = globalThis.nel3abMots;
+if (typeof mots !== "function") throw new Error("la page de dépôt n'a pas reçu ses mots");
+
 function egal(b, a, texte) {
   if (a + texte.length > b.length) return false;
   for (let i = 0; i < texte.length; i += 1) if (b[a + i] !== texte.charCodeAt(i)) return false;
@@ -200,12 +209,16 @@ export async function empreinteRapide(fichier) {
 // ── La page ───────────────────────────────────────────────────────────────
 
 const API = "/api/imports";
-const POSES = {
-  loupe: ["loupe", "loupe"],
-  range: ["tampon", "salue"],
-  reconnu: ["tampon", "repos"],
-  pause: ["aucune", "dort"],
-  rate: ["aucune", "essuie"],
+/** Les états d'une carte, et la scène d'Aïn que chacun demande (ADR D41).
+ * Une scène ne joue que pour une carte suivie dans cette page: les envois
+ * d'avant le rechargement se montrent sans que rien ne bouge. */
+const SCENES = { range: "depot", rate: "refus" };
+const ain = (quoi) => {
+  try {
+    globalThis.nel3abAin?.scene(quoi);
+  } catch {
+    // Le paquet du salon absent ou refusé: la page reste juste, sans scène.
+  }
 };
 const RETENTES = 8;
 
@@ -225,7 +238,7 @@ export function octets(n) {
 
 export function duree(secondes) {
   if (!Number.isFinite(secondes)) return "";
-  if (secondes < 60) return "moins d'une minute";
+  if (secondes < 60) return mots("commun.moinsDUneMinute");
   const minutes = Math.round(secondes / 60);
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")}`;
@@ -269,10 +282,10 @@ export function aRejoindre(salles) {
  */
 export function libelleJouer(salles) {
   const salle = aRejoindre(salles);
-  if (!salle) return { texte: "Jouer maintenant", note: "" };
+  if (!salle) return { texte: mots("depot.jouer"), note: "" };
   return {
-    texte: `Aller dans la salle ${salle.numero}`,
-    note: "Le jeu apparaîtra au prochain changement de jeu.",
+    texte: mots("depot.allerDans", { n: salle.numero }),
+    note: mots("depot.auProchainJeu"),
   };
 }
 
@@ -298,9 +311,9 @@ export async function ouJouer(demander = fetch) {
     const ouvre = await demander("/api/salles", { method: "POST" });
     const dit = await lireJson(ouvre);
     if (ouvre.ok && typeof dit.chemin === "string") return { vers: `${dit.chemin}?entrer=jouer`, ouverte: false };
-    return { vers: null, refus: dit.detail ?? "la salle n'a pas voulu s'ouvrir" };
+    return { vers: null, refus: dit.detail ?? mots("accueil.refusOuvrir") };
   } catch {
-    return { vers: null, refus: "pas de réponse, réessaie dans un instant" };
+    return { vers: null, refus: mots("commun.sansReponse") };
   }
 }
 
@@ -328,9 +341,8 @@ function envoyerMorceau(url, corps, progres) {
 }
 
 class Carte {
-  constructor(liste, modele, rang) {
+  constructor(liste, modele) {
     this.noeud = modele.content.firstElementChild.cloneNode(true);
-    this.noeud.style.setProperty("--joueur", `var(--joueur-${(rang % 4) + 1})`);
     this.ici = (cle) => this.noeud.querySelector(`[data-ici="${cle}"]`);
     liste.prepend(this.noeud);
     this.fichier = null;
@@ -351,11 +363,12 @@ class Carte {
   }
 
   pose(nom) {
-    const [tenue, pose] = POSES[nom];
-    for (const dessin of this.noeud.querySelectorAll("[data-tenue]")) {
-      dessin.hidden = dessin.dataset.tenue !== tenue;
-      dessin.querySelector("svg")?.setAttribute("data-pose", pose);
-    }
+    if (this.noeud.dataset.pose === nom) return;
+    this.noeud.dataset.pose = nom;
+    if (this.suivie && SCENES[nom]) ain(SCENES[nom]);
+    // La rangée se relit quand un jeu suivi ici vient d'être rangé.
+    if (this.suivie && nom === "range")
+      this.noeud.dispatchEvent(new Event("rt-range", { bubbles: true }));
   }
 
   dire(texteDit, alerte = false) {
@@ -367,14 +380,18 @@ class Carte {
   boutons({ pause = false, reprendre = false, annuler = false } = {}) {
     const bouton = this.ici("pause");
     bouton.hidden = !(pause || reprendre);
-    bouton.textContent = reprendre ? "reprendre" : "pause";
+    bouton.textContent = mots(reprendre ? "depot.reprendre" : "depot.pause");
     this.ici("annuler").hidden = !annuler;
   }
 
   progres(recus, taille) {
     const part = taille ? recus / taille : 0;
     this.ici("barre").style.transform = `scaleX(${part})`;
-    this.ici("compte").textContent = `${Math.floor(part * 100)} % · ${octets(recus)} sur ${octets(taille)}`;
+    this.ici("compte").textContent = mots("depot.compte", {
+      pourcent: Math.floor(part * 100),
+      recus: octets(recus),
+      taille: octets(taille),
+    });
     const maintenant = performance.now();
     this.mesures.push([maintenant, recus]);
     while (this.mesures.length > 2 && maintenant - this.mesures[0][0] > 8000) this.mesures.shift();
@@ -382,7 +399,7 @@ class Carte {
     const debit = maintenant > t0 ? ((recus - o0) * 1000) / (maintenant - t0) : 0;
     this.ici("debit").textContent =
       debit > 0 && recus < taille
-        ? `${octets(Math.round(debit))}/s · reste ${duree((taille - recus) / debit)}`
+        ? mots("depot.debit", { debit: octets(Math.round(debit)), duree: duree((taille - recus) / debit) })
         : "";
   }
 
@@ -390,20 +407,22 @@ class Carte {
     this.ici("nature").textContent = trouve.console
       ? `${CONSOLES[trouve.console] ?? trouve.console} · ${trouve.format.toUpperCase()}`
       : trouve.format === "inconnu"
-        ? "console non reconnue au début du fichier"
-        : `${trouve.format.toUpperCase()} · console lue par le serveur`;
+        ? mots("depot.nonReconnue")
+        : mots("depot.lueParLeServeur", { format: trouve.format.toUpperCase() });
     this.ici("titre").textContent = trouve.titre || "";
   }
 
   async demarrer(fichier) {
+    // Une carte suivie dans cette page: son issue fait jouer Aïn.
+    this.suivie = true;
     this.fichier = fichier;
     this.ici("nom").textContent = fichier.name;
     this.ici("compte").textContent = octets(fichier.size);
     this.pose("loupe");
-    this.dire("lecture du début du fichier…");
+    this.dire(mots("depot.lecture"));
     const debut = new Uint8Array(await fichier.slice(0, LU).arrayBuffer());
     this.estimation(estimer(debut));
-    this.dire("calcul de l'empreinte rapide…");
+    this.dire(mots("depot.empreinte"));
     const empreinte = await empreinteRapide(fichier);
     const reponse = await fetch(API, {
       method: "POST",
@@ -422,25 +441,28 @@ class Carte {
       if (detail.etat === "envoi") return this.envoyer();
       return this.suivre();
     }
-    // Refusé dès l'annonce: rien n'existe sur le serveur, « retirer » ne fait
+    // Refusé dès l'annonce: rien n'existe sur le serveur, « Retirer » ne fait
     // qu'enlever la carte.
     this.pose("rate");
     this.boutons({ annuler: true });
-    this.ici("annuler").textContent = "retirer";
+    this.ici("annuler").textContent = mots("depot.retirer");
     if (reponse.status === 409 && detail.raison === "deja-la") {
       this.etat = "fini";
       this.ici("barre").style.transform = "scaleX(1)";
-      return this.dire(`Déjà dans la bibliothèque: ${detail.fichier}.`, true);
+      return this.dire(mots("depot.dejaLa", { fichier: detail.fichier }), true);
     }
     this.etat = "rate";
-    this.dire(detail.message ?? (typeof detail === "string" ? detail : `refus ${reponse.status}`), true);
+    this.dire(
+      detail.message ?? (typeof detail === "string" ? detail : mots("depot.refusStatut", { statut: reponse.status })),
+      true,
+    );
   }
 
   async envoyer() {
     this.etat = "envoi";
     this.pose("loupe");
     this.boutons({ pause: true, annuler: true });
-    this.dire("envoi en cours");
+    this.dire(mots("depot.enCours"));
     let decalage = this.envoi.decalage;
     let ratees = 0;
     const taille = this.fichier.size;
@@ -472,7 +494,7 @@ class Carte {
         this.etat = "rate";
         this.pose("rate");
         this.boutons({ annuler: true });
-        return this.dire(detail.message ?? `refus ${status}`, true);
+        return this.dire(detail.message ?? mots("depot.refusStatut", { statut: status }), true);
       } catch (erreur) {
         this.enCours = null;
         if (erreur.name === "AbortError") return;
@@ -481,9 +503,9 @@ class Carte {
           this.etat = "pause";
           this.pose("pause");
           this.boutons({ reprendre: true, annuler: true });
-          return this.dire("La connexion a coupé. « reprendre » repart d'où le serveur en est.", true);
+          return this.dire(mots("depot.coupee"), true);
         }
-        this.dire(`connexion coupée, nouvel essai (${ratees}/${RETENTES})…`, true);
+        this.dire(mots("depot.nouvelEssai", { n: ratees, max: RETENTES }), true);
         await attendre(Math.min(30000, 1000 * 2 ** (ratees - 1)));
         decalage = await this.decalageServeur(decalage);
       }
@@ -504,31 +526,34 @@ class Carte {
 
   async terminer() {
     this.boutons({ annuler: true });
-    this.dire("vérification par le serveur: empreinte complète, console, rangement…");
+    this.dire(mots("depot.verification"));
     const reponse = await fetch(`${API}/${this.envoi.id}/fin`, { method: "POST" });
     if (!reponse.ok && reponse.status !== 202) {
       const detail = (await lireJson(reponse)).detail ?? {};
       this.etat = "rate";
       this.pose("rate");
-      return this.dire(detail.message ?? `refus ${reponse.status}`, true);
+      return this.dire(detail.message ?? mots("depot.refusStatut", { statut: reponse.status }), true);
     }
     return this.suivre();
   }
 
   async suivre() {
+    // Une vérification vue d'ici: son issue se joue dans cette page, même
+    // pour un envoi commencé avant le chargement (plan salon, #8).
+    this.suivie = true;
     this.etat = "verification";
     this.pose("loupe");
     this.boutons();
     for (;;) {
       const reponse = await fetch(`${API}/${this.envoi.id}`, { cache: "no-store" });
       const envoi = await lireJson(reponse);
-      if (!reponse.ok) return this.dire("le serveur ne retrouve plus cet envoi", true);
+      if (!reponse.ok) return this.dire(mots("depot.perdu"), true);
       if (envoi.etat === "envoi") {
         this.envoi = envoi;
         return this.fichier ? this.envoyer() : this.montrer(envoi);
       }
       if (envoi.etat === "termine" || envoi.etat === "erreur") return this.montrer(envoi);
-      this.dire("vérification par le serveur…");
+      this.dire(mots("depot.verifie"));
       await attendre(1000);
     }
   }
@@ -543,16 +568,11 @@ class Carte {
     this.ici("debit").textContent = "";
     this.ici("estimation").hidden = true;
     this.boutons({ annuler: true });
-    this.ici("annuler").textContent = "retirer";
-    if (envoi.etat === "erreur") {
-      this.pose("rate");
-      return this.dire(envoi.message || "la vérification a échoué", true);
-    }
-    if (envoi.etat === "envoi") {
-      this.pose("pause");
-      this.ici("estimation").hidden = false;
-      this.ici("nature").textContent = "interrompu";
-      return this.dire(`Arrêté à ${Math.floor((envoi.decalage / envoi.taille) * 100)} %. Redépose « ${envoi.nom} » pour reprendre.`);
+    this.ici("annuler").textContent = mots("depot.retirer");
+    if (envoi.etat === "erreur" || envoi.etat === "envoi") {
+      this.pose(envoi.etat === "erreur" ? "rate" : "pause");
+      const { texte, alerte } = phraseEnvoi(envoi);
+      return this.dire(texte, alerte);
     }
     const resultats = this.ici("resultats");
     resultats.replaceChildren();
@@ -563,7 +583,7 @@ class Carte {
     // Un jeu rangé se joue: le dépôt finit sur l'action, pas sur une phrase.
     this.ici("jouer").hidden = !range;
     if (range) void this.nommerJouer();
-    this.dire(envoi.elements.length > 1 ? `${envoi.elements.length} fichiers dans l'archive` : "");
+    this.dire(envoi.elements.length > 1 ? mots("depot.archive", { n: envoi.elements.length }) : "");
   }
 
   /** Le bouton dit ce qu'il fera: rejoindre une salle ouverte, ou en ouvrir
@@ -588,7 +608,7 @@ class Carte {
       this.enCours?.arreter();
       this.pose("pause");
       this.boutons({ reprendre: true, annuler: true });
-      this.dire("en pause");
+      this.dire(mots("depot.enPause"));
     } else if (this.etat === "pause") {
       this.decalageServeur(this.envoi.decalage).then((decalage) => {
         this.envoi.decalage = decalage;
@@ -606,7 +626,7 @@ class Carte {
       if (!reponse.ok && reponse.status !== 404) {
         this.etat = avant;
         const detail = (await lireJson(reponse)).detail ?? {};
-        return this.dire(detail.message ?? `refus ${reponse.status}`, true);
+        return this.dire(detail.message ?? mots("depot.refusStatut", { statut: reponse.status }), true);
       }
     }
     this.noeud.dataset.part = "oui";
@@ -618,20 +638,35 @@ class Carte {
   }
 }
 
-/** Une ligne de résultat: le tampon de la console, l'état, et ce qui suit. */
+/**
+ * La phrase d'un envoi qui ne s'est pas fini: ce qui est arrivé, puis ce que
+ * tu peux faire. Un envoi coupé reprend où il en était quand on redépose le
+ * même fichier; une vérification ratée se répare en redéposant. Plus de
+ * tampon « ESTIMATION » ni de mot « interrompu » (plan salon, #5).
+ */
+export function phraseEnvoi(envoi) {
+  if (envoi.etat === "envoi") {
+    const pourcent = envoi.taille ? Math.floor((envoi.decalage / envoi.taille) * 100) : 0;
+    return { texte: mots("depot.arrete", { pourcent, nom: envoi.nom }), alerte: false };
+  }
+  const raison = (envoi.message || mots("depot.echec")).replace(/[.\s]+$/, "");
+  return { texte: mots("depot.reparer", { raison, nom: envoi.nom }), alerte: true };
+}
+
+/** Une ligne de résultat: l'étiquette de la console, l'état, et ce qui suit. */
 function resultat(element) {
   const ligne = document.createElement("div");
   ligne.className = "resultat";
   ligne.dataset.etat = element.etat;
-  const tampon = document.createElement("span");
-  tampon.className = "tampon";
-  tampon.textContent = element.console ? element.console_libelle : element.format === "inconnu" ? "?" : element.format.toUpperCase();
+  const etiquette = document.createElement("span");
+  etiquette.className = "etiquette";
+  etiquette.textContent = element.console ? element.console_libelle : element.format === "inconnu" ? "?" : element.format.toUpperCase();
   const corps = document.createElement("div");
   const haut = document.createElement("p");
   haut.className = "resultat-etat";
   const quoi = [element.libelle];
   if (element.titre) quoi.push(`« ${element.titre} »`);
-  if (element.destination) quoi.push(`dans ${element.destination}`);
+  if (element.destination) quoi.push(mots("depot.dans", { destination: element.destination }));
   haut.textContent = quoi.join(" · ");
   const bas = document.createElement("p");
   bas.className = "resultat-mot";
@@ -640,7 +675,7 @@ function resultat(element) {
   preuve.className = "resultat-preuve";
   preuve.textContent = [element.nom, element.preuve].filter(Boolean).join(" · ");
   corps.append(haut, bas, preuve);
-  ligne.append(tampon, corps);
+  ligne.append(etiquette, corps);
   return ligne;
 }
 
@@ -648,32 +683,38 @@ function resultat(element) {
 
 const CLES = "/api/importeurs";
 
-/** Une des quatre couleurs de prise, tirée de l'adresse: toujours la même. */
-export function priseDe(login) {
-  let h = 0;
-  for (const c of login) h = (h * 31 + c.codePointAt(0)) >>> 0;
-  return (h % 4) + 1;
-}
-
 /** Le nom qu'on montre: le pseudo du salon, puis celui du fournisseur, puis l'adresse. */
 export function nomDe(personne) {
   return personne.pseudo || personne.nom || personne.login.split("@")[0];
 }
 
-/** Les petites étiquettes sous le nom, dans l'ordre où on les lit. */
-export function pucesDe(personne) {
-  const puces = [];
-  if (personne.droit === "configuration") puces.push(["CONFIGURATION", false]);
+/**
+ * Ce qu'on sait d'une personne, en une phrase, dans l'ordre où on le lit. Les
+ * puces TAILNET, DÉJÀ VENU ou EN LIGNE d'avant deviennent des mots.
+ */
+export function phraseDe(personne) {
+  const morceaux = [];
+  if (personne.droit === "administrateur") morceaux.push(mots("depot.administrateur"));
+  if (personne.droit === "configuration") morceaux.push(mots("depot.configuration"));
   if (personne.sources.includes("tailnet")) {
-    puces.push([personne.partage ? "INVITÉ PAR PARTAGE" : "TAILNET", false]);
+    morceaux.push(mots(personne.partage ? "depot.partage" : "depot.tailnet"));
   }
-  if (personne.sources.includes("salon")) puces.push(["DÉJÀ VENU", false]);
-  if (personne.en_ligne) puces.push(["EN LIGNE", true]);
-  if (personne.appareils > 1) puces.push([`${personne.appareils} APPAREILS`, false]);
+  if (personne.sources.includes("salon")) morceaux.push(mots("depot.connu"));
+  if (personne.en_ligne) morceaux.push(mots("depot.enLigne"));
+  if (personne.appareils > 1) morceaux.push(mots("depot.appareils", { n: personne.appareils }));
   if (personne.sources.length === 0 && personne.droit === "nomme") {
-    puces.push(["PLUS SUR LE TAILNET", false]);
+    morceaux.push(mots("depot.parti"));
   }
-  return puces;
+  if (morceaux.length === 0) return "";
+  const phrase = morceaux.join(", ");
+  return `${phrase[0].toLocaleUpperCase("fr")}${phrase.slice(1)}.`;
+}
+
+/** Le bouton d'une personne: donner ou retirer le droit, ou rien. */
+export function boutonDe(personne) {
+  if (personne.droit === "nomme") return mots("depot.retirerLeDroit");
+  if (personne.droit === "aucun") return mots("depot.donnerLeDroit");
+  return null;
 }
 
 /** Le rang d'une ligne dans sa colonne: même ordre que le serveur. */
@@ -713,11 +754,9 @@ class Trousseau {
     this.sans = racine.querySelector("#sans-cle");
     this.avis = racine.querySelector("#cles-avis");
     this.dit = racine.querySelector("#cles-dit");
-    this.bobine = racine.querySelector("#cles-bobine svg");
     this.modele = document.getElementById("modele-personne");
     this.lignes = new Map();
     this.ecrire = true;
-    this.minuteur = 0;
   }
 
   async ouvrir() {
@@ -727,14 +766,10 @@ class Trousseau {
     this.ecrire = liste.registre_lisible !== false;
     const avis = [];
     if (liste.tailnet === false) {
-      avis.push(
-        "tailscaled n'a pas répondu: la liste ne montre que les personnes déjà venues et celles qui ont la clé.",
-      );
+      avis.push(mots("depot.tailnetMuet"));
     }
     if (!this.ecrire) {
-      avis.push(
-        "Le fichier des droits ne se lit pas, donc rien n'y sera écrit. Répare-le ou retire-le, puis redémarre le salon.",
-      );
+      avis.push(mots("depot.droitsIlisibles"));
     }
     this.avis.textContent = avis.join(" ");
     this.avis.dataset.alerte = this.ecrire ? "non" : "oui";
@@ -745,7 +780,6 @@ class Trousseau {
 
   poser(personne) {
     const li = this.modele.content.firstElementChild.cloneNode(true);
-    li.style.setProperty("--prise", `var(--joueur-${priseDe(personne.login)})`);
     li.querySelector('[data-ici="bouton"]').addEventListener("click", () => this.basculer(li));
     this.lignes.set(personne.login, li);
     this.remplir(li, personne);
@@ -762,37 +796,13 @@ class Trousseau {
     li.dataset.cle = personne.droit === "aucun" ? "non" : "oui";
     li.querySelector('[data-ici="nom"]').textContent = nomDe(personne);
     li.querySelector('[data-ici="adresse"]').textContent = personne.login;
-    const puces = li.querySelector('[data-ici="puces"]');
-    puces.replaceChildren(
-      ...pucesDe(personne).map(([mot, vert]) => {
-        const span = document.createElement("span");
-        span.className = "puce";
-        span.textContent = mot;
-        if (vert) span.dataset.enLigne = "oui";
-        return span;
-      }),
-    );
-    const tampon = li.querySelector('[data-ici="tampon"]');
+    li.querySelector('[data-ici="phrase"]').textContent = phraseDe(personne);
     const bouton = li.querySelector('[data-ici="bouton"]');
-    const mots = { administrateur: "ADMIN", configuration: "FIXÉ", nomme: "CLÉ" };
-    tampon.textContent = mots[personne.droit] ?? "";
-    tampon.hidden = personne.droit === "aucun";
-    const modifiable = personne.droit === "nomme" || personne.droit === "aucun";
-    bouton.hidden = !modifiable;
+    const geste = boutonDe(personne);
+    bouton.hidden = geste === null;
     bouton.disabled = !this.ecrire;
-    bouton.textContent = personne.droit === "nomme" ? "reprendre la clé" : "donner la clé";
-    bouton.setAttribute(
-      "aria-label",
-      `${bouton.textContent} à ${nomDe(personne)} (${personne.login})`,
-    );
-  }
-
-  /** Bobine joue une pose, puis revient au repos. */
-  jouer(pose, duree) {
-    if (!this.bobine) return;
-    clearTimeout(this.minuteur);
-    this.bobine.setAttribute("data-pose", pose);
-    this.minuteur = setTimeout(() => this.bobine.setAttribute("data-pose", "repos"), duree);
+    bouton.textContent = geste ?? "";
+    bouton.setAttribute("aria-label", mots("depot.gesteA", { geste: geste ?? "", nom: nomDe(personne), login: personne.login }));
   }
 
   async basculer(li) {
@@ -811,13 +821,11 @@ class Trousseau {
     }
     if (!reponse?.ok) {
       const detail = reponse ? (await lireJson(reponse)).detail : null;
-      this.dire(`Rien n'a changé: ${detail ?? "le salon n'a pas répondu"}.`, true);
+      this.dire(mots("depot.rienNAChange", { detail: detail ?? mots("depot.sansReponse") }), true);
       bouton.disabled = !this.ecrire;
       return;
     }
     const apres = await lireJson(reponse);
-    this.jouer(donner ? "pousse" : "tire", donner ? 900 : 700);
-    if (donner) setTimeout(() => this.jouer("salue", 1000), 420);
     this.remplir(li, apres);
     const cible = this.colonneDe(apres);
     const toutes = [...this.avec.children, ...this.sans.children];
@@ -829,8 +837,8 @@ class Trousseau {
     });
     this.dire(
       donner
-        ? `${nomDe(apres)} peut maintenant déposer des jeux.`
-        : `${nomDe(apres)} ne peut plus déposer de jeux.`,
+        ? mots("depot.peutDeposer", { nom: nomDe(apres) })
+        : mots("depot.nePeutPlus", { nom: nomDe(apres) }),
     );
     li.querySelector('[data-ici="bouton"]').focus({ preventScroll: true });
   }
@@ -843,14 +851,223 @@ class Trousseau {
 
 const fantomes = new Map();
 
+// ── Les jaquettes (D13, ADR D45) ───────────────────────────────────────────
+
+/** Ce que la page dit d'un dépôt ou d'un retrait d'image refusé. */
+export function refusImage(statut, detail) {
+  if (statut === 413) return mots("depot.imageTropGrande");
+  if (statut === 401 || statut === 403) return mots("depot.imageAdministrateur");
+  if (typeof detail === "string" && detail !== "") return detail;
+  return mots("depot.imageNonGardee");
+}
+
+/**
+ * Dépose (`octets`) ou retire (`null`) l'image d'un jeu, par sa clé (ADR D23).
+ * Rend `{ art }` quand le salon l'a fait, `{ refus }` sinon. Le corps est le
+ * PNG lui-même: le salon le vérifie, et refuse ce qu'une salle ne montrerait
+ * pas (422) ou ce qui dépasse un Mio (413).
+ */
+export async function changerImage(cle, octets, demander = fetch) {
+  const adresse = `/api/catalogue/art/${encodeURIComponent(cle)}`;
+  try {
+    const reponse = await demander(adresse, octets === null
+      ? { method: "DELETE" }
+      : { method: "PUT", headers: { "Content-Type": "image/png" }, body: octets });
+    if (reponse.ok) return { art: octets !== null };
+    const dit = await reponse.json().catch(() => ({}));
+    return { refus: refusImage(reponse.status, dit.detail) };
+  } catch {
+    return { refus: refusImage(0, null) };
+  }
+}
+
+/** La rangée des jeux, pour l'administrateur: chaque jeu, son image, et de
+ * quoi la changer. Une image s'affiche sur la borne de l'accueil et dans le
+ * menu d'une salle à son prochain démarrage. */
+// ── La rangée de jeux ────────────────────────────────────────────────────
+
+/** Les consoles à cartouche ; les autres se rangent en boîte de disque. */
+const CARTOUCHES = new Set(["switch", "switch2"]);
+
+/**
+ * La rangée de la bibliothèque (plan salon, salon-importer#0) : un élément
+ * par jeu de `/api/catalogue`, dans l'ordre du catalogue, avec le nom de sa
+ * console et son support. Aucun jeu n'est laissé de côté : la rangée défile.
+ */
+export function rayonDe(jeux, noms = {}) {
+  return (jeux ?? []).map((jeu) => ({
+    cle: jeu.key,
+    titre: jeu.name,
+    console: noms[jeu.console] ?? jeu.console,
+    support: CARTOUCHES.has(jeu.console) ? "cartouche" : "boite",
+  }));
+}
+
+/** Les envois pas encore rangés : en cours d'envoi, arrêtés, ou en
+ * vérification. Ils font la pile au bout de la rangée. */
+export function pileDe(envois) {
+  return (envois ?? []).filter((e) => e.etat === "envoi" || e.etat === "verification").length;
+}
+
+/** La phrase de la pile ; vide sans envoi en attente. */
+export function phrasePile(n) {
+  if (n <= 0) return "";
+  return n === 1 ? mots("depot.pileUn") : mots("depot.pile", { n });
+}
+
+/**
+ * Remplit la rangée : la place libre d'abord (l'ancre `place-libre`, où la
+ * boîte d'un jeu rangé atterrit dans la scène « depot »), puis les jeux,
+ * puis la pile. Les sols `etagere-haut` et `etagere-bas` sont dans le HTML.
+ * Rend le nombre de jeux posés, ou `null` quand le catalogue ne répond pas.
+ */
+async function remplirRayon(racine, pile) {
+  const liste = racine.querySelector("#rayon-jeux");
+  const dit = racine.querySelector("#rayon-dit");
+  const tas = racine.querySelector("#pile");
+  const phrase = phrasePile(pile);
+  tas.hidden = pile <= 0;
+  tas.querySelector(".pile-boites").replaceChildren(
+    ...Array.from({ length: Math.min(pile, 6) }, () => {
+      const boite = document.createElement("span");
+      boite.className = "pile-boite";
+      return boite;
+    }),
+  );
+  tas.querySelector(".pile-dit").textContent = phrase;
+  const reponse = await fetch("/api/catalogue", { cache: "no-store" }).catch(() => null);
+  if (!reponse?.ok) {
+    dit.textContent = mots("depot.pasLue");
+    racine.hidden = false;
+    return null;
+  }
+  const { games } = await reponse.json();
+  const jeux = rayonDe(games, nomsConsoles());
+  const libre = document.createElement("li");
+  libre.className = "rayon-libre";
+  libre.dataset.ancre = "place-libre";
+  libre.setAttribute("aria-hidden", "true");
+  liste.replaceChildren(
+    libre,
+    ...jeux.map((jeu) => {
+      const li = document.createElement("li");
+      li.className = "rayon-jeu";
+      li.dataset.support = jeu.support;
+      li.dataset.cle = jeu.cle;
+      const console_ = document.createElement("span");
+      console_.className = "rayon-console";
+      console_.textContent = jeu.console;
+      const titre = document.createElement("span");
+      titre.className = "rayon-titre";
+      titre.textContent = jeu.titre;
+      li.append(console_, titre);
+      return li;
+    }),
+  );
+  dit.textContent = jeux.length === 1 ? mots("depot.unJeu") : mots("depot.jeux", { n: jeux.length });
+  racine.hidden = false;
+  return jeux.length;
+}
+
+/**
+ * La boîte d'un jeu qui vient d'être rangé quitte le haut de la pile et
+ * glisse à sa place dans la rangée (plan salon, salon-importer#8) : 900 ms,
+ * `transform` seul. En mouvement réduit, ou sans pile d'où partir, elle
+ * apparaît en 150 ms, par `opacity` seule. La rangée défile d'abord jusqu'à
+ * elle, pour que le trajet se voie.
+ */
+export function glisserDeLaPile(li, depart, reduire = reduit()) {
+  li.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  if (reduire || !depart) {
+    return li.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: "linear" });
+  }
+  const arrivee = li.getBoundingClientRect();
+  const dx = depart.left - arrivee.left;
+  const dy = depart.top - arrivee.top;
+  return li.animate(
+    [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
+    { duration: 900, easing: "cubic-bezier(.2, .7, .3, 1)" },
+  );
+}
+
+async function ouvrirJaquettes(racine) {
+  const liste = racine.querySelector("#jeux");
+  const avis = racine.querySelector("#jaquettes-avis");
+  const reponse = await fetch("/api/catalogue", { cache: "no-store" });
+  if (!reponse.ok) {
+    avis.textContent = mots("depot.aucuneLue");
+    avis.hidden = false;
+    racine.hidden = false;
+    return;
+  }
+  const { games } = await reponse.json();
+  const noms = nomsConsoles();
+  let version = 0;
+  for (const jeu of games) {
+    const li = document.createElement("li");
+    li.className = "jeu";
+    const image = document.createElement("img");
+    image.alt = "";
+    image.className = "jeu-image";
+    const montrer = (art) => {
+      image.hidden = !art;
+      if (art) image.src = `/api/catalogue/art/${encodeURIComponent(jeu.key)}?v=${(version += 1)}`;
+      retirer.hidden = !art;
+    };
+    const titre = document.createElement("p");
+    titre.className = "jeu-titre";
+    titre.textContent = jeu.name;
+    const console_ = document.createElement("span");
+    console_.className = "jeu-console";
+    console_.textContent = noms[jeu.console] ?? jeu.console;
+    titre.append(" ", console_);
+    const choisir = document.createElement("label");
+    choisir.className = "bouton-cadre";
+    choisir.textContent = mots("depot.deposerImage");
+    const entree = document.createElement("input");
+    entree.type = "file";
+    entree.accept = "image/png";
+    entree.className = "cache-fichier";
+    entree.setAttribute("aria-label", mots("depot.deposerImagePour", { jeu: jeu.name }));
+    choisir.append(entree);
+    const retirer = document.createElement("button");
+    retirer.type = "button";
+    retirer.className = "bouton-cadre";
+    retirer.textContent = mots("depot.retirerImage");
+    retirer.setAttribute("aria-label", mots("depot.retirerImageDe", { jeu: jeu.name }));
+    const dit = document.createElement("p");
+    dit.className = "jeu-dit";
+    dit.setAttribute("role", "status");
+    const appliquer = async (octets) => {
+      const issue = await changerImage(jeu.key, octets);
+      if ("refus" in issue) {
+        dit.textContent = issue.refus;
+        ain("refus");
+        return;
+      }
+      dit.textContent = mots(issue.art ? "depot.imageGardee" : "depot.imageRetiree");
+      montrer(issue.art);
+      if (issue.art) ain("depot");
+    };
+    entree.addEventListener("change", async () => {
+      const fichier = entree.files?.[0];
+      entree.value = "";
+      if (fichier) await appliquer(await fichier.arrayBuffer());
+    });
+    retirer.addEventListener("click", () => appliquer(null));
+    montrer(jeu.art);
+    li.append(image, titre, choisir, retirer, dit);
+    liste.append(li);
+  }
+  racine.hidden = false;
+}
+
 async function demarrerPage() {
   const liste = document.getElementById("cartes");
   const modele = document.getElementById("modele-carte");
   const zone = document.getElementById("depot");
   const entree = document.getElementById("fichiers");
   const refus = document.getElementById("refus");
-  const bobineZone = zone.querySelector("svg");
-  let rang = 0;
 
   const droits = await fetch(`${API}/droits`, { cache: "no-store" }).then(lireJson);
   if (!droits.peut_importer) {
@@ -861,15 +1078,15 @@ async function demarrerPage() {
   // La liste ne s'ouvre que pour l'administrateur; l'API la refuse à tout autre.
   if (droits.administrateur) {
     new Trousseau(document.getElementById("cles")).ouvrir().catch(() => {});
+    ouvrirJaquettes(document.getElementById("jaquettes")).catch(() => {});
   }
 
   const deposer = (fichiers) => {
     for (const fichier of fichiers) {
-      const carte = new Carte(liste, modele, rang);
-      rang += 1;
+      const carte = new Carte(liste, modele);
       carte.demarrer(fichier).catch((erreur) => {
         carte.pose("rate");
-        carte.dire(`échec: ${erreur.message}`, true);
+        carte.dire(mots("depot.envoiEchoue", { message: erreur.message, nom: fichier.name }), true);
       });
     }
   };
@@ -877,19 +1094,24 @@ async function demarrerPage() {
     deposer([...entree.files]);
     entree.value = "";
   });
+  // Au survol d'un glisser, la zone dit ce qui arrivera au lâcher.
+  const motDeZone = document.getElementById("depot-mot");
+  const auRepos = motDeZone.textContent;
+  const survol = (oui) => {
+    zone.dataset.survol = oui ? "oui" : "non";
+    motDeZone.textContent = oui ? mots("depot.zoneSurvol") : auRepos;
+  };
   for (const type of ["dragenter", "dragover"]) {
     zone.addEventListener(type, (e) => {
       e.preventDefault();
-      zone.dataset.survol = "oui";
-      bobineZone?.setAttribute("data-pose", "loupe");
+      if (zone.dataset.survol !== "oui") survol(true);
     });
   }
   for (const type of ["dragleave", "drop"]) {
     zone.addEventListener(type, (e) => {
       e.preventDefault();
       if (type === "dragleave" && zone.contains(e.relatedTarget)) return;
-      zone.dataset.survol = "non";
-      bobineZone?.setAttribute("data-pose", "repos");
+      survol(false);
     });
   }
   zone.addEventListener("drop", (e) => deposer([...(e.dataTransfer?.files ?? [])]));
@@ -899,9 +1121,24 @@ async function demarrerPage() {
 
   // Les envois d'avant le rechargement: terminés, ou à reprendre en redéposant.
   const anciens = await fetch(API, { cache: "no-store" }).then((r) => (r.ok ? r.json() : []));
+  const rayon = document.getElementById("rayon");
+  remplirRayon(rayon, pileDe(anciens)).catch(() => {});
+  // Un jeu rangé pendant la visite : la scène « depot » joue d'abord, puis
+  // la rangée le montre, sa boîte partie du haut de la pile. La pile se
+  // recompte sur les cartes de la page.
+  liste.addEventListener("rt-range", () => {
+    const pile = liste.querySelectorAll('[data-pose="loupe"], [data-pose="pause"], [data-pose="envoi"]').length;
+    setTimeout(async () => {
+      const haut = rayon.querySelector(".pile-boites > :last-child");
+      const depart = haut && !rayon.querySelector("#pile").hidden ? haut.getBoundingClientRect() : null;
+      const avant = new Set([...rayon.querySelectorAll(".rayon-jeu")].map((li) => li.dataset.cle));
+      await remplirRayon(rayon, pile).catch(() => null);
+      for (const li of rayon.querySelectorAll(".rayon-jeu"))
+        if (!avant.has(li.dataset.cle)) glisserDeLaPile(li, depart);
+    }, 1200);
+  });
   for (const envoi of anciens) {
-    const carte = new Carte(liste, modele, rang);
-    rang += 1;
+    const carte = new Carte(liste, modele);
     carte.montrer(envoi);
     if (envoi.etat === "envoi") fantomes.set(envoi.id, carte);
     if (envoi.etat === "verification") carte.suivre();

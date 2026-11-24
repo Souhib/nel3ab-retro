@@ -2241,6 +2241,263 @@ the room's track decides where the panel goes. Weight: 285 884 bytes brotli
 (+344 on the fourth pass: +64 for the three screen fixes, +280 for the
 extraction and the past-tense seats).
 
+### D41: The room's entry screens and the lobby's return address, 2026-11-24
+
+Chantier « salon », first pass. The parts of the salon plan that the room page
+and the proxy carry; the lobby's own pages (home, upload, logbook) follow in
+the next pass and will extend this entry.
+
+Decision:
+
+- **One drawing for the antechamber.** The three drawings of 2026-09-13
+  (`classique`, `cables`, `plan`), their switch on the page and the stored
+  choice (`nel3ab:lobby`) are removed. The antechamber is the room's cabinet
+  as the lobby's home will show it: console, game, who chooses, who watches,
+  then a control panel of four START places. A taken place carries its
+  player's typed label at the seat colour; a free one is a button that takes
+  it. The first free place is the only filled button, « Prendre la place N »;
+  a full room gives the filled button to « Regarder la partie ». A place held
+  without a name (`held` true) is not free.
+- **A precise place in the address.** `?entrer=jouer&place=N`, N from 1 to 4
+  (`lib/entree.ts`), enters to play and asks for THAT place. The worker first
+  gives the first free place; once the page holds it, it takes N with
+  `session.input.take` if the room still says N is free, then removes `place`
+  from the address so a reload does not ask again. `take` displaces whoever
+  holds a place, hence the check; the polite `prefer=N` the worker already
+  reads would avoid the brief first place, but needs a change in
+  `media/input.ts`, which belongs to the manettes chantier.
+- **« Qui joue ? » mounts the name field of the personnes chantier**
+  (`ChampNom`, `useNom`, K03): a visible label, an always-active button that
+  refuses an empty name with its reason.
+- **The proxy's redirect names the room (K39).** A closed room sends
+  `/?salle=fermee&n=N` for rooms 1 to 3, one line per room like the
+  `handle_path` blocks above it; the old redirect stays for a room path that
+  names none. A real Caddy serves the installed blocks in
+  `control/tests/test_caddyfile.py`, the room ports replaced by a closed one.
+  The file on the machine changes only when the owner installs it, so
+  `deploy-check` diverges until then.
+
+Consequence: CSS class names of independently owned sheets can collide. The
+antechamber's `.n3-borne` was also the room frame's cabinet (`cadre.css`,
+`display: none` outside the « borne » effect) and hid the whole cabinet in
+Chrome while every jsdom test passed. The antechamber's classes now live under
+`n3-avant`, a test refuses any other sheet declaring one, and the browser step
+hit-tests the centre of each place.
+
+#### D41, second pass, 2026-11-24: the lobby's own pages
+
+- **One built bundle for the lobby (K17).** The three lobby pages stay
+  hand-written HTML served by Python. What they need from `front/` arrives
+  as one IIFE, `retro/ain.js`, built by `just ain-salon` from
+  `front/src/salon/paquet.ts`: Aïn (`mascotte/salon.ts`, D46) and the socle's
+  arcade gestures (`surStart`, `surInactivite`, `initiales`), the test card's
+  layers, the curved-screen filter and the pixel pointer, under
+  `nel3abSalon`. `retro.py` inserts it through `<!--RETRO:AIN-->` in a
+  classic script and refuses a bundle containing `</script`. Each page has
+  one `data-hote="logo"` around the static logo, hidden once Aïn is painted.
+  Weight: 16 222 brotli bytes before, 18 170 after; the lobby loads it apart
+  from the room page, which stays at 279 903.
+- **The home page is a row of cabinets.** One cabinet per room that is not
+  closed: cover or drawn cartridge, game, who chooses and who watches as
+  typed labels, four START places. A free place links to
+  `?entrer=jouer&place=K`; the advised place is the only filled button and
+  the headline names it. A restarting or silent room keeps its cabinet,
+  dashed, with no button; only a closed slot offers « Ouvrir la salle N »
+  (`POST {numero}`, D17). The gauge is removed. At zero rooms the socle's test
+  card fills the row, « Ouvrir une salle » is the only filled button, and
+  Enter or a pad's Start opens a room, at zero rooms only. After opening, the
+  page stays: the room arrives in the row. Two missed polls freeze the list
+  and say its time. `?salle=fermee&n=N` (K39) says what happened to room N.
+- **The logbook is a high-score table** grouped by evening (start minus six
+  hours), with the D44 companions, the duration as `HH:MM:SS` and the named
+  save. The name changes in a modal dialog on the page (`PUT /api/me`).
+- **Covers are deposited at the upload page** by the administrator, through
+  the D45 routes (`PUT`/`DELETE /api/catalogue/art/{cle}`).
+- **Bobine leaves the lobby**: `bobine.py`, its copies and their tests.
+
+Consequence: a jsdom run of the real page proves what the page writes, not
+what it draws. `salon-navigateur` serves the assembled pages to Chrome with
+simulated APIs and found two defects jsdom passed (a 31 px logo link, a
+credit line 37 px wider than a 320 px phone). Its negative control imports
+older `control/` trees with `python -S`, because the editable install would
+otherwise shadow the archive.
+
+#### D41, third pass, 2026-11-24: the opening, the antechamber's Aïn, the upload shelf
+
+- **The opening draws the room before it arrives.** While the identity and
+  the pad settings are pending, `Ouverture` renders the room's rectangles
+  from the same geometry (`useGeometrie`, state « connexion », the stored
+  column width): the black screen, the panel with four dashed START places,
+  the column with « Salle N » and « On ouvre la salle N… », and Aïn's house
+  where the room's corner will be, its status line's height reserved. It
+  follows the theme (the forced night régie and Bobine are gone); the screen
+  stays black. At eight seconds: « nel3ab ne répond pas encore. », a count
+  outside the announced region, « Réessayer » as the only filled button, and
+  « Entrer en tant que [nom gardé] » or « Entrer quand même ». Aïn plays
+  « attente » once at that limit, nothing before or after. In hand, the
+  column takes the largest free band around the screen, without a house.
+  `front/index.html` carries the same skeleton for the frames before the
+  script, with a small classic script that writes the room number and the
+  stored column width; the worker hashes every inline script (`script_policy`).
+  The skeleton carries none of the room's identifiers (`#side`, `#panneau`):
+  a driver waiting for them still waits for the real room.
+- **Aïn in the antechamber.** The header logo is his house (`data-hote="logo"`).
+  A seat that frees plays « depart » to its START, a seat taken by someone
+  else « arrivee »; the first state received plays nothing (`lib/arrivees`).
+  Each place carries `start-N`, the panel its floor at its bottom edge, and
+  two passage marks to the left of the card route him around « Changer ton
+  nom ». Entering, at a place or to watch, goes through the « entrer-salle »
+  transition (K13), played on the antechamber only: on the whole page, its
+  second half filtered the room mounted in the middle, screen included.
+  Amendment to K13: the mosaic yields to the fade there. In headless Chrome
+  it delayed the room's first picture by 800 ms (1 295 ms after the seat was
+  taken instead of 460, four runs per side, 2026-11-24), while the tiles
+  (485 ms) and the fade (483 ms) cost nothing. Without animation the gesture
+  leaves at once.
+- **The home page's attention loop** lives in the lobby bundle
+  (`salon/attention.ts`, `nel3abSalon.surAttention`): « attente » at 2.5 s,
+  then every 6 s, three rounds, then « dort ». A skipped round (hidden tab)
+  counts, a gesture stops it (hovering is not one), reduced motion never arms
+  it. Bundle: 18 304 brotli bytes.
+- **The upload page shows the library as a shelf,** above the drop zone: one
+  box or cartridge per catalogue game, a free slot first (`place-libre`), the
+  board and the floor under it (`etagere-haut`, `etagere-bas`), and the pile
+  of uploads not yet stored. Below the zone, the box of the « depot » scene
+  crossed the zone's words on its way up and the scene fell back to its key
+  pose; above it, the scene plays complete.
+
+Weight of the room page: 279 903 brotli bytes before this pass, 281 661
+after (opening skeleton +1 314, antechamber +444 with its transition fix).
+
+Consequence: three checks found what the unit tests passed. `(pointer: fine)`
+is not declared by headless Chrome, so the static skeleton's column fell under
+the screen (`ouverture-statique`); the skeleton's house sat 44 px higher than
+the room's corner until the status line's height was reserved
+(`ouverture-sans-saut`); Aïn's complete departure touched « Changer ton nom »
+until two passage marks were added (`avant-salle-ain`, whose mutant without
+them fails on `#rename`).
+
+#### D41, fourth pass, 2026-11-24: one header, the upload page in words, Aïn's single house
+
+- **One header for the three lobby pages,** placed by `retro.py`: the mark
+  `<!--RETRO:BANDEAU /chemin-->` puts `retro/bandeau.html` (logo, the three
+  pages, « Tu es », and the script that fills them) and marks the page's own
+  link `aria-current`, visible even without the right; `/*__SALON__*/` puts
+  `retro/salon.css` (the header's rules and the typed label). Copied into each
+  page until then, it had drifted: the upload page had neither « Tu es » nor
+  « Changer ton nom », and its « Ton carnet » link stayed hidden from
+  everyone, since nothing showed it. On the logbook page the header's link
+  opens the rename dialog in place, and the header follows the new name
+  (`nel3abBandeau.nom`). An unknown path in the mark raises at start-up.
+- **The upload page drops the player colours and the stamps** (plan salon,
+  salon-importer#4, #5, #7, #8). The zone says « Pose tes fichiers ici, ou »
+  with « Choisir des fichiers » as the only filled button at rest, and
+  « Lâche-les : ils se rangent dès qu'ils sont lus. » under a drag. A card
+  has no ESTIMATION label: a sentence says where an upload stopped and how to
+  resume, or, as an alert, what failed and how to repair (`phraseEnvoi`). The
+  console the server recognised is a typed label whose edge carries the
+  outcome. Who may upload: « Peuvent déposer » and « Ne peuvent pas », a
+  typed label per person, a sentence instead of the TAILNET or DÉJÀ VENU chips
+  (`phraseDe`), « Donner le droit » or « Retirer le droit » (`boutonDe`); the
+  colour drawn from the address (`priseDe`) is gone. A game stored during the
+  visit glides from the top of the pile to its slot in the shelf, 900 ms,
+  `transform` only; with reduced motion, or without a pile, it appears in
+  150 ms by `opacity`. A verification seen from the page counts as followed,
+  even when it began before the page loaded.
+- **« Qui joue ? » makes its logo Aïn's house,** at rest, as the antechamber
+  does (entree-nom#3, translated for Aïn): no scene while a name is typed.
+- **The home page's row enters once** (salon-accueil#15): nothing moves on
+  the first render; when the row replaces the « Hors antenne » card after a
+  room answers, it fades in over 250 ms, `opacity` only, and not at all with
+  reduced motion.
+- **Not done, by choice: Aïn lying beside the logbook table** (salon-profil#3).
+  The plan wrote it for Quatrou. The logbook page already has Aïn's house in
+  its header; a second host would paint a second Aïn on the same page, against
+  the owner's ruling that he lives in the logo and leaves it for a scene. The
+  « range » scene already takes him to the table. To be confirmed by the owner.
+- **Not done: Aïn asleep on the upload pile.** The « dort » scene ends in his
+  house; sleeping on the pile's anchor needs a scene variant in
+  `front/src/mascotte/scenes-ain.ts`, which belongs to the mascot's work.
+
+New browser checks: `salon-navigateur` gains `depot-zone`, `trousseau`,
+`depot-glisse`, `demo`, `courbure` and `rangee-entre`, and its `entete` and
+`changer-nom` cover the three pages; `parcours-navigateur` gains `salle-pleine-avant-salle`
+(the bench now holds all four seats). `demo` advances Chrome's clock by 31 s
+of virtual time (`Emulation.setVirtualTimePolicy`) and then pauses it: the
+« advance » policy without a budget kept running between the driver's
+gestures. Each is red on the page it replaces, in the `-rouge` recipes.
+
+Weight of the room page: 281 661 brotli bytes before this pass, 281 607
+after; the lobby bundle is unchanged.
+
+#### D41, fifth pass, 2026-11-24: the lobby's words come from `mots.ts`
+
+- **The words of the three lobby pages live in `front/src/lib/mots.ts`,**
+  in flat tables (`SALON_ENTETE`, `SALON_COMMUN`, `SALON_ACCUEIL`,
+  `SALON_DEPOT`, `SALON_CARNET`), so that the charter's guard reads them:
+  it only reads strings placed directly in a capitalised constant. A
+  sentence with holes is a template, `"Salle {n}, éteinte."`.
+  `motsDuSalon()` flattens them into `groupe.cle` keys; it is a function so
+  that the room bundle, which never calls it, drops the tables.
+- **Delivery mirrors the other copies.** `salon-retro.test.ts` writes and
+  compares `retro/mots.json`. `retro.py` requires `<!--RETRO:MOTS-->` in each
+  page's head and puts there `retro/mots.js` with the table, which defines
+  `nel3abMots(cle, trous)` (unknown key or missing hole throws) and
+  `nel3abMots.de(nom)` (elision, checked against `test/elisions.json`). A
+  fixed text is `<!--MOT:groupe.cle-->`, replaced HTML-escaped; a template in
+  a mark is refused. Every quoted `groupe.cle` in a page's scripts must exist,
+  or the lobby fails at start-up; the upload module, placed after assembly,
+  is checked by `importer.py` at the same start-up. Its Node tests install
+  the same table first (`control/tests/imports/mots_du_salon.mjs`).
+- **The charter applied.** « salon » leaves the visible words
+  (« l'administrateur de nel3ab », « a déjà un nom ici », « redémarre
+  nel3ab »); the home page says `SANS_REPONSE`; the logbook says « ma
+  sauvegarde » and elides « la sauvegarde d'Ami »; the upload card's
+  buttons start with a capital (Pause, Annuler, Reprendre, Retirer).
+  Lexicon gestures are written by reference (`ENTREES.regarder`,
+  `SAUVEGARDES`), and the templates that repeat a room function
+  (`prendreLaPlace`, `PLACES.aQuelquun`, `chefChoisit`, `pastille`) are
+  compared with it.
+- **Kept in the upload module, by rule:** the estimate's evidence strings
+  (« « HEAD » à 0x100 »), which are byte offsets read in the file, and the
+  error messages of a chunk upload that `envoyer` always catches.
+
+Guards: `control/tests/test_mots_salon.py` (marks, keys, holes, dead words,
+fixed texts and sentences written in a page, capitalised buttons); on the
+sources before this pass it finds 55 fixed texts and 133 sentences.
+`salon-navigateur` gains `start` (Enter and a pad's Start at zero rooms, one
+request per press), `retour`, `annonce`, `credit` and `carnet-range`; four
+are red on 2a98279, and `annonce`, older than every reference page, is red on
+a mutant that silences the line.
+
+Weight of the room page: 281 607 brotli bytes before this pass, 281 539
+after (minifier only); the lobby bundle is unchanged.
+
+#### D41, review fixes, 2026-11-24: the logo link's name, and a START keeps its focus
+
+- **The header logo link names itself.** On the three lobby pages the logo
+  is a link to `/`. Once Aïn is painted, the static logo (`role=img`,
+  « nel3ab ») is `display:none` and Aïn's canvas is `aria-hidden`, so the
+  link had no accessible name (WCAG 2.4.4 and 4.1.2). It now carries
+  `aria-label="<!--MOT:entete.logo-->"`, « nel3ab, les salles », from
+  `SALON_ENTETE.logo` in `mots.ts`. A name that must hold is set on the
+  element, not drawn from content that can be hidden.
+- **`remplirStarts` updates each START in place,** port by port (ring,
+  word, name tag, `href`, `data-plein`, `data-ancre`, `aria-label`).
+  Rebuilding all four whenever one place or the advised place changed
+  dropped a keyboard user's focus to `body`. Only a place that turns from
+  free to taken, or back, changes node, because a link becomes a tag.
+
+Guards: `test_accueil.py` marks the focused node with a witness and requires
+the same node after the poll (red before the fix and on a mutant that puts
+`replaceChildren` back; twin: the focused place itself is taken).
+`salon-navigateur` gains `start-focus` and reads the link's name in Chrome's
+accessibility tree in `ain-logo`; both are red on 323aa52.
+
+Weight of the room page: 281 539 brotli bytes, byte-identical; only its
+stamp changes, since `mots.ts` is an input.
+
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on
@@ -2528,6 +2785,41 @@ Decision:
 returns false without a seat or on a closed socket, so a screen never says
 « kept » when nothing left. No screen calls it yet: the closing notice
 belongs to the states track.
+
+
+### D44: The shared logbook: who played, and who watched, 2026-11-24
+
+The owner decided on 2026-11-24 (plan « donnees », D12): the lobby notes who
+played and who watched each game, and each person sees in THEIR logbook the
+people they played with. Nobody reads anyone else's logbook.
+
+Decision:
+
+- **A watcher writes a « regard »** to the play journal (`parties.py`): a
+  session that announces « no pad » opens `regard_debut` (room, game, nickname)
+  and closes it with `regard_fin` (seconds, reason) when the game changes, the
+  page leaves or is swept as absent, the room closes, or a place is granted. A
+  refused place leaves the watcher watching. A repeated announcement keeps the
+  same regard. Without an identity, or from a test bench, nothing is written,
+  as for a place.
+- **Every start line carries the nickname of the moment**, for people who
+  never chose one.
+- **The list of games reads the other files** (`Parties.tous`) and gives each
+  game `avec` (nickname and place of whoever held a place in the same room,
+  at the same game, while one of my places ran) and `regardaient` (nicknames
+  of the watchers). The current chosen nickname wins over the line's. An
+  interval is never extended: a place without a seen end counts for an
+  instant, and only touches if it starts during one of mine. No hash nor
+  address leaves the lobby; the profile, games and saves readings do not open
+  the other files.
+- **Cost.** Measured on lgf on 2026-11-24 with twenty files of 5,000 lines
+  (19.8 MB, years of evenings): 0.74 s to read them, 1.7 s for a page of fifty
+  games compared naively, 0.87 s once presences are indexed by room and game
+  and scanned backwards with a running latest end. On a thread, for the games
+  list only. The journal started on 2026-11-21 and holds a few lines per person.
+
+Rejected: a whole-house table of every evening (option C of the plan), not
+proposed without explicit consent.
 
 
 ### D45: Game pictures without an open room, 2026-11-23

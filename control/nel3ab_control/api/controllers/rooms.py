@@ -362,7 +362,10 @@ class RoomController:
         self._named[session] = name
         if receipt is not None:
             self._receipts[session] = receipt
-        self.tablee.assis(session, login, port)
+        # Le regard finit quand la place est ACCORDÉE, pas à la demande: une
+        # place refusée laisse la page devant l'image, et son regard continue.
+        self.tablee.ne_regarde_plus(session, Fin.QUITTEE)
+        self.tablee.assis(session, login, port, name)
 
     def release(self, session: str, raison: Fin) -> None:
         """Forgets every pad THIS session claimed.
@@ -375,6 +378,11 @@ class RoomController:
         à la fin de la place, et une valeur par défaut aurait fait dire
         « déconnectée » à un changement de jeu sans que rien ne le montre.
         """
+        self._rend(session, raison)
+        self.tablee.ne_regarde_plus(session, raison)
+
+    def _rend(self, session: str, raison: Fin) -> None:
+        """Tout ce que `release` oublie, sauf le regard au journal des parties."""
         self.tablee.leve(session, raison)
         self._claims = {port: who for port, who in self._claims.items() if who != session}
         self._named.pop(session, None)
@@ -382,11 +390,16 @@ class RoomController:
         self._watching.discard(session)
         self._au_menu.discard(session)
 
-    def watch(self, session: str) -> bool:
-        """Rend la place et confirme le mode spectateur, même à la première annonce."""
+    def watch(self, session: str, login: str | None = None, pseudo: str = "") -> bool:
+        """Rend la place et confirme le mode spectateur, même à la première annonce.
+
+        `login` ouvre un regard au journal des parties (D12): le carnet commun
+        dit qui regardait. Une annonce répétée garde le regard ouvert.
+        """
         changed = session not in self._watching or self.seat_of(session) is not None
-        self.release(session, Fin.QUITTEE)
+        self._rend(session, Fin.QUITTEE)
         self._watching.add(session)
+        self.tablee.regarde(session, login, pseudo)
         return changed
 
     def forget_absent(self, live: Container[str]) -> list[int]:
@@ -410,6 +423,7 @@ class RoomController:
         la manette de quelqu'un en train de jouer.
         """
         gone = [at for at, who in self._claims.items() if who not in live]
+        self.tablee.oublie_regards(live)
         self._watching = {sid for sid in self._watching if sid in live}
         for at in gone:
             self.release(self._claims[at], Fin.DECONNECTEE)

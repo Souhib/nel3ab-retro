@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import manifest from "../../../consoles/consoles.json";
-import { consoleLue } from "../components/LobbyPlan";
 import { ConsoleIcon, GameIcon } from "../components/XmbIcons";
 import {
   CONSOLE_CODES,
   CONSOLES,
   consoleLabel,
+  consoleLue,
   launchable,
   preparable,
   smoothArt,

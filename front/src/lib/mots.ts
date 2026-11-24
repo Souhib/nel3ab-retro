@@ -870,3 +870,329 @@ export const ETAT = {
   enCours: "en cours",
 } as const;
 // ==== fin etats ====
+
+// ==== chantier salon ====
+
+/** L'avant-salle (`components/Lobby`), un seul dessin depuis le 24 novembre
+ * 2026 : la borne de la salle et son panneau START 1P à 4P, comme à l'accueil
+ * du salon. Les mots en casse normale ; les capitales d'arcade viennent de la
+ * feuille quand un effet les demande. */
+export const AVANT_SALLE = {
+  autres: "Toutes les salles",
+  bonjour: "Tu es",
+  changer: "Changer ton nom",
+  pasToi: "Ce n'est pas toi ?",
+  garder: "Garder ce nom",
+  annuler: "Annuler",
+  nouveauNom: "Ton nouveau nom",
+  aucunJeu: "Aucun jeu chargé",
+  prendre: "Prendre",
+  regarderSansPlace: "Regarder sans place",
+  regarderLaPartie: "Regarder la partie",
+  injoignable: "Les noms des joueurs ne s'affichent pas pour l'instant. Tu peux jouer quand même.",
+  libre:
+    "Prends une place libre, ou regarde sans place. Tu pourras changer de place dans la salle.",
+  pleine: (n: number) =>
+    `Les ${n} places sont prises. Entre pour regarder : une place peut se libérer.`,
+  regarde: (noms: readonly string[]) =>
+    `${new Intl.ListFormat("fr", { type: "conjunction" }).format(noms)} ${noms.length > 1 ? "regardent" : "regarde"}.`,
+} as const;
+
+/** « Qui joue ? » (`components/Entrance`), pour une page sans identité. */
+export const QUI_JOUE = {
+  titre: "Qui joue ?",
+  intro:
+    "Quatre manettes, une machine, une image. Ton nom sert à ce qu'une place puisse dire qui l'occupe, et à rien d'autre.",
+  entrer: (salle: string | null) => (salle ? `Entrer dans la ${salle}` : "Entrer"),
+  autreNom: "Cet appareil gardait un autre nom.",
+} as const;
+
+/** L'ouverture (`components/Ouverture`) : le squelette de la salle pendant
+ * que le site dit qui on est, puis sa fin à huit secondes. */
+export const OUVERTURE = {
+  salle: (n: number) => `Salle ${n}`,
+  ouvre: (n: number) => `On ouvre la salle ${n}…`,
+  muet: "nel3ab ne répond pas encore.",
+  depuis: (s: number) => `La page l'attend depuis ${s} secondes…`,
+  reessayer: "Réessayer",
+  entrerEnTantQue: (nom: string) => `Entrer en tant que ${nom}`,
+  entrerQuandMeme: "Entrer quand même",
+} as const;
+
+/* Les pages du salon (accueil, dépôt, carnet) et leur en-tête commun.
+ *
+ * Elles sont du HTML servi par le salon, sans paquet: elles ne peuvent pas
+ * importer ce fichier. Leurs mots y vivent quand même, depuis le 24 novembre
+ * 2026, pour deux raisons. La charte les juge (`mots.test.ts` lit ces
+ * tables): le dépôt disait « l'administrateur du salon », un nom de programme
+ * que le joueur ne connaît pas, et l'accueil « Pas de réponse : réessaie »
+ * quand la salle dit « Pas de réponse. Réessaie ». Et un mot du lexique s'y
+ * écrit par le lexique (`ENTREES.regarder`, `SAUVEGARDES`).
+ *
+ * `salon-retro.test.ts` écrit ces tables dans `retro/mots.json`, une clé
+ * `groupe.cle` par texte, et la compare. `retro.py` les pose: un texte fixe
+ * par une marque `<!--MOT:groupe.cle-->`, une phrase calculée par
+ * `mots("groupe.cle", { trou: valeur })` dans le script de la page. Un trou
+ * s'écrit `{nom}`. Une clé inconnue lève une erreur au démarrage du salon.
+ *
+ * Des tables plates, une par page: la garde de la charte ne lit que les
+ * chaînes posées directement dans une constante en capitales. */
+
+/** L'en-tête commun des trois pages (`retro/bandeau.html`). `logo` est le
+ * nom du lien du logo: Aïn peint, le logo statique est caché et sa toile
+ * muette, et le lien ne tirait plus son nom de rien. */
+export const SALON_ENTETE = {
+  logo: "nel3ab, les salles",
+  pages: "Les pages",
+  salles: "Les salles",
+  carnet: "Ton carnet",
+  depot: "Déposer un jeu",
+  tuEs: AVANT_SALLE.bonjour,
+  changerNom: AVANT_SALLE.changer,
+} as const;
+
+/** Ce que plusieurs pages du salon disent pareil. */
+export const SALON_COMMUN = {
+  moinsDUneMinute: "moins d'une minute",
+  quelquun: "quelqu'un",
+  sansReponse: SANS_REPONSE,
+} as const;
+
+/** L'accueil: la rangée de bornes, la mire, l'accroche et le panneau. */
+export const SALON_ACCUEIL = {
+  onglet: "nel3ab · les salles",
+  horloge: "L'heure du dernier relevé de la liste",
+  compris: "Compris",
+  ouvrirUne: "Ouvrir une salle",
+  recharger: "Recharger la page",
+  start: "Appuie sur Start",
+  /** Les nombres dits en lettres, de zéro à quatre, séparés par une espace. */
+  nombres: "zéro une deux trois quatre",
+  vientDeSOuvrir: "la salle {n} vient de s'ouvrir",
+  sEstFermee: "la salle {n} s'est fermée",
+  passeA: "la salle {n} passe à {jeu}",
+  revientAuMenu: "la salle {n} revient à son menu",
+  lesPlaces: "Les places de la salle {n}",
+  regarder: ENTREES.regarder,
+  /** Après l'étiquette du chef: `chefChoisit` sans le nom. */
+  choisit: "choisit le jeu.",
+  regarde: "regarde.",
+  regardent: "regardent.",
+  prendre: AVANT_SALLE.prendre,
+  prendreLaPlace: "Prendre la place {place}",
+  prendreLaPlaceDe: "Prendre la place {place} de la salle {n}",
+  placeDe: "Place {place} : {nom}",
+  placeInconnue: "Place {place} : la salle ne la dit pas encore",
+  redemarre: "Salle {n}, elle redémarre…",
+  muette: "Salle {n}, elle ne répond pas.",
+  ouverte: "Salle {n}, ouverte.",
+  ouverteDepuis: "Salle {n}, ouverte depuis {duree}.",
+  placesQuandElleRepond: "Ses places s'affichent dès qu'elle répond.",
+  quatrePrises: "Les 4 places sont prises.",
+  unePlaceLibre: "Une place libre.",
+  placesLibres: "{nombre} places libres.",
+  aucunJeu: "Aucun jeu pour l'instant",
+  regarderLaSalle: "Regarder la salle {n}",
+  ouvrirLaSalle: "Ouvrir la salle {n}",
+  eteinte: "Salle {n}, éteinte.",
+  horsAntenne: "Hors antenne",
+  rienNeTourne: "Aucune salle ne tourne, donc rien ne consomme sur le serveur.",
+  demo: "Démo · touche une touche pour reprendre",
+  listeDate: "La liste date de {h} h {mm}.",
+  plusAJour: "Elle ne se met plus à jour : recharge la page.",
+  ouverteTaPlace: "La salle {n} est ouverte : prends la place {place}.",
+  estOuverte: "La salle {n} est ouverte.",
+  choisirasDedans: "Tu choisiras le jeu une fois dedans.",
+  aucuneCeSoir: "Aucune salle ouverte ce soir.",
+  ouvreUne: "Ouvre une salle : tu choisiras le jeu une fois dedans.",
+  uneTAttend: "Joue en salle {n} : une place t'attend.",
+  tAttendent: "Joue en salle {n} : {nombre} places t'attendent.",
+  ouUneAutre: "Ou ouvre une autre salle, pour un autre jeu.",
+  toutesPrises: "Toutes les places sont prises : regarde une partie.",
+  placesQuandUneRepond: "Les places s'affichent dès qu'une salle répond.",
+  sOuvre: "La salle s'ouvre…",
+  pasEncoreRepondu: "Elle n'a pas encore répondu.",
+  credit: "Salles ouvertes {n}",
+  creditLibres: "Salles ouvertes {n} · Places libres {libres}",
+  refusOuvrir: "La salle n'a pas voulu s'ouvrir.",
+  revient: "La salle {n} redémarre : elle revient dans quelques secondes.",
+  neRepondPas: "La salle {n} ne répond pas.",
+  deNouveau: "La salle {n} est de nouveau ouverte.",
+  fermee: "La salle {n} s'est fermée.",
+  fermeeInactivite: "La salle {n} s'est fermée faute d'activité.",
+  fermeePanne: "La salle {n} s'est fermée après une panne.",
+  rouvrir: "Tu peux la rouvrir : les sauvegardes sont intactes.",
+  cetteSalle:
+    "Cette salle s'est fermée, et le jeu avec elle. Tu peux en rouvrir une : les sauvegardes sont intactes.",
+} as const;
+
+/** Le dépôt: la rangée, la zone, les envois, les droits et les jaquettes.
+ *
+ * Les preuves de l'estimation (« « HEAD » à 0x100 ») restent dans
+ * `importer.mjs`: ce sont des mesures du fichier, des octets et des
+ * positions, pas des phrases. */
+export const SALON_DEPOT = {
+  onglet: "nel3ab · déposer un jeu",
+  chapeau:
+    "Lâche un ou plusieurs fichiers de jeu, ou une archive. La page estime la console en lisant le début du fichier. Le serveur relit ensuite le fichier entier, reconnaît la console, puis range le jeu dans la bibliothèque.",
+  bibliotheque: "La bibliothèque",
+  zone: "Pose tes fichiers ici, ou",
+  zoneSurvol: "Lâche-les : ils se rangent dès qu'ils sont lus.",
+  choisir: "Choisir des fichiers",
+  rangees:
+    "Les jeux {consoles} sont rangés tout de suite; mises à jour, contenus additionnels et autres consoles restent de côté, avec la raison.",
+  reserve:
+    "Déposer un jeu est réservé à l'administrateur de nel3ab et aux personnes qu'il a nommées. Demande-lui de t'ajouter, ou envoie-lui le fichier.",
+  quiPeut: "Qui peut déposer",
+  quiPeutSous:
+    "Les personnes qui ont accès à nel3ab, d'après le tailnet et les noms déjà choisis. Donne le droit de déposer à qui doit pouvoir ranger des jeux; tu peux le retirer quand tu veux.",
+  peuvent: "Peuvent déposer",
+  peuventPas: "Ne peuvent pas",
+  personneDAutre: "Personne d'autre que toi.",
+  toutLeMonde: "Tout le monde peut déposer.",
+  jaquettes: "Les jaquettes",
+  jaquettesSous:
+    "L'image d'un jeu s'affiche sur sa borne, à l'accueil, et dans le menu d'une salle. Dépose un PNG d'un Mio au plus : il passe avant la bannière du disque, et une salle le montre à son prochain démarrage.",
+  pied: "Un envoi coupé reprend où il s'était arrêté: redépose le même fichier, même après avoir fermé la page. Après un dépôt, le bouton ouvre une salle, où le jeu rangé est déjà là, ou rejoint celle qui est ouverte: elle le montre à son prochain changement de jeu.",
+  pause: "Pause",
+  reprendre: "Reprendre",
+  annuler: AVANT_SALLE.annuler,
+  retirer: "Retirer",
+  auDebut: "Au début du fichier :",
+  jouer: "Jouer maintenant",
+  allerDans: "Aller dans la salle {n}",
+  auProchainJeu: "Le jeu apparaîtra au prochain changement de jeu.",
+  compte: "{pourcent} % · {recus} sur {taille}",
+  debit: "{debit}/s · reste {duree}",
+  nonReconnue: "console non reconnue au début du fichier",
+  lueParLeServeur: "{format} · console lue par le serveur",
+  lecture: "lecture du début du fichier…",
+  empreinte: "calcul de l'empreinte rapide…",
+  dejaLa: "Déjà dans la bibliothèque: {fichier}.",
+  refusStatut: "refus {statut}",
+  enCours: "envoi en cours",
+  coupee: "La connexion a coupé. « Reprendre » repart d'où le serveur en est.",
+  nouvelEssai: "connexion coupée, nouvel essai ({n}/{max})…",
+  verification: "vérification par le serveur: empreinte complète, console, rangement…",
+  perdu: "le serveur ne retrouve plus cet envoi",
+  verifie: "vérification par le serveur…",
+  archive: "{n} fichiers dans l'archive",
+  enPause: "en pause",
+  arrete: "Arrêté à {pourcent} %. Redépose « {nom} » pour reprendre.",
+  echec: "La vérification a échoué",
+  reparer: "{raison}. Retire-le, puis redépose « {nom} » pour réessayer.",
+  dans: "dans {destination}",
+  administrateur: "administrateur",
+  configuration: "droit fixé par la configuration",
+  partage: "arrive par un partage du tailnet",
+  tailnet: "sur le tailnet",
+  connu: "a déjà un nom ici",
+  enLigne: "en ligne maintenant",
+  appareils: "sur {n} appareils",
+  parti: "n'est plus sur le tailnet",
+  retirerLeDroit: "Retirer le droit",
+  donnerLeDroit: "Donner le droit",
+  gesteA: "{geste} à {nom} ({login})",
+  tailnetMuet:
+    "Le tailnet n'a pas répondu : la liste ne montre que les personnes déjà venues et celles qui ont le droit.",
+  droitsIlisibles:
+    "Le fichier des droits ne se lit pas, donc rien n'y sera écrit. Répare-le ou retire-le, puis redémarre nel3ab.",
+  rienNAChange: "Rien n'a changé: {detail}.",
+  sansReponse: "pas de réponse",
+  peutDeposer: "{nom} peut maintenant déposer des jeux.",
+  nePeutPlus: "{nom} ne peut plus déposer de jeux.",
+  imageTropGrande: "L'image dépasse un Mio.",
+  imageAdministrateur: "Seul l'administrateur de nel3ab change une image.",
+  imageNonGardee: "L'image n'a pas été gardée. Réessaie dans un instant.",
+  pileUn: "Sur la pile : 1 envoi pas encore rangé.",
+  pile: "Sur la pile : {n} envois pas encore rangés.",
+  pasLue: "La bibliothèque n'a pas encore été lue : ouvre une salle une fois.",
+  unJeu: "1 jeu dans la bibliothèque.",
+  jeux: "{n} jeux dans la bibliothèque.",
+  aucuneLue: "Aucune salle n'a encore lu la bibliothèque : ouvre une salle une fois.",
+  deposerImage: "Déposer une image",
+  deposerImagePour: "Déposer une image pour {jeu}",
+  retirerImage: "Retirer l'image",
+  retirerImageDe: "Retirer l'image de {jeu}",
+  imageGardee: "Image gardée.",
+  imageRetiree: "Image retirée.",
+  envoiEchoue: "L'envoi a échoué ({message}). Redépose « {nom} » pour reprendre.",
+} as const;
+
+/** Le carnet: le tableau des dernières parties, les sauvegardes, le nom. */
+export const SALON_CARNET = {
+  onglet: "nel3ab · ton carnet",
+  ouvre: "On ouvre ton carnet…",
+  voirSalles: "Voir les salles",
+  dernieres: "Dernières parties",
+  quand: "Quand",
+  jeu: "Jeu",
+  duree: "Durée",
+  lanceePar: "Lancée par",
+  sauvegarde: "Sauvegarde",
+  aucune: "Aucune partie notée pour l'instant.",
+  plusAnciennes: "Voir les plus anciennes",
+  reessayer: OUVERTURE.reessayer,
+  sauvegardes: "Tes sauvegardes",
+  etiquette: "Ton étiquette",
+  nomChamp: "Ton nom, tel que les autres le voient",
+  etiquetteApercu: "Ton étiquette :",
+  garder: AVANT_SALLE.garder,
+  annuler: AVANT_SALLE.annuler,
+  perso: SAUVEGARDES.perso,
+  debloque: SAUVEGARDES.debloque,
+  neuve: SAUVEGARDES.neuve,
+  /** `{de}` est « de Bo » ou « d'Ami », élidé comme `de`. */
+  duLanceur: "la sauvegarde {de}",
+  inconnue: "inconnue",
+  avec: "Tu as joué avec {noms}.",
+  /** Un joueur et sa pastille (`pastille`): « Ben (2P) ». */
+  joueur: "{nom} ({place}P)",
+  aRegarde: "{noms} a regardé.",
+  ontRegarde: "{noms} ont regardé.",
+  consoleSalle: "{console} · salle {n}",
+  enCours: "en cours",
+  dureeInconnue: "durée inconnue",
+  toi: "toi",
+  aucuneSauvegarde: `Aucune sauvegarde à toi pour l'instant. Lance un jeu sur « ${SAUVEGARDES.perso} » et elle apparaîtra ici.`,
+  ecrite: "écrite le {jour} à {heure}",
+  encoreVide: "encore vide",
+  aucuneVersion: "Aucune version précédente gardée",
+  uneVersion: "{n} version précédente gardée",
+  versions: "{n} versions précédentes gardées",
+  octets: "{n} octets",
+  nomVide: "Écris un nom : les autres te voient par lui.",
+  nomRefuse: "Le nom n'a pas été gardé. Réessaie dans un instant.",
+  vide: "{pseudo}, ton carnet est encore vide. Il commence à ta première partie dans une salle.",
+  resume: "{pseudo}, {parties} sur {jeux} : {duree} de jeu en tout.",
+  resumeDepuis: "{pseudo}, {parties} sur {jeux} depuis le {date} : {duree} de jeu en tout.",
+  unePartie: "{n} partie",
+  parties: "{n} parties",
+  unJeu: "{n} jeu",
+  jeux: "{n} jeux",
+  uneInconnue: "{n} partie sans fin connue ne compte pas dans ce temps.",
+  inconnues: "{n} parties sans fin connue ne comptent pas dans ce temps.",
+  sansIdentite: "nel3ab ne sait pas qui tu es sur cet appareil.",
+  jouerQuandMeme: "Tu peux quand même jouer : entre dans une salle, et donne ton nom à l'entrée.",
+  neSOuvrePas: "Le carnet ne s'ouvre pas.",
+  rechargeDansUnInstant: "Pas de réponse. Recharge la page dans un instant.",
+} as const;
+
+/** Les mots du salon, une clé `groupe.cle` par texte: ce que
+ * `retro/mots.json` doit contenir. Une fonction et pas une constante: la page
+ * de la salle ne l'appelle pas, et le paquet la laisse de côté. */
+export function motsDuSalon(): Record<string, string> {
+  const groupes = {
+    entete: SALON_ENTETE,
+    commun: SALON_COMMUN,
+    accueil: SALON_ACCUEIL,
+    depot: SALON_DEPOT,
+    carnet: SALON_CARNET,
+  };
+  const table: Record<string, string> = {};
+  for (const [groupe, mots] of Object.entries(groupes))
+    for (const [cle, texte] of Object.entries(mots)) table[`${groupe}.${cle}`] = texte;
+  return table;
+}
+
+// ==== fin salon ====

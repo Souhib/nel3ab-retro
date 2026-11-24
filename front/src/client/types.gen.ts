@@ -144,6 +144,26 @@ export type Chez = {
 };
 
 /**
+ * Compagnon
+ *
+ * Quelqu'un qui tenait une place dans la même salle, au même jeu, en même temps (D12).
+ */
+export type Compagnon = {
+    /**
+     * Nom
+     *
+     * Son pseudo actuel, ou celui qu'il avait ce soir-là.
+     */
+    nom: string;
+    /**
+     * Place
+     *
+     * La place qu'il tenait, la première vue pendant la partie.
+     */
+    place: number;
+};
+
+/**
  * Connection
  *
  * Une observation de trajet, jamais une mesure de qualité.
@@ -648,6 +668,18 @@ export type Partie = {
      * Le pseudo de qui a lancé, quand ce n'est pas la personne elle-même.
      */
     lance_par?: string | null;
+    /**
+     * Avec
+     *
+     * Ceux qui ont joué avec elle: une place tenue dans la même salle, au même jeu, pendant la partie (carnet commun, D12). Rangés par place.
+     */
+    avec?: Array<Compagnon>;
+    /**
+     * Regardaient
+     *
+     * Les pseudos de ceux qui regardaient sans place pendant la partie, dans l'ordre de leur arrivée. Vide pour une partie d'avant le 24 novembre 2026.
+     */
+    regardaient?: Array<string>;
 };
 
 /**

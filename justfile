@@ -828,6 +828,12 @@ etats-navigateur-rouge:
     git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
     node etats.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
         --etapes chargement-annonces,mire-charge --rouge-attendu chargement-annonces,mire-charge
+    # 03b21c0, la page de main avant le thème rétro : téléphone en travers,
+    # l'écran de chargement coupe ses deux boutons au bas de la fenêtre (C3).
+    # La page de 2f2ea39 n'en avait plus qu'un, qui tenait : pas de rouge là.
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
+    node etats.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes chargement-paysage --rouge-attendu chargement-paysage
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -1024,9 +1030,11 @@ focus-navigateur-rouge:
     # grossissement de 200 ms. fiche-lancer n'a pas de page d'avant qui
     # rougisse sur son défaut (main n'a pas de fiche) : elle a été vue rouge
     # sur un mutant sans barre collée (`position: sticky` retiré), le
-    # 24 novembre 2026.
+    # 24 novembre 2026. pastilles y voit la ligne des couleurs sans ses
+    # trois choix ; son contrôle des points a été vu rouge sur un mutant
+    # dont chaque point est plein (passage 4 du chantier).
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
-    etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette,aides-fixes,mouvement-menu
+    etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette,aides-fixes,mouvement-menu,pastilles
     node focus.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # 49be12b, la page du chantier menus juste avant P10 : une fermeture

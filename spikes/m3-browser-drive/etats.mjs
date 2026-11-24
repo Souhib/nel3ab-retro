@@ -485,6 +485,57 @@ const ETAPES = {
     await page.close();
   },
 
+  /** C3 (chantier menus) : téléphone en travers, à 844x390 et 780x360,
+   * l'écran de chargement garde ses gestes entiers dans la fenêtre, et ni le
+   * texte, ni un bouton, ni le plateau d'Aïn ne se recouvrent, au démarrage
+   * comme à l'attente longue. */
+  async "chargement-paysage"() {
+    for (const [width, height] of [
+      [844, 390],
+      [780, 360],
+    ]) {
+      const page = await nouvelle({ width, height, isMobile: true, hasTouch: true });
+      await entrer(page);
+      banc.annoncerDemarrage();
+      if ((await page.waitForSelector("#booting", { timeout: 3000 }).catch(() => null)) === null)
+        throw new Precondition("pas d'écran de chargement après l'annonce");
+      const mesurer = () =>
+        page.evaluate(() => {
+          const boite = (el) => {
+            const r = el.getBoundingClientRect();
+            return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom, d: r.right };
+          };
+          const croise = (a, b) =>
+            Math.max(0, Math.min(a.d, b.d) - Math.max(a.x, b.x)) *
+            Math.max(0, Math.min(a.b, b.b) - Math.max(a.y, b.y));
+          const booting = document.getElementById("booting");
+          const plaque = booting.querySelector(".n3-charge-plaque");
+          const plateau = booting.querySelector('[data-hote="plateau"]');
+          const boutons = [...booting.querySelectorAll("button")].filter((b) => b.getClientRects().length > 0);
+          const fautes = [];
+          const zone = boite(booting);
+          for (const b of boutons) {
+            const r = boite(b);
+            if (r.y < Math.max(0, zone.y) - 1 || r.b > Math.min(innerHeight, zone.b) + 1 || r.x < 0 || r.d > innerWidth + 1)
+              fautes.push(`${b.textContent.trim()} coupé (${Math.round(r.y)}..${Math.round(r.b)} dans ${Math.round(zone.y)}..${Math.round(Math.min(innerHeight, zone.b))})`);
+          }
+          if (plaque && plateau && plateau.getClientRects().length > 0) {
+            const aire = croise(boite(plaque), boite(plateau));
+            if (aire > 0) fautes.push(`le plateau recouvre la plaque sur ${Math.round(aire)} px²`);
+          }
+          return { fautes, boutons: boutons.map((b) => b.textContent.trim()) };
+        });
+      const debut = await mesurer();
+      if (debut.fautes.length > 0) throw new Defaut(`${width}x${height}, démarre : ${debut.fautes}`);
+      await sleep(21_000);
+      const long = await mesurer();
+      await capture(page, `chargement-paysage-${width}x${height}`);
+      if (long.boutons.length === 0) throw new Precondition(`${width}x${height} : aucun geste à 21 s`);
+      if (long.fautes.length > 0) throw new Defaut(`${width}x${height}, plus long : ${long.fautes}`);
+      await page.close();
+    }
+  },
+
   /** C8 (chantier menus) : tant qu'aucune image n'est arrivée, « Garder les
    * 45 dernières secondes » n'est ni dans la colonne ni dans le menu. Le
    * jumeau : en partie, la colonne le montre. */

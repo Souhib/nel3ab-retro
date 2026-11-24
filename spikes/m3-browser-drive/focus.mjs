@@ -894,6 +894,55 @@ const ETAPES = {
     await page.close();
   },
 
+  /** M7a (chantier menus) : un choix court est une rangée de pastilles, et
+   * seul le point du choix coché est plein, 400 ms après le clic, en nuit
+   * comme en jour (le clic change justement de régie). Sur la page de main,
+   * la ligne des couleurs ne montrait qu'une valeur. */
+  async "pastilles"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.click("#ray-reglages");
+    await sleep(300);
+    const choix = await page.evaluate(
+      () =>
+        [...document.querySelectorAll("#item-theme input[type=radio]")].filter(
+          (r) => r.closest("label")?.getClientRects().length > 0,
+        ).length,
+    );
+    if (choix < 3) throw new Defaut(`la ligne des couleurs montre ${choix} choix au lieu de ses trois`);
+    const points = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("#item-theme input[type=radio]")].map((r) => {
+          const point = r.parentElement?.querySelector(".n3-menu-point");
+          return {
+            id: r.value,
+            coche: r.checked,
+            opacite: point ? Number(getComputedStyle(point, "::after").opacity) : null,
+          };
+        }),
+      );
+    for (const regie of ["jour", "nuit"]) {
+      // Un vrai clic sur la pastille, à son centre : le rond natif est caché
+      // sous le point dessiné.
+      await page.$eval(`label:has(#pick-theme-${regie})`, (l) => l.scrollIntoView({ block: "center" }));
+      await sleep(100);
+      const [x, y] = await centre(page, `label:has(#pick-theme-${regie})`);
+      const recoit = await page.evaluate((x, y) => document.elementFromPoint(x, y)?.closest("label")?.textContent ?? null, x, y);
+      if (recoit === null) throw new Precondition(`la pastille ${regie} ne reçoit pas le point (${x}, ${y})`);
+      await page.mouse.click(x, y);
+      await sleep(400);
+      const lus = await points();
+      const coche = lus.filter((p) => p.coche);
+      if (coche.length !== 1 || coche[0].id !== regie)
+        throw new Precondition(`après un clic sur ${regie}, cochés : ${JSON.stringify(coche)}`);
+      const faux = lus.filter((p) => p.opacite !== (p.coche ? 1 : 0));
+      if (faux.length > 0) throw new Defaut(`en ${regie}, des points ne disent pas le choix : ${JSON.stringify(lus)}`);
+    }
+    await capture(page, "pastilles");
+    await page.close();
+  },
+
   /** M8 : chaque ligne porte son aide, toujours visible et entière ; rien
    * ne change de hauteur quand le focus descend. Le menu façon XMB tenait
    * des lignes de hauteur fixe, mais n'y montrait l'aide que sous la ligne

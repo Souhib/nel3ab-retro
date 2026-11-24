@@ -1403,18 +1403,27 @@ function Room({
      du 22 novembre 2026, WCAG 2.4.3). Seulement quand rien d'autre ne s'ouvre
      à la place : une entrée de la feuille peut ouvrir le menu. */
   const coucheAvant = useRef(false);
+  /** La feuille a été ouverte par la pastille d'état (`allerAuGeste`) : à
+   * sa fermeture, le focus revient à la pastille, remontée avec la bande,
+   * plutôt qu'au bouton « La salle » (pilote etats, 24 novembre 2026). */
+  const ouverteParLaPastille = useRef(false);
   useEffect(() => {
     const ouverte = feuille !== null;
     const fermee = coucheAvant.current && !ouverte;
     coucheAvant.current = ouverte;
-    if (!fermee || menu) return;
+    if (!fermee) return;
+    const parLaPastille = ouverteParLaPastille.current;
+    ouverteParLaPastille.current = false;
+    if (menu) return;
     const ici = document.activeElement;
     const ouvreuse = document.querySelector<HTMLElement>(OUVRE_LA_FEUILLE);
+    const pastille = parLaPastille ? document.getElementById("pastilleEtat") : null;
     const suite = focusApresFermeture({
       perdu: ici === null || ici === document.body,
-      salle: ouvreuse !== null,
+      salle: ouvreuse !== null || pastille !== null,
     });
-    if (suite === "salle") ouvreuse?.focus({ preventScroll: true });
+    if (suite === "salle" && pastille) pastille.focus({ preventScroll: true });
+    else if (suite === "salle") ouvreuse?.focus({ preventScroll: true });
     else if (suite === "jeu") zone.current?.focus({ preventScroll: true });
     // `zone` est la même référence d'un rendu à l'autre (`useFocusJeu`).
   }, [feuille, menu, zone]);
@@ -2728,7 +2737,10 @@ function Room({
   /** La pastille mène au geste de sa fiche : le focus dessus, après avoir
    * ouvert la feuille quand la fiche y vit. */
   const allerAuGeste = () => {
-    if (lieuFiche === "feuille") setFeuille("agrandie");
+    if (lieuFiche === "feuille") {
+      ouverteParLaPastille.current = true;
+      setFeuille("agrandie");
+    }
     requestAnimationFrame(() =>
       document
         .querySelector<HTMLElement>(":is(#liaison, #rough) :is(.n3-geste, #signalerEtat)")

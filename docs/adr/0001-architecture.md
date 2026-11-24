@@ -1217,6 +1217,14 @@ than the game. A closed room no longer offers « Inviter quelqu'un » or
 and the spoken line no longer says « Première image reçue. » before any picture
 was painted.
 
+Amended 2026-11-24 by D40. The one link state and its media-layer rule stay;
+the « one place on the picture » does not. The state is now said off the
+picture (a pastille, a sheet in the column or the phone's sheet, the
+cabinet's full frame when there is no picture at all), and what covers the
+picture is lifted by the paint loop on the first painted image. The banner
+became the sheet, the curtain the full frame; the frozen, banner and arrival
+thresholds above are unchanged.
+
 ### D30: The game keyboard lives in a focusable game zone; room menus are modal dialogs whose cursor is the focus, 2026-11-22
 
 The accessibility audit of 2026-11-22 found two keyboard owners on the room

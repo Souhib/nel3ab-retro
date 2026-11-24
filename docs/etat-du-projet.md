@@ -256,8 +256,8 @@ n'existe que dans un navigateur piloté. `cadre-navigateur` gagne
 `maison-en-vue`, `ain-mise-en-page` et `ain-pose-cle`, et
 `mascotte-hors-image` sonde aussi entre deux scènes ;
 `just mascotte-navigateur-rouge` les fait tomber sur la page d'avant. La
-page fait 262 649 octets en brotli (+1 036), le paquet du salon 16 202
-(+965). Restent : les six marques du sol du panneau (`toque`, `siege`,
+page fait 262 665 octets en brotli (+1 052), le paquet du salon 16 222
+(+985). Restent : les six marques du sol du panneau (`toque`, `siege`,
 `rattrape`, `public`, `fiche-sol`, `branche`) et le sol `panneau`, à poser
 par la salle ; la demande au socle et à la salle des ajouts de `jouer()`, de
 `SCENES` et de `SCENES_DE` ; l'avis du propriétaire sur les 161 px du pied

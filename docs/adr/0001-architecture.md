@@ -2281,8 +2281,8 @@ the window and the logo empty. The guard step looked only during
   jeu ») counts as an obstacle.
 - **The drivers' hook exists only in a driven browser** (`navigator.webdriver`):
   it plays without the room's arbiter.
-- **Weight.** The room page goes from 261 613 to 262 649 bytes brotli
-  (+1 036), the lounge bundle from 15 237 to 16 202 (+965, ceiling 16 800).
+- **Weight.** The room page goes from 261 613 to 262 665 bytes brotli
+  (+1 052), the lounge bundle from 15 237 to 16 222 (+985, ceiling 16 800).
   Nothing is removed in this change.
 
 The six floor marks the full versions ask for in the room (`toque`, `siege`,

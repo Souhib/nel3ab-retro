@@ -29705,7 +29705,9 @@ salle. Quand Aïn ne montre rien hors de son logo, la relecture s'arrête
 tout de suite. Sinon, si le logo ou l'image a bougé, ou si Aïn, sa bulle ou
 un objet touche maintenant une zone, la scène est coupée et Aïn rentre ;
 celui qui attendait dehors rentre avec la pose clé de sa scène, tant que la
-panne dure. Une maison que React démonte emporte son calque. Le dernier
+panne dure. Un effleurement de moins de 0,6 px, l'arrondi des sprites au
+pixel de l'écran que le planificateur garde déjà, ne coupe pas une scène.
+Une maison que React démonte emporte son calque. Le dernier
 observateur vient d'un cas que personne n'avait demandé : sur l'écran noir,
 le bouton « Choisir un jeu » arrive parfois après la première scène, sous la
 bulle de « arrivee ». Rien n'y changeait de taille ; seule une mutation le
@@ -29792,8 +29794,8 @@ choisir, et a un second jumeau, un sprite posé sur la phrase. La recette
 (24cdaa2, gardée avec son empreinte) : les quatre tombent sur leur défaut
 nommé.
 
-**Le poids.** La page de la salle passe de 261 613 à 262 649 octets en
-brotli 11, soit 1 036 de plus. Le paquet du salon passe de 15 237 à 16 202
+**Le poids.** La page de la salle passe de 261 613 à 262 665 octets en
+brotli 11, soit 1 052 de plus. Le paquet du salon passe de 15 237 à 16 222
 octets, sous son plafond de 16 800. Rien n'est retiré dans ce passage.
 
 **La leçon.** Un planificateur qui vérifie un trajet le vérifie pour une

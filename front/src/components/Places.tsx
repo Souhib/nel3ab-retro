@@ -22,11 +22,6 @@
  * ouvre la salle (`onToutes`). La bascule est une requête de conteneur
  * (`places.css`) : la largeur vient du cadre, et React ne la lit pas.
  *
- * Une salle fermée met la rangée au passé (`passe`) : les quatre START
- * éteints, chacun avec l'étiquette de qui tenait la place, sans « toi », sans
- * couronne ni micro, et aucun geste ; le groupe se lit « Ils ont joué ». La
- * salle n'existe plus : prendre une place n'y ferait rien.
- *
  * `id` et `data-state` sont lus par les pilotes de navigateur ;
  * `data-ancre="start-N"` par Aïn. En petit, les lampes de `#placesToutes`
  * n'en portent pas : le planificateur prend la première ancre d'un nom, qui
@@ -62,7 +57,6 @@ export function Places({
   onPrendre,
   onCarte,
   onToutes,
-  passe = false,
 }: {
   forme: FormePlaces;
   entree: EntreePlaces;
@@ -77,25 +71,18 @@ export function Places({
   /** En petit, le bouton qui montre les quatre places ouvre la salle. Sans
    * lui, la rangée reste la seule. */
   onToutes?: () => void;
-  /** La salle est fermée : les places au passé, sans geste. */
-  passe?: boolean;
 }) {
   const places = lesPlaces(entree);
   const libres = places.filter((p) => p.etat === "free").length;
   return (
-    <div className="n3-places" data-forme={forme} data-passe={passe ? "" : undefined}>
-      <div
-        id="ports"
-        className="n3-places-rangee"
-        role={passe ? "group" : undefined}
-        aria-label={passe ? PLACES.ontJoue : undefined}
-      >
+    <div className="n3-places" data-forme={forme}>
+      <div id="ports" className="n3-places-rangee">
         {places.map((p) => {
           const libre = p.etat === "free";
           // Une place qui vient de se libérer reste allumée le temps de
           // s'éteindre en trois paliers (`data-part`), puis devient libre.
-          const eteinte = passe || (libre && !part.has(p.port));
-          const ouvre = !passe && gesteDe(p) === "carte";
+          const eteinte = libre && !part.has(p.port);
+          const ouvre = gesteDe(p) === "carte";
           return (
             <button
               key={p.port}
@@ -111,16 +98,9 @@ export function Places({
               // (`lib/focus-jeu`, `rendreAuJeuApresClic`).
               data-rend-le-jeu=""
               data-state={p.etat}
-              data-joue={!passe && vient.has(p.port) ? "" : undefined}
-              data-part={!passe && part.has(p.port) ? "" : undefined}
-              disabled={passe}
-              aria-label={
-                passe
-                  ? p.nom !== null
-                    ? PLACES.aQuelquun(p.port, p.nom)
-                    : PLACES.restaitLibre(p.port)
-                  : nomDePlace(p)
-              }
+              data-joue={vient.has(p.port) ? "" : undefined}
+              data-part={part.has(p.port) ? "" : undefined}
+              aria-label={nomDePlace(p)}
               aria-expanded={ouvre ? carte === p.port : undefined}
               aria-controls={ouvre && carte === p.port ? CARTE_PLACE : undefined}
               className="n3-place"
@@ -141,17 +121,15 @@ export function Places({
                 ) : (
                   <span className="n3-place-vide">{libre ? PLACES.vide : PLACES.sansNom}</span>
                 )}
-                {!passe && p.etat === "mine" ? (
-                  <span className="n3-place-toi">{PLACES.toi}</span>
-                ) : null}
+                {p.etat === "mine" ? <span className="n3-place-toi">{PLACES.toi}</span> : null}
               </span>
-              {libre || passe ? null : (
+              {libre ? null : (
                 <span className="n3-place-signes">
                   {p.chef ? <Crown muette /> : null}
                   <MicBadge open={p.micro} />
                 </span>
               )}
-              {!passe && vient.has(p.port) ? (
+              {vient.has(p.port) ? (
                 <span className="rt-pret" aria-hidden="true">
                   {`${pastille(p.port)} ${PLACES.pret}`}
                 </span>
@@ -164,7 +142,6 @@ export function Places({
         <button
           type="button"
           id="placesToutes"
-          disabled={passe}
           data-rend-le-jeu=""
           data-joue={vient.size > 0 ? "" : undefined}
           aria-label={PLACES.toutes(places.map(direPlace).join(", "))}
@@ -193,7 +170,7 @@ export function Places({
           ) : null}
         </button>
       ) : null}
-      {passe ? null : <p className="n3-places-role">{phraseDuRole(entree.mienne, libres)}</p>}
+      <p className="n3-places-role">{phraseDuRole(entree.mienne, libres)}</p>
     </div>
   );
 }

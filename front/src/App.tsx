@@ -35,11 +35,16 @@ import {
   Neige,
   PleinCadre,
   ScenesDesEtats,
-  useCouverture,
-  type Rappels,
 } from "./components/EtatSalle";
-import { modeleEtat } from "./lib/etat-modele";
-import { placeDeLaPastille } from "./lib/etat-place";
+import { PlacesAuPasse } from "./components/PlacesAuPasse";
+import {
+  rappelsDeLEtat,
+  useAllerAuGeste,
+  useAvantLaFermeture,
+  useModeleDeLEtat,
+} from "./components/useEtatDeLaSalle";
+import { signaleDansLaFiche } from "./lib/etat-modele";
+import { lieuDeLaFiche, montageDeLaPastille } from "./lib/etat-place";
 import { LigneParlee } from "./components/LigneParlee";
 import { AnnonceEnLettres } from "./components/AnnonceEnLettres";
 import { Ouverture } from "./components/Ouverture";
@@ -1404,27 +1409,18 @@ function Room({
      du 22 novembre 2026, WCAG 2.4.3). Seulement quand rien d'autre ne s'ouvre
      à la place : une entrée de la feuille peut ouvrir le menu. */
   const coucheAvant = useRef(false);
-  /** La feuille a été ouverte par la pastille d'état (`allerAuGeste`) : à
-   * sa fermeture, le focus revient à la pastille, remontée avec la bande,
-   * plutôt qu'au bouton « La salle » (pilote etats, 24 novembre 2026). */
-  const ouverteParLaPastille = useRef(false);
   useEffect(() => {
     const ouverte = feuille !== null;
     const fermee = coucheAvant.current && !ouverte;
     coucheAvant.current = ouverte;
-    if (!fermee) return;
-    const parLaPastille = ouverteParLaPastille.current;
-    ouverteParLaPastille.current = false;
-    if (menu) return;
+    if (!fermee || menu) return;
     const ici = document.activeElement;
     const ouvreuse = document.querySelector<HTMLElement>(OUVRE_LA_FEUILLE);
-    const pastille = parLaPastille ? document.getElementById("pastilleEtat") : null;
     const suite = focusApresFermeture({
       perdu: ici === null || ici === document.body,
-      salle: ouvreuse !== null || pastille !== null,
+      salle: ouvreuse !== null,
     });
-    if (suite === "salle" && pastille) pastille.focus({ preventScroll: true });
-    else if (suite === "salle") ouvreuse?.focus({ preventScroll: true });
+    if (suite === "salle") ouvreuse?.focus({ preventScroll: true });
     else if (suite === "jeu") zone.current?.focus({ preventScroll: true });
     // `zone` est la même référence d'un rendu à l'autre (`useFocusJeu`).
   }, [feuille, menu, zone]);
@@ -1544,7 +1540,7 @@ function Room({
    * pastille, une seule fiche, ou le plein cadre. Une page-manette n'attend
    * pas d'image, et un chargement a son propre écran : seule la fermeture
    * proche leur reste. */
-  const modele = modeleEtat({
+  const modele = useModeleDeLEtat({
     liaison: booting === null && !padOnly ? liaison : { etat: "ok" },
     salle: salle(),
     contexte: contexteEtat,
@@ -1553,10 +1549,8 @@ function Room({
     legerePassee: reduced,
     legere: half,
     neige: effetsDu(effets).has("neige"),
+    vues: shot?.couvertureVue ?? 0,
   });
-  // Ce qui couvre l'image, armé sur les images que l'état avait vues et
-  // levé par la première image peinte (`media/couverture`, ADR D40).
-  useCouverture(modele.couverture, shot?.couvertureVue ?? 0);
 
   /** Les consoles présentes dans cette bibliothèque, dans l'ordre des sorties.
    *
@@ -2398,41 +2392,40 @@ function Room({
     chef: boss?.seat,
     mienne: port,
   };
-  /* Une salle fermée garde les places d'avant sa fermeture, au passé (plan
-     des états) : ce que la salle publie ensuite ne dit plus qui a joué. De
-     même pour la colonne, « Ce soir dans la salle N » : le jeu et ceux qui
-     regardaient à la fermeture, pas ceux qui arrivent après. */
-  const placesDAvant = useRef(entreeDesPlaces);
-  const ceSoirVu = { jeu: room?.game?.name ?? null, regardaient: regardentDe(people) };
-  const ceSoirDAvant = useRef(ceSoirVu);
-  useEffect(() => {
-    if (salleFermee) return;
-    placesDAvant.current = entreeDesPlaces;
-    ceSoirDAvant.current = ceSoirVu;
+  /* Une salle fermée garde ses places et sa soirée d'avant la fermeture
+     (chantier etats, `useAvantLaFermeture`). */
+  const placesDAvant = useAvantLaFermeture(salleFermee, entreeDesPlaces);
+  const ceSoir = useAvantLaFermeture(salleFermee, {
+    jeu: room?.game?.name ?? null,
+    regardaient: regardentDe(people),
   });
+  const formeDuPanneau = formeDesPlaces(
+    geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme,
+  );
   const places = (
     <>
-      <Places
-        forme={formeDesPlaces(geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme)}
-        // La dernière entrée vue avant la fermeture : écrite après chaque
-        // rendu d'une salle ouverte, lue au rendu d'une salle fermée.
-        entree={salleFermee ? placesDAvant.current : entreeDesPlaces}
-        passe={salleFermee}
-        vient={suivi.vient}
-        part={suivi.part}
-        carte={carte}
-        onPrendre={(choisie) => {
-          fermerLaCarte();
-          session?.input.take(choisie);
-        }}
-        onCarte={basculer}
-        // En petit et trop étroite, la rangée devient un bouton : il ouvre la
-        // salle, où les places ont leur taille.
-        onToutes={() => {
-          if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
-          else setBare(false);
-        }}
-      />
+      {salleFermee ? (
+        <PlacesAuPasse forme={formeDuPanneau} entree={placesDAvant} />
+      ) : (
+        <Places
+          forme={formeDuPanneau}
+          entree={entreeDesPlaces}
+          vient={suivi.vient}
+          part={suivi.part}
+          carte={carte}
+          onPrendre={(choisie) => {
+            fermerLaCarte();
+            session?.input.take(choisie);
+          }}
+          onCarte={basculer}
+          // En petit et trop étroite, la rangée devient un bouton : il ouvre la
+          // salle, où les places ont leur taille.
+          onToutes={() => {
+            if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
+            else setBare(false);
+          }}
+        />
+      )}
       {shot?.input.displaced ? (
         <p id="displaced" className="text-note text-alert">
           {PLACES.deplace}
@@ -2511,9 +2504,8 @@ function Room({
     etat: geo.etat,
     role: roleDuCadre,
     appareil,
-    // La fiche porte Signaler pendant une panne : la colonne ne le répète
-    // pas (K25, jamais deux à l'écran).
-    fiche: modele.niveau === "fiche" && modele.signaler !== null,
+    // La fiche porte Signaler pendant une panne (K25).
+    fiche: signaleDansLaFiche(modele),
   });
   /** La vue des touches montrée : celle qu'un rang a ouverte, ou celle du
    * clavier à la première visite. Seulement tant que son rang existe : une
@@ -2709,37 +2701,22 @@ function Room({
     setSuggestHalf(false);
     sending.current.quality("accepté");
   };
-  /** Ce que font les gestes de la fiche et du plein cadre. */
-  const rappels: Rappels = {
-    onRelancer: () => session?.relancerImage(),
-    onReessayer: () => session?.relancerImage(),
-    onQuitter: quitterLaSalle,
-    onSignaler: complain,
+  /** Les gestes de la fiche et du plein cadre, avec les moyens de la salle
+   * (chantier etats, `rappelsDeLEtat`). */
+  const rappels = rappelsDeLEtat({
+    session,
+    quitter: quitterLaSalle,
+    signaler: complain,
     garde: garde.current,
-    onReduire: takeHalf,
-    onGarder: () => {
-      rough.current.settled();
-      setSuggestHalf(false);
-      sending.current.quality("refusé");
-    },
-    // « Je reste » part en un octet sur la socket de la place (D16) ; le
-    // compte revient à zéro au message de salle suivant.
-    onRester: () => void session?.input.reste(),
-    onRevenir: () => {
-      setDeclined(true);
-      session?.video.setHalf(false);
-      setHalf(false);
-      setReduced(false);
-    },
-    onGarderLegere: () => setReduced(false),
-  };
-  /** Où se pose la fiche : en tête de la colonne quand elle est à côté ou
-   * sous l'image, sinon dans la feuille agrandie, où la colonne entière l'a
-   * en tête et où la pastille l'ouvre. Pas dans la bande d'un téléphone :
-   * mesurée à 390x844 le 24 novembre 2026, elle ne tient que la pastille,
-   * et les gestes de la fiche passaient sous la manette à l'écran. */
-  const lieuFiche: "colonne" | "feuille" =
-    couches.colonne === "a-cote" || couches.colonne === "dessous" ? "colonne" : "feuille";
+    reduire: takeHalf,
+    cale: rough.current,
+    qualite: (mot) => sending.current.quality(mot),
+    sansProposition: () => setSuggestHalf(false),
+    legere: setHalf,
+    avisLegere: setReduced,
+    refuserLegere: () => setDeclined(true),
+  });
+  const lieuFiche = lieuDeLaFiche(couches.colonne);
   const fiche = (
     <FicheEtat
       modele={modele}
@@ -2753,25 +2730,16 @@ function Room({
       onFocusPerdu={() => zone.current?.focus({ preventScroll: true })}
     />
   );
-  /** La pastille mène au geste de sa fiche : le focus dessus, après avoir
-   * ouvert la feuille quand la fiche y vit. */
-  const allerAuGeste = () => {
-    if (lieuFiche === "feuille") {
-      ouverteParLaPastille.current = true;
-      setFeuille("agrandie");
-    }
-    requestAnimationFrame(() =>
-      document
-        .querySelector<HTMLElement>(":is(#liaison, #rough) :is(.n3-geste, #signalerEtat)")
-        ?.focus(),
-    );
-  };
-  /** Où se pose la pastille (`lib/etat-place`) : dans la pile des avis, que
-   * la salle pose hors de l'image, ou à part, tenue en main, en haut de la
-   * grappe droite ou dans la barre. Nulle part plutôt que sur l'image. */
-  const placePastille = placeDeLaPastille(geo, tenu);
-  const pastilleAPart = placePastille?.lieu === "a-part" ? placePastille.rect : null;
-  const pastilleDansLaPile = modele.pastille !== null && placePastille?.lieu === "pile";
+  /** La pastille mène au geste de sa fiche (chantier etats). */
+  const allerAuGeste = useAllerAuGeste({
+    lieu: lieuFiche,
+    feuilleOuverte: feuille !== null,
+    menu,
+    ouvrirFeuille: () => setFeuille("agrandie"),
+  });
+  /** Où se pose la pastille : dans la pile des avis, à part tenue en main,
+   * ou nulle part plutôt que sur l'image (`lib/etat-place`). */
+  const pastille = montageDeLaPastille(modele, geo, tenu);
   /** Un geste du réglage des touches, suivi d'un `refresh`: ce sont des
    * changements locaux et immédiats, et attendre le prochain instantané ferait
    * clignoter l'écran une demi-seconde plus tard. */
@@ -2868,7 +2836,7 @@ function Room({
      23 novembre 2026, cette pile se posait en haut de l'image (`#avisDuHaut`),
      et l'avis du format réduit en bas. */
   const avis =
-    pastilleDansLaPile || pastilleAgrandie || pauseClavier ? (
+    pastille.pile || pastilleAgrandie || pauseClavier ? (
       <div
         id="avisDuCadre"
         ref={setPile}
@@ -2891,7 +2859,7 @@ function Room({
             figée, l'image légère. Il remplace l'avis de fermeture et celui
             de l'image légère, qui se posaient en haut et en bas de l'image
             jusqu'au 23 novembre 2026 (ADR D40). */}
-        {pastilleDansLaPile ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null}
+        {pastille.pile ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null}
         {/* Le clavier ne joue plus: le focus est sur la colonne (`lib/focus-jeu`,
             `clavierEnPause`). */}
         {pauseClavier ? (
@@ -2974,11 +2942,7 @@ function Room({
         <>
           {/* Une salle fermée : ce soir dans la salle, gardé d'avant. */}
           {salleFermee ? (
-            <CeSoir
-              salle={salle()}
-              jeu={ceSoirDAvant.current.jeu}
-              regardaient={ceSoirDAvant.current.regardaient}
-            />
+            <CeSoir salle={salle()} jeu={ceSoir.jeu} regardaient={ceSoir.regardaient} />
           ) : null}
           {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
               rôle ne se montre que quand le worker dit que le chef ne
@@ -3515,8 +3479,8 @@ function Room({
             ) : null}
           </Bande>
         ) : null}
-        {pastilleAPart && modele.pastille ? (
-          <div className="n3-pastille-place" style={placeDe(pastilleAPart)}>
+        {pastille.aPart ? (
+          <div className="n3-pastille-place" style={placeDe(pastille.aPart)}>
             <EtatPastille modele={modele} onAller={allerAuGeste} />
           </div>
         ) : null}

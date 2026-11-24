@@ -33070,7 +33070,108 @@ D44 écrit deux fois, un D47 qui laisse un trou, D44 et D45 échangés, et
 l'amendement de D46 rangé sous D45. Un mutant qui coupe la règle de
 l'ordre sort en 2 : « un trou » et « le désordre » acceptés à tort.
 
+**Les portes.** Sur la page de ce chantier (279 110 octets, sha256
+e4672c2d…, lu en tête des journaux), chaque pilote sur un port de la
+dizaine 5560, sur une machine chargée de bout en bout (charge de 64 à 81 :
+d'autres chantiers tournaient en même temps).
+
+- `just check` est vert : 1 358 essais Python, 182 fichiers et 2 376
+  essais de la page, un fichier et un essai de moins qu'à la vague B2
+  (ceux de Bobine). Son premier passage était rouge sur la mise en forme
+  de `regie.test.ts`, corrigée avant le commit.
+- Verts : `focus-navigateur` (36 étapes), `parcours-navigateur` (38),
+  `manette-garde` (41 lignes), `salon-navigateur`, `reglage-navigateur`
+  (9 étapes) et `planche-garde`.
+- Les sept contrôles rouges tombent sur leurs défauts nommés, aucun sur
+  une précondition : focus (7 blocs, deux fois), états (9), parcours (16),
+  cadre (9), mascotte (1), salon (6) et réglage (5). Sur la page e851a64,
+  `place-suit-adresse` rougit toujours sur son défaut (« assis, l'adresse
+  dit encore /r/1/?entrer=regarder »).
+- Les deux instabilités, revues : `place-suit-adresse` passe dix-neuf
+  fois sur dix-neuf sur la page actuelle, et une fois sur la page de la
+  vague B1 ; `menu-en-colonne` rougit sur son défaut six fois de suite
+  sur la page de `main`, en plus des deux passages entiers du contrôle.
+- `etats-navigateur` s'arrête sur `arrivee-sans-image`, que corrige un
+  autre chantier de fin. Lancées toutes (`--tout`), ses 33 étapes en
+  donnent 29 vertes : `arrivee-sans-image` et `colonne-stable`, connues,
+  et deux que la vague B2 avait vues vertes. `mire-charge` a lu deux
+  barres allumées (« 4,5 ») sur un de ses 45 relevés, au moment d'un
+  changement de barre. `arrivee-courte` est tombée sur sa précondition
+  (« 0 gestes à 15 s ») : elle compte, comme `arrivee-sans-image`, depuis
+  le clic, et l'arrivée perdue vient à 15,5 s. Relancées en alternance,
+  page de 928bd03 puis page de ce chantier, deux fois chacune : vertes les
+  quatre fois. Ce sont des instabilités, pas un effet de ce chantier.
+  `arrivee-courte` relève du même remède qu'`arrivee-sans-image` ; la
+  cause de `mire-charge` n'est pas établie.
+- `cadre-navigateur` s'arrête sur la précondition de
+  `mascotte-hors-image`, après 21 étapes vertes. Lancées à part,
+  `ain-immobile` rougit (102 appels en 2 s), et les cinq suivantes
+  passent. Les deux sont au chantier de fin de la mascotte.
+- `salle-telephone` a 124 lignes vertes et une rouge : « le clic sur une
+  place libre reste sous 50 ms, processeur ralenti quatre fois », une
+  tâche longue de 51 ms. Relancée seule et en alternance, la partie
+  rougit aussi sur l'arbre de 928bd03, deux fois sur deux (55 et 53 ms),
+  et une fois sur deux sur celui-ci (53 ms). Un seuil de temps lu sur une
+  machine à charge 65 ne prouve rien dans un sens ni dans l'autre : à
+  refaire au repos.
+- Hors de la porte, les pilotes visuels sur leur port libre :
+  `banc-visuel` et `padmap-visuel` sont verts. La partition comptait
+  `padmap-visuel` parmi les preuves interdites (K40) quand il lançait
+  `npm run dev` ; depuis le 23 novembre, il sert l'aperçu par
+  `vite.planche.config.ts`, sans relais, et ne touche rien de vivant.
+  `regie-visuel` est rouge,
+  et l'était déjà sur l'arbre de 928bd03 : il attend encore l'ancien
+  dialogue Switch (V6) et ne trouve pas « #ray-manettes » à l'ouverture
+  du menu. Il est périmé depuis les fusions des menus et des manettes ;
+  la partition donne sa réécriture à la salle et aux manettes.
+- `just docs` est vert, numéros de l'ADR compris. Poids lu par
+  `stamp.mjs` : 279 110 octets en brotli, 20 890 sous le plafond.
+
+**Ce qui reste.** Les autres chantiers de fin (`colonne-stable`, la
+pastille tenue en main, la phrase d'échec du chargement, le menu et
+l'étiquette de la bande, les ancres et les preuves d'Aïn,
+`arrivee-sans-image`, l'amendement de D29) se réunissent ensuite sur
+`integration/retro`. Ce chantier y touche des fichiers partagés :
+`justfile`, `CLAUDE.md`, le carnet et l'état, `etat-salle.css` (des
+états), `regie.test.ts` (du socle), `mots.test.ts`, et les pilotes et
+bancs de chaque chantier (une ligne de port en tête de chacun ; dans
+`focus.mjs`, la fonction `entrer` ; dans `parcours.mjs`, l'étape
+`place-suit-adresse` et deux fonctions). Le glossaire du carnet est à
+trier une fois les chantiers de fin réunis : les sigles du thème rétro y
+sont entrés en tête, dans l'ordre d'arrivée, et le trier pendant que
+d'autres chantiers y ajoutent ferait un conflit sur tout le glossaire.
+`regie-visuel` est à réécrire, `salle-telephone` à relancer au repos. La
+porte `just` entière (`gpu-test` après avoir vérifié en lecture seule que
+Jellyfin ne sert rien, `deploy-check`, les essais Switch et Xbox 360,
+`abri-test`) n'a pas tourné ici.
+
+**Ce qui n'est pas prouvé.** Les ports libres sont vus dans les pilotes
+de la porte et dans les trois pilotes visuels. `preparation-ui.mjs` et
+`configuration-ui.mjs` attendent toujours un Vite lancé à la main par
+`npm run dev`, interdit ici : ils n'ont pas changé. Les deux causes
+d'instabilité sont prouvées par le défaut réintroduit, sur une machine
+chargée ; aucune série n'a tourné sur une machine au repos.
+
 ## 12. Glossaire complet
+
+**Port libre** : un port réseau que le système choisit lui-même quand un
+serveur demande le port 0. Il est libre au moment où le système le donne,
+et deux bancs lancés ensemble en reçoivent deux différents. Sur cette
+machine, il tombe entre 32768 et 60999.
+
+**Boucle d'événements** : le fil unique qui exécute le code d'un
+processus Node, ou d'une page, une tâche après l'autre. Un événement prêt
+attend que la tâche en cours finisse : sur une machine chargée, un pilote
+reprend la main plusieurs millisecondes après le retour d'un clic.
+
+**Course (entre deux événements)** : deux choses qui arrivent presque en
+même temps, dans un ordre que rien ne fixe, quand le résultat dépend de
+celle qui passe la première. Une porte qui rougit « une fois sur cinq »
+cache souvent une course.
+
+**Instabilité (d'une porte)** : une porte qui rougit de temps en temps sans
+que le code change. Tant que sa cause n'est pas trouvée, la porte ne dit
+plus rien : on apprend à relancer au lieu de lire.
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
 jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image

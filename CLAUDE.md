@@ -568,8 +568,8 @@ controls left. A `-rouge` recipe proves that a step can fail, against pages
 frozen in history: only a change to its driver can change its colour, so it
 runs with that change (rule 4), not at every commit.
 
-Every browser driver, and every `-rouge` recipe, takes `--port N` (5400 to
-5999). Without it, the driver listens on a free port that the system picks
+Every browser driver that serves its own page (a bench or Vite), and every
+`-rouge` recipe, takes `--port N` (5400 to 5999). Without it, the driver listens on a free port that the system picks
 (`spikes/m3-browser-drive/port.mjs`). Until 2026-11-24 each driver had a fixed
 port, and two worktrees running the same gate collided: in the B2 wave,
 `etats-navigateur-rouge` could not take 5473 and had to be rerun by hand.
@@ -818,7 +818,7 @@ Markdown alone does not update the site.
 | `just salon-navigateur` | the lobby's three pages in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list, Enter and a pad's Start at zero rooms, the return banner, the announcement line, the credit, the logbook and upload steps |
 | `just salon-navigateur-rouge` | the pages of a32de82 (no Aïn), 2a98279 (old home), 84b969f (before the two browser fixes), cb0909b and 5fae6b0, assembled from an archive of `control/`, must fail each step on its named defect |
 | `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9 and 9b1c8e8 for the later steps, must fail each step on its named defect; `reglage-navigateur` is in `local`, its control left it on 2026-11-24 |
-| `--port N` | every browser driver and `-rouge` recipe: a port from 5400 to 5999; without it, a free port picked by the system (`port.mjs`) |
+| `--port N` | every browser driver that serves its own page, and every `-rouge` recipe: a port from 5400 to 5999; without it, a free port picked by the system (`port.mjs`) |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |

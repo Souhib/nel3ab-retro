@@ -291,7 +291,7 @@ describe("la carte d'une place", () => {
    salle ouvre depuis `window`. */
 describe("la carte d'une place au clavier", () => {
   /** La salle en petit : deux places, une zone de jeu, la carte. Le parent
-   * ferme la carte comme App.tsx (`setCarte(null)`). */
+   * ferme la carte comme App.tsx (`useCarteDePlace`, `fermer`). */
   function Salle({
     depart,
     notice: n = null,

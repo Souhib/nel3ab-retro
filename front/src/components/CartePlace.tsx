@@ -19,15 +19,13 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { CARTE, PLACE } from "../lib/mots";
 import type { MenuAction } from "../media/menupad";
 import { useReste } from "../lib/usePlaces";
-import { echapFermeLaCarte, type Reprise } from "../lib/places";
+import { echapFermeLaCarte, type Reprise, type SujetCarte } from "../lib/places";
 import { CARTE_PLACE } from "./Places";
 import "./places.css";
 
-/** Ce que la carte montre quand aucune demande n'est en cours. */
-export type SujetCarte =
-  | { type: "autre"; port: number; nom: string; delai: number }
-  | { type: "sans-nom"; port: number }
-  | { type: "mienne"; port: number; comment: string };
+/** Ce que la carte montre quand aucune demande n'est en cours : son type
+ * vit dans `lib/places` avec `sujetDeLaCarte` depuis le 24 novembre 2026. */
+export type { SujetCarte };
 
 export function CartePlace({
   sujet,

@@ -30,7 +30,8 @@ import { sonMenu } from "../retro/sons";
 import { differences, type Occupation } from "./arrivees";
 import type { Hote } from "./cadre";
 import { memoireDesVus } from "./memoire-des-vus";
-import { ARRIVEES } from "./mots";
+import { ARRIVEES, CARTE } from "./mots";
+import type { Reprise, SujetCarte } from "./places";
 import type { Arbitre } from "./scenes-salle";
 
 /** Combien de temps une place qui arrive porte `data-joue` : l'effet du socle
@@ -279,4 +280,88 @@ export function useDonDiffere(envoyer: (ok: boolean) => void): {
       envoi.current(false);
     }, []),
   };
+}
+
+/**
+ * La carte ouverte d'une place, et ce qu'elle montre.
+ *
+ * La carte suit sa place. Quand celle-ci n'a plus de sujet (la place se
+ * libère, ou l'état ne la connaît plus), la carte se ferme ET s'oublie. Le
+ * numéro gardé seul la rouvrait quand quelqu'un reprenait la place, et sa
+ * carte prenait le focus à la zone de jeu : seule une carte ouverte par la
+ * personne doit le prendre (relecture du 24 novembre 2026).
+ */
+export function useCarteDePlace(sujetDe: (port: number) => SujetCarte | null): {
+  carte: number | null;
+  sujet: SujetCarte | null;
+  /** Un toucher sur une place : ouvre sa carte, ou la referme. */
+  basculer: (port: number) => void;
+  fermer: () => void;
+} {
+  const [carte, setCarte] = useState<number | null>(null);
+  const sujet = carte === null ? null : sujetDe(carte);
+  // Pendant le rendu, et non dans un effet : React recommence aussitôt ce
+  // rendu-là, et aucun état où la carte garde un numéro sans sujet n'est
+  // jamais montré ni lu par un effet.
+  if (carte !== null && sujet === null) setCarte(null);
+  return {
+    carte,
+    sujet,
+    basculer: useCallback(
+      (port: number) => setCarte((ouverte) => (ouverte === port ? null : port)),
+      [],
+    ),
+    fermer: useCallback(() => setCarte(null), []),
+  };
+}
+
+/**
+ * Dit l'issue d'une reprise par la ligne parlée de la salle, une fois : la
+ * raison du salon (refus, annulation, expiration, reprise faite), une place
+ * donnée, et l'erreur d'un geste.
+ *
+ * Le panneau `Recovery` le disait par `role=alert` ; depuis qu'il est parti
+ * (23 novembre 2026), la carte n'a pas de région à elle, et aucune issue
+ * n'était dite (relecture du 24 novembre 2026). Une raison ou une erreur est
+ * « urgente » : l'effet « lettres » l'écrit d'un coup. Qui tient la place
+ * l'entend aussi : pour lui, la carte ne s'ouvre pas (`CartePlace`).
+ */
+export function useDireLaReprise(
+  reprise: Reprise | null,
+  erreur: string,
+  annoncer: Annoncer,
+): void {
+  const dire = useRef(annoncer);
+  dire.current = annoncer;
+  // Ce qui se dit de cette reprise, et sa clé : un avis reçu de nouveau, à
+  // l'identique, ne se redit pas.
+  const issue =
+    reprise === null
+      ? null
+      : reprise.reason !== null
+        ? {
+            cle: `${reprise.id} ${reprise.reason}`,
+            texte: reprise.reason,
+            nature: "urgente" as const,
+          }
+        : reprise.asking && reprise.accepted === true
+          ? {
+              cle: `${reprise.id} donnée`,
+              texte: CARTE.laisse(reprise.to, reprise.port),
+              nature: "ordinaire" as const,
+            }
+          : null;
+  const dite = useRef<string | null>(null);
+  useEffect(() => {
+    if (issue === null || issue.cle === dite.current) return;
+    dite.current = issue.cle;
+    dire.current(issue.texte, issue.nature);
+    // La clé seule décide : le texte et la nature voyagent avec elle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issue?.cle]);
+  // L'erreur d'un geste : `recover` la vide avant chaque geste, et un même
+  // échec répété repasse par « » ; il se redit donc.
+  useEffect(() => {
+    if (erreur !== "") dire.current(erreur, "urgente");
+  }, [erreur]);
 }

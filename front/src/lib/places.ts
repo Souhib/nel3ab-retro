@@ -179,3 +179,28 @@ export function regardentDe(
 ): string[] {
   return people.filter(regarde).map((p) => p.name);
 }
+
+/** Ce que la carte d'une place montre quand aucune demande n'est en cours. */
+export type SujetCarte =
+  | { type: "autre"; port: number; nom: string; delai: number }
+  | { type: "sans-nom"; port: number }
+  | { type: "mienne"; port: number; comment: string };
+
+/** Le sujet de la carte ouverte sur la place `port`, ou `null` quand cette
+ * place n'en a plus : libre, elle se prend d'un toucher et n'a pas de carte.
+ * Sorti d'`App.tsx` le 24 novembre 2026 avec `useCarteDePlace`. */
+export function sujetDeLaCarte(
+  port: number,
+  s: {
+    mienne: number | null;
+    noms: ReadonlyMap<number, string>;
+    tenues: readonly boolean[];
+    /** Comment je joue, pour la carte de ma place. */
+    comment: string;
+  },
+): SujetCarte | null {
+  if (port === s.mienne) return { type: "mienne", port, comment: s.comment };
+  const nom = s.noms.get(port);
+  if (nom !== undefined) return { type: "autre", port, nom, delai: REPRISE_REPONSE_S };
+  return s.tenues[port - 1] ? { type: "sans-nom", port } : null;
+}

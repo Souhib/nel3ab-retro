@@ -1,8 +1,18 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Occupation } from "./arrivees";
+import type { Reprise, SujetCarte } from "./places";
 import type { Arbitre } from "./scenes-salle";
-import { changement, PART_MS, usePlaces, VIENT_MS, type SuiviDesPlaces } from "./usePlaces";
+import {
+  changement,
+  PART_MS,
+  useCarteDePlace,
+  useDireLaReprise,
+  usePlaces,
+  VIENT_MS,
+  type Annoncer,
+  type SuiviDesPlaces,
+} from "./usePlaces";
 
 const occ = (tenues: boolean[], noms: [number, string][] = []): Occupation => ({
   tenues,
@@ -285,5 +295,104 @@ describe("usePlaces", () => {
     rerender(suivi({ arbitre: a, occupation: occ([true], [[1, "Bo"]]) }));
     const scenes = demander.mock.calls.map(([d]) => d.scene);
     expect(scenes).toEqual(["arrivee", "depart"]);
+  });
+});
+
+describe("useCarteDePlace", () => {
+  const bo: SujetCarte = { type: "autre", port: 2, nom: "Bo", delai: 20 };
+  const montee = (sujets: Map<number, SujetCarte>) =>
+    renderHook((m: Map<number, SujetCarte>) => useCarteDePlace((n) => m.get(n) ?? null), {
+      initialProps: sujets,
+    });
+
+  it("une place libérée ferme sa carte, et la reprise de la place ne la rouvre pas", () => {
+    const { result, rerender } = montee(new Map([[2, bo]]));
+    act(() => result.current.basculer(2));
+    expect(result.current.sujet).toEqual(bo);
+    // Bo part : la place 2 n'a plus de sujet.
+    rerender(new Map());
+    expect(result.current.sujet).toBeNull();
+    expect(result.current.carte).toBeNull();
+    // Bo revient : la carte reste fermée, personne ne l'a rouverte.
+    rerender(new Map([[2, bo]]));
+    expect(result.current.sujet).toBeNull();
+    expect(result.current.carte).toBeNull();
+  });
+
+  it("jumeau : tant que la place garde son sujet, la carte reste ouverte et suit son état", () => {
+    const { result, rerender } = montee(new Map([[2, bo]]));
+    act(() => result.current.basculer(2));
+    const lina: SujetCarte = { type: "autre", port: 2, nom: "Lina", delai: 20 };
+    rerender(new Map([[2, lina]]));
+    expect(result.current.carte).toBe(2);
+    expect(result.current.sujet).toEqual(lina);
+    // Un second toucher sur la même place la referme.
+    act(() => result.current.basculer(2));
+    expect(result.current.carte).toBeNull();
+  });
+});
+
+describe("useDireLaReprise", () => {
+  const reprise = (r: Partial<Reprise> = {}): Reprise => ({
+    id: "r1",
+    port: 2,
+    from: "Ami",
+    to: "Bo",
+    asking: true,
+    remaining: 20,
+    reason: null,
+    ...r,
+  });
+  const montee = (annoncer: Annoncer) =>
+    renderHook(({ r, e }: { r: Reprise | null; e: string }) => useDireLaReprise(r, e, annoncer), {
+      initialProps: { r: null as Reprise | null, e: "" },
+    });
+
+  it("dit la raison du salon une fois, urgente, à qui demande comme à qui tient la place", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: reprise(), e: "" });
+    expect(annoncer).not.toHaveBeenCalled();
+    rerender({ r: reprise({ remaining: 0, reason: "Bo garde sa place 2." }), e: "" });
+    // Le même avis reçu de nouveau : rien de plus.
+    rerender({ r: reprise({ remaining: 0, reason: "Bo garde sa place 2." }), e: "" });
+    rerender({
+      r: reprise({ id: "r2", asking: false, from: "Lina", to: "Ami", reason: "Demande annulée." }),
+      e: "",
+    });
+    expect(annoncer.mock.calls).toEqual([
+      ["Bo garde sa place 2.", "urgente"],
+      ["Demande annulée.", "urgente"],
+    ]);
+  });
+
+  it("dit une place donnée à qui demande, une fois", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: reprise({ remaining: 0, accepted: true }), e: "" });
+    rerender({ r: reprise({ remaining: 0, accepted: true }), e: "" });
+    expect(annoncer.mock.calls).toEqual([["Bo te laisse sa place 2.", "ordinaire"]]);
+  });
+
+  it("dit l'erreur d'un geste, et la redit quand le même geste échoue encore", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: null, e: "Attends un instant avant de redemander." });
+    rerender({ r: null, e: "" });
+    rerender({ r: null, e: "Attends un instant avant de redemander." });
+    expect(annoncer.mock.calls).toEqual([
+      ["Attends un instant avant de redemander.", "urgente"],
+      ["Attends un instant avant de redemander.", "urgente"],
+    ]);
+  });
+
+  it("jumeau : une demande en attente, ou celle qui vise ma place, ne se dit pas ici", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: reprise(), e: "" });
+    rerender({ r: reprise({ asking: false, from: "Bo", to: "Ami" }), e: "" });
+    // Le salon d'avant `accepted` : un reste à 0 n'est pas dit donné.
+    rerender({ r: reprise({ id: "r3", remaining: 0 }), e: "" });
+    expect(annoncer).not.toHaveBeenCalled();
   });
 });

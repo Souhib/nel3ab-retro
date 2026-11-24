@@ -8,6 +8,7 @@ import {
   nomDePlace,
   phraseDuRole,
   regardentDe,
+  sujetDeLaCarte,
   type EntreePlaces,
 } from "./places";
 
@@ -177,5 +178,27 @@ describe("qui regarde", () => {
         { name: "Bo", seat: 2, seat_pending: false },
       ]),
     ).toEqual(["Lina"]);
+  });
+});
+
+describe("le sujet de la carte d'une place", () => {
+  const salle = {
+    mienne: 1,
+    noms: new Map([
+      [1, "Ami"],
+      [2, "Bo"],
+    ]),
+    tenues: [true, true, true, false],
+    comment: "au clavier",
+  };
+
+  it("sa place, la place d'un autre, une place tenue sans nom", () => {
+    expect(sujetDeLaCarte(1, salle)).toEqual({ type: "mienne", port: 1, comment: "au clavier" });
+    expect(sujetDeLaCarte(2, salle)).toEqual({ type: "autre", port: 2, nom: "Bo", delai: 20 });
+    expect(sujetDeLaCarte(3, salle)).toEqual({ type: "sans-nom", port: 3 });
+  });
+
+  it("jumeau : une place libre n'a pas de carte", () => {
+    expect(sujetDeLaCarte(4, salle)).toBeNull();
   });
 });

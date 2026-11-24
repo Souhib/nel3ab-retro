@@ -311,3 +311,19 @@
     stroke-opacity: 0;
   }
 }
+
+/* Ton étiquette sous « Ta manette » (D7, `TonEtiquette.tsx`) : le numéro
+   « 2P » à l'encre de ta place, puis le ruban d'`Etiquette`. Une ligne, à
+   côté du dessin : la légende garde sa hauteur d'une ligne de plus. */
+.n3-legende-etiquette {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.n3-legende-numero {
+  flex-shrink: 0;
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--etiquette-encre, var(--encre));
+}

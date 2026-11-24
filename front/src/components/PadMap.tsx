@@ -84,6 +84,7 @@ export function PadMapView({
   place = null,
   absente = false,
   recadrer,
+  etiquette,
 }: {
   map: PadMap;
   title: string;
@@ -103,6 +104,9 @@ export function PadMapView({
    * la table dit déjà ce qui est attendu ; la vignette est cachée au lecteur
    * d'écran. */
   recadrer?: string;
+  /** Ce qui suit la légende, à côté du dessin et jamais sur lui : ton
+   * étiquette tapée sous « Ta manette » (D7 du plan manettes). */
+  etiquette?: ReactNode;
 }) {
   // Le décor de la coque est découpé par elle : une découpe n'est pas une
   // lumière, et sans elle les grains de la manette Pro débordent du dessin.
@@ -260,6 +264,7 @@ export function PadMapView({
       <figcaption>
         <span className="text-corps font-medium">{title}</span>
         {note ? <span className="text-note text-muted">{note}</span> : null}
+        {etiquette}
       </figcaption>
       {dessin}
     </figure>

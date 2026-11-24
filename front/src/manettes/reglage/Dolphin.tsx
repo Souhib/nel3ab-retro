@@ -4,6 +4,8 @@
  * `readPad`, la droite `heldOn` : ne jamais faire passer l'une par l'autre. */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { REGLAGE } from "../../lib/mots";
+import { secouer } from "../../retro/secousse";
+import { sonMenu } from "../../retro/sons";
 import { NAME_MAX, ROOM_MARK } from "../../lib/keys";
 import { EMULATED } from "../../lib/padmap";
 import type { Pad } from "../../lib/saves";
@@ -420,6 +422,19 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
   const [parti, setParti] = useState<{ nom: string; profil: KeyProfile; actif: boolean } | null>(
     null,
   );
+  // Un refus se dit comme sur la trame Pro : le son grave, et l'avis secoué
+  // après le rendu qui le pose (il n'est monté qu'avec une phrase). Le
+  // compteur secoue aussi un second refus qui dit la même phrase.
+  const avisRef = useRef<HTMLParagraphElement>(null);
+  const [refus, setRefus] = useState(0);
+  useEffect(() => {
+    if (refus && avisRef.current) secouer(avisRef.current);
+  }, [refus]);
+  const refuser = (texte: string) => {
+    setAvis(texte);
+    setRefus((n) => n + 1);
+    sonMenu("erreur");
+  };
   const verrouille = state.lockedProfiles.includes(state.keyProfile);
   const siens = state.keyProfiles.filter((un) => !state.lockedProfiles.includes(un)).length;
   const propre = nom.trim();
@@ -509,13 +524,10 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
               setEnvoi(true);
               setAvis("");
               try {
-                setAvis(
-                  (await publier(state.keyProfile))
-                    ? "Profil publié dans la salle."
-                    : "Publication impossible. Tes réglages à toi sont gardés.",
-                );
+                if (await publier(state.keyProfile)) setAvis("Profil publié dans la salle.");
+                else refuser("Publication impossible. Tes réglages à toi sont gardés.");
               } catch {
-                setAvis("Publication impossible. Réessaie dans un instant.");
+                refuser("Publication impossible. Réessaie dans un instant.");
               } finally {
                 setEnvoi(false);
               }
@@ -534,7 +546,11 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
           }}
         />
       ) : null}
-      {avis ? <p role="status">{avis}</p> : null}
+      {avis ? (
+        <p ref={avisRef} role="status">
+          {avis}
+        </p>
+      ) : null}
     </div>
   );
 }

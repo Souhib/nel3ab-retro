@@ -1285,6 +1285,72 @@ plan in `EMULATED` (one frame, three readings, `docs/ecran-manettes.md`). jsdom
 has no `showModal`; the proof is `just focus-navigateur` (24 steps) and
 `just focus-navigateur-rouge`, and both browser recipes run in `local`.
 
+#### D30 amendment, 2026-11-24: one room menu, not modal, never on the picture
+
+Amended by the menus work of the retro theme (K21 of its partition), for the
+menu, the key settings panel and the place cards. Points 2, 3 and 4 above are
+replaced; point 1 stands.
+
+The three menu shells (the PlayStation 3 cross, the Wii channels, the Switch
+home row) are retired with their `nel3ab:shell` key, which the page now erases
+at start. One menu (`components/menu/Menu.tsx`) has four tabs, Jeux, Manettes,
+Salle and Réglages, and full-width lines. Its pure half (`lib/menu.ts`) says
+what each line draws (fiche, choice, slider, switch, disclosure, action), how
+arrows move and where the menu goes.
+
+Decision:
+
+1. **The menu is a `<section id="menu">`, not a dialog.** On a desktop it takes
+   the place of the column's rows (the role, people and panel blocks step
+   aside while it is open; the place cards stay). Held in hand it is placed
+   below the picture, or in the wider side band in landscape
+   (`placeDuMenu`). The picture keeps its rectangle and nothing covers it.
+   A landscape 16:9 picture leaves two 75 px bands: the menu then falls back to
+   the room sheet's rectangle, which covers the picture's edge, and says so
+   with `data-sur-image="oui"`. That case is a known defect for the room frame
+   to settle.
+2. **Focus.** Opening puts focus on the first line. The cursor is the focus,
+   with a roving tabindex inside the panel: one control has `tabIndex` 0 and
+   its line carries `aria-current`. Up and down move between lines without
+   wrapping; left and right change tab, except on a radio or a range, which
+   keep them. Escape closes a fiche, then the menu. A `focusin` inside
+   `[data-zone-jeu]` (a click on the picture, or Tab reaching it) closes the
+   menu. On close, focus goes to the game zone during a game (point 1) and
+   back to the opener otherwise.
+3. **Decisions open a fiche inside the panel**: launching a game on a save,
+   closing the game, closing the room. The fiche states the consequence above
+   the button that acts, and a second button returns without doing anything.
+   A refusal or notice born from a menu gesture is written inside the menu
+   (`avis`), so `Surcouche` is no longer needed above the menu.
+4. **Pad and footer.** The pad drives the same focus through
+   `input.setMenu`; A activates, B goes back, Start returns to the game
+   (`menupad` now reports `jeu` for Start). The footer appears only after a
+   first keyboard or pad use: « ← → rubriques, Échap revenir au jeu » or
+   « A valider, B revenir, Start au jeu »; none by touch.
+
+Weighed:
+
+- A dialog laid inside the column (the room frame's proposal). Rejected:
+  `showModal()` makes the rest of the page inert, including the picture's
+  zone, so a click on the picture could not return to the game.
+- Keeping `showModal()` and shrinking the dialog to the column's rectangle.
+  Rejected for the same reason, and because the place cards and the state
+  block would have needed `Surcouche` again.
+- Keeping the three shells as a setting. Rejected by the owner with the
+  « Scotch et feutre » proposal: each shell indexed its selection on its own
+  geometry, and three keyboard models had to be kept in agreement.
+
+Consequences. The menu is no longer modal: Tab can leave it, into the column
+or the picture, and the arrows do not wrap. `Surcouche` stays for the
+preparation status outside the menu. The loading screen lost its « ouvrir le
+menu » button; « Menu du jeu » in the column opens the menu beside it. A
+desktop room whose column was folded by Ctrl unfolds it while the menu is open
+and folds it back on close. Proof: `menu-en-colonne`, `une-seule-forme`,
+`refus-dans-le-bloc`, `curseur-focus`, `aides-clavier` and `aides-manette` in
+`just focus-navigateur`, `chargement-menu` in `just etats-navigateur`,
+`fermer-salle` and `menu-chef` in `just parcours-navigateur`. The page lost
+5 139 bytes in brotli 11 (281 760 to 276 621).
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),

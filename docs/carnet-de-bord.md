@@ -31009,6 +31009,106 @@ branche d'intégration.
 finale. Aucun worker n'est reconstruit ni installé, et aucune vraie salle
 n'a servi la page.
 
+### 24 novembre, l'après-midi : un seul menu, dans la colonne
+
+**Le contexte.** La salle avait trois menus, au choix de chacun : la croix
+du XMB de la PlayStation 3, les chaînes de la Wii et la rangée d'accueil de
+la Switch. Les trois couvraient tout l'écran, image comprise, et chacun
+rangeait sa sélection selon sa propre géométrie : une colonne qui glisse,
+une grille de quatre, une file horizontale. La proposition « Scotch et
+feutre » les remplaçait par un seul menu à quatre rubriques ; le
+propriétaire l'a retenue sans son thème. Ce passage du chantier « menus »
+livre ce menu, dans le worktree `~/nel3ab-chantiers/retro-menus`, sur la
+branche `chantier/retro-menus` partie d'`integration/retro`.
+
+**Ce qui change pour qui joue.** Échap, ou « Menu du jeu » dans la colonne,
+ouvre le menu à la place des rangs de la colonne. L'image reste à côté,
+vivante, de la même taille : on règle « image à l'écran » en la regardant.
+Quatre onglets, Jeux, Manettes, Salle et Réglages, puis des lignes pleine
+largeur, chacune avec son aide toujours visible. Un choix court se fait en
+pastilles sur sa ligne (un carré plein pour le choix coché), le volume avec
+un curseur. Lancer un jeu, fermer le jeu et fermer la salle passent par une
+fiche, dans le menu même : elle dit ce que le geste arrête, avec un bouton
+qui agit et un autre qui revient sans rien faire. Les jeux ne sont plus
+rangés dans des dossiers par console : ils sont tous dans la rubrique Jeux,
+sous le nom de leur console. Tenu en main, le menu se pose sous l'image, ou
+dans la bande à côté d'elle quand le téléphone est couché.
+
+**Pourquoi plus de dialogue modal.** Depuis le 22 novembre (D30), le menu
+était un `<dialog>` ouvert par `showModal()` : le reste de la page devenait
+inerte, ce qui gardait Tab dans le menu. Posé dans la colonne, un dialogue
+modal rendrait aussi l'image inerte, et un clic sur l'image ne pourrait plus
+rendre la main au jeu. Le menu est donc une simple section : le focus y
+entre à l'ouverture, Échap le ferme, un focus qui arrive dans la zone de
+jeu (un clic sur l'image, ou Tab) le ferme aussi, et sans partie le focus
+revient à ce qui l'avait ouvert. L'amendement de D30 l'écrit dans l'ADR.
+
+**Le clavier et la manette.** Le curseur est le focus : une seule ligne
+est dans la tabulation, et elle porte `aria-current`. Les flèches haut et
+bas passent de ligne en ligne sans faire le tour : après la dernière ligne,
+bas reste sur la dernière. Gauche et droite changent de rubrique, sauf sur
+une pastille ou un curseur, qui les gardent pour leur valeur. À la manette,
+A valide, B revient, et Start rend maintenant la main au jeu : il valait
+« valider » et ouvrait la fiche sous le curseur. Le pied du menu ne se
+montre qu'après un premier usage du clavier ou de la manette.
+
+**Ce qui a résisté.** Trois choses, toutes vues dans Chrome et pas dans les
+essais unitaires. D'abord, les quatre onglets coupaient leurs mots dans la
+colonne de 304 px (« Je ux », « Manet tes ») : ils vont maintenant par deux
+sous 22 rem de large, grâce à une requête de conteneur. Ensuite, le panneau
+des touches du chantier manettes avait déjà une classe `.n3-onglets`, en
+rangée flexible : posée sur celle du menu, elle faisait sortir « Réglages »
+de l'écran. Toutes les classes du menu portent maintenant le préfixe
+`n3-menu-` ; deux autres collisions attendaient (`.n3-ligne` de la vue des
+touches, `.n3-fiche` de la Bobine). Enfin, au niveau d'effets « tout », le
+panneau défile en entrant, et le ▶ posé à l'ouverture restait devant le
+vide pendant 120 ms : le menu le repose à la fin de chaque animation.
+
+**Un import que la vérification des types ne voyait pas.** Après le
+retrait des trois menus, `tsc -b`, les 2 000 essais de la page et sa
+construction étaient verts. `salle-telephone` est tombé sur tous ses
+panneaux d'aperçu : `front/bindings-preview.entry.tsx` importait encore
+`Channels` et `Home`. Ce fichier vit hors de `src/`, donc hors du périmètre
+de `tsc`, et seul le serveur Vite du pilote le compile. La leçon : un
+retrait de fichier se cherche dans tout le dépôt, aperçus compris, et pas
+seulement là où le vérificateur de types regarde.
+
+**L'écran de chargement.** Il avait un bouton « ouvrir le menu », qui
+posait le menu plein cadre dessus. Il part : « Menu du jeu » de la colonne
+ouvre le menu à côté, et le titre du chargement reste visible
+(`etats.mjs`, `chargement-menu`, rouge d'abord sur la page d'avant).
+
+**Une limite dite.** Un téléphone couché avec une image 16:9 ne laisse que
+deux bandes de 75 px à côté de l'image : aucun menu lisible n'y tient. Le
+menu prend alors la place de la feuille agrandie de la salle, qui couvre le
+bord de l'image, et l'attribut `data-sur-image="oui"` le dit. C'est un
+défaut connu, à trancher avec le chantier salle, qui a le même avec sa
+feuille. Dans une bande étroite, le focus posé sur la première ligne fait
+aussi défiler l'en-tête et les onglets hors de la vue : ils restent à un
+geste, mais ne se voient pas à l'ouverture.
+
+**Le poids.** La page passe de 281 760 à 276 621 octets en brotli 11 :
+5 139 de moins. Le menu ajoute environ 5 Ko ; les trois menus, le
+sélecteur, `shell.ts` et `lib/menu-xmb.ts` en retirent davantage.
+
+**Les portes.** `just check` est vert (1 288 essais Python, 2 060 essais
+de la page). `focus-navigateur` (27 étapes), `etats-navigateur`,
+`salle-telephone` (104 lignes) et `manette-garde` (41 lignes) sont verts.
+`parcours-navigateur` reste rouge sur `invitation`, le conflit connu de la
+vague B1 entre personnes et la salle ; ses autres étapes, lancées par leur
+nom, sont vertes. `cadre-navigateur` reste rouge sur `mascotte-hors-image`
+et `ain-immobile`, les deux défauts connus de la mascotte ; ses autres
+étapes sont vertes. Les contrôles rouges de focus, d'états et de parcours
+tombent chacun sur leur défaut nommé ; les six étapes réécrites du menu ont
+un bloc à elles contre la page de `main` (03b21c0). Les pilotes ont tourné
+sur des ports à eux (5463 à 5468), pour ne pas croiser les chantiers qui
+travaillent en même temps.
+
+**Ce qui n'est pas prouvé.** Aucun essai avec une vraie manette, ni avec un
+lecteur d'écran : les onglets, les pastilles et l'interrupteur sont vérifiés
+dans le DOM seulement. Le choix d'un seul menu n'a pas été soumis aux
+joueurs qui aimaient les formes XMB, Wii ou Switch.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -32535,6 +32635,20 @@ qu'elle est ouverte. En HTML, un `<dialog>` ouvert par `showModal()`.
 
 **Inerte** : ni cliquable, ni atteignable par Tab, ni lu par un lecteur
 d'écran.
+
+**Onglet (role=tab)** : un bouton d'une rangée qui choisit le panneau
+affiché dessous, comme les quatre rubriques du menu. Un seul onglet est
+choisi (`aria-selected`) et seul lui est dans la tabulation ; les flèches
+passent aux voisins.
+
+**Fiche (du menu)** : la vue d'une décision dans le panneau du menu :
+lancer un jeu sur une sauvegarde, fermer le jeu, fermer la salle. Elle dit
+ce que le geste arrête, au-dessus d'un bouton qui agit et d'un autre qui
+revient sans rien faire.
+
+**Fondu par paliers** : une apparition en quatre marches d'opacité en
+120 ms, au lieu d'un fondu continu, comme sur une console d'époque. C'est la
+transition du menu quand on change de rubrique ou qu'on ouvre une fiche.
 
 **Tabulation tournante (roving tabindex)** : un seul élément d'un groupe est
 dans l'ordre de Tab, et les flèches déplacent ce rôle d'un élément à l'autre.

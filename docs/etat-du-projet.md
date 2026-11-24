@@ -456,6 +456,45 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre : le chantier menus, premier passage.** Sur
+`chantier/retro-menus` (worktree `~/nel3ab-chantiers/retro-menus`), parti
+d'`integration/retro` 87bc2b3 ; rien dans `main`, rien de poussé ni
+d'installé. Livré :
+
+- **Un seul menu** (`components/menu/Menu.tsx`, `lib/menu.ts`) : quatre
+  onglets Jeux, Manettes, Salle, Réglages ; les formes XMB, chaînes Wii et
+  accueil Switch sont retirées avec `Picker`, `shell.ts`, `lib/menu-xmb.ts`,
+  `SHELLS` et la clé `nel3ab:shell`, effacée au démarrage.
+- **Non modal, jamais sur l'image** (ADR D30 amendé) : à la place des rangs
+  de la colonne au bureau, sous l'image tenu droit, dans la bande la plus
+  large couché. Une image 16:9 couchée ne laisse pas de bande lisible : le
+  menu prend alors la feuille agrandie, qui couvre le bord de l'image, et le
+  dit (`data-sur-image`) ; à trancher avec le chantier salle.
+- **Fiches** pour lancer un jeu sur une sauvegarde, fermer le jeu et fermer
+  la salle ; Fermer le jeu et Fermer la salle seulement pour qui choisit le
+  jeu ; le refus d'un geste s'écrit dans le menu. « Quitter la salle » passe
+  par la transition sortir-salle de la salle.
+- **Clavier et manette** : le curseur est le focus, flèches sans tour,
+  Start rend la main au jeu (`menupad`), pied après le premier usage.
+- **Réglages** en « Image et son », « Cet appareil » (avec les effets
+  rétro du socle) et « Réglages avancés » repliés.
+- **Chargement** sans bouton de menu (C2).
+
+Page : 276 621 octets en brotli 11, 5 139 de moins qu'à la base.
+`just check`, `focus-navigateur`, `etats-navigateur`, `salle-telephone`,
+`manette-garde` et les contrôles rouges de focus, d'états et de parcours
+sont verts ; `parcours-navigateur` (invitation) et `cadre-navigateur`
+(mascotte-hors-image, ain-immobile) gardent les rouges connus de la vague
+B1, leurs autres étapes vertes.
+Reste au chantier : la bibliothèque en rayonnage et la fiche d'un jeu avec
+ses jaquettes (D13), la préparation dans la colonne et le retrait de
+l'ancienne préparation de `Bindings`, le chargement réécrit (durée
+habituelle D05), le dernier jeu (D06), les scènes chercher, attente et prêt,
+les aides de moins de 70 caractères construites hors d'`App.tsx`, et les
+étapes nouvelles des pilotes (`garde-focus`, `pastilles`, `aides-fixes`,
+`mouvement-menu`, `fiche-lancer`). Récit : « 24 novembre, l'après-midi : un
+seul menu, dans la colonne ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

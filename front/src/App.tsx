@@ -38,6 +38,7 @@ import {
   type Rappels,
 } from "./components/EtatSalle";
 import { modeleEtat } from "./lib/etat-modele";
+import { placeDeLaPastille } from "./lib/etat-place";
 import { LigneParlee } from "./components/LigneParlee";
 import { AnnonceEnLettres } from "./components/AnnonceEnLettres";
 import { Ouverture } from "./components/Ouverture";
@@ -258,7 +259,6 @@ import {
   etatDuCadre,
   lieuDesAvis,
   modeDuCadre,
-  emplacementPastille,
   ouEstLaMascotte,
   type Role as RoleDuCadre,
 } from "./lib/cadre";
@@ -2707,15 +2707,13 @@ function Room({
     },
     onGarderLegere: () => setReduced(false),
   };
-  /** Où se pose la fiche : dans la bande d'un téléphone tenu droit, dans la
-   * colonne à côté ou sous l'image, sinon dans la feuille agrandie, où la
-   * colonne entière l'a en tête. */
-  const lieuFiche: "bande" | "colonne" | "feuille" =
-    avisDansLaBande && couches.colonne !== "feuille"
-      ? "bande"
-      : couches.colonne === "a-cote" || couches.colonne === "dessous"
-        ? "colonne"
-        : "feuille";
+  /** Où se pose la fiche : en tête de la colonne quand elle est à côté ou
+   * sous l'image, sinon dans la feuille agrandie, où la colonne entière l'a
+   * en tête et où la pastille l'ouvre. Pas dans la bande d'un téléphone :
+   * mesurée à 390x844 le 24 novembre 2026, elle ne tient que la pastille,
+   * et les gestes de la fiche passaient sous la manette à l'écran. */
+  const lieuFiche: "colonne" | "feuille" =
+    couches.colonne === "a-cote" || couches.colonne === "dessous" ? "colonne" : "feuille";
   const fiche = (
     <FicheEtat
       modele={modele}
@@ -2737,15 +2735,12 @@ function Room({
         ?.focus(),
     );
   };
-  /** La pastille en haut de la grappe droite d'une manette en paysage (K12),
-   * ou dans la barre : sinon, elle va dans la pile des avis, que la salle
-   * pose hors de l'image (`lieuDesAvis`). */
-  const placePastille = tenu ? emplacementPastille(geo) : null;
-  const pastilleAPart =
-    placePastille !== null &&
-    placePastille.rect !== null &&
-    (placePastille.lieu === "grappe-droite" || placePastille.lieu === "barre");
-  const pastilleDansLaPile = modele.pastille !== null && !pastilleAPart;
+  /** Où se pose la pastille (`lib/etat-place`) : dans la pile des avis, que
+   * la salle pose hors de l'image, ou à part, tenue en main, en haut de la
+   * grappe droite ou dans la barre. Nulle part plutôt que sur l'image. */
+  const placePastille = placeDeLaPastille(geo, tenu);
+  const pastilleAPart = placePastille?.lieu === "a-part" ? placePastille.rect : null;
+  const pastilleDansLaPile = modele.pastille !== null && placePastille?.lieu === "pile";
   /** Un geste du réglage des touches, suivi d'un `refresh`: ce sont des
    * changements locaux et immédiats, et attendre le prochain instantané ferait
    * clignoter l'écran une demi-seconde plus tard. */
@@ -2941,8 +2936,8 @@ function Room({
         </>
       }
       // La fiche de l'état en tête de la colonne, au bureau comme dans la
-      // feuille agrandie ; dans la bande d'un téléphone tenu droit.
-      etat={lieuFiche === "bande" ? null : fiche}
+      // feuille agrandie.
+      etat={fiche}
       role={blocRole}
       personnes={
         <>
@@ -3463,7 +3458,6 @@ function Room({
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
           <Bande rect={geo.bande} ancre={!geo.barre}>
             {avis}
-            {lieuFiche === "bande" ? fiche : null}
             {cartesDansLaBande && !menu ? cartes : null}
             {regardeParChoix ? blocRole : null}
             {shot?.input.padId && port !== null && !padOnly ? (
@@ -3482,8 +3476,8 @@ function Room({
             ) : null}
           </Bande>
         ) : null}
-        {pastilleAPart && placePastille?.rect && modele.pastille ? (
-          <div className="n3-pastille-place" style={placeDe(placePastille.rect)}>
+        {pastilleAPart && modele.pastille ? (
+          <div className="n3-pastille-place" style={placeDe(pastilleAPart)}>
             <EtatPastille modele={modele} onAller={allerAuGeste} />
           </div>
         ) : null}

@@ -320,10 +320,13 @@ async def test_a_zero_salle_ain_attire_l_attention_jusqu_a_ce_qu_une_salle_s_ouv
     une fois à zéro salle, même relue, et coupée quand une salle s'ouvre. Sa
     cadence est essayée sous horloge simulée dans `salon/attention.test.ts`."""
     dit = await _jouer(
-        client, [_trois(salle(1)), _trois(salle(1)), _trois(ouverte(1, ["Nour", None, None, None]))]
+        client,
+        [_trois(salle(1)), _trois(salle(1)), _trois(ouverte(1, ["Nour", None, None, None]))],
+        jouerAttention=True,
     )
     assert dit["attention"] == ["arme", "coupe"]
-    assert dit["scenes"].count("attente") == 1
+    # Le rappel confié à la boucle joue bien par Aïn.
+    assert dit["scenes"][-1] == "attente"
 
 
 @AVEC_JSDOM

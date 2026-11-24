@@ -30,6 +30,8 @@ const reponses = [...tours];
 const envois = [];
 /** Les armements et coupures de la boucle d'attention (`surAttention`). */
 const attention = [];
+/** Les rappels confiés à la boucle d'attention doublée. */
+const rappels = [];
 let sonder = null;
 
 const reponse = (statut, corps) => ({ ok: statut >= 200 && statut < 300, status: statut, json: async () => corps });
@@ -63,8 +65,10 @@ const dom = new JSDOM(page, {
       return 1;
     };
     // La boucle d'attention du paquet, doublée au moment où le paquet la
-    // pose : son armement et sa coupure sont relevés, et son premier tour
-    // joue tout de suite au lieu d'attendre 2,5 s.
+    // pose : son armement et sa coupure sont relevés. Son rappel est gardé,
+    // et joué une fois après le dernier tour quand l'entrée le demande
+    // (`jouerAttention`) : un tour joué tout de suite décalait les scènes
+    // que les autres essais lisent dans l'ordre.
     let salon;
     Object.defineProperty(window, "nel3abSalon", {
       configurable: true,
@@ -74,7 +78,7 @@ const dom = new JSDOM(page, {
         if (valeur && typeof valeur.surAttention === "function") {
           valeur.surAttention = (jouer) => {
             attention.push("arme");
-            jouer("attente");
+            rappels.push(jouer);
             return () => attention.push("coupe");
           };
         }
@@ -181,6 +185,7 @@ for (let tour = 1; tour <= tours.length; tour += 1) {
   observateur.disconnect();
   rendus.push({ mutations: vus, annonce: annonce.textContent, vue: vue() });
 }
+if (entree.jouerAttention) for (const jouer of rappels) jouer("attente");
 window.close();
 process.stdout.write(
   JSON.stringify({

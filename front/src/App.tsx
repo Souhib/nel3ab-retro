@@ -97,6 +97,7 @@ import { CartePlace, type SujetCarte } from "./components/CartePlace";
 import { DemandeRecue, type DemandeEnCours } from "./components/DemandeRecue";
 import { IlsRegardent } from "./components/IlsRegardent";
 import { Mesures } from "./components/Mesures";
+import { ligneDeLaLiaison } from "./lib/mesures";
 import { SuiviPlaces } from "./components/SuiviPlaces";
 import { formeDesPlaces, hoteDesPlaces, REPRISE_REPONSE_S } from "./lib/places";
 import { useDonDiffere, type Annoncer, type Nature } from "./lib/usePlaces";
@@ -2975,6 +2976,8 @@ function Room({
         <Coin
           mesures={mode === "details"}
           onMesures={() => setMode(mode === "details" ? "normal" : "details")}
+          // L'état de la liaison en clair (chantier personnes).
+          ligne={shot ? ligneDeLaLiaison(liaison, shot.video).texte : undefined}
         />
       }
     />

@@ -1,7 +1,9 @@
 /** Les chiffres des mesures : comptés, datés, et absents tant qu'ils ne sont
  * pas mesurés (jamais une valeur de repli). */
 import { describe, expect, it } from "vitest";
-import { cadence, chiffres, ECARTS_MIN } from "./mesures";
+import type { Liaison } from "../media/liaison";
+import type { VideoStats } from "../media/video";
+import { cadence, chiffres, ECARTS_MIN, ligneDeLaLiaison } from "./mesures";
 
 const video = (extra: Partial<{ sourceHz: number; paintedSince: number; p95: number }> = {}) => ({
   sourceHz: extra.sourceHz ?? 60,
@@ -55,5 +57,54 @@ describe("chiffres", () => {
   it("dit « moins que le jeu » sous 90 %, et pas à 90 %", () => {
     expect(chiffres(video({ sourceHz: 60 }), 20, 53).sousLeJeu).toBe(true);
     expect(chiffres(video({ sourceHz: 60 }), 20, 54).sousLeJeu).toBe(false);
+  });
+});
+
+describe("la ligne de la liaison en clair", () => {
+  const video = (v: Partial<VideoStats> = {}): VideoStats =>
+    ({
+      awaitingRestart: false,
+      paintedSince: 5000,
+      backlog: 0,
+      overloaded: false,
+      refreshHz: 60,
+      sourceHz: 60,
+      half: false,
+      halfDenied: false,
+      ...v,
+    }) as VideoStats;
+
+  it("dit « Tout arrive » quand rien ne manque", () => {
+    expect(ligneDeLaLiaison({ etat: "ok" }, video())).toEqual({
+      texte: "Tout arrive",
+      bonne: true,
+    });
+  });
+
+  it("dit « L'image saute », jamais par la couleur seule, sur une liaison irrégulière ou débordée", () => {
+    expect(ligneDeLaLiaison({ etat: "irreguliere" }, video())).toEqual({
+      texte: "L'image saute",
+      bonne: false,
+    });
+    expect(ligneDeLaLiaison({ etat: "ok" }, video({ overloaded: true }))).toEqual({
+      texte: "L'image saute",
+      bonne: false,
+    });
+  });
+
+  it("dit l'état de la liaison quand elle n'est pas en marche, avec sa majuscule", () => {
+    expect(ligneDeLaLiaison({ etat: "fermee" } as Liaison, video())).toEqual({
+      texte: "Salle fermée",
+      bonne: false,
+    });
+  });
+
+  it("ne dit pas « Tout arrive » quand l'écran affiche moins que le jeu, ni avant la première image", () => {
+    expect(ligneDeLaLiaison({ etat: "ok" }, video({ refreshHz: 30, sourceHz: 60 })).bonne).toBe(
+      false,
+    );
+    expect(ligneDeLaLiaison({ etat: "ok" }, video({ paintedSince: 0 })).texte).toBe(
+      "Image en préparation",
+    );
   });
 });

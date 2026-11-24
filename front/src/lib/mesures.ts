@@ -21,7 +21,11 @@
  * images peintes sous 90 % du jeu (`SHORT_RATE`, la même borne que le
  * diagnostic d'un écran plus lent que le jeu, mesurée en septembre 2026).
  */
-import type { VideoStats } from "../media/video";
+import type { Liaison } from "../media/liaison";
+import { MAX_BACKLOG, type VideoStats } from "../media/video";
+import { diagnose } from "./diagnosis";
+import { NOM_ETAT } from "./liaison-mots";
+import { MESURES } from "./mots";
 import { SHORT_RATE } from "./vitals";
 
 /** Un relevé du compteur d'images peintes, daté à l'horloge murale. */
@@ -66,4 +70,36 @@ export function chiffres(
     pire: video.paintedSince >= ECARTS_MIN ? Math.round(video.gapMs.p95) : null,
     sousLeJeu: peintes !== null && jeu !== null && peintes < SHORT_RATE * jeu,
   };
+}
+
+/** La ligne de la liaison en clair, dans le coin de la colonne (au
+ * téléphone, dans la salle entière). `bonne` dit si elle va bien, pour une
+ * icône oui ou non qui doublerait les mots.
+ *
+ * Une entrée « Ta liaison » à mi-hauteur de la feuille a été essayée le
+ * 24 novembre 2026 : à 375x667, elle portait le contenu à 323 px pour 287,
+ * et la feuille défilait (salle-telephone). Elle attend une décision du
+ * cadre de la salle sur la hauteur de la feuille.
+ *
+ * Les mots de l'état viennent de `liaison-mots` (`NOM_ETAT`) et du diagnostic
+ * de la colonne (`diagnose`) : la ligne ne dit rien que les mesures ne disent
+ * pas. */
+export function ligneDeLaLiaison(
+  liaison: Liaison,
+  video: VideoStats,
+): { texte: string; bonne: boolean } {
+  if (liaison.etat === "irreguliere") return { texte: MESURES.saute, bonne: false };
+  if (liaison.etat !== "ok" && liaison.etat !== "cachee") {
+    const nom = NOM_ETAT[liaison.etat];
+    return { texte: nom.charAt(0).toUpperCase() + nom.slice(1), bonne: false };
+  }
+  if (video.awaitingRestart || video.paintedSince === 0)
+    return { texte: diagnose(video).title, bonne: true };
+  if (video.backlog >= MAX_BACKLOG || video.overloaded)
+    return { texte: MESURES.saute, bonne: false };
+  const dit = diagnose(video);
+  // Un écran plus lent que le jeu : la liaison va bien, l'affichage non.
+  if (video.refreshHz > 0 && video.sourceHz > 0 && video.refreshHz < SHORT_RATE * video.sourceHz)
+    return { texte: dit.title, bonne: false };
+  return { texte: MESURES.toutArrive, bonne: true };
 }

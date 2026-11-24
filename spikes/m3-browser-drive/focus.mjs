@@ -1186,9 +1186,11 @@ const ETAPES = {
       return {
         volume: nom(document.querySelector("#volume")),
         mesures:
-          (document.querySelector("#mesures") ?? document.querySelector("#mode-details"))?.getAttribute(
-            "aria-pressed",
-          ) ?? null,
+          // aria-expanded depuis le 24 novembre 2026 (la ligne déplie les
+          // mesures), aria-pressed sur les pages d'avant.
+          ((el) => el?.getAttribute("aria-expanded") ?? el?.getAttribute("aria-pressed") ?? null)(
+            document.querySelector("#mesures") ?? document.querySelector("#mode-details"),
+          ),
         p1: p1?.getAttribute("aria-label") ?? null,
         p1Inactif: p1?.disabled ?? null,
         p2: p2?.getAttribute("aria-label") ?? null,

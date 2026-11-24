@@ -629,6 +629,9 @@ export const REGARDENT = {
  * sous le pli des mesures techniques. */
 export const MESURES = {
   titre: "Ta liaison",
+  /** La ligne du coin et « Ta liaison », quand rien ne manque. */
+  toutArrive: "Tout arrive",
+  saute: "L'image saute",
   peintes: (n: number) => `${n} images peintes par seconde`,
   jeu: (n: number) => `le jeu en fait ${n}`,
   sousLeJeu: "moins que le jeu",

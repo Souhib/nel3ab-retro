@@ -188,7 +188,9 @@ export function voisin(index: number, n: number, sens: 1 | -1): number {
  * posait le menu sur 380 px à gauche : il couvrait 42 % (844×390) à 48 %
  * (780×360) de l'image vivante, et « La salle » passait sur une de ses
  * lignes. L'image garde sa taille et ses pixels ; cachée, elle continue de
- * peindre dessous et revient à la fermeture (`retro/image`, `cacherLImage`). */
+ * peindre dessous et revient à la fermeture. Le menu pose pour cela sa
+ * propre marque (`IMAGE_SOUS_MENU`, `components/menu/Menu.tsx`), et non
+ * celle des transitions du socle, que la neige d'une coupure retire. */
 export type PlaceDuMenu =
   | { lieu: "colonne" }
   | { lieu: "sous" | "cote" | "ecran"; rect: Rect; cacheImage: boolean };

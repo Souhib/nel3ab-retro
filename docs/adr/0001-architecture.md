@@ -1285,7 +1285,7 @@ plan in `EMULATED` (one frame, three readings, `docs/ecran-manettes.md`). jsdom
 has no `showModal`; the proof is `just focus-navigateur` (24 steps) and
 `just focus-navigateur-rouge`, and both browser recipes run in `local`.
 
-#### D30 amendment, 2026-11-24: one room menu, not modal, never on the picture
+#### D30 amendment, 2026-11-24: one room menu, not modal, never on a visible picture
 
 Amended by the menus work of the retro theme (K21 of its partition), for the
 menu, the key settings panel and the place cards. Points 2, 3 and 4 above are

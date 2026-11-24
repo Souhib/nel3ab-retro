@@ -2248,6 +2248,34 @@ every frame. A non-standard adapter opens its numbers (changement 21).
 `reglage.mjs` reads 0.65 and the stamp in the built page, and fails on
 842e4c9. The page weighs 261 069 bytes brotli.
 
+**The review of 24 November: four findings.** An independent review found
+that an answer never showed its marks: the input loop emits `recu` and the
+next `etape` in the same call, and the step cut every mark before a frame
+was painted. D5 of the plan is amended: the next step cuts the previous
+step's marks (frame, wider frame, arrow), not the answer that closed it.
+`marques.ts` now runs two sequences: a new answer cuts the previous one, the
+end lets the last answer finish, an unplug cuts both. The line goes to the
+command the answer names, so "Changer" draws it too, and a stick answer
+(`a1-`) finds the stick drawn on the right (`a0`). The tests subscribe to
+the real `InputStream` and `SwitchInput`. Second, "Régler pas à pas" and
+"Commencer" disappear at their own click and left focus on the document,
+where the panel's Escape never arrived: the invite now takes focus on
+"Commencer" and cancels alone on Escape, a starting step focuses its title,
+and a block that leaves holding focus hands it to "Reprendre", the first
+skipped command or "Régler pas à pas", never taking it back from outside the
+panel. The panel reads "busy" when the key arrives, since the Pro frame
+changes without rendering it. Third, the keyboard profiles and the Pro
+frame's notices were written outside `lib/mots.ts`; a rule in
+`mots.test.ts` now refuses any sentence under `manettes/` and in
+`media/switch.ts`. Fourth, held in hand the panel still covers the live
+picture inside the enlarged sheet. Its place needs a slot from
+`lib/cadre.ts`, owned by the `salle` work site: below the picture held
+upright, right of a narrowed picture held sideways. Only the two comments
+that claimed otherwise are corrected here, and `place-tenu` stays red outside
+the gate. `reglage.mjs` gains `marques` (read on every frame) and
+`focus-pas` (keyboard only), both red on 9b1c8e8. The page weighs 261 286
+bytes brotli.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

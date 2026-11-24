@@ -290,7 +290,16 @@ se peint lui-même, ouvert seulement, sa jauge part du repos appris, son
 horodatage est un afficheur, et un adaptateur l'ouvre d'emblée (étape
 `nombres` de `reglage-navigateur`, rouge sur 842e4c9). Page : 261 069 octets.
 Récit : « 24 novembre, au matin : les nombres de la manette ne bougeaient
-pas ».
+pas ». Relecture du 24 novembre : une réponse du pas à pas montre enfin ses
+coins et sa ligne (l'étape suivante ne coupe plus la réponse ; essais par
+la vraie boucle, étape `marques`) ; le focus suit le pas à pas et Échap
+remonte d'un cran à la fois (étape `focus-pas`) ; les phrases des profils
+du clavier et les avis de la trame Pro passent par le lexique, et
+`mots.test.ts` refuse toute phrase écrite sous `manettes/` et dans
+`media/switch.ts`. Tenu en main, le panneau couvre toujours l'image vivante
+dans la feuille agrandie : sa place demande un emplacement de
+`lib/cadre.ts` au chantier salle. Page : 261 286 octets. Récit : « 24
+novembre, à midi : la relecture des manettes, quatre constats ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

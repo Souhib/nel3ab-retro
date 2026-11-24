@@ -769,6 +769,39 @@ code :
 - **La preuve** : `nombres.test.tsx` (jsdom, vraie boucle), l'étape `nombres`
   de `reglage.mjs` dans la page construite, rouge sur 842e4c9.
 
+## La relecture du 24 novembre 2026 (midi)
+
+Récit au carnet, entrée « 24 novembre, à midi : la relecture des manettes,
+quatre constats » ; décision à l'ADR D42. Ce qui n'est pas lisible dans le
+code :
+
+- **La boucle émet « recu » et l'« etape » suivante dans le même appel.**
+  `marques.ts` tient donc deux séquences : l'étape suivante coupe celle de
+  l'étape d'avant, jamais la réponse qui vient de la clore. Remettre
+  `reponse.couper()` dans la branche « etape » efface les coins avant toute
+  peinture, et `marques.test.tsx` (vraie `InputStream`, vraie `SwitchInput`)
+  tombe. Un essai qui émet « recu » seul ne prouve rien ici.
+- **Un axe n'est pas une pièce.** `a1-` désigne le stick `a0` du dessin de
+  droite (`stickDe`), cherché dans le dernier `svg[data-padmap]` de la
+  racine : sur la trame Pro, les deux dessins nomment leurs sticks `a0`.
+- **Le focus du pas à pas** passe par `PasAPas.tsx` : l'invite le pose sur
+  « Commencer » et s'annule seule par Échap, une étape le pose sur son titre,
+  et `useFocusRendu` rend un focus perdu à `#reprendreLecon`,
+  `#reglerPassee` ou `#learnPad`, dans cet ordre. Il ne reprend jamais un
+  focus posé hors du panneau. `Reglage.tsx` lit l'état occupé au moment de
+  la touche (`occupeDe`) : la trame Pro change sans rendre le panneau.
+- **Les phrases** du panneau et de `media/switch.ts` vivent dans `REGLAGE`
+  (`lib/mots.ts`, dont `REGLAGE.pro` pour les avis de la trame Pro) ;
+  `mots.test.ts` refuse une phrase écrite sous `manettes/` ou dans
+  `media/switch.ts`. Les phrases de `Wiring.tsx`, `KeyboardWiring.tsx`,
+  `Bench.tsx`, `media/pad.ts` et `media/input.ts` viennent de `main` et
+  restent hors de cette règle.
+- **Tenu en main, le panneau couvre encore l'image.** Il attend un
+  emplacement de `lib/cadre.ts` (chantier salle) ; `place-tenu` le mesure,
+  hors de la porte.
+- **La preuve dans le navigateur** : les étapes `marques` (relevé à chaque
+  image) et `focus-pas` (clavier seul) de `reglage.mjs`, rouges sur 9b1c8e8.
+
 ## Le panneau « Touches et manettes », 23 novembre 2026 (tard)
 
 Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Depuis le
@@ -788,9 +821,9 @@ qu'il faut savoir avant d'y toucher :
   l'autre fait échouer l'étape `place` de `reglage.mjs`.
 - **La preuve dans le navigateur** : `just reglage-navigateur` (place,
   entrées et focus, activité de la trame Pro, zones de clic, vignette d'un
-  changement, nombres, pas à pas sur une manette simulée) et
-  `just reglage-navigateur-rouge` sur les pages de 9fb659e, bc72ba9, e62f583
-  et 842e4c9.
+  changement, nombres, marques d'une réponse, focus du pas à pas, pas à pas
+  sur une manette simulée) et `just reglage-navigateur-rouge` sur les pages
+  de 9fb659e, bc72ba9, e62f583, 842e4c9 et 9b1c8e8.
 - **Les zones de clic.** À la souris, `PadMap.tsx` pose un disque
   invisible `.n3-zone` dans chaque pièce cliquable ; `tenirInscriptions`
   lui donne son rayon à chaque changement de taille (`zones.ts` : 24 px
@@ -809,7 +842,9 @@ qu'il faut savoir avant d'y toucher :
 - **Les marques sont hors de React.** `manettes/reglage/marques.ts` s'abonne
   à `surReglage` et `surLecon` et ne change que `data-marque` sur les pièces
   déjà dessinées. La gauche porte les commandes (A, x, LS), la droite les
-  indices (b0, a2) : leurs noms ne se croisent pas.
+  indices (b0, b10) : leurs noms de pièce ne se croisent pas. Les sticks,
+  eux, se nomment `a0` et `a2` des deux côtés sur la trame Pro (voir la
+  relecture du 24 novembre).
 - **Le plancher de 9 px** des inscriptions (`inscriptions.ts`) lit
   `data-taille` et `data-piece`, que `PadMap.tsx` pose sur ses textes.
   Retirer ces attributs rend le plancher muet sans rien casser d'autre ;

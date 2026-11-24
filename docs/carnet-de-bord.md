@@ -29980,6 +29980,88 @@ sur toute sortie, et la même erreur volontaire laisse le port libre.
 **Le poids.** 261 069 octets en brotli (+460 : la boucle du banc, le trait de
 repos, la phrase de l'horodatage).
 
+### 24 novembre, à midi : la relecture des manettes, quatre constats
+
+Une relecture indépendante du chantier a relevé quatre défauts. Chacun a
+d'abord été reproduit sur la page committée, avec les scripts de la relecture.
+
+**Une réponse ne montrait jamais ses marques.** Au pas à pas, un appui doit
+poser des coins sur la pièce appuyée de ta manette pendant 650 ms, tirer une
+ligne pointillée jusqu'à la commande du jeu, puis tout effacer en quatre
+paliers. Rien de cela n'apparaissait, ni sur la trame Dolphin ni sur la trame
+Pro. La boucle d'entrée annonce la réponse (« recu ») puis, dans le même
+appel, l'étape suivante. Le module des marques coupait tout à chaque étape :
+les coins étaient posés puis retirés avant que le navigateur ait peint une
+seule image. Un observateur des attributs (`MutationObserver`) l'a montré
+d'un coup : la pièce passe à « coins » et le perd dans le même lot de
+changements. Pendant un « Changer », aucune étape ne précède la réponse, et
+la ligne n'avait donc jamais de cible. Une réponse de stick, enfin, ne trouvait
+pas sa pièce : son nom (`a0+`) n'est celui d'aucune pièce du dessin.
+
+Pourquoi rien ne l'a vu : l'essai des marques émettait « recu » seul, alors
+que la vraie boucle ne l'émet jamais sans l'étape qui suit, et l'étape du
+pilote ne regardait pas les coins. Leçon : un essai d'événements rejoue la
+suite que la source émet vraiment, ou s'abonne à la vraie source.
+
+Le remède sépare deux séquences : celle de l'étape (le cadre, son insistance,
+sa flèche) et celle de la réponse (les coins, la ligne, l'effacement). L'étape
+suivante coupe la première seulement. Une nouvelle réponse coupe la
+précédente, la fin laisse la dernière finir, un débranchement coupe tout. La
+ligne va à la commande que la réponse nomme, et un axe trouve le stick du
+dessin de droite (`a1-` est le stick `a0`). La décision D5 du plan (« une
+marque ne retarde jamais la leçon ») tient : l'étape suivante se cadre
+toujours aussitôt. Les essais passent maintenant par la vraie boucle Dolphin
+et la vraie trame Pro ; quatre tombaient sur l'ancien module, et six mutants
+du nouveau tombent. L'étape `marques` du pilote relève, à chaque image, ce qui
+porte des coins ; sur la page relue, aucune image ne les peint.
+
+**Le focus tombait sur le document.** « Régler pas à pas » disparaît à son
+propre clic, et « Commencer » aussi. Les deux fois, le focus (l'élément qui
+reçoit le clavier) tombait sur le document. L'Échap du panneau ne le recevait
+plus : l'invite « Lâche tout » ne se fermait pas, et après un pas à pas
+arrêté, un second Échap ne fermait pas le panneau. Un lecteur d'écran perdait
+sa place deux fois. Le remède suit chaque geste : l'invite prend le focus sur
+« Commencer » et s'annule seule par Échap ; une étape qui commence le pose sur
+son titre, pas sur « Passer », qu'une Entrée de trop déclencherait ; un bloc
+qui part en tenant le focus le rend à « Reprendre », à la première commande
+passée, sinon à « Régler pas à pas ». Un focus que la personne a posé hors du
+panneau n'est jamais repris.
+
+L'essai de la trame Pro a trouvé un second défaut, plus petit : le panneau
+lisait « un pas à pas est en cours » au moment de son rendu, et la trame Pro
+change sans le rendre (il se relit deux fois par seconde). Un Échap dans la
+première demi-seconde d'un pas à pas Pro fermait le panneau au lieu d'arrêter
+le pas à pas. Il lit maintenant cet état au moment de la touche, et se relit
+après l'avoir annulé. Neuf mutants : huit tombent ; le neuvième retire, dans
+l'invite, la garde d'un focus extérieur, et l'invite ne monte que d'un clic
+dans le panneau. L'étape `focus-pas` du pilote mène tout cela au clavier seul,
+et rougit cinq fois sur la page relue.
+
+**Des phrases écrites en dur.** Les profils du clavier écrivaient onze
+phrases hors du lexique (`lib/mots.ts`), et la trame Pro deux avis de plus,
+recopiés d'avis qu'elle avait déjà. L'essai des mots refusés restait vert : il
+juge les mots, pas leur adresse. Les phrases passent dans le bloc du chantier,
+avec les douze autres avis de la trame Pro, que le panneau affiche tels quels.
+Un essai nouveau refuse toute phrase écrite sous `manettes/` et dans
+`media/switch.ts` ; il échouait sur vingt-cinq chaînes. Ce qu'il ne couvre
+pas : les phrases venues de `main` dans `Wiring.tsx`, `KeyboardWiring.tsx`,
+`Bench.tsx`, `media/pad.ts` et `media/input.ts`, que le panneau montre aussi.
+
+**Tenu en main, le panneau couvre l'image vivante.** C'était déjà écrit comme
+un reste, et la relecture a raison de le compter comme un défaut : la colonne
+ne vit, tenue en main, que dans la feuille agrandie de la salle, qui couvre
+l'image, et le panneau avec elle (113 880 pixels carrés sur l'image à
+390 × 844, 85 020 à 844 × 390). Les autres jouent dessous. Le remède demande
+au cadre de la salle (`lib/cadre.ts`) un emplacement pour le panneau : sous
+l'image tenu droit, à droite en travers, l'image rangée dans le reste. Ce
+fichier appartient au chantier salle, et la partition interdit aux autres
+chantiers d'y toucher. Ce passage corrige donc seulement les deux commentaires
+qui affirmaient le contraire, et transmet la demande ; l'étape `place-tenu`
+reste rouge, hors de la porte.
+
+**Le poids.** 261 286 octets en brotli (+217 : les deux séquences des
+marques, la garde du focus, les avis de la trame Pro déplacés).
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31702,3 +31784,17 @@ pour se distinguer, sauf si son plan lui rend son anneau.
 manette. Appuyée, elle prend la teinte claire de la place et un anneau
 sombre, même sur une coque claire : c'est la seule paire qui tranche à la
 fois sur une touche de teinte moyenne et sur un entourage sombre.
+
+**Marques du pas à pas** : ce que le panneau des touches pose sur les dessins
+pendant un pas à pas. Un cadre sur la commande attendue (plus large à 4 s,
+une flèche à 8 s), puis, à l'appui, des coins sur la pièce appuyée de ta
+manette et une ligne pointillée jusqu'à la commande, 650 ms, avant de
+s'effacer.
+
+**Feuille agrandie** : la feuille « La salle » d'un téléphone ou d'une
+tablette, montée jusqu'en haut. Elle porte la colonne entière, et couvre
+l'image du jeu : toute l'image tenue droite, sa partie gauche en travers.
+
+**Emplacement (du cadre)** : une place que le cadre de la salle
+(`lib/cadre.ts`) calcule et donne à un élément, hors de l'image : la barre,
+la bande, le panneau de commande, la manette tactile.

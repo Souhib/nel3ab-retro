@@ -2191,6 +2191,30 @@ no clickable drawing at all. `padmap-visuel.mjs` serves its preview through
 `vite.planche.config.ts`, which has no relay to the room's ports. The page
 weighs 259 484 bytes brotli.
 
+**Fifth pass: named colours and a pressed state that holds twice.** The
+plans name their key colours (D3 of the plan): a part's `tint` and `ink`
+are of type `Couleur`, `var(--manette-<name>)`, so a literal value does not
+compile, and the 29 values live in `regie.css` (the unused `TINTS` and
+`--manette-teinte-*` are gone). Reading every tinted key exposed pressed
+states at 2.3 to 2.7:1, and a first fix that held against the key failed
+`banc-visuel.mjs`, which measures the pressed key against its well, shell
+or the page. Both thresholds are now one test
+(`lib/manettes-couleurs.test.ts`): every part of every plan, with and
+without a seat, in both themes, at 3:1 against the key and against its
+surroundings, following how `padmap.css` draws it (a flush part has no
+ring; a trigger behind the shell takes the theme ink unless it declares
+its own). Three keys get `appui: "clair"`: the seat's light tint with a
+dark ring, the only pair that holds against a mid tint inside dark
+surroundings. Without a seat, the GameCube press becomes a dark object
+green with the light ring, and the shared violet is lighter (#8b7cf0).
+The callouts "viser" and "secouer" move off the Wiimote's edge and arcs.
+The preview becomes the controller planche (two groups, three sizes,
+inscription counts, contrast computed by Chrome in the shown theme, 44 px
+toggles), checked by `padmap-qc.mjs` with a contrast twin that must fail
+on the Xbox alone. At the full level the lesson's end sentence types
+itself out through the socle's `annoncerLettres`, and a refused Pro gesture
+shakes its notice. The page weighs 260 043 bytes brotli.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

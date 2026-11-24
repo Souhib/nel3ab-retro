@@ -263,7 +263,18 @@ paliers au niveau tout seulement, compteur d'étape en chiffres d'afficheur,
 son grave sur un refus Pro, icône de manette en pixels, zones de clic de
 24 px à la souris et dessin non cliquable au doigt ; `padmap-visuel` sans
 relais vers la salle. Page : 259 484 octets. Récit : « 23 novembre, dans
-la nuit : les manettes, quatrième passage ».
+la nuit : les manettes, quatrième passage ». Cinquième passage : les plans
+nomment leurs couleurs de touche (type `Couleur`, valeurs dans
+`regie.css`) ; l'appui tient 3:1 contre la touche et contre ce qui
+l'entoure, pour chaque pièce, avec ou sans place, dans les deux thèmes
+(`lib/manettes-couleurs.test.ts`, `appui: "clair"` sur trois touches) ;
+« viser » et « secouer » décollés de la Wiimote ; la planche des manettes
+et son pilote `padmap-qc.mjs` refaits (deux groupes, trois tailles,
+comptes d'inscriptions, contrastes, réglages de 44 px) ; phrase de fin en
+lettres et secousse d'un refus Pro au niveau tout. Toujours en attente :
+le retrait des anciens dialogues (chantier menus) et la place tenue en main
+(chantier salle). Page : 260 043 octets. Récit : « 24 novembre, avant
+l'aube : les manettes, cinquième passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

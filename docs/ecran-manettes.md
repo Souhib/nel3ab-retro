@@ -182,7 +182,9 @@ code :
   une touche appuyée à 2,06:1 sur la Wiimote de nuit et à 1,57:1 sur la
   manette standard de jour. La GameCube violette a la sienne, avec un anneau
   sombre, parce qu'aucune teinte ne tranchait à la fois sur son violet et sur
-  sa croix grise.
+  sa croix grise. **Remplacé le 24 novembre 2026** : sans place, le violet
+  commun est #8b7cf0 et la GameCube prend un vert foncé avec l'anneau clair
+  (section « Les couleurs nommées et l'appui à deux seuils » plus bas).
 - **Le contour fin de la coque suit l'ambiance.** C'est lui qui sépare une
   manette noire d'une carte sombre, ou une manette blanche d'une carte claire.
 - **Ce qui n'est plus mesuré** : le bord d'une touche noire sur une coque
@@ -683,6 +685,42 @@ la décision à l'ADR D42. Ce qui n'est pas lisible dans le code :
   qui lève ne casse pas la boucle.
 - **L'activité de la trame est celle qui est partie** (`InputState.activite`) :
   un menu ou un réglage envoie du neutre, et rien ne s'allume alors.
+
+## Les couleurs nommées et l'appui à deux seuils, 24 novembre 2026
+
+Cinquième passage du chantier manettes. Récit au carnet, entrée « 24 novembre,
+avant l'aube : les manettes, cinquième passage » ; décision à l'ADR D42. Ce qui
+n'est pas lisible dans le code :
+
+- **Un plan nomme une couleur, il ne l'écrit pas.** `tint` et `ink` sont du
+  type `Couleur` (`var(--manette-<nom>)`) ; une valeur en dur ne compile pas.
+  Les valeurs vivent dans la section « chantier manettes » de `regie.css`, et
+  la copie du salon se régénère avec `N3_REGIE_ECRIRE=1` sur `regie.test.ts`.
+  La vue tactile lit aussi `ink` pour la couleur des lettres Xbox.
+- **L'appui a deux seuils de 3:1, et une seule mesure les tient.** Contre la
+  touche elle-même (sa teinte, sinon le capuchon), et contre ce qui l'entoure
+  (son logement ou la coque ; la base de la croix pour une pièce affleurante ;
+  la page pour une gâchette derrière la coque). `banc-visuel.mjs` ne mesure
+  que le second, l'ancien essai que le premier sur la touche commune : chacun
+  laissait passer ce que l'autre refuse. `lib/manettes-couleurs.test.ts`
+  mesure les deux, pour chaque pièce, sans place et aux quatre places, dans
+  les deux thèmes, comme `padmap.css` dessine (pas d'anneau sur une pièce
+  affleurante ; l'encre du thème pour une gâchette derrière la coque, sauf
+  `--pad-lit-ring-dessous`). La planche refait le calcul dans Chrome.
+- **`appui: "clair"`** marque une touche de teinte moyenne ou sombre entourée
+  de sombre : le A de la GameCube, le viseur et les arcs de la Wiimote. Elle
+  prend la teinte claire de la place et l'anneau sombre, et le viseur garde
+  son anneau bien qu'il affleure. Une nouvelle manette avec une touche de ce
+  genre doit la marquer : l'essai le dira sinon.
+- **Les renvois gardent un trait visible** de 4 unités entre la pièce (ou la
+  coque qui la porte) et leur mot, et leur mot tient dans le repère
+  (`padmap.test.ts`, « les renvois »).
+- **La planche des manettes** (`padmap-preview.html`, `just padmap-visuel`)
+  montre ce que le jeu reçoit et ta manette, à 480, 170 et 120 px, avec les
+  inscriptions lisibles et masquées et l'appui le plus faible dans le thème
+  affiché. `padmap-qc.mjs` refait chaque mesure ; son jumeau
+  `--mutant-contraste` doit échouer sur la Xbox seule. Ses tailles sont
+  marquées `data-format` : `data-taille` appartient aux textes des dessins.
 
 
 ## Le panneau « Touches et manettes », 23 novembre 2026 (tard)

@@ -29803,6 +29803,69 @@ relais, comme le banc. Rien ne s'est mal passé, mais un aperçu n'a aucune
 raison de pouvoir joindre un service en marche. La page pèse maintenant
 259 484 octets en brotli.
 
+### 24 novembre, avant l'aube : les manettes, cinquième passage
+
+**Le contexte.** Les deux gros morceaux qui restent ne dépendent plus de ce
+chantier : retirer les anciens dialogues attend que le chantier des menus
+sorte la préparation, et la place du panneau tenu en main attend le cadre
+de la salle. Ce passage finit ce qui ne dépend que des manettes : le dessin,
+ses couleurs, la planche, et deux effets du pas à pas.
+
+**Deux mots collés.** Sur la Wiimote, « viser » touchait le bord de la
+manette et « secouer » se collait aux arcs qui figurent la secousse. Un
+essai mesure maintenant le bout de trait qui reste visible entre la pièce
+et son mot : 3,5 et 0,9 unités avant, 4 demandées (4,8 pixels sur le plus
+petit dessin). Le jumeau remet les anciennes positions et les voit refusées.
+
+**Des couleurs nommées, et un essai qui a trouvé cinq touches muettes.** La
+décision D3 du plan voulait que les dessins nomment une matière au lieu
+d'écrire une couleur. Chaque touche de couleur porte maintenant un nom
+(`gamecube-a`, `guitare-orange`), et la valeur vit dans `regie.css`. Le type
+des pièces n'accepte que ces noms : une couleur écrite en dur ne compile
+plus. En lisant enfin chaque touche teintée, l'essai des contrastes a trouvé
+ce qu'il ne pouvait pas voir quand il ne lisait que la touche commune : le
+A vert d'eau de la GameCube, le viseur noir et les arcs gris de la Wiimote
+s'appuyaient à 2,3 à 2,7:1. Le seuil est 3:1, celui des règles
+d'accessibilité du web pour ce qui n'est pas du texte.
+
+**Une première correction fausse.** Le premier remède a changé l'anneau de
+ces touches pour qu'il tranche sur leur teinte. `banc-visuel.mjs`, qui
+mesure autre chose (l'appui contre ce qui entoure la touche : son logement,
+la coque, la page), l'a refusé aussitôt, à 1,5 à 2,9:1. Les deux mesures
+sont justes et aucune ne suffit seule. Pour une teinte moyenne entourée de
+sombre, une seule paire tient les deux : l'aplat clair de la place, qui
+tranche sur l'entourage, et l'anneau sombre, qui tranche sur la touche. Le
+plan marque ces trois touches `appui: "clair"`. L'essai mesure désormais les
+deux seuils, pour chaque pièce de chaque plan, sans place et aux quatre
+places, dans les deux thèmes. Il a encore trouvé deux défauts sans place
+(le spectateur, la planche) : le vert clair de la GameCube à 1,33:1 sur la
+croix, qui n'a pas d'anneau, et le violet commun à 2,91:1 sur la DualShock.
+Le premier devient un vert foncé avec l'anneau clair, le second un violet
+plus clair. Leçon : un essai de contraste doit dire contre QUOI il mesure ;
+deux mesures vraies peuvent se contredire si l'une ne regarde que la touche.
+
+**La planche des manettes.** L'aperçu `padmap-preview` devient « Les
+manettes » : ce que le jeu reçoit et ta manette, chacune avec l'endroit où
+elle sert, à trois tailles. Sous chaque taille, la planche compte les
+inscriptions lisibles et celles que le plancher de 9 pixels masque ; sous la
+grande, elle écrit l'appui le plus faible, calculé par Chrome dans le thème
+affiché. Ses réglages sont des boutons de 44 pixels. `padmap-qc.mjs` refait
+chaque mesure de son côté et compare. Son jumeau fabrique un appui de la
+couleur de la touche sur la manette Xbox, et `padmap-visuel.mjs` exige qu'il
+échoue sur ce seul défaut. Deux autres mutants (un compte faux, un plan
+retiré de la liste du réglage) tombent aussi. Un détail a coûté un essai :
+la planche nommait ses tailles `data-taille`, que les textes des dessins
+portent déjà ; le pilote les confondait.
+
+**Deux effets du pas à pas.** Au niveau tout, la phrase de fin s'écrit
+lettre par lettre ; le lecteur d'écran la reçoit entière d'un coup, puis la
+région qui la portait se vide pour qu'elle ne soit pas lue deux fois. Un
+refus de la trame Pro secoue aussi l'avis qui le dit, en plus du son grave.
+
+**Le poids.** 260 043 octets en brotli (+559) : les noms de couleur sont
+plus longs que les valeurs qu'ils remplacent, et les règles de l'appui
+clair s'ajoutent. Le budget est de 300 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31501,3 +31564,13 @@ essai jsdom ne voit ni mise en page ni vrai focus. `reglage.mjs` en est un.
 **Trame (de manette)** : ce que la page envoie à la salle pour une place à
 chaque instant. La trame Dolphin porte les commandes d'une manette GameCube,
 la trame Pro celles d'une manette Switch Pro ou Xbox 360.
+
+**Pièce affleurante** : une pièce de dessin de manette qui fait partie d'une
+plus grande, comme une branche de croix ou le viseur de la Wiimote. Elle n'a
+pas de logement ni de contour à elle ; appuyée, elle n'a donc que son aplat
+pour se distinguer, sauf si son plan lui rend son anneau.
+
+**Appui clair** : la marque `appui: "clair"` d'une touche dans les plans de
+manette. Appuyée, elle prend la teinte claire de la place et un anneau
+sombre, même sur une coque claire : c'est la seule paire qui tranche à la
+fois sur une touche de teinte moyenne et sur un entourage sombre.

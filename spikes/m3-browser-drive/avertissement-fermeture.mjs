@@ -90,13 +90,13 @@ try {
   const dit = await page.$eval(pastille, element => element.innerText);
   assert.match(dit, /Ferme dans/, `La pastille ne dit pas ce qui arrive: ${dit}`);
 
-  // « Je reste » quand la page tient une place, une touche du jeu sinon :
-  // le compte revient à zéro, et la pastille part d'elle-même.
-  if (await page.$("#jeReste")) await page.click("#jeReste");
-  else {
-    await page.focus("#zone-jeu");
-    await page.keyboard.press("x");
-  }
+  // « Je reste », d'un vrai clic : la page tient la place 1. Sans repli au
+  // clavier : une touche du jeu remettait aussi le compte à zéro, et le
+  // pilote passait sans jamais exercer le geste (relecture du 24 novembre
+  // 2026). Le compte revient à zéro, et la pastille part d'elle-même.
+  const reste = await page.waitForSelector("#jeReste", { visible: true, timeout: 5_000 }).catch(() => null);
+  assert.ok(reste, "La pastille de fermeture ne propose pas « Je reste » à la place 1");
+  await page.click("#jeReste");
   await page.waitForFunction(sel => document.querySelector(sel) === null,
     { timeout: 5_000 }, pastille);
 

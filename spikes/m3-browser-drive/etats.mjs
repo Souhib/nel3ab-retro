@@ -803,6 +803,59 @@ const ETAPES = {
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
+  /** « Je reste » part vraiment (D16) : la salle annonce sa fermeture, un
+   * vrai clic sur #jeReste au centre qui le reçoit, le banc reçoit l'octet
+   * de « je reste » sur la socket de la place, et la pastille part quand le
+   * message de salle suivant n'annonce plus rien. Avant ce pas, aucun pilote
+   * de porte ne cliquait #jeReste, et un mutant `onRester: () => {}`
+   * passait toutes les portes (relecture du 24 novembre 2026). Le jumeau :
+   * un spectateur voit la pastille, sans « Je reste » ni octet envoyé. */
+  async "je-reste"() {
+    const PASTILLE = '#pastilleEtat[data-etat="fermeture"]';
+    // Le joueur de la place 1.
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(1500);
+    const debut = Date.now();
+    banc.annoncerFermeture(5);
+    if ((await page.waitForSelector(PASTILLE, { timeout: 4000 }).catch(() => null)) === null)
+      throw new Precondition("pas de pastille de fermeture 4 s après l'annonce");
+    const bouton = await page.waitForSelector("#jeReste", { visible: true, timeout: 3000 }).catch(() => null);
+    if (bouton === null) throw new Defaut("l'annonce de fermeture ne propose pas « Je reste » à la place 1");
+    const centre = await page.evaluate(() => {
+      const b = document.querySelector("#jeReste");
+      b.scrollIntoView({ block: "center" });
+      const r = b.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const vu = document.elementFromPoint(x, y);
+      return { x, y, recoit: vu !== null && b.contains(vu), vu: vu ? `${vu.tagName}#${vu.id}.${vu.className}` : null };
+    });
+    if (!centre.recoit) throw new Defaut(`« Je reste » ne reçoit pas le point en son centre: ${centre.vu}`);
+    if (banc.restes(debut).length) throw new Precondition("un « je reste » est arrivé avant le clic");
+    await page.mouse.click(centre.x, centre.y);
+    const recu = Date.now();
+    while (banc.restes(debut).length === 0 && Date.now() - recu < 2000) await sleep(50);
+    const restes = banc.restes(debut);
+    if (restes.length !== 1) throw new Defaut(`un clic sur « Je reste » a envoyé ${restes.length} « je reste » au banc, un attendu`);
+    const partie = await page.waitForFunction((sel) => document.querySelector(sel) === null, { timeout: 3000 }, PASTILLE).catch(() => null);
+    if (partie === null) throw new Defaut("la pastille de fermeture reste après « Je reste » et un message de salle sans fermeture");
+    await page.close();
+    // Le jumeau : un spectateur, sans place.
+    const spectateur = await nouvelle(PC);
+    banc.regler({ place: 0 });
+    await entrer(spectateur);
+    await sleep(1500);
+    const avant = Date.now();
+    banc.annoncerFermeture(5);
+    if ((await spectateur.waitForSelector(PASTILLE, { timeout: 4000 }).catch(() => null)) === null)
+      throw new Precondition("le spectateur ne voit pas la pastille de fermeture");
+    await sleep(800);
+    if ((await spectateur.$("#jeReste")) !== null) throw new Defaut("un spectateur se voit proposer « Je reste »");
+    if (banc.restes(avant).length) throw new Defaut("un spectateur a envoyé « je reste »");
+    await spectateur.close();
+  },
+
   /** La pastille mène au geste de sa fiche (ADR D40) : un vrai clic au
    * bureau met le focus sur « Relancer l'image » dans la colonne ; un doigt
    * au téléphone ouvre la feuille agrandie et l'y met. Au doigt, la pastille

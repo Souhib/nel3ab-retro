@@ -72,7 +72,14 @@ default: local
 # garde ses pages de référence. Même prix de nature (Chrome, la page
 # committée, rien de vivant), mesuré ce jour-là sur cette machine: 43 s et
 # 42 s.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge
+#
+# `cadre-navigateur` y entre le même jour, à la demande du propriétaire: la
+# garde de l'image dans chaque état, aux sept tailles de bureau et au doigt,
+# le cadre de la salle et les scènes d'Aïn ne se prouvent que dans un
+# navigateur. Même prix de nature, et le plus long des bancs: 4 min 35 s
+# d'étapes mesurées le 24 novembre 2026 jusqu'à `mascotte-hors-image`, qui
+# s'arrêtait alors sur sa précondition (voir le carnet de ce jour).
+local:check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge cadre-navigateur
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -1026,7 +1033,9 @@ cadre-mesure:
 # gardées dans le dépôt (`spikes/m3-browser-drive/rouges/`, relecture du
 # 23 novembre 2026), chacune avec l'empreinte git de la page de son commit
 # (`EMPREINTES`), vérifiée avant usage. Une copie changée arrête la recette.
-cadre-navigateur-rouge:
+# `just cadre-navigateur-rouge 5491` la lance sur un autre port, quand une
+# autre branche tient 5478.
+cadre-navigateur-rouge port="5478":
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -1044,35 +1053,35 @@ cadre-navigateur-rouge:
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     cd spikes/m3-browser-drive
-    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
+    node cadre.mjs --port {{port}} --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
     # manette-branchee: l'avis de branchement de cette page couvre L.
     # souris-toujours: la manette « toujours » se pose sur l'image à la souris.
     # sortir-salle: Quitter part sans la transition « sortir-salle » (K13).
     etapes=rien-sur-image,agrandie,manette-branchee,souris-toujours,sortir-salle
-    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --port {{port}} --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # La page de la fin du passage 1 (0fef99e) a déjà le cadre, mais ni le
     # panneau de commande ni la colonne nouvelle: elle doit tomber sur le
     # panneau absent de l'écran et sur les onglets restés là.
     etapes=meuble-place,une-fois
-    node cadre.mjs --page "$rouges/salle-0fef99e.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --port {{port}} --page "$rouges/salle-0fef99e.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # La page de la colonne du bureau (3cada57) ouvre encore son menu d'office
     # dans une salle au repos.
     etapes=repos-sans-menu
-    node cadre.mjs --page "$rouges/salle-3cada57.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --port {{port}} --page "$rouges/salle-3cada57.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Quatrième bloc (étape 7): la page de l'étape 6 (2cb36ba) n'a ni
     # fronton, ni crédit, ni trame, ni décor de borne; chaque étape doit y
     # rougir sur son défaut, pas sur le jumeau de son balayage.
     etapes=fronton-bande,credit-compte,tramage-hors-image,borne-bandes
-    node cadre.mjs --page "$rouges/salle-2cb36ba.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --port {{port}} --page "$rouges/salle-2cb36ba.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Cinquième bloc (étape 4): la page de l'étape 7 (cf3bba1) pose la
     # manette tactile par-dessus l'écran; tenue en main, elle doit rougir sur
     # les touches posées sur l'image, pas sur une manette absente.
     etapes=tenu-rien-sur-image
-    node cadre.mjs --page "$rouges/salle-cf3bba1.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --port {{port}} --page "$rouges/salle-cf3bba1.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # Sixième bloc (passage 5): la page de la fin du passage 4 (acfa4c7) garde
     # ses touches à l'écran devant une vraie manette, sa bande ne dit pas
@@ -1081,7 +1090,16 @@ cadre-navigateur-rouge:
     # Passage 6: sans barre (844×390, 375×548), aucune scène de la mascotte
     # n'y joue, faute d'hôte dans « La salle ».
     etapes=manette-branchee,manette-vraie,feuille-clip,fronton-bande,tenu-rien-sur-image,mascotte-hors-image
-    node cadre.mjs --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
+    node cadre.mjs --port {{port}} --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Septième bloc (suite de la salle, 24 novembre 2026): la page de
+    # l'intégration 97a2318 n'affiche pas le temps de jeu que le salon publie,
+    # ne pose pas ton étiquette dans la manette sans panneau, et n'a pas de ▶
+    # dans la feuille à mi-hauteur. Ce commit vit sur integration/retro,
+    # qu'on fusionne sans réécrire: `git show` le lit.
+    git show 97a2318:core/crates/worker/src/page/index.html > "$dossier/integration.html"
+    etapes=temps-de-jeu,etiquette-manette,feuille-curseur
+    node cadre.mjs --port {{port}} --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 

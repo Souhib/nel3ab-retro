@@ -235,6 +235,31 @@
   .personne-dit { margin: 0; min-height: 1.5em; font-size: 16px; }
   .personne-dit[data-alerte="oui"] { color: var(--alerte); }
 
+  /* ── La rangée de la bibliothèque ─────────────────────────────────── */
+  .rayon { display: grid; gap: .5rem; min-width: 0; }
+  .rayon h2 { margin: 0; font-family: var(--police-titre); font-weight: 400; font-size: 20px; }
+  .rayon-dit { margin: 0; color: var(--legende); }
+  .rayon-etagere { position: relative; min-width: 0; }
+  .rayon-jeux { display: flex; gap: .5rem; margin: 0; padding: 0 0 .5rem; list-style: none;
+                overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
+  .rayon-jeux > li { flex: none; scroll-snap-align: start; }
+  .rayon-jeu { display: flex; flex-direction: column; justify-content: space-between; gap: .25rem;
+               width: 92px; height: 128px; padding: .4rem; background: var(--plaque);
+               border: 2px solid var(--trait); border-radius: var(--rayon); }
+  .rayon-jeu[data-support="cartouche"] { height: 96px; margin-top: 32px;
+               border-radius: var(--rayon) var(--rayon) 2px 2px; }
+  .rayon-console { font-family: var(--police-titre); font-size: 11px; color: var(--legende); }
+  .rayon-titre { font-size: 13px; line-height: 1.2; overflow-wrap: anywhere;
+                 display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .rayon-libre { width: 92px; height: 128px; border: 2px dashed var(--trait); border-radius: var(--rayon); }
+  .rayon-planche { height: 6px; background: var(--trait); border-radius: 2px; }
+  .rayon-sol { height: 1px; }
+  .pile { display: flex; align-items: flex-end; gap: .75rem; }
+  .pile-boites { display: flex; flex-direction: column-reverse; gap: 2px; }
+  .pile-boite { display: block; width: 72px; height: 14px; background: var(--plaque);
+                border: 2px solid var(--trait); border-radius: 2px; }
+  .pile-dit { margin: 0; color: var(--legende); }
+
   .pied { margin: 0; color: var(--legende); font-size: 15px; border-top: 2px solid var(--trait);
           padding-top: .8rem; }
 
@@ -297,6 +322,28 @@
       console en lisant le début du fichier. Le serveur relit ensuite le fichier
       entier, reconnaît la console, puis range le jeu dans la bibliothèque.
     </p>
+
+    <!-- La rangée de la bibliothèque : une boîte ou une cartouche par jeu,
+         sur une planche. Elle défile seule. La place libre en tête est
+         l'ancre « place-libre » de la scène « depot », la planche et le sol
+         sous elle sont ses sols « etagere-haut » et « etagere-bas ». La pile
+         des envois pas encore rangés finit la rangée. Elle vit AU-DESSUS de
+         la zone de dépôt : dessous, la boîte de la scène traversait « Lâche
+         tes fichiers ici » pour monter sur la planche, et la scène se
+         repliait sur la pose clé (salon-navigateur, depot-scene). -->
+    <section class="rayon" id="rayon" hidden aria-labelledby="rayon-titre">
+      <h2 id="rayon-titre">La bibliothèque</h2>
+      <p class="rayon-dit" id="rayon-dit"></p>
+      <div class="rayon-etagere">
+        <ul class="rayon-jeux" id="rayon-jeux"></ul>
+        <div class="rayon-planche" data-sol="etagere-haut" aria-hidden="true"></div>
+      </div>
+      <div class="pile" id="pile" hidden>
+        <span class="pile-boites" aria-hidden="true"></span>
+        <p class="pile-dit"></p>
+      </div>
+      <div class="rayon-sol" data-sol="etagere-bas" aria-hidden="true"></div>
+    </section>
 
     <label class="depot" id="depot" for="fichiers" data-survol="non" data-ancre="depot">
       <span class="depot-mot" data-ancre="depot-mot" data-texte>Lâche tes fichiers ici</span>

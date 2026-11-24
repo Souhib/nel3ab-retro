@@ -539,3 +539,84 @@ async def test_la_rangee_des_jaquettes_attend_l_administrateur(client: httpx.Asy
     # Le jumeau: l'appel vit dans la branche de l'administrateur, pas avant.
     debut = page.index("if (droits.administrateur) {")
     assert debut < page.index('ouvrirJaquettes(document.getElementById("jaquettes"))')
+
+
+RAYON = Path(__file__).with_name("rayon_module.mjs")
+
+
+async def _rayon(entree: dict) -> dict:
+    assert NODE is not None
+    with anyio.fail_after(30):
+        sortie = await anyio.run_process(
+            [NODE, str(RAYON)], input=json.dumps(entree).encode(), check=False
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    return json.loads(sortie.stdout)
+
+
+@AVEC_NODE
+async def test_la_rangee_montre_chaque_jeu_du_catalogue_en_boite_ou_en_cartouche() -> None:
+    """Plan salon, salon-importer#0 : un élément par jeu, dans l'ordre du
+    catalogue, le nom de la console, et une cartouche pour la Switch. Le
+    jumeau : aucun jeu laissé de côté, même trente."""
+    jeux = [
+        {"key": "ww.iso", "name": "The Wind Waker", "console": "gc", "art": False},
+        {"key": "zelda.nsp", "name": "Tears of the Kingdom", "console": "switch", "art": True},
+        {"key": "sonic.iso", "name": "Sonic Generations", "console": "x360", "art": False},
+    ]
+    dit = await _rayon({"jeux": jeux, "noms": {"gc": "GameCube", "switch": "Switch"}})
+    assert dit["rayon"] == [
+        {"cle": "ww.iso", "titre": "The Wind Waker", "console": "GameCube", "support": "boite"},
+        {
+            "cle": "zelda.nsp",
+            "titre": "Tears of the Kingdom",
+            "console": "Switch",
+            "support": "cartouche",
+        },
+        {"cle": "sonic.iso", "titre": "Sonic Generations", "console": "x360", "support": "boite"},
+    ]
+    trente = [
+        {"key": f"{n}.iso", "name": f"Jeu {n}", "console": "wii", "art": False} for n in range(30)
+    ]
+    assert [j["cle"] for j in (await _rayon({"jeux": trente}))["rayon"]] == [
+        f"{n}.iso" for n in range(30)
+    ]
+    assert (await _rayon({"jeux": None}))["rayon"] == []
+
+
+@AVEC_NODE
+async def test_la_pile_compte_les_envois_pas_encore_ranges() -> None:
+    """La pile : un envoi arrêté ou en vérification y est, un envoi fini ou
+    refusé n'y est pas. La phrase s'accorde, et se tait à zéro."""
+    envois = [
+        {"etat": "envoi"},
+        {"etat": "verification"},
+        {"etat": "termine"},
+        {"etat": "erreur"},
+        {"etat": "envoi"},
+    ]
+    dit = await _rayon({"jeux": [], "envois": envois, "piles": [0, 1, 3]})
+    assert dit["pile"] == 3
+    assert dit["phrases"] == [
+        "",
+        "Sur la pile : 1 envoi pas encore rangé.",
+        "Sur la pile : 3 envois pas encore rangés.",
+    ]
+
+
+async def test_la_rangee_porte_le_decor_de_la_scene_depot(client: httpx.AsyncClient) -> None:
+    """La scène « depot » d'Aïn demande `depot`, `depot-mot`, `place-libre`
+    et les sols `etagere-haut` et `etagere-bas` (ADR D46) : sans eux, elle
+    se repliait sur la pose clé. Les sols ne contiennent rien : le
+    planificateur exempte ce qui est dedans."""
+    page = (await client.get("/importer")).text
+    for marque in (
+        'data-ancre="depot"',
+        'data-ancre="depot-mot"',
+        '<div class="rayon-planche" data-sol="etagere-haut" aria-hidden="true"></div>',
+        '<div class="rayon-sol" data-sol="etagere-bas" aria-hidden="true"></div>',
+    ):
+        assert page.count(marque) == 1, marque
+    module = MODULE.read_text(encoding="utf-8")
+    assert 'libre.dataset.ancre = "place-libre";' in module
+    assert re.search(r'<section class="rayon" id="rayon" hidden', page)

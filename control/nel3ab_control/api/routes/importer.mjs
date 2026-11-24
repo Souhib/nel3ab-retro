@@ -358,6 +358,9 @@ class Carte {
     if (this.noeud.dataset.pose === nom) return;
     this.noeud.dataset.pose = nom;
     if (this.suivie && SCENES[nom]) ain(SCENES[nom]);
+    // La rangée se relit quand un jeu suivi ici vient d'être rangé.
+    if (this.suivie && nom === "range")
+      this.noeud.dispatchEvent(new Event("rt-range", { bubbles: true }));
   }
 
   dire(texteDit, alerte = false) {
@@ -868,6 +871,91 @@ export async function changerImage(cle, octets, demander = fetch) {
 /** La rangée des jeux, pour l'administrateur: chaque jeu, son image, et de
  * quoi la changer. Une image s'affiche sur la borne de l'accueil et dans le
  * menu d'une salle à son prochain démarrage. */
+// ── La rangée de jeux ────────────────────────────────────────────────────
+
+/** Les consoles à cartouche ; les autres se rangent en boîte de disque. */
+const CARTOUCHES = new Set(["switch", "switch2"]);
+
+/**
+ * La rangée de la bibliothèque (plan salon, salon-importer#0) : un élément
+ * par jeu de `/api/catalogue`, dans l'ordre du catalogue, avec le nom de sa
+ * console et son support. Aucun jeu n'est laissé de côté : la rangée défile.
+ */
+export function rayonDe(jeux, noms = {}) {
+  return (jeux ?? []).map((jeu) => ({
+    cle: jeu.key,
+    titre: jeu.name,
+    console: noms[jeu.console] ?? jeu.console,
+    support: CARTOUCHES.has(jeu.console) ? "cartouche" : "boite",
+  }));
+}
+
+/** Les envois pas encore rangés : en cours d'envoi, arrêtés, ou en
+ * vérification. Ils font la pile au bout de la rangée. */
+export function pileDe(envois) {
+  return (envois ?? []).filter((e) => e.etat === "envoi" || e.etat === "verification").length;
+}
+
+/** La phrase de la pile ; vide sans envoi en attente. */
+export function phrasePile(n) {
+  if (n <= 0) return "";
+  return n === 1 ? "Sur la pile : 1 envoi pas encore rangé." : `Sur la pile : ${n} envois pas encore rangés.`;
+}
+
+/**
+ * Remplit la rangée : la place libre d'abord (l'ancre `place-libre`, où la
+ * boîte d'un jeu rangé atterrit dans la scène « depot »), puis les jeux,
+ * puis la pile. Les sols `etagere-haut` et `etagere-bas` sont dans le HTML.
+ * Rend le nombre de jeux posés, ou `null` quand le catalogue ne répond pas.
+ */
+async function remplirRayon(racine, pile) {
+  const liste = racine.querySelector("#rayon-jeux");
+  const dit = racine.querySelector("#rayon-dit");
+  const tas = racine.querySelector("#pile");
+  const phrase = phrasePile(pile);
+  tas.hidden = pile <= 0;
+  tas.querySelector(".pile-boites").replaceChildren(
+    ...Array.from({ length: Math.min(pile, 6) }, () => {
+      const boite = document.createElement("span");
+      boite.className = "pile-boite";
+      return boite;
+    }),
+  );
+  tas.querySelector(".pile-dit").textContent = phrase;
+  const reponse = await fetch("/api/catalogue", { cache: "no-store" }).catch(() => null);
+  if (!reponse?.ok) {
+    dit.textContent = "La bibliothèque n'a pas encore été lue : ouvre une salle une fois.";
+    racine.hidden = false;
+    return null;
+  }
+  const { games } = await reponse.json();
+  const jeux = rayonDe(games, nomsConsoles());
+  const libre = document.createElement("li");
+  libre.className = "rayon-libre";
+  libre.dataset.ancre = "place-libre";
+  libre.setAttribute("aria-hidden", "true");
+  liste.replaceChildren(
+    libre,
+    ...jeux.map((jeu) => {
+      const li = document.createElement("li");
+      li.className = "rayon-jeu";
+      li.dataset.support = jeu.support;
+      li.dataset.cle = jeu.cle;
+      const console_ = document.createElement("span");
+      console_.className = "rayon-console";
+      console_.textContent = jeu.console;
+      const titre = document.createElement("span");
+      titre.className = "rayon-titre";
+      titre.textContent = jeu.titre;
+      li.append(console_, titre);
+      return li;
+    }),
+  );
+  dit.textContent = jeux.length === 1 ? "1 jeu dans la bibliothèque." : `${jeux.length} jeux dans la bibliothèque.`;
+  racine.hidden = false;
+  return jeux.length;
+}
+
 async function ouvrirJaquettes(racine) {
   const liste = racine.querySelector("#jeux");
   const avis = racine.querySelector("#jaquettes-avis");
@@ -994,6 +1082,14 @@ async function demarrerPage() {
 
   // Les envois d'avant le rechargement: terminés, ou à reprendre en redéposant.
   const anciens = await fetch(API, { cache: "no-store" }).then((r) => (r.ok ? r.json() : []));
+  const rayon = document.getElementById("rayon");
+  remplirRayon(rayon, pileDe(anciens)).catch(() => {});
+  // Un jeu rangé pendant la visite : la scène « depot » joue d'abord, puis
+  // la rangée le montre. La pile se recompte sur les cartes de la page.
+  liste.addEventListener("rt-range", () => {
+    const pile = liste.querySelectorAll('[data-pose="loupe"], [data-pose="pause"], [data-pose="envoi"]').length;
+    setTimeout(() => remplirRayon(rayon, pile).catch(() => {}), 1200);
+  });
   for (const envoi of anciens) {
     const carte = new Carte(liste, modele, rang);
     rang += 1;

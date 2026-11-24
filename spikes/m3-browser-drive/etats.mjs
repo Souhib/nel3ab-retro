@@ -1025,6 +1025,97 @@ const ETAPES = {
   /** La colonne ne bouge pas quand l'image arrive : les boîtes des enfants
    * de #side relevées avant la première image et une seconde après sont les
    * mêmes, au pixel. Le jumeau : un enfant déplacé d'un pixel est vu. */
+  /** L'effet « coupure » (niveau « tout ») : un quart de seconde de neige à
+   * l'entrée dans le plein cadre « Connexion », comme en changeant de chaîne
+   * pour la salle. Le jeton vit 300 ms au plus, sa neige se voit, et aucune
+   * image n'est peinte dessous : la première image le lève comme le reste.
+   * Les jumeaux : au niveau « conseillé » et en mouvement réduit, jamais ;
+   * et l'entrée dans une connexion coupée au niveau « tout » ne le pose pas,
+   * parce qu'une vraie coupure peut arriver là. */
+  async "coupure-entree"() {
+    const observer = (page) =>
+      page.evaluate(() => {
+        window.__couv = [];
+        const lire = () => {
+          const c = document.querySelector(".n3-coupure");
+          window.__couv.push({
+            t: performance.now(),
+            jetons: (document.documentElement.getAttribute("data-couverture") ?? "").split(" ").filter(Boolean),
+            vues: globalThis.nel3abTest?.couverture?.().vues ?? null,
+            vue: c !== null && getComputedStyle(c).display !== "none" && c.getBoundingClientRect().width > 0,
+          });
+        };
+        lire();
+        new MutationObserver(lire).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-couverture"],
+        });
+      });
+    /** Les passages du jeton « coupure » : début, fin, images vues, neige vue. */
+    const passages = async (page) => {
+      const releve = await page.evaluate(() => window.__couv);
+      const vus = [];
+      let ouvert = null;
+      for (const r of releve) {
+        const pose = r.jetons.includes("coupure");
+        if (pose && ouvert === null) ouvert = { debut: r.t, vues: r.vues, vue: r.vue, fin: null, vuesFin: null };
+        if (!pose && ouvert !== null) {
+          vus.push({ ...ouvert, fin: r.t, vuesFin: r.vues });
+          ouvert = null;
+        }
+      }
+      if (ouvert !== null) vus.push(ouvert);
+      return vus;
+    };
+    const tout = JSON.stringify({ niveau: "tout", sons: false });
+    for (const video of ["freeze", "live"]) {
+      const page = await nouvelle(PC, { "nel3ab:effets": tout });
+      if ((await page.evaluate(() => document.documentElement.dataset.effets)) !== "tout")
+        throw new Precondition("le niveau « tout » n'est pas posé");
+      banc.regler({ video });
+      await observer(page);
+      await page.click("#enter");
+      await sleep(1500);
+      const vus = await passages(page);
+      if (vus.length !== 1) throw new Defaut(`${video}: ${vus.length} coupures à l'entrée au niveau « tout », une attendue`);
+      const [c] = vus;
+      if (c.fin === null) throw new Defaut(`${video}: la coupure ne finit pas en 1,5 s`);
+      if (c.fin - c.debut > 300) throw new Defaut(`${video}: la coupure dure ${Math.round(c.fin - c.debut)} ms, 300 au plus`);
+      if (!c.vue) throw new Defaut(`${video}: le jeton « coupure » est posé sans neige visible`);
+      if (c.vues === null || c.vuesFin - c.vues > 1)
+        throw new Defaut(`${video}: ${c.vuesFin - c.vues} images peintes sous la coupure`);
+      await page.close();
+    }
+    // Jumeaux : niveau conseillé, mouvement réduit.
+    for (const cas of ["conseille", "reduit"]) {
+      const page = await nouvelle(PC, {
+        "nel3ab:effets": cas === "reduit" ? tout : JSON.stringify({ niveau: "conseille", sons: false }),
+      });
+      if (cas === "reduit") await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+      banc.regler({ video: "freeze" });
+      await observer(page);
+      await page.click("#enter");
+      if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+        throw new Precondition(`${cas}: pas de plein cadre à l'entrée`);
+      await sleep(800);
+      const vus = await passages(page);
+      if (vus.length) throw new Defaut(`${cas}: une coupure à l'entrée (${vus.length})`);
+      await page.close();
+    }
+    // Jumeau : une vraie coupure au niveau « tout » ne pose pas l'effet.
+    const page = await nouvelle(PC, { "nel3ab:effets": tout });
+    await entrer(page);
+    await sleep(1000);
+    await observer(page);
+    await couperLeReseau(page);
+    const dit = await jusqua(page, (v) => v.liaison?.etat === "coupee", 5000);
+    if (dit.apres === null) throw new Precondition("pas d'état coupé en 5 s");
+    await sleep(500);
+    const vus = await passages(page);
+    if (vus.length) throw new Defaut("une coupure de chaîne sur une vraie connexion coupée");
+    await page.close();
+  },
+
   async "colonne-stable"() {
     const page = await nouvelle(PC);
     banc.regler({ video: "freeze" });

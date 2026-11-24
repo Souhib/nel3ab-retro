@@ -20,13 +20,14 @@
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { Hote } from "../lib/cadre";
+import { effetActif, mouvementReduit } from "../lib/effets";
 import type { Modele } from "../lib/etat-modele";
 import { alerteDEntree, sceneDeTransition, type Moment } from "../lib/etat-scene";
 import type { GardeSignalement } from "../lib/garde-signalement";
 import type { Action } from "../lib/liaison-mots";
 import { enBouton, ETAT, IMAGE, SORTIES } from "../lib/mots";
-import { armer, retirer, type Jeton } from "../media/couverture";
-import { faireNeiger } from "../media/neige";
+import { armer, retirer, vues, type Jeton } from "../media/couverture";
+import { faireNeiger, mondeDe } from "../media/neige";
 import { poserCalquesAttente } from "../retro/calques";
 import { ecrireChiffres, poserAfficheur } from "../retro/chiffres";
 import { iconePixelSVG } from "../retro/icones";
@@ -312,6 +313,13 @@ function Vue({ onVue }: { onVue: () => void }) {
  */
 export function PleinCadre({ modele, rappels }: { modele: Modele; rappels: Rappels }) {
   if (modele.niveau !== "plein") return null;
+  return <PleinCadreMonte modele={modele} rappels={rappels} />;
+}
+
+function PleinCadreMonte({ modele, rappels }: { modele: Modele; rappels: Rappels }) {
+  // L'état à l'apparition du plein cadre, et lui seul, décide de la coupure :
+  // une salle qui répond de nouveau après une panne ne change pas de chaîne.
+  const premier = useRef(modele.id);
   return (
     <div
       id="arrivee"
@@ -319,6 +327,7 @@ export function PleinCadre({ modele, rappels }: { modele: Modele; rappels: Rappe
       data-perdue={modele.actions.length > 0 || undefined}
       className="n3-plein regie-nuit"
     >
+      {premier.current === "arrivee" ? <Coupure /> : null}
       <EcranNoir>
         {modele.id === "fermee" ? <i className="n3-extinction" aria-hidden="true" /> : null}
         <h2 className="n3-plein-titre" data-texte="">
@@ -362,6 +371,33 @@ function EcranNoir({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
+}
+
+/** La durée de l'effet « coupure », comme la transition du socle. */
+export const COUPURE_MS = 250;
+
+/**
+ * L'effet « coupure » (niveau « tout ») : un quart de seconde de neige à
+ * l'entrée dans le plein cadre « Connexion », comme en changeant de chaîne
+ * pour la salle. Il ne se montre que sous le jeton « coupure » : la première
+ * image peinte le lève avec le plein cadre, et il se retire seul au bout de
+ * `COUPURE_MS`. Jamais à l'entrée d'une panne, où une vraie coupure peut
+ * arriver ; rien en mouvement réduit.
+ */
+function Coupure() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useLayoutEffect(() => {
+    if (!effetActif("coupure") || mouvementReduit()) return;
+    if (!armer("coupure", vues())) return;
+    const arret = ref.current ? faireNeiger(ref.current, mondeDe("coupure")) : () => {};
+    const fin = window.setTimeout(() => retirer("coupure"), COUPURE_MS);
+    return () => {
+      window.clearTimeout(fin);
+      arret();
+      retirer("coupure");
+    };
+  }, []);
+  return <canvas ref={ref} className="n3-coupure" width={120} height={75} aria-hidden="true" />;
 }
 
 /** La neige d'une connexion coupée, sur le rectangle de l'image, à sa place.

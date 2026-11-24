@@ -1,10 +1,18 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { modeleEtat, type Entree } from "../lib/etat-modele";
+import { CLE, changerNiveau, oublierPourEssai } from "../lib/effets";
 import { GardeSignalement } from "../lib/garde-signalement";
 import { ATTRIBUT, jetons, lever, retirer, vues } from "../media/couverture";
 import type { Liaison } from "../media/liaison";
-import { EtatPastille, FicheEtat, PleinCadre, useCouverture, type Rappels } from "./EtatSalle";
+import {
+  COUPURE_MS,
+  EtatPastille,
+  FicheEtat,
+  PleinCadre,
+  useCouverture,
+  type Rappels,
+} from "./EtatSalle";
 import { LigneParlee } from "./LigneParlee";
 
 beforeEach(() => vi.useFakeTimers());
@@ -273,6 +281,65 @@ function Couvre({ jeton, vu }: { jeton: "plein" | "passee" | null; vu: number })
   useCouverture(jeton, vu);
   return null;
 }
+
+describe("la coupure de l'entrée (effet « coupure », niveau « tout »)", () => {
+  let canevas: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    // jsdom n'a pas de canevas : la neige ne dessine rien, sans bruit.
+    canevas = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+  });
+  afterEach(() => {
+    canevas.mockRestore();
+    vi.unstubAllGlobals();
+    localStorage.removeItem(CLE);
+    oublierPourEssai();
+  });
+  const injoignable: Liaison = {
+    etat: "injoignable",
+    site: "repond",
+    arrivee: true,
+    depuisMs: 3000,
+  };
+
+  it("un quart de seconde de neige à l'apparition de l'arrivée, puis plus rien", () => {
+    changerNiveau("tout");
+    montrer(arrivee(false));
+    expect(jetons()).toContain("coupure");
+    expect(document.querySelector("#arrivee .n3-coupure")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(COUPURE_MS - 1));
+    expect(jetons()).toContain("coupure");
+    act(() => vi.advanceTimersByTime(1));
+    expect(jetons()).not.toContain("coupure");
+  });
+  it("la première image la lève avant son terme, et elle ne revient pas", () => {
+    changerNiveau("tout");
+    montrer(arrivee(false));
+    lever();
+    expect(jetons()).toEqual([]);
+    act(() => vi.advanceTimersByTime(COUPURE_MS));
+    expect(jetons()).toEqual([]);
+  });
+  it("jumeau : au niveau « conseillé », aucune coupure", () => {
+    changerNiveau("conseille");
+    montrer(arrivee(false));
+    expect(jetons()).not.toContain("coupure");
+  });
+  it("jumeau : en mouvement réduit, aucune coupure", () => {
+    changerNiveau("tout");
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce") }));
+    montrer(arrivee(false));
+    expect(jetons()).not.toContain("coupure");
+  });
+  it("jumeau : jamais depuis une panne, même quand la salle répond de nouveau", () => {
+    changerNiveau("tout");
+    const gestes = rappels();
+    const { rerender } = render(<PleinCadre modele={modele(injoignable)} rappels={gestes} />);
+    expect(jetons()).not.toContain("coupure");
+    rerender(<PleinCadre modele={modele(arrivee(false))} rappels={gestes} />);
+    expect(document.querySelector("#arrivee")?.getAttribute("data-etat")).toBe("arrivee");
+    expect(jetons()).not.toContain("coupure");
+  });
+});
 
 describe("la couverture suit l'état, une fois par entrée", () => {
   const attribut = () => document.documentElement.getAttribute(ATTRIBUT);

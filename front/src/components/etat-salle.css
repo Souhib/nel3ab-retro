@@ -38,6 +38,21 @@
 :root[data-couverture~="neige"] .n3-neige {
   display: block;
 }
+/* La coupure de l'entrée : la neige sur tout le plein cadre, au-dessus de
+   son texte, le temps de son jeton (250 ms au plus). */
+.n3-coupure {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  display: none;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+:root[data-couverture~="coupure"] .n3-coupure {
+  display: block;
+}
 
 /* ── La pastille ─────────────────────────────────────────────────────── */
 

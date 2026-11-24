@@ -26,7 +26,11 @@
  * - « plein » : l'écran noir de la borne, à l'arrivée et pour une salle
  *   fermée ou qui ne répond pas avant toute image ;
  * - « passee » : l'image ARRÊTÉE, assombrie (décision K20 du propriétaire) ;
- * - « neige » : le signal perdu à la place de l'image, connexion coupée.
+ * - « neige » : le signal perdu à la place de l'image, connexion coupée ;
+ * - « coupure » : un quart de seconde de neige sur le plein cadre, à
+ *   l'entrée dans une salle, au niveau « tout » (`PleinCadre`). Une
+ *   transition, pas un état : elle se retire seule, et la première image la
+ *   lève comme le reste.
  *
  * # L'invariant
  *
@@ -38,7 +42,7 @@
  * couvrirait une image arrivée entre-temps.
  */
 
-export const JETONS = ["plein", "passee", "neige"] as const;
+export const JETONS = ["plein", "passee", "neige", "coupure"] as const;
 export type Jeton = (typeof JETONS)[number];
 
 /** L'attribut de la racine que les feuilles lisent. */
@@ -48,7 +52,7 @@ export const ATTRIBUT = "data-couverture";
  * confondues : un compteur à elle, parce que celui d'un flux repart de zéro
  * à chaque nouvelle session. */
 let peintes = 0;
-/** Les jetons posés. Au plus trois : les parcourir n'est pas un coût. */
+/** Les jetons posés. Au plus quatre : les parcourir n'est pas un coût. */
 const poses = new Set<Jeton>();
 
 function ecrire(): void {

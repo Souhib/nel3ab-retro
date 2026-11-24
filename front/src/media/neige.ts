@@ -31,12 +31,16 @@ export type MondeNeige = {
   posee: () => boolean;
 };
 
-const MONDE: MondeNeige = {
+/** Le monde d'une neige qui se voit sous `jeton` : la connexion coupée
+ * (« neige ») ou la coupure de l'entrée (« coupure »). */
+export const mondeDe = (jeton: "neige" | "coupure"): MondeNeige => ({
   dessiner: (canevas) => bruit(canevas),
   visible: () => document.visibilityState === "visible",
   reduit: mouvementReduit,
-  posee: () => jetons().includes("neige"),
-};
+  posee: () => jetons().includes(jeton),
+});
+
+const MONDE = mondeDe("neige");
 
 /**
  * Fait tomber la neige sur `canevas` tant que le jeton est posé. Rend la

@@ -148,6 +148,68 @@ describe("la carte d'une place", () => {
     expect(document.querySelector("#confirmRecovery")).toBeNull();
   });
 
+  /* Le salon envoie la même raison à qui demande ET à qui tient la place
+     (`recovery.py`, `notify`). Montée pour qui tient la place, la carte
+     prenait le focus à la zone de jeu et lui proposait « Prendre la place 3 »
+     d'une place libre : un joueur au clavier qui gardait sa place perdait
+     ses touches (relecture du 24 novembre 2026). */
+  it.each([
+    ["un refus", "Ami garde sa place 1."],
+    ["une annulation", "Demande annulée."],
+    ["une expiration", "La demande a expiré ou la place a changé. Réessaie."],
+    ["une reprise faite", "Bo reprend la place 1."],
+  ])("pour qui tient la place, %s n'ouvre aucune carte et ne prend pas le focus", (_, reason) => {
+    const jeu = document.createElement("div");
+    jeu.tabIndex = 0;
+    document.body.append(jeu);
+    jeu.focus();
+    render(
+      <CartePlace
+        {...rien}
+        sujet={null}
+        notice={notice({ port: 1, from: "Bo", to: "Ami", asking: false, remaining: 0, reason })}
+        libre={3}
+      />,
+    );
+    expect(document.querySelector("#cartePlace")).toBeNull();
+    expect(screen.queryByText("Prendre la place 3")).toBeNull();
+    expect(document.activeElement).toBe(jeu);
+    jeu.remove();
+  });
+
+  it("jumeau : pour qui demande, la même raison ouvre la carte et propose la place libre", () => {
+    render(
+      <CartePlace
+        {...rien}
+        sujet={null}
+        notice={notice({ asking: true, remaining: 0, reason: "Bilel garde sa place 2." })}
+        libre={3}
+      />,
+    );
+    expect(screen.getByRole("heading").textContent).toBe("Bilel garde sa place 2.");
+    expect(screen.getByText("Prendre la place 3")).toBeTruthy();
+  });
+
+  it("une erreur seule se montre sans prendre le focus : la ligne parlée la dit", () => {
+    const jeu = document.createElement("div");
+    jeu.tabIndex = 0;
+    document.body.append(jeu);
+    jeu.focus();
+    render(
+      <CartePlace
+        {...rien}
+        sujet={null}
+        notice={null}
+        erreur="Cette demande ne t'est plus adressée."
+      />,
+    );
+    expect(document.querySelector("#cartePlace")?.textContent).toContain(
+      "Cette demande ne t'est plus adressée.",
+    );
+    expect(document.activeElement).toBe(jeu);
+    jeu.remove();
+  });
+
   it("la carte de sa place propose de la rendre, sans lien qui quitte la salle", () => {
     const onRendre = vi.fn();
     render(

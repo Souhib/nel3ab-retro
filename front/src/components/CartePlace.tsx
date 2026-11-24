@@ -45,7 +45,8 @@ export function CartePlace({
   onRendre,
 }: {
   sujet: SujetCarte | null;
-  /** La demande en cours, venue du salon, quand c'est moi qui demande. */
+  /** La reprise en cours, venue du salon. La carte ne lit que celle où je
+   * demande (`asking`) ; celle qui vise ma place est à `DemandeRecue`. */
   notice: RecoveryNotice | null;
   erreur?: string;
   /** Une réponse est en vol : tenu par le parent, la carte peut se remonter. */
@@ -64,10 +65,17 @@ export function CartePlace({
 }) {
   const titre = useRef<HTMLHeadingElement>(null);
   const boite = useRef<HTMLElement>(null);
-  const attente = notice !== null && notice.asking && notice.reason === null;
-  const reste = useReste(attente ? notice.remaining : 0, notice?.id ?? "");
-  const ouverte = sujet !== null || notice !== null || erreur !== "";
-  const port = notice?.port ?? sujet?.port ?? null;
+  /* La demande, seulement quand c'est la mienne. Le salon envoie la même
+     raison (refus, annulation, expiration, reprise faite) à qui demande ET à
+     qui tient la place (`recovery.py`, `notify`). Montée pour qui tient la
+     place, la carte prenait le focus à la zone de jeu et proposait « Prendre
+     la place 3 » d'une place libre (relecture du 24 novembre 2026) : pour
+     lui, la ligne parlée dit la fin (`useDireLaReprise`), sans carte. */
+  const demande = notice !== null && notice.asking ? notice : null;
+  const attente = demande !== null && demande.reason === null;
+  const reste = useReste(attente ? demande.remaining : 0, demande?.id ?? "");
+  const ouverte = sujet !== null || demande !== null || erreur !== "";
+  const port = demande?.port ?? sujet?.port ?? null;
   /* « Fermer » et Échap rendent le focus à la place qui a ouvert la carte,
      « Prendre » le pose sur la place prise (plan personnes, places-demande
      1, A11Y-09). La place reste montée (clé stable par numéro) : le focus
@@ -87,17 +95,17 @@ export function CartePlace({
     if (ouverte && focus) titre.current?.focus();
     // Le focus se pose à l'ouverture, pas à chaque seconde.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ouverte, sujet?.port, notice?.id]);
+  }, [ouverte, sujet?.port, demande?.id]);
 
   // Seul le geste qui ne coûte rien passe par la manette : A confirme une
   // reprise devenue possible. Demander ou rendre reste un geste délibéré.
   useEffect(() => {
     if (!pad || !attente) return;
     pad((action) => {
-      if (action === "confirm" && reste === 0) onAction({ action: "finish", id: notice.id });
+      if (action === "confirm" && reste === 0) onAction({ action: "finish", id: demande.id });
     });
     return () => pad(null);
-  }, [pad, attente, reste, notice, onAction]);
+  }, [pad, attente, reste, demande, onAction]);
 
   /* Échap ferme la carte quand le focus est dedans ou sur sa place ;
      ailleurs il garde son sens, le menu du jeu, que la salle ouvre depuis
@@ -119,12 +127,12 @@ export function CartePlace({
   }, [ouverte, attente, port]);
 
   if (!ouverte) return null;
-  const qui = notice?.to ?? (sujet?.type === "autre" ? sujet.nom : "");
+  const qui = demande?.to ?? (sujet?.type === "autre" ? sujet.nom : "");
 
   let corps: ReactNode;
   let entete: string;
-  if (notice !== null && notice.reason !== null) {
-    entete = notice.reason;
+  if (demande !== null && demande.reason !== null) {
+    entete = demande.reason;
     corps = (
       <Actions>
         {libre !== null ? (
@@ -139,10 +147,10 @@ export function CartePlace({
     entete = reste > 0 ? CARTE.chezLui(qui) : CARTE.silence(qui);
     corps = (
       <>
-        {reste > 0 ? <Piste secondes={notice.remaining} /> : null}
+        {reste > 0 ? <Piste secondes={demande.remaining} /> : null}
         {reste > 0 && port !== null ? (
           <p className="n3-carte-phrase">
-            {CARTE.delai(qui, Math.ceil(notice.remaining), port)}
+            {CARTE.delai(qui, Math.ceil(demande.remaining), port)}
             <span className="n3-carte-reste" aria-hidden="true">
               {" "}
               {CARTE.restant(reste)}
@@ -154,14 +162,14 @@ export function CartePlace({
             id="confirmRecovery"
             plein
             inactif={occupe || reste > 0}
-            onClick={() => onAction({ action: "finish", id: notice.id })}
+            onClick={() => onAction({ action: "finish", id: demande.id })}
           >
             {port === null ? CARTE.choisir : CARTE.prendre(port)}
           </Bouton>
           <Bouton
             id="annulerDemande"
             inactif={occupe}
-            onClick={() => onAction({ action: "cancel", id: notice.id })}
+            onClick={() => onAction({ action: "cancel", id: demande.id })}
           >
             {CARTE.annuler}
           </Bouton>

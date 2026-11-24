@@ -2602,10 +2602,6 @@ function Room({
         cadre={cadreDeLaManette}
       />
     );
-  /** La boîte de la manette : ses grappes en travers et sur les côtés à la
-   * souris, rien tenue droite ou sous l'image ; « La salle » parmi ses
-   * touches quand la barre manque, et toujours à la souris. La tête de la
-   * mascotte y passe seulement tenue en main (`ouEstLaMascotte`). */
   /** Ton étiquette tapée (chantier personnes), ton numéro devant, quand
    * aucun panneau ne porte les places (en-jeu-tactile.5) : dans le creux
    * de la manette tenue droite (`fente`, lib/faces), sous « La salle » en
@@ -2625,6 +2621,10 @@ function Room({
         <Etiquette nom={maPlace.nom ?? name} place={maPlace.port} lettres={maPlace.lettres} />
       </>
     ) : null;
+  /** La boîte de la manette : ses grappes en travers et sur les côtés à la
+   * souris, rien tenue droite ou sous l'image ; « La salle » parmi ses
+   * touches quand la barre manque, et toujours à la souris. La tête de la
+   * mascotte y passe seulement tenue en main (`ouEstLaMascotte`). */
   const boiteDeLaManette: BoiteDuCadre | undefined = geo.manette
     ? {
         bandes: geo.manette.grappes

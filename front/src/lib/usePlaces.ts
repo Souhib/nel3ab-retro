@@ -70,6 +70,8 @@ export type SuiviDesPlaces = {
 type Changement = {
   phrases: string[];
   scene: Scene | null;
+  /** La place dont la scène parle (`start-N` d'Aïn), ou `null`. */
+  joueur: number | null;
   vient: number[];
   part: number[];
 };
@@ -84,7 +86,7 @@ export function changement(
   apres: { occupation: Occupation; mienne: number | null; regardent: readonly string[] },
   dejaVus: ReadonlySet<string>,
 ): Changement {
-  const rien: Changement = { phrases: [], scene: null, vient: [], part: [] };
+  const rien: Changement = { phrases: [], scene: null, joueur: null, vient: [], part: [] };
   if (avant === null) return rien;
   const { arrivees, departs } = differences(avant.occupation, apres.occupation, dejaVus);
   const phrases: string[] = [];
@@ -129,15 +131,21 @@ export function changement(
   // Une scène par changement, la plus forte : une première arrivée, sinon un
   // départ seul, sinon un spectateur. La table du socle (`pourTransition`)
   // dit quelle scène joue chaque événement.
+  // Le joueur dont elle parle va avec : Aïn va au START de sa place
+  // (`start-N`, contrat de la mascotte) ; un spectateur n'a pas de place.
   let scene: Scene | null = null;
-  if (arrivees.some((a) => a.facon === "premiere" && a.nom !== null)) {
+  let joueur: number | null = null;
+  const premiere = arrivees.find((a) => a.facon === "premiere" && a.nom !== null);
+  if (premiere !== undefined) {
     scene = pourTransition(null, null, { evenement: "place", enPartie: true })?.scene ?? null;
+    joueur = premiere.port;
   } else if (departs.length === 1 && arrivees.length === 0) {
     scene = pourTransition(null, null, { evenement: "depart", enPartie: true })?.scene ?? null;
+    joueur = departs[0].port;
   } else if (nouveaux.length > 0 && arrivees.length === 0 && departs.length === 0) {
     scene = pourTransition(null, null, { evenement: "spectateur", enPartie: true })?.scene ?? null;
   }
-  return { phrases, scene, vient, part };
+  return { phrases, scene, joueur: scene === null ? null : joueur, vient, part };
 }
 
 export function usePlaces(s: SuiviDesPlaces): {

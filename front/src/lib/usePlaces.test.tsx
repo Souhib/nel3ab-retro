@@ -30,6 +30,7 @@ describe("ce qu'un changement fait", () => {
     expect(changement(null, plein, new Set())).toEqual({
       phrases: [],
       scene: null,
+      joueur: null,
       vient: [],
       part: [],
     });
@@ -44,9 +45,54 @@ describe("ce qu'un changement fait", () => {
     expect(fait).toEqual({
       phrases: ["JO prend la place 3."],
       scene: "arrivee",
+      joueur: 3,
       vient: [3],
       part: [],
     });
+  });
+
+  /* Le contrat d'Aïn (emplacements-salle.json, mascotte) : `arrivee` et
+     `depart` vont au START du joueur (`start-N`), et l'arbitre passe
+     `contexte.joueur`. Sans le port dans le changement, ces scènes
+     n'atteignaient jamais la place et retombaient en pose (relecture du
+     24 novembre 2026). */
+  it("la scène sait de quel joueur elle parle : l'arrivée et le départ", () => {
+    const arrive = changement(
+      etat(occ([false, false, false, false])),
+      etat(
+        occ(
+          [false, true, true, false],
+          [
+            [2, "Lu"],
+            [3, "JO"],
+          ],
+        ),
+      ),
+      new Set(["Lu"]),
+    );
+    // Lu revient, JO arrive pour la première fois : la scène est celle de JO.
+    expect(arrive.scene).toBe("arrivee");
+    expect(arrive.joueur).toBe(3);
+    const part = changement(
+      etat(occ([false, true, false, false], [[2, "Bo"]])),
+      etat(occ([false, false, false, false])),
+      new Set(),
+    );
+    expect(part.scene).toBe("depart");
+    expect(part.joueur).toBe(2);
+  });
+
+  it("jumeau : sans scène, ou pour un spectateur, aucun joueur", () => {
+    const retour = changement(
+      etat(occ([false, false, false, false])),
+      etat(occ([false, false, true, false], [[3, "JO"]])),
+      new Set(["JO"]),
+    );
+    expect(retour.scene).toBeNull();
+    expect(retour.joueur).toBeNull();
+    const regarde = changement(etat(occ([false])), etat(occ([false]), null, ["Sami"]), new Set());
+    expect(regarde.scene).not.toBeNull();
+    expect(regarde.joueur).toBeNull();
   });
 
   it("un retour allume la place sans scène", () => {
@@ -75,6 +121,7 @@ describe("ce qu'un changement fait", () => {
     expect(fait).toEqual({
       phrases: ["Inès rend la place 4."],
       scene: "depart",
+      joueur: 4,
       vient: [],
       part: [4],
     });

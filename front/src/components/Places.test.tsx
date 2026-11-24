@@ -34,6 +34,42 @@ describe("les places START", () => {
     );
   });
 
+  /* Le contrat d'Aïn (emplacements-salle.json, mascotte) : `arrivee`,
+     `depart` et `fier` demandent `start-1` à `start-4`, posés sur chaque
+     bouton START ; une ancre absente replie la scène en version courte. Le
+     planificateur prend la première ancre de ce nom et exclut l'élément qui
+     la porte des zones interdites : il en faut une, sur le bouton lui-même
+     (relecture du 24 novembre 2026). */
+  it("pose l'ancre d'Aïn start-N sur chaque bouton START, une seule fois", () => {
+    render(
+      <Places
+        forme="petite"
+        entree={entree()}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+        onToutes={() => {}}
+      />,
+    );
+    for (const n of [1, 2, 3, 4]) {
+      const ancres = document.querySelectorAll(`[data-ancre="start-${n}"]`);
+      expect(ancres).toHaveLength(1);
+      expect(ancres[0]).toBe(port(n));
+    }
+  });
+
+  it("jumeau : une console à deux places n'a pas d'ancre start-3", () => {
+    render(
+      <Places
+        forme="rangee"
+        entree={entree({ places: 2, tenues: [false, true], mienne: null, chef: null })}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+      />,
+    );
+    expect(document.querySelector('[data-ancre="start-2"]')).toBe(port(2));
+    expect(document.querySelector('[data-ancre="start-3"]')).toBeNull();
+  });
+
   it("pose la couronne DANS la place de qui choisit le jeu, et nulle part ailleurs", () => {
     render(<Places forme="rangee" entree={entree()} onPrendre={() => {}} onCarte={() => {}} />);
     expect(port(2).querySelector(".n3-couronne")).not.toBeNull();

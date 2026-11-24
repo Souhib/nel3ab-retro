@@ -22,7 +22,11 @@
  * ouvre la salle (`onToutes`). La bascule est une requête de conteneur
  * (`places.css`) : la largeur vient du cadre, et React ne la lit pas.
  *
- * `id` et `data-state` sont lus par les pilotes de navigateur.
+ * `id` et `data-state` sont lus par les pilotes de navigateur ;
+ * `data-ancre="start-N"` par Aïn. En petit, les lampes de `#placesToutes`
+ * n'en portent pas : le planificateur prend la première ancre d'un nom, qui
+ * serait la place cachée de la rangée ; sans ancre visible, la scène se
+ * replie en version courte, comme le contrat le prévoit.
  */
 import type { CSSProperties } from "react";
 import { aplatDuJoueur } from "../lib/etiquette";
@@ -84,6 +88,12 @@ export function Places({
               key={p.port}
               type="button"
               id={`port${p.port}`}
+              // L'ancre d'Aïn (contrat de la mascotte) : son arrivée et son
+              // départ se posent sur le haut de ce bouton. Sur le bouton
+              // même, pas sur le rond : le planificateur exclut des zones
+              // interdites l'élément qui porte l'ancre, et le rond est dans
+              // un bouton qu'il refuserait de toucher.
+              data-ancre={`start-${p.port}`}
               // Ponctuel : un clic de souris rend le clavier au jeu
               // (`lib/focus-jeu`, `rendreAuJeuApresClic`).
               data-rend-le-jeu=""

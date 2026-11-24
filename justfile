@@ -941,6 +941,11 @@ parcours-navigateur-rouge:
     git show 1ee8b49:core/crates/worker/src/page/index.html > "$dossier/menus-1ee8b49.html"
     node parcours.mjs --page "$dossier/menus-1ee8b49.html" --flux "$dossier/flux.h264" \
         --etapes garde-focus --rouge-attendu garde-focus
+    # cd2d5b3, la page relue le 24 novembre 2026 : la fiche se pose à côté
+    # des rangées, mais la cartouche ouverte ne sort pas de sa rangée.
+    git show cd2d5b3:core/crates/worker/src/page/index.html > "$dossier/menus-cd2d5b3.html"
+    node parcours.mjs --page "$dossier/menus-cd2d5b3.html" --flux "$dossier/flux.h264" \
+        --etapes fiche-a-cote --rouge-attendu fiche-a-cote
     # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
     # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
     # dite 90 ms après une arrivée l'efface de la ligne parlée, et l'ancre

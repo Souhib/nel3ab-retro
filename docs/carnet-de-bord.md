@@ -30848,6 +30848,166 @@ reste rouge, hors de la porte.
 **Le poids.** 261 286 octets en brotli (+217 : les deux séquences des
 marques, la garde du focus, les avis de la trame Pro déplacés).
 
+### 24 novembre, après la relecture des manettes : la vague B1 sur la branche d'intégration
+
+**Le contexte.** Trois chantiers d'écran ont fini un passage relu :
+« personnes » (les places START, les cartes, l'invitation, les mesures),
+« mascotte » (Aïn, son planificateur et ses scènes) et « manettes » (le
+panneau « Touches et manettes »). Tous trois partent du même commit
+d'`integration/retro` (9fb659e, la préparation Pro sortie du panneau). On
+les réunit sur cette branche, dans le worktree
+`~/nel3ab-chantiers/retro-integration`, dans l'ordre demandé : personnes,
+puis la mascotte, puis les manettes. Chaque fusion passe par un commit de
+fusion, pour que la frontière de chaque chantier reste visible. Rien ne va
+dans `main`, rien n'est poussé ni installé.
+
+**Personnes, sans conflit.** La branche d'intégration n'avait pas bougé
+depuis le départ du chantier : le résultat de la fusion est l'arbre de la
+branche, octet pour octet. Six commits du chantier touchent `App.tsx` au
+lieu d'un seul commit de câblage ; les rejouer dans leur ordre revient à
+appliquer la différence d'`App.tsx` entre la base et la branche, et c'est ce
+que fait la fusion. La page n'avait pas à être reconstruite :
+`stamp.mjs --check` la dit à jour, 257 012 octets en brotli.
+
+**La mascotte, sept conflits.** Le carnet et l'état du projet prennent
+l'union des deux côtés, dans l'ordre de fusion. La planche d'Aïn
+(`apercu/planche.tsx`) prend le côté de la mascotte, qui la possède et l'a
+réécrite : le seul changement de personnes y remplaçait `Seats` par
+`Places`, et la nouvelle planche n'a plus ni l'un ni l'autre.
+`Colonne.test.tsx` garde les imports des deux côtés. Dans `cadre.mjs`,
+l'étape `un-plein` avait été corrigée deux fois au même endroit, pour deux
+raisons : les places START font déborder la colonne, et la maison d'Aïn
+pousse « Autres réglages » au pied collé. On garde la correction de
+personnes, qui centre les deux cibles l'une après l'autre et couvre donc
+aussi le cas de la mascotte, avec les deux raisons dans le commentaire. La
+page est reconstruite par `just front-build` : 270 022 octets. Le paquet
+d'Aïn pour le salon (`retro/ain.js`) ne change pas, parce qu'aucun autre
+chantier ne touche ses sources.
+
+**Les manettes, six conflits.** Tous sont des ajouts en fin de fichier.
+`mots.ts` prend l'union des blocs, celui de personnes puis celui de
+manettes, chacun entre ses marques. `mots.test.ts` cachait un piège : les
+deux chantiers avaient fini leur `describe` par les deux mêmes lignes
+(`});` deux fois), et git les avait sorties du bloc en conflit, comme une
+fin commune. L'union simple aurait laissé le `describe` de personnes
+ouvert. Un petit script referme celui de personnes, pose celui de manettes,
+et refuse tout autre forme de bloc. Une vérification compare chaque
+fichier résolu aux deux côtés : aucune ligne ajoutée par l'un ou l'autre
+n'est perdue. `App.tsx` se fusionne sans conflit de texte, et `tsc -b` le
+compile. La page reconstruite fait 281 747 octets.
+
+**« Je reste » part de la page.** Le chantier données avait gardé à part
+la méthode `reste()` de `media/input.ts`, parce que ce fichier appartient
+aux manettes (K34). Le correctif s'applique tel quel après leur fusion.
+Ses deux essais ont d'abord été posés seuls, et rougissaient (« reste is
+not a function ») ; avec la méthode, ils passent. Trois mutants tombent
+chacun sur un essai : la marque 0xE0 au lieu de 0xE1, la garde de la
+place retirée, la garde de la socket retirée. Aucun écran ne l'appelle
+encore : l'avis de fermeture est au chantier états. La page gagne
+13 octets.
+
+**Des conflits sans conflit de texte.** Chaque branche était verte
+seule. Réunies, trois étapes rougissent, et une quatrième faute se cachait
+derrière l'une d'elles. Git n'a rien signalé : chaque chantier avait écrit
+dans ses fichiers à lui, mais supposait que l'autre n'existait pas. Chaque
+cause est établie, par une capture ou par un journal pas à pas.
+
+- **« Copier le lien » sous le pied collé** (`parcours-navigateur`, étape
+  `invitation`). Au bureau, la mascotte colle le coin et « Plus bas » au
+  pied de ce qui se voit de la colonne. Le panneau d'invitation de
+  personnes se déplie au bas de la colonne, et la moitié basse de « Copier
+  le lien » passe dessous : un clic au centre du bouton tombe sur le pied,
+  et rien n'est copié. La colonne fait déjà défiler dans la vue un
+  `<details>` qui s'ouvre, mais l'invitation est un bouton à
+  `aria-expanded`, que cette règle ne voit pas. La relecture de la mascotte
+  avait prévenu que d'autres contrôles du bas de la colonne tomberaient
+  dessous. Le remède touche `Inviter.tsx` (personnes) ou `Colonne.tsx`
+  (salle) ; la partition interdit à l'intégration de modifier l'un ou
+  l'autre, et la demande remonte au chef de chantier.
+- **Le jumeau des mots de `mascotte-hors-image`** (`cadre-navigateur`).
+  Il pose un sprite à la main sur la phrase de l'écran éteint, 300 ms
+  après l'entrée, et exige qu'aucune scène ne joue. Depuis personnes, la
+  salle joue `arrivee` au coin à l'entrée : de 382 ms à 2,7 s dans le
+  journal pas à pas. La précondition tombe, sans défaut de la page. Le
+  remède est d'attendre la fin de la scène avant de poser le sprite, dans
+  une étape qui appartient à la mascotte.
+- **Ce que cette précondition cachait.** Elle tombe après les sept hôtes
+  de l'étape, mais avant son verdict : les fautes déjà relevées n'étaient
+  pas dites. Une copie du pilote, gardée hors du dépôt, attend la fin des
+  scènes avant le jumeau. Le jumeau y passe, et l'étape dit trois fautes
+  réelles, à 1280 × 720, 1440 × 900 et 390 × 844 : pendant la scène
+  `depart` du joueur 2, l'étiquette qu'Aïn emporte passe sur « 2P libre »,
+  le bouton START de la place 2. Personnes a posé l'ancre `start-2` sur le
+  bouton lui-même. Le planificateur ne compte pas l'élément d'une ancre
+  parmi les obstacles, mais la sonde, qui lit autrement, compte tout
+  bouton visible. La planche de la mascotte pose ses ancres comme des
+  marques de 2 × 1 px au bord du sol, pas sur un bouton. Personnes et la
+  mascotte doivent s'accorder sur la forme de l'ancre.
+- **La fenêtre d'`ain-immobile`** (`cadre-navigateur`). L'étape compte les
+  appels à `requestAnimationFrame` de la boucle d'Aïn pendant deux
+  secondes sans scène. Elle jette une fenêtre où une scène commence ou
+  joue encore à la fin, mais pas une fenêtre qui commence pendant une
+  scène. L'arrivée de personnes a retardé le premier moment calme jusqu'à
+  2,7 s, et la scène `attente` du plateau a commencé à 2,78 s, juste avant
+  la fenêtre (3,02 à 5,02 s). Les 101 appels comptés dans le journal pas à
+  pas sont ceux de cette scène : la boucle s'arrête à 4,693 s, la scène finit à 4,711 s. Rien ne
+  tourne entre deux scènes ; c'est la garde de l'étape qui laisse passer
+  une fenêtre occupée. Le remède, jeter aussi une fenêtre qui commence
+  pendant une scène, appartient à la mascotte.
+
+Un pilote s'arrête à sa première étape rouge : les suivantes ne sont pas
+passées, elles sont sautées. Pour savoir ce qu'elles disaient, elles ont
+été lancées à part, par leur nom, sur la page finale. Les vingt et une
+étapes de `parcours.mjs` après `invitation` passent. Dans `cadre.mjs`,
+`ain-immobile` tombe comme décrit, et les cinq suivantes passent
+(`maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle`, `vit-figee-immobile`,
+`borne-bandes`). Cela ne rend pas les recettes vertes : elles restent
+rouges, et le compte rendu le dit.
+
+**Une instabilité.** Après la fusion de personnes, le premier passage de
+`parcours-navigateur` est tombé sur `place-suit-adresse` (« Node is either
+not clickable or not an Element », après 1,5 s ; l'étape entière dure
+4,6 s, et son premier clic vise « Prendre une place »). Trois passages de
+l'étape seule, puis la suite entière, sont verts, et les deux passages
+suivants aussi. La cause n'est pas établie. L'étape appartient au salon.
+
+**Le poids.** 281 760 octets en brotli, 18 240 sous le plafond de 300 000.
+Depuis la base de la vague (249 486) : +7 526 pour personnes (enveloppe
+8 000), +13 010 pour la mascotte, au-dessus de ses 8 000 comme le
+propriétaire l'a accepté, +11 725 pour les manettes (enveloppe 12 000),
++13 pour « je reste ». Rien n'est encore retiré : les anciens dialogues
+des touches hébergent la préparation jusqu'au chantier menus, et Bobine
+est encore importée par `App.tsx`, `Booting`, `EtatSalle`, `Ouverture` et
+`liaison-mots.ts`. Si états (7 000) et menus (8 000) remplissent leur
+enveloppe, il restera 3 240 octets avant les retraits.
+
+**La porte locale.** La recette `reglage-navigateur` et son contrôle
+`reglage-navigateur-rouge` entrent dans `local`, comme le plan des
+manettes et la partition le prévoient. `cadre-navigateur` et
+`planche-garde` n'y entrent pas : leurs chantiers ont laissé ce choix au
+propriétaire.
+
+**Les portes.** `just check` est vert après chaque fusion : 1 288 essais
+Python à chaque fois, et 1 748 essais de la page après personnes, 1 852
+après la mascotte, 2 051 après les manettes, 2 053 avec « je reste ». Sur
+la page finale, `focus-navigateur` (27 étapes), `etats-navigateur` (12),
+`salle-telephone` (104 lignes), `manette-garde` (41 lignes),
+`reglage-navigateur` (9 étapes) et `planche-garde` sont verts.
+`parcours-navigateur` est rouge sur `invitation`, et `cadre-navigateur`
+sur `mascotte-hors-image` puis `ain-immobile`. Les six contrôles rouges
+tombent tous sur leur défaut nommé : `focus-navigateur-rouge` (15 puis 9
+étapes), `etats-navigateur-rouge` (deux blocs), `parcours-navigateur-rouge`
+(six), `cadre-navigateur-rouge` (six), `reglage-navigateur-rouge` (cinq) et
+`mascotte-navigateur-rouge`. Les pages que `reglage-navigateur-rouge` lit
+par `git show` (bc72ba9, e62f583, 842e4c9 et 9b1c8e8) viennent de commits
+de `chantier/retro-manettes` : la fusion les garde dans l'histoire de la
+branche d'intégration.
+
+**Ce qui n'est pas prouvé.** La porte entière n'a pas tourné :
+`gpu-test`, `clip-audio-test`, `switch-saves-test`, `switch-capture-test`,
+`xbox360-test`, `abri-test` et `deploy-check` attendent l'intégration
+finale. Aucun worker n'est reconstruit ni installé, et aucune vraie salle
+n'a servi la page.
 
 ## 12. Glossaire complet
 
@@ -32686,3 +32846,7 @@ l'image du jeu : toute l'image tenue droite, sa partie gauche en travers.
 (`lib/cadre.ts`) calcule et donne à un élément, hors de l'image : la barre,
 la bande, le panneau de commande, la manette tactile.
 
+**Conflit sémantique (de fusion)** : deux branches qui se fusionnent sans
+conflit de texte, et dont le résultat ne marche plus, parce que chacune
+supposait ce que l'autre change. Git ne peut pas le voir ; seules les
+preuves lancées sur le résultat le montrent.

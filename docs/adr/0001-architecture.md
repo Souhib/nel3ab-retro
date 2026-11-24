@@ -2335,6 +2335,13 @@ Decision:
   spectator has no pad socket, hence no button. The page method `reste()` in
   `media/input.ts` waits for the controllers track to merge (K34).
 
+**Amended 2026-11-24: the page sends it.** `InputStream.reste()` is in
+`media/input.ts` since the controllers track merged into
+`integration/retro`. It sends `Reste::TAG` alone on the seat's socket and
+returns false without a seat or on a closed socket, so a screen never says
+« kept » when nothing left. No screen calls it yet: the closing notice
+belongs to the states track.
+
 
 ### D45: Game pictures without an open room, 2026-11-23
 

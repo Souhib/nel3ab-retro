@@ -460,6 +460,15 @@ machine".
   a probe watches between scenes too. A sticky element hides what scrolls
   under it, but the hidden boxes still report their rectangles: clip them,
   and let the probe ask `elementFromPoint` instead of sharing that rule.
+- **Two green branches do not make a green merge.** On 2026-11-24, three
+  workstreams merged with only end-of-file text conflicts, and three browser
+  steps went red: the invite panel unfolded under the column's sticky foot,
+  and two mascot steps assumed a quiet page that the arrival scene no longer
+  gave them. Run every browser proof after each merge, not only those of the
+  files in conflict. A step that needs a quiet page waits for it and checks
+  it at the start of its window as well as at the end. An end-of-file union
+  can also leave a block open: git took the two `});` that ended both
+  `describe` blocks out of the conflict as a shared tail.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that

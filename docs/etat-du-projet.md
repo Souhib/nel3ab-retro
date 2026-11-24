@@ -1,4 +1,4 @@
-# État du projet au 23 novembre 2026
+# État du projet au 24 novembre 2026
 
 Ce point de reprise conserve le travail commencé en septembre et les
 livraisons datées jusqu'au 10 novembre. Il indique où retrouver les décisions, les expériences
@@ -96,8 +96,10 @@ du socle ; rien dans `main`, rien d'installé, rien de poussé). ADR D38.
   `NEL3AB_DEMARRAGES_FILE` (`~/.local/state/nel3ab/demarrages.jsonl`) ;
   `Game.demarrage` à partir de cinq démarrages réussis.
 - **« Je reste » (D16).** Message `Reste` d'un octet sur la socket de
-  manette ; la méthode `reste()` de `front/src/media/input.ts` reste à écrire
-  après la fusion du chantier des manettes (K34).
+  manette ; la méthode `reste()` de `front/src/media/input.ts` est écrite
+  depuis le 24 novembre, sur `integration/retro`, après la fusion du
+  chantier des manettes (K34). Aucun écran ne l'appelle encore : l'avis de
+  fermeture est au chantier états.
 - **Mise en service.** Le salon seulement (`deploy/salon-importable.sh` puis
   redémarrage), avant la page. La page actuelle lit `ouverte_depuis` et affiche
   maintenant la vraie ouverture ; une salle ouverte avant la mise en service
@@ -431,6 +433,28 @@ dans la feuille agrandie : sa place demande un emplacement de
 `lib/cadre.ts` au chantier salle. Page : 261 286 octets. Récit : « 24
 novembre, à midi : la relecture des manettes, quatre constats ».
 
+**Au 24 novembre : la vague B1 sur `integration/retro`.** Personnes, la
+mascotte et les manettes sont réunis sur la branche d'intégration, dans cet
+ordre, chacun par un commit de fusion ; rien dans `main`, rien de poussé
+ni d'installé. Personnes s'est fusionné sans conflit. La mascotte a
+apporté sept conflits (carnet, état, planche, imports de
+`Colonne.test.tsx`, étape `un-plein` de `cadre.mjs`, page), les manettes
+six (`mots.ts`, `mots.test.ts`, carnet, état, page) ; aucune ligne d'aucun
+côté n'est perdue, et la page est reconstruite après chaque fusion. La
+méthode `reste()` de données est dans `media/input.ts`. `reglage-navigateur`
+et son contrôle rouge entrent dans la porte `local`. Page : 281 760 octets
+en brotli, 18 240 sous le plafond. `just check`, `focus-navigateur`,
+`etats-navigateur`, `salle-telephone`, `manette-garde`,
+`reglage-navigateur`, `planche-garde` et les six contrôles rouges sont
+verts. `parcours-navigateur` et `cadre-navigateur` sont rouges, sur des
+conflits sans conflit de texte, chacun à son chantier : « Copier le lien »
+sous le pied collé de la colonne (personnes ou salle) ; le jumeau des mots
+de `mascotte-hors-image` et la fenêtre d'`ain-immobile`, qui ne savent pas
+qu'une arrivée joue à l'entrée (mascotte) ; et, caché derrière ce jumeau,
+l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
+`start-2` est le bouton START lui-même (personnes et mascotte). Récit :
+« 24 novembre, après la relecture des manettes : la vague B1 sur la
+branche d'intégration ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

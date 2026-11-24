@@ -522,6 +522,12 @@ machine".
   `index.css` with 19, under the 50 that `classes.test.ts` required before
   judging. Widen what the guard reads (the panel's sheets joined it) rather
   than lowering the floor until it passes on nothing.
+- **A layout height is measured in the render, not derived from CSS.** On
+  2026-11-24, one more row of the room sheet was reckoned at 48 px from a
+  44 px `min-height` and a 4 px gap; the browser measured 72 to 78, because
+  each entry's detail wraps on a phone. No tried size fell in the gap, so
+  no gate would have said it. Take the number from a driver's measurement
+  and pin both sides of it in a test.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 

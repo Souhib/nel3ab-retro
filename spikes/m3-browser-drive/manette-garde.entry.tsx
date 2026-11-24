@@ -124,9 +124,10 @@ function Salle() {
     if (what === "cacher") setHidden(true);
   };
   // La pastille de la fermeture proche, posée comme `App` la pose tenue en
-  // main (`placeDeLaPastille`, ADR D40) : à part en haut de la grappe droite
-  // ou dans la barre, sinon en tête de la bande, où va la pile des avis. La
-  // garde mesure CETTE pastille, pas une copie ; sans place, il n'y en a pas.
+  // main (`placeDeLaPastille`, ADR D40) : à part en haut de la grappe droite,
+  // dans sa place de la barre (`BarreSalle`, depuis le 24 novembre 2026),
+  // sinon en tête de la bande, où va la pile des avis. La garde mesure CETTE
+  // pastille, pas une copie ; sans place, il n'y en a pas.
   const fermeture = modeleEtat({
     liaison: { etat: "ok" },
     salle: 1,
@@ -140,7 +141,13 @@ function Salle() {
   const place = placeDeLaPastille(geo, true);
   // Dans la pile, `App` la met en tête de la bande.
   const rectPastille =
-    place?.lieu === "a-part" ? place.rect : place && geo.bande ? { ...geo.bande, h: 44 } : null;
+    place?.lieu === "a-part"
+      ? place.rect
+      : place?.lieu === "pile" && geo.bande
+        ? { ...geo.bande, h: 44 }
+        : null;
+  const pastilleDansLaBarre =
+    place?.lieu === "barre" ? <EtatPastille modele={fermeture} onAller={() => {}} /> : null;
   // Dit à la garde que la page a choisi « nulle part », pour qu'une
   // pastille absente ne passe pas pour une pastille perdue.
   document.body.dataset.pastille = place === null ? "aucune" : "posee";
@@ -172,6 +179,7 @@ function Salle() {
             jeu="Le jeu"
             sonCoupe={muet}
             onSalle={tell("feuille")}
+            pastille={pastilleDansLaBarre}
           />
         ) : geo.boutonSalle ? (
           <BoutonSalle

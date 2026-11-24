@@ -16,21 +16,25 @@ export function Mascotte({
   scene,
   jeton = 0,
   className,
+  hote,
 }: {
   /** La scène à jouer, ou `null` pour le personnage au repos. */
   scene: Scene | null;
   /** Rejoue la scène quand il change: un compteur d'arrivées, par exemple. */
   jeton?: number;
   className?: string;
+  /** L'endroit, pour l'arbitre de la salle (`data-hote`) : « barre » porte
+   * la tête seule d'Aïn, peinte dès le montage. */
+  hote?: "barre" | "coin" | "plateau";
 }) {
-  const hote = useRef<HTMLSpanElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (hote.current) poserMascotte(hote.current);
+    if (ref.current) poserMascotte(ref.current);
   }, []);
   useEffect(() => {
-    if (!hote.current || scene === null) return;
-    const lecture = jouer(scene, { hote: hote.current });
+    if (!ref.current || scene === null) return;
+    const lecture = jouer(scene, { hote: ref.current });
     return () => lecture.interrompre();
   }, [scene, jeton]);
-  return <span ref={hote} className={className} aria-hidden="true" />;
+  return <span ref={ref} className={className} data-hote={hote} aria-hidden="true" />;
 }

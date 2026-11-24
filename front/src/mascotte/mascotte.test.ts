@@ -26,6 +26,44 @@ function animations() {
   return { joues, finir };
 }
 
+/** Les images à la main, et des toiles qui ne peignent rien (jsdom n'a pas
+ * de contexte 2D). */
+function images() {
+  let attente = new Map<number, FrameRequestCallback>();
+  let suivant = 1;
+  vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => {
+    attente.set(suivant, f);
+    return suivant++;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => attente.delete(id));
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+    () =>
+      ({ clearRect() {}, fillRect() {}, drawImage() {} }) as unknown as CanvasRenderingContext2D,
+  );
+  const une = (ms = 16) => {
+    const lot = attente;
+    attente = new Map();
+    for (const f of lot.values()) f(performance.now() + ms);
+  };
+  return {
+    get enAttente() {
+      return attente.size;
+    },
+    /** Une image : ce qui attendait, une fois. */
+    une,
+    vider(max = 2000) {
+      for (let n = 0; attente.size > 0; n++) {
+        if (n > max) throw new Error("une boucle tourne encore");
+        une(n * 16);
+      }
+    },
+  };
+}
+const visibles = () =>
+  [...document.querySelectorAll<HTMLCanvasElement>(".rt-ain-sprite")]
+    .filter((cv) => !cv.hidden)
+    .map((cv) => cv.dataset.acteur);
+
 function reduit(oui: boolean) {
   vi.stubGlobal("matchMedia", (requete: string) => ({
     matches: oui && requete.includes("reduce"),
@@ -41,6 +79,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  for (const calque of document.querySelectorAll(".rt-ain-calque")) calque.remove();
   delete (Element.prototype as { animate?: unknown }).animate;
   document.body.innerHTML = "";
 });
@@ -48,7 +88,7 @@ afterEach(() => {
 const coin = () => document.getElementById("coin") as HTMLElement;
 
 describe("les scènes", () => {
-  it("les dix-neuf identifiants communs, chacun avec ses deux durées", () => {
+  it("les vingt-deux identifiants communs, chacun avec ses deux durées", () => {
     expect([...SCENES].sort()).toEqual(
       [
         "arrivee",
@@ -70,6 +110,9 @@ describe("les scènes", () => {
         "pret",
         "fier",
         "demo",
+        "spectateur",
+        "attente-chargement",
+        "hoquet",
       ].sort(),
     );
     for (const scene of SCENES) {
@@ -100,32 +143,43 @@ describe("les scènes", () => {
 });
 
 describe("jouer", () => {
-  it("dessine le personnage dans l'hôte et joue la scène, complète puis courte", async () => {
-    const { joues } = animations();
+  it("dessine Aïn dans l'hôte et joue la scène, complète puis courte", async () => {
+    animations();
+    const h = images();
     const premiere = jouer("arrivee", { hote: coin() });
     expect(coin().classList.contains("rt-mascotte-hote")).toBe(true);
     expect(coin().querySelectorAll(".rt-mascotte")).toHaveLength(1);
     expect(premiere.version).toBe("complete");
-    expect(joues[0]?.options.duration).toBe(DUREES.arrivee.complete);
+    // Une scène demande des images tant qu'elle joue, plus après.
+    expect(h.enAttente).toBe(1);
+    h.vider();
     await premiere.fini;
     const seconde = jouer("arrivee", { hote: coin() });
     expect(seconde.version).toBe("courte");
-    expect(joues[1]?.options.duration).toBe(DUREES.arrivee.courte);
+    h.vider();
+    await seconde.fini;
+    expect(h.enAttente).toBe(0);
     // Toujours un seul personnage.
     expect(coin().querySelectorAll(".rt-mascotte")).toHaveLength(1);
   });
 
-  it("une nouvelle scène finit la précédente", () => {
-    const { finir } = animations();
+  it("une nouvelle scène finit la précédente ; la première image rentre Aïn", () => {
+    animations();
+    const h = images();
     jouer("chercher", { hote: coin() });
     expect(sceneEnCours(coin())).toBe("chercher");
+    // Quelques images : la scène joue.
+    for (let i = 0; i < 3; i++) h.une();
+    expect(h.enAttente).toBe(1);
     jouer("premiere-image", { hote: coin() });
-    expect(finir).toHaveBeenCalledTimes(1);
     expect(sceneEnCours(coin())).toBe("premiere-image");
+    expect(visibles()).toEqual([]);
+    expect(h.enAttente).toBe(0);
   });
 
   it("refuse un hôte sur l'image du jeu, sans rien dessiner", () => {
     const { joues } = animations();
+    images();
     const dedans = document.getElementById("dedans") as HTMLElement;
     const lecture = jouer("fier", { hote: dedans });
     expect(lecture.refusee).toBe(true);
@@ -133,34 +187,40 @@ describe("jouer", () => {
     const zone = document.getElementById("zone") as HTMLElement;
     expect(jouer("fier", { hote: zone }).refusee).toBe(true);
     expect(joues).toHaveLength(0);
+    expect(document.querySelector(".rt-ain-calque")).toBeNull();
   });
 
-  it("en mouvement réduit, la pose clé seule, et la phrase reste", () => {
-    const { joues } = animations();
+  it("en mouvement réduit, la pose clé seule, sans image demandée, et la phrase reste", () => {
+    animations();
+    const h = images();
     reduit(true);
     const region = document.createElement("p");
     const lecture = jouer("endort", { hote: coin(), region, phrase: "La salle va fermer." });
     expect(lecture.version).toBeNull();
-    expect(joues).toHaveLength(0);
+    expect(h.enAttente).toBe(0);
     expect(region.textContent).toBe("La salle va fermer.");
-    const el = coin().querySelector(".rt-mascotte") as HTMLElement;
-    expect(el.dataset.scene).toBe("endort");
-    expect(el.dataset.tourne).toBe("non");
-    expect(el.style.opacity).toBe("0.5");
+    // La pose clé : Aïn dans le logo, le « z » au-dessus.
+    expect(visibles()).toEqual(["bulle"]);
   });
 
   it("refuse une scène inconnue", () => {
     expect(() => jouer("danse" as never, { hote: coin() })).toThrow();
   });
 
-  it("l'hôte coupe ce qui dépasse: une scène ne sort pas de sa boîte", () => {
+  it("le calque des sprites ne prend pas le pointeur et vit hors de la zone de jeu", () => {
     const css = fs.readFileSync(ici("../effets.css"), "utf-8");
-    expect(css).toMatch(/\.rt-mascotte-hote \{[^}]*overflow: hidden;/);
+    expect(css).toMatch(/\.rt-ain-calque \{[^}]*pointer-events: none;/);
+    images();
+    jouer("arrivee", { hote: coin() });
+    const calque = document.querySelector(".rt-ain-calque");
+    expect(calque?.closest(`[${ZONE_JEU}]`)).toBeNull();
   });
 
   it("le rendu se remplace en un seul endroit", () => {
     // Le contrat: chaque scène a sa pose clé dans le rendu en service.
     animations();
+    images();
+    expect(RENDU.nom).toBe("Aïn");
     const el = RENDU.dessiner(coin());
     for (const scene of SCENES) {
       expect(() => RENDU.poseCle(el, scene), scene).not.toThrow();
@@ -191,12 +251,12 @@ describe("quelle scène pour quel changement", () => {
     expect(pourTransition("figee", "vit")).toBeNull();
   });
 
-  it("pendant une partie, seuls l'arrivée, le départ et « prêt » se jouent", () => {
+  it("pendant une partie, seules les scènes du logo se jouent", () => {
     expect(pourTransition(null, null, { evenement: "place", enPartie: true })?.scene).toBe(
       "arrivee",
     );
     expect(pourTransition(null, null, { evenement: "spectateur", enPartie: true })?.scene).toBe(
-      "depart",
+      "spectateur",
     );
     expect(pourTransition(null, null, { evenement: "fier", enPartie: true })).toBeNull();
     expect(pourTransition(null, "repos", { enPartie: true })).toBeNull();

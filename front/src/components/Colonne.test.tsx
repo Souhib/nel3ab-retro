@@ -2,8 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { rangsDeLaColonne, type Rang } from "../lib/colonne";
 import { COLONNE } from "../lib/mots";
-import { Coin } from "./Coin";
-import { BlocRole, Colonne, IlsRegardent } from "./Colonne";
+import { Coin, SCENE_DU_COIN } from "./Coin";
+import { BlocRole, Colonne, HAUTEUR_DU_COIN, IlsRegardent, MARGE_BAS } from "./Colonne";
 import { PanneauCommande } from "./PanneauCommande";
 
 const contenus: Partial<Record<Rang, React.ReactNode>> = {
@@ -72,6 +72,22 @@ describe("la colonne", () => {
     colonne(["autres"]);
     const quitter = document.getElementById("leaveRoom");
     expect(quitter?.closest("header")?.textContent).toContain("Salle 1");
+  });
+
+  it("le logo est au pied de la colonne, maison d'Aïn ; l'en-tête n'en a plus", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    colonne(["autres"]);
+    expect(document.querySelector("header .rt-logo, header [data-ancre='logo']")).toBeNull();
+    const logo = document.querySelector("#coin [data-hote='coin'] > canvas[data-ancre='logo']");
+    expect(logo).not.toBeNull();
+    // Sous la ligne d'état, jamais au-dessus.
+    const ligne = document.getElementById("mesures") as HTMLElement;
+    expect(
+      ligne.compareDocumentPosition(logo as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // Son sol : là où Aïn pose les pieds en sortant du 3.
+    expect(document.querySelector("#coin [data-sol='coin']")).not.toBeNull();
+    vi.restoreAllMocks();
   });
 
   it("les mesures prennent la place des rangs, et les rangs reviennent sans elles", () => {
@@ -227,6 +243,97 @@ describe("les trois formes de la colonne", () => {
     expect(side?.className).toContain("flex-1");
     expect(side?.className).toContain("border-t");
     expect(side?.className).not.toContain("border-l");
+  });
+
+  it("à côté de l'image, le coin colle au pied de ce qui se voit, et la marge du bas le compte", () => {
+    const { container } = render(
+      <Colonne
+        nomSalle="Salle 1"
+        jeu={null}
+        onQuitter={() => {}}
+        largeur={304}
+        forme="a-cote"
+        role={null}
+        rangs={[]}
+        contenus={{}}
+        vue={null}
+        coin={<Coin mesures={false} onMesures={() => {}} />}
+      />,
+    );
+    const side = container.querySelector<HTMLElement>("#side");
+    expect(container.querySelector("#coin")?.parentElement?.className).toContain("n3-colonne-pied");
+    expect(side?.style.scrollPaddingBottom).toBe(`${MARGE_BAS + HAUTEUR_DU_COIN}px`);
+    // La hauteur dite est celle du coin : filet, marges, ligne, maison.
+    expect(HAUTEUR_DU_COIN).toBe(1 + 8 + 40 + 4 + SCENE_DU_COIN + 12);
+  });
+
+  it("à côté de l'image, un <details> qui s'ouvre défile dans la vue, au-dessus du coin", () => {
+    const vers = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vers,
+    });
+    const avec = (forme: "a-cote" | "dessous") =>
+      render(
+        <Colonne
+          nomSalle="Salle 1"
+          jeu={null}
+          onQuitter={() => {}}
+          largeur={forme === "a-cote" ? 304 : null}
+          forme={forme}
+          role={null}
+          rangs={["autres"]}
+          contenus={{
+            autres: (
+              <details id={`autres-${forme}`}>
+                <summary>Autres réglages</summary>
+                <button type="button">Rendre ma place</button>
+              </details>
+            ),
+          }}
+          vue={null}
+          coin={<Coin mesures={false} onMesures={() => {}} />}
+        />,
+      ).container.querySelector<HTMLDetailsElement>(`#autres-${forme}`);
+    const d = avec("a-cote");
+    if (!d) throw new Error("pas de <details>");
+    d.open = true;
+    d.dispatchEvent(new Event("toggle"));
+    expect(vers).toHaveBeenCalledWith({ block: "nearest" });
+    // Le jumeau : il se referme, rien ne défile ; sous l'image, sans pied
+    // collé, rien ne défile non plus.
+    vers.mockClear();
+    d.open = false;
+    d.dispatchEvent(new Event("toggle"));
+    const dessous = avec("dessous");
+    if (!dessous) throw new Error("pas de <details>");
+    dessous.open = true;
+    dessous.dispatchEvent(new Event("toggle"));
+    expect(vers).not.toHaveBeenCalled();
+    delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  it("jumeau : sous l'image, le coin reste dans le fil de la colonne", () => {
+    const { container } = render(
+      <Colonne
+        nomSalle="Salle 1"
+        jeu={null}
+        onQuitter={() => {}}
+        largeur={null}
+        forme="dessous"
+        role={null}
+        rangs={[]}
+        contenus={{}}
+        vue={null}
+        coin={<Coin mesures={false} onMesures={() => {}} />}
+      />,
+    );
+    expect(container.querySelector("#coin")?.parentElement?.className).not.toContain(
+      "n3-colonne-pied",
+    );
+    expect(container.querySelector<HTMLElement>("#side")?.style.scrollPaddingBottom).toBe(
+      `${MARGE_BAS}px`,
+    );
   });
 
   it("dans la feuille, ne pose ni largeur ni filet : la feuille les porte", () => {

@@ -2172,6 +2172,127 @@ Decision:
   its first picture. Switch and Xbox 360 already read that same file name.
 
 
+### D46: The mascot is Aïn, the 3 of the logo, played by a planner that reads the page, 2026-11-23
+
+D37 left the mascot abstract: screens ask for a SCENE (`jouer(scene, {hote})`)
+and one renderer, `mascotte/rendu.ts`, decides how to play it. The owner chose
+Aïn on 2026-11-23 from a playable proposal (`da/ain/`): the 3 of the logo,
+alive, one round eye (in arabizi the 3 writes the letter ʿayn, « eye »), two
+red feet and the logo's stepped relief. He lives in the logo and leaves it for
+his scenes.
+
+Decision:
+
+- **One renderer, the same API.** `rendu.ts` now plugs Aïn into `jouer()`;
+  the socle's signature is unchanged and gains one optional field,
+  `contexte` (the player, the variant), passed on by the room arbiter
+  (`lib/scenes-salle.ts`, still the only arbiter, K10). Three ids join the
+  common scenes (`spectateur`, `attente-chargement`, `hoquet`); the salon
+  variants keep their scene's id and are chosen by the host (a logo outside
+  any `[data-cadre]`). 17 room scenes and 10 salon scenes.
+- **His home is the logo at the foot of the column** (K26), on the phone his
+  head alone in the bar. The logo leaves the column header; the coin paints it
+  at mount. While he is out, his place in the logo is dotted.
+- **The planner reads the page, not coordinates.** Every scene asks for
+  anchors (`[data-ancre]`), floors (`[data-sol]`) and reads forbidden zones at
+  its start, in window pixels: the painted game picture plus 4 px, status
+  lines and controls, the words of the event (`[data-texte]`). Each track is
+  sampled every 12 ms; an arc that touches is lowered, a track that still
+  touches refuses the plan, and the scene falls back to its short version,
+  then an animated pose in the logo, then the key pose. A missing anchor is a
+  fallback too, never an error: the full versions appear as the other
+  workstreams place their anchors (`start-N`, `prise`, the floor marks).
+- **Nothing runs between two scenes.** One `requestAnimationFrame` loop per
+  scene, stopped with it; at rest Aïn is a canvas painted once. A scene
+  yields (jumps to its end) after two frames more than 50 ms apart.
+  Reduced motion and level Sobre show the key pose; level Tout adds the eye
+  that follows the pointer outside the picture and a reaction to a click.
+- **The black screen is his stage until the first picture.** On the plateau
+  he plays large while no picture of the current game is painted; the first
+  picture cuts him in the same task, and an observer of `data-sans-image`
+  cuts him even when nobody asked.
+- **Weight.** About 13 kB brotli in the room page (249 436 to 261 523
+  bytes, the removed placeholder coin included), against the 8 kB envelope
+  of the partition: the owner accepted taking the difference from the
+  reserve.
+- **The sprite layer has no box.** It is a fixed point at the top left of
+  the window; a full-window layer painted nothing but covered the picture
+  for the guards that hit-test every box.
+- **One Aïn per room.** A scene that starts in one home first brings Aïn
+  back from any other home of the same room. While he plays on the black
+  screen, the logo of the corner shows his place dotted (`data-dehors`).
+- **The board holds every anchor.** `planche.html` replaces Bobine's board:
+  drawings, key poses, and a room, a black screen and a lounge that carry
+  every anchor the scenes ask for. `just planche-garde` requires the full
+  version of every room and lounge scene there, no sprite box on the
+  picture, a control or a word, and no animation frame requested by Aïn
+  for two seconds after a scene (measured: 0, against 26 in 400 ms during
+  one). `cadre-navigateur` step `ain-immobile` measures the same in the real
+  page, where the pad pump requests 62 frames a second of its own.
+- **The lounge gets a bundle, not a copy of the page.** `just ain-salon`
+  builds `src/mascotte/salon.ts` into one IIFE without React,
+  `control/nel3ab_control/api/routes/retro/ain.js` (15 237 bytes brotli),
+  with a stamp over every module the build read (`ain.SOURCES`);
+  `salon.test.ts` refuses a stale or heavier bundle. The lounge workstream
+  wires it into its pages (D41).
+
+Rejected: keeping the arbiter of the proposal beside K10 (two arbiters would
+disagree on ranks); positions written in the scenes (every layout of
+`lib/cadre.ts` would need its own); WAAPI keyframes per scene (a planner
+cannot check a path it does not compute).
+
+#### D46 amendment, 2026-11-24: what the planner checked must stay true
+
+An independent review found that the planner's check held only for the
+layout it read at the start of a scene. Aïn's sprites live in window
+coordinates, in a fixed layer; nothing moved them afterwards. After
+`endort`, Ctrl enlarged the live picture under the « Z » bubble, which stayed
+there with no time limit; after `decroche`, a narrower window left Aïn outside
+the window and the logo empty. The guard step looked only during
+`[data-scene]`, so it never saw either. Decision:
+
+- **Every layout change re-reads the scene** (`rendu.ts`, `rajuster`): the
+  window, any scroll (captured on the document), the room root's `style`,
+  `data-agrandie` and `data-sans-image`, a `ResizeObserver` on each home and
+  on the game zone, and a `MutationObserver` on what React adds or rewrites
+  in the room. When Aïn shows nothing outside his logo, it returns at once.
+  Otherwise, if the logo or the picture moved, or if Aïn, his bubble or an
+  object now touches a zone, the scene is cut and Aïn returns home; one who
+  waited outside comes back with the key pose of his scene while the state
+  lasts. The bubble at home is placed again, or hides when the logo leaves
+  what is visible. A home that React unmounts destroys its layer.
+- **The key pose is shown in full.** It re-reads the page before placing its
+  bubble (the mount-time layout put it where nothing could show it). On the
+  black screen, which has no logo, Aïn stands still at his place with his
+  bubble, and the corner logo shows his place dotted. What scenes measured
+  from the logo is measured, on the black screen, from Aïn himself (a
+  virtual logo whose 3 he is).
+- **A pose ends with its outage.** When the room lives again (`data-etat`
+  back to `vit`), the air, bubble and objects of the outage are cleared and a
+  running scene is cut; K06 still plays nothing.
+- **The home stays in view.** Beside the picture, the corner sticks to the
+  foot of what is visible (`position: sticky`) and the column keeps its
+  161 px as bottom scroll padding. K26 (the logo at the foot of the column)
+  is unchanged. What scrolls under that foot is hidden, so the planner cuts
+  every control and word by the home's sticky ancestor; without that cut,
+  every corner scene was refused at 1280 × 720 and 1440 × 900. A `<details>`
+  of the column that opens beside the picture scrolls into view, above the
+  corner: « Rendre ma place » fell under it.
+- **The words of the black screen are the event's.** Its title and phrase
+  carry `data-texte`; a control placed inside the game zone (« Choisir un
+  jeu ») counts as an obstacle.
+- **The drivers' hook exists only in a driven browser** (`navigator.webdriver`):
+  it plays without the room's arbiter.
+- **Weight.** The room page goes from 261 613 to 262 790 bytes brotli
+  (+1 177), the lounge bundle from 15 237 to 16 222 (+985, ceiling 16 800).
+  Nothing is removed in this change.
+
+The six floor marks the full versions ask for in the room (`toque`, `siege`,
+`rattrape`, `public`, `fiche-sol`, `branche`) and the `panneau` floor are not
+placed by this change. They belong on the floors of the salle's control panel;
+until the salle places them, those full versions fall back and `data-refus`
+says so.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

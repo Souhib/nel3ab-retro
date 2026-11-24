@@ -17,6 +17,7 @@
  */
 import { mouvementReduit } from "../lib/effets";
 import { toucheLImage } from "../retro/image";
+import type { Contexte } from "./moteur";
 import { RENDU } from "./rendu";
 import { estScene, version as choisirVersion, type Scene, type Version } from "./scenes";
 
@@ -32,7 +33,8 @@ export {
   type Scene,
   type Version,
 } from "./scenes";
-export { RENDU, type Rendu } from "./rendu";
+export { joueur, RENDU, type Mouvement, type Rendu } from "./rendu";
+export type { Contexte } from "./moteur";
 
 export type Lecture = {
   scene: Scene;
@@ -75,11 +77,16 @@ export function jouer(
     version = "auto",
     region = null,
     phrase,
+    contexte = {},
   }: {
     hote: HTMLElement;
     version?: Version | "auto";
     region?: HTMLElement | null;
     phrase?: string;
+    /** Le joueur concerné (sa couleur, son START) et la variante (`mode`
+     * de « prêt »). Facultatif : sans lui, la place 1 et la variante
+     * simple. */
+    contexte?: Contexte;
   },
 ): Lecture {
   if (!estScene(scene)) throw new Error(`scène inconnue: ${String(scene)}`);
@@ -89,14 +96,14 @@ export function jouer(
   if (region && phrase) region.textContent = phrase;
 
   if (mouvementReduit() || typeof el.animate !== "function") {
-    RENDU.poseCle(el, scene);
+    RENDU.poseCle(el, scene, contexte);
     const lecture = finie(scene, false);
     enCours.set(hote, lecture);
     return lecture;
   }
 
   const joue = choisirVersion(scene, version);
-  const animations = RENDU.jouer(el, scene, joue);
+  const animations = RENDU.jouer(el, scene, joue, contexte);
   const fini = Promise.all(animations.map((a) => a.finished.catch(() => undefined))).then(() => {
     if (enCours.get(hote) === lecture) enCours.delete(hote);
   });
@@ -121,3 +128,19 @@ export function jouer(
 
 /** La scène qui se joue dans cet hôte, s'il y en a une. */
 export const sceneEnCours = (hote: HTMLElement): Scene | null => enCours.get(hote)?.scene ?? null;
+
+/**
+ * Pour les pilotes du navigateur (`cadre.mjs`, étape « mascotte-hors-image ») :
+ * joue une scène, version complète, sur l'hôte `ou` de la page
+ * (`data-hote`), sans passer par l'arbitre. Rend la version jouée, ou
+ * « sans-hote ». Seulement dans un navigateur piloté (`navigator.webdriver`,
+ * vrai sous Puppeteer) : il contourne l'arbitre de la salle, et un visiteur
+ * n'a pas à jouer une scène par-dessus une panne depuis la console.
+ */
+if (globalThis.navigator?.webdriver === true)
+  (globalThis as Record<string, unknown>).nel3abAin = {
+    jouer(scene: Scene, ou: string, contexte?: Contexte) {
+      const hote = document.querySelector<HTMLElement>(`[data-hote="${ou}"]`);
+      return hote ? jouer(scene, { hote, version: "complete", contexte }).version : "sans-hote";
+    },
+  };

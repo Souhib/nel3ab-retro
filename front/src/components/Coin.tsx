@@ -1,6 +1,10 @@
 /**
- * Le coin, au pied de la colonne : la ligne d'état, puis la scène de la
+ * Le coin, au pied de la colonne : la ligne d'état, puis la maison de la
  * mascotte en dessous, jamais par-dessus (colonne.3).
+ *
+ * La maison est le logo, descendu de l'en-tête de la colonne le 23 novembre
+ * 2026 (K26, ADR D46) : Aïn y est le 3, il en sort pour ses scènes et y
+ * rentre. Le logo se peint au montage, avant toute scène.
  *
  * La ligne ouvre les mesures de la liaison, qui ont remplacé l'onglet
  * « mesures » de l'ancienne colonne. Le chantier personnes y écrit l'état en
@@ -8,12 +12,19 @@
  * mascotte (`data-hote="coin"`) est trouvé par l'arbitre des scènes du cadre
  * (`useArbitre`, K10) ; rien n'y joue tant qu'aucune scène n'est demandée.
  */
+import { useEffect, useRef } from "react";
+
 import { COLONNE } from "../lib/mots";
+import { poserMascotte } from "../mascotte";
 import { IconeRang } from "./Colonne";
 
-/** La hauteur de la scène, sous la ligne : la pose la plus haute de la
- * mascotte provisoire y tient sans toucher la ligne. */
-export const SCENE_DU_COIN = 64;
+/** La hauteur de la maison, sous la ligne : le logo à deux pixels d'écran
+ * par pixel d'Aïn (31 × 2 = 62 px) posé en bas, et 34 px au-dessus pour ses
+ * sauts et sa bulle (24 px), plus les 4 px que le planificateur garde autour
+ * de la ligne. À 64 px, le logo touchait presque la ligne : chaque scène
+ * était refusée et ne montrait que sa pose clé (cadre-navigateur, étape
+ * mascotte-hors-image, 23 novembre 2026). */
+export const SCENE_DU_COIN = 96;
 
 export function Coin({
   mesures,
@@ -26,6 +37,10 @@ export function Coin({
   /** La ligne d'état ; vide quand une fiche d'état parle. */
   ligne?: string;
 }) {
+  const maison = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (maison.current) poserMascotte(maison.current);
+  }, []);
   return (
     <div id="coin" className="n3-coin">
       <button
@@ -50,6 +65,7 @@ export function Coin({
         {mesures ? <span className="text-faint">{COLONNE.revenir}</span> : null}
       </button>
       <div
+        ref={maison}
         className="n3-coin-scene"
         data-hote="coin"
         aria-hidden="true"

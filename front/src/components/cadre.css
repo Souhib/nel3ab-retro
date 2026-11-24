@@ -19,10 +19,6 @@
   flex-direction: column;
   gap: 0.25rem;
 }
-/* Le logo, petit (K26) : 14 px de haut au lieu de 20. */
-.n3-colonne-logo {
-  --rt-logo-hauteur: 14px;
-}
 .n3-colonne-salle {
   font-family: var(--police-titre);
   font-size: var(--text-fort);
@@ -110,6 +106,21 @@
 }
 .n3-plus-bas .n3-rang-icone {
   transform: rotate(90deg);
+}
+
+/* Le pied de la colonne du bureau : le coin, maison d'Aïn, reste collé au bas
+   de ce qui se voit quand la colonne déborde (ADR D46). Au pied d'une colonne
+   qui défilait, le logo était hors de vue à l'entrée à cinq des sept tailles
+   de bureau, et ses scènes se jouaient hors de l'écran (relecture du
+   24 novembre 2026). Ce qui défile passe dessous : la marge de défilement du
+   bas de la colonne compte sa hauteur (`HAUTEUR_DU_COIN`). */
+.n3-colonne-pied {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
+  background: var(--panel);
 }
 
 /* Le coin, au pied de la colonne : la ligne, puis la scène, sans se toucher. */

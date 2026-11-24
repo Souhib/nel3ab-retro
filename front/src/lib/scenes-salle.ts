@@ -25,7 +25,13 @@
  * La décision est une fonction pure (`decider`) ; `creerArbitre` la branche
  * sur `jouer()` et se souvient de ce qui joue, hôte par hôte.
  */
-import { jouer as jouerMascotte, type Lecture, type Scene, type Version } from "../mascotte";
+import {
+  jouer as jouerMascotte,
+  type Contexte,
+  type Lecture,
+  type Scene,
+  type Version,
+} from "../mascotte";
 import { enPanne, type EtatDuCadre, type Hote } from "./cadre";
 
 export const CHANTIERS = ["etats", "menus", "personnes", "manettes", "salle"] as const;
@@ -59,9 +65,10 @@ export const SCENES_DE: Readonly<Record<Chantier, readonly Scene[]>> = {
     "endort",
     "dort",
     "pret",
+    "hoquet",
   ],
-  menus: ["attente", "chercher", "pret", "refus"],
-  personnes: ["arrivee", "depart"],
+  menus: ["attente", "chercher", "pret", "refus", "attente-chargement"],
+  personnes: ["arrivee", "depart", "spectateur"],
   manettes: ["fier"],
   salle: ["attente", "premiere-image", "fier"],
 };
@@ -105,6 +112,8 @@ export type Demande = {
   version?: Version | "auto";
   region?: HTMLElement | null;
   phrase?: string;
+  /** Le joueur concerné et la variante de la scène (`jouer`). */
+  contexte?: Contexte;
 };
 
 export type Arbitre = {
@@ -152,6 +161,7 @@ export function creerArbitre(o: {
         version: d.version,
         region: d.region,
         phrase: d.phrase,
+        contexte: d.contexte,
       });
       if (lecture.refusee) return null;
       const entree = { lecture, par: d.par };

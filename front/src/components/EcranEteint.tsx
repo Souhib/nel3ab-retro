@@ -71,7 +71,11 @@ export function EcranEteint({
 
   return (
     <div id="idle-room" className="n3-ecran-eteint regie-nuit absolute inset-0 z-30">
-      <h2 className="n3-ecran-titre">{REPOS.titre}</h2>
+      {/* Les mots de l'écran sont ceux de l'événement (`data-texte`) : Aïn,
+          qui joue sur le plateau dessous, ne les couvre pas. */}
+      <h2 className="n3-ecran-titre" data-texte="">
+        {REPOS.titre}
+      </h2>
       {decide ? (
         <button
           ref={bouton}
@@ -84,7 +88,9 @@ export function EcranEteint({
           {REPOS.choisir}
         </button>
       ) : (
-        <p className="n3-ecran-phrase">{phrase}</p>
+        <p className="n3-ecran-phrase" data-texte="">
+          {phrase}
+        </p>
       )}
       <div
         className="n3-plateau"

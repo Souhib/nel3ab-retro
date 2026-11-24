@@ -440,6 +440,26 @@ machine".
   real clicks rather than `element.click()`, and return numbers, not a DOMRect,
   from `page.evaluate` (it arrives as `{}`). Name a sweep's unit and domain:
   "2,000 sizes" counted poses, and never went below 320 px, where they broke.
+  A closed `<details>` keeps its box in Chrome (its content is hidden by
+  `content-visibility`): on 2026-11-23 the mascot's planner took a folded
+  microphone button for an obstacle on the logo and refused every scene.
+  Code that reads obstacles skips that content, as the probes already did.
+- **Read what was done, not what was asked.** On 2026-11-23, `jouer()`
+  returned the version a caller ASKED for; the mascot's board driver reported
+  every black-screen scene complete while half fell back. The logo now
+  carries the version the planner chose (`data-version`). The same day, a
+  page-wide count of animation frames at rest found 125 in two seconds: the
+  pad pump, not the mascot. Attribute a count to its source before judging
+  it, and keep the twin that proves the filter still sees the source.
+- **What a planner checked holds for one layout.** On 2026-11-24, the
+  mascot's sprites, placed once in window coordinates, stayed on the picture
+  that Ctrl had enlarged, and outside a window that had shrunk; the probe
+  looked only during a scene and saw neither. Anything left on screen after
+  a check is checked again when the layout changes (window, scroll, root
+  attributes, a resized or removed home, a control mounted underneath), and
+  a probe watches between scenes too. A sticky element hides what scrolls
+  under it, but the hidden boxes still report their rectangles: clip them,
+  and let the probe ask `elementFromPoint` instead of sharing that rule.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that
@@ -721,11 +741,14 @@ Markdown alone does not update the site.
 | `just parcours-navigateur` | the room's routes: entry in the URL, reload, invite, exit, closing by the owner, preparation names |
 | `just salle-telephone` | the room on phones and tablets: drawer, bottom sheet, 44 px targets, safe areas, the built page under the worker's CSP |
 | `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
+| `just planche-garde` | the mascot's board in Chrome: every room and lobby scene plays its full version, no sprite box on the picture, a control or a word, and no animation frame for two seconds after a scene (Vite without relays) |
+| `just ain-salon` | builds the mascot bundle for the lobby pages (`retro/ain.js` and its stamp `ain.SOURCES`); `front-build` runs it, `salon.test.ts` refuses a stale one |
+| `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
-| `just front-build` | rebuilds the page into the worker's source tree, and stamps it |
+| `just front-build` | rebuilds the page into the worker's source tree, and stamps it; then the lobby's mascot bundle |
 | `just browser-watch` | what the page renders over a minute, without restarting anything |
 | `just boite-noire` | reads the black box: machine and page cadence per ten seconds, then the day's captures |
 | `just end-to-end` | the whole chain against a real Dolphin and ROM |

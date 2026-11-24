@@ -73,11 +73,70 @@ local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox
 abri-test:
     tools/test_abri.sh
 
-# La planche de Bobine: chaque pose et chaque scène, rejouables à la main, sans
-# salle ni salon. Sa configuration Vite n'a AUCUN mandataire vers les ports de
-# la salle, contrairement à `npm run dev`: une planche ne touche rien de vivant.
+# La planche d'Aïn: ses dessins, et chaque scène rejouable à la main en version
+# complète, courte ou pose clé, sans salle ni salon. Sa configuration Vite n'a
+# AUCUN mandataire vers les ports de la salle, contrairement à `npm run dev`:
+# une planche ne touche rien de vivant.
 planche port="5391":
     cd front && npx vite --config vite.planche.config.ts --port {{port}}
+
+# ==== mascotte ====
+# La planche d'Aïn dans Chrome (`planche-ain.mjs`, ADR D46). Le vrai cadre ne
+# porte pas encore les START ni la prise: ses scènes complètes s'y replient.
+# La planche les porte toutes, et ce pilote exige la version complète de
+# chaque scène de la salle et du salon, aucune boîte de sprite sur l'image,
+# un contrôle ou un mot, et RIEN entre deux scènes: aucun appel à
+# requestAnimationFrame ni animation en cours pendant deux secondes après la
+# fin d'une scène. Chaque mesure a son jumeau dans le pilote (une ancre
+# retirée, l'image glissée sous le logo, le compteur qui monte pendant la
+# scène). Rien de vivant: un Vite sans relais sur 5489. 2 min 36 s mesurées
+# le 23 novembre 2026.
+#
+#   just planche-garde                          tout
+#   just planche-garde --mesures immobile       une mesure
+#   just planche-garde --lieux salon --port 5490
+planche-garde *args:
+    cd spikes/m3-browser-drive && node planche-ain.mjs {{args}}
+
+# Le paquet d'Aïn pour les pages du salon (`src/mascotte/salon.ts`): un seul
+# fichier sans React, écrit avec sa marque dans
+# `control/nel3ab_control/api/routes/retro/` (`ain.js`, `ain.SOURCES`).
+# `front-build` le reconstruit avec la page; `salon.test.ts` (dans `check`)
+# refuse un paquet plus vieux que ses sources, ou plus lourd que son plafond.
+# Le chantier salon le branche dans ses pages.
+ain-salon:
+    cd front && npx vite build --config vite.ain-salon.config.ts --logLevel warn
+
+# Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
+# du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit
+# tomber sur le DÉFAUT de chaque étape, pas sur une précondition: la maison
+# hors de vue au pied d'une colonne qui déborde (maison-en-vue), la bulle
+# restée sur l'image agrandie (ain-mise-en-page), la pose clé sans bulle au
+# coin ni Aïn sur le plateau (ain-pose-cle), la cartouche sur la phrase de
+# l'écran éteint et la maison hors de vue (mascotte-hors-image). La page est
+# gardée dans `spikes/m3-browser-drive/rouges/` avec son empreinte git
+# (`EMPREINTES-mascotte`), vérifiée avant usage, comme celles de la salle.
+mascotte-navigateur-rouge *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    rouges="$(pwd)/spikes/m3-browser-drive/rouges"
+    while read -r empreinte commit fichier; do
+        lue=$(git hash-object "$rouges/$fichier")
+        if [ "$lue" != "$empreinte" ]; then
+            echo "$fichier n'est plus la page de $commit ($lue au lieu de $empreinte)" >&2
+            exit 1
+        fi
+    done < "$rouges/EMPREINTES-mascotte"
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    etapes=maison-en-vue,ain-mise-en-page,ain-pose-cle,mascotte-hors-image
+    node cadre.mjs --page "$rouges/mascotte-24cdaa2.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
+# ==== fin mascotte ====
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by
 # poe exactly as LaTabdhir and Majlisna drive theirs.
@@ -118,6 +177,7 @@ contract-check:
 # and stamps it with a hash of what it was built from.
 front-build:
     cd front && npm run build && node stamp.mjs
+    just ain-salon
 
 # Les unités installées sont-elles celles du dépôt ?
 #

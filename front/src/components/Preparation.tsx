@@ -17,7 +17,7 @@ import {
 } from "../lib/lancement";
 import { pastille, PREPARATION, SANS_REPONSE } from "../lib/mots";
 import { useAttente } from "../lib/useAttente";
-import { sonMenu } from "../retro";
+import { secouer, sonMenu } from "../retro";
 import { useArbitre } from "./Cadre";
 import "./menu/menu.css";
 import "./preparation.css";
@@ -41,16 +41,22 @@ export function useScenePret(players: readonly Participant[] | null): void {
 }
 
 /** Un refus du salon (une préparation, une fermeture) : Aïn joue « refus »
- * par l'arbitre, et le son d'erreur sonne si les sons du menu sont allumés
- * (`sonMenu` les lit). Seul un refus NOUVEAU joue : le même texte rendu
- * deux fois ne rejoue rien, un texte effacé puis revenu rejoue. */
-export function useSceneRefus(refus: string): void {
+ * par l'arbitre, le son d'erreur sonne si les sons du menu sont allumés
+ * (`sonMenu` les lit), et le bloc qui l'écrit tremble au niveau « tout »
+ * (effet « secousse », `secouer`, qui refuse tout ancêtre de l'image). Seul
+ * un refus NOUVEAU joue : le même texte rendu deux fois ne rejoue rien, un
+ * texte effacé puis revenu rejoue. */
+export function useSceneRefus(refus: string, bloc?: () => HTMLElement | null): void {
   const arbitre = useArbitre();
+  const leBloc = useRef(bloc);
+  leBloc.current = bloc;
   // L'effet ne repart que si le texte change : c'est la règle du refus
   // nouveau, sans mémoire à tenir.
   useEffect(() => {
     if (refus === "") return;
     sonMenu("erreur");
+    const ou = leBloc.current?.();
+    if (ou) secouer(ou);
     if (!arbitre) return;
     const hote = document.querySelector('[data-hote="coin"]') ? "coin" : "barre";
     arbitre.demander({ scene: "refus", par: "menus", hote });
@@ -58,9 +64,10 @@ export function useSceneRefus(refus: string): void {
 }
 
 /** Le même refus, posé DANS la salle : un crochet appelé au corps d'`App`
- * vivrait hors du `Cadre` qui tient l'arbitre, et la scène ne jouerait pas. */
+ * vivrait hors du `Cadre` qui tient l'arbitre, et la scène ne jouerait pas.
+ * Le refus d'un geste du menu s'écrit dans le menu : c'est lui qui tremble. */
 export function SceneRefus({ refus }: { refus: string }): null {
-  useSceneRefus(refus);
+  useSceneRefus(refus, () => document.getElementById("menu"));
   return null;
 }
 
@@ -165,7 +172,7 @@ export function Preparation({
   const console = game?.console;
   const gestes = gestesDuLancement(pending, moi, attendu, console);
   const attend = starter && gestes.principal?.actif === false && gestes.sansAttendre === null;
-  useSceneRefus(notice);
+  useSceneRefus(notice, () => bloc.current);
   const run = async (geste: () => Promise<void>) => {
     setWorking(true);
     setNotice("");

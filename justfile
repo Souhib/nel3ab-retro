@@ -999,6 +999,12 @@ focus-navigateur-rouge:
     etapes=telephone,tablette,coques-telephone,surcouche,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # aeac1ab, la page des états avant leur quatrième passage : le geste de
+    # la fiche, focalisé au clavier, laissait le focus sur <body> quand
+    # l'image revenait (ADR D40).
+    git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/fiche.html"
+    node focus.mjs --page "$dossier/fiche.html" --flux "$dossier/flux.h264" \
+        --etapes fiche-focus-rendu --rouge-attendu fiche-focus-rendu
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni

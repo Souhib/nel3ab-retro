@@ -503,3 +503,51 @@ describe("ce soir dans une salle fermée (la colonne)", () => {
     expect(bloc.querySelector("a")).toBeNull();
   });
 });
+
+describe("un geste qui part avec la fiche rend le clavier", () => {
+  const gelFiche = gel(9_000, "bandeau");
+  const ok: Liaison = { etat: "ok" };
+  const fiche = (liaison: Liaison, onFocusPerdu: () => void) => (
+    <>
+      <button type="button" id="ailleurs">
+        ailleurs
+      </button>
+      <FicheEtat
+        modele={modele(liaison)}
+        rappels={rappels()}
+        onPropositionVue={() => {}}
+        onFocusPerdu={onFocusPerdu}
+      />
+    </>
+  );
+
+  it("rend le focus quand la fiche part avec le geste focalisé", async () => {
+    const onFocusPerdu = vi.fn();
+    const { rerender } = render(fiche(gelFiche, onFocusPerdu));
+    document.querySelector<HTMLElement>("#relancerImage")!.focus();
+    rerender(fiche(ok, onFocusPerdu));
+    await Promise.resolve();
+    expect(document.querySelector("#relancerImage")).toBeNull();
+    expect(onFocusPerdu).toHaveBeenCalledTimes(1);
+  });
+
+  it("ne prend pas le focus de ce que la personne a choisi ailleurs", async () => {
+    const onFocusPerdu = vi.fn();
+    const { rerender } = render(fiche(gelFiche, onFocusPerdu));
+    document.querySelector<HTMLElement>("#ailleurs")!.focus();
+    rerender(fiche(ok, onFocusPerdu));
+    await Promise.resolve();
+    expect(document.activeElement?.id).toBe("ailleurs");
+    expect(onFocusPerdu).not.toHaveBeenCalled();
+  });
+
+  it("ne fait rien quand le geste focalisé reste", async () => {
+    const onFocusPerdu = vi.fn();
+    const { rerender } = render(fiche(gelFiche, onFocusPerdu));
+    document.querySelector<HTMLElement>("#relancerImage")!.focus();
+    rerender(fiche(gel(12_000, "bandeau"), onFocusPerdu));
+    await Promise.resolve();
+    expect(document.activeElement?.id).toBe("relancerImage");
+    expect(onFocusPerdu).not.toHaveBeenCalled();
+  });
+});

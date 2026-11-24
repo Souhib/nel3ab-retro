@@ -213,31 +213,63 @@ export function EtatPastille({ modele, onAller }: { modele: Modele; onAller?: ()
  * `onPropositionVue` : la proposition vient d'être MONTÉE, donc vue. C'est le
  * seul moment où le journal peut écrire « proposé » (audit E3) : en paysage,
  * quand la feuille s'ouvre sur elle, pas quand la pastille paraît.
+ *
+ * `onFocusPerdu` : un geste focalisé est parti avec la fiche (l'image est
+ * revenue, l'état a changé) et le focus est retombé sur le document. La page
+ * le rend au jeu ; ce que la personne a choisi ailleurs garde son focus.
  */
 export function FicheEtat({
   modele,
   rappels,
   onPropositionVue,
+  onFocusPerdu,
 }: {
   modele: Modele;
   rappels: Rappels;
   onPropositionVue: () => void;
+  onFocusPerdu?: () => void;
 }) {
   if (modele.niveau !== "fiche") return null;
-  return <Fiche modele={modele} rappels={rappels} onPropositionVue={onPropositionVue} />;
+  return (
+    <Fiche
+      modele={modele}
+      rappels={rappels}
+      onPropositionVue={onPropositionVue}
+      onFocusPerdu={onFocusPerdu}
+    />
+  );
 }
 
 function Fiche({
   modele,
   rappels,
   onPropositionVue,
+  onFocusPerdu,
 }: {
   modele: Modele;
   rappels: Rappels;
   onPropositionVue: () => void;
+  onFocusPerdu?: () => void;
 }) {
   const proposition = modele.id === "irreguliere";
   const ref = useRef<HTMLElement>(null);
+  const perdu = useRef(onFocusPerdu);
+  perdu.current = onFocusPerdu;
+  // Avant que React ne retire un geste (ou la fiche entière), la boîte est
+  // encore là : si elle tient le focus, on regarde après le retrait où il
+  // est tombé. Sur le document, il retourne au jeu (focus.mjs,
+  // fiche-focus-rendu, 24 novembre 2026 : il restait sur <body>).
+  const gestes = modele.actions.join(" ");
+  useLayoutEffect(() => {
+    const boite = ref.current;
+    return () => {
+      if (boite === null || !boite.contains(document.activeElement)) return;
+      queueMicrotask(() => {
+        const ici = document.activeElement;
+        if (ici === null || ici === document.body) perdu.current?.();
+      });
+    };
+  }, [modele.id, gestes, modele.signaler]);
   // L'état d'avant, tant que la fiche est montée : une fiche montée plus
   // tard (la feuille qu'on ouvre) n'est pas une entrée dans la panne.
   const avant = useRef<string | null>(null);

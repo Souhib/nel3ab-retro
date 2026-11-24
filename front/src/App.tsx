@@ -2749,6 +2749,8 @@ function Room({
         proposalTold.current = true;
         sending.current.quality("proposé");
       }}
+      // Un geste parti avec la fiche ne laisse pas le clavier sur le document.
+      onFocusPerdu={() => zone.current?.focus({ preventScroll: true })}
     />
   );
   /** La pastille mène au geste de sa fiche : le focus dessus, après avoir

@@ -165,22 +165,38 @@ async function toucher(page, selecteur) {
  * dialogue ouvert (la page d'avant). */
 const OUVERT = "#reglage, dialog[open]";
 
+/** Tenu en main sans bande (une tablette en travers) : « La salle », puis
+ * « Touches et manettes » à mi-hauteur quand sa rangée tient, sinon « Toute
+ * la salle » et le rang en tête de sa colonne. Rend vrai quand le réglage
+ * est ouvert. Jusqu'au 24 novembre 2026, ce chemin touchait l'entrée
+ * « manette » de la feuille, qui cache ou montre les touches à l'écran et
+ * n'ouvre aucune vue : à 1024 × 768, l'étape tombait sur sa précondition. */
+async function ouvrirParLaFeuille(page) {
+  if (!(await toucher(page, "#laSalle")) && !(await toucher(page, "#laSalleCote"))) return false;
+  if (!(await jusqua(() => page.evaluate(() => document.querySelector("#feuilleSalle")?.open === true), 3000)))
+    return false;
+  await sleep(300);
+  const entree = '#feuilleSalle [data-entree="reglage"]';
+  if (await page.$(entree)) await toucher(page, entree);
+  else {
+    if (!(await toucher(page, '#feuilleSalle [data-entree="toute-la-salle"]'))) return false;
+    if (!(await jusqua(() => page.$("#feuilleSalle #touchesEtManettes").then(Boolean), 3000))) return false;
+    await toucher(page, "#feuilleSalle #touchesEtManettes");
+  }
+  return jusqua(() => page.$(OUVERT).then(Boolean), 4000);
+}
+
 /** Ouvre le réglage comme une personne avec une manette : « Ta manette »
- * (ou « Vérifier les boutons » tenu en main, ou l'entrée « manette » de la
- * feuille « La salle » quand la bande manque), puis « Changer ». */
+ * (ou « Vérifier les boutons » tenu en main), puis « Changer ». Sans l'un
+ * ni l'autre, par la feuille « La salle » (`ouvrirParLaFeuille`). */
 async function ouvrirParLaManette(page) {
-  const parLaFeuille = async () => {
-    if (!(await toucher(page, "#laSalle")) && !(await toucher(page, "#laSalleCote"))) return false;
-    const entree = '#feuilleSalle [data-entree="manette"]';
-    if (!(await jusqua(() => page.$(entree).then(Boolean), 3000))) return false;
-    return toucher(page, entree);
-  };
-  if (
-    !(await toucher(page, "#verifierManette")) &&
-    !(await toucher(page, "#taManette")) &&
-    !(await parLaFeuille())
-  )
-    throw new Precondition("ni « Ta manette », ni « Vérifier les boutons », ni la feuille « La salle »");
+  if (!(await toucher(page, "#verifierManette")) && !(await toucher(page, "#taManette"))) {
+    if (await ouvrirParLaFeuille(page)) {
+      await sleep(500);
+      return;
+    }
+    throw new Precondition("ni « Ta manette », ni « Vérifier les boutons », ni « Touches et manettes » par la feuille");
+  }
   if (!(await jusqua(() => page.$("#changerTouches").then(Boolean), 4000))) {
     const vu = await page.evaluate(() =>
       JSON.stringify({
@@ -289,18 +305,151 @@ const ETAPES = {
     ]);
   },
 
-  /** Changement 1 : tenu en main, le panneau vit dans la feuille agrandie de
-   * la salle, qui couvre l'image (`lib/cadre`, `FeuilleSalle`). La place
-   * sous l'image et à droite en travers demande la géométrie du cadre, au
-   * chantier salle : cette étape est ROUGE et hors de la porte tant qu'il
-   * ne l'a pas posée. À 1024 × 768 tactile, « Vérifier les boutons » n'ouvre
-   * aucune feuille, sur la page d'avant le chantier comme sur celle-ci. */
+  /** Changement 1 et constat 4 de la relecture : tenu en main, le panneau a
+   * sa place sous l'image tenu droit et à droite d'elle en travers
+   * (`Geometrie.reglage`, `lib/cadre`). Jusqu'au 24 novembre 2026, il vivait
+   * dans la feuille agrandie, qui couvrait l'image : l'étape était rouge et
+   * hors de la porte. La tablette de 1024 × 768 n'a pas de bande, donc pas de
+   * « Vérifier les boutons » : elle passe par la feuille. */
   async "place-tenu"() {
     await placer([
       { width: 390, height: 844, isMobile: true, hasTouch: true },
       { width: 844, height: 390, isMobile: true, hasTouch: true },
       { width: 1024, height: 768, isMobile: true, hasTouch: true },
     ]);
+  },
+
+  /** Le rang « Touches et manettes » en tête de la colonne, juste sous
+   * Signaler : un vrai clic ouvre le panneau sur l'onglet Manette, le focus
+   * entre, et Échap le ferme en rendant le focus au rang. Le jumeau : le
+   * rang n'est pas en double, et Signaler reste premier (K25). */
+  async rang() {
+    const fautes = [];
+    const page = await nouvelle({ width: 1280, height: 720 });
+    await entrer(page);
+    const ordre = await page.evaluate(() =>
+      [...document.querySelectorAll("#side nav [data-rang]")].map((un) => un.dataset.rang),
+    );
+    if (!ordre.includes("signaler")) throw new Precondition(`la colonne n'a pas Signaler (${ordre.join(", ")})`);
+    if (!(await page.$("#touchesEtManettes"))) throw new Defaut(`pas de rang « Touches et manettes » (${ordre.join(", ")})`);
+    if (ordre.indexOf("reglage") !== ordre.indexOf("signaler") + 1)
+      fautes.push(`le rang n'est pas juste sous Signaler : ${ordre.join(", ")}`);
+    if (ordre[0] !== "signaler") fautes.push(`Signaler n'est plus premier : ${ordre.join(", ")}`);
+    if ((await page.$$("#touchesEtManettes")).length !== 1) fautes.push("deux rangs « Touches et manettes »");
+    // Un vrai clic au centre de ce qui le reçoit (`toucher`) : sous le pied
+    // collé de la colonne, il tomberait sur « Plus bas ».
+    await toucher(page, "#touchesEtManettes");
+    if (!(await jusqua(() => page.$("[data-reglage]").then(Boolean), 3000)))
+      throw new Defaut("le rang n'ouvre pas le panneau");
+    await sleep(300);
+    const lu = () =>
+      page.evaluate(() => ({
+        onglet: document.querySelector('[role="tab"][aria-selected="true"]')?.id ?? null,
+        dedans: document.activeElement?.closest("[data-reglage]") !== null,
+        focusId: document.activeElement?.id ?? "",
+        dansLaColonne: document.querySelector("[data-reglage]")?.closest("#side") !== null,
+      }));
+    let etat = await lu();
+    if (etat.onglet !== "onglet-manette") fautes.push(`le rang ouvre ${etat.onglet}`);
+    if (!etat.dedans) fautes.push(`le focus reste hors du panneau (${etat.focusId})`);
+    if (!etat.dansLaColonne) fautes.push("le panneau n'est pas dans la colonne");
+    await capture(page, "rang");
+    await page.keyboard.press("Escape");
+    if (!(await jusqua(() => page.$("[data-reglage]").then((un) => un === null), 2000)))
+      fautes.push("Échap ne ferme pas le panneau");
+    else {
+      await sleep(200);
+      etat = await lu();
+      if (etat.focusId !== "touchesEtManettes") fautes.push(`après Échap, le focus est sur « ${etat.focusId} »`);
+    }
+    await page.close();
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
+  /** L4 (D7) : ton étiquette tapée dans la légende de « Ta manette », le
+   * numéro de ta place et ton nom, à côté du dessin. Le jumeau : le dessin
+   * de ce que le jeu reçoit n'en a pas, et elle n'est jamais dans un dessin. */
+  async etiquette() {
+    const fautes = [];
+    const page = await nouvelle({ width: 1280, height: 720 });
+    await entrer(page);
+    await ouvrirParLaManette(page);
+    if (!(await page.$("[data-reglage]"))) throw new Precondition("le panneau ne s'ouvre pas");
+    const lu = await page.evaluate(() => {
+      const figures = [...document.querySelectorAll("#reglage .n3-dessins figure.n3-controller")];
+      const legende = (f) => f?.querySelector("figcaption")?.textContent ?? "";
+      const tienne = figures.find((f) => legende(f).includes("Ta manette"));
+      const jeu = figures.find((f) => legende(f).includes("Ce que le jeu reçoit"));
+      const etiquette = tienne?.querySelector("figcaption .n3-etiquette");
+      const r = etiquette?.getBoundingClientRect();
+      return {
+        figures: figures.length,
+        place: etiquette?.getAttribute("data-place") ?? null,
+        nom: etiquette?.querySelector(".sr-only")?.textContent ?? null,
+        legende: legende(tienne),
+        dansUnDessin: document.querySelector("#reglage svg .n3-etiquette") !== null,
+        surLeJeu: jeu !== undefined && jeu.querySelector(".n3-etiquette") !== null,
+        visible: r ? r.width > 0 && r.height > 0 : false,
+      };
+    });
+    if (lu.figures !== 2) throw new Precondition(`${lu.figures} dessins dans le panneau`);
+    if (!lu.place) throw new Defaut(`« Ta manette » n'a pas d'étiquette (« ${lu.legende} »)`);
+    if (!lu.visible) fautes.push("l'étiquette n'a pas de taille");
+    if (!lu.legende.includes(`${lu.place}P`)) fautes.push(`la légende ne dit pas « ${lu.place}P » (« ${lu.legende} »)`);
+    if (!lu.nom) fautes.push("l'étiquette n'a pas de nom");
+    if (lu.dansUnDessin) fautes.push("l'étiquette est posée dans un dessin");
+    if (lu.surLeJeu) fautes.push("le dessin de ce que le jeu reçoit a une étiquette");
+    await capture(page, "etiquette");
+    await page.close();
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
+  /** Tenu droit, la feuille « La salle » porte « Touches et manettes » juste
+   * après le menu quand sa rangée tient (390 × 844) : un toucher ferme la
+   * feuille et ouvre le panneau à sa place, sous l'image. Le jumeau : à
+   * 375 × 667 pendant une partie, quatre rangées feraient défiler la feuille,
+   * l'entrée n'y est pas et la salle entière la porte. */
+  async "feuille-reglage"() {
+    const fautes = [];
+    for (const [vue, voulue] of [
+      [{ width: 390, height: 844, isMobile: true, hasTouch: true }, true],
+      [{ width: 375, height: 667, isMobile: true, hasTouch: true }, false],
+    ]) {
+      const ici = `${vue.width}×${vue.height}`;
+      const page = await nouvelle(vue);
+      await entrer(page);
+      if (!(await toucher(page, "#laSalle")) && !(await toucher(page, "#laSalleCote")))
+        throw new Precondition(`${ici}: pas de « La salle »`);
+      if (!(await jusqua(() => page.evaluate(() => document.querySelector("#feuilleSalle")?.open === true), 3000)))
+        throw new Precondition(`${ici}: la feuille ne s'ouvre pas`);
+      await sleep(400);
+      const entrees = await page.evaluate(() =>
+        [...document.querySelectorAll("#feuilleSalle [data-entree]")].map((e) => e.dataset.entree),
+      );
+      if (!entrees.includes("menu")) throw new Precondition(`${ici}: la feuille n'a pas le menu (${entrees.join(", ")})`);
+      if (!voulue) {
+        if (entrees.includes("reglage")) fautes.push(`${ici}: l'entrée tient dans une feuille trop basse`);
+        await page.close();
+        continue;
+      }
+      if (!entrees.includes("reglage"))
+        throw new Defaut(`${ici}: la feuille n'a pas « Touches et manettes » (${entrees.join(", ")})`);
+      if (entrees.indexOf("reglage") !== entrees.indexOf("menu") + 1)
+        fautes.push(`${ici}: l'entrée n'est pas après le menu (${entrees.join(", ")})`);
+      await toucher(page, '#feuilleSalle [data-entree="reglage"]');
+      if (!(await jusqua(() => page.$("#reglageTenu [data-reglage]").then(Boolean), 3000))) {
+        fautes.push(`${ici}: l'entrée n'ouvre pas le panneau à sa place`);
+      } else {
+        await sleep(400);
+        if (await page.evaluate(() => document.querySelector("#feuilleSalle")?.open === true))
+          fautes.push(`${ici}: la feuille reste ouverte sur le panneau`);
+        const m = await mesurer(page);
+        if (m.surImage > 0) fautes.push(`${ici}: le panneau couvre ${m.surImage} px² de l'image`);
+      }
+      await capture(page, "feuille-reglage");
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
   /** Changement 3 : « Toutes les touches » ouvre l'onglet Clavier, le focus
@@ -795,9 +944,9 @@ const ETAPES = {
   },
 };
 
-/** Hors de la porte : la place tenue en main attend la géométrie du cadre
- * (chantier salle), et se lance par `--etapes place-tenu`. */
-const HORS_PORTE = new Set(["place-tenu"]);
+/** Hors de la porte : rien depuis le 24 novembre 2026. La place tenue en
+ * main y attendait la géométrie du cadre ; elle y est entrée avec elle. */
+const HORS_PORTE = new Set([]);
 const choisies =
   option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES).filter((nom) => !HORS_PORTE.has(nom));
 const resultats = [];

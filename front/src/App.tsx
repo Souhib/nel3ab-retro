@@ -158,6 +158,7 @@ import {
 } from "./lib/bindings";
 import { ouvrirReglage, useReglage, type Onglet } from "./manettes/entree";
 import { HoteReglage } from "./manettes/HoteReglage";
+import { RangReglage } from "./manettes/RangReglage";
 import { ToutesLesTouches } from "./manettes/ToutesLesTouches";
 import type { TrameDolphin } from "./manettes/reglage/Dolphin";
 import type { TramePro } from "./manettes/reglage/Pro";
@@ -685,11 +686,13 @@ function Room({
      (`EcranEteint`, 23 novembre 2026). */
   const [menu, setMenu] = useState(false);
   /** Ouvre « Touches et manettes » sur `onglet`. Le menu modal se ferme : il
-   * rendrait la colonne inerte. Tenue en main, la colonne vit dans la feuille
-   * agrandie, qui s'ouvre avec lui. */
+   * rendrait la colonne inerte. Tenue en main, le panneau a sa place sous
+   * l'image ou à droite d'elle (`Geometrie.reglage`) : la feuille se ferme,
+   * elle le couvrirait. Il vivait dans la feuille agrandie, qui couvrait
+   * l'image (constat 4 de la relecture des manettes). */
   const ouvrirLesTouches = (onglet: Onglet) => {
     setMenu(false);
-    if (tenu) setFeuille("agrandie");
+    if (tenu) setFeuille(null);
     ouvrirReglage(onglet);
   };
   pourCtrl.current = { feuille, menu, touches: reglage !== null };
@@ -1840,6 +1843,8 @@ function Room({
     largeurPanneau:
       reglage !== null && modeSalle === "bureau" ? largeurPanneau(fenetre.width, column) : null,
     agrandie: bare && !tenu,
+    // Tenu en main, le panneau des touches a sa place à lui (constat 4).
+    reglage: tenu && reglage !== null,
   });
   /* Le panneau de commande sous l'image, au bureau, quand l'image n'y perd
      rien (`panneauAuBureau`) ; sinon au pied de la colonne. Tenue en main,
@@ -2279,6 +2284,8 @@ function Room({
    * sinon celui de la salle. */
   const jeuDesTouches = setupGame ?? room?.game;
   const envoiDuReglage = { enAttente: () => enAttente(), reessayer };
+  /** Ton nom dans la salle, pour l'étiquette de « Ta manette » (D7). */
+  const tonNom = maPlace ? { nom: maPlace.nom ?? name, lettres: maPlace.lettres } : null;
   /** La trame que règle « Touches et manettes » : la trame Pro pour une
    * Switch ou une Xbox 360, la trame Dolphin sinon. Rien sans session. */
   const trameDuReglage: TrameDolphin | TramePro | null =
@@ -2299,6 +2306,7 @@ function Room({
             guide: jeuDesTouches?.guide,
             place: port as 1 | 2 | 3 | 4 | null,
             envoi: envoiDuReglage,
+            etiquette: tonNom,
           }
         : {
             genre: "dolphin",
@@ -2339,6 +2347,7 @@ function Room({
               </section>
             ),
             envoi: envoiDuReglage,
+            etiquette: tonNom,
           };
   /** Ce que la salle dit d'elle quand elle ne vit pas, en tête du panneau. */
   const ditDuReglage = dire(liaison, salle(), contexteEtat);
@@ -2479,6 +2488,30 @@ function Room({
   /* La colonne repliée par Ctrl se déplie quand le menu s'y ouvre, et se
      replie à sa fermeture (focus.mjs, agrandir-ctrl). */
   useColonneDuMenu({ menu, bare, dansLaColonne: placeMenu.lieu === "colonne", setBare });
+  /** Le panneau « Touches et manettes » : à la place des rangs de la colonne
+   * au bureau et en fenêtre étroite, à sa place sous l'image ou à droite
+   * d'elle tenue en main (`geo.reglage`). Un seul monté à la fois. */
+  const hoteReglage = (
+    <HoteReglage
+      trame={trameDuReglage}
+      autres={autresJouent}
+      vit={geo.etat === "vit"}
+      hote={ouEstLaMascotte(geo, "fier")}
+      bande={bandeDuReglage}
+      // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
+      // revient à « Changer » de la vue remontée, sinon au rang du réglage,
+      // à celui des touches ou de la manette ; tenue en main, à « La salle ».
+      repli={() =>
+        document.getElementById("changerTouches") ??
+        document.getElementById("touchesEtManettes") ??
+        document.getElementById("tesTouches") ??
+        document.getElementById("taManette") ??
+        document.getElementById("laSalle") ??
+        document.getElementById("laSalleCote") ??
+        document.getElementById("openMenu")
+      }
+    />
+  );
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (
     <Colonne
@@ -2573,6 +2606,8 @@ function Room({
           />
         ),
         menu: <RangMenu appareil={appareil} onMenu={() => setMenu(true)} />,
+        /* « Touches et manettes », en tête sous Signaler (chantier manettes). */
+        reglage: session ? <RangReglage onOuvrir={() => ouvrirLesTouches("manette")} /> : null,
         /* Les touches du clavier, sans ouvrir de menu (audit T02). */
         touches:
           lignesClavier.length > 0 ? (
@@ -2693,23 +2728,8 @@ function Room({
       vue={
         menuEnColonne ? (
           menuMonte
-        ) : reglage !== null ? (
-          <HoteReglage
-            trame={trameDuReglage}
-            autres={autresJouent}
-            vit={geo.etat === "vit"}
-            hote={ouEstLaMascotte(geo, "fier")}
-            bande={bandeDuReglage}
-            // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
-            // revient à « Changer » de la vue remontée, sinon au rang des
-            // touches, ou à celui de la manette.
-            repli={() =>
-              document.getElementById("changerTouches") ??
-              document.getElementById("tesTouches") ??
-              document.getElementById("taManette") ??
-              document.getElementById("openMenu")
-            }
-          />
+        ) : reglage !== null && !tenu ? (
+          hoteReglage
         ) : mode === "details" ? (
           <div id="stats">
             {shot ? (
@@ -3078,6 +3098,11 @@ function Room({
             {tonEtiquette}
           </div>
         ) : null}
+        {tenu && geo.reglage && reglage !== null ? (
+          <div id="reglageTenu" className="n3-reglage-tenu" style={placeDe(geo.reglage)}>
+            {hoteReglage}
+          </div>
+        ) : null}
         {panneauTenu ? (
           <div style={placeDe(panneauTenu)} className="n3-panneau-tenu">
             <PanneauCommande
@@ -3155,6 +3180,9 @@ function Room({
               // Le clip, pendant une partie seulement : rien à garder sans image.
               clip: room?.game && !padOnly ? clip.state : null,
               travers: modeSalle === "paysage",
+              // « Touches et manettes », quand sa rangée tient (`lib/feuille`).
+              reglage: session !== null && port !== null && !padOnly,
+              hauteurMi: geo.feuille?.mi.h,
             })}
             onEntree={(id) => {
               switch (id) {
@@ -3170,6 +3198,10 @@ function Room({
                 case "menu":
                   setFeuille(null);
                   setMenu(true);
+                  return;
+                case "reglage":
+                  // La feuille se ferme avec : le panneau a sa place.
+                  ouvrirLesTouches("manette");
                   return;
                 case "clip":
                   // La feuille reste ouverte : l'entrée dit où en est le clip.

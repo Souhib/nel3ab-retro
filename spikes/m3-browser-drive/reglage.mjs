@@ -558,6 +558,41 @@ const ETAPES = {
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
+  /** Changement 20 : « Les nombres de ta manette », ouverts d'un vrai clic,
+   * disent ce que la manette annonce. Le bouton 6 posé à 0,65 se lit
+   * « 0.65 » et l'horodatage suit celui de la manette. Jusqu'au 24 novembre
+   * 2026, le banc vivait hors de la racine que la boucle peignait, et il
+   * restait à « 0.00 » quoi qu'on presse. */
+  async nombres() {
+    const page = await nouvelle({ width: 1440, height: 900 });
+    await entrer(page);
+    await ouvrirParLaManette(page);
+    if (!(await page.$("#reglage .n3-nombres > summary")))
+      throw new Precondition("le panneau n'a pas « Les nombres de ta manette »");
+    await toucher(page, "#reglage .n3-nombres > summary");
+    if (!(await page.evaluate(() => document.querySelector("#reglage .n3-nombres").open)))
+      throw new Precondition("le clic n'ouvre pas les nombres");
+    await page.evaluate(() => {
+      window.__pad.buttons[6] = { pressed: true, touched: true, value: 0.65 };
+      window.__pad.timestamp = 98765;
+    });
+    const lu = () =>
+      page.evaluate(() => ({
+        b6: document.querySelector('#reglage [data-gauge="b6"] .n3-value')?.textContent ?? null,
+        horodatage: document.querySelector('#reglage [data-gauge="stamp"] .n3-value')?.textContent ?? null,
+      }));
+    const bon = await jusqua(async () => {
+      const ici = await lu();
+      return ici.b6 === "0.65" && ici.horodatage === "98765";
+    }, 2000);
+    await capture(page, "nombres");
+    const vu = await lu();
+    await page.close();
+    if (vu.b6 === null) throw new Precondition("les nombres ouverts n'ont pas de jauge b6");
+    if (!bon)
+      throw new Defaut(`la manette annonce b6 = 0.65 et l'horodatage 98765 ; les nombres disent « ${vu.b6} » et « ${vu.horodatage} »`);
+  },
+
   /** Le pas à pas d'une salle GameCube, par la vraie boucle : la ligne
    * attendue est marquée, un appui la fait passer à la suivante, et une
    * seconde après, aucune animation ne tourne plus dans le panneau (rien ne

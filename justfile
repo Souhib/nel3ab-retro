@@ -1019,6 +1019,11 @@ reglage-navigateur-rouge:
     git -C ../.. show e62f583:core/crates/worker/src/page/index.html > "$dossier/passage5.html"
     node reglage.mjs --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
         --etapes changer-visible --rouge-attendu changer-visible
+    # La page du sixième passage (842e4c9) peint le banc hors de sa racine :
+    # nombres doit y rougir sur « 0.00 » quand la manette annonce 0,65.
+    git -C ../.. show 842e4c9:core/crates/worker/src/page/index.html > "$dossier/passage6.html"
+    node reglage.mjs --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
+        --etapes nombres --rouge-attendu nombres
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

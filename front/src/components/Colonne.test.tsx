@@ -250,6 +250,52 @@ describe("les trois formes de la colonne", () => {
     expect(HAUTEUR_DU_COIN).toBe(1 + 8 + 40 + 4 + SCENE_DU_COIN + 12);
   });
 
+  it("à côté de l'image, un <details> qui s'ouvre défile dans la vue, au-dessus du coin", () => {
+    const vers = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vers,
+    });
+    const avec = (forme: "a-cote" | "dessous") =>
+      render(
+        <Colonne
+          nomSalle="Salle 1"
+          jeu={null}
+          onQuitter={() => {}}
+          largeur={forme === "a-cote" ? 304 : null}
+          forme={forme}
+          role={null}
+          rangs={["autres"]}
+          contenus={{
+            autres: (
+              <details id={`autres-${forme}`}>
+                <summary>Autres réglages</summary>
+                <button type="button">Rendre ma place</button>
+              </details>
+            ),
+          }}
+          vue={null}
+          coin={<Coin mesures={false} onMesures={() => {}} />}
+        />,
+      ).container.querySelector<HTMLDetailsElement>(`#autres-${forme}`);
+    const d = avec("a-cote");
+    if (!d) throw new Error("pas de <details>");
+    d.open = true;
+    d.dispatchEvent(new Event("toggle"));
+    expect(vers).toHaveBeenCalledWith({ block: "nearest" });
+    // Le jumeau : il se referme, rien ne défile ; sous l'image, sans pied
+    // collé, rien ne défile non plus.
+    vers.mockClear();
+    d.open = false;
+    d.dispatchEvent(new Event("toggle"));
+    const dessous = avec("dessous");
+    if (!dessous) throw new Error("pas de <details>");
+    dessous.open = true;
+    dessous.dispatchEvent(new Event("toggle"));
+    expect(vers).not.toHaveBeenCalled();
+    delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
   it("jumeau : sous l'image, le coin reste dans le fil de la colonne", () => {
     const { container } = render(
       <Colonne

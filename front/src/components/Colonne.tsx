@@ -142,6 +142,20 @@ export function Colonne({
       actif.arreter();
     };
   }, [boite]);
+  // Au bureau, le coin colle au pied de ce qui se voit : un <details> ouvert
+  // au bas de la colonne montrait son contenu dessous, et « Rendre ma
+  // place » ne recevait plus le clic (cadre.mjs, un-plein, 24 novembre
+  // 2026). À l'ouverture, il défile dans la vue, au plus juste ; la marge du
+  // bas compte déjà le coin.
+  useEffect(() => {
+    if (!boite || !collePied) return;
+    const ouvert = (e: Event) => {
+      const d = e.target;
+      if (d instanceof HTMLDetailsElement && d.open) d.scrollIntoView?.({ block: "nearest" });
+    };
+    boite.addEventListener("toggle", ouvert, true);
+    return () => boite.removeEventListener("toggle", ouvert, true);
+  }, [boite, collePied]);
   // Le ▶ se pose au focus, puis ne bouge plus : l'avis du clavier qui naît
   // du même focus pousse la colonne de 97 px, et le ▶ restait devant le
   // vide (vu par focus.mjs, anneau, 23 novembre 2026). Après chaque rendu

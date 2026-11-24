@@ -3333,6 +3333,67 @@ placed by this change. They belong on the floors of the salle's control panel;
 until the salle places them, those full versions fall back and `data-refus`
 says so.
 
+#### D46 addendum, 2026-11-24 night: a START is its round, and a place's words are walls
+
+The integration of the people and mascot workstreams (wave B1) put
+`start-N` on each whole place button. The planner does not treat an anchor's
+element as an obstacle, so nothing on the place was protected: the name is
+written flush with the top of the button, and the short `depart` set the
+player's tag astride that top edge, on « 2P libre », at 1280 × 720,
+1440 × 900 and 390 × 844. The guard step had seen it, but a twin's
+precondition thrown before the verdict hid the three faults for two waves.
+Decision:
+
+- **The `start-N` anchor is the START round** (`.rt-bouton-start`), where Aïn
+  stands, beside the name and not on it. One anchor per VISIBLE place: on a
+  phone, when the container query swaps the row for the four lamps, the
+  hidden places carry none (`useRangeeVisible`, read at mount and on each
+  resize); the lamps carry none either. The closed room's places
+  (`PlacesAuPasse`) follow the same rule.
+- **A control that carries an anchor as one of its parts is not a wall**,
+  like the anchor's own element; the anchor of a home (the head inside « La
+  salle ») does not count, so that button stays a wall. Its words are walls:
+  the place number, the name or « libre », « toi », « 3P prêt ! », and the
+  names under « Ils regardent » carry `data-texte` (`Etiquette` takes `mot`).
+- **The tag of `depart` rests on top of the START**, in both versions,
+  never astride it; with a word just above, the planner refuses it.
+- **Scenes of people say whose they are.** `usePlaces` passes
+  `contexte: { joueur }` to the arbiter for an arrival and a departure, and
+  an empty context for someone who starts watching.
+- **The step reports what it saw.** In `mascotte-hors-image`, a failing twin
+  gives the verdict of the faults already seen and is a precondition only
+  when the probe saw none; the twin on the words waits for scenes to end
+  instead of requiring a quiet page 300 ms after entry; where and how many
+  scenes played is counted from the step's own scenes, not from the entry.
+  In `ain-immobile`, a window that starts during a scene is discarded.
+  `just mascotte-navigateur-rouge` gains the page of 4ecbc23, which must fail
+  `mascotte-hors-image` on its defect.
+- **The corner's logo names the site** (`role="img"`, « nel3ab », from
+  `mots.ts`), as the column header's logo did before it moved down.
+- **The players' dark tints are tokens.** Letters 5 to 8 of Aïn's palette,
+  the first step of a relief in a player's colour, read
+  `--joueur-1-sombre` to `--joueur-4-sombre`, a « chantier mascotte »
+  section of `regie.css` (and its lounge copy): object colours set once for
+  both themes, each at least 3:1 against Aïn's yellow body (5.16, 4.71,
+  3.65 and 3.93:1), against 1.46:1 for player 3's own yellow. The board
+  (`planche.tsx`) writes no colour of its own either.
+- **The 27 phrases of the proposal stay out of the scenes.** A scene has no
+  words of its own: each screen says its event in its own words (`mots.ts`,
+  `liaison-mots.ts`), and `jouer()` only passes them to the announcement
+  region. This answers the review's remark that they were missing.
+
+Cost, observed in `mascotte-hors-image` on 2026-11-24: on the black screen
+(1440 × 900 at rest), the full `arrivee` and `fier` now touch the words of
+the event (at 768 and 960 ms) and fall back to their short versions; they
+played in full before, when no name was marked (whether they covered one is
+not established: at that size the places sit below the window, where the
+probe does not look). With a picture, at 1280 × 720
+and 1440 × 900, both were already refused by the status line (`#mesures`),
+and on the phone only short versions play. The full `depart` still waits
+for the `panneau` floor. The room page weighs 279 823 bytes brotli after
+this change (279 647 before, +176; a rebuild varies by a few hundred
+bytes), the lounge bundle 18 327 (18 304 before).
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

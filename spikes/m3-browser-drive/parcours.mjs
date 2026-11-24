@@ -954,6 +954,112 @@ const ETAPES = {
     await tel.close();
   },
 
+  /** P2 et M4 (chantier menus) : à 1280x720, chaque arrêt de Tab du bloc de
+   * préparation et chaque ligne du menu (↓) reste visible, hors des barres
+   * collées (la rangée de gestes, « Plus bas », le coin d'Aïn), et la rangée
+   * ne descend jamais sous le coin. Trois gardes, chacune avec son jumeau
+   * qui doit cacher un arrêt : la rangée collée au-dessus du coin, la marge
+   * de défilement d'un choix du bloc, la radio du menu posée dans sa
+   * pastille. Écrite ici plutôt que dans focus.mjs : seul ce banc tient une
+   * préparation. Rouge sur 1ee8b49. */
+  async "garde-focus"() {
+    const VUE = { width: 1280, height: 720 };
+    /** Les arrêts dans `bloc`, chacun mesuré contre les barres collées. Un
+     * arrêt est caché s'il sort de la colonne ou croise une barre collée qui
+     * ne le contient pas. Un calque de scène d'Aïn ne compte pas : il passe,
+     * une barre reste. */
+    const course = async (page, bloc, premier, touche = "Tab") => {
+      await page.$eval(premier, (n) => n.focus());
+      const arrets = [];
+      for (let i = 0; i < 40; i++) {
+        await sleep(80);
+        const vu = await page.evaluate((b) => {
+          const ici = document.activeElement;
+          if (!ici || !ici.closest(b)) return null;
+          const cible = ici.closest("label") ?? ici;
+          const r = cible.getBoundingClientRect();
+          const cadre = document.querySelector("#side").getBoundingClientRect();
+          const barres = [...document.querySelectorAll(".n3-colonne-pied, .n3-plus-bas, .n3-prep-actions, .n3-menu-fiche-barre")]
+            .filter((barre) => !barre.contains(cible))
+            .map((barre) => ({ nom: barre.className.split(" ").find((c) => c.startsWith("n3-")), r: barre.getBoundingClientRect() }))
+            .filter(({ r: br }) => br.height > 0);
+          const croise = barres.find(({ r: br }) => r.bottom > br.top + 1 && r.top < br.bottom - 1 && r.right > br.left && r.left < br.right);
+          const dedans = r.top >= cadre.top - 1 && r.bottom <= cadre.bottom + 1;
+          return {
+            id: ici.id || ici.textContent.trim().slice(0, 24),
+            vu: dedans && !croise,
+            dessus: croise ? croise.nom : dedans ? null : "hors de la colonne",
+            haut: Math.round(r.top),
+            bas: Math.round(r.bottom),
+          };
+        }, bloc);
+        if (vu === null) break;
+        if (arrets.length > 0 && arrets.at(-1).id === vu.id) break;
+        arrets.push(vu);
+        await page.keyboard.press(touche);
+      }
+      return arrets;
+    };
+    /** Les trois gardes, chacune rendue seule par son jumeau. */
+    const JUMEAUX = {
+      rangee: { partie: "prep", css: ".n3-prep-actions { bottom: 0 !important; }" },
+      marge: { partie: "prep", css: "#preparation * { scroll-margin: 0 !important; }" },
+      radios: { partie: "menu", css: ".n3-menu-pastille { position: static !important; }" },
+    };
+    const mesurer = async (jumeau) => {
+      const page = await nouvelle(VUE, { salle: { bo: true, preparation: preparation(0, [0, 1], false) } });
+      await entrer(page);
+      if (!(await jusqua(() => page.$("#preparation").then(Boolean), 8000)))
+        throw new Precondition("la préparation ne se montre pas");
+      if (jumeau) await page.addStyleTag({ content: JUMEAUX[jumeau].css });
+      // La rangée de gestes elle-même, colonne au plus haut puis au plus bas :
+      // elle colle au bas de ce qui se voit, jamais sous le coin d'Aïn.
+      const gestes = [];
+      for (const ou of [0, 1e6]) {
+        gestes.push(
+          await page.evaluate((y) => {
+            document.querySelector("#side").scrollTop = y;
+            const g = document.querySelector(".n3-prep-actions")?.getBoundingClientRect();
+            const coin = document.querySelector(".n3-colonne-pied")?.getBoundingClientRect();
+            return { croise: Boolean(g && coin && g.bottom > coin.top + 1), bas: g?.bottom ?? null, coin: coin?.top ?? null };
+          }, ou),
+        );
+      }
+      await page.evaluate(() => (document.querySelector("#side").scrollTop = 0));
+      const deborde = await page.$eval("#side", (c) => c.scrollHeight > c.clientHeight + 40);
+      const prep = await course(page, "#preparation", "#preparation input:not(:disabled), #preparation button:not(:disabled)");
+      // Dans le menu, Tab passe d'un groupe à l'autre et ↓ de ligne en ligne
+      // (le focus itinérant, M4) : la course suit ↓ dans la plus longue rubrique.
+      await menu(page, "reglages");
+      const menuArrets = await course(page, "#menu", '#menu [id^="item-"]', "ArrowDown");
+      if (!jumeau) await capture(page, "garde-focus");
+      await page.close();
+      return { deborde, gestes, prep, menu: menuArrets };
+    };
+    const vu = await mesurer(null);
+    if (process.env.GARDE_MESURE) console.error(JSON.stringify({ vu }, null, 1));
+    if (!vu.deborde) throw new Precondition(`à ${VUE.width}x${VUE.height}, la colonne ne déborde pas`);
+    if (vu.prep.length < 3) throw new Precondition(`le bloc n'a que ${vu.prep.length} arrêt(s)`);
+    const caches = (m) => [...m.prep, ...m.menu].filter((a) => !a.vu);
+    // Chaque garde a son jumeau, qui doit cacher un arrêt : deux gardes dont
+    // l'une suffirait se cacheraient l'une l'autre.
+    for (const [nom, { partie }] of Object.entries(JUMEAUX)) {
+      const casse = await mesurer(nom);
+      if (process.env.GARDE_MESURE) console.error(JSON.stringify({ [nom]: casse }, null, 1));
+      if (casse[partie].every((a) => a.vu) && !(partie === "prep" && casse.gestes.some((g) => g.croise)))
+        throw new Precondition(
+          `à ${VUE.width}x${VUE.height}, sans la garde « ${nom} », aucun arrêt de ${partie} n'est caché : elle n'est pas prouvée ici`,
+        );
+    }
+    const sous = vu.gestes.find((g) => g.croise);
+    if (sous) throw new Defaut(`la rangée de gestes descend sous le coin d'Aïn (bas ${Math.round(sous.bas)} px, coin ${Math.round(sous.coin)} px)`);
+    const perdus = caches(vu);
+    if (perdus.length > 0)
+      throw new Defaut(
+        `${perdus.length} arrêt(s) caché(s) : ${perdus.map((a) => `${a.id} sous ${a.dessus}`).join(", ")}`,
+      );
+  },
+
   /** B4 : seul dans la salle, la cartouche puis « Lancer », sauvegarde déjà
    * cochée : un seul « begin » part au salon, avec direct. Le jumeau : la
    * cartouche seule n'envoie rien. */

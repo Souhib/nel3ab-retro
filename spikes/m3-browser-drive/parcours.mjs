@@ -965,9 +965,17 @@ const ETAPES = {
         pleins: [...document.querySelectorAll(".rt-bouton-plein")].map((b) => b.id),
         etats: [...document.querySelectorAll("#lobbySeats [data-port]")].map((p) => p.dataset.state),
         bascule: document.querySelector("#lookSwitch") !== null,
+        // Le centre de chaque place rend la place : un nom de classe partagé
+        // avec la borne du cadre a caché toute la borne le 24 novembre 2026,
+        // et le DOM seul le laissait passer.
+        touchees: [...document.querySelectorAll("#lobbySeats [data-port]")].map((p) => {
+          const r = p.getBoundingClientRect();
+          return r.width > 0 && p.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+        }),
       }));
       if (lu.bascule) throw new Defaut("l'avant-salle propose encore un autre dessin");
       if (lu.etats.length !== 4) throw new Precondition(`${lu.etats.length} places dans le panneau`);
+      if (!lu.touchees.every(Boolean)) throw new Defaut(`places qui ne reçoivent pas leur centre : ${lu.touchees}`);
       if (lu.porte !== "Prendre la place 1") throw new Defaut(`la porte dit « ${lu.porte} »`);
       if (lu.pleins.join() !== "enter") throw new Defaut(`boutons pleins : ${lu.pleins.join(", ")}`);
       const deux = bo ? "busy" : "free";
@@ -999,7 +1007,18 @@ const ETAPES = {
     await avant.goto(banc.url, { waitUntil: "domcontentloaded" });
     await avant.waitForSelector('#lobbySeats button[data-port="3"]', { timeout: 15000 });
     await sleep(500);
-    await avant.click('#lobbySeats button[data-port="3"]');
+    // Un vrai clic au centre, après avoir vérifié que ce point rend le bouton.
+    const centre = await avant.evaluate(() => {
+      const b = document.querySelector('#lobbySeats button[data-port="3"]');
+      b?.scrollIntoView({ block: "center" });
+      const r = b?.getBoundingClientRect();
+      if (!b || !r || r.width === 0) return null;
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      return { x, y, touche: b.contains(document.elementFromPoint(x, y)) };
+    });
+    if (!centre?.touche) throw new Precondition(`le bouton de la place 3 ne reçoit pas son centre : ${JSON.stringify(centre)}`);
+    await avant.mouse.click(centre.x, centre.y);
     await avant.waitForSelector("#screen", { timeout: 15000 });
     if (!(await jusqua(async () => /place 3/.test(await siege(avant)), 8000)))
       throw new Defaut(`« Prendre » de la place 3 a donné « ${await siege(avant)} »`);

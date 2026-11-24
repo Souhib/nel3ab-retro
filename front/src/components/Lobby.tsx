@@ -101,21 +101,21 @@ export function Lobby({
         </header>
 
         <main className="contents">
-          <section id="room" className="n3-borne paysage-bas:row-span-2">
-            <h1 className="n3-borne-titre rt-titre">{room?.name ?? "…"}</h1>
-            <div className="n3-borne-jeu">
-              {console ? <span className="n3-cartouche">{console}</span> : null}
-              <span className="n3-borne-titre-jeu" data-texte="">
+          <section id="room" className="n3-avant-borne paysage-bas:row-span-2">
+            <h1 className="n3-avant-borne-titre rt-titre">{room?.name ?? "…"}</h1>
+            <div className="n3-avant-borne-jeu">
+              {console ? <span className="n3-avant-cartouche">{console}</span> : null}
+              <span className="n3-avant-borne-titre-jeu" data-texte="">
                 {room?.game?.name ?? AVANT_SALLE.aucunJeu}
               </span>
               {chef || spectateurs.length > 0 ? (
-                <span id="people" className="n3-borne-gens">
+                <span id="people" className="n3-avant-borne-gens">
                   {chef ? `${chefChoisit(chef)} ` : ""}
                   {spectateurs.length > 0 ? AVANT_SALLE.regarde(spectateurs) : ""}
                 </span>
               ) : null}
             </div>
-            <div id="lobbySeats" className="n3-borne-panneau">
+            <div id="lobbySeats" className="n3-avant-borne-panneau">
               {seats.map((seat) => (
                 <PlaceDuPanneau
                   key={seat.port}
@@ -182,14 +182,14 @@ function PlaceDuPanneau({
   const couleur = { "--rt-joueur": aplatDuJoueur(seat.port) } as CSSProperties;
   if (!estLibre(seat)) {
     return (
-      <div className="n3-panneau-place" data-port={seat.port} data-state="busy" style={couleur}>
+      <div className="n3-avant-place" data-port={seat.port} data-state="busy" style={couleur}>
         <span className="rt-bouton-start" aria-hidden="true">
           {pastille(seat.port)}
         </span>
         {seat.player ? (
           <Etiquette nom={seat.player} place={seat.port} />
         ) : (
-          <span className="n3-panneau-mot">{pastille(seat.port)}</span>
+          <span className="n3-avant-mot">{pastille(seat.port)}</span>
         )}
       </div>
     );
@@ -197,7 +197,7 @@ function PlaceDuPanneau({
   return (
     <button
       type="button"
-      className="n3-panneau-place"
+      className="n3-avant-place"
       data-port={seat.port}
       data-state="free"
       data-conseillee={conseillee ? "" : undefined}
@@ -208,7 +208,7 @@ function PlaceDuPanneau({
       <span className="rt-bouton-start" data-libre="" aria-hidden="true">
         {pastille(seat.port)}
       </span>
-      <span className="n3-panneau-mot">{AVANT_SALLE.prendre}</span>
+      <span className="n3-avant-mot">{AVANT_SALLE.prendre}</span>
     </button>
   );
 }

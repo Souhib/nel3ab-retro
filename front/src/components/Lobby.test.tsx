@@ -140,3 +140,44 @@ it("une salle injoignable le dit, et laisse entrer quand même", () => {
   expect(screen.getByText(/ne s'affichent pas pour l'instant/)).toBeTruthy();
   expect(document.querySelector("#enter")).not.toBeNull();
 });
+
+/* Le 24 novembre 2026, `.n3-borne` de cette feuille portait le même nom que
+   la borne du cadre de la salle (`cadre.css`, `display: none` hors de l'effet
+   « borne ») : la borne de l'avant-salle disparaissait dans un vrai navigateur,
+   et jsdom, sans mise en page, laissait passer tous les essais du dessus. */
+type Fs = {
+  readFileSync: (chemin: string, codage: "utf-8") => string;
+  readdirSync: (chemin: string, options: { recursive: true }) => string[];
+};
+const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
+// Par une fonction et non `new URL("…", import.meta.url)` écrit en entier :
+// Vite réécrit cette forme littérale en adresse de ressource (`Screen.test`).
+const ici = (relatif: string) => new URL(relatif, import.meta.url).pathname;
+const SRC = ici("../");
+
+/** Les classes `n3-` qu'une feuille déclare comme sélecteur. */
+const declarees = (css: string) => new Set(css.match(/\.n3-[a-z0-9-]+/g) ?? []);
+
+/** Les classes d'ailleurs que lobby.css vise comme descendantes, sans les déclarer. */
+const ETRANGERES = new Set([".n3-etiquette"]);
+
+it("aucune classe de lobby.css n'est déclarée par une autre feuille de la page", () => {
+  const lues = declarees(fs.readFileSync(`${SRC}components/lobby.css`, "utf-8"));
+  const miennes = new Set([...lues].filter((c) => !ETRANGERES.has(c)));
+  expect(miennes.size).toBeGreaterThan(5);
+  // Toutes sous un préfixe à elle : un nouveau nom sans préfixe rougit ici.
+  expect([...miennes].filter((c) => !c.startsWith(".n3-avant"))).toEqual([]);
+  const collisions = fs
+    .readdirSync(SRC, { recursive: true })
+    .filter((f) => f.endsWith(".css") && !f.endsWith("components/lobby.css"))
+    .flatMap((f) =>
+      [...declarees(fs.readFileSync(`${SRC}${f}`, "utf-8"))]
+        .filter((c) => miennes.has(c))
+        .map((c) => `${f} ${c}`),
+    );
+  expect(collisions).toEqual([]);
+  // Le jumeau : la borne du cadre existe bien ailleurs, sous son nom à elle.
+  expect(declarees(fs.readFileSync(`${SRC}components/cadre.css`, "utf-8")).has(".n3-borne")).toBe(
+    true,
+  );
+});

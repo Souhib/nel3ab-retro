@@ -147,13 +147,33 @@ describe("les 27 scènes", () => {
     }
   });
 
+  /* L'essai sautait en silence une scène dont un plan manquait, et
+     comparait à elle-même une scène sans version courte (relecture d'Aïn,
+     24 novembre 2026) : il ne compare plus que les scènes qui en ont une,
+     exige les deux plans, et une courte strictement plus courte. */
   it("la version courte est plus courte que la complète", () => {
-    for (const id of IDS) {
+    const avecCourte = IDS.filter((id) => SCENES_AIN[id].courte !== undefined);
+    expect(avecCourte.length).toBeGreaterThan(10);
+    for (const id of avecCourte) {
       const d = SALON.includes(id) ? salle(null) : salle();
-      const longue = planifier(id, "complete", d, { joueur: "2", mode: "tous" }).plan;
-      const courte = planifier(id, "courte", d, { joueur: "2", mode: "tous" }).plan;
-      if (!longue || !courte) continue;
-      expect(courte.duree, id).toBeLessThanOrEqual(longue.duree);
+      const longue = planifier(id, "complete", d, { joueur: "2", mode: "tous" });
+      const courte = planifier(id, "courte", d, { joueur: "2", mode: "tous" });
+      expect(longue.plan, `${id} complète : ${longue.refus.join(" ; ")}`).not.toBeNull();
+      expect(courte.plan, `${id} courte : ${courte.refus.join(" ; ")}`).not.toBeNull();
+      expect(longue.version, id).toBe("complete");
+      expect(courte.version, id).toBe("courte");
+      expect((courte.plan as Plan).duree, id).toBeLessThan((longue.plan as Plan).duree);
+    }
+  });
+
+  it("jumeau : une scène sans version courte n'en joue pas une, elle joue la complète", () => {
+    const sans = IDS.filter((id) => SCENES_AIN[id].courte === undefined);
+    expect(sans).toContain("attente");
+    for (const id of sans) {
+      const d = SALON.includes(id) ? salle(null) : salle();
+      expect(planifier(id, "courte", d, { joueur: "2", mode: "tous" }).version, id).toBe(
+        "complete",
+      );
     }
   });
 });

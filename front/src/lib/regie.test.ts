@@ -728,3 +728,38 @@ describe("chantier menus : la ligne choisie du menu", () => {
   });
 });
 /* ==== fin menus ==== */
+
+/* La relecture d'Aïn (24 novembre 2026) : les teintes sombres des joueurs,
+   la première marche de son relief à la couleur d'un joueur, étaient écrites
+   dans `mascotte/dessin.ts` sans jeton. Ce sont des couleurs d'objet, comme
+   celles des manettes : posées une fois pour les deux thèmes, lues par sa
+   palette, et chacune se détache du corps jaune d'Aïn. */
+describe("les teintes sombres des joueurs, au relief d'Aïn", () => {
+  const SOMBRES = [1, 2, 3, 4].map((n) => `--joueur-${n}-sombre`);
+
+  it("sont des couleurs pleines de la régie, posées une fois pour les deux thèmes", () => {
+    for (const nom of SOMBRES) {
+      expect(RACINE.get(nom), nom).toMatch(/^#[0-9a-f]{6}$/);
+      expect(NUIT.has(nom) || JOUR_SYSTEME.has(nom) || JOUR_CHOISI.has(nom), nom).toBe(false);
+    }
+  });
+
+  it("chacune tient 3:1 contre le corps d'Aïn ; la couleur vive du joueur 3, non", () => {
+    const corps = resolve("--mire-jaune", RACINE);
+    for (const nom of SOMBRES)
+      expect(contrast(resolve(nom, RACINE), corps), nom).toBeGreaterThanOrEqual(3);
+    // Le jumeau : la raison de ces teintes. Le jaune du joueur 3 contre le
+    // corps tombait à 1,46:1.
+    expect(contrast(resolve("--joueur-3", RACINE), corps)).toBeLessThan(3);
+  });
+
+  it("la palette d'Aïn les lit : lettres 5 à 8, et plus aucune couleur sans jeton", async () => {
+    const { PALETTE } = await import("../mascotte/dessin");
+    expect(["5", "6", "7", "8"].map((l) => PALETTE[l][0])).toEqual(SOMBRES);
+    for (const [lettre, [jeton, repli]] of Object.entries(PALETTE)) {
+      expect(jeton, lettre).not.toBe("");
+      // Le repli écrit est la valeur de la feuille, pour une page sans elle.
+      if (RACINE.has(jeton)) expect(resolve(jeton, RACINE), lettre).toBe(repli);
+    }
+  });
+});

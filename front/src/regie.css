@@ -494,3 +494,18 @@
   --manette-guitare-orange: #f08a24;
   --manette-guitare-vibrato: #3a3d45;
 }
+
+/* chantier mascotte: les teintes sombres des joueurs ──────────────────────
+   La première marche du relief d'Aïn à la couleur d'un joueur
+   (`mascotte/dessin.ts`, lettres 5 à 8 de sa palette). Ce sont des couleurs
+   d'objet, comme celles des manettes : posées une fois pour les deux thèmes.
+   Le jaune du joueur 3 contre le corps jaune d'Aïn tombait à 1,46:1 ; ces
+   teintes tiennent 3:1 au moins contre lui (5,16, 4,71, 3,65 et 3,93:1,
+   calculés par `lib/regie.test.ts`). Elles étaient écrites dans la palette
+   sans jeton (relecture d'Aïn, 24 novembre 2026). */
+:root {
+  --joueur-1-sombre: #9a3a36;
+  --joueur-2-sombre: #2f5fa8;
+  --joueur-3-sombre: #8a6d1f;
+  --joueur-4-sombre: #2f7a3f;
+}

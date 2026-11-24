@@ -19,12 +19,13 @@ import { GLYPHES } from "../lib/logo";
 export type Grille = readonly string[];
 
 /**
- * La palette : chaque lettre lit un jeton de `regie.css` quand il en existe
- * un, sinon sa couleur écrite. Les seize couleurs sont celles du thème ; 5 à
- * 8 sont les teintes sombres des joueurs, la première marche d'un relief à
- * leur couleur (le jaune de la place 3 contre le corps faisait 1,46:1, la
- * teinte sombre 3,65:1 au moins). `L` et `a` à `c` sont les lettres et le
- * relief du logo, qui changent avec le thème du jour.
+ * La palette : chaque lettre lit son jeton de `regie.css`, et retombe sur
+ * sa couleur écrite dans une page sans la feuille. Les seize couleurs sont
+ * celles du thème ; 5 à 8 sont les teintes sombres des joueurs
+ * (`--joueur-N-sombre`), la première marche d'un relief à leur couleur (le
+ * jaune de la place 3 contre le corps faisait 1,46:1, la teinte sombre
+ * 3,65:1 au moins). `L` et `a` à `c` sont les lettres et le relief du logo,
+ * qui changent avec le thème du jour.
  */
 export const PALETTE: Readonly<Record<string, readonly [string, string]>> = {
   K: ["--marine-975", "#070811"],
@@ -42,10 +43,10 @@ export const PALETTE: Readonly<Record<string, readonly [string, string]>> = {
   "2": ["--joueur-2", "#4a86d9"],
   "3": ["--joueur-3", "#d9b64a"],
   "4": ["--joueur-4", "#4aab5c"],
-  "5": ["", "#9a3a36"],
-  "6": ["", "#2f5fa8"],
-  "7": ["", "#8a6d1f"],
-  "8": ["", "#2f7a3f"],
+  "5": ["--joueur-1-sombre", "#9a3a36"],
+  "6": ["--joueur-2-sombre", "#2f5fa8"],
+  "7": ["--joueur-3-sombre", "#8a6d1f"],
+  "8": ["--joueur-4-sombre", "#2f7a3f"],
   L: ["--logo-lettre", "#eef0f2"],
   a: ["--logo-relief-1", "#57d3f0"],
   b: ["--logo-relief-2", "#d06fd0"],

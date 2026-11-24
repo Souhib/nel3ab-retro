@@ -2234,6 +2234,20 @@ outside a preparation, and found three 19 to 24 px controls, now 44 px. A
 refused keyboard publication sounds and shakes like a refused Pro gesture.
 The page weighs 260 609 bytes brotli.
 
+**The bench paints itself.** "Les nombres de ta manette" read 0.00 for
+every button since `main`: `paintWiring` filled the bench on the root of the
+two drawings, and the bench lives beside that root in its own `<details>`.
+`Bench` now takes `lire()` (the raw gamepad, or `SwitchInput.pad`) and runs
+its own frame loop, painting only while its `<details>` is open; `paintWiring`
+no longer calls `paintBench`. A button gauge starts from its learned rest
+(`restsOf`, now exported from `lib/wiring.ts`), marked by a line and
+"repos 0,62"; without a known rest it follows the value. The stamp is an
+`afficheur` (`retro/chiffres.ts`) written without rolling, since it changes
+every frame. A non-standard adapter opens its numbers (changement 21).
+`nombres.test.tsx` failed first on "0.00"; the `nombres` step of
+`reglage.mjs` reads 0.65 and the stamp in the built page, and fails on
+842e4c9. The page weighs 261 069 bytes brotli.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

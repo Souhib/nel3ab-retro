@@ -749,6 +749,26 @@ Ce qui n'est pas lisible dans le code :
   (`&pro=x360`, `&onglet=clavier`), avec les zones sûres que la colonne
   garde dans la salle ; `salle-telephone.mjs` le mesure au téléphone.
 
+## Le banc qui se peint lui-même, 24 novembre 2026 (matin)
+
+Récit au carnet, entrée « 24 novembre, au matin : les nombres de la manette
+ne bougeaient pas » ; décision à l'ADR D42. Ce qui n'est pas lisible dans le
+code :
+
+- **Le banc n'est pas peint par les dessins.** `paintWiring` et `paintPro`
+  peignent la racine des deux dessins ; `Bench` vit à côté, dans
+  `.n3-nombres`. Il a sa propre boucle (`lire`, `paintBench`) et ne peint
+  que si son `<details>` est ouvert. Jusqu'au 24 novembre 2026, il comptait
+  sur `paintWiring` et affichait 0.00 partout, dans l'ancien dialogue aussi.
+- **La jauge d'un bouton part du repos appris** (`restsOf`, la même table que
+  `heldOn`), et le trait `.n3-repos` le marque. La jauge d'un axe reste la
+  valeur absolue : le cadran montre déjà la position brute.
+- **L'horodatage est un afficheur** écrit par `textContent` à chaque image,
+  sans rouler, avec `font-mono` : `banc-visuel.mjs` refuse une valeur qui
+  change de largeur avec ses chiffres.
+- **La preuve** : `nombres.test.tsx` (jsdom, vraie boucle), l'étape `nombres`
+  de `reglage.mjs` dans la page construite, rouge sur 842e4c9.
+
 ## Le panneau « Touches et manettes », 23 novembre 2026 (tard)
 
 Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Depuis le
@@ -767,9 +787,10 @@ qu'il faut savoir avant d'y toucher :
   prend la largeur du cadre tant que le panneau est ouvert. Retirer l'un ou
   l'autre fait échouer l'étape `place` de `reglage.mjs`.
 - **La preuve dans le navigateur** : `just reglage-navigateur` (place,
-  entrées et focus, activité de la trame Pro, zones de clic, pas à pas sur
-  une manette simulée) et `just reglage-navigateur-rouge` sur les pages de
-  9fb659e et de bc72ba9.
+  entrées et focus, activité de la trame Pro, zones de clic, vignette d'un
+  changement, nombres, pas à pas sur une manette simulée) et
+  `just reglage-navigateur-rouge` sur les pages de 9fb659e, bc72ba9, e62f583
+  et 842e4c9.
 - **Les zones de clic.** À la souris, `PadMap.tsx` pose un disque
   invisible `.n3-zone` dans chaque pièce cliquable ; `tenirInscriptions`
   lui donne son rayon à chaque changement de taille (`zones.ts` : 24 px

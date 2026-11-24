@@ -284,7 +284,13 @@ de stick encadre son stick ; `salle-telephone` mesure le panneau lui-même
 attente : le retrait des anciens dialogues (chantier menus), la place tenue
 en main (chantier salle), l'étiquette tapée de « Ta manette » (chantier
 personnes). Page : 260 609 octets. Récit : « 24 novembre, avant l'aube
-encore : les manettes, sixième passage ».
+encore : les manettes, sixième passage ». Puis : « Les nombres de ta manette »
+affichaient 0.00 depuis `main` (le banc était peint hors de sa racine) ; il
+se peint lui-même, ouvert seulement, sa jauge part du repos appris, son
+horodatage est un afficheur, et un adaptateur l'ouvre d'emblée (étape
+`nombres` de `reglage-navigateur`, rouge sur 842e4c9). Page : 261 069 octets.
+Récit : « 24 novembre, au matin : les nombres de la manette ne bougeaient
+pas ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

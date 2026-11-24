@@ -29928,6 +29928,58 @@ qui dit la même phrase.
 précédent : la vignette, les champs à 44 pixels et le refus du clavier).
 Rien n'est encore retiré : les anciens dialogues hébergent la préparation.
 
+### 24 novembre, au matin : les nombres de la manette ne bougeaient pas
+
+**Le symptôme.** Sous les dessins, « Les nombres de ta manette » ouvre le
+banc d'essai : un chiffre par bouton, deux par stick, l'horodatage et le nom
+brut de la manette. C'est l'écran qu'on lit quand quelqu'un dit « ma manette
+fait n'importe quoi ». En reprenant le plan (changement 20), un essai du
+panneau a pressé un bouton à 0,65 et lu le banc : il disait « 0.00 ». Il le
+disait depuis toujours, dans l'ancien dialogue aussi, sur `main`.
+
+**La cause.** La boucle qui peint les dessins appelait aussi le remplissage
+du banc, sur la racine des deux dessins. Le banc, lui, vit à côté de cette
+racine, dans sa propre boîte dépliable (`<details>`). Le remplissage
+cherchait ses marques au mauvais endroit, n'en trouvait aucune, et se taisait,
+comme il est écrit pour le faire pendant un branchement.
+
+**Pourquoi rien ne l'a vu.** Trois preuves existaient, et aucune ne reliait
+le banc à la boucle. L'essai du remplissage pose lui-même le balisage, puis
+appelle la fonction : il prouve la fonction. L'aperçu du banc
+(`bench-preview`) appelait lui-même ce remplissage à chaque image : il
+prouvait l'aperçu. `banc-reel` photographiait le dialogue sans lire un seul
+chiffre. Leçon : une preuve qui appelle elle-même la fonction ne dit rien de
+l'appel que la page fait, ou ne fait pas. C'est la règle « mutate the wiring,
+not only the pure functions », vue du côté d'un affichage.
+
+**Le remède.** Le banc se peint lui-même : il reçoit une façon de lire la
+manette, et sa propre boucle écrit ses chiffres, seulement quand on l'ouvre.
+Fermé, personne ne regarde ses vingt nombres, et la page ne paie rien.
+L'essai écrit avant le remède échouait sur « 0.00 » ; l'étape `nombres` du
+pilote du panneau ouvre la boîte d'un vrai clic dans la page construite, et
+lit « 0.65 » et l'horodatage. Sur la page d'avant le remède, elle rougit sur
+« 0.00 ».
+
+**Ce que le plan demandait aussi.** La jauge d'un bouton part maintenant de
+son repos appris : une gâchette d'adaptateur posée à 0,62 montre une jauge
+vide au repos et un trait marqué « repos 0,62 ». Sans repos appris, la jauge
+suit la valeur comme avant. L'horodatage passe en chiffres d'afficheur, avec
+une phrase qui dit ce qu'il veut dire : il avance tant que la manette parle,
+figé elle ne dit plus rien. Les étiquettes perdent leurs capitales. Les
+nombres d'un adaptateur sans disposition standard s'ouvrent d'emblée : ils
+sont la seule lecture sûre de ses boutons. Dix mutants tombent chacun sur son
+essai.
+
+**Le banc visuel a trouvé le reste.** L'afficheur avait perdu la police à
+chasse fixe : l'horodatage changeait de largeur avec ses chiffres, de
+53,50 à 56,28 pixels, et `banc-visuel` l'a refusé dans les deux thèmes. Le
+même pilote laissait aussi son Vite sur le port 5471 quand une capture
+levait une exception (un dossier de sortie absent) : il l'arrête maintenant
+sur toute sortie, et la même erreur volontaire laisse le port libre.
+
+**Le poids.** 261 069 octets en brotli (+460 : la boucle du banc, le trait de
+repos, la phrase de l'horodatage).
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31602,6 +31654,11 @@ d'avant.
 **Repos (d'une commande)** : la valeur qu'un bouton ou un axe rapporte quand
 personne n'y touche. Elle n'est pas toujours zéro : un adaptateur GameCube
 pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
+
+**Horodatage (d'une manette)** : le nombre que le navigateur joint à chaque
+lecture d'une manette, en millisecondes. Il avance tant qu'elle envoie
+quelque chose ; figé, elle s'est tue, même si ses autres nombres ont l'air
+justes.
 
 **Groupe de processus** : l'ensemble d'un programme et de ceux qu'il lance.
 Arrêter le groupe arrête aussi les enfants ; arrêter le parent seul peut

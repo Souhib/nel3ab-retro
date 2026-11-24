@@ -1,0 +1,45 @@
+  /* ── Ce que les trois pages du salon partagent (ADR D41) ───────────────
+     Posé par `retro.py` à la marque du même nom, avec l'en-tête commun
+     (`bandeau.html`): recopiés dans chaque page, ils avaient dérivé. */
+
+  /* L'en-tête: le logo d'Aïn, les trois pages, et qui tu es. */
+  .entete { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.4rem;
+            border-bottom: 2px solid var(--trait); padding-bottom: .5rem; }
+  /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon. */
+  .marque { display: inline-flex; align-items: center; align-self: center; min-height: 44px;
+            color: inherit; text-decoration: none; --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
+  /* La maison d'Aïn (ADR D41, D46): le paquet du salon peint le logo dans
+     une toile, à 2 px par pixel d'Aïn quand la marque a 228 px, 1 au-dessous.
+     Le logo statique reste pour une page sans script, et se cache quand Aïn
+     est peint à sa place. */
+  .marque[data-hote] { width: clamp(114px, 18vw, 228px); }
+  .marque.rt-mascotte-hote > .rt-logo { display: none; }
+  /* Les trois pages du salon. 44 px de haut: la cible de doigt de la charte.
+     La page courante porte `aria-current` et le curseur ▶, posé hors du
+     flux pour ne pas décaler les mots. */
+  .pages { display: flex; flex-wrap: wrap; gap: 0 1.3rem; margin: 0; padding: 0 0 0 .9rem; list-style: none; }
+  .pages a { display: inline-flex; align-items: center; min-height: 44px; position: relative;
+             font-family: var(--police-titre); font-size: clamp(15px, 1.3vw, 18px);
+             color: var(--encre); text-decoration: none; text-underline-offset: .25em; }
+  .pages a:hover { text-decoration: underline; }
+  .pages a[aria-current="page"] { color: var(--signal); }
+  .pages a[aria-current="page"]::before { content: "▶"; position: absolute; right: 100%;
+                                          margin-right: .25rem; font-size: .7em; }
+  .pages li[hidden] { display: none; }
+  .qui { display: flex; align-items: center; flex-wrap: wrap; gap: .2rem .6rem; margin: 0 0 0 auto;
+         color: var(--legende); font-size: clamp(14px, 1.2vw, 16px); }
+  .qui[hidden], .qui [hidden] { display: none; }
+  .qui a { color: var(--encre); min-height: 44px; display: inline-flex; align-items: center; }
+  @media (max-width: 620px) {
+    .qui { margin-left: 0; }
+  }
+
+  /* L'étiquette tapée: un nom en capitales sur une bande, le liseré à la
+     couleur du joueur quand il tient une place (`--rt-joueur`). Les mêmes
+     règles que dans la salle (`components/places.css`), sans couleur propre. */
+  .etiquette { display: inline-flex; max-width: 100%; min-width: 0; align-items: center;
+               padding: 1px 6px; border-left: 3px solid var(--rt-joueur, var(--trait));
+               background: var(--creux); color: var(--encre);
+               font-family: var(--police-titre); font-size: .85em; line-height: 1.3;
+               letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+               overflow: hidden; text-overflow: ellipsis; }

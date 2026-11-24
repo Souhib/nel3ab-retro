@@ -135,7 +135,8 @@ salon-navigateur *args:
 # Sur 2a98279 encore, la mire ne glisse pas, Appuie sur Start n'existe pas et
 # le pointeur reste celui du système. cb0909b: l'accueil avant la boucle
 # d'attention d'Aïn et la rangée de jeux du dépôt (24 novembre 2026,
-# troisième passage).
+# troisième passage). 5fae6b0: l'en-tête recopié dans chaque page, qui avait
+# dérivé (le dépôt sans « Tu es »), et que le carnet ne rafraîchissait pas.
 salon-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -143,7 +144,7 @@ salon-navigateur-rouge:
     trap 'rm -rf "$dossier"' EXIT
     python="$PWD/control/.venv/bin/python"
     site=$("$python" -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-    for commit in a32de82 2a98279 84b969f cb0909b; do
+    for commit in a32de82 2a98279 84b969f cb0909b 5fae6b0; do
         mkdir -p "$dossier/$commit"
         git archive "$commit" control consoles | tar -x -C "$dossier/$commit"
         (cd "$dossier/$commit/control" && PYTHONPATH="$PWD:$site" "$python" -S -c "import json, sys
@@ -155,6 +156,7 @@ salon-navigateur-rouge:
     node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
     node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
+    node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
 # du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit

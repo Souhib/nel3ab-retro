@@ -1,0 +1,42 @@
+<a class="marque" data-hote="logo" href="/"><!--RETRO:LOGO--></a>
+      <nav aria-label="Le salon">
+        <ul class="pages">
+          <li><a href="/">Les salles</a></li>
+          <li id="lien-carnet" hidden><a href="/profil">Ton carnet</a></li>
+          <li id="lien-depot" hidden><a href="/importer">Déposer un jeu</a></li>
+        </ul>
+      </nav>
+      <p class="qui" id="qui" hidden><span id="tu-es" hidden>Tu es <span class="etiquette" id="moi"></span></span>
+        <a href="/profil#nom" id="changer-ton-nom">Changer ton nom</a></p>
+      <script>
+      (function () {
+        // L'en-tête commun du salon (ADR D41), posé par `retro.py`. « Ton
+        // carnet » se montre à qui a une identité, « Déposer un jeu » à qui a
+        // le droit; le lien de la page courante reste toujours visible. Un
+        // échec ne montre rien: ce sont des raccourcis, pas des informations.
+        // Le pseudo seulement, jamais l'adresse du proxy (souvent un courriel).
+        function $(id) { return document.getElementById(id); }
+        function montrer(id, oui) {
+          var li = $(id);
+          if (li && !li.querySelector("[aria-current]")) li.hidden = !oui;
+        }
+        function nom(texte) {
+          $("moi").textContent = texte;
+          $("tu-es").hidden = texte === "";
+        }
+        window.nel3abBandeau = { nom: nom };
+        fetch("/api/me", { cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (moi) {
+            if (!moi || !moi.login) return;
+            montrer("lien-carnet", true);
+            nom(moi.name || moi.display || "");
+            $("qui").hidden = false;
+          })
+          .catch(function () {});
+        fetch("/api/imports/droits", { cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json() : {}; })
+          .then(function (droits) { montrer("lien-depot", droits.peut_importer === true); })
+          .catch(function () {});
+      })();
+      </script>

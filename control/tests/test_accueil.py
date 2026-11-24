@@ -617,6 +617,47 @@ async def test_les_trois_pages_du_salon_portent_ain_dans_leur_logo(
         assert page.count('data-hote="logo"') == 1, chemin
 
 
+def _entete(page: str) -> str:
+    """L'en-tête commun d'une page servie: du logo au script qui le remplit."""
+    motif = r'<header class="entete">\s*(<a class="marque".*?Changer ton nom</a></p>.*?</script>)'
+    trouve = re.search(motif, page, re.S)
+    assert trouve, "pas d'en-tête commun"
+    return trouve.group(1)
+
+
+async def test_les_trois_pages_du_salon_portent_le_meme_en_tete(
+    client: httpx.AsyncClient,
+) -> None:
+    """Un seul en-tête, posé par `retro.py`, et non trois copies qui dérivent.
+
+    Recopié dans chaque page jusqu'au 24 novembre 2026, il avait déjà dérivé:
+    le dépôt n'avait ni « Tu es » ni « Changer ton nom », et son lien « Ton
+    carnet » restait caché à tout le monde, faute du script qui le montre.
+    Chaque page marque SON lien (aria-current) et le garde visible.
+    """
+    vus = {}
+    for chemin in ("/", "/importer", "/profil"):
+        entete = _entete((await client.get(chemin, headers={})).text)
+        assert re.findall(r'<a href="([^"]*)" aria-current="page"', entete) == [chemin], chemin
+        assert re.search(rf'<li[^>]*><a href="{chemin}" aria-current', entete), chemin
+        assert 'id="moi"' in entete, chemin
+        assert 'fetch("/api/me"' in entete, chemin
+        sans_courant = entete.replace(' aria-current="page"', "")
+        vus[chemin] = re.sub(r"(<li[^>]*?) hidden>", r"\1>", sans_courant)
+    assert len(set(vus.values())) == 1, "les en-têtes des trois pages diffèrent"
+
+
+def test_l_en_tete_d_une_page_inconnue_est_refuse() -> None:
+    """Le jumeau: une marque d'en-tête pour une page qui n'existe pas lève au démarrage."""
+    page = "<!--RETRO:EN-TETE--><style>/*__EFFETS__*/</style><header>{}</header>"
+    with pytest.raises(ValueError, match="/inconnue"):
+        retro.garnir(page.format("<!--RETRO:BANDEAU /inconnue-->"))
+    garnie = retro.garnir(page.format("<!--RETRO:BANDEAU /importer-->"))
+    assert garnie.count('aria-current="page"') == 1
+    assert '<a href="/importer" aria-current="page">' in garnie
+    assert "RETRO" not in garnie
+
+
 def test_un_paquet_qui_fermerait_sa_balise_est_refuse() -> None:
     """Le paquet est posé tel quel: `</script` dedans couperait la page en deux."""
     with pytest.raises(ValueError, match="</script"):

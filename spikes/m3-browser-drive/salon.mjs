@@ -136,6 +136,33 @@ const ETAPES = {
     const vus = await anonyme.$$eval(".entete a", (as) => as.filter((a) => a.getBoundingClientRect().width > 0).map((a) => a.textContent.trim()));
     defaut(JSON.stringify(vus.filter((m) => m)) === JSON.stringify(["Les salles"]), `sans identité, l'en-tête montre ${vus}`);
     await anonyme.close();
+    // Le même en-tête au dépôt et au carnet: recopié, il avait dérivé (le
+    // dépôt n'avait ni « Tu es » ni de quoi montrer « Ton carnet »).
+    for (const [chemin, courant] of [["/importer", "Déposer un jeu"], ["/profil", "Ton carnet"]]) {
+      const autre = await nouvelle(TELEPHONE, {
+        chemin,
+        reglage: { salles: RANGEE, moi: { login: "nour@exemple", name: "Nour", display: "Nour" }, droits: { peut_importer: true } },
+      });
+      await autre.waitForFunction(() => document.getElementById("moi")?.textContent === "Nour", { timeout: 5000 })
+        .catch(() => { throw new Defaut(`${chemin} ne dit pas « Tu es Nour »`); });
+      await autre.waitForFunction(() => !document.getElementById("lien-carnet").hidden && !document.getElementById("lien-depot").hidden, { timeout: 5000 })
+        .catch(() => { throw new Defaut(`${chemin} ne montre pas les trois pages à Nour`); });
+      const ici = await autre.$$eval(".pages a", (as) => as.filter((a) => a.getBoundingClientRect().height >= 44)
+        .map((a) => ({ mot: a.textContent.trim(), courant: a.getAttribute("aria-current") })));
+      defaut(ici.length === 3 && ici.filter((l) => l.courant === "page").map((l) => l.mot).join() === courant,
+        `${chemin}: liens de l'en-tête ${JSON.stringify(ici)}`);
+      const perdus = await atteint(autre, ".pages a, #changer-ton-nom");
+      defaut(perdus.length === 0, `${chemin}: un lien de l'en-tête ne reçoit pas le point: ${perdus}`);
+      await autre.close();
+    }
+    // Le jumeau: sans droit, le dépôt garde SON lien (la page dit elle-même
+    // qu'on ne peut pas déposer), et le carnet reste caché sans identité.
+    const sansDroit = await nouvelle(TELEPHONE, { chemin: "/importer", reglage: { salles: RANGEE } });
+    await sansDroit.waitForFunction(() => document.querySelector(".entete") !== null, { timeout: 5000 });
+    await sleep(500);
+    const restent = await sansDroit.$$eval(".pages a", (as) => as.filter((a) => a.getBoundingClientRect().width > 0).map((a) => a.textContent.trim()));
+    defaut(restent.join("|") === "Les salles|Déposer un jeu", `sans droit, le dépôt montre ${restent}`);
+    await sansDroit.close();
   },
 
   async "ain-logo"() {
@@ -319,6 +346,17 @@ ETAPES["changer-nom"] = async () => {
   defaut(JSON.stringify(banc.envois) === JSON.stringify([{ me: { name: "Zoé" } }]), `PUT /api/me: ${JSON.stringify(banc.envois)}`);
   defaut(apres.etiquette === "Zoé", `étiquette après: ${apres.etiquette}`);
   defaut(apres.focus === "changer-nom", `le focus ne revient pas au bouton: ${apres.focus}`);
+  // L'en-tête commun dit le nouveau nom, et son lien ouvre la même boîte sur
+  // place: aucune navigation, le focus revient au lien.
+  await page.waitForFunction(() => document.getElementById("moi").textContent === "Zoé", { timeout: 2000 })
+    .catch(() => { throw new Defaut("l'en-tête dit encore l'ancien nom"); });
+  const adresse = page.url();
+  await page.click("#changer-ton-nom");
+  const parLeHaut = await page.evaluate(() => ({ modale: document.getElementById("nom").matches(":modal"), focus: document.activeElement?.id }));
+  defaut(parLeHaut.modale && parLeHaut.focus === "nom-champ", `le lien de l'en-tête n'ouvre pas la boîte: ${JSON.stringify(parLeHaut)}`);
+  await page.click("#nom-annuler");
+  const retour = await page.evaluate(() => document.activeElement?.id);
+  defaut(page.url() === adresse && retour === "changer-ton-nom", `après Annuler: ${page.url()}, focus ${retour}`);
   await page.close();
 };
 

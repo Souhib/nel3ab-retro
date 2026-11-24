@@ -501,11 +501,30 @@
     inconnue: () => "sauvegarde inconnue",
   };
 
+  /** « Ben », « Ben et Clara », « Ben, Clara et Dora ». */
+  const enListe = new Intl.ListFormat("fr", { type: "conjunction" });
+
+  /** Le carnet commun (D12, 24 novembre 2026): qui jouait avec toi, à quelle
+   * place, et qui regardait. Rien quand tu étais seul: une partie sans
+   * personne n'a rien à dire de plus. */
+  function avecQui(partie) {
+    const avec = partie.avec ?? [];
+    const regardaient = partie.regardaient ?? [];
+    const phrases = [];
+    if (avec.length > 0)
+      phrases.push(`Tu as joué avec ${enListe.format(avec.map((un) => `${un.nom} (${un.place}P)`))}.`);
+    if (regardaient.length > 0)
+      phrases.push(`${enListe.format(regardaient)} ${regardaient.length > 1 ? "ont" : "a"} regardé.`);
+    return phrases.length > 0 ? el("small", "partie-avec", phrases.join(" ")) : null;
+  }
+
   function ligneDePartie(partie) {
     const li = el("li");
     li.append(el("span", "partie-quand", court.format(new Date(partie.debut)).replace(",", "")));
     const jeu = el("span", "partie-jeu", partie.titre);
     jeu.append(el("small", "", `salle ${partie.salle} · ${partie.console.label} · ${(OU[partie.sauvegarde] ?? OU.inconnue)(partie)}`));
+    const avec = avecQui(partie);
+    if (avec) jeu.append(avec);
     li.append(jeu);
     const temps = el("span", "partie-duree", partie.en_cours ? "en cours" : partie.complete ? duree(partie.secondes) : "durée inconnue");
     temps.dataset.inconnue = partie.complete || partie.en_cours ? "non" : "oui";

@@ -8,9 +8,11 @@ dossiers jetables, aux noms que le worker leur donne.
 import json
 import os
 import re
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import anyio
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -814,3 +816,76 @@ async def test_une_longue_presence_reste_trouvee_derriere_une_courte_finie_avant
         parties, "benoit@example.com", "c" * 16, SOIR - timedelta(seconds=30), 10, pseudo="Ben"
     )
     assert (await une_partie(client, ALICE))["regardaient"] == ["Ben"]
+
+
+# ---- La page du carnet dit avec qui (D12) ----
+
+RACINE = Path(__file__).resolve().parents[3]
+NODE = shutil.which("node")
+AVEC_JSDOM = pytest.mark.skipif(
+    NODE is None or not (RACINE / "front/node_modules/jsdom/package.json").exists(),
+    reason="node ou front/node_modules/jsdom absent",
+)
+
+
+def partie_lue(id_: str, avec: list[dict], regardaient: list[str]) -> dict:
+    return {
+        "id": id_,
+        "salle": 1,
+        "titre": "Mario Kart Double Dash",
+        "console": {"code": "gc", "label": "GameCube"},
+        "debut": "2026-11-14T20:00:00+00:00",
+        "fin": "2026-11-14T20:10:00+00:00",
+        "secondes": 600,
+        "complete": True,
+        "en_cours": False,
+        "sauvegarde": "mienne",
+        "lance_par": None,
+        "avec": avec,
+        "regardaient": regardaient,
+    }
+
+
+@AVEC_JSDOM
+async def test_la_page_du_carnet_dit_avec_qui_et_qui_regardait(
+    client: httpx.AsyncClient,
+) -> None:
+    page = (await client.get("/profil")).text
+    reponses = {
+        "/api/me/profil": {
+            "pseudo": "Alice",
+            "depuis": None,
+            "jeux": 1,
+            "parties": 3,
+            "secondes": 1800,
+            "inconnues": 0,
+            "sauvegardes": 0,
+            "dernier": None,
+        },
+        "/api/me/jeux": [],
+        "/api/me/sauvegardes": [],
+        "/api/me/parties": {
+            "parties": [
+                partie_lue(
+                    "a" * 16, [{"nom": "Ben", "place": 2}, {"nom": "Clara", "place": 3}], ["Dora"]
+                ),
+                partie_lue("b" * 16, [], ["Dora", "Eve"]),
+                # Le jumeau: seule, personne à nommer.
+                partie_lue("c" * 16, [], []),
+            ],
+            "suivant": None,
+        },
+    }
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(Path(__file__).parents[1] / "profil_module.mjs")],
+            input=json.dumps({"page": page, "reponses": reponses}).encode(),
+            check=False,
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    une, deux, seule = json.loads(sortie.stdout)
+    assert une["avec"] == "Tu as joué avec Ben (2P) et Clara (3P). Dora a regardé."
+    assert deux["avec"] == "Dora et Eve ont regardé."
+    assert seule["avec"] is None
+    assert "joué avec" not in seule["texte"]

@@ -31085,6 +31085,83 @@ sur les deux étapes d'Aïn déjà relevées au même endroit
 autres preuves du navigateur et les contrôles rouges de `parcours` sont
 verts.
 
+
+### 24 novembre, le soir : le salon, deuxième passage
+
+**Le contexte.** Le même chantier, dans le même worktree. Le premier passage
+avait fait ce que les autres attendaient (données du carnet commun,
+redirection de Caddy, place précise, avant-salle). Celui-ci fait les trois
+pages du salon : l'accueil, le carnet et le dépôt, avec Aïn dans leur logo.
+
+**Le paquet du salon.** Les pages du salon sont du HTML écrit à la main,
+servi par Python : elles ne peuvent pas importer un module TypeScript. Aïn
+arrivait déjà en un fichier construit, `retro/ain.js`, préparé par le
+chantier mascotte. Le salon y ajoute ce dont ses pages ont besoin du socle :
+la touche Entrée et le bouton Start d'une manette (`surStart`), le mode
+démo (`surInactivite`), les calques de la mire, le filtre de l'écran bombé
+et la flèche en pixels. Une entrée, `front/src/salon/paquet.ts`, les réunit ;
+`retro.py` pose le paquet par une marque de plus, `<!--RETRO:AIN-->`, dans
+un script classique. Un paquet qui contiendrait `</script` fermerait sa
+balise au milieu du code : le salon refuse alors de démarrer, plutôt que de
+servir une page coupée. Le paquet pesait 16 222 octets en brotli ; il en
+pèse 18 170. Il ne compte pas dans la page de la salle, qui reste à 279 903.
+
+**L'accueil devient une rangée de bornes.** Chaque salle ouverte est une
+borne : la cartouche ou la jaquette, le jeu, qui choisit et qui regarde en
+étiquettes tapées, puis quatre boutons START. Une place libre est un lien
+vers `?entrer=jouer&place=K` ; la place conseillée est le seul bouton plein
+de la page, et la phrase du haut la nomme : « Joue en salle 2 : deux places
+t'attendent. ». La jauge et ses « 3 PRESENTS » disparaissent : elle comptait
+des personnes sans dire qui tient quelle manette, et le salon le sait
+maintenant. Une salle qui redémarre ou ne répond pas garde sa borne, en
+pointillés, sans bouton ; seule une salle éteinte propose « Ouvrir la
+salle 3 ». Quand rien ne tourne, la mire « Hors antenne » du socle prend la
+place, avec « Ouvrir une salle » seul plein et « Appuie sur Start ». Entrée
+et Start n'ouvrent une salle qu'à ce moment-là : en ouvrir une seconde
+allumerait un second émulateur sur la carte graphique commune. Après
+« Ouvrir », la page ne part plus vers la salle : la salle arrive dans la
+rangée, et sa place 1 devient le bouton plein dès qu'elle répond.
+
+**Deux défauts que seul un vrai navigateur a vus.** Les essais de l'accueil
+exécutent sa vraie page dans jsdom, tour après tour : ils lisent ce que la
+page écrit, jamais ce qu'elle dessine. La nouvelle preuve,
+`salon-navigateur`, sert les pages assemblées par les modules du salon à un
+vrai Chrome, avec des API simulées, sans salon ni salle. Au premier essai,
+elle a trouvé le lien du logo à 31 px de haut au téléphone, sous les 44 px
+de la charte, et la ligne du crédit (« Salles ouvertes 2 · Places libres
+2 »), qui ne passe pas à la ligne dans la feuille du socle et poussait la
+page 37 px au-delà d'un écran de 320 px. Les deux sont corrigés. Son
+contrôle rouge assemble les pages de trois commits plus anciens depuis une
+archive de `control/` : chaque étape y tombe sur son défaut. Il faut
+`python -S` pour cela, sinon le paquet installé en mode éditable passe
+devant l'archive et l'on teste, sans le savoir, la page du jour.
+
+**Le carnet en tableau des scores.** L'étagère des tranches, le compteur à
+tambours et la bulle laissent la place au tableau « Dernières parties » :
+une tête par soirée, puis l'heure, le jeu, avec qui tu as joué, la durée en
+chiffres d'afficheur (4 360 secondes s'écrivent 01:12:40), qui l'a lancée et
+la sauvegarde. Une partie lancée à 1 h 30 appartient à la soirée de la
+veille : on recule de six heures avant de lire la date. Une fin inconnue
+s'écrit `--:--:--`, jamais zéro. « Changer ton nom » ouvre une boîte sur la
+page même, au lieu d'obliger à entrer dans une salle. Aïn range la soirée
+quand la partie la plus récente n'a pas encore été vue sur cet appareil.
+
+**Les jaquettes au dépôt.** La route qui reçoit l'image d'un jeu existait
+(D45) ; le dépôt lui donne un bouton. L'administrateur voit la liste des
+jeux de la bibliothèque, chacun avec son image, « Déposer une image » et
+« Retirer l'image ». Un refus se dit en mots : trop lourde, pas un PNG, jeu
+inconnu. Bobine quitte le salon avec ce passage : ses copies, son module et
+ses essais partent ; le reste de `front/src/bobine/` est au chantier
+d'intégration.
+
+**Un commit à refaire.** En retirant Bobine, une suppression déjà préparée
+par `git rm` est entrée dans le commit du dépôt, avant le changement
+d'`accueil.py` qui l'importait encore : ce commit-là n'aurait pas démarré.
+Les deux commits, tout juste créés et jamais partagés, ont été défaits et
+refaits dans le bon ordre. La leçon : `git rm` prépare la suppression tout
+de suite, et le `git commit` suivant l'emporte, quels que soient les
+fichiers nommés à `git add`.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -31106,6 +31183,12 @@ comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
 se poser ou d'où part un objet : le haut d'un bouton START, la prise de la
 pastille, une marque sur un sol. Une ancre absente replie la scène en
 version courte, puis en pose clé.
+
+**Installation éditable** : une façon d'installer un paquet Python qui
+pointe vers son dossier de travail au lieu d'en copier les fichiers. Python
+le trouve alors avant un autre dossier du même nom ; `python -S` désactive ce
+mécanisme, ce qui permet d'importer une archive d'un ancien commit
+(`salon-navigateur-rouge`).
 
 **IIFE (immediately invoked function expression)** : un script dont tout le
 code tient dans une fonction appelée aussitôt définie. Ses noms restent

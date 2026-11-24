@@ -485,6 +485,32 @@ l'ouverture, Aïn dans les pages du salon et les scènes de l'avant-salle, la
 preuve `salon-navigateur`. Récit : « 24 novembre, l'après-midi : le salon,
 premier passage ».
 
+**Au 24 novembre, le soir : le chantier salon, deuxième passage.** Même
+branche et même worktree ; rien dans `main`, rien poussé ni installé. Fait
+(ADR D41, deuxième partie) : le paquet du salon (`front/src/salon/paquet.ts`
+construit en `retro/ain.js` : Aïn et les gestes d'arcade du socle, posé par
+`<!--RETRO:AIN-->`, 18 170 octets en brotli hors de la page de salle) ; Aïn
+peint dans le logo des trois pages ; l'accueil en rangée de bornes (quatre
+START, place conseillée seule pleine, salles qui redémarrent ou se taisent
+en pointillés, « Ouvrir la salle N » par `POST {numero}`, mire Hors antenne,
+Appuie sur Start, démo, liste figée, retour `?salle=fermee&n=N`) ; le carnet
+en tableau des dernières parties groupé par soirée, et « Changer ton nom »
+dans une boîte sur la page ; les jaquettes déposées ou retirées au dépôt par
+l'administrateur ; Bobine retiré du salon. Nouvelle preuve
+`salon-navigateur` et son contrôle rouge, dans `local` ; elle a trouvé et
+fait corriger deux défauts que jsdom passait. Page de salle : 279 903 octets
+en brotli, inchangée. Portes : `just check` (1 319 essais Python, 2 049 de
+la page), `salon-navigateur` (12 étapes) et `salon-navigateur-rouge` verts,
+`just docs` vert. Les preuves de la salle n'ont pas été relancées : la page
+de salle n'a pas changé de contenu (seul son tampon). Reste : l'ouverture
+(squelette, scène attente), les scènes de départ et d'arrivée de
+l'avant-salle et ses transitions, la scène d'attente de l'accueil, la rangée
+de jeux de la proposition au dépôt, une pièce partagée pour l'en-tête commun
+(recopié dans les trois pages), et toutes les portes au dernier passage.
+`regie-visuel` (hors porte) tombe sur V6, dans la salle, avant d'atteindre
+la nouvelle V8 de l'accueil. Récit : « 24 novembre, le soir : le salon,
+deuxième passage ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

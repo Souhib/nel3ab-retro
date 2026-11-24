@@ -2097,6 +2097,44 @@ Chrome while every jsdom test passed. The antechamber's classes now live under
 `n3-avant`, a test refuses any other sheet declaring one, and the browser step
 hit-tests the centre of each place.
 
+#### D41, second pass, 2026-11-24: the lobby's own pages
+
+- **One built bundle for the lobby (K17).** The three lobby pages stay
+  hand-written HTML served by Python. What they need from `front/` arrives
+  as one IIFE, `retro/ain.js`, built by `just ain-salon` from
+  `front/src/salon/paquet.ts`: Aïn (`mascotte/salon.ts`, D46) and the socle's
+  arcade gestures (`surStart`, `surInactivite`, `initiales`), the test card's
+  layers, the curved-screen filter and the pixel pointer, under
+  `nel3abSalon`. `retro.py` inserts it through `<!--RETRO:AIN-->` in a
+  classic script and refuses a bundle containing `</script`. Each page has
+  one `data-hote="logo"` around the static logo, hidden once Aïn is painted.
+  Weight: 16 222 brotli bytes before, 18 170 after; the lobby loads it apart
+  from the room page, which stays at 279 903.
+- **The home page is a row of cabinets.** One cabinet per room that is not
+  closed: cover or drawn cartridge, game, who chooses and who watches as
+  typed labels, four START places. A free place links to
+  `?entrer=jouer&place=K`; the advised place is the only filled button and
+  the headline names it. A restarting or silent room keeps its cabinet,
+  dashed, with no button; only a closed slot offers « Ouvrir la salle N »
+  (`POST {numero}`, D17). The gauge is removed. At zero rooms the socle's test
+  card fills the row, « Ouvrir une salle » is the only filled button, and
+  Enter or a pad's Start opens a room, at zero rooms only. After opening, the
+  page stays: the room arrives in the row. Two missed polls freeze the list
+  and say its time. `?salle=fermee&n=N` (K39) says what happened to room N.
+- **The logbook is a high-score table** grouped by evening (start minus six
+  hours), with the D44 companions, the duration as `HH:MM:SS` and the named
+  save. The name changes in a modal dialog on the page (`PUT /api/me`).
+- **Covers are deposited at the upload page** by the administrator, through
+  the D45 routes (`PUT`/`DELETE /api/catalogue/art/{cle}`).
+- **Bobine leaves the lobby**: `bobine.py`, its copies and their tests.
+
+Consequence: a jsdom run of the real page proves what the page writes, not
+what it draws. `salon-navigateur` serves the assembled pages to Chrome with
+simulated APIs and found two defects jsdom passed (a 31 px logo link, a
+credit line 37 px wider than a 320 px phone). Its negative control imports
+older `control/` trees with `python -S`, because the editable install would
+otherwise shadow the archive.
+
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

@@ -113,14 +113,20 @@ describe("les flèches (M4)", () => {
     expect(pas("bas", "onglet")).toEqual({ vers: "ligne", sens: 1 });
   });
 
-  // Le jumeau : une pastille radio et un curseur gardent leurs flèches. Sans
-  // cette règle, ← sur « légère » changeait de rubrique au lieu de choix.
-  it("laissent les flèches à une pastille et à un curseur", () => {
-    for (const geste of ["haut", "bas", "gauche", "droite"] as const) {
-      expect(pas(geste, "choix")).toBeNull();
-      expect(pas(geste, "glissiere")).toBeNull();
-      expect(pas(geste, "ailleurs")).toBeNull();
+  // Le jumeau : une pastille radio et un curseur gardent ← →. Sans cette
+  // règle, ← sur « légère » changeait de rubrique au lieu de choix.
+  it("laissent ← → à une pastille et à un curseur, ↑ ↓ passent de ligne", () => {
+    for (const sous of ["choix", "glissiere"] as const) {
+      expect(pas("gauche", sous)).toBeNull();
+      expect(pas("droite", sous)).toBeNull();
+      expect(pas("bas", sous)).toEqual({ vers: "ligne", sens: 1 });
+      expect(pas("haut", sous)).toEqual({ vers: "ligne", sens: -1 });
     }
+  });
+
+  it("ne prennent rien hors des onglets et des lignes, ni ↑ sur un onglet", () => {
+    for (const geste of ["haut", "bas", "gauche", "droite"] as const)
+      expect(pas(geste, "ailleurs")).toBeNull();
     expect(pas("haut", "onglet")).toBeNull();
   });
 

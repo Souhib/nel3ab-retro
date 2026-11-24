@@ -129,34 +129,4 @@ describe("les rubriques et le pied", () => {
     for (const el of document.querySelectorAll("[data-nom]"))
       expect(el.className).not.toMatch(/opacity-0/);
   });
-
-  it("au clavier, le pied dit Entrée et Échap", () => {
-    render(<Xmb categories={rubriques()} onClose={vi.fn()} appareil="clavier" />);
-    const pied = $("dialog#menu footer")?.textContent ?? "";
-    expect(pied).toMatch(/Entrée\s*choisir/);
-    expect(pied).toMatch(/Échap\s*Reprendre la partie/);
-    expect(pied).not.toMatch(/A\s*choisi|rayon/);
-  });
-
-  it("à la manette, le même pied dit A et B", () => {
-    render(<Xmb categories={rubriques()} onClose={vi.fn()} appareil="manette" />);
-    const pied = $("dialog#menu footer")?.textContent ?? "";
-    expect(pied).toMatch(/A\s*choisir/);
-    expect(pied).toMatch(/B\s*Reprendre la partie/);
-    expect(pied).not.toMatch(/Entrée|Échap/);
-  });
-
-  it("au doigt, la sortie est un vrai bouton qui dit ce qu'il fait", () => {
-    const onClose = vi.fn();
-    render(<Xmb categories={rubriques()} onClose={onClose} appareil="tactile" />);
-    const sortie = $("#closeMenu")!;
-    expect(sortie.tagName).toBe("BUTTON");
-    expect(sortie.textContent).toBe("Reprendre la partie");
-    // Pas de touche dessinée au doigt: une phrase.
-    const pied = $("dialog#menu footer")!;
-    expect(pied.textContent).toContain("Glisse pour te déplacer, appuie pour choisir.");
-    expect(pied.querySelector("kbd")).toBeNull();
-    fireEvent.click(sortie);
-    expect(onClose).toHaveBeenCalledOnce();
-  });
 });

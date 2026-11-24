@@ -116,18 +116,25 @@ export function aidesTropLongues(rubriques: readonly Rubrique[], max = AIDE_MAX)
 /** Une action du clavier ou de la manette dans le menu. */
 export type Geste = "haut" | "bas" | "gauche" | "droite";
 
-/** Ce qui a le focus quand la flèche arrive. Une pastille radio et un curseur
- * gardent leurs flèches : le navigateur y change le choix ou la valeur. */
+/** Ce qui a le focus quand la flèche arrive. */
 export type Sous = "onglet" | "ligne" | "choix" | "glissiere" | "ailleurs";
 
 /** Ce que fait une flèche : passer à la ligne voisine, à la rubrique voisine,
  * ou rien (le navigateur garde la touche). */
 export type Pas = { vers: "ligne" | "rubrique"; sens: 1 | -1 } | null;
 
+/** Les pastilles d'un choix sont posées sur leur ligne, côte à côte : ← → y
+ * changent le choix, comme le navigateur le fait dans un groupe de radios, et
+ * ↑ ↓ passent à la ligne voisine. Un curseur garde ← → pour sa valeur. Sans
+ * cette règle, ← sur « légère » changeait de rubrique au lieu de choix, et ↓
+ * dans un groupe de radios cochait le choix suivant au lieu de descendre. */
 export function pas(geste: Geste, sous: Sous): Pas {
-  if (sous === "choix" || sous === "glissiere" || sous === "ailleurs") return null;
-  if (geste === "gauche" || geste === "droite")
+  if (sous === "ailleurs") return null;
+  const lateral = geste === "gauche" || geste === "droite";
+  if (lateral) {
+    if (sous === "choix" || sous === "glissiere") return null;
     return { vers: "rubrique", sens: geste === "droite" ? 1 : -1 };
+  }
   if (sous === "onglet") return geste === "bas" ? { vers: "ligne", sens: 1 } : null;
   return { vers: "ligne", sens: geste === "bas" ? 1 : -1 };
 }

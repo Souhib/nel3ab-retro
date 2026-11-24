@@ -4,9 +4,11 @@
  * prévient personne. Ce pilote monte une vraie salle avec un jeu, ouvre la page
  * dans un navigateur, et attend que le bandeau apparaisse tout seul.
  *
- * Le clic doit le faire taire, parce que c'est ce que Souhib a demandé: un
- * message qu'on ne peut pas faire disparaître finit par être contourné en
- * fermant l'onglet.
+ * Depuis le 24 novembre 2026 (ADR D40), l'avis ne couvre plus rien : c'est
+ * la pastille d'état, hors de l'image, et une fiche dans la colonne ou la
+ * bande. Il n'a plus à se faire taire d'un clic : il part quand la salle
+ * reste, par « Je reste » (le message `reste` du worker, D16) ou par une
+ * touche du jeu, ce qui remet le compte à zéro.
  *
  * Les délais sont raccourcis par l'environnement: douze secondes avant la
  * fermeture, avertissement neuf secondes avant, donc le bandeau doit arriver
@@ -82,18 +84,24 @@ try {
       .find(element => element.id === "enter"));
   await entre.asElement().click();
 
-  // Le bandeau doit arriver tout seul, sans qu'on touche à rien.
-  await page.waitForSelector("#closingNotice", { timeout: 20_000 });
-  const dit = await page.$eval("#closingNotice", element => element.innerText);
-  assert.match(dit, /ferme dans/, `Le bandeau ne dit pas ce qui arrive: ${dit}`);
+  // La pastille doit arriver toute seule, sans qu'on touche à rien.
+  const pastille = '#pastilleEtat[data-etat="fermeture"]';
+  await page.waitForSelector(pastille, { timeout: 20_000 });
+  const dit = await page.$eval(pastille, element => element.innerText);
+  assert.match(dit, /Ferme dans/, `La pastille ne dit pas ce qui arrive: ${dit}`);
 
-  // Et le clic doit le faire taire.
-  await page.click("#closingNotice");
-  await page.waitForFunction(() => document.querySelector("#closingNotice") === null,
-    { timeout: 5_000 });
+  // « Je reste » quand la page tient une place, une touche du jeu sinon :
+  // le compte revient à zéro, et la pastille part d'elle-même.
+  if (await page.$("#jeReste")) await page.click("#jeReste");
+  else {
+    await page.focus("#zone-jeu");
+    await page.keyboard.press("x");
+  }
+  await page.waitForFunction(sel => document.querySelector(sel) === null,
+    { timeout: 5_000 }, pastille);
 
-  console.log(`la salle a prévenu à l'écran (« ${dit.trim().slice(0, 60)}… ») `
-    + "et le clic l'a fait taire");
+  console.log(`la salle a prévenu hors de l'image (« ${dit.trim().slice(0, 60)} ») `
+    + "et elle est restée ouverte");
 } finally {
   for (const fermer of aFermer.reverse()) await fermer();
 }

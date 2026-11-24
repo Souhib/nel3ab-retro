@@ -90,12 +90,15 @@ const THEMES = ["nuit", "jour"];
 const CONTRAST = 4.5;
 const CONTRAST_LARGE = 3;
 
-// L'avis de fermeture, tel que `App.tsx` l'écrit. Lu dans le fichier : une copie
-// recopiée à la main resterait verte quand l'avis change.
+// L'avis de fermeture, tel que la page l'écrit. Lu dans le fichier : une copie
+// recopiée à la main resterait verte quand l'avis change. Depuis le
+// 24 novembre 2026 (ADR D40), c'est la pastille d'état (`#pastilleEtat`,
+// `components/EtatSalle.tsx`) qui dit « Ferme dans 2 min », dans la même pile.
 const APP = readFileSync(join(FRONT, "src", "App.tsx"), "utf8");
-const NOTICE = /id="closingNotice"[\s\S]*?className="([^"]+)"/.exec(APP)?.[1];
+const ETAT = readFileSync(join(FRONT, "src", "components", "EtatSalle.tsx"), "utf8");
+const NOTICE = /id: "pastilleEtat",[\s\S]*?className: "([^"]+)"/.exec(ETAT)?.[1];
 if (!NOTICE) {
-  console.log("RATÉ  l'avis de fermeture (#closingNotice) n'est plus dans App.tsx : la garde ne sait plus quoi vérifier");
+  console.log("RATÉ  la pastille d'état (#pastilleEtat) n'est plus dans EtatSalle.tsx : la garde ne sait plus quoi vérifier");
   process.exit(1);
 }
 // Depuis le 23 novembre 2026, l'avis vit dans la pile des avis du cadre
@@ -279,53 +282,41 @@ function inspect({ GAME, PAGE, CLEARANCE, FLOOR, INSET }) {
   };
 }
 
-/** L'avis de fermeture posé avant le pavé, dans sa pile, comme dans `App` : le
- * reçoit-il ? */
-function notice({ NOTICE, PILE, INSET }) {
+/** La pastille de la fermeture proche, posée par la page comme `App` la pose
+ * tenue en main (ADR D40) : reçoit-elle le doigt, et reste-t-elle hors de
+ * l'image ? Jusqu'au 24 novembre 2026, la garde posait une copie de l'avis
+ * de fermeture en haut de `<main>`. */
+function notice({ NOTICE }) {
   const label = (el) =>
     el?.dataset?.touche ?? el?.dataset?.geste ?? (el?.id || el?.textContent?.trim() || el?.tagName);
-  const pad = document.querySelector(".n3-pave, #touchpad, .n3-switch-touch");
-  const main = document.querySelector("main");
-  if (!pad || !main) return ["pas de pavé ou pas de <main> où poser l'avis"];
-  const note = document.createElement("button");
-  note.type = "button";
-  note.id = "garde-avis";
-  note.className = NOTICE;
-  // Le même contenu que dans `App` : Bobine fait 44 px, le texte deux lignes.
-  note.innerHTML =
-    '<span class="float-left -mt-1 mr-3" aria-hidden="true" style="display:inline-block;width:44px;height:44px"></span>' +
-    "Personne n'a joué depuis un moment: la salle ferme dans 2 minutes. Touche une manette pour rester.";
-  const pile = document.createElement("div");
-  pile.id = "garde-pile";
-  pile.className = PILE;
-  Object.assign(pile.style, { position: "absolute", top: "8px", left: "12px", right: "12px" });
-  pile.append(note);
-  main.insertBefore(pile, main.firstChild);
-  const style = getComputedStyle(pile);
+  const note = document.querySelector("#pastilleEtat");
+  // Sans bande, sans grappe libre et sans barre assez large, la page ne la
+  // pose nulle part plutôt que sur l'image (`placeDeLaPastille`) : la garde
+  // le dit, la ligne parlée et la feuille portent l'état. Pas une faute.
+  if (!note) return document.body.dataset.pastille === "aucune" ? [] : ["pas de pastille de fermeture (#pastilleEtat) à mesurer"];
   const r = note.getBoundingClientRect();
   const bad = [];
-  // La précondition : une classe non compilée laisserait un bouton nu en haut
-  // à gauche, et la vérification ne dirait rien de l'avis réel.
-  if (style.position !== "absolute" || style.zIndex !== "30" || r.width < 200)
-    bad.push(
-      `la copie de l'avis n'a pas le style de App (position ${style.position}, z ${style.zIndex}, ${Math.round(r.width)} px)`,
-    );
+  // La précondition : la classe de la page, compilée, et une vraie taille.
+  if (note.className !== NOTICE || r.width < 100)
+    bad.push(`la pastille n'a pas le style de la page (« ${note.className} », ${Math.round(r.width)} px)`);
   else {
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
     const points = {
       centre: [cx, cy],
-      haut: [cx, r.top + INSET],
-      bas: [cx, r.bottom - INSET],
-      gauche: [r.left + INSET, cy],
-      droite: [r.right - INSET, cy],
+      haut: [cx, r.top + 3],
+      bas: [cx, r.bottom - 3],
+      gauche: [r.left + 3, cy],
+      droite: [r.right - 3, cy],
     };
     for (const [where, [x, y]] of Object.entries(points)) {
       const got = document.elementFromPoint(x, y);
       if (got !== note && !note.contains(got)) bad.push(`l'avis de fermeture (${where}) est sous ${label(got)}`);
     }
+    const toile = document.querySelector("#screen")?.getBoundingClientRect();
+    if (toile && r.left < toile.right && r.right > toile.left && r.top < toile.bottom && r.bottom > toile.top)
+      bad.push("la pastille de fermeture est sur l'image");
   }
-  pile.remove();
   return bad;
 }
 
@@ -465,7 +456,7 @@ try {
       Object.assign(cover.style, { position: "fixed", inset: "0", zIndex: "99" });
       document.body.append(cover);
     });
-    const hidden = await page.evaluate(notice, { NOTICE, PILE, INSET });
+    const hidden = await page.evaluate(notice, { NOTICE });
     await page.evaluate(() => document.getElementById("garde-cache-avis")?.remove());
     const coverSeen = hidden.some((line) => line.includes("garde-cache-avis"));
     console.log(`${coverSeen ? "ok  " : "RATÉ"}  la garde voit un calque posé exprès sur l'avis de fermeture`);
@@ -549,7 +540,7 @@ try {
         });
       }
       // Après les appuis : l'avis est posé puis retiré, il ne gêne rien d'autre.
-      if (!errors.length) bad.push(...(await page.evaluate(notice, { NOTICE, PILE, INSET })));      const line = `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${String(seen.games.length).padStart(2)} touches, bande ${String(seen.bar).padStart(3)} px, ${String(seen.covered).padStart(6)} px² sur l'image`;
+      if (!errors.length) bad.push(...(await page.evaluate(notice, { NOTICE })));      const line = `${bad.length ? "RATÉ" : "ok  "}  ${name.padEnd(20)} ${String(seen.games.length).padStart(2)} touches, bande ${String(seen.bar).padStart(3)} px, ${String(seen.covered).padStart(6)} px² sur l'image`;
       console.log(line);
       for (const one of bad) console.log(`        ${one}`);
       report.push({ name, ...seen, bad });

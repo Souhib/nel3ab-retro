@@ -70,13 +70,22 @@ const browser = await puppeteer.launch({
 });
 
 /** Ce que la page montre de la liaison, lu dans le DOM: une page d'avant n'a
- * pas `nel3abTest.liaison`, et le verdict doit porter sur ce qu'on VOIT. */
+ * pas `nel3abTest.liaison`, et le verdict doit porter sur ce qu'on VOIT.
+ * Depuis que l'état a quitté l'image (ADR D40), il se dit par une fiche
+ * (`#liaison`), un plein cadre (`#arrivee`) ou une pastille seule
+ * (`#pastilleEtat`) : la fiche et le plein cadre d'abord, la pastille
+ * sinon, et le texte des deux. */
 const lire = (page) =>
   page.evaluate(() => {
-    const etat = document.querySelector("#liaison, #arrivee");
+    const etat = document.querySelector("#liaison, #arrivee") ?? document.querySelector("#pastilleEtat");
+    const pastille = document.querySelector("#pastilleEtat");
+    const texte = [etat, pastille !== etat ? pastille : null]
+      .map((el) => el?.textContent?.replace(/\s+/g, " ").trim() ?? "")
+      .filter(Boolean)
+      .join(" ");
     return {
       etat: etat?.getAttribute("data-etat") ?? null,
-      texte: etat?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      texte,
       rough: document.querySelector("#rough") !== null,
       ligne: document.querySelector("#ligneParlee")?.textContent ?? null,
       peintes: globalThis.nel3abTest?.counters?.().painted ?? 0,
@@ -231,11 +240,15 @@ const ETAPES = {
     await sleep(Math.max(0, 5600 - (Date.now() - gel)));
     if ((await page.$("#relancerImage")) === null) throw new Defaut("pas de bandeau ni de « Relancer l'image » à 5,6 s");
     await capture(page, "gel-bandeau");
-    // La colonne reste atteignable: le bouton de signalement de la colonne
-    // reçoit bien le clic, rien ne le couvre.
+    // La colonne reste atteignable, et Signaler y est UNE fois : dans la
+    // fiche quand elle le porte, la ligne de la colonne repliée (K25). Le
+    // bouton reçoit bien le clic, rien ne le couvre.
     const atteint = await page.evaluate(() => {
-      const bouton = document.querySelector("#complain");
-      if (!bouton) return "absent";
+      const signaler = [...document.querySelectorAll("#complain, #signalerEtat")].filter(
+        (b) => b.getClientRects().length > 0,
+      );
+      if (signaler.length !== 1) return `${signaler.length} « Signaler » à l'écran`;
+      const bouton = signaler[0];
       // La colonne défile: le bouton peut être plus bas que la fenêtre.
       bouton.scrollIntoView({ block: "center" });
       const r = bouton.getBoundingClientRect();
@@ -371,13 +384,116 @@ const ETAPES = {
     await page.click("#enter");
     const vu = await jusqua(page, (v) => v.texte.includes("La salle 1 ne répond pas."), 9000);
     if (vu.apres === null) throw new Defaut(`l'arrivée refusée ne dit pas « ne répond pas »: ${vu.vu.texte}`);
+    // Réessayer, et LA sortie : les autres salles sous un salon, quitter la
+    // salle servie seule. Le plein cadre se voit (ADR D40 : sous son jeton).
     const sorties = await page.evaluate(() => [
       document.querySelector("#arrivee #reessayer") !== null,
-      document.querySelector("#arrivee #quitterSalle") !== null,
+      document.querySelector("#arrivee :is(#lesSalles, #quitterSalle)") !== null,
+      getComputedStyle(document.querySelector("#arrivee")).display !== "none",
     ]);
     if (sorties.includes(false)) throw new Defaut(`le rideau n'a pas ses deux sorties: ${sorties}`);
     await capture(page, "arrivee-refusee");
     await page.close();
+  },
+
+  /** La première image coupe le plein cadre DANS LA MÊME image d'écran
+   * (ADR D40). Le rideau d'avant était retiré par React au relevé suivant,
+   * jusqu'à 500 ms plus tard : la proposition du 23 novembre 2026 a compté
+   * dix images peintes dessous. Chaque dessin sur la toile du jeu est compté
+   * au moment où il a lieu, et une microtâche regarde, avant que le
+   * navigateur ne rende l'image, si le plein cadre se voit encore. */
+  async "premiere-image-coupe"() {
+    const fautes = [];
+    for (const [vue, reduit] of [
+      [PC, false],
+      [TELEPHONE, false],
+      [PC, true],
+    ]) {
+      const nom = `${vue.width}x${vue.height}${reduit ? " en mouvement réduit" : ""}`;
+      const page = await nouvelle(vue);
+      if (reduit) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+      await page.evaluate(() => {
+        const etat = { peintes: 0, sous: 0, vuAvant: false, fin: false };
+        window.__coupe = etat;
+        const affiche = () => {
+          const el = document.querySelector("#arrivee");
+          return el !== null && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0;
+        };
+        const dessiner = CanvasRenderingContext2D.prototype.drawImage;
+        CanvasRenderingContext2D.prototype.drawImage = function (...a) {
+          const rendu = dessiner.apply(this, a);
+          if (this.canvas?.id === "screen") {
+            etat.peintes += 1;
+            queueMicrotask(() => {
+              if (affiche()) etat.sous += 1;
+            });
+          }
+          return rendu;
+        };
+        const tour = () => {
+          if (etat.fin) return;
+          if (etat.peintes === 0 && affiche()) etat.vuAvant = true;
+          else if (etat.peintes > 0 && affiche()) etat.sous += 1;
+          requestAnimationFrame(tour);
+        };
+        requestAnimationFrame(tour);
+      });
+      // La salle répond sans image : l'arrivée se montre, puis l'image vient.
+      banc.regler({ video: "freeze" });
+      await page.click("#enter");
+      const lu = () => page.evaluate(() => window.__coupe);
+      const debut = Date.now();
+      while (!(await lu()).vuAvant && Date.now() - debut < 8000) await sleep(100);
+      if (!(await lu()).vuAvant) throw new Precondition(`${nom}: le plein cadre ne s'est jamais montré avant l'image`);
+      banc.regler({ video: "live" });
+      while ((await lu()).peintes < 30 && Date.now() - debut < 20000) await sleep(100);
+      if ((await lu()).peintes < 30) throw new Precondition(`${nom}: moins de 30 images peintes`);
+      await sleep(1000);
+      const fin = await page.evaluate(() => {
+        window.__coupe.fin = true;
+        return window.__coupe;
+      });
+      if (fin.sous > 0) fautes.push(`${nom}: ${fin.sous} relevés d'une image peinte sous le plein cadre`);
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
+  /** La pastille d'une image figée ne touche pas l'image peinte, à + 4 px
+   * (ADR D40), au bureau, au téléphone et en paysage. La page d'avant la
+   * posait en bas de l'image : son « #liaison » de pastille est lu aussi. */
+  async "pastille-hors-image"() {
+    const fautes = [];
+    for (const vue of [PC, { width: 1280, height: 720 }, TELEPHONE, { width: 844, height: 390, isMobile: true, hasTouch: true }]) {
+      const nom = `${vue.width}x${vue.height}`;
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await sleep(1500);
+      banc.regler({ video: "freeze" });
+      const vu = await jusqua(page, (v) => v.etat === "figee", 4000);
+      if (vu.apres === null) throw new Precondition(`${nom}: aucun état figé en 4 s`);
+      const mesure = await page.evaluate(() => {
+        const p = document.querySelector("#pastilleEtat") ?? document.querySelector("#liaison");
+        const t = document.querySelector("#screen");
+        if (!p || !t) return { erreur: `pastille ${Boolean(p)}, toile ${Boolean(t)}` };
+        const a = p.getBoundingClientRect();
+        const b = t.getBoundingClientRect();
+        const m = 4;
+        const coupe =
+          a.width > 0 &&
+          a.left < b.right + m &&
+          a.right > b.left - m &&
+          a.top < b.bottom + m &&
+          a.bottom > b.top - m;
+        return { coupe, a: [a.left, a.top, a.width, a.height].map(Math.round), b: [b.left, b.top, b.width, b.height].map(Math.round) };
+      });
+      if (mesure.erreur) throw new Precondition(`${nom}: ${mesure.erreur}`);
+      if (mesure.coupe) fautes.push(`${nom}: pastille ${mesure.a} sur l'image ${mesure.b}`);
+      await capture(page, "pastille-hors-image");
+      banc.regler({ video: "live" });
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
   /** « ouvrir le menu » depuis l'écran de chargement: le menu doit être

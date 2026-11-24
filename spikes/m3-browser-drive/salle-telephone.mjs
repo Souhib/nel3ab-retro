@@ -978,7 +978,11 @@ try {
     const { page, errors } = await ouvrir({ width, height, url: `${BASE}/r/1/?entrer=jouer&liaison=irreguliere` });
     const bad = [];
     try {
-      await page.waitForSelector("#rough", { timeout: 20000 });
+      // La pastille « L'image saute » paraît hors de l'image ; elle ouvre la
+      // feuille sur la fiche et ses deux gestes (ADR D40).
+      await page.waitForSelector('#pastilleEtat[data-etat="irreguliere"]', { timeout: 20000 });
+      await tap(page, "#pastilleEtat");
+      await page.waitForSelector("#rough", { timeout: 5000 });
       await sleep(700);
       await page.screenshot({ path: join(OUT, `liaison-${width}x${height}.png`) });
       for (const s of ["#takeHalf", "#keepFull"]) {

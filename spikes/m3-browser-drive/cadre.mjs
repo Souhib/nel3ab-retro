@@ -533,7 +533,10 @@ async function principal() {
         // doit montrer chacun de ses défauts, pas seulement le premier.
         const fautes = await garder(page, `${vue.width}×${vue.height} en partie`);
         await annoncerFermeture(page, 2);
-        if (!(await jusqua(() => page.$("#closingNotice").then(Boolean), 4000)))
+        // L'avis de fermeture de 03b21c0, ou la pastille d'état qui le
+        // remplace depuis le 24 novembre 2026 (ADR D40).
+        const ferme = '#closingNotice, #pastilleEtat[data-etat="fermeture"]';
+        if (!(await jusqua(() => page.$(ferme).then(Boolean), 4000)))
           throw new Precondition(`${vue.width}×${vue.height}: l'avis de fermeture ne s'affiche pas`);
         fautes.push(...(await garder(page, `${vue.width}×${vue.height} avec la fermeture proche`)));
         // Le focus quitte l'image pour un bouton de la colonne.

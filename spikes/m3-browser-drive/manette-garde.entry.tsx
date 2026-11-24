@@ -26,6 +26,9 @@ import { usesProInput } from "../../front/src/lib/consoles";
 import { BarreSalle, BoutonSalle } from "../../front/src/components/BarreSalle";
 import { placeDe, useFenetre, useZonesSures } from "../../front/src/components/Cadre";
 import { MANETTES, miseEnPage, modeDuCadre } from "../../front/src/lib/cadre";
+import { placeDeLaPastille } from "../../front/src/lib/etat-place";
+import { EtatPastille } from "../../front/src/components/EtatSalle";
+import { modeleEtat } from "../../front/src/lib/etat-modele";
 import { BUTTON } from "../../front/src/media/pad";
 import { SwitchInput } from "../../front/src/media/switch";
 import { Touch } from "../../front/src/media/touch";
@@ -117,6 +120,27 @@ function Salle() {
     gestures.push(what);
     if (what === "cacher") setHidden(true);
   };
+  // La pastille de la fermeture proche, posée comme `App` la pose tenue en
+  // main (`placeDeLaPastille`, ADR D40) : à part en haut de la grappe droite
+  // ou dans la barre, sinon en tête de la bande, où va la pile des avis. La
+  // garde mesure CETTE pastille, pas une copie ; sans place, il n'y en a pas.
+  const fermeture = modeleEtat({
+    liaison: { etat: "ok" },
+    salle: 1,
+    contexte: {},
+    fermeDans: 2,
+    place: true,
+    legerePassee: false,
+    legere: false,
+    neige: false,
+  });
+  const place = placeDeLaPastille(geo, true);
+  // Dans la pile, `App` la met en tête de la bande.
+  const rectPastille =
+    place?.lieu === "a-part" ? place.rect : place && geo.bande ? { ...geo.bande, h: 44 } : null;
+  // Dit à la garde que la page a choisi « nulle part », pour qu'une
+  // pastille absente ne passe pas pour une pastille perdue.
+  document.body.dataset.pastille = place === null ? "aucune" : "posee";
   const m = geo.manette;
   const boite = m
     ? {
@@ -153,6 +177,11 @@ function Salle() {
             onSalle={tell("feuille")}
             style={placeDe(geo.boutonSalle)}
           />
+        ) : null}
+        {rectPastille ? (
+          <div className="n3-pastille-place" style={placeDe(rectPastille)}>
+            <EtatPastille modele={fermeture} onAller={() => {}} />
+          </div>
         ) : null}
         {hidden || !m ? null : (
           <div className="n3-manette-boite" style={placeDe(m.rect)}>

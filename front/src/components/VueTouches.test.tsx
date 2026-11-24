@@ -2,9 +2,17 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Ligne } from "../lib/aide-clavier";
 import type { Arbitre } from "../lib/scenes-salle";
-import { activiteDolphin, SANS_ACTIVITE } from "../lib/verification";
+import type { Activite } from "../lib/verification";
 import { ContexteArbitre } from "./Cadre";
 import { RELEVE_MS, VueTouches, type Releve } from "./VueTouches";
+
+/** Une trame qui ne suit que ses boutons A et B : la ligne du stick n'a pas
+ * de case. La vue ne sait pas d'où vient l'activité, elle la lit. */
+const boutons = (presses: string[]): Activite => ({
+  suivies: new Set(["A", "B"]),
+  actives: new Set(presses),
+});
+const RIEN_SUIVI: Activite = { suivies: new Set(), actives: new Set() };
 
 const LIGNES: Ligne[] = [
   { touches: "Flèches", fait: "stick", commandes: ["x", "y"] },
@@ -47,7 +55,7 @@ describe("la vue des touches", () => {
 
   it("une ligne par commande, et une case seulement quand la commande est suivie", () => {
     const { container, ligne } = monter(() => ({
-      activite: activiteDolphin([]),
+      activite: boutons([]),
       sinceHeardMs: 100,
     }));
     expect(container.querySelector("#vueTouches")).not.toBeNull();
@@ -58,7 +66,7 @@ describe("la vue des touches", () => {
 
   it("A part au jeu avec le focus dans la zone : la ligne s'allume, puis reste cochée", () => {
     let presses: string[] = [];
-    const { ligne } = monter(() => ({ activite: activiteDolphin(presses), sinceHeardMs: 100 }));
+    const { ligne } = monter(() => ({ activite: boutons(presses), sinceHeardMs: 100 }));
     act(() => document.getElementById("zone")!.focus());
     presses = ["A"];
     act(() => void vi.advanceTimersByTime(RELEVE_MS));
@@ -74,7 +82,7 @@ describe("la vue des touches", () => {
   it("hors de la zone de jeu, la même trame n'allume rien au clavier", () => {
     // Personne n'a le focus au montage : le document joue (`clavierAuJeu`).
     let presses: string[] = [];
-    const { ligne } = monter(() => ({ activite: activiteDolphin(presses), sinceHeardMs: 100 }));
+    const { ligne } = monter(() => ({ activite: boutons(presses), sinceHeardMs: 100 }));
     act(() => document.getElementById("ailleurs")!.focus());
     presses = ["A"];
     act(() => void vi.advanceTimersByTime(RELEVE_MS * 2));
@@ -83,7 +91,7 @@ describe("la vue des touches", () => {
   });
 
   it("un écho muet depuis 5 s n'allume rien", () => {
-    const { ligne } = monter(() => ({ activite: activiteDolphin(["A"]), sinceHeardMs: 5000 }));
+    const { ligne } = monter(() => ({ activite: boutons(["A"]), sinceHeardMs: 5000 }));
     act(() => document.getElementById("zone")!.focus());
     act(() => void vi.advanceTimersByTime(RELEVE_MS * 2));
     expect(ligne("A").hasAttribute("data-vue")).toBe(false);
@@ -92,7 +100,7 @@ describe("la vue des touches", () => {
   it("joue fier une fois quand chaque ligne a été vue", () => {
     const deux = LIGNES.slice(1);
     let presses: string[] = ["A"];
-    const { demander } = monter(() => ({ activite: activiteDolphin(presses), sinceHeardMs: 100 }), {
+    const { demander } = monter(() => ({ activite: boutons(presses), sinceHeardMs: 100 }), {
       lignes: deux,
     });
     act(() => document.getElementById("zone")!.focus());
@@ -106,7 +114,7 @@ describe("la vue des touches", () => {
 
   it("ne joue jamais fier quand une ligne n'a pas de case", () => {
     const { demander } = monter(() => ({
-      activite: activiteDolphin(["A", "B"]),
+      activite: boutons(["A", "B"]),
       sinceHeardMs: 100,
     }));
     act(() => document.getElementById("zone")!.focus());
@@ -114,8 +122,8 @@ describe("la vue des touches", () => {
     expect(demander).not.toHaveBeenCalled();
   });
 
-  it("une trame Pro sans activité ne montre aucune case", () => {
-    const { container } = monter(() => ({ activite: SANS_ACTIVITE, sinceHeardMs: 100 }));
+  it("une trame qui ne suit rien ne montre aucune case", () => {
+    const { container } = monter(() => ({ activite: RIEN_SUIVI, sinceHeardMs: 100 }));
     expect(container.querySelectorAll("[data-suivie]")).toHaveLength(0);
   });
 
@@ -127,7 +135,7 @@ describe("la vue des touches", () => {
         titre="Ta manette Xbox"
         lignes={LIGNES}
         clavier={false}
-        lire={() => ({ activite: SANS_ACTIVITE, sinceHeardMs: null })}
+        lire={() => ({ activite: RIEN_SUIVI, sinceHeardMs: null })}
         onRevenir={revenir}
         onChanger={changer}
       />,

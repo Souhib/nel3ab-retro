@@ -2489,9 +2489,9 @@ function Room({
       ? verificationPro(manette, session.input.switch.profile, consoleDuJeu === "x360")
       : verificationDolphin(manette, shot.input.profile, { console: consoleDuJeu, pad });
   };
-  /** Ce que la vue des touches relit toutes les 50 ms : la trame Dolphin
-   * porte ses boutons dans `pressed` ; la trame Pro attend l'activité que
-   * manettes ajoute à l'instantané (K34). */
+  /** Ce que la vue des touches relit toutes les 50 ms : l'activité de la
+   * trame qui part, Dolphin ou Pro, sticks et gâchettes compris (K34,
+   * `media/activite`). */
   const lireLEntree = (): Releve => {
     const etat = session?.input.state();
     if (!etat) return { activite: { suivies: new Set(), actives: new Set() }, sinceHeardMs: null };

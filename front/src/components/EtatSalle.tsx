@@ -263,7 +263,11 @@ function Fiche({
         </p>
       ) : null}
       <Gestes modele={modele} rappels={rappels} />
-      {modele.cout ? <p className="n3-fiche-cout">{modele.cout}</p> : null}
+      {modele.cout ? (
+        <p className="n3-fiche-cout" data-texte="">
+          {modele.cout}
+        </p>
+      ) : null}
       {modele.voit ? (
         <details id="ceQueTaPageVoit" className="n3-fiche-voit">
           <summary>{ETAT.voit}</summary>
@@ -337,7 +341,11 @@ export function PleinCadre({ modele, rappels }: { modele: Modele; rappels: Rappe
           </p>
         ) : null}
         <Gestes modele={modele} rappels={rappels} />
-        {modele.cout ? <p className="n3-plein-cout">{modele.cout}</p> : null}
+        {modele.cout ? (
+          <p className="n3-plein-cout" data-texte="">
+            {modele.cout}
+          </p>
+        ) : null}
       </EcranNoir>
       <div className="n3-plein-plateau" data-hote="plateau" aria-hidden="true" />
     </div>

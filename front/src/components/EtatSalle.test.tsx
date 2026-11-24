@@ -82,8 +82,13 @@ describe("l'image figée, dite hors de l'image", () => {
     fireEvent.click(screen.getByRole("button", { name: "Relancer l'image" }));
     expect(onRelancer).toHaveBeenCalledTimes(1);
     expect(document.querySelector("#liaison #signalerEtat")).not.toBeNull();
-    // Le titre et le fait sont les mots de l'événement : Aïn ne les couvre pas.
-    expect(document.querySelectorAll("#liaison [data-texte]")).toHaveLength(2);
+    // Le titre, le fait et ce que coûte le geste sont les mots de
+    // l'événement : Aïn ne les couvre pas (à 320x568, il se posait sur le
+    // coût de « Réessayer », 24 novembre 2026).
+    expect(document.querySelectorAll("#liaison [data-texte]")).toHaveLength(3);
+    expect(document.querySelector("#liaison .n3-fiche-cout")?.hasAttribute("data-texte")).toBe(
+      true,
+    );
   });
 
   it("« Ce que ta page voit » est replié sous la fiche, et se déplie", () => {

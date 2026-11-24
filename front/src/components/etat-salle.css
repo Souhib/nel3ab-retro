@@ -266,6 +266,24 @@ button.n3-pastille {
     height: 0;
   }
 }
+/* Un écran court, comme celui d'un téléphone de 320 px tenu droit (211 px
+   de haut) : tout tient sans rien couper, en serrant les marges et en
+   passant le fait et le coût du geste en petit. Mesuré le 24 novembre
+   2026 par l'étape arrivee-courte : 8 px débordaient avant. */
+@container (max-height: 260px) {
+  .n3-plein-ecran {
+    gap: var(--espace-2);
+    padding: var(--espace-2) var(--espace-3);
+  }
+  .n3-plein-titre {
+    font-size: var(--text-fort);
+  }
+  .n3-plein-fait,
+  .n3-plein-cout {
+    font-size: var(--text-note);
+    line-height: 1.35;
+  }
+}
 
 /* L'extinction d'une salle fermée : l'écran s'écrase en une ligne puis en
    un point, une fois, et seulement si l'effet est allumé. */

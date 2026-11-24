@@ -31109,6 +31109,81 @@ lecteur d'écran : les onglets, les pastilles et l'interrupteur sont vérifiés
 dans le DOM seulement. Le choix d'un seul menu n'a pas été soumis aux
 joueurs qui aimaient les formes XMB, Wii ou Switch.
 
+### 24 novembre, le soir : les jeux debout sur l'écran éteint
+
+Deuxième passage du chantier menus. Une salle sans jeu n'ouvre plus son
+menu d'office depuis la veille ; il restait à y montrer les jeux. Ils sont
+maintenant **debout sur l'écran éteint**, une rangée par console, chaque jeu
+une **cartouche** dont l'étiquette est sa jaquette (`components/Rayonnage.tsx`,
+`lib/bibliotheque.ts`). Une cartouche ouvre la **fiche** du jeu à la place
+des rangées : la sauvegarde, « Lancer », et ce qui suit. La fiche est la
+même que celle du menu : elle a quitté `Menu.tsx` pour `components/menu/Fiche.tsx`,
+et ses identifiants prennent un préfixe, parce qu'au bureau le menu et
+l'écran éteint peuvent tenir chacun une fiche ouverte.
+
+**Ce que la fiche dit.** Seul dans la salle, sur un jeu à un seul appareil,
+« Le jeu part tout de suite. » ; sinon « Chacun dit qu'il est prêt, puis le
+jeu part. ». La règle est recopiée de `Preparation.directe` du salon, avec
+les mêmes champs du manifeste (`devices`, `players`) : la page ne devine
+pas. Pendant une partie, la fiche dit ce que « Lancer » arrête : « Kart des
+Ruelles s'arrête pour les 4 joueurs. ». Qui ne choisit pas lit la fiche,
+avec « Bo choisit le jeu et la sauvegarde. » à la place du bouton : un
+bouton grisé se lit comme une panne. La fiche du jeu (`GameCard`) ne dit
+plus « non vérifié » trois fois : elle nomme les appareils de la console et
+ne parle du nombre de joueurs et des commandes que quand le guide les dit.
+
+**Un piège évité.** Les sauvegardes débloquées et l'identité n'étaient lues
+que menu ouvert. Le rayonnage vit hors du menu : sans changer cette lecture,
+toutes ses fiches seraient restées grisées. L'étape `lancer-seul` du pilote
+le prouve dans un vrai navigateur, et un mutant d'`App.tsx` qui ne lit les
+sauvegardes que menu ouvert la fait rougir sur « Lancer reste grisé ». C'est
+la règle « muter le câblage, pas seulement les fonctions pures » : tous les
+essais unitaires passaient avec ce mutant.
+
+**Le clavier et la manette.** Les flèches passent d'une cartouche à l'autre
+sans rien déplacer : gauche et droite dans l'ordre, haut et bas vers la
+cartouche de la rangée voisine dont le centre est le plus proche. Entrée
+ouvre la fiche, le focus sur la sauvegarde cochée ; Échap la ferme et rend
+le focus à la cartouche, sans ouvrir le menu (l'événement s'arrête dans le
+rayonnage). La manette fait pareil tant que le menu ne la tient pas : sans
+cela, une manette ne pouvait plus choisir un jeu dans une salle vide.
+
+**Le dernier jeu (D06).** Sous les rangées, « Le dernier jeu de cette
+salle : Mario Kart Wii, jeudi soir. » et « Ouvrir sa fiche », seulement si
+ce jeu est encore dans la bibliothèque. Le moment se dit comme on le dit :
+« ce soir », « hier soir », « jeudi soir », puis la date au-delà de six
+jours, parce que « mardi soir » serait ambigu un mardi.
+
+**Le chargement.** Le titre dit le fait, « Mario Kart démarre. », sans
+sur-titre en capitales. L'habitude de chaque jeu (D05, publiée par le salon
+après cinq démarrages réussis) se dit : « D'habitude, il démarre en 12 s. »,
+et la lenteur arrive à son 90e centile. Sans habitude mesurée, la page garde
+ses vingt secondes et dit « Le jeu démarre encore, depuis 20 s. », sans le
+mot « habitude » : une valeur non mesurée ne s'affiche pas comme une mesure.
+La ligne parlée suit la même règle. La bobine de Bobine quitte l'écran de
+chargement : Aïn y cherche le jeu sur un plateau, en entier au premier
+chargement de la soirée dans ce navigateur et en court ensuite, puis attend
+une fois quand le chargement devient long. Il passe par l'arbitre de la
+salle, et la première image le renvoie au logo.
+
+**Prêt.** Quand un joueur dit qu'il est prêt, Aïn le salue ; quand le
+dernier le dit, il salue tout le monde. Seul un passage de « pas prêt » à
+« prêt » entre deux messages compte : une page qui arrive quand tous sont
+prêts n'a rien vu passer.
+
+**Les portes.** Les trois étapes nouvelles du parcours (`rayonnage`,
+`lancer-seul`, `bibliotheque-clavier`) tombent sur leur défaut nommé contre
+la page de `main` (03b21c0), dans `parcours-navigateur-rouge`. L'étape
+`repos-sans-menu` du cadre accepte le focus d'entrée sur la première
+cartouche. La page passe de 276 621 à 278 750 octets en brotli 11 : le
+rayonnage ajoute environ 2 200 octets, et le retrait de la bobine de
+chargement en reprend un peu.
+
+**Ce qui n'est pas prouvé.** Le rayonnage n'a été vu qu'au bureau, avec des
+étiquettes sans jaquette (le banc n'en sert pas) ; les vraies bannières et
+illustrations dans une étiquette 3:1 restent à voir. Au bureau, la fiche
+prend la place des rangées au lieu de se poser à côté. Aucune vraie manette.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -32644,7 +32719,19 @@ passent aux voisins.
 **Fiche (du menu)** : la vue d'une décision dans le panneau du menu :
 lancer un jeu sur une sauvegarde, fermer le jeu, fermer la salle. Elle dit
 ce que le geste arrête, au-dessus d'un bouton qui agit et d'un autre qui
-revient sans rien faire.
+revient sans rien faire. Depuis le 24 novembre au soir, la même fiche sert
+aussi au rayonnage de l'écran éteint.
+
+**Cartouche (dans la salle)** : un jeu debout sur l'écran éteint d'une salle
+sans jeu, son étiquette étant sa jaquette. Un clic ou Entrée ouvre sa fiche.
+À ne pas confondre avec le cartouche d'un plan technique, plus haut.
+
+**Rayonnage** : les jeux d'une salle sans jeu, une rangée par console,
+posés sur l'écran éteint (`components/Rayonnage.tsx`).
+
+**90e centile** : la durée sous laquelle tombent neuf démarrages sur dix.
+Au-delà, un démarrage est « plus long que d'habitude » ; la médiane, elle,
+dit la durée ordinaire.
 
 **Fondu par paliers** : une apparition en quatre marches d'opacité en
 120 ms, au lieu d'un fondu continu, comme sur une console d'époque. C'est la

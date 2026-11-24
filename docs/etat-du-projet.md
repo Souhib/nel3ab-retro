@@ -456,6 +456,32 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, le soir : le chantier menus, deuxième passage.** Sur la
+même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
+
+- **Le rayonnage** (`components/Rayonnage.tsx`, `lib/bibliotheque.ts`) :
+  les jeux d'une salle sans jeu debout sur l'écran éteint, une rangée par
+  console, la Switch 2 « à l'essai » ; la fiche d'un jeu à la place des
+  rangées, partagée avec le menu (`components/menu/Fiche.tsx`) ; flèches,
+  Entrée, Échap et manette ; le dernier jeu de la salle (D06).
+- **La fiche d'un jeu** dit ce qui suit « Lancer » (règle de
+  `Preparation.directe`) ou ce qu'il arrête, et « Bo choisit le jeu et la
+  sauvegarde. » à qui ne choisit pas ; `GameCard` ne dit plus « non
+  vérifié » ; les jaquettes absentes sont une étiquette en pointillé.
+- **Le chargement** : « X démarre. », l'habitude mesurée du jeu (D05) et la
+  lenteur à son 90e centile ; sans mesure, ni le mot « habitude » ni à
+  l'écran ni dans la ligne parlée. Aïn y cherche le jeu, puis attend au
+  seuil long, par l'arbitre ; la bobine de Bobine n'y est plus importée.
+- **Prêt** : Aïn salue un joueur qui se dit prêt, puis tous au dernier.
+- **Mesures techniques** sous les réglages avancés (M5).
+
+Page : 278 750 octets en brotli 11. Récit : « 24 novembre, le soir : les
+jeux debout sur l'écran éteint ». Reste au chantier : la préparation dans la
+colonne (avec le chantier manettes), les étapes du chargement en cases de
+pixels et ses actions par rôle, les aides construites hors d'`App.tsx`, la
+ligne « Toutes les touches du clavier », « Signaler » dans la rubrique
+Salle, les icônes de rubrique, la fiche à côté des rangées au bureau.
+
 **Au 24 novembre : le chantier menus, premier passage.** Sur
 `chantier/retro-menus` (worktree `~/nel3ab-chantiers/retro-menus`), parti
 d'`integration/retro` 87bc2b3 ; rien dans `main`, rien de poussé ni

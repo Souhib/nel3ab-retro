@@ -1351,6 +1351,33 @@ and folds it back on close. Proof: `menu-en-colonne`, `une-seule-forme`,
 `fermer-salle` and `menu-chef` in `just parcours-navigateur`. The page lost
 5 139 bytes in brotli 11 (281 760 to 276 621).
 
+
+#### D30 addendum, 2026-11-24 evening: the idle room shows its games
+
+The idle screen (`EcranEteint`, K23) now holds the library: one row per
+console, one cartridge per game, its label being the game's art
+(`components/Rayonnage.tsx`, `lib/bibliotheque.ts`). A cartridge opens the
+game's fiche in place of the rows. The fiche is the menu's own
+(`components/menu/Fiche.tsx`), with an id prefix so that the menu and the
+idle screen can each hold one open on a desktop.
+
+1. **Focus.** On entry, the chooser's focus goes to the first cartridge
+   when nothing else has it. Arrows move between cartridges without moving
+   anything; Enter opens the fiche with focus on the checked save; Escape
+   closes it, returns focus to the cartridge and stops there, so it does not
+   also open the menu. Escape without an open fiche still opens the menu.
+   The pad drives the same focus through `input.setMenu` while the menu
+   does not hold it.
+2. **Saves and identity are read while idle**, not only while the menu is
+   open; otherwise every fiche of the idle screen stayed disabled.
+3. **What follows « Lancer »** is computed like the lobby's
+   `Preparation.directe`, from the manifest's `devices` and `players`.
+   Someone who does not choose reads the fiche without the button that acts.
+
+Weighed: the fiche beside the rows on a desktop (the proposal). Deferred:
+replacing the rows keeps one focus model for every size, and the side
+layout needs the frame's measures.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),

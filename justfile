@@ -837,6 +837,12 @@ etats-navigateur-rouge:
     git show 9a4519b:core/crates/worker/src/page/index.html > "$dossier/sans-passe.html"
     node etats.mjs --page "$dossier/sans-passe.html" --flux "$dossier/flux.h264" \
         --etapes coupure-entree,fermee-vraie --rouge-attendu coupure-entree,fermee-vraie
+    # aeac1ab, avant le quatrième passage : la colonne d'une salle fermée
+    # disait encore « tu regardes » et « Ils regardent », avec ceux arrivés
+    # après la fermeture (ADR D40).
+    git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/sans-soiree.html"
+    node etats.mjs --page "$dossier/sans-soiree.html" --flux "$dossier/flux.h264" \
+        --etapes fermee-vraie --rouge-attendu fermee-vraie
 
 # Les parcours de la salle, dans un vrai navigateur.
 #

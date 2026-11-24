@@ -1144,7 +1144,8 @@ try {
   // l'image peinte, jamais sur une touche de la manette ([data-touche]), ni
   // sur la tête d'Aïn ([data-hote="barre"], sa maison au téléphone, qu'elle
   // couvrait toute dans la barre à 375x667 le 24 novembre 2026), en aires
-  // communes rendues en nombres. Cinq états, neuf tailles, une image
+  // communes rendues en nombres, ni sur le nom de la salle dans la barre,
+  // qui se lit entier (24 novembre 2026). Cinq états, neuf tailles, une image
   // 4:3 et deux en 16:9. Une taille où la salle n'a encore aucune place pour
   // elle est dite à part, en « non posée » : mesuré le 24 novembre 2026, le
   // téléphone tenu droit et court, sans barre ni bande, où « La salle » vit
@@ -1203,7 +1204,28 @@ try {
           const tetes = [...document.querySelectorAll('[data-hote="barre"]')]
             .map((h) => [h, h.getBoundingClientRect()])
             .filter(([, r]) => r.width > 0 && r.height > 0);
+          // Le nom de la salle dans la barre, mesuré sur ses lettres (un
+          // Range) : la pastille ne se pose jamais dessus, et il se lit
+          // entier (décision du chef de chantier, 24 novembre 2026).
+          const nom = document.querySelector("#barreSalle .n3-barre-salle");
+          let surNom = 0;
+          let nomCoupe = false;
+          let nomCouvert = false;
+          if (nom) {
+            const plage = document.createRange();
+            plage.selectNodeContents(nom);
+            for (const r of plage.getClientRects()) {
+              surNom += aire(a, r);
+              const vu = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              if (vu === null || !nom.contains(vu)) nomCouvert = true;
+            }
+            nomCoupe = nom.scrollWidth > nom.clientWidth + 1;
+          }
           return {
+            surNom,
+            nomCoupe,
+            nomCouvert,
+            nom: nom !== null,
             posee: true,
             toile: t.width * t.height,
             surImage: aire(a, t),
@@ -1230,7 +1252,10 @@ try {
           if (m.surTete > 0 || m.teteCouverte)
             bad.push(`${nom} : ${Math.round(m.surTete)} px² de pastille sur la tête d'Aïn${m.teteCouverte ? ", son centre couvert" : ""}`);
           if (!m.recoit) bad.push(`${nom} : la pastille ne reçoit pas le point en son centre`);
-          lus.push(`${nom} posée (${m.touches} touches, ${m.tetes} tête)`);
+          if (m.surNom > 0 || m.nomCouvert)
+            bad.push(`${nom} : ${Math.round(m.surNom)} px² de pastille sur le nom de la salle${m.nomCouvert ? ", ses lettres couvertes" : ""}`);
+          if (m.nomCoupe) bad.push(`${nom} : le nom de la salle est coupé dans la barre`);
+          lus.push(`${nom} posée (${m.touches} touches, ${m.tetes} tête${m.nom ? ", nom lu" : ""})`);
         }
       } catch (error) {
         bad.push(`${nom} : ${error.message}`);

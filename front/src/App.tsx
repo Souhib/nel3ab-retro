@@ -2225,15 +2225,6 @@ function Room({
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   /** Le bout droit du panneau de commande : « Toutes les touches », qui ouvre
    * le panneau des touches sur le clavier, puis le crédit et le temps de jeu. */
-  const finDuPanneau = (
-    <>
-      {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
-          « Touches et manettes » passe par la feuille. */}
-      {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
-      {credit}
-      <TempsDeJeu depuisS={lancement} />
-    </>
-  );
   const pastilleAgrandie =
     agrandieVue && bare && !tenu && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
   const takeHalf = () => {
@@ -2282,6 +2273,19 @@ function Room({
   /** Où se pose la pastille : dans la pile des avis, à part tenue en main,
    * ou nulle part plutôt que sur l'image (`lib/etat-place`). */
   const pastille = montageDeLaPastille(modele, geo, tenu);
+  /** Le bout droit du panneau de commande : au bureau, la pastille d'état
+   * quand le cadre l'y pose (`lib/etat-place`, « panneau »), puis « Toutes
+   * les touches », le crédit et le temps de jeu. */
+  const finDuPanneau = (
+    <>
+      {pastille.panneau ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null}
+      {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
+          « Touches et manettes » passe par la feuille. */}
+      {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
+      {credit}
+      <TempsDeJeu depuisS={lancement} />
+    </>
+  );
   /** La console et l'appareil que l'écran des touches règle: ceux du jeu
    * préparé pendant une préparation (`consoleDesTouches`). */
   const consoleTouches = consoleDesTouches(
@@ -3072,6 +3076,9 @@ function Room({
             jeu={padOnly ? null : jeuEnCours}
             sonCoupe={soundOff}
             onSalle={() => setFeuille("mi")}
+            pastille={
+              pastille.barre ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null
+            }
           />
         ) : null}
         {tenu && !geo.barre && geo.boutonSalle ? (

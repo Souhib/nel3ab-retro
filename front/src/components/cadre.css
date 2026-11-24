@@ -189,6 +189,13 @@
   align-items: center;
   gap: 1rem;
 }
+/* La pastille d'état posée sur le panneau (`lib/etat-place`, « panneau ») :
+   un voyant, pas une rangée. Avant sa fiche elle est un div, que la règle
+   du dessus étirait à toute la hauteur du panneau (75 px à 1440×900). */
+.n3-panneau[data-forme="sous"] .n3-panneau-places > .n3-pastille {
+  height: auto;
+  flex-shrink: 0;
+}
 /* Les places START règlent elles-mêmes leur rangée (`places.css`, chantier
    personnes) : les règles des prises de `Seats` sont parties avec elles. */
 

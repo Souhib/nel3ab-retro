@@ -922,9 +922,10 @@ etats-navigateur-rouge:
     # rangeait le panneau de commande dans la colonne et poussait ses
     # enfants de 204 px. Le panneau s'y décidait sur l'image reçue, et non
     # sur le format attendu de la console (`baseDuPanneau`, 24 novembre 2026).
+    # La pastille d'une image figée n'avait pas de place sur le panneau.
     git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
     node etats.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
-        --etapes colonne-stable --rouge-attendu colonne-stable
+        --etapes colonne-stable,pastille-panneau --rouge-attendu colonne-stable,pastille-panneau
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
         --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
         --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique

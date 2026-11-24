@@ -183,7 +183,14 @@
   flex-wrap: wrap;
   gap: 0.25rem 0.75rem;
 }
+/* Le bouton radio caché est posé en absolu DANS sa pastille. Sans
+   `position: relative` ici, son bloc conteneur était la colonne : chaque
+   radio du menu gardait sa place statique hors de la zone qui défile,
+   jusqu'à 1 424 px plus bas, et la colonne défilait dans ce vide en
+   remontant le coin d'Aïn sur les lignes (parcours.mjs, garde-focus,
+   24 novembre 2026). */
 .n3-menu-pastille {
+  position: relative;
   display: inline-flex;
   min-height: 2rem;
   align-items: center;

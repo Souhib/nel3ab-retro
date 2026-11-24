@@ -114,42 +114,23 @@ export function rememberMode(mode: Mode): void {
 }
 
 /**
- * Le menu: celui de quelle console.
+ * La forme du menu, retirée le 24 novembre 2026 (chantier menus).
  *
- * Ce n'est pas un thème. Un thème change les couleurs de la SALLE; ceci change
- * le menu, et chacun porte les couleurs de sa console plutôt que celles du
- * thème. Copier le tableau de bord d'une Xbox en vert Game Boy ne serait plus
- * le tableau de bord d'une Xbox.
+ * Trois formes existaient : la croix du XMB, les chaînes de la Wii et
+ * l'accueil de la Switch. Un seul menu les remplace, et la clé qui retenait
+ * la forme choisie ne sert plus à rien : elle est effacée au démarrage, pour
+ * qu'un navigateur ne la garde pas indéfiniment. Sous try/catch, comme toute
+ * lecture du stockage : une navigation privée peut le refuser.
  */
-export const SHELLS = [
-  { id: "ps3", label: "PlayStation 3", note: "la croix du XMB" },
-  { id: "wii", label: "Wii", note: "le tableau des chaînes" },
-  { id: "switch", label: "Switch", note: "la rangée de l'écran d'accueil" },
-] as const;
+export const CLE_DE_LA_COQUE = "nel3ab:shell";
 
-export type Shell = (typeof SHELLS)[number]["id"];
-
-const SHELL = "nel3ab:shell";
-
-export function storedShell(): Shell {
+export function oublierLaCoque(stockage: Pick<Storage, "removeItem"> | null = null): void {
   try {
-    const found = localStorage.getItem(SHELL);
-    return SHELLS.some((choice) => choice.id === found) ? (found as Shell) : "ps3";
-  } catch {
-    return "ps3";
-  }
-}
-
-export function rememberShell(shell: Shell): void {
-  try {
-    localStorage.setItem(SHELL, shell);
+    (stockage ?? localStorage).removeItem(CLE_DE_LA_COQUE);
   } catch {
     /* navigation privée */
   }
 }
-
-export const shellLabel = (shell: Shell): string =>
-  SHELLS.find((found) => found.id === shell)?.label ?? shell;
 
 /**
  * L'écran d'entrée: lequel des deux dessins.

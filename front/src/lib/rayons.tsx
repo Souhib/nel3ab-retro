@@ -6,11 +6,11 @@
  * 22 novembre 2026). Une rubrique sortie ici reçoit ce qu'elle lit et les
  * gestes qu'elle déclenche: elle ne tient aucun état.
  */
-import type { XmbItem } from "../components/Xmb";
-import { MeasureIcon } from "../components/XmbIcons";
 import type { Liaison } from "../media/liaison";
 import { pour, type Appareil } from "./appareil";
 import { NOM_ETAT, resumeConnexion } from "./liaison-mots";
+import type { Ligne } from "./menu";
+import { FICHE } from "./mots";
 
 /**
  * « état de la connexion », l'entrée qui a remplacé la rubrique « mesures ».
@@ -27,7 +27,7 @@ export function entreeConnexion({
   port,
   appareil,
   compact,
-  etroit,
+  fiche,
   voirDetail,
 }: {
   liaison: Liaison;
@@ -39,40 +39,39 @@ export function entreeConnexion({
   appareil: Appareil;
   /** La colonne est un tiroir. */
   compact: boolean;
-  /** La fenêtre est plus étroite que le menu en colonnes (`ETROIT_SOUS`). */
-  etroit: boolean;
+  /** Le menu est posé hors de la colonne, tenu en main : le résumé s'ouvre
+   * dans sa fiche, et la colonne reste un choix. */
+  fiche: boolean;
   /** Ouvre le détail dans la colonne et ferme le menu. */
   voirDetail: () => void;
-}): XmbItem {
+}): Ligne {
   const resume = resumeConnexion(liaison, { images, hz, port });
   const ou = compact ? "dans la salle" : "dans la colonne";
   return {
     id: "connexion",
     label: "état de la connexion",
     value: NOM_ETAT[liaison.etat],
-    ...(appareil === "tactile" || etroit
+    ...(appareil === "tactile" || fiche
       ? {
           // Sur un téléphone, le détail dans la colonne coupait l'écran en
-          // deux moitiés de 195 px: le résumé s'ouvre dans le menu, et la
-          // colonne reste un choix.
+          // deux moitiés de 195 px: le résumé s'ouvre dans la fiche du menu,
+          // et la colonne reste un choix.
           hint: pour(appareil, "voir le résumé"),
-          details: (
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-corps">
-              {resume.map((ligne) => (
-                <div key={ligne.nom} className="contents">
-                  <dt className="text-muted">{ligne.nom}</dt>
-                  <dd>{ligne.valeur}</dd>
-                </div>
-              ))}
-            </dl>
-          ),
-          // Sans `picked`: aucun des deux n'est « en cours ».
-          picks: [
-            { id: "rester", label: "revenir au menu" },
-            { id: "colonne", label: `tout le détail, ${ou}` },
-          ],
-          onPick: (choix: string) => {
-            if (choix === "colonne") voirDetail();
+          fiche: {
+            consequence: `Tout le détail ${ou}, à la place du menu.`,
+            agir: FICHE.detail,
+            annuler: FICHE.revenir,
+            contenu: (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-corps">
+                {resume.map((ligne) => (
+                  <div key={ligne.nom} className="contents">
+                    <dt className="text-muted">{ligne.nom}</dt>
+                    <dd>{ligne.valeur}</dd>
+                  </div>
+                ))}
+              </dl>
+            ),
+            onAgir: () => voirDetail(),
           },
         }
       : {
@@ -82,6 +81,5 @@ export function entreeConnexion({
             .join(", ")}. ${pour(appareil, `voir le détail ${ou}`)}.`,
           onEnter: voirDetail,
         }),
-    icon: <MeasureIcon className="h-full w-full" />,
   };
 }

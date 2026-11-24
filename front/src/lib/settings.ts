@@ -44,26 +44,34 @@
  * les déplie dit lesquels elle cache.
  */
 
+import { MENU } from "./mots";
+
 /** Un réglage: son identifiant, et le sujet auquel il appartient. */
 export type Arranged = { id: string; group: string };
 
-/** Le groupe replié par défaut. */
-export const AVANCE = "avancé";
+/** Le groupe replié par défaut : « Réglages avancés ». */
+export const AVANCE = MENU.groupes.avances;
 
-/** L'ordre affiché sous « réglages », et le seul endroit où il se décide. */
+/** L'ordre affiché sous « Réglages », et le seul endroit où il se décide.
+ *
+ * Deux groupes titrés depuis le menu unique (M7a, 24 novembre 2026) : « Image
+ * et son », puis « Cet appareil », qui porte l'allure et le réglage des effets
+ * rétro du socle ; « Réglages avancés » replié. La ligne qui déplie les
+ * avancés vit à la fin de « Cet appareil » : posée sous le titre « Réglages
+ * avancés », elle répétait ce titre juste au-dessus d'elle. La forme du menu
+ * (« tableau de bord ») est partie avec les trois formes. */
 export const SETTINGS: readonly Arranged[] = [
-  { id: "fullscreen", group: "image et son" },
-  { id: "fit", group: "image et son" },
-  { id: "half", group: "image et son" },
-  { id: "sound", group: "image et son" },
-  { id: "volume", group: "image et son" },
-  { id: "theme", group: "allure" },
-  { id: "effets", group: "allure" },
-  { id: "sonsMenu", group: "allure" },
-  { id: "shell", group: "allure" },
-  { id: "bare", group: "allure" },
-  { id: "columnWidth", group: "allure" },
-  { id: "advanced", group: AVANCE },
+  { id: "fullscreen", group: MENU.groupes.image },
+  { id: "fit", group: MENU.groupes.image },
+  { id: "half", group: MENU.groupes.image },
+  { id: "sound", group: MENU.groupes.image },
+  { id: "volume", group: MENU.groupes.image },
+  { id: "theme", group: MENU.groupes.appareil },
+  { id: "effets", group: MENU.groupes.appareil },
+  { id: "sonsMenu", group: MENU.groupes.appareil },
+  { id: "bare", group: MENU.groupes.appareil },
+  { id: "columnWidth", group: MENU.groupes.appareil },
+  { id: "advanced", group: MENU.groupes.appareil },
   { id: "deviceRate", group: AVANCE },
   { id: "lipsync", group: AVANCE },
   { id: "connexion", group: AVANCE },
@@ -72,10 +80,10 @@ export const SETTINGS: readonly Arranged[] = [
 /** L'ordre affiché sous « manettes »: d'abord ta manette et tes touches, puis
  * l'appareil des jeux Wii, puis le téléphone. */
 export const MANETTES: readonly Arranged[] = [
-  { id: "bindings", group: "ta manette" },
-  { id: "pad", group: "jeux Wii" },
-  { id: "touchpad", group: "téléphone" },
-  { id: "padonly", group: "téléphone" },
+  { id: "bindings", group: MENU.groupes.manette },
+  { id: "pad", group: MENU.groupes.wii },
+  { id: "touchpad", group: MENU.groupes.telephone },
+  { id: "padonly", group: MENU.groupes.telephone },
 ] as const;
 
 /**

@@ -17,7 +17,6 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { TEINTE_SELECTION } from "../components/Picker";
 import { PLAYER_COLOURS } from "../media/players";
 import { AA_TEXT, contrast, declarations, mix, resolve } from "../test/contrast";
 import { JETONS_LOGO, LOGO_JOUR, LOGO_NUIT, MIRE } from "./logo";
@@ -87,19 +86,18 @@ describe("le texte, dans les deux régies", () => {
     }
   }
 
-  it("le signal et la légende se lisent sur la teinte de sélection", () => {
-    // La ligne choisie d'un menu est teintée du signal (Picker.tsx, `TEINTE`):
-    // « en cours » y est écrit en signal, l'explication en légende. Mesuré par
-    // contraste.mjs le 22 novembre 2026: 4,36:1 avec le premier violet de
-    // nuit. Le 23 novembre, le jaune de la mire à 18 % laissait la légende à
-    // 4,31:1 (contraste.mjs --simule, sélecteur des couleurs, nuit): la
-    // teinte passe à 12 %, et la légende entre dans cet essai.
+  it("l'encre et la légende se lisent sur la ligne choisie du menu", () => {
+    // Le menu unique (chantier menus, 24 novembre 2026) teinte la ligne
+    // choisie du survol, et non plus du signal à 12 % comme le sélecteur des
+    // trois anciennes formes : son libellé est à l'encre, sa valeur et son
+    // aide en légende (components/menu/menu.css).
     for (const theme of ["nuit", "jour"] as const) {
-      const signal = couleur(theme, "--signal");
-      const teinte = mix(signal, couleur(theme, "--plaque"), TEINTE_SELECTION);
-      expect(contrast(signal, teinte), `${theme}: signal`).toBeGreaterThanOrEqual(AA_TEXT);
+      const fond = couleur(theme, "--survol");
+      expect(contrast(couleur(theme, "--encre"), fond), `${theme}: encre`).toBeGreaterThanOrEqual(
+        AA_TEXT,
+      );
       expect(
-        contrast(couleur(theme, "--legende"), teinte),
+        contrast(couleur(theme, "--legende"), fond),
         `${theme}: légende`,
       ).toBeGreaterThanOrEqual(AA_TEXT);
     }

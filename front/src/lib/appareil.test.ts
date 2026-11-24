@@ -13,7 +13,6 @@ import {
   ouvrirLeMenu,
   piedDuMenu,
   phrase,
-  piedDuSelecteur,
   pour,
   type Appareil,
 } from "./appareil";
@@ -61,22 +60,13 @@ describe("le pied du menu (M6)", () => {
   });
 });
 
-describe("les aides des entrées et du sélecteur", () => {
+describe("les aides des entrées", () => {
   it("disent la touche de l'appareil", () => {
     expect(pour("clavier", "ouvrir la glissière")).toBe("Entrée pour ouvrir la glissière");
     expect(pour("manette", "ouvrir la glissière")).toBe("A pour ouvrir la glissière");
     // « Touche » voulait dire une touche du clavier partout ailleurs dans la
     // page (relecture du 22 novembre 2026).
     expect(pour("tactile", "ouvrir la glissière")).toBe("Appuie pour ouvrir la glissière");
-  });
-
-  it("valident et annulent avec les mots de l'appareil", () => {
-    expect(piedDuSelecteur("clavier")).toEqual({
-      valider: "Entrée valider",
-      annuler: "Échap annuler",
-    });
-    expect(piedDuSelecteur("manette")).toEqual({ valider: "A valider", annuler: "B annuler" });
-    expect(piedDuSelecteur("tactile")).toEqual({ valider: "Valider", annuler: "Annuler" });
   });
 
   it("disent comment ouvrir le menu sans promettre Échap à qui n'a pas de clavier", () => {

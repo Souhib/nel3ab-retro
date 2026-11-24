@@ -180,25 +180,15 @@ export const SORTIES = {
   autres: "autres salles",
 } as const;
 
-/** La sortie du menu, sous un seul nom dans ses trois formes.
- *
- * Le menu XMB disait « Fermer le menu » et « Reprendre la partie », l'accueil
- * et les chaînes « Fermer » et « reprendre », et la page leur passait deux
- * textes différents pour remonter aux consoles (vérification finale du
- * 22 novembre 2026). Un bouton l'écrit avec sa majuscule, une pastille en
- * minuscules (`enMenu`). */
+/** La sortie du menu, sous un seul nom (vérification finale du 22 novembre
+ * 2026) : « Reprendre la partie » pendant une partie, « Fermer le menu » dans
+ * une salle au repos. « Retour aux consoles » est parti avec les dossiers du
+ * menu unique (W3, 24 novembre 2026). Un bouton l'écrit avec sa majuscule,
+ * une ligne en minuscules (`enMenu`). */
 export const SORTIES_MENU = {
   fermer: "Fermer le menu",
   reprendre: "Reprendre la partie",
-  remonter: "Retour aux consoles",
 } as const;
-
-/** Ce que fait la sortie du menu: remonter d'un dossier, fermer un menu sans
- * partie, ou reprendre la partie. */
-export function sortieDuMenu({ dossier, idle }: { dossier: boolean; idle: boolean }): string {
-  if (dossier) return SORTIES_MENU.remonter;
-  return idle ? SORTIES_MENU.fermer : SORTIES_MENU.reprendre;
-}
 
 /** Le réglage des effets rétro, dans le menu de la salle et au pied de la
  * liste des salles (ADR D37). Les mêmes mots aux deux endroits: le salon les
@@ -864,6 +854,9 @@ export const MENU = {
     image: "Image et son",
     appareil: "Cet appareil",
     avances: "Réglages avancés",
+    manette: "Ta manette",
+    wii: "Jeux Wii",
+    telephone: "Ce téléphone",
   },
   /** Une ligne sans aide encore n'est pas vide pour autant : elle se lit. */
   aucuneLigne: "Rien ici pour l'instant.",
@@ -879,6 +872,11 @@ export const FICHE = {
   lancer: "Lancer",
   /** Le nom de la liste des sauvegardes d'une fiche. */
   sauvegarde: "Sauvegarde",
+  /** Ce que lancer un jeu fait, dit dans sa fiche. */
+  demarre: "Le jeu démarre pour toute la salle.",
+  arrete: "Ça arrête la partie de tout le monde.",
+  /** Le résumé de la connexion mène au détail. */
+  detail: "Voir le détail",
 } as const;
 
 // ==== fin menus ====

@@ -86,13 +86,6 @@ export function pour(appareil: Appareil, quoi: string): string {
   return `${gestes(appareil).choisir} pour ${quoi}`;
 }
 
-/** Le pied d'un sélecteur: valider et annuler, nommés pour cet appareil. */
-export function piedDuSelecteur(appareil: Appareil): { valider: string; annuler: string } {
-  if (appareil === "tactile") return { valider: "Valider", annuler: "Annuler" };
-  const ici = gestes(appareil);
-  return { valider: `${ici.choisir} valider`, annuler: `${ici.retour} annuler` };
-}
-
 /** Comment on ouvre le menu, dit dans la colonne. Il n'existe pas de bouton de
  * manette pour l'ouvrir: une manette passe par le bouton « menu ». */
 export function ouvrirLeMenu(appareil: Appareil): string {

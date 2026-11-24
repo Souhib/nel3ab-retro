@@ -25,7 +25,6 @@ import { Lobby } from "./components/Lobby";
 import { ControllerStatus, ManetteDansLaBande } from "./components/ControllerStatus";
 import { manetteAConfigurer } from "./lib/plug";
 import { dire } from "./lib/liaison-mots";
-import { ETROIT_SOUS } from "./lib/menu-xmb";
 import { entreeConnexion } from "./lib/rayons";
 import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
@@ -60,29 +59,10 @@ import { MesuresTechniques } from "./components/MesuresTechniques";
 import { Signaler } from "./components/Signaler";
 import { rangsDeLaColonne } from "./lib/colonne";
 import { ColumnHandle } from "./components/ColumnHandle";
-import { Channels } from "./components/Channels";
-import { Home } from "./components/Home";
-import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
+import { Menu } from "./components/menu/Menu";
+import { placeDuMenu, type Ligne, type Rubrique } from "./lib/menu";
 import type { MenuAction } from "./media/menupad";
-import {
-  ConsoleIcon,
-  ExpandIcon,
-  GameIcon,
-  KeysIcon,
-  LayoutIcon,
-  LeaveIcon,
-  PadIcon,
-  PaletteIcon,
-  PanelIcon,
-  RoomIcon,
-  ScreenIcon,
-  SettingsIcon,
-  SoundIcon,
-  SyncIcon,
-  VolumeIcon,
-  WatchIcon,
-  WaveIcon,
-} from "./components/XmbIcons";
+import { ScreenIcon, WaveIcon } from "./components/XmbIcons";
 import { Screen } from "./components/Screen";
 import { SwitchTouchPad } from "./components/SwitchTouchPad";
 import { TouchPad, type BoiteDuCadre } from "./components/TouchPad";
@@ -109,14 +89,11 @@ import {
 } from "./lib/usePlaces";
 import { forgetName, rememberedName } from "./lib/name";
 import {
-  SHELLS,
   THEMES,
   applyTheme,
   rememberMode,
   rememberLobby,
-  rememberShell,
   rememberTheme,
-  shellLabel,
   storedMode,
   looksLikeAPhone,
   rememberPadOnly,
@@ -124,14 +101,12 @@ import {
   showsTouchPad,
   storedPadOnly,
   storedLobby,
-  storedShell,
   storedTheme,
   storedTouch,
+  oublierLaCoque,
   TOUCHPADS,
-  touchLabel,
-  themeLabel,
 } from "./lib/theme";
-import { FITS, fitLabel, place, qualities, rememberFit, storedFit } from "./lib/fit";
+import { FITS, place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import {
   apresCtrl,
@@ -206,7 +181,6 @@ import {
   PADS,
   launchPicks,
   readUnlocked,
-  padLabel,
   rememberPad,
   slotFromPick,
   slotLabel,
@@ -230,8 +204,9 @@ import {
   prixManetteSeule,
   MANETTE_SEULE,
   SORTIES,
-  sortieDuMenu,
   TACTILE,
+  MENU,
+  FICHE,
   TOUCHES,
   ZONE,
   AGRANDIE,
@@ -267,6 +242,10 @@ import {
 import { Aide } from "./components/Aide";
 import { Inviter } from "./components/Inviter";
 import { useSession, useSnapshot } from "./lib/useSession";
+
+/* La forme du menu (XMB, chaînes Wii, accueil Switch) est partie avec les
+   trois formes : la clé qui la retenait s'efface au démarrage (M1). */
+oublierLaCoque();
 
 /**
  * Trois écrans, dans l'ordre: qui joue, la salle, la partie.
@@ -753,12 +732,6 @@ function Room({
    * est la fin de la partie de tout le monde, et ça ne doit pas tenir en une
    * pression. */
   const [armed, setArmed] = useState<number | null>(null);
-  /** Le dossier de console ouvert, ou rien quand on voit les dossiers.
-   *
-   * Deux étages plutôt qu'une liste: la bibliothèque mêle deux consoles, et
-   * l'ordre alphabétique faisait tomber « Mario Kart Wii » entre deux Mario
-   * Party. */
-  const [folder, setFolder] = useState<string | null>(null);
   /** Les réglages avancés, dépliés ou non. Repliés à chaque ouverture de la
    * page: ils servent à chercher une panne, pas à jouer (audit P12). */
   const [avances, setAvances] = useState(false);
@@ -769,9 +742,6 @@ function Room({
   /** Ce que la colonne montre. Retenu, parce que quelqu'un qui veut les mesures
    * les veut encore au prochain chargement. */
   const [mode, setMode] = useState(storedMode);
-  /** La forme du menu. Un réglage à part du thème: l'un change des couleurs,
-   * l'autre change la façon de se déplacer. */
-  const [shell, setShell] = useState(storedShell);
   /** Comment l'image est posée à l'écran. Séparé du format transporté: le
    * premier se choisit sur le débit qu'on a, le second sur ce qu'on aime voir. */
   const [fit, setFit] = useState(storedFit);
@@ -784,7 +754,6 @@ function Room({
   const [space, setSpace] = useState({ width: 0, height: 0 });
   useEffect(() => rememberFit(fit), [fit]);
   useEffect(() => rememberTouch(touchPref), [touchPref]);
-  useEffect(() => rememberShell(shell), [shell]);
   useEffect(() => rememberMode(mode), [mode]);
   /** Le jeu demandé et l'image peinte au moment où on l'a demandé.
    *
@@ -844,8 +813,7 @@ function Room({
       // Le cas où rien n'arrive jamais est déjà couvert par le plafond de
       // soixante secondes plus bas.
       // Le menu ne s'ouvre plus d'office au repos : l'écran éteint le
-      // propose (`EcranEteint`). On remonte seulement aux consoles.
-      if (bootingNow.current === null) setFolder(null);
+      // propose (`EcranEteint`). Il n'y a plus de dossier où remonter.
     }
   }, [idle, padOnly, session]);
 
@@ -1211,13 +1179,12 @@ function Room({
           save: sauvegardeAnnoncee(told, session?.input.attribution()),
           at: performance.now(),
         });
-        // Le menu et le dossier se ferment, comme sur le chemin local.
+        // Le menu se ferme, comme sur le chemin local.
         //
         // Sans ça, celui qui n'a PAS cliqué garde son menu ouvert par-dessus
         // l'écran de chargement — le menu est au-dessus — et il y lit « aucun
         // jeu » pendant que le jeu demandé démarre.
         setMenu(false);
-        setFolder(null);
       },
       (handler) => session?.input.setMenu(handler),
     );
@@ -1514,15 +1481,17 @@ function Room({
   /** Les consoles présentes dans cette bibliothèque, dans l'ordre des sorties.
    *
    * Construites depuis ce que la salle annonce, jamais depuis une liste écrite
-   * ici: une console qui n'a aucun jeu n'a pas de dossier, et un code qu'on ne
-   * sait pas nommer se range quand même plutôt que de disparaître. */
+   * ici: une console qui n'a aucun jeu n'a pas de groupe, et un code qu'on ne
+   * sait pas nommer se range quand même plutôt que de disparaître. Depuis le
+   * menu unique, plus de dossier à ouvrir : la rubrique Jeux range les jeux
+   * sous le nom de leur console, et un seul groupe ne porte pas de titre. */
   const shelves = CONSOLES.flatMap((one) => {
     const games = (room?.library ?? []).filter((game) => (game.console ?? "?") === one.code);
     return games.length > 0 ? [{ ...one, games }] : [];
   });
-  /** Les jeux à montrer: ceux du dossier ouvert, ou tous quand il n'y en a qu'un. */
-  const shown =
-    folder === null ? (room?.library ?? []) : (shelves.find((s) => s.code === folder)?.games ?? []);
+  const plusieursConsoles = shelves.length > 1;
+  /** Les joueurs que fermer le jeu arrête, dit dans sa fiche (M10). */
+  const tenues = occupied.filter(Boolean).length;
 
   /** Le détail de la connexion, dans la colonne : la feuille agrandie d'une
    * salle tenue en main, la colonne dépliée ailleurs (`ouvrirLaSalle`). */
@@ -1532,259 +1501,164 @@ function Room({
     else setBare(false);
     setMenu(false);
   };
-  const rays: XmbCategory[] = [
+  /* Les rubriques du menu unique (chantier menus, 24 novembre 2026).
+   *
+   * Construites ici plutôt que dans le composant : ce que le menu MONTRE
+   * dépend de qui est là, de qui décide et de ce que la salle joue. Le menu
+   * dessine une ligne selon sa forme (`lib/menu`, `formeDe`) : un choix court
+   * en pastilles, une valeur continue en curseur, une décision en fiche. */
+  const rubriques: Rubrique[] = [
     {
       id: "jeux",
-      label: "jeux",
-      icon: <GameIcon className="h-full w-full" />,
-      // Le choix de la sauvegarde vit SUR le jeu, et se fait au lancement.
-      //
-      // Il était avant une entrée à part, en tête de la colonne: on réglait
-      // « tout débloqué » quelque part, puis on lançait un jeu ailleurs, et rien
-      // à l'écran ne reliait les deux. Un réglage posé loin de ce qu'il décide
-      // est un réglage qu'on oublie d'avoir mis.
-      //
-      // Le sélecteur remplace aussi l'armement à deux pressions. Il coûte le
-      // même nombre de gestes, et le second DIT ce qu'il va faire au lieu de
-      // demander « confirmer ? »: on ne confirme bien que ce qu'on lit.
-      // Deux étages: les consoles, puis leurs jeux.
-      //
-      // La bibliothèque mêle maintenant deux consoles, et une seule liste les
-      // mélangeait par ordre alphabétique — « Mario Kart Wii » tombait entre deux
-      // Mario Party. Un dossier par console range ce que l'étagère range déjà.
-      //
-      // Un seul étage quand il n'y a qu'une console: un dossier qu'on est obligé
-      // d'ouvrir pour arriver au seul endroit possible est un clic pour rien.
-      items:
-        folder === null && shelves.length > 1
-          ? shelves.map<XmbItem>((shelf) => ({
-              id: `shelf-${shelf.code}`,
-              label: shelf.label,
-              value: `${shelf.games.length} jeu${shelf.games.length > 1 ? "x" : ""}`,
-              hint: shelf.note,
-              icon: <ConsoleIcon console={shelf.code} className="h-full w-full" />,
-              onEnter: () => setFolder(shelf.code),
-            }))
-          : shown.map<XmbItem>((game) => {
-              // Le choix de sauvegarde n'existe que pour un disque dont on sait la console.
-              //
-              // Les deux consoles en ont, à deux endroits différents: une GameCube
-              // dans une carte mémoire, une Wii dans sa propre mémoire sous
-              // l'identifiant du titre. Le worker sait lequel et pose le lien.
-              //
-              // Un disque dont la console est INCONNUE n'a pas de choix: l'outil n'a
-              // pas répondu, donc on ne sait pas où sa partie ira, et proposer un
-              // choix qui ne décide peut-être rien est pire que ne pas le proposer.
-              // Les consoles que le manifeste dit jouables (ADR D22).
-              const saves = preparable(game.console);
-              const running = game.index === room?.game?.index;
-              /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
-              const launch = (slot: Slot | null) => {
-                // La GameCube passe par la préparation elle aussi depuis le 12
-                // septembre 2026. Elle se lançait en deux pressions, sans
-                // passer par le salon, et seul le salon certifie QUI lance:
-                // « ta sauvegarde » retombait donc en silence sur la partie
-                // neuve. Un disque de console inconnue garde l'ancien chemin,
-                // faute de savoir quel appareil lui présenter.
-                if (preparable(game.console)) {
-                  setPreparationError("");
-                  void tell
-                    .prepare({
-                      action: "begin",
-                      // La clé désigne ce jeu même si la liste a changé; la
-                      // position reste pour un salon d'avant (ADR D23).
-                      game: game.index,
-                      key: game.key,
-                      save: slot ?? 0,
-                      // Seul à jouer, sur un jeu à un seul appareil, le salon
-                      // lance tout de suite: choisir la sauvegarde suffit
-                      // (audit P6). Sinon la préparation s'ouvre, comme avant.
-                      direct: true,
-                    })
-                    .then(() => setMenu(false))
-                    .catch((error: unknown) =>
-                      setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
-                    );
-                  return;
+      label: MENU.rubriques.jeux,
+      // Le choix de la sauvegarde vit SUR le jeu, et se fait au lancement,
+      // dans la fiche du jeu : un réglage posé loin de ce qu'il décide est un
+      // réglage qu'on oublie d'avoir mis.
+      lignes: shelves.flatMap((shelf) =>
+        shelf.games.map<Ligne>((game) => {
+          // Le choix de sauvegarde n'existe que pour un disque dont on sait
+          // la console (ADR D22) : proposer un choix qui ne décide peut-être
+          // rien est pire que ne pas le proposer.
+          const saves = preparable(game.console);
+          const running = game.index === room?.game?.index;
+          /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
+          const launch = (slot: Slot | null) => {
+            // La GameCube passe par la préparation elle aussi depuis le 12
+            // septembre 2026 : seul le salon certifie QUI lance. Un disque de
+            // console inconnue garde l'ancien chemin.
+            if (preparable(game.console)) {
+              setPreparationError("");
+              void tell
+                .prepare({
+                  action: "begin",
+                  // La clé désigne ce jeu même si la liste a changé ; la
+                  // position reste pour un salon d'avant (ADR D23).
+                  game: game.index,
+                  key: game.key,
+                  save: slot ?? 0,
+                  // Seul à jouer, sur un jeu à un seul appareil, le salon
+                  // lance tout de suite (audit P6).
+                  direct: true,
+                })
+                .then(() => setMenu(false))
+                .catch((error: unknown) =>
+                  setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
+                );
+              return;
+            }
+            // La sauvegarde et la manette AVANT le jeu : le worker retient, et
+            // c'est le changement de jeu qui agit.
+            if (slot !== null) session?.input.chooseSave(slot);
+            session?.input.choosePad(storedPad());
+            // Par sa clé quand la salle la publie, sinon par sa position.
+            const sent = game.key
+              ? session?.input.chooseGameByKey(game.key)
+              : session?.input.chooseGame(game.index);
+            if (!sent || !session) return;
+            // La vidéo doit savoir qu'un redémarrage arrive, et les autres
+            // l'apprennent par le salon : le worker part avec ses sockets.
+            session.video.expectRestart();
+            setRanWith(slot);
+            tell.booting(game.index, slot ?? 0);
+            setBooting({
+              game: game.name,
+              save: slot === null ? "" : slotLabel(slot),
+              at: performance.now(),
+            });
+            setMenu(false);
+          };
+          const choix = saves
+            ? launchPicks(login !== null, unlockedSaves?.[game.index] === true)
+            : undefined;
+          return {
+            id: `game${game.index}`,
+            label: game.name,
+            group: plusieursConsoles ? shelf.label : undefined,
+            value: running ? "en cours" : armed === game.index ? "confirmer ?" : undefined,
+            hint: running
+              ? saves
+                ? pour(appareil, "le relancer sur une autre sauvegarde")
+                : "c'est ce qui tourne"
+              : !mine
+                ? (whyNotChoose ?? undefined)
+                : saves
+                  ? pour(appareil, "choisir la sauvegarde, puis lancer")
+                  : armed === game.index
+                    ? "encore une fois pour lancer, ailleurs pour annuler"
+                    : `${pour(appareil, "lancer, deux fois")} : console inconnue.`,
+            // Le jeu QUI TOURNE reste choisissable : le relancer change de
+            // sauvegarde ou de manette. Grisé pour qui ne décide pas du jeu,
+            // et pour une console décrite mais pas encore jouable.
+            disabled:
+              !mine ||
+              !launchable(game.console) ||
+              (saves && (unlockedSaves === null || checkingIdentity)),
+            // Sans sauvegarde à choisir, l'armement à deux pressions : ce
+            // qu'on confirme reste la fin de la partie de tout le monde.
+            onEnter: saves
+              ? undefined
+              : () => {
+                  if (armed !== game.index) return setArmed(game.index);
+                  setArmed(null);
+                  launch(null);
+                },
+            // Un identifiant qu'on ne reconnaît pas ne lance RIEN, plutôt que
+            // de retomber sur « partie neuve » : c'est ce repli silencieux qui
+            // a fait démarrer tous les jeux Wii sur la mauvaise sauvegarde.
+            fiche: choix
+              ? {
+                  consequence: idle ? FICHE.demarre : FICHE.arrete,
+                  agir: FICHE.lancer,
+                  annuler: FICHE.revenir,
+                  choix,
+                  contenu: <GameCard game={game} />,
+                  onAgir: (id) => {
+                    if (unlockedSaves === null || id === null) return;
+                    const slot = slotFromPick(id, unlockedSaves[game.index] === true);
+                    if (slot !== null) launch(slot);
+                  },
                 }
-                // La sauvegarde AVANT le jeu: le worker retient le choix sans rien
-                // déclencher, et c'est le changement de jeu qui agit. L'ordre compte,
-                // parce que l'ordre de jeu fait redémarrer la salle.
-                if (slot !== null) session?.input.chooseSave(slot);
-                // La manette AVANT le jeu, comme la sauvegarde: le worker
-                // retient, et c'est le changement de jeu qui agit. Elle vient du
-                // réglage, pas du panneau.
-                session?.input.choosePad(storedPad());
-                // Par sa clé quand la salle la publie, sinon par sa position:
-                // un worker d'avant le 21 novembre 2026 ne connaît que celle-ci.
-                const sent = game.key
-                  ? session?.input.chooseGameByKey(game.key)
-                  : session?.input.chooseGame(game.index);
-                if (!sent || !session) return;
-                // La vidéo doit savoir qu'un redémarrage arrive: sans ça elle ne peut
-                // pas distinguer les images de l'ancien jeu de celles du nouveau.
-                session.video.expectRestart();
-                // Prévenir les autres, par le salon. Le worker s'arrête dans la
-                // seconde, donc il ne peut prévenir personne: ses sockets partent avec
-                // lui. Sans cette ligne, tout le monde sauf celui qui a cliqué regarde
-                // dix secondes de noir sans savoir si c'est cassé.
-                setRanWith(slot);
-                tell.booting(game.index, slot ?? 0);
-                setBooting({
-                  game: game.name,
-                  save: slot === null ? "" : slotLabel(slot),
-                  at: performance.now(),
-                });
-                setMenu(false);
-              };
-              return {
-                id: `game${game.index}`,
-                label: game.name,
-                value: running ? "en cours" : armed === game.index ? "confirmer ?" : undefined,
-                // La touche de l'appareil qu'on tient. « entrée: » voulait dire
-                // la touche Entrée, alors que le pied du menu appelait
-                // « entrée » une ligne de la liste (audit T02).
-                hint: running
-                  ? saves
-                    ? pour(appareil, "le relancer sur une autre sauvegarde ou une autre manette")
-                    : "c'est ce qui tourne"
-                  : !mine
-                    ? (whyNotChoose ?? undefined)
-                    : saves
-                      ? `${pour(appareil, "choisir la sauvegarde, puis lancer")}. Ça arrête la partie de tout le monde.`
-                      : armed === game.index
-                        ? "encore une fois pour lancer, ailleurs pour annuler"
-                        : `${pour(appareil, "lancer, deux fois")}: ce disque n'a pas dit de quelle console il est.`,
-                icon: <GameIcon className="h-full w-full" />,
-                game: {
-                  index: game.index,
-                  art: game.art ?? false,
-                  console: game.console,
-                },
-                details: <GameCard game={game} />,
-                by: game.maker ?? undefined,
-                note: game.about ?? undefined,
-                // Le jeu QUI TOURNE reste choisissable, et c'est nouveau: le
-                // relancer change de sauvegarde ou de manette, ce qui est la
-                // seule façon de passer à la Wiimote sans lancer un autre jeu
-                // pour revenir. Avant, cette entrée ne décidait de rien une fois
-                // le jeu lancé, donc la griser était juste.
-                //
-                // Elle reste grisée pour qui ne décide pas du jeu.
-                // Une console décrite mais pas encore jouable reste grisée.
-                disabled:
-                  !mine ||
-                  !launchable(game.console) ||
-                  (saves && (unlockedSaves === null || checkingIdentity)),
-                // Une seule décision ici, la sauvegarde, et la MÊME pour les deux
-                // consoles. La manette se choisit sous « manettes »: voir
-                // `launchPicks`, qui dit pourquoi les deux moitiés du choix vivent
-                // ensemble plutôt qu'ici.
-                // La sauvegarde personnelle n'est proposée QUE si le salon sait qui
-                // tu es: le worker ne peut pas nommer un dossier d'après quelqu'un
-                // qu'il ne connaît pas, et la proposer sans identité ferait cliquer
-                // sur un choix qui retombe en silence sur la partie neuve.
-                picks: saves
-                  ? launchPicks(login !== null, unlockedSaves?.[game.index] === true)
-                  : undefined,
-                // Sans emplacements il n'y a pas de panneau, donc plus rien ne
-                // confirme. On remet l'armement à deux pressions, qui est ce que cette
-                // entrée faisait avant que le choix de sauvegarde existe: ce qu'on
-                // confirme reste la fin de la partie de tout le monde.
-                onEnter: saves
-                  ? undefined
-                  : () => {
-                      if (armed !== game.index) return setArmed(game.index);
-                      setArmed(null);
-                      launch(null);
-                    },
-                // La manette ne se choisit plus ici: c'est un réglage qu'on pose une
-                // fois, pas une décision de partie. Elle vit sous « manettes », et
-                // `launch` la relit au moment de lancer.
-                //
-                // Un identifiant qu'on ne reconnaît pas ne lance RIEN, plutôt que de
-                // retomber sur « partie neuve »: c'est ce repli silencieux qui a fait
-                // démarrer tous les jeux Wii sur la mauvaise sauvegarde.
-                onPick: (id: string) => {
-                  if (unlockedSaves === null) return;
-                  const slot = slotFromPick(id, unlockedSaves[game.index] === true);
-                  if (slot !== null) launch(slot);
-                },
-              };
-            }),
+              : undefined,
+          };
+        }),
+      ),
     },
     {
       id: "manettes",
-      label: "manettes",
-      icon: <PadIcon className="h-full w-full" />,
-      // Une rubrique à elle. Régler sa manette demandait Échap, deux flèches,
-      // neuf flèches bas et Entrée: « touches et manettes » était la dixième
-      // entrée sur quinze des réglages, et trois autres réglages de manette
-      // l'entouraient (audit P12, 22 novembre 2026).
-      items: arrange(
+      label: MENU.rubriques.manettes,
+      // Une rubrique à elle : régler sa manette demandait dix gestes quand
+      // elle était la dixième entrée des réglages (audit P12).
+      lignes: arrange<Ligne>(
         [
           {
             id: "bindings",
-            // « touches » sous-vendait: cet écran règle aussi les manettes.
             label: "touches et manettes",
-            // Le même titre que le dialogue qu'elle ouvre. Le profil clavier est
-            // nommé; les correspondances des manettes sont par modèle.
-            // Une manette qui attend ses correspondances le dit ici aussi:
+            // Une manette qui attend ses correspondances le dit ici aussi :
             // l'avis de branchement s'efface au bout de cinq secondes (P12).
             ...(shot && manetteAConfigurer(shot.input)
-              ? {
-                  value: "à configurer",
-                  hint: "la manette branchée attend ses correspondances: ouvre pour la configurer",
-                }
-              : {
-                  hint: `tester et changer tes touches, profil clavier « ${shot?.input.keyProfile ?? "défaut"} »`,
-                }),
-            icon: <KeysIcon className="h-full w-full" />,
-            // Le menu reste ouvert DERRIÈRE: renvoyer quelqu'un dans la partie
-            // pour changer une touche est exactement ce qu'on ne veut pas.
-            // Le panneau vit dans la colonne, que le menu modal rendrait
-            // inerte : le menu se ferme, et le jeu de cette place reçoit un
-            // état neutre tant que le panneau est ouvert.
+              ? { value: "à configurer", hint: "la manette branchée attend ses correspondances" }
+              : { hint: `profil clavier « ${shot?.input.keyProfile ?? "défaut"} »` }),
+            // Le panneau vit dans la colonne : le menu se ferme, et le jeu de
+            // cette place reçoit un état neutre tant qu'il est ouvert.
             onEnter: () => ouvrirLesTouches("manette"),
           },
           {
             id: "pad",
-            // « appareil »: ce choix dit ce que le jeu voit (manette GameCube,
-            // Wiimote, guitare), pas quelle manette on tient (audit P12).
+            // « appareil » : ce choix dit ce que le jeu voit (manette
+            // GameCube, Wiimote, guitare), pas quelle manette on tient.
             label: "appareil des jeux Wii",
-            value: padLabel(pad),
-            // La manette d'un jeu Wii est un RÉGLAGE, pas une décision de partie.
-            // Elle a vécu une journée dans le panneau de lancement, à côté de la
-            // sauvegarde: c'était le mauvais endroit. Une sauvegarde se choisit
-            // par partie, une manette se choisit une fois.
-            //
-            // Une seule des deux à la fois: elles lisent le même tuyau, et un jeu
-            // qui voit les deux compte deux manettes pour une personne. À deux
-            // joueurs, le premier occupe deux places et le second n'entre jamais.
-            // Deux choses changent d'un coup, et taire la seconde ferait croire à
-            // un réglage perdu: la manette que le jeu voit, ET le jeu de touches
-            // qu'on règle sous « touches ».
-            // Ce que ça coûte de changer, et ce n'est plus le même prix pour les
-            // trois. Passer du Nunchuk à la guitare ne relance rien: c'est la même
-            // Wiimote avec autre chose au bout, et Dolphin échange une extension
-            // en cours de partie. Aller vers la manette GameCube, ou en revenir,
-            // change d'APPAREIL et demande de repartir.
+            // Une seule des deux à la fois : elles lisent le même tuyau, et un
+            // jeu qui voit les deux compte deux manettes pour une personne.
             hint:
               room?.game?.console === "wii"
                 ? pad === 0
-                  ? "Appareil présenté aux jeux Wii. Passer à la Wiimote relance le jeu."
-                  : "Extension de ta place. Entre Nunchuk et guitare, rien ne relance."
-                : "Appareil du prochain jeu Wii. Les profils clavier restent indépendants.",
-            icon: <PadIcon className="h-full w-full" />,
-            picks: PADS.map((one) => ({
-              id: String(one.id),
-              label: one.label,
-              hint: one.note,
-            })),
+                  ? "Passer à la Wiimote relance le jeu."
+                  : "Entre Nunchuk et guitare, rien ne relance."
+                : "Appareil du prochain jeu Wii.",
+            picks: PADS.map((one) => ({ id: String(one.id), label: one.label, hint: one.note })),
             picked: String(pad),
-            // Relu dans la table, jamais deviné: la version d'avant faisait
-            // `id === "1" ? 1 : 0`, donc la guitare retombait sur la manette
-            // GameCube sans un mot.
+            // Relu dans la table, jamais deviné : la guitare retombait sur la
+            // manette GameCube sans un mot.
             onPick: (id: string) => {
               const wanted = PADS.find((one) => String(one.id) === id)?.id;
               if (wanted !== undefined) switchPad(wanted);
@@ -1793,9 +1667,7 @@ function Room({
           {
             id: "touchpad",
             label: TACTILE,
-            value: touchLabel(touchPref),
-            hint: "Pour jouer au téléphone. Elles se fondent avec le clavier et les manettes: on peut tenir les deux.",
-            icon: <PadIcon className="h-full w-full" />,
+            hint: "Pour jouer au téléphone, avec ou sans clavier et manettes.",
             picks: TOUCHPADS.map((choice) => ({
               id: choice.id,
               label: choice.label,
@@ -1806,27 +1678,15 @@ function Room({
           },
           {
             id: "padonly",
-            // Un seul nom pour ce mode, ici comme sur l'écran qu'il montre.
             label: MANETTE_SEULE,
-            value: padOnly ? "oui" : "non",
-            hint: `Pour un téléphone posé à côté d'un écran qui montre déjà le jeu. Il cesse de décoder une vidéo que personne ne regarde : ${prixManetteSeule(moteurDe(room?.game?.console))}.`,
-            icon: <PadIcon className="h-full w-full" />,
+            hint: `Ce téléphone sans image ni son : ${prixManetteSeule(moteurDe(room?.game?.console))}.`,
             picks: [
-              {
-                id: "avec",
-                label: "non, avec l'image",
-                hint: "le jeu s'affiche ici",
-              },
-              {
-                id: "sans",
-                label: "oui, sans image",
-                hint: "ni image ni son sur cet appareil",
-              },
+              { id: "avec", label: "non, avec l'image" },
+              { id: "sans", label: "oui, sans image" },
             ],
             picked: padOnly ? "sans" : "avec",
-            // Changer de mode reconstruit la session, donc la place tenue est
-            // rendue puis reprise. C'est visible, et c'est le prix de ne plus
-            // ouvrir la socket vidéo du tout.
+            // Changer de mode reconstruit la session : la place tenue est
+            // rendue puis reprise.
             onPick: (id) => onPadOnly(id === "sans"),
           },
         ],
@@ -1835,31 +1695,19 @@ function Room({
     },
     {
       id: "salle",
-      label: "salle",
-      icon: <RoomIcon className="h-full w-full" />,
-      // Les quatre places ont quitté ce rayon.
-      //
-      // Elles y montraient qui tient quoi, et permettaient de s'asseoir ou de
-      // demander sa manette à quelqu'un. La COLONNE fait déjà exactement ça, y
-      // compris les deux clics pour reprendre une place tenue par un fantôme.
-      // Elle n'est pas « visible en permanence » partout, comme ce commentaire
-      // l'a cru: sur un téléphone, elle vit dans la feuille fermée (audit P5).
-      // Ce rayon l'ouvre donc, quand la salle est tenue en main.
-      //
-      // Deux endroits pour un même geste, c'est deux endroits à tenir d'accord.
-      // Ce qui reste ici est ce qui n'existe nulle part ailleurs: le clip, le
-      // passage en spectateur, et la sortie.
-      items: ([] as XmbItem[]).concat([
-        // Seulement quand le chef ne joue plus (`repriseDuRole`, que le worker décide):
-        // proposé à tous et tout le temps, c'était la première action offerte
-        // à un nouveau venu, celle de prendre la place de l'hôte (audit T12).
+      label: MENU.rubriques.salle,
+      // Les places, le clip et Signaler vivent dans la colonne : deux
+      // endroits pour un même geste sont deux endroits à tenir d'accord. Ce
+      // qui reste ici n'existe nulle part ailleurs.
+      lignes: [
+        // Seulement quand le chef ne joue plus (`repriseDuRole`) : proposé à
+        // tous, c'était la première action offerte à un nouveau venu (T12).
         ...(boss && repriseDuRole(role, login !== null)
           ? [
               {
                 id: "recover-owner",
                 label: "prendre le rôle de chef",
                 hint: `${chefAbsent(boss.name)} ${boss.name} sera prévenu.`,
-                icon: <RoomIcon className="h-full w-full" />,
                 onEnter: () => {
                   setMenu(false);
                   onRecover(null);
@@ -1867,87 +1715,73 @@ function Room({
               },
             ]
           : []),
-        ...(room?.game
+        // Fermer le jeu et fermer la salle, seulement pour qui choisit le
+        // jeu, et par une fiche qui dit ce que ça arrête (M10).
+        ...(room?.game && canClose
           ? [
               {
                 id: "close-game",
                 label: "fermer le jeu",
-                hint: canClose
-                  ? "Arrête la partie de tous. Les sauvegardes sont conservées, la salle reste ouverte."
-                  : `${boss?.name ?? "Le chef"} peut fermer le jeu.`,
-                icon: <GameIcon className="h-full w-full" />,
-                disabled: !canClose,
-                picks: [
-                  { id: "close", label: "fermer le jeu", hint: room.game.name },
-                  { id: "cancel", label: "continuer à jouer" },
-                ],
-                onPick: (id: string) => {
-                  if (id !== "close" || !room.game) return;
-                  void tell
-                    .closeGame(room.game.index)
-                    .then(() => setPreparationError("Fermeture du jeu en cours…"))
-                    .catch((error: unknown) =>
-                      setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
-                    );
+                hint: "Les sauvegardes sont conservées.",
+                fiche: {
+                  consequence:
+                    tenues > 1
+                      ? `La partie s'arrête pour les ${tenues} joueurs. La salle reste ouverte.`
+                      : "La partie s'arrête. La salle reste ouverte.",
+                  agir: "Fermer le jeu",
+                  annuler: FICHE.continuer,
+                  onAgir: () => {
+                    if (!room.game) return;
+                    void tell
+                      .closeGame(room.game.index)
+                      .then(() => setPreparationError("Fermeture du jeu en cours…"))
+                      .catch((error: unknown) =>
+                        setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
+                      );
+                  },
                 },
-              },
+              } satisfies Ligne,
             ]
           : []),
-        // Fermer la SALLE, et pas seulement le jeu: l'API existait, aucun
-        // bouton ne l'appelait (audit P14). Pour le chef, et seulement sous un
-        // salon: servie seule, la page n'a pas de liste où revenir.
+        // Fermer la SALLE : pour le chef, et seulement sous un salon (P14).
         ...(canClose && sortie !== null
           ? [
               {
                 id: "close-room",
                 label: "fermer la salle",
-                hint: "Arrête la partie de tous et libère la carte graphique. Les sauvegardes sont conservées.",
-                icon: <RoomIcon className="h-full w-full" />,
-                picks: [
-                  { id: "close", label: "fermer la salle", hint: nomSalle },
-                  { id: "cancel", label: "continuer à jouer" },
-                ],
-                onPick: (id: string) => {
-                  if (id !== "close") return;
-                  void closeSalle({
-                    path: { numero: salle() },
-                    throwOnError: true,
-                  })
-                    .then(() => location.assign("/"))
-                    .catch((error: unknown) =>
-                      // Le client généré rejette avec le corps de la réponse,
-                      // `{ detail }`, et non avec une `Error`.
-                      setPreparationError(
-                        typeof error === "object" &&
-                          error !== null &&
-                          "detail" in error &&
-                          typeof error.detail === "string"
-                          ? `La salle n'a pas fermé : ${error.detail}.`
-                          : "La salle n'a pas pu fermer. Réessaie.",
-                      ),
-                    );
+                hint: "Libère la carte graphique. Les sauvegardes sont conservées.",
+                fiche: {
+                  consequence: `La partie s'arrête pour tous, et ${nomSalle} ferme.`,
+                  agir: "Fermer la salle",
+                  annuler: FICHE.continuer,
+                  onAgir: () => {
+                    void closeSalle({ path: { numero: salle() }, throwOnError: true })
+                      .then(() => location.assign("/"))
+                      .catch((error: unknown) =>
+                        // Le client généré rejette avec le corps de la
+                        // réponse, `{ detail }`, et non avec une `Error`.
+                        setPreparationError(
+                          typeof error === "object" &&
+                            error !== null &&
+                            "detail" in error &&
+                            typeof error.detail === "string"
+                            ? `La salle n'a pas fermé : ${error.detail}.`
+                            : "La salle n'a pas pu fermer. Réessaie.",
+                        ),
+                      );
+                  },
                 },
-              },
+              } satisfies Ligne,
             ]
           : []),
-        // Le clip a quitté ce rayon pour la COLONNE, où il est atteignable sans
-        // ouvrir de menu — c'est un geste qu'on fait pendant qu'il se passe
-        // quelque chose, et poser un menu par-dessus le jeu qu'on voulait garder
-        // est exactement le mauvais moment.
-        //
-        // Déplacé, pas dupliqué: deux endroits pour un même geste sont deux
-        // endroits à tenir d'accord, et c'est la leçon des quatre places.
         // La feuille agrandie, quand la salle est tenue en main : les places,
         // demander celle d'un autre, signaler, le diagnostic, les spectateurs.
         ...(tenu
           ? [
               {
                 id: "places",
-                // Le même nom que le bouton de la barre : « places et
-                // spectateurs » nommait un quatrième endroit.
                 label: "la salle",
                 hint: aideDeLaSalle(appareil),
-                icon: <RoomIcon className="h-full w-full" />,
                 onEnter: () => {
                   setMenu(false);
                   setFeuille("agrandie");
@@ -1962,7 +1796,6 @@ function Room({
           hint: watchingNow
             ? "la première place libre"
             : "tu regardes, l'image et le son continuent",
-          icon: <WatchIcon className="h-full w-full" />,
           onEnter: () => {
             if (watchingNow) session?.input.play();
             else session?.input.watchOnly();
@@ -1972,60 +1805,46 @@ function Room({
         {
           id: "leave",
           label: enMenu(SORTIES.quitter),
-          // « retour à l'accueil » désignait deux pages différentes (audit P8).
+          // « retour à l'accueil » désignait deux pages différentes (P8).
           hint:
             sortie === null
               ? "retour à l'entrée de la salle. La partie continue sans toi."
               : "vers les autres salles. La partie continue sans toi.",
-          icon: <LeaveIcon className="h-full w-full" />,
-          onEnter: onLeave,
+          // La même sortie que la colonne : la transition sortir-salle du
+          // socle, puis le départ (`quitterLaSalle`).
+          onEnter: () => quitterLaSalle(),
         },
-      ]),
+      ],
     },
     {
       id: "reglages",
-      label: "réglages",
-      icon: <SettingsIcon className="h-full w-full" />,
-      // Les réglages pointus sont repliés derrière « réglages avancés »:
-      // `lib/settings`, `avecAvances`.
-      items: avecAvances(
-        arrange(
-          selonAppareil(
+      label: MENU.rubriques.reglages,
+      // Deux groupes, « Image et son » puis « Cet appareil », et les
+      // réglages pointus repliés derrière « réglages avancés » (M7a,
+      // `lib/settings`).
+      lignes: avecAvances(
+        arrange<Ligne>(
+          selonAppareil<Ligne>(
             [
               {
                 id: "sound",
                 label: "son",
                 value: shot?.sound.state === "running" ? "activé" : "éteint",
                 hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
-                icon: <SoundIcon className="h-full w-full" />,
                 onEnter: () => void session?.sound.start(),
               },
               {
                 id: "half",
-                // « transporté » était du vocabulaire interne: personne ne dit ça
-                // d'une image. Ce qu'on choisit est la qualité qu'on REÇOIT.
+                // Ce qu'on choisit est la qualité qu'on REÇOIT.
                 label: IMAGE.reglage,
                 value: shot?.video.half ? "légère" : "complète",
-                // Ce que la personne a besoin de savoir pour choisir, et rien de plus:
-                // combien ça coûte, et que ça ne regarde qu'elle.
-                //
-                // Les tailles viennent de l'image REÇUE, comme celles du réglage
-                // « image à l'écran », et non d'une table: les 1216×896 et 608×448
-                // écrits ici étaient ceux de Dolphin, et la Switch envoie du
-                // 1280×720. Un seul prix, et seulement là où il a été mesuré
-                // (`prixImageLegere`): la page disait ici « le quart » et ailleurs
-                // « 2,6 fois moins » (audit T11), et donnait le chiffre d'une
-                // course Dolphin à une salle Switch (relecture du 22 novembre).
+                // Un seul prix, et seulement là où il a été mesuré
+                // (`prixImageLegere`, audit T11).
                 hint: half
-                  ? `${sizes.half || IMAGE.legere}, ${prixImage}. Ne change que ton écran.`
-                  : `${sizes.full || IMAGE.complete}. Passe en image légère si l'image saccade.`,
-                icon: <ScreenIcon className="h-full w-full" />,
+                  ? `${sizes.half || IMAGE.legere}, ${prixImage}.`
+                  : `${sizes.full || IMAGE.complete}. Légère si l'image saccade.`,
                 picks: [
-                  {
-                    id: "full",
-                    label: IMAGE.complete,
-                    hint: sizes.full || "toute l'image",
-                  },
+                  { id: "full", label: IMAGE.complete, hint: sizes.full || "toute l'image" },
                   {
                     id: "half",
                     label: IMAGE.legere,
@@ -2042,26 +1861,21 @@ function Room({
               {
                 id: "fit",
                 label: "image à l'écran",
-                value: fitLabel(fit),
-                hint: "Comment l'image remplit ta fenêtre. Ne change pas ce que tu reçois.",
-                icon: <ExpandIcon className="h-full w-full" />,
-                // Chaque choix annonce la taille QU'IL DONNERAIT, et pas seulement ce
-                // qu'il promet. Sans ça, deux choix qui rendent exactement la même
-                // image — ce qui arrive dès que la source est proche de l'écran — se
-                // présentent comme deux choix différents, et on croit que le réglage
-                // ne fait rien.
-                picks: FITS.map((choice) => {
-                  const would = place(choice.id, picture, space);
-                  const size =
-                    would.width > 0 ? `${Math.round(would.width)}×${Math.round(would.height)}` : "";
-                  return {
-                    id: choice.id,
-                    label: choice.label,
-                    hint: size ? `${size} · ${choice.note}` : choice.note,
-                  };
-                }),
+                // La taille que le choix en cours donne : deux choix qui
+                // rendent la même image se voient comme tels. L'image reste
+                // visible à côté du menu, et se règle sous les yeux.
+                hint: (() => {
+                  const would = place(fit, picture, space);
+                  return would.width > 0
+                    ? `${Math.round(would.width)}×${Math.round(would.height)} · ne change pas ce que tu reçois`
+                    : "Ne change pas ce que tu reçois.";
+                })(),
+                picks: FITS.map((choice) => ({
+                  id: choice.id,
+                  label: choice.label,
+                  hint: choice.note,
+                })),
                 picked: fit,
-                preview: true,
                 onPick: (id) => {
                   const found = FITS.find((choice) => choice.id === id);
                   if (found) setFit(found.id);
@@ -2070,31 +1884,22 @@ function Room({
               {
                 id: "volume",
                 label: "volume",
-                // À zéro, le son n'est pas joué en silence: il n'est plus envoyé du
-                // tout (`SoundStream.setMuted`). Le dire, pour qu'une liaison faible
-                // sache qu'elle vient de gagner 1,5 Mbit/s.
-                value: volume <= 0 ? "sourdine" : `${Math.round(volume * 100)}`,
-                hint:
-                  volume <= 0 ? "le son n'est plus envoyé" : pour(appareil, "ouvrir la glissière"),
-                icon: <VolumeIcon className="h-full w-full" />,
-                // En pour-cent et non en fraction: la glissière avance par crans
-                // entiers, et un cran de 0,05 sur une valeur de 0 à 1 se lit mal quand
-                // il faut l'arrondir à la souris.
+                // À zéro, le son n'est plus envoyé du tout
+                // (`SoundStream.setMuted`) : le dire.
+                hint: volume <= 0 ? "le son n'est plus envoyé" : "le son de cet appareil",
                 slide: {
                   value: Math.round(volume * 100),
                   min: 0,
                   max: 100,
                   step: 5,
-                  say: (at) => `${at} %`,
+                  say: (at) => (at <= 0 ? "sourdine" : `${at} %`),
                   onSet: (at) => setVolume(at / 100),
                 },
               },
               {
                 id: "theme",
                 label: "couleurs",
-                value: themeLabel(theme),
-                hint: pour(appareil, "voir les trois"),
-                icon: <PaletteIcon className="h-full w-full" />,
+                hint: "les couleurs de la salle, sur cet appareil",
                 picks: THEMES.map((choice) => ({
                   id: choice.id,
                   label: choice.label,
@@ -2107,11 +1912,11 @@ function Room({
                 },
               },
               {
+                // Le réglage des effets rétro du socle (ADR D37), monté ici
+                // sous « Cet appareil » : ses mots sont ceux du salon.
                 id: "effets",
                 label: EFFETS_RETRO.reglage,
-                value: EFFETS_RETRO.niveaux[effets.niveau].label,
-                hint: pour(appareil, "voir les trois"),
-                icon: <PaletteIcon className="h-full w-full" />,
+                hint: EFFETS_RETRO.niveaux[effets.niveau].note,
                 picks: NIVEAUX.map((id) => ({
                   id,
                   label: EFFETS_RETRO.niveaux[id].label,
@@ -2124,38 +1929,20 @@ function Room({
               },
               {
                 // Coupés par défaut, et jamais pendant une partie
-                // (`retro/sons.ts`): ce réglage ne fait que les permettre.
+                // (`retro/sons.ts`) : ce réglage ne fait que les permettre.
                 id: "sonsMenu",
                 label: EFFETS_RETRO.sons,
                 value: effets.sons ? "oui" : "non",
                 hint: EFFETS_RETRO.sonsNote,
-                icon: <SoundIcon className="h-full w-full" />,
+                bascule: effets.sons,
                 onEnter: () => changerSons(!effets.sons),
-              },
-              {
-                id: "shell",
-                // Une entrée nommée « menu », dans un menu, est une devinette. Ce
-                // qu'elle choisit est le tableau de bord de quelle console.
-                label: "tableau de bord",
-                value: shellLabel(shell),
-                hint: pour(appareil, "voir les consoles"),
-                icon: <LayoutIcon className="h-full w-full" />,
-                picks: SHELLS.map((choice) => ({
-                  id: choice.id,
-                  label: choice.label,
-                })),
-                picked: shell,
-                onPick: (id) => {
-                  const found = SHELLS.find((choice) => choice.id === id);
-                  if (found) setShell(found.id);
-                },
               },
               {
                 id: "deviceRate",
                 label: "son sans conversion",
                 value: deviceRate ? "oui" : "non",
                 hint: "Peut réduire un grésillement. Peut ajouter un peu de retard.",
-                icon: <WaveIcon className="h-full w-full" />,
+                bascule: deviceRate,
                 onEnter: () => setDeviceRate(!deviceRate),
               },
               {
@@ -2163,34 +1950,28 @@ function Room({
                 label: "image calée sur le son",
                 value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
                 hint: lipsync
-                  ? "compensation ajustée au son ; elle ajoute aussi du retard aux commandes"
-                  : "retarde l'image pour suivre le son, seulement sur cet écran",
-                icon: <SyncIcon className="h-full w-full" />,
+                  ? "ajoute aussi du retard aux commandes"
+                  : "retarde l'image pour suivre le son, sur cet écran",
+                bascule: lipsync,
                 onEnter: () => setLipsync(!lipsync),
               },
               {
                 id: "bare",
-                // Un nom, comme les autres. La phrase à l'impératif est le
-                // travail de l'aide, pas du titre.
                 label: "colonne de droite",
                 value: bare ? "repliée" : "visible",
                 hint: "rend toute la largeur à l'image (Ctrl)",
-                icon: <PanelIcon className="h-full w-full" />,
                 onEnter: () => setBare(!bare),
               },
               {
                 id: "columnWidth",
                 label: "largeur de la colonne",
-                value: `${column} px`,
                 hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
-                icon: <PanelIcon className="h-full w-full" />,
-                // La glissière du menu, parce que la poignée n'a pas de clavier:
-                // voir `ColumnHandle`. Au clavier et à la manette, c'est ici.
+                // La glissière, parce que la poignée n'a pas de clavier : voir
+                // `ColumnHandle`. Relue à chaque rendu : une fenêtre étroite
+                // ne permet pas la même largeur qu'un grand écran.
                 slide: {
                   value: column,
                   min: COLUMN.min,
-                  // Relue à chaque rendu du menu: une fenêtre étroite ne permet pas
-                  // la même largeur qu'un grand écran.
                   max: widest(window.innerWidth),
                   step: COLUMN.step,
                   say: (at) => `${at} px`,
@@ -2204,20 +1985,16 @@ function Room({
                 id: "fullscreen",
                 label: "plein écran",
                 value: fullscreen ? "oui" : "non",
-                icon: <ExpandIcon className="h-full w-full" />,
+                hint: "toute la fenêtre pour la salle",
+                bascule: fullscreen,
                 onEnter: toggleFullscreen,
               },
               {
                 id: "advanced",
                 label: "réglages avancés",
                 value: avances ? "affichés" : "3 de plus",
-                hint: avances
-                  ? "son sans conversion, image calée sur le son, état de la connexion"
-                  : pour(
-                      appareil,
-                      "les afficher: son sans conversion, image calée sur le son, état de la connexion",
-                    ),
-                icon: <SettingsIcon className="h-full w-full" />,
+                hint: "son sans conversion, image calée sur le son, connexion",
+                deplie: avances,
                 onEnter: () => setAvances(!avances),
               },
               entreeConnexion({
@@ -2227,7 +2004,7 @@ function Room({
                 port,
                 appareil,
                 compact: tenu,
-                etroit: window.innerWidth < ETROIT_SOUS,
+                fiche: tenu,
                 voirDetail,
               }),
             ],
@@ -2856,6 +2633,40 @@ function Room({
       onPrendre={salleFermee ? undefined : () => session?.input.play()}
     />
   );
+  /** Le menu unique, jamais sur l'image (`placeDuMenu`, ADR D30 amendé) :
+   * au bureau à la place des rangs de la colonne, tenu en main sous l'image
+   * ou dans une bande à côté d'elle. Un refus né d'un geste du menu s'écrit
+   * dans son bloc, pas dans un avis posé ailleurs. */
+  const placeMenu = placeDuMenu(geo, fenetre, zonesSures);
+  const menuEnColonne = menu && placeMenu.lieu === "colonne";
+  const menuMonte = menu ? (
+    <Menu
+      rubriques={rubriques}
+      partie={!idle}
+      joue={port !== null}
+      appareil={appareil}
+      place={placeMenu}
+      onClose={() => setMenu(false)}
+      onPad={(handler) => session?.input.setMenu(handler)}
+      avis={
+        preparationError ? (
+          <div className="n3-preparation-error" role="alert">
+            {preparationError}
+            {/* « Masquer » et non « Fermer » : l'avis le plus courant dit
+                « Fermeture du jeu en cours… ». */}
+            <button type="button" onClick={() => setPreparationError("")}>
+              Masquer
+            </button>
+          </div>
+        ) : null
+      }
+    />
+  ) : null;
+  /* La colonne repliée par Ctrl se déplie quand le menu s'ouvre : c'est sa
+     place au bureau. */
+  useEffect(() => {
+    if (menu && bare && placeMenu.lieu === "colonne") setBare(false);
+  }, [menu, bare, placeMenu.lieu, setBare]);
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (
     <Colonne
@@ -2882,47 +2693,49 @@ function Room({
       avis={
         <>
           {lieuAvis.lieu === "colonne" ? avis : null}
-          {menu || cartesDansLaBande ? null : cartes}
+          {cartesDansLaBande ? null : cartes}
         </>
       }
-      role={blocRole}
+      role={menuEnColonne ? null : blocRole}
       personnes={
-        <>
-          {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
+        menuEnColonne ? null : (
+          <>
+            {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
               rôle ne se montre que quand le worker dit que le chef ne
               joue plus (`repriseDuRole`, audit T12). */}
-          {/* Au repos, l'écran éteint le dit déjà : une chose, une fois. */}
-          {boss && !salleFermee && !idle ? (
-            <p className="flex items-center gap-1 text-corps text-muted">
-              <Crown />
-              {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
-            </p>
-          ) : null}
-          {boss && !salleFermee && repriseDuRole(role, login !== null) ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
-              <button
-                id="recoverOwner"
-                type="button"
-                className="n3-rang"
-                onClick={() => onRecover(null)}
-              >
-                {CARTE.choisir}
-              </button>
-            </div>
-          ) : null}
-          <IlsRegardent people={people} owner={boss} />
-          {salleFermee ? null : (
-            <Inviter
-              lien={(entree) => lienDInvitation(location.origin, base(), entree)}
-              libre={premiereLibre}
-              annoncer={annoncer}
-            />
-          )}
-        </>
+            {/* Au repos, l'écran éteint le dit déjà : une chose, une fois. */}
+            {boss && !salleFermee && !idle ? (
+              <p className="flex items-center gap-1 text-corps text-muted">
+                <Crown />
+                {boss.moi ? "Tu choisis le jeu." : chefChoisit(boss.name)}
+              </p>
+            ) : null}
+            {boss && !salleFermee && repriseDuRole(role, login !== null) ? (
+              <div className="flex flex-col gap-1">
+                <p className="text-corps text-muted">{chefAbsent(boss.name)}</p>
+                <button
+                  id="recoverOwner"
+                  type="button"
+                  className="n3-rang"
+                  onClick={() => onRecover(null)}
+                >
+                  {CARTE.choisir}
+                </button>
+              </div>
+            ) : null}
+            <IlsRegardent people={people} owner={boss} />
+            {salleFermee ? null : (
+              <Inviter
+                lien={(entree) => lienDInvitation(location.origin, base(), entree)}
+                libre={premiereLibre}
+                annoncer={annoncer}
+              />
+            )}
+          </>
+        )
       }
       panneau={
-        panneauSous || panneauTenu ? null : (
+        panneauSous || panneauTenu || menuEnColonne ? null : (
           <PanneauCommande forme="colonne" fin={finDuPanneau}>
             {places}
           </PanneauCommande>
@@ -3058,7 +2871,9 @@ function Room({
         ),
       }}
       vue={
-        reglage !== null ? (
+        menuEnColonne ? (
+          menuMonte
+        ) : reglage !== null ? (
           <HoteReglage
             trame={trameDuReglage}
             autres={autresJouent}
@@ -3490,62 +3305,12 @@ function Room({
           tenue en main (`couchesDeLaSalle`). La même colonne, entière. */}
       {couches.colonne === "a-cote" || couches.colonne === "dessous" ? colonne : null}
 
-      {/* SANS `&& shot`: le menu ne dépend pas de l'image.
-          Avec, cliquer « Choisir un jeu » dans une salle au repos faisait
-          disparaître le panneau sans monter le menu — écran noir, aucune
-          commande, jusqu'à l'arrivée du premier instantané. La bascule
-          « manette seule » reconstruit la session, donc elle
-          faisait s'évaporer le menu sous les doigts pour la même raison.
-          Les entrées lisent déjà l'instantané en optionnel, avec un repli. */}
-      {menu
-        ? (() => {
-            const common = {
-              categories: rays,
-              idle,
-              appareil,
-              // Le navigateur a fermé le dialogue lui-même (le geste « retour »
-              // d'Android répété sans autre geste entre deux): la page suit.
-              onQuitte: () => {
-                setFolder(null);
-                setMenu(false);
-              },
-              onClose: () => {
-                // Retour: on remonte d'un ÉTAGE avant de fermer. Sortir du menu
-                // depuis l'intérieur d'un dossier obligerait à rouvrir et à
-                // redescendre pour corriger un clic, et c'est le geste qu'on
-                // fait le plus souvent après s'être trompé de console.
-                if (folder !== null) return setFolder(null);
-                setMenu(false);
-              },
-              onPad: (handler: ((action: MenuAction) => void) | null) =>
-                session?.input.setMenu(handler),
-              // Pendant que l'écran des touches est ouvert par-dessus, le menu
-              // reste affiché mais n'écoute plus: sinon réassigner une flèche
-              // ferait aussi défiler la liste dessous.
-              paused: configuring,
-              // Un lancement en cours passe AVANT le repos: la salle est encore
-              // vide le temps que le worker redémarre, et lui dire « aucun jeu »
-              // à cet instant contredit ce qu'on vient de faire.
-              footer: `${booting ? `${booting.game} · chargement` : idle ? "aucun jeu · choisis un jeu" : nomSalle} · ${people.length} présent${people.length > 1 ? "s" : ""}`,
-            };
-            // Dans un dossier, la sortie remonte d'abord aux consoles: le
-            // bouton le dit, au lieu de promettre « reprendre la partie ». Un
-            // seul nom pour les trois formes (`sortieDuMenu`).
-            const sortieMenu = sortieDuMenu({ dossier: folder !== null, idle });
-            if (shell === "wii")
-              return <Channels key={String(idle)} {...common} sortie={sortieMenu} />;
-            if (shell === "switch")
-              return <Home key={String(idle)} {...common} who={name} sortie={sortieMenu} />;
-            return <Xmb key={String(idle)} {...common} sortie={sortieMenu} />;
-          })()
-        : null}
+      {/* SANS `&& shot`: le menu ne dépend pas de l'image. Tenu en main, il
+          se pose hors de la colonne, sous l'image ou à côté d'elle. */}
+      {menu && !menuEnColonne ? menuMonte : null}
 
-      {/* La carte d'une place et la demande reçue, au-dessus du menu quand il
-          est ouvert : le menu remplace encore toute la page (D30). */}
-      {menu ? <Surcouche>{cartes}</Surcouche> : null}
-      {/* Au-dessus du menu: l'erreur naît d'un lancement choisi dans le menu
-          (voir `Surcouche`). */}
-      {preparationError ? (
+      {/* Menu ouvert, l'erreur s'écrit dans son bloc (`avis` du menu). */}
+      {preparationError && !menu ? (
         <Surcouche>
           <div className="n3-preparation-error" role="alert">
             {preparationError}

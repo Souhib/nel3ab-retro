@@ -289,63 +289,6 @@ body {
   color: var(--legende);
 }
 
-/*
- * Les mouvements des menus.
- *
- * Le projet interdit les effets ailleurs, parce qu'ils tirent l'oeil hors de
- * l'image du jeu. Un menu n'a pas d'image derrière lui, et surtout: le mouvement
- * EST ce qui fait reconnaître un menu de console. Un XMB qui ne glisse pas n'est
- * pas un XMB, une chaîne de Wii qui ne grossit pas n'est pas une chaîne.
- *
- * Deux règles pour que ça ne coûte rien: uniquement `transform` et `opacity`,
- * que le compositeur traite sans repasser par la mise en page, et rien de tout
- * ça n'existe pendant qu'on joue — le menu n'est monté que lorsqu'il est ouvert.
- */
-@keyframes n3-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes n3-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.88);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/** Le liseré qui respire autour de la tuile choisie, sur l'écran d'accueil. */
-@keyframes n3-breathe {
-  0%,
-  100% {
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.35);
-  }
-}
-
-.n3-enter {
-  animation: n3-fade-up 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-
-.n3-pop {
-  animation: n3-pop 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-
-.n3-breathe {
-  animation: n3-breathe 2.4s ease-in-out infinite;
-}
-
 /** Les câbles de la page d'entrée, et ce que leur mouvement DIT.
  *
  * Un câble branché transporte: une lueur le parcourt de la prise vers le nom.
@@ -390,45 +333,6 @@ body {
 /* Quelqu'un qui a demandé moins d'animation en reçoit moins. Ce n'est pas une
    préférence esthétique, c'est un réglage d'accessibilité que le système
    transmet. */
-/* Le menu s'efface pour qu'on voie ce qu'on règle.
- *
- * Régler la taille de l'image derrière un menu qui la cache est un réglage qu'on
- * fait à l'aveugle, et qu'on refait donc trois fois. Le sélecteur reste, le reste
- * du menu s'en va, et le jeu réapparaît dessous.
- *
- * `!important` parce que chaque console pose son fond en style en ligne, qui bat
- * une classe. C'est le seul endroit du projet qui en a un, et c'est pour ça: la
- * règle doit gagner contre trois fonds différents sans les connaître.
- *
- * Le sélecteur est épargné par son identifiant, parce qu'il est l'enfant direct
- * de la racine dans les trois formes. */
-.n3-peek {
-  background: none !important;
-}
-
-/* Les menus sont des dialogues modaux depuis le 22 novembre 2026 (audit
-   A11Y-04): `showModal()` rend le reste de la page inerte et garde Tab dedans.
-   Le navigateur pose sur un dialogue une marge, une bordure, un fond et une
-   taille maximale; un menu plein écran n'en veut aucun. Le fond reste celui de
-   chaque console, posé par sa coque, et le voile du navigateur est retiré: le
-   menu couvre déjà tout. */
-.n3-menu {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  color: var(--text);
-}
-.n3-menu::backdrop {
-  background: transparent;
-}
-
 /* Une touche dessinée dans une aide: « Entrée », « Échap », « A ». Le trait
    prend la couleur du texte, donc le contraste de la légende qui l'entoure. */
 .n3-touche {
@@ -445,14 +349,6 @@ body {
   white-space: nowrap;
 }
 
-/* Une entrée de menu a le focus en même temps que le curseur: l'anneau va
-   DEDANS. Dehors, la fenêtre de la liste le coupait sur les côtés et il ne
-   restait que deux traits au-dessus et au-dessous de l'entrée. */
-.n3-menu button[id^="item-"]:focus-visible {
-  outline-offset: calc(-1 * var(--focus-largeur));
-  border-radius: 6px;
-}
-
 /* La zone de jeu: l'anneau de focus DEDANS, sinon il sort de l'écran et la
    colonne le coupe. Il ne se montre qu'à l'arrivée par Tab (`data-anneau`,
    posé par `Screen`) et s'efface à la première touche qui joue
@@ -466,17 +362,7 @@ body {
   outline-offset: calc(-1 * var(--focus-largeur));
 }
 
-/* Les avis posés au-dessus du menu (`Surcouche`) restent visibles: une erreur
-   de lancement ne doit pas s'effacer parce qu'on règle l'image. */
-.n3-peek > *:not(#picker):not([data-surcouche]) {
-  opacity: 0 !important;
-  pointer-events: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .n3-enter,
-  .n3-pop,
-  .n3-breathe,
   .n3-cable-run,
   .n3-cable-slack {
     animation: none;
@@ -508,14 +394,6 @@ body {
 .n3-zones {
   padding: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
 }
-/* Les menus couvrent tout l'écran: leur fond va jusqu'aux bords, leur contenu
-   reste hors de l'encoche et de la barre du système. Le fond est celui du
-   dialogue (Home, Channels) ou un enfant posé hors de cette zone (le fond du
-   XMB): dedans, il s'arrêtait à la zone sûre. */
-.n3-menu-zone {
-  inset: var(--zone-haut) var(--zone-droite) var(--zone-bas) var(--zone-gauche);
-}
-
 /* Les tailles de la manette à l'écran.
  *
  * En `vmin` avec des bornes, parce que la première version plaçait ses groupes
@@ -1336,12 +1214,6 @@ body {
   align-items: center;
   min-height: 44px;
   padding: 0 8px;
-}
-/* Dans un menu ouvert, les avis du bas se posent au-dessus de son pied
-   (`PlaceDesSurcouches` mesure `--pied-menu`): à 20 px du bord, ils
-   couvraient le bouton « Reprendre la partie » d'un téléphone. */
-.n3-menu [data-surcouche] :is(.n3-preparation-error, .n3-preparation-watching) {
-  bottom: calc(var(--pied-menu, 0px) + 12px);
 }
 @media (max-width: 650px) {
   .n3-preparation {

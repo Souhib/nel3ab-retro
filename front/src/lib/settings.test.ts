@@ -9,13 +9,13 @@ const ids = (items: { id: string }[]) => items.map((one) => one.id);
 
 describe("ranger les réglages", () => {
   it("met les entrées dans l'ordre de la table, quel que soit l'ordre reçu", () => {
-    const shuffled = [{ id: "shell" }, { id: "sound" }, { id: "fullscreen" }];
+    const shuffled = [{ id: "theme" }, { id: "sound" }, { id: "fullscreen" }];
 
-    expect(ids(arrange(shuffled))).toEqual(["fullscreen", "sound", "shell"]);
+    expect(ids(arrange(shuffled))).toEqual(["fullscreen", "sound", "theme"]);
   });
 
   it("pose le sujet sur chaque entrée", () => {
-    expect(arrange([{ id: "volume" }])[0]?.group).toBe("image et son");
+    expect(arrange([{ id: "volume" }])[0]?.group).toBe("Image et son");
   });
 
   it("garde une entrée inconnue, à la fin", () => {

@@ -1120,8 +1120,10 @@ try {
   }
 
   // La pastille d'état, au téléphone (chantier etats, ADR D40) : jamais sur
-  // l'image peinte, jamais sur une touche de la manette ([data-touche]), en
-  // aires communes rendues en nombres. Cinq états, neuf tailles, une image
+  // l'image peinte, jamais sur une touche de la manette ([data-touche]), ni
+  // sur la tête d'Aïn ([data-hote="barre"], sa maison au téléphone, qu'elle
+  // couvrait toute dans la barre à 375x667 le 24 novembre 2026), en aires
+  // communes rendues en nombres. Cinq états, neuf tailles, une image
   // 4:3 et deux en 16:9. Une taille où la salle n'a encore aucune place pour
   // elle est dite à part, en « non posée » : mesuré le 24 novembre 2026, le
   // téléphone tenu droit et court, sans barre ni bande, où « La salle » vit
@@ -1177,12 +1179,21 @@ try {
           const touches = [...document.querySelectorAll("[data-touche]")]
             .map((k) => k.getBoundingClientRect())
             .filter((k) => k.width > 0);
+          const tetes = [...document.querySelectorAll('[data-hote="barre"]')]
+            .map((h) => [h, h.getBoundingClientRect()])
+            .filter(([, r]) => r.width > 0 && r.height > 0);
           return {
             posee: true,
             toile: t.width * t.height,
             surImage: aire(a, t),
             surTouches: touches.reduce((somme, k) => somme + aire(a, k), 0),
             touches: touches.length,
+            surTete: tetes.reduce((somme, [, r]) => somme + aire(a, r), 0),
+            teteCouverte: tetes.some(([h, r]) => {
+              const vu = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return vu === null || !h.contains(vu);
+            }),
+            tetes: tetes.length,
             recoit: centre !== null && p.contains(centre),
             etat: p.dataset.etat ?? null,
           };
@@ -1195,8 +1206,10 @@ try {
         } else {
           if (m.surImage > 0) bad.push(`${nom} : ${Math.round(m.surImage)} px² de pastille sur l'image`);
           if (m.surTouches > 0) bad.push(`${nom} : ${Math.round(m.surTouches)} px² de pastille sur les touches`);
+          if (m.surTete > 0 || m.teteCouverte)
+            bad.push(`${nom} : ${Math.round(m.surTete)} px² de pastille sur la tête d'Aïn${m.teteCouverte ? ", son centre couvert" : ""}`);
           if (!m.recoit) bad.push(`${nom} : la pastille ne reçoit pas le point en son centre`);
-          lus.push(`${nom} posée (${m.touches} touches)`);
+          lus.push(`${nom} posée (${m.touches} touches, ${m.tetes} tête)`);
         }
       } catch (error) {
         bad.push(`${nom} : ${error.message}`);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MANETTES, miseEnPage, modeDuCadre, SANS_ZONES } from "./cadre";
-import { BARRE_SALLE_PX, placeDeLaPastille } from "./etat-place";
+import { BARRE_SALLE_PX, BARRE_TETE_PX, placeDeLaPastille } from "./etat-place";
 
 /** La géométrie d'une salle tenue en main, comme la page la calcule. */
 function geo(largeur: number, hauteur: number, image = { width: 640, height: 480 }) {
@@ -54,6 +54,18 @@ describe("la place de la pastille, tenue en main", () => {
     if (place?.lieu !== "a-part") throw new Error("pas de place à part");
     expect(place.rect.y).toBe(0);
     expect(place.rect.x + place.rect.w).toBeLessThanOrEqual(375 - BARRE_SALLE_PX);
+  });
+  it("dans la barre, elle commence après la tête d'Aïn, sa maison au téléphone", () => {
+    // La tête est posée à 8 px du bord, 32 px de large, suivie de 10 px
+    // (`components/telephone.css`). Le 24 novembre 2026, la pastille partait
+    // de x + 8 et la couvrait toute à 375x667 (relecture du chantier).
+    const g = { ...geo(375, 667), bande: null, barre: { x: 12, y: 0, w: 375, h: 52 } };
+    const place = placeDeLaPastille(g, true);
+    if (place?.lieu !== "a-part") throw new Error("pas de place à part");
+    const tete = { x: 12 + 8, y: 10, w: 32, h: 32 };
+    expect(coupe(place.rect, tete)).toBe(false);
+    expect(place.rect.x).toBe(12 + BARRE_TETE_PX);
+    expect(place.rect.x + place.rect.w).toBe(12 + 375 - BARRE_SALLE_PX);
   });
   it("prend le fronton de la salle, hors de l'image, quand il existe", () => {
     const g = { ...geo(844, 390), fronton: { x: 162, y: 0, w: 520, h: 44 } };

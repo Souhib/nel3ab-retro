@@ -689,6 +689,10 @@ const ETAPES = {
   /** La pastille d'une image figée ne touche pas l'image peinte, à + 4 px
    * (ADR D40), au bureau, au téléphone et en paysage. La page d'avant la
    * posait en bas de l'image : son « #liaison » de pastille est lu aussi.
+   * Elle ne touche pas non plus la tête d'Aïn, sa maison au téléphone
+   * (`[data-hote="barre"]`), et le centre de la tête la reçoit : à 375x667,
+   * posée dans la barre, elle en couvrait 252 px² (relecture du
+   * 24 novembre 2026).
    * Le gel est lu dans l'état de la page : en paysage avec le panneau
    * « petit », la page ne pose la pastille nulle part plutôt que sur
    * l'image (`placeDeLaPastille`), et ce n'est pas une faute ; trois tailles
@@ -696,7 +700,14 @@ const ETAPES = {
   async "pastille-hors-image"() {
     const fautes = [];
     const vues = [];
-    for (const vue of [PC, { width: 1280, height: 720 }, TELEPHONE, { width: 844, height: 390, isMobile: true, hasTouch: true }]) {
+    const tetes = [];
+    for (const vue of [
+      PC,
+      { width: 1280, height: 720 },
+      TELEPHONE,
+      { width: 375, height: 667, isMobile: true, hasTouch: true },
+      { width: 844, height: 390, isMobile: true, hasTouch: true },
+    ]) {
       const nom = `${vue.width}x${vue.height}`;
       const page = await nouvelle(vue);
       await entrer(page);
@@ -719,18 +730,34 @@ const ETAPES = {
           a.right > b.left - m &&
           a.top < b.bottom + m &&
           a.bottom > b.top - m;
-        return { coupe, a: [a.left, a.top, a.width, a.height].map(Math.round), b: [b.left, b.top, b.width, b.height].map(Math.round) };
+        // La tête d'Aïn, là où la salle la pose au téléphone.
+        const aire = (x, y) =>
+          Math.max(0, Math.min(x.right, y.right) - Math.max(x.left, y.left)) *
+          Math.max(0, Math.min(x.bottom, y.bottom) - Math.max(x.top, y.top));
+        const tete = [...document.querySelectorAll('[data-hote="barre"]')]
+          .map((h) => [h, h.getBoundingClientRect()])
+          .filter(([, r]) => r.width > 0 && r.height > 0)
+          .map(([h, r]) => {
+            const centre = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { sur: Math.round(aire(a, r)), recoit: centre !== null && h.contains(centre), r: [r.left, r.top, r.width, r.height].map(Math.round) };
+          });
+        return { coupe, tete, a: [a.left, a.top, a.width, a.height].map(Math.round), b: [b.left, b.top, b.width, b.height].map(Math.round) };
       });
       if (mesure.erreur) throw new Precondition(`${nom}: ${mesure.erreur}`);
       if (!mesure.aucune) vues.push(nom);
       if (mesure.coupe) fautes.push(`${nom}: pastille ${mesure.a} sur l'image ${mesure.b}`);
+      for (const t of mesure.tete ?? []) {
+        tetes.push(nom);
+        if (t.sur > 0 || !t.recoit) fautes.push(`${nom}: pastille ${mesure.a} sur la tête d'Aïn ${t.r} (${t.sur} px², centre ${t.recoit ? "reçu" : "couvert"})`);
+      }
       await capture(page, "pastille-hors-image");
       banc.regler({ video: "live" });
       await page.close();
     }
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
     if (vues.length < 3) throw new Precondition(`pastille montrée à ${vues.length} tailles seulement (${vues})`);
-    console.log(JSON.stringify({ pastille_montree: vues }));
+    console.log(JSON.stringify({ pastille_montree: vues, tete_mesuree: tetes }));
+    if (!tetes.includes("375x667")) throw new Precondition(`la tête d'Aïn n'est pas mesurée à 375x667 (${tetes})`);
   },
 
   /** La pastille se lit dans les deux régies. Son fond est l'écran noir de la

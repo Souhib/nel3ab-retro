@@ -667,6 +667,13 @@ const ETAPES = {
         });
         if (!feuille?.ouverte || feuille.hauteur !== "agrandie" || !feuille.dedans)
           throw new Defaut(`${nom}: la pastille n'ouvre pas la feuille agrandie sur son geste: ${JSON.stringify(feuille)}`);
+        // La feuille fermée rend le focus à la pastille qui l'avait ouverte.
+        await page.click("#fermerFeuille");
+        const rendu = await page
+          .waitForFunction(() => document.activeElement?.id === "pastilleEtat", { timeout: 2000 })
+          .then(() => "pastilleEtat")
+          .catch(() => page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName));
+        if (rendu !== "pastilleEtat") throw new Defaut(`${nom}: la feuille fermée rend le focus à « ${rendu} »`);
       }
       await capture(page, "pastille-mene-au-geste");
       banc.regler({ video: "live" });

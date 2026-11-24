@@ -29752,6 +29752,11 @@ moitié compte pour sa part visible. La sonde lit la même chose autrement,
 point par point avec `elementFromPoint`, pour ne pas partager l'angle mort
 du planificateur. Le prix du pied collé : quand la colonne déborde, 161 px
 de ce qui se voit vont au coin. C'est au propriétaire de dire s'il le garde.
+Il a coûté un second défaut, vu par l'étape `un-plein` : « Autres réglages »
+ouvert juste au-dessus du coin, « Rendre ma place » tombait dessous et ne
+recevait plus le clic. À côté de l'image, un réglage de la colonne qui
+s'ouvre défile maintenant dans la vue, et `maison-en-vue` l'ouvre aux sept
+tailles pour le vérifier.
 
 **Les mots de l'écran noir n'étaient pas protégés.** Le planificateur évite
 les mots marqués `data-texte`, et aucun composant de la salle n'en portait.
@@ -29794,8 +29799,8 @@ choisir, et a un second jumeau, un sprite posé sur la phrase. La recette
 (24cdaa2, gardée avec son empreinte) : les quatre tombent sur leur défaut
 nommé.
 
-**Le poids.** La page de la salle passe de 261 613 à 262 665 octets en
-brotli 11, soit 1 052 de plus. Le paquet du salon passe de 15 237 à 16 222
+**Le poids.** La page de la salle passe de 261 613 à 262 790 octets en
+brotli 11, soit 1 177 de plus. Le paquet du salon passe de 15 237 à 16 222
 octets, sous son plafond de 16 800. Rien n'est retiré dans ce passage.
 
 **La leçon.** Un planificateur qui vérifie un trajet le vérifie pour une

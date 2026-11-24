@@ -2275,14 +2275,16 @@ the window and the logo empty. The guard step looked only during
   161 px as bottom scroll padding. K26 (the logo at the foot of the column)
   is unchanged. What scrolls under that foot is hidden, so the planner cuts
   every control and word by the home's sticky ancestor; without that cut,
-  every corner scene was refused at 1280 × 720 and 1440 × 900.
+  every corner scene was refused at 1280 × 720 and 1440 × 900. A `<details>`
+  of the column that opens beside the picture scrolls into view, above the
+  corner: « Rendre ma place » fell under it.
 - **The words of the black screen are the event's.** Its title and phrase
   carry `data-texte`; a control placed inside the game zone (« Choisir un
   jeu ») counts as an obstacle.
 - **The drivers' hook exists only in a driven browser** (`navigator.webdriver`):
   it plays without the room's arbiter.
-- **Weight.** The room page goes from 261 613 to 262 665 bytes brotli
-  (+1 052), the lounge bundle from 15 237 to 16 222 (+985, ceiling 16 800).
+- **Weight.** The room page goes from 261 613 to 262 790 bytes brotli
+  (+1 177), the lounge bundle from 15 237 to 16 222 (+985, ceiling 16 800).
   Nothing is removed in this change.
 
 The six floor marks the full versions ask for in the room (`toque`, `siege`,

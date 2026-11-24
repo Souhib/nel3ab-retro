@@ -29720,6 +29720,80 @@ rien retirer : la carte au clavier, la tenue de la ligne parlée, l'annonce
 en lettres et les mots des mesures. Depuis son départ (249 486), le chantier
 personnes en est à +6 476, pour une enveloppe de 8 000.
 
+### 24 novembre, avant l'aube : une salle inconnue n'est pas une salle vide
+
+**Le contexte.** Le quatrième passage du chantier personnes écrit les deux
+preuves de navigateur qui restaient au plan : la rangée des places ne touche
+jamais l'image (`places-sous-image`), et une arrivée non plus (`arrivee`),
+dans `salle-telephone`. Les deux ont trouvé un défaut, et la seconde en a
+trouvé un dans un essai.
+
+**Tout le monde arrivait au chargement.** Pour vérifier « 3P prêt ! » à chaque
+image, l'étape ouvre une salle où Ami et Bo sont déjà assis, puis fait
+asseoir Cam. « prêt ! » s'allumait sur trois places, pas une. En suivant la
+page dès son ouverture, on voit pourquoi : au chargement, elle allumait
+« 1P prêt ! » et « 2P prêt ! » pendant 2,2 s et disait « La place 1 est prise.
+La place 2 est prise. ». Au tout premier rendu, ni la réponse du salon ni
+l'instantané de la page n'existent encore. L'occupation valait alors quatre
+places libres, la liaison valait « en marche » par défaut, et cet état vide
+servait de référence : la vraie salle, arrivée un instant après, ressemblait
+à deux arrivées. L'essai de la fonction pure disait bien « le premier état ne
+fait rien, même une salle pleine » ; le câblage ne lui donnait jamais ce
+premier état. L'occupation vaut maintenant `null` tant que la salle n'est pas
+connue, et rien ne se compare à `null`. Le mutant qui traite `null` comme
+une salle vide rougit dans l'essai, et celui qui retire la garde d'`App.tsx`
+rougit dans le navigateur, aux six tailles.
+
+**Une rangée de 114 px pour quatre places de 44 px.** Sur un iPhone SE couché
+(667x375) avec la manette à l'écran, le cadre pose sous l'image « La salle »
+puis le panneau des places : 114 px de large, 56 px de haut. Chaque place y
+mesurait 17 px, les ronds se chevauchaient, la 4P était coupée. Avec les
+effets « tout », les initiales sous le rond portaient la rangée à 64 px, et
+elle sortait du panneau de 4 px vers l'image. Ce défaut n'a été vu qu'en
+lançant toute la suite : le navigateur du pilote garde le stockage d'une
+page à l'autre, et l'étape du thème avait laissé les effets à « tout ».
+Lancée seule, l'étape passait. Elle écrit maintenant le niveau des effets
+pour chaque page, et passe aux trois. La correction tient en CSS : en petit,
+seul le rond reste ; et quand le panneau a moins de 200 px (quatre ronds et
+trois écarts), une requête de conteneur cache la rangée et montre un seul
+bouton, quatre lampes à la couleur des joueurs, qui ouvre la salle où
+chaque place a sa taille.
+
+**Un essai qui ne voyait pas l'image.** L'étape de la demande de place, écrite
+au second passage, vérifiait que la carte ne touche pas l'image en cherchant
+`#screen canvas`. La toile est `#screen` elle-même : la garde ne trouvait
+rien et ne pouvait pas rougir. Le commit de ce jour-là disait « la demande
+hors de l'image en travers » : c'était faux. Corrigée, elle a rougi en
+travers, où la carte vit dans la feuille agrandie que le joueur ouvre par
+« La salle ». Cette feuille couvre le bord gauche de l'image, environ
+200 px ; c'est la place que le cadre lui donne, pas celle de la carte.
+L'étape dit maintenant où la carte doit être (dans la bande tenu droit,
+dans la feuille en travers), ne juge l'image que dans la bande, et écrit la
+précondition qu'une toile a été trouvée.
+
+**Le clic sur une place.** Le plan voulait que prendre une place reste une
+tâche courte, mesurée processeur ralenti quatre fois. La mesure se fait sur
+la page construite : servie par Vite, React tourne en développement,
+plusieurs fois plus lent, et ne dirait rien du joueur. La première version
+comptait les tâches longues dans les 400 ms après le clic, et en a vu une de
+50 ms une fois sur quatre : une tâche qui commence 300 ms plus tard n'est
+pas celle du clic. La version gardée mesure le travail du clic lui-même,
+du premier écouteur de la fenêtre au dernier : de 6 à 11 ms sur cinq clics,
+à CPU x4, sur cette machine. C'est une mesure d'un soir, pas une garantie.
+
+**La ligne du coin en clair.** Elle disait « Mesures de la liaison » ; elle
+dit l'état : « Tout arrive », « L'image saute », « Image en préparation »,
+ou le nom de l'état de la liaison. Elle déplie les mesures à la place des
+rangs, donc elle porte `aria-expanded` et non plus `aria-pressed`, et son
+nom dit l'état puis le geste. Une entrée « Ta liaison » à mi-hauteur de la
+feuille du téléphone a été essayée et retirée : à 375x667, elle portait le
+contenu à 323 px pour 287, et la feuille défilait. Au téléphone, la même
+ligne, dans la salle entière, dit l'état et ouvre les mesures.
+
+**Le poids.** La page passe de 255 962 à 256 476 octets en brotli (+514), sans
+rien retirer. Depuis son départ (249 486), le chantier personnes en est à
++6 990, pour une enveloppe de 8 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31418,3 +31492,14 @@ jamais lu.
 la page, de l'élément touché jusqu'au document puis à la fenêtre. Un
 écouteur placé plus bas peut l'arrêter (`stopPropagation`) : ceux du dessus
 ne le reçoivent pas.
+
+**Tâche longue** : un travail du navigateur qui l'occupe plus de 50 ms
+d'affilée. Pendant ce temps, la page ne répond ni au doigt ni au clavier.
+Le navigateur les signale (`PerformanceObserver`, type `longtask`), sans
+dire de quel geste elles viennent : il faut les rapprocher du geste par
+l'heure.
+
+**Ralentir le processeur (CPU x4)** : un réglage des outils de Chrome qui
+fait tourner la page quatre fois plus lentement, pour approcher un téléphone
+modeste sur un ordinateur rapide. C'est une approximation : un vrai
+téléphone n'est pas un ordinateur ralenti.

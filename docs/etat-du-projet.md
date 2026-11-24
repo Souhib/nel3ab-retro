@@ -219,7 +219,7 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
-**Au 23 novembre, la nuit : le chantier personnes, trois passages.** Sur
+**Au 23 novembre, la nuit : le chantier personnes, quatre passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de
 poussé. Montés dans la salle par un seul commit de câblage d'`App.tsx` :
@@ -251,19 +251,30 @@ même nouvelle lettre par lettre sur l'ancre de l'annonce du socle
 `parcours-navigateur-rouge` (03b21c0, et la page de 54d1f6f gardée dans
 `spikes/m3-browser-drive/rouges/`). `swap`, `steal`, `claim` et
 `preparation-room` suivent la carte de la place, sans avoir été relancés
-(salle vivante, ou vraie salle jetable). La page fait 255 962 octets en
-brotli, 6 476 de plus que le départ du chantier (enveloppe 8 000) :
+(salle vivante, ou vraie salle jetable). Le quatrième passage corrige deux
+défauts vus par ses preuves : une page ouverte sur une salle pleine
+allumait « 1P prêt ! » et « 2P prêt ! » et annonçait les places prises
+(une salle encore inconnue comptait pour vide), et la rangée en petit
+d'un téléphone couché de 667x375 donnait 17 px à chaque place (elle devient
+un seul bouton qui ouvre la salle quand le panneau a moins de 200 px). La
+ligne du coin dit la liaison en clair (« Tout arrive », « L'image saute »)
+et déplie les mesures (`aria-expanded`). `salle-telephone` gagne
+`places-sous-image`, `arrivee` et `clic-court` (6 à 11 ms à CPU x4 sur la
+page construite) ; sa garde de la demande, qui cherchait une toile
+inexistante, voit maintenant l'image. La page fait 256 476 octets en
+brotli, 6 990 de plus que le départ du chantier (enveloppe 8 000) :
 +3 889 avant le câblage, +5 886 au câblage, 4 142 rendus par les retraits,
-+426 au troisième passage. Restent : `nom-champ` et `nom-apercu`, qui
-attendent « Qui joue ? » du salon ; `arrivee-hors-image` et
-`places-sous-image` dans `salle-telephone` ; la ligne du coin en bouton qui
-déplie les mesures et l'entrée « Ta liaison » de la feuille (avec le
-chantier salle) ; le refus du mot « chef » dans les chaînes visibles, qui
-attend le menu ; la région `#controller-status` du chantier manettes, à
-réunir à la ligne parlée. Récits : « 23 novembre, la nuit : les places
-deviennent des boutons START », « 23 novembre, la nuit, second passage :
-les places montées dans la salle » et « 23 novembre, la nuit, troisième
-passage : Échap, la ligne parlée et les preuves au vrai clavier ».
++426 au troisième passage, +514 au quatrième. Restent : `nom-champ` et
+`nom-apercu`, qui attendent « Qui joue ? » du salon ; l'entrée « Ta
+liaison » de la feuille, qui faisait défiler la feuille à 375x667 et attend
+une décision du chantier salle sur sa hauteur ; l'icône oui ou non de la
+ligne ; le refus du mot « chef » dans les chaînes visibles, qui attend le
+menu ; la région `#controller-status` du chantier manettes, à réunir à la
+ligne parlée. Récits : « 23 novembre, la nuit : les places deviennent des
+boutons START », « 23 novembre, la nuit, second passage : les places
+montées dans la salle », « 23 novembre, la nuit, troisième passage :
+Échap, la ligne parlée et les preuves au vrai clavier » et « 24 novembre,
+avant l'aube : une salle inconnue n'est pas une salle vide ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

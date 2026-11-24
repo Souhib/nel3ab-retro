@@ -51,6 +51,19 @@ export function useMenuIdentity(open: boolean): boolean {
   }).isFetching;
 }
 
+/** Redemande une identité qui manque, à l'ouverture d'une fiche de jeu au
+ * repos. Le rayonnage d'une salle sans jeu reste à l'écran : `useMenuIdentity`
+ * ne se rallume donc jamais, et une adresse arrivée après la page ne se
+ * voyait qu'en rechargeant (save-options.mjs, 24 novembre 2026). Un compte
+ * déjà vérifié ne coûte aucune requête. */
+export function useRelireIdentite(): () => void {
+  const client = useQueryClient();
+  return () => {
+    if (client.getQueryData<Me | null>(ME_KEY)?.login) return;
+    void client.refetchQueries({ queryKey: ME_KEY, exact: true });
+  };
+}
+
 /** Change son pseudo, et prévient le salon pour que la salle le voie tout de
  * suite plutôt qu'à la prochaine reconnexion. */
 export function useRename(announce: (name: string) => void) {

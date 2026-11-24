@@ -154,7 +154,7 @@ import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-cl
 import { keyLabel, keyboardLayout } from "./media/describe";
 import { HoteDesSurcouches, Surcouche } from "./components/Surcouche";
 import { choisirTransition, transition } from "./retro/transitions";
-import { useMe, useMenuIdentity, useRename } from "./lib/me";
+import { useMe, useMenuIdentity, useRelireIdentite, useRename } from "./lib/me";
 import {
   useLobby,
   useRoom,
@@ -710,24 +710,41 @@ function Room({
      (B6a, 24 novembre 2026). */
   const bibliotheque = menu || idle;
   const checkingIdentity = useMenuIdentity(bibliotheque);
-  const [unlockedSaves, setUnlockedSaves] = useState<readonly boolean[] | null>(null);
+  /* Et elles se RELISENT à chaque ouverture du menu et de chaque fiche du
+     rayonnage. Au repos, le rayonnage reste à l'écran : lues une fois à
+     l'arrivée, elles proposaient encore une sauvegarde débloquée dont le
+     contenu avait disparu, et une identité absente ne se redemandait
+     jamais (save-options.mjs, 24 novembre 2026). La clé dit quelle lecture
+     vaut : une réponse d'une autre clé ne compte pas, si bien qu'aucun
+     rendu ne montre un ancien choix comme sûr. */
+  const [relecture, setRelecture] = useState(0);
+  const relireIdentite = useRelireIdentite();
+  const relireLaBibliotheque = () => {
+    setRelecture((n) => n + 1);
+    relireIdentite();
+  };
+  const cleDesSauvegardes = bibliotheque ? `${menu ? "menu" : "repos"}:${relecture}` : null;
+  const [sauvegardesLues, setSauvegardesLues] = useState<{
+    cle: string;
+    debloquees: readonly boolean[];
+  } | null>(null);
   useEffect(() => {
-    if (!bibliotheque) {
-      setUnlockedSaves(null);
-      return;
-    }
+    if (cleDesSauvegardes === null) return;
     let current = true;
+    const lire = (debloquees: readonly boolean[]) => {
+      if (current) setSauvegardesLues({ cle: cleDesSauvegardes, debloquees });
+    };
     void readUnlocked(under("/saves"))
-      .then((available) => {
-        if (current) setUnlockedSaves(available);
-      })
-      .catch(() => {
-        if (current) setUnlockedSaves([]);
-      });
+      .then(lire)
+      .catch(() => lire([]));
     return () => {
       current = false;
     };
-  }, [bibliotheque]);
+  }, [cleDesSauvegardes]);
+  const unlockedSaves =
+    sauvegardesLues !== null && sauvegardesLues.cle === cleDesSauvegardes
+      ? sauvegardesLues.debloquees
+      : null;
   /** Le jeu ARMÉ, pour ceux qui n'ont pas de choix de sauvegarde.
    *
    * Un jeu de carte mémoire se confirme par son panneau de sauvegarde. Un jeu
@@ -3155,6 +3172,7 @@ function Room({
                     ficheDe={ficheDuJeu}
                     dernier={room.dernier_jeu ?? null}
                     focusEntree={phraseDuRepos(role, whyNotChoose) === null}
+                    onOuvrir={relireLaBibliotheque}
                     onPad={(handler) => session?.input.setMenu(handler)}
                   />
                 ) : undefined

@@ -84,6 +84,44 @@ describe("Rayonnage", () => {
     removeEventListener("keydown", page);
   });
 
+  it("chaque fiche ouverte demande une relecture des sauvegardes ; les flèches et Échap non", () => {
+    const onOuvrir = vi.fn();
+    render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree onOuvrir={onOuvrir} />);
+    fireEvent.keyDown(cartouche(0), { key: "ArrowRight" });
+    fireEvent.keyDown(cartouche(3), { key: "ArrowLeft" });
+    expect(onOuvrir).not.toHaveBeenCalled();
+    fireEvent.click(cartouche(0));
+    expect(onOuvrir).toHaveBeenCalledOnce();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onOuvrir).toHaveBeenCalledOnce();
+    fireEvent.click(cartouche(0));
+    expect(onOuvrir).toHaveBeenCalledTimes(2);
+  });
+
+  it("une fiche qui relit ses sauvegardes garde le focus sur son titre, puis le passe au choix coché", () => {
+    const relue = (occupe: boolean) =>
+      vi.fn((game: Game): FicheDeLigne => ({ ...ficheDe()(game), occupe }));
+    const { rerender } = render(<Rayonnage library={BANC} ficheDe={relue(true)} focusEntree />);
+    fireEvent.click(cartouche(3));
+    // Les choix sont grisés : sans attente, le focus tombait sur « Revenir ».
+    expect(document.activeElement).toBe(document.getElementById("ficheJeuTitre"));
+    rerender(<Rayonnage library={BANC} ficheDe={relue(true)} focusEntree />);
+    expect(document.activeElement).toBe(document.getElementById("ficheJeuTitre"));
+    rerender(<Rayonnage library={BANC} ficheDe={relue(false)} focusEntree />);
+    expect(document.activeElement).toBe(document.getElementById("ficheJeu-neuve"));
+  });
+
+  it("pendant l'attente, un focus déplacé ailleurs n'est pas repris à la réponse", () => {
+    const relue = (occupe: boolean) =>
+      vi.fn((game: Game): FicheDeLigne => ({ ...ficheDe()(game), occupe }));
+    const { rerender } = render(<Rayonnage library={BANC} ficheDe={relue(true)} focusEntree />);
+    fireEvent.click(cartouche(3));
+    const revenir = document.getElementById("ficheJeuRevenir")!;
+    act(() => revenir.focus());
+    rerender(<Rayonnage library={BANC} ficheDe={relue(false)} focusEntree />);
+    expect(document.activeElement).toBe(revenir);
+  });
+
   it("les flèches passent d'une cartouche à l'autre ; ↑ sur la première rangée ne bouge pas", () => {
     render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree />);
     fireEvent.keyDown(cartouche(0), { key: "ArrowRight" });

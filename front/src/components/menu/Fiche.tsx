@@ -30,7 +30,9 @@ export function Fiche({
 }) {
   return (
     <div id={base} role="group" aria-labelledby={`${base}Titre`} className="n3-menu-fiche">
-      <h3 id={`${base}Titre`} className="n3-menu-titre">
+      {/* Le titre prend le focus quand la fiche attend ses sauvegardes : ses
+          choix sont alors grisés, et un élément grisé ne le prend pas. */}
+      <h3 id={`${base}Titre`} className="n3-menu-titre" tabIndex={-1}>
         {titre}
       </h3>
       {fiche.contenu}

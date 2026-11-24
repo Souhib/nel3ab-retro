@@ -59,6 +59,7 @@ export function Rayonnage({
   ficheDe,
   dernier = null,
   focusEntree,
+  onOuvrir,
   onPad,
   maintenant = MAINTENANT,
 }: {
@@ -69,6 +70,8 @@ export function Rayonnage({
   dernier?: DernierJeu | null;
   /** Prendre le focus à l'arrivée, si rien d'autre ne l'a. */
   focusEntree: boolean;
+  /** Une fiche s'ouvre : la salle relit les sauvegardes et l'identité. */
+  onOuvrir?: () => void;
   /** Donne au rayonnage la manette, et la lui reprend. Absent pendant que
    * le menu la tient. */
   onPad?: (handler: ((action: MenuAction) => void) | null) => void;
@@ -77,9 +80,9 @@ export function Rayonnage({
   const boite = useRef<HTMLElement | null>(null);
   const [ouvert, setOuvert] = useState<number | null>(null);
   const [coche, setCoche] = useState<string | null>(null);
-  /** Où poser le focus après le rendu : la fiche qui s'ouvre, ou la
-   * cartouche qu'on quitte. */
-  const aPoser = useRef<"fiche" | number | null>(null);
+  /** Où poser le focus après le rendu : la fiche qui s'ouvre, la fiche qui
+   * attend ses sauvegardes, ou la cartouche qu'on quitte. */
+  const aPoser = useRef<"fiche" | "attente" | number | null>(null);
   const jeu = ouvert === null ? undefined : library.find((g) => g.index === ouvert);
   const fiche = jeu ? ficheDe(jeu) : null;
 
@@ -96,12 +99,26 @@ export function Rayonnage({
     const ou = aPoser.current;
     if (ou === null) return;
     aPoser.current = null;
-    if (ou === "fiche") {
+    if (ou === "fiche" || ou === "attente") {
+      const ici = boite.current;
+      const titre = ici?.querySelector<HTMLElement>("#ficheJeuTitre") ?? null;
+      // En attente, quelqu'un a pu déplacer le focus : on ne le reprend pas.
+      if (ou === "attente" && document.activeElement !== titre) return;
       const cible =
-        boite.current?.querySelector<HTMLElement>("#ficheJeu input[type=radio]:checked") ??
-        boite.current?.querySelector<HTMLElement>("#ficheJeuAgir") ??
-        boite.current?.querySelector<HTMLElement>("#ficheJeuRevenir");
-      cible?.focus({ preventScroll: true });
+        ici?.querySelector<HTMLElement>("#ficheJeu input[type=radio]:checked:enabled") ??
+        ici?.querySelector<HTMLElement>("#ficheJeuAgir:enabled") ??
+        null;
+      if (cible === null && fiche?.occupe === true) {
+        // La fiche relit les sauvegardes : ses choix sont grisés, et un
+        // élément grisé ne prend pas le focus. Il attend sur le titre, puis
+        // passe au choix coché quand la lecture répond.
+        titre?.focus({ preventScroll: true });
+        aPoser.current = "attente";
+        return;
+      }
+      (cible ?? ici?.querySelector<HTMLElement>("#ficheJeuRevenir"))?.focus({
+        preventScroll: true,
+      });
       return;
     }
     boite.current?.querySelector<HTMLElement>(`[data-jeu="${ou}"]`)?.focus();
@@ -112,6 +129,7 @@ export function Rayonnage({
     setOuvert(game.index);
     setCoche(f.coche ?? f.choix?.[0]?.id ?? null);
     aPoser.current = "fiche";
+    onOuvrir?.();
   };
   const fermer = () => {
     aPoser.current = ouvert;

@@ -544,9 +544,9 @@ Run **`just`** (which is `check` + `gpu-test` + `clip-audio-test` +
 `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` +
 `deploy-check` + `focus-navigateur` + `etats-navigateur` +
 `parcours-navigateur` + `salle-telephone` + `manette-garde` +
-`reglage-navigateur` + `reglage-navigateur-rouge` + `salon-navigateur` +
-`salon-navigateur-rouge` + `cadre-navigateur`) locally, then watch the run. A
-failing early step means the later gates were **skipped, not passed**.
+`reglage-navigateur` + `salon-navigateur` + `cadre-navigateur` +
+`planche-garde`) locally, then watch the run. A failing early step means the
+later gates were **skipped, not passed**.
 
 The five browser proofs entered the local gate on 2026-11-22: jsdom has no
 layout, no modal dialog and no real focus. They need Chrome and ffmpeg, touch no
@@ -561,6 +561,12 @@ that pushed the page 37 px wider than a 320 px phone.
 `cadre-navigateur` joined the same day at the owner's request: nothing on the
 picture in every state and size, the room frame, the mascot's steps (about
 4 min 35 s of steps measured on 2026-11-24 up to `mascotte-hors-image`).
+At the final integration of the retro theme, the same day, `planche-garde`
+joined (every mascot scene plays in full with nothing on the picture, a
+control or a word; 2 min 36 s measured on 2026-11-23) and the two negative
+controls left. A `-rouge` recipe proves that a step can fail, against pages
+frozen in history: only a change to its driver can change its colour, so it
+runs with that change (rule 4), not at every commit.
 
 Every browser driver, and every `-rouge` recipe, takes `--port N` (5400 to
 5999). Without it, the driver listens on a free port that the system picks
@@ -791,7 +797,7 @@ Markdown alone does not update the site.
 
 | | |
 |---|---|
-| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` + `deploy-check` + `focus-navigateur` + `etats-navigateur` + `parcours-navigateur` + `salle-telephone` + `manette-garde` + `reglage-navigateur` + `reglage-navigateur-rouge` + `salon-navigateur` + `salon-navigateur-rouge` + `cadre-navigateur`** |
+| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` + `deploy-check` + `focus-navigateur` + `etats-navigateur` + `parcours-navigateur` + `salle-telephone` + `manette-garde` + `reglage-navigateur` + `salon-navigateur` + `cadre-navigateur` + `planche-garde`** |
 | `just abri-test` | the encrypted NAS copy of the saves, restored from a throwaway repository (needs restic) |
 | `just check` | Rust + Python + page, with `salles-dore` and `moteurs-test`: the shared code-quality recipe used by CI |
 | `just salles-dore` | every external room script run as the worker runs it, under the machine's account, under another account and on a copy, compared with `docker/dore/*.json` (in `check`) |
@@ -807,11 +813,11 @@ Markdown alone does not update the site.
 | `just cadre-navigateur` | the room frame in Chrome: nothing on the picture or over it in every state and at seven desk sizes, phones and tablets held both ways, the column, the cabinet, the play time, the label in the touch pad, the cursor in the half-height sheet, the mascot's scenes; `--etapes a,b` |
 | `just cadre-navigateur-rouge` | negative control: the page of 03b21c0, then six pages of the room track and the page of 97a2318 for the later steps, must fail each step on its named defect; the guard itself must stay green on 03b21c0 |
 | `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
-| `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
+| `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition; run with any change to their driver, outside `local` |
 | `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; `--etapes place-tenu` measures the held sizes, red until the room geometry gives the panel its place |
 | `just salon-navigateur` | the lobby's three pages in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list, Enter and a pad's Start at zero rooms, the return banner, the announcement line, the credit, the logbook and upload steps |
 | `just salon-navigateur-rouge` | the pages of a32de82 (no Aïn), 2a98279 (old home), 84b969f (before the two browser fixes), cb0909b and 5fae6b0, assembled from an archive of `control/`, must fail each step on its named defect |
-| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9 and 9b1c8e8 for the later steps, must fail each step on its named defect; both are in `local` since the merge of 2026-11-24 |
+| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9 and 9b1c8e8 for the later steps, must fail each step on its named defect; `reglage-navigateur` is in `local`, its control left it on 2026-11-24 |
 | `--port N` | every browser driver and `-rouge` recipe: a port from 5400 to 5999; without it, a free port picked by the system (`port.mjs`) |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |

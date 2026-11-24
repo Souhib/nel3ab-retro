@@ -33039,6 +33039,21 @@ plafond. La clé de stockage `n3-bobine-vus` reste : c'est la mémoire,
 chez chaque spectateur, des personnes déjà vues, et la renommer
 l'effacerait (`lib/memoire-des-vus.ts` le dit).
 
+**La porte locale.** `just`, la porte avant un commit, lance maintenant
+`planche-garde`, et ne lance plus les deux contrôles rouges qui y étaient
+entrés à la fusion des manettes et du salon (`reglage-navigateur-rouge`,
+`salon-navigateur-rouge`). C'est la décision du chef de chantier, et elle
+a deux raisons. La planche d'Aïn est la seule preuve que chaque scène joue
+en entier sans rien poser sur l'image, sur un contrôle ou sur un mot
+(2 min 36 s mesurées le 23 novembre). Un contrôle rouge, lui, prouve
+qu'une étape sait rougir, contre des pages figées dans l'histoire : rien
+d'autre qu'un changement de son pilote ne peut changer sa couleur. Il se
+lance avec ce changement (règle 4 de `CLAUDE.md`), pas à chaque commit.
+`CLAUDE.md` suit : la liste de la règle 7, la table des commandes, une
+ligne pour `--port`, et deux leçons ajoutées à la règle 4 (l'horloge part
+avant le geste qu'elle mesure ; une boîte lue trop tôt montre une place
+qui va bouger).
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

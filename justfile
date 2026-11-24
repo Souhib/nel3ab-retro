@@ -79,10 +79,19 @@ default: local
 # d'étapes mesurées le 24 novembre 2026 jusqu'à `mascotte-hors-image`, qui
 # s'arrêtait alors sur sa précondition (voir le carnet de ce jour).
 #
+# À l'intégration finale du thème rétro, le même jour, `planche-garde` y
+# entre, et les deux contrôles rouges en sortent (décision du chef de
+# chantier). La planche est la seule preuve que chaque scène d'Aïn joue en
+# entier sans rien poser sur l'image, un contrôle ou un mot (2 min 36 s
+# mesurées le 23 novembre 2026). Un contrôle rouge, lui, prouve qu'une étape
+# sait rougir contre des pages figées dans l'histoire : rien d'autre qu'un
+# changement de son pilote ne peut changer sa couleur, et il se lance avec ce
+# changement (règle 4 de CLAUDE.md), pas à chaque commit.
+#
 # Chaque pilote prend un port libre que le système lui donne, ou celui de
 # `--port N` (5400 à 5999, `spikes/m3-browser-drive/port.mjs`) : deux
 # chantiers qui lancent leurs portes en même temps ne se heurtent plus.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge salon-navigateur salon-navigateur-rouge cadre-navigateur
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur salon-navigateur cadre-navigateur planche-garde
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,

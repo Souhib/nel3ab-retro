@@ -628,9 +628,21 @@ const ETAPES = {
    * jusqu'à 500 ms plus tard : la proposition du 23 novembre 2026 a compté
    * dix images peintes dessous. Chaque dessin sur la toile du jeu est compté
    * au moment où il a lieu, et une microtâche regarde, avant que le
-   * navigateur ne rende l'image, si le plein cadre se voit encore. */
+   * navigateur ne rende l'image, si le plein cadre se voit encore.
+   *
+   * Aïn joue sur le plateau du plein cadre : la même image d'écran le
+   * renvoie. Chaque sprite visible qui touche le rectangle de la toile à
+   * + 4 px est relevé AU RENDU, par un ResizeObserver créé après ceux de la
+   * mascotte : le navigateur les sert dans l'ordre de leur création, après
+   * les rappels d'animation et avant de peindre. Un observateur créé avant
+   * eux voit encore le sprite que la mascotte retire dans la même mise à
+   * jour du rendu (relecture du 24 novembre 2026, tracée le même jour :
+   * 4 219 px² vus par un observateur créé tôt, aucun par un créé après).
+   * Le cas n'est exercé que si Aïn était sur le plateau au dernier rendu
+   * sans image. */
   async "premiere-image-coupe"() {
     const fautes = [];
+    const exerces = [];
     for (const [vue, reduit] of [
       [PC, false],
       [TELEPHONE, false],
@@ -664,6 +676,48 @@ const ETAPES = {
           requestAnimationFrame(tour);
         };
         requestAnimationFrame(tour);
+        // Aïn sur la toile, relevé au rendu (voir plus haut). Posé plus tard,
+        // une fois la mascotte installée sur le plateau.
+        etat.ainAvant = null;
+        etat.ainSur = [];
+        window.__releverAin = () => {
+          const sprites = (toile) => {
+            const t = toile.getBoundingClientRect();
+            const m = 4;
+            return [...document.querySelectorAll(".rt-ain-calque canvas.rt-ain-sprite")]
+              .filter((c) => {
+                if (c.hidden) return false;
+                const st = getComputedStyle(c);
+                return st.display !== "none" && st.visibility !== "hidden" && Number(st.opacity) > 0;
+              })
+              .map((c) => {
+                const r = c.getBoundingClientRect();
+                const w = Math.min(r.right, t.right + m) - Math.max(r.left, t.left - m);
+                const h = Math.min(r.bottom, t.bottom + m) - Math.max(r.top, t.top - m);
+                return { acteur: c.dataset.acteur ?? "?", aire: w > 0 && h > 0 ? Math.round(w * h) : 0 };
+              })
+              .filter((v) => v.aire > 0);
+          };
+          const temoin = document.createElement("i");
+          Object.assign(temoin.style, { position: "fixed", left: "-40px", top: "0", width: "1px", height: "1px" });
+          document.body.append(temoin);
+          let bascule = false;
+          new ResizeObserver(() => {
+            if (etat.fin) return;
+            const toile = document.getElementById("screen");
+            if (!toile) return;
+            const vus = sprites(toile);
+            if (etat.peintes === 0) etat.ainAvant = vus.length > 0;
+            else if (vus.length) etat.ainSur.push({ peintes: etat.peintes, vus });
+          }).observe(temoin);
+          const pousser = () => {
+            if (etat.fin) return;
+            bascule = !bascule;
+            temoin.style.width = bascule ? "2px" : "1px";
+            requestAnimationFrame(pousser);
+          };
+          requestAnimationFrame(pousser);
+        };
       });
       // La salle répond sans image : l'arrivée se montre, puis l'image vient.
       banc.regler({ video: "freeze" });
@@ -672,6 +726,16 @@ const ETAPES = {
       const debut = Date.now();
       while (!(await lu()).vuAvant && Date.now() - debut < 8000) await sleep(100);
       if (!(await lu()).vuAvant) throw new Precondition(`${nom}: le plein cadre ne s'est jamais montré avant l'image`);
+      // Aïn sur le plateau d'abord : sa scène d'arrivée ou sa pose clé. Une
+      // page d'avant n'a ni plateau ni mascotte : la mesure d'Aïn ne la
+      // concerne pas, celle du plein cadre si.
+      const plateau = await page
+        .waitForFunction(() => document.querySelector('#arrivee [data-hote="plateau"] .rt-mascotte') !== null, { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+      if (plateau) await page.evaluate(() => window.__releverAin());
+      const avantAin = Date.now();
+      while (plateau && (await lu()).ainAvant !== true && Date.now() - avantAin < 4000) await sleep(25);
       banc.regler({ video: "live" });
       while ((await lu()).peintes < 30 && Date.now() - debut < 20000) await sleep(100);
       if ((await lu()).peintes < 30) throw new Precondition(`${nom}: moins de 30 images peintes`);
@@ -681,9 +745,16 @@ const ETAPES = {
         return window.__coupe;
       });
       if (fin.sous > 0) fautes.push(`${nom}: ${fin.sous} relevés d'une image peinte sous le plein cadre`);
+      if (plateau) {
+        if (fin.ainAvant !== true) throw new Precondition(`${nom}: Aïn n'était pas sur le plateau au dernier rendu sans image`);
+        exerces.push(nom);
+        if (fin.ainSur.length)
+          fautes.push(`${nom}: Aïn sur la toile à ${fin.ainSur.length} rendus, dès l'image ${fin.ainSur[0].peintes} (${JSON.stringify(fin.ainSur[0].vus)})`);
+      }
       await page.close();
     }
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
+    console.log(JSON.stringify({ ain_exerce: exerces }));
   },
 
   /** La pastille d'une image figée ne touche pas l'image peinte, à + 4 px

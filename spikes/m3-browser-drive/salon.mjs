@@ -481,6 +481,84 @@ ETAPES.pointeur = async () => {
   await jumeau.close();
 };
 
+const catalogue = (n) => ({ scanned_ms: 0, room: 1, games: Array.from({ length: n }, (_, i) => ({
+  key: `jeu-${i}.iso`, name: `Jeu numéro ${i} au titre assez long`, console: i % 3 === 0 ? "switch" : "gc", art: false,
+})) });
+
+/** La rangée de jeux du dépôt (plan salon, salon-importer#0) : à 375 et
+ * 390 px, avec 8 puis 30 jeux, chaque jeu a son élément et reçoit le point
+ * une fois amené dans la rangée, et la page ne défile pas en largeur. La
+ * pile des envois pas encore rangés finit la rangée. */
+ETAPES.rayon = async () => {
+  for (const vue of [{ ...TELEPHONE, width: 375 }, TELEPHONE]) {
+    for (const n of [8, 30]) {
+      const page = await nouvelle(vue, {
+        reglage: { droits: { peut_importer: true }, catalogue: catalogue(n), imports: [{ id: "a", etat: "envoi", nom: "x.iso", taille: 100, decalage: 27, elements: [] }] },
+        chemin: "/importer",
+      });
+      await page.waitForFunction(() => document.querySelectorAll("#rayon-jeux .rayon-jeu").length > 0, { timeout: 5000 })
+        .catch(() => { throw new Defaut(`${vue.width} px, ${n} jeux : la rangée ne se montre pas`); });
+      // Chaque jeu amené au milieu de la rangée, une image plus tard (la
+      // rangée s'aimante à ses jeux), puis touché en son centre.
+      const manques = [];
+      for (let i = 0; i < n; i += 1) {
+        await page.$eval(`#rayon-jeux .rayon-jeu:nth-of-type(${i + 1})`, (li) => li.scrollIntoView({ block: "center", inline: "center" }))
+          .catch(() => {});
+        await sleep(60);
+        const touche = await page.evaluate((i) => {
+          const li = document.querySelectorAll("#rayon-jeux .rayon-jeu")[i];
+          if (!li) return false;
+          const r = li.getBoundingClientRect();
+          const ici = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return Boolean(ici && li.contains(ici));
+        }, i);
+        if (!touche) manques.push(`jeu-${i}.iso`);
+      }
+      const vu = await page.evaluate(() => {
+        const rangee = document.getElementById("rayon-jeux");
+        const jeux = [...rangee.querySelectorAll(".rayon-jeu")];
+        return {
+          cles: jeux.map((li) => li.dataset.cle),
+          large: document.scrollingElement.scrollWidth,
+          defile: rangee.scrollWidth > rangee.clientWidth,
+          pile: document.querySelector("#pile .pile-dit")?.textContent ?? null,
+        };
+      });
+      const attendues = Array.from({ length: n }, (_, i) => `jeu-${i}.iso`);
+      defaut(JSON.stringify(vu.cles) === JSON.stringify(attendues), `${vue.width} px, ${n} jeux : ${vu.cles.length} éléments`);
+      defaut(manques.length === 0, `${vue.width} px : jeux hors d'atteinte ${manques}`);
+      defaut(vu.large <= vue.width, `${vue.width} px, ${n} jeux : la page défile en largeur (${vu.large} px)`);
+      exiger(vu.defile, `${vue.width} px, ${n} jeux : la rangée ne défile pas, l'étape ne prouve rien`);
+      defaut(vu.pile === "Sur la pile : 1 envoi pas encore rangé.", `la pile dit « ${vu.pile} »`);
+      await page.close();
+    }
+  }
+};
+
+/** La scène « depot » trouve son décor au dépôt : demandée complète, elle
+ * joue complète, sans repli. Le jumeau : sans catalogue, pas de place libre,
+ * et la scène le dit dans `data-refus`. */
+ETAPES["depot-scene"] = async () => {
+  const jouer = (page) => page.evaluate(() => {
+    globalThis.nel3abAin.scene("depot", { version: "complete" });
+    const toile = document.querySelector('header [data-hote="logo"] .rt-mascotte');
+    return { version: toile?.dataset.version ?? null, refus: toile?.dataset.refus ?? null };
+  });
+  const page = await nouvelle(PC, { reglage: { droits: { peut_importer: true }, catalogue: catalogue(8) }, chemin: "/importer" });
+  await page.waitForFunction(() => document.querySelector('[data-ancre="place-libre"]') !== null, { timeout: 5000 })
+    .catch(() => { throw new Defaut("pas de place libre dans la rangée du dépôt"); });
+  await sleep(300);
+  const vu = await jouer(page);
+  defaut(vu.version === "complete" && vu.refus === "", `« depot » replié : ${JSON.stringify(vu)}`);
+  await page.close();
+  const jumeau = await nouvelle(PC, { reglage: { droits: { peut_importer: true } }, chemin: "/importer" });
+  await jumeau.waitForFunction(() => !document.getElementById("rayon").hidden, { timeout: 5000 })
+    .catch(() => { throw new Precondition("la rangée ne dit rien sans catalogue"); });
+  const sans = await jouer(jumeau);
+  exiger(sans.version !== "complete" && /place-libre/.test(sans.refus ?? ""), `sans catalogue : ${JSON.stringify(sans)}`);
+  await jumeau.close();
+};
+
 // ── Le déroulé ───────────────────────────────────────────────────────────
 const noms = SEULE ? [SEULE] : ROUGE ?? Object.keys(ETAPES);
 let echecs = 0;

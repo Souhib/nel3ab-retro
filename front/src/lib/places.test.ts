@@ -7,6 +7,7 @@ import {
   lesPlaces,
   nomDePlace,
   phraseDuRole,
+  regardentDe,
   type EntreePlaces,
 } from "./places";
 
@@ -154,5 +155,27 @@ describe("hoteDesPlaces", () => {
     expect(hoteDesPlaces("coin", { tenu: false, panneauSous: false })).toBe("coin");
     expect(hoteDesPlaces("bord-panneau", { tenu: false, panneauSous: true })).toBe("bord-panneau");
     expect(hoteDesPlaces(null, { tenu: true, panneauSous: false })).toBeNull();
+  });
+});
+
+/* Le salon dit `seat_pending` vrai pour toute personne qui arrive, tant que
+   sa page n'a ni place ni « aucune manette ». Comptée parmi ceux qui
+   regardent, Sami était d'abord annoncé « Sami regarde la partie. » avec la
+   scène du spectateur, puis « Sami prend la place 3. » : la ligne parlée
+   contredisait la colonne (relecture du 24 novembre 2026). */
+describe("qui regarde", () => {
+  it("une personne dont la place reste à confirmer arrive, elle ne regarde pas", () => {
+    expect(regardentDe([{ name: "Sami", seat: null, seat_pending: true }])).toEqual([]);
+    // Le schéma du salon : un champ absent vaut « à confirmer ».
+    expect(regardentDe([{ name: "Sami", seat: null }])).toEqual([]);
+  });
+
+  it("jumeau : placée par le salon et sans place, elle regarde ; avec une place, elle joue", () => {
+    expect(
+      regardentDe([
+        { name: "Lina", seat: null, seat_pending: false },
+        { name: "Bo", seat: 2, seat_pending: false },
+      ]),
+    ).toEqual(["Lina"]);
   });
 });

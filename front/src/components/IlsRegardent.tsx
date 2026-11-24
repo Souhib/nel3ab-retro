@@ -12,14 +12,16 @@
  */
 import type { Person } from "../client";
 import { COLONNE, REGARDENT } from "../lib/mots";
+import { regarde } from "../lib/places";
 import { TitreColonne } from "./Colonne";
 import { Crown } from "./Crown";
 import { Etiquette } from "./Etiquette";
 import "./places.css";
 
 export function IlsRegardent({ people, owner }: { people: Person[]; owner?: Person | null }) {
-  const regardent = people.filter((p) => p.seat == null && p.seat_pending === false);
-  const arrivent = people.filter((p) => p.seat == null && p.seat_pending !== false);
+  // La même règle que les arrivées des places (`regarde`, lib/places).
+  const regardent = people.filter(regarde);
+  const arrivent = people.filter((p) => p.seat == null && !regarde(p));
   const couronne = (p: Person) => (owner?.id && owner.id === p.id ? <Crown /> : null);
   return (
     <section aria-labelledby="ilsRegardent" className="flex flex-col gap-1.5">

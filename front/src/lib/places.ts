@@ -162,3 +162,20 @@ export function hoteDesPlaces(
   if (tenu) return "barre";
   return panneauSous ? "bord-panneau" : "coin";
 }
+
+/** Qui regarde : une personne sans place, que le salon a fini de placer.
+ * `seat_pending` reste vrai tant que sa page n'a dit ni sa place ni
+ * « aucune manette » (`rooms.py`, `_tenues`), et son absence vaut vrai
+ * (le schéma du salon) : cette personne arrive, elle ne regarde pas. */
+export function regarde(p: { seat?: number | null; seat_pending?: boolean }): boolean {
+  return p.seat == null && p.seat_pending === false;
+}
+
+/** Les noms de ceux qui regardent, pour les arrivées des places
+ * (`usePlaces`) : la même règle que « Ils regardent » et que
+ * `RoomController.regardent` du salon. */
+export function regardentDe(
+  people: readonly { name: string; seat?: number | null; seat_pending?: boolean }[],
+): string[] {
+  return people.filter(regarde).map((p) => p.name);
+}

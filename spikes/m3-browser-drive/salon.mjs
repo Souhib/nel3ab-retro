@@ -274,6 +274,68 @@ const ETAPES = {
   },
 };
 
+// ── Le carnet ────────────────────────────────────────────────────────────
+const partie = (id, debut, champs = {}) => ({
+  id, salle: 1, titre: "Mario Kart: Double Dash!!", console: { code: "gc", label: "GameCube" },
+  debut, fin: null, secondes: 4360, complete: true, en_cours: false, sauvegarde: "mienne",
+  lance_par: null, avec: [{ nom: "Ben", place: 2 }], regardaient: ["Dora"], ...champs,
+});
+const CARNET = {
+  moi: { login: "bilel@exemple", name: "Bilel", display: "Bilel" },
+  carnet: {
+    profil: { pseudo: "Bilel", depuis: "2026-08-14T18:00:00+00:00", jeux: 4, parties: 23, secondes: 61320, inconnues: 0, sauvegardes: 1, dernier: null },
+    sauvegardes: [],
+    // Lu par l'ancien carnet (l'étagère), pour que le contrôle rouge l'ouvre.
+    jeux: [],
+    parties: { parties: [
+      partie("b".repeat(16), "2026-11-21T20:00:00+00:00", { titre: "The Legend of Zelda: The Wind Waker, édition très longue" }),
+      partie("a".repeat(16), "2026-11-14T20:00:00+00:00", { sauvegarde: "du_lanceur", lance_par: "Sami" }),
+    ], suivant: null },
+  },
+};
+
+ETAPES["changer-nom"] = async () => {
+  const page = await nouvelle(PC, { reglage: CARNET, chemin: "/profil" });
+  await page.waitForFunction(() => document.querySelector("#parties tr, #parties li") !== null, { timeout: 5000 })
+    .catch(() => { throw new Precondition("le carnet ne s'ouvre pas sur le banc"); });
+  defaut(await page.$("#changer-nom") !== null, "le carnet n'a pas de « Changer ton nom »");
+  await page.click("#changer-nom");
+  const ouverte = await page.evaluate(() => ({
+    modale: document.getElementById("nom").matches(":modal"),
+    focus: document.activeElement?.id,
+    valeur: document.getElementById("nom-champ").value,
+  }));
+  defaut(ouverte.modale, "« Changer ton nom » n'ouvre pas une boîte modale");
+  defaut(ouverte.focus === "nom-champ" && ouverte.valeur === "Bilel", `focus ${ouverte.focus}, champ « ${ouverte.valeur} »`);
+  await page.evaluate(() => { document.getElementById("nom-champ").value = ""; });
+  await page.type("#nom-champ", "Zoé");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => !document.getElementById("nom").open, { timeout: 3000 })
+    .catch(() => { throw new Defaut("la boîte reste ouverte après « Garder ce nom »"); });
+  const apres = await page.evaluate(() => ({
+    etiquette: document.getElementById("etiquette").textContent, focus: document.activeElement?.id,
+  }));
+  defaut(JSON.stringify(banc.envois) === JSON.stringify([{ me: { name: "Zoé" } }]), `PUT /api/me: ${JSON.stringify(banc.envois)}`);
+  defaut(apres.etiquette === "Zoé", `étiquette après: ${apres.etiquette}`);
+  defaut(apres.focus === "changer-nom", `le focus ne revient pas au bouton: ${apres.focus}`);
+  await page.close();
+};
+
+ETAPES["carnet-320"] = async () => {
+  const page = await nouvelle(ETROIT, { reglage: CARNET, chemin: "/profil" });
+  await page.waitForFunction(() => document.querySelector("#parties tr.partie") !== null, { timeout: 5000 })
+    .catch(() => { throw new Precondition("le carnet ne s'ouvre pas sur le banc"); });
+  await sleep(300);
+  const large = await page.evaluate(() => document.scrollingElement.scrollWidth);
+  defaut(large <= 320, `le carnet déborde à 320 px: ${large} px`);
+  const petits = await page.$$eval("main a, main button", (els) => els.filter((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && r.height < 44;
+  }).map((el) => `${el.textContent.trim().slice(0, 30)} ${el.getBoundingClientRect().height.toFixed(0)} px`));
+  defaut(petits.length === 0, `cibles de moins de 44 px dans le carnet: ${petits}`);
+  await page.close();
+};
+
 // ── Le déroulé ───────────────────────────────────────────────────────────
 const noms = SEULE ? [SEULE] : ROUGE ?? Object.keys(ETAPES);
 let echecs = 0;

@@ -410,12 +410,16 @@ async def test_le_carnet_est_servi_sans_identite_et_sans_rien_demander_ailleurs(
     assert "/*__BOBINE__*/" not in page
     assert "/*__POLICES__*/" not in page
     assert "@font-face" in page
-    assert 'class="bob"' in page
+    # Le tableau des dernières parties remplace l'étagère, les tambours et
+    # Bobine (ADR D41, 24 novembre 2026).
+    assert 'class="scores rt-scores"' in page
+    for parti in ('id="tambours"', 'id="etagere"', 'class="bob', 'class="bulle"'):
+        assert parti not in page, parti
     # Aucune requête vers une autre machine: ni police, ni image, ni script.
     assert not re.search(r"""(src|href)=["']?(https?:)?//""", page)
     assert "url(http" not in page
     # Il demande ses données au salon, et à lui seul.
-    for route in ("/api/me/profil", "/api/me/jeux", "/api/me/sauvegardes", "/api/me/parties"):
+    for route in ("/api/me/profil", "/api/me/sauvegardes", "/api/me/parties"):
         assert route in page
 
 
@@ -889,3 +893,159 @@ async def test_la_page_du_carnet_dit_avec_qui_et_qui_regardait(
     assert deux["avec"] == "Dora et Eve ont regardé."
     assert seule["avec"] is None
     assert "joué avec" not in seule["texte"]
+
+
+async def _carnet(client: httpx.AsyncClient, reponses: dict, **entree: object) -> dict:
+    """La vraie page du carnet, ouverte dans jsdom, vue entière."""
+    page = (await client.get("/profil")).text
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(Path(__file__).parents[1] / "profil_module.mjs")],
+            input=json.dumps(
+                {"page": page, "reponses": reponses, "complet": True, **entree}
+            ).encode(),
+            check=False,
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    return json.loads(sortie.stdout)
+
+
+def _profil(parties: int) -> dict:
+    return {
+        "pseudo": "Bilel",
+        "depuis": "2026-08-14T18:00:00+00:00",
+        "jeux": 4,
+        "parties": parties,
+        "secondes": 61320,
+        "inconnues": 0,
+        "sauvegardes": 1,
+        "dernier": None,
+    }
+
+
+def _partie(id_: str, debut: str, **champs: object) -> dict:
+    return {**partie_lue(id_, [], []), "debut": debut, **champs}
+
+
+#: Cinq parties sur deux soirées. Celle de 1 h 30 (heure de Paris) le dimanche
+#: 22 appartient à la soirée du samedi 21: on ne se couche pas à minuit.
+CINQ = [
+    _partie("e" * 16, "2026-11-22T00:30:00+00:00", secondes=4360),
+    _partie("d" * 16, "2026-11-21T20:00:00+00:00", complete=False),
+    _partie("c" * 16, "2026-11-21T19:00:00+00:00", sauvegarde="du_lanceur", lance_par="Sami"),
+    _partie("b" * 16, "2026-11-14T20:30:00+00:00", sauvegarde="commune"),
+    _partie("a" * 16, "2026-11-14T20:00:00+00:00", en_cours=True, complete=False),
+]
+
+
+@AVEC_JSDOM
+async def test_le_carnet_range_ses_parties_par_soiree_au_tableau_des_scores(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le tableau DERNIÈRES PARTIES: une tête par soirée, une ligne par partie.
+
+    La durée s'écrit en chiffres d'afficheur, une fin inconnue ne s'invente
+    pas, et la sauvegarde est nommée.
+    """
+    vue = await _carnet(
+        client,
+        {
+            "/api/me/profil": _profil(23),
+            "/api/me/sauvegardes": [],
+            "/api/me/parties": {"parties": CINQ, "suivant": None},
+        },
+    )
+
+    assert vue["groupes"] == [
+        {"soiree": "Samedi 21 novembre", "lignes": 3},
+        {"soiree": "Samedi 14 novembre", "lignes": 2},
+    ]
+    assert [ligne["duree"] for ligne in vue["lignes"]] == [
+        "01:12:40",
+        "--:--:--",
+        "00:10:00",
+        "00:10:00",
+        "en cours",
+    ]
+    assert vue["lignes"][2]["sauvegarde"] == "la sauvegarde de Sami"
+    assert vue["lignes"][2]["lancePar"] == "Sami"
+    assert vue["lignes"][0]["lancePar"] == "toi"
+    assert vue["lignes"][3]["sauvegarde"] == "tout débloqué"
+    assert (
+        vue["phrase"] == "Bilel, 23 parties sur 4 jeux depuis le 14 août : 17 h 02 de jeu en tout."
+    )
+    assert vue["voirSalles"] is False
+
+    # Le jumeau: un carnet vide n'a qu'un bouton plein, « Voir les salles ».
+    vide = await _carnet(
+        client,
+        {
+            "/api/me/profil": _profil(0),
+            "/api/me/sauvegardes": [],
+            "/api/me/parties": {"parties": [], "suivant": None},
+        },
+    )
+    assert vide["voirSalles"] is True
+    assert vide["groupes"] == []
+
+
+@AVEC_JSDOM
+async def test_sans_identite_le_carnet_le_dit_et_mene_aux_salles(
+    client: httpx.AsyncClient,
+) -> None:
+    vue = await _carnet(
+        client,
+        {"/api/me/profil": 401, "/api/me/sauvegardes": 401, "/api/me/parties": 401},
+    )
+    assert vue["phrase"] == "nel3ab ne sait pas qui tu es sur cet appareil."
+    assert vue["voirSalles"] is True
+
+
+@AVEC_JSDOM
+async def test_ain_range_la_soiree_que_cet_appareil_n_avait_pas_vue(
+    client: httpx.AsyncClient,
+) -> None:
+    """La scène « range », une fois, et la ligne nouvelle s'allume.
+
+    Le jumeau: la même partie déjà vue ne rejoue rien; un appareil qui ouvre le
+    carnet pour la première fois retient la partie sans scène.
+    """
+    reponses = {
+        "/api/me/profil": _profil(23),
+        "/api/me/sauvegardes": [],
+        "/api/me/parties": {"parties": CINQ, "suivant": None},
+    }
+    neuve = await _carnet(client, reponses, stockage={"nel3ab:carnet-vu": "a" * 16})
+    assert neuve["scenes"] == ["range"]
+    assert neuve["vu"] == "e" * 16
+    assert [ligne["nouvelle"] for ligne in neuve["lignes"]] == [True] + [False] * 4
+
+    vue = await _carnet(client, reponses, stockage={"nel3ab:carnet-vu": "e" * 16})
+    assert vue["scenes"] == []
+    assert not any(ligne["nouvelle"] for ligne in vue["lignes"])
+
+    premiere = await _carnet(client, reponses)
+    assert premiere["scenes"] == []
+    assert premiere["vu"] == "e" * 16
+
+
+@AVEC_JSDOM
+async def test_changer_ton_nom_se_fait_dans_le_carnet(client: httpx.AsyncClient) -> None:
+    """« Changer ton nom » ouvre une boîte sur la page même (PUT /api/me)."""
+    reponses = {
+        "/api/me/profil": _profil(23),
+        "/api/me/sauvegardes": [],
+        "/api/me/parties": {"parties": [], "suivant": None},
+        "/api/me": {"login": "bilel@exemple", "name": "Bilel", "display": "Bilel"},
+    }
+    vue = await _carnet(client, reponses, nom="  Zoé ")
+    assert vue["puts"] == [{"name": "Zoé"}]
+    assert vue["etiquette"] == "Zoé"
+    assert vue["boiteOuverte"] is False
+
+    # Le jumeau: un nom vide n'est pas envoyé, et la boîte reste ouverte.
+    vide = await _carnet(client, reponses, nom="   ")
+    assert vide["puts"] == []
+    assert vide["etiquette"] == "Bilel"
+    assert vide["boiteOuverte"] is True

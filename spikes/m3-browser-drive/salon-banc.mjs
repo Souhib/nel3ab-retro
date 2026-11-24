@@ -42,6 +42,7 @@ export async function demarrerSalon({ port, pages = null }) {
       moi: null,
       droits: { peut_importer: false },
       apres: null,
+      carnet: null,
     });
     envois.length = 0;
   };
@@ -76,7 +77,17 @@ export async function demarrerSalon({ port, pages = null }) {
         }, delai ?? 0);
         return;
       }
+      if (chemin === "/api/me" && req.method === "PUT") {
+        envois.push({ me: JSON.parse(corps) });
+        etat.moi = { ...(etat.moi ?? { login: "banc" }), name: JSON.parse(corps).name };
+        return json(res, 200, etat.moi);
+      }
       if (chemin === "/api/me") return etat.moi ? json(res, 200, etat.moi) : json(res, 200, { login: null, name: "", display: "" });
+      // Le carnet: `carnet` donne chaque lecture de /api/me/…; sans lui, 401.
+      if (chemin.startsWith("/api/me/")) {
+        const cle = chemin.slice("/api/me/".length);
+        return etat.carnet?.[cle] !== undefined ? json(res, 200, etat.carnet[cle]) : json(res, 401, { detail: "banc" });
+      }
       if (chemin === "/api/imports/droits") return json(res, 200, etat.droits);
       return json(res, 404, { detail: "absent du banc" });
     });

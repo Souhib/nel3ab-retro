@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse
 from nel3ab_control.api.controllers.people import PeopleController
 from nel3ab_control.api.controllers.profil import Carnet
 from nel3ab_control.api.controllers.salons import Salons
-from nel3ab_control.api.routes import bobine, retro
+from nel3ab_control.api.routes import retro
 from nel3ab_control.api.routes.accueil import faces, regie
 from nel3ab_control.api.schemas.profil import Emplacement, JeuProfil, PageParties, Profil
 from nel3ab_control.catalogue import freshest
@@ -165,14 +165,13 @@ async def read_my_saves(
     return (await _carnet(login, settings, parties, salons)).emplacements()
 
 
-#: La page, garnie une fois au démarrage: polices, régie, thème rétro et Bobine.
+#: La page, garnie une fois au démarrage: polices, régie, et le thème rétro
+#: avec le paquet du salon (Aïn, ADR D41).
 PAGE = retro.garnir(
-    bobine.garnir(
-        (Path(__file__).parent / "profil.html")
-        .read_text(encoding="utf-8")
-        .replace("/*__POLICES__*/", faces())
-        .replace("/*__REGIE__*/", regie())
-    )
+    (Path(__file__).parent / "profil.html")
+    .read_text(encoding="utf-8")
+    .replace("/*__POLICES__*/", faces())
+    .replace("/*__REGIE__*/", regie())
 )
 
 

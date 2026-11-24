@@ -129,7 +129,8 @@ salon-navigateur *args:
 # DÉFAUT contre les pages d'un commit plus ancien, assemblées par SES modules
 # (une archive de `control/`, importée sans le paquet installé en mode
 # éditable, d'où `python -S`). a32de82: le salon sans Aïn. 2a98279: Aïn, et
-# l'ancien accueil (en-tête, jauge, deux pleins, départ vers la salle).
+# l'ancien accueil (en-tête, jauge, deux pleins, départ vers la salle) et
+# l'ancien carnet (son nom se changeait dans une salle).
 # 84b969f: le nouvel accueil avant les deux corrections du navigateur.
 salon-navigateur-rouge:
     #!/usr/bin/env bash
@@ -147,7 +148,7 @@ salon-navigateur-rouge:
     done
     cd spikes/m3-browser-drive
     node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
-    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin

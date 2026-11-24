@@ -164,9 +164,9 @@ export function Colonne({
         if (!(target instanceof Element) || target.getAttribute("aria-expanded") !== "true")
           continue;
         const id = target.getAttribute("aria-controls");
-        const panneau = id ? document.getElementById(id) : null;
-        if (panneau && boite.contains(panneau))
-          requestAnimationFrame(() => panneau.scrollIntoView?.({ block: "nearest" }));
+        const deplieLa = id ? document.getElementById(id) : null;
+        if (deplieLa && boite.contains(deplieLa))
+          requestAnimationFrame(() => deplieLa.scrollIntoView?.({ block: "nearest" }));
       }
     });
     deplie.observe(boite, { subtree: true, attributeFilter: ["aria-expanded"] });

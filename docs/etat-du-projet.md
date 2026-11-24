@@ -234,6 +234,17 @@ d'une connexion coupée, l'image figée n'est assombrie qu'à sa fiche (K20).
 Les phrases du chargement de menus sont dans `lib/liaison-mots.ts`. Page :
 284 319 octets en brotli. Reste : voir l'entrée du carnet du même jour.
 
+**Au 24 novembre, le soir : les états, deuxième passage.** Même branche,
+toujours hors de `main`, rien d'installé ni de poussé. La salle fermée dit
+l'heure et la raison que publie le salon (K37) et mène au carnet sous un
+salon (D12) ; la fiche du gel a son pli « Ce que ta page voit » ; la fiche
+tremble et le son d'erreur sonne à l'entrée d'une coupure (selon le socle) ;
+le plein cadre tient à 320x568 ; la feuille ouverte par la pastille lui rend
+le focus. Sept étapes nouvelles dans `etats.mjs`, chacune vue rouge sur un
+mutant. `colonne-stable` reste ROUGE : le panneau de commande passe dans la
+colonne à la première image 4:3 (`panneauAuBureau`, fichier de la salle), et
+`etats-navigateur` sort en échec sur elle. Page : 284 891 octets en brotli.
+
 **Au 24 novembre : le chantier personnes, cinq passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de

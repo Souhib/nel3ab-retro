@@ -2126,6 +2126,33 @@ a pastille on the picture when no band, free cluster or bar can hold it
 (nowhere is better: the spoken line and the sheet behind "La salle" still
 say the state).
 
+Amended 2026-11-24, second pass. The closed room says when and why: the
+watch (`media/veille.ts`) reads `fermee_depuis` and `fermee_pour` from
+`/api/salles` (K37) and keeps the values of the first "closed" answer of the
+series, so the minute said cannot change between probes rounded to the
+second; with no time known, the title stays "est fermée" and no time is
+made up. Under a lobby the closed screen also links to the play journal
+(`/profil#parties`, D12). The frozen-image sheet folds what the page sees
+(picture, sound, room, pad echo) under "Ce que ta page voit". Entering a
+cut or unreachable state shakes the sheet and plays the error sound, both
+gated by the base layer (level "tout", sounds off by default, never while
+the game has focus); a sheet mounted later in the opened phone sheet does
+not shake. Below 260 px of height the full frame tightens its spacing (at
+320x568 it overflowed by 8 px), and the cost line carries `data-texte` so
+Aïn does not sit on it. A sheet opened by the pastille gives the focus back
+to the pastille on close, not to "La salle".
+
+Proof, second pass: `pastille-mene-au-geste`, `gel-image-passee`,
+`coupee-reseau`, `neige-coupee`, `arrivee-sans-image`, `arrivee-courte` and
+`colonne-stable` in `etats.mjs`. Each was seen red on a mutant page built
+for it, and four of them join the 03b21c0 block of
+`etats-navigateur-rouge`. `colonne-stable` is red on this branch: the
+command panel sits under the screen without a picture and moves into the
+column on the first 4:3 picture at 1440x900 (`panneauAuBureau`, a room
+file), pushing the column down 204 px; it was also red on 03b21c0, where the
+diagnosis block grew by 22 px. Weight: 284 891 bytes brotli (+528 on the
+first pass).
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on

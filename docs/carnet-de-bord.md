@@ -31094,6 +31094,92 @@ les sons, la place de la pastille sans bande, l'amendement de D29 avec la
 salle, et les étapes de pilote du plan non écrites (neige-coupee,
 gel-image-passee, colonne-stable, arrivee-sans-image).
 
+### 24 novembre, le soir : les états, deuxième passage
+
+**Ce qui a été fait.** Six choses, chacune vue rouge avant d'être verte.
+
+- La salle fermée dit son heure et sa raison. Le salon publie depuis combien
+  de secondes elle est fermée et pourquoi (`fermee_depuis`, `fermee_pour`,
+  décision K37 : c'est la page qui les lit). La veille de la liaison
+  (`media/veille.ts`) garde l'heure de la première réponse « fermée » de la
+  série, parce que les sondes suivantes, arrondies à la seconde, pouvaient
+  faire changer la minute sous les yeux. Le titre devient « La salle 1 a
+  fermé à 23 h 12. », suivi de la raison (« Personne n'avait touché au jeu
+  depuis longtemps. »). Sans heure connue, il reste « La salle 1 est
+  fermée. » : la page n'invente pas d'heure. La raison ne donne pas de
+  durée, parce que la demi-heure par défaut se change par une variable du
+  worker que la page ne lit pas. Sous un salon, l'écran propose aussi
+  « Dernières parties », un lien vers le carnet de jeu (`/profil#parties`,
+  décision D12 du propriétaire : le carnet note qui a joué et qui a regardé).
+- La fiche d'une image figée a un pli, « Ce que ta page voit » : l'image
+  arrêtée depuis combien de secondes, le son, la salle, l'écho de la
+  manette. Replié par défaut, pour qui veut comprendre ou signaler.
+- À l'entrée d'une coupure ou d'une salle injoignable, la fiche tremble
+  (niveau « tout ») et le son grave d'erreur sonne (sons allumés, jeu sans
+  le focus). C'est le socle qui décide s'ils jouent ; la page décide quand :
+  à l'entrée seulement, pas en restant dans la panne, ni quand la fiche se
+  monte plus tard dans la feuille qu'on ouvre.
+- Sur un téléphone de 320 px tenu droit, l'écran noir de l'arrivée perdue
+  fait 211 px de haut, et son contenu débordait de 8 px. Sous 260 px de
+  haut, une requête de conteneur serre les marges et passe le fait et le
+  coût du geste en petit. La même capture montrait Aïn assis sur la phrase
+  « Réessayer rouvre la liaison… » : elle porte maintenant `data-texte`,
+  comme le titre et le fait, et Aïn ne s'y pose plus.
+- Au téléphone, la pastille ouvre la feuille agrandie sur le geste de sa
+  fiche. En se fermant, la feuille rendait le focus au bouton « La salle » :
+  la bande qui porte la pastille se démonte quand la feuille grandit, et le
+  dialogue n'avait plus à qui le rendre. La page retient maintenant que la
+  pastille a ouvert la feuille, et lui rend le focus.
+- Sept étapes de pilote nouvelles : `pastille-mene-au-geste`,
+  `gel-image-passee`, `coupee-reseau`, `neige-coupee`, `arrivee-sans-image`,
+  `arrivee-courte` et `colonne-stable`.
+
+**Des étapes qui passaient du premier coup.** Cinq des nouvelles étapes
+étaient vertes dès leur premier lancement. Une étape verte du premier coup
+ne prouve rien tant qu'on ne l'a pas vue rougir : deux pages mutantes ont
+été construites, chacune avec des défauts réintroduits exprès (le focus
+retiré, l'appel `lever()` retiré, la neige décalée de 40 px, le compte de
+secondes figé ; puis l'image assombrie dès la pastille, la neige à cinq
+images par seconde, l'arrivée perdue à 2 s). Chaque étape a rougi sur son
+défaut, sauf une : `coupee-reseau` ne voyait pas la neige décalée, parce
+que les 25 points de sa grille tombaient tous dans la neige, même décalée.
+Quatre points aux coins de l'image, à 2 px du bord, l'ont fait rougir. La
+leçon : une grille au sixième de l'image laisse passer tout ce qui est plus
+fin qu'un sixième.
+
+Quatre des nouvelles étapes rougissent aussi contre la page de main
+d'avant le thème (03b21c0), sur leur défaut, et entrent dans
+`etats-navigateur-rouge`. `coupee-reseau` a dû regarder l'image AVANT les
+mots : la page d'avant échouait d'abord sur « Plus de réseau », un mot, et
+pas sur son bandeau posé sur l'image, le défaut que l'étape vise.
+
+**La coupure prouvée du côté du banc.** Le mode hors ligne du navigateur
+ne ferme pas une socket déjà ouverte. L'étape coupe donc le réseau du
+navigateur, fait fermer les sockets par le banc, et vérifie de son côté
+qu'aucune n'est rouverte pendant deux secondes.
+
+**Une étape rouge qui reste rouge : `colonne-stable`.** Le plan disait que
+la colonne ne bougeait déjà pas quand la première image arrive, et qu'il
+suffisait de le prouver. Mesuré, c'est faux deux fois. Sur cette branche, le
+panneau de commande est posé sous l'écran tant qu'il n'y a pas d'image,
+puis passe dans la colonne à la première image 4:3 à 1440x900
+(`panneauAuBureau`, dans `lib/cadre.ts`) : tout ce qui le suit descend de
+204 px. Sur la page de main 03b21c0, le bloc de diagnostic grandissait de
+22 px. Le défaut est dans un fichier de la salle ; l'étape est la dernière
+d'`etats-navigateur` et la recette sort en échec sur elle tant qu'il n'est
+pas corrigé.
+
+**Le poids.** 284 891 octets en brotli, soit 528 de plus que le premier
+passage (284 363). Rien de retiré : Bobine reste importé par l'écran de
+chargement (menus) et l'ouverture (salon).
+
+**Ce qui reste.** La place de la pastille tenue en main quand ni bande, ni
+grappe, ni barre ne la tiennent ; un vrai emplacement dans la barre ; la
+salle fermée au passé sur le panneau (les START éteints) et « Ce soir dans
+la salle N » dans la colonne ; l'effet « coupure » à l'entrée ; les parties
+téléphone de `salle-telephone` ; `avertissement-fermeture.mjs`, qui demande
+un worker construit et une ROM.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

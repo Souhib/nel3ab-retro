@@ -408,6 +408,20 @@ describe("un contrôle qui arrive sous Aïn", () => {
     expect(enAttente()).toBe(0);
   });
 
+  it("jumeau : un bouton qui l'effleure d'une fraction de pixel (l'arrondi au pixel) ne coupe rien", async () => {
+    cadreDe().setAttribute("data-sans-image", "non");
+    const boites = miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(30);
+    const a = boiteDe("ain") ?? [0, 0, 0, 0];
+    // La zone d'un contrôle déborde de 2,3 px : son bord touche Aïn de 0,4 px.
+    boites.set("#choisir", [a[0] - 60, a[1], 60 + 0.4 - 2.3, 20]);
+    cadreDe().insertAdjacentHTML("beforeend", '<button id="choisir">Choisir un jeu</button>');
+    await Promise.resolve();
+    expect(visibles()).toContain("ain");
+    expect(enAttente()).toBe(1);
+  });
+
   it("jumeau : un bouton monté loin de lui ne coupe rien", async () => {
     cadreDe().setAttribute("data-sans-image", "non");
     const boites = miseEnPage(COLONNE);

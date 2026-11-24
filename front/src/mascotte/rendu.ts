@@ -29,7 +29,7 @@
 import { mouvementReduit, niveau } from "../lib/effets";
 import { LOGO_W, TH, TW, type Joueur } from "./dessin";
 import { relirePalette, Theatre, type Cle } from "./lecteur";
-import { lireDecor, touche, type Contexte, type Decor } from "./moteur";
+import { lireDecor, touche, type Boite, type Contexte, type Decor } from "./moteur";
 import { AU_SALON, planifier, SCENES_AIN, type IdAin } from "./scenes-ain";
 import type { Scene, Version } from "./scenes";
 
@@ -253,6 +253,18 @@ function ecouter(racine: ParentNode) {
   ).observe(cadre, { childList: true, subtree: true, characterData: true });
 }
 
+/** Un sprite est posé au pixel de l'écran près, et sa scène vérifiée toutes
+ * les 12 ms : sa boîte peut effleurer une zone que le planificateur a vue
+ * libre, d'une fraction de pixel. Le moteur garde 0,6 px pour cet arrondi
+ * (`MARGE`) ; un effleurement de moins ne coupe pas une scène. */
+const ARRONDI = 0.6;
+const retrecie = (b: Boite): Boite => [
+  b[0] + ARRONDI,
+  b[1] + ARRONDI,
+  b[2] - ARRONDI,
+  b[3] - ARRONDI,
+];
+
 /** Où sont le logo et l'image, à l'échelle près : ce dont dépend tout ce
  * qu'une scène a placé. */
 const empreinte = (d: Decor) => {
@@ -283,7 +295,8 @@ function rajuster(th: Theatre, echelle = false) {
   if (!echelle && !th.montreDehors) return;
   const d = th.relire();
   const Z = d.zones();
-  const gene = empreinte(d) !== avant || th.boites().some((b) => Z.some((z) => touche(b, z.b)));
+  const gene =
+    empreinte(d) !== avant || th.boites().some((b) => Z.some((z) => touche(retrecie(b), z.b)));
   if (th.joue) {
     if (gene) th.terminer("couper");
   } else if (gene && (th.dehors || th.objetsVisibles)) {

@@ -1365,6 +1365,74 @@ async function principal() {
       verdict(fautes);
     },
 
+    /** Le ▶ du socle dans la feuille à mi-hauteur : devant chaque entrée
+     * visée, sans couvrir aucune entrée ni sortir de la feuille, deux
+     * colonnes tenues droit jusqu'à 360 px, une en travers. Jusqu'au
+     * 24 novembre 2026, la grille n'avait que 4 px entre deux entrées et la
+     * feuille n'avait pas de ▶. Le jumeau : le focus sur « Fermer », hors
+     * des entrées, cache le ▶. */
+    async "feuille-curseur"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 390, height: 844, isMobile: true, hasTouch: true },
+        { width: 360, height: 740, isMobile: true, hasTouch: true },
+        { width: 844, height: 390, isMobile: true, hasTouch: true },
+      ]) {
+        const nom = `${vue.width}×${vue.height}`;
+        const page = await nouvelle(vue);
+        await entrer(page);
+        const ouvre = (await page.$("#laSalle")) ? "#laSalle" : "#laSalleCote";
+        if (!(await page.$(ouvre))) throw new Precondition(`${nom}: pas de bouton « La salle »`);
+        await page.tap(ouvre);
+        if (!(await jusqua(() => page.$('#feuilleSalle[data-hauteur="mi"]').then(Boolean), 3000)))
+          throw new Precondition(`${nom}: la feuille ne s'ouvre pas à mi-hauteur`);
+        const entrees = await page.$$eval("#feuilleSalle .n3-feuille-entree", (els) => els.length);
+        if (entrees < 2) throw new Precondition(`${nom}: ${entrees} entrée à mi-hauteur`);
+        const colonnes = await page.$$eval("#feuilleSalle .n3-feuille-entree", (els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().left))).size);
+        if (vue.height > vue.width && colonnes !== 2) fautes.push(`${nom}: ${colonnes} colonne(s) d'entrées, deux attendues`);
+        for (let i = 0; i < entrees; i++) {
+          await page.$$eval("#feuilleSalle .n3-feuille-entree", (els, i) => els[i].focus(), i);
+          await sleep(200);
+          const lu = await page.evaluate((i) => {
+            const boite = (el) => {
+              const r = el.getBoundingClientRect();
+              return { x: r.left, y: r.top, w: r.width, h: r.height };
+            };
+            const coupe = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+            const fleche = document.querySelector("#feuilleSalle .rt-curseur");
+            const els = [...document.querySelectorAll("#feuilleSalle .n3-feuille-entree")];
+            const visee = boite(els[i]);
+            const f = fleche ? boite(fleche) : null;
+            const vue = f !== null && fleche.hasAttribute("data-visible") && f.w > 0;
+            const d = boite(document.querySelector("#feuilleSalle"));
+            return {
+              titre: els[i].textContent,
+              vue,
+              devant: vue && f.x + f.w <= visee.x + 0.5 && f.x + f.w >= visee.x - 12 && f.y + f.h / 2 > visee.y && f.y + f.h / 2 < visee.y + visee.h,
+              sur: vue ? els.filter((e) => coupe(f, boite(e))).map((e) => e.textContent) : [],
+              dedans: vue && f.x >= d.x - 0.5 && f.x + f.w <= d.x + d.w + 0.5,
+            };
+          }, i);
+          if (i === 1) await capture(page, "feuille-curseur-seconde");
+          const ici = `${nom}, « ${lu.titre} »`;
+          if (!lu.vue) fautes.push(`${ici}: pas de ▶`);
+          else {
+            if (!lu.devant) fautes.push(`${ici}: le ▶ n'est pas devant l'entrée visée`);
+            if (lu.sur.length) fautes.push(`${ici}: le ▶ couvre ${lu.sur.join(", ")}`);
+            if (!lu.dedans) fautes.push(`${ici}: le ▶ sort de la feuille`);
+          }
+        }
+        // Le jumeau : le focus sur « Fermer », hors des entrées, et le ▶ se cache.
+        await page.focus("#fermerFeuille");
+        await sleep(200);
+        const reste = await page.evaluate(() => document.querySelector("#feuilleSalle .rt-curseur")?.hasAttribute("data-visible") ?? false);
+        if (reste) fautes.push(`${nom}: le ▶ reste quand le focus quitte les entrées`);
+        await capture(page, "feuille-curseur");
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
     /** feuille-du-bas.2 : pendant une partie, la feuille à mi-hauteur d'un
      * téléphone tenu droit garde les 45 dernières secondes à un toucher, sur
      * une cible de 44 px hors de l'image. Le toucher atteint le geste du clip

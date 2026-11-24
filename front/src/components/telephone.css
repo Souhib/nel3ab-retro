@@ -222,9 +222,15 @@
    390 px de large (316 px de contenu pour 275). « Rallumer le son » et son
    filet d'alerte le disent seuls. En travers, la feuille ne prend que la
    bande gauche : une seule colonne d'entrées. */
+/* Le ▶ du socle (10 px, et 6 px d'écart) se pose à gauche de l'entrée
+   visée : 16 px entre deux colonnes, et 2 px à gauche qui, avec les 14 px
+   de la boîte, lui laissent sa place devant la première. 150 px au moins
+   par entrée : deux colonnes tiennent encore à 360 px de large, comme à
+   160 px avec 4 px d'écart. */
 .n3-feuille[data-hauteur="mi"] .n3-feuille-entrees {
-  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 4px 16px;
+  padding-left: 2px;
 }
 .n3-feuille[data-hauteur="mi"] .n3-feuille-entree {
   min-height: 44px;

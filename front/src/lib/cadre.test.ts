@@ -349,6 +349,21 @@ describe("la base du panneau : la première image ne déplace rien", () => {
     expect(repos.geo.panneau.forme).toBe("sous");
   });
 
+  it("ne change la base ni pour la place que la salle donne, ni pour la manette qui la suit", () => {
+    // La place arrive souvent après la première image : le rôle passe de
+    // « regarde » à « joueur », et la manette « toujours » se pose.
+    const image = arrivee({ image: QUATRE_TIERS, etat: "vit", role: "regarde" });
+    const [, , assise, manette] = suite([
+      arrivee({ role: "regarde" }),
+      image,
+      { ...image, role: "joueur" },
+      { ...image, role: "joueur", manette: MANETTES.dolphin },
+    ]);
+    expect(assise.base).toEqual({ image: XBOX, ajustement: "remplir" });
+    expect(assise.geo.panneau.forme).toBe("sous");
+    expect(manette.base).toEqual({ image: XBOX, ajustement: "remplir" });
+  });
+
   it("ne change la base ni pour une taille d'image ni pour un état", () => {
     const [, , figee, autre] = suite([
       arrivee(),

@@ -461,10 +461,13 @@ export type EntreeDuCadre = Omit<Entree, "base"> & {
 const memeTaille = (a: Size | null, b: Size | null): boolean =>
   a === b || (a !== null && b !== null && a.width === b.width && a.height === b.height);
 
-/** Un changement de mise en page « naturel » : tout ce qui change la
- * géométrie, sauf l'image reçue et l'état. Une fenêtre redimensionnée, un
- * panneau qui se ferme, la colonne élargie, l'image agrandie, un autre
- * réglage de la pose, la manette « toujours » posée ou retirée. */
+/** Un changement de mise en page « naturel » : une fenêtre redimensionnée
+ * ou tournée (taille, zones sûres, mode), un panneau qui s'ouvre ou se
+ * ferme, la colonne élargie, l'image agrandie, un autre réglage de la pose.
+ * Ni l'image reçue, ni l'état, ni le rôle, ni la manette : le rôle et la
+ * manette suivent la place, que la salle donne seule à l'entrée, souvent
+ * après la première image (une place tenue rangeait alors le panneau du
+ * bureau dans la colonne, sonde du 24 novembre 2026). */
 function changementNaturel(a: EntreeDuCadre, b: EntreeDuCadre): boolean {
   return (
     a.mode !== b.mode ||
@@ -475,8 +478,6 @@ function changementNaturel(a: EntreeDuCadre, b: EntreeDuCadre): boolean {
     a.zonesSures.bas !== b.zonesSures.bas ||
     a.zonesSures.gauche !== b.zonesSures.gauche ||
     a.ajustement !== b.ajustement ||
-    a.role !== b.role ||
-    a.manette !== b.manette ||
     a.largeurColonne !== b.largeurColonne ||
     a.largeurPanneau !== b.largeurPanneau ||
     a.agrandie !== b.agrandie

@@ -12,21 +12,20 @@
 
      Chaque fichier déposé reçoit une carte. Elle prenait la couleur d'une
      des quatre prises de la salle, dans l'ordre; depuis le 22 novembre
-     2026, les quatre couleurs de joueur ne servent plus qu'aux joueurs. La
-     carte garde un cadre neutre et une jauge en craie, et c'est son TAMPON
-     qui dit l'issue, en couleur et en mots: vert pour un jeu rangé, corail
-     pour un refus. Le script pose encore `--joueur` sur chaque carte; la
-     feuille ne le lit plus.
+     2026, les quatre couleurs de joueur ne servent plus qu'aux joueurs: ni
+     la zone, ni les cartes, ni le trousseau n'en portent (ADR D41). Une
+     carte dit son issue en mots, et la console reconnue par le serveur est
+     une étiquette tapée dont le liseré dit l'issue: vert pour un jeu rangé,
+     corail pour un refus. Plus de tampon « ESTIMATION »: une phrase dit ce
+     qu'on lit au début du fichier, puis ce qu'on peut faire.
 
      Seuls `transform` et `opacity` bougent: la jauge s'allonge par
-     `scaleX`, le tampon tombe par `scale`. Aïn, dans le logo, joue « depot »
-     quand un jeu vérifié est rangé, « refus » quand il ne l'est pas.
+     `scaleX`. Aïn, dans le logo, joue « depot » quand un jeu vérifié est
+     rangé, « refus » quand il ne l'est pas.
      ───────────────────────────────────────────────────────────────── */
   /*__POLICES__*/
   /* La régie de la salle et de l'accueil (`front/src/regie.css`), posée ici
-     au démarrage du salon: graphite la nuit, craie le jour. Les quatre
-     prises du dessin de la zone de dépôt lisent `--joueur-1` à `--joueur-4`,
-     des primitives de la régie. */
+     au démarrage du salon: graphite la nuit, craie le jour. */
   /*__REGIE__*/
   /* Les effets rétro, communs à la salle et au salon (`front/src/effets.css`). */
   /*__EFFETS__*/
@@ -63,8 +62,13 @@
   .depot input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   .depot-mot { font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); line-height: 1.1; }
   .depot-sous { color: var(--legende); font-size: clamp(14px, 1.4vw, 17px); }
-  .prises { display: flex; gap: 6px; margin-top: .4rem; }
-  .prises span { width: 26px; height: 10px; background: var(--c); }
+  /* « Choisir des fichiers »: le seul plein de la page au repos. Toute la
+     zone est l'étiquette du champ; ce bouton dessiné dit où cliquer. */
+  .depot-choisir { justify-self: start; display: inline-flex; align-items: center; min-height: 48px;
+                   padding: .55rem 1.4rem; font: 400 17px var(--police-titre);
+                   border: 2px solid var(--bouton-plein-fond); border-radius: var(--rayon);
+                   background: var(--bouton-plein-fond); color: var(--bouton-plein-encre); }
+  .depot:hover .depot-choisir { background: var(--bouton-plein-survol); border-color: var(--bouton-plein-survol); }
 
   .refus { margin: 0; padding: 1rem 1.2rem; border-left: 6px solid var(--alerte);
            background: var(--creux); }
@@ -93,9 +97,6 @@
   .carte-boutons button:hover { border-color: var(--encre); }
   .carte-boutons button:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 2px; }
   .estimation { margin: 0; color: var(--legende); font-size: 16px; }
-  .estimation .etiquette { font-family: var(--police-machine); font-size: 12px; letter-spacing: .16em;
-               color: var(--fond); background: var(--legende); padding: 1px 6px;
-               margin-right: .4rem; }
   .carte-titre:not(:empty)::before { content: "« "; }
   .carte-titre:not(:empty)::after { content: " »"; }
 
@@ -131,38 +132,22 @@
   .resultat-etat { font-weight: 600; overflow-wrap: anywhere; }
   .resultat-mot { color: var(--encre); font-size: 16px; }
   .resultat-preuve { color: var(--legende); font-size: 13px; overflow-wrap: anywhere; }
-  /* Le tampon: la console reconnue par le SERVEUR, posée de biais.
-     Sa couleur dit l'issue, et le mot la dit aussi: vert rangé, craie à
+  /* La console reconnue par le SERVEUR: une étiquette tapée, dont le
+     liseré dit l'issue. Vert pour un jeu rangé, encre pour un jeu à
      confirmer, légende pour un jeu reconnu mais gardé de côté (pas jouable,
-     mise à jour, contenu additionnel), corail pour le reste. Ce n'étaient
-     pas des issues mais les quatre prises de joueur; une teinte n'a plus
-     qu'un sens. Le jeton local s'appelle `--tampon`, et non plus `--encre`,
-     qui est désormais le texte de la régie. */
-  .tampon {
-    --tampon: var(--alerte);
-    display: inline-block; min-width: 7.5rem; text-align: center; justify-self: start;
-    font: 700 14px var(--police-texte); letter-spacing: .12em; text-transform: uppercase;
-    color: var(--tampon); border: 3px solid var(--tampon); padding: .25rem .6rem;
-    transform: rotate(-4deg);
-    animation: tamponne .42s cubic-bezier(.3, .6, .4, 1.3) both;
-  }
-  .resultat[data-etat="range"] .tampon { --tampon: var(--ok); }
-  .resultat[data-etat="a-confirmer"] .tampon { --tampon: var(--encre); }
-  .resultat[data-etat="pas-jouable"] .tampon,
-  .resultat[data-etat="mise-a-jour"] .tampon,
-  .resultat[data-etat="contenu-additionnel"] .tampon { --tampon: var(--legende); }
-  @keyframes tamponne {
-    0% { opacity: 0; transform: scale(1.7) rotate(-9deg); }
-    60% { opacity: 1; transform: scale(.94) rotate(-4deg); }
-    100% { transform: scale(1) rotate(-4deg); }
-  }
+     mise à jour, contenu additionnel), corail pour le reste. */
+  .resultat > .etiquette { justify-self: start; border-left-color: var(--alerte); }
+  .resultat[data-etat="range"] > .etiquette { border-left-color: var(--ok); }
+  .resultat[data-etat="a-confirmer"] > .etiquette { border-left-color: var(--encre); }
+  .resultat[data-etat="pas-jouable"] > .etiquette,
+  .resultat[data-etat="mise-a-jour"] > .etiquette,
+  .resultat[data-etat="contenu-additionnel"] > .etiquette { border-left-color: var(--legende); }
 
-  /* ── Le trousseau: qui a la clé du quai ───────────────────────────
-     Une personne par crochet. Sa fiche, à gauche, est en craie: elle
-     prenait une des quatre couleurs de joueur, tirée de son adresse, alors
-     que personne ici n'est à une place. Avec la clé, la fiche est enfoncée
-     dans le quai et pleine; sans, elle pend, creuse. Donner la clé: la fiche s'enfonce, la ligne
-     passe de l'autre côté. Reprendre: la fiche ressort. */
+  /* ── Qui peut déposer ─────────────────────────────────────────────
+     Une ligne par personne: son étiquette tapée, sans couleur de joueur
+     (personne n'y est à une place), une phrase qui dit d'où elle vient, et
+     le bouton qui donne ou retire le droit. Elle passe alors de l'autre
+     côté en glissant. */
   .cles { display: flex; flex-direction: column; gap: 1rem;
           border-top: 2px solid var(--trait); padding-top: 1.2rem; }
   .cles-tete { display: block; }
@@ -180,39 +165,23 @@
   /* En légende et non en trait: c'est du texte, et le trait ne tient que 3:1. */
   .crochets ul:empty::before { content: attr(data-vide); color: var(--legende); font-size: 15px; }
   .personne {
-    display: grid; grid-template-columns: 22px 1fr auto; gap: .9rem; align-items: center;
-    padding: .65rem .9rem .65rem 0; background: var(--plaque); position: relative;
+    display: grid; grid-template-columns: 1fr auto; gap: .9rem; align-items: center;
+    padding: .65rem .9rem; background: var(--plaque); position: relative;
   }
-  /* La fiche: un tenon qui dépasse du bord gauche. Creuse sans clé. */
-  .personne-fiche { justify-self: start; width: 22px; height: 30px; position: relative;
-                    transform: translateX(-6px); transition: transform .32s;
-                    transition-timing-function: cubic-bezier(.3, .7, .4, 1.4); }
-  .personne-fiche::before { content: ""; position: absolute; inset: 0;
-                            border: 3px solid var(--encre); border-left: 0; }
-  .personne-fiche::after { content: ""; position: absolute; inset: 0; background: var(--encre);
-                           opacity: 0; transition: opacity .25s ease-out; }
-  .personne[data-cle="oui"] .personne-fiche { transform: translateX(0); }
-  .personne[data-cle="oui"] .personne-fiche::after { opacity: 1; }
-  .personne-corps { min-width: 0; }
+  .personne-corps { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .2rem; }
   .personne-corps p { margin: 0; }
-  .personne-nom { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+  .personne-nom { font-size: 17px; }
   .personne-adresse { font-family: var(--police-machine); font-size: 13px; color: var(--legende);
                       overflow-wrap: anywhere; }
-  .personne-puces { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .25rem !important; }
-  .puce { font-family: var(--police-machine); font-size: 11px; letter-spacing: .12em;
-          border: 1px solid var(--trait); color: var(--legende); padding: 0 5px; }
-  .puce[data-en-ligne="oui"] { border-color: var(--ok); color: var(--ok); }
-  .personne-geste { display: flex; align-items: center; gap: .6rem; }
+  .personne-phrase { font-size: 15px; color: var(--legende); }
   .personne button {
-    font: 600 15px var(--police-texte); min-height: 40px; padding: .3rem .9rem; white-space: nowrap;
+    font: 400 15px var(--police-titre); min-height: 44px; padding: .3rem .9rem; white-space: nowrap;
     background: transparent; color: var(--encre); border: 2px solid var(--trait);
-    border-radius: 0; cursor: pointer;
+    border-radius: var(--rayon); cursor: pointer;
   }
   .personne button:hover:not(:disabled) { border-color: var(--encre); }
   .personne button:focus-visible { outline: var(--focus-largeur) solid var(--focus); outline-offset: 2px; }
   .personne button:disabled { opacity: .5; cursor: progress; }
-  .personne[data-cle="non"] button { border-color: var(--encre); }
-  .personne .tampon { min-width: 0; font-size: 12px; padding: .15rem .45rem; --tampon: var(--ok); }
   .personne-dit { margin: 0; min-height: 1.5em; font-size: 16px; }
   .personne-dit[data-alerte="oui"] { color: var(--alerte); }
 
@@ -251,11 +220,11 @@
     .resultat { grid-template-columns: 1fr; }
     .trousseau { grid-template-columns: 1fr; }
     .cles-tete { grid-template-columns: 1fr; }
-    .personne { grid-template-columns: 22px 1fr; }
-    .personne-geste { grid-column: 2; }
+    .personne { grid-template-columns: 1fr; }
+    .personne button { justify-self: start; }
   }
   /* Rien ici n'a besoin de bouger pour être compris: la jauge garde sa
-     longueur, le tampon sa place. */
+     longueur, l'étiquette sa place. */
   /* ── Les jaquettes, pour l'administrateur (D13, ADR D45) ───────────── */
   .jaquettes { display: flex; flex-direction: column; gap: .8rem;
                border-top: 2px solid var(--trait); padding-top: 1.2rem; }
@@ -320,14 +289,10 @@
     </section>
 
     <label class="depot" id="depot" for="fichiers" data-survol="non" data-ancre="depot">
-      <span class="depot-mot" data-ancre="depot-mot" data-texte>Lâche tes fichiers ici</span>
-      <span class="depot-sous">ou clique pour les choisir. Les jeux /*__RANGEES__*/ sont rangés
-        tout de suite; mises à jour, contenus additionnels et autres consoles restent de côté,
-        avec la raison.</span>
-      <span class="prises" aria-hidden="true">
-        <span style="--c: var(--joueur-1)"></span><span style="--c: var(--joueur-2)"></span>
-        <span style="--c: var(--joueur-3)"></span><span style="--c: var(--joueur-4)"></span>
-      </span>
+      <span class="depot-mot" id="depot-mot" data-ancre="depot-mot" data-texte>Pose tes fichiers ici, ou</span>
+      <span class="depot-choisir">Choisir des fichiers</span>
+      <span class="depot-sous">Les jeux /*__RANGEES__*/ sont rangés tout de suite; mises à
+        jour, contenus additionnels et autres consoles restent de côté, avec la raison.</span>
       <input type="file" id="fichiers" multiple>
     </label>
 
@@ -343,19 +308,19 @@
         <div>
           <h2 id="cles-titre">Qui peut déposer</h2>
           <p class="cles-sous">Les personnes qui ont accès au salon, d'après le tailnet et
-            les pseudos déjà choisis. Donne la clé du quai à qui doit pouvoir déposer des
-            jeux; tu peux la reprendre quand tu veux.</p>
+            les noms déjà choisis. Donne le droit de déposer à qui doit pouvoir ranger des
+            jeux; tu peux le retirer quand tu veux.</p>
         </div>
       </div>
       <p class="cles-avis" id="cles-avis" hidden></p>
       <div class="trousseau">
         <div class="crochets">
-          <h3>Ont la clé</h3>
+          <h3>Peuvent déposer</h3>
           <ul id="avec-cle" data-vide="Personne d'autre que toi."></ul>
         </div>
         <div class="crochets">
-          <h3>Sans clé</h3>
-          <ul id="sans-cle" data-vide="Tout le monde a la clé."></ul>
+          <h3>Ne peuvent pas</h3>
+          <ul id="sans-cle" data-vide="Tout le monde peut déposer."></ul>
         </div>
       </div>
       <p class="personne-dit" id="cles-dit" role="status" aria-live="polite"></p>
@@ -388,7 +353,7 @@
             <button type="button" data-ici="annuler" hidden>annuler</button>
           </div>
         </div>
-        <p class="estimation" data-ici="estimation"><span class="etiquette">ESTIMATION</span><span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
+        <p class="estimation" data-ici="estimation">Au début du fichier : <span data-ici="nature"></span> <span class="carte-titre" data-ici="titre"></span></p>
         <div class="piste"><span class="barre" data-ici="barre"></span></div>
         <p class="mesures"><span data-ici="compte"></span><span data-ici="debit"></span></p>
         <p class="etat" data-ici="etat" role="status"></p>
@@ -401,16 +366,12 @@
 
   <template id="modele-personne">
     <li class="personne" data-cle="non">
-      <span class="personne-fiche" aria-hidden="true"></span>
       <div class="personne-corps">
-        <p class="personne-nom" data-ici="nom"></p>
+        <span class="etiquette personne-nom" data-ici="nom"></span>
         <p class="personne-adresse" data-ici="adresse"></p>
-        <p class="personne-puces" data-ici="puces"></p>
+        <p class="personne-phrase" data-ici="phrase"></p>
       </div>
-      <div class="personne-geste">
-        <span class="tampon" data-ici="tampon" hidden></span>
-        <button type="button" data-ici="bouton" hidden></button>
-      </div>
+      <button type="button" data-ici="bouton" hidden></button>
     </li>
   </template>
 

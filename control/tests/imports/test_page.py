@@ -19,6 +19,7 @@ import pytest
 from fastapi import FastAPI
 
 from nel3ab_control.api.routes import retro
+from nel3ab_control.api.routes.accueil import regie
 from nel3ab_control.imports.empreinte import empreinte_rapide
 from nel3ab_control.imports.identifier import identifier
 from tests.imports import fabrique as f
@@ -223,76 +224,133 @@ def test_ce_que_la_page_ne_peut_pas_lire_elle_le_laisse_au_serveur(tmp_path: Pat
         )
 
 
-TROUSSEAU = Path(__file__).with_name("trousseau_module.mjs")
+PHRASES = Path(__file__).with_name("phrases_module.mjs")
 
 
-@AVEC_NODE
-def test_le_trousseau_nomme_range_et_colore_chaque_personne_toujours_pareil() -> None:
-    """Les fonctions pures du trousseau, exécutées sous Node comme dans la page."""
-    personnes = [
-        {
-            "login": "alice@github",
-            "nom": "Alice A",
-            "pseudo": None,
-            "sources": ["tailnet"],
-            "appareils": 2,
-            "en_ligne": True,
-            "partage": True,
-            "droit": "aucun",
-        },
-        {
-            "login": "vincent@example.com",
-            "nom": "Vincent L",
-            "pseudo": "Vince",
-            "sources": ["tailnet", "salon"],
-            "appareils": 1,
-            "en_ligne": False,
-            "partage": False,
-            "droit": "nomme",
-        },
-        {
-            "login": "parti@example.com",
-            "nom": "",
-            "pseudo": None,
-            "sources": [],
-            "appareils": 0,
-            "en_ligne": False,
-            "partage": False,
-            "droit": "nomme",
-        },
-        {
-            "login": "config@example.com",
-            "nom": "",
-            "pseudo": None,
-            "sources": [],
-            "appareils": 0,
-            "en_ligne": False,
-            "partage": False,
-            "droit": "configuration",
-        },
-    ]
+def _phrases(entree: dict) -> dict:
+    """Les phrases de la page, exécutées sous Node comme dans la page."""
     assert NODE is not None
     sortie = subprocess.run(  # noqa: S603 - node et un fichier du dépôt, aucun texte du dehors
-        [NODE, str(TROUSSEAU)],
-        input=json.dumps(personnes),
+        [NODE, str(PHRASES)],
+        input=json.dumps(entree),
         capture_output=True,
         text=True,
         check=True,
     )
-    rendus = json.loads(sortie.stdout)
+    return json.loads(sortie.stdout)
+
+
+def _personne(login: str, **champs: object) -> dict:
+    return {
+        "login": login,
+        "nom": "",
+        "pseudo": None,
+        "sources": [],
+        "appareils": 0,
+        "en_ligne": False,
+        "partage": False,
+        "droit": "aucun",
+        **champs,
+    }
+
+
+@AVEC_NODE
+def test_le_trousseau_nomme_chaque_personne_en_phrase_sans_couleur_de_joueur() -> None:
+    """Plan salon, salon-importer#7 : une étiquette au nom de `nomDe`, une
+    phrase au lieu des puces TAILNET ou DÉJÀ VENU, et « Donner le droit » ou
+    « Retirer le droit ». Personne n'y est à une place: aucune couleur de
+    joueur, ni dans la page ni dans le module.
+    """
+    personnes = [
+        _personne(
+            "alice@github",
+            nom="Alice A",
+            sources=["tailnet"],
+            appareils=2,
+            en_ligne=True,
+            partage=True,
+        ),
+        _personne(
+            "vincent@example.com",
+            nom="Vincent L",
+            pseudo="Vince",
+            sources=["tailnet", "salon"],
+            droit="nomme",
+        ),
+        _personne("parti@example.com", droit="nomme"),
+        _personne("config@example.com", droit="configuration"),
+    ]
+    rendus = _phrases({"personnes": personnes})["personnes"]
 
     assert [r["nom"] for r in rendus] == ["Alice A", "Vince", "parti", "config"]
-    assert rendus[0]["puces"] == [
-        ["INVITÉ PAR PARTAGE", False],
-        ["EN LIGNE", True],
-        ["2 APPAREILS", False],
+    assert [r["phrase"] for r in rendus] == [
+        "Arrive par un partage du tailnet, en ligne maintenant, sur 2 appareils.",
+        "Sur le tailnet, a déjà un nom au salon.",
+        "N'est plus sur le tailnet.",
+        "Droit fixé par la configuration du salon.",
     ]
-    assert rendus[1]["puces"] == [["TAILNET", False], ["DÉJÀ VENU", False]]
-    assert rendus[2]["puces"] == [["PLUS SUR LE TAILNET", False]]
-    assert rendus[3]["puces"] == [["CONFIGURATION", False]]
-    assert all(r["prise"] in (1, 2, 3, 4) for r in rendus)
-    assert rendus[0]["prise"] == rendus[0]["prise_encore"], "la même adresse, la même couleur"
+    # Le jumeau du bouton: qui peut déposer se le voit retirer, les autres
+    # se le voient donner, et un droit fixé n'a pas de bouton.
+    assert [r["bouton"] for r in rendus] == [
+        "Donner le droit",
+        "Retirer le droit",
+        "Retirer le droit",
+        None,
+    ]
     assert sorted(rendus, key=lambda r: r["rang"])[0]["nom"] == "config", "la configuration d'abord"
+    assert not any(
+        mot in r["phrase"] for r in rendus for mot in ("TAILNET", "DÉJÀ VENU", "EN LIGNE")
+    )
+
+
+async def test_le_trousseau_et_la_zone_ne_portent_aucune_couleur_de_joueur(
+    client: httpx.AsyncClient,
+) -> None:
+    """Plan salon, salon-importer#4 et #7 : les quatre carrés de la zone et la
+    couleur de prise du trousseau disparaissent. La régie et le paquet d'Aïn,
+    posés dans la page, nomment les couleurs de joueur: on les retire avant
+    de chercher.
+    """
+    page = (await client.get("/importer", headers={})).text
+    propre = page.replace(regie(), "").replace(retro.piece("ain.js"), "")
+    assert "--joueur-" not in propre
+    assert "--prise" not in propre
+    modele = re.search(r'<template id="modele-personne">(.*?)</template>', page, re.S)
+    assert modele
+    assert 'class="etiquette personne-nom"' in modele.group(1)
+    zone = re.search(r'<label class="depot".*?</label>', page, re.S)
+    assert zone
+    assert "Pose tes fichiers ici, ou" in zone.group(0)
+    assert '<span class="depot-choisir">Choisir des fichiers</span>' in zone.group(0)
+
+
+@AVEC_NODE
+async def test_une_carte_dit_ce_qui_est_arrive_et_ce_que_tu_peux_faire(
+    client: httpx.AsyncClient,
+) -> None:
+    """Plan salon, salon-importer#5 : plus de tampon « ESTIMATION » ni de mot
+    « interrompu » ; un envoi arrêté dit où il s'est arrêté et comment
+    reprendre, un envoi en erreur le dit en alerte, avec la réparation.
+    """
+    page = (await client.get("/importer", headers={})).text
+    modele = re.search(r'<template id="modele-carte">(.*?)</template>', page, re.S)
+    assert modele
+    assert "ESTIMATION" not in modele.group(1)
+    assert "tampon" not in modele.group(1)
+    assert '"interrompu"' not in page
+    envois = [
+        {"etat": "envoi", "nom": "x.iso", "taille": 100, "decalage": 27},
+        {"etat": "erreur", "nom": "y.iso", "message": "L'empreinte ne correspond pas."},
+        {"etat": "erreur", "nom": "z.iso", "message": ""},
+    ]
+    arrete, rate, muet = _phrases({"envois": envois})["envois"]
+    assert arrete == {"texte": "Arrêté à 27 %. Redépose « x.iso » pour reprendre.", "alerte": False}
+    assert rate["alerte"] is True
+    assert rate["texte"] == (
+        "L'empreinte ne correspond pas. Retire-le, puis redépose « y.iso » pour réessayer."
+    )
+    assert muet["alerte"] is True
+    assert muet["texte"].startswith("La vérification a échoué. ")
 
 
 # ── Les noms des consoles et ce qui se range, venus du manifeste ──────────────

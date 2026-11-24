@@ -45,6 +45,7 @@ export async function demarrerSalon({ port, pages = null }) {
       carnet: null,
       catalogue: null,
       imports: [],
+      importeurs: null,
     });
     envois.length = 0;
   };
@@ -91,6 +92,17 @@ export async function demarrerSalon({ port, pages = null }) {
         return etat.carnet?.[cle] !== undefined ? json(res, 200, etat.carnet[cle]) : json(res, 401, { detail: "banc" });
       }
       if (chemin === "/api/imports/droits") return json(res, 200, etat.droits);
+      // Le trousseau de l'administrateur: la liste, puis donner (PUT) ou
+      // retirer (DELETE) le droit d'une personne, qui revient changée.
+      if (chemin === "/api/importeurs" && etat.importeurs) return json(res, 200, etat.importeurs);
+      if (chemin.startsWith("/api/importeurs/") && etat.importeurs && (req.method === "PUT" || req.method === "DELETE")) {
+        const login = decodeURIComponent(chemin.slice("/api/importeurs/".length));
+        const personne = etat.importeurs.personnes.find((p) => p.login === login);
+        if (!personne) return json(res, 404, { detail: "inconnue du banc" });
+        personne.droit = req.method === "PUT" ? "nomme" : "aucun";
+        envois.push({ importeur: login, methode: req.method });
+        return json(res, 200, personne);
+      }
       // Les envois d'avant le chargement de la page de dépôt.
       if (chemin === "/api/imports" && req.method === "GET") return json(res, 200, etat.imports);
       if (chemin === "/api/catalogue") return etat.catalogue ? json(res, 200, etat.catalogue) : json(res, 404, { detail: "banc" });

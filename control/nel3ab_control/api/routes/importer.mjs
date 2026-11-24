@@ -332,9 +332,8 @@ function envoyerMorceau(url, corps, progres) {
 }
 
 class Carte {
-  constructor(liste, modele, rang) {
+  constructor(liste, modele) {
     this.noeud = modele.content.firstElementChild.cloneNode(true);
-    this.noeud.style.setProperty("--joueur", `var(--joueur-${(rang % 4) + 1})`);
     this.ici = (cle) => this.noeud.querySelector(`[data-ici="${cle}"]`);
     liste.prepend(this.noeud);
     this.fichier = null;
@@ -551,15 +550,10 @@ class Carte {
     this.ici("estimation").hidden = true;
     this.boutons({ annuler: true });
     this.ici("annuler").textContent = "retirer";
-    if (envoi.etat === "erreur") {
-      this.pose("rate");
-      return this.dire(envoi.message || "la vérification a échoué", true);
-    }
-    if (envoi.etat === "envoi") {
-      this.pose("pause");
-      this.ici("estimation").hidden = false;
-      this.ici("nature").textContent = "interrompu";
-      return this.dire(`Arrêté à ${Math.floor((envoi.decalage / envoi.taille) * 100)} %. Redépose « ${envoi.nom} » pour reprendre.`);
+    if (envoi.etat === "erreur" || envoi.etat === "envoi") {
+      this.pose(envoi.etat === "erreur" ? "rate" : "pause");
+      const { texte, alerte } = phraseEnvoi(envoi);
+      return this.dire(texte, alerte);
     }
     const resultats = this.ici("resultats");
     resultats.replaceChildren();
@@ -625,14 +619,29 @@ class Carte {
   }
 }
 
-/** Une ligne de résultat: le tampon de la console, l'état, et ce qui suit. */
+/**
+ * La phrase d'un envoi qui ne s'est pas fini: ce qui est arrivé, puis ce que
+ * tu peux faire. Un envoi coupé reprend où il en était quand on redépose le
+ * même fichier; une vérification ratée se répare en redéposant. Plus de
+ * tampon « ESTIMATION » ni de mot « interrompu » (plan salon, #5).
+ */
+export function phraseEnvoi(envoi) {
+  if (envoi.etat === "envoi") {
+    const pourcent = envoi.taille ? Math.floor((envoi.decalage / envoi.taille) * 100) : 0;
+    return { texte: `Arrêté à ${pourcent} %. Redépose « ${envoi.nom} » pour reprendre.`, alerte: false };
+  }
+  const raison = (envoi.message || "La vérification a échoué").replace(/[.\s]+$/, "");
+  return { texte: `${raison}. Retire-le, puis redépose « ${envoi.nom} » pour réessayer.`, alerte: true };
+}
+
+/** Une ligne de résultat: l'étiquette de la console, l'état, et ce qui suit. */
 function resultat(element) {
   const ligne = document.createElement("div");
   ligne.className = "resultat";
   ligne.dataset.etat = element.etat;
-  const tampon = document.createElement("span");
-  tampon.className = "tampon";
-  tampon.textContent = element.console ? element.console_libelle : element.format === "inconnu" ? "?" : element.format.toUpperCase();
+  const etiquette = document.createElement("span");
+  etiquette.className = "etiquette";
+  etiquette.textContent = element.console ? element.console_libelle : element.format === "inconnu" ? "?" : element.format.toUpperCase();
   const corps = document.createElement("div");
   const haut = document.createElement("p");
   haut.className = "resultat-etat";
@@ -647,7 +656,7 @@ function resultat(element) {
   preuve.className = "resultat-preuve";
   preuve.textContent = [element.nom, element.preuve].filter(Boolean).join(" · ");
   corps.append(haut, bas, preuve);
-  ligne.append(tampon, corps);
+  ligne.append(etiquette, corps);
   return ligne;
 }
 
@@ -655,32 +664,38 @@ function resultat(element) {
 
 const CLES = "/api/importeurs";
 
-/** Une des quatre couleurs de prise, tirée de l'adresse: toujours la même. */
-export function priseDe(login) {
-  let h = 0;
-  for (const c of login) h = (h * 31 + c.codePointAt(0)) >>> 0;
-  return (h % 4) + 1;
-}
-
 /** Le nom qu'on montre: le pseudo du salon, puis celui du fournisseur, puis l'adresse. */
 export function nomDe(personne) {
   return personne.pseudo || personne.nom || personne.login.split("@")[0];
 }
 
-/** Les petites étiquettes sous le nom, dans l'ordre où on les lit. */
-export function pucesDe(personne) {
-  const puces = [];
-  if (personne.droit === "configuration") puces.push(["CONFIGURATION", false]);
+/**
+ * Ce qu'on sait d'une personne, en une phrase, dans l'ordre où on le lit. Les
+ * puces TAILNET, DÉJÀ VENU ou EN LIGNE d'avant deviennent des mots.
+ */
+export function phraseDe(personne) {
+  const morceaux = [];
+  if (personne.droit === "administrateur") morceaux.push("administrateur du salon");
+  if (personne.droit === "configuration") morceaux.push("droit fixé par la configuration du salon");
   if (personne.sources.includes("tailnet")) {
-    puces.push([personne.partage ? "INVITÉ PAR PARTAGE" : "TAILNET", false]);
+    morceaux.push(personne.partage ? "arrive par un partage du tailnet" : "sur le tailnet");
   }
-  if (personne.sources.includes("salon")) puces.push(["DÉJÀ VENU", false]);
-  if (personne.en_ligne) puces.push(["EN LIGNE", true]);
-  if (personne.appareils > 1) puces.push([`${personne.appareils} APPAREILS`, false]);
+  if (personne.sources.includes("salon")) morceaux.push("a déjà un nom au salon");
+  if (personne.en_ligne) morceaux.push("en ligne maintenant");
+  if (personne.appareils > 1) morceaux.push(`sur ${personne.appareils} appareils`);
   if (personne.sources.length === 0 && personne.droit === "nomme") {
-    puces.push(["PLUS SUR LE TAILNET", false]);
+    morceaux.push("n'est plus sur le tailnet");
   }
-  return puces;
+  if (morceaux.length === 0) return "";
+  const phrase = morceaux.join(", ");
+  return `${phrase[0].toLocaleUpperCase("fr")}${phrase.slice(1)}.`;
+}
+
+/** Le bouton d'une personne: donner ou retirer le droit, ou rien. */
+export function boutonDe(personne) {
+  if (personne.droit === "nomme") return "Retirer le droit";
+  if (personne.droit === "aucun") return "Donner le droit";
+  return null;
 }
 
 /** Le rang d'une ligne dans sa colonne: même ordre que le serveur. */
@@ -750,7 +765,6 @@ class Trousseau {
 
   poser(personne) {
     const li = this.modele.content.firstElementChild.cloneNode(true);
-    li.style.setProperty("--prise", `var(--joueur-${priseDe(personne.login)})`);
     li.querySelector('[data-ici="bouton"]').addEventListener("click", () => this.basculer(li));
     this.lignes.set(personne.login, li);
     this.remplir(li, personne);
@@ -767,29 +781,13 @@ class Trousseau {
     li.dataset.cle = personne.droit === "aucun" ? "non" : "oui";
     li.querySelector('[data-ici="nom"]').textContent = nomDe(personne);
     li.querySelector('[data-ici="adresse"]').textContent = personne.login;
-    const puces = li.querySelector('[data-ici="puces"]');
-    puces.replaceChildren(
-      ...pucesDe(personne).map(([mot, vert]) => {
-        const span = document.createElement("span");
-        span.className = "puce";
-        span.textContent = mot;
-        if (vert) span.dataset.enLigne = "oui";
-        return span;
-      }),
-    );
-    const tampon = li.querySelector('[data-ici="tampon"]');
+    li.querySelector('[data-ici="phrase"]').textContent = phraseDe(personne);
     const bouton = li.querySelector('[data-ici="bouton"]');
-    const mots = { administrateur: "ADMIN", configuration: "FIXÉ", nomme: "CLÉ" };
-    tampon.textContent = mots[personne.droit] ?? "";
-    tampon.hidden = personne.droit === "aucun";
-    const modifiable = personne.droit === "nomme" || personne.droit === "aucun";
-    bouton.hidden = !modifiable;
+    const geste = boutonDe(personne);
+    bouton.hidden = geste === null;
     bouton.disabled = !this.ecrire;
-    bouton.textContent = personne.droit === "nomme" ? "reprendre la clé" : "donner la clé";
-    bouton.setAttribute(
-      "aria-label",
-      `${bouton.textContent} à ${nomDe(personne)} (${personne.login})`,
-    );
+    bouton.textContent = geste ?? "";
+    bouton.setAttribute("aria-label", `${geste ?? ""} à ${nomDe(personne)} (${personne.login})`);
   }
 
   async basculer(li) {
@@ -1034,7 +1032,6 @@ async function demarrerPage() {
   const zone = document.getElementById("depot");
   const entree = document.getElementById("fichiers");
   const refus = document.getElementById("refus");
-  let rang = 0;
 
   const droits = await fetch(`${API}/droits`, { cache: "no-store" }).then(lireJson);
   if (!droits.peut_importer) {
@@ -1050,11 +1047,10 @@ async function demarrerPage() {
 
   const deposer = (fichiers) => {
     for (const fichier of fichiers) {
-      const carte = new Carte(liste, modele, rang);
-      rang += 1;
+      const carte = new Carte(liste, modele);
       carte.demarrer(fichier).catch((erreur) => {
         carte.pose("rate");
-        carte.dire(`échec: ${erreur.message}`, true);
+        carte.dire(`L'envoi a échoué (${erreur.message}). Redépose « ${fichier.name} » pour reprendre.`, true);
       });
     }
   };
@@ -1062,17 +1058,24 @@ async function demarrerPage() {
     deposer([...entree.files]);
     entree.value = "";
   });
+  // Au survol d'un glisser, la zone dit ce qui arrivera au lâcher.
+  const motDeZone = document.getElementById("depot-mot");
+  const auRepos = motDeZone.textContent;
+  const survol = (oui) => {
+    zone.dataset.survol = oui ? "oui" : "non";
+    motDeZone.textContent = oui ? "Lâche-les : ils se rangent dès qu'ils sont lus." : auRepos;
+  };
   for (const type of ["dragenter", "dragover"]) {
     zone.addEventListener(type, (e) => {
       e.preventDefault();
-      zone.dataset.survol = "oui";
+      if (zone.dataset.survol !== "oui") survol(true);
     });
   }
   for (const type of ["dragleave", "drop"]) {
     zone.addEventListener(type, (e) => {
       e.preventDefault();
       if (type === "dragleave" && zone.contains(e.relatedTarget)) return;
-      zone.dataset.survol = "non";
+      survol(false);
     });
   }
   zone.addEventListener("drop", (e) => deposer([...(e.dataTransfer?.files ?? [])]));
@@ -1091,8 +1094,7 @@ async function demarrerPage() {
     setTimeout(() => remplirRayon(rayon, pile).catch(() => {}), 1200);
   });
   for (const envoi of anciens) {
-    const carte = new Carte(liste, modele, rang);
-    rang += 1;
+    const carte = new Carte(liste, modele);
     carte.montrer(envoi);
     if (envoi.etat === "envoi") fantomes.set(envoi.id, carte);
     if (envoi.etat === "verification") carte.suivre();

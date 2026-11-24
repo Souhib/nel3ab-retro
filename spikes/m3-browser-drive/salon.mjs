@@ -412,6 +412,90 @@ ETAPES.depot = async () => {
   }
 };
 
+/** La zone de dépôt (plan salon, salon-importer#4) : « Choisir des fichiers »
+ * est le seul plein au repos, sans les quatre carrés de couleur de joueur, et
+ * un glisser au-dessus dit ce qui arrivera au lâcher. Le jumeau : il sort, et
+ * la zone reprend sa phrase. */
+ETAPES["depot-zone"] = async () => {
+  const page = await nouvelle(PC, { reglage: { droits: { peut_importer: true } }, chemin: "/importer" });
+  await page.waitForFunction(() => document.getElementById("depot") !== null && document.getElementById("refus").hidden, { timeout: 5000 })
+    .catch(() => { throw new Precondition("la page de dépôt ne s'ouvre pas sur le banc"); });
+  await sleep(300);
+  const pleins = await pleinsVisibles(page);
+  defaut(pleins.length === 1 && pleins[0] === "depot-choisir", `pleins au repos du dépôt: ${pleins}`);
+  const couleurs = await page.evaluate(() => [...document.querySelectorAll("#depot *")]
+    .filter((el) => /--joueur-/.test(el.getAttribute("style") ?? "")).length);
+  defaut(couleurs === 0, `${couleurs} carrés de couleur de joueur dans la zone`);
+  const mot = () => page.$eval("#depot [data-ancre=depot-mot]", (e) => e.textContent.trim());
+  await page.evaluate(() => {
+    const zone = document.getElementById("depot");
+    zone.dispatchEvent(new DragEvent("dragenter", { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }));
+  });
+  const survole = await mot();
+  defaut(survole === "Lâche-les : ils se rangent dès qu'ils sont lus.", `au survol, la zone dit « ${survole} »`);
+  await page.evaluate(() => {
+    const zone = document.getElementById("depot");
+    zone.dispatchEvent(new DragEvent("dragleave", { bubbles: true, cancelable: true, relatedTarget: document.body }));
+  });
+  const repos = await mot();
+  defaut(repos === "Pose tes fichiers ici, ou", `après le glisser, la zone dit « ${repos} »`);
+  await page.close();
+};
+
+/** Qui peut déposer (plan salon, salon-importer#7) : une étiquette tapée par
+ * personne, sans couleur de joueur, une phrase, et « Retirer le droit » qui
+ * passe la personne dans « Ne peuvent pas » avec « Donner le droit ». */
+ETAPES.trousseau = async () => {
+  const personne = (login, champs) => ({ login, nom: "", pseudo: null, sources: ["tailnet"], appareils: 1,
+    en_ligne: false, partage: false, droit: "aucun", ...champs });
+  const page = await nouvelle(PC, {
+    chemin: "/importer",
+    reglage: {
+      droits: { peut_importer: true, administrateur: true },
+      importeurs: { tailnet: true, registre_lisible: true, personnes: [
+        personne("souhib@exemple", { pseudo: "Souhib", droit: "administrateur" }),
+        personne("vince@exemple", { pseudo: "Vince", sources: ["tailnet", "salon"], droit: "nomme" }),
+        personne("alice@exemple", { nom: "Alice A", en_ligne: true }),
+      ] },
+    },
+  });
+  await page.waitForFunction(() => !document.getElementById("cles").hidden, { timeout: 5000 })
+    .catch(() => { throw new Precondition("le trousseau ne s'ouvre pas à l'administrateur"); });
+  const lignes = () => page.evaluate(() => Object.fromEntries(["avec-cle", "sans-cle"].map((id) => [id,
+    [...document.querySelectorAll(`#${id} .personne`)].map((li) => ({
+      nom: li.querySelector(".etiquette")?.textContent ?? null,
+      phrase: li.querySelector("[data-ici=phrase]")?.textContent ?? "",
+      bouton: li.querySelector("button:not([hidden])")?.textContent ?? null,
+      liseré: li.querySelector(".etiquette") ? getComputedStyle(li.querySelector(".etiquette")).borderLeftColor : null,
+      style: li.getAttribute("style") ?? "",
+    }))])));
+  const avant = await lignes();
+  const trait = await page.evaluate(() => {
+    const sonde = document.createElement("i");
+    sonde.style.color = "var(--trait)";
+    document.body.append(sonde);
+    const c = getComputedStyle(sonde).color;
+    sonde.remove();
+    return c;
+  });
+  const toutes = [...avant["avec-cle"], ...avant["sans-cle"]];
+  defaut(toutes.map((l) => l.nom).join("|") === "Souhib|Vince|Alice A", `étiquettes du trousseau: ${JSON.stringify(toutes)}`);
+  defaut(toutes.every((l) => l.liseré === trait && !l.style.includes("joueur")), `une couleur de joueur au trousseau: ${JSON.stringify(toutes)}`);
+  defaut(toutes.every((l) => !/TAILNET|DÉJÀ VENU|EN LIGNE/.test(l.phrase) && l.phrase.endsWith(".")), `phrases: ${JSON.stringify(toutes)}`);
+  const vince = avant["avec-cle"].find((l) => l.nom === "Vince");
+  defaut(vince?.bouton === "Retirer le droit", `le bouton de Vince: ${vince?.bouton}`);
+  await page.click('#avec-cle button[aria-label^="Retirer le droit à Vince"]');
+  await page.waitForFunction(() => [...document.querySelectorAll("#sans-cle .etiquette")].some((e) => e.textContent === "Vince"), { timeout: 3000 })
+    .catch(() => { throw new Defaut("Vince ne passe pas dans « Ne peuvent pas »"); });
+  const apres = await lignes();
+  const vinceApres = apres["sans-cle"].find((l) => l.nom === "Vince");
+  defaut(vinceApres?.bouton === "Donner le droit", `après le retrait, le bouton de Vince: ${vinceApres?.bouton}`);
+  const titres = await page.$$eval("#cles h3", (hs) => hs.map((h) => h.textContent));
+  defaut(titres.join("|") === "Peuvent déposer|Ne peuvent pas", `colonnes: ${titres}`);
+  defaut(JSON.stringify(banc.envois) === JSON.stringify([{ importeur: "vince@exemple", methode: "DELETE" }]), `envois: ${JSON.stringify(banc.envois)}`);
+  await page.close();
+};
+
 /** Le niveau d'effets de l'appareil, posé avant le script de la page. */
 const niveau = (n) => `localStorage.setItem("nel3ab:effets", ${JSON.stringify(JSON.stringify({ niveau: n, sons: false }))})`;
 const scene = (page) => page.evaluate(() =>

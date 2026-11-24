@@ -4,13 +4,7 @@
  * jumeau : une flèche qui ne bouge pas doit aussi savoir bouger.
  */
 import { describe, expect, it } from "vitest";
-import {
-  MANETTES,
-  miseEnPage,
-  SANS_ZONES,
-  type Entree,
-  type Rect,
-} from "./cadre";
+import { MANETTES, miseEnPage, SANS_ZONES, type Entree, type Rect } from "./cadre";
 import {
   AIDE_MAX,
   aidesTropLongues,
@@ -68,11 +62,9 @@ describe("la forme d'une ligne", () => {
       annuler: "Revenir",
       onAgir: () => {},
     };
-    expect(
-      formeDe(
-        ligne({ fiche, picks: [{ id: "a", label: "a" }], onEnter: () => {} }),
-      ),
-    ).toBe("fiche");
+    expect(formeDe(ligne({ fiche, picks: [{ id: "a", label: "a" }], onEnter: () => {} }))).toBe(
+      "fiche",
+    );
   });
 });
 
@@ -104,9 +96,7 @@ describe("les aides (M8)", () => {
   });
 
   it("refusent une aide de 70 caractères", () => {
-    expect(aidesTropLongues([rubrique("a".repeat(AIDE_MAX))])).toEqual([
-      "salle/l",
-    ]);
+    expect(aidesTropLongues([rubrique("a".repeat(AIDE_MAX))])).toEqual(["salle/l"]);
   });
 
   it("le jumeau : acceptent une aide de 69 caractères", () => {
@@ -190,8 +180,7 @@ describe("la place du menu (M2)", () => {
         });
         const geo = miseEnPage(e);
         const place = placeDuMenu(geo, fenetre, SANS_ZONES);
-        if (place.lieu === "colonne")
-          throw new Error("tenu en main, pas de colonne");
+        if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
         expect(place.surImage).toBe(false);
         expect(coupe(place.rect, geo.image!)).toBe(0);
         expect(place.rect.y + place.rect.h).toBe(fenetre.height);
@@ -203,12 +192,9 @@ describe("la place du menu (M2)", () => {
   it("garde les zones sûres d'un téléphone", () => {
     const zones = { haut: 47, droite: 0, bas: 34, gauche: 0 };
     const fenetre = { width: 390, height: 844 };
-    const geo = miseEnPage(
-      entree({ mode: "portrait", fenetre, zonesSures: zones }),
-    );
+    const geo = miseEnPage(entree({ mode: "portrait", fenetre, zonesSures: zones }));
     const place = placeDuMenu(geo, fenetre, zones);
-    if (place.lieu === "colonne")
-      throw new Error("tenu en main, pas de colonne");
+    if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
     expect(place.rect.y + place.rect.h).toBe(fenetre.height - zones.bas);
   });
 
@@ -217,8 +203,7 @@ describe("la place du menu (M2)", () => {
     for (const manette of [MANETTES.dolphin, null]) {
       const geo = miseEnPage(entree({ mode: "paysage", fenetre, manette }));
       const place = placeDuMenu(geo, fenetre, SANS_ZONES);
-      if (place.lieu === "colonne")
-        throw new Error("tenu en main, pas de colonne");
+      if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
       expect(place.surImage).toBe(false);
       expect(place.rect.w).toBeGreaterThanOrEqual(BANDE_MIN);
       expect(coupe(place.rect, geo.image!)).toBe(0);
@@ -233,8 +218,7 @@ describe("la place du menu (M2)", () => {
       entree({ mode: "paysage", fenetre, image: { width: 1280, height: 720 } }),
     );
     const place = placeDuMenu(geo, fenetre, SANS_ZONES);
-    if (place.lieu === "colonne")
-      throw new Error("tenu en main, pas de colonne");
+    if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
     expect(place.surImage).toBe(true);
     expect(coupe(place.rect, geo.image!)).toBeGreaterThan(0);
   });

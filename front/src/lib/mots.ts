@@ -840,3 +840,45 @@ export const REGLAGE = {
 } as const;
 
 // ==== fin manettes ====
+
+// ==== chantier menus ====
+
+/** Le menu unique de la salle (chantier menus, 24 novembre 2026) : quatre
+ * rubriques en onglets, nommées en casse de phrase (M5). Les capitales
+ * d'arcade, quand le niveau les veut, viennent du CSS. */
+export const MENU = {
+  /** Le nom du menu pour un lecteur d'écran : celui du rang qui l'ouvre. */
+  nom: "Menu du jeu",
+  rubriques: {
+    jeux: "Jeux",
+    manettes: "Manettes",
+    salle: "Salle",
+    reglages: "Réglages",
+  },
+  /** Ce que deviennent tes touches, en tête du menu (M3a). */
+  tesTouches: "Le jeu continue pour les autres. Tes touches pilotent ce menu.",
+  /** Le même, pour qui regarde : il n'a rien à piloter. */
+  regarde: "L'image continue, pour toi comme pour les autres.",
+  /** Les groupes de Réglages (M7a). */
+  groupes: {
+    image: "Image et son",
+    appareil: "Cet appareil",
+    avances: "Réglages avancés",
+  },
+  /** Une ligne sans aide encore n'est pas vide pour autant : elle se lit. */
+  aucuneLigne: "Rien ici pour l'instant.",
+  /** Le pied, nommé pour un lecteur d'écran. */
+  pied: "Touches du menu",
+} as const;
+
+/** La fiche d'une décision, dans le menu (M10, M15) : elle dit ce que le
+ * geste fait, et un bouton revient sans rien faire. */
+export const FICHE = {
+  revenir: "Revenir à la liste",
+  continuer: "Continuer à jouer",
+  lancer: "Lancer",
+  /** Le nom de la liste des sauvegardes d'une fiche. */
+  sauvegarde: "Sauvegarde",
+} as const;
+
+// ==== fin menus ====

@@ -82,8 +82,7 @@ export type Rubrique = { id: IdRubrique; label: string; lignes: Ligne[] };
 
 /** Ce qu'une ligne dessine. Une décision l'emporte sur tout le reste : une
  * ligne qui ouvre une fiche n'agit jamais d'un seul geste. */
-export type Forme =
-  "fiche" | "choix" | "glissiere" | "bascule" | "depli" | "action";
+export type Forme = "fiche" | "choix" | "glissiere" | "bascule" | "depli" | "action";
 
 export function formeDe(ligne: Ligne): Forme {
   if (ligne.fiche) return "fiche";
@@ -96,9 +95,7 @@ export function formeDe(ligne: Ligne): Forme {
 
 /** Les lignes par groupe, dans leur ordre. Un groupe qui revient après un
  * autre forme un second bloc plutôt que de déplacer ses lignes. */
-export function enGroupes(
-  lignes: readonly Ligne[],
-): { group: string | null; lignes: Ligne[] }[] {
+export function enGroupes(lignes: readonly Ligne[]): { group: string | null; lignes: Ligne[] }[] {
   const blocs: { group: string | null; lignes: Ligne[] }[] = [];
   for (const ligne of lignes) {
     const group = ligne.group ?? null;
@@ -110,14 +107,9 @@ export function enGroupes(
 }
 
 /** Les aides trop longues pour se lire d'un coup d'œil (M8). */
-export function aidesTropLongues(
-  rubriques: readonly Rubrique[],
-  max = AIDE_MAX,
-): string[] {
+export function aidesTropLongues(rubriques: readonly Rubrique[], max = AIDE_MAX): string[] {
   return rubriques.flatMap((r) =>
-    r.lignes
-      .filter((l) => (l.hint ?? "").length >= max)
-      .map((l) => `${r.id}/${l.id}`),
+    r.lignes.filter((l) => (l.hint ?? "").length >= max).map((l) => `${r.id}/${l.id}`),
   );
 }
 
@@ -133,12 +125,10 @@ export type Sous = "onglet" | "ligne" | "choix" | "glissiere" | "ailleurs";
 export type Pas = { vers: "ligne" | "rubrique"; sens: 1 | -1 } | null;
 
 export function pas(geste: Geste, sous: Sous): Pas {
-  if (sous === "choix" || sous === "glissiere" || sous === "ailleurs")
-    return null;
+  if (sous === "choix" || sous === "glissiere" || sous === "ailleurs") return null;
   if (geste === "gauche" || geste === "droite")
     return { vers: "rubrique", sens: geste === "droite" ? 1 : -1 };
-  if (sous === "onglet")
-    return geste === "bas" ? { vers: "ligne", sens: 1 } : null;
+  if (sous === "onglet") return geste === "bas" ? { vers: "ligne", sens: 1 } : null;
   return { vers: "ligne", sens: geste === "bas" ? 1 : -1 };
 }
 
@@ -174,8 +164,7 @@ export function placeDuMenu(
   fenetre: { width: number; height: number },
   zones: ZonesSures,
 ): PlaceDuMenu {
-  if (geo.mode === "bureau" || geo.mode === "etroit")
-    return { lieu: "colonne" };
+  if (geo.mode === "bureau" || geo.mode === "etroit") return { lieu: "colonne" };
   const bas = fenetre.height - zones.bas;
   if (geo.mode === "portrait") {
     const haut = geo.ecran

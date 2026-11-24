@@ -14,7 +14,8 @@ const SALON = process.argv[2] ?? "http://127.0.0.1:8200/";
 let browser;
 try {
   const attendu = await fetch(new URL("api/salles", SALON)).then(r => r.json());
-  const ouvertes = attendu.filter(salle => salle.ouverte);
+  // Une salle qui redémarre garde sa borne (audit P10, 24 novembre 2026).
+  const ouvertes = attendu.filter(salle => salle.ouverte || salle.redemarre);
 
   browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
   const page = await browser.newPage();
@@ -24,13 +25,14 @@ try {
     { timeout: 15_000 },
   );
 
-  // La carte n'est plus un lien entier: elle porte « Rejoindre » et
-  // « Regarder », qui entrent directement (audit P13, 22 novembre 2026).
+  // Une borne par salle: quatre START, dont les places libres sont des liens
+  // `?entrer=jouer&place=K`, et « Regarder » (ADR D41, 24 novembre 2026).
   const cartes = await page.$$eval("article.salle", elements =>
     elements.map(element => ({
       texte: element.innerText,
-      href: element.querySelector("a.regarder")?.getAttribute("href")?.replace(/\?.*$/, "") ?? null,
-      rejoindre: element.querySelector("a.rejoindre")?.getAttribute("href") ?? null,
+      href: `/r/${element.dataset.salle}/`,
+      places: [...element.querySelectorAll("a.start")].map(a => a.getAttribute("href")),
+      etat: element.dataset.etat,
     })));
 
   assert.equal(cartes.length, ouvertes.length,
@@ -44,8 +46,12 @@ try {
     for (const salle of ouvertes) {
       const carte = cartes.find(c => c.href === salle.chemin);
       assert.ok(carte, `aucune carte ne mène à ${salle.chemin}`);
-      assert.match(carte.texte, new RegExp(`salle ${salle.numero}`),
+      assert.match(carte.texte, new RegExp(`Salle ${salle.numero}`, "i"),
         "la carte ne nomme pas sa salle");
+      if (carte.etat !== "ouverte") {
+        assert.deepEqual(carte.places, [], `une salle ${carte.etat} propose une place`);
+        continue;
+      }
       // Le jeu EN TOUTES LETTRES: une pastille de couleur ne se lit ni de loin
       // ni pour qui distingue mal les couleurs.
       if (salle.jeu) {
@@ -59,31 +65,28 @@ try {
       // annonce « DEPUIS 0 MIN » fait passer une absence pour une mesure. Les
       // deux branches sont vérifiées, sinon la moitié muette ne prouve rien.
       if (salle.ouverte_depuis == null) {
-        assert.doesNotMatch(carte.texte, /EN ANTENNE/,
+        assert.doesNotMatch(carte.texte, /ouverte depuis/i,
           `la carte invente une ancienneté que le salon ne donne pas: ${carte.texte}`);
       } else {
-        assert.match(carte.texte, /EN ANTENNE DEPUIS (?:MOINS DE 1 MIN|\d+ MIN|\d+H\d\d)/,
+        assert.match(carte.texte, /ouverte depuis (?:moins d'une minute|\d+ min|\d+ h \d\d)/i,
           `la carte ne dit pas depuis quand la salle tourne: ${carte.texte}`);
       }
-      assert.equal(carte.rejoindre, `${salle.chemin}?entrer=jouer`,
-        `« Rejoindre » ne mène pas dans la salle: ${carte.rejoindre}`);
-      if (salle.places == null) {
-        assert.doesNotMatch(carte.texte, /PLACES? LIBRE/,
-          `la carte invente des places libres: ${carte.texte}`);
-      } else {
-        const pluriel = salle.places > 1 ? "S" : "";
-        const attenduPlaces = `${salle.places} PLACE${pluriel} LIBRE${pluriel}`;
-        assert.ok(carte.texte.includes(attenduPlaces),
-          `la carte ne dit pas « ${attenduPlaces} »: ${carte.texte}`);
+      for (const lien of carte.places) {
+        assert.match(lien, new RegExp(`^${salle.chemin}\\?entrer=jouer&place=[1-4]$`),
+          `une place ne mène pas dans la salle: ${lien}`);
+      }
+      if (salle.sieges == null && salle.places !== 4) {
+        assert.deepEqual(carte.places, [], `la carte invente des places libres: ${carte.texte}`);
       }
     }
   }
 
-  const bouton = await page.$eval("#ouvrir", element => ({
-    texte: element.innerText, eteint: element.disabled,
-  }));
-  assert.equal(bouton.eteint, ouvertes.length === attendu.length,
-    "le bouton d'ouverture ne reflète pas les places restantes");
+  // Ouvrir: le bouton du panneau à zéro salle, sinon un par emplacement éteint.
+  const ouvrir = await page.$$eval("[data-ouvrir]", elements => elements.length);
+  const panneau = await page.$eval("#ouvrir", element => !element.hidden);
+  if (ouvertes.length === 0) assert.ok(panneau, "rien ne tourne et « Ouvrir une salle » est caché");
+  else assert.equal(ouvrir, attendu.length - ouvertes.length,
+    "chaque emplacement éteint doit proposer de s'ouvrir, et lui seul");
 
   // Le retour d'une salle fermée. Le proxy y renvoie avec la raison dans
   // l'adresse, parce qu'une salle qui se ferme comme prévu ne doit pas se

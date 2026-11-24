@@ -42,7 +42,7 @@ def test_l_accueil_n_est_pas_dans_le_contrat(app: FastAPI) -> None:
     assert "/" not in app.openapi()["paths"]
 
 
-# ── La liste ne parle que quand elle change ───────────────────────────────
+# ── La rangée de bornes, lue dans la vraie page ───────────────────────────
 
 RACINE = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
@@ -55,30 +55,67 @@ AVEC_JSDOM = pytest.mark.skipif(
 RUNNER = Path(__file__).with_name("accueil_module.mjs")
 
 
-def salles(depuis: int, jeu: str = "Mario Kart Wii", deux_ouverte: bool = False) -> list[dict]:
-    """Ce que `/api/salles` répond: la salle 1 ouverte, la 2 selon le tour."""
-    return [
-        {
-            "numero": 1,
-            "ouverte": True,
-            "chemin": "/r/1/",
-            "jeu": jeu,
-            "switch": False,
-            "gens": ["un joueur"],
-            "ouverte_depuis": depuis,
-            "places": 3,
-        },
-        {
-            "numero": 2,
-            "ouverte": deux_ouverte,
-            "chemin": "/r/2/",
-            "jeu": None,
-            "switch": False,
-            "gens": [],
-            "ouverte_depuis": 12 if deux_ouverte else None,
-            "places": 4 if deux_ouverte else None,
-        },
-    ]
+def siege(port: int, nom: str | None, tenu: bool | None = None) -> dict:
+    """Une manette telle que `/api/salles` la rend."""
+    return {"port": port, "nom": nom, "tenu": bool(nom) if tenu is None else tenu}
+
+
+def salle(numero: int, **champs: object) -> dict:
+    """Une salle de `/api/salles`: fermée par défaut, les champs donnés par-dessus."""
+    base: dict = {
+        "numero": numero,
+        "ouverte": False,
+        "redemarre": False,
+        "chemin": f"/r/{numero}/",
+        "jeu": None,
+        "cle": None,
+        "console": None,
+        "switch": False,
+        "gens": [],
+        "chef": None,
+        "sieges": [],
+        "regardent": [],
+        "ouverte_depuis": None,
+        "repond": None,
+        "fermee_pour": None,
+        "places": None,
+    }
+    return {**base, **champs}
+
+
+def ouverte(numero: int, noms: list[str | None] | None, **champs: object) -> dict:
+    """Une salle ouverte qui répond; `noms` le pseudo de chaque place, ou rien
+    quand personne n'est relié au salon dans cette salle (`sieges` absent)."""
+    sieges = None if noms is None else [siege(i + 1, nom) for i, nom in enumerate(noms)]
+    libres = None if noms is None else sum(nom is None for nom in noms)
+    return salle(
+        numero,
+        ouverte=True,
+        repond=True,
+        sieges=sieges,
+        places=libres,
+        gens=[nom for nom in (noms or []) if nom],
+        ouverte_depuis=3960,
+        **champs,
+    )
+
+
+async def _jouer(client: httpx.AsyncClient, tours: list, **entree: object) -> dict:
+    """La vraie page servie, exécutée dans jsdom tour après tour."""
+    page = (await client.get("/")).text
+    assert NODE is not None
+    with anyio.fail_after(60):
+        sortie = await anyio.run_process(
+            [NODE, str(RUNNER)],
+            input=json.dumps({"page": page, "tours": tours, **entree}).encode(),
+            check=False,
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    return json.loads(sortie.stdout)
+
+
+def _trois(un: dict, deux: dict | None = None, trois: dict | None = None) -> list[dict]:
+    return [un, deux or salle(2), trois or salle(3)]
 
 
 @AVEC_JSDOM
@@ -90,38 +127,312 @@ async def test_la_liste_ne_reecrit_rien_tant_que_rien_ne_change(client: httpx.As
     un lecteur d'écran de la relire. Le jumeau: un vrai changement change la
     liste, et une seule ligne l'annonce en phrase.
     """
-    page = (await client.get("/")).text
+    un = ouverte(1, ["Nour", None, None, None], jeu="Mario Kart Wii")
     tours = [
-        salles(3600),
-        # Le salon compte les secondes: 1H00 reste 1H00.
-        salles(3605),
-        salles(3610),
-        salles(3615, deux_ouverte=True),
-        salles(3620, jeu="Wii Sports", deux_ouverte=True),
-        salles(3625, jeu="Wii Sports"),
+        _trois(un),
+        # Le salon compte les secondes: 1 h 06 reste 1 h 06.
+        _trois({**un, "ouverte_depuis": 3965}),
+        _trois({**un, "ouverte_depuis": 3970}),
+        _trois(un, ouverte(2, [None] * 4)),
+        _trois({**un, "jeu": "Wii Sports"}, ouverte(2, [None] * 4)),
+        _trois({**un, "jeu": "Wii Sports"}),
     ]
-    assert NODE is not None
-    with anyio.fail_after(60):
-        sortie = await anyio.run_process(
-            [NODE, str(RUNNER)],
-            input=json.dumps({"page": page, "tours": tours}).encode(),
-            check=False,
-        )
-    assert sortie.returncode == 0, sortie.stderr.decode()
-    *rendus, fin = json.loads(sortie.stdout)
-    pareil, encore, ouverte, autre_jeu, fermee = rendus
+    dit = await _jouer(client, tours)
+    _, pareil, encore, ouvre, autre_jeu, fermee = dit["rendus"]
 
     assert pareil["mutations"] == [], pareil["mutations"]
     assert encore["mutations"] == []
     assert pareil["annonce"] == encore["annonce"] == ""
-    assert ouverte["mutations"], "la salle 2 ouverte doit changer la liste"
-    assert ouverte["annonce"] == "la salle 2 vient de s'ouvrir"
+    assert ouvre["mutations"], "la salle 2 ouverte doit changer la rangée"
+    assert ouvre["annonce"] == "la salle 2 vient de s'ouvrir"
     assert autre_jeu["annonce"] == "la salle 1 passe à Wii Sports"
     assert fermee["annonce"] == "la salle 2 s'est fermée"
-    # La liste n'est plus une région vivante: la ligne d'annonce l'est.
-    assert fin["vivante"] is None
-    assert fin["role"] == "status"
-    assert "Wii Sports" in fin["texte"]
+    # La rangée n'est pas une région vivante: la ligne d'annonce l'est.
+    assert dit["vivante"] is None
+    assert dit["role"] == "status"
+
+
+@AVEC_JSDOM
+async def test_une_borne_montre_ses_places_et_la_page_un_seul_plein(
+    client: httpx.AsyncClient,
+) -> None:
+    """Audit P13 et proposition du 22 novembre 2026: les START sont les places.
+
+    Une place prise porte l'étiquette de son joueur; une place libre est un
+    lien qui la prend, `?entrer=jouer&place=K`; la place conseillée est le seul
+    bouton plein de la page, et la jauge de « 3 PRESENTS » a disparu.
+    """
+    pleine = ouverte(
+        1, ["nour", "bilel", "jo", "ines"], jeu="Mario Kart Wii", chef="nour", regardent=["mémé"]
+    )
+    deux = ouverte(2, ["sami", "lou", None, None], jeu="Wii Sports")
+    tour = _trois(pleine, deux)
+    vue = (await _jouer(client, [tour, tour]))["rendus"][-1]["vue"]
+
+    un, deux_ = vue["bornes"]
+    assert [s["etiquette"] for s in un["starts"]] == ["nour", "bilel", "jo", "ines"]
+    assert [s["lien"] for s in un["starts"]] == [None] * 4
+    assert un["placesMot"] == "Les 4 places sont prises."
+    assert un["etiquettes"] == ["nour", "mémé"]
+    assert un["gens"] == "nour choisit le jeu. mémé regarde."
+    assert un["regarder"] == {"lien": "/r/1/?entrer=regarder", "cache": False}
+
+    liens = [s["lien"] for s in deux_["starts"]]
+    assert liens == [None, None, "/r/2/?entrer=jouer&place=3", "/r/2/?entrer=jouer&place=4"]
+    assert [s["plein"] for s in deux_["starts"]] == [False, False, True, False]
+    assert deux_["starts"][2]["mot"] == "Prendre la place 3"
+    assert deux_["starts"][3]["mot"] == "Prendre"
+    assert deux_["placesMot"] == "Deux places libres."
+    assert vue["pleins"] == ["/r/2/?entrer=jouer&place=3"]
+    assert vue["accroche"] == "Joue en salle 2 : deux places t'attendent."
+    assert vue["credit"] == "Salles ouvertes 2 · Places libres 2"
+    assert vue["jauge"] is False
+    assert "PRESENT" not in vue["texte"]
+    # La salle 3 est éteinte: elle seule propose de s'ouvrir.
+    assert vue["eteints"] == [
+        {
+            "salle": "3",
+            "titre": "Salle 3, éteinte.",
+            "ouvrir": "Ouvrir la salle 3",
+        }
+    ]
+
+
+@AVEC_JSDOM
+async def test_sans_places_connues_aucun_bouton_prendre(client: httpx.AsyncClient) -> None:
+    """Le jumeau: une salle dont le salon ne suit pas les places n'en invente pas.
+
+    `sieges` absent (personne n'est relié au salon dans cette salle) et les
+    places libres inconnues: aucun « Prendre », la borne le dit, et aucun bouton
+    plein; « Regarder » reste. Quatre places libres au compte du worker se
+    disent quand même.
+    """
+    muette = ouverte(1, None, jeu="Zelda")
+    toutes = {**ouverte(2, None), "places": 4}
+    tour = _trois(muette, toutes)
+    vue = (await _jouer(client, [tour, tour]))["rendus"][-1]["vue"]
+
+    un, deux = vue["bornes"]
+    assert un["placesMot"] == "Ses places s'affichent dès qu'elle répond."
+    assert [s["lien"] for s in un["starts"]] == [None] * 4
+    assert un["regarder"]["cache"] is False
+    assert [s["lien"] for s in deux["starts"]] == [
+        f"/r/2/?entrer=jouer&place={k}" for k in (1, 2, 3, 4)
+    ]
+    assert vue["pleins"] == ["/r/2/?entrer=jouer&place=1"]
+    # Le crédit tait les places libres tant qu'une salle ne les dit pas.
+    assert vue["credit"] == "Salles ouvertes 2"
+
+
+@AVEC_JSDOM
+async def test_une_salle_qui_redemarre_ou_se_tait_garde_sa_borne_sans_bouton(
+    client: httpx.AsyncClient,
+) -> None:
+    """Audit P10: une salle qui redémarre n'est ni ouverte ni fermée.
+
+    Elle reste dans la rangée, en pointillés, avec son dernier jeu et sans
+    aucun bouton; seule une salle FERMÉE propose « Ouvrir la salle 3 ».
+    """
+    revient = salle(
+        3,
+        redemarre=True,
+        dernier_jeu={"cle": "mk.iso", "titre": "Mario Kart Wii", "quand": "2026-11-24T20:00:00Z"},
+    )
+    muette = salle(2, ouverte=True, repond=False, sieges=None)
+    tour = [ouverte(1, ["nour", None, None, None]), muette, revient]
+    vue = (await _jouer(client, [tour, tour]))["rendus"][-1]["vue"]
+
+    _, deux, trois = vue["bornes"]
+    assert trois["etat"] == "redemarre"
+    assert trois["titre"] == "Salle 3, elle redémarre…"
+    assert trois["jeu"] == "Mario Kart Wii"
+    assert trois["boutons"] == 0
+    assert deux["etat"] == "muette"
+    assert deux["titre"] == "Salle 2, elle ne répond pas."
+    assert deux["boutons"] == 0
+    assert vue["eteints"] == []
+    assert "Ouvrir la salle" not in vue["texte"]
+
+    # Le jumeau: la même salle 3 fermée propose de s'ouvrir.
+    tour = [ouverte(1, ["nour", None, None, None]), salle(2), salle(3)]
+    vue = (await _jouer(client, [tour, tour]))["rendus"][-1]["vue"]
+    assert [e["ouvrir"] for e in vue["eteints"]] == ["Ouvrir la salle 2", "Ouvrir la salle 3"]
+
+
+@AVEC_JSDOM
+async def test_sans_salle_ouverte_la_mire_et_ouvrir_seul_plein(client: httpx.AsyncClient) -> None:
+    """Décision du propriétaire: la mire « Hors antenne » en plein cadre.
+
+    Dessous, le panneau porte « Ouvrir une salle » (seul plein), « Appuie sur
+    Start » et le crédit. La phrase « tu choisiras le jeu » n'est dite qu'une
+    fois.
+    """
+    vide = [salle(1), salle(2), salle(3)]
+    vue = (await _jouer(client, [vide, vide]))["rendus"][-1]["vue"]
+
+    assert vue["vide"] is True
+    assert vue["bornes"] == [] and vue["eteints"] == []
+    assert vue["accroche"] == "Aucune salle ouverte ce soir."
+    assert vue["texte"].lower().count("tu choisiras le jeu") == 1
+    assert vue["pleins"] == ["#ouvrir"]
+    assert vue["startCache"] is False
+    assert vue["credit"] == "Salles ouvertes 0"
+
+    # Le jumeau: une salle ouverte, pas de mire, ni Ouvrir ni Start au panneau.
+    tour = [ouverte(1, [None] * 4), salle(2), salle(3)]
+    vue = (await _jouer(client, [tour, tour]))["rendus"][-1]["vue"]
+    assert vue["vide"] is False
+    assert vue["ouvrirCache"] is True
+    assert vue["startCache"] is True
+    assert vue["pleins"] == ["/r/1/?entrer=jouer&place=1"]
+
+
+@AVEC_JSDOM
+async def test_deux_releves_manques_figent_la_liste_et_aine_decroche(
+    client: httpx.AsyncClient,
+) -> None:
+    """Constat T18: une liste qui ne se met plus à jour a l'air d'une liste fraîche.
+
+    Après deux relevés manqués, l'accroche dit l'heure de la liste, « Recharger
+    la page » est le seul bouton plein, les START restent sans plein, et Aïn
+    décroche; le relevé suivant réussi le rebranche.
+    """
+    tour = _trois(ouverte(1, ["nour", None, None, None]))
+    dit = await _jouer(client, [tour, {"statut": 502}, {"statut": 502}, tour])
+    _, un_rate, fige, revenu = dit["rendus"]
+
+    assert un_rate["vue"]["pleins"] == ["/r/1/?entrer=jouer&place=2"]
+    assert not un_rate["vue"]["accroche"].startswith("La liste date de")
+    assert fige["vue"]["accroche"].startswith("La liste date de ")
+    assert fige["vue"]["pleins"] == ["#recharger"]
+    assert all(not s["plein"] for b in fige["vue"]["bornes"] for s in b["starts"])
+    assert fige["vue"]["horlogePerdue"] == "oui"
+    assert dit["scenes"].count("decroche") == 1
+    assert revenu["vue"]["pleins"] == ["/r/1/?entrer=jouer&place=2"]
+    assert dit["scenes"][-1] == "rebrancher"
+
+
+@AVEC_JSDOM
+async def test_ouvrir_une_salle_la_montre_ici_sans_partir(client: httpx.AsyncClient) -> None:
+    """Après « Ouvrir une salle », la page ne part plus vers l'avant-salle.
+
+    La salle ouverte arrive dans la rangée, l'accroche la nomme, et sa place 1
+    devient le seul bouton plein dès qu'elle répond. Aïn joue « ouvre » au
+    clic, puis « pret » à la réponse.
+    """
+    vide = [salle(1), salle(2), salle(3)]
+    arrivee = [salle(1), salle(2), ouverte(3, [None] * 4)]
+    dit = await _jouer(
+        client,
+        [vide, arrivee],
+        cliquer={"apres": 0, "cible": "#ouvrir"},
+        post={"statut": 201, "corps": {**salle(3), "ouverte": True}},
+    )
+    vue = dit["rendus"][-1]["vue"]
+
+    assert dit["envois"] == [None]
+    assert dit["scenes"][:2] == ["ouvre", "pret"]
+    assert vue["adresse"] == "/"
+    assert vue["accroche"] == "La salle 3 est ouverte : prends la place 1."
+    assert vue["pleins"] == ["/r/3/?entrer=jouer&place=1"]
+
+    # Le jumeau: tant que la salle 3 ne dit pas ses places, rien n'est plein
+    # dans sa borne, et le panneau le dit.
+    tot = [salle(1), salle(2), ouverte(3, None)]
+    dit = await _jouer(
+        client,
+        [vide, tot],
+        cliquer={"apres": 0, "cible": "#ouvrir"},
+        post={"statut": 201, "corps": {**salle(3), "ouverte": True}},
+    )
+    vue = dit["rendus"][-1]["vue"]
+    assert vue["accroche"] == "La salle 3 est ouverte."
+    assert vue["mot"] == "Elle n'a pas encore répondu."
+    assert vue["pleins"] == []
+
+
+@AVEC_JSDOM
+async def test_ouvrir_la_salle_n_demande_cette_salle_et_un_refus_se_dit(
+    client: httpx.AsyncClient,
+) -> None:
+    """D17: « Ouvrir la salle 3 » envoie son numéro; un refus est dit, et Aïn refuse."""
+    tour = _trois(ouverte(1, ["nour", None, None, None]))
+    dit = await _jouer(
+        client,
+        [tour, tour],
+        cliquer={"apres": 0, "cible": '[data-ouvrir="3"]'},
+        post={"statut": 409, "corps": {"detail": "la salle 3 n'est pas fermée"}},
+    )
+
+    assert dit["envois"] == [{"numero": 3}]
+    assert dit["rendus"][1]["vue"]["mot"] == "la salle 3 n'est pas fermée"
+    assert "refus" in dit["scenes"]
+
+
+@AVEC_JSDOM
+async def test_entree_ouvre_une_salle_seulement_quand_rien_ne_tourne(
+    client: httpx.AsyncClient,
+) -> None:
+    """APPUIE SUR START (effet « start », niveau conseillé): Entrée hors d'un champ.
+
+    `surStart` vient du paquet du salon. Le jumeau: une salle tourne déjà, et
+    Entrée n'en allume pas une seconde sur la carte graphique commune.
+    """
+    vide = [salle(1), salle(2), salle(3)]
+    arrivee = [ouverte(1, [None] * 4), salle(2), salle(3)]
+    dit = await _jouer(client, [vide, arrivee], cliquer={"apres": 0, "cible": "touche:Enter"})
+    assert dit["envois"] == [None]
+
+    une = [ouverte(1, [None] * 4), salle(2), salle(3)]
+    dit = await _jouer(client, [une, une], cliquer={"apres": 0, "cible": "touche:Enter"})
+    assert dit["envois"] == []
+
+
+@AVEC_JSDOM
+async def test_une_place_qui_se_remplit_sous_les_yeux_s_allume_une_fois(
+    client: httpx.AsyncClient,
+) -> None:
+    """Effet « arrive »: l'étiquette se pose sur son START, une seule fois."""
+    avant = _trois(ouverte(1, ["nour", "bilel", "jo", None]))
+    apres = _trois(ouverte(1, ["nour", "bilel", "jo", "ines"]))
+    dit = await _jouer(client, [avant, apres, apres])
+    _, arrive, reste = dit["rendus"]
+
+    assert [s["arrive"] for s in arrive["vue"]["bornes"][0]["starts"]] == [False] * 3 + [True]
+    assert reste["mutations"] == []
+
+    # Le jumeau: Inès déjà assise au premier dessin, rien ne s'allume.
+    dit = await _jouer(client, [apres, apres])
+    assert not any(s["arrive"] for s in dit["rendus"][-1]["vue"]["bornes"][0]["starts"])
+
+
+@AVEC_JSDOM
+async def test_le_retour_d_une_salle_dit_laquelle_et_pourquoi(client: httpx.AsyncClient) -> None:
+    """K39: Caddy renvoie `/?salle=fermee&n=N`; la page dit ce qui est arrivé à N.
+
+    Une fois, quand la liste le confirme, puis l'adresse est nettoyée.
+    """
+    fermee = [salle(1), salle(2), salle(3, fermee_pour="inactivite")]
+    dit = await _jouer(client, [fermee, fermee], adresse="/?salle=fermee&n=3")
+    vue = dit["rendus"][-1]["vue"]
+    assert vue["retour"]["cache"] is False
+    assert vue["retour"]["texte"] == (
+        "La salle 3 s'est fermée faute d'activité. "
+        "Tu peux la rouvrir : les sauvegardes sont intactes."
+    )
+    assert vue["adresse"] == "/"
+    assert dit["scenes"].count("arret") == 1
+
+    # Le jumeau: la même salle redémarre, la page ne la dit pas fermée.
+    revient = [salle(1), salle(2), salle(3, redemarre=True)]
+    dit = await _jouer(client, [revient, revient], adresse="/?salle=fermee&n=3")
+    vue = dit["rendus"][-1]["vue"]
+    assert vue["retour"]["texte"] == "La salle 3 redémarre : elle revient dans quelques secondes."
+    assert "arret" not in dit["scenes"]
+    assert "redemarre" in dit["scenes"]
+    # Sans retour dans l'adresse, aucune bannière.
+    dit = await _jouer(client, [fermee, fermee])
+    assert dit["rendus"][-1]["vue"]["retour"]["cache"] is True
 
 
 async def test_les_trois_pages_du_salon_portent_la_regie_de_la_salle(
@@ -200,79 +511,6 @@ async def test_le_salon_ne_redeclare_pas_ses_propres_couleurs_de_page(
         page = (await client.get(chemin, headers={})).text
         assert regie in page, chemin
         assert _redeclares(page.replace(regie, ""), jetons) == [], chemin
-
-
-async def _dernier_tour(client: httpx.AsyncClient, tours: list[list[dict]]) -> dict:
-    """Ce que la vraie page montre après le dernier tour de sondage."""
-    page = (await client.get("/")).text
-    assert NODE is not None
-    with anyio.fail_after(60):
-        sortie = await anyio.run_process(
-            [NODE, str(RUNNER)],
-            input=json.dumps({"page": page, "tours": tours}).encode(),
-            check=False,
-        )
-    assert sortie.returncode == 0, sortie.stderr.decode()
-    return json.loads(sortie.stdout)[-1]
-
-
-@AVEC_JSDOM
-async def test_rejoindre_passe_avant_ouvrir_une_salle(client: httpx.AsyncClient) -> None:
-    """Audit P13, 22 novembre 2026.
-
-    La carte d'une salle ouverte n'avait aucun mot d'action, et le seul bouton
-    plein de la page était « ouvrir une salle »: un ami qui en ouvrait une
-    deuxième par erreur allumait un second émulateur sur la carte graphique
-    commune et séparait le groupe. Chaque carte porte « Rejoindre » et
-    « Regarder », qui entrent directement (`?entrer=`), et l'ouverture passe au
-    second plan en disant ce qu'elle coûte.
-    """
-    trois = {**salles(60)[1], "numero": 3, "chemin": "/r/3/"}
-    tour = [*salles(60, deux_ouverte=True), trois]
-    fin = await _dernier_tour(client, [tour, tour])
-
-    assert [c["salle"] for c in fin["cartes"]] == ["1", "2"]
-    un = fin["cartes"][0]
-    assert un["rejoindre"] == "/r/1/?entrer=jouer"
-    assert un["regarder"] == "/r/1/?entrer=regarder"
-    assert un["rejoindreCache"] is False
-    assert "Rejoindre" in un["texte"]
-    assert "3 PLACES LIBRES" in un["texte"]
-    assert "MANETTE" not in un["texte"]
-    # La salle 2 tourne sans jeu: on le dit, sans « sur son menu ».
-    assert "aucun jeu pour l'instant" in fin["cartes"][1]["texte"]
-    assert fin["ouvrir"]["texte"] == "Ouvrir une autre salle"
-    assert fin["ouvrir"]["secondaire"] == "oui"
-    assert "second jeu" in fin["ouvrir"]["mot"]
-
-
-@AVEC_JSDOM
-async def test_sans_salle_ouverte_ouvrir_reste_le_geste_principal(
-    client: httpx.AsyncClient,
-) -> None:
-    """Le jumeau: rien à rejoindre, l'ouverture redevient le bouton plein."""
-    vide = [
-        {**salle, "ouverte": False, "places": None, "ouverte_depuis": None} for salle in salles(0)
-    ]
-    fin = await _dernier_tour(client, [vide, vide])
-
-    assert fin["cartes"] == []
-    assert fin["ouvrir"]["texte"] == "Ouvrir la première salle"
-    assert fin["ouvrir"]["secondaire"] == "non"
-
-
-@AVEC_JSDOM
-async def test_une_salle_pleine_se_regarde_et_un_emplacement_libre_ne_se_lit_pas_comme_une_panne(
-    client: httpx.AsyncClient,
-) -> None:
-    """« HORS SERVICE » se lisait comme une panne; une salle pleine proposait d'entrer."""
-    pleine = [{**salles(60)[0], "places": 0}, salles(60)[1]]
-    fin = await _dernier_tour(client, [pleine, pleine])
-
-    assert fin["cartes"][0]["rejoindreCache"] is True
-    assert fin["cartes"][0]["regarder"] == "/r/1/?entrer=regarder"
-    assert fin["eteints"] and all("LIBRE" in bloc for bloc in fin["eteints"])
-    assert not any("HORS SERVICE" in bloc for bloc in fin["eteints"])
 
 
 async def test_les_trois_pages_du_salon_portent_le_theme_retro(

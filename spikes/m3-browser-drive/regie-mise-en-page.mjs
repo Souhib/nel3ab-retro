@@ -7,9 +7,10 @@
 //
 //   V6  le dialogue des réglages Switch est centré (il était collé en haut à
 //       gauche: `margin: auto` manquait à `.n3-switch-setup`);
-//   V8  sur un téléphone de 390 px, la légende de la jauge de l'accueil tient
-//       sur deux lignes au plus (elle passait à un mot par ligne: la règle
-//       visait `.jauge`, qui n'est pas l'enfant de la grille);
+//   V8  sur un téléphone de 390 px, les quatre START de chaque borne de
+//       l'accueil tiennent sur une ligne, dans la borne, à 44 px de haut au
+//       moins. Avant le 24 novembre 2026, V8 mesurait la légende de la jauge,
+//       que la rangée de bornes a remplacée (ADR D41);
 //   V9  les cases de la préparation partent du bord gauche du titre (elles
 //       étaient collées au bord de la carte, 151 px à gauche du titre);
 //
@@ -52,15 +53,16 @@ const assemble = spawnSync(
   ["run", "--quiet", "python", "-c", "import sys\nfrom nel3ab_control.api.routes import accueil\nsys.stdout.write(accueil.PAGE)"],
   { cwd: new URL("../../control/", import.meta.url).pathname, encoding: "utf-8", maxBuffer: 1 << 26 },
 );
-if (assemble.status !== 0 || !assemble.stdout.includes("jauge-mot")) {
+if (assemble.status !== 0 || !assemble.stdout.includes('id="salles"')) {
   throw new Error(`l'accueil n'a pas pu être assemblé: ${assemble.stderr.slice(0, 400)}`);
 }
 const ACCUEIL = assemble.stdout;
 const SALON = "http://salon.mise-en-page.invalid";
+const sieges = (...noms) => noms.map((nom, i) => ({ port: i + 1, nom, tenu: nom !== null }));
 const SALLES = [
-  { numero: 1, ouverte: true, chemin: "/r/1/", jeu: "Mario Kart: Double Dash!!", switch: false, gens: ["Ami", "Bo", "Cleo"], places: 1, ouverte_depuis: 3960 },
-  { numero: 2, ouverte: true, chemin: "/r/2/", jeu: null, switch: false, gens: [], places: 4, ouverte_depuis: 20 },
-  { numero: 3, ouverte: true, chemin: "/r/3/", jeu: "Super Mario Party Jamboree", switch: true, gens: ["Dami"], places: 3, ouverte_depuis: 900 },
+  { numero: 1, ouverte: true, repond: true, chemin: "/r/1/", jeu: "Mario Kart: Double Dash!!", switch: false, gens: ["Ami", "Bo", "Cleo"], chef: "Ami", regardent: [], sieges: sieges("Ami", "Bo", "Cleo", null), places: 1, ouverte_depuis: 3960 },
+  { numero: 2, ouverte: true, repond: true, chemin: "/r/2/", jeu: null, switch: false, gens: [], regardent: [], sieges: sieges(null, null, null, null), places: 4, ouverte_depuis: 20 },
+  { numero: 3, ouverte: true, repond: true, chemin: "/r/3/", jeu: "Super Mario Party Jamboree", switch: true, gens: ["Dami"], chef: "Dami", regardent: ["Mémé"], sieges: sieges("Dami", null, null, null), places: 3, ouverte_depuis: 900 },
 ];
 
 const ROMS = [
@@ -175,18 +177,25 @@ for (const scheme of ["dark", "light"]) {
 
   // V8: l'accueil du salon sur un téléphone.
   const tel = await ouvrir(`${SALON}/`, { scheme, viewport: { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } });
-  await exiger(tel, ".jauge-mot", "V8 · jauge de l'accueil");
+  await exiger(tel, "article.salle .starts", "V8 · bornes de l'accueil");
   await wait(600);
-  const mots = await tel.evaluate(() =>
-    [...document.querySelectorAll(".jauge-mot")].map((m) => {
-      const hauteur = m.getBoundingClientRect().height;
-      const ligne = Number.parseFloat(getComputedStyle(m).lineHeight) || Number.parseFloat(getComputedStyle(m).fontSize) * 1.2;
-      return { texte: m.textContent.trim(), lignes: Math.round(hauteur / ligne), largeur: Math.round(m.getBoundingClientRect().width) };
+  const bornes = await tel.evaluate(() =>
+    [...document.querySelectorAll("article.salle")].map((art) => {
+      const boite = art.getBoundingClientRect();
+      const starts = [...art.querySelectorAll(".start")].map((s) => s.getBoundingClientRect());
+      return {
+        salle: art.dataset.salle,
+        n: starts.length,
+        uneLigne: new Set(starts.map((r) => Math.round(r.top))).size === 1,
+        dedans: starts.every((r) => r.left >= boite.left - 0.5 && r.right <= boite.right + 0.5),
+        hauteur: Math.min(...starts.map((r) => r.height)),
+      };
     }),
   );
-  if (mots.length !== SALLES.length) throw new Error(`V8: ${mots.length} jauges pour ${SALLES.length} salles`);
-  for (const m of mots) {
-    noter(`V8 « ${m.texte} » (${quoi})`, m.lignes <= 2, `${m.lignes} ligne(s) sur ${m.largeur} px`);
+  if (bornes.length !== SALLES.length) throw new Error(`V8: ${bornes.length} bornes pour ${SALLES.length} salles`);
+  for (const b of bornes) {
+    noter(`V8 salle ${b.salle}: quatre START sur une ligne (${quoi})`, b.n === 4 && b.uneLigne && b.dedans && b.hauteur >= 44,
+      `${b.n} START, une ligne ${b.uneLigne}, dans la borne ${b.dedans}, ${b.hauteur.toFixed(0)} px de haut`);
   }
   await tel.close();
 }

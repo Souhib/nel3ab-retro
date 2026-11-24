@@ -34,10 +34,11 @@ const empreinte = (octets: Uint8Array) => createHash("sha256").update(octets).di
  * le 23 novembre 2026 (dessin, moteur, lecteur, 27 scènes, rendu, et les
  * effets pour le niveau), 16 222 le 24 novembre après les retouches d'Aïn,
  * puis 17 168 quand le salon y a mis les gestes d'arcade du socle
- * (`salon/paquet.ts` : Start, démo, initiales, +946 octets). Plus 8 % pour
- * les retouches. Le salon le charge à part de la page de la salle : il ne
- * compte pas dans ses 300 000. */
-const PLAFOND = 18_500;
+ * (`salon/paquet.ts` : Start, démo, initiales, +946 octets), et 18 170 avec
+ * les calques de la mire, l'écran bombé et la flèche en pixels (+1 002).
+ * Plus 8 % pour les retouches. Le salon le charge à part de la page de la
+ * salle : il ne compte pas dans ses 300 000. */
+const PLAFOND = 19_600;
 const poids = (octets: Uint8Array) =>
   zlib.brotliCompressSync(octets, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
 
@@ -161,7 +162,17 @@ describe("le paquet dans une page du salon", () => {
     document.body.innerHTML = "<main><p>Salon</p></main>";
     charger();
     const salon = (globalThis as unknown as { nel3abSalon: Record<string, unknown> }).nel3abSalon;
-    expect(Object.keys(salon).sort()).toEqual(["initiales", "surInactivite", "surStart"]);
+    expect(Object.keys(salon).sort()).toEqual([
+      "initiales",
+      "poserCalquesAttente",
+      "poserFiltreBombe",
+      "surInactivite",
+      "surStart",
+    ]);
+    // La flèche en pixels de l'effet « pointeur », posée une fois sur la racine.
+    expect(document.documentElement.style.getPropertyValue("--rt-pointeur")).toMatch(
+      /^url\("data:image\/svg\+xml,/,
+    );
     expect((salon.initiales as (n: string) => string)("Élodie")).toBe("ELO");
     // surStart rend la fonction qui arrête d'écouter : appelée, elle ne lève rien.
     const arreter = (salon.surStart as (r: () => void) => () => void)(() => {});

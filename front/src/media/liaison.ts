@@ -76,6 +76,8 @@ export type Signaux = {
   sonDepuisMs: number | null;
   /** Depuis le dernier message de la socket manette, `null` sans socket. */
   manetteDepuisMs: number | null;
+  /** Depuis le dernier « Relancer l'image » de cette page, `null` sans relance. */
+  relanceDepuisMs: number | null;
   /** Ce que la dernière sonde du site a vu, tant qu'elle est fraîche.
    *
    * « repond »: une liste de salles en 2xx, donc le salon répond. « relais »:
@@ -102,6 +104,10 @@ export type Liaison =
       manette: boolean;
       /** Une pastille d'abord, puis le bandeau avec ses actions. */
       niveau: "pastille" | "bandeau";
+      /** Une relance a eu lieu pendant ce gel, il y a au moins
+       * `APRES_RELANCE_MS`, et l'image n'est pas revenue : relancer encore ne
+       * sert plus, signaler devient le geste. */
+      apresRelance: boolean;
     }
   | { etat: "decodeur"; depuisMs: number }
   | { etat: "coupee"; cause: "reseau" | "silence"; depuisMs: number }
@@ -135,6 +141,10 @@ export type Liaison =
       perdue: boolean;
       /** La salle envoie ses messages, sans image. */
       salleRepond: boolean;
+      /** Depuis quand elle répond ainsi (la socket ouverte qu'on entend),
+       * `null` quand elle ne répond pas. C'est le chiffre de « La salle
+       * répond depuis 15 s, sans envoyer d'image. » */
+      repondDepuisMs: number | null;
     };
 
 export type Etat = Liaison["etat"];
@@ -251,6 +261,16 @@ export const ARRIVEE_LIMITE_MS = 15_000;
  * dizaine de tentatives (une toutes les 500 ms): audit E6. */
 export const ARRIVEE_INJOIGNABLE_MS = 5000;
 
+/** Ce qu'une relance doit laisser passer avant qu'on la dise vaine, en ms.
+ *
+ * Dix secondes. Une relance ferme la socket et en ouvre une autre, puis la
+ * salle fabrique une image-clé (`KEY_FRAME_EVERY`, 500 ms) : sur le banc
+ * simulé du 22 novembre 2026, la première image venait 525 à 544 ms après
+ * l'entrée. Dix secondes en font près de vingt fois plus, et laissent passer
+ * la reconnexion d'un relais lent (`COUPURE_GEL_MS`). Pas mesuré sur un vrai
+ * relais. */
+export const APRES_RELANCE_MS = 10_000;
+
 const recent = (ms: number | null, limite: number): boolean => ms !== null && ms < limite;
 const age = (ms: number | null): number => ms ?? Number.POSITIVE_INFINITY;
 
@@ -300,12 +320,16 @@ export function lireLiaison(
   if (v.peintes === 0) {
     if (down && downFor >= ARRIVEE_INJOIGNABLE_MS && s.site !== null)
       return rend(salleTombee(true, downFor));
+    const salleRepond = v.connectee && recent(v.entenduDepuisMs, FRAIS_MS);
     return rend({
       etat: "arrivee",
       etape: v.connectee ? "image" : "salle",
       depuisMs: age(v.demarreeDepuisMs),
       perdue: age(v.demarreeDepuisMs) >= ARRIVEE_LIMITE_MS,
-      salleRepond: v.connectee && recent(v.entenduDepuisMs, FRAIS_MS),
+      salleRepond,
+      // La socket ouverte, et entendue : c'est depuis son ouverture que la
+      // salle répond à cette page.
+      repondDepuisMs: salleRepond ? v.ouverteDepuisMs : null,
     });
   }
 
@@ -389,7 +413,16 @@ function figee(s: Signaux, gel: NonNullable<Memoire["figee"]>, maintenant: numbe
     son: recent(s.sonDepuisMs, FRAIS_MS),
     manette: recent(s.manetteDepuisMs, ECHO_FRAIS_MS),
     niveau: depuisMs >= FIGEE_BANDEAU_MS ? "bandeau" : "pastille",
+    apresRelance: apresRelance(s.relanceDepuisMs, gel.depuis, maintenant),
   };
+}
+
+/** La relance a eu lieu PENDANT ce gel (après son début), et l'image n'est
+ * pas revenue depuis `APRES_RELANCE_MS`. Une relance d'un gel d'avant ne
+ * compte pas : ce gel-ci n'a pas encore été relancé. */
+function apresRelance(relanceDepuisMs: number | null, gelDepuis: number, maintenant: number) {
+  if (relanceDepuisMs === null || relanceDepuisMs < APRES_RELANCE_MS) return false;
+  return maintenant - relanceDepuisMs >= gelDepuis;
 }
 
 /** La reprise d'un gel: rien tant que les images ne reviennent pas, une

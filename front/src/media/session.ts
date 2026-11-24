@@ -117,6 +117,7 @@ export class Session {
 
   /** « Relancer l'image »: une socket vidéo neuve, la place gardée. */
   relancerImage(): void {
+    this.veille.relancer();
     this.video.relancer();
     this.refresh();
   }

@@ -135,3 +135,24 @@ describe("le contexte que la page lui donne", () => {
     expect(v.lire(tombee()).etat).toBe("ok");
   });
 });
+
+describe("la relance de l'image", () => {
+  /** Une image figée depuis `ms`, la salle qui répond encore. */
+  const gelee = (ms: number) =>
+    flux({ sinceUnitMs: ms, sincePaintedMs: ms, sinceHeardMs: 200, sinceOpenedMs: 300_000 });
+
+  it("passe l'instant de la relance à la règle : figée dix secondes après, elle est vaine", () => {
+    const { v, horloge } = veille(vi.fn());
+    v.lire(gelee(20_000));
+    v.relancer();
+    horloge.t += 12_000;
+    expect(v.lire(gelee(32_000))).toMatchObject({ etat: "figee", apresRelance: true });
+  });
+
+  it("jumeau : sans relance, le même gel n'est pas « après la relance »", () => {
+    const { v, horloge } = veille(vi.fn());
+    v.lire(gelee(20_000));
+    horloge.t += 12_000;
+    expect(v.lire(gelee(32_000))).toMatchObject({ etat: "figee", apresRelance: false });
+  });
+});

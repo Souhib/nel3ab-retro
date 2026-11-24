@@ -14,6 +14,7 @@ const figee = (
   son,
   manette: true,
   niveau,
+  apresRelance: false,
 });
 
 /** Tous les états, avec leurs variantes, pour les gardes de vocabulaire. */
@@ -38,10 +39,38 @@ const TOUS: Liaison[] = [
   { etat: "demarrage", depuisMs: 3000 },
   { etat: "demarrage", depuisMs: 25_000, attente: "long" },
   { etat: "demarrage", depuisMs: 61_000, attente: "echec" },
-  { etat: "arrivee", etape: "salle", depuisMs: 2000, perdue: false, salleRepond: false },
-  { etat: "arrivee", etape: "image", depuisMs: 2000, perdue: false, salleRepond: true },
-  { etat: "arrivee", etape: "image", depuisMs: 16_000, perdue: true, salleRepond: true },
-  { etat: "arrivee", etape: "salle", depuisMs: 16_000, perdue: true, salleRepond: false },
+  {
+    etat: "arrivee",
+    etape: "salle",
+    depuisMs: 2000,
+    perdue: false,
+    salleRepond: false,
+    repondDepuisMs: null,
+  },
+  {
+    etat: "arrivee",
+    etape: "image",
+    depuisMs: 2000,
+    perdue: false,
+    salleRepond: true,
+    repondDepuisMs: 9000,
+  },
+  {
+    etat: "arrivee",
+    etape: "image",
+    depuisMs: 16_000,
+    perdue: true,
+    salleRepond: true,
+    repondDepuisMs: 9000,
+  },
+  {
+    etat: "arrivee",
+    etape: "salle",
+    depuisMs: 16_000,
+    perdue: true,
+    salleRepond: false,
+    repondDepuisMs: null,
+  },
 ];
 
 describe("le prix de l'image légère, dans la proposition", () => {
@@ -147,7 +176,14 @@ describe("chaque panne dit de quel côté elle est, sans le supposer", () => {
 describe("l'arrivée a ses vraies étapes, et une fin", () => {
   it("ne parle ni de demande ni de démarrage", () => {
     const dit = dire(
-      { etat: "arrivee", etape: "image", depuisMs: 2000, perdue: false, salleRepond: true },
+      {
+        etat: "arrivee",
+        etape: "image",
+        depuisMs: 2000,
+        perdue: false,
+        salleRepond: true,
+        repondDepuisMs: 9000,
+      },
       1,
     );
     const texte = JSON.stringify(dit);
@@ -158,7 +194,14 @@ describe("l'arrivée a ses vraies étapes, et une fin", () => {
   });
   it("à la fin de l'attente, propose de réessayer ou de partir", () => {
     const dit = dire(
-      { etat: "arrivee", etape: "image", depuisMs: 16_000, perdue: true, salleRepond: true },
+      {
+        etat: "arrivee",
+        etape: "image",
+        depuisMs: 16_000,
+        perdue: true,
+        salleRepond: true,
+        repondDepuisMs: 9000,
+      },
       1,
     );
     expect(dit.titre).toBe("L'image n'arrive pas.");
@@ -188,6 +231,7 @@ describe("la ligne parlée", () => {
       depuisMs: 900,
       perdue: false,
       salleRepond: true,
+      repondDepuisMs: 9000,
     };
     expect(phraseLiaison(arrivee, { etat: "ok" }, 1, 0)).toBe("");
     // Le jumeau: en jeu, la même sortie avec des images peintes le dit.
@@ -313,6 +357,7 @@ describe("le résumé de la connexion", () => {
       son: true,
       manette: true,
       niveau: "pastille",
+      apresRelance: false,
     };
     const lignes = resumeConnexion(fige, { ...faits, port: null });
     expect(lignes[0]?.valeur).toBe("image figée");

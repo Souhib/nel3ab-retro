@@ -67,6 +67,7 @@ const figee: Liaison = {
   son: true,
   manette: true,
   niveau: "bandeau",
+  apresRelance: false,
 };
 
 it("la colonne dit l'état de la liaison, avec les mots du bandeau", () => {

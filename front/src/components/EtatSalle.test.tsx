@@ -29,6 +29,7 @@ const gel = (depuisMs: number, niveau: "pastille" | "bandeau"): Liaison => ({
   son: true,
   manette: true,
   niveau,
+  apresRelance: false,
 });
 
 describe("l'image figée, dite sur l'image", () => {
@@ -82,6 +83,7 @@ describe("l'arrivée", () => {
     depuisMs: perdue ? 16_000 : 2000,
     perdue,
     salleRepond: true,
+    repondDepuisMs: 9000,
   });
 
   it("montre ses étapes sans sortie tant que l'attente est normale", () => {

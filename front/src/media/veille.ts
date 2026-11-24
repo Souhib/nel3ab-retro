@@ -122,6 +122,8 @@ export class VeilleLiaison {
   private enVol = false;
   private reponse: Reponse | null = null;
   private derniere: Liaison = { etat: "ok" };
+  /** L'instant du dernier « Relancer l'image », `null` sans relance. */
+  private relanceA: number | null = null;
 
   constructor(monde: Monde) {
     this.monde = monde;
@@ -131,6 +133,12 @@ export class VeilleLiaison {
   /** Ce que la page sait: le jeu, le démarrage, la proposition. */
   dire(contexte: Contexte): void {
     this.contexte = contexte;
+  }
+
+  /** « Relancer l'image » vient d'être demandé : la règle saura si l'image
+   * reste figée après (`APRES_RELANCE_MS`). */
+  relancer(): void {
+    this.relanceA = this.monde.now();
   }
 
   /** L'onglet vient peut-être de changer d'état. Appelé par l'événement, et
@@ -177,6 +185,7 @@ export class VeilleLiaison {
         },
         sonDepuisMs: flux.sound.sinceChunkMs,
         manetteDepuisMs: flux.input.sinceHeardMs,
+        relanceDepuisMs: this.relanceA === null ? null : now - this.relanceA,
         site: frais && this.reponse ? this.reponse.site : null,
         salle: frais && this.reponse ? this.reponse.salle : null,
       },

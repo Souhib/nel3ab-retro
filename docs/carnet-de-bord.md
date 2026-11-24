@@ -31355,6 +31355,88 @@ celle du chantier des états. La scène « fier » au passage à tous prêts
 n'est pas jouée : l'arbitre ne la donne pas au chantier menus, et la scène
 « pret » en mode « tous » la remplace.
 
+### 24 novembre, au bout de la nuit : la fiche à côté des rangées, et trois barres collées qui cachaient le focus
+
+Cinquième passage du chantier menus. Il reprend trois preuves que les
+passages d'avant laissaient en plan, et chacune a trouvé un défaut.
+
+**Les sauvegardes relues à chaque fiche.** `CLAUDE.md` exige
+`just save-options-test` pour tout changement du choix de sauvegarde. Son
+pilote visait encore le XMB, retiré l'après-midi même. Réécrit pour le
+rayonnage, il a rougi tout de suite : au repos, le rayonnage reste à
+l'écran, si bien que `/saves` et l'identité n'étaient lus qu'une fois, à
+l'arrivée. Une sauvegarde débloquée dont le contenu avait disparu restait
+proposée, et une adresse arrivée après la page ne se voyait qu'en
+rechargeant. Chaque fiche ouverte relit maintenant les deux. La lecture
+porte une **clé de lecture** (menu ou repos, et le numéro de la fiche) : une
+réponse arrivée pour une autre clé ne compte pas, et aucun rendu ne montre
+un ancien choix comme sûr. Pendant la lecture, les choix sont grisés, et un
+élément grisé ne prend pas le focus : il attend sur le titre de la fiche,
+puis passe au choix coché quand la lecture répond, sauf si quelqu'un l'a
+déplacé entre-temps. Le pilote est rouge sur la page d'avant (l'identité
+n'est pas redemandée) et sur un mutant du câblage qui ne relit pas les
+sauvegardes (« No catalogue request when opening a game's card »).
+
+**La fiche à côté des rangées (B1).** Au bureau, la fiche d'un jeu se pose
+à droite des rangées au lieu de les cacher. Les rangées restent visibles et
+se parcourent au clavier et à la manette, fiche ouverte ; une autre
+cartouche remplace la fiche. Au téléphone, en paysage et dans une fenêtre
+étroite, la fiche prend encore leur place : la largeur ne suffit pas aux
+deux. L'étape `fiche-a-cote` mesure les deux boîtes et touche la cartouche
+par `elementFromPoint` ; elle est rouge sur la page d'avant.
+
+**Trois barres collées.** L'étape `garde-focus` était demandée depuis le
+premier passage : chaque arrêt du focus dans la préparation et dans le
+menu doit rester visible, hors des **éléments collants**. Le passage
+d'avant ne l'avait pas écrite, faute de pouvoir la voir rougir : rien ne
+débordait au banc. Avec une préparation à deux appareils, la colonne
+déborde à 1280 sur 720, et trois défauts sont apparus.
+
+- La rangée de gestes de la préparation (« Je suis prêt ») passait sous le
+  coin d'Aïn. Depuis D46, le coin colle lui aussi au bas de la colonne, et
+  les deux collaient au même bord, le coin par-dessus. La rangée colle
+  maintenant au-dessus du coin et de « Plus bas » ; un essai relit cette
+  hauteur contre `HAUTEUR_DU_COIN` et `cadre.css`.
+- Un choix du bloc restait sous la rangée. Le défilement que le navigateur
+  fait au focus ne bouge rien tant que l'élément tient dans la colonne,
+  même sous une barre collée ; et l'avis du clavier, né du même focus,
+  pousse ensuite la colonne vers le bas. Le bloc le vérifie donc au focus
+  et après chaque rendu, et sa marge de défilement suit la hauteur de la
+  rangée, qui tient sur une à trois lignes.
+- Les radios des pastilles du menu faisaient défiler la colonne dans le
+  vide. Elles sont cachées en position absolue, et aucun parent n'était
+  positionné : leur **bloc conteneur** était la colonne. Chacune gardait sa
+  place hors de la zone qui défile du menu, jusqu'à 1 424 px plus bas, et
+  la colonne défilait dans ce vide en remontant le coin d'Aïn sur les
+  lignes. La pastille est maintenant positionnée.
+
+La leçon générale : un élément en absolu sans parent positionné appartient
+à un ancêtre lointain, et, même invisible, il agrandit la zone qui défile
+de cet ancêtre. Chaque garde a son jumeau, une feuille de style qui la
+retire : l'étape ne compte que si chaque jumeau cache un arrêt. Elle est
+dans `parcours.mjs` et pas dans `focus.mjs` comme prévu, parce que seul ce
+banc tient une préparation. Elle est rouge sur la page d'avant.
+
+**Le menu à 320 px.** `salle-telephone` ouvre le menu à 320, 375 et 390 px
+de large au niveau « tout » : les quatre onglets tiennent sans défiler de
+côté ni couper un mot, et chacun fait 44 px de haut. Son jumeau force
+quatre onglets par rang à 320 px, et la mesure y voit un mot coupé.
+L'image de 320 sur 568 montre ce qui reste : le menu s'ouvre défilé
+jusqu'à la ligne qui a le focus, et la sortie et le premier rang d'onglets
+sont hors de vue. C'est le même défaut que la bande étroite en travers,
+noté au premier passage, à trancher avec le chantier de la salle.
+
+Ce qui n'est pas fait, et pourquoi : la scène « ouvre » à l'ouverture d'une
+fiche et la scène « fier » quand tous sont prêts. La table des scènes de la
+partition range « ouvre » au salon et donne « fier » aux chantiers manettes
+et salle ; l'arbitre les refuse à ce chantier. Le reste attend un autre
+chantier : PRÊT ou CHOISIT… sur les START (personnes), la neige d'un
+changement de jeu (états), les poses clés du chargement (mascotte). Des
+pilotes hors porte, seul `padmenu.mjs` suit la page ; les autres visent des
+salles vivantes (K40) et lisent encore le XMB.
+
+Page : 276 515 octets en brotli 11, 359 de plus qu'au passage d'avant.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -33242,3 +33324,13 @@ la bande, le panneau de commande, la manette tactile.
 conflit de texte, et dont le résultat ne marche plus, parce que chacune
 supposait ce que l'autre change. Git ne peut pas le voir ; seules les
 preuves lancées sur le résultat le montrent.
+
+**Clé de lecture** : l'étiquette qu'une lecture du réseau porte avec sa
+réponse, pour qu'une réponse arrivée trop tard pour une autre demande ne
+soit pas prise pour la bonne. Le rayonnage en donne une à chaque fiche
+ouverte.
+
+**Bloc conteneur (containing block)** : la boîte par rapport à laquelle un
+élément en position absolue se place. C'est le plus proche ancêtre
+positionné ; sans lui, un ancêtre lointain, dont l'élément agrandit la zone
+qui défile même s'il est invisible.

@@ -456,6 +456,32 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, au bout de la nuit : le chantier menus, cinquième
+passage.** Sur la même branche, rien dans `main`, rien de poussé ni
+d'installé. Livré :
+
+- **Les sauvegardes relues** à chaque fiche ouverte, avec l'identité qui
+  manque ; le focus attend la lecture sur le titre de la fiche.
+  `save-options.mjs` lit le rayonnage et le menu, et `just
+  save-options-test` passe.
+- **La fiche à côté des rangées** au bureau (B1), à leur place ailleurs.
+- **Trois barres collées corrigées** : la rangée de gestes de la
+  préparation colle au-dessus du coin d'Aïn, un choix du bloc défile
+  au-dessus d'elle, et les radios des pastilles n'étirent plus la colonne.
+- **Les pilotes** : parcours (`fiche-a-cote`, `garde-focus`),
+  `salle-telephone` (`menu-etroit` à 320, 375 et 390 px au niveau
+  « tout »), `padmenu.mjs` (sélecteurs seulement, K40).
+
+Page : 276 515 octets en brotli 11 (359 de plus). Récit : « 24 novembre, au
+bout de la nuit : la fiche à côté des rangées, et trois barres collées qui
+cachaient le focus ». Reste au chantier : PRÊT ou CHOISIT… sur les START
+(avec personnes), la neige « coupure » (avec les états), les poses clés du
+chargement (avec la mascotte), le menu qui s'ouvre défilé à 320 sur 568 et
+en bande étroite (avec la salle), B6b (donnée absente), les pilotes hors
+porte autres que `padmenu.mjs`, et le retrait de `Bindings` avec le
+chantier des manettes. Les scènes « ouvre » et « fier » ne reviennent pas
+à ce chantier (table des scènes de la partition).
+
 **Au 24 novembre, plus tard dans la nuit : le chantier menus, quatrième
 passage.** Sur la même branche, rien dans `main`, rien de poussé ni
 d'installé. Livré :

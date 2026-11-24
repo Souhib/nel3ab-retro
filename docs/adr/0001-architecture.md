@@ -1441,6 +1441,33 @@ controllers section, and the menu renders both the same way. Deferred: the
 the « fier » scene for « all ready » is not in this workstream's arbiter
 list, so « pret » in « tous » mode stays.
 
+#### D30 addendum, 2026-11-24 end of night: the card beside the rows, and sticky bars
+
+1. **Every card opening rereads the saves and a missing identity.** At rest
+   the shelf stays on screen, so `/saves` and `/api/me` were read once on
+   arrival. A read now carries a key (menu or rest, plus the card count);
+   an answer for another key is ignored, so no render shows a stale choice
+   as safe. While it reads, the card's choices are disabled and the focus
+   waits on its title, then moves to the checked choice unless the user
+   moved it. `save-options.mjs` drives the shelf and the menu.
+2. **On a desktop the card sits beside the rows** (`cote`, from
+   `modeSalle === "bureau"`); the rows stay visible and keyboard and pad
+   still move between cartridges. On a phone, in landscape and in a narrow
+   window, the card replaces the rows.
+3. **Sticky bars never cover the focus.** The preparation's gesture row
+   sticks above Aïn's corner and « Plus bas » (D46); a choice that takes the
+   focus under that row scrolls above it, on focus and after every render,
+   with a margin equal to the row's current height. A pastille is
+   positioned, so its hidden absolute radio no longer belongs to the column
+   and no longer stretches its scroll area.
+
+Weighed: a fixed `scroll-margin` alone (the browser's focus scroll does not
+move an element that fits in the column, even under a sticky bar), and a
+column-level padding in `Colonne.tsx` (another workstream's file, and the
+row's height varies from one to three lines). Not taken: the « ouvre » and
+« fier » scenes, which the partition's scene table gives to the lobby and
+to the controllers and room workstreams.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),

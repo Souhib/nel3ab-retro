@@ -47,6 +47,9 @@ const DEPART = {
   fermeeDepuis: 125,
   fermeePour: "inactivite",
   game: true,
+  // Les places que la salle publie : « tenues » (1P au nom de banc) ou
+  // « vides », comme une salle qui ne dit plus qui a joué une fois fermée.
+  sieges: "tenues",
   // La console du jeu en cours: x360 (la manette Pro) ou gc (Dolphin). Ajouté
   // pour le banc du focus, qui doit lire START dans les deux trames.
   console: "x360",
@@ -85,7 +88,7 @@ export async function demarrerBanc({ port, page, flux }) {
     game: state.game ? (LIBRARY.find((one) => one.console === state.console) ?? LIBRARY[0]) : null,
     library: LIBRARY,
     seats: [
-      { port: 1, player: "banc", held: true },
+      state.sieges === "vides" ? { port: 1, player: null, held: false } : { port: 1, player: "banc", held: true },
       { port: 2, player: null, held: false },
       { port: 3, player: null, held: false },
       { port: 4, player: null, held: false },
@@ -308,6 +311,10 @@ export async function demarrerBanc({ port, page, flux }) {
     reinitialiser() {
       Object.assign(state, DEPART);
       for (const ws of [...videos, ...sounds, ...inputs, ...lobbies]) ws.terminate();
+    },
+    /** La salle publiée de nouveau par le salon, avec l'état simulé du moment. */
+    annoncerSalle() {
+      for (const ws of lobbies) ws.send(`42["room",${JSON.stringify(room())}]`);
     },
     /** Un démarrage annoncé par le salon, comme quand quelqu'un change de jeu. */
     annoncerDemarrage() {

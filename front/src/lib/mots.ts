@@ -500,6 +500,9 @@ export const PLACES = {
   tenue: (n: number) => `Place ${n}, tenue : la reprendre`,
   aToi: (n: number) => `Place ${n} : la tienne`,
   aQuelquun: (n: number, nom: string) => `Place ${n} : ${nom}`,
+  /** Une salle fermée : les places au passé, sans geste (plan des états). */
+  ontJoue: "Ils ont joué",
+  restaitLibre: (n: number) => `Place ${n}, libre`,
   choisit: "choisit le jeu",
   tuChoisis: "tu choisis le jeu",
   microCoupe: "micro coupé",

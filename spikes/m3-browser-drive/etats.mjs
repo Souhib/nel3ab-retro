@@ -457,6 +457,23 @@ const ETAPES = {
       page.evaluate(() => ["#inviter", "#takePad, #watchOnly"].filter((s) => document.querySelector(s) !== null));
     const ouverte = await gestes();
     if (ouverte.length !== 2) throw new Precondition(`salle ouverte sans ses deux gestes: ${ouverte}`);
+    // Les places du panneau : au présent tant que la salle est ouverte (le
+    // jumeau), au passé une fois fermée (plan des états, salle fermée 1).
+    const lesPlaces = () =>
+      page.evaluate(() => {
+        const rangee = document.querySelector("#ports");
+        const places = [1, 2, 3, 4].map((n) => document.querySelector(`#port${n}`));
+        return {
+          groupe: rangee ? [rangee.getAttribute("role"), rangee.getAttribute("aria-label")] : null,
+          noms: places.map((b) => b?.getAttribute("aria-label") ?? null),
+          actives: places.filter((b) => b !== null && !b.disabled).length,
+          toi: document.querySelectorAll("#ports .n3-place-toi, #ports .n3-couronne").length,
+          role: document.querySelector(".n3-places-role")?.textContent ?? null,
+        };
+      });
+    const auPresent = await lesPlaces();
+    if (auPresent.groupe === null || auPresent.groupe[1] !== null || auPresent.actives !== 4 || auPresent.toi === 0)
+      throw new Precondition(`places d'une salle ouverte inattendues: ${JSON.stringify(auPresent)}`);
     // Le salon dit depuis quand et pourquoi (K37, `Salle.fermee_depuis`).
     const fermeeA = Date.now() - 125_000;
     banc.regler({ video: "drop", ouverte: false, redemarre: false, fermeeDepuis: 125 });
@@ -464,6 +481,18 @@ const ETAPES = {
     if (fermee.apres === null) throw new Defaut(`une salle fermée n'est pas dite fermée en 9 s: ${fermee.vu.texte}`);
     const restes = await gestes();
     if (restes.length > 0) throw new Defaut(`la salle fermée propose encore ${restes.join(" et ")}`);
+    // Le salon publie ensuite la salle sans ses joueurs : le panneau garde
+    // ceux d'avant la fermeture.
+    banc.regler({ sieges: "vides" });
+    banc.annoncerSalle();
+    await sleep(1200);
+    const auPasse = await lesPlaces();
+    if (JSON.stringify(auPasse.groupe) !== JSON.stringify(["group", "Ils ont joué"]))
+      throw new Defaut(`les places d'une salle fermée ne se lisent pas « Ils ont joué »: ${JSON.stringify(auPasse)}`);
+    if (auPasse.noms[0] !== "Place 1 : banc")
+      throw new Defaut(`la salle fermée a perdu qui jouait: ${JSON.stringify(auPasse.noms)}`);
+    if (auPasse.actives !== 0 || auPasse.toi !== 0 || auPasse.role !== null)
+      throw new Defaut(`des places d'une salle fermée gardent un geste, toi, une couronne ou le rôle: ${JSON.stringify(auPasse)}`);
     // L'heure dite est celle que le salon publie, à la minute près (la sonde
     // part dans les secondes qui suivent), à l'heure de l'appareil.
     const heures = await page.evaluate((a) => {

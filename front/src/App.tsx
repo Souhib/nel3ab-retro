@@ -2389,18 +2389,28 @@ function Room({
   const don = useDonDiffere((ok) => repondre.current(ok));
   /* Les places START 1P à 4P (chantier personnes). La rangée est posée par
      le cadre : sous l'image, au pied de la colonne, debout ou en petit. */
+  const entreeDesPlaces = {
+    places: shot?.input.players ?? 4,
+    tenues: occupied,
+    noms: names,
+    micros: shot?.input.mics ?? [],
+    chef: boss?.seat,
+    mienne: port,
+  };
+  /* Une salle fermée garde les places d'avant sa fermeture, au passé (plan
+     des états) : ce que la salle publie ensuite ne dit plus qui a joué. */
+  const placesDAvant = useRef(entreeDesPlaces);
+  useEffect(() => {
+    if (!salleFermee) placesDAvant.current = entreeDesPlaces;
+  });
   const places = (
     <>
       <Places
         forme={formeDesPlaces(geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme)}
-        entree={{
-          places: shot?.input.players ?? 4,
-          tenues: occupied,
-          noms: names,
-          micros: shot?.input.mics ?? [],
-          chef: boss?.seat,
-          mienne: port,
-        }}
+        // La dernière entrée vue avant la fermeture : écrite après chaque
+        // rendu d'une salle ouverte, lue au rendu d'une salle fermée.
+        entree={salleFermee ? placesDAvant.current : entreeDesPlaces}
+        passe={salleFermee}
         vient={suivi.vient}
         part={suivi.part}
         carte={carte}

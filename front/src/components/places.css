@@ -52,6 +52,10 @@
   text-align: left;
   cursor: pointer;
 }
+/* Une salle fermée : les places au passé, sans geste (`passe`). */
+.n3-place:disabled {
+  cursor: default;
+}
 .n3-place-start {
   grid-row: 1 / span 2;
   font-size: var(--text-note);

@@ -18,7 +18,11 @@ beforeEach(() => {
   mascotte.jouer.mockClear();
   mascotte.poserMascotte.mockClear();
   transitions.choisirTransition.mockReset().mockReturnValue(null);
-  transitions.transition.mockClear();
+  // Remis à zéro, implémentation comprise : un essai la change en une
+  // transition qui ne finit pas.
+  transitions.transition
+    .mockReset()
+    .mockImplementation(async (_type: unknown, _cible: unknown, milieu: () => void) => milieu());
 });
 
 const salle = (sieges: (string | null)[], plus: Record<string, unknown> = {}) =>
@@ -300,22 +304,27 @@ describe("Aïn dans l'avant-salle", () => {
 
 describe("entrer par la transition « entrer-salle » (K13)", () => {
   const animer = () => {
-    const avant = document.body.animate;
-    document.body.animate = vi.fn() as unknown as typeof document.body.animate;
+    const avant = HTMLElement.prototype.animate;
+    HTMLElement.prototype.animate = vi.fn() as unknown as typeof HTMLElement.prototype.animate;
     return () => {
-      document.body.animate = avant;
+      HTMLElement.prototype.animate = avant;
     };
   };
 
   it("« Prendre la place 3 » passe par la transition du moment, et entre au milieu", () => {
-    transitions.choisirTransition.mockReturnValue("mosaique");
+    transitions.choisirTransition.mockReturnValue("tuiles");
     const remettre = animer();
     try {
       const { onEnter } = poser(salle(["Souhib", "Nour", null, null]));
       fireEvent.click(document.querySelector("#enter")!);
       expect(transitions.choisirTransition).toHaveBeenCalledWith("entrer-salle");
       expect(transitions.transition).toHaveBeenCalledTimes(1);
-      expect(transitions.transition.mock.calls[0]?.[0]).toBe("mosaique");
+      expect(transitions.transition.mock.calls[0]?.[0]).toBe("tuiles");
+      // Sur l'avant-salle seule : la salle qui se monte au milieu n'est
+      // jamais sous la transition.
+      expect(transitions.transition.mock.calls[0]?.[1]).toBe(
+        document.querySelector(".n3-avant-salle"),
+      );
       expect(onEnter).toHaveBeenCalledWith(3);
     } finally {
       remettre();
@@ -334,6 +343,20 @@ describe("entrer par la transition « entrer-salle » (K13)", () => {
       expect(transitions.transition).toHaveBeenCalledTimes(1);
       expect(onWatch).not.toHaveBeenCalled();
       expect(onEnter).not.toHaveBeenCalled();
+    } finally {
+      remettre();
+    }
+  });
+
+  it("la mosaïque cède au fondu : elle retardait la première image de 800 ms", () => {
+    transitions.choisirTransition.mockReturnValue("mosaique");
+    const remettre = animer();
+    try {
+      const { onEnter } = poser(salle(["Souhib", null, null, null]));
+      fireEvent.click(document.querySelector("#enter")!);
+      expect(transitions.transition).toHaveBeenCalledTimes(1);
+      expect(transitions.transition.mock.calls[0]?.[0]).toBe("fondu");
+      expect(onEnter).toHaveBeenCalledWith(2);
     } finally {
       remettre();
     }

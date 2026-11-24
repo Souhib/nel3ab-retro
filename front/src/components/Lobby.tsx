@@ -45,6 +45,7 @@ import { AVANT_SALLE, chefChoisit, pastille, prendreLaPlace } from "../lib/mots"
 import { salonAuDessus } from "../lib/entree";
 import { jouer, poserMascotte } from "../mascotte";
 import type { Joueur } from "../mascotte/dessin";
+import { effetActif } from "../lib/effets";
 import { choisirTransition, transition } from "../retro/transitions";
 import { Etiquette } from "./Etiquette";
 import { Logo } from "./Logo";
@@ -93,18 +94,31 @@ function useAinDeLAvantSalle(seats: readonly Seat[] | undefined) {
   return maison;
 }
 
-/** Entrer par la transition « entrer-salle » sur toute la page (K13) : des
- * tuiles en « tout », une mosaïque en « conseillé », un fondu en « sobre »,
- * rien en mouvement réduit. Le geste part au milieu, quand la page est
- * couverte ; un second clic pendant ce temps ne repart pas. */
-function useEntrerParTransition() {
+/** Entrer par la transition « entrer-salle » (K13) : des tuiles en « tout »,
+ * une mosaïque en « conseillé », un fondu en « sobre », rien en mouvement
+ * réduit. Elle joue sur l'avant-salle SEULE, et le geste part au milieu,
+ * quand l'avant-salle est couverte ; un second clic pendant ce temps ne
+ * repart pas.
+ *
+ * Pas sur toute la page : la salle se monte au milieu, et la seconde moitié
+ * filtrait la salle neuve, son écran compris, une demi-seconde. Une carte
+ * posée pendant ce temps couvrait l'image (parcours.mjs, demande-place,
+ * 24 novembre 2026), et la règle de l'image ne connaît pas d'exception. */
+function useEntrerParTransition(avantSalle: { current: HTMLElement | null }) {
   const enCours = useRef(false);
   return (geste: () => void) => {
-    const type = choisirTransition("entrer-salle");
-    const surface = document.getElementById("root") ?? document.body;
+    const voulue = choisirTransition("entrer-salle");
+    // La mosaïque (« conseillé ») retardait la première image de la salle de
+    // 800 ms dans Chrome sans écran : 1 295 ms après la place prise au lieu
+    // de 460, quatre essais de chaque côté le 24 novembre 2026, alors que les
+    // tuiles (« tout », 485 ms) et le fondu (« sobre », 483 ms) ne coûtent
+    // rien. Ses filtres SVG pleine page occupent le navigateur. Ici, elle
+    // cède au fondu, le dernier recours du moment (`MOMENTS`).
+    const type = voulue === "mosaique" ? (effetActif("fondu") ? "fondu" : null) : voulue;
+    const surface = avantSalle.current;
     // Sans animation, le geste part tout de suite, sans garde : rien n'est
     // en cours qu'un second clic pourrait doubler.
-    if (type === null || typeof surface.animate !== "function") return geste();
+    if (type === null || !surface || typeof surface.animate !== "function") return geste();
     if (enCours.current) return;
     enCours.current = true;
     void transition(type, surface, geste).finally(() => {
@@ -148,13 +162,17 @@ export function Lobby({
   const chef = room?.owner?.name ?? null;
   const console = consoleLue(room?.game?.console);
   const maison = useAinDeLAvantSalle(room?.seats);
-  const entrer = useEntrerParTransition();
+  const avantSalle = useRef<HTMLDivElement>(null);
+  const entrer = useEntrerParTransition(avantSalle);
 
   return (
     /* `min-h-full` et `my-auto` plutôt que `h-full` et un centrage : centrée
        dans une boîte plus petite qu'elle, la fiche débordait par le HAUT, où
        l'on ne peut pas défiler (audit M9, 22 novembre 2026). */
-    <div className="n3-avant-salle flex min-h-full flex-col items-center p-6 paysage-bas:px-6 paysage-bas:py-3">
+    <div
+      ref={avantSalle}
+      className="n3-avant-salle flex min-h-full flex-col items-center p-6 paysage-bas:px-6 paysage-bas:py-3"
+    >
       <div className="my-auto flex w-full max-w-md flex-col gap-5 paysage-bas:grid paysage-bas:max-w-3xl paysage-bas:grid-cols-[3fr_2fr] paysage-bas:items-start paysage-bas:gap-x-5 paysage-bas:gap-y-3">
         <header className="relative flex flex-col gap-2 paysage-bas:col-span-2">
           {/* Un point de passage d'Aïn, à gauche de la fiche, entre l'en-tête

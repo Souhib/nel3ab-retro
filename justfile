@@ -157,7 +157,7 @@ salon-navigateur-rouge:
     node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
     node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
-    node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau
+    node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
 # du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit

@@ -46,6 +46,8 @@ export async function demarrerSalon({ port, pages = null }) {
       catalogue: null,
       imports: [],
       importeurs: null,
+      suivis: {},
+      catalogueApres: null,
     });
     envois.length = 0;
   };
@@ -105,6 +107,18 @@ export async function demarrerSalon({ port, pages = null }) {
       }
       // Les envois d'avant le chargement de la page de dépôt.
       if (chemin === "/api/imports" && req.method === "GET") return json(res, 200, etat.imports);
+      // Un envoi suivi: chaque relevé rend l'état suivant de sa liste, puis
+      // garde le dernier. Le dernier servi change le catalogue, comme un jeu
+      // rangé l'ajoute à la bibliothèque.
+      if (chemin.startsWith("/api/imports/") && req.method === "GET" && etat.suivis[chemin.slice("/api/imports/".length)]) {
+        const suite = etat.suivis[chemin.slice("/api/imports/".length)];
+        const envoi = suite.length > 1 ? suite.shift() : suite[0];
+        if (suite.length === 1 && envoi === suite[0] && etat.catalogueApres) {
+          etat.catalogue = etat.catalogueApres;
+          etat.catalogueApres = null;
+        }
+        return json(res, 200, envoi);
+      }
       if (chemin === "/api/catalogue") return etat.catalogue ? json(res, 200, etat.catalogue) : json(res, 404, { detail: "banc" });
       if (chemin.startsWith("/api/catalogue/art/") && (req.method === "PUT" || req.method === "DELETE")) {
         envois.push({ art: decodeURIComponent(chemin.slice("/api/catalogue/art/".length)), methode: req.method, octets: corps.length });

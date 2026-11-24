@@ -522,6 +522,9 @@ class Carte {
   }
 
   async suivre() {
+    // Une vérification vue d'ici: son issue se joue dans cette page, même
+    // pour un envoi commencé avant le chargement (plan salon, #8).
+    this.suivie = true;
     this.etat = "verification";
     this.pose("loupe");
     this.boutons();
@@ -954,6 +957,27 @@ async function remplirRayon(racine, pile) {
   return jeux.length;
 }
 
+/**
+ * La boîte d'un jeu qui vient d'être rangé quitte le haut de la pile et
+ * glisse à sa place dans la rangée (plan salon, salon-importer#8) : 900 ms,
+ * `transform` seul. En mouvement réduit, ou sans pile d'où partir, elle
+ * apparaît en 150 ms, par `opacity` seule. La rangée défile d'abord jusqu'à
+ * elle, pour que le trajet se voie.
+ */
+export function glisserDeLaPile(li, depart, reduire = reduit()) {
+  li.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  if (reduire || !depart) {
+    return li.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: "linear" });
+  }
+  const arrivee = li.getBoundingClientRect();
+  const dx = depart.left - arrivee.left;
+  const dy = depart.top - arrivee.top;
+  return li.animate(
+    [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }],
+    { duration: 900, easing: "cubic-bezier(.2, .7, .3, 1)" },
+  );
+}
+
 async function ouvrirJaquettes(racine) {
   const liste = racine.querySelector("#jeux");
   const avis = racine.querySelector("#jaquettes-avis");
@@ -1088,10 +1112,18 @@ async function demarrerPage() {
   const rayon = document.getElementById("rayon");
   remplirRayon(rayon, pileDe(anciens)).catch(() => {});
   // Un jeu rangé pendant la visite : la scène « depot » joue d'abord, puis
-  // la rangée le montre. La pile se recompte sur les cartes de la page.
+  // la rangée le montre, sa boîte partie du haut de la pile. La pile se
+  // recompte sur les cartes de la page.
   liste.addEventListener("rt-range", () => {
     const pile = liste.querySelectorAll('[data-pose="loupe"], [data-pose="pause"], [data-pose="envoi"]').length;
-    setTimeout(() => remplirRayon(rayon, pile).catch(() => {}), 1200);
+    setTimeout(async () => {
+      const haut = rayon.querySelector(".pile-boites > :last-child");
+      const depart = haut && !rayon.querySelector("#pile").hidden ? haut.getBoundingClientRect() : null;
+      const avant = new Set([...rayon.querySelectorAll(".rayon-jeu")].map((li) => li.dataset.cle));
+      await remplirRayon(rayon, pile).catch(() => null);
+      for (const li of rayon.querySelectorAll(".rayon-jeu"))
+        if (!avant.has(li.dataset.cle)) glisserDeLaPile(li, depart);
+    }, 1200);
   });
   for (const envoi of anciens) {
     const carte = new Carte(liste, modele);

@@ -681,6 +681,59 @@ ETAPES["depot-scene"] = async () => {
   await jumeau.close();
 };
 
+/** Un jeu rangé pendant la visite (plan salon, salon-importer#8) : un envoi
+ * en vérification au chargement passe à rangé ; Aïn joue « depot », et la
+ * boîte du jeu quitte le haut de la pile pour sa place dans la rangée, en
+ * 900 ms et par `transform` seul. Les jumeaux : en mouvement réduit elle
+ * apparaît en 150 ms par `opacity` ; un envoi déjà rangé au chargement ne
+ * joue rien et rien ne glisse. */
+ETAPES["depot-glisse"] = async () => {
+  const envoi = (etat, champs = {}) => ({ id: "e1", etat, nom: "zelda.iso", taille: 100, decalage: 100, elements: [], ...champs });
+  const range = envoi("termine", { elements: [{ etat: "range", console: "gc", console_libelle: "GameCube", libelle: "Rangé",
+    titre: "Zelda", destination: "GameCube", message: "", nom: "zelda.iso", preuve: "", format: "iso" }] });
+  const avant = catalogue(3);
+  const apres = { ...avant, games: [...avant.games, { key: "zelda.iso", name: "Zelda", console: "gc", art: false }] };
+  const glissement = (page, delai) => page.waitForFunction(() => {
+    const a = document.querySelector('.rayon-jeu[data-cle="zelda.iso"]')?.getAnimations()[0];
+    if (!a) return null;
+    const images = a.effect.getKeyframes();
+    const bouge = new Set(images.flatMap((k) => Object.keys(k).filter((c) => !["offset", "computedOffset", "easing", "composite"].includes(c))));
+    return { duree: a.effect.getTiming().duration, bouge: [...bouge].join(), depart: images[0].transform ?? null };
+  }, { timeout: delai, polling: 50 }).then((h) => h.jsonValue()).catch(() => null);
+  const joue = (page, delai) => page.waitForFunction(() =>
+    document.querySelector('header [data-hote="logo"] .rt-mascotte')?.dataset.scene === "depot", { timeout: delai, polling: 50 })
+    .then(() => true).catch(() => false);
+  const ouvrir = (imports, suivis, mouvement = "no-preference") => nouvelle(PC, {
+    chemin: "/importer",
+    avant: niveau("conseille"),
+    // Déjà rangé, le jeu est dans la bibliothèque dès le chargement : sa
+    // boîte est là, et rien ne doit la faire glisser.
+    reglage: { droits: { peut_importer: true }, catalogue: suivis ? avant : apres, catalogueApres: suivis ? apres : null, imports, suivis: suivis ?? {} },
+  }).then(async (page) => {
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }, { name: "prefers-reduced-motion", value: mouvement }]);
+    return page;
+  });
+
+  const page = await ouvrir([envoi("verification")], { e1: [envoi("verification"), range] });
+  const [scene, vu] = await Promise.all([joue(page, 6000), glissement(page, 8000)]);
+  defaut(scene, "Aïn ne joue pas « depot » quand le jeu se range sous les yeux");
+  defaut(vu !== null, "la boîte du jeu rangé n'arrive pas dans la rangée en glissant");
+  defaut(vu.duree === 900 && vu.bouge === "transform" && vu.depart !== "none", `glissement : ${JSON.stringify(vu)}`);
+  await page.close();
+
+  const reduite = await ouvrir([envoi("verification")], { e1: [envoi("verification"), range] }, "reduce");
+  const doux = await glissement(reduite, 8000);
+  defaut(doux !== null && doux.duree === 150 && doux.bouge === "opacity", `en mouvement réduit : ${JSON.stringify(doux)}`);
+  await reduite.close();
+
+  const deja = await ouvrir([range], null);
+  await deja.waitForFunction(() => document.querySelector('.rayon-jeu[data-cle="zelda.iso"]') !== null, { timeout: 5000 })
+    .catch(() => { throw new Precondition("le jeu déjà rangé n'est pas dans la rangée"); });
+  const [sceneDeja, vuDeja] = await Promise.all([joue(deja, 3000), glissement(deja, 3000)]);
+  defaut(!sceneDeja && vuDeja === null, `un envoi déjà rangé joue encore : scène ${sceneDeja}, ${JSON.stringify(vuDeja)}`);
+  await deja.close();
+};
+
 // ── Le déroulé ───────────────────────────────────────────────────────────
 const noms = SEULE ? [SEULE] : ROUGE ?? Object.keys(ETAPES);
 let echecs = 0;

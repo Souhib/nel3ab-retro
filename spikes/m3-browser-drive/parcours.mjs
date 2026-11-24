@@ -20,7 +20,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
-import { BO, MOI, demarrerParcours } from "./parcours-banc.mjs";
+import { BIBLIOTHEQUE, BO, MOI, demarrerParcours } from "./parcours-banc.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
@@ -835,6 +835,120 @@ const ETAPES = {
     await menu(autre, "salle");
     if (await autre.$("#item-close-room")) throw new Defaut("« fermer la salle » proposé à qui n'est pas chef");
     await autre.close();
+  },
+
+  /** B1 et B12 (chantier menus) : une salle sans jeu montre ses jeux sur
+   * l'écran éteint, une cartouche par jeu, sans ouvrir le menu, et le focus
+   * d'entrée est sur la première cartouche. Le jumeau : un jeu en cours n'a
+   * pas de rayonnage, et la rubrique Jeux du menu liste les mêmes jeux. */
+  async rayonnage() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    // Les pages d'avant le rayonnage n'ont pas toutes l'écran éteint : son
+    // absence est le défaut cherché, pas une précondition.
+    await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000);
+    await sleep(800);
+    const vu = await page.evaluate(() => {
+      const premiere = document.querySelector("#rayonnage [data-jeu]");
+      const r = premiere?.getBoundingClientRect();
+      const ici = r ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
+      return {
+        rayonnage: document.querySelector("#rayonnage") !== null,
+        menu: document.querySelector("#menu") !== null,
+        jeux: document.querySelectorAll("#rayonnage [data-jeu]").length,
+        focus: document.activeElement === premiere && premiere !== null,
+        touche: premiere !== null && ici !== null && premiere.contains(ici),
+      };
+    });
+    if (!vu.rayonnage) throw new Defaut("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    if (vu.menu) throw new Defaut("la salle sans jeu ouvre le menu d'office");
+    if (vu.jeux !== BIBLIOTHEQUE.length)
+      throw new Defaut(`${vu.jeux} cartouches pour ${BIBLIOTHEQUE.length} jeux`);
+    if (!vu.focus) throw new Defaut(`le focus d'entrée est sur « ${await idActif(page)} », pas sur la première cartouche`);
+    if (!vu.touche) throw new Defaut("le centre de la première cartouche ne la touche pas (elementFromPoint)");
+    await capture(page, "rayonnage");
+    await page.close();
+    const partie = await nouvelle(PC);
+    await entrer(partie);
+    await sleep(800);
+    if (await partie.$("#rayonnage")) throw new Defaut("un jeu en cours garde le rayonnage");
+    await menu(partie, "jeux");
+    const lignes = await partie.$$eval('[id^="item-game"]', (l) => l.length);
+    if (lignes !== BIBLIOTHEQUE.length)
+      throw new Defaut(`la rubrique Jeux liste ${lignes} jeux pour ${BIBLIOTHEQUE.length}`);
+    await partie.close();
+  },
+
+  /** B4 : seul dans la salle, la cartouche puis « Lancer », sauvegarde déjà
+   * cochée : un seul « begin » part au salon, avec direct. Le jumeau : la
+   * cartouche seule n'envoie rien. */
+  async "lancer-seul"() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Defaut("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    const avant = banc.journal.evenements.length;
+    await page.click('#rayonnage [data-jeu="0"]');
+    if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Defaut("la cartouche n'ouvre pas la fiche du jeu");
+    await sleep(500);
+    const partis = () =>
+      banc.journal.evenements.slice(avant).filter((e) => Array.isArray(e.quoi) && e.quoi[0] === "preparation");
+    if (partis().length !== 0) throw new Defaut("ouvrir la fiche a déjà envoyé une préparation");
+    const fiche = await texte(page, "#ficheJeu");
+    if (!fiche.includes("Le jeu part tout de suite."))
+      throw new Defaut(`seul, la fiche ne dit pas que le jeu part tout de suite: « ${fiche.slice(0, 120)} »`);
+    if (!(await jusqua(() => page.$eval("#ficheJeuAgir", (b) => !b.disabled).catch(() => false), 5000)))
+      throw new Defaut("« Lancer » reste grisé : les sauvegardes ne sont pas lues au repos");
+    await page.click("#rayonnage [data-lancer] #ficheJeuAgir");
+    if (!(await jusqua(() => partis().length > 0, 3000))) throw new Defaut("« Lancer » n'envoie rien au salon");
+    await sleep(300);
+    const envois = partis().map((e) => e.quoi[1]);
+    if (envois.length !== 1) throw new Defaut(`${envois.length} préparations envoyées pour un « Lancer »`);
+    const [begin] = envois;
+    if (begin?.action !== "begin" || begin.direct !== true || begin.game !== 0)
+      throw new Defaut(`la préparation envoyée: ${JSON.stringify(begin)}`);
+    await capture(page, "lancer-seul");
+    await page.close();
+  },
+
+  /** B11 : Entrée ouvre la fiche, le focus sur la sauvegarde cochée ; Échap
+   * la ferme, rend le focus à la même cartouche et n'ouvre pas le menu. Le
+   * jumeau : Échap sans fiche ouverte ouvre le menu. */
+  async "bibliotheque-clavier"() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Defaut("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    await page.focus('#rayonnage [data-jeu="0"]');
+    await page.keyboard.press("ArrowDown");
+    const apresFleche = await page.evaluate(() => document.activeElement?.getAttribute("data-jeu"));
+    if (apresFleche !== "2") throw new Defaut(`↓ depuis la GameCube mène à « ${apresFleche} », pas au jeu Wii`);
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Defaut("Entrée sur une cartouche n'ouvre pas la fiche");
+    const ouvert = await page.evaluate(() => ({
+      etendu: document.querySelector('[data-jeu="2"]')?.getAttribute("aria-expanded"),
+      coche: document.activeElement instanceof HTMLInputElement && document.activeElement.checked,
+      agir: document.activeElement?.id,
+    }));
+    if (ouvert.etendu !== "true") throw new Defaut("la cartouche ouverte ne dit pas aria-expanded=true");
+    // Un jeu Wii a ses sauvegardes : le focus va sur celle qui est cochée.
+    if (!ouvert.coche) throw new Defaut(`le focus de la fiche est sur « ${ouvert.agir} », pas sur la sauvegarde cochée`);
+    await page.keyboard.press("Escape");
+    await sleep(400);
+    const ferme = await page.evaluate(() => ({
+      fiche: document.querySelector("#ficheJeu") !== null,
+      menu: document.querySelector("#menu") !== null,
+      focus: document.activeElement?.getAttribute("data-jeu"),
+    }));
+    if (ferme.fiche) throw new Defaut("Échap ne ferme pas la fiche");
+    if (ferme.menu) throw new Defaut("Échap sur la fiche ouvre aussi le menu");
+    if (ferme.focus !== "2") throw new Defaut(`après Échap, le focus est sur « ${ferme.focus} », pas sur la cartouche`);
+    await page.keyboard.press("Escape");
+    if (!(await jusqua(() => page.$("#menu").then(Boolean), 3000)))
+      throw new Defaut("Échap sans fiche ouverte n'ouvre plus le menu");
+    await page.close();
   },
 
   /** T12: un seul verbe pour le chef, et la reprise du rôle seulement quand le

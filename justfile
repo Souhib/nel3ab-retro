@@ -886,6 +886,12 @@ parcours-navigateur-rouge:
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes invitation --rouge-attendu invitation
+    # Sur la même page, la salle sans jeu ouvre son menu d'office et n'a pas
+    # de rayonnage : les trois étapes du chantier menus (24 novembre 2026)
+    # doivent y tomber sur ce défaut.
+    etapes=rayonnage,lancer-seul,bibliotheque-clavier
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible

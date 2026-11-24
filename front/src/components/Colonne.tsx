@@ -31,6 +31,14 @@ import { Volume } from "./Settings";
 /** La marge de défilement du bas : plus haute que « Plus bas » (40 px). */
 export const MARGE_BAS = 60;
 
+/** La hauteur du coin entier, filet compris : 1 + 8 + 40 (sa ligne) + 4 +
+ * sa maison (`SCENE_DU_COIN`, 96) + 12 (`cadre.css`, `.n3-coin`). Au bureau,
+ * il colle au pied de ce qui se voit (`.n3-colonne-pied`), et la colonne
+ * ajoute cette hauteur à sa marge de défilement du bas : le focus ne
+ * s'arrête jamais dessous. `Colonne.test.tsx` la refait depuis
+ * `SCENE_DU_COIN` ; `cadre.mjs` (maison-en-vue) la mesure dans Chrome. */
+export const HAUTEUR_DU_COIN = 161;
+
 /** Une icône en pixels du socle ; elle ne se montre qu'avec l'effet « icones ». */
 export function IconeRang({ nom }: { nom: IconePixel }) {
   return (
@@ -104,6 +112,16 @@ export function Colonne({
 }) {
   const [boite, setBoite] = useState<HTMLElement | null>(null);
   const suite = useSuiteCachee(boite);
+  const collePied = forme === "a-cote" && coin !== null;
+  // Un repère et pas une commande : hors de la tabulation (Tab descend déjà
+  // rang par rang) et sans prise au doigt, pour ne recouvrir aucune cible de
+  // la colonne (salle-telephone.mjs, « recouvre plusBas »).
+  const plusBas = (
+    <div id="plusBas" aria-hidden="true" className="n3-plus-bas">
+      <IconeRang nom="chevron" />
+      {COLONNE.plusBas}
+    </div>
+  );
   // Le ▶ du socle devant le rang visé, au clavier comme à la souris. La
   // colonne ne contient jamais l'image : `activerCurseur` refuserait.
   const [curseur, setCurseur] = useState<Curseur | null>(null);
@@ -140,7 +158,7 @@ export function Colonne({
       style={{
         ...(largeur === null ? {} : { width: largeur, maxWidth: "50vw" }),
         scrollPaddingTop: margeHaut ? margeHaut + 16 : undefined,
-        scrollPaddingBottom: MARGE_BAS,
+        scrollPaddingBottom: collePied ? MARGE_BAS + HAUTEUR_DU_COIN : MARGE_BAS,
       }}
       className={cn(
         "n3-colonne relative flex flex-col gap-3 overflow-y-auto bg-panel",
@@ -185,16 +203,14 @@ export function Colonne({
           )}
         </nav>
       )}
-      <div className="mt-auto">{coin}</div>
-      {suite ? (
-        // Un repère et pas une commande : hors de la tabulation (Tab descend
-        // déjà rang par rang) et sans prise au doigt, pour ne recouvrir aucune
-        // cible de la colonne (salle-telephone.mjs, « recouvre plusBas »).
-        <div id="plusBas" aria-hidden="true" className="n3-plus-bas">
-          <IconeRang nom="chevron" />
-          {COLONNE.plusBas}
-        </div>
-      ) : null}
+      {/* Au bureau, le coin colle au pied de ce qui se voit : la maison
+          d'Aïn reste en vue quand la colonne déborde (ADR D46), et « Plus
+          bas » se pose au-dessus de lui. */}
+      <div className={cn("mt-auto", collePied && "n3-colonne-pied")}>
+        {collePied && suite ? plusBas : null}
+        {coin}
+      </div>
+      {!collePied && suite ? plusBas : null}
     </aside>
   );
 }

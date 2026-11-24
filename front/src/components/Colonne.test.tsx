@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { rangsDeLaColonne, type Rang } from "../lib/colonne";
-import { Coin } from "./Coin";
-import { BlocRole, Colonne, IlsRegardent } from "./Colonne";
+import { Coin, SCENE_DU_COIN } from "./Coin";
+import { BlocRole, Colonne, HAUTEUR_DU_COIN, IlsRegardent, MARGE_BAS } from "./Colonne";
 import { PanneauCommande } from "./PanneauCommande";
 
 const contenus: Partial<Record<Rang, React.ReactNode>> = {
@@ -226,6 +226,51 @@ describe("les trois formes de la colonne", () => {
     expect(side?.className).toContain("flex-1");
     expect(side?.className).toContain("border-t");
     expect(side?.className).not.toContain("border-l");
+  });
+
+  it("à côté de l'image, le coin colle au pied de ce qui se voit, et la marge du bas le compte", () => {
+    const { container } = render(
+      <Colonne
+        nomSalle="Salle 1"
+        jeu={null}
+        onQuitter={() => {}}
+        largeur={304}
+        forme="a-cote"
+        role={null}
+        rangs={[]}
+        contenus={{}}
+        vue={null}
+        coin={<Coin mesures={false} onMesures={() => {}} />}
+      />,
+    );
+    const side = container.querySelector<HTMLElement>("#side");
+    expect(container.querySelector("#coin")?.parentElement?.className).toContain("n3-colonne-pied");
+    expect(side?.style.scrollPaddingBottom).toBe(`${MARGE_BAS + HAUTEUR_DU_COIN}px`);
+    // La hauteur dite est celle du coin : filet, marges, ligne, maison.
+    expect(HAUTEUR_DU_COIN).toBe(1 + 8 + 40 + 4 + SCENE_DU_COIN + 12);
+  });
+
+  it("jumeau : sous l'image, le coin reste dans le fil de la colonne", () => {
+    const { container } = render(
+      <Colonne
+        nomSalle="Salle 1"
+        jeu={null}
+        onQuitter={() => {}}
+        largeur={null}
+        forme="dessous"
+        role={null}
+        rangs={[]}
+        contenus={{}}
+        vue={null}
+        coin={<Coin mesures={false} onMesures={() => {}} />}
+      />,
+    );
+    expect(container.querySelector("#coin")?.parentElement?.className).not.toContain(
+      "n3-colonne-pied",
+    );
+    expect(container.querySelector<HTMLElement>("#side")?.style.scrollPaddingBottom).toBe(
+      `${MARGE_BAS}px`,
+    );
   });
 
   it("dans la feuille, ne pose ni largeur ni filet : la feuille les porte", () => {

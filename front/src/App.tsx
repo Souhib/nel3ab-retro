@@ -2021,6 +2021,9 @@ function Room({
     // chargement qui offre ses gestes le porte aussi (C7a) : la colonne cache
     // alors le sien.
     fiche: signaleDansLaFiche(modele) || chargementParle,
+    // À l'arrivée dans une partie en cours, ses rangs sont là avant la
+    // première image : elle ne fait pas grandir la colonne (colonne-stable).
+    partie: Boolean(room?.game),
   });
   /** La vue des touches montrée : celle qu'un rang a ouverte, ou celle du
    * clavier à la première visite. Seulement tant que son rang existe : une

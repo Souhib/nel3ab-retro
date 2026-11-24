@@ -20,6 +20,10 @@
  * - garder : les 45 dernières secondes, un jeu tourne ;
  * - agrandir : l'image agrandie par Ctrl, quand il y a une image ;
  * - autres : Autres réglages, toujours (Rendre ma place, Micro pour les clips).
+ *
+ * « Un jeu tourne » et « il y a une image » comptent aussi l'arrivée dans une
+ * partie en cours, avant sa première image : la première image ne change
+ * pas la colonne (24 novembre 2026).
  */
 import type { Appareil } from "./appareil";
 import { sansImage, type EtatDuCadre, type Role } from "./cadre";
@@ -42,8 +46,14 @@ export function rangsDeLaColonne(e: {
   appareil: Appareil;
   /** Une fiche d'état parle dans la colonne (états) : elle porte Signaler. */
   fiche: boolean;
+  /** Une partie tourne dans la salle (`room.game`). */
+  partie: boolean;
 }): Rang[] {
-  const jeu = !sansImage(e.etat);
+  // Les rangs d'une partie dès l'arrivée dans une partie en cours : ils
+  // paraissaient à la première image, et la colonne grandissait de 196 px
+  // sous les yeux (colonne-stable d'etats.mjs, 24 novembre 2026). Un
+  // lancement les garde cachés (C8) : aucune partie ne tourne encore.
+  const jeu = !sansImage(e.etat) || (e.etat === "connexion" && e.partie);
   const joue = e.role === "joueur";
   const rangs: Rang[] = [];
   if (!e.fiche) rangs.push("signaler");

@@ -921,8 +921,11 @@ function paysage(e: Entree): Geometrie {
   // panneau qui n'a que ses lampes la laisse en tête de la bande, sous
   // « La salle » ; sans bande (moins de 48 px), juste sous lui. Sous
   // l'image d'une tablette (« bas »), la manette est celle du portrait :
-  // sa fente. Reste sans étiquette une fenêtre de moins de 160 px de haut,
-  // où la pose est déjà dégradée.
+  // sa fente. Reste sans étiquette une fenêtre couchée de moins de 370 px
+  // de haut où ni la bande ni cette ligne ne tiennent : 2 179 cas sur
+  // 424 080 d'un balayage de 480 à 1 400 px de large, deux manettes, trois
+  // formats, avec et sans zones sûres (24 novembre 2026), aucun parmi les
+  // tailles de téléphone de `cadre.test.ts`.
   let etiquette: LieuEtiquette | null = null;
   if (e.role === "joueur" && D && !rangeeTient(panneau.rect)) {
     if (g.variante === "bas") {

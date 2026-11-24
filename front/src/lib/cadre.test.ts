@@ -652,6 +652,27 @@ describe("ta place se lit tenue en main (en-jeu-tactile.5)", () => {
     expect(lieu({ width: 667, height: 375 }, "pro")).toBeUndefined();
   });
 
+  it("le reste sans étiquette : couché et bas, ni bande ni ligne sous la rangée", () => {
+    // L'exception écrite dans le cadre, mesurée le 24 novembre 2026 : sous
+    // 370 px de haut, une fenêtre large peut n'avoir que les lampes, sans
+    // bande ni 28 px sous la rangée. Le cadre ne prend pas l'image pour y
+    // loger l'étiquette. Si une place s'y trouve un jour, cet essai le dit.
+    const geo = miseEnPage(
+      entree({
+        mode: "paysage",
+        fenetre: { width: 640, height: 300 },
+        image: QUATRE_TIERS,
+        manette: pad("dolphin"),
+      }),
+    );
+    const p = geo.panneau.rect;
+    if (!p) throw new Error("pas de panneau");
+    expect(rangee(geo)).toBe(false);
+    expect(geo.bande).toBeNull();
+    expect(300 - (p.y + p.h + 4)).toBeLessThan(FENTE.HAUT + 4);
+    expect(geo.etiquette).toBeNull();
+  });
+
   it("tire le seuil de la rangée de places.css et telephone.css", () => {
     // La rangée passe en lampes sous 200 px (`places.css`, chantier
     // personnes), et le panneau tenu en main garde 0,75 rem de chaque côté

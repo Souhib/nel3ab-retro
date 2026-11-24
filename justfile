@@ -843,6 +843,16 @@ etats-navigateur-rouge:
     git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/sans-soiree.html"
     node etats.mjs --page "$dossier/sans-soiree.html" --flux "$dossier/flux.h264" \
         --etapes fermee-vraie --rouge-attendu fermee-vraie
+    # 884c105, la page des états que la relecture du 24 novembre 2026 a lue :
+    # une pastille aux jetons du jour sur son noir (compteur à 1,16:1), posée
+    # sur la tête d'Aïn dans la barre du téléphone, une extinction qui partait
+    # d'un écran presque blanc, et le balayage sur le titre du plein cadre
+    # (ADR D40). je-reste et l'extension de premiere-image-coupe sont vertes
+    # sur cette page : leurs contrôles rouges sont des mutants, dits au carnet.
+    git show 884c105:core/crates/worker/src/page/index.html > "$dossier/relue.html"
+    node etats.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+        --etapes pastille-contraste,pastille-hors-image,extinction,calques-attente \
+        --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente
 
 # Les parcours de la salle, dans un vrai navigateur.
 #

@@ -19,8 +19,9 @@
  * qui l'a ouverte (le navigateur le fait ; la salle prend le relais quand ce
  * bouton a été démonté, `focusApresFermeture`).
  */
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Rect } from "../lib/cadre";
+import { activerCurseur } from "../retro/curseur";
 import type { HauteurFeuille } from "../lib/disposition";
 import type { EntreeFeuille, IdEntree } from "../lib/feuille";
 import { placeDe } from "./Cadre";
@@ -71,6 +72,27 @@ export function FeuilleSalle({
   const ref = useRef<HTMLDialogElement>(null);
   /** Le conseil de l'écran d'accueil, déplié sous son entrée. */
   const [accueil, setAccueil] = useState(false);
+  /** La grille des entrées à mi-hauteur, où le ▶ du socle suit le focus. */
+  const [grille, setGrille] = useState<HTMLDivElement | null>(null);
+  // Le ▶ devant l'entrée visée, comme dans la colonne : la grille garde
+  // 16 px entre deux colonnes et 2 px à gauche (`telephone.css`), la place
+  // du ▶ et de son écart. Caché, il n'a pas de taille à sa première pose :
+  // il se repose à l'image suivante, visible (même contournement que
+  // `Colonne`).
+  useEffect(() => {
+    if (!grille) return;
+    const actif = activerCurseur(grille);
+    const reposer = () =>
+      requestAnimationFrame(() => {
+        const ici = document.activeElement;
+        if (ici && ici !== grille && grille.contains(ici)) actif.placer(ici);
+      });
+    grille.addEventListener("focusin", reposer);
+    return () => {
+      grille.removeEventListener("focusin", reposer);
+      actif.arreter();
+    };
+  }, [grille]);
   useLayoutEffect(() => {
     const boite = ref.current;
     if (boite && !boite.open) boite.showModal();
@@ -115,7 +137,7 @@ export function FeuilleSalle({
           </button>
         </header>
         {hauteur === "mi" ? (
-          <div className="n3-feuille-entrees">
+          <div ref={setGrille} className="n3-feuille-entrees">
             {entrees.map((entree) => (
               <button
                 key={entree.id}

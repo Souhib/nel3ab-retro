@@ -14,6 +14,32 @@ const ENTREES = entreesDeLaFeuille({
 });
 
 describe("la feuille « La salle »", () => {
+  // Jusqu'au 24 novembre 2026, la grille n'avait que 4 px entre deux
+  // entrées et pas de ▶ ; le pilote cadre.mjs (feuille-curseur) mesure sa
+  // place, ceci vérifie qu'il est posé.
+  it("à mi-hauteur, la grille des entrées porte le ▶ du socle ; agrandie, aucun", () => {
+    const props = {
+      rect: RECT,
+      titre: "Salle 1",
+      entrees: ENTREES,
+      onEntree: vi.fn(),
+      onFermer: vi.fn(),
+    };
+    const mi = render(
+      <FeuilleSalle hauteur="mi" {...props}>
+        <aside id="side" />
+      </FeuilleSalle>,
+    );
+    expect(document.querySelector(".n3-feuille-entrees > .rt-curseur")).not.toBeNull();
+    mi.unmount();
+    render(
+      <FeuilleSalle hauteur="agrandie" {...props}>
+        <aside id="side" />
+      </FeuilleSalle>,
+    );
+    expect(document.querySelector("#feuilleSalle .rt-curseur")).toBeNull();
+  });
+
   it("porte les gestes de la partie à mi-hauteur, et pas la colonne", () => {
     render(
       <FeuilleSalle

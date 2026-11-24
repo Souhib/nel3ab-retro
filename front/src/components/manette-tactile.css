@@ -262,3 +262,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* L'étiquette tapée du joueur dans la fente du creux (`fente`, lib/faces),
+   quand aucun panneau ne la porte. Elle ne prend pas le pointeur : un pouce
+   qui glisse dessus ne fait rien. Le numéro, puis le ruban. */
+.n3-pave > .n3-pave-etiquette {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  pointer-events: none;
+}
+.n3-pave-etiquette > .n3-etiquette {
+  min-width: 0;
+}

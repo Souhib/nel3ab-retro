@@ -6,6 +6,7 @@ import {
   ETATS_DU_CADRE,
   MANETTES,
   PANNEAU,
+  PANNEAU_RANGEE,
   SANS_IMAGE,
   SANS_ZONES,
   attributsDuCadre,
@@ -26,7 +27,7 @@ import {
   premiereImage,
   sansImage,
 } from "./cadre";
-import { DOLPHIN_FACE, placePad, SWITCH_FACE, XBOX_FACE } from "./faces";
+import { DOLPHIN_FACE, FENTE, gapBetween, placePad, SWITCH_FACE, XBOX_FACE } from "./faces";
 import { FITS, place, type Fit, type Size } from "./fit";
 
 const SEIZE_NEUF: Size = { width: 1280, height: 720 };
@@ -417,7 +418,14 @@ describe("le portrait", () => {
       entree({ mode: "portrait", fenetre: { width: 390, height: 844 }, manette: pad("pro") }),
     );
     expect(grand.panneau.rect).not.toBeNull();
-    expect(grand.etiquetteManette).toBeNull();
+    expect(grand.etiquette).toBeNull();
+    // Le jumeau : à 375×548, le panneau manque, et l'étiquette va dans la
+    // fente que la manette trouve sur sa vraie pose.
+    const petit = miseEnPage(
+      entree({ mode: "portrait", fenetre: { width: 375, height: 548 }, manette: pad("pro") }),
+    );
+    expect(petit.panneau.rect).toBeNull();
+    expect(petit.etiquette).toEqual({ lieu: "fente" });
   });
 
   it("monte la feuille à mi-hauteur sous le panneau, jamais à moins de 276 px", () => {
@@ -473,7 +481,7 @@ describe("le paysage", () => {
           for (const piece of pieces) expect(coupe(img, piece)).toBe(0);
           for (const autre of [
             geo.boutonSalle,
-            geo.etiquetteManette,
+            geo.etiquette?.lieu === "cote" ? geo.etiquette.rect : null,
             geo.panneau.rect,
             geo.bande,
           ]) {
@@ -545,6 +553,154 @@ describe("le paysage", () => {
   });
 });
 
+describe("ta place se lit tenue en main (en-jeu-tactile.5)", () => {
+  // Relecture du 24 novembre 2026 : en travers, la variante « tete » ne
+  // posait pas d'étiquette, et un panneau trop étroit pour la rangée ne
+  // montrait que ses lampes. Ni l'un ni l'autre ne disait quelle place on
+  // tenait (740×360 et 932×430, 568×320 et 667×375 en GameCube).
+  const TRAVERS: Size[] = [
+    { width: 568, height: 320 },
+    { width: 640, height: 360 },
+    { width: 667, height: 375 },
+    { width: 740, height: 360 },
+    { width: 780, height: 360 },
+    { width: 812, height: 375 },
+    { width: 844, height: 390 },
+    { width: 896, height: 414 },
+    { width: 915, height: 412 },
+    { width: 932, height: 430 },
+    { width: 1024, height: 600 },
+    { width: 1133, height: 744 },
+    { width: 1180, height: 820 },
+    { width: 1366, height: 1024 },
+  ];
+  const DROIT: Size[] = [
+    { width: 320, height: 480 },
+    { width: 360, height: 600 },
+    { width: 375, height: 548 },
+    { width: 375, height: 667 },
+    { width: 390, height: 844 },
+    { width: 430, height: 932 },
+    { width: 768, height: 1024 },
+  ];
+  /** Sans zones, et celles d'un iPhone tenu comme le mode le dit. */
+  const ZONES = {
+    paysage: [SANS_ZONES, { haut: 0, droite: 47, bas: 21, gauche: 47 }],
+    portrait: [SANS_ZONES, { haut: 47, droite: 0, bas: 34, gauche: 0 }],
+  } as const satisfies Record<string, ZonesSures[]>;
+  const cas = function* (role: "joueur" | "regarde") {
+    for (const [mode, tailles] of [
+      ["paysage", TRAVERS],
+      ["portrait", DROIT],
+    ] as const) {
+      for (const fenetre of tailles) {
+        for (const zonesSures of ZONES[mode]) {
+          for (const nom of ["dolphin", "pro"] as const) {
+            for (const image of FORMATS) {
+              const dit = `${mode} ${nom} ${fenetre.width}×${fenetre.height} ${image.width}×${image.height} zones ${zonesSures.gauche}/${zonesSures.haut}`;
+              yield {
+                dit,
+                geo: miseEnPage(
+                  entree({ mode, fenetre, zonesSures, image, role, manette: pad(nom) }),
+                ),
+              };
+            }
+          }
+        }
+      }
+    }
+  };
+  /** La rangée des quatre START tient dans le panneau. */
+  const rangee = (geo: ReturnType<typeof miseEnPage>) =>
+    geo.panneau.rect !== null && geo.panneau.rect.w >= PANNEAU_RANGEE;
+
+  it("un joueur la voit une fois : sur la rangée du panneau, sinon sur son étiquette", () => {
+    const lieux = new Set<string>();
+    let vus = 0;
+    for (const { dit, geo } of cas("joueur")) {
+      expect(geo.etiquette !== null, dit).toBe(!rangee(geo));
+      if (geo.etiquette) lieux.add(geo.etiquette.lieu);
+      vus += 1;
+    }
+    expect(vus).toBe((TRAVERS.length + DROIT.length) * 2 * 2 * FORMATS.length);
+    // Chaque lieu est exercé : la fente tenue droite, sous « La salle » et
+    // dans la bande en travers.
+    expect([...lieux].sort()).toEqual(["bande", "cote", "fente"]);
+  });
+
+  it("le jumeau : sans place, ni étiquette, même sans panneau", () => {
+    let sansPanneau = 0;
+    for (const { dit, geo } of cas("regarde")) {
+      expect(geo.etiquette, dit).toBeNull();
+      if (!rangee(geo)) sansPanneau += 1;
+    }
+    // Le jumeau voit des cas où le joueur aurait son étiquette.
+    expect(sansPanneau).toBeGreaterThan(0);
+  });
+
+  it("pose l'étiquette là où la relecture n'en voyait aucune", () => {
+    const lieu = (fenetre: Size, nom: "dolphin" | "pro") =>
+      miseEnPage(entree({ mode: "paysage", fenetre, image: QUATRE_TIERS, manette: pad(nom) }))
+        .etiquette?.lieu;
+    // Les lampes seules dans le panneau : l'étiquette en tête de la bande.
+    expect(lieu({ width: 568, height: 320 }, "dolphin")).toBe("bande");
+    expect(lieu({ width: 667, height: 375 }, "dolphin")).toBe("bande");
+    // La variante « tete » : sous « La salle ».
+    expect(lieu({ width: 740, height: 360 }, "dolphin")).toBe("cote");
+    expect(lieu({ width: 932, height: 430 }, "pro")).toBe("cote");
+    // Le jumeau : la rangée tient dans le panneau d'une Xbox 360 à 667×375.
+    expect(lieu({ width: 667, height: 375 }, "pro")).toBeUndefined();
+  });
+
+  it("le reste sans étiquette : couché et bas, ni bande ni ligne sous la rangée", () => {
+    // L'exception écrite dans le cadre, mesurée le 24 novembre 2026 : sous
+    // 370 px de haut, une fenêtre large peut n'avoir que les lampes, sans
+    // bande ni 28 px sous la rangée. Le cadre ne prend pas l'image pour y
+    // loger l'étiquette. Si une place s'y trouve un jour, cet essai le dit.
+    const geo = miseEnPage(
+      entree({
+        mode: "paysage",
+        fenetre: { width: 640, height: 300 },
+        image: QUATRE_TIERS,
+        manette: pad("dolphin"),
+      }),
+    );
+    const p = geo.panneau.rect;
+    if (!p) throw new Error("pas de panneau");
+    expect(rangee(geo)).toBe(false);
+    expect(geo.bande).toBeNull();
+    expect(300 - (p.y + p.h + 4)).toBeLessThan(FENTE.HAUT + 4);
+    expect(geo.etiquette).toBeNull();
+  });
+
+  it("tire le seuil de la rangée de places.css et telephone.css", () => {
+    // La rangée passe en lampes sous 200 px (`places.css`, chantier
+    // personnes), et le panneau tenu en main garde 0,75 rem de chaque côté
+    // (`telephone.css`) : le cadre doit le savoir pour poser l'étiquette.
+    type Fs = { readFileSync: (chemin: string, codage: "utf-8") => string };
+    const lire = async (relatif: string) =>
+      ((await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs).readFileSync(
+        new URL(relatif, import.meta.url).pathname,
+        "utf-8",
+      );
+    return Promise.all([
+      lire("../components/places.css"),
+      lire("../components/telephone.css"),
+    ]).then(([places, telephone]) => {
+      const lampes =
+        /@container \(width < (\d+)px\)\s*\{\s*\.n3-places-rangee\s*\{\s*display: none;/.exec(
+          places,
+        );
+      const bords = /\.n3-panneau-tenu > \.n3-panneau \{[^}]*padding: [\d.]+rem ([\d.]+)rem;/.exec(
+        telephone,
+      );
+      if (!lampes || !bords)
+        throw new Error("la règle des lampes ou les bords du panneau manquent");
+      expect(Number(lampes[1]) + 2 * Number(bords[1]) * 16).toBe(PANNEAU_RANGEE);
+    });
+  });
+});
+
 describe("la vraie pose des touches dans la boîte du cadre", () => {
   const FACES_TENUES = [
     ["dolphin", DOLPHIN_FACE],
@@ -610,6 +766,58 @@ describe("la vraie pose des touches dans la boîte du cadre", () => {
       }
     }
     expect(vus).toBe(4 * 2 * 3 * 3);
+  });
+
+  it("en travers, l'étiquette sous « La salle » garde 6 px de chaque touche et de lui, hors de l'image", () => {
+    // La variante « tete » n'avait pas d'étiquette (relecture du 24 novembre
+    // 2026) : elle se pose maintenant dans les 28 px entre « La salle » et la
+    // grappe gauche, sur la vraie pose de `placePad`. Sous la rangée d'un
+    // panneau à lampes sans bande, elle se pose sous « La salle » aussi.
+    let vus = 0;
+    const hauteurs = new Set<number>();
+    const lieux = new Set<string>();
+    for (let W = 560; W <= 1000; W += 20) {
+      for (const H of [320, 344, 360, 375, 390, 414, 430]) {
+        if (W <= H) continue;
+        for (const zonesSures of [SANS_ZONES, IPHONE_TRAVERS]) {
+          for (const [nom, face] of FACES_TENUES) {
+            for (const image of FORMATS) {
+              const geo = miseEnPage(
+                entree({
+                  mode: "paysage",
+                  fenetre: { width: W, height: H },
+                  zonesSures,
+                  image,
+                  manette: pad(nom),
+                }),
+              );
+              if (geo.etiquette?.lieu !== "cote") continue;
+              const e = geo.etiquette.rect;
+              const dit = `${face.title} ${W}×${H} ${image.width} zones ${zonesSures.gauche}`;
+              const { rects } = pieces(geo, face);
+              for (const r of rects)
+                expect(gapBetween(e, r), dit).toBeGreaterThanOrEqual(FENTE.ECART);
+              if (!geo.boutonSalle) throw new Error(`pas de « La salle » : ${dit}`);
+              expect(gapBetween(e, geo.boutonSalle), dit).toBeGreaterThanOrEqual(FENTE.ECART);
+              if (geo.image) expect(coupe(geo.image, e), dit).toBe(0);
+              expect(e.w, dit).toBeGreaterThanOrEqual(FENTE.MIN);
+              expect(e.x, dit).toBeGreaterThanOrEqual(zonesSures.gauche);
+              expect(e.y, dit).toBeGreaterThanOrEqual(zonesSures.haut);
+              hauteurs.add(e.h);
+              const grappe = geo.manette?.grappes?.g;
+              if (!grappe) throw new Error(`pas de grappes : ${dit}`);
+              lieux.add(e.y + e.h <= grappe.y ? "sur la grappe" : "sous la rangée");
+              vus += 1;
+            }
+          }
+        }
+      }
+    }
+    // Les deux emplacements sont vus : 36 px quand la grappe a la place
+    // (« tete-etiquette »), la hauteur de la fente sinon (« tete »).
+    expect([...hauteurs].sort()).toEqual([FENTE.HAUT, 36]);
+    expect([...lieux].sort()).toEqual(["sous la rangée", "sur la grappe"]);
+    expect(vus).toBeGreaterThan(50);
   });
 
   it("tenu droit, aucune pièce sur l'image ni hors de la zone sûre, de 320 à 430 px", () => {

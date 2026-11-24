@@ -298,7 +298,14 @@ export function placeDuMenu(
   return { lieu: "cote", rect: etroite, cacheImage: false };
 }
 
-/** Ce qu'une bande ne couvre jamais : « La salle » et ton étiquette. */
+/** Ce qu'une bande ne couvre jamais : « La salle » et ton étiquette.
+ *
+ * L'étiquette n'a un rectangle dans la géométrie que posée à côté de l'image
+ * (`LieuEtiquette` « cote », sous « La salle ») : c'est le cas que lisait
+ * `etiquetteManette` avant que le cadre décide seul où se lit ta place
+ * (chantier salle, 24 novembre 2026). Dans la fente ou en tête de la bande,
+ * le cadre ne donne pas son rectangle. Adapté à la fusion de la vague B2. */
 function obstacles(geo: Geometrie): Rect[] {
-  return [geo.boutonSalle, geo.etiquetteManette].filter((r): r is Rect => r !== null);
+  const etiquette = geo.etiquette?.lieu === "cote" ? geo.etiquette.rect : null;
+  return [geo.boutonSalle, etiquette].filter((r): r is Rect => r !== null);
 }

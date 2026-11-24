@@ -69,6 +69,7 @@ import {
 import { VueTouches, type Releve } from "./components/VueTouches";
 import { CoteBorne } from "./components/CoteBorne";
 import { Credit } from "./components/Credit";
+import { TempsDeJeu, useLancement } from "./components/TempsDeJeu";
 import { Fronton } from "./components/Fronton";
 import { identify } from "./media/families";
 import { verificationDolphin, verificationPro, type ManetteLue } from "./lib/verification";
@@ -99,9 +100,11 @@ import { IlsRegardent } from "./components/IlsRegardent";
 import { Mesures } from "./components/Mesures";
 import { ligneDeLaLiaison } from "./lib/mesures";
 import { SuiviPlaces } from "./components/SuiviPlaces";
+import { encreDuJoueur } from "./lib/etiquette";
 import {
   formeDesPlaces,
   hoteDesPlaces,
+  lesPlaces,
   regardentDe,
   REPRISE_REPONSE_S,
   sujetDeLaCarte,
@@ -204,6 +207,7 @@ import {
   TOUCHES,
   ZONE,
   AGRANDIE,
+  pastille as pastilleDeLaPlace,
 } from "./lib/mots";
 import {
   Cadre,
@@ -761,6 +765,9 @@ function Room({
   bootingNow.current = booting;
   /** Un jeu tourne et a fini de démarrer: la partie, au sens de la page. */
   const enPartie = playing === true && booting === null;
+  /** L'instant de lancement du jeu en cours, d'après l'âge que le salon
+   * publie (`Room.partie.depuis_s`, ADR D43) : le temps de jeu du panneau. */
+  const lancement = useLancement(room?.partie, enPartie);
   /** L'emplacement sur lequel CETTE page a lancé le jeu en cours.
    *
    * Sert à une seule chose: relancer pour changer de manette ne doit pas
@@ -2033,9 +2040,9 @@ function Room({
       ? verificationPro(manette, session.input.switch.profile, consoleDuJeu === "x360")
       : verificationDolphin(manette, shot.input.profile, { console: consoleDuJeu, pad });
   };
-  /** Ce que la vue des touches relit toutes les 50 ms : la trame Dolphin
-   * porte ses boutons dans `pressed` ; la trame Pro attend l'activité que
-   * manettes ajoute à l'instantané (K34). */
+  /** Ce que la vue des touches relit toutes les 50 ms : l'activité de la
+   * trame qui part, Dolphin ou Pro, sticks et gâchettes compris (K34,
+   * `media/activite`). */
   const lireLEntree = (): Releve => {
     const etat = session?.input.state();
     if (!etat) return { activite: { suivies: new Set(), actives: new Set() }, sinceHeardMs: null };
@@ -2146,6 +2153,26 @@ function Room({
         cadre={cadreDeLaManette}
       />
     );
+  /** Ton étiquette tapée (chantier personnes), ton numéro devant, là où le
+   * cadre la pose quand la rangée du panneau ne porte pas ta place
+   * (en-jeu-tactile.5, `geo.etiquette`) : dans le creux de la manette tenue
+   * droite (`fente`, lib/faces), sous « La salle » en travers, ou en tête de
+   * la bande quand le panneau n'a que ses lampes. Une chose, une fois : avec
+   * la rangée, elle est sur ta place START, et nulle part ailleurs. */
+  const maPlace = port === null ? null : (lesPlaces(entreeDesPlaces)[port - 1] ?? null);
+  const tonEtiquette =
+    tenu && !padOnly && maPlace !== null && geo.etiquette !== null ? (
+      <>
+        <span
+          className="n3-etiquette-numero"
+          aria-hidden="true"
+          style={{ "--etiquette-encre": encreDuJoueur(maPlace.port) } as React.CSSProperties}
+        >
+          {pastilleDeLaPlace(maPlace.port)}
+        </span>
+        <Etiquette nom={maPlace.nom ?? name} place={maPlace.port} lettres={maPlace.lettres} />
+      </>
+    ) : null;
   /** La boîte de la manette : ses grappes en travers et sur les côtés à la
    * souris, rien tenue droite ou sous l'image ; « La salle » parmi ses
    * touches quand la barre manque, et toujours à la souris. La tête de la
@@ -2158,6 +2185,9 @@ function Room({
         gestes: geo.salleDansLaManette ? ["feuille"] : [],
         dansLesBandes: geo.manette.grappes !== null,
         tete: tenu && geo.salleDansLaManette,
+        // En travers, la boîte couvre aussi le dessous de l'image : la fente
+        // n'y a pas sa place, le cadre en donne une sous « La salle ».
+        etiquette: geo.etiquette?.lieu === "fente" ? tonEtiquette : null,
       }
     : undefined;
   /** La pile des avis va dans la bande d'une salle tenue en main : jamais sur
@@ -2179,13 +2209,14 @@ function Room({
   /** Le crédit de la borne : les places libres, compté comme les places. */
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   /** Le bout droit du panneau de commande : « Toutes les touches », qui ouvre
-   * le panneau des touches sur le clavier, puis le crédit. */
+   * le panneau des touches sur le clavier, puis le crédit et le temps de jeu. */
   const finDuPanneau = (
     <>
       {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
           « Touches et manettes » passe par la feuille. */}
       {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
       {credit}
+      <TempsDeJeu depuisS={lancement} />
     </>
   );
   const pastilleAgrandie =
@@ -3038,6 +3069,15 @@ function Room({
             tete
           />
         ) : null}
+        {tonEtiquette && geo.etiquette?.lieu === "cote" ? (
+          <div
+            id="etiquetteManette"
+            className="n3-etiquette-cote"
+            style={placeDe(geo.etiquette.rect)}
+          >
+            {tonEtiquette}
+          </div>
+        ) : null}
         {panneauTenu ? (
           <div style={placeDe(panneauTenu)} className="n3-panneau-tenu">
             <PanneauCommande
@@ -3060,6 +3100,11 @@ function Room({
         ) : null}
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
           <Bande rect={geo.bande} ancre={!geo.barre}>
+            {tonEtiquette && geo.etiquette?.lieu === "bande" ? (
+              <div id="etiquetteManette" className="n3-etiquette-bande">
+                {tonEtiquette}
+              </div>
+            ) : null}
             {avis}
             {cartesDansLaBande && !menu ? cartes : null}
             {regardeParChoix ? blocRole : null}

@@ -57,6 +57,10 @@ const DEPART = {
   /** D'autres places tenues, `{ numéro: nom }` : avec Bo à la 2, les places
    * 1, 3 et 4 font une salle pleine (24 novembre 2026, salle-pleine-avant-salle). */
   occupes: {},
+  /** Les jalons du worker tels que le salon les publie (`Room.partie`, ADR
+   * D43), ou `null` pour un salon qui ne les publie pas. `depuis_s` part tel
+   * quel à chaque envoi : le banc ne le fait pas vieillir. */
+  partie: null,
 };
 
 export async function demarrerParcours({ port, page, flux }) {
@@ -113,6 +117,7 @@ export async function demarrerParcours({ port, page, flux }) {
       ask_lasts: 10,
       media_url: "",
       preparation: state.preparation,
+      ...(state.partie ? { partie: state.partie } : {}),
     };
   };
 

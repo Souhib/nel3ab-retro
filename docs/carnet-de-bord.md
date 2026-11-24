@@ -32458,6 +32458,282 @@ retrait dans ce passage). La leçon générale : un banc d'essai qui ne sert
 qu'une forme de ce qu'il mesure (une image 4:3) ne dit rien des autres
 formes, même quand le code a une branche écrite pour elles.
 
+### 24 novembre, l'après-midi : la suite de la salle, ce que la vague A avait laissé
+
+**Le contexte.** Le chantier salle avait fini son cadre avec cinq choses
+en attente d'un autre chantier : le temps de jeu attendait que le salon
+publie l'âge de la partie, l'étiquette dans la manette attendait
+l'étiquette tapée de personnes, la vue des touches attendait l'activité
+des sticks que manettes ajoute à l'instantané, la feuille à mi-hauteur
+n'avait pas de place pour le ▶, et le propriétaire devait dire si
+`cadre-navigateur` entrait dans la porte. Tout cela est maintenant sur
+`integration/retro`. Ce passage part de son commit 87bc2b3, dans le
+worktree `~/nel3ab-chantiers/retro-salle-2`, en même temps que les
+chantiers états, salon et menus.
+
+**Le temps de jeu, et un âge qui n'est pas une heure.** Le composant
+`TempsDeJeu` attendait « l'instant de lancement, en secondes Unix ». Le
+salon publie autre chose : `Room.partie.depuis_s`, « depuis combien de
+secondes le worker a démarré son jeu ou son menu », un âge (ADR D43).
+Brancher l'un sur l'autre tel quel aurait affiché des centaines de
+milliers d'heures. Le mutant du câblage qui le fait rougit la nouvelle
+étape `temps-de-jeu` de `cadre.mjs` dès son premier jumeau : il montre un
+temps même quand le worker sert son menu. La page
+change donc l'âge en instant au moment où le message arrive
+(`useLancement`). Elle n'a pas besoin que l'horloge du téléphone
+s'accorde avec celle de la machine. Deux envois de la même partie
+diffèrent d'une seconde au plus : le salon tronque l'âge à la seconde,
+et le message met quelques centaines de millisecondes à venir. Une
+estimation à moins de deux secondes de la précédente la garde ;
+sinon l'afficheur repartirait à chaque envoi. Un nouveau jeu redémarre le
+worker, donc son âge repart de zéro, loin de l'ancien. Deux jumeaux :
+un salon qui ne publie pas les jalons, et un worker qui sert son menu
+(`lance` faux), ne montrent aucun temps. L'âge publié compte aussi le
+temps passé au menu, qui n'est pas du jeu. Tenue en main, la rangée de
+72 px garde sa place aux quatre START : le temps de jeu y est caché, comme
+le crédit.
+
+**L'étiquette dans le creux de la manette.** Sur un petit téléphone tenu
+droit (375 × 548), le cadre ne pose pas de panneau : rien ne disait plus
+quelle place on tenait. Le plan voulait l'étiquette tapée dans le creux
+de la manette, « à 6 px au moins de toute touche ». La première version
+de la recherche cherchait une fente centrée, et une sonde l'a prise en
+défaut aussitôt : sur une GameCube de 360 à 430 px de large, quand la
+barre manque, « La salle » occupe justement le milieu, et aucune fente
+centrée ne tenait. La recherche retenue (`fente`, `lib/faces.ts`)
+regarde chaque hauteur. Elle prend le plus large passage libre entre
+les pièces de cette hauteur, gestes compris, et y pose l'étiquette au
+plus près du milieu, entre 64 et 180 px de large. Sur une GameCube, elle
+se pose alors à gauche de « La salle », au-dessus de la croix ; sur une
+manette Pro, dans le creux sous − et +. L'essai balaie 320 à 1 024 px de
+large, trois faces, avec et sans geste, et mesure l'écart avec
+`gapBetween`, pas avec la recherche elle-même. En travers, la boîte de la
+manette couvre aussi le dessous de l'image : l'étiquette n'y entre pas,
+elle se pose sous « La salle », à l'emplacement que le cadre calculait
+déjà (`geo.etiquetteManette`). Le jumeau : à 390 × 844, le panneau porte
+les places, et aucune étiquette n'est dans la manette. (La relecture du
+soir a montré que cet emplacement manquait sur la plupart des téléphones
+couchés : voir « 24 novembre, le soir : ta place qui ne se lisait pas ».)
+
+**Un essai qui prouvait une règle retirée.** Le câblage de la vue des
+touches sur la vraie activité était déjà fait : le chantier manettes
+l'avait posé dans `App.tsx` à sa fusion. Mais `lib/verification.ts`
+gardait deux lectures mortes de l'ancienne règle, `activiteDolphin` sur
+`pressed` et `SANS_ACTIVITE`. Un essai vert disait encore « une ligne de
+stick n'a pas de case : pressed ne dit rien des sticks ». Il passait sur
+une fonction que plus rien n'appelait, et il aurait continué de passer
+si l'activité réelle avait perdu ses sticks. La leçon générale : quand
+un câblage remplace une lecture, la lecture retirée doit partir avec ses
+essais, sinon ils prouvent l'ancien monde. Les essais lisent maintenant
+`media/activite`, la lecture du produit. Dans le navigateur,
+`touches-cochees` coche aussi les flèches, et `touches-cochees-pro` fait
+de même dans une salle Xbox 360. Un mutant d'`App.tsx` qui relit `pressed`
+rougit les deux étapes sur leur défaut.
+
+**Le ▶ dans la feuille à mi-hauteur.** Il lui fallait 16 px à gauche de
+chaque entrée (10 px de flèche, 6 px d'écart), et la grille n'en
+laissait que 4. Elle garde maintenant 16 px entre ses colonnes et 2 px à
+gauche. Elle descend à 150 px par entrée au lieu de 160, pour que deux
+colonnes tiennent encore à 360 px de large. `salle-telephone`, qui mesure
+que la feuille ne défile pas, reste vert. La nouvelle étape
+`feuille-curseur` rougit avec l'ancien écart de 4 px : le ▶ couvre alors
+l'entrée voisine.
+
+**« Copier le lien », réparé du côté de la colonne.** La fusion de la
+vague B1 avait laissé `parcours-navigateur` rouge. Le panneau
+d'invitation de personnes se dépliait sous le pied collé de la mascotte,
+et le clic réel tombait sur le pied. La colonne faisait défiler un
+`<details>` qui s'ouvre. Elle fait de même pour le panneau qu'un bouton
+à `aria-expanded` déplie, et seulement quand le pied colle. La règle est
+dans la colonne plutôt que dans `Inviter.tsx` : le prochain panneau
+déplié au bas de la colonne en profite sans le savoir. Le parcours entier
+est vert, 26 étapes.
+
+**La porte locale.** `cadre-navigateur` entre dans `local`, à la demande
+du propriétaire. Son contrôle rouge prend un port, et un septième bloc :
+la page de 97a2318 tombe sur le défaut des trois étapes nouvelles. La
+recette reste rouge sur la base, sur la précondition de
+`mascotte-hors-image`. Derrière elle, comme le passage d'intégration
+l'a établi, l'étiquette de la scène `depart` passe sur « 2P libre », et
+`ain-immobile` garde une fenêtre ouverte pendant une scène. Ces étapes et
+l'ancre `start-N` appartiennent à la mascotte et à personnes, et ce
+passage n'y touche pas. Tant qu'elles ne sont pas réglées, `just` est
+rouge : la porte le dit au lieu de le taire.
+
+**Le poids.** 281 760 octets en brotli au départ, 282 600 au dernier
+commit, soit 840 de plus : +264 pour le temps de jeu, +474 pour
+l'étiquette, −29 pour les lectures mortes retirées, et le reste pour le
+▶ de la feuille et le défilement de la colonne. Deux constructions de
+sources qui ne différaient que d'une déclaration CSS ont mesuré 282 527
+et 282 743 octets. Les écarts entre commits de ce passage sont donc des
+ordres de grandeur, à quelques centaines d'octets près, pas des
+mesures à l'octet. Aucun retrait n'était prévu dans ce passage :
+Bobine et les anciens menus partent avec le chantier menus et
+l'intégration.
+
+**Les portes.** `just check` est d'abord tombé sur `oxlint` : le nom
+`panneau`, dans l'observateur de la colonne, cachait celui de la portée
+au-dessus (`no-shadow`). Renommé, `check` est vert : 1 288 essais Python,
+2 066 essais de la page. Sur la page finale, `focus-navigateur`,
+`etats-navigateur`, `parcours-navigateur`, `salle-telephone`,
+`manette-garde` et `reglage-navigateur` sont verts. Les contrôles rouges
+`focus-navigateur-rouge`, `parcours-navigateur-rouge`,
+`etats-navigateur-rouge` et `cadre-navigateur-rouge` tombent sur leurs
+défauts nommés. `cadre-navigateur` passe ses vingt premières étapes, dont
+les trois nouvelles, puis s'arrête sur la précondition de
+`mascotte-hors-image`. Lancées à part, `ain-immobile` tombe comme le
+passage d'intégration l'avait décrit (100 appels en 2 s, dans une fenêtre
+ouverte pendant une scène), et les cinq suivantes passent. Chaque pilote
+avait son propre port (5491 à 5497) : trois autres chantiers lançaient
+les leurs en même temps.
+
+**Ce qui n'est pas prouvé.** Aucune vraie salle n'a servi la page, aucun
+vrai téléphone ne l'a tenue. Le temps de jeu n'a pas été comparé avec un
+vrai salon : le banc publie un âge fixe, que la page lit une fois. La
+porte entière (`gpu-test` et les recettes qui demandent la machine) n'a
+pas tourné : elle revient à l'intégration finale.
+
+### 24 novembre, le soir : ta place qui ne se lisait pas
+
+**Le contexte.** Une relecture indépendante de la suite de la salle a
+relevé deux défauts, tous deux sur la même promesse : tenue en main, on
+voit quelle place on tient. Les deux se reproduisaient sur la page
+committée, avec les sondes de la relecture lancées sur le port de ce
+chantier.
+
+**En travers, ni panneau ni étiquette.** Le cadre range un téléphone
+couché de trois façons, et garde celle qui donne la plus grande image.
+La variante « nu » met un panneau sous l'image, avec « La salle » au
+début de sa rangée. La variante « tete-etiquette » met « La salle » et
+ton étiquette au-dessus de la grappe gauche. La variante « tete » ne met
+que « La salle » au-dessus de la grappe, sans étiquette : elle gagne
+souvent, car ses grappes sont plus hautes, donc plus étroites. Avec elle,
+rien ne disait ta place : 740 × 360 en GameCube, 932 × 430 en Xbox 360.
+Et la variante « nu » d'un petit téléphone laisse au panneau moins de
+224 px : la rangée des quatre START passe alors en « lampes », un seul
+bouton avec quatre chiffres, où ta place ne se distingue pas. C'était le
+cas à 568 × 320 et 667 × 375 en GameCube.
+
+**Un essai qui ne pouvait pas voir le trou.** L'étape `etiquette-manette`
+n'essayait qu'une taille couchée, 844 × 390, justement celle où
+« tete-etiquette » gagne. Et elle choisissait quoi vérifier d'après la
+page : si la place 1 du panneau était visible, elle attendait aucune
+étiquette, sinon une. Une taille sans l'une ni l'autre aurait donc été
+vue, mais aucune n'était essayée. La leçon : un essai d'un choix fait
+taille par taille doit balayer les tailles où le choix change, et dire
+d'avance ce que chaque taille doit montrer, au lieu de le lire sur la
+page.
+
+**Ce qui a été choisi.** Le cadre décide maintenant, en un seul endroit,
+où se lit ta place (`geo.etiquette`, `lib/cadre.ts`). Avec la rangée du
+panneau, nulle part ailleurs ; sinon, la fente de la manette tenue
+droite, sous « La salle » en travers, ou en tête de la bande quand le
+panneau n'a que ses lampes. Avec « tete », l'étiquette prend les 28 px
+entre « La salle » et la grappe : elle y tient à la hauteur de la fente
+tenue droite (24 px), à 6 px de « La salle » et de la première touche,
+car la pose garde 12 px en haut de la grappe. L'essai le mesure sur la
+vraie pose de `placePad`, de 560 à 1 000 px de large. Aucune image ne
+perd un pixel : le choix de la variante ne change pas.
+
+**Trois options écartées.** Préférer « tete-etiquette » pour un joueur,
+comme la relecture le proposait, coûtait jusqu'à 9 % de la hauteur de
+l'image en GameCube (333 px au lieu de 304 à 780 × 360, 356 au lieu de
+324 à 812 × 375). Écrire la place dans le libellé de « La salle » : à
+667 × 375, il est déjà coupé en « La … ». La troisième a été essayée,
+puis tuée par un mutant. Quand la variante « nu » n'avait ni rangée ni
+bande, le cadre recommençait sans elle. L'essai vidait le cas : à
+640 × 360, une Xbox 360 en 4:3 tombait sur des grappes de 308 px, et sur
+une image de 8 px de large. Cela revenait à sacrifier l'image pour une
+étiquette. Elle se pose maintenant juste sous « La salle », dans les
+46 px qui restent sous la rangée.
+
+**Un seuil recopié, et relu.** Le cadre doit savoir quand la rangée passe
+en lampes. Cette règle vit dans `places.css` (chantier personnes) : une
+requête de conteneur à 200 px, quatre ronds de 44 px et trois écarts de
+8. Le panneau tenu en main ajoute 12 px de chaque côté (`telephone.css`).
+Le cadre garde donc `PANNEAU_RANGEE`, 224 px, mesuré dans Chrome : 241 px
+de panneau donnent une rangée de 217 px, 209 px donnent les lampes. Un
+essai relit les deux feuilles de style : si l'une change, il rougit au
+lieu de laisser le cadre croire une rangée qui n'est plus là.
+
+**Tenu droit, « 2P » sur ton nom.** La rangée tenue en main devait cacher
+la phrase d'aide. Sa règle visait encore la phrase de l'ancien `Seats`
+(`p.text-faint`), partie avec lui le 23 novembre ; le commentaire de ce
+passage disait le contraire. La phrase des places prenait donc ses
+10 rem de la rangée. À 360 et 390 px de large, ton nom « AMI » sortait de
+ta place, et le rond « 2P » le couvrait. La phrase ne se dit plus
+qu'au lecteur d'écran, comme dans la rangée « petite » de `places.css` :
+elle reste utile à qui n'a pas l'image.
+
+**Une boîte n'est pas là où son texte est peint.** Le jumeau de 390 × 844
+vérifie maintenant, avec `elementFromPoint`, que rien d'une autre place
+ne couvre ton nom. Sa première version prenait la boîte de l'étiquette :
+13 px de large, le rembourrage seul, car l'étiquette rétrécit et son
+texte déborde. Sur la page cassée, les cinq points tombaient dans ta
+place, et l'étape passait. La version retenue lit les rectangles du texte
+lui-même (un `Range`) : sur la page d'avant, elle voit « 2P » sur ton
+nom. Elle rend aussi le pointeur à ton étiquette le temps du test :
+`elementFromPoint` ignore un élément sans pointeur, et l'étiquette n'en a
+pas.
+
+**Les preuves.** Dans `cadre.test.ts`, un balayage de 14 tailles couchées
+et 7 droites, deux manettes, trois formats, avec et sans zones sûres,
+exige ta place une fois. Sept mutants du cadre rougissent chacun sur leur
+défaut nommé : « tete » sans étiquette, lampes sans bande, seuil sans les
+bords, « tete » à 36 px (à 0 px de la première touche), rien sous la
+rangée, l'étiquette collée à « La salle », la tablette sans fente. Dans
+`cadre.mjs`, `etiquette-manette` garde ses quatre cas droits, et
+`etiquette-travers` balaie neuf tailles couchées sur les deux consoles.
+Chaque cas dit d'avance s'il attend la rangée, et où il attend
+l'étiquette. Le huitième bloc de `cadre-navigateur-rouge` les lance sur
+la page d'avant la relecture, gardée dans `rouges/` : `etiquette-travers`
+tombe sur les quatre tailles de la relecture, et `etiquette-manette` sur
+« 2P » à 390 et 360 px. Un mutant du câblage d'`App.tsx`, qui ne pose pas
+l'étiquette dans la bande, rougit `etiquette-travers` sur 568 × 320 et
+667 × 375, et sur elles seules.
+
+**Une exception mesurée.** Il reste des fenêtres où ta place ne se lit
+pas : couchées, sous 370 px de haut, avec un panneau à lampes, une bande
+de moins de 48 px et moins de 28 px sous la rangée. Un balayage de 480 à
+1 400 px de large, deux manettes, trois formats, avec et sans zones
+sûres, en compte 2 179 sur 424 080. Aucune des tailles de téléphone
+essayées n'en fait partie. Le cadre ne prend pas l'image pour y loger
+l'étiquette ; un essai tient l'exception à 640 × 300, pour qu'elle ne
+grandisse pas sans qu'on le voie.
+
+**Le poids.** 282 905 octets en brotli, contre 282 600 au dernier commit
+du premier passage : 305 de plus, à quelques centaines d'octets près
+d'une construction à l'autre. Rien n'est retiré dans ce passage.
+
+**Les portes.** Sur d2395e6, `just check` est vert : 1 288 essais Python,
+2 072 essais de la page. Une fois, dans une suite complète lancée avec
+une charge de 69 sur la machine, un essai de `faces.test.ts` qui ne
+touche pas ce passage a dépassé ses 5 s ; relancé seul, il passe, et
+`check` ne l'a pas revu. `focus-navigateur` (28 étapes),
+`etats-navigateur`, `parcours-navigateur` (26), `salle-telephone`,
+`manette-garde` et `reglage-navigateur` sont verts. `cadre-navigateur`
+passe ses 21 premières étapes, dont les deux de l'étiquette, puis
+s'arrête, comme avant ce passage, sur la précondition de
+`mascotte-hors-image` ; `ain-immobile` tombe à part sur son défaut connu,
+et les cinq étapes suivantes passent. Les contrôles rouges du cadre (huit
+blocs), du focus, des parcours et du réglage tombent sur leurs défauts.
+Celui des états n'a pas pu prendre son port fixe, 5473, qu'un autre
+chantier tenait : ses deux commandes, lancées telles quelles sur le port
+5495, tombent sur leurs défauts.
+
+**Ce qui reste.** Trois choses sont vues, sans être réglées ici.
+
+- Dans ta place START, « toi » se peint encore sur « AMI » : c'est la
+  mise en page de `places.css`, remontée au chantier personnes. L'étape
+  le note sans échouer.
+- En travers, le panneau « petit » ne montre que les ronds : ton nom
+  reste dans la feuille, comme `places.css` le décide. L'étape le dit
+  pour chaque taille, sans le prendre pour ta place lue. Faut-il l'étiquette
+  là aussi ? C'est une question de dessin pour le propriétaire.
+- À 568 × 320, la manette Pro demande deux grappes de 308 px, et le cadre
+  ne laisse plus aucune image. C'est un défaut d'avant ce passage, remonté
+  à part : `etiquette-travers` n'essaie pas cette taille en Xbox 360.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -34423,3 +34699,21 @@ qui défile même s'il est invisible.
 défile dans ses bords (`overflow: auto`). Il coupe tout ce qui dépasse de
 sa boîte, y compris un anneau de focus dessiné hors de l'élément : un
 contrôle collé à son bord perd le côté de son anneau.
+
+**Fente (de l'étiquette)** : le rectangle libre où ton étiquette tapée se
+pose dans le creux de la manette tactile, quand aucun panneau ne porte les
+places. Calculé dans la pose des touches (`fente`, `lib/faces.ts`), à 6 px
+au moins de chaque touche.
+
+**Âge (d'une partie)** : depuis combien de secondes le worker a démarré
+son jeu, tel que le salon le publie (`depuis_s`). Ce n'est pas une heure :
+la page le change en instant à la réception du message, sans comparer
+deux horloges.
+
+**Lampes (des places)** : la forme que prend la rangée des quatre places
+START quand elle a moins de 200 px : un seul bouton, quatre chiffres
+allumés ou éteints, qui ouvre la salle. Ta place ne s'y distingue pas.
+
+**Range** : l'objet du navigateur qui désigne un morceau de la page. Il
+donne les rectangles où son texte est vraiment peint, même quand ce texte
+déborde de la boîte de son élément.

@@ -37,7 +37,7 @@
  * réelle ne tenait pas dedans (voir `encombrement`).
  */
 import type { Etat as EtatDeLiaison } from "../media/liaison";
-import { DOLPHIN_FACE, encombrement, SWITCH_FACE, type Encombrement } from "./faces";
+import { DOLPHIN_FACE, encombrement, FENTE, SWITCH_FACE, type Encombrement } from "./faces";
 import { place, type Fit, type Placed, type Size } from "./fit";
 
 /** Un rectangle en pixels de la fenêtre : la même forme que `faces.Rect`. */
@@ -208,6 +208,35 @@ export const BORNE_MIN = 72;
 export const BARRE = 52;
 
 /**
+ * La largeur d'un panneau tenu en main qui porte les quatre places START en
+ * rangée : quatre ronds de 44 px et trois écarts de 8 (200 px, la requête de
+ * conteneur de `places.css`, chantier personnes), plus 12 px de chaque côté
+ * du panneau (`telephone.css`). En dessous, un seul bouton les montre en
+ * lampes, et ta place ne s'y lit plus : ton étiquette se pose ailleurs
+ * (`Geometrie.etiquette`). Mesuré dans Chrome le 24 novembre 2026 à 667×375 :
+ * 241 px de panneau donnent une rangée de 217 px (Xbox 360), 209 px donnent
+ * les lampes (GameCube). `cadre.test.ts` relit les deux feuilles de style.
+ */
+export const PANNEAU_RANGEE = 224;
+
+/** La rangée des quatre places tient-elle dans ce panneau ? */
+const rangeeTient = (panneau: Rect | null): boolean =>
+  panneau !== null && panneau.w >= PANNEAU_RANGEE;
+
+/**
+ * Où se lit ta place quand la rangée du panneau ne la porte pas
+ * (en-jeu-tactile.5). Une chose, une fois : avec la rangée, ton étiquette
+ * est sur ta place START, et nulle part ailleurs.
+ *
+ * - fente : tenu droit, dans le creux de la manette, sur sa vraie pose
+ *   (`fente`, `lib/faces`) ;
+ * - cote : en travers, sous « La salle », au-dessus de la grappe gauche ;
+ * - bande : en travers, quand le panneau n'a que ses lampes, en tête de la
+ *   bande, sous « La salle ».
+ */
+export type LieuEtiquette = { lieu: "fente" } | { lieu: "cote"; rect: Rect } | { lieu: "bande" };
+
+/**
  * La hauteur la plus petite de la feuille « La salle » à mi-hauteur, tenue
  * droite : ses cinq entrées sur deux colonnes de 44 px, son en-tête et la
  * barre d'accueil d'un iPhone (34 px). Mesuré dans Chrome le 23 novembre
@@ -317,8 +346,10 @@ export type Geometrie = {
    * un téléphone tenu droit trop court pour sa barre, et la manette
    * « toujours » à la souris (il déplie la colonne repliée). */
   salleDansLaManette: boolean;
-  /** Ton étiquette tapée, collée dans la manette quand le panneau manque. */
-  etiquetteManette: Rect | null;
+  /** Où se lit ta place hors de la rangée du panneau : `null` quand la
+   * rangée la porte, ou sans place (spectateur, manette seule, sans manette
+   * tactile, à la souris). */
+  etiquette: LieuEtiquette | null;
   /** La bande noire au-dessus de l'image, quand elle fait 40 px ou plus. */
   fronton: Rect | null;
   /** Les bandes latérales du décor de borne, 72 px ou plus, sans manette. */
@@ -373,7 +404,7 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   margesManette: null,
   boutonSalle: null,
   salleDansLaManette: false,
-  etiquetteManette: null,
+  etiquette: null,
   fronton: null,
   bordures: null,
   feuille: null,
@@ -701,6 +732,10 @@ function portrait(e: Entree): Geometrie {
     bande,
     manette,
     salleDansLaManette: manette !== null && barre === null,
+    etiquette:
+      e.role === "joueur" && manette !== null && !rangeeTient(panneauRect)
+        ? { lieu: "fente" }
+        : null,
     feuille: {
       mi: rect(0, feuilleHaut + delta, e.fenetre.width, e.fenetre.height - feuilleHaut - delta),
       agrandie: rect(0, feuilleHaut, e.fenetre.width, e.fenetre.height - feuilleHaut),
@@ -802,7 +837,6 @@ function paysage(e: Entree): Geometrie {
   let bande: Rect | null = null;
   let panneau: Geometrie["panneau"] = { forme: "absent", rect: null };
   let boutonSalle: Rect | null = null;
-  let etiquetteManette: Rect | null = null;
   let manette: Geometrie["manette"] = null;
 
   const grappes = () => ({
@@ -872,14 +906,43 @@ function paysage(e: Entree): Geometrie {
     ecran = rect(xg + (C - b.w) / 2, (H0 - b.h) / 2, b.w, b.h);
     const l = g.gl;
     boutonSalle = rect(L + m + 2, T + m, l - 4, 44);
-    if (g.variante === "tete-etiquette" && e.role === "joueur") {
-      etiquetteManette = rect(L + m + 4, T + m + 52, l - 8, 36);
-    }
   }
 
   if (g.gl > 0 && D && g.variante !== "bas") {
     const deux = grappes();
     manette = { rect: rect(L + m, deux.g.y, W - 2 * m, g.gh), grappes: deux };
+  }
+
+  // Ta place se lit une fois : sur la rangée du panneau, sinon sur ton
+  // étiquette (relecture du 24 novembre 2026). « tete-etiquette » lui a
+  // gardé 36 px sous « La salle ». « tete » n'a que les 28 px entre « La
+  // salle » et la grappe, où la pose garde encore 12 px (`SIZES.MARGIN`) :
+  // la hauteur de la fente y tient, à 6 px de l'un et de l'autre. Un
+  // panneau qui n'a que ses lampes la laisse en tête de la bande, sous
+  // « La salle » ; sans bande (moins de 48 px), juste sous lui. Sous
+  // l'image d'une tablette (« bas »), la manette est celle du portrait :
+  // sa fente. Reste sans étiquette une fenêtre couchée de moins de 370 px
+  // de haut où ni la bande ni cette ligne ne tiennent : 2 179 cas sur
+  // 424 080 d'un balayage de 480 à 1 400 px de large, deux manettes, trois
+  // formats, avec et sans zones sûres (24 novembre 2026), aucun parmi les
+  // tailles de téléphone de `cadre.test.ts`.
+  let etiquette: LieuEtiquette | null = null;
+  if (e.role === "joueur" && D && !rangeeTient(panneau.rect)) {
+    if (g.variante === "bas") {
+      etiquette = { lieu: "fente" };
+    } else if (g.variante === "tete-etiquette") {
+      etiquette = { lieu: "cote", rect: rect(L + m + 4, T + m + 52, g.gl - 8, 36) };
+    } else if (g.variante === "tete") {
+      const y = T + m + 44 + FENTE.ECART;
+      etiquette = { lieu: "cote", rect: rect(L + m + 4, y, g.gl - 8, FENTE.HAUT) };
+    } else if (bande) {
+      etiquette = { lieu: "bande" };
+    } else if (panneau.rect) {
+      const y = panneau.rect.y + panneau.rect.h + m;
+      if (T + H - y >= FENTE.HAUT + m) {
+        etiquette = { lieu: "cote", rect: rect(xg + 4, y, Math.min(C - 8, FENTE.MAX), FENTE.HAUT) };
+      }
+    }
   }
 
   // À mi-hauteur, la feuille ne prend que la bande gauche (la critique :
@@ -894,7 +957,7 @@ function paysage(e: Entree): Geometrie {
     bande,
     manette,
     boutonSalle,
-    etiquetteManette,
+    etiquette,
     feuille: {
       mi: rect(0, 0, Math.max(132, bandeG), H0),
       agrandie: rect(0, 0, Math.min(380, Math.round(W0 * 0.5)), H0),

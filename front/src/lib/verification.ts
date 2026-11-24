@@ -29,12 +29,15 @@
  * La coche dit « envoyée », jamais « reçue » : la salle ne renvoie pas encore
  * d'accusé par bouton (plan donnees, D21).
  *
- * # Ce que l'instantané dit aujourd'hui
+ * # Ce que l'instantané dit
  *
- * `InputState.pressed` ne porte que les boutons de la trame Dolphin. Les
- * sticks, les gâchettes analogiques et toute la trame Pro n'y sont pas : le
- * chantier manettes les y ajoute (K34, il possède `media/input.ts`). Une ligne
- * dont aucune commande n'est suivie n'a pas de case du tout. Une case qui ne
+ * `InputState.activite` (`media/activite`, K34, écrit par le chantier
+ * manettes) dit la trame qui part, Dolphin ou Pro : ses boutons, ses
+ * gâchettes à mi-course et chaque axe de stick hors du repos. Jusqu'au
+ * 24 novembre 2026, la vue lisait `InputState.pressed`, qui ne portait que
+ * les boutons de la trame Dolphin : les lignes de stick et toute la vue d'une
+ * salle Pro n'avaient pas de case. La règle reste : une ligne dont une
+ * commande n'est pas suivie n'a pas de case du tout. Une case qui ne
  * s'allumerait jamais dirait « rien n'est parti » à tort.
  */
 import { identify, buttonLabel } from "../media/families";
@@ -217,19 +220,8 @@ export function verificationPro(
 }
 
 /** Ce que l'instantané dit de la trame envoyée : les commandes qu'il suit, et
- * celles qui sont pressées en ce moment. */
+ * celles qui sont pressées en ce moment (`InputState.activite`). */
 export type Activite = { suivies: ReadonlySet<string>; actives: ReadonlySet<string> };
-
-const BOUTONS_DOLPHIN: ReadonlySet<string> = new Set(Object.keys(BUTTON));
-
-/** La trame Dolphin : `pressed` porte ses douze boutons, rien d'autre. */
-export function activiteDolphin(pressed: readonly string[]): Activite {
-  return { suivies: BOUTONS_DOLPHIN, actives: new Set(pressed) };
-}
-
-/** La trame Pro : rien n'est suivi tant que manettes n'a pas ajouté
- * l'activité à l'instantané (K34). */
-export const SANS_ACTIVITE: Activite = { suivies: new Set(), actives: new Set() };
 
 /** Une ligne a une case quand l'instantané suit TOUTES ses commandes. Une
  * ligne de stick dont seul un sens serait suivi s'allumerait à moitié. */

@@ -520,7 +520,7 @@ Run **`just`** (which is `check` + `gpu-test` + `clip-audio-test` +
 `deploy-check` + `focus-navigateur` + `etats-navigateur` +
 `parcours-navigateur` + `salle-telephone` + `manette-garde` +
 `reglage-navigateur` + `reglage-navigateur-rouge` + `salon-navigateur` +
-`salon-navigateur-rouge`) locally, then watch the run. A
+`salon-navigateur-rouge` + `cadre-navigateur`) locally, then watch the run. A
 failing early step means the later gates were **skipped, not passed**.
 
 The five browser proofs entered the local gate on 2026-11-22: jsdom has no
@@ -533,6 +533,9 @@ column, which jsdom does not lay out (43 s and 42 s measured that day).
 `salon-navigateur` and its negative control joined the same day: the lobby's
 home page ran in jsdom only, which passed a 31 px logo link and a credit line
 that pushed the page 37 px wider than a 320 px phone.
+`cadre-navigateur` joined the same day at the owner's request: nothing on the
+picture in every state and size, the room frame, the mascot's steps (about
+4 min 35 s of steps measured on 2026-11-24 up to `mascotte-hors-image`).
 
 The local gate also runs `switch-saves-test` and `switch-capture-test`. The adapter
 and capture now serve the main room; their filesystem and packet tests must not
@@ -757,7 +760,7 @@ Markdown alone does not update the site.
 
 | | |
 |---|---|
-| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` + `deploy-check` + `focus-navigateur` + `etats-navigateur` + `parcours-navigateur` + `salle-telephone` + `manette-garde` + `reglage-navigateur` + `reglage-navigateur-rouge` + `salon-navigateur` + `salon-navigateur-rouge`** |
+| **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` + `deploy-check` + `focus-navigateur` + `etats-navigateur` + `parcours-navigateur` + `salle-telephone` + `manette-garde` + `reglage-navigateur` + `reglage-navigateur-rouge` + `salon-navigateur` + `salon-navigateur-rouge` + `cadre-navigateur`** |
 | `just abri-test` | the encrypted NAS copy of the saves, restored from a throwaway repository (needs restic) |
 | `just check` | Rust + Python + page, with `salles-dore` and `moteurs-test`: the shared code-quality recipe used by CI |
 | `just salles-dore` | every external room script run as the worker runs it, under the machine's account, under another account and on a copy, compared with `docker/dore/*.json` (in `check`) |
@@ -770,6 +773,8 @@ Markdown alone does not update the site.
 | `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
 | `just planche-garde` | the mascot's board in Chrome: every room and lobby scene plays its full version, no sprite box on the picture, a control or a word, and no animation frame for two seconds after a scene (Vite without relays) |
 | `just ain-salon` | builds the mascot bundle for the lobby pages (`retro/ain.js` and its stamp `ain.SOURCES`); `front-build` runs it, `salon.test.ts` refuses a stale one |
+| `just cadre-navigateur` | the room frame in Chrome: nothing on the picture or over it in every state and at seven desk sizes, phones and tablets held both ways, the column, the cabinet, the play time, the label in the touch pad, the cursor in the half-height sheet, the mascot's scenes; port 5478 or `--port`, `--etapes a,b` |
+| `just cadre-navigateur-rouge` | negative control: the page of 03b21c0, then six pages of the room track and the page of 97a2318 for the later steps, must fail each step on its named defect; the guard itself must stay green on 03b21c0 |
 | `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; `--etapes place-tenu` measures the held sizes, red until the room geometry gives the panel its place |

@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { aideDolphin, type Ligne } from "./aide-clavier";
-import { DEFAULT_KEYS, standardProfile } from "../media/pad";
-import { defaultSwitchProfile } from "../media/switch";
+import { aideDolphin, aidePro, type Ligne } from "./aide-clavier";
+import { activiteDolphin, activitePro } from "../media/activite";
+import { BUTTON, DEFAULT_KEYS, standardProfile, type PadReading } from "../media/pad";
+import { defaultSwitchProfile, emptySwitch } from "../media/switch";
 import {
-  activiteDolphin,
   allumees,
   ECHO_FRAIS_MS,
   RIEN,
-  SANS_ACTIVITE,
   suivie,
   toutesVues,
   verificationDolphin,
@@ -134,6 +133,18 @@ describe("une manette à la disposition inconnue", () => {
   });
 });
 
+/** La trame Dolphin telle que l'instantané la dit (`media/activite`), avec
+ * ces boutons pressés : la lecture du produit, pas une liste recopiée. */
+const REPOS: PadReading = { buttons: 0, x: 0, y: 0, cx: 0, cy: 0, l: 0, r: 0 };
+const dolphin = (boutons: (keyof typeof BUTTON)[], axes: Partial<PadReading> = {}) =>
+  activiteDolphin({
+    ...REPOS,
+    ...axes,
+    buttons: boutons.reduce((tous, nom) => tous | BUTTON[nom], 0),
+  });
+/** Une activité qui ne suit rien : une trame que l'instantané ne dirait pas. */
+const RIEN_SUIVI = { suivies: new Set<string>(), actives: new Set<string>() };
+
 describe("quand une ligne s'allume", () => {
   const nom = (code: string) => code;
   const clavier = aideDolphin(DEFAULT_KEYS, nom, GC);
@@ -141,16 +152,16 @@ describe("quand une ligne s'allume", () => {
   const indexDe = (fait: string) => clavier.findIndex((l) => l.fait === fait);
 
   it("A pressé dans la trame allume la ligne A, et elle seule", () => {
-    const lu = allumees(clavier, activiteDolphin(["A"]), garde);
+    const lu = allumees(clavier, dolphin(["A"]), garde);
     expect(lu[indexDe("A")]).toBe(true);
     expect(lu.filter(Boolean)).toHaveLength(1);
   });
 
   it("hors de la zone de jeu, rien ne s'allume au clavier", () => {
-    const lu = allumees(clavier, activiteDolphin(["A"]), { ...garde, focusAuJeu: false });
+    const lu = allumees(clavier, dolphin(["A"]), { ...garde, focusAuJeu: false });
     expect(lu.some(Boolean)).toBe(false);
     // Le jumeau : une manette n'a pas besoin du focus pour jouer.
-    const manette = allumees(clavier, activiteDolphin(["A"]), {
+    const manette = allumees(clavier, dolphin(["A"]), {
       ...garde,
       clavier: false,
       focusAuJeu: false,
@@ -159,7 +170,7 @@ describe("quand une ligne s'allume", () => {
   });
 
   it("un écho de plus de deux secondes, ou aucun, n'allume rien", () => {
-    const a = activiteDolphin(["A"]);
+    const a = dolphin(["A"]);
     expect(allumees(clavier, a, { ...garde, sinceHeardMs: ECHO_FRAIS_MS })[indexDe("A")]).toBe(
       false,
     );
@@ -183,19 +194,43 @@ describe("quand une ligne s'allume", () => {
     );
     const croix = avecCroix.findIndex((l) => l.commandes.includes("D_UP"));
     expect(croix).toBeGreaterThanOrEqual(0);
-    expect(allumees(avecCroix, activiteDolphin(["D_LEFT"]), garde)[croix]).toBe(true);
-    expect(allumees(avecCroix, activiteDolphin(["A"]), garde)[croix]).toBe(false);
+    expect(allumees(avecCroix, dolphin(["D_LEFT"]), garde)[croix]).toBe(true);
+    expect(allumees(avecCroix, dolphin(["A"]), garde)[croix]).toBe(false);
   });
 
-  it("une ligne de stick n'a pas de case : pressed ne dit rien des sticks", () => {
-    const stick = clavier.find((l) => l.commandes.includes("x"));
-    expect(stick && suivie(stick, activiteDolphin([]))).toBe(false);
-    expect(suivie(clavier[indexDe("A")], activiteDolphin([]))).toBe(true);
-    expect(suivie(clavier[indexDe("A")], SANS_ACTIVITE)).toBe(false);
+  // Jusqu'au 24 novembre 2026, la vue lisait `pressed`, sans les sticks :
+  // la ligne des flèches n'avait pas de case. L'instantané dit maintenant
+  // chaque axe hors du repos (K34).
+  it("la ligne des flèches a sa case, et s'allume quand le stick quitte le repos", () => {
+    const stickIndex = clavier.findIndex((l) => l.commandes.includes("x"));
+    expect(stickIndex).toBeGreaterThanOrEqual(0);
+    expect(suivie(clavier[stickIndex]!, dolphin([]))).toBe(true);
+    expect(allumees(clavier, dolphin([], { y: -32767 }), garde)[stickIndex]).toBe(true);
+    // Le jumeau : un stick au repos, ou le second stick, ne l'allume pas.
+    expect(allumees(clavier, dolphin([]), garde)[stickIndex]).toBe(false);
+    expect(allumees(clavier, dolphin([], { cx: 32767 }), garde)[stickIndex]).toBe(false);
+  });
+
+  it("une activité qui ne suit pas une commande ne donne pas de case à sa ligne", () => {
+    expect(suivie(clavier[indexDe("A")]!, RIEN_SUIVI)).toBe(false);
     // Une activité qui dirait le stick sans le suivre ne l'allume pas.
     const melee = { suivies: new Set(["A"]), actives: new Set(["A", "x"]) };
     const stickIndex = clavier.findIndex((l) => l.commandes.includes("x"));
     expect(allumees(clavier, melee, garde)[stickIndex]).toBe(false);
+  });
+
+  it("dans une salle Pro, chaque ligne a sa case, et le stick gauche s'allume par son sens", () => {
+    const pro = aidePro(defaultSwitchProfile().keys, true, nom);
+    expect(pro.length).toBeGreaterThan(0);
+    expect(pro.every((l) => suivie(l, activitePro(null)))).toBe(true);
+    const gauche = pro.findIndex((l) => l.commandes.includes("lx+"));
+    expect(gauche).toBeGreaterThanOrEqual(0);
+    const pousse = activitePro({ ...emptySwitch(), lx: 20000 });
+    const lu = allumees(pro, pousse, garde);
+    expect(lu[gauche]).toBe(true);
+    expect(lu.filter(Boolean)).toHaveLength(1);
+    // Le jumeau : au repos, rien.
+    expect(allumees(pro, activitePro(emptySwitch()), garde).some(Boolean)).toBe(false);
   });
 
   it("fier attend chaque ligne suivie et vue, et jamais une ligne sans case", () => {
@@ -203,10 +238,17 @@ describe("quand une ligne s'allume", () => {
       { touches: "X", fait: "A", commandes: ["A"] },
       { touches: "C", fait: "B", commandes: ["B"] },
     ];
-    const a = activiteDolphin([]);
+    const a = dolphin([]);
     expect(toutesVues(deux, new Set([0, 1]), a)).toBe(true);
     expect(toutesVues(deux, new Set([0]), a)).toBe(false);
-    expect(toutesVues(clavier, new Set(clavier.keys()), a)).toBe(false);
+    // Toutes les lignes du clavier sont suivies depuis K34 : fier est à portée.
+    expect(toutesVues(clavier, new Set(clavier.keys()), a)).toBe(true);
+    // Le jumeau : une seule commande non suivie, et fier n'arrive jamais.
+    const sansY = {
+      suivies: new Set([...a.suivies].filter((c) => c !== "y")),
+      actives: new Set<string>(),
+    };
+    expect(toutesVues(clavier, new Set(clavier.keys()), sansY)).toBe(false);
     expect(toutesVues([], new Set(), a)).toBe(false);
   });
 });

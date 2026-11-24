@@ -337,7 +337,7 @@ describe("la place du menu (M2)", () => {
               }
               for (const [nom, obstacle] of [
                 ["bouton", geo.boutonSalle],
-                ["etiquette", geo.etiquetteManette],
+                ["etiquette", geo.etiquette?.lieu === "cote" ? geo.etiquette.rect : null],
               ] as const) {
                 if (obstacle === null) continue;
                 cas[nom] += 1;

@@ -863,6 +863,48 @@ les aides de moins de 70 caractères construites hors d'`App.tsx`, et les
 `mouvement-menu`, `fiche-lancer`). Récit : « 24 novembre, l'après-midi : un
 seul menu, dans la colonne ».
 
+**Au 24 novembre, le soir : la relecture de la suite de la salle.** Sur
+la même branche, sans rien installer. Tenue en main, ta place se lit
+maintenant une fois : sur la rangée des START du panneau, sinon sur ton
+étiquette, que le cadre pose (`geo.etiquette`, `lib/cadre.ts`) dans la
+fente de la manette tenue droite, sous « La salle » en travers, ou en
+tête de la bande quand le panneau n'a que ses lampes (moins de 224 px,
+`PANNEAU_RANGEE`). La relecture n'en voyait aucune à 568 × 320, 667 × 375
+et 740 × 360 en GameCube, et à 932 × 430 en Xbox 360. Aucune taille
+d'image ne change. Tenu droit, la phrase d'aide des places ne se dit plus
+qu'au lecteur d'écran : sa règle visait la phrase de l'ancien `Seats`, et
+« 2P » couvrait ton nom à 360 et 390 px. `cadre.mjs` gagne
+`etiquette-travers` ; son contrôle rouge, un huitième bloc. Restent :
+quelques fenêtres couchées sous 370 px de haut sans étiquette (2 179 cas
+sur 424 080 d'un balayage, aucune taille de téléphone essayée), « toi »
+peint sur ton nom dans ta place START (personnes), et la manette Pro à
+568 × 320, où le cadre ne laisse aucune image (défaut d'avant). Page :
+282 905 octets en brotli. `check` et les portes du navigateur sont verts ;
+`cadre-navigateur` reste rouge sur les étapes de la mascotte, comme avant.
+Récit : « 24 novembre, le soir : ta place qui ne se lisait pas ».
+
+**Au 24 novembre, l'après-midi : la suite de la salle, premier passage.**
+Sur `chantier/retro-salle-2` (worktree `~/nel3ab-chantiers/retro-salle-2`,
+parti d'`integration/retro` 87bc2b3), en même temps que états, salon et
+menus ; rien dans `main`, rien de poussé ni d'installé. Livré : le temps de
+jeu au bout du panneau, tiré de l'âge que le salon publie
+(`Room.partie.depuis_s`, changé en instant à la réception, rien quand le
+worker sert son menu) ; l'étiquette tapée dans le creux de la manette
+quand aucun panneau ne porte les places (`fente`, `lib/faces.ts`), et sous
+« La salle » en travers (dans une seule des trois mises en page couchées :
+corrigé le soir même, paragraphe suivant) ; la vue des touches qui coche le stick et la
+trame Pro, avec les lectures mortes de l'ancienne règle retirées ; le ▶
+dans la feuille à mi-hauteur ; le panneau d'un bouton déplié qui défile
+au-dessus du pied collé, ce qui rend « Copier le lien » et
+`parcours-navigateur` verts. `cadre-navigateur` entre dans la porte
+`local` ; son contrôle rouge prend un port et un septième bloc. Page :
+282 600 octets en brotli. `cadre-navigateur` reste rouge sur la
+précondition de `mascotte-hors-image`, et derrière elle sur l'ancre
+`start-2` et la fenêtre d'`ain-immobile` (mascotte et personnes) : avec
+lui dans `local`, la porte `just` est rouge tant qu'elles ne sont pas
+réglées. Récit : « 24 novembre, l'après-midi : la suite de la salle, ce
+que la vague A avait laissé ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

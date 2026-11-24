@@ -842,6 +842,68 @@ function placeGestes(
   };
 }
 
+/* ── La fente de l'étiquette ──────────────────────────────────────────── */
+
+/**
+ * Les mesures de la fente où l'étiquette tapée du joueur se pose dans le
+ * creux de la manette, quand aucun panneau ne la porte (plan salle,
+ * en-jeu-tactile.5).
+ *
+ * - `ECART`, 6 : la distance à toute pièce, touche ou geste. L'étiquette ne
+ *   prend pas le pointeur : un pouce qui glisse dessus ne fait rien, mais une
+ *   étiquette collée à une touche se lirait comme son nom. C'est l'écart que
+ *   la pose garde entre deux groupes (`KEY_GAP`).
+ * - `HAUT`, 24 : une ligne de `--text-note` en Pixelify, ses deux pixels de
+ *   marge et la pastille du numéro.
+ * - `MIN`, 64 : le numéro « 1P » et trois lettres d'arcade. Sous ce seuil
+ *   l'étiquette ne dit plus rien de lisible : pas de fente.
+ * - `MAX`, 180 : au-delà, un nom long étirerait la fente jusqu'aux pouces.
+ */
+export const FENTE = { ECART: 6, HAUT: 24, MIN: 64, MAX: 180 } as const;
+
+/**
+ * La fente de l'étiquette dans une pose, ou `null`.
+ *
+ * À `ECART` pixels au moins de chaque pièce, gestes compris, et dans les
+ * marges de la boîte. À chaque hauteur, le plus large passage libre entre les
+ * pièces de cette hauteur ; la fente s'y pose au plus près du milieu de la
+ * boîte. La plus large gagne ; à largeur égale, la plus proche du milieu :
+ * sur une manette Pro, le creux sous − et + ; sur une GameCube dont « La
+ * salle » occupe le creux, à côté de lui, au-dessus de la croix.
+ */
+export function fente(
+  pieces: readonly Piece<string>[],
+  box: { width: number; height: number },
+): Rect | null {
+  const { ECART, HAUT, MIN, MAX } = FENTE;
+  const { MARGIN } = SIZES;
+  const W = box.width;
+  const H = box.height;
+  let best: { rect: Rect; loin: number } | null = null;
+  for (let y = MARGIN; y + HAUT <= H - MARGIN; y += 2) {
+    // Les pièces à cette hauteur, écart compris, de gauche à droite.
+    const prises = pieces
+      .map((piece) => piece.rect)
+      .filter((r) => r.y < y + HAUT + ECART && y - ECART < r.y + r.h)
+      .map((r) => ({ de: r.x - ECART, a: r.x + r.w + ECART }))
+      .sort((a, b) => a.de - b.de);
+    let x: number = MARGIN;
+    for (const prise of [...prises, { de: W - MARGIN, a: W - MARGIN }]) {
+      const libre = Math.min(prise.de, W - MARGIN) - x;
+      if (libre >= MIN) {
+        const w = Math.min(MAX, libre);
+        const gauche = Math.max(x, Math.min(W / 2 - w / 2, x + libre - w));
+        const rect = { x: gauche, y, w, h: HAUT };
+        const loin = Math.hypot(gauche + w / 2 - W / 2, y + HAUT / 2 - H / 2);
+        if (!best || w > best.rect.w || (w === best.rect.w && loin < best.loin))
+          best = { rect, loin };
+      }
+      x = Math.max(x, prise.a);
+    }
+  }
+  return best?.rect ?? null;
+}
+
 /* ── Ce que la boîte d'une manette doit mesurer ──────────────────────── */
 
 /**

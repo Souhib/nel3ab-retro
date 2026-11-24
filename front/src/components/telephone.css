@@ -137,9 +137,24 @@
   flex: 1;
   min-width: 0;
 }
-.n3-panneau-tenu .n3-panneau-places > div > p.text-faint,
-.n3-panneau-tenu #credit {
+/* La rangée tenue en main garde toute sa largeur aux quatre places : le
+   crédit et le temps de jeu restent au bureau, et la phrase d'aide des
+   places (`.n3-places-role`, chantier personnes) ne se dit plus qu'au
+   lecteur d'écran, comme dans la rangée « petite » de `places.css`. Jusqu'à
+   la relecture du 24 novembre 2026, cette règle visait encore la phrase de
+   `Seats` (`p.text-faint`), partie avec lui : la phrase des places prenait
+   ses 10 rem, et « 2P » couvrait ton nom à 360 et 390 px de large. */
+.n3-panneau-tenu #credit,
+.n3-panneau-tenu #tempsDeJeu {
   display: none;
+}
+.n3-panneau-tenu .n3-places-role {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 /* Les places START règlent elles-mêmes leur rangée, debout comprise
    (`places.css`, chantier personnes) : les règles des prises dessinées de
@@ -219,9 +234,15 @@
    390 px de large (316 px de contenu pour 275). « Rallumer le son » et son
    filet d'alerte le disent seuls. En travers, la feuille ne prend que la
    bande gauche : une seule colonne d'entrées. */
+/* Le ▶ du socle (10 px, et 6 px d'écart) se pose à gauche de l'entrée
+   visée : 16 px entre deux colonnes, et 2 px à gauche qui, avec les 14 px
+   de la boîte, lui laissent sa place devant la première. 150 px au moins
+   par entrée : deux colonnes tiennent encore à 360 px de large, comme à
+   160 px avec 4 px d'écart. */
 .n3-feuille[data-hauteur="mi"] .n3-feuille-entrees {
-  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 4px 16px;
+  padding-left: 2px;
 }
 .n3-feuille[data-hauteur="mi"] .n3-feuille-entree {
   min-height: 44px;
@@ -386,4 +407,34 @@
     transform: translateY(24px);
     opacity: 0.4;
   }
+}
+
+/* Ton étiquette tapée quand la rangée du panneau ne porte pas ta place
+   (`geo.etiquette`) : sous « La salle » en travers, en tête de la bande
+   quand le panneau n'a que ses lampes, ou dans la fente du creux de la
+   manette tenue droite (`manette-tactile.css`). Elle ne prend pas le
+   pointeur. Le numéro « 1P » à l'encre de la place, puis le ruban. */
+.n3-etiquette-cote {
+  z-index: 30;
+}
+.n3-etiquette-cote,
+.n3-etiquette-bande {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  pointer-events: none;
+}
+.n3-etiquette-bande {
+  flex-shrink: 0;
+}
+.n3-etiquette-cote > .n3-etiquette,
+.n3-etiquette-bande > .n3-etiquette {
+  min-width: 0;
+}
+.n3-etiquette-numero {
+  flex-shrink: 0;
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--etiquette-encre, var(--encre));
 }

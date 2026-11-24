@@ -151,14 +151,34 @@ export function Colonne({
   // place » ne recevait plus le clic (cadre.mjs, un-plein, 24 novembre
   // 2026). À l'ouverture, il défile dans la vue, au plus juste ; la marge du
   // bas compte déjà le coin.
+  //
+  // Un bouton qui déplie son panneau (`aria-expanded`, `aria-controls`) fait
+  // de même : « Inviter » dépliait le sien sous le pied, et le clic sur
+  // « Copier le lien » tombait sur le coin (parcours.mjs, invitation, après
+  // la fusion de la vague B1 du 24 novembre 2026). Un <details> n'est pas
+  // un bouton : les deux règles se complètent.
   useEffect(() => {
     if (!boite || !collePied) return;
     const ouvert = (e: Event) => {
       const d = e.target;
       if (d instanceof HTMLDetailsElement && d.open) d.scrollIntoView?.({ block: "nearest" });
     };
+    const deplie = new MutationObserver((changements) => {
+      for (const { target } of changements) {
+        if (!(target instanceof Element) || target.getAttribute("aria-expanded") !== "true")
+          continue;
+        const id = target.getAttribute("aria-controls");
+        const deplieLa = id ? document.getElementById(id) : null;
+        if (deplieLa && boite.contains(deplieLa))
+          requestAnimationFrame(() => deplieLa.scrollIntoView?.({ block: "nearest" }));
+      }
+    });
+    deplie.observe(boite, { subtree: true, attributeFilter: ["aria-expanded"] });
     boite.addEventListener("toggle", ouvert, true);
-    return () => boite.removeEventListener("toggle", ouvert, true);
+    return () => {
+      deplie.disconnect();
+      boite.removeEventListener("toggle", ouvert, true);
+    };
   }, [boite, collePied]);
   // Le ▶ se pose au focus, puis ne bouge plus : l'avis du clavier qui naît
   // du même focus pousse la colonne de 97 px, et le ▶ restait devant le

@@ -2307,6 +2307,69 @@ during a click (the keyboard notice is born from the click that leaves the
 picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
+**Amended 2026-11-24: the rest of wave A (« salle-suite », pass 1).** What
+waited on other tracks is wired on `integration/retro`:
+
+- **Play time.** `Room.partie.depuis_s` (D43) is an age, not a time. The
+  page turns it into a start time when the message arrives (`useLancement`)
+  and keeps the previous estimate when the new one is less than 2 s away:
+  the lobby truncates the age to the second and the message takes a few
+  hundred milliseconds, while a new game restarts the worker and its age
+  starts again from zero. Nothing is shown when the lobby publishes no
+  milestones, when `lance` is not true (the age also counts the time the
+  worker serves its menu), or when the page sees no game. It follows the
+  credit at the end of the control panel and is hidden in the 72 px held
+  row. Weighed: displaying the age as received (it jumps a second back and
+  forth from one message to the next, and restarts the counter each time);
+  comparing the worker's wall clock with the phone's (two clocks that
+  nothing keeps in step).
+- **The label in the pad's slot** (en-jeu-tactile.5). Without a control
+  panel (375×548 upright), the typed label, its seat number first, sits in
+  the widest free passage of the pose, at least 6 px from every key and
+  gesture, 64 to 180 px wide, nearest the middle (`fente`, `lib/faces`).
+  A centred slot was tried first and found nothing on a GameCube pad whose
+  « La salle » gesture holds the middle. Across, the pad's box also spans
+  the picture, so the label sits under « La salle ». With the row of
+  START buttons, the label is on the player's START and nowhere else.
+  (Corrected after the review below: the slot under « La salle » existed
+  only in one of the three landscape layouts.)
+- **Stick and Pro activity** (K34). The view reads `InputState.activite`
+  (wired by the controllers track); the dead readers of `pressed` left in
+  `lib/verification` and the tests that still proved the old rule are gone.
+- **The half-height sheet gets the ▶.** Its grid keeps 16 px between
+  columns and 2 px on the left, and entries shrink to 150 px so two columns
+  still fit at 360 px.
+- **A panel opened by a button scrolls into view** above the sticky foot,
+  like a `<details>` (`aria-expanded` with `aria-controls`), which repairs
+  « Copier le lien » after the merge of wave B1.
+- `cadre-navigateur` joins the local gate at the owner's request; its red
+  control gains a port and a seventh block against 97a2318.
+
+**Amended 2026-11-24, after the review of « salle-suite ».** The frame,
+not the page, decides where the player's seat can be read when the panel
+does not carry the row of four START buttons (`geo.etiquette`,
+`lib/cadre.ts`): the pad's slot upright, under « La salle » across, or at
+the head of the band when the panel only shows its lamps. The review had
+found neither panel nor label at 568×320, 667×375 and 740×360 on a
+GameCube pad and at 932×430 on a Pro pad: the « tete » layout, which often
+wins, had no label slot, and a panel under 224 px turns the row into
+lamps where no seat is marked. `PANNEAU_RANGEE` (224 px) copies the 200 px
+container query of `places.css` plus the held panel's 12 px edges; a test
+reads both style sheets. The « tete » layout now takes the 28 px between
+« La salle » and the left cluster, at the slot's height (24 px), 6 px from
+both on the real pose. No picture size changes. Weighed: preferring
+« tete-etiquette » for a player (up to 9 % of picture height on a
+GameCube, at 780×360 and 812×375); writing the seat into « La salle »'s
+label (already cut to « La … » at 667×375); dropping « nu » when it had no
+band (a mutant showed a Pro pad at 640×360 falling to an 8 px wide
+picture). The exception left: a landscape window under 370 px high whose
+lamp-only panel has neither a band nor 28 px below the row, 2,179 of
+424,080 cases in a sweep from 480 to 1,400 px, none of the phone sizes
+tested; the frame does not shrink the picture for a label there. In the
+held row, the places' help sentence (`.n3-places-role`) is read only to
+screen readers: the rule that hid it still named `Seats`' sentence, and
+« 2P » covered the player's name at 360 and 390 px.
+
 
 ### D40: The room's state leaves the picture, and its cover lifts on the first painted image, 2026-11-24
 

@@ -788,6 +788,24 @@ const ETAPES = {
     if ((recus(dedans) & A) === 0) throw new Precondition("X dans la zone n'a pas envoyé A au banc");
     if (!(await ligne("A")).vue) throw new Defaut("A est parti au jeu et sa ligne ne s'est pas cochée");
     if ((await ligne("B")).vue) throw new Defaut("la ligne B s'est cochée sans que B parte");
+    // Le stick (K34) : la ligne des flèches a sa case depuis que
+    // l'instantané dit chaque axe hors du repos, et s'allume quand la flèche
+    // droite pousse le stick. Avant le 24 novembre 2026, elle n'en avait pas.
+    const fleches = () =>
+      page.evaluate(() => {
+        const li = [...document.querySelectorAll("#vueTouches [data-ligne-touche]")].find(
+          (el) => el.querySelector(".n3-ligne-touches")?.textContent?.trim() === "Flèches",
+        );
+        return li ? { suivie: li.hasAttribute("data-suivie"), vue: li.hasAttribute("data-vue") } : null;
+      });
+    if ((await fleches()) === null) throw new Precondition("la vue n'a pas de ligne « Flèches »");
+    if (!(await fleches()).suivie) throw new Defaut("la ligne des flèches n'a pas de case: rien ne dirait que le stick part");
+    if ((await fleches()).vue) throw new Defaut("la ligne des flèches est cochée avant toute flèche");
+    const stick = Date.now();
+    await appuyer(page, "ArrowRight");
+    await sleep(300);
+    if (!banc.trames(stick).some((une) => une.x > 0)) throw new Precondition("la flèche droite n'a pas poussé le stick au banc");
+    if (!(await fleches()).vue) throw new Defaut("le stick est parti au jeu et la ligne des flèches ne s'est pas cochée");
     await capture(page, "touches-cochees");
     // L'écho muet: la salle n'a rien répondu depuis plus de deux secondes.
     banc.regler({ video: "silent" });
@@ -797,6 +815,47 @@ const ETAPES = {
     await appuyer(page, "KeyC");
     await sleep(300);
     if ((await ligne("B")).vue) throw new Defaut("la ligne B s'est cochée alors que l'écho se tait depuis plus de 2 s");
+    await page.close();
+  },
+
+  /** La même vue dans une salle Xbox 360, sur la trame Pro (K34) : chaque
+   * ligne a sa case, Entrée coche Start et la flèche droite le stick gauche.
+   * Avant le 24 novembre 2026, la vue d'une salle Pro n'avait aucune case.
+   * Le jumeau : rien n'est coché avant le premier appui. */
+  async "touches-cochees-pro"() {
+    const page = await nouvelle(PC, { premiere: true, console: "x360", format: "switch" });
+    await entrer(page);
+    if (!(await attendre(page, () => document.querySelector("#vueTouches [data-ligne-touche]") !== null, 4000)))
+      throw new Precondition("pas de vue des touches à la première visite");
+    const lignes = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("#vueTouches [data-ligne-touche]")].map((li) => ({
+          fait: li.querySelector(".n3-ligne-fait")?.textContent?.trim() ?? "",
+          suivie: li.hasAttribute("data-suivie"),
+          vue: li.hasAttribute("data-vue"),
+        })),
+      );
+    const avant = await lignes();
+    const sansCase = avant.filter((l) => !l.suivie).map((l) => l.fait);
+    if (sansCase.length) throw new Defaut(`des lignes de la trame Pro n'ont pas de case : ${sansCase.join(", ")}`);
+    if (avant.some((l) => l.vue)) throw new Defaut("une ligne est cochée avant tout appui");
+    const trouve = (liste, fait) => liste.find((l) => l.fait === fait);
+    if (!trouve(avant, "Start") || !trouve(avant, "stick gauche"))
+      throw new Precondition(`pas de ligne Start ou stick gauche : ${avant.map((l) => l.fait).join(", ")}`);
+    await page.mouse.click(...(await centre(page, "#screen")));
+    const depuis = Date.now();
+    await appuyer(page, "Enter");
+    await appuyer(page, "ArrowRight");
+    await sleep(300);
+    if ((recus(depuis) & PLUS_SWITCH) === 0) throw new Precondition("Entrée dans la zone n'a pas envoyé Start au banc");
+    if (!banc.trames(depuis).some((une) => une.trame === "switch" && une.x > 0))
+      throw new Precondition("la flèche droite n'a pas poussé le stick gauche au banc");
+    const apres = await lignes();
+    if (!trouve(apres, "Start").vue) throw new Defaut("Start est parti au jeu et sa ligne ne s'est pas cochée");
+    if (!trouve(apres, "stick gauche").vue) throw new Defaut("le stick gauche est parti au jeu et sa ligne ne s'est pas cochée");
+    const autres = apres.filter((l) => l.vue && l.fait !== "Start" && l.fait !== "stick gauche").map((l) => l.fait);
+    if (autres.length) throw new Defaut(`des lignes se sont cochées sans appui : ${autres.join(", ")}`);
+    await capture(page, "touches-cochees-pro");
     await page.close();
   },
 

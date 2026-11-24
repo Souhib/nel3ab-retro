@@ -299,6 +299,17 @@
   font-size: var(--text-corps);
   color: var(--legende);
 }
+/* Le temps de jeu (`TempsDeJeu`) : après le crédit, ou seul au bout du
+   panneau quand le crédit se tait (salle fermée). */
+.n3-temps {
+  margin: 0 0 0 auto;
+  align-self: center;
+  font-size: var(--text-corps);
+  color: var(--legende);
+}
+.n3-credit + .n3-temps {
+  margin-left: 0.75rem;
+}
 
 /* Le décor de borne (`CoteBorne`) : dans les bandes, jamais dans l'image.
    Le fond tramé vient de `.fx-borne .rt-cote` ; le manche et les quatre

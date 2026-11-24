@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { rangsDeLaColonne, type Rang } from "../lib/colonne";
 import { COLONNE } from "../lib/mots";
@@ -310,6 +311,66 @@ describe("les trois formes de la colonne", () => {
     dessous.open = true;
     dessous.dispatchEvent(new Event("toggle"));
     expect(vers).not.toHaveBeenCalled();
+    delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  });
+
+  // « Inviter » dépliait son panneau sous le pied collé, et le clic sur
+  // « Copier le lien » tombait sur le coin (parcours.mjs, invitation,
+  // 24 novembre 2026).
+  it("à côté de l'image, un bouton qui déplie son panneau le fait défiler dans la vue", async () => {
+    const vu: Element[] = [];
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: function (this: Element) {
+        vu.push(this);
+      },
+    });
+    function Deplie({ id }: { id: string }) {
+      const [ouvert, setOuvert] = useState(false);
+      return (
+        <div>
+          <button
+            type="button"
+            id={`${id}-bouton`}
+            aria-expanded={ouvert}
+            aria-controls={`${id}-panneau`}
+            onClick={() => setOuvert(!ouvert)}
+          >
+            Inviter
+          </button>
+          {ouvert ? <div id={`${id}-panneau`}>Copier le lien</div> : null}
+        </div>
+      );
+    }
+    const avec = (forme: "a-cote" | "dessous") =>
+      render(
+        <Colonne
+          nomSalle="Salle 1"
+          jeu={null}
+          onQuitter={() => {}}
+          largeur={forme === "a-cote" ? 304 : null}
+          forme={forme}
+          role={null}
+          rangs={["autres"]}
+          contenus={{ autres: <Deplie id={forme} /> }}
+          vue={null}
+          coin={<Coin mesures={false} onMesures={() => {}} />}
+        />,
+      );
+    const image = () => new Promise((fini) => requestAnimationFrame(fini));
+    avec("a-cote");
+    fireEvent.click(document.getElementById("a-cote-bouton")!);
+    await act(image);
+    expect(vu.map((el) => el.id)).toEqual(["a-cote-panneau"]);
+    // Les jumeaux : il se replie, rien ne défile ; sous l'image, sans pied
+    // collé, rien ne défile non plus.
+    vu.length = 0;
+    fireEvent.click(document.getElementById("a-cote-bouton")!);
+    await act(image);
+    avec("dessous");
+    fireEvent.click(document.getElementById("dessous-bouton")!);
+    await act(image);
+    expect(vu).toEqual([]);
     delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
 

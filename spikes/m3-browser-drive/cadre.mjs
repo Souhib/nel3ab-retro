@@ -735,15 +735,22 @@ async function principal() {
         ouverts: [...document.querySelectorAll("dialog[open]")].map((d) => d.id || d.className),
         menu: document.querySelector("#menu") !== null,
         focus: document.activeElement?.id ?? "",
-        titre: document.querySelector("#idle-room")?.textContent ?? "",
+        // Le rayonnage du chantier menus prend le focus d'entrée sur sa
+        // première cartouche, à la place de « Choisir un jeu » (K23).
+        cartouche: document.activeElement === document.querySelector("#rayonnage [data-jeu]"),
+        titre: document.querySelector("#idle-room h2")?.textContent ?? "",
       }));
       if (lu.ouverts.length > 0 || lu.menu) fautes.push(`au repos, un dialogue s'ouvre seul: ${lu.ouverts.join(", ") || "#menu"}`);
-      if (lu.focus !== "choisirJeu") fautes.push(`le focus d'entrée est sur « ${lu.focus || "body"} », pas sur « Choisir un jeu »`);
+      if (lu.focus !== "choisirJeu" && !lu.cartouche)
+        fautes.push(`le focus d'entrée est sur « ${lu.focus || "body"} », ni sur la première cartouche ni sur « Choisir un jeu »`);
       if (!/Pas encore de jeu/.test(lu.titre)) fautes.push(`l'écran éteint ne dit pas « Pas encore de jeu »: « ${lu.titre.slice(0, 60)} »`);
       await capture(page, "repos-choisit");
       if (lu.focus === "choisirJeu") {
         await page.keyboard.press("Enter");
         if (!(await jusqua(() => page.$("#menu").then(Boolean), 3000))) fautes.push("Entrée sur « Choisir un jeu » n'ouvre pas le menu");
+      } else if (lu.cartouche) {
+        await page.keyboard.press("Enter");
+        if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000))) fautes.push("Entrée sur la première cartouche n'ouvre pas sa fiche");
       }
       await page.close();
       const autre = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "bo", decide: false } });

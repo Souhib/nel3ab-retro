@@ -971,6 +971,12 @@ parcours-navigateur-rouge:
     etapes=carte-cible,carte-revient,refus-dit,don-dit,arrivee-a-confirmer,annonce-fronton,ancres-start,mesures-figee
     node parcours.mjs --page "$rouges/personnes-cc8c8a6.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # 77fae49, la page du salon avant Aïn dans l'avant-salle (24 novembre
+    # 2026) : le logo de l'en-tête est une image, rien ne joue quand une
+    # place se libère.
+    git show 77fae49:core/crates/worker/src/page/index.html > "$dossier/avant-ain.html"
+    node parcours.mjs --page "$dossier/avant-ain.html" --flux "$dossier/flux.h264" \
+        --etapes avant-salle-ain --rouge-attendu avant-salle-ain
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

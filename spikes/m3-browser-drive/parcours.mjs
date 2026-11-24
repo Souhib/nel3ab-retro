@@ -1039,6 +1039,62 @@ const ETAPES = {
       throw new Defaut(`l'adresse du jumeau garde la place : ${await adresse(jumeau)}`);
     await jumeau.close();
   },
+
+  /** Aïn dans l'avant-salle (24 novembre 2026, chantier salon) : il vit dans
+   * le logo de l'en-tête. Bo quitte la place 2 : « depart » se joue, le plein
+   * passe à « Prendre la place 2 » sans attendre la scène, et la version
+   * jouée n'est pas la pose clé (les ancres `start-2` et le sol `panneau`
+   * sont trouvés). Bo revient : « arrivee ». Le jumeau : la page ouverte
+   * avec Bo déjà assis ne joue rien. */
+  async "avant-salle-ain"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await page.goto(banc.url, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#enter", { timeout: 15000 });
+    const ain = () =>
+      page.evaluate(() => {
+        const toile = document.querySelector('header [data-hote="logo"] > .rt-mascotte');
+        return toile
+          ? {
+              scene: toile.dataset.scene ?? null,
+              version: toile.dataset.version ?? null,
+              refus: toile.dataset.refus ?? "",
+            }
+          : null;
+      });
+    if (!(await jusqua(async () => (await ain()) !== null, 4000)))
+      throw new Defaut("Aïn n'est pas peint dans le logo de l'avant-salle");
+    // Le jumeau : rien ne joue au premier état, Bo déjà assis.
+    for (let i = 0; i < 8; i++) {
+      const vu = await ain();
+      if (vu.scene) throw new Defaut(`une scène au premier état : ${JSON.stringify(vu)}`);
+      await sleep(100);
+    }
+    banc.regler({ bo: false });
+    let depart = null;
+    if (!(await jusqua(async () => (depart = await ain())?.scene === "depart", 3000)))
+      throw new Defaut(`Bo part de la place 2 sans scène « depart » : ${JSON.stringify(await ain())}`);
+    const porte = await page.$eval("#enter", (b) => b.textContent.trim());
+    if (porte !== "Prendre la place 1")
+      throw new Precondition(`le plein dit « ${porte} » : la place 1 reste la première libre`);
+    const deux = await page.$eval('#lobbySeats [data-port="2"]', (p) => p.dataset.state);
+    if (deux !== "free") throw new Defaut(`la place 2 est « ${deux} » pendant la scène`);
+    // Le repli se lit dans `data-refus` : une version demandée puis refusée
+    // (une ancre absente, un contrôle ou les mots du jeu sur le chemin).
+    // « courte » sans refus est le choix d'un navigateur qui l'a déjà vue.
+    if (depart.version === "cle" || depart.version === "pose" || depart.version === null || depart.refus)
+      throw new Defaut(`« depart » replié en ${depart.version} : ${depart.refus || "sans raison dite"}`);
+    console.log(JSON.stringify({ depart }));
+    await capture(page, "avant-salle-depart");
+    await sleep(2500);
+    banc.regler({ bo: true });
+    let arrivee = null;
+    if (!(await jusqua(async () => (arrivee = await ain())?.scene === "arrivee", 3000)))
+      throw new Defaut(`Bo revient à la place 2 sans scène « arrivee » : ${JSON.stringify(await ain())}`);
+    console.log(JSON.stringify({ arrivee }));
+    if (arrivee.version === "cle" || arrivee.version === "pose" || arrivee.refus)
+      throw new Defaut(`« arrivee » replié en ${arrivee.version} : ${arrivee.refus || "sans raison dite"}`);
+    await page.close();
+  },
 };
 
 const choisies = option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES);

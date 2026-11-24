@@ -877,4 +877,16 @@ export const QUI_JOUE = {
   autreNom: "Cet appareil gardait un autre nom.",
 } as const;
 
+/** L'ouverture (`components/Ouverture`) : le squelette de la salle pendant
+ * que le site dit qui on est, puis sa fin à huit secondes. */
+export const OUVERTURE = {
+  salle: (n: number) => `Salle ${n}`,
+  ouvre: (n: number) => `On ouvre la salle ${n}…`,
+  muet: "nel3ab ne répond pas encore.",
+  depuis: (s: number) => `La page l'attend depuis ${s} secondes…`,
+  reessayer: "Réessayer",
+  entrerEnTantQue: (nom: string) => `Entrer en tant que ${nom}`,
+  entrerQuandMeme: "Entrer quand même",
+} as const;
+
 // ==== fin salon ====

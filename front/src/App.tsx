@@ -318,6 +318,7 @@ export default function App() {
     return (
       <Ouverture
         salle={salle()}
+        nomGarde={local}
         onReessayer={() => window.location.reload()}
         onEntrer={() => setSansAttendre(true)}
       />

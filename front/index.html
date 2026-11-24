@@ -92,18 +92,48 @@
     </script>
   </head>
   <body>
-    <!-- Ce qu'on voit avant que le script ait tourné, au lieu d'une page
-         blanche (audit E8). React le remplace à son premier rendu par l'écran
-         d'ouverture, qui dit la même chose. Les couleurs sont celles de la
-         régie de nuit, écrites ici parce que la feuille n'est peut-être pas
-         encore lue. -->
+    <!-- Ce qu'on voit avant que le script de la page ait tourné, au lieu d'une
+         page blanche (audit E8) : le squelette de la salle, l'écran noir, le
+         panneau aux quatre START éteints et la colonne qui dit « On ouvre la
+         salle 2… ». Les classes sont celles de l'ouverture
+         (`components/ouverture.css`), déjà dans la feuille de l'en-tête de la
+         page construite. React le remplace à son premier rendu par
+         `Ouverture`, qui dessine les mêmes rectangles. Le petit script dessous
+         écrit le numéro de la salle et la largeur gardée de la colonne, comme
+         `salle()` et `storedColumn()` ; `Ouverture.test.tsx` les compare. -->
     <div id="root">
-      <p
-        style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#eef0f2;font:600 17px/1.4 system-ui,sans-serif"
-      >
-        On ouvre la salle.
-      </p>
+      <div class="n3-ouverture n3-ouverture-statique">
+        <main class="relative flex min-w-0 flex-1 flex-col">
+          <div class="n3-ouverture-ecran"></div>
+          <div class="n3-panneau n3-ouverture-panneau" data-forme="sous" aria-hidden="true">
+            <div class="n3-panneau-places">
+              <span class="n3-ouverture-start"><span class="rt-bouton-start" data-libre="">1P</span></span>
+              <span class="n3-ouverture-start"><span class="rt-bouton-start" data-libre="">2P</span></span>
+              <span class="n3-ouverture-start"><span class="rt-bouton-start" data-libre="">3P</span></span>
+              <span class="n3-ouverture-start"><span class="rt-bouton-start" data-libre="">4P</span></span>
+            </div>
+          </div>
+        </main>
+        <aside class="n3-colonne n3-ouverture-colonne border-l border-rule bg-panel px-3 pt-3">
+          <header class="n3-colonne-tete"><h1 class="n3-colonne-salle" data-salle="">Salle</h1></header>
+          <p class="n3-ouverture-titre" role="status" data-ouvre="">On ouvre la salle…</p>
+        </aside>
+      </div>
     </div>
+    <script>
+      (function () {
+        try {
+          var racine = document.getElementById("root");
+          var trouve = /^\/r\/(\d+)\//.exec(location.pathname);
+          var n = trouve && Number(trouve[1]) > 0 ? Number(trouve[1]) : 1;
+          racine.querySelector("[data-salle]").textContent = "Salle " + n;
+          racine.querySelector("[data-ouvre]").textContent = "On ouvre la salle " + n + "\u2026";
+          var largeur = localStorage.getItem("nel3ab:colonne");
+          if (largeur !== null && /^\d+$/.test(largeur))
+            racine.style.setProperty("--ouverture-colonne", Math.min(480, Math.max(256, Number(largeur))) + "px");
+        } catch (refus) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

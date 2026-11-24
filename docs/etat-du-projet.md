@@ -574,6 +574,26 @@ dépôt (une variante de la scène « dort », au chantier de la mascotte), les
 mots du salon dans `lib/mots.ts`. Récit : « 24 novembre, le soir tard : le
 salon, quatrième passage ».
 
+**Au 24 novembre, en fin d'après-midi : le chantier salon, cinquième
+passage.** Même branche (`chantier/retro-salon`) et même worktree ; rien dans
+`main`, rien poussé ni installé. Fait (ADR D41, cinquième partie) : les mots
+des trois pages du salon vivent dans `lib/mots.ts` (tables `SALON_*`), où la
+charte les juge ; `retro.py` les pose depuis `retro/mots.json` par
+`<!--MOT:groupe.cle-->` et `nel3abMots(cle, trous)`, et une clé inconnue lève
+au démarrage du salon. La charte appliquée : plus de « salon » dans les mots
+visibles, `SANS_REPONSE` à l'accueil, « ma sauvegarde » et l'élision au
+carnet, des majuscules aux boutons du dépôt. Preuves nouvelles :
+`test_mots_salon.py`, les gabarits reliés au lexique de la salle dans
+`salon-retro.test.ts`, et cinq étapes de `salon-navigateur` (`start`,
+`retour`, `annonce`, `credit`, `carnet-range`), rouges sur une page d'avant
+ou sur un mutant. Page de salle : 281 539 octets en brotli (281 607 avant).
+Pas fait, par choix : Aïn couché à côté du tableau du carnet (à confirmer
+par le propriétaire). Reste, hors de ce chantier : Aïn endormi sur la pile du
+dépôt (une variante de la scène « dort », au chantier de la mascotte) ;
+`deploy-check` divergera sur `deploy/Caddyfile` tant qu'il n'est pas
+installé. Portes : voir le récit, « 24 novembre, en fin d'après-midi : le
+salon, cinquième passage ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

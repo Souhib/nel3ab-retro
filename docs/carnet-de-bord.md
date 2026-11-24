@@ -31349,6 +31349,77 @@ nouvelle rougit sur la page qu'elle remplace.
 Le seul changement de la page est la maison d'Aïn dans « Qui joue ? » ; le
 reste de l'écart vient du minifieur. Le paquet du salon ne change pas.
 
+### 24 novembre, en fin d'après-midi : le salon, cinquième passage
+
+**Le contexte.** Le même chantier, dans son worktree, sans rien pousser ni
+installer. Le quatrième passage avait laissé un point du plan : les mots des
+trois pages du salon. La salle range les siens dans `lib/mots.ts`, et un essai
+y applique la charte (le tutoiement, l'effet avant l'action, aucun mot
+d'atelier, aucun tiret cadratin). Les pages du salon, elles, sont du HTML servi
+par le salon sans paquet : elles ne peuvent pas importer ce fichier, et
+chacune écrivait ses mots à la main.
+
+**Ce que la charte a trouvé dès qu'elle a pu lire.** Les mots ont d'abord été
+recopiés tels quels dans `mots.ts`, en tables plates par page
+(`SALON_ACCUEIL`, `SALON_DEPOT`, `SALON_CARNET`, l'en-tête et ce qui est
+commun). La garde de la charte les a lus aussitôt. Le dépôt disait
+« l'administrateur du salon », « a déjà un nom au salon », « redémarre le
+salon » : « salon » est le nom d'un programme, que le joueur ne connaît pas.
+Ces phrases disent maintenant « l'administrateur de nel3ab », « a déjà un nom
+ici », « redémarre nel3ab ». En les relisant contre le lexique, trois autres
+écarts sont apparus, qu'aucune garde ne pouvait voir. L'accueil disait « Pas
+de réponse : réessaie dans un instant. » quand la salle dit « Pas de réponse.
+Réessaie dans un instant. ». Le carnet disait « ta sauvegarde » quand le
+panneau de lancement dit « ma sauvegarde », et « la sauvegarde de Ami » sans
+l'élision que la salle fait (« d'Ami »). Les boutons d'un envoi au dépôt
+étaient en minuscules (« pause », « annuler »), contre la règle des boutons.
+Tout passe maintenant par le lexique ; « Regarder », « Prendre » et les noms
+des trois sauvegardes y sont écrits une seule fois.
+
+**Comment les mots arrivent dans la page.** Le même mécanisme que la feuille
+des effets et le logo. Un essai de la page écrit la table dans
+`retro/mots.json` et la compare à chaque `just check`. `retro.py` la pose dans
+l'en-tête de chaque page avec un petit script, `nel3abMots(cle, trous)`, qui
+rend le texte et remplit ses trous (« Salle {n}, éteinte. »). Un texte fixe
+s'écrit par une marque, `<!--MOT:accueil.compris-->`, remplacée et échappée au
+démarrage ; une marque ne sait pas remplir un trou, et la refuse. Une clé
+inconnue, dans une marque ou dans une chaîne d'un script, lève une erreur au
+démarrage du salon, comme une marque oubliée. Le module du dépôt est posé
+après cet assemblage, pour qu'une marque écrite dans une de ses chaînes ne
+soit pas remplacée : ses clés sont vérifiées à part, au même démarrage. Sous
+Node, ses essais posent la même table avant de l'importer.
+
+**Les gardes.** Un essai lit les sources des quatre morceaux (l'accueil, le
+dépôt, le carnet, l'en-tête) et refuse tout texte visible qui ne passe pas
+par une marque, attributs lus par un lecteur d'écran compris. Un autre lit
+leurs scripts et refuse une phrase écrite entre guillemets ; une liste de
+classes de la page n'est pas une phrase, et les preuves de l'estimation du
+dépôt (« « HEAD » à 0x100 ») restent dans le module : ce sont des positions
+et des octets lus dans le fichier, une mesure et pas une phrase. Sur les pages
+d'avant ce passage, ces deux gardes trouvent 55 textes et 133 phrases écrits
+en dur. Un troisième refuse un mot de la table que rien ne dit. Les gabarits
+du salon qui répètent un geste de la salle (« Prendre la place 3 »,
+« Place 2 : Bo », « Ben (2P) ») sont comparés à la fonction de la salle qui
+dit la même chose ; un mutant qui change « Prendre la place » en « Prendre
+place » est refusé. L'élision du carnet lit la même table d'exemples que la
+salle et le salon Python.
+
+**Cinq étapes de plus dans Chrome.** Le plan les demandait : Entrée et le
+Start d'une manette ouvrent une salle à zéro salle, une seule demande même
+touche tenue ; la bannière de retour nomme la salle fermée et sa raison ; la
+ligne lue par un lecteur d'écran dit ce qui a changé, et rien sinon ; le
+crédit compte les salles et leurs places ; le carnet range une partie pas
+encore vue. La première course complète a fait rougir la dernière alors
+qu'elle passait seule. Les étapes d'un même pilote partagent le stockage du
+navigateur, et le jumeau « sobre » de l'étape Start y laissait un niveau
+d'effets où Aïn ne joue pas. La leçon était déjà écrite pour le parcours ;
+elle vaut ici aussi : une étape qui dépend du niveau le pose elle-même.
+
+**Le poids.** La page de salle passe de 281 607 à 281 539 octets en brotli.
+Les tables du salon vivent dans `mots.ts` sans entrer dans la page : rien ne
+les y importe, et la construction les laisse de côté. L'écart vient du
+minifieur.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -31373,6 +31444,10 @@ contenu arrive, rien ne saute.
 **Point de passage (d'Aïn)** : une marque invisible de la page par laquelle
 le planificateur peut faire passer Aïn quand le chemin direct toucherait un
 contrôle ou un mot.
+
+**Gabarit (de mot)** : un texte de `mots.ts` qui garde des trous nommés,
+comme « Salle {n}, éteinte. ». La page remplit les trous au moment de
+l'écrire ; un trou sans valeur est une erreur, pas un « undefined » à l'écran.
 
 **Temps virtuel** : une horloge que Chrome fait avancer à la demande, sans
 attendre : les minuteries d'une page tombent dans leur ordre, mais trente

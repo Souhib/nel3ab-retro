@@ -2243,6 +2243,49 @@ gestures. Each is red on the page it replaces, in the `-rouge` recipes.
 Weight of the room page: 281 661 brotli bytes before this pass, 281 607
 after; the lobby bundle is unchanged.
 
+#### D41, fifth pass, 2026-11-24: the lobby's words come from `mots.ts`
+
+- **The words of the three lobby pages live in `front/src/lib/mots.ts`,**
+  in flat tables (`SALON_ENTETE`, `SALON_COMMUN`, `SALON_ACCUEIL`,
+  `SALON_DEPOT`, `SALON_CARNET`), so that the charter's guard reads them:
+  it only reads strings placed directly in a capitalised constant. A
+  sentence with holes is a template, `"Salle {n}, éteinte."`.
+  `motsDuSalon()` flattens them into `groupe.cle` keys; it is a function so
+  that the room bundle, which never calls it, drops the tables.
+- **Delivery mirrors the other copies.** `salon-retro.test.ts` writes and
+  compares `retro/mots.json`. `retro.py` requires `<!--RETRO:MOTS-->` in each
+  page's head and puts there `retro/mots.js` with the table, which defines
+  `nel3abMots(cle, trous)` (unknown key or missing hole throws) and
+  `nel3abMots.de(nom)` (elision, checked against `test/elisions.json`). A
+  fixed text is `<!--MOT:groupe.cle-->`, replaced HTML-escaped; a template in
+  a mark is refused. Every quoted `groupe.cle` in a page's scripts must exist,
+  or the lobby fails at start-up; the upload module, placed after assembly,
+  is checked by `importer.py` at the same start-up. Its Node tests install
+  the same table first (`control/tests/imports/mots_du_salon.mjs`).
+- **The charter applied.** « salon » leaves the visible words
+  (« l'administrateur de nel3ab », « a déjà un nom ici », « redémarre
+  nel3ab »); the home page says `SANS_REPONSE`; the logbook says « ma
+  sauvegarde » and elides « la sauvegarde d'Ami »; the upload card's
+  buttons start with a capital (Pause, Annuler, Reprendre, Retirer).
+  Lexicon gestures are written by reference (`ENTREES.regarder`,
+  `SAUVEGARDES`), and the templates that repeat a room function
+  (`prendreLaPlace`, `PLACES.aQuelquun`, `chefChoisit`, `pastille`) are
+  compared with it.
+- **Kept in the upload module, by rule:** the estimate's evidence strings
+  (« « HEAD » à 0x100 »), which are byte offsets read in the file, and the
+  error messages of a chunk upload that `envoyer` always catches.
+
+Guards: `control/tests/test_mots_salon.py` (marks, keys, holes, dead words,
+fixed texts and sentences written in a page, capitalised buttons); on the
+sources before this pass it finds 55 fixed texts and 133 sentences.
+`salon-navigateur` gains `start` (Enter and a pad's Start at zero rooms, one
+request per press), `retour`, `annonce`, `credit` and `carnet-range`; four
+are red on 2a98279, and `annonce`, older than every reference page, is red on
+a mutant that silences the line.
+
+Weight of the room page: 281 607 brotli bytes before this pass, 281 539
+after (minifier only); the lobby bundle is unchanged.
+
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

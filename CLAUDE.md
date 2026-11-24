@@ -511,6 +511,17 @@ machine".
   lobby refuses stops every room while the two differ. Restart the lobby
   first, rebuild the worker second, and make the page survive the old answer
   when it can (`lancerEnChef`).
+- **Read a driver's fallback before blaming the page.** On 2026-11-24, the
+  `place-tenu` step stopped at 1024 × 768 on « Vérifier les boutons n'ouvre
+  aucune feuille », and the page was blamed for two passes. That tablet has
+  no band, so no such button: the fallback had touched the sheet's
+  « manette » entry, which hides the touch pad, and the button appeared only
+  afterwards. Check that the element a precondition names exists before the
+  gesture, and make each fallback open what its name says.
+- **A guard's floor follows what it reads.** Removing 38 dead classes left
+  `index.css` with 19, under the 50 that `classes.test.ts` required before
+  judging. Widen what the guard reads (the panel's sheets joined it) rather
+  than lowering the floor until it passes on nothing.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 
@@ -790,10 +801,10 @@ Markdown alone does not update the site.
 | `just cadre-navigateur-rouge` | negative control: the page of 03b21c0, then six pages of the room track and the page of 97a2318 for the later steps, must fail each step on its named defect; the guard itself must stay green on 03b21c0 |
 | `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
-| `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; `--etapes place-tenu` measures the held sizes, red until the room geometry gives the panel its place |
+| `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; held in hand, the panel below or beside the picture (`place-tenu`), the column row and the sheet entry that open it, your typed label under « Ta manette »; `--port` for another port |
 | `just salon-navigateur` | the lobby's three pages in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list, Enter and a pad's Start at zero rooms, the return banner, the announcement line, the credit, the logbook and upload steps |
 | `just salon-navigateur-rouge` | the pages of a32de82 (no Aïn), 2a98279 (old home), 84b969f (before the two browser fixes), cb0909b and 5fae6b0, assembled from an archive of `control/`, must fail each step on its named defect |
-| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9 and 9b1c8e8 for the later steps, must fail each step on its named defect; both are in `local` since the merge of 2026-11-24 |
+| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9, 9b1c8e8, 928bd03 (the panel over the picture held in hand, no row, no sheet entry, no label) and 672dcb6 (no panel for a pad-only page) for the later steps, must fail each step on its named defect; a port in argument; both are in `local` since the merge of 2026-11-24 |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |

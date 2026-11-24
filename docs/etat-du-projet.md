@@ -536,6 +536,25 @@ derrière la transition d'entrée du salon) et `mascotte-hors-image` (sa
 précondition, depuis la vague B1). Récit : « 24 novembre, la nuit : la
 vague B2 sur la branche d'intégration ».
 
+**Au 24 novembre, le soir : la fin des manettes.** Sur
+`chantier/retro-fin-manettes`, partie d'`integration/retro` (928bd03), dans
+`~/nel3ab-chantiers/retro-fin-manettes`. Rien dans `main`, rien de poussé ni
+d'installé. Fait : les anciens dialogues des touches (`Bindings.tsx`,
+`SwitchBindings.tsx`) partent avec `usePreparationPro`, `titrePreparation`,
+38 classes mortes d'`index.css` et deux pilotes de l'aperçu
+(`browser-configuration`, `browser-preparation`) ; le lancement Pro en un
+geste passe par le bloc de préparation. Ton étiquette tapée est dans la
+légende de « Ta manette ». « Touches et manettes » a son rang en tête de la
+colonne, sous Signaler, et une entrée dans la feuille « La salle » quand sa
+rangée tient. Tenu en main, le panneau a sa place sous l'image ou à droite
+d'elle (`Geometrie.reglage`), plus jamais dans la feuille agrandie sur
+l'image (constat 4 de la relecture des manettes) ; `place-tenu` entre dans
+la porte, avec `rang`, `etiquette` et `feuille-reglage`, rouges sur 928bd03.
+Une page « manette seule », sans place tenue, garde le panneau dans la
+feuille agrandie (étape `manette-seule`). Les bancs de la salle acceptent
+les ports 5400 à 5599. Page : 278 222 octets en brotli. `docs/ecran-manettes.md` est réécrite pour ce qui reste. Récit :
+« 24 novembre, le soir : la fin des manettes ».
+
 **Au 24 novembre : le chantier salon, premier passage.** Sur
 `chantier/retro-salon`, partie d'`integration/retro` (87bc2b3), dans
 `~/nel3ab-chantiers/retro-salon`. Rien dans `main`, rien poussé ni installé.
@@ -2949,7 +2968,7 @@ de `spikes/switch-room` sert désormais à la salle installée.
 | Adaptateur d'une salle externe | `just salles-dore` et `just moteurs-test`. Une migration garde `docker/dore/` inchangé ; `just salles-dore-ecrire` refuse tant qu'un autre fichier est modifié. Travailler dans un worktree, jamais dans l'arbre de production. |
 | Page de salle | `just focus-navigateur`, `just etats-navigateur`, `just parcours-navigateur`, `just salle-telephone` et `just manette-garde` ; après un changement de leurs étapes, les contrôles négatifs `*-rouge` doivent encore échouer sur leurs défauts. |
 | Contrat HTTP généré | `just contract-check` après préparation de l'index correspondant ; voir la réserve ci-dessous. |
-| Configurateur et préparation | `just browser-configuration`, `just browser-preparation` et `just preparation-test '/chemin/Mario Kart Wii.rvz'`, avec les prérequis des pilotes. |
+| Touches et préparation | `just reglage-navigateur` et son contrôle rouge pour le panneau « Touches et manettes », `just parcours-navigateur` et `just salle-telephone` pour la préparation, puis `just preparation-test '/chemin/Mario Kart Wii.rvz'`, avec les prérequis des pilotes. `browser-configuration` et `browser-preparation` sont retirés le 24 novembre 2026 avec les anciens dialogues. |
 | Cycle de vie Dolphin | `just resilience-test '/chemin/Mario Kart Wii.rvz'`. |
 | Commandes Switch | `just switch-controls-test` : quatre périphériques jetables, y compris retour de vibration refusé. |
 | Passage entre consoles | `NEL3AB_TEST_SWITCH_CONFIG=~/.config/nel3ab/switch.json just switch-room-test '/chemin/Mario Tennis Aces.xci'`. |

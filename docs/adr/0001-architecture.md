@@ -2153,6 +2153,25 @@ file), pushing the column down 204 px; it was also red on 03b21c0, where the
 diagnosis block grew by 22 px. Weight: 284 891 bytes brotli (+528 on the
 first pass).
 
+Amended 2026-11-24, third pass. The "coupure" effect (level "tout") is a
+fourth cover token: when the full frame first appears in the arrival state,
+250 ms of snow under the token "coupure", removed by its timer or lifted with
+the rest by the first painted image. The state at the full frame's first
+mount decides alone, so a room answering again after a failure never shows
+it; nothing at "conseillé" or under reduced motion. A closed room keeps its
+seats in the past tense: the command panel shows the four START buttons
+unlit with the tag of whoever held each seat, without "toi", crown or mic,
+disabled, the group named "Ils ont joué"; the page keeps the seats it saw
+before the closing, since what the lobby publishes afterwards may no longer
+say who played. Weighed: leaving the live seats (a closed room offered "Place
+1, libre : la prendre"). Proof: `coupure-entree` in `etats.mjs`, red on the
+page before, with three twins (conseillé, reduced motion, a real cut at
+"tout"); `fermee-vraie` reads the panel before and after, the bench then
+publishes the room without its players, and a mutant page that forgets the
+earlier seats fails on "la salle fermée a perdu qui jouait". Weight: 285 293
+bytes brotli (+402 on the second pass). `colonne-stable` stays red, for the
+room's track to decide.
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on

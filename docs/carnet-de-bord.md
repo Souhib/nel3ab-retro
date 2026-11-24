@@ -31180,6 +31180,68 @@ la salle N » dans la colonne ; l'effet « coupure » à l'entrée ; les parties
 téléphone de `salle-telephone` ; `avertissement-fermeture.mjs`, qui demande
 un worker construit et une ROM.
 
+### 24 novembre, la nuit : les états, troisième passage
+
+**Ce qui a été fait.** Deux choses, chacune vue rouge avant d'être verte.
+
+- L'effet « coupure » (niveau « tout ») : à l'apparition de l'écran noir
+  « Connexion à la salle N », un quart de seconde de neige, comme quand on
+  change de chaîne pour la salle. C'est un jeton de plus dans la couverture
+  (`media/couverture.ts`, le jeton « coupure ») : il se retire seul au bout
+  de 250 ms, et la première image peinte le lève avec l'écran noir, comme
+  le reste. L'état au moment où l'écran noir apparaît décide seul : une
+  salle qui répond de nouveau après une panne ne « change pas de chaîne »,
+  parce qu'une vraie coupure peut arriver là. Rien au niveau « conseillé »,
+  rien quand l'appareil demande moins de mouvement.
+- Une salle fermée garde ses places, au passé. Avant, le panneau d'une
+  salle fermée proposait « Place 1, libre : la prendre » et disait « prends
+  une place libre pour jouer », dans une salle qui n'existe plus. Le panneau
+  montre maintenant les quatre boutons START éteints, chacun avec
+  l'étiquette de qui tenait la place, sans « toi », sans couronne ni micro ;
+  aucune place ne se prend, et le groupe se lit « Ils ont joué » au lecteur
+  d'écran. La page garde les places vues avant la fermeture : ce que le
+  salon publie ensuite peut ne plus dire qui a joué.
+
+**Comment on l'a vu rougir.** Pour la coupure, une étape de pilote nouvelle,
+`coupure-entree`, rougit sur la page d'avant (aucune coupure à l'entrée).
+Elle relève l'attribut de la couverture à chaque changement : une seule
+coupure, 300 ms au plus, sa neige visible, et au plus une image peinte (celle
+qui la lève). Ses jumeaux : niveau « conseillé », mouvement réduit, et une
+vraie connexion coupée au niveau « tout » ; aucun ne doit poser l'effet.
+Dans les essais du composant, chaque jumeau a rougi sur un mutant fait pour
+lui (la condition sur la panne retirée, celle du mouvement réduit, celle du
+niveau). Pour les places, `fermee-vraie` lit le panneau avant et après la
+fermeture ; le banc publie ensuite la salle sans ses joueurs. Une page
+mutante qui oublie les places d'avant rougit sur son défaut : « la salle
+fermée a perdu qui jouait ».
+
+**Un piège évité de justesse.** Pour construire cette page mutante, la
+première commande remettait le fichier d'origine par `git checkout`. Or
+`App.tsx` portait le travail du passage, pas encore committé : la commande
+l'aurait effacé. Le garde de la session l'a refusée. La leçon : committer
+avant de fabriquer un mutant, défaire le mutant par la substitution inverse,
+et lire `git diff` pour voir qu'il ne reste rien. Second détail du même
+essai : `npx vite build` seul efface `SOURCES`, le fichier que relit le
+tampon de la page ; `just front-build` le refait.
+
+**Toujours rouge : `colonne-stable`.** Rien n'a changé : le panneau de
+commande passe de sous l'écran à la colonne à la première image 4:3 à
+1440x900, et la colonne descend de 204 px. Ce passage n'a pas tranché, parce
+que la place du panneau dépend du format de l'image, que la page ne connaît
+qu'à la première image. Trois pistes pour qui décide : le format attendu de
+chaque console (rien ne le dit aujourd'hui, et la Wii peut être en 16:9),
+le dernier format vu dans cette salle (la première visite bougerait encore),
+ou un panneau qui ne dépend pas du format. Le fichier est celui de la salle.
+
+**Le poids.** 285 293 octets en brotli : 297 pour la coupure, 105 pour les
+places au passé, 402 sur le deuxième passage (284 891).
+
+**Ce qui reste.** « Ce soir dans la salle N » dans la colonne d'une salle
+fermée (elle dit encore « tu regardes ») ; la place de la pastille tenue en
+main sans bande, grappe ni barre, et ses emplacements dans la barre et sur
+le panneau au bureau ; les parties téléphone de `salle-telephone` ;
+`avertissement-fermeture.mjs`, qui demande un worker construit et une ROM.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

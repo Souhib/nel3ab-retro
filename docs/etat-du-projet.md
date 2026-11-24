@@ -245,6 +245,14 @@ mutant. `colonne-stable` reste ROUGE : le panneau de commande passe dans la
 colonne à la première image 4:3 (`panneauAuBureau`, fichier de la salle), et
 `etats-navigateur` sort en échec sur elle. Page : 284 891 octets en brotli.
 
+**Au 24 novembre, la nuit : les états, troisième passage.** Même branche,
+hors de `main`, rien d'installé ni de poussé. L'effet « coupure » (niveau
+« tout ») : un quart de seconde de neige à l'apparition de l'écran
+« Connexion », levé par la première image. Une salle fermée garde ses places
+au passé sur le panneau : START éteints, étiquettes de qui jouait, aucun
+geste, « Ils ont joué ». `colonne-stable` reste ROUGE pour la même raison
+(fichier de la salle). Page : 285 293 octets en brotli.
+
 **Au 24 novembre : le chantier personnes, cinq passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de

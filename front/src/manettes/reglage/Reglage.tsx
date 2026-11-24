@@ -1,6 +1,13 @@
 /** Le panneau « Touches et manettes » : une région de la salle, plus un
- * dialogue modal. Il prend la place des rangs de la colonne et ne passe
- * jamais devant l'image (D2) : pendant le réglage, les autres jouent.
+ * dialogue modal. Au bureau et en fenêtre étroite, il prend la place des
+ * rangs de la colonne et ne passe pas devant l'image (D2) : pendant le
+ * réglage, les autres jouent.
+ *
+ * Tenu en main, ce n'est pas encore vrai. La colonne n'y vit que dans la
+ * feuille agrandie de la salle, qui couvre l'image, et le panneau avec elle.
+ * Sa place sous l'image (tenu droit) et à droite (en travers) attend un
+ * emplacement du cadre (`lib/cadre.ts`, chantier salle) ; l'étape
+ * `place-tenu` de `reglage.mjs` le mesure, hors de la porte.
  *
  * Le jeu de cette place reçoit un état neutre tant qu'il est ouvert (c'est la
  * salle qui le demande à la boucle d'entrée). Échap annule d'abord ce qui est

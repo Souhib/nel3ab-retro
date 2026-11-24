@@ -127,7 +127,11 @@ export function focusApresFermeture(e: {
  * (`largeurPanneau`) ; sous 900 px, il passe sous l'image comme la colonne.
  * Au doigt, tenu en travers (un téléphone couché, une tablette de 900 px et
  * plus), il se range à droite de l'image ; tenu droit, il monte sous elle.
- * Jamais par-dessus : pendant le réglage, les autres jouent. */
+ * Jamais par-dessus : pendant le réglage, les autres jouent.
+ *
+ * Seul le bureau suit cette décision aujourd'hui. Tenu en main, la salle
+ * pose encore le panneau dans sa feuille agrandie, qui couvre l'image : le
+ * cadre (`lib/cadre.ts`) n'a pas d'emplacement pour lui. */
 export function placeDuReglage(e: {
   largeur: number;
   hauteur: number;

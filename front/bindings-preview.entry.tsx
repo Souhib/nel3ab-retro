@@ -6,8 +6,6 @@ import type { Preparation as Pending, Game } from "./src/client";
 import type { Pad } from "./src/lib/saves";
 import { Bindings } from "./src/components/Bindings";
 import { SwitchBindings } from "./src/components/SwitchBindings";
-import { Channels } from "./src/components/Channels";
-import { Home } from "./src/components/Home";
 import { InputStream } from "./src/media/input";
 import { Reglage } from "./src/manettes/reglage/Reglage";
 import type { Onglet } from "./src/manettes/entree";
@@ -64,11 +62,6 @@ function Preview() {
       onForgetKeys={(name) => act(() => stream.forgetKeys(name))}
       onClose={() => { stream.cancelCapture(); setOpen(false); }} /> : null}</>;
 }
-// Quatorze réglages suffisent à faire déborder la grille Wii. Aucun n'agit sur
-// une session : cet aperçu ne construit même pas la boucle d'entrée.
-const categories = [{ id: "settings", label: "Réglages", icon: null,
-  items: Array.from({ length: 14 }, (_, at) => ({ id: String(at), label: `Réglage ${at + 1}`, icon: null })),
-}];
 /** Le configurateur des salles Pro (Switch, Xbox 360), seul ou pendant une
  * préparation: `?pro=switch` ou `?pro=x360`, et `&preparation`. */
 function PreviewPro({ console: kind }: { console: "switch" | "x360" }) {
@@ -119,14 +112,10 @@ function PreviewReglage({ pro }: { pro: "switch" | "x360" | null }) {
     </main>
   );
 }
-const shell = new URLSearchParams(location.search).get("shell");
 const pro = new URLSearchParams(location.search).get("pro");
 const reglage = new URLSearchParams(location.search).has("reglage");
 createRoot(document.getElementById("root")!).render(reglage
   ? <PreviewReglage pro={pro === "switch" || pro === "x360" ? pro : null} />
   : pro === "switch" || pro === "x360"
   ? <PreviewPro console={pro} />
-  : shell === "wii"
-  ? <Channels categories={categories} onClose={() => {}} />
-  : shell === "switch" ? <Home categories={categories} onClose={() => {}} who="Aperçu" />
-    : <Preview />);
+  : <Preview />);

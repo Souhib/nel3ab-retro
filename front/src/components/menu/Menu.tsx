@@ -385,6 +385,8 @@ export function Menu({
             role="tab"
             id={`ray-${r.id}`}
             aria-selected={i === rubrique}
+            // Les pilotes d'avant lisent la rubrique choisie par cette marque.
+            data-selected={i === rubrique ? "true" : "false"}
             aria-controls="menuPanneau"
             tabIndex={i === rubrique ? 0 : -1}
             className="n3-menu-onglet rt-halo-boite"

@@ -53,6 +53,53 @@ export function attenteDemarrage(
   return attenduS >= seuil ? "long" : undefined;
 }
 
+/** L'état d'une case du chargement (C4) : faite (coche), en cours
+ * (pointillé et compteur), à venir (vide), inconnue (?), échec (croix). */
+export type Case = "faite" | "en-cours" | "a-venir" | "inconnue" | "echec";
+
+/** Les trois cases, dans l'ordre des étapes (C4).
+ *
+ * Ce que la page sait, et rien de plus. Une attente longue ne sait plus si
+ * l'étape en cours avance : sa case devient un point d'interrogation. Calé,
+ * la première image est un échec, et ce qui la précède sans être fait n'est
+ * pas su. Une case faite le reste : la liste ne recule jamais (même règle que
+ * `bootingStep`). */
+export function etapesAffichees(step: Step, attente: "long" | "echec" | undefined): Case[] {
+  const atteinte = STEPS.indexOf(step);
+  if (step === "painting") return STEPS.map(() => "faite");
+  return STEPS.map((_, rang): Case => {
+    if (rang < atteinte) return "faite";
+    if (attente === "echec") return rang === STEPS.length - 1 ? "echec" : "inconnue";
+    if (rang > atteinte) return "a-venir";
+    return attente === "long" ? "inconnue" : "en-cours";
+  });
+}
+
+/** Depuis combien de temps aucune image n'est arrivée, comme l'écran le dit
+ * (« Aucune image en 1 min 32 »). */
+export function dureeSansImage(secondes: number): string {
+  if (secondes < 60) return `${secondes} s`;
+  return `${Math.floor(secondes / 60)} min ${String(secondes % 60).padStart(2, "0")}`;
+}
+
+/** Un geste offert sur l'écran de chargement (C7a). */
+export type GesteDuChargement = "arreter" | "autre" | "signaler";
+
+/** Les gestes de l'écran de chargement, selon l'attente et le rôle.
+ *
+ * Rien tant que l'attente est normale : une dizaine de secondes de noir est
+ * normale, et un bouton d'annulation ferait croire à une panne à chaque
+ * lancement. Plus long : qui choisit le jeu peut arrêter le lancement. Sans
+ * image : il peut en choisir un autre. Tout le monde peut signaler. */
+export function gestesDuChargement(
+  attente: "long" | "echec" | undefined,
+  choisit: boolean,
+): GesteDuChargement[] {
+  if (attente === undefined) return [];
+  if (!choisit) return ["signaler"];
+  return [attente === "long" ? "arreter" : "autre", "signaler"];
+}
+
 /** L'habitude d'un jeu, telle que le salon la publie (D05) : rien avant
  * cinq démarrages réussis. */
 export type Habitude = { mediane_s: number; p90_s: number; n: number };

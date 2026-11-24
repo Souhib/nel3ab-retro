@@ -965,6 +965,27 @@ export const CHARGEMENT = {
   plusLong: "Le jeu met plus longtemps que d'habitude.",
   /** Sans habitude mesurée, la lenteur se dit sans « d'habitude ». */
   encore: (s: number) => `Le jeu démarre encore, depuis ${s} s.`,
+  /** Calé : aucune image depuis le lancement (C4). */
+  aucuneImage: (duree: string) => `Aucune image en ${duree}.`,
+  /** À qui ne choisit pas le jeu, quand il n'a pas démarré (C7a). */
+  relancePar: (nom: string | null) =>
+    `${nom ?? "Qui choisit le jeu"} peut le relancer ou choisir un autre jeu.`,
+  /** Les trois étapes, dans l'ordre de `STEPS` (C4). */
+  etapes: ["La salle a reçu la demande", "Le jeu démarre", "Première image"],
+  /** Ce que dit chaque case à qui ne la voit pas. */
+  cases: {
+    faite: "faite",
+    "en-cours": "en cours",
+    "a-venir": "à venir",
+    inconnue: "on ne sait pas",
+    echec: "pas arrivée",
+  },
+  arreter: "Arrêter le lancement",
+  autre: "Choisir un autre jeu",
+  /** Sur quelle sauvegarde (C6). */
+  taSauvegarde: "Sur ta sauvegarde.",
+  saSauvegarde: "l'a lancé sur sa sauvegarde.",
+  sur: (save: string) => `Sur « ${save} ».`,
 } as const;
 
 // ==== fin menus ====

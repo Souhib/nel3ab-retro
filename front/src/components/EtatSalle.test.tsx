@@ -209,7 +209,8 @@ describe("la ligne parlée", () => {
     rerender(ligne({ etat: "demarrage", depuisMs: 30_000, attente: "long", habitude: true }));
     expect(status.firstChild).toBe(noeud);
     rerender(ligne({ etat: "demarrage", depuisMs: 61_000, attente: "echec" }));
-    expect(status).toHaveTextContent("La salle n'a pas rendu d'image. Tu peux arrêter d'attendre.");
+    expect(status).toHaveTextContent("La salle n'a pas rendu d'image.");
+    expect(status).not.toHaveTextContent("arrêter");
   });
 
   it("annonce une demande de manette une fois, sans décompte", () => {

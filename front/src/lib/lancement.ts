@@ -22,7 +22,7 @@
 import type { Participant, Preparation } from "../client";
 import { consoleName } from "./consoles";
 import { deviceLabel } from "./faces";
-import { de, PREPARATION } from "./mots";
+import { CHARGEMENT, de, PREPARATION } from "./mots";
 import { padLabel, slotLabel, type Slot } from "./saves";
 
 /** Après combien de temps le chef peut lancer sans un joueur.
@@ -87,17 +87,31 @@ export function consoleDesTouches(
   return enPreparation ? (consolePreparee ?? "wii") : (consoleEnCours ?? "gc");
 }
 
-/** Ce que l'écran de chargement dit de la sauvegarde.
+/** Sur quelle sauvegarde un jeu démarre, et qui l'a lancé (C6). */
+export type SauvegardeDuLancement =
+  | { qui: "moi"; texte: string }
+  | { qui: "autre"; nom: string; place: number; texte: string }
+  | { qui: "salon"; texte: string };
+
+/** Ce que l'écran de chargement dit de la sauvegarde (C6).
  *
- * Le salon écrit « la sauvegarde de Bo » pour tout le monde; celui qui a lancé
- * lit son propre mot, « ma sauvegarde » (audit T06). `moi` est l'attribution
- * de cette page. */
-export function sauvegardeAnnoncee(
+ * « Ma sauvegarde » (2) est celle de qui lance. Qui l'a lancé lit « Sur ta
+ * sauvegarde. » ; les autres lisent son étiquette, retrouvée par son
+ * attribution dans les places. Quand la page ne sait pas qui (un salon
+ * d'avant, ou qui a lancé n'a plus de place), le mot du salon tel quel, sans
+ * étiquette : une étiquette devinée serait pire que pas d'étiquette. */
+export function sauvegardeDuLancement(
   annonce: { save: string; saveSlot?: number; starter?: string },
   moi: string | null | undefined,
-): string {
-  const mienne = annonce.saveSlot === 2 && moi != null && annonce.starter === moi;
-  return mienne ? slotLabel(2) : annonce.save;
+  places: readonly { port: number; player?: string | null; claim?: string | null }[],
+): SauvegardeDuLancement | null {
+  if (annonce.save === "") return null;
+  const salon = { qui: "salon", texte: CHARGEMENT.sur(annonce.save) } as const;
+  if (annonce.saveSlot !== 2 || annonce.starter === undefined) return salon;
+  if (moi != null && annonce.starter === moi) return { qui: "moi", texte: CHARGEMENT.taSauvegarde };
+  const place = places.find((p) => p.claim === annonce.starter && p.player);
+  if (!place?.player) return salon;
+  return { qui: "autre", nom: place.player, place: place.port, texte: CHARGEMENT.saSauvegarde };
 }
 
 /** La sauvegarde qu'un changement d'appareil Wii relancera, d'après l'annonce

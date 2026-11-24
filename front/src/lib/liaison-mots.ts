@@ -247,8 +247,29 @@ function parlee(liaison: Liaison, salle: number): string {
     case "demarrage":
       // Ce que l'écran de chargement montre, dit aussi pour qui ne le voit
       // pas (audit A11Y-07): la lenteur, puis l'échec et sa sortie.
+      // Le nom du jeu quand la page le connaît (C9). Le compteur ne parle
+      // pas : « depuis 20 s » est le seuil franchi, pas l'attente du moment.
+      if (liaison.jeu !== undefined) {
+        const jeu = liaison.jeu;
+        if (liaison.attente === "echec") {
+          const relance =
+            liaison.relance === null
+              ? " Tu peux le relancer ou choisir un autre jeu."
+              : liaison.relance !== undefined
+                ? ` ${liaison.relance} peut le relancer.`
+                : "";
+          return `Aucune image de ${jeu}.${relance}`;
+        }
+        if (liaison.attente === "long")
+          return liaison.habitude
+            ? `${jeu} met plus longtemps que d'habitude.`
+            : liaison.seuilS !== undefined
+              ? `${jeu} démarre encore, depuis ${liaison.seuilS} s.`
+              : `${jeu} démarre encore.`;
+        return `${jeu} démarre.`;
+      }
       return liaison.attente === "echec"
-        ? "La salle n'a pas rendu d'image. Tu peux arrêter d'attendre."
+        ? "La salle n'a pas rendu d'image."
         : liaison.attente === "long"
           ? liaison.habitude
             ? "Le jeu met plus longtemps que d'habitude."

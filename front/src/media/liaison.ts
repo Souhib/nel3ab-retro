@@ -128,6 +128,14 @@ export type Liaison =
       /** L'habitude de ce jeu est mesurée (D05) : la lenteur peut dire
        * « d'habitude ». Sans elle, elle ne le dit pas (C5). */
       habitude?: boolean;
+      /** Le nom du jeu qui démarre, pour le dire (C9). */
+      jeu?: string;
+      /** Le seuil de l'attente longue, en secondes : « depuis 20 s » se dit
+       * au passage, et ne change plus ensuite (le compteur ne parle pas). */
+      seuilS?: number;
+      /** Qui peut relancer un jeu sans image : son nom, `null` quand c'est
+       * cette page, rien quand la page ne sait pas (C9). */
+      relance?: string | null;
     }
   | {
       etat: "arrivee";

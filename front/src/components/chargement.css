@@ -1,0 +1,143 @@
+/* L'écran de chargement (`Booting`) : la plaque du texte, les trois cases
+   des étapes, la mire du démarrage et les gestes par rôle (C4, C7a).
+
+   Le tube (balayage, vignette, roulement) est posé par le socle dans
+   `#booting` (`poserCalquesAttente`) ; la plaque reste au-dessus, sur un fond
+   plein, pour que les lignes ne passent jamais sur le texte. */
+.n3-chargement > .n3-charge-plaque,
+.n3-chargement > .n3-plateau {
+  position: relative;
+  z-index: 1;
+}
+.n3-charge-plaque {
+  display: flex;
+  max-width: min(36rem, calc(100% - 2rem));
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--ecran);
+  color: var(--encre-ecran);
+  text-align: center;
+}
+.n3-charge-phrase,
+.n3-charge-sauvegarde {
+  max-width: 44ch;
+  font-size: var(--text-corps);
+  line-height: 1.5;
+}
+
+/* Les cases : 22 px en pixels, toutes de la même largeur. Le signe est
+   dessiné dans la police des titres, sans lissage d'image. */
+.n3-charge-etapes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: left;
+  font-size: var(--text-corps);
+}
+.n3-charge-etapes > li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.n3-charge-case {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border: 2px solid var(--encre-ecran);
+  font-family: var(--police-titre);
+  font-size: 0.875rem;
+  line-height: 1;
+}
+[data-case="faite"] > .n3-charge-case {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--ecran);
+}
+[data-case="en-cours"] > .n3-charge-case {
+  border-style: dashed;
+}
+[data-case="a-venir"] {
+  opacity: 0.6;
+}
+[data-case="echec"] > .n3-charge-case {
+  border-color: var(--alerte);
+  color: var(--alerte);
+}
+.n3-charge-compteur {
+  font-size: var(--text-note);
+}
+
+/* La mire du démarrage. Le socle la cache sans l'effet ; ici elle reste
+   visible et fixe, sept barres pleines, aux niveaux sobre et conseillé. Au
+   niveau « tout », une seule barre s'allume à la fois et avance d'une barre
+   par seconde, les autres à 35 % : la règle du thème veut un clignotement
+   par seconde au plus (K14), et la page des effets décalait de 0,3 s. */
+#booting .rt-mire-charge {
+  display: flex;
+}
+#booting .rt-mire-charge > i {
+  opacity: 1;
+}
+.fx-mire-charge #booting .rt-mire-charge > i {
+  opacity: 0.35;
+  animation-name: n3-charge-barre;
+  animation-duration: 7s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+.fx-mire-charge #booting .rt-mire-charge > i:nth-child(2) {
+  animation-delay: 1s;
+}
+.fx-mire-charge #booting .rt-mire-charge > i:nth-child(3) {
+  animation-delay: 2s;
+}
+.fx-mire-charge #booting .rt-mire-charge > i:nth-child(4) {
+  animation-delay: 3s;
+}
+.fx-mire-charge #booting .rt-mire-charge > i:nth-child(5) {
+  animation-delay: 4s;
+}
+.fx-mire-charge #booting .rt-mire-charge > i:nth-child(6) {
+  animation-delay: 5s;
+}
+.fx-mire-charge #booting .rt-mire-charge > i:nth-child(7) {
+  animation-delay: 6s;
+}
+@keyframes n3-charge-barre {
+  0%,
+  14% {
+    opacity: 1;
+  }
+  14.3%,
+  100% {
+    opacity: 0.35;
+  }
+}
+
+/* Les gestes : boutons de borne, en Pixelify Sans, 44 px au doigt. */
+.n3-charge-gestes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.n3-charge-bouton {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.75rem;
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-mire-charge #booting .rt-mire-charge > i {
+    animation: none;
+    opacity: 1;
+  }
+}

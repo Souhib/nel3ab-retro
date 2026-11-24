@@ -205,9 +205,30 @@ describe("la ligne parlée", () => {
     expect(phraseLiaison(debut, long, 1, 1)).toBe("Le jeu met plus longtemps que d'habitude.");
     // C5 : sans habitude mesurée (D05), la lenteur ne dit pas « d'habitude ».
     expect(phraseLiaison(debut, { ...long, habitude: false }, 1, 1)).toBe("Le jeu démarre encore.");
-    expect(phraseLiaison(long, echec, 1, 1)).toBe(
-      "La salle n'a pas rendu d'image. Tu peux arrêter d'attendre.",
+    // Le bouton « arrêter d'attendre » n'existe plus (C7a) : la phrase ne
+    // l'offre plus.
+    expect(phraseLiaison(long, echec, 1, 1)).toBe("La salle n'a pas rendu d'image.");
+  });
+  it("nomme le jeu qui démarre, sans que le compteur parle (C9)", () => {
+    const debut: Liaison = { etat: "demarrage", depuisMs: 2000, jeu: "Chantier Royal" };
+    const long: Liaison = { ...debut, depuisMs: 21_000, attente: "long", seuilS: 20 };
+    expect(phraseLiaison({ etat: "ok" }, debut, 1, 1)).toBe("Chantier Royal démarre.");
+    expect(phraseLiaison(debut, long, 1, 1)).toBe("Chantier Royal démarre encore, depuis 20 s.");
+    // Le jumeau : trois secondes de plus ne changent pas un mot.
+    expect(phraseLiaison(debut, { ...long, depuisMs: 24_000 }, 1, 1)).toBe(
+      phraseLiaison(debut, long, 1, 1),
     );
+    expect(phraseLiaison(debut, { ...long, habitude: true }, 1, 1)).toBe(
+      "Chantier Royal met plus longtemps que d'habitude.",
+    );
+    const echec: Liaison = { ...debut, depuisMs: 61_000, attente: "echec" };
+    expect(phraseLiaison(long, { ...echec, relance: "Sami" }, 1, 1)).toBe(
+      "Aucune image de Chantier Royal. Sami peut le relancer.",
+    );
+    expect(phraseLiaison(long, { ...echec, relance: null }, 1, 1)).toBe(
+      "Aucune image de Chantier Royal. Tu peux le relancer ou choisir un autre jeu.",
+    );
+    expect(phraseLiaison(long, echec, 1, 1)).toBe("Aucune image de Chantier Royal.");
   });
   it("la salle qui redémarre, puis l'image qui revient", () => {
     const redemarre: Liaison = { etat: "redemarre", arrivee: false };

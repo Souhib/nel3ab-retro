@@ -232,7 +232,7 @@ import {
 } from "./lib/cadre";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
 import { abonner, changerNiveau, changerSons, estNiveau, instantane, NIVEAUX } from "./lib/effets";
-import { consoleDesTouches, sauvegardeAnnoncee, sauvegardeRelancee } from "./lib/lancement";
+import { consoleDesTouches, sauvegardeDuLancement, sauvegardeRelancee } from "./lib/lancement";
 import {
   entreeDeLAdresse,
   entreeDeLaSession,
@@ -766,7 +766,12 @@ function Room({
    * et cacher l'écran de chargement là montrerait du noir. */
   const [booting, setBooting] = useState<{
     game: string;
-    save: string;
+    /** Le jeu demandé dans la bibliothèque, pour « Arrêter le lancement »
+     * (C7a) ; inconnu quand l'annonce nomme un jeu que la page n'a pas. */
+    index?: number;
+    /** La sauvegarde annoncée et qui a lancé (C6), relue au rendu contre les
+     * places du moment : une place peut arriver après l'annonce. */
+    annonce: { save: string; saveSlot?: number; starter?: string };
     /** Quand on a lancé, pour ne pas rester coincé si rien n'arrive jamais. */
     at: number;
     /** Vrai quand le plafond est atteint: on a cessé d'attendre, et l'écran
@@ -1028,6 +1033,23 @@ function Room({
   const habitudeDuChargement = booting
     ? room?.library.find((one) => one.name === booting.game)?.demarrage
     : null;
+  /** Le jeu demandé dans la bibliothèque, pour « Arrêter le lancement »
+   * (C7a) : connu au lancement d'ici, retrouvé par son nom sinon. */
+  const indexDemande = booting
+    ? (booting.index ?? room?.library.find((one) => one.name === booting.game)?.index)
+    : undefined;
+  /** Où en est l'attente du chargement montré, comme l'écran et la ligne
+   * parlée la lisent : normale, longue ou perdue. */
+  const attenteDuChargement =
+    booting && !padOnly
+      ? attenteDemarrage(
+          (performance.now() - booting.at) / 1000,
+          booting.stalled ?? false,
+          seuilLong(habitudeDuChargement),
+        )
+      : undefined;
+  /** L'écran de chargement offre ses gestes, Signaler compris (C7a). */
+  const chargementParle = attenteDuChargement !== undefined;
   useEffect(() => {
     if (booting === null) return;
     // L'instantané LU MAINTENANT, et surtout pas celui du rendu.
@@ -1182,9 +1204,9 @@ function Room({
         session?.video.expectRestart();
         setBooting({
           game: told.game,
-          // Le salon écrit « la sauvegarde de Bo » pour tout le monde; celui
-          // qui a lancé lit son propre mot, « ma sauvegarde » (audit T06).
-          save: sauvegardeAnnoncee(told, session?.input.attribution()),
+          // Le salon écrit « la sauvegarde de Bo » pour tout le monde ; qui a
+          // lancé lit « Sur ta sauvegarde. », les autres son étiquette (C6).
+          annonce: { save: told.save, saveSlot: told.saveSlot, starter: told.starter },
           at: performance.now(),
         });
         // Le menu se ferme, comme sur le chemin local.
@@ -1549,7 +1571,12 @@ function Room({
     tell.booting(game.index, slot ?? 0);
     setBooting({
       game: game.name,
-      save: slot === null ? "" : slotLabel(slot),
+      index: game.index,
+      annonce: {
+        save: slot === null ? "" : slotLabel(slot),
+        saveSlot: slot ?? undefined,
+        starter: session.input.attribution() ?? undefined,
+      },
       at: performance.now(),
     });
     setMenu(false);
@@ -2211,12 +2238,14 @@ function Room({
       />
     </>
   );
-  /** Les rangs de la colonne, selon l'état, le rôle et l'appareil. */
+  /** Les rangs de la colonne, selon l'état, le rôle et l'appareil. Un
+   * chargement qui offre ses gestes porte Signaler : la colonne cache alors
+   * le sien, jamais deux à l'écran (K25, C7a). */
   const rangs = rangsDeLaColonne({
     etat: geo.etat,
     role: roleDuCadre,
     appareil,
-    fiche: false,
+    fiche: chargementParle,
   });
   /** La vue des touches montrée : celle qu'un rang a ouverte, ou celle du
    * clavier à la première visite. Seulement tant que son rang existe : une
@@ -3096,12 +3125,47 @@ function Room({
             <Booting
               game={booting.game}
               habitude={habitudeDuChargement}
-              save={booting.save}
+              sauvegarde={sauvegardeDuLancement(
+                booting.annonce,
+                session?.input.attribution(),
+                room?.seats ?? [],
+              )}
               stalled={booting.stalled ?? false}
-              onGiveUp={() => {
+              // Les gestes par rôle (C7a) : qui choisit le jeu arrête le
+              // lancement, ou en choisit un autre ; tout le monde signale, et
+              // la colonne cache alors son propre Signaler (K25).
+              choisit={canClose}
+              quiChoisit={boss?.name ?? null}
+              onArreter={
+                indexDemande === undefined
+                  ? undefined
+                  : () => {
+                      void tell
+                        .closeGame(indexDemande)
+                        .then(() => setBooting(null))
+                        .catch((error: unknown) =>
+                          setPreparationError(
+                            error instanceof Error ? error.message : SANS_REPONSE,
+                          ),
+                        );
+                    }
+              }
+              onAutre={() => {
                 setBooting(null);
                 setMenu(true);
               }}
+              signaler={
+                chargementParle ? (
+                  <Signaler
+                    id="signalerChargement"
+                    variante="bandeau"
+                    court
+                    onComplain={complain}
+                    garde={garde.current}
+                    annoncer={annoncer}
+                  />
+                ) : null
+              }
               step={bootingStep(
                 // Pas d'instantané: la demande vient de partir, donc « envoyée ».
                 shot?.video ?? {
@@ -3149,13 +3213,14 @@ function Room({
                     depuisMs: performance.now() - booting.at,
                     // Ce que l'écran de chargement montre, dit aussi en mots:
                     // la lenteur à vingt secondes, puis l'échec (audit A11Y-07).
-                    attente: attenteDemarrage(
-                      (performance.now() - booting.at) / 1000,
-                      booting.stalled ?? false,
-                      seuilLong(habitudeDuChargement),
-                    ),
+                    attente: attenteDuChargement,
                     // « d'habitude » se dit seulement mesuré (C5, D05).
                     habitude: habitudeMesuree(habitudeDuChargement) !== null,
+                    // Le nom du jeu, le seuil franchi et qui peut relancer
+                    // (C9) : le compteur ne parle pas.
+                    jeu: booting.game,
+                    seuilS: seuilLong(habitudeDuChargement),
+                    relance: canClose ? null : (boss?.name ?? undefined),
                   }
                 : liaison
             }

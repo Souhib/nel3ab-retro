@@ -3,6 +3,9 @@ import {
   ATTENTE_LONGUE_S,
   attenteDemarrage,
   bootingStep,
+  dureeSansImage,
+  etapesAffichees,
+  gestesDuChargement,
   habitudeMesuree,
   seuilLong,
   soireeDe,
@@ -147,5 +150,55 @@ describe("la version de la scène « chercher » (C11)", () => {
     // La nuit continue la soirée de la veille ; le lendemain soir, non.
     expect(versionDuChargement(soireeDe(soir), new Date(2026, 10, 25, 2, 0))).toBe("courte");
     expect(versionDuChargement(soireeDe(soir), new Date(2026, 10, 25, 20, 0))).toBe("complete");
+  });
+});
+
+describe("les cases du chargement (C4)", () => {
+  it("rend ce que la page sait, une case par étape", () => {
+    expect(etapesAffichees("asked", undefined)).toEqual(["en-cours", "a-venir", "a-venir"]);
+    expect(etapesAffichees("waiting", undefined)).toEqual(["faite", "en-cours", "a-venir"]);
+    // Une attente longue ne sait plus si l'étape avance : un point d'interrogation.
+    expect(etapesAffichees("waiting", "long")).toEqual(["faite", "inconnue", "a-venir"]);
+    expect(etapesAffichees("asked", "long")).toEqual(["inconnue", "a-venir", "a-venir"]);
+    // Calé : la première image est un échec, et ce qui la précède n'est pas su.
+    expect(etapesAffichees("waiting", "echec")).toEqual(["faite", "inconnue", "echec"]);
+    expect(etapesAffichees("asked", "echec")).toEqual(["inconnue", "inconnue", "echec"]);
+  });
+
+  it("la première image fait les trois cases, et aucune case ne recule", () => {
+    expect(etapesAffichees("painting", undefined)).toEqual(["faite", "faite", "faite"]);
+    expect(etapesAffichees("painting", "echec")).toEqual(["faite", "faite", "faite"]);
+    // Le jumeau : chaque case faite d'une étape reste faite à l'étape suivante.
+    for (const attente of [undefined, "long", "echec"] as const) {
+      const faites = STEPS.map(
+        (step) => etapesAffichees(step, attente).filter((c) => c === "faite").length,
+      );
+      expect(faites).toEqual([...faites].sort((a, b) => a - b));
+    }
+  });
+});
+
+describe("la durée sans image (C4)", () => {
+  it("se dit en minutes et secondes passé la minute", () => {
+    expect(dureeSansImage(92)).toBe("1 min 32");
+    expect(dureeSansImage(60)).toBe("1 min 00");
+    expect(dureeSansImage(45)).toBe("45 s");
+  });
+});
+
+describe("les gestes du chargement, par rôle (C7a)", () => {
+  it("rien tant que l'attente est normale", () => {
+    expect(gestesDuChargement(undefined, true)).toEqual([]);
+    expect(gestesDuChargement(undefined, false)).toEqual([]);
+  });
+
+  it("plus long : qui choisit peut arrêter le lancement, tous signalent", () => {
+    expect(gestesDuChargement("long", true)).toEqual(["arreter", "signaler"]);
+    expect(gestesDuChargement("long", false)).toEqual(["signaler"]);
+  });
+
+  it("aucune image : qui choisit choisit un autre jeu ; les autres signalent", () => {
+    expect(gestesDuChargement("echec", true)).toEqual(["autre", "signaler"]);
+    expect(gestesDuChargement("echec", false)).toEqual(["signaler"]);
   });
 });

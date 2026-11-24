@@ -130,14 +130,67 @@ describe("la feuille « La salle » à mi-hauteur", () => {
       (["montree", "cachee"] as const).flatMap((manette) =>
         (["api", "ecran-accueil"] as const).flatMap((plein) =>
           CLIPS.flatMap((clip) =>
-            entreesDeLaFeuille({ sonCoupe, manette, plein, pleinActif: false, clip }),
+            // Avec « Touches et manettes », qui a la place de sa rangée.
+            entreesDeLaFeuille({
+              sonCoupe,
+              manette,
+              plein,
+              pleinActif: false,
+              clip,
+              reglage: true,
+              hauteurMi: 500,
+            }),
           ),
         ),
       ),
     );
+    // La précondition : l'entrée du réglage est bien lue.
+    expect(toutes.some((entree) => entree.id === "reglage")).toBe(true);
     for (const entree of toutes) {
       expect(fautes(entree.titre), entree.titre).toEqual([]);
       expect(fautes(entree.detail), entree.detail).toEqual([]);
     }
+  });
+});
+
+describe("« Touches et manettes » à mi-hauteur", () => {
+  /** La feuille d'un téléphone de 390×844 (380 px mesurés), et celle d'un
+   * 375×667 (287 px), où trois rangées tiennent tout juste. */
+  const HAUTE = 380;
+  const BASSE = 287;
+  const reglage = (etat: EtatFeuille) => entreesDeLaFeuille(etat).find((e) => e.id === "reglage");
+
+  it("vient juste après le menu pour qui tient une place, quand sa rangée tient", () => {
+    expect(ids({ ...TELEPHONE, reglage: true, hauteurMi: HAUTE })).toEqual([
+      "son",
+      "menu",
+      "reglage",
+      "clip",
+      "manette",
+      "plein-ecran",
+      "toute-la-salle",
+    ]);
+    expect(reglage({ ...TELEPHONE, reglage: true, hauteurMi: HAUTE })?.titre).toBe(
+      "Touches et manettes",
+    );
+  });
+
+  it("le jumeau : sans place, pas d'entrée", () => {
+    expect(ids({ ...TELEPHONE, reglage: false, hauteurMi: HAUTE })).not.toContain("reglage");
+    expect(ids({ ...TELEPHONE, hauteurMi: HAUTE })).not.toContain("reglage");
+  });
+
+  it("ne fait pas défiler la feuille : une quatrième rangée ne tient pas à 287 px", () => {
+    expect(ids({ ...TELEPHONE, reglage: true, hauteurMi: BASSE })).not.toContain("reglage");
+    // Au repos, sans clip, six entrées tiennent en trois rangées.
+    expect(ids({ ...TELEPHONE, clip: null, reglage: true, hauteurMi: BASSE })).toContain("reglage");
+    // Sans hauteur connue, rien n'est promis.
+    expect(ids({ ...TELEPHONE, clip: null, reglage: true })).not.toContain("reglage");
+  });
+
+  it("en travers, la colonne unique défilerait : l'entrée reste en tête de la salle entière", () => {
+    expect(ids({ ...TELEPHONE, reglage: true, hauteurMi: HAUTE, travers: true })).not.toContain(
+      "reglage",
+    );
   });
 });

@@ -29,6 +29,16 @@ if (!given) {
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
   });
+  // Sur TOUTE sortie, une exception comprise : le 24 novembre 2026, une capture
+  // vers un dossier absent a levé avant la dernière ligne, et Vite est resté
+  // sur 5471.
+  process.on("exit", () => {
+    try {
+      process.kill(-vite.pid, "SIGTERM");
+    } catch {
+      /* déjà arrêté */
+    }
+  });
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Vite n'a pas démarré")), 25000);
     vite.stdout.on("data", (b) => { if (/Local:/.test(String(b))) { clearTimeout(timer); resolve(); } });
@@ -234,5 +244,4 @@ failed += bad.length + thin.length + pageErrors.length;
 await page.close();
 }
 await browser.close();
-if (vite) process.kill(-vite.pid, "SIGTERM");
 process.exit(failed ? 1 : 0); // Un écart de contraste doit faire échouer la recette.

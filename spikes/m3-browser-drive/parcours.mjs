@@ -91,6 +91,34 @@ async function nouvelle(vue, { salle = {}, stockage = {}, avant = null } = {}) {
 }
 
 const siege = (page) => page.evaluate(() => document.querySelector("#seat")?.textContent ?? "");
+/** Un vrai clic sur une cible amenée dans la vue de sa colonne, comme une
+ * personne qui fait défiler : la cible doit recevoir le point en son centre
+ * (`elementFromPoint`) deux relevés de suite, à 100 ms d'écart, avant que le
+ * clic parte. La colonne défile aussi d'elle-même quand un panneau s'ouvre,
+ * et son pied collé grandit quand « Plus bas » paraît : un seul relevé
+ * tombait parfois entre les deux. Au bout de 2 s, c'est une précondition
+ * qui manque, et le clic n'est pas envoyé à ce qui la couvre. */
+async function cliquerVisible(page, selecteur) {
+  const releve = () =>
+    page.evaluate((sel) => {
+      const cible = document.querySelector(sel);
+      if (!cible) return "absent";
+      cible.scrollIntoView({ block: "nearest" });
+      const r = cible.getBoundingClientRect();
+      const ici = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return ici === cible || cible.contains(ici) ? null : ici ? `${ici.tagName.toLowerCase()}.${ici.className}` : "rien";
+    }, selecteur);
+  const fin = Date.now() + 2000;
+  let couvert = await releve();
+  let deSuite = couvert === null ? 1 : 0;
+  while (deSuite < 2 && Date.now() < fin) {
+    await sleep(100);
+    couvert = await releve();
+    deSuite = couvert === null ? deSuite + 1 : 0;
+  }
+  if (deSuite < 2) throw new Precondition(`${selecteur} ne reçoit pas le point : ${couvert}`);
+  await page.click(selecteur);
+}
 const adresse = (page) => page.evaluate(() => location.pathname + location.search);
 /** Le texte d'un élément tel qu'il est écrit, et non tel que la feuille de
  * style le montre: `innerText` rend « AVANT DE JOUER » pour une étiquette en
@@ -286,8 +314,15 @@ const ETAPES = {
     // Le jumeau: entré pour jouer, puis levé.
     // « Rendre ma place » vit dans « Autres réglages » depuis le
     // 23 novembre 2026 (colonne de la salle) : on le déplie d'abord.
-    await page.click("#autresReglages > summary");
-    await page.click("#watchOnly");
+    // Avec une GameCube à 1440×900, le panneau de commande est au pied de la
+    // colonne, et « Autres réglages » passe sous le coin collé d'Aïn : une
+    // personne fait défiler la colonne. Le clic au centre tombait sur le
+    // coin, « sans effet ». Sur la page d'avant la fin de la salle, le
+    // panneau n'y descendait qu'à la première image : l'étape passait quand
+    // elle cliquait avant elle, d'où son échec une fois sur cinq (24 novembre
+    // 2026). Chaque cible est amenée dans la vue, et doit recevoir le point.
+    await cliquerVisible(page, "#autresReglages > summary");
+    await cliquerVisible(page, "#watchOnly");
     if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
       throw new Precondition(`« Rendre ma place » sans effet: « ${await siege(page)} »`);
     if (!(await jusqua(async () => (await adresse(page)) === "/r/1/?entrer=regarder", 3000)))

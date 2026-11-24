@@ -42,10 +42,51 @@ export function bootingStep({ connected, awaitingRestart, paintedSince, dark }: 
 export const ATTENTE_LONGUE_S = 20;
 
 /** Où en est l'attente d'un démarrage, telle que l'écran la montre: normale,
- * longue, ou perdue (`stalled`, le plafond de soixante secondes de la page). */
-export function attenteDemarrage(attenduS: number, stalled: boolean): "long" | "echec" | undefined {
+ * longue, ou perdue (`stalled`, le plafond de soixante secondes de la page).
+ * `seuil` est celui de `seuilLong`, vingt secondes sans habitude mesurée. */
+export function attenteDemarrage(
+  attenduS: number,
+  stalled: boolean,
+  seuil: number = ATTENTE_LONGUE_S,
+): "long" | "echec" | undefined {
   if (stalled) return "echec";
-  return attenduS >= ATTENTE_LONGUE_S ? "long" : undefined;
+  return attenduS >= seuil ? "long" : undefined;
+}
+
+/** L'habitude d'un jeu, telle que le salon la publie (D05) : rien avant
+ * cinq démarrages réussis. */
+export type Habitude = { mediane_s: number; p90_s: number; n: number };
+
+/** Une habitude se dit seulement quand elle est mesurée : cinq démarrages
+ * réussis au moins, et des durées lisibles. Le salon n'en publie pas
+ * moins ; la page ne recopie pas sa confiance pour autant. */
+export function habitudeMesuree(h: Habitude | null | undefined): Habitude | null {
+  if (!h || h.n < 5) return null;
+  if (!(h.mediane_s > 0) || !(h.p90_s >= h.mediane_s)) return null;
+  return h;
+}
+
+/** Le seuil d'une attente longue, en secondes : le 90e centile de ce jeu
+ * quand il est mesuré (au-delà, « c'est plus long que d'habitude »), les
+ * vingt secondes d'avant sinon (C5, D05). */
+export function seuilLong(h: Habitude | null | undefined): number {
+  const mesuree = habitudeMesuree(h);
+  return mesuree ? Math.ceil(mesuree.p90_s) : ATTENTE_LONGUE_S;
+}
+
+/** La soirée d'un instant, à l'heure de cet appareil : jusqu'à 5 h du
+ * matin, la nuit continue la soirée de la veille. */
+export function soireeDe(maintenant: Date): string {
+  const d = new Date(maintenant.getTime() - 5 * 3_600_000);
+  const deux = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}`;
+}
+
+/** La version de la scène « chercher » (C11) : complète au premier
+ * chargement de la soirée dans ce navigateur, courte ensuite. `vu` est la
+ * soirée retenue au chargement précédent, `null` s'il n'y en a pas. */
+export function versionDuChargement(vu: string | null, maintenant: Date): "complete" | "courte" {
+  return vu === soireeDe(maintenant) ? "courte" : "complete";
 }
 
 /** Le plafond d'un chargement, en millisecondes: au-delà, la page cesse

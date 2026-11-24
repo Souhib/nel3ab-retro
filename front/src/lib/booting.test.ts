@@ -3,6 +3,10 @@ import {
   ATTENTE_LONGUE_S,
   attenteDemarrage,
   bootingStep,
+  habitudeMesuree,
+  seuilLong,
+  soireeDe,
+  versionDuChargement,
   PLAFOND_CHARGEMENT_MS,
   STEPS,
   suiteDuChargement,
@@ -110,5 +114,38 @@ describe("ce que devient un chargement", () => {
     // reviennent, et c'est la sortie.
     expect(suiteDuChargement({ ...tard, padOnly: true })).toBe("effacer");
     expect(suiteDuChargement({ ...tard, depuisMs: PLAFOND_CHARGEMENT_MS - 1 })).toBe("attendre");
+  });
+});
+
+describe("l'habitude d'un jeu (D05)", () => {
+  const h = { mediane_s: 12, p90_s: 17.2, n: 6 };
+
+  it("le seuil d'une attente longue suit le 90e centile mesuré", () => {
+    expect(seuilLong(h)).toBe(18);
+    expect(attenteDemarrage(18, false, seuilLong(h))).toBe("long");
+    expect(attenteDemarrage(17, false, seuilLong(h))).toBeUndefined();
+  });
+
+  it("sans habitude mesurée, les vingt secondes d'avant", () => {
+    expect(seuilLong(null)).toBe(ATTENTE_LONGUE_S);
+    expect(seuilLong(undefined)).toBe(ATTENTE_LONGUE_S);
+    // Moins de cinq démarrages : la page ne dit pas « d'habitude ».
+    expect(habitudeMesuree({ ...h, n: 4 })).toBeNull();
+    expect(seuilLong({ ...h, n: 4 })).toBe(ATTENTE_LONGUE_S);
+    // Des durées illisibles ne valent pas une mesure.
+    expect(habitudeMesuree({ ...h, mediane_s: 0 })).toBeNull();
+    expect(habitudeMesuree({ ...h, p90_s: 10 })).toBeNull();
+    expect(habitudeMesuree({ ...h, n: 5 })).toEqual({ ...h, n: 5 });
+  });
+});
+
+describe("la version de la scène « chercher » (C11)", () => {
+  it("complète au premier chargement de la soirée, courte ensuite", () => {
+    const soir = new Date(2026, 10, 24, 21, 0);
+    expect(versionDuChargement(null, soir)).toBe("complete");
+    expect(versionDuChargement(soireeDe(soir), soir)).toBe("courte");
+    // La nuit continue la soirée de la veille ; le lendemain soir, non.
+    expect(versionDuChargement(soireeDe(soir), new Date(2026, 10, 25, 2, 0))).toBe("courte");
+    expect(versionDuChargement(soireeDe(soir), new Date(2026, 10, 25, 20, 0))).toBe("complete");
   });
 });

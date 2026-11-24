@@ -904,4 +904,13 @@ export const BIBLIO = {
   ouvrirFiche: "Ouvrir sa fiche",
 } as const;
 
+/** L'écran de chargement (`Booting`, C5, C12, D05). */
+export const CHARGEMENT = {
+  titre: (jeu: string) => `${jeu} démarre.`,
+  habitude: (s: number) => `D'habitude, il démarre en ${Math.round(s)} s.`,
+  plusLong: "Le jeu met plus longtemps que d'habitude.",
+  /** Sans habitude mesurée, la lenteur se dit sans « d'habitude ». */
+  encore: (s: number) => `Le jeu démarre encore, depuis ${s} s.`,
+} as const;
+
 // ==== fin menus ====

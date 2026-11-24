@@ -201,11 +201,12 @@ describe("la ligne parlée", () => {
     );
     const { rerender } = render(ligne({ etat: "demarrage", depuisMs: 1000 }));
     expect(screen.getByRole("status")).toHaveTextContent("Le jeu démarre.");
-    rerender(ligne({ etat: "demarrage", depuisMs: 21_000, attente: "long" }));
+    // L'habitude mesurée (D05) : sans elle, la phrase ne dit pas « d'habitude » (C5).
+    rerender(ligne({ etat: "demarrage", depuisMs: 21_000, attente: "long", habitude: true }));
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Le jeu met plus longtemps que d'habitude.");
     const noeud = status.firstChild;
-    rerender(ligne({ etat: "demarrage", depuisMs: 30_000, attente: "long" }));
+    rerender(ligne({ etat: "demarrage", depuisMs: 30_000, attente: "long", habitude: true }));
     expect(status.firstChild).toBe(noeud);
     rerender(ligne({ etat: "demarrage", depuisMs: 61_000, attente: "echec" }));
     expect(status).toHaveTextContent("La salle n'a pas rendu d'image. Tu peux arrêter d'attendre.");

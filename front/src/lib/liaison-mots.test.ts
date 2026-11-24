@@ -199,10 +199,12 @@ describe("la ligne parlée", () => {
   });
   it("dit un démarrage qui traîne, puis un démarrage perdu, une fois chacun (A11Y-07)", () => {
     const debut: Liaison = { etat: "demarrage", depuisMs: 2000 };
-    const long: Liaison = { etat: "demarrage", depuisMs: 25_000, attente: "long" };
+    const long: Liaison = { etat: "demarrage", depuisMs: 25_000, attente: "long", habitude: true };
     const echec: Liaison = { etat: "demarrage", depuisMs: 61_000, attente: "echec" };
     expect(phraseLiaison({ etat: "ok" }, debut, 1, 1)).toBe("Le jeu démarre.");
     expect(phraseLiaison(debut, long, 1, 1)).toBe("Le jeu met plus longtemps que d'habitude.");
+    // C5 : sans habitude mesurée (D05), la lenteur ne dit pas « d'habitude ».
+    expect(phraseLiaison(debut, { ...long, habitude: false }, 1, 1)).toBe("Le jeu démarre encore.");
     expect(phraseLiaison(long, echec, 1, 1)).toBe(
       "La salle n'a pas rendu d'image. Tu peux arrêter d'attendre.",
     );

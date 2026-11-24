@@ -125,6 +125,9 @@ export type Liaison =
       /** Ce que l'écran de chargement montre déjà: un démarrage qui traîne, ou
        * perdu. Posé par la page, qui tient l'écran (`lib/booting`). */
       attente?: "long" | "echec";
+      /** L'habitude de ce jeu est mesurée (D05) : la lenteur peut dire
+       * « d'habitude ». Sans elle, elle ne le dit pas (C5). */
+      habitude?: boolean;
     }
   | {
       etat: "arrivee";

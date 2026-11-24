@@ -250,7 +250,9 @@ function parlee(liaison: Liaison, salle: number): string {
       return liaison.attente === "echec"
         ? "La salle n'a pas rendu d'image. Tu peux arrêter d'attendre."
         : liaison.attente === "long"
-          ? "Le jeu met plus longtemps que d'habitude."
+          ? liaison.habitude
+            ? "Le jeu met plus longtemps que d'habitude."
+            : "Le jeu démarre encore."
           : "Le jeu démarre.";
     case "arrivee":
       return liaison.perdue

@@ -33,7 +33,13 @@ import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
 import { AnnonceEnLettres } from "./components/AnnonceEnLettres";
 import { Ouverture } from "./components/Ouverture";
-import { attenteDemarrage, bootingStep, suiteDuChargement } from "./lib/booting";
+import {
+  attenteDemarrage,
+  bootingStep,
+  habitudeMesuree,
+  seuilLong,
+  suiteDuChargement,
+} from "./lib/booting";
 import { GardeSignalement } from "./lib/garde-signalement";
 import { FENETRE_VIDE, fenetrePourProposition, type Liaison } from "./media/liaison";
 import {
@@ -1028,6 +1034,10 @@ function Room({
 
   /** Le jeu que la salle dit faire tourner, par son nom comme `booting`. */
   const jeuEnCours = room?.game?.name ?? null;
+  /** L'habitude du jeu qui démarre (D05), lue dans la bibliothèque. */
+  const habitudeDuChargement = booting
+    ? room?.library.find((one) => one.name === booting.game)?.demarrage
+    : null;
   useEffect(() => {
     if (booting === null) return;
     // L'instantané LU MAINTENANT, et surtout pas celui du rendu.
@@ -3125,7 +3135,7 @@ function Room({
           {booting && !padOnly ? (
             <Booting
               game={booting.game}
-              console={room?.library.find((one) => one.name === booting.game)?.console}
+              habitude={habitudeDuChargement}
               save={booting.save}
               stalled={booting.stalled ?? false}
               onGiveUp={() => {
@@ -3182,7 +3192,10 @@ function Room({
                     attente: attenteDemarrage(
                       (performance.now() - booting.at) / 1000,
                       booting.stalled ?? false,
+                      seuilLong(habitudeDuChargement),
                     ),
+                    // « d'habitude » se dit seulement mesuré (C5, D05).
+                    habitude: habitudeMesuree(habitudeDuChargement) !== null,
                   }
                 : liaison
             }

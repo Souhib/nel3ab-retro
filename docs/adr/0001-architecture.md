@@ -2172,6 +2172,30 @@ earlier seats fails on "la salle fermée a perdu qui jouait". Weight: 285 293
 bytes brotli (+402 on the second pass). `colonne-stable` stays red, for the
 room's track to decide.
 
+Amended 2026-11-24, fourth pass. A closed room's column says "Ce soir dans
+la salle N": the game, and the people who were watching at the closing as
+typed tags (`CeSoir`, `#ceSoir`), in place of "Ils regardent" and the role
+block, which spoke in the present tense ("tu regardes"). The page keeps the
+game and the watchers it saw before the closing, like the seats; someone who
+arrives afterwards did not watch. The players stay on the panel, and the
+link to the logbook stays on the screen, once: the plan put it in the column
+too, which would have shown it twice. A fiche gesture that held the keyboard
+focus no longer drops it on `<body>` when the fiche leaves (the picture
+comes back, the state changes): the fiche checks, before its removal,
+whether it holds the focus, and if the focus falls on the document the page
+returns it to the game zone (`FicheEtat`, `onFocusPerdu`). A row the person
+chose elsewhere keeps its focus. Proof: `fermee-vraie` reads the column
+before (a watcher) and after (another person arrives after the closing),
+red on the page before and on a wiring mutant without the memory;
+`fiche-focus-rendu` in `focus.mjs`, red on the page before (focus on BODY),
+with its twin; two new parts of `salle-telephone` (`arrivee-telephone`,
+`pastille`: five states, nine sizes, 4:3 and 16:9, no common area with the
+picture or any touch key), each red on a mutant made for it. The handheld
+pastille still has no place in short portrait (390x664, 375x548), where
+"La salle" lives in the touch pad: the driver reports it as "non posée", for
+the room's track to decide. Weight: 285 540 bytes brotli (+247 on the third
+pass).
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on

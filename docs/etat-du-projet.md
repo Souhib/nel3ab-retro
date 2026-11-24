@@ -253,6 +253,17 @@ au passé sur le panneau : START éteints, étiquettes de qui jouait, aucun
 geste, « Ils ont joué ». `colonne-stable` reste ROUGE pour la même raison
 (fichier de la salle). Page : 285 293 octets en brotli.
 
+**Au 24 novembre, plus tard dans la nuit : les états, quatrième passage.**
+Même branche, hors de `main`, rien d'installé ni de poussé. La colonne d'une
+salle fermée dit « Ce soir dans la salle N » : le jeu et ceux qui
+regardaient à la fermeture, en étiquettes, à la place de « Ils regardent »
+et de « tu regardes ». Un geste de la fiche qui tenait le focus le rend au
+jeu quand la fiche part, au lieu de le laisser sur le document.
+`salle-telephone` gagne les parties `arrivee-telephone` et `pastille`. Tenu
+droit et court (390x664, 375x548), la pastille n'est posée nulle part : à
+décider avec la salle. `colonne-stable` reste ROUGE (fichier de la salle).
+Page : 285 540 octets en brotli.
+
 **Au 24 novembre : le chantier personnes, cinq passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de

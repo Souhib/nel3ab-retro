@@ -31256,6 +31256,68 @@ main sans bande, grappe ni barre, et ses emplacements dans la barre et sur
 le panneau au bureau ; les parties téléphone de `salle-telephone` ;
 `avertissement-fermeture.mjs`, qui demande un worker construit et une ROM.
 
+### 24 novembre, plus tard dans la nuit : les états, quatrième passage
+
+**Ce qui a été fait.** Deux changements que la personne voit, et deux
+mesures au téléphone.
+
+- La colonne d'une salle fermée parlait encore au présent : « banc · tu
+  regardes », et « Ils regardent » avec les personnes arrivées après la
+  fermeture. Elle dit maintenant « Ce soir dans la salle 1 », le nom du jeu,
+  et « Ils ont regardé » avec les étiquettes tapées de ceux qui regardaient
+  au moment de la fermeture. Ceux qui ont joué restent sur le panneau, au
+  passé, et la colonne ne les répète pas. Le lien vers le carnet reste sur
+  l'écran noir, une seule fois : le plan le mettait aussi dans la colonne,
+  ce qui l'aurait montré deux fois. La durée de la partie attend une donnée
+  que le salon ne publie pas encore ; elle ne s'affiche pas, plutôt que de
+  s'afficher à zéro.
+- Au clavier, la personne qui allait sur « Relancer l'image » perdait ses
+  touches quand l'image revenait : la fiche partait avec le bouton, et le
+  focus tombait sur le document entier. Les touches n'allaient plus au jeu
+  jusqu'à un clic sur l'image. La fiche regarde maintenant, juste avant que
+  React ne la retire, si elle tient le focus. S'il retombe ensuite sur le
+  document, la page le rend au jeu. Ce que la personne a choisi ailleurs (un
+  rang de la colonne, par exemple) garde son focus.
+- `salle-telephone` gagne deux parties. `arrivee-telephone` : l'écran noir
+  d'une arrivée sans réponse tient sur l'écran du téléphone (titre et fait
+  dans le cadre et hors des zones sûres), « Réessayer » reçoit un vrai
+  appui, et la manette n'est pas montée dessous. `pastille` : cinq états,
+  neuf tailles, une image 4:3 et deux en 16:9 ; la pastille n'a aucune aire
+  commune avec l'image ni avec une touche, et elle reçoit le point en son
+  centre.
+
+**Comment on l'a vu rougir.** `fermee-vraie` lit la colonne avant la
+fermeture (Lina regarde) puis après (Max arrive une fois la salle fermée).
+Sur la page d'avant, elle rougit : pas de « Ce soir », « tu regardes », et
+Max dans la liste. Une page mutante qui lit les présents du moment au lieu
+de ceux d'avant rougit aussi, sur « a perdu ou changé qui regardait ».
+`fiche-focus-rendu`, nouvelle étape de `focus.mjs`, rougit sur la page
+d'avant : le focus était sur BODY. Elle vérifie d'abord que la fiche ne
+prend pas le focus au jeu, et son jumeau garde le focus d'un rang choisi.
+Les deux parties du téléphone ont rougi chacune sur un mutant : une
+pastille posée sur l'image (5 736 à 8 323 px² dessus), une pastille posée
+sur la grappe droite (308 à 1 562 px² sur les touches), et un écran noir dont
+le titre et les gestes sortent du cadre.
+
+**Ce que la mesure a corrigé.** La partie `pastille` devait d'abord dire
+« non posée » aux tailles où le pilote de `manette-garde` ne trouvait pas de
+place le 24 novembre après-midi (375x667, paysage 16:9). Mesurée ici, la
+pastille y est posée. Les tailles sans place sont deux autres : le
+téléphone tenu droit et court (390x664, 375x548), où « La salle » vit dans
+la manette et où il n'y a ni barre ni bande. La liste du pilote suit la
+mesure, et une absence ailleurs est un défaut, pour que la mesure ne passe
+jamais à vide.
+
+**Le poids.** 285 540 octets en brotli : 79 pour la soirée d'une salle
+fermée, 168 pour le focus rendu, 247 sur le troisième passage (285 293).
+
+**Ce qui reste.** `colonne-stable` est toujours rouge (le panneau de commande
+de la salle change de place à la première image 4:3). La pastille du
+téléphone tenu droit et court n'a pas de place ; les pistes sont un point
+sur « La salle » dans la manette, ou une place que la salle réserve.
+`avertissement-fermeture.mjs` n'est pas lancé : il demande un worker construit
+et une ROM.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

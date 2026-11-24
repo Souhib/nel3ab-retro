@@ -958,6 +958,63 @@ const ETAPES = {
     await page.close();
   },
 
+  /** Le plein cadre de l'arrivée tient sur un téléphone court : le titre,
+   * les étapes, le fait et les gestes dans l'écran noir et dans la fenêtre,
+   * rien de coupé, chaque geste haut de 44 px. Mesuré pendant l'arrivée (à
+   * 3 s) et quand elle est perdue (à 15 s), à 375x667, 320x568 et en
+   * travers à 844x390. Le jumeau : un titre trop long pour l'écran est vu. */
+  async "arrivee-courte"() {
+    const MESURE = () => {
+      const ecran = document.querySelector("#arrivee .n3-plein-ecran");
+      if (!ecran || getComputedStyle(document.querySelector("#arrivee")).display === "none") return { erreur: "pas de plein cadre" };
+      const e = ecran.getBoundingClientRect();
+      const fautes = [];
+      if (ecran.scrollHeight > ecran.clientHeight + 1) fautes.push(`l'écran déborde de ${ecran.scrollHeight - ecran.clientHeight} px`);
+      for (const el of ecran.querySelectorAll(":scope > :not(i), .n3-geste")) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0) continue;
+        const nom = el.id || el.className.split(" ")[0] || el.tagName;
+        if (r.top < e.top - 1 || r.bottom > e.bottom + 1 || r.left < e.left - 1 || r.right > e.right + 1)
+          fautes.push(`${nom} hors de l'écran noir`);
+        if (r.top < 0 || r.bottom > innerHeight + 1 || r.left < 0 || r.right > innerWidth + 1) fautes.push(`${nom} hors de la fenêtre`);
+        if (el.classList.contains("n3-geste") && r.height < 44) fautes.push(`${nom} haut de ${Math.round(r.height)} px`);
+      }
+      return { fautes, gestes: ecran.querySelectorAll(".n3-geste").length, etapes: ecran.querySelectorAll("li").length };
+    };
+    const fautes = [];
+    for (const vue of [
+      { width: 375, height: 667, isMobile: true, hasTouch: true },
+      { width: 320, height: 568, isMobile: true, hasTouch: true },
+      { width: 844, height: 390, isMobile: true, hasTouch: true },
+    ]) {
+      const nom = `${vue.width}x${vue.height}`;
+      const page = await nouvelle(vue);
+      banc.regler({ video: "freeze" });
+      await page.click("#enter");
+      await sleep(3000);
+      const tot = await page.evaluate(MESURE);
+      if (tot.erreur) throw new Precondition(`${nom}: ${tot.erreur} à 3 s`);
+      if (tot.etapes !== 2) throw new Precondition(`${nom}: ${tot.etapes} étapes à 3 s`);
+      fautes.push(...tot.fautes.map((f) => `${nom} à 3 s: ${f}`));
+      await capture(page, "arrivee-courte-3s");
+      await sleep(12_500);
+      const tard = await page.evaluate(MESURE);
+      if (tard.erreur) throw new Precondition(`${nom}: ${tard.erreur} à 15 s`);
+      if (tard.gestes < 2) throw new Precondition(`${nom}: ${tard.gestes} gestes à 15 s`);
+      fautes.push(...tard.fautes.map((f) => `${nom} à 15 s: ${f}`));
+      await capture(page, "arrivee-courte-15s");
+      if (vue.width === 320) {
+        await page.evaluate(() => {
+          document.querySelector("#arrivee h2").textContent = "Un titre beaucoup trop long ".repeat(12);
+        });
+        const jumeau = await page.evaluate(MESURE);
+        if (!jumeau.fautes?.length) throw new Precondition(`${nom}: un titre trop long pour l'écran n'est pas vu`);
+      }
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
   /** La colonne ne bouge pas quand l'image arrive : les boîtes des enfants
    * de #side relevées avant la première image et une seconde après sont les
    * mêmes, au pixel. Le jumeau : un enfant déplacé d'un pixel est vu. */

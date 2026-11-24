@@ -1,6 +1,8 @@
 // Le banc des parcours de la salle: la page COMMITTÉE, un salon et une salle
-// SIMULÉS sur un seul port de 5400 à 5499. Aucune salle ni aucun salon vivant
-// n'est touché, aucun émulateur ne tourne.
+// SIMULÉS sur un seul port de 5400 à 5599. Aucune salle ni aucun salon vivant
+// n'est touché, aucun émulateur ne tourne. Jusqu'à 5599 depuis le
+// 24 novembre 2026, pour la même raison que `etats-banc.mjs` : une dizaine
+// au-dessus de 5500 par chantier de fin qui tourne en même temps.
 //
 // Écrit après la relecture du chantier « parcours et mots » (22 novembre
 // 2026): cinq mutants d'`App.tsx` (l'entrée lue dans l'adresse, l'adresse
@@ -64,7 +66,7 @@ const DEPART = {
 };
 
 export async function demarrerParcours({ port, page, flux }) {
-  if (!(port >= 5400 && port <= 5499)) throw new Error(`port ${port} hors de la plage du banc`);
+  if (!(port >= 5400 && port <= 5599)) throw new Error(`port ${port} hors de la plage du banc`);
   const PAGE = readFileSync(page);
   const empreinte = createHash("sha256").update(PAGE).digest("hex");
   const AUS = unitesDe(readFileSync(flux));

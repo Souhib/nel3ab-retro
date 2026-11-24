@@ -47,7 +47,7 @@ default: local
 # relecture du chantier du focus a trouvé que rien ne les lançait: une
 # régression passait la porte sans bruit. Elles demandent Chrome (puppeteer) et
 # ffmpeg, déjà exigé par `clip-audio-test`, et servent la page committée sur un
-# port de 5400 à 5499, sans rien de vivant. Leur prix, mesuré le jour même:
+# port de 5400 à 5599, sans rien de vivant. Leur prix, mesuré le jour même:
 # 1 min 25 s et 4 min 35 s, dont près de trois minutes pour les deux étapes de
 # `etats-navigateur` qui attendent une proposition de format réduit.
 #
@@ -842,7 +842,7 @@ gpu-test:
 # proposer. Chaque étape en rejoue un avec son jumeau (`etats.mjs`).
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert. Un
-# salon et une salle simulés, sur un port de 5400 à 5499: aucune salle vivante,
+# salon et une salle simulés, sur un port de 5400 à 5599: aucune salle vivante,
 # aucun émulateur. Le flux est un vrai H.264, fabriqué ici par ffmpeg plutôt
 # que committé (1,6 Mo). Hors de `check`: Chrome, ffmpeg et cinq minutes.
 #
@@ -953,7 +953,7 @@ etats-navigateur-rouge:
 # ancres START d'Aïn et la cadence d'une image figée.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
-# salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
+# salon et une salle simulés sur un port de 5400 à 5599 (`parcours-banc.mjs`),
 # aucune salle vivante, aucun émulateur. Hors de `check`: Chrome et ffmpeg.
 #
 #   just parcours-navigateur                          toutes les étapes
@@ -1103,7 +1103,7 @@ parcours-navigateur-rouge:
 # les trames que reçoit le banc (`focus.mjs`).
 #
 # Le même banc que `etats-navigateur`: la page COMMITTÉE, un salon et une salle
-# simulés sur un port de 5400 à 5499. Hors de `check`, que la CI partage: Chrome,
+# simulés sur un port de 5400 à 5599. Hors de `check`, que la CI partage: Chrome,
 # ffmpeg et une minute et demie. Dans `local` depuis la relecture du
 # 22 novembre 2026: une preuve que rien n'appelle ne garde rien.
 #

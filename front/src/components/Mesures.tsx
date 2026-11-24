@@ -66,19 +66,25 @@ function useTrajet(lire: LireTrajet): Trajet {
 }
 
 /** Les images peintes par seconde, sur des fenêtres d'une seconde au moins,
- * datées à l'horloge murale. `null` jusqu'à la première fenêtre complète. */
-function useCadence(peintes: number, horloge: () => number): number | null {
+ * datées à l'horloge murale. `null` jusqu'à la première fenêtre complète.
+ *
+ * Un relevé par INSTANTANÉ (la salle en lit un deux fois par seconde), et non
+ * par changement du compteur : celui d'une image figée ne bouge plus, et la
+ * cadence gardait sa dernière valeur, « 60 images peintes par seconde » à
+ * côté d'une image figée (relecture du 24 novembre 2026). Une fenêtre sans
+ * image compte zéro : un nombre d'événements, pas une valeur de repli. */
+function useCadence(video: VideoStats, horloge: () => number): number | null {
   const avant = useRef<Releve | null>(null);
   const [dite, setDite] = useState<number | null>(null);
   useEffect(() => {
-    const maintenant = { a: horloge(), peintes };
+    const maintenant = { a: horloge(), peintes: video.painted };
     const lue = cadence(avant.current, maintenant);
     if (avant.current === null) avant.current = maintenant;
     else if (lue !== null) {
       avant.current = maintenant;
       setDite(lue);
     }
-  }, [peintes, horloge]);
+  }, [video, horloge]);
   return dite;
 }
 
@@ -109,7 +115,7 @@ export function Mesures({
   horloge?: () => number;
 }) {
   const trajet = useTrajet(lireTrajet);
-  const peintes = useCadence(video.painted, horloge);
+  const peintes = useCadence(video, horloge);
   const c = chiffres(video, allerRetourMs, peintes);
   const dit = diagnostic(liaison, video, salle, moteur);
   return (

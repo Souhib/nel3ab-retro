@@ -638,7 +638,8 @@ export const MESURES = {
   /** La ligne du coin et « Ta liaison », quand rien ne manque. */
   toutArrive: "Tout arrive",
   saute: "L'image saute",
-  peintes: (n: number) => `${n} images peintes par seconde`,
+  peintes: (n: number) =>
+    n < 2 ? `${n} image peinte par seconde` : `${n} images peintes par seconde`,
   jeu: (n: number) => `le jeu en fait ${n}`,
   sousLeJeu: "moins que le jeu",
   allerRetour: (ms: number) => `${ms} ms d'aller-retour pour tes touches`,

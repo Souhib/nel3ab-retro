@@ -63,6 +63,30 @@ describe("les chiffres", () => {
     expect(screen.queryByText(MESURES.jeu(0))).toBeNull();
   });
 
+  /* Le compteur d'une image figée ne bouge plus : la cadence ne se
+     recalculait qu'à son changement, et le panneau gardait « 60 images
+     peintes par seconde » à côté d'une phrase qui disait l'image figée
+     (relecture du 24 novembre 2026). Chaque instantané est daté, qu'il
+     apporte des images ou non. */
+  it("jumeau : une image figée compte zéro image peinte, pas la dernière cadence", async () => {
+    const { avancer } = monter(sample({ painted: 400 }));
+    await act(async () => avancer(1000, sample({ painted: 460 })));
+    expect(screen.getByText(MESURES.peintes(60))).toBeVisible();
+    // Dix secondes d'instantanés, un par demi-seconde, l'un après l'autre.
+    const figer = async (n: number): Promise<void> => {
+      if (n === 0) return;
+      await act(async () => avancer(500, sample({ painted: 460 })));
+      return figer(n - 1);
+    };
+    await figer(20);
+    expect(screen.queryByText(MESURES.peintes(60))).toBeNull();
+    const dit = screen.getByText(MESURES.peintes(0)).closest("dd");
+    expect(dit).toHaveTextContent(MESURES.sousLeJeu);
+    // Le jumeau du jumeau : les images reviennent, la cadence aussi.
+    await act(async () => avancer(1000, sample({ painted: 520 })));
+    expect(screen.getByText(MESURES.peintes(60))).toBeVisible();
+  });
+
   it("dit « moins que le jeu » par un mot, pas par la couleur seule", async () => {
     const { avancer } = monter(sample({ painted: 0 }));
     await act(async () => avancer(2000, sample({ painted: 60 })));

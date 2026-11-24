@@ -54,6 +54,9 @@ const DEPART = {
   boRepond: null,
   /** L'image s'arrête : la salle n'envoie plus d'image, la socket reste. */
   fige: false,
+  /** D'autres places tenues, `{ numéro: nom }` : avec Bo à la 2, les places
+   * 1, 3 et 4 font une salle pleine (24 novembre 2026, salle-pleine-avant-salle). */
+  occupes: {},
 };
 
 export async function demarrerParcours({ port, page, flux }) {
@@ -73,6 +76,7 @@ export async function demarrerParcours({ port, page, flux }) {
   const tenues = () => {
     const prises = new Set([...places.keys()]);
     if (state.bo) prises.add(2);
+    for (const n of Object.keys(state.occupes)) prises.add(Number(n));
     return prises;
   };
   const room = () => {
@@ -80,6 +84,7 @@ export async function demarrerParcours({ port, page, flux }) {
     const moi = [...places.keys()][0] ?? null;
     const siege = (n) => {
       if (state.bo && n === 2) return { port: 2, player: "Bo", held: true, claim: BO };
+      if (state.occupes[n]) return { port: n, player: state.occupes[n], held: true, claim: null };
       if (places.has(n)) return { port: n, player: "Ami", held: true, claim: MOI };
       return { port: n, player: null, held: prises.has(n), claim: null };
     };

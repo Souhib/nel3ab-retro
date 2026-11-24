@@ -934,7 +934,8 @@ parcours-navigateur-rouge:
         --etapes "$etapes" --rouge-attendu "$etapes"
     # 03b21c0, la page de main avant le thème rétro : « Inviter » y copie
     # d'un coup, sans panneau ni code, et l'étape réécrite le 23 novembre
-    # 2026 doit y tomber sur ce défaut.
+    # 2026 doit y tomber sur ce défaut. Une salle pleine n'y avait aucun
+    # bouton plein (salle-pleine-avant-salle, 24 novembre 2026).
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes invitation --rouge-attendu invitation
@@ -942,6 +943,8 @@ parcours-navigateur-rouge:
     # pas le paramètre, le worker lui donne la première libre.
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes place-precise --rouge-attendu place-precise
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes salle-pleine-avant-salle --rouge-attendu salle-pleine-avant-salle
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible

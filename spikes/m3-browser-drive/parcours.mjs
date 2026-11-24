@@ -985,6 +985,43 @@ const ETAPES = {
     }
   },
 
+  /** Une salle pleine (Bo à la 2, Cy, Di et Ed aux autres) : l'avant-salle
+   * n'offre aucune place, et « Regarder la partie » est son seul plein.
+   * Le jumeau : une place se libère, et « Prendre la place N » redevient le
+   * seul plein. */
+  async "salle-pleine-avant-salle"() {
+    const page = await nouvelle(PC, { salle: { bo: true, occupes: { 1: "Cy", 3: "Di", 4: "Ed" } } });
+    await page.goto(banc.url, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#lobbySeats [data-port]", { timeout: 15000 }).catch(() => {
+      throw new Precondition("l'avant-salle ne montre pas ses places");
+    });
+    await sleep(800);
+    const lu = () => page.evaluate(() => ({
+      pleins: [...document.querySelectorAll(".rt-bouton-plein")]
+        .filter((b) => b.getBoundingClientRect().width > 0).map((b) => b.id),
+      regarder: document.querySelector("#watch")?.textContent.trim() ?? null,
+      boutons: document.querySelectorAll("#lobbySeats button[data-port]").length,
+      noms: [...document.querySelectorAll("#lobbySeats [data-port]")].map((p) => p.textContent.trim()),
+      // Le plein reçoit le point en son centre (un nom de classe partagé a
+      // déjà caché toute la borne, 24 novembre 2026).
+      touche: (() => {
+        const b = document.querySelector("#watch");
+        const r = b?.getBoundingClientRect();
+        return !!r && r.width > 0 && b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+      })(),
+    }));
+    const plein = await lu();
+    if (!plein.noms.every((n) => /Cy|Bo|Di|Ed/.test(n))) throw new Precondition(`places du banc : ${plein.noms}`);
+    if (plein.boutons !== 0) throw new Defaut(`${plein.boutons} places à prendre dans une salle pleine`);
+    if (plein.pleins.join() !== "watch") throw new Defaut(`boutons pleins d'une salle pleine : ${plein.pleins.join(", ")}`);
+    if (plein.regarder !== "Regarder la partie") throw new Defaut(`le plein dit « ${plein.regarder} »`);
+    if (!plein.touche) throw new Defaut("« Regarder la partie » ne reçoit pas le point en son centre");
+    banc.regler({ occupes: { 1: "Cy", 4: "Ed" } });
+    if (!(await jusqua(async () => (await lu()).pleins.join() === "enter", 8000)))
+      throw new Defaut(`la place 3 libérée, les pleins restent ${(await lu()).pleins.join(", ")}`);
+    await page.close();
+  },
+
   /** `?entrer=jouer&place=3` (lien de l'accueil du salon) entre à la place 3,
    * pas à la première libre, et l'adresse oublie la place une fois prise.
    * Puis le bouton de la place 3 de l'avant-salle fait de même. Le jumeau :

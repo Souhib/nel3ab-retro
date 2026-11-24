@@ -18,11 +18,11 @@
      pour un refus. Le script pose encore `--joueur` sur chaque carte; la
      feuille ne le lit plus.
 
-     Seuls `transform` et `opacity` bougent, comme dans la feuille de
-     Bobine: la jauge s'allonge par `scaleX`, le tampon tombe par `scale`.
+     Seuls `transform` et `opacity` bougent: la jauge s'allonge par
+     `scaleX`, le tampon tombe par `scale`. Aïn, dans le logo, joue « depot »
+     quand un jeu vérifié est rangé, « refus » quand il ne l'est pas.
      ───────────────────────────────────────────────────────────────── */
   /*__POLICES__*/
-  /*__BOBINE__*/
   /* La régie de la salle et de l'accueil (`front/src/regie.css`), posée ici
      au démarrage du salon: graphite la nuit, craie le jour. Les quatre
      prises du dessin de la zone de dépôt lisent `--joueur-1` à `--joueur-4`,
@@ -41,21 +41,25 @@
           display: flex; flex-direction: column; gap: clamp(1rem, 2vh, 1.6rem); }
   [hidden] { display: none !important; }
 
-  .rail { display: flex; align-items: baseline; gap: 1.5rem; flex-wrap: wrap;
-          border-bottom: 2px solid var(--trait); padding-bottom: .7rem; }
-  /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon
-     depuis `front/src/lib/logo.ts`. Centré sur la ligne: un dessin n'a pas
-     de ligne de base. */
-  .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
-            --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
+  /* L'en-tête commun du salon (le même que l'accueil et le carnet). */
+  .entete { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.4rem;
+            border-bottom: 2px solid var(--trait); padding-bottom: .5rem; }
+  .marque { display: inline-flex; align-items: center; align-self: center; min-height: 44px;
+            color: inherit; text-decoration: none; --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
+  .pages { display: flex; flex-wrap: wrap; gap: 0 1.3rem; margin: 0; padding: 0 0 0 .9rem; list-style: none; }
+  .pages a { display: inline-flex; align-items: center; min-height: 44px; position: relative;
+             font-family: var(--police-titre); font-size: clamp(15px, 1.3vw, 18px);
+             color: var(--encre); text-decoration: none; }
+  .pages a:hover { text-decoration: underline; }
+  .pages a[aria-current="page"] { color: var(--signal); }
+  .pages a[aria-current="page"]::before { content: "▶"; position: absolute; right: 100%;
+                                          margin-right: .25rem; font-size: .7em; }
   /* La maison d'Aïn (ADR D41, D46): le paquet du salon peint le logo dans
      une toile, à 2 px par pixel d'Aïn quand la marque a 228 px, 1 au-dessous.
      Le logo statique reste pour une page sans script, et se cache quand Aïn
      est peint à sa place. */
   .marque[data-hote] { width: clamp(114px, 18vw, 228px); }
   .marque.rt-mascotte-hote > .rt-logo { display: none; }
-  .rail-fait { font-family: var(--police-machine); font-size: clamp(13px, 1.2vw, 16px);
-               color: var(--legende); letter-spacing: .12em; }
 
   h1 { font-weight: 700; font-size: clamp(30px, 4vw, 52px); line-height: 1.05;
        letter-spacing: -.01em; margin: 0; }
@@ -65,7 +69,7 @@
   /* ── La zone de dépôt ───────────────────────────────────────────── */
   .depot {
     position: relative; display: grid; align-items: center; gap: .3rem 1.6rem;
-    grid-template-columns: auto 1fr; grid-template-rows: auto auto auto;
+    grid-template-columns: 1fr;
     padding: clamp(1.2rem, 3vh, 2.2rem) clamp(1rem, 3vw, 2.4rem);
     background: var(--plaque); border: 2px dashed var(--trait); cursor: pointer;
   }
@@ -76,8 +80,6 @@
   .depot[data-survol="oui"]::after, .depot:hover::after { opacity: 1; }
   .depot:focus-within { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
   .depot input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-  .depot-bobine { grid-row: 1 / 4; }
-  .depot-bobine svg { width: 72px; height: auto; }
   .depot-mot { font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); line-height: 1.1; }
   .depot-sous { color: var(--legende); font-size: clamp(14px, 1.4vw, 17px); }
   .prises { display: flex; gap: 6px; margin-top: .4rem; }
@@ -89,7 +91,7 @@
   /* ── Une carte par fichier ──────────────────────────────────────── */
   .cartes { display: flex; flex-direction: column; gap: .7rem; }
   .carte {
-    display: grid; grid-template-columns: 64px 1fr; gap: 1.2rem; align-items: start;
+    display: grid; grid-template-columns: 1fr; gap: 1.2rem; align-items: start;
     padding: 1rem clamp(.9rem, 2vw, 1.5rem); background: var(--plaque);
     border-left: var(--barre-etat) solid var(--trait);
     animation: entre .28s cubic-bezier(.2, .7, .3, 1) both;
@@ -97,7 +99,6 @@
   }
   .carte[data-part="oui"] { opacity: 0; transform: translateX(24px); }
   @keyframes entre { from { opacity: 0; transform: translateY(10px); } }
-  .carte-bobine svg { width: 56px; height: auto; }
   .carte-corps { min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
   .carte-tete { display: flex; gap: 1rem; align-items: baseline; justify-content: space-between; }
   .carte-nom { margin: 0; font-weight: 700; font-size: clamp(17px, 1.8vw, 22px);
@@ -179,12 +180,11 @@
      Une personne par crochet. Sa fiche, à gauche, est en craie: elle
      prenait une des quatre couleurs de joueur, tirée de son adresse, alors
      que personne ici n'est à une place. Avec la clé, la fiche est enfoncée
-     dans le quai et pleine; sans, elle pend, creuse. Donner la clé: Bobine tamponne, la fiche s'enfonce, la ligne
-     passe de l'autre côté. Reprendre: Bobine tire, la fiche ressort. */
+     dans le quai et pleine; sans, elle pend, creuse. Donner la clé: la fiche s'enfonce, la ligne
+     passe de l'autre côté. Reprendre: la fiche ressort. */
   .cles { display: flex; flex-direction: column; gap: 1rem;
           border-top: 2px solid var(--trait); padding-top: 1.2rem; }
-  .cles-tete { display: grid; grid-template-columns: auto 1fr; gap: 1.2rem; align-items: center; }
-  .cles-bobine svg { width: 64px; height: auto; }
+  .cles-tete { display: block; }
   .cles h2 { margin: 0; font-weight: 700; font-size: clamp(22px, 2.6vw, 32px); line-height: 1.1; }
   .cles-sous { margin: .3rem 0 0; color: var(--legende); font-size: clamp(14px, 1.4vw, 17px);
                max-width: 64ch; }
@@ -240,19 +240,39 @@
 
   @media (max-width: 620px) {
     .depot { grid-template-columns: 1fr; }
-    .depot-bobine { grid-row: auto; }
     .carte { grid-template-columns: 1fr; }
-    .carte-bobine { display: none; }
     .carte-tete { flex-direction: column; }
     .resultat { grid-template-columns: 1fr; }
     .trousseau { grid-template-columns: 1fr; }
     .cles-tete { grid-template-columns: 1fr; }
-    .cles-bobine { display: none; }
     .personne { grid-template-columns: 22px 1fr; }
     .personne-geste { grid-column: 2; }
   }
   /* Rien ici n'a besoin de bouger pour être compris: la jauge garde sa
-     longueur, le tampon sa place, Bobine sa pose finale. */
+     longueur, le tampon sa place. */
+  /* ── Les jaquettes, pour l'administrateur (D13, ADR D45) ───────────── */
+  .jaquettes { display: flex; flex-direction: column; gap: .8rem;
+               border-top: 2px solid var(--trait); padding-top: 1.2rem; }
+  .jeux { margin: 0; padding: 0; list-style: none; display: grid; gap: .5rem; }
+  .jeu { display: grid; grid-template-columns: 56px 1fr auto auto; gap: .4rem .9rem; align-items: center;
+         padding: .5rem .7rem; background: var(--plaque); }
+  .jeu-image { width: 56px; height: 56px; object-fit: cover; grid-column: 1; }
+  .jeu-titre { margin: 0; grid-column: 2; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .jeu-console { font-weight: 400; color: var(--legende); }
+  .jeu-dit { margin: 0; grid-column: 2 / -1; color: var(--legende); }
+  .jeu-dit:empty { display: none; }
+  .bouton-cadre { display: inline-flex; align-items: center; min-height: 44px; padding: .3rem 1rem;
+                  font: inherit; font-family: var(--police-titre); cursor: pointer;
+                  color: var(--bouton-cadre-encre); background: transparent;
+                  border: 2px solid var(--bouton-cadre-trait); border-radius: var(--rayon); }
+  .bouton-cadre:focus-within { outline: var(--focus-largeur) solid var(--focus); outline-offset: 3px; }
+  /* Le champ de fichier reste au clavier, dans son étiquette qui sert de bouton. */
+  .cache-fichier { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  @media (max-width: 640px) {
+    .jeu { grid-template-columns: 56px 1fr; }
+    .jeu > label, .jeu > button { grid-column: 1 / -1; justify-self: start; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
@@ -260,10 +280,16 @@
 </head>
 <body>
   <main class="page">
-    <div class="rail">
+    <header class="entete">
       <a class="marque" data-hote="logo" href="/"><!--RETRO:LOGO--></a>
-      <span class="rail-fait">DEPOT DE JEUX</span>
-    </div>
+      <nav aria-label="Le salon">
+        <ul class="pages">
+          <li><a href="/">Les salles</a></li>
+          <li id="lien-carnet" hidden><a href="/profil">Ton carnet</a></li>
+          <li><a href="/importer" aria-current="page">Déposer un jeu</a></li>
+        </ul>
+      </nav>
+    </header>
 
     <h1>Déposer un jeu</h1>
     <p class="chapeau">
@@ -272,9 +298,8 @@
       entier, reconnaît la console, puis range le jeu dans la bibliothèque.
     </p>
 
-    <label class="depot" id="depot" for="fichiers" data-survol="non">
-      <span class="depot-bobine"><!--BOBINE:loupe:repos--></span>
-      <span class="depot-mot">Lâche tes fichiers ici</span>
+    <label class="depot" id="depot" for="fichiers" data-survol="non" data-ancre="depot">
+      <span class="depot-mot" data-ancre="depot-mot" data-texte>Lâche tes fichiers ici</span>
       <span class="depot-sous">ou clique pour les choisir. Les jeux /*__RANGEES__*/ sont rangés
         tout de suite; mises à jour, contenus additionnels et autres consoles restent de côté,
         avec la raison.</span>
@@ -294,7 +319,6 @@
 
     <section class="cles" id="cles" hidden aria-labelledby="cles-titre">
       <div class="cles-tete">
-        <span class="cles-bobine" id="cles-bobine"><!--BOBINE:tampon:repos--></span>
         <div>
           <h2 id="cles-titre">Qui peut déposer</h2>
           <p class="cles-sous">Les personnes qui ont accès au salon, d'après le tailnet et
@@ -316,6 +340,15 @@
       <p class="personne-dit" id="cles-dit" role="status" aria-live="polite"></p>
     </section>
 
+    <section class="jaquettes" id="jaquettes" hidden aria-labelledby="jaquettes-titre">
+      <h2 id="jaquettes-titre">Les jaquettes</h2>
+      <p class="cles-sous">L'image d'un jeu s'affiche sur sa borne, à l'accueil, et dans
+        le menu d'une salle. Dépose un PNG d'un Mio au plus : il passe avant la bannière
+        du disque, et une salle le montre à son prochain démarrage.</p>
+      <p class="cles-avis" id="jaquettes-avis" hidden></p>
+      <ul class="jeux" id="jeux"></ul>
+    </section>
+
     <p class="pied">
       Un envoi coupé reprend où il s'était arrêté: redépose le même fichier,
       même après avoir fermé la page. Après un dépôt, le bouton ouvre une salle,
@@ -326,11 +359,6 @@
 
   <template id="modele-carte">
     <article class="carte">
-      <div class="carte-bobine">
-        <span data-tenue="loupe"><!--BOBINE:loupe:loupe--></span>
-        <span data-tenue="tampon" hidden><!--BOBINE:tampon:salue--></span>
-        <span data-tenue="aucune" hidden><!--BOBINE:aucune:dort--></span>
-      </div>
       <div class="carte-corps">
         <div class="carte-tete">
           <p class="carte-nom" data-ici="nom"></p>

@@ -12,6 +12,7 @@
 //
 // `--rouge-attendu` est le contrôle négatif: chaque étape nommée doit échouer
 // sur son DÉFAUT, et non sur une précondition; les autres sont sautées.
+import { existsSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { demarrerSalon } from "./salon-banc.mjs";
 
@@ -334,6 +335,43 @@ ETAPES["carnet-320"] = async () => {
   }).map((el) => `${el.textContent.trim().slice(0, 30)} ${el.getBoundingClientRect().height.toFixed(0)} px`));
   defaut(petits.length === 0, `cibles de moins de 44 px dans le carnet: ${petits}`);
   await page.close();
+};
+
+ETAPES.depot = async () => {
+  const reglage = {
+    droits: { peut_importer: true, administrateur: true },
+    catalogue: { scanned_ms: 0, room: 1, games: [
+      { key: "Zelda: Wind Waker.iso", name: "The Legend of Zelda: The Wind Waker", console: "gc", art: false },
+      { key: "mk.iso", name: "Mario Kart Wii", console: "wii", art: false },
+    ] },
+  };
+  for (const vue of [ETROIT, PC]) {
+    const page = await nouvelle(vue, { reglage, chemin: "/importer" });
+    await page.waitForFunction(() => !document.getElementById("jaquettes").hidden, { timeout: 5000 })
+      .catch(() => { throw new Defaut("la rangée des jaquettes ne s'ouvre pas à l'administrateur"); });
+    const mesure = await page.evaluate(() => ({
+      large: document.scrollingElement.scrollWidth,
+      petits: [...document.querySelectorAll("#jaquettes label, #jaquettes button, .entete a")]
+        .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height < 44; })
+        .map((el) => el.textContent.trim().slice(0, 30)),
+      courant: document.querySelector('.pages a[aria-current="page"]')?.textContent,
+    }));
+    defaut(mesure.large <= vue.width, `le dépôt déborde à ${vue.width} px: ${mesure.large} px`);
+    defaut(mesure.petits.length === 0, `cibles de moins de 44 px au dépôt: ${mesure.petits}`);
+    defaut(mesure.courant === "Déposer un jeu", `page courante: ${mesure.courant}`);
+    if (vue === PC) {
+      const entree = await page.$("#jeux .jeu input[type=file]");
+      const fichier = new URL("../../front/public/favicon.png", import.meta.url).pathname;
+      await entree.uploadFile(existsSync(fichier) ? fichier : process.argv[1]);
+      await page.waitForFunction(() => document.querySelector("#jeux .jeu-dit")?.textContent !== "", { timeout: 3000 })
+        .catch(() => { throw new Defaut("déposer une image ne dit rien"); });
+      const dit = await page.$eval("#jeux .jeu-dit", (e) => e.textContent);
+      defaut(dit === "Image gardée.", `après le dépôt: ${dit}`);
+      defaut(banc.envois.length === 1 && banc.envois[0].art === "Zelda: Wind Waker.iso" && banc.envois[0].methode === "PUT"
+        && banc.envois[0].octets > 0, `PUT de l'image: ${JSON.stringify(banc.envois)}`);
+    }
+    await page.close();
+  }
 };
 
 // ── Le déroulé ───────────────────────────────────────────────────────────

@@ -18,6 +18,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from nel3ab_control.api.routes import retro
 from nel3ab_control.imports.empreinte import empreinte_rapide
 from nel3ab_control.imports.identifier import identifier
 from tests.imports import fabrique as f
@@ -37,12 +38,12 @@ async def test_la_page_de_depot_est_servie_garnie(client: httpx.AsyncClient) -> 
     assert reponse.headers["content-type"].startswith("text/html")
     page = reponse.text
     assert "Déposer un jeu" in page
-    assert page.count('class="bob"') == 5, (
-        "la zone, puis loupe, tampon et repos dans le modèle, puis le trousseau"
-    )
+    # Bobine est parti (ADR D41, 24 novembre 2026): Aïn joue dans le logo, et
+    # la zone de dépôt porte les ancres de ses scènes « depot » et « refus ».
+    assert 'class="bob"' not in page
+    assert 'data-ancre="depot"' in page and 'data-ancre="depot-mot"' in page
+    assert 'aria-current="page">Déposer un jeu' in page
     assert 'id="cles"' in page and 'id="modele-personne"' in page
-    assert 'data-pose="loupe"' in page
-    assert 'data-pose="salue"' in page
     assert "<!--BOBINE" not in page
     assert "/*__" not in page
     assert "@font-face" in page
@@ -72,6 +73,12 @@ def test_le_garde_des_adresses_css_voit_une_sortie_et_laisse_la_page() -> None:
 
 async def test_la_page_ne_demande_rien_a_un_autre_site(client: httpx.AsyncClient) -> None:
     page = (await client.get("/importer")).text
+    # Le paquet du salon (ADR D41) pose le filtre de l'écran bombé par
+    # `<feImage href="${carte}">`, où `carte` est une adresse `data:` calculée
+    # dans la page (`retro/calques.ts`): un motif ne peut pas lire une valeur
+    # de gabarit. Le paquet a sa provenance (`ain.SOURCES`); on lit le reste.
+    assert retro.piece("ain.js") in page
+    page = page.replace(retro.piece("ain.js"), "")
 
     assert not re.findall(r"""(?:src|href|action)\s*=\s*["'](?!/|#|data:)""", page)
     assert not URL_SORTANTE.findall(page)
@@ -100,7 +107,9 @@ async def test_l_accueil_ne_montre_le_lien_qu_apres_avoir_demande_les_droits(
     accueil = (await client.get("/")).text
 
     assert "/api/imports/droits" in accueil
-    assert re.search(r'<a[^>]*id="importer"[^>]*hidden', accueil), "caché par défaut"
+    assert re.search(r'<li id="lien-depot" hidden><a href="/importer">', accueil), (
+        "caché par défaut"
+    )
 
 
 def ecrire(dossier: Path, nom: str, octets: bytes) -> Path:
@@ -477,3 +486,56 @@ async def test_un_jeu_range_propose_de_jouer(client: httpx.AsyncClient) -> None:
     )
     module = MODULE.read_text(encoding="utf-8")
     assert 'this.ici("jouer").hidden = !range;' in module
+
+
+JAQUETTE = Path(__file__).with_name("jaquette_module.mjs")
+
+
+@AVEC_NODE
+async def test_une_jaquette_se_depose_et_se_retire_par_la_cle_du_jeu() -> None:
+    """D13: l'administrateur dépose le PNG lui-même, ou le retire (ADR D45).
+
+    La clé est encodée dans l'adresse; un refus du salon se dit en mots, jamais
+    comme un succès. Les jumeaux: chaque refus (413, 422, 404, 403, réseau).
+    """
+    cas = [
+        {"octets": [137, 80, 78, 71], "statut": 204},
+        {"octets": None, "statut": 204},
+        {"octets": [1, 2], "statut": 413, "detail": "l'image dépasse un Mio"},
+        {"octets": [1, 2], "statut": 422, "detail": "ce n'est pas un PNG"},
+        {"octets": [1, 2], "statut": 404, "detail": "ce jeu n'est pas dans la bibliothèque"},
+        {"octets": [1, 2], "statut": 403, "detail": "réservé"},
+        {"octets": [1, 2], "statut": 0},
+    ]
+    assert NODE is not None
+    with anyio.fail_after(30):
+        sortie = await anyio.run_process(
+            [NODE, str(JAQUETTE)], input=json.dumps(cas).encode(), check=False
+        )
+    assert sortie.returncode == 0, sortie.stderr.decode()
+    depose, retire, trop, refus, inconnu, interdit, coupe = json.loads(sortie.stdout)
+
+    assert depose["vue"] == {
+        "adresse": "/api/catalogue/art/Zelda%3A%20Wind%20Waker.iso",
+        "methode": "PUT",
+        "type": "image/png",
+        "octets": [137, 80, 78, 71],
+    }
+    assert depose["issue"] == {"art": True}
+    assert retire["vue"]["methode"] == "DELETE" and retire["vue"]["octets"] is None
+    assert retire["issue"] == {"art": False}
+    assert trop["issue"] == {"refus": "L'image dépasse un Mio."}
+    assert refus["issue"] == {"refus": "ce n'est pas un PNG"}
+    assert inconnu["issue"] == {"refus": "ce jeu n'est pas dans la bibliothèque"}
+    assert interdit["issue"] == {"refus": "Seul l'administrateur du salon change une image."}
+    assert coupe["issue"] == {"refus": "L'image n'a pas été gardée. Réessaie dans un instant."}
+
+
+async def test_la_rangee_des_jaquettes_attend_l_administrateur(client: httpx.AsyncClient) -> None:
+    """La section est cachée par défaut; la page ne l'ouvre qu'à l'administrateur."""
+    page = (await client.get("/importer")).text
+    assert re.search(r'<section class="jaquettes" id="jaquettes" hidden', page)
+    assert 'ouvrirJaquettes(document.getElementById("jaquettes"))' in page
+    # Le jumeau: l'appel vit dans la branche de l'administrateur, pas avant.
+    debut = page.index("if (droits.administrateur) {")
+    assert debut < page.index('ouvrirJaquettes(document.getElementById("jaquettes"))')

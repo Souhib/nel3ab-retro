@@ -148,7 +148,7 @@ salon-navigateur-rouge:
     done
     cd spikes/m3-browser-drive
     node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
-    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin

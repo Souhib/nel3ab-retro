@@ -200,12 +200,16 @@ export async function empreinteRapide(fichier) {
 // ── La page ───────────────────────────────────────────────────────────────
 
 const API = "/api/imports";
-const POSES = {
-  loupe: ["loupe", "loupe"],
-  range: ["tampon", "salue"],
-  reconnu: ["tampon", "repos"],
-  pause: ["aucune", "dort"],
-  rate: ["aucune", "essuie"],
+/** Les états d'une carte, et la scène d'Aïn que chacun demande (ADR D41).
+ * Une scène ne joue que pour une carte suivie dans cette page: les envois
+ * d'avant le rechargement se montrent sans que rien ne bouge. */
+const SCENES = { range: "depot", rate: "refus" };
+const ain = (quoi) => {
+  try {
+    globalThis.nel3abAin?.scene(quoi);
+  } catch {
+    // Le paquet du salon absent ou refusé: la page reste juste, sans scène.
+  }
 };
 const RETENTES = 8;
 
@@ -351,11 +355,9 @@ class Carte {
   }
 
   pose(nom) {
-    const [tenue, pose] = POSES[nom];
-    for (const dessin of this.noeud.querySelectorAll("[data-tenue]")) {
-      dessin.hidden = dessin.dataset.tenue !== tenue;
-      dessin.querySelector("svg")?.setAttribute("data-pose", pose);
-    }
+    if (this.noeud.dataset.pose === nom) return;
+    this.noeud.dataset.pose = nom;
+    if (this.suivie && SCENES[nom]) ain(SCENES[nom]);
   }
 
   dire(texteDit, alerte = false) {
@@ -396,6 +398,8 @@ class Carte {
   }
 
   async demarrer(fichier) {
+    // Une carte suivie dans cette page: son issue fait jouer Aïn.
+    this.suivie = true;
     this.fichier = fichier;
     this.ici("nom").textContent = fichier.name;
     this.ici("compte").textContent = octets(fichier.size);
@@ -713,11 +717,9 @@ class Trousseau {
     this.sans = racine.querySelector("#sans-cle");
     this.avis = racine.querySelector("#cles-avis");
     this.dit = racine.querySelector("#cles-dit");
-    this.bobine = racine.querySelector("#cles-bobine svg");
     this.modele = document.getElementById("modele-personne");
     this.lignes = new Map();
     this.ecrire = true;
-    this.minuteur = 0;
   }
 
   async ouvrir() {
@@ -787,14 +789,6 @@ class Trousseau {
     );
   }
 
-  /** Bobine joue une pose, puis revient au repos. */
-  jouer(pose, duree) {
-    if (!this.bobine) return;
-    clearTimeout(this.minuteur);
-    this.bobine.setAttribute("data-pose", pose);
-    this.minuteur = setTimeout(() => this.bobine.setAttribute("data-pose", "repos"), duree);
-  }
-
   async basculer(li) {
     const avant = li.personne;
     const donner = avant.droit === "aucun";
@@ -816,8 +810,6 @@ class Trousseau {
       return;
     }
     const apres = await lireJson(reponse);
-    this.jouer(donner ? "pousse" : "tire", donner ? 900 : 700);
-    if (donner) setTimeout(() => this.jouer("salue", 1000), 420);
     this.remplir(li, apres);
     const cible = this.colonneDe(apres);
     const toutes = [...this.avec.children, ...this.sans.children];
@@ -843,13 +835,117 @@ class Trousseau {
 
 const fantomes = new Map();
 
+// ── Les jaquettes (D13, ADR D45) ───────────────────────────────────────────
+
+/** Ce que la page dit d'un dépôt ou d'un retrait d'image refusé. */
+export function refusImage(statut, detail) {
+  if (statut === 413) return "L'image dépasse un Mio.";
+  if (statut === 401 || statut === 403) return "Seul l'administrateur du salon change une image.";
+  if (typeof detail === "string" && detail !== "") return detail;
+  return "L'image n'a pas été gardée. Réessaie dans un instant.";
+}
+
+/**
+ * Dépose (`octets`) ou retire (`null`) l'image d'un jeu, par sa clé (ADR D23).
+ * Rend `{ art }` quand le salon l'a fait, `{ refus }` sinon. Le corps est le
+ * PNG lui-même: le salon le vérifie, et refuse ce qu'une salle ne montrerait
+ * pas (422) ou ce qui dépasse un Mio (413).
+ */
+export async function changerImage(cle, octets, demander = fetch) {
+  const adresse = `/api/catalogue/art/${encodeURIComponent(cle)}`;
+  try {
+    const reponse = await demander(adresse, octets === null
+      ? { method: "DELETE" }
+      : { method: "PUT", headers: { "Content-Type": "image/png" }, body: octets });
+    if (reponse.ok) return { art: octets !== null };
+    const dit = await reponse.json().catch(() => ({}));
+    return { refus: refusImage(reponse.status, dit.detail) };
+  } catch {
+    return { refus: refusImage(0, null) };
+  }
+}
+
+/** La rangée des jeux, pour l'administrateur: chaque jeu, son image, et de
+ * quoi la changer. Une image s'affiche sur la borne de l'accueil et dans le
+ * menu d'une salle à son prochain démarrage. */
+async function ouvrirJaquettes(racine) {
+  const liste = racine.querySelector("#jeux");
+  const avis = racine.querySelector("#jaquettes-avis");
+  const reponse = await fetch("/api/catalogue", { cache: "no-store" });
+  if (!reponse.ok) {
+    avis.textContent = "Aucune salle n'a encore lu la bibliothèque : ouvre une salle une fois.";
+    avis.hidden = false;
+    racine.hidden = false;
+    return;
+  }
+  const { games } = await reponse.json();
+  const noms = nomsConsoles();
+  let version = 0;
+  for (const jeu of games) {
+    const li = document.createElement("li");
+    li.className = "jeu";
+    const image = document.createElement("img");
+    image.alt = "";
+    image.className = "jeu-image";
+    const montrer = (art) => {
+      image.hidden = !art;
+      if (art) image.src = `/api/catalogue/art/${encodeURIComponent(jeu.key)}?v=${(version += 1)}`;
+      retirer.hidden = !art;
+    };
+    const titre = document.createElement("p");
+    titre.className = "jeu-titre";
+    titre.textContent = jeu.name;
+    const console_ = document.createElement("span");
+    console_.className = "jeu-console";
+    console_.textContent = noms[jeu.console] ?? jeu.console;
+    titre.append(" ", console_);
+    const choisir = document.createElement("label");
+    choisir.className = "bouton-cadre";
+    choisir.textContent = "Déposer une image";
+    const entree = document.createElement("input");
+    entree.type = "file";
+    entree.accept = "image/png";
+    entree.className = "cache-fichier";
+    entree.setAttribute("aria-label", `Déposer une image pour ${jeu.name}`);
+    choisir.append(entree);
+    const retirer = document.createElement("button");
+    retirer.type = "button";
+    retirer.className = "bouton-cadre";
+    retirer.textContent = "Retirer l'image";
+    retirer.setAttribute("aria-label", `Retirer l'image de ${jeu.name}`);
+    const dit = document.createElement("p");
+    dit.className = "jeu-dit";
+    dit.setAttribute("role", "status");
+    const appliquer = async (octets) => {
+      const issue = await changerImage(jeu.key, octets);
+      if ("refus" in issue) {
+        dit.textContent = issue.refus;
+        ain("refus");
+        return;
+      }
+      dit.textContent = issue.art ? "Image gardée." : "Image retirée.";
+      montrer(issue.art);
+      if (issue.art) ain("depot");
+    };
+    entree.addEventListener("change", async () => {
+      const fichier = entree.files?.[0];
+      entree.value = "";
+      if (fichier) await appliquer(await fichier.arrayBuffer());
+    });
+    retirer.addEventListener("click", () => appliquer(null));
+    montrer(jeu.art);
+    li.append(image, titre, choisir, retirer, dit);
+    liste.append(li);
+  }
+  racine.hidden = false;
+}
+
 async function demarrerPage() {
   const liste = document.getElementById("cartes");
   const modele = document.getElementById("modele-carte");
   const zone = document.getElementById("depot");
   const entree = document.getElementById("fichiers");
   const refus = document.getElementById("refus");
-  const bobineZone = zone.querySelector("svg");
   let rang = 0;
 
   const droits = await fetch(`${API}/droits`, { cache: "no-store" }).then(lireJson);
@@ -861,6 +957,7 @@ async function demarrerPage() {
   // La liste ne s'ouvre que pour l'administrateur; l'API la refuse à tout autre.
   if (droits.administrateur) {
     new Trousseau(document.getElementById("cles")).ouvrir().catch(() => {});
+    ouvrirJaquettes(document.getElementById("jaquettes")).catch(() => {});
   }
 
   const deposer = (fichiers) => {
@@ -881,7 +978,6 @@ async function demarrerPage() {
     zone.addEventListener(type, (e) => {
       e.preventDefault();
       zone.dataset.survol = "oui";
-      bobineZone?.setAttribute("data-pose", "loupe");
     });
   }
   for (const type of ["dragleave", "drop"]) {
@@ -889,7 +985,6 @@ async function demarrerPage() {
       e.preventDefault();
       if (type === "dragleave" && zone.contains(e.relatedTarget)) return;
       zone.dataset.survol = "non";
-      bobineZone?.setAttribute("data-pose", "repos");
     });
   }
   zone.addEventListener("drop", (e) => deposer([...(e.dataTransfer?.files ?? [])]));

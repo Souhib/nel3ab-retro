@@ -43,6 +43,7 @@ export async function demarrerSalon({ port, pages = null }) {
       droits: { peut_importer: false },
       apres: null,
       carnet: null,
+      catalogue: null,
     });
     envois.length = 0;
   };
@@ -89,6 +90,13 @@ export async function demarrerSalon({ port, pages = null }) {
         return etat.carnet?.[cle] !== undefined ? json(res, 200, etat.carnet[cle]) : json(res, 401, { detail: "banc" });
       }
       if (chemin === "/api/imports/droits") return json(res, 200, etat.droits);
+      if (chemin === "/api/catalogue") return etat.catalogue ? json(res, 200, etat.catalogue) : json(res, 404, { detail: "banc" });
+      if (chemin.startsWith("/api/catalogue/art/") && (req.method === "PUT" || req.method === "DELETE")) {
+        envois.push({ art: decodeURIComponent(chemin.slice("/api/catalogue/art/".length)), methode: req.method, octets: corps.length });
+        res.writeHead(204);
+        res.end();
+        return;
+      }
       return json(res, 404, { detail: "absent du banc" });
     });
   });

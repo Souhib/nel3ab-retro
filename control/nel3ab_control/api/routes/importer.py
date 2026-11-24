@@ -6,9 +6,10 @@ demander de lancer un émulateur.
 
 Trois fichiers à côté, assemblés une fois au démarrage: le HTML, son module
 JavaScript (`importer.mjs`, qu'un essai exécute aussi sous Node pour comparer
-son estimation et son empreinte à celles du serveur), et Bobine, posé par
-`bobine.garnir`. Les polices sont celles de l'accueil, embarquées: la page ne
-fait aucune requête vers un autre site.
+son estimation et son empreinte à celles du serveur), et le thème rétro avec
+le paquet du salon (`retro.garnir`, Aïn dans le logo, ADR D41). Les polices
+sont celles de l'accueil, embarquées: la page ne fait aucune requête vers un
+autre site.
 """
 
 import html
@@ -18,7 +19,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-from nel3ab_control.api.routes import bobine, retro
+from nel3ab_control.api.routes import retro
 from nel3ab_control.api.routes.accueil import faces, regie
 from nel3ab_control.imports.destinations import noms
 from nel3ab_control.imports.traitement import rangees
@@ -46,22 +47,20 @@ def noms_en_json(lus: dict[str, str]) -> str:
 
 
 def assembler() -> str:
-    """La page complète: polices, Bobine, ce que dit le manifeste, puis le module en dernier.
+    """La page complète: polices, thème, ce que dit le manifeste, puis le module en dernier.
 
     Ce qui se range tout de suite et le nom de chaque console viennent du
     manifeste et des règles de l'import (`traitement.rangees`,
     `destinations.noms`): écrits à la main dans la page, ils avaient oublié la
     Xbox 360 rangée par l'import depuis le 21 novembre 2026.
 
-    Le module est posé APRÈS `garnir`: une marque `<!--BOBINE:…-->` écrite dans
-    une chaîne du script serait sinon remplacée par un dessin.
+    Le module est posé APRÈS `garnir`: une marque du thème écrite dans une
+    chaîne du script serait sinon remplacée par sa pièce.
     """
     page = (DOSSIER / "importer.html").read_text(encoding="utf-8")
     page = page.replace("/*__RANGEES__*/", html.escape(enumerer(rangees())))
     page = page.replace("/*__CONSOLES__*/", noms_en_json(noms()))
-    page = retro.garnir(
-        bobine.garnir(page.replace("/*__POLICES__*/", faces()).replace("/*__REGIE__*/", regie()))
-    )
+    page = retro.garnir(page.replace("/*__POLICES__*/", faces()).replace("/*__REGIE__*/", regie()))
     return page.replace("/*__SCRIPT__*/", SCRIPT.read_text(encoding="utf-8"))
 
 

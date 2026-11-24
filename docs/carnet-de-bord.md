@@ -32734,6 +32734,161 @@ chantier tenait : ses deux commandes, lancées telles quelles sur le port
   ne laisse plus aucune image. C'est un défaut d'avant ce passage, remonté
   à part : `etiquette-travers` n'essaie pas cette taille en Xbox 360.
 
+### 24 novembre, la nuit : la vague B2 sur la branche d'intégration
+
+**Le contexte.** Quatre chantiers ont fini un passage relu : « états »
+(l'état quitte l'image), « salon » (les pages du salon et les écrans
+d'entrée), « menus » (un seul menu, dans la colonne) et la suite de la
+salle (ta place lisible tenue en main, le temps de jeu). Tous partent du
+même commit d'`integration/retro`, celui de la vague B1 (87bc2b3). On les
+réunit sur cette branche, dans le worktree
+`~/nel3ab-chantiers/retro-integration`, dans l'ordre demandé : états,
+salon, menus, salle. Chaque fusion a son commit de fusion, puis la page
+reconstruite par `just front-build` dans un commit à part. Rien ne va dans
+`main`, rien n'est poussé ni installé.
+
+**Une répétition avant chaque fusion.** Les trois fusions qui ont des
+conflits ont d'abord été jouées dans une copie du dépôt gardée hors de
+l'arbre de travail (`git clone --shared` : elle lit les objets du dépôt
+sans y écrire). Chaque bloc en conflit y reçoit un mode écrit dans un
+script : l'union des deux côtés, un seul côté, ou un texte préparé. Les
+mêmes scripts ont ensuite résolu la vraie fusion, et le résultat a été
+comparé fichier par fichier à la répétition. Une vérification lit chaque
+fichier résolu dans les deux sens : aucune ligne ajoutée par un côté n'est
+perdue, et aucune n'apparaît plus de fois que les deux côtés ensemble ne
+l'ont écrite.
+
+**Le piège du style diff3.** Git peut écrire un conflit de deux façons.
+Le style ordinaire ne garde dans le bloc que ce qui diffère. Le style
+diff3 garde aussi la base, et laisse dans chaque côté les lignes qu'ils
+ont en commun. Pour lire un conflit, diff3 est meilleur. Pour une union,
+il est faux : la première résolution du salon a recopié deux fois le
+`},` qui ferme une étape de `etats.mjs`, et `node --check` a refusé le
+fichier. Le carnet et `mots.ts` avaient aussi une ligne vide de trop. Les
+unions de texte passent donc par le style ordinaire, et diff3 ne sert qu'à
+lire, ou à remplacer un bloc entier.
+
+**États, sans conflit.** L'arbre fusionné est celui de la branche, octet
+pour octet : 285 884 octets en brotli.
+
+**Le salon, sept conflits.** L'ADR (D40 puis D41), le carnet et `mots.ts`
+(le bloc des états puis celui du salon) prennent l'union. Dans `etats.mjs`,
+les deux chantiers ajoutaient leurs étapes au même endroit ; la première
+série a reçu le `},` qui la referme. Dans le justfile,
+`etats-navigateur-rouge` garde la page 03b21c0 des états et la page
+cb0909b du salon, et leurs deux blocs. Page : 285 632 octets.
+
+**Les menus, vingt-deux conflits.** La plupart se résolvent seuls une fois
+lus : chacun des deux côtés retirait sa part d'un même bloc. Le salon
+retirait les dessins de l'écran d'entrée (`LOBBIES`) et les câbles
+animés d'`index.css`, les menus retiraient les trois formes du menu
+(`SHELLS`) et leurs animations : les deux retraits tiennent, et la règle
+« moins d'animation » restée vide part avec son commentaire. Dans
+`App.tsx`, la fiche d'état et le chargement portent tous deux Signaler :
+la colonne cache le sien quand l'un ou l'autre le porte, comme menus
+l'avait annoncé. La colonne d'une salle fermée (« Ce soir », la colonne
+au passé) entre dans le bloc que menus cache quand le menu prend la
+colonne.
+
+**Une phrase écrite deux fois.** La partition disait : menus demande les
+phrases du chargement, états les écrit. Les deux chantiers sont partis du
+même commit, et chacun a écrit la sienne dans `liaison-mots.ts`, le
+fichier des états. Celle des états a la forme convenue (qui peut
+relancer : « moi », un nom, ou personne). Celle des menus sait une chose
+que celle des états ignorait : depuis le passage des menus, le salon
+mesure l'habitude de chaque jeu, et l'écran de chargement attend son 90e
+centile avant de dire que c'est long. Avec la seule phrase des états, la
+ligne parlée aurait dit « depuis 20 s » à un joueur dont l'écran attendait
+35 s. La fusion garde la forme des états et y fait entrer la mesure des
+menus : « d'habitude » seulement quand l'habitude est mesurée, sinon le
+seuil que l'écran a franchi. Deux essais des menus, réécrits avec les
+mots des états, étaient rouges sur la phrase des états seule (20 s au lieu
+de 35, pas d'habitude), et verts après. Un troisième essai, fusionné sans
+conflit de texte, demandait « depuis 20 s » à une ligne qui avait mesuré
+son habitude : il suit maintenant la règle. Ce qui n'est pas repris : la
+phrase des menus ajoutait « ou choisir un autre jeu » pour qui peut
+relancer. Les mots sont ceux des états, propriétaires du fichier ; si ce
+geste doit se dire, c'est à eux.
+
+**La salle, huit conflits de texte et trois autres.** Le justfile et
+`CLAUDE.md` mettent `cadre-navigateur` dans `local` après le salon, dans
+l'ordre de fusion. Trois fautes n'ont pas fait de conflit de texte, et
+seuls `tsc` et les essais les ont vues. `Etiquette` était importé deux
+fois. `pastille` nommait, dans la salle, à la fois la fonction de
+`mots.ts` qui écrit « 1P » (lue par l'étiquette de la salle) et la
+pastille d'état des états : la fonction est importée sous un autre nom.
+Surtout, la salle a remplacé le rectangle de l'étiquette
+(`etiquetteManette`) par un lieu (`etiquette`, à côté, dans la fente ou
+dans la bande), et le menu lisait l'ancien champ : couché, il serait tombé
+sur une erreur à l'ouverture. Quatre essais de `menu.test.ts` l'ont dit.
+Le menu évite maintenant l'étiquette posée à côté de l'image, le cas que
+décrivait l'ancien champ, et un mutant qui l'ignore rougit le balayage
+couché.
+
+**Ce que les preuves ont montré.** Après chaque fusion, `just check` et
+les preuves navigateur que la fusion touche ont tourné.
+
+- `invitation` (« Copier le lien » sous le pied collé, vague B1) est
+  verte depuis la fusion de la salle, qui fait défiler dans la vue le
+  panneau qu'un bouton déplie.
+- `colonne-stable` (états) reste rouge : à 1440 × 900, le panneau de
+  commande passe de « sous » à « colonne » à la première image 4:3
+  (`panneauAuBureau`, un fichier de la salle). La salle ne l'a pas
+  touché ; c'est dit par le chantier états, et à trancher.
+- `mascotte-hors-image` (cadre) reste sur sa précondition, comme à la
+  vague B1.
+- Un rouge nouveau, `arrivee-sans-image` (états), dès la fusion du salon.
+  L'étape clique « Entrer », attend 15 s, et veut voir « Réessayer » :
+  la limite de l'arrivée est aussi de 15 s. Le salon entre maintenant
+  par une transition, qui lance l'entrée en son milieu : l'arrivée
+  commence 0,5 s après le clic. Mesuré dans une copie du pilote qui lit
+  l'état chaque 2 s : 4 501 ms d'arrivée 5 s après le clic sur la page
+  fusionnée, 5 001 ms sur la page des états seule ; « Réessayer » vient
+  à 15,5 s du clic. La page fait ce que D40 dit ; c'est l'horloge de
+  l'étape qui part du mauvais instant, et elle n'avait aucune marge même
+  avant. Le remède, partir de l'apparition du plein cadre et garder une
+  marge, appartient au chantier états.
+
+**Le poids.** 279 647 octets en brotli, 20 353 sous le plafond de 300 000.
+Depuis la base de la vague (281 760) : +4 124 à la fusion des états
+(285 884), −252 au salon (285 632), −7 206 aux menus (278 426), qui
+retirent les trois anciens menus, +1 221 à la salle (279 647). Une
+reconstruction change de quelques centaines d'octets d'une fois à l'autre :
+ce sont des ordres de grandeur. Bobine n'est plus importée par aucun
+fichier de la page, et n'est plus dans la page construite ; seul un essai
+lit encore sa feuille. Son retrait est au rang 10 de la partition, et ne
+fera rien gagner à la page. Les anciens dialogues des touches
+(`Bindings.tsx`, la partie réglage de `SwitchBindings.tsx`) restent : leur
+retrait est aux manettes.
+
+**Les portes, sur la page finale.** Sur 4ecbc23, dont la page fait
+279 647 octets (sha256 355a09f5…, lu en tête des journaux des pilotes).
+`just check` est vert : 1 358 essais Python, 183 fichiers et 2 377 essais
+de la page. `focus-navigateur` (36 étapes), `parcours-navigateur` (38),
+`salle-telephone` (126 lignes), `manette-garde` (41 lignes),
+`salon-navigateur` (30 étapes) et `reglage-navigateur` (9) sont verts.
+`etats-navigateur` est rouge sur `arrivee-sans-image` ; lancées toutes,
+ses 33 étapes en donnent 31 vertes et deux rouges, `arrivee-sans-image` et
+`colonne-stable`. `cadre-navigateur` est rouge sur la précondition de
+`mascotte-hors-image` ; lancées à part, `ain-immobile` tombe comme à la
+vague B1 (100 appels en 2 s), et les cinq suivantes passent. Les
+contrôles rouges `etats-navigateur-rouge`, `parcours-navigateur-rouge`,
+`cadre-navigateur-rouge`, `salon-navigateur-rouge` et
+`reglage-navigateur-rouge` tombent sur leurs défauts nommés.
+`focus-navigateur-rouge` est tombé une fois sur une précondition
+(`menu-en-colonne` sur la page 03b21c0 : « la page n'envoie aucune trame »,
+après 9,4 s) ; relancé seul, il passe, et l'étape seule rougit deux fois
+sur son défaut (« à 1280 px, le menu est encore un dialogue »). Cause non
+établie : une instabilité, pas une preuve.
+
+**Ce qui n'est pas prouvé.** La porte entière n'a pas tourné : `gpu-test`,
+`clip-audio-test`, `switch-saves-test`, `switch-capture-test`,
+`xbox360-test`, `abri-test` et `deploy-check` attendent l'intégration
+finale, et `deploy-check` restera rouge tant que la configuration de Caddy
+du salon (K39) n'est pas installée. `avertissement-fermeture.mjs` demande
+un worker construit et une ROM. Aucun worker n'est reconstruit ni
+installé, et aucune vraie salle n'a servi la page.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -34717,3 +34872,9 @@ allumés ou éteints, qui ouvre la salle. Ta place ne s'y distingue pas.
 **Range** : l'objet du navigateur qui désigne un morceau de la page. Il
 donne les rectangles où son texte est vraiment peint, même quand ce texte
 déborde de la boîte de son élément.
+
+**Style diff3 (d'un conflit)** : une façon d'écrire un conflit de fusion
+qui montre, en plus des deux côtés, le texte de la base d'où ils sont
+partis. Chaque côté y garde les lignes qu'il a en commun avec l'autre :
+c'est utile pour lire, mais une union faite sur ce style recopie ces
+lignes deux fois.

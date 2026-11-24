@@ -513,6 +513,29 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, la nuit : la vague B2 sur `integration/retro`.** États,
+salon, menus et la suite de la salle sont réunis sur la branche
+d'intégration, dans cet ordre, chacun par un commit de fusion suivi de la
+page reconstruite ; rien dans `main`, rien de poussé ni d'installé. États
+s'est fusionné sans conflit. Le salon a apporté sept conflits de texte, les
+menus vingt-deux, la salle huit ; chacun a d'abord été résolu dans une
+copie du dépôt, puis vérifié : aucune ligne d'aucun côté perdue, aucune
+doublée. Quatre conflits sans conflit de texte sont corrigés dans les
+commits de fusion : la phrase parlée du chargement, écrite par les deux
+chantiers (la forme des états, la mesure d'habitude et le seuil des menus,
+D40 amendée), l'import double d'`Etiquette`, le nom `pastille` pris deux
+fois dans la salle, et le menu qui lisait l'ancien rectangle de l'étiquette
+(`etiquetteManette`, D30 amendée). `salon-navigateur`, son contrôle rouge et
+`cadre-navigateur` entrent dans la porte `local`. Page : 279 647 octets en
+brotli, 20 353 sous le plafond ; les trois anciens menus sont retirés, et
+Bobine n'est plus dans la page. `invitation` est verte depuis la fusion de
+la salle. Restent rouges : `colonne-stable` (le panneau du bureau change
+de place à la première image 4:3, à la salle), `arrivee-sans-image` (une
+étape des états qui part du clic, alors que l'arrivée part 0,5 s plus tard
+derrière la transition d'entrée du salon) et `mascotte-hors-image` (sa
+précondition, depuis la vague B1). Récit : « 24 novembre, la nuit : la
+vague B2 sur la branche d'intégration ».
+
 **Au 24 novembre : le chantier salon, premier passage.** Sur
 `chantier/retro-salon`, partie d'`integration/retro` (87bc2b3), dans
 `~/nel3ab-chantiers/retro-salon`. Rien dans `main`, rien poussé ni installé.

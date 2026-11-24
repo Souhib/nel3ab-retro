@@ -469,6 +469,19 @@ machine".
   it at the start of its window as well as at the end. An end-of-file union
   can also leave a block open: git took the two `});` that ended both
   `describe` blocks out of the conflict as a shared tail.
+- **A timed step starts its clock at what it waits for.** On 2026-11-24,
+  `arrivee-sans-image` clicked « Entrer », waited 15 s, and expected the
+  lost-arrival gestures, whose limit is 15 s of arrival. The lobby then
+  entered through a transition that starts the room half a second after
+  the click, and the merged page went red while doing what ADR D40 says.
+  Start the clock from the observed event and keep a margin from the
+  threshold.
+- **A function asked of another workstream may come back written twice.**
+  The same day, states and menus both wrote the spoken loading sentence
+  from the same base. Only the menus one knew the measured start habit,
+  so the states one would have said « 20 s » to a player whose screen
+  waited 35. At the merge, keep the owner's form, carry in what the other
+  side measures, and run both sides' tests on the merged body.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that

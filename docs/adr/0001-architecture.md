@@ -1539,6 +1539,16 @@ reviewed page cd2d5b3 in `just focus-navigateur-rouge`; `fiche-a-cote` in
 `just parcours-navigateur`; the menu of `salle-telephone` now also opens on a
 16:9 picture.
 
+**Amended 2026-11-24, at the wave B2 integration: the label the menu avoids.**
+The room workstream replaced `Geometrie.etiquetteManette` (a rectangle under
+« La salle ») with `Geometrie.etiquette: LieuEtiquette | null`, where only
+the `cote` place carries a rectangle (`fente` lives in the pad, `bande` at
+the head of the band). `placeDuMenu` read the old field and threw on
+`undefined` when the menu opened lying down; four `menu.test.ts` tests went
+red at the merge. The menu now avoids the `cote` rectangle, the case the old
+field described; a mutant that ignores it turns the lying-down sweep red.
+Whether the menu may cover the label in the band is not measured.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),
@@ -2549,6 +2559,19 @@ the state. `colonne-stable` stays red (`panneauAuBureau`, a room file that
 the room's track decides where the panel goes. Weight: 285 884 bytes brotli
 (+344 on the fourth pass: +64 for the three screen fixes, +280 for the
 extraction and the past-tense seats).
+
+**Amended 2026-11-24, at the wave B2 integration: one loading sentence.**
+Both this workstream and the menus workstream had written the spoken
+loading sentence, from the same base. The merge keeps this entry's form
+(`phraseDemarrage` in `lib/liaison-mots.ts`, `relance` as `"moi"`,
+`{ nom }` or `null`) and carries in what menus measures: `habitude` (the
+lobby's measured start habit, D05) and `seuilS` (the threshold the loading
+screen crossed, `seuilLong`: the game's 90th percentile when measured,
+20 s otherwise). Without them the spoken line said « depuis 20 s » while the
+screen waited for the measured threshold. « d'habitude » is said only when
+the habit is measured. The room passes `relance: canClose ? "moi" : boss ?
+{ nom } : null`. Two menus tests, rewritten to these words, were red on this
+entry's body alone (20 s instead of 35, no habit) before the merge.
 
 ### D41: The room's entry screens and the lobby's return address, 2026-11-24
 

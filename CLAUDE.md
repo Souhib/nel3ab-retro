@@ -444,6 +444,12 @@ machine".
   `content-visibility`): on 2026-11-23 the mascot's planner took a folded
   microphone button for an obstacle on the logo and refused every scene.
   Code that reads obstacles skips that content, as the probes already did.
+- **Start a clock before the gesture it times.** On 2026-11-24,
+  `focus-navigateur-rouge` fell on a precondition one run in three. The
+  bench logs a frame only when its buttons change, and the old page sent its
+  one frame 4 to 12 ms after the click returned; the driver read the clock
+  after the click, and a loaded machine delayed that read past the frame. A
+  slow driver must not move the start of what it measures.
 - **Read what was done, not what was asked.** On 2026-11-23, `jouer()`
   returned the version a caller ASKED for; the mascot's board driver reported
   every black-screen scene complete while half fell back. The logo now

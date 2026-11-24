@@ -32938,6 +32938,40 @@ appels : `just focus-navigateur-rouge --port 5561` lance tous ses blocs
 sur 5561. Le journal de chaque pilote écrit son port en tête, à côté de
 l'empreinte de la page servie.
 
+**`focus-navigateur-rouge`, une fois sur trois.** Pendant la vague B2,
+ce contrôle rouge est tombé une fois sur une précondition au lieu du
+défaut attendu : l'étape `menu-en-colonne`, sur la page de `main`
+(03b21c0), disait « la page n'envoie aucune trame : elle ne tient pas de
+place », après 9,4 s. Relancée, elle rougissait comme il faut, sur son
+défaut (« à 1280 px, le menu est encore un dialogue »). Une porte qui
+rougit sans raison est une porte qu'on apprend à sauter : il fallait la
+cause.
+
+Pour savoir si la page tient une place, le pilote attend une trame de
+manette reçue par le banc après l'entrée dans la salle. Mais le banc ne
+note une trame que quand ses boutons changent : la page en envoie une
+toutes les 4 ms, presque toutes identiques, et les noter toutes ne dirait
+rien de plus. Au repos, la seule trame notée est donc la première. Une
+copie du pilote, hors du dépôt, a mesuré quinze entrées sur la page de
+`main`, sur cette machine chargée (charge 63) : la première trame arrive
+de 4 à 12 ms après que le clic sur « Entrer » rend la main au pilote, et
+c'est la seule notée. Or le pilote lisait l'horloge APRÈS le clic. Il
+tourne dans une boucle d'événements : un seul fil, qui exécute ses tâches
+l'une après l'autre, et sur une machine occupée la suite du clic peut
+attendre son tour plus de 12 ms. L'horloge partait alors après la seule
+trame, et l'étape n'en voyait aucune. Les pages nouvelles ne montrent pas
+ce défaut : elles entrent par la transition du salon, qui retarde
+l'arrivée d'une demi-seconde.
+
+La preuve par le défaut réintroduit : la même copie, arrêtée 50 ms après
+le clic, tombe deux fois de suite sur la précondition, en 9 408 et
+9 410 ms, le message et la durée de la vague B2. La correction fait partir
+l'horloge avant le geste d'entrée. Avec elle, la copie arrêtée 50 ms, puis
+500 ms, rougit sur le défaut de l'étape. Le jumeau : une page à qui le
+banc ne donne aucune place (un spectateur) tombe toujours sur la
+précondition, sur la page de `main` comme sur la page actuelle. La garde
+garde, elle ne dépend plus de la vitesse du pilote.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

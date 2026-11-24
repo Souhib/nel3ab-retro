@@ -162,6 +162,16 @@ const peintes = (page) => page.evaluate(() => globalThis.nel3abTest?.counters?.(
 /** Entre dans la salle. `clavier`: par Entrée sur le bouton, sans aucun clic,
  * comme une personne qui n'a pas touché la souris. */
 async function entrer(page, { clavier = false, depuis = null } = {}) {
+  // `depuis`: une page entrée seule au chargement a pu envoyer sa première
+  // trame avant cet appel; on compte depuis le rechargement. Sinon on compte
+  // depuis AVANT le geste d'entrée. Le banc ne note une trame que quand ses
+  // boutons changent, et une page sans transition d'entrée (celle de main,
+  // 03b21c0) envoie sa première trame, la seule, 4 à 12 ms après le retour
+  // du clic (quinze entrées mesurées le 24 novembre 2026, charge 63). Une
+  // horloge partie après le clic la manquait dès que le pilote prenait la
+  // main plus tard que ça, et l'étape tombait sur « aucune trame » au lieu
+  // de son défaut : une fois sur trois dans `focus-navigateur-rouge`.
+  const debut = depuis ?? Date.now();
   // Depuis le 22 novembre 2026, l'adresse porte l'entrée (`?entrer=jouer`,
   // audit P9): un rechargement revient dans la salle sans repasser par
   // l'avant-salle. On ne passe la porte que s'il y en a une.
@@ -171,9 +181,6 @@ async function entrer(page, { clavier = false, depuis = null } = {}) {
       await page.keyboard.press("Enter");
     } else await page.click("#enter");
   }
-  // `depuis`: une page entrée seule au chargement a pu envoyer sa première
-  // trame avant cet appel; on compte depuis le rechargement.
-  const debut = depuis ?? Date.now();
   while ((await peintes(page)) < 30) {
     if (Date.now() - debut > 20000) throw new Precondition("la page n'a pas peint 30 images en 20 s");
     await sleep(100);

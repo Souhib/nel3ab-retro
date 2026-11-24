@@ -908,8 +908,11 @@ export const OUVERTURE = {
  * Des tables plates, une par page: la garde de la charte ne lit que les
  * chaînes posées directement dans une constante en capitales. */
 
-/** L'en-tête commun des trois pages (`retro/bandeau.html`). */
+/** L'en-tête commun des trois pages (`retro/bandeau.html`). `logo` est le
+ * nom du lien du logo: Aïn peint, le logo statique est caché et sa toile
+ * muette, et le lien ne tirait plus son nom de rien. */
 export const SALON_ENTETE = {
+  logo: "nel3ab, les salles",
   pages: "Les pages",
   salles: "Les salles",
   carnet: "Ton carnet",

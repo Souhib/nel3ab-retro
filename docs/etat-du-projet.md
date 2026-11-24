@@ -456,6 +456,32 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, plus tard dans la nuit : le chantier menus, quatrième
+passage.** Sur la même branche, rien dans `main`, rien de poussé ni
+d'installé. Livré :
+
+- **Le chargement** (`components/Booting.tsx`, `chargement.css`,
+  `lib/booting.ts`) : trois cases en pixels avec leur compteur, « Aucune
+  image en 1 min 02 » ; « Arrêter le lancement » et « Choisir un autre jeu »
+  pour qui choisit, Signaler pour tous, la colonne cachant alors le sien ;
+  « Sur ta sauvegarde. » ou l'étiquette de qui a lancé ; la ligne parlée
+  nomme le jeu ; la mire fixe, une barre par seconde au niveau « tout » ;
+  le tube sous la plaque du texte. « arrêter d'attendre » est retiré.
+- **La rubrique Salle** construite hors d'`App.tsx` (`lignesSalle`) :
+  « [Bo] choisit le jeu. » en tête avec l'étiquette, Signaler en ligne au
+  bureau quand le menu remplace la colonne.
+- **Les pilotes** : etats (`chargement-annonces`, `clip-chargement`,
+  `mire-charge`, `chargement-paysage`), parcours (`lanceur-ma-sauvegarde`
+  réécrit, `arrivee-sans-chargement`, `menu-salle`), focus (`pastilles`).
+
+Page : 276 156 octets en brotli 11 (1 619 de plus). Récit : « 24 novembre,
+plus tard dans la nuit : le chargement en cases, la rubrique Salle ».
+Reste au chantier : PRÊT ou CHOISIT… sur les START (avec personnes), la
+scène « fier » (à trancher avec la mascotte), la neige « coupure » (avec
+les états), la fiche à côté des rangées au bureau, `garde-focus`, le menu
+à 320 px au niveau « tout », `save-options.mjs` depuis le rayonnage, et le
+retrait de `Bindings` avec le chantier des manettes.
+
 **Au 24 novembre, la nuit : le chantier menus, troisième passage.** Sur
 la même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
 

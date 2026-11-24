@@ -1405,6 +1405,42 @@ Deferred: the sheet already carries the column, and the band keeps the pad
 mounted. `Bindings` and `SwitchBindings` are no longer mounted by the room;
 their removal belongs to the controllers workstream.
 
+#### D30 addendum, 2026-11-24 late night: the loading screen and the room section
+
+1. **Loading steps** are three 22 px pixel boxes computed by
+   `etapesAffichees` (`lib/booting.ts`): done, in progress with a counter
+   written by the socle's digit display outside React, to come, unknown
+   (« ? ») past the long-wait threshold, and failed (« ✕ ») when no picture
+   came. A done box never goes back.
+2. **Loading gestures depend on the role** (`gestesDuChargement`): none
+   during a normal wait; past the threshold, whoever chooses the game can
+   stop the launch (`closeGame` on the requested index), and, without a
+   picture, choose another game; everyone can report. The report button is
+   the people workstream's `Signaler`, and the column hides its own while
+   the loading screen carries one (K25: never two on screen). « arrêter
+   d'attendre », which removed the screen without stopping anything, is gone.
+3. **Who launched, on which save** (`sauvegardeDuLancement`): the launcher
+   reads « Sur ta sauvegarde. », others read the launcher's typed label at
+   their seat's colour, and an unknown launcher falls back to the lobby's
+   words without a label. The spoken line names the game and the crossed
+   threshold; the counter never speaks.
+4. **The start-up test card** is visible at every level, static; at
+   « tout » one bar lights at a time, one step per second (K14), overriding
+   the socle's 0.3 s offsets in `components/chargement.css`. The socle's
+   tube layers sit inside `#booting`, under an opaque text plate.
+5. **The room section** is built by `lignesSalle` (`lib/rubriques.ts`). Its
+   head says who chooses the game with their label (`Rubrique.tete`). On a
+   desktop the menu replaces the column's ranks, so `Signaler` becomes a
+   line of the section (a « composant » line, the same component); a
+   hand-held room or a speaking loading screen does not repeat it.
+
+Weighed: a separate `RubriqueSalle` component, as the plan proposed. A pure
+function of lines keeps the section testable without React, like the
+controllers section, and the menu renders both the same way. Deferred: the
+« coupure » snow on a game change waits for the states workstream's snow;
+the « fier » scene for « all ready » is not in this workstream's arbiter
+list, so « pret » in « tous » mode stays.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),

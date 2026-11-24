@@ -31259,6 +31259,95 @@ préparation ne se dit qu'en ouvrant la feuille. Les boutons START ne disent
 pas encore « PRÊT » ou « CHOISIT… » par place (la fonction existe,
 `etatParPlace`, la rangée des places appartient au chantier personnes).
 
+### 24 novembre, plus tard dans la nuit : le chargement en cases, la rubrique Salle
+
+Quatrième passage du chantier menus. Deux écrans changent : celui du
+chargement, quand la salle change de jeu, et la rubrique Salle du menu.
+
+**Le chargement.** Les trois étapes (« La salle a reçu la demande », « Le
+jeu démarre », « Première image ») deviennent trois **cases** de 22 px
+dessinées en pixels : cochée quand l'étape est faite, en pointillé avec un
+compteur de secondes quand elle est en cours, vide quand elle est à venir.
+Passé le seuil d'une attente longue, la case en cours devient un point
+d'interrogation : la page ne sait plus si l'étape avance, et le dit. Sans
+image au bout d'une minute, la dernière case devient une croix, et l'écran
+dit « Aucune image en 1 min 02 ». La règle d'avant reste : une case faite
+ne recule jamais. Le compteur est écrit par l'afficheur de chiffres du
+socle, hors de React ; au niveau « tout », ses chiffres roulent.
+
+Les gestes dépendent du rôle. Rien pendant une attente normale : une
+dizaine de secondes de noir est normale, et un bouton d'annulation ferait
+croire à une panne. Passé le seuil, qui choisit le jeu peut « Arrêter le
+lancement », qui ferme le jeu demandé ; sans image, il peut « Choisir un
+autre jeu ». Les autres lisent « Sami peut le relancer ou choisir un autre
+jeu. ». Tout le monde peut signaler, avec le bouton Signaler du chantier
+personnes, posé tel quel. Pendant ce temps la colonne cache le sien : une
+règle de la partition (K25) dit qu'il n'y en a jamais deux à l'écran.
+L'ancien bouton « arrêter d'attendre », qui retirait l'écran sans rien
+arrêter dans la salle, disparaît, et la ligne parlée ne le propose plus.
+
+L'écran dit sur quoi on joue et qui l'a lancé : « Sur ta sauvegarde. » à
+qui a lancé ; aux autres, l'**étiquette** de Sami (son nom tapé à la
+couleur de sa place) suivie de « l'a lancé sur sa sauvegarde. ». Quand la
+page ne sait pas qui (un salon d'avant, ou Sami n'a plus de place), elle
+recopie le mot du salon, sans étiquette : une étiquette devinée serait
+pire. La ligne parlée nomme le jeu : « Chantier Royal démarre. », puis
+« Chantier Royal démarre encore, depuis 20 s. ». Le « 20 s » est le seuil
+franchi, pas l'attente du moment : une phrase qui changerait chaque seconde
+serait relue chaque seconde par un lecteur d'écran.
+
+La **mire** du démarrage, sept barres de couleur, se voit maintenant à tous
+les niveaux, fixe. Au niveau « tout », une seule barre s'allume à la fois
+et avance d'une barre par seconde. La page des effets les décalait de
+0,3 s, ce qui faisait clignoter l'écran trois fois par seconde ; la
+partition fixe un pas par seconde au plus (K14). Le **tube** du socle
+(lignes de balayage, coins assombris, bande qui roule) se pose dans
+l'écran de chargement, sous une plaque de fond plein qui porte le texte.
+
+**La rubrique Salle.** Au bureau, le menu s'ouvre à la place des rangs de
+la colonne, et la phrase « Bo choisit le jeu. » partait avec eux. Elle
+revient en tête de la rubrique Salle, avec l'étiquette de Bo. Signaler
+partait aussi : il revient comme une ligne de la rubrique, le même
+composant, que les flèches et la manette atteignent. Tenue en main, la
+feuille de la salle le porte déjà, et le menu ne le répète pas. La rubrique
+se construit hors d'`App.tsx`, dans `lib/rubriques.ts`, avec ses essais :
+Fermer le jeu et Fermer la salle n'existent que pour qui choisit, la ligne
+seule n'agit pas, seule sa fiche agit.
+
+**Les preuves.** Sept étapes de pilote sont nouvelles ou réécrites :
+`chargement-annonces` (la ligne parlée ne bouge pas pendant que le compteur
+avance de trois secondes, puis change une fois au seuil), `mire-charge` (au
+plus un pas par seconde, mesuré par échantillons de 100 ms ; sept barres
+fixes au niveau conseillé ; le tube sous la plaque), `clip-chargement`,
+`chargement-paysage`, `lanceur-ma-sauvegarde`, `arrivee-sans-chargement`,
+`menu-salle` et `pastilles`. Chacune est vue rouge sur une page d'avant,
+sauf deux qui le disent : la colonne cachait déjà le clip pendant un
+chargement, et aucune page n'a montré le chargement à l'arrivée dans une
+salle où un jeu tourne. Ce sont des preuves qui manquaient, pas des
+défauts corrigés. Un mutant qui garde le décalage de 0,3 s du socle fait
+rougir `mire-charge` ; un autre, dont chaque point de pastille est plein,
+fait rougir `pastilles`.
+
+**Un piège du pilote.** `pastilles` cliquait sur le bouton radio natif,
+caché sous le point dessiné et hors de la vue : le clic tombait à côté, et
+l'étape s'arrêtait sur sa précondition. Elle fait défiler la pastille dans
+la vue, demande à `elementFromPoint` ce qui reçoit le point, puis clique à
+la souris.
+
+**Le poids.** La page passe de 274 537 à 276 156 octets en brotli 11, soit
+1 619 de plus : 1 144 pour le chargement (cases, mire, gestes, feuille de
+style) et 475 pour la rubrique Salle. Ce passage ne retire rien du paquet.
+
+**Ce qui n'est pas prouvé.** Rien de ceci n'a été vu avec un vrai jeu qui
+démarre : le banc envoie une annonce et garde sa socket. « Arrêter le
+lancement » n'a été essayé qu'avec un double du salon. En travers, au
+téléphone, le plateau d'Aïn passe sous le bas de l'écran de chargement au
+lieu de laisser la pose à la tête de la barre (C3 complet attend le
+chantier salle). La neige d'un changement de jeu (« coupure ») attend
+celle du chantier des états. La scène « fier » au passage à tous prêts
+n'est pas jouée : l'arbitre ne la donne pas au chantier menus, et la scène
+« pret » en mode « tous » la remplace.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -32812,6 +32901,16 @@ dit la durée ordinaire.
 démarrage d'un jeu à plusieurs, où chacun dit avec quel appareil il joue
 puis « Je suis prêt ». Depuis le 24 novembre dans la nuit, c'est un bloc de
 la colonne, plus un dialogue.
+
+**Case (du chargement)** : un carré de 22 px dessiné en pixels, un par
+étape d'un démarrage : cochée, en pointillé avec ses secondes, vide, point
+d'interrogation quand la page ne sait plus, croix quand aucune image n'est
+venue. Elle remplace la liste de « ✓ » et de « · » depuis le 24 novembre.
+
+**Tube (effet)** : les calques du socle qui imitent un écran cathodique sur
+un écran sans jeu : lignes de balayage, coins assombris, bande claire qui
+roule. Rien à voir avec un tube nommé (FIFO) ; ils ne passent jamais sur
+l'image du jeu ni sur le texte.
 
 **Rangée collée** : une rangée de boutons qui reste au bas de ce qui se
 voit quand le reste défile (`position: sticky` en CSS). Ce qui défile passe

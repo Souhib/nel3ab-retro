@@ -18,9 +18,8 @@ import { SetupProfiles } from "./components/SetupProfiles";
 import { GameCard } from "./components/GameCard";
 import { Rayonnage } from "./components/Rayonnage";
 import { setupGameKey } from "./lib/setups";
-import { Preparation } from "./components/Preparation";
+import { Preparation, PreparationEnBref } from "./components/Preparation";
 import { useSetupChoice } from "./lib/useSetupChoice";
-import { Bindings } from "./components/Bindings";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
 import { ControllerStatus, ManetteDansLaBande } from "./components/ControllerStatus";
@@ -173,10 +172,8 @@ import {
   type Trail,
   type Vitals,
 } from "./lib/vitals";
-import type { ControlKey } from "./media/pad";
 import type { Session, Snapshot } from "./media/session";
 import { clipAide, clipLabel, micAide } from "./lib/clip";
-import { SwitchBindings } from "./components/SwitchBindings";
 import {
   CONSOLES,
   consoleName,
@@ -675,12 +672,6 @@ function Room({
   /** Le panneau « Touches et manettes », ouvert par `ouvrirReglage` (K05) :
    * il prend la place des rangs de la colonne, jamais celle de l'image. */
   const reglage = useReglage();
-  /** La préparation est-elle mise de côté par quelqu'un qui ne l'a pas lancée ?
-   *
-   * Locale, et surtout pas partagée: mettre le panneau de côté ne quitte pas la
-   * préparation et ne change rien pour les autres. Le lancement reste bloqué
-   * tant que cette personne n'est pas prête, exactement comme avant. */
-  const [setupHidden, setSetupHidden] = useState(false);
   const [preparationError, setPreparationError] = useState("");
   /* L'attente d'une image (arrivée, coupure, gel) ne se mesure plus ici: la
      couche média calcule un seul état de liaison (`media/liaison.ts`), qui
@@ -1302,22 +1293,11 @@ function Room({
 
   const pendingSetup = room?.preparation ?? null;
   const [setupChoice, setSetupChoice] = useSetupChoice(pad, pendingSetup);
-  const setupPlayer = pendingSetup?.players.find((p) => p.claim === session?.input.attribution());
-  /* Une préparation qui liste ma place montait le panneau MODAL sans que rien ne
-     puisse le refermer: la croix est cachée pendant une préparation, Échap et le
-     clic sur le fond ne faisaient que `setBindings(false)` — sans effet, puisque
-     c'est `setupPlayer` qui monte le panneau — et le seul bouton d'annulation
-     appartient à l'initiateur. Le menu, « quitter la salle » et l'image sont
-     dessous. C'était le seul endroit de la page dont on ne pouvait pas sortir. */
-  /** La préparation montée en dialogue : elle héberge encore son propre
-   * réglage (`Bindings`, `SwitchBindings`) tant que le chantier des menus ne
-   * l'a pas sortie dans la colonne. */
-  const preparationMontee = Boolean(setupPlayer) && !setupHidden;
-  const configuring = reglage !== null || preparationMontee;
-  /* Une NOUVELLE préparation se montre, même si la précédente avait été mise de
-     côté: ce qu'on a écarté est cette préparation-là, pas toutes les suivantes. */
-  const setupId = pendingSetup?.id ?? null;
-  useEffect(() => setSetupHidden(false), [setupId]);
+  /* La préparation ne bloque plus le jeu (P1, 24 novembre 2026) : elle était
+     un dialogue modal qui couvrait l'image, coupait l'entrée et ne se fermait
+     qu'avec « Plus tard ». Elle est un bloc de la colonne ; seul le réglage
+     des touches, ouvert par « Essayer mes touches », retient les gestes. */
+  const configuring = reglage !== null;
   // Par sa clé quand le salon la connaît: la position a pu changer depuis le
   // début de la préparation (ADR D23).
   const setupGame = room?.library.find((game) =>
@@ -2468,15 +2448,6 @@ function Room({
     setSuggestHalf(false);
     sending.current.quality("accepté");
   };
-  /** Un geste du réglage des touches, suivi d'un `refresh`: ce sont des
-   * changements locaux et immédiats, et attendre le prochain instantané ferait
-   * clignoter l'écran une demi-seconde plus tard. */
-  const puis =
-    <A extends unknown[]>(geste: (...args: A) => void) =>
-    (...args: A) => {
-      geste(...args);
-      session?.refresh();
-    };
   /** La console et l'appareil que l'écran des touches règle: ceux du jeu
    * préparé pendant une préparation (`consoleDesTouches`). */
   const consoleTouches = consoleDesTouches(
@@ -2680,6 +2651,30 @@ function Room({
       onPrendre={salleFermee ? undefined : () => session?.input.play()}
     />
   );
+  /** La préparation à plusieurs, en bloc non modal (P1) : en tête de la
+   * colonne au bureau, et dans la feuille agrandie d'une salle tenue en
+   * main, qu'une ligne de la bande ouvre (P8). Toutes les consoles. Le menu
+   * ouvert dans la colonne la cache, comme le rôle, et la rend en se
+   * fermant. */
+  const blocPreparation =
+    pendingSetup && session && shot ? (
+      <Preparation
+        key={pendingSetup.id}
+        pending={pendingSetup}
+        game={setupGame}
+        input={session.input}
+        state={shot.input}
+        selected={setupChoice}
+        onSelect={(kind) => {
+          setSetupChoice(kind);
+          session.refresh();
+        }}
+        send={tell.prepare}
+        onEssayer={port === null ? undefined : () => ouvrirLesTouches("manette")}
+        enCours={room?.game?.name ?? null}
+        annoncer={(texte) => annoncer(texte, "ordinaire")}
+      />
+    ) : null;
   /** Le menu unique, jamais sur l'image (`placeDuMenu`, ADR D30 amendé) :
    * au bureau à la place des rangs de la colonne, tenu en main sous l'image
    * ou dans une bande à côté d'elle. Un refus né d'un geste du menu s'écrit
@@ -2751,6 +2746,7 @@ function Room({
           {cartesDansLaBande ? null : cartes}
         </>
       }
+      preparation={menuEnColonne ? null : blocPreparation}
       role={menuEnColonne ? null : blocRole}
       personnes={
         menuEnColonne ? null : (
@@ -3297,6 +3293,14 @@ function Room({
             {avis}
             {cartesDansLaBande && !menu ? cartes : null}
             {regardeParChoix ? blocRole : null}
+            {pendingSetup && !menu ? (
+              <PreparationEnBref
+                pending={pendingSetup}
+                game={setupGame}
+                moi={session?.input.attribution() ?? null}
+                onOuvrir={() => setFeuille("agrandie")}
+              />
+            ) : null}
             {shot?.input.padId && port !== null && !padOnly ? (
               <ManetteDansLaBande
                 nom={identify(shot.input.padId, shot.input.padLayout ?? "").name}
@@ -3393,82 +3397,6 @@ function Room({
             </button>
           </div>
         </Surcouche>
-      ) : null}
-      {pendingSetup && (!setupPlayer || setupHidden) ? (
-        <Surcouche>
-          <div className="n3-preparation-watching" role="status">
-            Préparation de {setupGame?.name} · {pendingSetup.players.filter((p) => p.ready).length}/
-            {pendingSetup.players.length} joueurs prêts
-            {setupHidden ? (
-              <button
-                type="button"
-                id="resumePreparation"
-                className="n3-action"
-                onClick={() => setSetupHidden(false)}
-              >
-                Reprendre la préparation
-              </button>
-            ) : null}
-          </div>
-        </Surcouche>
-      ) : null}
-      {/* La préparation à plusieurs garde son dialogue, avec le réglage
-          d'avant dedans, tant que le chantier des menus ne l'a pas sortie
-          dans la colonne. « Touches et manettes » hors préparation est le
-          panneau de la colonne (`HoteReglage`). */}
-      {preparationMontee && shot && session && configuringSwitch ? (
-        <SwitchBindings
-          source={session.input.switch}
-          input={session.input}
-          pending={pendingSetup}
-          game={jeuDesTouches}
-          send={tell.prepare}
-          close={() => setSetupHidden(true)}
-        />
-      ) : preparationMontee && shot && session && pendingSetup ? (
-        <Bindings
-          console={consoleTouches}
-          held={manetteTenue}
-          readOnly={Boolean(setupPlayer?.ready)}
-          actions={jeuDesTouches?.guide?.actions[String(manetteTenue)]}
-          preparation={
-            <Preparation
-              key={pendingSetup.id}
-              pending={pendingSetup}
-              game={setupGame}
-              input={session.input}
-              state={shot.input}
-              selected={setupChoice}
-              onSelect={(kind) => {
-                setSetupChoice(kind);
-                session.refresh();
-              }}
-              send={tell.prepare}
-              onLater={() => setSetupHidden(true)}
-            />
-          }
-          onPickKeys={puis((chosen: string) => session.input.pickKeys(chosen))}
-          onNewKeys={puis((chosen: string) => session.input.newKeys(chosen))}
-          onForgetKeys={puis((chosen: string) => session.input.forgetKeys(chosen))}
-          onPublish={trameDuReglage?.genre === "dolphin" ? trameDuReglage.publier : undefined}
-          state={shot.input}
-          // Chaque action est suivie d'un `refresh` (`puis`).
-          onUse={puis((index: number | null) => session.input.useP(index))}
-          onCapture={puis((control: ControlKey, source: "pad" | "key", sign?: 1 | -1) =>
-            session.input.beginCapture(control, source, sign),
-          )}
-          onCancel={puis(() => session.input.cancelCapture())}
-          onLearn={puis(() => session.input.beginLesson(consoleTouches, manetteTenue))}
-          onSkip={puis(() => session.input.skipLessonStep())}
-          onResetPad={puis(() => session.input.resetPad(consoleTouches, manetteTenue))}
-          onResetKeys={puis(() => session.input.resetKeys())}
-          onClose={() => {
-            session.input.cancelCapture();
-            // Échap et le clic sur le fond écartent la préparation : sa
-            // croix est cachée, et c'est elle qui monte le panneau.
-            setSetupHidden(true);
-          }}
-        />
       ) : null}
     </Cadre>
   );

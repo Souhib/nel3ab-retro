@@ -70,6 +70,7 @@ export function Colonne({
   forme = "a-cote",
   margeHaut,
   avis,
+  preparation,
   etat,
   role,
   personnes,
@@ -95,6 +96,9 @@ export function Colonne({
   margeHaut?: number;
   /** La pile des avis quand elle vit en tête de la colonne (`lieuDesAvis`). */
   avis?: ReactNode;
+  /** La préparation à plusieurs (chantier menus, P1) : sous l'en-tête, avant
+   * tout le reste, tant qu'elle dure. */
+  preparation?: ReactNode;
   /** Le bloc d'état, que le chantier etats remplit. */
   etat?: ReactNode;
   /** Le bloc de rôle (`BlocRole`). */
@@ -202,6 +206,7 @@ export function Colonne({
         {jeu ? <p className="truncate text-corps text-muted">{jeu}</p> : null}
         {ancre ? <span data-ancre="annonce" /> : null}
       </header>
+      {preparation}
       {etat}
       {role}
       {personnes}

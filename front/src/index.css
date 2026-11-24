@@ -667,22 +667,6 @@ body {
   border-color: var(--rule-bright);
   color: var(--text);
 }
-/* Le seul appareil d'un jeu, nommé à la place d'une liste à une option. */
-.n3-preparation-appareil {
-  flex: 1;
-  align-self: center;
-}
-/* « Lancer sans attendre », et ce qu'il fait à l'absent. */
-.n3-preparation-sans {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  margin-block: 6px;
-}
-.n3-preparation-sans p {
-  flex: 1 1 24ch;
-}
 .n3-bindings button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -1079,12 +1063,6 @@ body {
   max-width: 760px;
   margin-inline: auto;
 }
-.n3-preparation-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 20px;
-}
 .n3-preparation h3 {
   font-size: var(--text-large);
   color: var(--text);
@@ -1131,19 +1109,12 @@ body {
   color: var(--text);
   min-height: 18px;
 }
-.n3-preparation-choice,
 .n3-preparation-profiles > div {
   display: flex;
   align-items: end;
   flex-wrap: wrap;
   gap: 8px;
   margin-block: 10px;
-}
-.n3-preparation-choice label {
-  display: grid;
-  gap: 6px;
-  font-size: var(--text-corps);
-  flex: 1;
 }
 .n3-preparation select,
 .n3-preparation input {
@@ -1180,8 +1151,7 @@ body {
   color: var(--text);
   font-size: var(--text-fort);
 }
-.n3-preparation-error,
-.n3-preparation-watching {
+.n3-preparation-error {
   position: fixed;
   z-index: 100;
   bottom: 20px;
@@ -1218,10 +1188,6 @@ body {
 @media (max-width: 650px) {
   .n3-preparation {
     padding: 14px;
-  }
-  .n3-preparation-heading {
-    flex-direction: column;
-    gap: 8px;
   }
   .n3-preparation-players {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1270,9 +1236,6 @@ body {
   line-height: 14px;
 }
 @media (max-width: 600px) {
-  .n3-preparation-choice label {
-    flex-basis: 100%;
-  }
   .n3-bindings:has([data-preparing="true"]) {
     height: 100dvh;
   }

@@ -144,7 +144,20 @@ nel3ab.app {
 	#
 	# Le chemin d'ORIGINE est testé, et pas le chemin courant: `handle_path` a
 	# déjà retiré le préfixe quand l'erreur remonte, donc `/r/1/` s'y lit `/`.
+	#
+	# Le numéro de la salle part avec la redirection depuis le 24 novembre 2026
+	# (K39): sans lui, l'accueil ne pouvait pas dire laquelle s'était fermée, ni
+	# distinguer une salle fermée d'une salle qui redémarre ou ne répond pas. Une
+	# ligne par salle, comme les blocs du dessus; la dernière garde l'ancien
+	# renvoi pour un chemin de salle qui n'en nommerait aucune. Joué par un vrai
+	# Caddy dans `control/tests/test_caddyfile.py`.
 	handle_errors {
+		@salle_1_absente expression `{http.request.orig_uri.path}.startsWith("/r/1/")`
+		redir @salle_1_absente /?salle=fermee&n=1 302
+		@salle_2_absente expression `{http.request.orig_uri.path}.startsWith("/r/2/")`
+		redir @salle_2_absente /?salle=fermee&n=2 302
+		@salle_3_absente expression `{http.request.orig_uri.path}.startsWith("/r/3/")`
+		redir @salle_3_absente /?salle=fermee&n=3 302
 		@salle_absente expression `{http.request.orig_uri.path}.startsWith("/r/")`
 		redir @salle_absente /?salle=fermee 302
 		respond "{err.status_code} {err.status_text}"

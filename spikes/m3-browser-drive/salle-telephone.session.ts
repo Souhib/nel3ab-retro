@@ -9,7 +9,10 @@
  * Paramètres de l'adresse : `pw` et `ph` (taille de l'image), `son` (l'état du
  * contexte audio annoncé, « running » par défaut), `liaison` (« ok » par défaut,
  * « irreguliere » pour la proposition de format réduit, « injoignable » pour
- * le rideau d'une arrivée qui n'aboutit pas).
+ * le rideau d'une arrivée qui n'aboutit pas, « figee » pour la pastille seule
+ * d'un gel, « figee-fiche » pour sa fiche, « coupee » pour une connexion
+ * coupée), `fermeture` (les minutes avant la fermeture faute d'activité, 0
+ * par défaut).
  *
  * Ce fichier ne prouve rien sur la boucle média elle-même : il remplace ce
  * qu'elle dirait par ce qu'on veut voir.
@@ -21,15 +24,29 @@ const q = new URLSearchParams(location.search);
 const W = Number(q.get("pw") ?? 640);
 const H = Number(q.get("ph") ?? 480);
 
+/** Les états que le pilote demande, tels que `media/liaison` les rend. */
+function liaisonDemandee(etat: string): Snapshot["liaison"] {
+  const gel = { etat: "figee", son: true, manette: true, apresRelance: false } as const;
+  switch (etat) {
+    case "irreguliere":
+      return { etat: "irreguliere" };
+    case "injoignable":
+      return { etat: "injoignable", site: null, arrivee: true, depuisMs: 30000 };
+    case "figee":
+      return { ...gel, depuisMs: 2500, niveau: "pastille" };
+    case "figee-fiche":
+      return { ...gel, depuisMs: 9000, niveau: "bandeau" };
+    case "coupee":
+      return { etat: "coupee", cause: "reseau", depuisMs: 4000 };
+    default:
+      return { etat: "ok" };
+  }
+}
+
 function patch(s: Snapshot): Snapshot {
-  const etat = q.get("liaison") ?? "ok";
   return {
     ...s,
-    liaison: (etat === "irreguliere"
-      ? { etat: "irreguliere" }
-      : etat === "injoignable"
-        ? { etat: "injoignable", site: null, arrivee: true, depuisMs: 30000 }
-        : { etat: "ok" }) as Snapshot["liaison"],
+    liaison: liaisonDemandee(q.get("liaison") ?? "ok"),
     video: {
       ...s.video,
       connected: true,
@@ -45,6 +62,7 @@ function patch(s: Snapshot): Snapshot {
       port: q.get("place") === "aucune" ? null : 1,
       watching: q.get("place") === "aucune",
       players: 4,
+      closingIn: Number(q.get("fermeture") ?? 0),
       busy: [true, true, false, false],
       mics: [false, false, false, false],
     },

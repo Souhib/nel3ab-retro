@@ -118,7 +118,8 @@ const OUT = resolve(args.find((one, i) => !one.startsWith("--") && args[i - 1] !
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
 // SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,
-// manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court.
+// manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court,
+// arrivee-telephone,pastille.
 const SEUL = process.env.SEUL?.split(",") ?? null;
 const part = (name) => SEUL === null || SEUL.includes(name);
 
@@ -1049,6 +1050,161 @@ try {
       say(bad.length === 0, `${what} ${width}x${height} : la salle entière reste joignable`, bad);
       await page.close();
     }
+  }
+
+  // L'arrivée d'une salle qui ne répond pas, au téléphone (chantier etats,
+  // ADR D40) : le plein cadre tient sur l'écran noir, son titre, son fait et
+  // « Réessayer » dans la fenêtre et hors des zones sûres, et « Réessayer »
+  // reçoit un vrai appui. Le jumeau : la salle en partie n'a aucun plein
+  // cadre visible.
+  for (const [width, height] of part("arrivee-telephone")
+    ? [
+        [390, 844],
+        [375, 667],
+        [844, 390],
+      ]
+    : []) {
+    for (const liaison of ["injoignable", "ok"]) {
+      const what = `arrivée au téléphone ${width}x${height}, liaison ${liaison}`;
+      const { page, errors, zone } = await ouvrir({ width, height, url: `${BASE}/r/1/?entrer=jouer&liaison=${liaison}` });
+      const bad = [];
+      try {
+        const visible = () =>
+          page.evaluate(() => {
+            const a = document.querySelector("#arrivee");
+            return a !== null && getComputedStyle(a).display !== "none" && a.getClientRects().length > 0;
+          });
+        if (liaison === "ok") {
+          await page.waitForSelector("#screen", { timeout: 20000 });
+          await sleep(1500);
+          if (await visible()) bad.push("la salle en partie montre un plein cadre");
+        } else {
+          await page.waitForSelector("#arrivee #reessayer", { timeout: 20000 });
+          await sleep(700);
+          if (!(await visible())) bad.push("le plein cadre d'une arrivée sans réponse ne se voit pas");
+          const lu = await page.evaluate(() => {
+            const r = (sel) => {
+              const el = document.querySelector(sel);
+              if (!el) return null;
+              const b = el.getBoundingClientRect();
+              return [b.left, b.top, b.right, b.bottom];
+            };
+            return { cadre: r("#arrivee"), titre: r("#arrivee .n3-plein-titre"), fait: r("#arrivee .n3-plein-fait") };
+          });
+          if (lu.cadre === null || lu.titre === null || lu.fait === null)
+            bad.push(`plein cadre incomplet : ${JSON.stringify(lu)}`);
+          else
+            for (const [nom, b] of [
+              ["le titre", lu.titre],
+              ["le fait", lu.fait],
+            ]) {
+              const [l, t, r, bas] = b;
+              if (l < lu.cadre[0] - 0.5 || r > lu.cadre[2] + 0.5 || t < lu.cadre[1] - 0.5 || bas > lu.cadre[3] + 0.5)
+                bad.push(`${nom} sort du plein cadre : ${b.map(Math.round)} dans ${lu.cadre.map(Math.round)}`);
+              if (l < zone.left - 0.5 || r > width - zone.right + 0.5 || t < zone.top - 0.5 || bas > height - zone.bottom + 0.5)
+                bad.push(`${nom} sort des zones sûres : ${b.map(Math.round)}`);
+            }
+          bad.push(...dansLaZone("« Réessayer »", await page.evaluate(boite, "#arrivee #reessayer"), zone, width, height));
+          if (await page.$(".n3-pave")) bad.push("la manette reste montée sous le plein cadre");
+          await page.screenshot({ path: join(OUT, `arrivee-telephone-${width}x${height}.png`) });
+          await tap(page, "#arrivee #reessayer");
+          await sleep(300);
+        }
+      } catch (error) {
+        bad.push(`le parcours s'arrête : ${error.message}`);
+      }
+      bad.push(...errors.map((e) => `erreur de page : ${e}`));
+      say(bad.length === 0, what, bad);
+      await page.close();
+    }
+  }
+
+  // La pastille d'état, au téléphone (chantier etats, ADR D40) : jamais sur
+  // l'image peinte, jamais sur une touche de la manette ([data-touche]), en
+  // aires communes rendues en nombres. Cinq états, neuf tailles, une image
+  // 4:3 et deux en 16:9. Une taille où la salle n'a encore aucune place pour
+  // elle est dite à part, en « non posée » : mesuré le 24 novembre 2026, le
+  // téléphone tenu droit et court, sans barre ni bande, où « La salle » vit
+  // dans la manette (reste du chantier, à décider avec la salle). Partout
+  // ailleurs, son absence est un défaut : la mesure ne passe jamais à vide.
+  const SANS_PLACE = new Set(["390x664 4:3", "375x548 4:3"]);
+  for (const [width, height, pw, ph] of part("pastille")
+    ? [
+        [390, 844, 640, 480],
+        [390, 664, 640, 480],
+        [375, 548, 640, 480],
+        [430, 932, 640, 480],
+        [768, 1024, 640, 480],
+        [375, 667, 640, 480],
+        [844, 390, 640, 480],
+        [667, 375, 640, 480],
+        [932, 430, 640, 480],
+        [844, 390, 1280, 720],
+        [667, 375, 1280, 720],
+      ]
+    : []) {
+    const taille = `${width}x${height} ${pw / ph > 1.5 ? "16:9" : "4:3"}`;
+    const lus = [];
+    const bad = [];
+    for (const [etat, fermeture] of [
+      ["irreguliere", 0],
+      ["figee", 0],
+      ["figee-fiche", 0],
+      ["coupee", 0],
+      ["ok", 5],
+    ]) {
+      const nom = fermeture ? `fermeture dans ${fermeture} min` : etat;
+      const { page, errors } = await ouvrir({
+        width,
+        height,
+        url: `${BASE}/r/1/?entrer=jouer&liaison=${etat}&fermeture=${fermeture}&pw=${pw}&ph=${ph}`,
+      });
+      try {
+        await page.waitForSelector("#screen", { timeout: 20000 });
+        await attendre(page, () => document.querySelector("#pastilleEtat") !== null, null, 3000);
+        await sleep(300);
+        const m = await page.evaluate(() => {
+          const aire = (a, b) =>
+            Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+            Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+          const p = document.querySelector("#pastilleEtat");
+          const toile = document.querySelector("#screen");
+          if (!toile) return { erreur: "pas de toile" };
+          const t = toile.getBoundingClientRect();
+          if (!p || p.getClientRects().length === 0) return { posee: false, toile: t.width * t.height };
+          const a = p.getBoundingClientRect();
+          const centre = document.elementFromPoint(a.left + a.width / 2, a.top + a.height / 2);
+          const touches = [...document.querySelectorAll("[data-touche]")]
+            .map((k) => k.getBoundingClientRect())
+            .filter((k) => k.width > 0);
+          return {
+            posee: true,
+            toile: t.width * t.height,
+            surImage: aire(a, t),
+            surTouches: touches.reduce((somme, k) => somme + aire(a, k), 0),
+            touches: touches.length,
+            recoit: centre !== null && p.contains(centre),
+            etat: p.dataset.etat ?? null,
+          };
+        });
+        if (m.erreur) bad.push(`${nom} : ${m.erreur}`);
+        else if (m.toile <= 0) bad.push(`${nom} : la toile n'a pas d'aire, la mesure ne prouverait rien`);
+        else if (!m.posee) {
+          if (!SANS_PLACE.has(taille)) bad.push(`${nom} : aucune pastille posée`);
+          else lus.push(`${nom} non posée`);
+        } else {
+          if (m.surImage > 0) bad.push(`${nom} : ${Math.round(m.surImage)} px² de pastille sur l'image`);
+          if (m.surTouches > 0) bad.push(`${nom} : ${Math.round(m.surTouches)} px² de pastille sur les touches`);
+          if (!m.recoit) bad.push(`${nom} : la pastille ne reçoit pas le point en son centre`);
+          lus.push(`${nom} posée (${m.touches} touches)`);
+        }
+      } catch (error) {
+        bad.push(`${nom} : ${error.message}`);
+      }
+      bad.push(...errors.map((e) => `${nom} : erreur de page : ${e}`));
+      await page.close();
+    }
+    say(bad.length === 0, `pastille hors de l'image et des touches ${taille} : ${lus.join(", ")}`, bad);
   }
 
   // L'entrée de la salle (M9) : son haut reste dans l'écran.

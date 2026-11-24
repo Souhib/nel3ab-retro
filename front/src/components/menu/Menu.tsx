@@ -42,9 +42,10 @@ import {
   type Rubrique,
   type Sous,
 } from "../../lib/menu";
-import { FICHE, MENU, SORTIES_MENU } from "../../lib/mots";
+import { MENU, SORTIES_MENU } from "../../lib/mots";
 import { activerCurseur, sonMenu } from "../../retro";
 import { Reperes } from "../Reperes";
+import { Fiche } from "./Fiche";
 import "./menu.css";
 
 const FLECHES: Record<string, Geste> = {
@@ -411,7 +412,13 @@ export function Menu({
         className="n3-menu-panneau"
       >
         {fiche?.fiche ? (
-          <Fiche ligne={fiche} coche={coche} onCocher={setCoche} onRevenir={fermerFiche} />
+          <Fiche
+            titre={fiche.label}
+            fiche={fiche.fiche}
+            coche={coche}
+            onCocher={setCoche}
+            onRevenir={fermerFiche}
+          />
         ) : lignes.length === 0 ? (
           <p className="n3-menu-ligne-aide">{MENU.aucuneLigne}</p>
         ) : (
@@ -582,81 +589,5 @@ function LigneDuMenu({
       <Tete ligne={ligne} />
       <Aide ligne={ligne} />
     </button>
-  );
-}
-
-/** La fiche d'une décision, dans le panneau du menu : ce que le geste fait,
- * les choix qu'il demande, le bouton qui agit et celui qui revient. La barre
- * du bouton reste collée au bas de la zone qui défile (M15). */
-function Fiche({
-  ligne,
-  coche,
-  onCocher,
-  onRevenir,
-}: {
-  ligne: Ligne;
-  coche: string | null;
-  onCocher: (id: string) => void;
-  onRevenir: () => void;
-}) {
-  const fiche = ligne.fiche;
-  if (!fiche) return null;
-  return (
-    <div id="fiche" role="group" aria-labelledby="ficheTitre" className="n3-menu-fiche">
-      <h3 id="ficheTitre" className="n3-menu-titre">
-        {ligne.label}
-      </h3>
-      {fiche.contenu}
-      {fiche.choix ? (
-        <fieldset id="ficheChoix" className="n3-menu-fiche-choix">
-          <legend className="n3-menu-titre">{FICHE.sauvegarde}</legend>
-          {fiche.choix.map((c) => (
-            <label key={c.id} className="n3-menu-pastille n3-menu-fiche-pastille">
-              <input
-                type="radio"
-                name="fiche-choix"
-                id={`fiche-${c.id}`}
-                value={c.id}
-                checked={coche === c.id}
-                onChange={() => onCocher(c.id)}
-              />
-              <span className="n3-menu-point" aria-hidden="true" />
-              <span className="flex flex-col">
-                <span>{c.label}</span>
-                {c.hint ? <span className="n3-menu-ligne-aide">{c.hint}</span> : null}
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      ) : null}
-      <div className="n3-menu-fiche-barre" data-lancer>
-        <p className="n3-menu-fiche-consequence">
-          <strong>{fiche.consequence}</strong>
-        </p>
-        <div className="n3-menu-fiche-boutons">
-          <button
-            type="button"
-            id="ficheAgir"
-            className="rt-boite rt-bouton rt-bouton-plein n3-menu-fiche-agir"
-            onClick={() => {
-              sonMenu("valider");
-              fiche.onAgir(fiche.choix ? coche : null);
-            }}
-          >
-            <i className="rt-ombre" aria-hidden="true" />
-            {fiche.agir}
-          </button>
-          <button
-            type="button"
-            id="ficheRevenir"
-            className="rt-boite rt-bouton n3-menu-fiche-revenir"
-            onClick={onRevenir}
-          >
-            <i className="rt-ombre" aria-hidden="true" />
-            {fiche.annuler}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

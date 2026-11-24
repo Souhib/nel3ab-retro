@@ -21,15 +21,34 @@ it("affiche les capacités vérifiées et distingue les huit joueurs du jeu des 
       }}
     />,
   );
-  expect(screen.getByText("1–4 joueurs dans la salle")).toBeInTheDocument();
+  expect(screen.getByText("1 à 4 joueurs dans la salle")).toBeInTheDocument();
   expect(screen.getByText(/Huit personnes/)).toBeInTheDocument();
   expect(screen.getByRole("link")).toHaveAttribute("href", "https://www.nintendo.com/");
 });
-it("ne donne pas de capacité inventée à un jeu inconnu", () => {
-  render(<GameCard game={{ index: 0, name: "Mod", console: "wii" }} />);
-  expect(screen.getByText("Nombre de joueurs non vérifié")).toBeInTheDocument();
-  expect(screen.getByText("Manettes compatibles non vérifiées")).toBeInTheDocument();
+it("ne donne pas de capacité inventée à un jeu sans guide, et ne dit pas « non vérifié »", () => {
+  // B5 : la fiche ne dit que ce qu'on sait. Les appareils viennent de la
+  // console (le manifeste), le nombre de joueurs et les commandes du guide.
+  const { container } = render(<GameCard game={{ index: 0, name: "Mod", console: "wii" }} />);
+  expect(container.textContent).not.toMatch(/non vérifi/);
+  expect(container.textContent).not.toMatch(/joueurs/);
+  expect(container.querySelector("details")).toBeNull();
   expect(screen.queryByRole("link")).toBeNull();
+  expect(container.textContent).toMatch(/Wiimote et Nunchuk/);
+});
+
+it("nomme l'appareil par console, même sans guide", () => {
+  for (const [console, nom] of [
+    ["gc", "manette GameCube"],
+    ["switch", "manette Pro"],
+    ["x360", "manette Xbox 360"],
+  ]) {
+    const { unmount } = render(<GameCard game={{ index: 0, name: "Jeu", console }} />);
+    expect(screen.getByText(nom), console).toBeInTheDocument();
+    unmount();
+  }
+  // Le jumeau : un code inconnu n'a aucun appareil, et rien ne s'invente.
+  const { container } = render(<GameCard game={{ index: 0, name: "Jeu", console: "?" }} />);
+  expect(container.querySelector(".n3-game-facts")?.textContent).toBe("");
 });
 
 /** Une fiche de jeu Pro, telle que `game_controls.py` l'écrit pour Mario Tennis Aces. */

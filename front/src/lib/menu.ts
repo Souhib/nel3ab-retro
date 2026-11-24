@@ -40,6 +40,11 @@ export type FicheDeLigne = {
   coche?: string;
   /** Ce que la fiche montre en plus : le résumé de la connexion. */
   contenu?: ReactNode;
+  /** Ce qui suit le geste, sous les boutons : « Le jeu part tout de suite. » */
+  suite?: string;
+  /** Pourquoi cette page ne peut pas agir (B8) : la fiche se lit, ses choix
+   * sont grisés et le bouton qui agit n'est pas rendu. */
+  refus?: string;
   /** Le geste, avec le choix coché quand il y en a. */
   onAgir: (choix: string | null) => void;
 };

@@ -52,6 +52,16 @@ export function sceneDeLEtat(liaison: Liaison): Scene | null {
 /** Ce qu'il faut pour décider : la liaison et le compte de fermeture. */
 export type Moment = { liaison: Liaison; fermeDans: number };
 
+/** Les pannes qui s'annoncent : la secousse de la fiche (niveau « tout ») et
+ * le son grave (sons allumés, jeu sans le focus), que le socle décide. */
+const ALERTES: readonly string[] = ["coupee", "injoignable"];
+
+/** On ENTRE dans une panne qui s'annonce : jamais en y restant, ni d'une
+ * panne à l'autre (le son et la secousse ont déjà dit la première). */
+export function alerteDEntree(avant: string, apres: string): boolean {
+  return ALERTES.includes(apres) && !ALERTES.includes(avant);
+}
+
 /** La scène à jouer au passage de `avant` à `apres`, ou `null`. */
 export function sceneDeTransition(avant: Moment, apres: Moment): Scene | null {
   const etait = sceneDeLEtat(avant.liaison);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Liaison } from "../media/liaison";
 import { SCENES_DE } from "./scenes-salle";
-import { sceneDeLEtat, sceneDeTransition } from "./etat-scene";
+import { alerteDEntree, sceneDeLEtat, sceneDeTransition } from "./etat-scene";
 
 const OK: Liaison = { etat: "ok" };
 const arrivee = (etape: "salle" | "image", perdue = false): Liaison => ({
@@ -120,5 +120,19 @@ describe("la fermeture proche", () => {
     expect(
       sceneDeTransition({ liaison: fermee, fermeDans: 1 }, { liaison: fermee, fermeDans: 0 }),
     ).toBeNull();
+  });
+});
+
+describe("l'alerte d'entrée dans une panne (secousse et son, niveau « tout » et sons)", () => {
+  it("à l'entrée de « coupee » ou « injoignable », depuis un état qui n'en est pas une", () => {
+    expect(alerteDEntree("ok", "coupee")).toBe(true);
+    expect(alerteDEntree("figee", "injoignable")).toBe(true);
+  });
+  it("jumeau : pas en restant dans une panne, ni pour les autres états", () => {
+    expect(alerteDEntree("coupee", "coupee")).toBe(false);
+    expect(alerteDEntree("coupee", "injoignable")).toBe(false);
+    expect(alerteDEntree("ok", "figee")).toBe(false);
+    expect(alerteDEntree("ok", "fermee")).toBe(false);
+    expect(alerteDEntree("injoignable", "ok")).toBe(false);
   });
 });

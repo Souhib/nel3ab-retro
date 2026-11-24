@@ -21,7 +21,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { Hote } from "../lib/cadre";
 import type { Modele } from "../lib/etat-modele";
-import { sceneDeTransition, type Moment } from "../lib/etat-scene";
+import { alerteDEntree, sceneDeTransition, type Moment } from "../lib/etat-scene";
 import type { GardeSignalement } from "../lib/garde-signalement";
 import type { Action } from "../lib/liaison-mots";
 import { enBouton, ETAT, IMAGE, SORTIES } from "../lib/mots";
@@ -30,6 +30,8 @@ import { faireNeiger } from "../media/neige";
 import { poserCalquesAttente } from "../retro/calques";
 import { ecrireChiffres, poserAfficheur } from "../retro/chiffres";
 import { iconePixelSVG } from "../retro/icones";
+import { secouer } from "../retro/secousse";
+import { sonMenu } from "../retro/sons";
 import { useArbitre } from "./Cadre";
 import { Signaler } from "./Signaler";
 import "./etat-salle.css";
@@ -219,9 +221,31 @@ export function FicheEtat({
   onPropositionVue: () => void;
 }) {
   if (modele.niveau !== "fiche") return null;
+  return <Fiche modele={modele} rappels={rappels} onPropositionVue={onPropositionVue} />;
+}
+
+function Fiche({
+  modele,
+  rappels,
+  onPropositionVue,
+}: {
+  modele: Modele;
+  rappels: Rappels;
+  onPropositionVue: () => void;
+}) {
   const proposition = modele.id === "irreguliere";
+  const ref = useRef<HTMLElement>(null);
+  // L'état d'avant, tant que la fiche est montée : une fiche montée plus
+  // tard (la feuille qu'on ouvre) n'est pas une entrée dans la panne.
+  const avant = useRef<string | null>(null);
+  useEffect(() => {
+    if (avant.current !== null && alerteDEntree(avant.current, modele.id) && ref.current)
+      secouer(ref.current);
+    avant.current = modele.id;
+  }, [modele.id]);
   return (
     <section
+      ref={ref}
       id={proposition ? "rough" : "liaison"}
       data-etat={modele.id}
       data-offre={modele.pastille?.offre ? "" : undefined}
@@ -395,6 +419,9 @@ export function ScenesDesEtats({
   });
   useEffect(() => {
     const scene = sceneDeTransition(avant.current, moment);
+    // Le son grave d'une panne : le socle le tait si les sons sont coupés
+    // (par défaut) ou si le jeu a le focus.
+    if (alerteDEntree(avant.current.liaison.etat, moment.liaison.etat)) sonMenu("erreur");
     avant.current = moment;
     if (scene === null || arbitre === null) return;
     const ici = ou.current(scene);

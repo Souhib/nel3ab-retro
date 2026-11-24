@@ -858,6 +858,10 @@ export const ETAT = {
   garder: "Garder",
   /** Le lien d'une salle fermée vers le carnet du salon (D12). */
   parties: "Dernières parties",
+  /** Ce qu'une salle fermée garde dans la colonne : le jeu et ceux qui
+   * regardaient. Ceux qui ont joué sont sur le panneau, au passé. */
+  ceSoir: (salle: number) => `Ce soir dans la salle ${salle}`,
+  ontRegarde: "Ils ont regardé",
   /** Le pli de la fiche d'une image figée : les faits, ligne à ligne. */
   voit: "Ce que ta page voit",
   /** Les étapes de l'arrivée, dites pour un lecteur d'écran. */

@@ -34,6 +34,8 @@ import { iconePixelSVG } from "../retro/icones";
 import { secouer } from "../retro/secousse";
 import { sonMenu } from "../retro/sons";
 import { useArbitre } from "./Cadre";
+import { TitreColonne } from "./Colonne";
+import { Etiquette } from "./Etiquette";
 import { Signaler } from "./Signaler";
 import "./etat-salle.css";
 
@@ -358,6 +360,44 @@ function PleinCadreMonte({ modele, rappels }: { modele: Modele; rappels: Rappels
       </EcranNoir>
       <div className="n3-plein-plateau" data-hote="plateau" aria-hidden="true" />
     </div>
+  );
+}
+
+/**
+ * « Ce soir dans la salle N » : ce qu'une salle fermée garde dans la colonne,
+ * à la place de « Ils regardent » et du bloc de rôle. Le jeu, et ceux qui
+ * regardaient au moment de la fermeture, en étiquettes tapées. Ceux qui ont
+ * joué sont sur le panneau, au passé : la colonne ne les répète pas. Le
+ * carnet est sur l'écran, une seule fois. La durée de la partie attend D11 :
+ * une absence ne se montre pas comme un zéro.
+ */
+export function CeSoir({
+  salle,
+  jeu,
+  regardaient,
+}: {
+  salle: number;
+  jeu: string | null;
+  regardaient: readonly string[];
+}) {
+  return (
+    <section id="ceSoir" aria-labelledby="ceSoirTitre" className="flex flex-col gap-1.5">
+      <TitreColonne id="ceSoirTitre">{ETAT.ceSoir(salle)}</TitreColonne>
+      {jeu ? <p className="truncate text-corps text-muted">{jeu}</p> : null}
+      {regardaient.length > 0 ? (
+        <>
+          <p className="text-corps text-muted">{ETAT.ontRegarde}</p>
+          <ul className="flex flex-wrap gap-1.5">
+            {/* Deux personnes peuvent porter le même surnom. */}
+            {regardaient.map((nom, i) => (
+              <li key={`${i}-${nom}`} className="flex min-w-0">
+                <Etiquette nom={nom} />
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
   );
 }
 

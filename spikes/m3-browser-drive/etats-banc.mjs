@@ -50,6 +50,9 @@ const DEPART = {
   // Les places que la salle publie : « tenues » (1P au nom de banc) ou
   // « vides », comme une salle qui ne dit plus qui a joué une fois fermée.
   sieges: "tenues",
+  // Les noms de ceux qui regardent, sans place : la colonne d'une salle
+  // fermée les garde (« Ce soir dans la salle N »).
+  public: [],
   // La console du jeu en cours: x360 (la manette Pro) ou gc (Dolphin). Ajouté
   // pour le banc du focus, qui doit lire START dans les deux trames.
   console: "x360",
@@ -94,7 +97,10 @@ export async function demarrerBanc({ port, page, flux }) {
       { port: 4, player: null, held: false },
     ],
     owner: { name: "banc", id: "a", moi: true, seat: 1 },
-    people: [{ name: "banc", id: "a", moi: true, seat: 1 }],
+    people: [
+      { name: "banc", id: "a", moi: true, seat: 1 },
+      ...state.public.map((name, i) => ({ name, id: `p${i}`, seat: null, seat_pending: false })),
+    ],
     ask_lasts: 10,
     media_url: "",
   });

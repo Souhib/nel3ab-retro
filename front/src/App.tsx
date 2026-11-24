@@ -29,6 +29,7 @@ import { entreeConnexion } from "./lib/rayons";
 import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
 import {
+  CeSoir,
   EtatPastille,
   FicheEtat,
   Neige,
@@ -2398,10 +2399,16 @@ function Room({
     mienne: port,
   };
   /* Une salle fermée garde les places d'avant sa fermeture, au passé (plan
-     des états) : ce que la salle publie ensuite ne dit plus qui a joué. */
+     des états) : ce que la salle publie ensuite ne dit plus qui a joué. De
+     même pour la colonne, « Ce soir dans la salle N » : le jeu et ceux qui
+     regardaient à la fermeture, pas ceux qui arrivent après. */
   const placesDAvant = useRef(entreeDesPlaces);
+  const ceSoirVu = { jeu: room?.game?.name ?? null, regardaient: regardentDe(people) };
+  const ceSoirDAvant = useRef(ceSoirVu);
   useEffect(() => {
-    if (!salleFermee) placesDAvant.current = entreeDesPlaces;
+    if (salleFermee) return;
+    placesDAvant.current = entreeDesPlaces;
+    ceSoirDAvant.current = ceSoirVu;
   });
   const places = (
     <>
@@ -2920,12 +2927,12 @@ function Room({
    * regarde. Dans la colonne, et dans la bande d'une salle tenue en main
    * pour qui regarde : la colonne n'y est montée que dans la feuille
    * agrandie, qui démonte la bande. Jamais deux fois. */
-  const blocRole = (
+  const blocRole = salleFermee ? null : (
     <BlocRole
       nom={name}
       place={port}
       libre={premiereLibre}
-      onPrendre={salleFermee ? undefined : () => session?.input.play()}
+      onPrendre={() => session?.input.play()}
     />
   );
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
@@ -2963,6 +2970,14 @@ function Room({
       role={blocRole}
       personnes={
         <>
+          {/* Une salle fermée : ce soir dans la salle, gardé d'avant. */}
+          {salleFermee ? (
+            <CeSoir
+              salle={salle()}
+              jeu={ceSoirDAvant.current.jeu}
+              regardaient={ceSoirDAvant.current.regardaient}
+            />
+          ) : null}
           {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
               rôle ne se montre que quand le worker dit que le chef ne
               joue plus (`repriseDuRole`, audit T12). */}
@@ -2986,7 +3001,7 @@ function Room({
               </button>
             </div>
           ) : null}
-          <IlsRegardent people={people} owner={boss} />
+          {salleFermee ? null : <IlsRegardent people={people} owner={boss} />}
           {salleFermee ? null : (
             <Inviter
               lien={(entree) => lienDInvitation(location.origin, base(), entree)}

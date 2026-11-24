@@ -6,6 +6,7 @@ import { GardeSignalement } from "../lib/garde-signalement";
 import { ATTRIBUT, jetons, lever, retirer, vues } from "../media/couverture";
 import type { Liaison } from "../media/liaison";
 import {
+  CeSoir,
   COUPURE_MS,
   EtatPastille,
   FicheEtat,
@@ -480,5 +481,25 @@ describe("la ligne parlée de la fermeture", () => {
     expect(status).toHaveTextContent("La salle ferme dans une minute.");
     rerender(ligne(0));
     expect(status).toHaveTextContent("La salle reste ouverte.");
+  });
+});
+
+describe("ce soir dans une salle fermée (la colonne)", () => {
+  it("dit la salle, le jeu et ceux qui ont regardé, en étiquettes", () => {
+    render(<CeSoir salle={2} jeu="Kart" regardaient={["Lina", "Bo"]} />);
+    const bloc = screen.getByRole("region", { name: "Ce soir dans la salle 2" });
+    expect(bloc).toHaveTextContent("Kart");
+    expect(bloc).toHaveTextContent("Ils ont regardé");
+    const noms = [...bloc.querySelectorAll(".n3-etiquette .sr-only")].map((n) => n.textContent);
+    expect(noms).toEqual(["Lina", "Bo"]);
+  });
+
+  it("ne montre ni jeu inconnu, ni liste vide, ni durée, ni carnet", () => {
+    render(<CeSoir salle={1} jeu={null} regardaient={[]} />);
+    const bloc = screen.getByRole("region", { name: "Ce soir dans la salle 1" });
+    // Le titre seul : une absence ne se montre pas comme un zéro, la durée
+    // de la partie attend D11, et le carnet est sur l'écran, une fois.
+    expect(bloc.textContent).toBe("Ce soir dans la salle 1");
+    expect(bloc.querySelector("a")).toBeNull();
   });
 });

@@ -474,6 +474,35 @@ const ETAPES = {
     const auPresent = await lesPlaces();
     if (auPresent.groupe === null || auPresent.groupe[1] !== null || auPresent.actives !== 4 || auPresent.toi === 0)
       throw new Precondition(`places d'une salle ouverte inattendues: ${JSON.stringify(auPresent)}`);
+    // La colonne hors du panneau : les étiquettes, le bloc de rôle et le
+    // bilan de la soirée (plan des états, salle fermée 5).
+    const laColonne = () =>
+      page.evaluate(() => {
+        const side = document.querySelector("#side");
+        const hors = (el) => el.closest("#panneau") === null;
+        const ceSoir = document.querySelector("#ceSoir");
+        return {
+          etiquettes: [...(side?.querySelectorAll(".n3-etiquette") ?? [])]
+            .filter(hors)
+            .map((e) => e.querySelector(".sr-only")?.textContent ?? ""),
+          seat: document.querySelector("#side #seat")?.textContent ?? null,
+          regardent: document.querySelector("#ilsRegardent")?.textContent ?? null,
+          ceSoir: ceSoir ? [document.querySelector("#ceSoirTitre")?.textContent ?? null, ceSoir.textContent] : null,
+        };
+      });
+    // Le jumeau, salle ouverte : Lina regarde, au présent, et la colonne dit
+    // qui tient cette page.
+    banc.regler({ public: ["Lina"] });
+    banc.annoncerSalle();
+    await sleep(1200);
+    const colonneOuverte = await laColonne();
+    if (
+      colonneOuverte.ceSoir !== null ||
+      colonneOuverte.seat === null ||
+      !colonneOuverte.regardent?.startsWith("Ils regardent") ||
+      !colonneOuverte.etiquettes.includes("Lina")
+    )
+      throw new Precondition(`colonne d'une salle ouverte inattendue: ${JSON.stringify(colonneOuverte)}`);
     // Le salon dit depuis quand et pourquoi (K37, `Salle.fermee_depuis`).
     const fermeeA = Date.now() - 125_000;
     banc.regler({ video: "drop", ouverte: false, redemarre: false, fermeeDepuis: 125 });
@@ -481,11 +510,21 @@ const ETAPES = {
     if (fermee.apres === null) throw new Defaut(`une salle fermée n'est pas dite fermée en 9 s: ${fermee.vu.texte}`);
     const restes = await gestes();
     if (restes.length > 0) throw new Defaut(`la salle fermée propose encore ${restes.join(" et ")}`);
-    // Le salon publie ensuite la salle sans ses joueurs : le panneau garde
-    // ceux d'avant la fermeture.
-    banc.regler({ sieges: "vides" });
+    // Le salon publie ensuite la salle sans ses joueurs, et Max arrive après
+    // la fermeture : le panneau garde ceux d'avant, la colonne ceux qui
+    // regardaient, et personne d'autre.
+    banc.regler({ sieges: "vides", public: ["Max"] });
     banc.annoncerSalle();
     await sleep(1200);
+    const colonneFermee = await laColonne();
+    if (colonneFermee.ceSoir === null || colonneFermee.ceSoir[0] !== "Ce soir dans la salle 1")
+      throw new Defaut(`la colonne d'une salle fermée ne dit pas « Ce soir dans la salle 1 »: ${JSON.stringify(colonneFermee)}`);
+    if (!colonneFermee.ceSoir[1].includes("Jeu du banc"))
+      throw new Defaut(`la soirée d'une salle fermée ne nomme pas le jeu: ${JSON.stringify(colonneFermee)}`);
+    if (JSON.stringify(colonneFermee.etiquettes) !== JSON.stringify(["Lina"]))
+      throw new Defaut(`la colonne d'une salle fermée a perdu ou changé qui regardait: ${JSON.stringify(colonneFermee)}`);
+    if (colonneFermee.seat !== null || colonneFermee.regardent !== null)
+      throw new Defaut(`la colonne d'une salle fermée parle encore au présent: ${JSON.stringify(colonneFermee)}`);
     const auPasse = await lesPlaces();
     if (JSON.stringify(auPasse.groupe) !== JSON.stringify(["group", "Ils ont joué"]))
       throw new Defaut(`les places d'une salle fermée ne se lisent pas « Ils ont joué »: ${JSON.stringify(auPasse)}`);

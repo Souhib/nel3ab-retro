@@ -131,6 +131,11 @@ export type Liaison =
       /** Ce que l'écran de chargement montre déjà: un démarrage qui traîne, ou
        * perdu. Posé par la page, qui tient l'écran (`lib/booting`). */
       attente?: "long" | "echec";
+      /** Le jeu qui démarre, quand la page le sait : les phrases le nomment. */
+      jeu?: string;
+      /** Qui peut le relancer après un échec : cette page, quelqu'un de
+       * nommé, ou personne qu'on connaisse. */
+      relance?: "moi" | { nom: string } | null;
     }
   | {
       etat: "arrivee";

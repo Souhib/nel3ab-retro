@@ -840,3 +840,21 @@ export const REGLAGE = {
 } as const;
 
 // ==== fin manettes ====
+
+// ==== chantier etats ====
+/** Les gestes des états de la salle. Leurs phrases vivent dans
+ * `lib/liaison-mots.ts`, vérifiées par sa propre garde. */
+export const ETAT = {
+  relancer: "Relancer l'image",
+  reessayer: "Réessayer",
+  nonMerci: "Non merci",
+  /** La réponse à l'avis de fermeture : la salle compte la place comme
+   * active, sans que le jeu reçoive rien (D16, ADR D43). */
+  rester: "Je reste",
+  revenir: enBouton(`revenir en ${IMAGE.complete}`),
+  garder: "Garder",
+  /** Les étapes de l'arrivée, dites pour un lecteur d'écran. */
+  fait: "fait",
+  enCours: "en cours",
+} as const;
+// ==== fin etats ====

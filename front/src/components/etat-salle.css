@@ -1,51 +1,281 @@
-/* L'état de la salle, dit par Bobine sur l'image.
+/* L'état de la salle, HORS de l'image (ADR D40).
  *
- * Tout vit DANS la zone de l'image (`<main>`) et jamais sur toute la page: la
- * colonne reste vivante, avec les places, « quitter » et « signaler », au
- * moment où on en a besoin (audit P4, E7). La régie de nuit partout, parce que
- * ces calques flottent sur l'image du jeu, noire dans les deux thèmes.
+ * Trois pièces : la pastille (un voyant de borne dans une bande noire, sur le
+ * panneau, dans la bande ou en haut de la manette), la fiche (une boîte de
+ * dialogue de jeu dans la colonne, la bande ou la feuille) et le plein cadre
+ * (l'écran noir de la borne quand il n'y a pas d'image).
  *
- * Les couches, et pourquoi:
- *   - z 29: la manette à l'écran (`manette-tactile.css`);
- *   - z 30: le bandeau et la pastille, au-dessus d'elle comme l'avis de
- *     fermeture: personne ne joue sur une image figée;
- *   - z 40: le rideau d'arrivée et l'écran de chargement, opaques;
- *   - z 50: les menus. Ils passent AU-DESSUS de tout ceci: le 22 novembre
- *     2026, « ouvrir le menu » montait un menu invisible sous l'écran de
- *     chargement, qui captait pourtant le clavier et la manette (P2, E5). */
+ * La couverture : le plein cadre, la neige et l'image assombrie ne se
+ * montrent que sous leur jeton, sur `:root[data-couverture]`
+ * (`media/couverture.ts`). La boucle de peinture retire l'attribut à la
+ * première image : tout part dans la même image d'écran, sans fondu, et sans
+ * que React rende quoi que ce soit. Aucune transition sur la toile du jeu :
+ * la garde du cadre refuse toute animation qui la touche (`cadre.mjs`,
+ * vit-figee-immobile), et le retour d'une image ne doit rien attendre.
+ *
+ * Les couches : z 29 la manette à l'écran, z 40 le plein cadre et l'écran de
+ * chargement, z 50 les menus, qui passent AU-DESSUS (audit P2, E5). */
 
-/* Le cadre: le rectangle de l'image dans `<main>`, posé par la page. Le
-   bandeau, la pastille et la proposition s'y rangent; les bandes noires, où
-   vit la manette à l'écran, restent libres. Un conteneur, pour que la mise en
-   page suive la largeur de l'IMAGE et non celle de la fenêtre: en paysage sur
-   un téléphone, la fenêtre fait 844 px et l'image 520. */
-.n3-etat-cadre {
+/* ── La couverture ───────────────────────────────────────────────────── */
+
+/* L'image arrêtée, assombrie (K20) : par sa propre opacité, d'un coup. */
+:root[data-couverture~="passee"] [data-zone-jeu] canvas {
+  opacity: 0.5;
+}
+/* La neige et le plein cadre REMPLACENT l'image : elle est cachée, pas
+   recouverte, et revient dans la même image d'écran. */
+:root[data-couverture~="neige"] [data-zone-jeu] canvas,
+:root[data-couverture~="plein"] [data-zone-jeu] canvas {
+  visibility: hidden;
+}
+.n3-neige {
   position: absolute;
-  z-index: 30;
+  z-index: 28;
+  display: none;
   pointer-events: none;
-  container-type: inline-size;
+  image-rendering: pixelated;
+}
+:root[data-couverture~="neige"] .n3-neige {
+  display: block;
 }
 
-.n3-etat {
+/* ── La pastille ─────────────────────────────────────────────────────── */
+
+.n3-pastille {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espace-2);
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0 var(--espace-3);
+  background: var(--ecran);
+  color: var(--encre-ecran);
+  border: 2px solid var(--alerte);
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  white-space: nowrap;
+}
+/* Une offre n'est pas une alerte : son contour est en pointillés. */
+.n3-pastille[data-offre] {
+  border-style: dashed;
+  border-color: var(--signal);
+}
+/* Sous le doigt, 44 px : la pastille mène au geste de la fiche. */
+button.n3-pastille {
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  button.n3-pastille {
+    min-height: 44px;
+  }
+}
+.n3-pastille-point {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  background: var(--alerte);
+}
+.n3-pastille[data-offre] .n3-pastille-point {
+  background: var(--signal);
+}
+.n3-pastille-icone {
+  flex: none;
+  display: inline-flex;
+  width: 1.2em;
+  height: 1.2em;
+}
+.n3-pastille-icone > svg {
+  width: 100%;
+  height: 100%;
+}
+.n3-pastille-texte {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.n3-pastille-compteur {
+  font-family: var(--police-machine);
+  color: var(--afficheur-encre);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── La fiche ────────────────────────────────────────────────────────── */
+
+.n3-fiche {
+  --rt-bord: var(--alerte);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  padding: var(--espace-3) var(--espace-4);
+  color: var(--encre);
+  font-family: var(--police-texte);
+}
+.n3-fiche[data-offre] {
+  --rt-bord: var(--signal);
+}
+/* Le titre annonce un problème : une phrase, en Anybody. */
+.n3-fiche-titre {
+  margin: 0;
+  font-size: var(--text-fort);
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.n3-fiche-fait,
+.n3-fiche-cout {
+  margin: 0;
+  font-size: var(--text-corps);
+  line-height: 1.45;
+  color: var(--legende);
+}
+.n3-etat-gestes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  padding-top: var(--espace-1);
+}
+/* Le geste en Pixelify, 44 px sous le doigt. */
+.n3-geste {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--espace-3);
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  color: var(--encre);
+  text-decoration: none;
+}
+
+/* ── Le plein cadre ──────────────────────────────────────────────────── */
+
+.n3-plein {
   position: absolute;
   inset: 0;
-  display: flex;
-  justify-content: center;
-  /* Au milieu de l'image, et pas en haut: sans bandes noires assez larges, la
-     manette à l'écran pose ses gestes de page (son, menu, cacher) sur le haut
-     de l'image, et le bandeau les couvrait en paysage (22 novembre 2026). */
-  align-items: center;
-  padding: var(--espace-4) var(--espace-3);
-  /* La dernière image reste visible, assombrie: un noir complet se lit comme
-     une page cassée, et l'image figée est justement ce dont on parle. */
-  background: color-mix(in srgb, var(--ecran) 58%, transparent);
-  /* Le voile ne prend rien: la manette, le clavier et l'image restent à qui
-     joue. Seule la carte reçoit le doigt. */
-  pointer-events: none;
+  z-index: 40;
+  /* Rien tant que le jeton n'est pas posé : la couverture décide, pas le
+     rendu. */
+  display: none;
+  flex-direction: column;
+  background: var(--ecran);
+  color: var(--encre-ecran);
   font-family: var(--police-texte);
-  color: var(--encre);
+  text-align: center;
+  container-type: size;
+}
+:root[data-couverture~="plein"] .n3-plein {
+  display: flex;
+}
+.n3-plein-ecran {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espace-3);
+  padding: var(--espace-4);
+  overflow: hidden;
+}
+.n3-plein-titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-size: var(--text-titre);
+  font-weight: 400;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+.n3-plein-etapes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--espace-1) var(--espace-4);
+  font-size: var(--text-corps);
+  color: var(--discret);
+}
+.n3-plein-etapes [data-fait="true"] {
+  color: var(--encre-ecran);
+}
+.n3-plein-marque {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--espace-2);
+  border: 2px solid currentColor;
+}
+.n3-plein-etapes [data-fait="true"] .n3-plein-marque {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+.n3-plein-fait,
+.n3-plein-cout {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--text-corps);
+  line-height: 1.45;
+  color: var(--legende);
+}
+.n3-plein .n3-etat-gestes {
+  justify-content: center;
+}
+.n3-plein .n3-geste:not(.rt-bouton-plein) {
+  color: var(--encre-ecran);
+}
+/* Le plateau d'Aïn, au pied de l'écran noir : il y joue en grand tant
+   qu'aucune image n'est peinte. */
+.n3-plein-plateau {
+  flex: none;
+  height: 96px;
+}
+@container (max-height: 300px) {
+  .n3-plein-plateau {
+    height: 0;
+  }
 }
 
+/* L'extinction d'une salle fermée : l'écran s'écrase en une ligne puis en
+   un point, une fois, et seulement si l'effet est allumé. */
+.n3-extinction {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fx-extinction .n3-extinction {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: var(--encre-ecran);
+    animation: n3-extinction 600ms steps(6, end) forwards;
+  }
+}
+@keyframes n3-extinction {
+  0% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  50% {
+    clip-path: inset(calc(50% - 1px) 0 calc(50% - 1px) 0);
+    opacity: 1;
+  }
+  90% {
+    clip-path: inset(calc(50% - 1px) calc(50% - 1px) calc(50% - 1px) calc(50% - 1px));
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(50% 50% 50% 50%);
+    opacity: 0;
+  }
+}
+
+/* ── Le rideau de l'ouverture du salon ───────────────────────────────── */
+
+/* `Ouverture.tsx` (chantier salon) lit encore ces classes, celles de
+   l'ancien rideau d'arrivée : elles restent jusqu'à ce qu'il reprenne le
+   plein cadre. */
 /* La carte: Bobine à gauche, sa bulle à droite. */
 .n3-etat-carte {
   pointer-events: auto;
@@ -109,40 +339,6 @@
   align-items: center;
 }
 
-/* La pastille: une ligne, une horloge de régie, aucune action. Elle ne
-   prend pas le doigt: deux secondes sans image peuvent être un chargement,
-   et elle ne doit rien empêcher. Departure pour l'horloge seule: elle n'a ni
-   accent ni minuscule, et « Image figée » s'écrirait avec une lettre d'une
-   autre police. */
-.n3-etat-pastille {
-  position: absolute;
-  /* En bas de l'image, comme un sous-titre: le haut peut porter les gestes de
-     page de la manette à l'écran. */
-  bottom: var(--espace-4);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--espace-3);
-  padding: var(--espace-2) var(--espace-3) var(--espace-2) calc(var(--espace-3) + var(--barre-etat));
-  background: var(--plaque);
-  border: 1px solid var(--filet);
-  box-shadow: inset var(--barre-etat) 0 0 var(--alerte);
-  pointer-events: none;
-  font-family: var(--police-texte);
-  font-size: var(--text-corps);
-  font-weight: 600;
-  color: var(--encre);
-  white-space: nowrap;
-}
-.n3-etat-horloge {
-  font-family: var(--police-machine);
-  font-size: var(--text-corps);
-  letter-spacing: 0.08em;
-  color: var(--alerte);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Le rideau d'arrivée: rien n'a encore été peint, donc rien à garder visible.
    Opaque, et sous les menus. */
 .n3-etat-rideau {
@@ -188,49 +384,6 @@
 .n3-etat-rideau .n3-etat-actions {
   justify-content: center;
 }
-.n3-etat-etapes {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--espace-1);
-  font-size: var(--text-corps);
-  color: var(--discret);
-}
-.n3-etat-etapes [data-fait="true"] {
-  color: var(--encre);
-}
-.n3-etat-marque {
-  display: inline-block;
-  width: 1.4em;
-  font-family: var(--police-machine);
-  color: var(--signal);
-}
-
-/* La proposition de format réduit: en bas de l'image, au-dessus de la
-   manette. Pas de voile: l'image bouge, elle saute seulement. */
-.n3-etat-proposition {
-  position: absolute;
-  left: 50%;
-  bottom: var(--espace-4);
-  transform: translateX(-50%);
-  pointer-events: auto;
-  width: min(34rem, calc(100% - 2 * var(--espace-3)));
-  display: flex;
-  flex-direction: column;
-  gap: var(--espace-2);
-  padding: var(--espace-3) var(--espace-4) var(--espace-3) calc(var(--espace-4) + var(--barre-etat));
-  background: var(--plaque);
-  border: 1px solid var(--filet);
-  box-shadow: inset var(--barre-etat) 0 0 var(--signal);
-  font-family: var(--police-texte);
-  color: var(--encre);
-}
-.n3-etat-proposition .n3-etat-titre {
-  font-size: var(--text-fort);
-}
-
 /* Image étroite: Bobine passe au-dessus de la bulle, qui prend toute la
    largeur moins les gouttières. Lu sur le cadre de l'image, pas la fenêtre. */
 @container (max-width: 560px) {
@@ -258,21 +411,5 @@
   }
   .n3-etat-rideau {
     gap: var(--espace-3);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .n3-etat-carte,
-  .n3-etat-pastille,
-  .n3-etat-proposition {
-    animation: n3-etat-entre var(--duree-entrer) ease-out both;
-  }
-}
-@keyframes n3-etat-entre {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }

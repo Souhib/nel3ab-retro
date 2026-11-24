@@ -73,7 +73,7 @@ export function diagnostic(
 ): Diagnosis {
   if (liaison.etat === "ok" || liaison.etat === "cachee" || liaison.etat === "irreguliere")
     return diagnose(video);
-  const dit = dire(liaison, salle, moteur);
+  const dit = dire(liaison, salle, { moteur });
   const detail = [dit.titre, dit.detail].filter((texte) => texte !== undefined && texte !== "");
   return {
     title: NOM_ETAT[liaison.etat],

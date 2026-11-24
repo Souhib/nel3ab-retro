@@ -31083,7 +31083,9 @@ deux bandes de 75 px à côté de l'image : aucun menu lisible n'y tient. Le
 menu prend alors la place de la feuille agrandie de la salle, qui couvre le
 bord de l'image, et l'attribut `data-sur-image="oui"` le dit. C'est un
 défaut connu, à trancher avec le chantier salle, qui a le même avec sa
-feuille. Dans une bande étroite, le focus posé sur la première ligne fait
+feuille. (Remplacé le soir même : mesuré, ce n'était pas le bord mais 42 à
+48 % de l'image vivante ; voir « 24 novembre, après la relecture : sept
+constats sur le chantier menus ».) Dans une bande étroite, le focus posé sur la première ligne fait
 aussi défiler l'en-tête et les onglets hors de la vue : ils restent à un
 geste, mais ne se voient pas à l'ouverture.
 
@@ -31436,6 +31438,107 @@ pilotes hors porte, seul `padmenu.mjs` suit la page ; les autres visent des
 salles vivantes (K40) et lisent encore le XMB.
 
 Page : 276 515 octets en brotli 11, 359 de plus qu'au passage d'avant.
+
+### 24 novembre, après la relecture : sept constats sur le chantier menus
+
+Une relecture indépendante du chantier menus a rendu sept constats, un
+bloquant et six importants. Chacun a été reproduit sur la page relue
+(cd2d5b3) avant d'être corrigé, et chaque correction a son essai rouge
+d'abord.
+
+**Le menu couvrait l'image vivante.** C'est le constat bloquant. Un
+téléphone couché, avec une image 16:9 et la manette Pro à l'écran (Switch,
+Switch 2, Xbox 360), laisse deux bandes de 148 px à côté de l'image ; il en
+faut 150 au menu. Sans manette à l'écran, il en reste 75. Le repli du
+premier passage posait alors le menu sur 380 px à gauche, et le carnet
+disait « le bord de l'image ». Mesuré au banc, il en couvrait 42 % à
+844 sur 390 et 48 % à 780 sur 360, pendant que la page peignait soixante
+images par seconde dessous. « La salle », qui porte la tête d'Aïn, passait
+en plus sur une ligne du menu. La règle du propriétaire (K20 : jamais rien
+sur une image vivante) vaut pour le menu aussi.
+
+Deux corrections respectaient la règle. Rétrécir l'image pour faire une
+bande, comme la colonne le fait au bureau : refusée, parce que D30 promet
+que l'image garde son rectangle à l'ouverture, qu'un redimensionnement à
+chaque ouverture bouge ce que les autres regardent sur cet écran, et que la
+géométrie du cadre (`lib/cadre.ts`) appartient au chantier de la salle.
+L'autre, retenue : quand aucune bande ne se lit, le menu prend la place de
+l'écran, et l'image s'y cache le temps du menu. Elle est cachée, pas
+modifiée : elle garde sa taille et ses pixels, la boucle média continue de
+peindre dessous, et elle revient à la fermeture. Qui regarde lit « L'image
+continue pour les autres. Elle revient à la fermeture. » La place cherche
+d'abord une bande, la gauche, et la coupe au-dessus ou au-dessous de « La
+salle » et de ton étiquette : le même calcul a révélé qu'avec une image
+4:3 et la manette Pro, le menu du premier passage tombait à 2 px de haut,
+écrasé sous « La salle ».
+
+Un piège évité en route. Le socle a déjà une marque pour cacher l'image
+pendant une transition. La neige d'une connexion coupée la pose et la
+retire aussi : si le menu s'en servait, la fin de la neige rendrait une
+image que le menu cache encore. Le menu pose donc sa propre marque.
+
+Pourquoi aucun pilote ne l'avait vu : le banc de `focus.mjs` ne sert qu'un
+flux 4:3, et à 844 sur 390 une image 4:3 avec la manette GameCube laisse
+une bande de 164 px, où le menu tient. Le repli n'y était jamais pris.
+Une preuve qui ne sert qu'une forme d'image ne prouve rien pour les
+autres. `menu-en-colonne` ouvre maintenant un second banc avec
+un flux 16:9, et `salle-telephone` ouvre aussi le menu sur une image
+Xbox 360. Le propriétaire n'a pas encore vu ce choix sur son téléphone :
+c'est la première chose à lui montrer.
+
+**Le focus tombait sur la page.** Une fiche visait le choix coché ou le
+bouton qui agit, sans vérifier qu'ils prenaient le focus. Un élément grisé
+ne le prend pas. Au clavier, « Fermer le jeu » confirmé passait à
+« Fermeture du jeu en cours… », le bouton se grisait sous le focus, et le
+focus tombait sur `<body>`, où Échap ne faisait plus rien : le menu et la
+fiche restaient ouverts. Les fiches en refus et celles qui lisent leurs
+sauvegardes le perdaient dès l'ouverture. La fiche suit maintenant la règle
+du rayonnage : le choix coché, le bouton qui agit, ou « Revenir », pourvu
+qu'ils le prennent, et le titre pendant une lecture. Une fiche dont la
+ligne disparaît (le jeu fermé emporte « Fermer le jeu ») rend le focus à la
+liste.
+
+**L'anneau de focus était coupé.** Le menu défile dans sa propre boîte, et
+une **boîte qui défile** coupe ce qui dépasse d'elle. L'anneau de focus se
+dessine 5 px hors de l'élément : sur une ligne pleine largeur, il ne
+restait que deux traits, en haut et en bas. Le premier passage avait
+retiré d'`index.css` la règle qui le rentrait, et son commentaire décrivait
+exactement ce défaut. Le menu garde maintenant 5 px de marge sur ses bords.
+L'étape `anneau-menu` mesure chaque arrêt contre la boîte qui le coupe ;
+elle a trouvé au passage une cartouche du rayonnage qui perdait un pixel.
+
+**« Plus bas » ne voyait pas le menu.** Le repère de la colonne observe le
+défilement de la colonne, et le menu défile dans sa boîte à lui : au
+bureau, Réglages cachait huit lignes sous le bord, dont les effets rétro,
+sans repère. Le menu a maintenant le sien.
+
+**Cinq effets du plan n'étaient pas branchés.** La secousse d'un refus
+nouveau, au niveau « tout », sur le bloc qui l'écrit ; l'iris de
+`quitter-partie` sur le menu quand « Fermer le jeu » est accepté ;
+l'extinction de `fermer-salle` sur la page de qui ferme la salle, qui
+partait avant de la voir ; la planche tramée sous chaque rangée et la
+flèche en pixels sur le rayonnage ; la cartouche dont la fiche est ouverte,
+sortie de 4 px. Chacun a son essai et son jumeau.
+
+**Le protocole d'`App.tsx`.** La partition ne donne à chaque chantier qu'un
+commit de câblage dans `App.tsx`, le dernier de sa branche. Treize commits
+du chantier y touchent, et de la logique y était restée : les rubriques
+Jeux et Réglages, la fiche d'un jeu, la clé de lecture des sauvegardes, le
+dépli de la colonne. Elles sont sorties dans `components/menu/`, et ce
+passage ne touche `App.tsx` que par son dernier commit. Les treize d'avant
+ne sont pas réécrits en un seul : les contrôles rouges nomment des pages
+de cette branche par leur commit (1ee8b49, 742b011, 49be12b, 41e9b33…), et
+la vague B1 a montré que la fusion applique la différence d'`App.tsx`
+entre la base et la branche, ce qui revient au rejeu dans l'ordre. Une
+aide du menu rangée dans la section des mots de la salle et un essai de
+contraste écrit dans le bloc du socle sont revenus dans les blocs du
+chantier.
+
+Le poids : 276 515 octets en brotli 11 avant, 277 956 après, soit 1 441 de
+plus (la place du menu, les gardes du focus, le repère, les effets ; aucun
+retrait dans ce passage). La leçon générale : un banc d'essai qui ne sert
+qu'une forme de ce qu'il mesure (une image 4:3) ne dit rien des autres
+formes, même quand le code a une branche écrite pour elles.
 
 ## 12. Glossaire complet
 
@@ -33334,3 +33437,8 @@ ouverte.
 élément en position absolue se place. C'est le plus proche ancêtre
 positionné ; sans lui, un ancêtre lointain, dont l'élément agrandit la zone
 qui défile même s'il est invisible.
+
+**Boîte qui défile (scroll container)** : un élément dont le contenu
+défile dans ses bords (`overflow: auto`). Il coupe tout ce qui dépasse de
+sa boîte, y compris un anneau de focus dessiné hors de l'élément : un
+contrôle collé à son bord perd le côté de son anneau.

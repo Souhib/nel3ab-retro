@@ -456,6 +456,40 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, après la relecture : le chantier menus, sixième
+passage.** Sur la même branche, rien dans `main`, rien de poussé ni
+d'installé. Une relecture indépendante a rendu sept constats ; tous
+reproduits et corrigés :
+
+- **Jamais sur une image visible.** Couché avec une image 16:9, le repli
+  couvrait 42 % (844×390) à 48 % (780×360) de l'image vivante, et non son
+  bord comme l'entrée du premier passage le disait. Sans bande lisible, le
+  menu prend maintenant la place de l'écran et l'image s'y cache le temps
+  du menu, sans changer de taille ; « La salle » ne passe plus sur lui. Le
+  propriétaire n'a pas encore vu ce choix : à lui montrer avec la salle.
+- **Le focus d'une fiche grisée** reste dans la fiche (choix coché, bouton
+  qui agit ou « Revenir », titre pendant une lecture), et Échap revient à
+  la liste après « Fermer le jeu ».
+- **L'anneau de focus** du menu et du rayonnage se voit en entier.
+- **« Plus bas »** dans le menu, qui défile dans sa propre boîte.
+- **Les effets du plan** : secousse d'un refus (niveau « tout »), iris de
+  « Fermer le jeu », extinction avant de partir après « Fermer la salle »,
+  planche tramée, flèche en pixels et cartouche tirée de 4 px.
+- **`App.tsx`** : les rubriques Jeux et Réglages, la fiche d'un jeu, la
+  lecture des sauvegardes et le dépli de la colonne sortent dans
+  `components/menu/` ; ce passage n'y touche que par son dernier commit.
+- **Les pilotes** : focus (`menu-en-colonne` avec un banc 16:9,
+  `fermeture-en-cours`, `anneau-menu`, `plus-bas-menu`, rouges sur
+  cd2d5b3), parcours (`fiche-a-cote` lit la cartouche tirée),
+  `salle-telephone` (le menu sur une image Xbox 360).
+
+Page : 277 956 octets en brotli 11 (1 441 de plus, aucun retrait). Récit :
+« 24 novembre, après la relecture : sept constats sur le chantier menus ».
+Reste au chantier : celui du cinquième passage, moins rien de nouveau ;
+les treize commits d'`App.tsx` des passages d'avant ne sont pas réécrits en
+un seul (les contrôles rouges nomment des pages de cette branche par leur
+commit).
+
 **Au 24 novembre, au bout de la nuit : le chantier menus, cinquième
 passage.** Sur la même branche, rien dans `main`, rien de poussé ni
 d'installé. Livré :
@@ -577,7 +611,9 @@ d'installé. Livré :
   de la colonne au bureau, sous l'image tenu droit, dans la bande la plus
   large couché. Une image 16:9 couchée ne laisse pas de bande lisible : le
   menu prend alors la feuille agrandie, qui couvre le bord de l'image, et le
-  dit (`data-sur-image`) ; à trancher avec le chantier salle.
+  dit (`data-sur-image`) ; à trancher avec le chantier salle. Remplacé au
+  sixième passage : le repli couvrait 42 à 48 % de l'image vivante, et le
+  menu prend désormais la place de l'écran, l'image cachée le temps du menu.
 - **Fiches** pour lancer un jeu sur une sauvegarde, fermer le jeu et fermer
   la salle ; Fermer le jeu et Fermer la salle seulement pour qui choisit le
   jeu ; le refus d'un geste s'écrit dans le menu. « Quitter la salle » passe

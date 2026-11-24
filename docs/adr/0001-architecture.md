@@ -1308,7 +1308,9 @@ Decision:
    A landscape 16:9 picture leaves two 75 px bands: the menu then falls back to
    the room sheet's rectangle, which covers the picture's edge, and says so
    with `data-sur-image="oui"`. That case is a known defect for the room frame
-   to settle.
+   to settle. (Replaced the same day by the addendum « after the review »
+   below: the fallback covered 42 to 48 % of the live picture, not its edge;
+   the menu now takes the screen's place and hides the picture meanwhile.)
 2. **Focus.** Opening puts focus on the first line. The cursor is the focus,
    with a roving tabindex inside the panel: one control has `tabIndex` 0 and
    its line carries `aria-current`. Up and down move between lines without
@@ -1467,6 +1469,67 @@ column-level padding in `Colonne.tsx` (another workstream's file, and the
 row's height varies from one to three lines). Not taken: the « ouvre » and
 « fier » scenes, which the partition's scene table gives to the lobby and
 to the controllers and room workstreams.
+
+#### D30 addendum, 2026-11-24, after the review: never on a visible picture
+
+An independent review of the menus work found seven defects; four change
+what this entry says.
+
+1. **No menu on a visible picture.** A phone held sideways with a 16:9
+   picture and the Pro touch pad (Switch, Switch 2, Xbox 360) leaves two
+   148 px bands, below the 150 px a menu needs (`BANDE_MIN`); without a touch
+   pad, two 75 px bands. The fallback laid the menu on the sheet's 380 px:
+   measured on the bench, it covered 42 % of the live picture at 844×390 and
+   48 % at 780×360, while the page painted 60 pictures a second under it, and
+   « La salle » (with Aïn's head) sat on one of its lines. The rule of the
+   owner (K20: never anything on a live picture) applies to the menu too.
+   `placeDuMenu` now tries a side band first, the left one, cut above or
+   below « La salle » and the player's label; with none readable (150 px
+   wide, 200 px high) it takes the screen's own rectangle (`lieu: "ecran"`)
+   and the picture hides there for as long as the menu is open
+   (`data-image-sous-menu`, `visibility: hidden`). The picture keeps its size
+   and its pixels, the media loop keeps painting underneath, and closing the
+   menu shows it again. A spectator's line says so (« Elle revient à la
+   fermeture »). The menu's marker is its own: the snow of a lost connection
+   sets and clears `IMAGE_CACHEE` of the socle, and the end of one must not
+   show a picture the other still hides.
+2. **A greyed control never keeps the focus.** A fiche aims at its checked
+   choice, then its acting button, then « Revenir », only if they take the
+   focus; while it reads its saves, the focus waits on its title and moves
+   to the checked choice when the answer comes. When « Fermer le jeu » turns
+   to « Fermeture du jeu en cours… » under the focus, or the fiche's line
+   leaves its tab, the focus goes back into the menu. Before, it fell on
+   `<body>`, where Escape did nothing.
+3. **The focus ring is whole.** `#menu` scrolls, and a scroll box clips what
+   overflows it: the ring (3 px, 2 px outside) lost both sides of every
+   full-width line. The menu now keeps 5 px of padding, and the shelf's
+   rows too (a cartridge lost one pixel).
+4. **« Plus bas » inside the menu** (M11). The menu scrolls in its own box,
+   so the column's marker never saw it: Réglages hid eight lines at
+   1280×720. The menu has its own sticky marker, outside the tab order.
+
+Weighed for point 1: shrinking the picture to free a band, as the desktop
+column does. Rejected: this entry promised that the picture keeps its
+rectangle when the menu opens, a resize on every opening moves what the
+others watch on that screen, and the room frame (`lib/cadre.ts`) belongs to
+another workstream. Covering the picture and saying so (the first version)
+is what the review refused.
+
+Also from the review: the effects of the plan now run. A new refusal shakes
+the block that writes it at the « tout » level (`secouer`); « Fermer le
+jeu » plays the `quitter-partie` transition (iris) on the menu; the page of
+whoever closes the room leaves only after the `fermer-salle` transition
+(extinction) ends; the shelf's rows have a dithered plank, the pixel arrow
+marks the shelf and an idle room's menu, and an open card's cartridge
+stands out by 4 px. The Jeux and Réglages tabs, the game card, the saves'
+reading key and the column unfolding moved out of `App.tsx` into
+`components/menu/`.
+
+Proof: `menu-en-colonne` (a 16:9 view on a second bench), `fermeture-en-cours`,
+`anneau-menu` and `plus-bas-menu` in `just focus-navigateur`, red on the
+reviewed page cd2d5b3 in `just focus-navigateur-rouge`; `fiche-a-cote` in
+`just parcours-navigateur`; the menu of `salle-telephone` now also opens on a
+16:9 picture.
 
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 

@@ -694,7 +694,9 @@ Page conventions since 2026-11-22 (ADR D26 to D35): colours live in
 in the game zone (`lib/focus-jeu.ts`); a full-screen layer is a `<dialog>`
 opened by `showModal()` whose cursor is the focus, and what must stay above it
 goes through `Surcouche`; the room menu is not such a layer since 2026-11-24
-(D30 amended): a non-modal section beside the picture, never on it; visible words come from `lib/mots.ts`.
+(D30 amended): a non-modal section beside the picture, never on a visible
+picture (sideways with no readable band, it takes the screen's place and the
+picture hides until it closes); visible words come from `lib/mots.ts`.
 
 Since 2026-11-23 (ADR D37), a retro effect is an `rt-…` class of
 `front/src/effets.css`, lit or not by the device's level (`fx-<id>` on

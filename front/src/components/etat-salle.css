@@ -99,6 +99,18 @@ button.n3-pastille {
   font-variant-numeric: tabular-nums;
 }
 
+/* La pastille posée à part, tenue en main : en haut de la grappe droite en
+   paysage (K12), ou dans la barre. Au-dessus de la boîte de la manette, qui
+   couvre tout son rectangle ; seule la pastille prend le doigt. */
+.n3-pastille-place {
+  position: absolute;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 /* ── La fiche ────────────────────────────────────────────────────────── */
 
 .n3-fiche {

@@ -444,6 +444,12 @@ machine".
   `content-visibility`): on 2026-11-23 the mascot's planner took a folded
   microphone button for an obstacle on the logo and refused every scene.
   Code that reads obstacles skips that content, as the probes already did.
+  A box read too early points to a place that moves. On 2026-11-24,
+  `place-suit-adresse` failed one run in five: it clicked « Autres réglages »
+  as soon as a seat read, and the first picture moved it under the column's
+  sticky foot 450 ms later. Wait for the state that changes the layout (the
+  frame's `data-etat`), bring the target into view and hit-test its centre
+  before a real click.
 - **Start a clock before the gesture it times.** On 2026-11-24,
   `focus-navigateur-rouge` fell on a precondition one run in three. The
   bench logs a frame only when its buttons change, and the old page sent its

@@ -32972,6 +32972,46 @@ banc ne donne aucune place (un spectateur) tombe toujours sur la
 précondition, sur la page de `main` comme sur la page actuelle. La garde
 garde, elle ne dépend plus de la vitesse du pilote.
 
+**`place-suit-adresse`, une fois sur cinq.** Pendant la vague B1, cette
+étape de `parcours-navigateur` est tombée une fois sur une erreur de
+puppeteer (« Node is either not clickable or not an Element », 1,5 s),
+puis a passé quatre fois. L'étape entre pour regarder, prend une place,
+recharge, puis rend sa place par « Autres réglages », un `<details>` de la
+colonne, et « Rendre ma place ».
+
+Une copie du pilote qui note la position de « Autres réglages » après le
+rechargement montre ce qui bouge. L'étape cliquait dès qu'une place se
+lisait dans le bloc de rôle. Environ 450 ms plus tard, la première image
+peinte atteint la colonne : React lit la session deux fois par seconde,
+et le cadre passe de « connexion » à « vit ». À 1440 × 900, le panneau de
+commande entre alors dans la colonne, et quatre rangs y apparaissent (le
+son, tes touches, le clip, Agrandir). « Autres réglages » descend de
+412 px, de y = 360 à y = 772, sous le pied collé de la colonne (« Plus
+bas » et la maison d'Aïn). Un clic parti avant ce rendu passait ; un clic
+parti après tombait sur le pied, et « Rendre ma place » restait hors
+d'atteinte.
+
+La preuve : l'ancienne étape, forcée à cliquer après l'image, échoue à
+chaque fois. Sur la page de la vague B1 (a166dec), elle rend exactement
+l'erreur de ce jour-là, en 1,6 s. Sur la page actuelle, le clic tombe sur
+le pied, et l'étape s'arrête sur « Rendre ma place sans effet ». La
+correction a deux parties, et chacune a son mutant. L'étape attend
+d'abord que le cadre dise « vit » (`data-etat`) : la colonne de l'image
+est alors posée. Puis elle clique comme une personne qui fait défiler la
+colonne : la cible amenée au milieu de son conteneur, immobile trois
+images de suite, et son centre vérifié par `elementFromPoint` avant un
+vrai clic de souris ; elle vérifie ensuite que « Autres réglages » s'est
+ouvert. Huit passages sur la page actuelle et un sur la page de la vague
+B1 sont verts. Sans le défilement, la vérification du point refuse le
+clic sur les deux pages (« le centre tombe sur » le pied). Avec l'attente
+mais l'ancien clic, l'étape échoue à chaque fois : l'attente seule
+n'aurait fait que rendre l'échec certain. Le 23 novembre, `cadre.mjs`
+avait rencontré le même piège dans son étape `un-plein` et centrait déjà
+ses clics ; `parcours.mjs` ne l'avait pas appris. Le chantier de fin qui
+règle `colonne-stable` fixera la place du panneau avant la première
+image, mais les quatre rangs entreront toujours avec elle : l'étape ne
+dépend pas de ce travail.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

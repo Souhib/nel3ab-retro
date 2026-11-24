@@ -918,6 +918,13 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes pastille-contraste,pastille-hors-image,extinction,calques-attente \
         --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente
+    # 4ecbc23, la page de la vague B2 : à 1440×900, la première image 4:3
+    # rangeait le panneau de commande dans la colonne et poussait ses
+    # enfants de 204 px. Le panneau s'y décidait sur l'image reçue, et non
+    # sur le format attendu de la console (`baseDuPanneau`, 24 novembre 2026).
+    git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
+    node etats.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
+        --etapes colonne-stable --rouge-attendu colonne-stable
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
         --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
         --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique

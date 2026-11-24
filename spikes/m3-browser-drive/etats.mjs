@@ -1537,11 +1537,24 @@ const ETAPES = {
   /** Une salle qui répond sans jamais envoyer d'image. À 15 s, le plein
    * cadre propose de réessayer et les autres salles, et le temps depuis
    * lequel la salle répond avance. Le jumeau : à 3 s, aucun geste, la salle
-   * a encore le temps de répondre. */
+   * a encore le temps de répondre.
+   *
+   * L'horloge part de l'apparition du plein cadre, pas du clic. Depuis le
+   * salon (vague B2, 24 novembre 2026), l'entrée joue sa transition
+   * « entrer-salle » avant d'ouvrir la salle : l'arrivée commence 0,5 s
+   * après le clic, et 15 s comptées du clic n'en laissaient que 14,5 à la
+   * page (4 501 ms d'arrivée relevés 5 s après le clic). La limite de la
+   * page (`ARRIVEE_LIMITE_MS`, 15 s) se compte du début de la session :
+   * les gestes doivent paraître entre 12 et 18 s après le plein cadre. Les
+   * 3 s de chaque côté couvrent un plein cadre posé un peu avant ou après
+   * la session, et le pas du relevé. */
   async "arrivee-sans-image"() {
     const page = await nouvelle(PC);
     banc.regler({ video: "freeze" });
     await page.click("#enter");
+    if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+      throw new Precondition("pas de plein cadre à l'arrivée");
+    const debut = Date.now();
     const gestes = () =>
       page.evaluate(() => ({
         reessayer: document.querySelector("#arrivee #reessayer") !== null,
@@ -1550,11 +1563,20 @@ const ETAPES = {
       }));
     await sleep(3000);
     const tot = await gestes();
-    if (!tot.texte) throw new Precondition("pas de plein cadre à l'arrivée");
+    if (!tot.texte) throw new Precondition("le plein cadre est parti avant 3 s");
     if (tot.reessayer || tot.salles) throw new Defaut(`à 3 s, l'arrivée parle déjà de panne: ${tot.texte}`);
-    await sleep(12_000);
-    const tard = await gestes();
-    if (!tard.reessayer || !tard.salles) throw new Defaut(`à 15 s, pas de « Réessayer » ou d'« Autres salles »: ${tard.texte}`);
+    const LIMITE_MS = 15_000;
+    const MARGE_MS = 3_000;
+    let tard = tot;
+    while (!(tard.reessayer && tard.salles) && Date.now() - debut < LIMITE_MS + MARGE_MS) {
+      await sleep(200);
+      tard = await gestes();
+    }
+    const vers = Date.now() - debut;
+    if (!tard.reessayer || !tard.salles)
+      throw new Defaut(`${Math.round(vers / 100) / 10} s après le plein cadre, pas de « Réessayer » ou d'« Autres salles »: ${tard.texte}`);
+    if (vers < LIMITE_MS - MARGE_MS)
+      throw new Defaut(`les gestes d'une panne paraissent ${Math.round(vers / 100) / 10} s après le plein cadre, avant la limite de 15 s`);
     const depuis = (t) => Number(/répond depuis (\d+) s/.exec(t)?.[1] ?? NaN);
     const un = depuis(tard.texte);
     await sleep(2000);
@@ -2022,6 +2044,14 @@ const ETAPES = {
     await page.close();
   },
 
+  /** La première image ne déplace ni la colonne ni le panneau de commande.
+   * Le banc annonce une Xbox 360 (16:9 attendu) et envoie un flux 640×480 :
+   * à 1440×900, le panneau décidé sur l'image reçue passait de sous l'écran
+   * à la colonne et poussait ses enfants de 204 px. Il se décide maintenant
+   * sur le format attendu de la console (`baseDuPanneau` de lib/cadre,
+   * décision du chef de chantier du 24 novembre 2026), et une image qui
+   * diffère n'y change rien avant le prochain changement de mise en page.
+   * Le jumeau : un enfant déplacé d'un pixel est vu. */
   async "colonne-stable"() {
     const page = await nouvelle(PC);
     banc.regler({ video: "freeze" });
@@ -2031,7 +2061,8 @@ const ETAPES = {
     await sleep(1500);
     const boites = () =>
       page.evaluate(() =>
-        [...(document.querySelector("#side")?.children ?? [])].map((el) => {
+        [...(document.querySelector("#side")?.children ?? []), document.querySelector("#panneau")].map((el) => {
+          if (!el) return "pas de #panneau";
           const r = el.getBoundingClientRect();
           return `${el.id || el.className}:${[r.left, r.top, r.width, r.height].map(Math.round)}`;
         }),

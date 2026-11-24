@@ -733,12 +733,18 @@ const ETAPES = {
     await page.click("#ray-manettes");
     await sleep(300);
     if ((await page.$("#item-bindings")) === null) throw new Defaut("« manettes » ne porte pas le réglage de la manette");
+    if ((await page.$("#item-touches-clavier")) === null)
+      throw new Defaut("« manettes » ne mène pas à toutes les touches du clavier (M9)");
     await capture(page, "menu-manettes");
     await page.click("#ray-reglages");
     await sleep(300);
     const reglages = await page.$$eval("#menu [id^=item-]", (els) => els.map((el) => el.id));
     if (reglages.length > 12) throw new Defaut(`« réglages » montre encore ${reglages.length} entrées à plat`);
-    if (reglages.some((id) => ["item-bindings", "item-pad", "item-touchpad", "item-padonly"].includes(id)))
+    if (
+      reglages.some((id) =>
+        ["item-bindings", "item-touches-clavier", "item-pad", "item-touchpad", "item-padonly"].includes(id),
+      )
+    )
       throw new Defaut(`des réglages de manette restent dans « réglages »: ${reglages}`);
     await capture(page, "menu-reglages");
     await page.close();
@@ -886,6 +892,147 @@ const ETAPES = {
     if ((await tabArriereJusquALaZone(page)) !== null)
       throw new Defaut("pendant un chargement, Maj+Tab s'arrête encore sur la zone de jeu");
     await page.close();
+  },
+
+  /** M8 : chaque ligne porte son aide, toujours visible et entière ; rien
+   * ne change de hauteur quand le focus descend. Le menu façon XMB tenait
+   * des lignes de hauteur fixe, mais n'y montrait l'aide que sous la ligne
+   * choisie, tronquée. */
+  async "aides-fixes"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.click("#ray-reglages");
+    await sleep(300);
+    // La hauteur de chaque ligne et l'écart jusqu'à la suivante : une aide
+    // posée SOUS la ligne choisie, hors d'elle, pousse la suivante sans
+    // changer la hauteur de la ligne elle-même. L'écart ne dépend pas du
+    // défilement.
+    const hauteurs = () =>
+      page.evaluate(() => {
+        const lignes = [...document.querySelectorAll("#menu [id^=item-]")];
+        return Object.fromEntries(
+          lignes.flatMap((el, i) => {
+            const r = el.getBoundingClientRect();
+            const suivante = lignes[i + 1]?.getBoundingClientRect();
+            return [
+              [el.id, r.height],
+              ...(suivante ? [[`${el.id}→suivante`, suivante.top - r.top]] : []),
+            ];
+          }),
+        );
+      });
+    /** Les aides qui se voient en entier : présentes, non vides, et sans
+     * texte coupé par leur boîte. */
+    const aides = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("#menu [id^=item-]")].map((el) => {
+          const aide = document.getElementById(`aide-${el.id.slice(5)}`);
+          if (!aide || aide.textContent.trim() === "") return "absente";
+          const r = aide.getBoundingClientRect();
+          if (r.height === 0 || getComputedStyle(aide).visibility === "hidden") return "cachée";
+          return aide.scrollWidth > aide.clientWidth + 1 || aide.scrollHeight > aide.clientHeight + 1 ? "coupée" : "vue";
+        }),
+      );
+    const avant = await hauteurs();
+    if (Object.keys(avant).length < 9) throw new Precondition(`moins de cinq lignes sous « réglages »`);
+    const vuesAvant = await aides();
+    if (vuesAvant.filter((v) => v === "vue").length < 4)
+      throw new Defaut(`les aides ne se voient pas sur chaque ligne : ${vuesAvant.join(", ")}`);
+    const premiere = await choisie(page);
+    const premier = Object.keys(avant)[0];
+    await page.focus(`#${premier}`);
+    for (let i = 0; i < 8; i += 1) {
+      await page.keyboard.press("ArrowDown");
+      await sleep(80);
+    }
+    await sleep(300);
+    if ((await choisie(page)) === premiere && premiere !== null)
+      throw new Precondition("huit flèches n'ont pas déplacé la ligne choisie");
+    const apres = await hauteurs();
+    const vuesApres = await aides();
+    if (vuesApres.join() !== vuesAvant.join())
+      throw new Defaut(`les aides changent avec le focus : ${vuesAvant.join(", ")} puis ${vuesApres.join(", ")}`);
+    const sautes = Object.keys(avant).filter((id) => id in apres && Math.abs(avant[id] - apres[id]) > 0.5);
+    if (sautes.length)
+      throw new Defaut(
+        `des lignes changent de hauteur avec le focus : ${sautes.map((id) => `${id} ${Math.round(avant[id])}→${Math.round(apres[id])}`).join(", ")}`,
+      );
+    await page.close();
+  },
+
+  /** M12, M13, W4, S4 : au niveau conseillé, ce qui bouge dans le menu ne
+   * fait que paraître (opacité), en 120 ms au plus, et rien n'y tourne en
+   * boucle. Le XMB respirait sans fin et grossissait la ligne choisie. */
+  async "mouvement-menu"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await ouvrirMenu(page);
+    const vus = [];
+    const lire = () =>
+      page.evaluate(() =>
+        document
+          .getAnimations()
+          .filter((a) => {
+            const cible = a.effect?.target;
+            return cible instanceof Element && cible.closest("#menu, .n3-menu, .n3-xmb, dialog[open]") !== null;
+          })
+          .map((a) => {
+            const t = a.effect.getTiming();
+            const proprietes = new Set(
+              a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p))),
+            );
+            return {
+              nom: a.animationName ?? a.transitionProperty ?? a.constructor.name,
+              duree: Number(t.duration) || 0,
+              infinie: t.iterations === Infinity,
+              proprietes: [...proprietes],
+            };
+          }),
+      );
+    for (const touche of ["ArrowRight", "ArrowDown", "ArrowDown", "ArrowRight", "ArrowDown", "ArrowLeft", "ArrowDown", "ArrowRight"]) {
+      await page.keyboard.press(touche);
+      await sleep(40);
+      vus.push(...(await lire()));
+    }
+    if (vus.length === 0) throw new Precondition("aucune animation vue dans le menu : rien à juger");
+    const fautes = vus.filter(
+      (a) => a.infinie || a.duree > 120 || a.proprietes.some((p) => p !== "opacity"),
+    );
+    if (fautes.length)
+      throw new Defaut(`le menu anime autre chose qu'un fondu court : ${JSON.stringify(fautes.slice(0, 3))}`);
+    await page.close();
+  },
+
+  /** M15 : dans la fiche d'un jeu, la barre « Lancer » se voit sans défiler,
+   * dans la zone qui défile et dans la fenêtre, au bureau comme au
+   * téléphone. */
+  async "fiche-lancer"() {
+    for (const vue of [{ width: 1280, height: 720 }, PC, TELEPHONE]) {
+      const page = await nouvelle(vue, { console: "wii" });
+      await entrer(page);
+      await ouvrirMenu(page);
+      await page.click("#ray-jeux");
+      await sleep(300);
+      if (!(await attendre(page, () => document.querySelector("#item-game2:not([aria-disabled=true]):not(:disabled)") !== null, 5000)))
+        throw new Precondition(`à ${vue.width} px, le jeu Wii ne se choisit pas`);
+      await page.click("#item-game2");
+      if (!(await attendre(page, () => document.querySelector("#menu #fiche [data-lancer]") !== null, 3000)))
+        throw new Precondition(`à ${vue.width} px, la fiche du jeu ne s'ouvre pas`);
+      await sleep(300);
+      const lu = await page.evaluate(() => {
+        const barre = document.querySelector("#menu [data-lancer]").getBoundingClientRect();
+        let zone = document.querySelector("#menu [data-lancer]").parentElement;
+        while (zone && !["auto", "scroll"].includes(getComputedStyle(zone).overflowY)) zone = zone.parentElement;
+        const z = (zone ?? document.documentElement).getBoundingClientRect();
+        const dans = (a, b) => a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5 && a.left >= b.left - 0.5 && a.right <= b.right + 0.5;
+        const fenetre = { top: 0, left: 0, bottom: innerHeight, right: innerWidth };
+        return { zone: dans(barre, z), fenetre: dans(barre, fenetre), haut: Math.round(barre.top), bas: Math.round(barre.bottom) };
+      });
+      if (!lu.zone || !lu.fenetre)
+        throw new Defaut(`à ${vue.width}x${vue.height}, la barre « Lancer » sort de ${lu.zone ? "la fenêtre" : "sa zone"} (${lu.haut} à ${lu.bas} px)`);
+      await page.close();
+    }
   },
 
   /** P10 et M10: « Fermer le jeu » passe par sa fiche ; accepté, la

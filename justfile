@@ -1005,8 +1005,13 @@ focus-navigateur-rouge:
     # rougissent sur la page de main 03b21c0, qui a encore le menu plein cadre,
     # les trois formes, le pied toujours là et le sélecteur. menu-entree-focus
     # et menu-entree-curseur sont des jumeaux : ils passent sur les deux pages.
+    # aides-fixes y lit l'aide sous la seule ligne choisie, mouvement-menu un
+    # grossissement de 200 ms. fiche-lancer n'a pas de page d'avant qui
+    # rougisse sur son défaut (main n'a pas de fiche) : elle a été vue rouge
+    # sur un mutant sans barre collée (`position: sticky` retiré), le
+    # 24 novembre 2026.
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
-    etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette
+    etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette,aides-fixes,mouvement-menu
     node focus.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # 49be12b, la page du chantier menus juste avant P10 : une fermeture

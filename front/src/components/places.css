@@ -117,8 +117,10 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* En petit au téléphone : le rond seul, 44 px, et les initiales si l'effet
-   est allumé ; le nom et la phrase restent dans la feuille. */
+/* En petit au téléphone : le rond seul, 44 px ; le nom, les initiales et la
+   phrase restent dans la feuille. Le panneau en petit a moins de 70 px de
+   haut : les initiales sous le rond (effets « tout ») le portaient à 64 px,
+   et la rangée débordait sur l'image (24 novembre 2026, à 667x375). */
 .n3-places[data-forme="petite"] .n3-place {
   grid-template-columns: 44px;
   justify-items: center;
@@ -126,11 +128,59 @@
 .n3-places[data-forme="petite"] .n3-place-start {
   grid-row: auto;
 }
-.n3-places[data-forme="petite"] .n3-place-texte .rt-nom-plein,
-.n3-places[data-forme="petite"] .n3-place-vide,
-.n3-places[data-forme="petite"] .n3-place-toi,
+.n3-places[data-forme="petite"] .n3-place-texte,
 .n3-places[data-forme="petite"] .n3-place-signes {
   display: none;
+}
+
+/* En petit, quand les quatre places n'ont pas leurs 44 px chacune (quatre
+   ronds et trois écarts de 8 px : 200 px), un seul bouton les montre toutes,
+   en lampes, et ouvre la salle. Mesuré le 24 novembre 2026 : à 667x375 avec
+   la manette à l'écran, le cadre donne 114 px au panneau, et chaque place
+   mesurait 17 px de large. */
+.n3-places[data-forme="petite"]:has(> .n3-places-toutes) {
+  container-type: inline-size;
+}
+.n3-places-toutes {
+  position: relative;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 2px solid var(--trait);
+  background: var(--creux);
+  color: var(--encre);
+  font-family: var(--police-titre);
+  cursor: pointer;
+}
+.n3-places-lampe {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--rayon-rond);
+  border: 2px solid var(--rt-joueur, var(--trait));
+  background: var(--creux);
+  color: var(--encre);
+  font-size: var(--text-note);
+}
+.n3-places-lampe[data-libre] {
+  border-style: dashed;
+  border-color: var(--start-eteint-trait);
+  color: var(--start-eteint-encre);
+  background: var(--start-eteint-fond);
+}
+@container (width < 200px) {
+  .n3-places-rangee {
+    display: none;
+  }
+  .n3-places-toutes {
+    display: flex;
+  }
 }
 .n3-places[data-forme="petite"] .n3-places-role {
   position: absolute;

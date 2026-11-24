@@ -493,6 +493,9 @@ export const PLACES = {
   sansNom: "tenue",
   /** Le badge qui saute sur une place qui s'allume (effet « arrive »). */
   pret: "prêt !",
+  /** Le bouton qui montre les quatre places quand la rangée en petit n'a
+   * pas leur largeur. */
+  toutes: (dites: string) => `Les places : ${dites}. Les voir dans la salle`,
   libre: (n: number) => `Place ${n}, libre : la prendre`,
   tenue: (n: number) => `Place ${n}, tenue : la reprendre`,
   aToi: (n: number) => `Place ${n} : la tienne`,

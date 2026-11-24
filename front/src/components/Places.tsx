@@ -17,6 +17,11 @@
  * le panneau coupe ce qui dépasse, et rien ne monte sur l'image. Un départ
  * pose `data-part` : la place s'éteint en trois paliers.
  *
+ * En petit, quand le panneau n'a pas la largeur de quatre places de 44 px,
+ * un seul bouton les montre toutes (`#placesToutes`, quatre lampes) et
+ * ouvre la salle (`onToutes`). La bascule est une requête de conteneur
+ * (`places.css`) : la largeur vient du cadre, et React ne la lit pas.
+ *
  * `id` et `data-state` sont lus par les pilotes de navigateur.
  */
 import type { CSSProperties } from "react";
@@ -29,6 +34,7 @@ import {
   phraseDuRole,
   type EntreePlaces,
   type FormePlaces,
+  type Place,
 } from "../lib/places";
 import { Crown } from "./Crown";
 import { Etiquette } from "./Etiquette";
@@ -46,6 +52,7 @@ export function Places({
   carte = null,
   onPrendre,
   onCarte,
+  onToutes,
 }: {
   forme: FormePlaces;
   entree: EntreePlaces;
@@ -57,6 +64,9 @@ export function Places({
   carte?: number | null;
   onPrendre: (port: number) => void;
   onCarte: (port: number) => void;
+  /** En petit, le bouton qui montre les quatre places ouvre la salle. Sans
+   * lui, la rangée reste la seule. */
+  onToutes?: () => void;
 }) {
   const places = lesPlaces(entree);
   const libres = places.filter((p) => p.etat === "free").length;
@@ -118,9 +128,49 @@ export function Places({
           );
         })}
       </div>
+      {forme === "petite" && onToutes ? (
+        <button
+          type="button"
+          id="placesToutes"
+          data-rend-le-jeu=""
+          data-joue={vient.size > 0 ? "" : undefined}
+          aria-label={PLACES.toutes(places.map(direPlace).join(", "))}
+          className="n3-places-toutes"
+          onClick={onToutes}
+        >
+          {places.map((p) => (
+            <span
+              key={p.port}
+              className="n3-places-lampe"
+              data-libre={p.etat === "free" ? "" : undefined}
+              style={
+                p.etat === "free"
+                  ? undefined
+                  : ({ "--rt-joueur": aplatDuJoueur(p.port) } as CSSProperties)
+              }
+              aria-hidden="true"
+            >
+              {p.port}
+            </span>
+          ))}
+          {vient.size > 0 ? (
+            <span className="rt-pret" aria-hidden="true">
+              {`${[...vient].map(pastille).join(" ")} ${PLACES.pret}`}
+            </span>
+          ) : null}
+        </button>
+      ) : null}
       <p className="n3-places-role">{phraseDuRole(entree.mienne, libres)}</p>
     </div>
   );
+}
+
+/** Une place dite dans le bouton qui les montre toutes : son numéro, puis
+ * « toi », le nom, « libre » ou « tenue ». */
+function direPlace(p: Place): string {
+  const qui =
+    p.etat === "mine" ? PLACES.toi : p.etat === "free" ? PLACES.vide : (p.nom ?? PLACES.sansNom);
+  return `${pastille(p.port)} ${qui}`;
 }
 
 const VIDE: ReadonlySet<number> = new Set();

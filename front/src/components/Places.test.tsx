@@ -117,6 +117,51 @@ describe("les places START", () => {
     expect(document.querySelectorAll(".rt-pret")).toHaveLength(1);
   });
 
+  it("en petit, un bouton montre les quatre places, dit chacune, et ouvre la salle", () => {
+    const onToutes = vi.fn();
+    render(
+      <Places
+        forme="petite"
+        entree={entree()}
+        vient={new Set([2])}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+        onToutes={onToutes}
+      />,
+    );
+    const toutes = document.querySelector<HTMLButtonElement>("#placesToutes")!;
+    expect(toutes.getAttribute("aria-label")).toBe(
+      "Les places : 1P libre, 2P Bilel, 3P toi, 4P libre. Les voir dans la salle",
+    );
+    const lampes = [...toutes.querySelectorAll(".n3-places-lampe")];
+    expect(lampes.map((l) => l.textContent)).toEqual(["1", "2", "3", "4"]);
+    expect(lampes.map((l) => l.hasAttribute("data-libre"))).toEqual([true, false, false, true]);
+    // L'arrivée se voit aussi sur lui, la rangée étant cachée.
+    expect(toutes.hasAttribute("data-joue")).toBe(true);
+    expect(toutes.querySelector(".rt-pret")?.textContent).toBe("2P prêt !");
+    fireEvent.click(toutes);
+    expect(onToutes).toHaveBeenCalledTimes(1);
+    // Les places restent dans le document, pour la feuille et les pilotes.
+    expect(port(2)).not.toBeNull();
+  });
+
+  it("n'a pas ce bouton hors du petit, ni sans geste pour ouvrir la salle", () => {
+    const { unmount } = render(
+      <Places
+        forme="rangee"
+        entree={entree()}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+        onToutes={() => {}}
+      />,
+    );
+    expect(document.querySelector("#placesToutes")).toBeNull();
+    unmount();
+    render(<Places forme="petite" entree={entree()} onPrendre={() => {}} onCarte={() => {}} />);
+    expect(document.querySelector("#placesToutes")).toBeNull();
+    expect(port(1)).not.toBeNull();
+  });
+
   it("garde allumée une place qui part le temps de s'éteindre", () => {
     const props = { forme: "rangee" as const, onPrendre: () => {}, onCarte: () => {} };
     const libre = entree({ tenues: [false, false, true, false] });

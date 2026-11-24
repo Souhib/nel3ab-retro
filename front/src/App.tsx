@@ -2304,6 +2304,12 @@ function Room({
           session?.input.take(choisie);
         }}
         onCarte={(choisie) => setCarte((ouverte) => (ouverte === choisie ? null : choisie))}
+        // En petit et trop étroite, la rangée devient un bouton : il ouvre la
+        // salle, où les places ont leur taille.
+        onToutes={() => {
+          if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
+          else setBare(false);
+        }}
       />
       {shot?.input.displaced ? (
         <p id="displaced" className="text-note text-alert">

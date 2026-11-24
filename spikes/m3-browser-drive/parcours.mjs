@@ -981,6 +981,41 @@ const ETAPES = {
     await parti.close();
   },
 
+  /** M10 et K25 (chantier menus, 24 novembre 2026) : au bureau, le menu prend
+   * la place des rangs de la colonne. Sa rubrique Salle dit « [Bo] choisit le
+   * jeu. » avec l'étiquette de Bo à sa place, et porte Signaler en ligne : un
+   * seul Signaler à l'écran. Le jumeau : menu fermé, Signaler est dans la
+   * colonne et plus dans le menu. */
+  async "menu-salle"() {
+    const page = await nouvelle(PC, { salle: { chef: "bo", bo: true, decide: false } });
+    await entrer(page);
+    const signaler = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("button")]
+          .filter((b) => /Signaler/.test(b.textContent ?? "") && b.getClientRects().length > 0)
+          .map((b) => b.id),
+      );
+    const avant = await signaler();
+    if (avant.length !== 1 || avant[0] !== "complain")
+      throw new Precondition(`menu fermé, les Signaler visibles sont ${JSON.stringify(avant)}`);
+    await menu(page, "salle");
+    const tete = await page.evaluate(() => {
+      const p = document.querySelector("#menuPanneau #menuQuiChoisit");
+      return {
+        texte: p?.textContent ?? null,
+        place: p?.querySelector(".n3-etiquette")?.getAttribute("data-place") ?? null,
+      };
+    });
+    if (tete.texte === null || !/Bo.*choisit le jeu\./.test(tete.texte))
+      throw new Defaut(`la rubrique Salle ne dit pas qui choisit le jeu : « ${tete.texte} »`);
+    if (tete.place !== "2") throw new Defaut(`l'étiquette de Bo n'est pas à sa place 2 : ${tete.place}`);
+    const ouverts = await signaler();
+    await capture(page, "menu-salle");
+    if (ouverts.length !== 1 || ouverts[0] !== "signalerMenu")
+      throw new Defaut(`menu ouvert, les Signaler visibles sont ${JSON.stringify(ouverts)}`);
+    await page.close();
+  },
+
   /** T04 et P1: la préparation est un bloc de la colonne, pas un dialogue ;
    * elle dit GameCube, n'ouvre pas l'écran des touches, et le jeu reçoit
    * encore les touches. Le jumeau : « Essayer mes touches » ouvre le réglage,

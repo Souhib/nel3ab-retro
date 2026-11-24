@@ -913,11 +913,12 @@ parcours-navigateur-rouge:
         --etapes preparation-telephone --rouge-attendu preparation-telephone
     # 2f2ea39, la page du chantier menus avant le chargement réécrit : qui a
     # lancé y lit « sur « ma sauvegarde » » au lieu de « Sur ta sauvegarde. »
-    # (C6). arrivee-sans-chargement n'a pas de page rouge : aucune page n'a
-    # montré le chargement à l'arrivée (C10, une preuve qui manquait).
+    # (C6), et la rubrique Salle du menu ne dit pas qui choisit le jeu (M10).
+    # arrivee-sans-chargement n'a pas de page rouge : aucune page n'a montré
+    # le chargement à l'arrivée (C10, une preuve qui manquait).
     git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
     node parcours.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
-        --etapes lanceur-ma-sauvegarde --rouge-attendu lanceur-ma-sauvegarde
+        --etapes lanceur-ma-sauvegarde,menu-salle --rouge-attendu lanceur-ma-sauvegarde,menu-salle
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible

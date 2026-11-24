@@ -913,30 +913,17 @@ try {
     await page.close();
   }
 
-  // Le réglage des touches en paysage (M11) : le panneau de la GameCube et de
-  // la Wii, celui d'une préparation, et le configurateur Pro (Switch, Xbox
-  // 360), seul et pendant une préparation.
+  // La préparation en paysage (M11) : elle garde ses dialogues, avec le
+  // réglage d'avant dedans, tant que le chantier des menus ne l'a pas sortie
+  // dans la colonne. Hors préparation, le réglage est le panneau, mesuré
+  // plus bas.
   const PANNEAUX = {
-    touches: {
-      url: "bindings-preview.html",
-      dialog: ".n3-bindings",
-      header: ".n3-bindings-header",
-      content: ".n3-bindings-content",
-      close: ".n3-bindings .n3-close",
-    },
     preparation: {
       url: "bindings-preview.html?preparation",
       dialog: ".n3-bindings",
       header: ".n3-bindings-header",
       content: ".n3-bindings-scroll",
       close: null,
-    },
-    pro: {
-      url: "bindings-preview.html?pro=switch",
-      dialog: ".n3-switch-setup",
-      header: ".n3-switch-setup > header",
-      content: ".n3-switch-body",
-      close: ".n3-switch-setup > header button",
     },
     "pro-preparation": {
       url: "bindings-preview.html?pro=x360&preparation",
@@ -954,9 +941,9 @@ try {
       ]
     : []) {
     for (const [nom, panneau] of Object.entries(PANNEAUX)) {
-      // Tenu droit, seul le panneau des touches était mesuré: les autres y
-      // prennent déjà tout l'écran par leur propre règle.
-      if (height > width && nom !== "touches") continue;
+      // Tenu droit, les dialogues de préparation prennent déjà tout l'écran
+      // par leur propre règle.
+      if (height > width) continue;
       const { page, errors } = await ouvrir({ width, height, url: `${BASE}/${panneau.url}` });
       const bad = [];
       try {
@@ -992,6 +979,67 @@ try {
       bad.push(...errors.map((e) => `erreur de page : ${e}`));
       say(bad.length === 0, `réglage « ${nom} » ${width}x${height}`, bad);
       await page.close();
+    }
+  }
+
+  // Le panneau « Touches et manettes » (chantier manettes, 24 novembre
+  // 2026), seul sur la page d'aperçu (`bindings-preview.html?reglage`), en
+  // trame Dolphin et Pro, sur ses trois onglets. Au téléphone et en paysage :
+  // la page ne défile pas en largeur, aucune cible n'en recouvre une autre,
+  // « Fermer » et l'onglet ouvert tiennent dans les zones sûres et reçoivent
+  // leur appui, et chaque contrôle visible du panneau fait 44 px au moins.
+  for (const [width, height] of part("touches")
+    ? [
+        [844, 390],
+        [932, 430],
+        [390, 844],
+      ]
+    : []) {
+    for (const [trame, suffixe] of [
+      ["dolphin", ""],
+      ["pro", "&pro=x360"],
+    ]) {
+      for (const onglet of ["manette", "clavier", "profils"]) {
+        const { page, errors, zone } = await ouvrir({
+          width,
+          height,
+          url: `${BASE}/bindings-preview.html?reglage${suffixe}&onglet=${onglet}`,
+        });
+        const bad = [];
+        try {
+          await page.waitForSelector("#reglage", { timeout: 20000 });
+          await sleep(500);
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await sleep(100);
+          await page.screenshot({ path: join(OUT, `reglage-${trame}-${onglet}-${width}x${height}.png`) });
+          for (const s of ["#fermerReglage", `#onglet-${onglet}`])
+            bad.push(...dansLaZone(s, await page.evaluate(boite, s), zone, width, height));
+          bad.push(...(await page.evaluate(etat)));
+          const petits = await page.evaluate((floor) => {
+            const vus = [...document.querySelectorAll("#reglage :is(button, select, input, summary, [role=tab])")].filter(
+              (el) => {
+                if (el.closest("details:not([open])") && el.tagName !== "SUMMARY") return false;
+                const s = getComputedStyle(el);
+                const r = el.getBoundingClientRect();
+                return s.display !== "none" && s.visibility !== "hidden" && r.width > 0 && r.height > 0;
+              },
+            );
+            return vus
+              .map((el) => [el, el.getBoundingClientRect()])
+              .filter(([, r]) => Math.min(r.width, r.height) < floor - 0.5)
+              .map(([el, r]) => `${el.id || el.getAttribute("aria-label") || el.textContent.trim().slice(0, 20) || el.tagName} mesure ${Math.round(r.width)}x${Math.round(r.height)} px`);
+          }, FLOOR);
+          bad.push(...petits);
+          // Rien à mesurer ne prouve rien : un onglet vide passerait.
+          const controles = await page.evaluate(() => document.querySelectorAll("#reglage button").length);
+          if (controles < 3) bad.push(`le panneau n'a que ${controles} boutons`);
+        } catch (error) {
+          bad.push(`le panneau ne s'ouvre pas : ${error.message}`);
+        }
+        bad.push(...errors.map((e) => `erreur de page : ${e}`));
+        say(bad.length === 0, `panneau « ${trame} », onglet ${onglet}, ${width}x${height}`, bad);
+        await page.close();
+      }
     }
   }
 

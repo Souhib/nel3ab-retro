@@ -9,6 +9,8 @@ import { SwitchBindings } from "./src/components/SwitchBindings";
 import { Channels } from "./src/components/Channels";
 import { Home } from "./src/components/Home";
 import { InputStream } from "./src/media/input";
+import { Reglage } from "./src/manettes/reglage/Reglage";
+import type { Onglet } from "./src/manettes/entree";
 import { client } from "./src/client/client.gen";
 import "./src/index.css";
 
@@ -88,9 +90,41 @@ function PreviewPro({ console: kind }: { console: "switch" | "x360" }) {
       send={async () => {}} close={() => setOpen(false)} />
   ) : <button type="button" onClick={() => setOpen(true)}>Ouvrir</button>;
 }
+/** Le panneau « Touches et manettes » de la colonne, seul sur la page :
+ * `?reglage`, en trame Pro avec `&pro=switch` ou `&pro=x360`, et l'onglet
+ * avec `&onglet=clavier`. La préparation garde les dialogues ci-dessus tant
+ * que le chantier des menus ne l'a pas sortie (`salle-telephone.mjs`). */
+function PreviewReglage({ pro }: { pro: "switch" | "x360" | null }) {
+  const [stream] = useState(() => new InputStream((path) => path, () => {}, () => refresh(), true));
+  const [state, setState] = useState(() => stream.state());
+  const premier = new URLSearchParams(location.search).get("onglet");
+  const [onglet, setOnglet] = useState<Onglet>(premier === "clavier" || premier === "profils" ? premier : "manette");
+  const [open, setOpen] = useState(true);
+  const refresh = () => setState(stream.state());
+  useEffect(() => {
+    stream.start();
+    const interval = setInterval(refresh, 100);
+    return () => { clearInterval(interval); stream.stop(); };
+  }, [stream]);
+  if (!open) return <button type="button" onClick={() => setOpen(true)}>Ouvrir les touches et manettes</button>;
+  return (
+    // La colonne de la salle garde les zones sûres d'un téléphone ; l'aperçu
+    // les garde à sa place (`--zone-*` dans `index.css`).
+    <main style={{ padding: "max(1rem, var(--zone-haut)) max(1rem, var(--zone-droite)) max(1rem, var(--zone-bas)) max(1rem, var(--zone-gauche))" }}>
+      <Reglage onglet={onglet} onOnglet={setOnglet} onFermer={() => setOpen(false)} autres={false} vit
+        trame={pro
+          ? { genre: "pro", console: pro === "x360" ? "Xbox 360" : "Switch", xbox: pro === "x360",
+              manette: pro === "x360" ? "manette Xbox 360" : "manette Pro", source: stream.switch, input: stream, place: 1 }
+          : { genre: "dolphin", console: "gc", tenue: 0, state: { ...state, port: 1 }, input: stream, refresh }} />
+    </main>
+  );
+}
 const shell = new URLSearchParams(location.search).get("shell");
 const pro = new URLSearchParams(location.search).get("pro");
-createRoot(document.getElementById("root")!).render(pro === "switch" || pro === "x360"
+const reglage = new URLSearchParams(location.search).has("reglage");
+createRoot(document.getElementById("root")!).render(reglage
+  ? <PreviewReglage pro={pro === "switch" || pro === "x360" ? pro : null} />
+  : pro === "switch" || pro === "x360"
   ? <PreviewPro console={pro} />
   : shell === "wii"
   ? <Channels categories={categories} onClose={() => {}} />

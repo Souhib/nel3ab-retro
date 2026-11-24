@@ -38,7 +38,11 @@ it("nomme une encre de la régie par joueur, distincte de l'aplat", () => {
   ]);
 });
 
-it("écrit chaque « Pn » de l'accueil de salle dans l'encre du joueur n", () => {
+/* L'avant-salle n'a plus qu'un dessin depuis le 24 novembre 2026 (chantier
+   salon) : « 1P » à « 4P » s'écrivent DANS le rond START, à l'encre du bouton
+   (`.rt-bouton-start`, comme les places de la salle), et l'aplat du joueur
+   ne va que dans `--rt-joueur`, le fond du rond. */
+it("écrit chaque « nP » de l'avant-salle sur son rond START, l'aplat hors du texte", () => {
   render(
     <Lobby
       room={salle}
@@ -53,13 +57,13 @@ it("écrit chaque « Pn » de l'accueil de salle dans l'encre du joueur n", () =
     />,
   );
   for (let port = 1; port <= 4; port += 1) {
-    const marque = [...document.querySelectorAll(`#lobbySeats [data-port="${port}"] span`)].find(
-      (span) => span.textContent === `${port}P`,
-    ) as HTMLElement | undefined;
-    expect(marque, `${port}P introuvable`).toBeDefined();
-    expect(marque?.style.color).toBe(`var(--p${port}-encre)`);
-    // Le jumeau: l'aplat reste sur la barre de la case, qui n'est pas du texte.
-    expect(marque?.style.color).not.toContain(PLAYER_COLOURS[port - 1]);
+    const place = document.querySelector(`#lobbySeats [data-port="${port}"]`) as HTMLElement;
+    const marque = place.querySelector(".rt-bouton-start") as HTMLElement | null;
+    expect(marque?.textContent, `${port}P introuvable`).toBe(`${port}P`);
+    expect(place.style.getPropertyValue("--rt-joueur")).toBe(`var(--p${port})`);
+    // Le jumeau : jamais l'aplat écrit en couleur de texte.
+    expect(marque?.style.color ?? "").toBe("");
+    expect(place.style.color).not.toContain(PLAYER_COLOURS[port - 1]);
   }
 });
 

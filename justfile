@@ -886,6 +886,10 @@ parcours-navigateur-rouge:
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes invitation --rouge-attendu invitation
+    # Et la place précise (`?place=N`, 24 novembre 2026) : cette page ne lit
+    # pas le paramètre, le worker lui donne la première libre.
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes place-precise --rouge-attendu place-precise
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible
@@ -1586,7 +1590,7 @@ browser-polite:
 # `just check`, qui était verte les deux fois.
 #
 # En DÉPENDANCES et non par des `just` imbriqués, comme `check` lui-même.
-browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition browser-lobby
+browser-visuel: browser-layout browser-contraste browser-debordement browser-superposition
 
 # La colonne se voit-elle à travers la bande des rayons ? Needs the worker RUNNING.
 #
@@ -1677,18 +1681,10 @@ browser-steal:
 browser-contraste:
     cd spikes/m3-browser-drive && node contraste.mjs http://localhost:8110/
 
-# Le contraste et les coupures de la page d'ENTRÉE, ses trois dessins.
-#
-# Un pilote à part parce que `browser-contraste` et `browser-debordement`
-# entrent tous les deux dans la salle avant de mesurer: la page qu'on voit
-# AVANT d'entrer n'était vue par aucun garde. Les rapports écrits dans l'en-tête
-# du dessin « câbles » le 13 septembre 2026 étaient donc des calculs sur des
-# couleurs choisies, pas des mesures dans un rendu.
-#
-# N'ENTRE PAS dans la salle et ne lance rien: il lit la page d'accueil de la
-# salle, à trois dessins et deux largeurs.
-browser-lobby url="http://localhost:8110/":
-    cd spikes/m3-browser-drive && node lobby-visuel.mjs "{{url}}"
+# `browser-lobby` (lobby-visuel.mjs) mesurait les trois dessins de la page
+# d'entrée. Retiré le 24 novembre 2026 avec les dessins « câbles » et « plan »
+# (chantier salon) : l'avant-salle n'a plus qu'un dessin, mesuré sur banc par
+# `parcours-navigateur` (avant-salle-places) et `salle-telephone`.
 
 # Ce que la page MONTRE pendant un changement de jeu.
 #

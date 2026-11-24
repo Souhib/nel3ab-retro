@@ -1,0 +1,103 @@
+/* L'avant-salle (`Lobby.tsx`) : la borne de la salle et son panneau START,
+   comme à l'accueil du salon (24 novembre 2026). Couleurs : jetons de la
+   régie seulement (`regie.css`), aucune couleur redéclarée ici. */
+
+.n3-avant-lien {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  color: var(--legende);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.n3-avant-lien:hover {
+  color: var(--signal);
+}
+
+.n3-avant-nom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.n3-avant-bouton {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.875rem;
+}
+
+/* La borne : la console et le jeu, puis le panneau de commande. */
+.n3-borne {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--plaque);
+  border: 2px solid var(--trait);
+}
+.n3-borne-titre {
+  font-size: var(--text-titre);
+  line-height: 1.1;
+}
+.n3-borne-jeu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--filet);
+}
+.n3-cartouche {
+  align-self: flex-start;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--police-titre);
+  font-size: var(--text-mini);
+  color: var(--legende);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+}
+.n3-borne-titre-jeu {
+  font-size: var(--text-fort);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.n3-borne-gens {
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+
+/* Le panneau : quatre places, chacune 44 px au moins de haut. */
+.n3-borne-panneau {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--filet);
+}
+.n3-panneau-place {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0;
+  color: var(--encre);
+}
+button.n3-panneau-place {
+  cursor: pointer;
+}
+.n3-panneau-place .n3-etiquette {
+  max-width: 100%;
+}
+.n3-panneau-mot {
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--legende);
+}
+button.n3-panneau-place:hover .n3-panneau-mot,
+button.n3-panneau-place:focus-visible .n3-panneau-mot {
+  color: var(--signal);
+}

@@ -20,7 +20,8 @@ await wait(2500);
 
 const text = await page.evaluate(() => document.body.innerText);
 say(!text.includes("Qui joue"), "aucun formulaire de prénom: le proxy a déjà dit qui c'est");
-say(/bonjour\s+\S/.test(text), `la page salue quelqu'un: « ${(text.match(/bonjour[^\n·]*/) ?? [""])[0].trim()} »`);
+// « Tu es [étiquette] » depuis l'avant-salle à un seul dessin (24 novembre 2026).
+say(/Tu es\s+\S/.test(text), `la page nomme quelqu'un: « ${(text.match(/Tu es[^\n·]*/) ?? [""])[0].trim()} »`);
 // L'adresse attendue vient de l'environnement: elle dépend de qui fait
 // tourner la salle, et ce dépôt est public.
 if (ROOM_LOGIN) say(text.includes(ROOM_LOGIN), "l'adresse vérifiée est affichée");

@@ -840,3 +840,41 @@ export const REGLAGE = {
 } as const;
 
 // ==== fin manettes ====
+
+// ==== chantier salon ====
+
+/** L'avant-salle (`components/Lobby`), un seul dessin depuis le 24 novembre
+ * 2026 : la borne de la salle et son panneau START 1P à 4P, comme à l'accueil
+ * du salon. Les mots en casse normale ; les capitales d'arcade viennent de la
+ * feuille quand un effet les demande. */
+export const AVANT_SALLE = {
+  autres: "Toutes les salles",
+  bonjour: "Tu es",
+  changer: "Changer ton nom",
+  pasToi: "Ce n'est pas toi ?",
+  garder: "Garder ce nom",
+  annuler: "Annuler",
+  nouveauNom: "Ton nouveau nom",
+  aucunJeu: "Aucun jeu chargé",
+  prendre: "Prendre",
+  regarderSansPlace: "Regarder sans place",
+  regarderLaPartie: "Regarder la partie",
+  injoignable: "Les noms des joueurs ne s'affichent pas pour l'instant. Tu peux jouer quand même.",
+  libre:
+    "Prends une place libre, ou regarde sans place. Tu pourras changer de place dans la salle.",
+  pleine: (n: number) =>
+    `Les ${n} places sont prises. Entre pour regarder : une place peut se libérer.`,
+  regarde: (noms: readonly string[]) =>
+    `${new Intl.ListFormat("fr", { type: "conjunction" }).format(noms)} ${noms.length > 1 ? "regardent" : "regarde"}.`,
+} as const;
+
+/** « Qui joue ? » (`components/Entrance`), pour une page sans identité. */
+export const QUI_JOUE = {
+  titre: "Qui joue ?",
+  intro:
+    "Quatre manettes, une machine, une image. Ton nom sert à ce qu'une place puisse dire qui l'occupe, et à rien d'autre.",
+  entrer: (salle: string | null) => (salle ? `Entrer dans la ${salle}` : "Entrer"),
+  autreNom: "Cet appareil gardait un autre nom.",
+} as const;
+
+// ==== fin salon ====

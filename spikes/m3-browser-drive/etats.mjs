@@ -461,21 +461,28 @@ const ETAPES = {
 
   /** La pastille d'une image figée ne touche pas l'image peinte, à + 4 px
    * (ADR D40), au bureau, au téléphone et en paysage. La page d'avant la
-   * posait en bas de l'image : son « #liaison » de pastille est lu aussi. */
+   * posait en bas de l'image : son « #liaison » de pastille est lu aussi.
+   * Le gel est lu dans l'état de la page : en paysage avec le panneau
+   * « petit », la page ne pose la pastille nulle part plutôt que sur
+   * l'image (`placeDeLaPastille`), et ce n'est pas une faute ; trois tailles
+   * au moins doivent la montrer, sinon l'étape ne prouve rien. */
   async "pastille-hors-image"() {
     const fautes = [];
+    const vues = [];
     for (const vue of [PC, { width: 1280, height: 720 }, TELEPHONE, { width: 844, height: 390, isMobile: true, hasTouch: true }]) {
       const nom = `${vue.width}x${vue.height}`;
       const page = await nouvelle(vue);
       await entrer(page);
       await sleep(1500);
       banc.regler({ video: "freeze" });
-      const vu = await jusqua(page, (v) => v.etat === "figee", 4000);
+      const vu = await jusqua(page, (v) => v.etat === "figee" || v.liaison?.etat === "figee", 4000);
       if (vu.apres === null) throw new Precondition(`${nom}: aucun état figé en 4 s`);
+      await sleep(500);
       const mesure = await page.evaluate(() => {
         const p = document.querySelector("#pastilleEtat") ?? document.querySelector("#liaison");
         const t = document.querySelector("#screen");
-        if (!p || !t) return { erreur: `pastille ${Boolean(p)}, toile ${Boolean(t)}` };
+        if (!t) return { erreur: "pas de toile" };
+        if (!p) return { aucune: true };
         const a = p.getBoundingClientRect();
         const b = t.getBoundingClientRect();
         const m = 4;
@@ -488,12 +495,15 @@ const ETAPES = {
         return { coupe, a: [a.left, a.top, a.width, a.height].map(Math.round), b: [b.left, b.top, b.width, b.height].map(Math.round) };
       });
       if (mesure.erreur) throw new Precondition(`${nom}: ${mesure.erreur}`);
+      if (!mesure.aucune) vues.push(nom);
       if (mesure.coupe) fautes.push(`${nom}: pastille ${mesure.a} sur l'image ${mesure.b}`);
       await capture(page, "pastille-hors-image");
       banc.regler({ video: "live" });
       await page.close();
     }
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
+    if (vues.length < 3) throw new Precondition(`pastille montrée à ${vues.length} tailles seulement (${vues})`);
+    console.log(JSON.stringify({ pastille_montree: vues }));
   },
 
   /** « ouvrir le menu » depuis l'écran de chargement: le menu doit être

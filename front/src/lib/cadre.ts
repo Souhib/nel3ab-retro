@@ -249,6 +249,28 @@ export const FEUILLE_MI_MIN = 276;
 /** Au mode étroit, la colonne garde au moins cette hauteur sous l'image. */
 export const COLONNE_ETROITE_MIN = 240;
 
+/**
+ * Le panneau « Touches et manettes » tenu en main (constat 4 de la relecture
+ * des manettes, 24 novembre 2026). Il vivait dans la feuille agrandie, qui
+ * couvrait l'image vivante d'une partie où les autres jouent : 113 880 px² à
+ * 390×844, 85 020 à 844×390. Il a maintenant sa place, jamais sur l'image :
+ *
+ * - tenu droit, sous l'image, sur toute la largeur de la zone sûre et jusqu'à
+ *   son bas : la manette à l'écran n'est pas montée pendant le réglage (elle
+ *   enverrait au jeu ce qu'on essaie), sa place lui revient. L'image ne bouge
+ *   pas ; elle ne rapetisse que si le panneau aurait moins de 240 px, comme la
+ *   colonne du mode étroit ;
+ * - en travers (téléphone couché, tablette), à droite, sur toute la hauteur
+ *   de la zone sûre, 380 px au plus (la largeur de la feuille agrandie, où le
+ *   panneau a été mesuré par salle-telephone) et jamais plus de la moitié ;
+ *   l'image se range à gauche, au plus grand qui tient.
+ *
+ * Au bureau et en fenêtre étroite, la colonne le porte : `reglage` vaut
+ * `null`. Une manette seule n'a pas d'image à épargner.
+ */
+export const REGLAGE_TENU_MIN = COLONNE_ETROITE_MIN;
+export const REGLAGE_TENU_LARGEUR = 380;
+
 /** Le format supposé quand l'image n'est pas encore connue (4:3). */
 export const FORMAT_PAR_DEFAUT = 4 / 3;
 
@@ -286,6 +308,8 @@ export type Entree = {
   largeurPanneau: number | null;
   /** L'image agrandie par Ctrl : la colonne et le panneau s'effacent. */
   agrandie: boolean;
+  /** Le panneau « Touches et manettes » est ouvert (`REGLAGE_TENU_MIN`). */
+  reglage?: boolean;
 };
 
 export const FORMES_PANNEAU = ["sous", "colonne", "debout", "petit", "absent"] as const;
@@ -358,6 +382,9 @@ export type Geometrie = {
   feuille: { mi: Rect; agrandie: Rect } | null;
   /** Le panneau a cédé sa place à l'état (écran court, état à réparer). */
   cedeAuxEtats: boolean;
+  /** Le panneau « Touches et manettes » tenu en main, ou `null` : fermé, ou
+   * porté par la colonne au bureau et en fenêtre étroite. */
+  reglage: Rect | null;
 };
 
 const rect = (x: number, y: number, w: number, h: number): Rect => ({ x, y, w, h });
@@ -409,6 +436,7 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   bordures: null,
   feuille: null,
   cedeAuxEtats: false,
+  reglage: null,
 });
 
 /** La décision du bureau : le panneau sous l'écran si l'image n'y perd rien. */
@@ -697,6 +725,28 @@ function portrait(e: Entree): Geometrie {
     }
   }
 
+  const feuilleHaut = g.barre + sa.haut;
+  if (e.reglage && e.role !== "seule") {
+    // Le réglage prend tout ce qui est sous l'image (`REGLAGE_TENU_MIN`).
+    const image = Math.max(0, Math.min(g.image, H - g.barre - REGLAGE_TENU_MIN));
+    const iw = image === g.image ? g.iw : Math.min(W, Math.round(image * format));
+    const haut = y0 + g.barre;
+    const ecran = image > 0 ? rect(x0 + (W - iw) / 2, haut, iw, image) : null;
+    const bas = haut + image;
+    return {
+      ...vide(e),
+      ecran,
+      ...poser(e, ecran),
+      panneau: { forme: "absent", rect: null },
+      barre: g.barre > 0 ? rect(x0, y0, W, g.barre) : null,
+      feuille: {
+        mi: rect(0, bas, e.fenetre.width, e.fenetre.height - bas),
+        agrandie: rect(0, feuilleHaut, e.fenetre.width, e.fenetre.height - feuilleHaut),
+      },
+      reglage: rect(x0, bas, W, y0 + H - bas),
+    };
+  }
+
   let y = y0;
   const barre = g.barre > 0 ? rect(x0, y, W, g.barre) : null;
   y += g.barre;
@@ -714,7 +764,6 @@ function portrait(e: Entree): Geometrie {
         }
       : null;
 
-  const feuilleHaut = g.barre + sa.haut;
   const sous = feuilleHaut + g.image + g.chant;
   const delta = Math.max(
     0,
@@ -767,6 +816,23 @@ function paysage(e: Entree): Geometrie {
   // « La salle » (44 px) à 20 px au moins de la première épaule : 72 px
   // au-dessus de la grappe, ou 100 avec ton étiquette entre les deux.
   const PLUS = { nu: 0, "tete-etiquette": 100, tete: 72 } as const;
+  if (e.reglage && e.role !== "seule") {
+    // Le réglage à droite, l'image à gauche (`REGLAGE_TENU_LARGEUR`).
+    const P = Math.min(REGLAGE_TENU_LARGEUR, Math.round(W / 2));
+    const b = remplir(W - P, H, format);
+    const ecran = rect(L + (W - P - b.w) / 2, T + (H - b.h) / 2, b.w, b.h);
+    return {
+      ...vide(e),
+      ecran,
+      ...poser(e, ecran),
+      panneau: { forme: "absent", rect: null },
+      feuille: {
+        mi: rect(0, 0, Math.max(132, Math.floor(ecran.x)), H0),
+        agrandie: rect(0, 0, Math.min(380, Math.round(W0 * 0.5)), H0),
+      },
+      reglage: rect(W0 - sa.droite - P, T, P, H),
+    };
+  }
   type Variante = "seule" | "nu" | "tete-etiquette" | "tete" | "bas";
   type Choix = {
     /** La hauteur des grappes, et la largeur de chacune (`encombrement`). */

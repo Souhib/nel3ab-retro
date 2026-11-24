@@ -120,6 +120,7 @@ export function useGeometrie(e: Entree): Geometrie {
       e.largeurColonne,
       e.largeurPanneau,
       e.agrandie,
+      e.reglage,
     ],
   );
 }

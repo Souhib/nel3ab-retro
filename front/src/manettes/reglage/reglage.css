@@ -327,3 +327,21 @@
   font-size: var(--text-note);
   color: var(--etiquette-encre, var(--encre));
 }
+
+/* Tenu en main, le panneau a sa place à lui (`Geometrie.reglage`, constat 4
+   de la relecture des manettes) : sous l'image tenu droit, à droite d'elle en
+   travers, jamais dessus. La boîte défile en elle-même, sur le fond de la
+   colonne, et son filet la sépare de l'image. */
+.n3-reglage-tenu {
+  box-sizing: border-box;
+  z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--espace-3);
+  background: var(--plaque);
+  border-top: 2px solid var(--trait);
+}
+[data-mode="paysage"] .n3-reglage-tenu {
+  border-top: 0;
+  border-left: 2px solid var(--trait);
+}

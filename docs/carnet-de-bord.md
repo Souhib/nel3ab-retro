@@ -31009,6 +31009,121 @@ branche d'intégration.
 finale. Aucun worker n'est reconstruit ni installé, et aucune vraie salle
 n'a servi la page.
 
+### 24 novembre, l'après-midi : la suite de la salle, ce que la vague A avait laissé
+
+**Le contexte.** Le chantier salle avait fini son cadre avec cinq choses
+en attente d'un autre chantier : le temps de jeu attendait que le salon
+publie l'âge de la partie, l'étiquette dans la manette attendait
+l'étiquette tapée de personnes, la vue des touches attendait l'activité
+des sticks que manettes ajoute à l'instantané, la feuille à mi-hauteur
+n'avait pas de place pour le ▶, et le propriétaire devait dire si
+`cadre-navigateur` entrait dans la porte. Tout cela est maintenant sur
+`integration/retro`. Ce passage part de son commit 87bc2b3, dans le
+worktree `~/nel3ab-chantiers/retro-salle-2`, en même temps que les
+chantiers états, salon et menus.
+
+**Le temps de jeu, et un âge qui n'est pas une heure.** Le composant
+`TempsDeJeu` attendait « l'instant de lancement, en secondes Unix ». Le
+salon publie autre chose : `Room.partie.depuis_s`, « depuis combien de
+secondes le worker a démarré son jeu ou son menu », un âge (ADR D43).
+Brancher l'un sur l'autre tel quel aurait affiché des centaines de
+milliers d'heures. Le mutant du câblage qui le fait rougit la nouvelle
+étape `temps-de-jeu` de `cadre.mjs` dès son premier jumeau : il montre un
+temps même quand le worker sert son menu. La page
+change donc l'âge en instant au moment où le message arrive
+(`useLancement`). Elle n'a pas besoin que l'horloge du téléphone
+s'accorde avec celle de la machine. Deux envois de la même partie
+diffèrent d'une seconde au plus : le salon tronque l'âge à la seconde,
+et le message met quelques centaines de millisecondes à venir. Une
+estimation à moins de deux secondes de la précédente la garde ;
+sinon l'afficheur repartirait à chaque envoi. Un nouveau jeu redémarre le
+worker, donc son âge repart de zéro, loin de l'ancien. Deux jumeaux :
+un salon qui ne publie pas les jalons, et un worker qui sert son menu
+(`lance` faux), ne montrent aucun temps. L'âge publié compte aussi le
+temps passé au menu, qui n'est pas du jeu. Tenue en main, la rangée de
+72 px garde sa place aux quatre START : le temps de jeu y est caché, comme
+le crédit.
+
+**L'étiquette dans le creux de la manette.** Sur un petit téléphone tenu
+droit (375 × 548), le cadre ne pose pas de panneau : rien ne disait plus
+quelle place on tenait. Le plan voulait l'étiquette tapée dans le creux
+de la manette, « à 6 px au moins de toute touche ». La première version
+de la recherche cherchait une fente centrée, et une sonde l'a prise en
+défaut aussitôt : sur une GameCube de 360 à 430 px de large, quand la
+barre manque, « La salle » occupe justement le milieu, et aucune fente
+centrée ne tenait. La recherche retenue (`fente`, `lib/faces.ts`)
+regarde chaque hauteur. Elle prend le plus large passage libre entre
+les pièces de cette hauteur, gestes compris, et y pose l'étiquette au
+plus près du milieu, entre 64 et 180 px de large. Sur une GameCube, elle
+se pose alors à gauche de « La salle », au-dessus de la croix ; sur une
+manette Pro, dans le creux sous − et +. L'essai balaie 320 à 1 024 px de
+large, trois faces, avec et sans geste, et mesure l'écart avec
+`gapBetween`, pas avec la recherche elle-même. En travers, la boîte de la
+manette couvre aussi le dessous de l'image : l'étiquette n'y entre pas,
+elle se pose sous « La salle », à l'emplacement que le cadre calculait
+déjà (`geo.etiquetteManette`). Le jumeau : à 390 × 844, le panneau porte
+les places, et aucune étiquette n'est dans la manette.
+
+**Un essai qui prouvait une règle retirée.** Le câblage de la vue des
+touches sur la vraie activité était déjà fait : le chantier manettes
+l'avait posé dans `App.tsx` à sa fusion. Mais `lib/verification.ts`
+gardait deux lectures mortes de l'ancienne règle, `activiteDolphin` sur
+`pressed` et `SANS_ACTIVITE`. Un essai vert disait encore « une ligne de
+stick n'a pas de case : pressed ne dit rien des sticks ». Il passait sur
+une fonction que plus rien n'appelait, et il aurait continué de passer
+si l'activité réelle avait perdu ses sticks. La leçon générale : quand
+un câblage remplace une lecture, la lecture retirée doit partir avec ses
+essais, sinon ils prouvent l'ancien monde. Les essais lisent maintenant
+`media/activite`, la lecture du produit. Dans le navigateur,
+`touches-cochees` coche aussi les flèches, et `touches-cochees-pro` fait
+de même dans une salle Xbox 360. Un mutant d'`App.tsx` qui relit `pressed`
+rougit les deux étapes sur leur défaut.
+
+**Le ▶ dans la feuille à mi-hauteur.** Il lui fallait 16 px à gauche de
+chaque entrée (10 px de flèche, 6 px d'écart), et la grille n'en
+laissait que 4. Elle garde maintenant 16 px entre ses colonnes et 2 px à
+gauche. Elle descend à 150 px par entrée au lieu de 160, pour que deux
+colonnes tiennent encore à 360 px de large. `salle-telephone`, qui mesure
+que la feuille ne défile pas, reste vert. La nouvelle étape
+`feuille-curseur` rougit avec l'ancien écart de 4 px : le ▶ couvre alors
+l'entrée voisine.
+
+**« Copier le lien », réparé du côté de la colonne.** La fusion de la
+vague B1 avait laissé `parcours-navigateur` rouge. Le panneau
+d'invitation de personnes se dépliait sous le pied collé de la mascotte,
+et le clic réel tombait sur le pied. La colonne faisait défiler un
+`<details>` qui s'ouvre. Elle fait de même pour le panneau qu'un bouton
+à `aria-expanded` déplie, et seulement quand le pied colle. La règle est
+dans la colonne plutôt que dans `Inviter.tsx` : le prochain panneau
+déplié au bas de la colonne en profite sans le savoir. Le parcours entier
+est vert, 26 étapes.
+
+**La porte locale.** `cadre-navigateur` entre dans `local`, à la demande
+du propriétaire. Son contrôle rouge prend un port, et un septième bloc :
+la page de 97a2318 tombe sur le défaut des trois étapes nouvelles. La
+recette reste rouge sur la base, sur la précondition de
+`mascotte-hors-image`. Derrière elle, comme le passage d'intégration
+l'a établi, l'étiquette de la scène `depart` passe sur « 2P libre », et
+`ain-immobile` garde une fenêtre ouverte pendant une scène. Ces étapes et
+l'ancre `start-N` appartiennent à la mascotte et à personnes, et ce
+passage n'y touche pas. Tant qu'elles ne sont pas réglées, `just` est
+rouge : la porte le dit au lieu de le taire.
+
+**Le poids.** 281 760 octets en brotli au départ, 282 600 au dernier
+commit, soit 840 de plus : +264 pour le temps de jeu, +474 pour
+l'étiquette, −29 pour les lectures mortes retirées, et le reste pour le
+▶ de la feuille et le défilement de la colonne. Deux constructions de
+sources qui ne différaient que d'une déclaration CSS ont mesuré 282 527
+et 282 743 octets. Les écarts entre commits de ce passage sont donc des
+ordres de grandeur, à quelques centaines d'octets près, pas des
+mesures à l'octet. Aucun retrait n'était prévu dans ce passage :
+Bobine et les anciens menus partent avec le chantier menus et
+l'intégration.
+
+**Ce qui n'est pas prouvé.** Aucune vraie salle n'a servi la page, aucun
+vrai téléphone ne l'a tenue. Le temps de jeu n'a pas été comparé avec un
+vrai salon : le banc publie un âge fixe, que la page lit une fois.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -32850,3 +32965,13 @@ la bande, le panneau de commande, la manette tactile.
 conflit de texte, et dont le résultat ne marche plus, parce que chacune
 supposait ce que l'autre change. Git ne peut pas le voir ; seules les
 preuves lancées sur le résultat le montrent.
+
+**Fente (de l'étiquette)** : le rectangle libre où ton étiquette tapée se
+pose dans le creux de la manette tactile, quand aucun panneau ne porte les
+places. Calculé dans la pose des touches (`fente`, `lib/faces.ts`), à 6 px
+au moins de chaque touche.
+
+**Âge (d'une partie)** : depuis combien de secondes le worker a démarré
+son jeu, tel que le salon le publie (`depuis_s`). Ce n'est pas une heure :
+la page le change en instant à la réception du message, sans comparer
+deux horloges.

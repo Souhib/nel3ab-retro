@@ -2053,6 +2053,43 @@ during a click (the keyboard notice is born from the click that leaves the
 picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
+**Amended 2026-11-24: the rest of wave A (« salle-suite », pass 1).** What
+waited on other tracks is wired on `integration/retro`:
+
+- **Play time.** `Room.partie.depuis_s` (D43) is an age, not a time. The
+  page turns it into a start time when the message arrives (`useLancement`)
+  and keeps the previous estimate when the new one is less than 2 s away:
+  the lobby truncates the age to the second and the message takes a few
+  hundred milliseconds, while a new game restarts the worker and its age
+  starts again from zero. Nothing is shown when the lobby publishes no
+  milestones, when `lance` is not true (the age also counts the time the
+  worker serves its menu), or when the page sees no game. It follows the
+  credit at the end of the control panel and is hidden in the 72 px held
+  row. Weighed: displaying the age as received (it jumps a second back and
+  forth from one message to the next, and restarts the counter each time);
+  comparing the worker's wall clock with the phone's (two clocks that
+  nothing keeps in step).
+- **The label in the pad's slot** (en-jeu-tactile.5). Without a control
+  panel (375×548 upright), the typed label, its seat number first, sits in
+  the widest free passage of the pose, at least 6 px from every key and
+  gesture, 64 to 180 px wide, nearest the middle (`fente`, `lib/faces`).
+  A centred slot was tried first and found nothing on a GameCube pad whose
+  « La salle » gesture holds the middle. Across, the pad's box also spans
+  the picture, so the label takes the slot the frame already computed
+  under « La salle » (`geo.etiquetteManette`). With a panel, the label is
+  on the player's START and nowhere else.
+- **Stick and Pro activity** (K34). The view reads `InputState.activite`
+  (wired by the controllers track); the dead readers of `pressed` left in
+  `lib/verification` and the tests that still proved the old rule are gone.
+- **The half-height sheet gets the ▶.** Its grid keeps 16 px between
+  columns and 2 px on the left, and entries shrink to 150 px so two columns
+  still fit at 360 px.
+- **A panel opened by a button scrolls into view** above the sticky foot,
+  like a `<details>` (`aria-expanded` with `aria-controls`), which repairs
+  « Copier le lien » after the merge of wave B1.
+- `cadre-navigateur` joins the local gate at the owner's request; its red
+  control gains a port and a seventh block against 97a2318.
+
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

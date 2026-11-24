@@ -456,6 +456,27 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, l'après-midi : la suite de la salle, premier passage.**
+Sur `chantier/retro-salle-2` (worktree `~/nel3ab-chantiers/retro-salle-2`,
+parti d'`integration/retro` 87bc2b3), en même temps que états, salon et
+menus ; rien dans `main`, rien de poussé ni d'installé. Livré : le temps de
+jeu au bout du panneau, tiré de l'âge que le salon publie
+(`Room.partie.depuis_s`, changé en instant à la réception, rien quand le
+worker sert son menu) ; l'étiquette tapée dans le creux de la manette
+quand aucun panneau ne porte les places (`fente`, `lib/faces.ts`), et sous
+« La salle » en travers ; la vue des touches qui coche le stick et la
+trame Pro, avec les lectures mortes de l'ancienne règle retirées ; le ▶
+dans la feuille à mi-hauteur ; le panneau d'un bouton déplié qui défile
+au-dessus du pied collé, ce qui rend « Copier le lien » et
+`parcours-navigateur` verts. `cadre-navigateur` entre dans la porte
+`local` ; son contrôle rouge prend un port et un septième bloc. Page :
+282 600 octets en brotli. `cadre-navigateur` reste rouge sur la
+précondition de `mascotte-hors-image`, et derrière elle sur l'ancre
+`start-2` et la fenêtre d'`ain-immobile` (mascotte et personnes) : avec
+lui dans `local`, la porte `just` est rouge tant qu'elles ne sont pas
+réglées. Récit : « 24 novembre, l'après-midi : la suite de la salle, ce
+que la vague A avait laissé ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

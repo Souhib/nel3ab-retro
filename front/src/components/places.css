@@ -414,3 +414,9 @@
   font-family: var(--police-titre);
   color: var(--signal);
 }
+/* Sur le fronton, le fond est l'écran, noir dans les deux régies : le signal
+   du jour y tombait à 3,28:1 (relecture du 24 novembre 2026). L'encre du
+   fronton est faite pour ce fond (`lib/regie.test.ts`). */
+.n3-fronton [data-ancre="annonce"]:not(:empty) {
+  color: var(--fronton-encre);
+}

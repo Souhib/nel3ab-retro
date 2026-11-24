@@ -18,7 +18,7 @@ import { SetupProfiles } from "./components/SetupProfiles";
 import { GameCard } from "./components/GameCard";
 import { Rayonnage } from "./components/Rayonnage";
 import { setupGameKey } from "./lib/setups";
-import { Preparation, PreparationEnBref } from "./components/Preparation";
+import { Preparation, PreparationEnBref, SceneRefus } from "./components/Preparation";
 import { lignesManettes } from "./lib/rubriques";
 import { useSetupChoice } from "./lib/useSetupChoice";
 import { Entrance } from "./components/Entrance";
@@ -3348,6 +3348,9 @@ function Room({
           se pose hors de la colonne, sous l'image ou à côté d'elle. */}
       {menu && !menuEnColonne ? menuMonte : null}
 
+      {/* Un refus né d'un geste du menu : la scène « refus » et le son
+          d'erreur, dans le cadre qui tient l'arbitre. */}
+      <SceneRefus refus={preparationError} />
       {/* Menu ouvert, l'erreur s'écrit dans son bloc (`avis` du menu). */}
       {preparationError && !menu ? (
         <Surcouche>

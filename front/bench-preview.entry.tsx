@@ -12,13 +12,25 @@
 import { createRoot } from "react-dom/client";
 
 import "./src/index.css";
-import { paintBench } from "./src/lib/bench";
 import { Bench } from "./src/components/Bench";
 import { PadMapView } from "./src/components/PadMap";
 import { EMULATED, STANDARD_PAD } from "./src/lib/padmap";
 
 const BUTTONS = 17;
 const AXES = 5; // impair EXPRÈS: c'est le cas que les adaptateurs produisent.
+
+// Une manette qui bouge, pour voir les jauges et les cadrans vivre. Le banc la
+// lit lui-même à chaque image, comme dans le panneau.
+const bouge = () => {
+  const t = performance.now() / 1000;
+  return {
+    buttons: Array.from({ length: BUTTONS }, (_, at) => ({
+      value: at === 6 ? 0.8 : at === 7 ? 0.28 : at === 0 || at === 12 ? 1 : 0,
+    })),
+    axes: [Math.cos(t) * 0.8, Math.sin(t) * 0.8, -0.2, 0.4, -0.97],
+    timestamp: performance.now(),
+  };
+};
 
 const root = document.getElementById("banc")!;
 createRoot(root).render(
@@ -39,20 +51,10 @@ createRoot(root).render(
       layout="standard"
       buttons={BUTTONS}
       axes={AXES}
+      lire={bouge}
+      // Une gâchette au repos appris de 0,62 : le trait et son mot se voient.
+      repos={new Map([[6, 0.62]])}
     />
   </>,
 );
 
-// Une manette qui bouge, pour voir les jauges et les cadrans vivre.
-const tick = () => {
-  const t = performance.now() / 1000;
-  paintBench(root, {
-    buttons: Array.from({ length: BUTTONS }, (_, at) => ({
-      value: at === 6 ? 0.65 : at === 7 ? 0.28 : at === 0 || at === 12 ? 1 : 0,
-    })),
-    axes: [Math.cos(t) * 0.8, Math.sin(t) * 0.8, -0.2, 0.4, -0.97],
-    timestamp: performance.now(),
-  });
-  requestAnimationFrame(tick);
-};
-requestAnimationFrame(tick);

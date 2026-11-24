@@ -349,6 +349,88 @@ par la salle ; la demande au socle et à la salle des ajouts de `jouer()`, de
 collé. Récit : « 24 novembre : la relecture d'Aïn, ou ce que le
 planificateur avait vérifié doit rester vrai ».
 
+**Au 23 novembre, la nuit : le chantier manettes, premier passage.** Sur
+`chantier/retro-manettes` (worktree `~/nel3ab-chantiers/retro-manettes`),
+parti d'`integration/retro`. Rien n'est fusionné, poussé ni installé. Fait :
+une commande passée au pas à pas garde son réglage d'avant (elle
+s'effaçait), sauf si une réponse a pris son entrée ; le dessin lit la course
+depuis le repos de la leçon ; un débranchement suspend le pas à pas au lieu
+de l'annuler ; une machine d'étapes commune (`Pas`, `media/lesson.ts`) et un
+pas à pas Pro en vingt étapes (`SwitchInput.commencerLecon`) ; les
+événements du réglage hors de React (`surReglage`, `surLecon`) ; l'activité
+de la trame envoyée dans l'instantané (`InputState.activite`, K34) ;
+`enAttente` et `reessayer` des profils ; les manettes en aplats, l'appui à
+la couleur de la place (`components/padmap.css`, ADR D42). Le panneau
+« Touches et manettes », ses marques, sa place dans la salle et le câblage
+dans `App.tsx` restent aux passages suivants. Page : 250 627 octets en
+brotli. Récit : « 23 novembre, la nuit encore : les manettes, premier
+passage ». Deuxième passage : le panneau
+« Touches et manettes » est écrit mais pas encore monté
+(`front/src/manettes/` : `ouvrirReglage`, `HoteReglage`, `Reglage` et ses
+onglets, le pas à pas des deux trames, `paintPro`, les marques hors de
+React, le plancher de 9 px des inscriptions, la scène fier par l'arbitre) ;
+`placeDuReglage` et `largeurPanneau` attendent le câblage. Restent : le
+câblage dans `App.tsx` (dernier commit), le retrait des deux dialogues, les
+pilotes et la recette `reglage-navigateur`. Page : 251 536 octets. Récit :
+« 23 novembre, tard : les manettes, deuxième passage ». Troisième passage,
+toujours sans montage : coins en pixels, flèche et ligne de liaison sur les
+dessins (l'anneau au feutre est retiré, les pièces sortent de la
+tabulation) ; carré de la commande tenue dans la table (`tenues.ts`) ; la
+première manette dite ; silhouette tramée sans manette ; « Annuler » après
+« Supprimer » ; « Réessayer maintenant » ; le banc pour la trame Pro ; la
+bande d'état ; les sons du socle. Page : 251 754 octets ; le panneau, encore
+hors de la page, coûterait environ 6 860 octets avant les retraits. Récit :
+« 23 novembre, très tard : les manettes, troisième passage ». Quatrième
+passage : le panneau est câblé dans la colonne (un seul commit d'`App.tsx`),
+avec « Toutes les touches » au bout du panneau de commande, la colonne
+élargie par le cadre et la vue des touches qui lit la trame Pro (K34).
+Nouvelle porte `just reglage-navigateur` et son contrôle
+`reglage-navigateur-rouge`, à ajouter à `local` à la fusion. Les anciens
+dialogues n'hébergent plus que la préparation, jusqu'au chantier des menus.
+Tenu en main, le panneau couvre encore l'image dans la feuille agrandie :
+sa place attend la géométrie du cadre (chantier salle). Après le câblage :
+paliers au niveau tout seulement, compteur d'étape en chiffres d'afficheur,
+son grave sur un refus Pro, icône de manette en pixels, zones de clic de
+24 px à la souris et dessin non cliquable au doigt ; `padmap-visuel` sans
+relais vers la salle. Page : 259 484 octets. Récit : « 23 novembre, dans
+la nuit : les manettes, quatrième passage ». Cinquième passage : les plans
+nomment leurs couleurs de touche (type `Couleur`, valeurs dans
+`regie.css`) ; l'appui tient 3:1 contre la touche et contre ce qui
+l'entoure, pour chaque pièce, avec ou sans place, dans les deux thèmes
+(`lib/manettes-couleurs.test.ts`, `appui: "clair"` sur trois touches) ;
+« viser » et « secouer » décollés de la Wiimote ; la planche des manettes
+et son pilote `padmap-qc.mjs` refaits (deux groupes, trois tailles,
+comptes d'inscriptions, contrastes, réglages de 44 px) ; phrase de fin en
+lettres et secousse d'un refus Pro au niveau tout. Toujours en attente :
+le retrait des anciens dialogues (chantier menus) et la place tenue en main
+(chantier salle). Page : 260 043 octets. Récit : « 24 novembre, avant
+l'aube : les manettes, cinquième passage ». Sixième passage : pendant un
+« Changer », la pièce attendue reste à l'écran (vignette de 64 px dans la
+ligne quand le dessin sort de la vue, étape `changer-visible` de
+`reglage-navigateur` et son contrôle rouge) ; en trame Pro, changer un sens
+de stick encadre son stick ; `salle-telephone` mesure le panneau lui-même
+(`bindings-preview.html?reglage`) et ses listes, champs et titres passent à
+44 px ; une publication refusée du clavier secoue son avis. Toujours en
+attente : le retrait des anciens dialogues (chantier menus), la place tenue
+en main (chantier salle), l'étiquette tapée de « Ta manette » (chantier
+personnes). Page : 260 609 octets. Récit : « 24 novembre, avant l'aube
+encore : les manettes, sixième passage ». Puis : « Les nombres de ta manette »
+affichaient 0.00 depuis `main` (le banc était peint hors de sa racine) ; il
+se peint lui-même, ouvert seulement, sa jauge part du repos appris, son
+horodatage est un afficheur, et un adaptateur l'ouvre d'emblée (étape
+`nombres` de `reglage-navigateur`, rouge sur 842e4c9). Page : 261 069 octets.
+Récit : « 24 novembre, au matin : les nombres de la manette ne bougeaient
+pas ». Relecture du 24 novembre : une réponse du pas à pas montre enfin ses
+coins et sa ligne (l'étape suivante ne coupe plus la réponse ; essais par
+la vraie boucle, étape `marques`) ; le focus suit le pas à pas et Échap
+remonte d'un cran à la fois (étape `focus-pas`) ; les phrases des profils
+du clavier et les avis de la trame Pro passent par le lexique, et
+`mots.test.ts` refuse toute phrase écrite sous `manettes/` et dans
+`media/switch.ts`. Tenu en main, le panneau couvre toujours l'image vivante
+dans la feuille agrandie : sa place demande un emplacement de
+`lib/cadre.ts` au chantier salle. Page : 261 286 octets. Récit : « 24
+novembre, à midi : la relecture des manettes, quatre constats ».
+
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

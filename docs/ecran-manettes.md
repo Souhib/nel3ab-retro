@@ -168,7 +168,8 @@ code :
 - **Un plan ne déclare que des formes et des couleurs de matière.** Le volume
   (dégradés, reflet, bords assombris, logements, reflets bombés, ombre) est le
   même pour toutes, dans le composant. Une manette nouvelle ne touche pas au
-  composant.
+  composant. **Remplacé le 23 novembre 2026** : plus de volume, des aplats
+  (section « Les aplats et le pas à pas » plus bas).
 - **Trois sortes de pièces sortent de la coque, et seulement elles.** Une
   gâchette `under` est dessinée derrière et doit en dépasser ; une pièce
   `hangs` (le vibrato) est posée dessus et doit à la fois la toucher et en
@@ -181,7 +182,9 @@ code :
   une touche appuyée à 2,06:1 sur la Wiimote de nuit et à 1,57:1 sur la
   manette standard de jour. La GameCube violette a la sienne, avec un anneau
   sombre, parce qu'aucune teinte ne tranchait à la fois sur son violet et sur
-  sa croix grise.
+  sa croix grise. **Remplacé le 24 novembre 2026** : sans place, le violet
+  commun est #8b7cf0 et la GameCube prend un vert foncé avec l'anneau clair
+  (section « Les couleurs nommées et l'appui à deux seuils » plus bas).
 - **Le contour fin de la coque suit l'ambiance.** C'est lui qui sépare une
   manette noire d'une carte sombre, ou une manette blanche d'une carte claire.
 - **Ce qui n'est plus mesuré** : le bord d'une touche noire sur une coque
@@ -207,8 +210,9 @@ son repos, comme la leçon complète.
 
 La boucle envoie un état neutre pendant la capture et la leçon. Elle attend aussi
 le relâchement du dernier appui avant de rendre la main au jeu ou au menu.
-Débrancher la manette annule la configuration, et Échap annule avant de fermer
-le dialogue. Les profils JSON sont validés avant d'être lus par la boucle.
+Débrancher la manette annule une réassignation ; depuis le 23 novembre 2026, il
+suspend un pas à pas au lieu de l'annuler (voir la section de cette date).
+Échap annule avant de fermer le dialogue. Les profils JSON sont validés avant d'être lus par la boucle.
 
 ## Portée des réglages
 
@@ -238,7 +242,9 @@ préparation, pour ne pas faire tester un appareil différent de celui confirmé
 |---|---|
 | `front/src/lib/padmap.ts` | Plans relevés sur photos, Wiimote seule, manette Pro et choix de famille |
 | `front/src/lib/wiring.ts` | Lecture brute, repères verticaux et `paintWiring` |
-| `front/src/components/PadMap.tsx` | Volume commun à toutes les manettes, libellés, sélection et balisage animé |
+| `front/src/components/PadMap.tsx` | Dessin commun à toutes les manettes (aplats depuis le 23 novembre 2026), libellés, sélection, place et balisage animé |
+| `front/src/components/padmap.css` | Matières, contour, appui à la couleur de la place |
+| `front/src/media/activite.ts` | Ce que la trame envoyée presse, pour la vue des touches |
 | `front/src/components/SwitchBindings.tsx` | Configurateur Switch ; il dessine la manette Pro avec `PadMapView` |
 | `spikes/manettes-relevees/` | Outils et mesures des relevés sur photos |
 | `front/src/components/Wiring.tsx` | Assemblage et abonnement à l'animation |
@@ -642,3 +648,217 @@ Leur fermeture manuelle reste possible. La disparition du message ne change pas
 la manette choisie et ne ferme pas un configurateur ouvert volontairement.
 Le diagnostic de connexion indique séparément la vidéo, l'entrée et le salon :
 une image encore visible ne prouve pas que la place est toujours attribuée.
+
+## Les aplats et le pas à pas, 23 novembre 2026
+
+Premier passage du chantier manettes (thème rétro). Le récit est au carnet,
+entrée « 23 novembre, la nuit encore : les manettes, premier passage », et
+la décision à l'ADR D42. Ce qui n'est pas lisible dans le code :
+
+- **Le dessin n'a plus de volume.** Une matière est un aplat lu dans la
+  section « chantier manettes » de `regie.css` ; la coque prend le milieu
+  exact de son ancien dégradé. Seul le contour de la coque suit le thème.
+  Un essai refuse un dégradé, un motif ou un filtre dans le dessin rendu.
+- **L'appui prend la couleur de la place** (`place` de `PadMapView`,
+  `data-place`). L'aplat est la teinte de joueur de l'autre clarté que les
+  touches ; l'anneau est un blanc ou un noir d'objet de l'autre clarté que
+  la coque. L'anneau dans l'autre teinte du même joueur ne suffisait pas sur
+  la Wiimote et la manette standard. Une gâchette dessinée derrière la coque
+  se voit sur la page : son anneau prend l'encre du thème. Sans place, un
+  aplat d'objet, jamais une couleur de joueur. `lib/manettes-couleurs.test.ts`
+  lit les feuilles telles qu'elles partent ; `just banc-visuel` mesure chaque
+  place dans les deux thèmes.
+- **Une commande passée garde son réglage d'avant**, sauf si une réponse a
+  pris son entrée : une entrée fait une seule chose. Une leçon où tout est
+  passé n'écrit rien. Avant ce jour, passer une commande l'effaçait.
+- **Le repos de la leçon vaut pour le dessin.** `heldOn` reçoit le neutre pris
+  au clic (`InputState.neutre`) pour les indices que le profil ignore. Sans
+  lui, une gâchette d'adaptateur au repos restait allumée pendant la leçon.
+- **Débrancher suspend le pas à pas** (`InputState.suspendu`). Rien n'est
+  écrit ; seule la même manette reprend (`reprendreLecon`), avec un repos
+  pris au clic.
+- **Les deux trames partagent la machine d'étapes** (`Pas`). Le pas à pas
+  Pro fait vingt étapes et non vingt-quatre : un `SwitchDevice` garde un axe
+  signé par axe de stick.
+- **Les marques suivent des événements, pas l'instantané** (`surReglage`,
+  `surLecon`). L'instantané React se lit deux fois par seconde ; un abonné
+  qui lève ne casse pas la boucle.
+- **L'activité de la trame est celle qui est partie** (`InputState.activite`) :
+  un menu ou un réglage envoie du neutre, et rien ne s'allume alors.
+
+## Les couleurs nommées et l'appui à deux seuils, 24 novembre 2026
+
+Cinquième passage du chantier manettes. Récit au carnet, entrée « 24 novembre,
+avant l'aube : les manettes, cinquième passage » ; décision à l'ADR D42. Ce qui
+n'est pas lisible dans le code :
+
+- **Un plan nomme une couleur, il ne l'écrit pas.** `tint` et `ink` sont du
+  type `Couleur` (`var(--manette-<nom>)`) ; une valeur en dur ne compile pas.
+  Les valeurs vivent dans la section « chantier manettes » de `regie.css`, et
+  la copie du salon se régénère avec `N3_REGIE_ECRIRE=1` sur `regie.test.ts`.
+  La vue tactile lit aussi `ink` pour la couleur des lettres Xbox.
+- **L'appui a deux seuils de 3:1, et une seule mesure les tient.** Contre la
+  touche elle-même (sa teinte, sinon le capuchon), et contre ce qui l'entoure
+  (son logement ou la coque ; la base de la croix pour une pièce affleurante ;
+  la page pour une gâchette derrière la coque). `banc-visuel.mjs` ne mesure
+  que le second, l'ancien essai que le premier sur la touche commune : chacun
+  laissait passer ce que l'autre refuse. `lib/manettes-couleurs.test.ts`
+  mesure les deux, pour chaque pièce, sans place et aux quatre places, dans
+  les deux thèmes, comme `padmap.css` dessine (pas d'anneau sur une pièce
+  affleurante ; l'encre du thème pour une gâchette derrière la coque, sauf
+  `--pad-lit-ring-dessous`). La planche refait le calcul dans Chrome.
+- **`appui: "clair"`** marque une touche de teinte moyenne ou sombre entourée
+  de sombre : le A de la GameCube, le viseur et les arcs de la Wiimote. Elle
+  prend la teinte claire de la place et l'anneau sombre, et le viseur garde
+  son anneau bien qu'il affleure. Une nouvelle manette avec une touche de ce
+  genre doit la marquer : l'essai le dira sinon.
+- **Les renvois gardent un trait visible** de 4 unités entre la pièce (ou la
+  coque qui la porte) et leur mot, et leur mot tient dans le repère
+  (`padmap.test.ts`, « les renvois »).
+- **La planche des manettes** (`padmap-preview.html`, `just padmap-visuel`)
+  montre ce que le jeu reçoit et ta manette, à 480, 170 et 120 px, avec les
+  inscriptions lisibles et masquées et l'appui le plus faible dans le thème
+  affiché. `padmap-qc.mjs` refait chaque mesure ; son jumeau
+  `--mutant-contraste` doit échouer sur la Xbox seule. Ses tailles sont
+  marquées `data-format` : `data-taille` appartient aux textes des dessins.
+
+## La vignette d'un changement, 24 novembre 2026
+
+Sixième passage du chantier manettes. Récit au carnet, entrée « 24 novembre,
+avant l'aube encore : les manettes, sixième passage » ; décision à l'ADR D42.
+Ce qui n'est pas lisible dans le code :
+
+- **La vignette ne double jamais un dessin visible.** `useHorsDeVue`
+  (`manettes/reglage/Vignette.tsx`) observe la pièce encadrée du dessin de
+  gauche ; la ligne en cours ne porte la vignette que tant que cette pièce
+  n'est pas entière à l'écran. Sans `IntersectionObserver`, rien n'est monté.
+  Le constat porte le nom de sa pièce : celui d'une pièce d'avant ne vaut
+  pas pour la suivante.
+- **La pièce se cherche par égalité exacte**, pas par sélecteur : la
+  GameCube a un stick `x` et un bouton `X`, et jsdom ne distingue pas la
+  casse dans `[data-part="X"]`. `marques.ts` et `tenues.ts` gardent le
+  sélecteur, juste dans Chrome.
+- **`PadMapView recadrer`** rend le `svg` seul, caché au lecteur d'écran,
+  avec un `viewBox` carré autour de la pièce. Il garde `data-padmap` pour
+  ses couleurs : un essai ou un pilote qui cherche `[data-padmap]` doit se
+  limiter à `.n3-dessins`. La feuille coupe la vignette à sa boîte
+  (`overflow: hidden`) : les dessins laissent déborder leur tracé.
+- **En trame Pro, un sens de stick encadre son stick** : le dessin reçoit
+  `pieceDe(lx+)`, soit `LS`, comme les marques du pas à pas.
+- **L'aperçu `bindings-preview.html?reglage`** monte le panneau seul
+  (`&pro=x360`, `&onglet=clavier`), avec les zones sûres que la colonne
+  garde dans la salle ; `salle-telephone.mjs` le mesure au téléphone.
+
+## Le banc qui se peint lui-même, 24 novembre 2026 (matin)
+
+Récit au carnet, entrée « 24 novembre, au matin : les nombres de la manette
+ne bougeaient pas » ; décision à l'ADR D42. Ce qui n'est pas lisible dans le
+code :
+
+- **Le banc n'est pas peint par les dessins.** `paintWiring` et `paintPro`
+  peignent la racine des deux dessins ; `Bench` vit à côté, dans
+  `.n3-nombres`. Il a sa propre boucle (`lire`, `paintBench`) et ne peint
+  que si son `<details>` est ouvert. Jusqu'au 24 novembre 2026, il comptait
+  sur `paintWiring` et affichait 0.00 partout, dans l'ancien dialogue aussi.
+- **La jauge d'un bouton part du repos appris** (`restsOf`, la même table que
+  `heldOn`), et le trait `.n3-repos` le marque. La jauge d'un axe reste la
+  valeur absolue : le cadran montre déjà la position brute.
+- **L'horodatage est un afficheur** écrit par `textContent` à chaque image,
+  sans rouler, avec `font-mono` : `banc-visuel.mjs` refuse une valeur qui
+  change de largeur avec ses chiffres.
+- **La preuve** : `nombres.test.tsx` (jsdom, vraie boucle), l'étape `nombres`
+  de `reglage.mjs` dans la page construite, rouge sur 842e4c9.
+
+## La relecture du 24 novembre 2026 (midi)
+
+Récit au carnet, entrée « 24 novembre, à midi : la relecture des manettes,
+quatre constats » ; décision à l'ADR D42. Ce qui n'est pas lisible dans le
+code :
+
+- **La boucle émet « recu » et l'« etape » suivante dans le même appel.**
+  `marques.ts` tient donc deux séquences : l'étape suivante coupe celle de
+  l'étape d'avant, jamais la réponse qui vient de la clore. Remettre
+  `reponse.couper()` dans la branche « etape » efface les coins avant toute
+  peinture, et `marques.test.tsx` (vraie `InputStream`, vraie `SwitchInput`)
+  tombe. Un essai qui émet « recu » seul ne prouve rien ici.
+- **Un axe n'est pas une pièce.** `a1-` désigne le stick `a0` du dessin de
+  droite (`stickDe`), cherché dans le dernier `svg[data-padmap]` de la
+  racine : sur la trame Pro, les deux dessins nomment leurs sticks `a0`.
+- **Le focus du pas à pas** passe par `PasAPas.tsx` : l'invite le pose sur
+  « Commencer » et s'annule seule par Échap, une étape le pose sur son titre,
+  et `useFocusRendu` rend un focus perdu à `#reprendreLecon`,
+  `#reglerPassee` ou `#learnPad`, dans cet ordre. Il ne reprend jamais un
+  focus posé hors du panneau. `Reglage.tsx` lit l'état occupé au moment de
+  la touche (`occupeDe`) : la trame Pro change sans rendre le panneau.
+- **Les phrases** du panneau et de `media/switch.ts` vivent dans `REGLAGE`
+  (`lib/mots.ts`, dont `REGLAGE.pro` pour les avis de la trame Pro) ;
+  `mots.test.ts` refuse une phrase écrite sous `manettes/` ou dans
+  `media/switch.ts`. Les phrases de `Wiring.tsx`, `KeyboardWiring.tsx`,
+  `Bench.tsx`, `media/pad.ts` et `media/input.ts` viennent de `main` et
+  restent hors de cette règle.
+- **Tenu en main, le panneau couvre encore l'image.** Il attend un
+  emplacement de `lib/cadre.ts` (chantier salle) ; `place-tenu` le mesure,
+  hors de la porte.
+- **La preuve dans le navigateur** : les étapes `marques` (relevé à chaque
+  image) et `focus-pas` (clavier seul) de `reglage.mjs`, rouges sur 9b1c8e8.
+
+## Le panneau « Touches et manettes », 23 novembre 2026 (tard)
+
+Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Depuis le
+quatrième passage, `App.tsx` le monte en vue de la colonne (`HoteReglage`) ;
+les dialogues `Bindings` et `SwitchBindings` n'hébergent plus que la
+préparation à plusieurs, jusqu'à ce que le chantier des menus la sorte. Ce
+qu'il faut savoir avant d'y toucher :
+
+- **Le chemin d'ouverture.** Le menu, « Changer » de la vue des touches et
+  « Toutes les touches » (`ToutesLesTouches`, au bout du panneau de
+  commande) passent par `ouvrirLesTouches` d'`App.tsx`, qui ferme le menu
+  modal puis appelle `ouvrirReglage`. Tenu en main, la colonne vit dans la
+  feuille agrandie, qui couvre l'image : la place sous l'image et à droite
+  en travers attend la géométrie du cadre (chantier salle).
+- **La largeur.** Au bureau, le cadre reçoit `largeurPanneau` et la colonne
+  prend la largeur du cadre tant que le panneau est ouvert. Retirer l'un ou
+  l'autre fait échouer l'étape `place` de `reglage.mjs`.
+- **La preuve dans le navigateur** : `just reglage-navigateur` (place,
+  entrées et focus, activité de la trame Pro, zones de clic, vignette d'un
+  changement, nombres, marques d'une réponse, focus du pas à pas, pas à pas
+  sur une manette simulée) et `just reglage-navigateur-rouge` sur les pages
+  de 9fb659e, bc72ba9, e62f583, 842e4c9 et 9b1c8e8.
+- **Les zones de clic.** À la souris, `PadMap.tsx` pose un disque
+  invisible `.n3-zone` dans chaque pièce cliquable ; `tenirInscriptions`
+  lui donne son rayon à chaque changement de taille (`zones.ts` : 24 px
+  visés, jamais sur une voisine). Au doigt, `Wiring` ne passe pas
+  `onSelect` : aucune pièce n'est un bouton.
+
+- **L'invariant tient.** Le panneau pose `Wiring` tel quel pour Dolphin : la
+  gauche lit `readPad`, la droite `heldOn`. Pour la trame Pro, `paintPro`
+  (`lib/wiring.ts`) peint la gauche depuis la trame envoyée et la droite
+  depuis les indices bruts, chacune dans sa racine : les deux dessins
+  nomment leurs sticks `a0` et `a2`, et une racine commune mélangerait leurs
+  inclinaisons.
+- **Une entrée.** `ouvrirReglage(onglet)` (`manettes/entree.ts`) ouvre le
+  panneau ou change d'onglet ; l'ouvreur retenu au premier clic reprend le
+  focus à la fermeture, sinon le repli donné par la salle.
+- **Les marques sont hors de React.** `manettes/reglage/marques.ts` s'abonne
+  à `surReglage` et `surLecon` et ne change que `data-marque` sur les pièces
+  déjà dessinées. La gauche porte les commandes (A, x, LS), la droite les
+  indices (b0, b10) : leurs noms de pièce ne se croisent pas. Les sticks,
+  eux, se nomment `a0` et `a2` des deux côtés sur la trame Pro (voir la
+  relecture du 24 novembre).
+- **Le plancher de 9 px** des inscriptions (`inscriptions.ts`) lit
+  `data-taille` et `data-piece`, que `PadMap.tsx` pose sur ses textes.
+  Retirer ces attributs rend le plancher muet sans rien casser d'autre ;
+  `inscriptions.test.tsx` le vérifie sur le vrai dessin.
+- **Les coins, la flèche et la liaison** (troisième passage). Chaque pièce
+  porte `.n3-coins` et `.n3-fleche`, cachés par `padmap.css` ; la feuille
+  les montre sous `data-selected`, `data-attendue` et `data-marque`. La
+  ligne de liaison est un calque `.n3-liaison` posé par `marques.ts` dans la
+  racine `.n3-dessins`, au-dessus des deux `svg`.
+- **La peinture n'écrit que ce qui change.** `paintWiring` et `paintPro`
+  passent par `poser` : `tenues.ts` observe `data-lit` sur le dessin de
+  gauche, et une écriture identique à chaque image le réveillerait autant.
+  Remettre une écriture inconditionnelle fait échouer
+  `wiring-pro.test.tsx`.
+- **Les pièces ne sont plus dans la tabulation** (`tabIndex` -1) : la table
+  « Toutes les correspondances » est le chemin du clavier. Un clic de souris
+  sur une pièce choisit encore sa ligne.

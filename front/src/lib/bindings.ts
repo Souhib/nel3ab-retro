@@ -205,6 +205,29 @@ export async function reconcile(login: string | null, kept: Bindings): Promise<v
   seed(kept);
 }
 
+/** Vrai quand une copie de cette identité attend encore l'accord du
+ * service : le panneau dit alors « gardé ici, envoi au prochain passage ». */
+export function enAttente(login: string | null = activeLogin): boolean {
+  return login !== null && storedValue(PENDING + login) !== null;
+}
+
+/** « Réessayer maintenant » : renvoie la copie en attente telle qu'elle est
+ * rangée, dans la même file que les autres envois de cet onglet. Rien quand
+ * rien n'attend, ou quand l'identité n'est pas encore confirmée par le salon
+ * (une identité mise en cache range, elle n'autorise pas une requête). */
+export function reessayer(): Promise<void> {
+  const login = activeLogin;
+  const serialized = login ? storedValue(PENDING + login) : null;
+  if (login && serialized) {
+    try {
+      enqueue(login, JSON.parse(serialized) as Bindings, serialized);
+    } catch {
+      /* Une copie illisible attendra le prochain semis, qui la remplace. */
+    }
+  }
+  return sending;
+}
+
 /** Attend les envois de cet onglet, notamment pour éprouver leur ordre. */
 export function flushed(): Promise<void> {
   return sending;

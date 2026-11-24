@@ -668,3 +668,175 @@ export const NOM = {
 } as const;
 
 // ==== fin personnes ====
+
+// ==== chantier manettes ====
+
+/** « B, Z et Start » : une liste de noms dite comme une phrase. */
+const enPhrase = (noms: readonly string[]) =>
+  noms.length <= 1 ? (noms[0] ?? "") : `${noms.slice(0, -1).join(", ")} et ${noms.at(-1)}`;
+
+/** « la Xbox 360 », ou « le jeu » quand la console n'a pas de nom propre. */
+const laConsole = (nom: string | null) => (nom ? `la ${nom}` : "le jeu");
+
+/** Le panneau « Touches et manettes » (`manettes/reglage`), ses phrases et
+ * ses boutons. La fin du pas à pas et la manette débranchée suivent. */
+export const REGLAGE = {
+  titre: "Touches et manettes",
+  /** Au bout du panneau de commande : ouvre le panneau sur le clavier. */
+  toutes: "Toutes les touches",
+  fermer: "Fermer",
+  /** La phrase de tête : `console` est nommée pour une salle Pro. */
+  tete: (console: string | null) =>
+    `Pendant ce réglage, ${laConsole(console)} ne reçoit pas tes appuis.`,
+  autres: "Les autres continuent de jouer.",
+  onglets: { manette: "Manette", clavier: "Clavier", profils: "Profils" },
+  ongletsNom: "Ce que tu règles",
+  recoit: (console: string | null) => `Ce que ${laConsole(console)} reçoit`,
+  taManette: "Ta manette",
+  aucune:
+    "Cette page ne voit aucune manette. Le navigateur ne la montre qu'après un premier appui.",
+  branche: "Branche-la, puis appuie sur un bouton.",
+  /** La première manette vue par la page (`premiere-manette`), dite une fois. */
+  arrivee: (nom: string) =>
+    `${nom.charAt(0).toUpperCase()}${nom.slice(1)} branchée : elle apparaît à droite.`,
+  standard: "branchée, disposition standard",
+  nonStandard: "branchée, disposition non standard",
+  adaptateur:
+    "Le navigateur ne garantit pas la place des boutons de cet adaptateur. Règle-le pas à pas.",
+  tuRegles: "Tu règles",
+  plusieurs: (n: number, place: number | null) =>
+    `${n} manettes parlent à cette page. Elles jouent toutes à ${place ? `ta ${placeN(place)}` : "ta place"}.`,
+  regler: "Régler pas à pas",
+  repos: "Lâche tout : boutons, sticks et gâchettes. Ton réglage d'avant reste si tu arrêtes.",
+  commencer: "Commencer",
+  annuler: "Annuler",
+  etape: (n: number, total: number) => `Étape ${n} sur ${total}`,
+  /** Devant le compteur « 03/16 » du pas à pas, que le lecteur d'écran ne lit pas. */
+  etapeCourte: "Étape",
+  appuie: (nom: string) => `Appuie sur ce que tu veux pour ${nom}.`,
+  pousse: (sens: string) => `Pousse ${sens}.`,
+  relache: "Relâche avant de continuer.",
+  passer: "Passer cette commande",
+  arreter: "Arrêter",
+  reprendre: (etape: number) => `Reprendre à l'étape ${etape}`,
+  daccord: "D'accord",
+  reglerDans: (nom: string) => `Régler ${nom} dans la liste`,
+  correspondances: "Toutes les correspondances",
+  dansLeJeu: "Dans le jeu",
+  changer: "Changer",
+  changerNom: (nom: string) => `Changer ${nom}`,
+  effacerNom: (nom: string) => `Effacer ${nom}`,
+  rien: "aucune",
+  attendManette: "Appuie sur un bouton de ta manette",
+  attendTouche: "Appuie sur une touche",
+  nombres: "Les nombres de ta manette",
+  /** Le mot sous le trait de repos d’une jauge du banc. */
+  reposDuBanc: (valeur: number) => `repos ${valeur.toFixed(2).replace(".", ",")}`,
+  horodatage: "L'horodatage avance tant que la manette parle. Figé, elle ne dit plus rien.",
+  lecture: "Ce que le jeu reçoit, vu comme",
+  taPlace: "ta place",
+  apercu: (appareil: string) =>
+    `Aperçu seulement. Ta place présente ${appareil} au jeu : les actions du jeu suivent cet appareil.`,
+  essai: "Clique ici, puis tape.",
+  essaiNom: "Zone d'essai du clavier",
+  touche: "Touche",
+  oppose: (nom: string) => `${nom}, sens opposé`,
+  bouton: "Bouton",
+  axe: "Axe",
+  inverse: "inversé",
+  /** Le sens demandé d'un stick de la trame Pro : droite ou haut (D6). */
+  sensPro: (gauche: boolean, haut: boolean) =>
+    `le stick ${gauche ? "gauche" : "droit"} vers ${haut ? "le haut" : "la droite"}`,
+  sticks: "Les sticks, direction par direction",
+  nonTransmis: (xbox: boolean) =>
+    xbox
+      ? "Pas transmis au jeu : le bouton Guide."
+      : "Pas transmis au jeu : Home, Capture, gyroscope.",
+  retablirManette: "Rétablir la manette",
+  retablirClavier: "Rétablir le clavier",
+  retablir: "Rétablir",
+  retablirQuestion: (quoi: "pad" | "key") =>
+    `Rétablir ${quoi === "pad" ? "la manette" : "le clavier"} ? Tes changements seront remplacés par le réglage d'origine.`,
+  retabli: "Réglage d'origine rétabli.",
+  mesProfils: (console: string | null) => (console ? `Mes profils ${console}` : "Mes profils"),
+  profilsClavier: "Profils du clavier",
+  enService: "en service",
+  defaut: "Profil par défaut",
+  modifies: "réglages modifiés",
+  nomProfil: "Nom",
+  enregistrer: "Enregistrer ce profil sous",
+  charger: "Charger",
+  supprimer: "Supprimer",
+  supprime: (nom: string) => `Le profil « ${nom} » est supprimé.`,
+  /** Une copie de tes réglages attend l'accord du service (`enAttente`). */
+  garde: "Gardé ici, envoi au prochain passage.",
+  reessayer: "Réessayer maintenant",
+  /** Les profils du clavier (`ProfilsDolphin`) : le nom d'une copie, la
+   * référence de la salle, et la publication. */
+  nomVide: "Donne un nom à la copie.",
+  nomPris: "Ce nom existe déjà.",
+  nomReserve: "Ce préfixe est réservé à la salle.",
+  nomAide: (max: number) => `Un nom unique, ${max} caractères au plus.`,
+  /** Une option de la liste des profils, quand c'est une référence. */
+  referenceNom: (nom: string) => `${nom}, référence de la salle`,
+  reference: "Référence de la salle. La modifier crée une copie à toi et garde l’original.",
+  aToi: "Profil à toi. Tes changements s’appliquent tout de suite.",
+  cree: (nom: string) => `Le profil « ${nom} » est créé et en service.`,
+  publier: "Publier dans la salle",
+  publication: "Publication…",
+  publie: "Profil publié dans la salle.",
+  publicationGardee: "Publication impossible. Tes réglages à toi sont gardés.",
+  publicationPlusTard: "Publication impossible. Réessaie dans un instant.",
+  /** Les avis de la trame Pro (`media/switch.ts`), que le panneau affiche
+   * tels quels (`SwitchInput.message` et ses refus). */
+  pro: {
+    brancher: "Branche une manette et appuie sur un bouton.",
+    debranchee: "Manette débranchée : assignation annulée.",
+    assignee: "Commande assignée. Relâche le bouton ou le stick.",
+    toucheAssignee: "Touche assignée.",
+    attendTouche: "Appuie sur une touche. Échap pour annuler.",
+    attendManette: "Appuie sur un bouton ou déplace le stick demandé. Échap pour annuler.",
+    annulee: "Assignation annulée.",
+    nom: (max: number) => `Donne un nom de 1 à ${max} caractères.`,
+    plein: (n: number) => `${n} profils sont déjà enregistrés.`,
+    absent: "Ce profil n’existe pas.",
+    tropGrand: "Le fichier est trop grand.",
+    invalide: "Ce fichier n’est pas un profil de manette valide.",
+    nonRange:
+      "Configuration active, mais ce navigateur n’a pas pu l’enregistrer. Exporte le profil pour le garder.",
+  },
+  exporter: "Exporter dans un fichier",
+  importer: "Importer un fichier",
+  tropGrand: "Fichier trop grand.",
+  refuse: "Réglage refusé.",
+  pret: "Charger un profil ne te déclare pas prêt.",
+  /** Le profil Pro rangé : il part au service dès que la salle répond. */
+  enregistre: "Profil enregistré. Il rejoint tes réglages personnels dès que la salle répond.",
+  /** La fin du pas à pas, comptée. `passees` : les commandes passées, nommées
+   * pour la console ; `garde` : ce qu'elles gardent (`FinDe` de la leçon). */
+  fin: (retenues: number, passees: readonly string[], garde: "avant" | "standard" | "rien") => {
+    if (retenues === 0) return "Aucune commande changée.";
+    const reglees =
+      passees.length === 0
+        ? `Tes ${retenues} commandes sont réglées.`
+        : retenues === 1
+          ? "1 commande réglée."
+          : `${retenues} commandes réglées.`;
+    if (passees.length === 0) return reglees;
+    const une = passees.length === 1;
+    const reste =
+      garde === "rien"
+        ? une
+          ? "elle reste sans réglage"
+          : "elles restent sans réglage"
+        : une
+          ? "elle garde son réglage d'avant"
+          : "elles gardent leur réglage d'avant";
+    return `${reglees} Tu as passé ${enPhrase(passees)} : ${reste}. Tu peux ${une ? "la" : "les"} changer dans la liste.`;
+  },
+  /** Une manette débranchée au milieu du pas à pas : rien n'est écrit. */
+  suspendu: (etape: number) =>
+    `Ta manette s'est débranchée. Rien n'a changé. Le pas à pas est arrêté à l'étape ${etape} ; ton réglage d'avant est gardé.`,
+} as const;
+
+// ==== fin manettes ====

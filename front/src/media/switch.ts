@@ -1,8 +1,25 @@
 /** Switch normalization lives beside Dolphin's reader, outside React. The seat
  * and connection still belong to InputStream. No GameCube profile is re-used. */
 import type { InputSource } from "./input-source";
-import { Capture, snapshot, type Snapshot } from "./lesson";
+import {
+  Annonces,
+  Capture,
+  entreeDe,
+  entreesPrises,
+  indiceDe,
+  Pas,
+  snapshot,
+  type EvenementDe,
+  type FinDe,
+  type Snapshot,
+} from "./lesson";
 import { centred, travel, DEAD_ZONE, type Control, type StickAxis } from "./pad";
+import { REGLAGE } from "../lib/mots";
+
+/** Le nom d'un profil Pro, et le nombre de profils nommés qu'un navigateur
+ * garde : les avis les disent, la garde les applique. */
+export const NOM_MAX = 64;
+const PROFILS_MAX = 24;
 
 // Frozen with protocol::switch. Home, capture and motion are not guest gameplay
 // inputs in this prototype; offering them would advertise an unconnected button.
@@ -213,6 +230,61 @@ export function readSwitch(
 }
 const standard = standardSwitchDevice();
 const STORAGE = "nel3ab:switch-profiles:1";
+
+/**
+ * Le pas à pas de la trame Pro : seize boutons, puis droite et haut de chaque
+ * stick (décision D6 du plan manettes).
+ *
+ * Vingt étapes et pas vingt-quatre : un `SwitchDevice` garde UN axe signé par
+ * axe de stick, donc demander « gauche » après « droite » réécrirait la même
+ * entrée (constat C6). Le signe se déduit de la poussée, comme pour Dolphin.
+ */
+export const PRO_ETAPES: readonly SwitchTarget[] = [...SWITCH_BUTTONS, "lx+", "ly+", "rx+", "ry+"];
+
+const estSens = (cible: SwitchTarget) => cible.endsWith("+") || cible.endsWith("-");
+
+/** La leçon de la trame Pro, sur la machine commune (`Pas`). */
+export class LeconPro extends Pas<SwitchTarget> {
+  private readonly appris: SwitchDevice;
+
+  constructor(neutral: Snapshot) {
+    const appris: SwitchDevice = { standard: false, buttons: {}, sticks: {} };
+    super(neutral, PRO_ETAPES, estSens, (cible, entree, value) => {
+      if (!estSens(cible)) {
+        appris.buttons[cible as SwitchButton] = entree;
+      } else if ("axis" in entree) {
+        // La question demande le sens positif : le sens poussé l'est.
+        appris.sticks[cible.slice(0, 2) as SwitchAxis] = {
+          axis: entree.axis,
+          sign: value >= entree.rest ? 1 : -1,
+          rest: entree.rest,
+        };
+      }
+    });
+    this.appris = appris;
+  }
+
+  /** Les réponses, et pour chaque étape passée l'entrée d'avant, sauf
+   * quand une réponse a pris cette entrée (`entreesPrises`). */
+  learned(precedent: SwitchDevice | null): SwitchDevice {
+    const out = structuredClone(this.appris);
+    if (!precedent) return out;
+    out.standard = precedent.standard;
+    const prises = entreesPrises([...Object.values(out.buttons), ...Object.values(out.sticks)]);
+    for (const cible of this.passees) {
+      if (!estSens(cible)) {
+        const avant = precedent.buttons[cible as SwitchButton];
+        if (avant && !prises.has(entreeDe(avant)))
+          out.buttons[cible as SwitchButton] = structuredClone(avant);
+      } else {
+        const axe = cible.slice(0, 2) as SwitchAxis;
+        const avant = precedent.sticks[axe];
+        if (avant && !prises.has(`a${avant.axis}`)) out.sticks[axe] = structuredClone(avant);
+      }
+    }
+    return out;
+  }
+}
 type CaptureState = { target: SwitchTarget; source: "key" | "pad"; machine?: Capture; id?: string };
 
 export class SwitchInput implements InputSource {
@@ -221,6 +293,9 @@ export class SwitchInput implements InputSource {
   selected: number | null = null;
   pads: readonly Gamepad[] = [];
   reading = emptySwitch();
+  /** La dernière trame posée sur le fil par `frame`, neutre comprise. La vue
+   * des touches en tire l'activité de la trame Pro (`media/activite`). */
+  envoye = emptySwitch();
   raw: Snapshot | null = null;
   capturing: CaptureState | null = null;
   message = "";
@@ -236,6 +311,13 @@ export class SwitchInput implements InputSource {
   readonly pushed = new Map<SwitchAxis, number>();
   private releasing: { id: string; machine: Capture } | null = null;
   private waitingForRest = false;
+  /** Le pas à pas en cours, et la manette qui l'a commencé. */
+  lecon: LeconPro | null = null;
+  private leconId: string | null = null;
+  /** La fin du dernier pas à pas, jusqu'au suivant. */
+  resultat: FinDe<SwitchTarget> | null = null;
+  private suspension: { lecon: LeconPro; id: string } | null = null;
+  private readonly annonces = new Annonces<EvenementDe<SwitchTarget>>();
 
   private readonly saveAccount: ((text: string) => void) | undefined;
   constructor(saveAccount?: (text: string) => void) {
@@ -276,15 +358,139 @@ export class SwitchInput implements InputSource {
           : null
       : null;
   }
+  /** Un pas à pas suspendu par un débranchement, comme pour Dolphin. */
+  get suspendu(): { etape: number; total: number; id: string } | null {
+    const suspendue = this.suspension;
+    return suspendue
+      ? { etape: suspendue.lecon.step + 1, total: suspendue.lecon.total, id: suspendue.id }
+      : null;
+  }
+
+  /** S'abonne aux moments du pas à pas ; rend la fonction qui désabonne. */
+  surLecon(ecoute: (evenement: EvenementDe<SwitchTarget>) => void): () => void {
+    return this.annonces.ecouter(ecoute);
+  }
+
+  private annoncerEtape(): void {
+    const lecon = this.lecon;
+    const cible = lecon?.demandee;
+    if (lecon && cible)
+      this.annonces.emettre({
+        type: "etape",
+        control: cible,
+        etape: lecon.step + 1,
+        total: lecon.total,
+      });
+  }
+
+  /** Commence le pas à pas sur la manette choisie, repos pris maintenant. */
+  commencerLecon(): void {
+    this.cancel();
+    const pad = this.pad;
+    if (!pad) {
+      this.message = REGLAGE.pro.brancher;
+      return;
+    }
+    this.resultat = null;
+    this.suspension = null;
+    this.lecon = new LeconPro(snapshot(pad));
+    this.leconId = pad.id;
+    this.annoncerEtape();
+  }
+
+  /** « Passer cette commande » : elle garde son entrée d'avant. */
+  passerEtape(): void {
+    const lecon = this.lecon;
+    if (!lecon) return;
+    lecon.skip();
+    if (lecon.done) this.finirLecon();
+    else this.annoncerEtape();
+  }
+
+  /** « Arrêter » : rien n'est écrit, le réglage d'avant reste. */
+  arreterLecon(): void {
+    this.lecon = null;
+    this.leconId = null;
+  }
+
+  /** Reprend sur la MÊME manette seulement, avec un repos pris au clic. */
+  reprendreLecon(): boolean {
+    const suspendue = this.suspension;
+    const pad = this.pad;
+    if (!suspendue || !pad || pad.id !== suspendue.id) return false;
+    this.suspension = null;
+    suspendue.lecon.reprendre(snapshot(pad));
+    this.lecon = suspendue.lecon;
+    this.leconId = pad.id;
+    this.annoncerEtape();
+    return true;
+  }
+
+  /** « D'accord » : la suspension s'oublie, le réglage d'avant reste. */
+  oublierSuspension(): void {
+    this.suspension = null;
+  }
+
+  /** Range ce que la leçon a appris, sur la manette qui l'a commencée. */
+  private finirLecon(): void {
+    const lecon = this.lecon;
+    const id = this.leconId;
+    this.lecon = null;
+    this.leconId = null;
+    if (!lecon || id === null) return;
+    const pad = this.pads.find((one) => one.id === id) ?? null;
+    const range = Object.hasOwn(this.profile.devices, id) ? this.profile.devices[id]! : null;
+    const precedent = range ?? (pad?.mapping === "standard" ? standard : null);
+    this.resultat = {
+      retenues: lecon.retenues,
+      passees: [...lecon.passees],
+      garde: range ? "avant" : precedent ? "standard" : "rien",
+    };
+    if (lecon.retenues > 0) {
+      Object.defineProperty(this.profile.devices, id, {
+        value: lecon.learned(precedent),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+      this.persist();
+    }
+    // La dernière réponse ne part pas au jeu : la trame reste neutre jusqu'au
+    // relâchement, comme après une réassignation.
+    this.waitingForRest = true;
+    this.annonces.emettre({ type: "fin", resultat: this.resultat });
+  }
+
+  /** Une image de la leçon en cours : suspension, réponse ou relâchement. */
+  private nourrirLecon(pad: Gamepad | null): void {
+    const lecon = this.lecon;
+    if (!lecon) return;
+    if (!pad || pad.id !== this.leconId) {
+      this.suspension = { lecon, id: this.leconId ?? "" };
+      this.lecon = null;
+      this.leconId = null;
+      this.annonces.emettre({ type: "suspendu", etape: lecon.step + 1 });
+      return;
+    }
+    const attendait = lecon.waiting;
+    if (lecon.feed(snapshot(pad)) && lecon.dernier) {
+      const { key, control: entree, value } = lecon.dernier;
+      this.annonces.emettre({ type: "recu", control: key, indice: indiceDe(entree, value) });
+      if (lecon.done) this.finirLecon();
+      else this.annoncerEtape();
+    } else if (attendait && !lecon.waiting) this.annonces.emettre({ type: "relache" });
+  }
+
   poll(held: ReadonlySet<string>, pads: readonly (Gamepad | null)[]): void {
     this.pads = pads.filter((pad): pad is Gamepad => pad !== null && pad.connected);
     const pad = this.pad;
     this.raw = pad ? snapshot(pad) : null;
+    this.nourrirLecon(pad);
     const capture = this.capturing;
     if (capture?.source === "pad") {
       if (!pad || pad.id !== capture.id) {
         this.cancel();
-        this.message = "Manette débranchée : assignation annulée.";
+        this.message = REGLAGE.pro.debranchee;
       } else if (capture.machine) {
         const moved = capture.machine.feed(snapshot(pad));
         const axis = capture.target.slice(0, 2) as SwitchAxis;
@@ -313,7 +519,7 @@ export class SwitchInput implements InputSource {
           });
           this.releasing = { id: pad.id, machine: capture.machine };
           this.capturing = null;
-          this.message = "Commande assignée. Relâche le bouton ou le stick.";
+          this.message = REGLAGE.pro.assignee;
           this.persist();
         }
       }
@@ -348,12 +554,15 @@ export class SwitchInput implements InputSource {
       this.waitingForRest = false;
   }
   frame(port: number, neutral: boolean): Uint8Array<ArrayBuffer> {
-    return encodeSwitch(
-      port,
-      neutral || this.capturing !== null || this.releasing !== null || this.waitingForRest
+    this.envoye =
+      neutral ||
+      this.lecon !== null ||
+      this.capturing !== null ||
+      this.releasing !== null ||
+      this.waitingForRest
         ? emptySwitch()
-        : this.reading,
-    );
+        : { ...this.reading };
+    return encodeSwitch(port, this.envoye);
   }
   handlesKey(code: string): boolean {
     return Object.values(this.profile.keys).includes(code);
@@ -371,14 +580,14 @@ export class SwitchInput implements InputSource {
       if (this.profile.keys[target] === event.code) delete this.profile.keys[target];
     this.profile.keys[this.capturing.target] = event.code;
     this.capturing = null;
-    this.message = "Touche assignée.";
+    this.message = REGLAGE.pro.toucheAssignee;
     this.persist();
     return true;
   }
   begin(target: SwitchTarget, source: "key" | "pad"): void {
     this.cancel();
     if (source === "pad" && !this.pad) {
-      this.message = "Branche une manette et appuie sur un bouton.";
+      this.message = REGLAGE.pro.brancher;
       return;
     }
     this.capturing = {
@@ -388,13 +597,10 @@ export class SwitchInput implements InputSource {
         ? { machine: new Capture(snapshot(this.pad)), id: this.pad.id }
         : {}),
     };
-    this.message =
-      source === "key"
-        ? "Appuie sur une touche. Échap pour annuler."
-        : "Appuie sur un bouton ou déplace le stick demandé. Échap pour annuler.";
+    this.message = source === "key" ? REGLAGE.pro.attendTouche : REGLAGE.pro.attendManette;
   }
   cancel(): void {
-    if (this.capturing) this.message = "Assignation annulée.";
+    if (this.capturing) this.message = REGLAGE.pro.annulee;
     this.capturing = null;
   }
   releaseBeforePlay(): void {
@@ -427,9 +633,9 @@ export class SwitchInput implements InputSource {
   }
   save(name: string): void {
     name = name.trim();
-    if (!name || name.length > 64) throw new Error("Donne un nom de 1 à 64 caractères.");
-    if (!Object.hasOwn(this.named, name) && Object.keys(this.named).length >= 24)
-      throw new Error("24 profils sont déjà enregistrés.");
+    if (!name || name.length > NOM_MAX) throw new Error(REGLAGE.pro.nom(NOM_MAX));
+    if (!Object.hasOwn(this.named, name) && Object.keys(this.named).length >= PROFILS_MAX)
+      throw new Error(REGLAGE.pro.plein(PROFILS_MAX));
     Object.defineProperty(this.named, name, {
       value: structuredClone(this.profile),
       enumerable: true,
@@ -438,16 +644,36 @@ export class SwitchInput implements InputSource {
     });
     if (!this.persist()) throw new Error(this.message);
   }
+  /** Oublie un profil nommé, et le range aussitôt. */
+  forget(name: string): void {
+    if (!Object.hasOwn(this.named, name)) throw new Error(REGLAGE.pro.absent);
+    delete this.named[name];
+    if (!this.persist()) throw new Error(this.message);
+  }
+
+  /** « Annuler » après « Supprimer » : rend le profil oublié tel qu'il était.
+   * Un nom repris entre-temps ne s'écrase pas. */
+  rendre(name: string, profil: SwitchProfile): void {
+    if (Object.hasOwn(this.named, name)) return;
+    Object.defineProperty(this.named, name, {
+      value: structuredClone(profil),
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    if (!this.persist()) throw new Error(this.message);
+  }
+
   load(name: string): void {
-    if (!Object.hasOwn(this.named, name)) throw new Error("Ce profil n’existe pas.");
+    if (!Object.hasOwn(this.named, name)) throw new Error(REGLAGE.pro.absent);
     this.profile = structuredClone(this.named[name]);
     this.releaseBeforePlay();
     if (!this.persist()) throw new Error(this.message);
   }
   import(text: string): void {
-    if (text.length > 100_000) throw new Error("Le fichier est trop grand.");
+    if (text.length > 100_000) throw new Error(REGLAGE.pro.tropGrand);
     const profile = readSwitchProfile(JSON.parse(text));
-    if (!profile) throw new Error("Ce fichier n’est pas un profil de manette valide.");
+    if (!profile) throw new Error(REGLAGE.pro.invalide);
     this.profile = profile;
     this.releaseBeforePlay();
     if (!this.persist()) throw new Error(this.message);
@@ -456,15 +682,16 @@ export class SwitchInput implements InputSource {
     try {
       const text = JSON.stringify({ working: this.profile, named: this.named });
       // Match the read bound: a successful save must survive the next visit.
-      if (text.length > 200_000 || !readSwitchProfile(this.profile))
-        throw new Error("profile limit");
-      this.saveAccount?.(text);
-      localStorage.setItem(STORAGE, text);
-      return true;
+      if (text.length <= 200_000 && readSwitchProfile(this.profile)) {
+        this.saveAccount?.(text);
+        localStorage.setItem(STORAGE, text);
+        return true;
+      }
     } catch {
-      this.message =
-        "Configuration active, mais ce navigateur n’a pas pu l’enregistrer. Exporte le profil pour le garder.";
-      return false;
+      // Un stockage refusé (navigation privée, quota plein) se dit comme une
+      // limite dépassée : le réglage tient, il n'est pas gardé.
     }
+    this.message = REGLAGE.pro.nonRange;
+    return false;
   }
 }

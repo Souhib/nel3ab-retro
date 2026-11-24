@@ -1,22 +1,21 @@
 /** Le dessin est posé par React; paintWiring anime ses pièces sans le rendre.
  *
- * # Une manette en volume, avec six effets et pas une image
+ * # Une manette en aplats nets
  *
- * La coque a un dégradé de haut en bas, un reflet vers le haut à gauche, ses
- * bords assombris (un trait flou découpé par la coque elle-même) et un liseré
- * clair en haut, sombre en bas. Chaque touche est posée dans son logement (le
- * même contour élargi, en sombre), a sa vraie couleur et reçoit un reflet
- * bombé. Un stick a sa cuvette, sa garde, et des anneaux ou un creux selon la
- * manette. Tout vient du plan (`lib/padmap.ts`) : ce composant ne connaît
- * aucune manette.
+ * Depuis le 23 novembre 2026 (thème rétro, chantier manettes), une matière est
+ * un aplat et la coque a un contour net : plus de dégradé, de reflet, de
+ * liseré, d'ombre ni de filtre. Chaque touche reste posée dans son logement,
+ * avec sa vraie couleur ; un stick garde sa garde et ses anneaux ou son
+ * creux. Tout vient du plan (`lib/padmap.ts`) : ce composant ne connaît
+ * aucune manette. Les couleurs sont dans `padmap.css` et `regie.css`.
  *
- * Une seule lumière, en haut à gauche, pour toutes les manettes : deux dessins
- * côte à côte éclairés de deux côtés différents se liraient comme deux images
- * collées, pas comme deux objets sur la même table.
+ * `place` pose `data-place` : une touche appuyée prend la couleur de la place
+ * de la page, jamais celle d'un autre joueur.
  */
 import { useId, type CSSProperties, type ReactNode } from "react";
 import { cn } from "../lib/cn";
 import { octagon, type Layer, type PadMap, type Part } from "../lib/padmap";
+import "./padmap.css";
 
 /** Le contour d'une pièce : son tracé exact, ou un disque, ou une pastille. */
 function Outline({ part, className, fill }: { part: Part; className: string; fill?: string }) {
@@ -36,6 +35,29 @@ function Outline({ part, className, fill }: { part: Part; className: string; fil
       fill={fill}
     />
   );
+}
+
+/** Les coins en pixels d'une pièce : quatre angles droits autour de sa boîte,
+ * et la flèche ▶ en escalier qui arrive par la gauche. Toujours dans le
+ * balisage, montrés par la feuille seulement (choix, attente, marques du pas
+ * à pas) : poser une marque ne change qu'un attribut. */
+function coinsDe(part: Part): { coins: string; fleche: string } {
+  const demi = Math.max(part.r * (part.wide ?? 1), part.r) + 1.6;
+  const haut = part.r + 1.6;
+  const [g, d, h, b] = [part.x - demi, part.x + demi, part.y - haut, part.y + haut];
+  const l = Math.min(2, demi / 2, haut / 2);
+  const f = (n: number) => +n.toFixed(2);
+  const coins = [
+    `M${f(g)} ${f(h + l)}V${f(h)}H${f(g + l)}`,
+    `M${f(d - l)} ${f(h)}H${f(d)}V${f(h + l)}`,
+    `M${f(d)} ${f(b - l)}V${f(b)}H${f(d - l)}`,
+    `M${f(g + l)} ${f(b)}H${f(g)}V${f(b - l)}`,
+  ].join("");
+  // Trois marches de 0,8 de chaque côté de la pointe : un ▶ de pixels.
+  const x = g - 1.2;
+  const y = part.y;
+  const fleche = `M${f(x)} ${f(y)}h-0.8v-0.8h-0.8v-0.8h-0.8v-0.8h-0.4v6.4h0.4v-0.8h0.8v-0.8h0.8v-0.8h0.8z`;
+  return { coins, fleche };
 }
 
 function Layers({ layers }: { layers?: readonly Layer[] }) {
@@ -59,6 +81,9 @@ export function PadMapView({
   labels,
   className,
   rawLabels = false,
+  place = null,
+  absente = false,
+  recadrer,
 }: {
   map: PadMap;
   title: string;
@@ -69,13 +94,23 @@ export function PadMapView({
   labels?: Record<string, string>;
   className?: string;
   rawLabels?: boolean;
+  /** La place de la page, de 1 à 4, ou rien (spectateur, planche). */
+  place?: 1 | 2 | 3 | 4 | null;
+  /** Aucune manette vue : la coque seule, tramée sous l'effet « tramage ». */
+  absente?: boolean;
+  /** La vignette d'un changement (`manettes/reglage/Vignette.tsx`) : le même
+   * dessin recadré autour de cette pièce, sans légende ni clic. La ligne de
+   * la table dit déjà ce qui est attendu ; la vignette est cachée au lecteur
+   * d'écran. */
+  recadrer?: string;
 }) {
-  const uid = useId().replaceAll(":", "");
-  const ref = (name: string) => `url(#${uid}-${name})`;
-
+  // Le décor de la coque est découpé par elle : une découpe n'est pas une
+  // lumière, et sans elle les grains de la manette Pro débordent du dessin.
+  const decoupe = `${useId().replaceAll(":", "")}-coque`;
+  const cadre = recadrer ? map.parts.find((part) => part.key === recadrer) : undefined;
   const piece = (part: Part): ReactNode => {
-    const half = part.r * (part.wide ?? 1);
     const label = labels?.[part.key] ?? (part.label || part.key);
+    const { coins, fleche } = coinsDe(part);
     const inscription = rawLabels ? part.key : part.label;
     const size = part.size ?? (inscription.length > 3 ? 2.2 : 3.2);
     const at = part.callout;
@@ -88,23 +123,16 @@ export function PadMapView({
         data-under={part.under ? "oui" : undefined}
         data-hangs={part.hangs ? "oui" : undefined}
         data-flush={part.flush ? "oui" : undefined}
+        data-appui={part.appui}
         data-selected={selected === part.key ? "oui" : undefined}
+        data-attendue={waiting === part.key ? "oui" : undefined}
+        // Le dessin montre, la liste agit : un clic de souris choisit la
+        // ligne, et la tabulation passe par la liste, jamais par une pièce.
         role={onSelect ? "button" : undefined}
-        tabIndex={onSelect ? 0 : undefined}
+        tabIndex={onSelect ? -1 : undefined}
         aria-label={onSelect ? `Configurer ${label}` : undefined}
         aria-pressed={onSelect ? selected === part.key : undefined}
         onClick={onSelect ? () => onSelect(part.key) : undefined}
-        onKeyDown={
-          onSelect
-            ? (event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onSelect(part.key);
-                }
-              }
-            : undefined
-        }
         style={
           {
             "--part-tint": part.tint ?? "var(--pad-cap)",
@@ -113,6 +141,11 @@ export function PadMapView({
         }
       >
         <title>{label}</title>
+        {onSelect ? (
+          // La zone de clic, invisible : son rayon suit la taille rendue
+          // (`manettes/reglage/zones.ts`), la pièce elle-même au départ.
+          <circle cx={part.x} cy={part.y} r={part.r} data-r={part.r} className="n3-zone" />
+        ) : null}
         {at ? <path d={`M ${part.x} ${part.y} L ${at.x} ${at.y}`} className="n3-leader" /> : null}
         {part.gate ? (
           part.gate === "octogone" ? (
@@ -124,9 +157,6 @@ export function PadMapView({
           <Outline part={part} className="n3-well" />
         )}
         <g className="n3-stick-body" data-drive={part.stick ? String(part.r * 0.72) : undefined}>
-          {part.stick ? (
-            <circle cx={part.x} cy={part.y + 0.9} r={part.r} className="n3-stick-shadow" />
-          ) : null}
           <Outline part={part} className="n3-cap" />
           {part.grip === "anneaux" ? (
             <g className="n3-stick-grip">
@@ -144,23 +174,23 @@ export function PadMapView({
                 className="n3-stick-grip"
                 strokeDasharray="0.35 0.35"
               />
-              <circle
-                cx={part.x}
-                cy={part.y}
-                r={part.r * 0.64}
-                className="n3-dish"
-                fill={ref("dish")}
-              />
+              <circle cx={part.x} cy={part.y} r={part.r * 0.64} className="n3-stick-grip" />
             </>
           ) : null}
-          <Outline part={part} className="n3-gloss" fill={ref("gloss")} />
           {part.glyph ? (
             <g transform={`translate(${part.x} ${part.y})`}>
               <path d={part.glyph} className="n3-glyph" />
             </g>
           ) : null}
           {inscription && !at ? (
-            <text x={part.x} y={part.y + size * 0.36} textAnchor="middle" fontSize={size}>
+            <text
+              x={part.x}
+              y={part.y + size * 0.36}
+              textAnchor="middle"
+              fontSize={size}
+              data-taille={size}
+              data-piece={part.r * 2}
+            >
               {inscription}
             </text>
           ) : null}
@@ -171,104 +201,67 @@ export function PadMapView({
             y={at.y + size * 0.36}
             textAnchor={at.anchor ?? "middle"}
             fontSize={size}
+            data-taille={size}
             className="n3-callout"
           >
             {inscription}
           </text>
         ) : null}
-        {waiting === part.key || selected === part.key ? (
-          <rect
-            x={part.x - Math.max(half, part.r) - 1.6}
-            y={part.y - part.r - 1.6}
-            width={Math.max(half, part.r) * 2 + 3.2}
-            height={part.r * 2 + 3.2}
-            rx={part.r + 1.6}
-            className={waiting === part.key ? "n3-wanted" : "n3-selection"}
-          />
-        ) : null}
+        <path d={coins} className="n3-coins" />
+        <path d={fleche} className="n3-fleche" />
       </g>
     );
   };
 
+  // Le carré de la vignette : la boîte de la pièce, ses coins (1,6) et une
+  // marge pour qu'un peu de la manette autour la situe.
+  const marge = cadre ? Math.max(cadre.r * (cadre.wide ?? 1), cadre.r) + 5 : 0;
+  const dessin = (
+    <svg
+      viewBox={
+        cadre
+          ? `${+(cadre.x - marge).toFixed(2)} ${+(cadre.y - marge).toFixed(2)} ${+(marge * 2).toFixed(2)} ${+(marge * 2).toFixed(2)}`
+          : (map.viewBox ?? "-2 -2 104 66")
+      }
+      role={cadre ? undefined : onSelect ? "group" : "img"}
+      aria-label={cadre ? undefined : title}
+      aria-hidden={cadre ? "true" : undefined}
+      data-padmap={map.id}
+      data-place={place ?? undefined}
+      data-absente={absente ? "oui" : undefined}
+      style={absente ? ({ "--trame": `url(#${decoupe}-trame)` } as CSSProperties) : undefined}
+      className={cadre ? "n3-vignette" : "w-full"}
+    >
+      {absente ? (
+        <pattern id={`${decoupe}-trame`} width="1" height="1" patternUnits="userSpaceOnUse">
+          <rect width="0.5" height="0.5" className="n3-trame" />
+          <rect x="0.5" y="0.5" width="0.5" height="0.5" className="n3-trame" />
+        </pattern>
+      ) : null}
+      <g>
+        {map.wire ? <path d={map.wire} className="n3-wire" /> : null}
+        <Layers layers={map.under} />
+        {map.parts.filter((part) => part.under).map(piece)}
+        <path d={map.body} className="n3-shell" />
+        <clipPath id={decoupe}>
+          <path d={map.body} />
+        </clipPath>
+        <g clipPath={`url(#${decoupe})`}>
+          <Layers layers={map.art} />
+        </g>
+        <Layers layers={map.deco} />
+        {map.parts.filter((part) => !part.under).map(piece)}
+      </g>
+    </svg>
+  );
+  if (cadre) return dessin;
   return (
     <figure className={cn("n3-controller", className)}>
       <figcaption>
         <span className="text-corps font-medium">{title}</span>
         {note ? <span className="text-note text-muted">{note}</span> : null}
       </figcaption>
-      <svg
-        viewBox={map.viewBox ?? "-2 -2 104 66"}
-        role={onSelect ? "group" : "img"}
-        aria-label={title}
-        data-padmap={map.id}
-        className="w-full"
-        style={
-          {
-            "--shell-fill": ref("shell"),
-            "--grain-fill": ref("grain"),
-          } as CSSProperties
-        }
-      >
-        <defs>
-          <linearGradient id={`${uid}-shell`} x2="0" y2="1">
-            <stop stopColor="var(--pad-shell-top)" />
-            <stop offset="1" stopColor="var(--pad-shell-bottom)" />
-          </linearGradient>
-          <radialGradient id={`${uid}-sheen`} cx="0.32" cy="0.12" r="0.75">
-            <stop stopColor="#fff" stopOpacity="var(--pad-sheen)" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id={`${uid}-rim`} x2="0" y2="1">
-            <stop stopColor="#fff" stopOpacity="0.55" />
-            <stop offset="0.3" stopColor="#fff" stopOpacity="0" />
-            <stop offset="0.75" stopColor="#000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.5" />
-          </linearGradient>
-          <radialGradient id={`${uid}-gloss`} cx="0.36" cy="0.3" r="0.78">
-            <stop stopColor="#fff" stopOpacity="0.5" />
-            <stop offset="0.45" stopColor="#fff" stopOpacity="0" />
-            <stop offset="0.72" stopColor="#000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.38" />
-          </radialGradient>
-          <linearGradient id={`${uid}-dish`} x1="0.2" y1="0.1" x2="0.8" y2="0.9">
-            <stop stopColor="#000" stopOpacity="0.45" />
-            <stop offset="0.6" stopColor="#000" stopOpacity="0.05" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0.18" />
-          </linearGradient>
-          <pattern id={`${uid}-grain`} width="1.1" height="1.1" patternUnits="userSpaceOnUse">
-            <circle cx="0.55" cy="0.55" r="0.2" fill="#000" fillOpacity="0.28" />
-          </pattern>
-          <clipPath id={`${uid}-clip`}>
-            <path d={map.body} />
-          </clipPath>
-          <filter id={`${uid}-soft`} x="-10%" y="-10%" width="120%" height="120%">
-            <feGaussianBlur stdDeviation="1.4" />
-          </filter>
-          <filter id={`${uid}-drop`} x="-15%" y="-15%" width="130%" height="140%">
-            <feDropShadow
-              dx="0"
-              dy="1.6"
-              stdDeviation="1.3"
-              floodColor="#000"
-              floodOpacity="0.55"
-            />
-          </filter>
-        </defs>
-        <g filter={ref("drop")}>
-          {map.wire ? <path d={map.wire} className="n3-wire" /> : null}
-          <Layers layers={map.under} />
-          {map.parts.filter((part) => part.under).map(piece)}
-          <path d={map.body} className="n3-shell" />
-          <path d={map.body} className="n3-sheen" fill={ref("sheen")} />
-          <g clipPath={ref("clip")}>
-            <Layers layers={map.art} />
-            <path d={map.body} className="n3-inner" filter={ref("soft")} />
-          </g>
-          <path d={map.body} className="n3-rim" stroke={ref("rim")} />
-          <Layers layers={map.deco} />
-          {map.parts.filter((part) => !part.under).map(piece)}
-        </g>
-      </svg>
+      {dessin}
     </figure>
   );
 }

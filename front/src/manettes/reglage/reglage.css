@@ -1,0 +1,313 @@
+/* Le panneau « Touches et manettes » : une région dans la colonne, jamais
+   sur l'image. Couleurs du thème seulement (`regie.css`) ; les manettes ont
+   leur feuille (`components/padmap.css`). Les coins en escalier et la lèvre
+   des boutons viennent des effets du socle (`.rt-boite`, `.rt-bouton`). */
+.n3-reglage {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--espace-4);
+  color: var(--encre);
+  outline-offset: -2px;
+}
+.n3-reglage-tete {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--espace-2) var(--espace-3);
+}
+.n3-reglage-tete > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--legende);
+}
+.n3-reglage-bouton {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 0.75rem;
+}
+/* Les listes, les champs et le titre des nombres se touchent du doigt comme
+   les boutons : 44 px au moins (`salle-telephone.mjs` les mesurait à 19 et
+   24 px le 24 novembre 2026). */
+.n3-reglage :is(select, input:not([type="checkbox"], [type="radio"])) {
+  min-height: 2.75rem;
+  padding-inline: var(--espace-2);
+  border: 2px solid var(--filet);
+  background: var(--fond);
+  color: var(--encre);
+}
+.n3-reglage summary {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  cursor: pointer;
+}
+/* « Toutes les touches » (`ToutesLesTouches`), au bout du panneau de
+   commande, avant le crédit, qui lui laisse sa marge. */
+.n3-toutes-touches {
+  align-self: center;
+  min-height: 2.75rem;
+  margin-left: auto;
+  padding: 0.375rem 0.75rem;
+  white-space: nowrap;
+}
+.n3-toutes-touches + .n3-credit {
+  margin-left: 0;
+}
+.n3-reglage-gestes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espace-2);
+}
+.n3-onglets {
+  display: flex;
+  gap: var(--espace-1);
+  border-bottom: 2px solid var(--filet);
+}
+.n3-onglets > [role="tab"] {
+  min-height: 2.75rem;
+  padding: 0 var(--espace-3);
+  border: 2px solid transparent;
+  border-bottom: 0;
+  color: var(--legende);
+}
+.n3-onglets > [aria-selected="true"] {
+  border-color: var(--filet);
+  background: var(--plaque);
+  color: var(--encre);
+}
+.n3-onglets > [aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.n3-reglage-page {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--espace-4);
+}
+.n3-appareil {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espace-3);
+}
+.n3-arrivee {
+  margin: 0;
+}
+.n3-appareil p,
+.n3-reglage-avis p {
+  margin: 0;
+}
+.n3-reglage-avis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+  padding: var(--espace-3);
+  border: 2px solid var(--filet);
+  background: var(--plaque);
+}
+.n3-pas h3 {
+  margin: 0;
+}
+.n3-jauge {
+  display: flex;
+  gap: 2px;
+  margin-block: var(--espace-2);
+}
+.n3-jauge > span {
+  height: 0.75rem;
+  flex: 1;
+  border: 2px solid var(--filet);
+}
+.n3-jauge > [data-plein="oui"] {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+.n3-lecture {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-2);
+  border: 0;
+  padding: 0;
+}
+.n3-lecture > legend {
+  margin-bottom: var(--espace-2);
+}
+.n3-lecture > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.n3-lecture [aria-pressed="true"] {
+  --rt-bord: var(--signal);
+}
+.n3-correspondances {
+  width: 100%;
+  border-collapse: collapse;
+}
+.n3-correspondances :is(th, td) {
+  padding: var(--espace-1) var(--espace-2);
+  border-bottom: 1px solid var(--filet);
+  text-align: left;
+  vertical-align: middle;
+}
+.n3-correspondances th small {
+  display: block;
+  color: var(--legende);
+  font-weight: 400;
+}
+.n3-correspondances td:last-child {
+  white-space: nowrap;
+}
+.n3-correspondances [aria-current="true"] > th {
+  box-shadow: inset 4px 0 0 var(--signal);
+}
+/* Une commande tenue : un carré à la couleur de la place, devant ce qui la
+   déclenche (`tenues.ts`). Un spectateur n'a pas de place : encre du thème. */
+.n3-reglage tr[data-tenu] > td:first-of-type::before {
+  content: "";
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-right: var(--espace-1);
+  background: var(--tenu, var(--encre));
+  vertical-align: middle;
+}
+/* L'effet « halo » : le carré luit de sa couleur, sans bouger. */
+.fx-halo .n3-reglage tr[data-tenu] > td:first-of-type::before {
+  box-shadow: 0 0 0.375rem var(--tenu, var(--encre));
+}
+.n3-reglage[data-place="1"] {
+  --tenu: var(--p1);
+}
+.n3-reglage[data-place="2"] {
+  --tenu: var(--p2);
+}
+.n3-reglage[data-place="3"] {
+  --tenu: var(--p3);
+}
+.n3-reglage[data-place="4"] {
+  --tenu: var(--p4);
+}
+.n3-correspondances [data-attend="oui"] {
+  background: var(--plaque);
+}
+/* La vignette d'un changement (`Vignette.tsx`) : la pièce attendue et ses
+   coins en 64 px, quand les dessins sont sortis de l'écran. Les dessins
+   laissent déborder leur tracé (`padmap.css`) ; la vignette le coupe à sa
+   boîte, sinon la manette entière couvre les lignes voisines. */
+.n3-attente {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-2);
+}
+.n3-correspondances .n3-vignette {
+  display: block;
+  flex: none;
+  overflow: hidden;
+  width: 64px;
+  height: 64px;
+  margin-block: var(--espace-1);
+  border: 2px solid var(--filet);
+  background: var(--fond);
+}
+.n3-essai-clavier {
+  padding: var(--espace-4);
+  border: 2px dashed var(--filet);
+  text-align: center;
+}
+.n3-profils {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-2);
+}
+
+/* Le titre d'une étape : « Étape » et le compteur « 03/16 » en chiffres
+   d'afficheur (`Compteur`, effet « chiffres » du socle). */
+.n3-pas-titre {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espace-2);
+}
+
+/* Les marques du pas à pas (`marques.ts`) sur les coins en pixels de chaque
+   pièce (`PadMap.tsx`). Le cadre se referme en 240 ms, revient
+   plus large quand la commande insiste, puis la flèche arrive du bord. La
+   pièce appuyée prend des coins d'encre et la ligne pointillée qui la relie à
+   la commande ; les deux s'effacent. Chaque animation joue
+   une fois : rien ne clignote, rien ne tourne après la fin. */
+.n3-dessins {
+  position: relative;
+}
+.n3-reglage [data-marque] > .n3-coins {
+  display: inline;
+  stroke: var(--signal);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.n3-reglage [data-marque="cadre"] > .n3-coins {
+  animation: n3-marque-cadre 240ms ease-out both;
+}
+.n3-reglage :is([data-marque="insiste"], [data-marque="fleche"]) > .n3-coins {
+  transform: scale(1.25);
+  stroke-width: 1.2;
+}
+.n3-reglage [data-marque="fleche"] > .n3-fleche {
+  display: inline;
+  animation: n3-marque-fleche 240ms ease-out both;
+}
+.n3-reglage :is([data-marque="coins"], [data-marque="efface"]) > .n3-coins {
+  stroke: var(--encre);
+}
+.n3-liaison {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.n3-liaison line {
+  stroke: var(--encre);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+  shape-rendering: crispEdges;
+}
+.n3-reglage [data-marque="efface"] > .n3-coins,
+.n3-liaison[data-marque="efface"] line {
+  animation: n3-marque-efface 400ms linear forwards;
+}
+/* « paliers » (niveau tout) : le cadre, la flèche, les coins et la liaison
+   avancent par quatre marches, jamais l'inclinaison des sticks, qui est une
+   lecture. Sans l'effet, ils glissent. */
+.fx-paliers .n3-reglage [data-marque] > :is(.n3-coins, .n3-fleche),
+.fx-paliers .n3-liaison[data-marque] line {
+  animation-timing-function: steps(4);
+}
+@keyframes n3-marque-cadre {
+  from {
+    transform: scale(1.6);
+  }
+}
+@keyframes n3-marque-fleche {
+  from {
+    transform: translateX(-4px);
+  }
+}
+@keyframes n3-marque-efface {
+  to {
+    stroke-opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-reglage [data-marque] > :is(.n3-coins, .n3-fleche),
+  .n3-liaison line {
+    animation: none;
+  }
+  .n3-reglage [data-marque="efface"] > .n3-coins,
+  .n3-liaison[data-marque="efface"] line {
+    stroke-opacity: 0;
+  }
+}

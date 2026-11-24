@@ -95,3 +95,35 @@ it("synchronise les profils Switch différés et les sépare entre identités", 
   expect(b.gather().switch).toBeUndefined();
   expect(api.keep).not.toHaveBeenCalled();
 });
+
+it("dit qu'une copie attend, et « Réessayer maintenant » renvoie le même instantané", async () => {
+  const b = await import("./bindings");
+  await b.reconcile("one", { pads: {}, keys: {} });
+  expect(b.enAttente()).toBe(false);
+  api.keep.mockRejectedValue(new Error("offline"));
+  localStorage.setItem(b.KEYS_STORED, JSON.stringify({ active: "gardé" }));
+  b.push();
+  await b.flushed();
+  expect(b.enAttente()).toBe(true);
+  const envoye = api.keep.mock.calls.at(-1)?.[0].body;
+  api.keep.mockReset();
+  api.keep.mockResolvedValue(undefined);
+  await b.reessayer();
+  expect(api.keep).toHaveBeenCalledTimes(1);
+  expect(api.keep.mock.calls[0]?.[0].body).toEqual(envoye);
+  // Le jumeau : une fois accepté, plus rien n'attend.
+  expect(b.enAttente()).toBe(false);
+  await b.reessayer();
+  expect(api.keep).toHaveBeenCalledTimes(1);
+});
+
+it("une copie d'une autre identité n'est pas « en attente » pour celle-ci", async () => {
+  const b = await import("./bindings");
+  await b.reconcile("one", { pads: {}, keys: {} });
+  api.keep.mockRejectedValue(new Error("offline"));
+  b.push();
+  await b.flushed();
+  expect(b.enAttente("one")).toBe(true);
+  expect(b.enAttente("deux")).toBe(false);
+  expect(b.enAttente(null)).toBe(false);
+});

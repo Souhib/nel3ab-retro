@@ -2054,6 +2054,228 @@ picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
 
+### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
+
+**Status:** four passes of the `manettes` work site, on
+`chantier/retro-manettes`. The panel that replaces the two modal dialogs is
+mounted in the column at the fourth; this entry will grow with it.
+
+**The on-demand module is not taken (K38).** The plan proposed a second
+artefact, `/reglage.js`, served by the worker and loaded on first opening, to
+keep the room page under its 300 000-byte budget. The owner declined it: the
+page stays one file (D13 unchanged), and the panel will live in the page,
+measured at every pass. After this pass the page weighs 250 627 bytes brotli
+(+1 191 on `integration/retro`).
+
+**A passed command keeps its previous binding.** `Lesson.skip()` recorded
+nothing and the end of a lesson replaced the whole profile with the answers
+alone; since `readPad` does not fall back to the standard layout once a
+profile exists, skipping B to keep it erased it. The lesson now lists its
+passed steps and `learned(previous)` gives each one the stored profile's
+entry, or the standard layout for a standard pad without a profile. An
+adapter never configured keeps them unset. A lesson where everything was
+passed writes nothing. One exception, found while writing the Pro test: an
+input taken by an answer leaves the passed command that held it (answering
+A on b3 with Y passed and standard on b3 made b3 press A and Y). The lesson is
+a new plan of the pad, and an input does one thing, as a keyboard key already
+does (`bindKey`). Weighed: keeping both (the capture's behaviour) leaves a
+silent double press; dropping all passed commands (the old behaviour) is
+the defect.
+
+**An unplugged pad suspends a lesson instead of cancelling it.** Nothing is
+written; the lesson, its answers and its passed steps wait under the pad's
+identifier, and only the same pad resumes, with a rest sample taken at the
+click. A different pad would learn the rest of a different model.
+
+**One step machine for both frames.** `Pas<K>` (`media/lesson.ts`) holds the
+rest taken once, the wait for release, the refusal of a button for a stick
+step, the passed list and the resume; `Lesson` writes a GameCube profile and
+`LeconPro` a `SwitchDevice`. The Pro lesson has 20 steps, not 24: a
+`SwitchDevice` keeps one signed axis per stick axis, so asking « left » after
+« right » would overwrite the same entry. The sign comes from the push, as
+for Dolphin.
+
+**Lesson events leave the loop outside React.** The React snapshot is read
+twice a second (rule 8), too slow for the step marks to come. `surReglage`
+and `surLecon` deliver `etape`, `recu` (with the input named as the right-hand
+drawing names it), `relache`, `fin`, `suspendu` and, once per page load,
+`premiere-manette`. A subscriber that throws cannot stop the input loop.
+
+**The snapshot says what the sent frame presses (K34).** `InputState.activite`
+holds the commands the frame can carry and those it carries now, for the
+Dolphin frame and the Pro frame, read from what was SENT: a menu or a lesson
+sends a neutral frame, and nothing lights then.
+
+**Flat drawings, pressed in the seat's colour.** The controller drawings lose
+their volume (gradients, sheen, rim, inner shadow, drop shadow, filters, the
+card around them): one flat colour per material from the manettes section of
+`regie.css`, the shell at the exact middle of its former gradient, and a
+crisp outline in the theme's ink (the one thing that follows the theme). A
+pressed piece takes the page's seat colour, the player shade of the other
+lightness than the keys, with an object white or black ring of the other
+lightness than the shell. One of the two holds 3:1 against the key, its well
+and the shell for ten plans and four seats (`lib/manettes-couleurs.test.ts`);
+on the purple GameCube the fill alone falls to 1.36:1 and the ring carries
+it. Without a seat (spectator, preview) the press is a neutral object colour,
+never a player's. A trigger drawn behind the shell is seen against the page,
+so its ring takes the theme's ink: `just banc-visuel`, now run for every seat
+in both themes, found the GameCube triggers at 1.07:1 by day before that.
+
+**Second pass: the panel, not yet mounted.** `front/src/manettes/` holds the
+single panel that replaces `Bindings` and `SwitchBindings`: a region, not a
+modal dialog, opened by one entry (`ouvrirReglage(onglet)`, K05) and hosted
+by `HoteReglage`, which returns focus to the opener or to a fallback the room
+gives when the opener left with the column rows. One "Fermer"; a real tab
+list (arrows, Home, End; inert during a lesson); Escape cancels a capture
+before it closes. Both frames share the lesson view, the end count and the
+resume after an unplug; the Pro frame paints its two drawings in two roots
+(`paintPro`), because both name their sticks `a0` and `a2`. Lesson marks are
+set by the input loop's events, outside React (`marques.ts`: frame, wider at
+4 s, arrow at 8 s, then nothing; corners on the pressed piece for 650 ms; the
+next step cuts the running sequence, D5). Drawing inscriptions keep a 9 px
+rendered floor or hide (`inscriptions.ts`, Anybody kept, D4). The `fier`
+scene goes through the room's arbiter only when the room is live and the
+lesson retained something; a pad arriving plays nothing (K09). Placement is
+pure for now: `placeDuReglage` (column at a desk, below when narrow or held
+upright, right when held sideways, tablets included) and `largeurPanneau`
+(46 % of the window, 560 to 700 px, K24); the touch pad is not mounted while
+the panel is open. The wiring in `App.tsx` stays the branch's last commit.
+The page weighs 251 536 bytes brotli; a trial build that adds the panel
+without removing anything weighs 256 998, so the panel costs about 5 460
+bytes before the old dialogs and their `index.css` rules leave.
+
+**Third pass: marks on pixel corners, held rows, still unmounted.** Every
+drawn piece now carries its own pixel corners and stepped arrow, hidden by
+the stylesheet and shown for the chosen piece, the awaited command and the
+lesson marks; the felt rings are gone, and pieces left the tab order (the
+list acts, the drawing shows; a mouse click still picks the row). A pressed
+piece is joined to the awaited command by a dotted line in a layer over both
+`svg`. A held command marks its table row (`data-tenu`, a square in the seat
+colour) through a `MutationObserver` on the game drawing; to keep that cheap,
+the paint loops write `data-lit` and stick transforms only when they change.
+The panel also says the first pad seen while open (no scene, K09), draws an
+absent pad as a dithered silhouette, offers "Annuler" after deleting a
+profile (`InputStream.rendreKeys`, `SwitchInput.rendre`, neither overwriting
+a name taken meanwhile), says a copy waiting for the service with "Réessayer
+maintenant", shows the Pro numbers through the bench, and takes a state band
+from the room (its action then holds the only filled button). Menu sounds
+follow the loop's events: a coin for a retained answer, a low tone on unplug.
+The page weighs 251 754 bytes brotli; the trial build with the panel weighs
+258 610, so the panel costs about 6 860 bytes before the removals.
+
+**Fourth pass: mounted in the column.** The one `App.tsx` wiring commit
+replaces the `bindings` state with `useReglage`: the menu entry, "Changer" of
+the key view and a new "Toutes les touches" button at the end of the command
+panel all call `ouvrirReglage`, through a room helper that closes the modal
+menu (it would make the column inert) and opens the enlarged sheet when the
+room is held in hand. `HoteReglage` is the column's view; the frame gets
+`largeurPanneau` and the column takes the frame's width while the panel is
+open. The key view now reads `InputState.activite` for both frames (K34).
+The old dialogs only host the multi-player preparation until the menus work
+site moves it to the column, so nothing of their weight is removed yet: the
+page weighs 258 978 bytes brotli (+7 224). `reglage-navigateur` proves the
+placement at desk and narrow sizes, the entries and focus, the Pro activity
+and a lesson on a simulated pad; its red twin runs on 9fb659e. Held in hand,
+the panel still lives in the enlarged sheet, which covers the picture: the
+place under the picture (portrait) and right of it (landscape) needs the
+room frame geometry, which belongs to the `salle` work site. The
+`place-tenu` step measures it and stays red, outside the gate.
+After the wiring commit, without touching `App.tsx` again: the lesson
+marks step only under `.fx-paliers` (full level); the step title shows
+"03/16" in display digits that roll at the full level (the socle's
+`chiffres` and `compteur`); a refused Pro file plays the socle's low tone;
+the device row carries the pixel pad icon; and every clickable piece of
+the game drawing gets an invisible hit zone aiming at 24 px rendered,
+never reaching into a neighbour (`zones.ts`), while a coarse pointer gets
+no clickable drawing at all. `padmap-visuel.mjs` serves its preview through
+`vite.planche.config.ts`, which has no relay to the room's ports. The page
+weighs 259 484 bytes brotli.
+
+**Fifth pass: named colours and a pressed state that holds twice.** The
+plans name their key colours (D3 of the plan): a part's `tint` and `ink`
+are of type `Couleur`, `var(--manette-<name>)`, so a literal value does not
+compile, and the 29 values live in `regie.css` (the unused `TINTS` and
+`--manette-teinte-*` are gone). Reading every tinted key exposed pressed
+states at 2.3 to 2.7:1, and a first fix that held against the key failed
+`banc-visuel.mjs`, which measures the pressed key against its well, shell
+or the page. Both thresholds are now one test
+(`lib/manettes-couleurs.test.ts`): every part of every plan, with and
+without a seat, in both themes, at 3:1 against the key and against its
+surroundings, following how `padmap.css` draws it (a flush part has no
+ring; a trigger behind the shell takes the theme ink unless it declares
+its own). Three keys get `appui: "clair"`: the seat's light tint with a
+dark ring, the only pair that holds against a mid tint inside dark
+surroundings. Without a seat, the GameCube press becomes a dark object
+green with the light ring, and the shared violet is lighter (#8b7cf0).
+The callouts "viser" and "secouer" move off the Wiimote's edge and arcs.
+The preview becomes the controller planche (two groups, three sizes,
+inscription counts, contrast computed by Chrome in the shown theme, 44 px
+toggles), checked by `padmap-qc.mjs` with a contrast twin that must fail
+on the Xbox alone. At the full level the lesson's end sentence types
+itself out through the socle's `annoncerLettres`, and a refused Pro gesture
+shakes its notice. The page weighs 260 043 bytes brotli.
+
+**Sixth pass: the part being changed stays on screen.** Changing a row near
+the bottom of the table scrolled the drawings out of view (the framed part
+measured at -442 px at 1280 × 720). While that part is not wholly visible,
+an `IntersectionObserver` on it (`useHorsDeVue`, `manettes/reglage/
+Vignette.tsx`) mounts a 64 px thumbnail in the row: the same plan with a
+viewBox cropped around the part (`PadMapView recadrer`), clipped to its box
+because the drawings let their outline overflow, laid beside the
+instruction, and the row kept in view. Without the observer (jsdom, an old
+browser) nothing is mounted and the drawing stays the reference. The
+`changer-visible` step of `reglage.mjs` proves it at 1280 × 720 and
+390 × 844, fails on the previous page (e62f583), and its twin at
+1440 × 900 refuses a thumbnail while the drawing is visible. In the Pro
+frame, a stick direction (`lx+`) now frames its stick (`pieceDe`), as the
+lesson marks already did. `salle-telephone.mjs` measures the panel itself
+through `bindings-preview.html?reglage` instead of the dialogs it replaced
+outside a preparation, and found three 19 to 24 px controls, now 44 px. A
+refused keyboard publication sounds and shakes like a refused Pro gesture.
+The page weighs 260 609 bytes brotli.
+
+**The bench paints itself.** "Les nombres de ta manette" read 0.00 for
+every button since `main`: `paintWiring` filled the bench on the root of the
+two drawings, and the bench lives beside that root in its own `<details>`.
+`Bench` now takes `lire()` (the raw gamepad, or `SwitchInput.pad`) and runs
+its own frame loop, painting only while its `<details>` is open; `paintWiring`
+no longer calls `paintBench`. A button gauge starts from its learned rest
+(`restsOf`, now exported from `lib/wiring.ts`), marked by a line and
+"repos 0,62"; without a known rest it follows the value. The stamp is an
+`afficheur` (`retro/chiffres.ts`) written without rolling, since it changes
+every frame. A non-standard adapter opens its numbers (changement 21).
+`nombres.test.tsx` failed first on "0.00"; the `nombres` step of
+`reglage.mjs` reads 0.65 and the stamp in the built page, and fails on
+842e4c9. The page weighs 261 069 bytes brotli.
+
+**The review of 24 November: four findings.** An independent review found
+that an answer never showed its marks: the input loop emits `recu` and the
+next `etape` in the same call, and the step cut every mark before a frame
+was painted. D5 of the plan is amended: the next step cuts the previous
+step's marks (frame, wider frame, arrow), not the answer that closed it.
+`marques.ts` now runs two sequences: a new answer cuts the previous one, the
+end lets the last answer finish, an unplug cuts both. The line goes to the
+command the answer names, so "Changer" draws it too, and a stick answer
+(`a1-`) finds the stick drawn on the right (`a0`). The tests subscribe to
+the real `InputStream` and `SwitchInput`. Second, "Régler pas à pas" and
+"Commencer" disappear at their own click and left focus on the document,
+where the panel's Escape never arrived: the invite now takes focus on
+"Commencer" and cancels alone on Escape, a starting step focuses its title,
+and a block that leaves holding focus hands it to "Reprendre", the first
+skipped command or "Régler pas à pas", never taking it back from outside the
+panel. The panel reads "busy" when the key arrives, since the Pro frame
+changes without rendering it. Third, the keyboard profiles and the Pro
+frame's notices were written outside `lib/mots.ts`; a rule in
+`mots.test.ts` now refuses any sentence under `manettes/` and in
+`media/switch.ts`. Fourth, held in hand the panel still covers the live
+picture inside the enlarged sheet. Its place needs a slot from
+`lib/cadre.ts`, owned by the `salle` work site: below the picture held
+upright, right of a narrowed picture held sideways. Only the two comments
+that claimed otherwise are corrected here, and `place-tenu` stays red outside
+the gate. `reglage.mjs` gains `marques` (read on every frame) and
+`focus-pas` (keyboard only), both red on 9b1c8e8. The page weighs 261 286
+bytes brotli.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

@@ -451,9 +451,14 @@ saves-test:
 # `isPointInFill` n'existent pas dans jsdom, et l'oeil ne se triche pas. Le
 # premier script vérifie la GÉOMÉTRIE (rien ne pend hors de la coque), le second
 # écrit une capture dans /tmp/padmap-visuel.png pour la regarder. Ne compile
-# rien, ne parle à aucune salle: l'aperçu est servi par Vite tout seul.
-padmap-visuel:
-    cd spikes/m3-browser-drive && node padmap-visuel.mjs
+# rien, ne parle à aucune salle: l'aperçu est servi par Vite sur
+# `vite.planche.config.ts`, la configuration sans relais vers les ports de la
+# salle (C10, 23 novembre 2026 ; c'était `npm run dev`, qui relaie /api).
+#
+#   just padmap-visuel                 la capture dans /tmp/padmap-visuel.png
+#   just padmap-visuel <fichier.png>   ailleurs
+padmap-visuel *args:
+    cd spikes/m3-browser-drive && node padmap-visuel.mjs {{args}}
 
 # La garde de la manette tactile, sur l'arbre de travail.
 #
@@ -1071,6 +1076,71 @@ cadre-navigateur-rouge:
     node cadre.mjs --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
+
+# ==== manettes ====
+# « Touches et manettes » dans un vrai navigateur (chantier manettes, L7) : le
+# panneau prend la place de la colonne sans toucher l'image (bureau et
+# fenêtre étroite), « Toutes les touches » ouvre le clavier et Échap rend le
+# focus, la vue de la manette suit la trame Pro (K34), le pas à pas tourne
+# sur une manette simulée, et la pièce attendue d'un « Changer » reste à
+# l'écran (vignette). La page COMMITTÉE, le banc des parcours, une
+# manette Xbox simulée ; rien de vivant, port 5482.
+#
+#   just reglage-navigateur                        les étapes de la porte
+#   just reglage-navigateur --etapes place-tenu    hors porte : tenu en main
+#   just reglage-navigateur --captures <dossier>   avec les captures
+reglage-navigateur *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    node reglage.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+
+# Le contrôle négatif : la page de la base du chantier (9fb659e, sur
+# integration/retro) ouvre l'ancien dialogue modal par-dessus l'image, n'a pas
+# « Toutes les touches », ne suit pas la trame Pro dans la vue de la manette,
+# et ne monte aucun panneau dans la colonne. Chaque étape doit y rougir sur
+# son défaut, pas sur une précondition.
+reglage-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    git show 9fb659e:core/crates/worker/src/page/index.html > "$dossier/avant.html"
+    cd spikes/m3-browser-drive
+    etapes=place,entrees,activite-pro,pas-a-pas
+    node reglage.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page du câblage (bc72ba9) monte le panneau, sans zone de clic sur
+    # les pièces du dessin : l'étape zones doit y rougir sur leur absence.
+    git -C ../.. show bc72ba9:core/crates/worker/src/page/index.html > "$dossier/cablage.html"
+    node reglage.mjs --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
+        --etapes zones --rouge-attendu zones
+    # La page du cinquième passage (e62f583) laisse la pièce attendue hors de
+    # l'écran quand on change une ligne du bas : changer-visible doit y rougir
+    # sur l'absence de vignette, à 1280 × 720 et au téléphone.
+    git -C ../.. show e62f583:core/crates/worker/src/page/index.html > "$dossier/passage5.html"
+    node reglage.mjs --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
+        --etapes changer-visible --rouge-attendu changer-visible
+    # La page du sixième passage (842e4c9) peint le banc hors de sa racine :
+    # nombres doit y rougir sur « 0.00 » quand la manette annonce 0,65.
+    git -C ../.. show 842e4c9:core/crates/worker/src/page/index.html > "$dossier/passage6.html"
+    node reglage.mjs --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
+        --etapes nombres --rouge-attendu nombres
+    # La page relue le 24 novembre 2026 (9b1c8e8) : l'étape suivante retire
+    # les coins et la ligne d'une réponse avant toute peinture, et le focus
+    # tombe sur le document après « Régler pas à pas » et « Commencer ».
+    git -C ../.. show 9b1c8e8:core/crates/worker/src/page/index.html > "$dossier/relue.html"
+    node reglage.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+        --etapes marques,focus-pas --rouge-attendu marques,focus-pas
+# ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
 # (`systemctl start nel3ab-worker@1`), because the failure only exists against a

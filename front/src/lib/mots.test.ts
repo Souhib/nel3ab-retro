@@ -30,6 +30,7 @@ import {
   placesLibres,
   prixImageLegere,
   prixManetteSeule,
+  REGLAGE,
   SAUVEGARDES,
 } from "./mots";
 import { SLOTS } from "./saves";
@@ -519,5 +520,57 @@ describe("chantier personnes", () => {
     expect([
       ..."`${pastille(port)}`".matchAll(/(?<![\p{L}\p{N}_$.])P(?:\{|\$\{)[^}]*\}/gu),
     ]).toHaveLength(0);
+  });
+});
+
+describe("chantier manettes : les mots du réglage", () => {
+  it("compte la fin du pas à pas, et nomme les passées", () => {
+    expect(REGLAGE.fin(13, ["B", "Z", "Start"], "avant")).toBe(
+      "13 commandes réglées. Tu as passé B, Z et Start : elles gardent leur réglage d'avant. Tu peux les changer dans la liste.",
+    );
+    expect(REGLAGE.fin(16, [], "standard")).toBe("Tes 16 commandes sont réglées.");
+    expect(REGLAGE.fin(0, ["A", "B"], "avant")).toBe("Aucune commande changée.");
+  });
+
+  it("dit « sans réglage » sur un adaptateur jamais réglé, et accorde le singulier", () => {
+    expect(REGLAGE.fin(15, ["B"], "rien")).toBe(
+      "15 commandes réglées. Tu as passé B : elle reste sans réglage. Tu peux la changer dans la liste.",
+    );
+    // Le jumeau : « standard » garde, comme « avant ».
+    expect(REGLAGE.fin(1, ["B", "X"], "standard")).toContain("1 commande réglée.");
+    expect(REGLAGE.fin(1, ["B", "X"], "standard")).toContain("gardent leur réglage d'avant");
+  });
+
+  it("dit l'étape où le pas à pas s'est arrêté", () => {
+    expect(REGLAGE.suspendu(5)).toContain("arrêté à l'étape 5");
+    expect(REGLAGE.suspendu(5)).not.toMatch(/manette \d/);
+  });
+
+  /** Une phrase : des lettres, et un blanc entre deux mots ou une fin de
+   * phrase. Un identifiant (« learnPad »), un séparateur (« : ») ou un
+   * gabarit sans mot (« …/… ») n'en sont pas. */
+  const phrase = (texte: string) =>
+    /\p{L}/u.test(texte) && (/\p{L}\s+\p{L}/u.test(texte) || /[.…!?]$/u.test(texte.trim()));
+
+  it("reconnaît une phrase, et laisse passer un identifiant ou un séparateur", () => {
+    for (const oui of ["Publier dans la salle", "Publication…", "Ce nom existe déjà."])
+      expect(phrase(oui), oui).toBe(true);
+    for (const non of ["learnPad", "manette", " (…)", "…/…", "×", ": "])
+      expect(phrase(non), non).toBe(false);
+  });
+
+  // La relecture du 24 novembre 2026 : les phrases des profils du clavier
+  // (`manettes/reglage/Dolphin.tsx`) et deux avis de la trame Pro
+  // (`media/switch.ts`) étaient écrits en dur, et l'essai des mots refusés
+  // restait vert. Le panneau et la trame qu'il affiche parlent par le lexique.
+  it("le panneau et la trame Pro n'écrivent aucune phrase hors du lexique", () => {
+    const du = (c: Chaine) => c.fichier.startsWith("manettes/") || c.fichier === "media/switch.ts";
+    // Précondition : le parcours lit bien ces fichiers.
+    expect(sources.some((s) => s.fichier === "manettes/reglage/Dolphin.tsx")).toBe(true);
+    expect(sources.some((s) => s.fichier === "media/switch.ts")).toBe(true);
+    const enDur = chaines
+      .filter((c) => du(c) && phrase(c.texte))
+      .map((c) => `${c.fichier}:${c.ligne} « ${c.texte} »`);
+    expect(enDur).toEqual([]);
   });
 });

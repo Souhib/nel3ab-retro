@@ -9,6 +9,10 @@ import type { InputState } from "../media/input";
 import { controlsFor, type ControlKey } from "../media/pad";
 import { PadMapView } from "./PadMap";
 
+/** Le pointeur principal est un doigt : lu à chaque rendu, une tablette peut
+ * recevoir une souris en cours de route. */
+const auDoigt = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+
 export function Wiring({
   state,
   pad,
@@ -27,6 +31,11 @@ export function Wiring({
   const physical = physicalMap(identity);
   const pieceFor = (key: string) => (key === "y" ? "x" : key === "cy" ? "cx" : key);
   const waiting = state.lesson?.control ?? state.capturing?.control;
+  // La place de la page colore l'appui ; un spectateur n'en a pas.
+  const place =
+    state.port === 1 || state.port === 2 || state.port === 3 || state.port === 4
+      ? state.port
+      : null;
   useEffect(() => {
     let frame = 0;
     const paint = () => {
@@ -54,12 +63,13 @@ export function Wiring({
               }
             : null,
           state.profile,
+          state.neutre,
         );
       frame = requestAnimationFrame(paint);
     };
     frame = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(frame);
-  }, [state.using, state.profile]);
+  }, [state.using, state.profile, state.neutre]);
 
   return (
     <div ref={room} className="flex min-w-0 flex-col gap-4">
@@ -68,16 +78,21 @@ export function Wiring({
           map={emulated}
           title="Ce que le jeu reçoit"
           note={emulated.name}
+          place={place}
           selected={pieceFor(selected)}
           waiting={waiting ? pieceFor(waiting) : null}
           labels={Object.fromEntries(controlsFor("wii", pad).map((one) => [one.key, one.label]))}
-          onSelect={(key) => onSelect(key as ControlKey)}
+          // Au doigt, le dessin n'est pas cliquable : la liste est le chemin
+          // (`manettes/reglage/zones.ts`).
+          onSelect={auDoigt() ? undefined : (key) => onSelect(key as ControlKey)}
         />
         <PadMapView
           map={physical}
           title="Ta manette"
           note={identity?.name ?? "En attente de connexion"}
           rawLabels={!identity?.standard}
+          place={place}
+          absente={!held}
         />
       </div>
       <p className="text-corps leading-relaxed text-muted">

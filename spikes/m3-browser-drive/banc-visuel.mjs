@@ -21,9 +21,23 @@ const out = process.argv[2] ?? "/tmp/banc-visuel.png";
 const given = process.argv.find((arg) => /^https?:\/\//.test(arg));
 let vite = null;
 if (!given) {
+  // Un groupe de processus à lui : `npx` lance Vite comme enfant, et tuer
+  // `npx` seul laissait Vite écouter sur 5471 après la fin du banc, ce qui
+  // faisait échouer le lancement suivant (vu le 23 novembre 2026).
   vite = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", "5471", "--strictPort"], {
     cwd: new URL("../../front/", import.meta.url).pathname,
     stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+  // Sur TOUTE sortie, une exception comprise : le 24 novembre 2026, une capture
+  // vers un dossier absent a levé avant la dernière ligne, et Vite est resté
+  // sur 5471.
+  process.on("exit", () => {
+    try {
+      process.kill(-vite.pid, "SIGTERM");
+    } catch {
+      /* déjà arrêté */
+    }
   });
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Vite n'a pas démarré")), 25000);
@@ -136,14 +150,20 @@ const thin = await page.evaluate(() => {
   };
   const ground = getComputedStyle(document.body).backgroundColor;
   const out = [];
+  // Sans place (la planche, un spectateur), puis à chacune des quatre places :
+  // depuis le 23 novembre 2026, l'appui prend la couleur de la place.
+  for (const place of [null, "1", "2", "3", "4"])
   for (const svg of document.querySelectorAll("svg[data-padmap]")) {
+    if (place === null) delete svg.dataset.place;
+    else svg.dataset.place = place;
     const shell = svg.querySelector(".n3-shell");
     const got = ratio(getComputedStyle(shell).stroke, ground);
     if (!(got >= 3)) out.push({ map: svg.dataset.padmap, what: "silhouette", got: got.toFixed(2) });
-    // Le milieu du dégradé de la coque, là où la plupart des touches sont posées.
+    // L'aplat de la coque, là où la plupart des touches sont posées. Il était
+    // le milieu d'un dégradé jusqu'au 23 novembre 2026 ; c'est maintenant la
+    // couleur même de la coque (aplats du thème rétro).
     const style = getComputedStyle(svg);
-    const [top, bottom] = ["--pad-shell-top", "--pad-shell-bottom"].map((name) => rgb(style.getPropertyValue(name)));
-    const middle = `rgb(${top.map((v, i) => Math.round((v + bottom[i]) / 2)).join(",")})`;
+    const middle = getComputedStyle(shell).fill;
     for (const part of svg.querySelectorAll("[data-part]")) {
       part.setAttribute("data-lit", "oui");
       const capStyle = getComputedStyle(part.querySelector(".n3-cap"));
@@ -163,7 +183,12 @@ const thin = await page.evaluate(() => {
           ? both(style.getPropertyValue("--pad-cap"))
           : Math.max(well ? both(getComputedStyle(well).fill) : 0, both(middle));
       part.setAttribute("data-lit", "non");
-      if (!(lit >= 3)) out.push({ map: svg.dataset.padmap, what: `${part.dataset.part} appuyée`, got: lit.toFixed(2) });
+      if (!(lit >= 3))
+        out.push({
+          map: svg.dataset.padmap,
+          what: `${part.dataset.part} appuyée${place ? `, place ${place}` : ""}`,
+          got: lit.toFixed(2),
+        });
     }
   }
   return out;
@@ -219,5 +244,4 @@ failed += bad.length + thin.length + pageErrors.length;
 await page.close();
 }
 await browser.close();
-vite?.kill("SIGTERM");
 process.exit(failed ? 1 : 0); // Un écart de contraste doit faire échouer la recette.

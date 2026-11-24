@@ -18,37 +18,72 @@
  * Les nombres bougent à la cadence de l'écran. La page lit son instantané deux
  * fois par seconde (règle 8), et rendre React soixante fois par seconde pour
  * vingt nombres serait exactement ce que cette règle interdit. La structure est
- * donc rendue UNE fois, avec des marques stables, et la boucle d'affichage
- * écrit dedans. Les marques sont le contrat entre les deux.
+ * donc rendue UNE fois, avec des marques stables, et sa propre boucle
+ * d'affichage écrit dedans (`paintBench`). Les marques sont le contrat entre
+ * les deux.
+ *
+ * # Pourquoi le banc se peint lui-même
+ *
+ * Jusqu'au 24 novembre 2026, `paintWiring` le peignait sur la racine des deux
+ * dessins, alors qu'il vivait à côté d'elle, dans son propre `<details>` : il
+ * affichait « 0.00 » partout, quoi qu'on presse. Il lit donc la manette par
+ * `lire`, et seulement ouvert : fermé, personne ne regarde ses vingt nombres.
  */
-import { bench } from "../lib/bench";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { bench, paintBench, type Live } from "../lib/bench";
 import { cn } from "../lib/cn";
+import { REGLAGE } from "../lib/mots";
+import { poserAfficheur } from "../retro/chiffres";
 
-/** Une étiquette de banc: petite, en majuscules, jamais en gras. */
+/** Une étiquette de banc: petite, en minuscules, jamais en gras. */
 function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="text-mini uppercase tracking-[0.14em] text-faint whitespace-nowrap">
-      {children}
-    </span>
-  );
+  return <span className="text-mini text-faint whitespace-nowrap">{children}</span>;
 }
 
-/** Une valeur et sa jauge. La jauge se remplit par le bas, comme un tube. */
-function Gauge({ mark, tag, digits }: { mark: string; tag: string; digits: number }) {
+/** Une valeur et sa jauge. La jauge se remplit par le bas, comme un tube,
+ * depuis le repos appris quand il y en a un : un trait le marque. */
+function Gauge({
+  mark,
+  tag,
+  digits,
+  repos = 0,
+}: {
+  mark: string;
+  tag: string;
+  digits: number;
+  repos?: number;
+}) {
   return (
     <div className="flex items-stretch gap-1.5" data-gauge={mark}>
       <span className="relative w-[3px] shrink-0 bg-rule">
         {/* La part remplie. La boucle ne touche qu'à sa hauteur. */}
         <span className="n3-fill absolute inset-x-0 bottom-0 bg-indigo" style={{ height: "0%" }} />
+        {repos > 0 ? (
+          <span
+            className="n3-repos absolute -inset-x-1 h-px bg-bright"
+            style={{ bottom: `${(repos * 100).toFixed(1)}%` }}
+          />
+        ) : null}
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
         <Tag>{tag}</Tag>
         <span className="n3-value font-mono text-corps tabular-nums text-bright">
           {(0).toFixed(digits)}
         </span>
+        {repos > 0 ? <Tag>{REGLAGE.reposDuBanc(repos)}</Tag> : null}
       </span>
     </div>
   );
+}
+
+/** L'horodatage en chiffres d'afficheur, posé une fois ; `paintBench` écrit
+ * sa valeur. */
+function Horodatage() {
+  const boite = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (boite.current) poserAfficheur(boite.current, "0").classList.add("n3-value");
+  }, []);
+  return <span ref={boite} data-gauge="stamp" className="font-mono text-corps text-bright" />;
 }
 
 export function Bench({
@@ -58,6 +93,8 @@ export function Bench({
   layout,
   buttons,
   axes,
+  lire,
+  repos,
   className,
 }: {
   name: string;
@@ -66,12 +103,28 @@ export function Bench({
   layout: string;
   buttons: number;
   axes: number;
+  /** La manette telle que le navigateur l'annonce, lue à chaque image. */
+  lire: () => Live | null;
+  /** Le repos appris de chaque bouton, par indice (`restsOf`). */
+  repos?: ReadonlyMap<number, number>;
   className?: string;
 }) {
   const plan = bench(axes);
+  const racine = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let frame = 0;
+    const peindre = () => {
+      const el = racine.current;
+      const live = el && el.closest("details")?.open !== false ? lire() : null;
+      if (el && live) paintBench(el, live, repos);
+      frame = requestAnimationFrame(peindre);
+    };
+    frame = requestAnimationFrame(peindre);
+    return () => cancelAnimationFrame(frame);
+  }, [lire, repos]);
 
   return (
-    <div className={cn("flex flex-col gap-3", className)} data-bench>
+    <div ref={racine} className={cn("flex flex-col gap-3", className)} data-bench>
       <div className="min-w-0">
         <h3 className="truncate text-fort font-semibold text-bright">{name}</h3>
         {/* Le nom BRUT, celui qu'on recopie dans un rapport de panne. */}
@@ -98,19 +151,15 @@ export function Bench({
           <Tag>horodatage</Tag>
           {/* Le seul chiffre qui dit si la manette parle ENCORE. Figé, elle est
               muette même si tout le reste a l'air juste. */}
-          <span
-            className="n3-value font-mono text-corps tabular-nums text-bright"
-            data-gauge="stamp"
-          >
-            0
-          </span>
+          <Horodatage />
         </span>
       </div>
+      <p className="text-note text-muted">{REGLAGE.horodatage}</p>
 
       {buttons > 0 ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(3.4rem,1fr))] gap-x-2 gap-y-1.5">
           {Array.from({ length: buttons }, (_, at) => (
-            <Gauge key={at} mark={`b${at}`} tag={`b${at}`} digits={2} />
+            <Gauge key={at} mark={`b${at}`} tag={`b${at}`} digits={2} repos={repos?.get(at)} />
           ))}
         </div>
       ) : (

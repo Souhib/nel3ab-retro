@@ -25,17 +25,45 @@
  */
 import type { PadIdentity } from "../media/families";
 
-/** Les couleurs de touches qui reviennent d'une manette à l'autre. Une touche
- * porte la couleur de la VRAIE manette : on reconnaît le A d'une GameCube à
- * son vert d'eau avant d'avoir lu la lettre. */
-export const TINTS = {
-  vert: "#2f9e5e",
-  rouge: "#c8402f",
-  violet: "#7a5bb5",
-  jaune: "#c8a01f",
-  bleu: "#3c7dc7",
-  gris: "#6e6e7a",
-} as const;
+/** Une couleur de touche, NOMMÉE : sa valeur vit dans `regie.css`
+ * (`--manette-<nom>`, D3), la même dans les deux thèmes. Une touche porte la
+ * couleur de la VRAIE manette : on reconnaît le A d'une GameCube à son vert
+ * d'eau avant d'avoir lu la lettre. Un plan nomme, il n'écrit aucune valeur
+ * (`lib/manettes-couleurs.test.ts` vérifie que chaque nom est déclaré). */
+export type Matiere =
+  | "gamecube-gachette"
+  | "gamecube-gachette-encre"
+  | "gamecube-z"
+  | "gamecube-touche"
+  | "gamecube-c"
+  | "gamecube-c-encre"
+  | "gamecube-a"
+  | "gamecube-a-encre"
+  | "gamecube-b"
+  | "gamecube-start"
+  | "gamecube-xy-encre"
+  | "blanc"
+  | "xbox-lettres"
+  | "xbox-a"
+  | "xbox-b"
+  | "xbox-x"
+  | "xbox-y"
+  | "xbox-guide"
+  | "xbox-guide-encre"
+  | "standard-touche"
+  | "standard-encre"
+  | "wiimote-viseur"
+  | "wiimote-secousse"
+  | "guitare-verte"
+  | "guitare-rouge"
+  | "guitare-jaune"
+  | "guitare-bleue"
+  | "guitare-orange"
+  | "guitare-vibrato";
+/** La couleur que la feuille donne à un nom : le seul type qu'une pièce
+ * accepte, si bien qu'une valeur écrite en dur ne compile pas. */
+export type Couleur = `var(--manette-${Matiere})`;
+const m = (nom: Matiere): Couleur => `var(--manette-${nom})`;
 
 /**
  * Un symbole DESSINÉ dans la pièce, en chemin SVG autour de l'origine.
@@ -95,13 +123,19 @@ export type Part = {
    * une branche de croix, un haricot, une gâchette. */
   d?: string;
   /** La couleur de la touche. Absente veut dire celle des touches de la manette. */
-  tint?: string;
+  tint?: Couleur;
   /** La couleur de son inscription ou de son symbole. */
-  ink?: string;
+  ink?: Couleur;
   /** Une gâchette ou une tranche : dessinée SOUS la coque, qui en cache le bas. */
   under?: boolean;
   /** Une branche d'une pièce plus grande (la croix) : pas de logement à elle. */
   flush?: boolean;
+  /** L'appui de cette touche est la teinte CLAIRE de la place, avec l'anneau
+   * sombre, même sur une coque claire. Pour une teinte moyenne ou sombre
+   * entourée de sombre (le A vert d'eau de la GameCube dans son logement, le
+   * viseur noir et les arcs gris de la Wiimote) : aucune autre paire ne se
+   * détache à la fois de la touche et de ce qui l'entoure (`padmap.css`). */
+  appui?: "clair";
   /** Posée sur la coque mais en dépasse, comme le vibrato d'une guitare. */
   hangs?: boolean;
   /** La garde d'un stick, ronde ou octogonale comme sur une GameCube. */
@@ -342,8 +376,8 @@ export const GAMECUBE: PadMap = {
       wide: 2.6,
       under: true,
       d: "M 8.5 16 C 9 10, 13.5 6, 20 4.6 C 24 3.8, 27.4 4.2, 28.6 6.4 L 27 9 L 11 17.5 Z",
-      tint: "#c9c8d8",
-      ink: "#2b2a3d",
+      tint: m("gamecube-gachette"),
+      ink: m("gamecube-gachette-encre"),
       size: 3,
     },
     {
@@ -356,8 +390,8 @@ export const GAMECUBE: PadMap = {
       wide: 1.9,
       under: true,
       d: "M 92 17 C 91.6 11, 88 6.4, 82 4.4 C 78.6 3.3, 75.4 3.6, 74.4 5.8 L 76 9 L 89 18.5 Z",
-      tint: "#c9c8d8",
-      ink: "#2b2a3d",
+      tint: m("gamecube-gachette"),
+      ink: m("gamecube-gachette-encre"),
       size: 3,
     },
     {
@@ -370,8 +404,8 @@ export const GAMECUBE: PadMap = {
       wide: 2.2,
       under: true,
       d: "M 67 6.4 C 67 4.1, 69 2.4, 72.2 2.2 C 75.6 2, 78 3.2, 78.1 5.2 C 78.2 7.2, 76.4 8.2, 72.6 8.4 C 69 8.6, 67 8.2, 67 6.4 Z",
-      tint: "#5b54d4",
-      ink: "#ffffff",
+      tint: m("gamecube-z"),
+      ink: m("blanc"),
       size: 2.6,
     },
     {
@@ -384,10 +418,10 @@ export const GAMECUBE: PadMap = {
       gate: "octogone",
       grip: "anneaux",
       stick: "x",
-      tint: "#cfcdd9",
+      tint: m("gamecube-touche"),
     },
     ...GC_DPAD.parts,
-    { key: "START", label: "", x: 49.6, y: 25.6, r: 2, shape: "rond", tint: "#e7e6ef" },
+    { key: "START", label: "", x: 49.6, y: 25.6, r: 2, shape: "rond", tint: m("gamecube-start") },
     {
       key: "cx",
       label: "C",
@@ -399,19 +433,20 @@ export const GAMECUBE: PadMap = {
       gate: "octogone",
       grip: "cuvette",
       stick: "cx",
-      tint: "#f2b11c",
-      ink: "#4d3200",
+      tint: m("gamecube-c"),
+      ink: m("gamecube-c-encre"),
       size: 3.4,
     },
     {
       key: "A",
       label: "A",
+      appui: "clair",
       x: 77.2,
       y: 24.4,
       r: 5.3,
       shape: "rond",
-      tint: "#3cc6a4",
-      ink: "#05362a",
+      tint: m("gamecube-a"),
+      ink: m("gamecube-a-encre"),
       size: 4,
     },
     {
@@ -421,8 +456,8 @@ export const GAMECUBE: PadMap = {
       y: 29.5,
       r: 3.5,
       shape: "rond",
-      tint: "#d8262f",
-      ink: "#ffffff",
+      tint: m("gamecube-b"),
+      ink: m("blanc"),
       size: 3,
     },
     {
@@ -434,7 +469,7 @@ export const GAMECUBE: PadMap = {
       shape: "pastille",
       wide: 1.6,
       d: kidney(77.2, 24.4, 10, 5.2, 241, 268),
-      ink: "#34324a",
+      ink: m("gamecube-xy-encre"),
       size: 2.8,
     },
     {
@@ -446,7 +481,7 @@ export const GAMECUBE: PadMap = {
       shape: "pastille",
       wide: 0.62,
       d: kidney(77.2, 24.4, 10.3, 5.2, -24, 2),
-      ink: "#34324a",
+      ink: m("gamecube-xy-encre"),
       size: 2.8,
     },
   ],
@@ -660,15 +695,15 @@ const XB_TRIGGER = {
   lb: "M 11 14 C 12.2 8.4, 16.6 4.8, 23.6 4.3 L 33.2 4.1 C 34.8 4.1, 35.5 5, 35.3 6.8 L 28 9 L 13 15.5 Z",
   lt: "M 17 8 C 17.5 3.8, 21 1.2, 26 0.9 L 32.4 0.8 C 33.9 0.8, 34.4 2, 34.1 4.4 L 26 7 Z",
 };
-const XB_FACE = (key: string, label: string, x: number, y: number, ink: string): Part => ({
+const XB_FACE = (key: string, label: string, x: number, y: number, ink: Matiere): Part => ({
   key,
   label,
   x,
   y,
   r: 3.2,
   shape: "rond",
-  tint: "#141619",
-  ink,
+  tint: m("xbox-lettres"),
+  ink: m(ink),
   size: 3.4,
 });
 
@@ -765,9 +800,9 @@ export const XBOX: PadMap = {
       y: 13,
       r: 3.8,
       shape: "rond",
-      tint: "#1b1d22",
+      tint: m("xbox-guide"),
       glyph: GLYPHS.anneau,
-      ink: "#f2f4f8",
+      ink: m("xbox-guide-encre"),
     },
     { key: "b8", label: "", x: 42.6, y: 22.8, r: 2.1, shape: "rond", glyph: GLYPHS.vue },
     { key: "b9", label: "", x: 57.4, y: 22.8, r: 2.1, shape: "rond", glyph: GLYPHS.menu },
@@ -794,10 +829,10 @@ export const XBOX: PadMap = {
       stick: "a2",
     },
     ...XB_DPAD.parts,
-    XB_FACE("b3", "Y", 75.6, 16.8, "#f4d23c"),
-    XB_FACE("b2", "X", 69.3, 23.1, "#4d94ff"),
-    XB_FACE("b1", "B", 81.9, 23.1, "#ff5a4a"),
-    XB_FACE("b0", "A", 75.6, 29.4, "#86da47"),
+    XB_FACE("b3", "Y", 75.6, 16.8, "xbox-y"),
+    XB_FACE("b2", "X", 69.3, 23.1, "xbox-x"),
+    XB_FACE("b1", "B", 81.9, 23.1, "xbox-b"),
+    XB_FACE("b0", "A", 75.6, 29.4, "xbox-a"),
   ],
 };
 
@@ -822,7 +857,7 @@ export const STANDARD_PAD: PadMap = {
   parts: XBOX.parts.map(({ tint, ink, glyph, ...part }) => ({
     ...part,
     label: part.under ? part.label : "",
-    ...(tint ? { tint: "#2c2f36", ink: "#e9ebf0" } : ink ? { ink } : {}),
+    ...(tint ? { tint: m("standard-touche"), ink: m("standard-encre") } : ink ? { ink } : {}),
     ...(glyph && Number(part.key.slice(1)) >= 12 && Number(part.key.slice(1)) <= 15
       ? { glyph }
       : {}),
@@ -1190,16 +1225,19 @@ const WM_PARTS: Part[] = [
   {
     key: "cx",
     label: "viser",
+    appui: "clair",
     x: 69.75,
     y: 7,
     r: 0.8,
     shape: "pastille",
     wide: 6.5,
     d: "M 64.4 6.4 L 75.1 6.4 Q 76.85 6.4, 76.95 7.8 L 62.55 7.8 Q 62.65 6.4, 64.4 6.4 Z",
-    tint: "#24262d",
+    tint: m("wiimote-viseur"),
     flush: true,
     size: 2.4,
-    callout: { x: 58.5, y: 7, anchor: "end" },
+    // Hors du bord de la coque, avec un trait qui se voit (`padmap.test.ts`,
+    // « les renvois ») : à 58,5, le 23 novembre 2026, le mot touchait le bord.
+    callout: { x: 56, y: 7, anchor: "end" },
   },
   ...WM_DPAD.parts,
   { key: "A", label: "A", x: 69.75, y: 25.9, r: 2.2, shape: "rond", size: 2.6 },
@@ -1221,6 +1259,7 @@ const WM_PARTS: Part[] = [
   {
     key: "Z",
     label: "secouer",
+    appui: "clair",
     x: 80.4,
     y: 50,
     r: 2.8,
@@ -1230,9 +1269,10 @@ const WM_PARTS: Part[] = [
     d:
       "M 78.6 46.4 C 80.4 48.3, 80.4 51.7, 78.6 53.6 C 79.6 51.7, 79.6 48.3, 78.6 46.4 Z " +
       "M 80.6 45.2 C 83.3 47.8, 83.3 52.2, 80.6 54.8 C 82 52.2, 82 47.8, 80.6 45.2 Z",
-    tint: "#9aa1ae",
+    tint: m("wiimote-secousse"),
     size: 2.4,
-    callout: { x: 84.2, y: 50, anchor: "start" },
+    // Hors des arcs : à 84,2, le mot se collait au deuxième.
+    callout: { x: 87.4, y: 50, anchor: "start" },
   },
 ];
 const NC_PARTS: Part[] = [
@@ -1322,7 +1362,7 @@ const GT_BODY =
 const GT_NECK =
   "M 40.2 14.7 L 84 14.7 L 84.8 11.8 C 86.6 11, 90.8 11.4, 94.4 11.1 C 95.9 10.6, 98 10.4, 98.2 11.4 " +
   "L 98 18.7 C 97.8 19.7, 96.1 19.5, 94.4 19.2 C 90.8 18.9, 86.6 19.3, 84.8 19.7 L 84 20.1 L 40.2 20.1 Z";
-const GT_FRET = (key: string, x: number, tint: string): Part => ({
+const GT_FRET = (key: string, x: number, tint: Matiere): Part => ({
   key,
   label: "",
   x,
@@ -1330,7 +1370,7 @@ const GT_FRET = (key: string, x: number, tint: string): Part => ({
   r: 2,
   shape: "pastille",
   wide: 0.6,
-  tint,
+  tint: m(tint),
 });
 
 export const GUITAR: PadMap = {
@@ -1376,11 +1416,11 @@ export const GUITAR: PadMap = {
   ],
   hull: { left: 2.2, right: 98.2, top: 4, bottom: 34.5 },
   parts: [
-    GT_FRET("Z", 70.1, "#f08a24"),
-    GT_FRET("Y", 73, "#2f6fe0"),
-    GT_FRET("X", 76.1, "#f2cd2a"),
-    GT_FRET("B", 79.2, "#e0352f"),
-    GT_FRET("A", 82.3, "#2fb24a"),
+    GT_FRET("Z", 70.1, "guitare-orange"),
+    GT_FRET("Y", 73, "guitare-bleue"),
+    GT_FRET("X", 76.1, "guitare-jaune"),
+    GT_FRET("B", 79.2, "guitare-rouge"),
+    GT_FRET("A", 82.3, "guitare-verte"),
     { key: "START", label: "+", x: 13.6, y: 20.5, r: 1.5, shape: "rond", size: 2.4 },
     { key: "L", label: "−", x: 10.9, y: 22.8, r: 1.5, shape: "rond", size: 2.4 },
     {
@@ -1431,7 +1471,7 @@ export const GUITAR: PadMap = {
         "M 15.05 25.88 L 5.6 29.2 L 5.9 30.05 L 15.35 26.72 Z " +
         "M 5.9 28.75 L 2.25 30.05 L 2.75 31.45 L 6.4 30.15 Z " +
         "M 14.6 26.3 A 1.1 1.1 0 1 0 16.8 26.3 A 1.1 1.1 0 1 0 14.6 26.3 Z",
-      tint: "#3a3d45",
+      tint: m("guitare-vibrato"),
     },
   ],
 };

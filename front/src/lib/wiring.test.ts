@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { readPad, type PadProfile } from "../media/pad";
+import type { SwitchDevice } from "../media/switch";
 import { heldOn, downward, upward, type Raw } from "./wiring";
 
 const pad = (buttons: number[], axes: number[] = []): Raw => ({
@@ -47,6 +48,42 @@ describe("ce qui est enfoncé", () => {
     const known: PadProfile = { ...empty, triggers: { L: { button: 4, rest: 0.6 } } };
 
     expect(heldOn(pad([0, 0, 0, 0, 1]), known)).toContain("b4");
+  });
+
+  // Changement 16 du plan manettes : pendant une leçon d'adaptateur sans
+  // profil, le dessin de droite s'allumait au repos, sur le drapeau `pressed`
+  // d'une gâchette posée à 0,62. La leçon connaît pourtant ce repos depuis le
+  // clic sur « Commencer » : c'est le même neutre que sa détection.
+  it("pendant une leçon, lit la course depuis le repos pris au départ", () => {
+    const neutre = { buttons: [0, 0, 0, 0, 0, 0, 0.62], axes: [0.3] };
+    const repos = pad([0, 0, 0, 0, 0, 0, 0.62], [0.3]);
+    expect(heldOn(repos, null, neutre)).toEqual([]);
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.96]), null, neutre)).toEqual(["b6"]);
+    // Un axe se lit depuis son repos, pas depuis zéro.
+    expect(heldOn(pad([], [0.9]), null, neutre)).toEqual(["a0+"]);
+  });
+
+  it("le repos du profil passe avant celui de la leçon", () => {
+    const known: PadProfile = { ...empty, triggers: { L: { button: 6, rest: 0 } } };
+    const neutre = { buttons: [0, 0, 0, 0, 0, 0, 0.62], axes: [] };
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.62]), known, neutre)).toEqual(["b6"]);
+  });
+
+  it("sans leçon ni profil, une gâchette à 0,62 s'allume encore sur son drapeau", () => {
+    // Le jumeau : une manette qu'on vient de brancher n'a encore aucun repos.
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.62]), null)).toEqual(["b6"]);
+  });
+
+  it("lit aussi les repos d'une manette de la trame Pro", () => {
+    // Changement 28 : en salle Switch ou Xbox 360, « Ta manette » lit le
+    // SwitchDevice, qui n'a pas de gâchettes à part : ZL repose à 0,6.
+    const device: SwitchDevice = {
+      standard: false,
+      buttons: { ZL: { button: 6, rest: 0.6 } },
+      sticks: { lx: { axis: 0, sign: 1, rest: 0.2 } },
+    };
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 0.6], [0.2]), device)).toEqual([]);
+    expect(heldOn(pad([0, 0, 0, 0, 0, 0, 1], [0.9]), device)).toEqual(["b6", "a0+"]);
   });
 
   it("se passe d'un profil sans rien casser", () => {

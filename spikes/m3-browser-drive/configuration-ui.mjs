@@ -1,5 +1,11 @@
 /** Le configurateur réel, sans socket ni écriture dans la salle.
- * Lancer Vite sur 5202 puis `node configuration-ui.mjs`. Une manette est simulée
+ * Lancer Vite sur 5202 avec la configuration SANS relais vers la salle :
+ * `cd front && npx vite --config vite.planche.config.ts --port 5202
+ * --strictPort` (C10 du plan manettes ; `npm run dev` relaie /api et les
+ * sockets vers la salle vivante), puis `node configuration-ui.mjs`. Il mesure
+ * l'ancien dialogue de `bindings-preview.html`, qui n'héberge plus que la
+ * préparation depuis le 23 novembre 2026 ; le panneau de la colonne a sa
+ * preuve dans `reglage.mjs`. Une manette est simulée
  * dans la page de prévisualisation. Les captures vont dans /tmp. Toute panne
  * sort en code non nul; ce pilote ne doit jamais viser le worker en service.
  */

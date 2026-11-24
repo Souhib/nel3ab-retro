@@ -1,0 +1,406 @@
+/* Les manettes dessinées (`PadMapView`), en aplats nets.
+
+   Chantier manettes, 23 novembre 2026 : un aplat par matière, un contour net,
+   sans lumière ni carte. Plus de dégradé de coque, de reflet, de liseré,
+   d'ombre intérieure, de reflet bombé ni d'ombre portée : le volume relevé le
+   21 novembre cède la place au thème rétro, et le dessin pèse moins.
+
+   Les couleurs d'objet viennent de la section « chantier manettes » de
+   `regie.css` : une manette garde ses couleurs dans les deux thèmes, comme
+   la mire. Seul le contour de la coque suit le thème (décision D8 du plan) :
+   c'est lui qui sépare une manette noire d'un panneau sombre, ou une blanche
+   d'un panneau clair.
+
+   L'appui prend la couleur de la PLACE de la page (`data-place` sur le
+   dessin), jamais la couleur d'un autre joueur :
+   - l'aplat est la teinte de joueur de l'autre clarté que les touches :
+     `--joueur-N-nuit` (claire) sur des touches sombres, `--joueur-N-jour`
+     (foncée) sur des touches claires ;
+   - l'anneau est un blanc ou un noir d'objet, de l'autre clarté que la coque.
+   L'un des deux tient 3:1 contre la touche, son logement et la coque, pour
+   chaque manette et chaque place (`lib/manettes-couleurs.test.ts`). Sur la
+   GameCube violette, c'est l'anneau qui le tient : l'aplat seul y tombe à
+   1,36:1. Sans place (un spectateur, la planche), un aplat d'objet neutre. */
+
+[data-padmap] {
+  --pad-shell: var(--manette-commune-coque);
+  --pad-plate: var(--manette-commune-plaque);
+  --pad-well: var(--manette-commune-logement);
+  --pad-cap: var(--manette-commune-touche);
+  --pad-ink: var(--manette-commune-encre);
+  --pad-seam: var(--manette-commune-couture);
+  --pad-led: var(--manette-commune-voyant);
+  --pad-wire: var(--manette-commune-fil);
+  /* Touches sombres : l'appui est la teinte claire de la place. */
+  --pad-appui-1: var(--joueur-1-nuit);
+  --pad-appui-2: var(--joueur-2-nuit);
+  --pad-appui-3: var(--joueur-3-nuit);
+  --pad-appui-4: var(--joueur-4-nuit);
+  --pad-appui-encre: var(--manette-anneau-sombre);
+  /* Coque sombre : l'anneau d'une place est clair. */
+  --pad-anneau: var(--manette-anneau-clair);
+  /* Sans place : l'appui neutre d'objet. */
+  --pad-lit: var(--manette-commune-appui);
+  --pad-lit-ring: var(--pad-anneau);
+  --pad-lit-ink: var(--manette-anneau-sombre);
+  overflow: visible;
+}
+
+/* Les matières, manette par manette, relevées sur des photos. */
+[data-padmap="wiimote"],
+[data-padmap="wiimote-only"] {
+  --pad-shell: var(--manette-wiimote-coque);
+  --pad-well: var(--manette-wiimote-logement);
+  --pad-cap: var(--manette-wiimote-touche);
+  --pad-ink: var(--manette-wiimote-encre);
+  --pad-seam: var(--manette-wiimote-couture);
+  --pad-led: var(--manette-wiimote-voyant);
+  --pad-wire: var(--manette-wiimote-fil);
+}
+[data-padmap="guitar"] {
+  --pad-shell: var(--manette-guitare-coque);
+  --pad-plate: var(--manette-guitare-plaque);
+  --pad-well: var(--manette-guitare-logement);
+  --pad-cap: var(--manette-guitare-touche);
+  --pad-ink: var(--manette-guitare-encre);
+  --pad-seam: var(--manette-guitare-couture);
+}
+[data-padmap="xbox"],
+[data-padmap="xbox360"] {
+  --pad-shell: var(--manette-xbox-coque);
+  --pad-well: var(--manette-xbox-logement);
+  --pad-cap: var(--manette-xbox-touche);
+  --pad-ink: var(--manette-xbox-encre);
+}
+[data-padmap="dualshock"] {
+  --pad-shell: var(--manette-dualshock-coque);
+  --pad-plate: var(--manette-dualshock-plaque);
+  --pad-well: var(--manette-dualshock-logement);
+  --pad-cap: var(--manette-dualshock-touche);
+  --pad-ink: var(--manette-dualshock-encre);
+  --pad-seam: var(--manette-dualshock-couture);
+  --pad-led: var(--manette-dualshock-voyant);
+}
+[data-padmap="switch-pro"],
+[data-padmap="switch-pro-pad"] {
+  --pad-shell: var(--manette-switch-pro-coque);
+  --pad-plate: var(--manette-switch-pro-plaque);
+  --pad-well: var(--manette-switch-pro-logement);
+  --pad-cap: var(--manette-switch-pro-touche);
+  --pad-ink: var(--manette-switch-pro-encre);
+}
+[data-padmap="standard"] {
+  --pad-shell: var(--manette-standard-coque);
+  --pad-well: var(--manette-standard-logement);
+  --pad-cap: var(--manette-standard-touche);
+  --pad-ink: var(--manette-standard-encre);
+}
+[data-padmap="gamecube"] {
+  --pad-shell: var(--manette-gamecube-coque);
+  --pad-well: var(--manette-gamecube-logement);
+  --pad-cap: var(--manette-gamecube-touche);
+  --pad-ink: var(--manette-gamecube-encre);
+  /* Sans place, un vert d'objet FONCÉ, comme la teinte foncée d'une place
+     sur ces touches gris clair, et l'anneau clair. Le vert clair d'avant
+     tombait à 1,33:1 sur la croix, qui n'a pas d'anneau (23 novembre 2026,
+     `lib/manettes-couleurs.test.ts`). Les gâchettes derrière la coque ont
+     l'anneau à l'encre du thème : le 1,07:1 de jour mesuré par
+     `just banc-visuel` avec l'anneau clair ne revient pas. */
+  --pad-lit: var(--manette-gamecube-appui);
+  --pad-lit-ring: var(--manette-anneau-clair);
+  --pad-lit-ink: var(--manette-anneau-clair);
+}
+
+/* Touches claires : l'appui est la teinte foncée de la place. */
+[data-padmap="wiimote"],
+[data-padmap="wiimote-only"],
+[data-padmap="gamecube"] {
+  --pad-appui-1: var(--joueur-1-jour);
+  --pad-appui-2: var(--joueur-2-jour);
+  --pad-appui-3: var(--joueur-3-jour);
+  --pad-appui-4: var(--joueur-4-jour);
+  --pad-appui-encre: var(--manette-anneau-clair);
+}
+/* Coque claire : l'anneau est sombre. */
+[data-padmap="wiimote"],
+[data-padmap="wiimote-only"],
+[data-padmap="guitar"],
+[data-padmap="dualshock"] {
+  --pad-anneau: var(--manette-anneau-sombre);
+}
+
+[data-padmap][data-place="1"] {
+  --pad-lit: var(--pad-appui-1);
+  --pad-lit-ring: var(--pad-anneau);
+  --pad-lit-ink: var(--pad-appui-encre);
+}
+[data-padmap][data-place="2"] {
+  --pad-lit: var(--pad-appui-2);
+  --pad-lit-ring: var(--pad-anneau);
+  --pad-lit-ink: var(--pad-appui-encre);
+}
+[data-padmap][data-place="3"] {
+  --pad-lit: var(--pad-appui-3);
+  --pad-lit-ring: var(--pad-anneau);
+  --pad-lit-ink: var(--pad-appui-encre);
+}
+[data-padmap][data-place="4"] {
+  --pad-lit: var(--pad-appui-4);
+  --pad-lit-ring: var(--pad-anneau);
+  --pad-lit-ink: var(--pad-appui-encre);
+}
+
+/* Une touche teintée moyenne ou sombre, entourée de sombre, ne se détache
+   avec aucune des paires de sa coque : le A vert d'eau de la GameCube dans
+   son logement, le viseur noir et les arcs gris de la Wiimote (2,3 à 2,7:1,
+   23 novembre 2026, `lib/manettes-couleurs.test.ts` et la planche). Le plan
+   la marque `appui: "clair"` : l'aplat prend la teinte claire de la place,
+   qui tranche sur ce qui l'entoure, et l'anneau sombre tranche sur la
+   touche. Sur la pièce, ces propriétés l'emportent sur celles du dessin. */
+[data-padmap] [data-appui="clair"] {
+  --pad-lit: var(--manette-commune-appui);
+  --pad-lit-ring: var(--manette-anneau-sombre);
+  --pad-lit-ring-dessous: var(--manette-anneau-sombre);
+  --pad-lit-ink: var(--manette-anneau-sombre);
+}
+[data-padmap][data-place="1"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-1-nuit);
+}
+[data-padmap][data-place="2"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-2-nuit);
+}
+[data-padmap][data-place="3"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-3-nuit);
+}
+[data-padmap][data-place="4"] [data-appui="clair"] {
+  --pad-lit: var(--joueur-4-nuit);
+}
+
+/* Le contour net suit le thème : clair sur une page sombre, sombre sur une
+   page claire. */
+.n3-shell {
+  fill: var(--pad-shell);
+  stroke: var(--encre);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+}
+.n3-art,
+.n3-leader {
+  pointer-events: none;
+}
+.n3-art[data-tone="plaque"],
+.n3-art[data-tone="grain"] {
+  fill: var(--pad-plate);
+}
+.n3-art[data-tone="creux"] {
+  fill: var(--pad-well);
+}
+.n3-art[data-tone="logement"],
+.n3-well {
+  fill: var(--pad-well);
+  stroke: var(--pad-well);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+/* Sans lumière : le reflet et l'ombre d'un plan ne se dessinent plus. */
+.n3-art[data-tone="reflet"],
+.n3-art[data-tone="ombre"] {
+  fill: none;
+}
+.n3-art[data-tone="trait"] {
+  fill: none;
+  stroke: var(--pad-seam);
+  stroke-width: 0.35;
+  stroke-linecap: round;
+}
+.n3-art[data-tone="bouton"] {
+  fill: var(--pad-cap);
+  stroke: var(--pad-well);
+  stroke-width: 0.25;
+}
+.n3-art[data-tone="voyant"] {
+  fill: var(--pad-led);
+}
+.n3-art[data-tone="lumiere"] {
+  fill: none;
+  stroke: var(--pad-led);
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+.n3-art[data-tone="bord"] {
+  fill: none;
+  stroke: var(--pad-plate);
+  stroke-width: 1.1;
+}
+.n3-art[data-tone="points"] {
+  fill: none;
+  stroke: var(--pad-seam);
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+.n3-wire {
+  fill: none;
+  stroke: var(--pad-wire);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+.n3-gate {
+  fill: var(--pad-well);
+  stroke: var(--pad-seam);
+  stroke-width: 0.3;
+}
+.n3-cap {
+  fill: var(--part-tint);
+  stroke: var(--pad-well);
+  stroke-width: 0.25;
+}
+.n3-stick-grip {
+  fill: none;
+  stroke: var(--pad-well);
+  stroke-width: 0.35;
+}
+.n3-glyph {
+  fill: none;
+  stroke: var(--part-ink);
+  stroke-width: 0.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+[data-padmap] text {
+  fill: var(--part-ink);
+  /* Les lettres imprimées restent en Anybody (décision D4 du plan) : une
+     police pixel n'est nette qu'à un multiple de sa grille, ce qu'un SVG mis
+     à l'échelle n'atteint pas. 600 et non 700 : la 700 d'Anybody est la coupe
+     LARGE, et une lettre de bouton élargie déborderait de son capuchon. */
+  font-family: var(--font-chrome);
+  font-weight: 600;
+  pointer-events: none;
+}
+[data-padmap] text.n3-callout {
+  fill: var(--encre);
+  font-weight: 600;
+}
+.n3-leader {
+  fill: none;
+  stroke: var(--legende);
+  stroke-width: 0.3;
+}
+
+/* L'appui : un aplat, un anneau et un léger enfoncement, pour ne pas
+   reposer sur la couleur seule ; le halo seulement avec son effet. */
+[data-padmap] [data-lit="oui"] .n3-cap {
+  fill: var(--pad-lit);
+  stroke: var(--pad-lit-ring);
+  stroke-width: 0.9;
+}
+.fx-halo [data-padmap] [data-lit="oui"] .n3-cap {
+  filter: drop-shadow(0 0 1.2px var(--pad-lit));
+}
+/* Une gâchette dessinée derrière la coque se voit sur la page : son anneau
+   prend l'encre du thème, qui tient sur le fond de nuit comme de jour, sauf
+   si la pièce en déclare un (`--pad-lit-ring-dessous`). */
+[data-padmap] [data-under][data-lit="oui"] .n3-cap {
+  stroke: var(--pad-lit-ring-dessous, var(--encre));
+}
+[data-padmap] [data-lit="oui"] text:not(.n3-callout) {
+  fill: var(--pad-lit-ink);
+}
+[data-padmap] [data-lit="oui"] .n3-glyph,
+[data-padmap] [data-lit="oui"] .n3-stick-grip {
+  stroke: var(--pad-lit-ink);
+}
+[data-padmap] [data-flush] .n3-cap {
+  stroke: none;
+}
+/* Le viseur affleure mais garde son anneau d'appui, seul à trancher sur lui. */
+[data-padmap] [data-flush][data-appui="clair"][data-lit="oui"] .n3-cap {
+  stroke: var(--pad-lit-ring);
+}
+[data-padmap] [data-lit="oui"]:not([data-stick], [data-flush]) > .n3-stick-body {
+  transform: translate(0, 0.35px);
+}
+[data-padmap] [role="button"] {
+  cursor: pointer;
+  outline: none;
+}
+[data-padmap] [role="button"]:hover .n3-cap,
+[data-padmap] [role="button"]:focus-visible .n3-cap {
+  stroke: var(--focus);
+  stroke-width: 0.8;
+}
+/* Les coins en pixels (`coinsDe`) : cachés, sauf sur la pièce choisie, la
+   pièce attendue et les marques du pas à pas. Ils se posent sans animation
+   et ne clignotent jamais. Ni l'un ni l'autre ne prend le pointeur. */
+.n3-coins,
+.n3-fleche {
+  display: none;
+  pointer-events: none;
+}
+/* La zone de clic d'une pièce, à la souris : invisible, elle prend le
+   pointeur (`manettes/reglage/zones.ts`). */
+.n3-zone {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+.n3-coins {
+  fill: none;
+  stroke: var(--focus);
+  stroke-width: 0.8;
+  stroke-linecap: square;
+}
+[data-selected="oui"] > .n3-coins,
+[data-attendue="oui"] > .n3-coins {
+  display: inline;
+}
+[data-attendue="oui"] > .n3-coins {
+  stroke: var(--signal);
+}
+.n3-fleche {
+  fill: var(--signal);
+}
+
+/* Aucune manette vue : la coque seule, sans pièce ni décor. Sous l'effet
+   « tramage », un damier de pixels au filet (le motif du dessin). */
+[data-absente] .n3-shell {
+  fill: var(--creux);
+  stroke: var(--filet);
+}
+.fx-tramage [data-absente] .n3-shell {
+  fill: var(--trame);
+}
+[data-absente] :is([data-part], .n3-art, .n3-wire) {
+  display: none;
+}
+.n3-trame {
+  fill: var(--filet);
+}
+
+/* Sans carte : le dessin se pose sur le panneau, sans cadre ni fond à lui. */
+.n3-controller-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.n3-controller {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 10px 12px;
+}
+.n3-controller figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 5px 12px;
+}
+.n3-controller figcaption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.n3-controller > svg {
+  aspect-ratio: 1.4;
+}

@@ -5,6 +5,7 @@ import {
   encodeSwitch,
   readSwitch,
   readSwitchProfile,
+  PRO_ETAPES,
   SwitchInput,
   SWITCH_BUTTONS,
 } from "./switch";
@@ -254,4 +255,176 @@ it("un stick poussé au doigt donne sa valeur, et le tout-ou-rien reste le repli
   source.touched.delete("lx+");
   source.poll(new Set(), []);
   expect(source.reading.lx).toBe(0);
+});
+
+describe("le pas à pas de la trame Pro (D6 du plan manettes)", () => {
+  /** Une Xbox standard de la salle, et ses entrées qu'on pousse. */
+  const salle = () => {
+    const source = new SwitchInput();
+    const p = pad();
+    source.poll(new Set(), [p]);
+    return { source, p, tour: () => source.poll(new Set(), [p]) };
+  };
+
+  it("fait vingt étapes : seize boutons, puis droite et haut de chaque stick", () => {
+    expect(PRO_ETAPES).toHaveLength(20);
+    expect(PRO_ETAPES.slice(16)).toEqual(["lx+", "ly+", "rx+", "ry+"]);
+    const { source } = salle();
+    source.commencerLecon();
+    expect(source.lecon?.total).toBe(20);
+    expect(source.lecon?.demandee).toBe("A");
+  });
+
+  it("une poussée à droite enregistre l'axe avec le signe positif, le haut avec le sien", () => {
+    const { source, p, tour } = salle();
+    source.commencerLecon();
+    for (let i = 0; i < 16; i += 1) source.passerEtape();
+    tour();
+    (p.axes as number[])[0] = -1; // une manette qui compte la droite négative
+    tour();
+    (p.axes as number[])[0] = 0;
+    tour();
+    (p.axes as number[])[1] = -1; // haut, que le navigateur compte négatif
+    tour();
+    (p.axes as number[])[1] = 0;
+    tour();
+    source.passerEtape();
+    source.passerEtape();
+    expect(source.lecon).toBeNull();
+    expect(source.device()?.sticks.lx).toEqual({ axis: 0, sign: -1, rest: 0 });
+    expect(source.device()?.sticks.ly).toEqual({ axis: 1, sign: -1, rest: 0 });
+    // Les sticks passés gardent la disposition standard.
+    expect(source.device()?.sticks.rx).toEqual({ axis: 2, sign: 1 });
+  });
+
+  it("un stick passé perd l'axe qu'une réponse a pris", () => {
+    const { source, p, tour } = salle();
+    source.commencerLecon();
+    for (let i = 0; i < 16; i += 1) source.passerEtape();
+    tour();
+    (p.axes as number[])[2] = 1; // droite du stick gauche sur l'axe du droit
+    tour();
+    for (let i = 0; i < 3; i += 1) source.passerEtape();
+    expect(source.device()?.sticks.lx).toEqual({ axis: 2, sign: 1, rest: 0 });
+    expect(source.device()?.sticks.rx).toBeUndefined();
+    expect(source.device()?.sticks.ry).toEqual({ axis: 3, sign: -1 });
+  });
+
+  it("un bouton ne valide pas une étape de stick, et une gâchette au repos à 0,6 ne valide rien", () => {
+    const { source, p, tour } = salle();
+    press(p, 7, 0.6);
+    tour();
+    source.commencerLecon();
+    tour();
+    expect(source.lecon?.step).toBe(0);
+    for (let i = 0; i < 16; i += 1) source.passerEtape();
+    tour();
+    press(p, 0);
+    tour();
+    expect(source.lecon?.demandee).toBe("lx+");
+  });
+
+  it("la trame part neutre pendant la leçon, et après jusqu'au relâchement", () => {
+    const { source, p, tour } = salle();
+    source.commencerLecon();
+    press(p, 3);
+    tour();
+    expect(bits(source)).toBe(0);
+    expect(source.lecon?.step).toBe(1);
+    // Rien n'est écrit avant la fin : Arrêter doit pouvoir tout rendre.
+    expect(source.device()?.buttons.A).toEqual({ button: 0, rest: 0 });
+    for (let i = 1; i < 20; i += 1) source.passerEtape();
+    expect(source.device()?.buttons.A).toEqual({ button: 3, rest: 0 });
+    tour();
+    expect(source.lecon).toBeNull();
+    expect(bits(source)).toBe(0);
+    press(p, 3, 0);
+    tour();
+    press(p, 3);
+    tour();
+    // A seul : Y, passé, était standard sur b3, que la réponse a pris.
+    expect(bits(source)).toBe(1 << SWITCH_BUTTONS.indexOf("A"));
+    expect(source.device()?.buttons.Y).toBeUndefined();
+    expect(source.device()?.buttons.X).toEqual({ button: 2, rest: 0 });
+  });
+
+  it("une étape passée garde l'entrée d'avant du SwitchDevice", () => {
+    const { source, p, tour } = salle();
+    source.begin("B", "pad");
+    press(p, 5);
+    tour();
+    press(p, 5, 0);
+    tour();
+    expect(source.device()?.buttons.B).toEqual({ button: 5, rest: 0 });
+    source.commencerLecon();
+    for (let i = 0; i < 20; i += 1) source.passerEtape();
+    expect(source.resultat).toEqual({ retenues: 0, passees: [...PRO_ETAPES], garde: "avant" });
+    expect(source.device()?.buttons.B).toEqual({ button: 5, rest: 0 });
+  });
+
+  it("Arrêter rend le réglage d'avant sans rien écrire", () => {
+    const { source, p, tour } = salle();
+    const avant = structuredClone(source.profile);
+    source.commencerLecon();
+    press(p, 3);
+    tour();
+    source.arreterLecon();
+    expect(source.lecon).toBeNull();
+    expect(source.profile).toEqual(avant);
+  });
+
+  it("annonce les étapes, la réponse et la fin", () => {
+    const { source, p, tour } = salle();
+    const vus: string[] = [];
+    source.surLecon((e) =>
+      vus.push(
+        e.type === "recu"
+          ? `recu ${e.control} ${e.indice}`
+          : e.type === "etape"
+            ? `etape ${e.etape} ${e.control}`
+            : e.type,
+      ),
+    );
+    source.commencerLecon();
+    press(p, 3);
+    tour();
+    for (let i = 1; i < 20; i += 1) source.passerEtape();
+    expect(vus.slice(0, 3)).toEqual(["etape 1 A", "recu A b3", "etape 2 B"]);
+    expect(vus.at(-1)).toBe("fin");
+  });
+
+  it("une manette débranchée suspend la leçon, que seule la même reprend", () => {
+    const { source, p, tour } = salle();
+    source.commencerLecon();
+    press(p, 3);
+    tour();
+    source.poll(new Set(), []);
+    expect(source.lecon).toBeNull();
+    expect(source.suspendu).toEqual({ etape: 2, total: 20, id: p.id });
+    source.poll(new Set(), [pad("standard", 1)]);
+    expect(source.reprendreLecon()).toBe(false);
+    source.poll(new Set(), [p]);
+    press(p, 3, 0);
+    expect(source.reprendreLecon()).toBe(true);
+    expect(source.lecon?.step).toBe(1);
+  });
+});
+
+describe("oublier un profil Pro nommé", () => {
+  it("retire le nom et le range", () => {
+    const source = new SwitchInput();
+    source.save("Kart");
+    source.save("Course");
+    source.forget("Kart");
+    expect(Object.keys(source.named)).toEqual(["Course"]);
+    const relu = JSON.parse(localStorage.getItem("nel3ab:switch-profiles:1") ?? "{}");
+    expect(Object.keys(relu.named)).toEqual(["Course"]);
+  });
+
+  it("refuse un nom inconnu sans rien changer", () => {
+    const source = new SwitchInput();
+    source.save("Kart");
+    expect(() => source.forget("toString")).toThrow(/n’existe pas/);
+    expect(Object.keys(source.named)).toEqual(["Kart"]);
+  });
 });

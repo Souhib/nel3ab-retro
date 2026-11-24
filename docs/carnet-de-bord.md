@@ -30253,6 +30253,601 @@ au vrai cadre. Le pied collé coûte 161 px de colonne, et le propriétaire ne
 l'a pas encore vu. Personne n'a regardé Aïn à froid, ni sur un vrai
 téléphone, ni sous WebKit.
 
+### 23 novembre, la nuit encore : les manettes, premier passage
+
+**Le contexte.** Le chantier des manettes remplacera les deux dialogues de
+réglage (`Bindings`, `SwitchBindings`) par un seul panneau, posé à la place
+de la colonne, et redessinera les manettes pour le thème rétro. Le
+propriétaire a refusé le module chargé à la demande (`/reglage.js`, K38) :
+le panneau restera dans la page, et son poids se mesure à chaque passage.
+Ce premier passage fait le dessous : la boucle d'entrée et la leçon, que le
+panneau lira, puis le dessin des manettes. Le panneau lui-même viendra
+ensuite.
+
+**Trois défauts trouvés en lisant le code, chacun vu rouge d'abord.**
+
+- **Passer une commande l'effaçait.** Le pas à pas propose « Passer cette
+  commande » pour une touche qu'on veut garder. Mais la leçon ne notait rien
+  au passage, et sa fin remplaçait tout le profil de la manette par les
+  seules réponses. Comme la lecture d'une manette ne retombe pas sur la
+  disposition standard dès qu'un profil existe, B passé ne faisait plus rien
+  du tout. Deux essais de `configuration.test.ts` échouaient sur l'arbre de
+  départ ; ils retombent quand on retire la fusion. Maintenant, une
+  commande passée garde son réglage d'avant (le profil rangé, ou la
+  disposition standard d'une manette standard), et une leçon où tout est
+  passé n'écrit rien.
+- **Le dessin s'allumait au repos pendant une leçon.** Un adaptateur
+  GameCube pose une gâchette à 0,62 au repos, et le navigateur la déclare
+  appuyée. Sans profil, le dessin de droite lisait ce drapeau et restait
+  allumé, alors que la détection de la leçon lisait déjà la course depuis le
+  repos pris au clic. Le dessin reçoit maintenant ce même repos
+  (`InputState.neutre`).
+- **Débrancher annulait tout.** La leçon disparaissait avec ses réponses.
+  Elle est maintenant suspendue : rien n'est écrit, et seule la même manette
+  la reprend, avec un repos pris au clic. Une autre manette apprendrait la
+  suite sur un autre modèle.
+
+**Un défaut trouvé en écrivant un essai.** Garder le réglage d'avant d'une
+commande passée a un piège. Sur une manette standard, Y est sur le bouton 3.
+Si l'on répond « bouton 3 » pour A puis qu'on passe Y, le bouton 3 presse A
+et Y à la fois. L'essai de la trame Pro l'a montré : il attendait A seul et
+recevait A et Y. Règle retenue : une entrée prise par une réponse quitte la
+commande passée qui la tenait, comme une touche du clavier quitte son ancien
+poste. Y reste alors sans réglage, et la liste le montrera.
+
+**Une machine d'étapes pour les deux trames.** Les salles Switch et Xbox 360
+n'avaient pas de pas à pas. La leçon de Dolphin est devenue une machine
+commune (`Pas`), et la trame Pro a la sienne en vingt étapes : seize
+boutons, puis la droite et le haut de chaque stick. Pas vingt-quatre : la
+trame Pro garde un seul axe signé par axe de stick, donc demander la gauche
+après la droite réécrirait la même entrée. À dire au propriétaire.
+
+**Les événements du réglage.** L'écran React ne relit l'état de la boucle que
+deux fois par seconde. Les marques du pas à pas (le cadre autour de la
+touche attendue, les coins d'un appui) doivent suivre l'appui lui-même : la
+boucle annonce donc chaque moment (étape, réponse, relâchement, fin,
+suspension, première manette vue) à des abonnés ordinaires, hors de React.
+Un abonné qui plante ne peut pas arrêter la boucle : elle porte aussi la
+partie des autres.
+
+**L'activité de la trame, pour la salle.** La vue des touches de la colonne
+allume une ligne quand la trame envoyée la presse. Elle ne voyait que les
+douze boutons de Dolphin, rien des sticks ni de la trame Pro. L'état de la
+boucle dit maintenant, pour les deux trames, ce que la dernière trame
+envoyée presse. Envoyée, et pas lue sur la manette : pendant un menu ou un
+réglage, la trame part neutre, et rien ne doit s'allumer.
+
+**Les manettes en aplats.** Le dessin des manettes perd son volume :
+dégradés, reflets, ombres et filtres. Chaque matière devient un aplat (la
+coque prend le milieu exact de son ancien dégradé), et la coque a un contour
+net à l'encre du thème. Une touche appuyée prend la couleur de la place de
+la page : la teinte de joueur de l'autre clarté que les touches, avec un
+anneau blanc ou noir de l'autre clarté que la coque. Le calcul a montré
+qu'un anneau dans l'autre teinte du même joueur ne suffisait pas sur la
+Wiimote blanche ni sur la manette standard grise (2,4:1 et 2,0:1) ; un blanc
+ou un noir d'objet tient partout. Sur la GameCube violette, l'aplat seul
+tombe à 1,36:1 et c'est l'anneau qui tient. Un essai lit les deux feuilles
+telles qu'elles partent et l'exige pour dix manettes et quatre places, avec
+deux mutants refusés.
+
+**Ce que le banc a trouvé.** `just banc-visuel` mesure maintenant aussi
+chaque place, sous un système sombre puis clair. Il a trouvé les gâchettes
+de la GameCube à 1,07:1 de jour, sans place : elles sont dessinées derrière
+la coque, donc vues sur la page, et leur anneau était clair. Leur anneau
+prend désormais l'encre du thème. Le banc laissait aussi son Vite écouter
+sur le port 5471 après la fin, ce qui faisait échouer le lancement suivant
+(« Vite n'a pas démarré ») : il tuait `npx` mais pas Vite, son enfant. Il
+tue maintenant tout son groupe de processus.
+
+**Le poids.** La page passe de 249 436 à 250 627 octets en brotli : 1 191
+de plus, net. Entrent la machine d'étapes, le pas à pas Pro, la suspension,
+les événements, l'activité et les phrases de fin. Sortent le volume des
+manettes et 8 165 octets bruts de règles d'`index.css`, remplacés par
+`components/padmap.css`.
+
+**Les portes.** `just check` est vert. `focus-navigateur`,
+`parcours-navigateur`, `salle-telephone` et `manette-garde` passent. Les
+recettes `-rouge` attendent le dernier passage.
+
+### 23 novembre, tard : les manettes, deuxième passage
+
+**Le contexte.** Le premier passage avait fait le dessous (la boucle, la
+leçon, le dessin). Celui-ci écrit le panneau « Touches et manettes » qui
+remplacera les deux dialogues, sans encore le monter dans la salle : le
+câblage dans `App.tsx` est toujours le dernier commit d'une branche, et la
+branche n'est pas finie.
+
+**Une région, plus un dialogue.** L'ancien réglage s'ouvrait en dialogue
+modal (une fenêtre qui bloque tout le reste de la page) de 1 120 × 850 px,
+posé sur l'image de la partie. Le panneau neuf (`front/src/manettes/`) est
+une région ordinaire, que la salle posera à la place des rangs de la colonne.
+Il s'ouvre par une seule entrée, `ouvrirReglage(onglet)`, que le rang de la
+colonne, la vue des touches et l'avis d'une manette à configurer appelleront
+(K05). À la fermeture, le focus revient à ce qui l'a ouvert, ou au rang de la
+colonne quand l'ouvreur est parti avec les rangs.
+
+**Ce que le panneau fait.** Une seule sortie, « Fermer ». Trois onglets en
+vraie liste d'onglets : les flèches passent de l'un à l'autre, Début et Fin
+vont aux bouts, et ils ne bougent pas pendant un pas à pas. Échap annule
+d'abord le changement en cours et rend le focus à « Changer » de la ligne,
+puis ferme. Le pas à pas montre « Étape 3 sur 16 » et une jauge d'un segment
+par étape ; sa fin compte les commandes passées et mène à la première par
+« Régler B dans la liste » ; un débranchement propose « Reprendre à l'étape
+5 » ou « D'accord ». Les salles Switch et Xbox 360 ont enfin le même
+panneau : la Xbox 360 est nommée dans la phrase de tête, la table a ses
+vingt-quatre lignes sans point médian, et le pas à pas Pro du premier
+passage a maintenant un écran.
+
+**Deux dessins pour la trame Pro, deux racines.** Le dessin de la manette
+Pro et celui de la manette qu'on tient nomment tous les deux leurs sticks
+`a0` et `a2`. Peints dans une même racine, le second aurait reçu
+l'inclinaison du premier. `paintPro` les peint chacun dans la sienne : la
+gauche lit la trame envoyée, la droite les indices bruts. Un essai garde le
+jumeau : une trame neutre pendant le réglage n'allume rien à gauche, même
+quand la manette appuie.
+
+**Les marques suivent l'appui, pas React.** Un cadre se pose sur la commande
+attendue, plus large à 4 s, avec la flèche à 8 s, puis plus rien : une longue
+attente ne clignote pas. Une pièce appuyée prend des coins 650 ms, effacés en
+quatre paliers. L'étape suivante coupe ce qui est en cours (D5). Tout est
+posé par la boucle d'entrée, par un attribut, jamais par un rendu de React.
+
+**Les inscriptions ne tombent plus sous 9 px.** Un dessin rendu à 120 px de
+large mettait certaines lettres sous 3 px. Elles sont portées à 9 px quand
+elles tiennent dans leur pièce, et cachées sinon ; leur nom reste dans la
+table. Un `ResizeObserver` (l'outil du navigateur qui prévient quand une
+boîte change de taille) tient ce plancher hors de React.
+
+**La scène de fin.** À la fin d'un pas à pas qui a retenu quelque chose, le
+panneau demande « fier » à l'arbitre des scènes de la salle. Jamais quand la
+salle ne vit pas, jamais quand tout a été passé. Une manette qui arrive ne
+joue rien : « arrivee » appartient aux personnes (K09).
+
+**La place dans la salle, en fonctions pures.** `placeDuReglage` dit où va le
+panneau : la colonne au bureau, dessous en fenêtre étroite ou tenu droit, à
+droite tenu en travers, tablette comprise. `largeurPanneau` élargit la
+colonne à 46 % de la fenêtre, entre 560 et 700 px. Pendant le réglage, la
+manette à l'écran n'est pas montée : elle enverrait au jeu ce qu'on essaie.
+
+**Les essais, et leurs mutants.** Huit mutants ont été lancés contre les
+essais neufs, et chacun tombe sur son essai : Échap qui ferme sans annuler,
+la scène qui joue dans une salle qui ne vit pas, les onglets qui bougent
+pendant un pas à pas, l'aperçu Wii qui montre les actions du jeu, l'étape
+qui ne coupe pas la précédente, la réponse qui laisse insister. Toute la
+suite du front passe.
+
+**Le poids.** La page monte de 250 627 à 251 536 octets en brotli (+909) :
+les mots du panneau, déjà lus par l'ancien dialogue, et le marquage des
+inscriptions. Le panneau n'est pas encore dans la page. Une construction
+d'essai qui l'y ajoute, sans rien retirer, pèse 256 998 octets : il coûte
+environ 5 460 octets avant les retraits de `Bindings`, de la partie réglage
+de `SwitchBindings` et de leurs règles d'`index.css`, qui viendront avec le
+câblage.
+
+### 23 novembre, très tard : les manettes, troisième passage
+
+**Le contexte.** Le panneau existe, mais aucune page ne le monte encore. Ce
+passage finit ce qu'il montre, avant le commit de câblage d'`App.tsx`, qui
+reste le dernier de la branche.
+
+**Des coins en pixels au lieu de l'anneau au feutre.** Chaque pièce des
+dessins porte maintenant ses quatre coins et sa flèche en escalier, cachés.
+La feuille les montre sur la pièce choisie, sur la commande attendue et sous
+les marques du pas à pas. Poser une marque ne change donc qu'un attribut.
+Les pièces sortent de l'ordre de tabulation : le dessin montre, la liste
+agit. Un clic de souris sur une pièce choisit toujours sa ligne.
+
+**La ligne de liaison.** À l'appui pendant le pas à pas, une ligne
+pointillée relie la pièce de ta manette (à droite) à la commande attendue
+(à gauche), puis s'efface avec les coins. Les deux dessins sont deux `svg`
+distincts : la ligne vit dans un calque posé sur les deux. Sans commande
+attendue, rien n'est tiré.
+
+**La commande tenue, dans sa ligne.** Un carré à la couleur de la place se
+pose devant la ligne d'une commande tenue. Il est posé hors de React par un
+`MutationObserver` (l'outil du navigateur qui prévient quand un attribut
+change) sur le dessin du jeu. Un piège est apparu en l'écrivant : la boucle
+de peinture réécrivait `data-lit` à chaque image, même inchangé, et chaque
+écriture réveillait l'observateur. La peinture n'écrit plus un attribut qui
+ne change pas ; un essai compte les écritures.
+
+**Un essai qui passait seul et échouait dans la suite.** Le premier essai du
+carré allumait une pièce à la main, puis attendait. Seul, il passait ; dans
+la suite complète, la vraie boucle de peinture, plus rapide sous la charge,
+éteignait la pièce avant la lecture. L'essai pilote maintenant la vraie
+boucle avec une manette doublée qui tient B. Leçon : un attribut que
+possède une boucle ne se pose pas à la main dans un essai, il se fait poser
+par elle.
+
+**Le reste de l'écran.** La première manette vue pendant que le panneau est
+ouvert se dit : « Manette Xbox branchée : elle apparaît à droite. » Aucune
+scène ne joue (K09). Sans manette, le dessin de droite est la coque seule,
+en damier sous l'effet « tramage ». Supprimer un profil laisse « Annuler »,
+qui le rend tel qu'il était. Une copie qui attend le service se dit
+(« Gardé ici, envoi au prochain passage. ») avec « Réessayer maintenant ».
+Les nombres de la manette Pro passent par le banc au lieu d'un bloc JSON
+(JavaScript Object Notation, le format texte des données). Quand la salle
+ne vit pas, une bande en tête dit son état, et son action prend le seul
+bouton plein. Les sons du socle suivent la boucle : une pièce pour une
+réponse retenue, un son grave au débranchement.
+
+**Un contrôle de type qui ne contrôlait rien.** `tsc --noEmit -p .` passait
+sur un type importé d'un module qui ne l'exporte pas : à la racine du front,
+ce fichier de configuration ne désigne aucun fichier. La construction de la
+page, qui lance `tsc -b`, l'a refusé. Le contrôle de type à lancer est
+`tsc -b`.
+
+**Les mutants.** Quatorze mutants lancés contre les essais neufs. Cinq ont
+d'abord survécu. Une liaison tirée sans commande attendue levait avant de
+poser quoi que ce soit, et ressemblait donc au bon code ; l'essai vérifie
+maintenant que la pièce appuyée a quand même ses coins. Une commande
+attendue gardée après la fin n'était pas essayée ; l'essai appuie
+maintenant après la fin. Deux gardes « n'écrase pas un nom repris » étaient
+essayées avec le même contenu ; l'essai rend maintenant un autre contenu
+sous le même nom. Le cinquième était équivalent : une relecture redondante
+de « Réessayer maintenant », retirée plutôt que gardée.
+
+**Une erreur de lint lue à travers un filtre.** `npm run lint` signalait une
+variable qui en cachait une autre (`no-shadow`), mais sa sortie passait par
+`grep` et `head`, qui n'en gardaient que des avertissements. `just check` l'a
+refusée. La règle du dépôt le disait déjà pour une porte : ne pas filtrer sa
+sortie avant de l'avoir lue, et lire son code de sortie.
+
+**Le poids.** La page passe de 251 536 à 251 754 octets en brotli (+218) :
+les coins et la flèche de chaque pièce, la silhouette. Le panneau n'y est
+toujours pas : une construction d'essai qui l'importe, sans rien retirer,
+pèse 258 610 octets, soit environ 6 860 octets pour le panneau (5 460 au
+passage précédent). Les retraits de `Bindings`, de la partie réglage de
+`SwitchBindings` et de leurs règles d'`index.css` viendront avec le
+câblage.
+
+### 23 novembre, dans la nuit : les manettes, quatrième passage
+
+**Le contexte.** Le panneau « Touches et manettes » était écrit depuis deux
+passages, sans qu'aucune page le monte. Ses preuves étaient toutes en jsdom,
+qui n'a ni mise en page, ni vrai focus, ni vraie manette. Ce passage le
+câble dans la salle, puis le fait vérifier par Chrome.
+
+**Le câblage.** Un seul commit touche `App.tsx`, comme la partition le
+demande. L'état `bindings` disparaît : le menu, « Changer » de la vue des
+touches et le nouveau bouton « Toutes les touches », au bout du panneau de
+commande, appellent tous `ouvrirReglage`. Le panneau prend la place de la
+vue dans la colonne, et le cadre élargit la colonne à 46 % de la fenêtre,
+entre 560 et 700 pixels : l'image se range dans le reste. Le menu se ferme
+à l'ouverture, parce qu'un menu modal rend la colonne inerte. La vue des
+touches lit enfin l'activité de la trame qui part (K34) : dans une salle
+Xbox 360, ses lignes ont une case, et un appui coche la sienne.
+
+**Ce qui reste dans les anciens dialogues.** La préparation à plusieurs vit
+encore dans `Bindings` et `SwitchBindings`, avec le réglage d'avant dedans.
+Le chantier des menus doit la sortir dans la colonne ; tant qu'il ne l'a pas
+fait, les deux dialogues restent, et ne servent plus qu'à elle. La page ne
+perd donc rien de leur poids.
+
+**Un pilote, et trois défauts qu'il a trouvés.** `reglage.mjs` ouvre le
+panneau dans Chrome sur la page committée, avec une manette Xbox simulée, et
+mesure ce qu'il couvre. Il a d'abord trouvé trois défauts que les essais ne
+voyaient pas. Le focus ne revenait pas à « Toutes les touches » après Échap :
+le bouton est remonté pendant que le panneau est ouvert, et l'ouvreur retenu
+n'était plus dans la page. En fenêtre étroite, la colonne gardait le
+défilement de la vue d'avant, et le titre du panneau s'ouvrait caché sous
+l'image. Enfin, la colonne ne s'élargissait pas : le cadre calculait la
+place de l'image avec la largeur du panneau, mais la colonne gardait sa
+largeur choisie. Chacun a été écrit rouge d'abord, puis corrigé.
+
+**Deux attentes fausses, dans le pilote cette fois.** La vue des touches est
+une liste à cocher : une ligne cochée le reste après le relâché. Le pilote
+attendait l'inverse, et c'est lui qui a été corrigé, avec un jumeau plus
+juste (A coche une ligne, B une deuxième). « Arrêter » abandonne le pas à
+pas et garde le réglage d'avant entier ; la fin ne se montre qu'au bout des
+étapes. Le pilote passe donc les quinze dernières étapes et lit la fin :
+« 1 commande réglée ».
+
+**Ce qui n'est pas réglé : tenu en main.** Sur un téléphone ou une tablette,
+la colonne vit dans la feuille « La salle », et la feuille agrandie couvre
+l'image. Le panneau y couvre donc l'image, comme la vue des touches avant
+lui. Le plan voulait le panneau sous l'image en portrait et à droite en
+travers : cela demande que le cadre de la salle (`lib/cadre.ts`, au chantier
+salle) lui fasse sa place. L'étape `place-tenu` le mesure et reste rouge,
+hors de la porte. Elle a aussi montré qu'à 1 024 × 768 tactile, « Vérifier
+les boutons » n'ouvre aucune feuille, déjà sur la page d'avant ce chantier.
+
+**Le contrôle rouge.** `reglage-navigateur-rouge` lance les quatre étapes de
+la porte sur la page de la base du chantier (9fb659e). Chacune y rougit sur
+son défaut : l'ancien dialogue couvre 829 600 pixels carrés de l'image à
+1 440 × 900, « Toutes les touches » n'existe pas, la vue de la manette n'a
+aucune case en trame Pro, et « Changer » n'ouvre aucun panneau dans la
+colonne. Trois mutants du câblage (la largeur donnée au cadre, la largeur de
+la colonne, l'onglet ouvert par « Toutes les touches ») tombent chacun sur
+son étape. Un quatrième mutant n'avait rien prouvé au premier essai : il
+laissait un import sans usage, la construction échouait, et le pilote avait
+testé la page d'avant. Le script de mutation l'a dit (« construction en
+échec ») : le mutant a été refait en gardant l'import utilisé, et il tombe.
+Leçon : un mutant de la page se prouve par sa construction, pas seulement
+par le verdict du pilote.
+
+**Le poids.** La page passe de 251 754 à 258 978 octets en brotli
+(+7 224) : le panneau entier, sans aucun retrait. Le budget est de 300 000.
+
+**Après le câblage, le reste du panneau.** Sans toucher `App.tsx` de
+nouveau, le passage a fini cinq morceaux, chacun écrit rouge d'abord. Les
+marques du pas à pas n'avancent par paliers qu'au niveau tout : elles le
+faisaient à tous les niveaux. Le titre d'une étape porte « 03/16 » en
+chiffres d'afficheur, dont seul le chiffre qui change roule au niveau tout.
+Un fichier refusé dans les profils Pro joue le son grave du socle. La ligne
+de l'appareil porte l'icône de manette en pixels. Et chaque pièce cliquable
+du dessin reçoit une zone de clic invisible de 24 pixels à la souris (la
+cible minimale des règles d'accessibilité du web), sans jamais mordre sur
+une voisine ; au doigt, le dessin n'est plus cliquable du tout, la liste
+est le chemin. Une nouvelle étape de `reglage.mjs` vérifie les zones dans
+Chrome, et rougit sur la page du câblage, qui n'en avait pas.
+
+**Un aperçu qui parlait à la salle.** `padmap-visuel.mjs` servait l'aperçu
+des manettes par `npm run dev`, dont la configuration relaie l'API et les
+sockets vers la salle vivante. Il passe par `vite.planche.config.ts`, sans
+relais, comme le banc. Rien ne s'est mal passé, mais un aperçu n'a aucune
+raison de pouvoir joindre un service en marche. La page pèse maintenant
+259 484 octets en brotli.
+
+### 24 novembre, avant l'aube : les manettes, cinquième passage
+
+**Le contexte.** Les deux gros morceaux qui restent ne dépendent plus de ce
+chantier : retirer les anciens dialogues attend que le chantier des menus
+sorte la préparation, et la place du panneau tenu en main attend le cadre
+de la salle. Ce passage finit ce qui ne dépend que des manettes : le dessin,
+ses couleurs, la planche, et deux effets du pas à pas.
+
+**Deux mots collés.** Sur la Wiimote, « viser » touchait le bord de la
+manette et « secouer » se collait aux arcs qui figurent la secousse. Un
+essai mesure maintenant le bout de trait qui reste visible entre la pièce
+et son mot : 3,5 et 0,9 unités avant, 4 demandées (4,8 pixels sur le plus
+petit dessin). Le jumeau remet les anciennes positions et les voit refusées.
+
+**Des couleurs nommées, et un essai qui a trouvé cinq touches muettes.** La
+décision D3 du plan voulait que les dessins nomment une matière au lieu
+d'écrire une couleur. Chaque touche de couleur porte maintenant un nom
+(`gamecube-a`, `guitare-orange`), et la valeur vit dans `regie.css`. Le type
+des pièces n'accepte que ces noms : une couleur écrite en dur ne compile
+plus. En lisant enfin chaque touche teintée, l'essai des contrastes a trouvé
+ce qu'il ne pouvait pas voir quand il ne lisait que la touche commune : le
+A vert d'eau de la GameCube, le viseur noir et les arcs gris de la Wiimote
+s'appuyaient à 2,3 à 2,7:1. Le seuil est 3:1, celui des règles
+d'accessibilité du web pour ce qui n'est pas du texte.
+
+**Une première correction fausse.** Le premier remède a changé l'anneau de
+ces touches pour qu'il tranche sur leur teinte. `banc-visuel.mjs`, qui
+mesure autre chose (l'appui contre ce qui entoure la touche : son logement,
+la coque, la page), l'a refusé aussitôt, à 1,5 à 2,9:1. Les deux mesures
+sont justes et aucune ne suffit seule. Pour une teinte moyenne entourée de
+sombre, une seule paire tient les deux : l'aplat clair de la place, qui
+tranche sur l'entourage, et l'anneau sombre, qui tranche sur la touche. Le
+plan marque ces trois touches `appui: "clair"`. L'essai mesure désormais les
+deux seuils, pour chaque pièce de chaque plan, sans place et aux quatre
+places, dans les deux thèmes. Il a encore trouvé deux défauts sans place
+(le spectateur, la planche) : le vert clair de la GameCube à 1,33:1 sur la
+croix, qui n'a pas d'anneau, et le violet commun à 2,91:1 sur la DualShock.
+Le premier devient un vert foncé avec l'anneau clair, le second un violet
+plus clair. Leçon : un essai de contraste doit dire contre QUOI il mesure ;
+deux mesures vraies peuvent se contredire si l'une ne regarde que la touche.
+
+**La planche des manettes.** L'aperçu `padmap-preview` devient « Les
+manettes » : ce que le jeu reçoit et ta manette, chacune avec l'endroit où
+elle sert, à trois tailles. Sous chaque taille, la planche compte les
+inscriptions lisibles et celles que le plancher de 9 pixels masque ; sous la
+grande, elle écrit l'appui le plus faible, calculé par Chrome dans le thème
+affiché. Ses réglages sont des boutons de 44 pixels. `padmap-qc.mjs` refait
+chaque mesure de son côté et compare. Son jumeau fabrique un appui de la
+couleur de la touche sur la manette Xbox, et `padmap-visuel.mjs` exige qu'il
+échoue sur ce seul défaut. Deux autres mutants (un compte faux, un plan
+retiré de la liste du réglage) tombent aussi. Un détail a coûté un essai :
+la planche nommait ses tailles `data-taille`, que les textes des dessins
+portent déjà ; le pilote les confondait.
+
+**Deux effets du pas à pas.** Au niveau tout, la phrase de fin s'écrit
+lettre par lettre ; le lecteur d'écran la reçoit entière d'un coup, puis la
+région qui la portait se vide pour qu'elle ne soit pas lue deux fois. Un
+refus de la trame Pro secoue aussi l'avis qui le dit, en plus du son grave.
+
+**Le poids.** 260 043 octets en brotli (+559) : les noms de couleur sont
+plus longs que les valeurs qu'ils remplacent, et les règles de l'appui
+clair s'ajoutent. Le budget est de 300 000.
+
+### 24 novembre, avant l'aube encore : les manettes, sixième passage
+
+**Le contexte.** Les deux gros morceaux attendent toujours d'autres
+chantiers : la préparation vit encore dans les anciens dialogues (chantier
+des menus), et la place du panneau tenu en main attend le cadre de la
+salle. Ce passage reprend trois points qui ne dépendent que des manettes.
+
+**La pièce qu'on change sortait de l'écran.** Pour changer une commande, on
+clique « Changer » sur sa ligne, puis on appuie sur la manette. Les dessins
+sont au-dessus de la table. À 1 280 × 720 et au téléphone, changer une des
+dernières lignes fait défiler les dessins hors de la vue : le pilote a
+mesuré la pièce encadrée à 442 pixels au-dessus du haut de la fenêtre. La
+personne ne voyait plus ce qu'elle réglait. Maintenant, tant que cette
+pièce n'est pas entière à l'écran, la ligne porte une vignette de 64 pixels :
+le même dessin, recadré autour de la pièce, avec ses coins. Le navigateur dit
+lui-même ce qui se voit, par un `IntersectionObserver` posé sur la pièce ;
+il tient compte de la fenêtre et de la colonne qui défile. Quand le dessin
+se voit, rien n'est monté. L'étape `changer-visible` du pilote du panneau le
+prouve à deux tailles, avec son jumeau à 1 440 × 900 : la première ligne
+garde les dessins en vue, et aucune vignette n'y vient. Un mutant qui monte
+toujours la vignette tombe sur ce jumeau.
+
+**Une boîte de 64 pixels qui peignait toute une manette.** La première
+vignette passait l'essai et dessinait pourtant une GameCube entière par-dessus
+les lignes voisines : les dessins laissent déborder leur tracé hors de leur
+cadre, et le recadrage n'avait changé que la boîte. La capture l'a montré,
+pas la mesure. Le pilote vérifie maintenant huit points autour de la
+vignette, à 6 pixels de son bord, et aucun ne doit tomber sur elle. Il
+vérifie aussi que la consigne de la ligne reste entière : la vignette grandit
+la ligne, et au téléphone elle poussait la phrase sous le bord. La vignette
+se pose donc à côté de la phrase, et la ligne se garde en vue. Leçon : une
+boîte mesurée ne dit pas ce qu'un `svg` peint ; il faut regarder autour.
+
+**Un stick qu'on change n'était pas encadré.** En trame Pro, changer un sens
+de stick (« stick gauche vers la droite ») ne posait aucun cadre sur le
+dessin : la pièce s'appelle `LS`, la commande `lx+`, et le dessin les
+comparait tels quels. Les marques du pas à pas faisaient déjà la conversion.
+Le dessin la fait aussi, avec un essai écrit avant la correction.
+
+**Le panneau mesuré au téléphone, et trois champs trop petits.**
+`salle-telephone.mjs` mesurait encore le dialogue des touches et le
+configurateur Pro seuls, que la salle ne monte plus hors préparation. L'aperçu
+des touches gagne une entrée qui monte le panneau seul, en trame Dolphin ou
+Pro, sur chaque onglet. Le pilote y vérifie trois tailles de téléphone : pas
+de défilement en largeur, aucune cible sur une autre, « Fermer » et l'onglet
+dans les zones sûres, chaque contrôle à 44 pixels au moins. Sa première
+mesure a trouvé la liste des profils à 19 pixels de haut, le champ du nom à
+24 et le titre « Les nombres de ta manette » à 24. Ils font 44 pixels
+maintenant. L'aperçu, lui, garde les zones sûres comme la colonne de la salle
+le fait : sans cela, il faisait échouer « Fermer » pour une raison qui
+n'existe pas dans la salle.
+
+**Un refus du clavier se dit comme un refus Pro.** « Publication
+impossible » joue le son grave du socle et secoue l'avis qui le dit, comme
+un fichier refusé en trame Pro. L'avis n'existe qu'avec sa phrase : la
+secousse part après l'affichage, et un compteur secoue aussi un second refus
+qui dit la même phrase.
+
+**Le poids.** 260 609 octets en brotli après ce passage (+566 sur le
+précédent : la vignette, les champs à 44 pixels et le refus du clavier).
+Rien n'est encore retiré : les anciens dialogues hébergent la préparation.
+
+### 24 novembre, au matin : les nombres de la manette ne bougeaient pas
+
+**Le symptôme.** Sous les dessins, « Les nombres de ta manette » ouvre le
+banc d'essai : un chiffre par bouton, deux par stick, l'horodatage et le nom
+brut de la manette. C'est l'écran qu'on lit quand quelqu'un dit « ma manette
+fait n'importe quoi ». En reprenant le plan (changement 20), un essai du
+panneau a pressé un bouton à 0,65 et lu le banc : il disait « 0.00 ». Il le
+disait depuis toujours, dans l'ancien dialogue aussi, sur `main`.
+
+**La cause.** La boucle qui peint les dessins appelait aussi le remplissage
+du banc, sur la racine des deux dessins. Le banc, lui, vit à côté de cette
+racine, dans sa propre boîte dépliable (`<details>`). Le remplissage
+cherchait ses marques au mauvais endroit, n'en trouvait aucune, et se taisait,
+comme il est écrit pour le faire pendant un branchement.
+
+**Pourquoi rien ne l'a vu.** Trois preuves existaient, et aucune ne reliait
+le banc à la boucle. L'essai du remplissage pose lui-même le balisage, puis
+appelle la fonction : il prouve la fonction. L'aperçu du banc
+(`bench-preview`) appelait lui-même ce remplissage à chaque image : il
+prouvait l'aperçu. `banc-reel` photographiait le dialogue sans lire un seul
+chiffre. Leçon : une preuve qui appelle elle-même la fonction ne dit rien de
+l'appel que la page fait, ou ne fait pas. C'est la règle « mutate the wiring,
+not only the pure functions », vue du côté d'un affichage.
+
+**Le remède.** Le banc se peint lui-même : il reçoit une façon de lire la
+manette, et sa propre boucle écrit ses chiffres, seulement quand on l'ouvre.
+Fermé, personne ne regarde ses vingt nombres, et la page ne paie rien.
+L'essai écrit avant le remède échouait sur « 0.00 » ; l'étape `nombres` du
+pilote du panneau ouvre la boîte d'un vrai clic dans la page construite, et
+lit « 0.65 » et l'horodatage. Sur la page d'avant le remède, elle rougit sur
+« 0.00 ».
+
+**Ce que le plan demandait aussi.** La jauge d'un bouton part maintenant de
+son repos appris : une gâchette d'adaptateur posée à 0,62 montre une jauge
+vide au repos et un trait marqué « repos 0,62 ». Sans repos appris, la jauge
+suit la valeur comme avant. L'horodatage passe en chiffres d'afficheur, avec
+une phrase qui dit ce qu'il veut dire : il avance tant que la manette parle,
+figé elle ne dit plus rien. Les étiquettes perdent leurs capitales. Les
+nombres d'un adaptateur sans disposition standard s'ouvrent d'emblée : ils
+sont la seule lecture sûre de ses boutons. Dix mutants tombent chacun sur son
+essai.
+
+**Le banc visuel a trouvé le reste.** L'afficheur avait perdu la police à
+chasse fixe : l'horodatage changeait de largeur avec ses chiffres, de
+53,50 à 56,28 pixels, et `banc-visuel` l'a refusé dans les deux thèmes. Le
+même pilote laissait aussi son Vite sur le port 5471 quand une capture
+levait une exception (un dossier de sortie absent) : il l'arrête maintenant
+sur toute sortie, et la même erreur volontaire laisse le port libre.
+
+**Le poids.** 261 069 octets en brotli (+460 : la boucle du banc, le trait de
+repos, la phrase de l'horodatage).
+
+### 24 novembre, à midi : la relecture des manettes, quatre constats
+
+Une relecture indépendante du chantier a relevé quatre défauts. Chacun a
+d'abord été reproduit sur la page committée, avec les scripts de la relecture.
+
+**Une réponse ne montrait jamais ses marques.** Au pas à pas, un appui doit
+poser des coins sur la pièce appuyée de ta manette pendant 650 ms, tirer une
+ligne pointillée jusqu'à la commande du jeu, puis tout effacer en quatre
+paliers. Rien de cela n'apparaissait, ni sur la trame Dolphin ni sur la trame
+Pro. La boucle d'entrée annonce la réponse (« recu ») puis, dans le même
+appel, l'étape suivante. Le module des marques coupait tout à chaque étape :
+les coins étaient posés puis retirés avant que le navigateur ait peint une
+seule image. Un observateur des attributs (`MutationObserver`) l'a montré
+d'un coup : la pièce passe à « coins » et le perd dans le même lot de
+changements. Pendant un « Changer », aucune étape ne précède la réponse, et
+la ligne n'avait donc jamais de cible. Une réponse de stick, enfin, ne trouvait
+pas sa pièce : son nom (`a0+`) n'est celui d'aucune pièce du dessin.
+
+Pourquoi rien ne l'a vu : l'essai des marques émettait « recu » seul, alors
+que la vraie boucle ne l'émet jamais sans l'étape qui suit, et l'étape du
+pilote ne regardait pas les coins. Leçon : un essai d'événements rejoue la
+suite que la source émet vraiment, ou s'abonne à la vraie source.
+
+Le remède sépare deux séquences : celle de l'étape (le cadre, son insistance,
+sa flèche) et celle de la réponse (les coins, la ligne, l'effacement). L'étape
+suivante coupe la première seulement. Une nouvelle réponse coupe la
+précédente, la fin laisse la dernière finir, un débranchement coupe tout. La
+ligne va à la commande que la réponse nomme, et un axe trouve le stick du
+dessin de droite (`a1-` est le stick `a0`). La décision D5 du plan (« une
+marque ne retarde jamais la leçon ») tient : l'étape suivante se cadre
+toujours aussitôt. Les essais passent maintenant par la vraie boucle Dolphin
+et la vraie trame Pro ; quatre tombaient sur l'ancien module, et six mutants
+du nouveau tombent. L'étape `marques` du pilote relève, à chaque image, ce qui
+porte des coins ; sur la page relue, aucune image ne les peint.
+
+**Le focus tombait sur le document.** « Régler pas à pas » disparaît à son
+propre clic, et « Commencer » aussi. Les deux fois, le focus (l'élément qui
+reçoit le clavier) tombait sur le document. L'Échap du panneau ne le recevait
+plus : l'invite « Lâche tout » ne se fermait pas, et après un pas à pas
+arrêté, un second Échap ne fermait pas le panneau. Un lecteur d'écran perdait
+sa place deux fois. Le remède suit chaque geste : l'invite prend le focus sur
+« Commencer » et s'annule seule par Échap ; une étape qui commence le pose sur
+son titre, pas sur « Passer », qu'une Entrée de trop déclencherait ; un bloc
+qui part en tenant le focus le rend à « Reprendre », à la première commande
+passée, sinon à « Régler pas à pas ». Un focus que la personne a posé hors du
+panneau n'est jamais repris.
+
+L'essai de la trame Pro a trouvé un second défaut, plus petit : le panneau
+lisait « un pas à pas est en cours » au moment de son rendu, et la trame Pro
+change sans le rendre (il se relit deux fois par seconde). Un Échap dans la
+première demi-seconde d'un pas à pas Pro fermait le panneau au lieu d'arrêter
+le pas à pas. Il lit maintenant cet état au moment de la touche, et se relit
+après l'avoir annulé. Neuf mutants : huit tombent ; le neuvième retire, dans
+l'invite, la garde d'un focus extérieur, et l'invite ne monte que d'un clic
+dans le panneau. L'étape `focus-pas` du pilote mène tout cela au clavier seul,
+et rougit cinq fois sur la page relue.
+
+**Des phrases écrites en dur.** Les profils du clavier écrivaient onze
+phrases hors du lexique (`lib/mots.ts`), et la trame Pro deux avis de plus,
+recopiés d'avis qu'elle avait déjà. L'essai des mots refusés restait vert : il
+juge les mots, pas leur adresse. Les phrases passent dans le bloc du chantier,
+avec les douze autres avis de la trame Pro, que le panneau affiche tels quels.
+Un essai nouveau refuse toute phrase écrite sous `manettes/` et dans
+`media/switch.ts` ; il échouait sur vingt-cinq chaînes. Ce qu'il ne couvre
+pas : les phrases venues de `main` dans `Wiring.tsx`, `KeyboardWiring.tsx`,
+`Bench.tsx`, `media/pad.ts` et `media/input.ts`, que le panneau montre aussi.
+
+**Tenu en main, le panneau couvre l'image vivante.** C'était déjà écrit comme
+un reste, et la relecture a raison de le compter comme un défaut : la colonne
+ne vit, tenue en main, que dans la feuille agrandie de la salle, qui couvre
+l'image, et le panneau avec elle (113 880 pixels carrés sur l'image à
+390 × 844, 85 020 à 844 × 390). Les autres jouent dessous. Le remède demande
+au cadre de la salle (`lib/cadre.ts`) un emplacement pour le panneau : sous
+l'image tenu droit, à droite en travers, l'image rangée dans le reste. Ce
+fichier appartient au chantier salle, et la partition interdit aux autres
+chantiers d'y toucher. Ce passage corrige donc seulement les deux commentaires
+qui affirmaient le contraire, et transmet la demande ; l'étape `place-tenu`
+reste rouge, hors de la porte.
+
+**Le poids.** 261 286 octets en brotli (+217 : les deux séquences des
+marques, la garde du focus, les avis de la trame Pro déplacés).
+
 
 ## 12. Glossaire complet
 
@@ -32019,4 +32614,75 @@ du dépôt. La page d'un visiteur ordinaire le voit faux.
 **Abri (de la maison d'Aïn)** : l'ancêtre collé ou fixe du logo, comme le
 pied de la colonne du bureau. Il passe devant ce qui défile : ce qui est
 dessous ne se voit pas, et ne gêne pas Aïn.
+
+**Pas à pas** : le réglage d'une manette question par question (« Appuie sur
+ce que tu veux pour A »). Chaque réponse retient l'entrée qui a bougé depuis
+le repos pris au départ ; « Passer cette commande » garde son réglage
+d'avant.
+
+**Repos (d'une commande)** : la valeur qu'un bouton ou un axe rapporte quand
+personne n'y touche. Elle n'est pas toujours zéro : un adaptateur GameCube
+pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
+
+**Horodatage (d'une manette)** : le nombre que le navigateur joint à chaque
+lecture d'une manette, en millisecondes. Il avance tant qu'elle envoie
+quelque chose ; figé, elle s'est tue, même si ses autres nombres ont l'air
+justes.
+
+**Groupe de processus** : l'ensemble d'un programme et de ceux qu'il lance.
+Arrêter le groupe arrête aussi les enfants ; arrêter le parent seul peut
+laisser un enfant tourner, comme le Vite du banc.
+
+**Liste d'onglets** : des boutons qui choisissent quelle page d'un panneau
+on voit, annoncés comme tels aux lecteurs d'écran (`role="tablist"`). Un
+seul onglet est dans l'ordre de tabulation ; les flèches passent aux autres.
+
+**ResizeObserver** : l'outil du navigateur qui prévient une page quand une
+boîte change de taille, sans qu'elle ait à la mesurer à chaque image.
+
+**MutationObserver** : l'outil du navigateur qui prévient une page quand un
+élément ou un attribut change, sans qu'elle ait à le relire à chaque image.
+Il prévient aussi pour une écriture qui ne change rien : la page n'écrit donc
+que ce qui change.
+
+**IntersectionObserver** : l'outil du navigateur qui prévient une page quand
+un élément entre dans la partie visible de l'écran ou en sort, et dit quelle
+part de lui se voit. Il tient compte des cadres qui défilent et coupent leur
+contenu, comme la colonne de la salle.
+
+**Vignette (d'un changement)** : le petit dessin de 64 pixels que la ligne
+d'une commande montre pendant un « Changer », quand le grand dessin est sorti
+de l'écran : la pièce attendue et ses coins, recadrées.
+
+**Pilote (de navigateur)** : un script qui ouvre la page dans un vrai Chrome
+sans écran, clique, appuie et mesure ce que le navigateur affiche, là où un
+essai jsdom ne voit ni mise en page ni vrai focus. `reglage.mjs` en est un.
+
+**Trame (de manette)** : ce que la page envoie à la salle pour une place à
+chaque instant. La trame Dolphin porte les commandes d'une manette GameCube,
+la trame Pro celles d'une manette Switch Pro ou Xbox 360.
+
+**Pièce affleurante** : une pièce de dessin de manette qui fait partie d'une
+plus grande, comme une branche de croix ou le viseur de la Wiimote. Elle n'a
+pas de logement ni de contour à elle ; appuyée, elle n'a donc que son aplat
+pour se distinguer, sauf si son plan lui rend son anneau.
+
+**Appui clair** : la marque `appui: "clair"` d'une touche dans les plans de
+manette. Appuyée, elle prend la teinte claire de la place et un anneau
+sombre, même sur une coque claire : c'est la seule paire qui tranche à la
+fois sur une touche de teinte moyenne et sur un entourage sombre.
+
+**Marques du pas à pas** : ce que le panneau des touches pose sur les dessins
+pendant un pas à pas. Un cadre sur la commande attendue (plus large à 4 s,
+une flèche à 8 s), puis, à l'appui, des coins sur la pièce appuyée de ta
+manette et une ligne pointillée jusqu'à la commande, 650 ms, avant de
+s'effacer.
+
+**Feuille agrandie** : la feuille « La salle » d'un téléphone ou d'une
+tablette, montée jusqu'en haut. Elle porte la colonne entière, et couvre
+l'image du jeu : toute l'image tenue droite, sa partie gauche en travers.
+
+**Emplacement (du cadre)** : une place que le cadre de la salle
+(`lib/cadre.ts`) calcule et donne à un élément, hors de l'image : la barre,
+la bande, le panneau de commande, la manette tactile.
 

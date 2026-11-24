@@ -1,6 +1,6 @@
 # Le paquet d'Aïn pour le salon, et ce qu'il a été construit depuis.
 # Écrit par `just ain-salon`; relu par front/src/mascotte/salon.test.ts.
-paquet 8ccbcede419a714bcded93d031ebbf7f0de9545d3f40f4534634b1491d6d0adb
+paquet c9c7face24338620a9bb3f9ff1cf1b081f578271ebadedd622f7a8639d46c734
 entree 06d310b3f7f275bb13c4ba3fc85b47b1bf0c5383718146ccdd193c6f259e09ba front/package-lock.json
 entree b558e0ab4fbbfdb65d32448bfd940ee0b8d5af4661873e6b5a8cd9a743c00789 front/src/lib/effets.ts
 entree a1400f51754bebe4015a479c40eab83a54685464e7ed1ba70af4da0bf1866bc0 front/src/lib/focus-jeu.ts
@@ -9,7 +9,7 @@ entree fa1aab8fa0ee555b34a8ec48002e4c35caca95b229279b40086529b52683a462 front/sr
 entree 2af62314ffa450875da7fc14752ed18c3630f62f43a81f60cd86054b0846ffdf front/src/mascotte/index.ts
 entree b0e781ad2e64ee94c761b21026637c1e37c7878c9d92f1ca89959db19ba3edff front/src/mascotte/lecteur.ts
 entree 9fae7e8242c7ec3beac9f5130e1a53d4a7795d3d3be491f7bad6f1275066cd2b front/src/mascotte/moteur.ts
-entree a512ae75b5db93fafe8c209f1d47fa04bd16cd8d7471a0bba98c31e94121a41d front/src/mascotte/rendu.ts
+entree 397311c88b30b74d696c096148681a56e90665764f4581a34ee8cb077d1f7f56 front/src/mascotte/rendu.ts
 entree 3d68ce0bf84f88ebdb54838b72cb0752e2a5d2bcd2cbf898f9cc6a53812fa0b0 front/src/mascotte/salon.ts
 entree 1936dce6418a7ffcbe6df600608e1c9fe2af362c37c0a177389ab5d50a3d3ea5 front/src/mascotte/scenes-ain.ts
 entree 87b15c9ca8b84789dc5996f7caf4d952365802764747cef42dc28559aaa720bf front/src/mascotte/scenes.ts

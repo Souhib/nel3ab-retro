@@ -534,7 +534,51 @@ de place à la première image 4:3, à la salle), `arrivee-sans-image` (une
 étape des états qui part du clic, alors que l'arrivée part 0,5 s plus tard
 derrière la transition d'entrée du salon) et `mascotte-hors-image` (sa
 précondition, depuis la vague B1). Récit : « 24 novembre, la nuit : la
-vague B2 sur la branche d'intégration ».
+vague B2 sur la branche d'intégration ». Les deux premiers sont verts sur
+`chantier/retro-fin-salle` (paragraphe suivant).
+
+**Au 24 novembre, tard dans la nuit : la fin de la salle, sur une branche.**
+Sur `chantier/retro-fin-salle`, partie d'`integration/retro` (928bd03), dans
+`~/nel3ab-chantiers/retro-fin-salle` ; rien dans `main`, rien poussé ni
+installé. Les sept points de la salle tranchés par le chef de chantier :
+
+- **La première image ne déplace rien.** Le manifeste des consoles donne
+  leur format attendu (`format` : GameCube et Wii 4:3, Switch, Switch 2 et
+  Xbox 360 16:9) ; le panneau du bureau s'y décide (`baseDuPanneau`), puis
+  sur la vraie image au premier changement de mise en page naturel. À
+  l'arrivée dans une partie en cours, les rangs de la partie sont là dès
+  l'écran noir. `colonne-stable` est verte, et rougit sur 4ecbc23.
+- **La pastille d'état a ses places.** Au téléphone, dans la barre, entre le
+  nom de la salle (toujours entier) et « La salle » ; au bureau, sur le
+  panneau de commande avant « Toutes les touches » quand aucune bande noire
+  ne la prend (`pastille-panneau`, nouvelle étape d'`etats.mjs`). Toujours
+  sans place, tenu droit et court : 390×664 et 375×548 en 4:3.
+- **« Touches et manettes » tenu en main** a sa place du cadre : sous
+  l'image tenu droit, à sa droite en travers, sans la recouvrir
+  (`place-tenu` entre dans `reglage-navigateur`, et rougit sur 4ecbc23).
+- **L'étiquette en tête de la bande** a son rectangle, que le menu évite
+  (`menu-etiquette` de `salle-telephone`).
+- **`arrivee-sans-image`** compte depuis l'apparition du plein cadre ; la
+  phrase de l'échec du chargement propose « ou choisir un autre jeu » à qui
+  choisit le jeu.
+- **D29 est amendée** (la salle, avec le paragraphe des états), D30, D35 et
+  D39 aussi.
+
+Fichiers partagés touchés : `consoles/consoles.json` (le champ `format`),
+`lib/liaison-mots.ts` et `etat-place.ts` (états), `reglage.mjs` (manettes),
+`etats.mjs`, `etats-banc.mjs`, `parcours-banc.mjs` (la plage de ports monte
+à 5599 pour les chantiers de fin), `salle-telephone.mjs`, le justfile et
+deux lignes de `CLAUDE.md`, et les pilotes `parcours.mjs` (la cause de
+l'échec une fois sur cinq de `place-suit-adresse` : un clic sous le coin
+collé de la colonne) et `manette-garde.entry.tsx`. Page : 280 496 octets en
+brotli, 19 504 sous le plafond. Portes : `just check`, `focus-navigateur`,
+`etats-navigateur`, `parcours-navigateur`, `salle-telephone`,
+`manette-garde`, `salon-navigateur`, `reglage-navigateur`, `planche-garde`
+et les six contrôles rouges sont verts ; `cadre-navigateur` reste rouge sur
+`mascotte-hors-image` et `ain-immobile`, deux étapes de la mascotte, à un
+autre chantier de fin. Non prouvé : les téléphones ne suivent pas encore la
+base, et aucune vraie salle n'a servi la page. Récit : « 24 novembre, tard
+dans la nuit : la fin de la salle ».
 
 **Au 24 novembre : le chantier salon, premier passage.** Sur
 `chantier/retro-salon`, partie d'`integration/retro` (87bc2b3), dans

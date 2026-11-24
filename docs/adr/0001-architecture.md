@@ -1225,6 +1225,31 @@ picture is lifted by the paint loop on the first painted image. The banner
 became the sheet, the curtain the full frame; the frozen, banner and arrival
 thresholds above are unchanged.
 
+Amended 2026-11-24 by the room (D39), with the state's paragraph (D40), at
+the end of the room's track. The « one place » is now a place of the room's
+frame, never on the picture, and the frame names it (`emplacementPastille`,
+`lib/cadre.ts`; `placeDeLaPastille`, `lib/etat-place.ts`). A black band of
+40 px or more takes the pastille first (the band above the picture, then the
+right one). On a desk, the control panel under the picture comes next: the
+pastille sits on it, before « Toutes les touches ». Otherwise it joins the
+notice stack, at the head of the column. On a phone held upright without a
+band, the room bar has a slot between the room name, which is always read
+whole, and « La salle »; it needs 120 px, so a 375 px phone gets 138 px and
+a bar without them gets nothing. Upright and short (390×664, 375×548 in
+4:3), there is still no bar and no band: the spoken line says the state.
+The state's paragraph: the pastille, the sheet in the column or the phone's
+sheet and the cabinet's full frame keep their D40 rules; the loading
+failure says to the person who chooses the game « Tu peux le relancer ou
+choisir un autre jeu. », and to others who can relaunch it (decided by the
+site lead, taking back the words the menus workstream had written). The 15 s end of arrival counts from the session start; the
+browser proof (`arrivee-sans-image`) now counts from the full frame's
+appearance and accepts the gestures between 12 and 18 s after it, because
+the lobby's entry transition starts the arrival 0.5 s after the click.
+Weighed for the phone: covering the room name and leaving it to screen
+readers (what the pastille did until this amendment, ruled out by the site
+lead), and shrinking « La salle » to its icon to give the pastille more room
+(a change to the owner's gesture, not made).
+
 ### D30: The game keyboard lives in a focusable game zone; room menus are modal dialogs whose cursor is the focus, 2026-11-22
 
 The accessibility audit of 2026-11-22 found two keyboard owners on the room
@@ -1549,6 +1574,15 @@ red at the merge. The menu now avoids the `cote` rectangle, the case the old
 field described; a mutant that ignores it turns the lying-down sweep red.
 Whether the menu may cover the label in the band is not measured.
 
+Amended 2026-11-24, end of the room's track: it is now. The frame gives the
+band label its rectangle too (`LieuEtiquette` « bande », `BANDE_BORD`, the
+band's 8 px and 12 px edges read back from `telephone.css` by a test), and
+`placeDuMenu` avoids it like the side label. Today's geometry never puts
+the two together (the band exists only when the picture spans it), so a
+constructed case proves the avoidance, and `salle-telephone`
+(`menu-etiquette`) measures the label's letters with the menu open at six
+lying-down sizes, with a twin that pushes the label under the menu.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),
@@ -1690,6 +1724,10 @@ one `FeuilleSalle` with two heights, opened by « La salle » in the room bar;
 the mode comes from `modeDuCadre` (`useEnTiroir` is gone), and a fine
 pointer below 900 px puts the column under the picture instead of in a
 drawer. The safe-area tokens are kept and subtracted by the frame.
+Amended again on 2026-11-24 by D39 (end of the room's track): « Touches et
+manettes » no longer opens in the enlarged sheet, which covered the picture;
+the frame gives it its own place beside the picture, and the sheet closes
+when it opens.
 
 The mobile audit of 2026-11-22 found the column folded by default on phones. Its
 functions (seats, ask for a seat, report, link diagnosis, spectators, leave)
@@ -2379,6 +2417,45 @@ tested; the frame does not shrink the picture for a label there. In the
 held row, the places' help sentence (`.n3-places-role`) is read only to
 screen readers: the rule that hid it still named `Seats`' sentence, and
 « 2P » covered the player's name at 360 and 390 px.
+
+**Amended 2026-11-24, end of the room's track: the first picture moves
+nothing.** The site lead settled what waves B1 and B2 left open.
+
+- **The desk panel is decided on the console's expected format.** At
+  1440×900, the black arrival screen put the panel under the screen, and
+  the first 4:3 picture moved it to the column, pushing its children down
+  by 204 px (`colonne-stable`). The console manifest now gives each
+  console a `format` (GameCube and Wii 4:3, Switch, Switch 2 and Xbox 360
+  16:9), read by the page only (`formatAttendu`). The frame keeps a base
+  from one computation to the next (`baseDuPanneau`): the expected format,
+  posed as « remplir » since its real size is unknown, until the first
+  natural layout change that finds a picture (window size or safe areas,
+  mode, pose setting, column width, a panel opened or closed, Ctrl); the
+  real picture after that. The first picture, a state, a seat given after
+  it and the pad that follows the seat change nothing; a new console
+  starts again from its format. The narrow mode's screen height follows
+  the same base. Weighed, from the states workstream: the last format seen
+  in the room (wrong for the first game of a session), and a panel
+  independent of the format (it would cost a 4:3 picture its height, or
+  leave a 16:9 one a fixed empty band). A 16:9 Wii game keeps the 4:3
+  place until the next natural change; phones do not follow the base yet.
+- **An arrival into a running game shows the game's rows.** With the panel
+  held, the column still grew by 196 px at the first picture: sound, keys,
+  clip and enlarge appeared only with a picture (`rangsDeLaColonne`). They
+  now appear from the arrival when a game runs; a launch still hides them
+  (C8).
+- **Held in hand, « Touches et manettes » has its place** (`reglageTenu`,
+  `Geometrie.reglage`). Upright, everything under the picture, which does
+  not move unless less than 280 px would remain; across, a right-hand
+  column of 42 % of the width, 300 to 520 px, the picture posed in the rest,
+  like the desk widening its column for the panel (K24). The panel, the
+  band and the pad are not mounted meanwhile; « La salle » and the bar give
+  way across. Until then the panel lived in the enlarged sheet over the
+  picture (`place-tenu`, which joins `reglage-navigateur`).
+- **The pastille's places** are written in D29's amendment: the bar's slot
+  on a phone, the panel on a desk, before « Toutes les touches ».
+- **The band label has a rectangle**, which the menu avoids (D30's
+  amendment).
 
 
 ### D40: The room's state leaves the picture, and its cover lifts on the first painted image, 2026-11-24

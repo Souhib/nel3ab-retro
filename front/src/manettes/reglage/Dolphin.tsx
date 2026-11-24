@@ -29,6 +29,7 @@ import {
   type Ligne,
 } from "./PasAPas";
 import { IconeRang } from "../../components/Colonne";
+import { restsOf } from "../../lib/wiring";
 import { tenirDessins } from "./inscriptions";
 import { pieceDe, poserMarques } from "./marques";
 import { useHorsDeVue, Vignette } from "./Vignette";
@@ -267,7 +268,9 @@ export function ManetteDolphin({
             onAnnuler={() => agir(trame, (input) => input.cancelCapture())}
           />
           {physical ? (
-            <details className="n3-nombres">
+            // Ouverts d'emblée pour un adaptateur : sa disposition n'est pas
+            // standard, et ses nombres sont la seule lecture sûre.
+            <details className="n3-nombres" open={!identity?.standard}>
               <summary className="rt-titre">{REGLAGE.nombres}</summary>
               <Bench
                 name={identity?.name ?? physical.id}
@@ -276,6 +279,8 @@ export function ManetteDolphin({
                 layout={state.padLayout ?? "inconnue"}
                 buttons={physical.buttons}
                 axes={physical.axes}
+                lire={() => navigator.getGamepads?.()[physical.index] ?? null}
+                repos={restsOf(state.profile, state.neutre).buttons}
                 className="pt-4"
               />
             </details>

@@ -122,6 +122,38 @@ describe("ce que le banc écrit", () => {
     expect(root.querySelector('[data-gauge="stamp"] .n3-value')!.textContent).toBe("98765");
   });
 
+  // Changement 20 : la jauge d'un bouton part de son repos appris. Une
+  // gâchette d'adaptateur posée à 0,62 est vide au repos et pleine au fond.
+  it("part du repos appris d'un bouton, et s'étend sur la course qui reste", () => {
+    const repos = new Map([[0, 0.62]]);
+    const auRepos = panel(1, 0);
+    paintBench(auRepos, live([0.62], []), repos);
+    expect(fills(auRepos)[0]).toBe(0);
+    const auFond = panel(1, 0);
+    paintBench(auFond, live([1], []), repos);
+    expect(fills(auFond)[0]).toBe(100);
+    const moitie = panel(1, 0);
+    paintBench(moitie, live([0.81], []), repos);
+    expect(fills(moitie)[0]).toBe(50);
+    // Le chiffre, lui, reste celui que le navigateur annonce.
+    expect(moitie.querySelector('[data-gauge="b0"] .n3-value')!.textContent).toBe("0.81");
+  });
+
+  it("sans repos connu, suit la valeur telle quelle", () => {
+    // Le jumeau : aucun repos ne veut pas dire un repos inventé.
+    const root = panel(1, 0);
+    paintBench(root, live([0.62], []));
+    expect(fills(root)[0]).toBe(62);
+  });
+
+  it("fait suivre au fantôme de l'horodatage la longueur de sa valeur", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<span data-gauge="stamp"><span class="rt-afficheur-fantome">8</span><span class="n3-value">0</span></span>`;
+    paintBench(root, live([], [], 98765.4));
+    expect(root.querySelector(".rt-afficheur-fantome")!.textContent).toBe("88888");
+    expect(root.querySelector(".n3-value")!.textContent).toBe("98765");
+  });
+
   it("ne se plaint pas d'un panneau qui n'a pas les marques", () => {
     // Le composant montre moins de jauges que la manette n'a de boutons pendant
     // le rendu qui suit un branchement. Écrire dans le vide est le bon

@@ -9,7 +9,7 @@ import type { Game } from "../../client";
 import { REGLAGE } from "../../lib/mots";
 import { SWITCH_PRO, XBOX_360, physicalMap } from "../../lib/padmap";
 import { labels as switchLabels, physical, keyName, xboxLabels } from "../../lib/switch-labels";
-import { paintPro } from "../../lib/wiring";
+import { paintPro, restsOf } from "../../lib/wiring";
 import { secouer } from "../../retro/secousse";
 import { sonMenu } from "../../retro/sons";
 import { identify } from "../../media/families";
@@ -356,7 +356,7 @@ export function ManettePro({
             REGLAGE.nonTransmis(trame.xbox),
           )}
           {pad && source.raw ? (
-            <details className="n3-nombres">
+            <details className="n3-nombres" open={!identite?.standard}>
               <summary className="rt-titre">{REGLAGE.nombres}</summary>
               <Bench
                 name={identite?.name ?? pad.id}
@@ -365,6 +365,8 @@ export function ManettePro({
                 layout={pad.mapping || "inconnue"}
                 buttons={source.raw.buttons.length}
                 axes={source.raw.axes.length}
+                lire={() => source.pad}
+                repos={restsOf(source.device(), source.lecon?.repos ?? null).buttons}
                 className="pt-4"
               />
             </details>

@@ -530,6 +530,9 @@ export const REGLAGE = {
   attendManette: "Appuie sur un bouton de ta manette",
   attendTouche: "Appuie sur une touche",
   nombres: "Les nombres de ta manette",
+  /** Le mot sous le trait de repos d’une jauge du banc. */
+  reposDuBanc: (valeur: number) => `repos ${valeur.toFixed(2).replace(".", ",")}`,
+  horodatage: "L'horodatage avance tant que la manette parle. Figé, elle ne dit plus rien.",
   lecture: "Ce que le jeu reçoit, vu comme",
   taPlace: "ta place",
   apercu: (appareil: string) =>

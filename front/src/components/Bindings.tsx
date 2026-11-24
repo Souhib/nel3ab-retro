@@ -475,6 +475,7 @@ export function Bindings({
                         layout={state.padLayout ?? "inconnue"}
                         buttons={physical.buttons}
                         axes={physical.axes}
+                        lire={() => navigator.getGamepads?.()[physical.index] ?? null}
                         className="pt-4"
                       />
                     </details>
@@ -576,6 +577,7 @@ export function Bindings({
                         layout={state.padLayout ?? "inconnue"}
                         buttons={physical.buttons}
                         axes={physical.axes}
+                        lire={() => navigator.getGamepads?.()[physical.index] ?? null}
                         className="pt-4"
                       />
                     </details>

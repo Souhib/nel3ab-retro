@@ -15,6 +15,7 @@
  * n'est pas une erreur, c'est une pédale, un curseur ou un adaptateur, et
  * l'arrondir en bas ferait disparaître un axe sans rien dire.
  */
+import { fantome } from "../retro/chiffres";
 
 /** Deux axes montrés ensemble dans un cadran. */
 export type Scope = { name: string; along: number; down: number };
@@ -60,22 +61,34 @@ export type Live = {
  *
  * Rien ne rend React: vingt nombres à soixante hertz feraient soixante rendus
  * par seconde d'un écran qui n'en demande aucun (règle 8).
+ *
+ * `repos` donne, par indice, le repos appris d'un bouton (`restsOf` de
+ * `lib/wiring.ts`). Sa jauge part alors de ce repos et s'étend sur la course
+ * qui reste, comme `heldOn` et la boucle d'entrée la lisent: une gâchette
+ * d'adaptateur posée à 0,62 montre une jauge vide au repos, pleine au fond.
  */
-export function paintBench(root: ParentNode, live: Live): void {
-  const write = (mark: string, value: number, digits: number) => {
+export function paintBench(
+  root: ParentNode,
+  live: Live,
+  repos: ReadonlyMap<number, number> = new Map(),
+): void {
+  const write = (mark: string, value: number, digits: number, fill: number) => {
     const box = root.querySelector(`[data-gauge="${mark}"]`);
     if (!box) return;
     const shown = box.querySelector(".n3-value");
     if (shown) shown.textContent = value.toFixed(digits);
     const part = box.querySelector<HTMLElement>(".n3-fill");
-    // La jauge montre une COURSE, donc une distance au repos: un axe à -0,9 est
-    // aussi loin de zéro qu'un axe à 0,9, et le signe se lit sur le chiffre.
-    // Sans la valeur absolue, la moitié des axes auraient une jauge vide.
-    if (part) part.style.height = `${Math.min(100, Math.abs(value) * 100).toFixed(1)}%`;
+    if (part) part.style.height = `${Math.min(100, Math.max(0, fill) * 100).toFixed(1)}%`;
   };
 
-  live.buttons.forEach((button, at) => write(`b${at}`, button.value, 2));
-  live.axes.forEach((value, at) => write(`a${at}`, value, 5));
+  live.buttons.forEach((button, at) => {
+    const rest = repos.get(at) ?? 0;
+    write(`b${at}`, button.value, 2, rest < 1 ? (button.value - rest) / (1 - rest) : 0);
+  });
+  // La jauge d'un axe montre une COURSE, donc une distance au repos: un axe à
+  // -0,9 est aussi loin de zéro qu'un axe à 0,9, et le signe se lit sur le
+  // chiffre. Sans la valeur absolue, la moitié des axes auraient une jauge vide.
+  live.axes.forEach((value, at) => write(`a${at}`, value, 5, Math.abs(value)));
 
   for (let at = 0; at + 1 < live.axes.length; at += 2) {
     const scope = root.querySelector(`[data-scope="a${at}"]`);
@@ -92,8 +105,14 @@ export function paintBench(root: ParentNode, live: Live): void {
     dot?.setAttribute("cy", y);
   }
 
-  const stamp =
-    root.querySelector('[data-gauge="stamp"] .n3-value') ??
-    root.querySelector('[data-gauge="stamp"]');
-  if (stamp) stamp.textContent = live.timestamp.toFixed(0);
+  // L'horodatage est un afficheur (`retro/chiffres.ts`) : sa valeur s'écrit
+  // sans rouler, puisqu'elle change à chaque image, et son fantôme suit sa
+  // longueur.
+  const stamp = root.querySelector('[data-gauge="stamp"] .n3-value');
+  if (stamp) {
+    const text = live.timestamp.toFixed(0);
+    stamp.textContent = text;
+    const ghost = stamp.previousElementSibling;
+    if (ghost && ghost.textContent?.length !== text.length) ghost.textContent = fantome(text);
+  }
 }

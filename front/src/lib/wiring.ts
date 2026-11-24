@@ -31,7 +31,6 @@ import {
 } from "../media/pad";
 import type { Snapshot } from "../media/lesson";
 import { SWITCH_BUTTONS, type SwitchReading } from "../media/switch";
-import { paintBench } from "./bench";
 
 /** Une manette réduite à ce qu'on lit d'elle. Un objet plutôt que `Gamepad`,
  * pour que ça s'écrive dans un essai sans navigateur. */
@@ -99,7 +98,7 @@ export function heldOn(
  * erreur — et la première gagne, parce qu'un repos est une propriété du matériel
  * et non de la commande.
  */
-function restsOf(
+export function restsOf(
   profile: Reglage | null,
   neutre: Snapshot | null = null,
 ): {
@@ -181,7 +180,6 @@ export function paintWiring(
     a0: downward(axes[0] ?? 0, axes[1] ?? 0),
     a2: downward(axes[2] ?? 0, axes[3] ?? 0),
   });
-  if (live) paintBench(root, live);
 }
 
 /** Le dessin de sortie commun au clavier et à la manette physique.

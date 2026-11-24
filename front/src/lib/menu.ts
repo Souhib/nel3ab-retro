@@ -45,6 +45,9 @@ export type FicheDeLigne = {
   /** Pourquoi cette page ne peut pas agir (B8) : la fiche se lit, ses choix
    * sont grisés et le bouton qui agit n'est pas rendu. */
   refus?: string;
+  /** Les choix ne sont pas encore sûrs (les sauvegardes se lisent) : ils
+   * sont grisés, et le bouton qui agit aussi. */
+  occupe?: boolean;
   /** Le geste, avec le choix coché quand il y en a. */
   onAgir: (choix: string | null) => void;
 };

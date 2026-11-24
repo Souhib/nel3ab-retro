@@ -89,4 +89,26 @@ describe("Fiche", () => {
     );
     expect(new Set(noms)).toEqual(new Set(["fiche-choix", "ficheJeu-choix"]));
   });
+
+  it("occupée : choix et « Lancer » grisés tant que les sauvegardes se lisent", () => {
+    render(
+      <Fiche
+        titre="Tennis Lunaire"
+        fiche={fiche({ occupe: true })}
+        coche="neuve"
+        onCocher={() => {}}
+        onRevenir={() => {}}
+      />,
+    );
+    expect((document.getElementById("ficheAgir") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.getElementById("ficheChoix") as HTMLFieldSetElement).disabled).toBe(true);
+  });
+
+  it("le jumeau : une fiche prête laisse agir et choisir", () => {
+    render(
+      <Fiche titre="T" fiche={fiche()} coche="neuve" onCocher={() => {}} onRevenir={() => {}} />,
+    );
+    expect((document.getElementById("ficheAgir") as HTMLButtonElement).disabled).toBe(false);
+    expect((document.getElementById("ficheChoix") as HTMLFieldSetElement).disabled).toBe(false);
+  });
 });

@@ -872,9 +872,6 @@ export const FICHE = {
   lancer: "Lancer",
   /** Le nom de la liste des sauvegardes d'une fiche. */
   sauvegarde: "Sauvegarde",
-  /** Ce que lancer un jeu fait, dit dans sa fiche. */
-  demarre: "Le jeu démarre pour toute la salle.",
-  arrete: "Ça arrête la partie de tout le monde.",
   /** Le résumé de la connexion mène au détail. */
   detail: "Voir le détail",
 } as const;

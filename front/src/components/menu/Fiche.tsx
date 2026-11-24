@@ -38,7 +38,7 @@ export function Fiche({
         <fieldset
           id={`${base}Choix`}
           className="n3-menu-fiche-choix"
-          disabled={fiche.refus !== undefined}
+          disabled={fiche.refus !== undefined || fiche.occupe === true}
         >
           <legend className="n3-menu-titre">{FICHE.sauvegarde}</legend>
           {fiche.choix.map((c) => (
@@ -61,9 +61,11 @@ export function Fiche({
         </fieldset>
       ) : null}
       <div className="n3-menu-fiche-barre" data-lancer={fiche.refus === undefined ? "" : undefined}>
-        <p className="n3-menu-fiche-consequence">
-          <strong>{fiche.refus ?? fiche.consequence}</strong>
-        </p>
+        {fiche.refus || fiche.consequence ? (
+          <p className="n3-menu-fiche-consequence">
+            <strong>{fiche.refus ?? fiche.consequence}</strong>
+          </p>
+        ) : null}
         <div className="n3-menu-fiche-boutons">
           {/* Qui ne choisit pas lit la fiche, sans bouton qui agit (B8) : un
               bouton grisé se lit comme une panne. */}
@@ -72,6 +74,7 @@ export function Fiche({
               type="button"
               id={`${base}Agir`}
               className="rt-boite rt-bouton rt-bouton-plein n3-menu-fiche-agir"
+              disabled={fiche.occupe === true}
               onClick={() => {
                 sonMenu("valider");
                 fiche.onAgir(fiche.choix ? coche : null);

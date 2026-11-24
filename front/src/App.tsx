@@ -13,9 +13,10 @@ import { typingIn } from "./lib/typing";
 import { base, salle, under } from "./lib/base";
 import { Crown } from "./components/Crown";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { closeSalle, type Room as RoomState } from "./client";
+import { closeSalle, type Game, type Room as RoomState } from "./client";
 import { SetupProfiles } from "./components/SetupProfiles";
 import { GameCard } from "./components/GameCard";
+import { Rayonnage } from "./components/Rayonnage";
 import { setupGameKey } from "./lib/setups";
 import { Preparation } from "./components/Preparation";
 import { useSetupChoice } from "./lib/useSetupChoice";
@@ -60,7 +61,8 @@ import { Signaler } from "./components/Signaler";
 import { rangsDeLaColonne } from "./lib/colonne";
 import { ColumnHandle } from "./components/ColumnHandle";
 import { Menu } from "./components/menu/Menu";
-import { placeDuMenu, type Ligne, type Rubrique } from "./lib/menu";
+import { consequence, suiteDuLancement } from "./lib/bibliotheque";
+import { placeDuMenu, type FicheDeLigne, type Ligne, type Rubrique } from "./lib/menu";
 import type { MenuAction } from "./media/menupad";
 import { ScreenIcon, WaveIcon } from "./components/XmbIcons";
 import { Screen } from "./components/Screen";
@@ -206,6 +208,7 @@ import {
   SORTIES,
   TACTILE,
   MENU,
+  BIBLIO,
   FICHE,
   TOUCHES,
   ZONE,
@@ -706,10 +709,15 @@ function Room({
     if (!menu && asked === null) return;
     setFeuille(null);
   }, [menu, asked]);
-  const checkingIdentity = useMenuIdentity(menu);
+  /* Les sauvegardes débloquées et l'identité se lisent quand une fiche de
+     jeu peut s'ouvrir : le menu, ou le rayonnage d'une salle sans jeu. Lues
+     menu ouvert seulement, toutes les fiches du rayonnage restaient grisées
+     (B6a, 24 novembre 2026). */
+  const bibliotheque = menu || idle;
+  const checkingIdentity = useMenuIdentity(bibliotheque);
   const [unlockedSaves, setUnlockedSaves] = useState<readonly boolean[] | null>(null);
   useEffect(() => {
-    if (!menu) {
+    if (!bibliotheque) {
       setUnlockedSaves(null);
       return;
     }
@@ -724,7 +732,7 @@ function Room({
     return () => {
       current = false;
     };
-  }, [menu]);
+  }, [bibliotheque]);
   /** Le jeu ARMÉ, pour ceux qui n'ont pas de choix de sauvegarde.
    *
    * Un jeu de carte mémoire se confirme par son panneau de sauvegarde. Un jeu
@@ -1501,6 +1509,98 @@ function Room({
     else setBare(false);
     setMenu(false);
   };
+  /** Lancer un jeu, une fois la sauvegarde décidée quand il y en a une. Le
+   * menu et le rayonnage de l'écran éteint passent par ici. */
+  const lancerJeu = (game: Game, slot: Slot | null) => {
+    // La GameCube passe par la préparation elle aussi depuis le 12
+    // septembre 2026 : seul le salon certifie QUI lance. Un disque de
+    // console inconnue garde l'ancien chemin.
+    if (preparable(game.console)) {
+      setPreparationError("");
+      void tell
+        .prepare({
+          action: "begin",
+          // La clé désigne ce jeu même si la liste a changé ; la
+          // position reste pour un salon d'avant (ADR D23).
+          game: game.index,
+          key: game.key,
+          save: slot ?? 0,
+          // Seul à jouer, sur un jeu à un seul appareil, le salon
+          // lance tout de suite (audit P6).
+          direct: true,
+        })
+        .then(() => setMenu(false))
+        .catch((error: unknown) =>
+          setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
+        );
+      return;
+    }
+    // La sauvegarde et la manette AVANT le jeu : le worker retient, et
+    // c'est le changement de jeu qui agit.
+    if (slot !== null) session?.input.chooseSave(slot);
+    session?.input.choosePad(storedPad());
+    // Par sa clé quand la salle la publie, sinon par sa position.
+    const sent = game.key
+      ? session?.input.chooseGameByKey(game.key)
+      : session?.input.chooseGame(game.index);
+    if (!sent || !session) return;
+    // La vidéo doit savoir qu'un redémarrage arrive, et les autres
+    // l'apprennent par le salon : le worker part avec ses sockets.
+    session.video.expectRestart();
+    setRanWith(slot);
+    tell.booting(game.index, slot ?? 0);
+    setBooting({
+      game: game.name,
+      save: slot === null ? "" : slotLabel(slot),
+      at: performance.now(),
+    });
+    setMenu(false);
+  };
+  /** La fiche d'un jeu, la même dans le menu et sur l'écran éteint (B4 à
+   * B8) : la sauvegarde, ce que « Lancer » arrête ou ce qui le suit, et,
+   * pour qui ne choisit pas, la phrase de qui choisit à la place du bouton. */
+  const ficheDuJeu = (game: Game): FicheDeLigne => {
+    // Le choix de sauvegarde n'existe que pour un disque dont on sait la
+    // console (ADR D22) : proposer un choix qui ne décide peut-être rien est
+    // pire que ne pas le proposer.
+    const saves = preparable(game.console);
+    const enCours = room?.game ?? null;
+    const assis = port !== null;
+    const arrete = consequence({ enCours, choisi: game, tenues, assis });
+    const suite = suiteDuLancement({
+      console: game.console,
+      allowed: game.guide?.allowed,
+      tenues,
+      assis,
+    });
+    return {
+      consequence: arrete ?? suite,
+      suite: arrete === null ? undefined : suite,
+      agir: enCours?.index === game.index ? BIBLIO.relancer : FICHE.lancer,
+      annuler: FICHE.revenir,
+      choix: saves ? launchPicks(login !== null, unlockedSaves?.[game.index] === true) : undefined,
+      contenu: <GameCard game={game} />,
+      refus: !mine
+        ? port !== null
+          ? BIBLIO.choisit(boss?.name ?? "Quelqu'un")
+          : (whyNotChoose ?? undefined)
+        : launchable(game.console)
+          ? undefined
+          : BIBLIO.pasJouable,
+      // Tant que /saves n'a pas répondu ou que l'identité se vérifie, les
+      // choix ne sont pas sûrs : rien ne part (B6a).
+      occupe: saves && (unlockedSaves === null || checkingIdentity),
+      // Un identifiant qu'on ne reconnaît pas ne lance RIEN, plutôt que de
+      // retomber sur « partie neuve » : c'est ce repli silencieux qui a fait
+      // démarrer tous les jeux Wii sur la mauvaise sauvegarde.
+      onAgir: (id) => {
+        if (!saves) return lancerJeu(game, null);
+        if (unlockedSaves === null || id === null) return;
+        const slot = slotFromPick(id, unlockedSaves[game.index] === true);
+        if (slot !== null) lancerJeu(game, slot);
+      },
+    };
+  };
   /* Les rubriques du menu unique (chantier menus, 24 novembre 2026).
    *
    * Construites ici plutôt que dans le composant : ce que le menu MONTRE
@@ -1522,54 +1622,6 @@ function Room({
           const saves = preparable(game.console);
           const running = game.index === room?.game?.index;
           /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
-          const launch = (slot: Slot | null) => {
-            // La GameCube passe par la préparation elle aussi depuis le 12
-            // septembre 2026 : seul le salon certifie QUI lance. Un disque de
-            // console inconnue garde l'ancien chemin.
-            if (preparable(game.console)) {
-              setPreparationError("");
-              void tell
-                .prepare({
-                  action: "begin",
-                  // La clé désigne ce jeu même si la liste a changé ; la
-                  // position reste pour un salon d'avant (ADR D23).
-                  game: game.index,
-                  key: game.key,
-                  save: slot ?? 0,
-                  // Seul à jouer, sur un jeu à un seul appareil, le salon
-                  // lance tout de suite (audit P6).
-                  direct: true,
-                })
-                .then(() => setMenu(false))
-                .catch((error: unknown) =>
-                  setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
-                );
-              return;
-            }
-            // La sauvegarde et la manette AVANT le jeu : le worker retient, et
-            // c'est le changement de jeu qui agit.
-            if (slot !== null) session?.input.chooseSave(slot);
-            session?.input.choosePad(storedPad());
-            // Par sa clé quand la salle la publie, sinon par sa position.
-            const sent = game.key
-              ? session?.input.chooseGameByKey(game.key)
-              : session?.input.chooseGame(game.index);
-            if (!sent || !session) return;
-            // La vidéo doit savoir qu'un redémarrage arrive, et les autres
-            // l'apprennent par le salon : le worker part avec ses sockets.
-            session.video.expectRestart();
-            setRanWith(slot);
-            tell.booting(game.index, slot ?? 0);
-            setBooting({
-              game: game.name,
-              save: slot === null ? "" : slotLabel(slot),
-              at: performance.now(),
-            });
-            setMenu(false);
-          };
-          const choix = saves
-            ? launchPicks(login !== null, unlockedSaves?.[game.index] === true)
-            : undefined;
           return {
             id: `game${game.index}`,
             label: game.name,
@@ -1600,25 +1652,10 @@ function Room({
               : () => {
                   if (armed !== game.index) return setArmed(game.index);
                   setArmed(null);
-                  launch(null);
+                  lancerJeu(game, null);
                 },
-            // Un identifiant qu'on ne reconnaît pas ne lance RIEN, plutôt que
-            // de retomber sur « partie neuve » : c'est ce repli silencieux qui
-            // a fait démarrer tous les jeux Wii sur la mauvaise sauvegarde.
-            fiche: choix
-              ? {
-                  consequence: idle ? FICHE.demarre : FICHE.arrete,
-                  agir: FICHE.lancer,
-                  annuler: FICHE.revenir,
-                  choix,
-                  contenu: <GameCard game={game} />,
-                  onAgir: (id) => {
-                    if (unlockedSaves === null || id === null) return;
-                    const slot = slotFromPick(id, unlockedSaves[game.index] === true);
-                    if (slot !== null) launch(slot);
-                  },
-                }
-              : undefined,
+            // La décision s'ouvre dans la fiche du jeu, la même qu'au repos.
+            fiche: saves ? ficheDuJeu(game) : undefined,
           };
         }),
       ),
@@ -3111,6 +3148,20 @@ function Room({
             <EcranEteint
               phrase={phraseDuRepos(role, whyNotChoose)}
               onChoisir={() => setMenu(true)}
+              // Les jeux debout sur l'écran éteint (B1, chantier menus) : le
+              // menu ne s'ouvre plus d'office, et une salle vide se choisit
+              // ici, à la souris, au clavier ou à la manette.
+              rayonnage={
+                room && room.library.length > 0 ? (
+                  <Rayonnage
+                    library={room.library}
+                    ficheDe={ficheDuJeu}
+                    dernier={room.dernier_jeu ?? null}
+                    focusEntree={phraseDuRepos(role, whyNotChoose) === null}
+                    onPad={(handler) => session?.input.setMenu(handler)}
+                  />
+                ) : undefined
+              }
             />
           ) : null}
 

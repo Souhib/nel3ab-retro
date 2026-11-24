@@ -10,7 +10,7 @@
 import { Bobine } from "./bobine/Bobine";
 import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
-import { base, salle, under } from "./lib/base";
+import { base, salle } from "./lib/base";
 import { Crown } from "./components/Crown";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { closeSalle, type Game, type Room as RoomState } from "./client";
@@ -26,7 +26,6 @@ import { Lobby } from "./components/Lobby";
 import { ControllerStatus, ManetteDansLaBande } from "./components/ControllerStatus";
 import { manetteAConfigurer } from "./lib/plug";
 import { dire } from "./lib/liaison-mots";
-import { entreeConnexion } from "./lib/rayons";
 import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
@@ -68,8 +67,11 @@ import { Etiquette } from "./components/Etiquette";
 import { rangsDeLaColonne } from "./lib/colonne";
 import { ColumnHandle } from "./components/ColumnHandle";
 import { Menu } from "./components/menu/Menu";
-import { consequence, suiteDuLancement } from "./lib/bibliotheque";
-import { placeDuMenu, type FicheDeLigne, type Ligne, type Rubrique } from "./lib/menu";
+import { useColonneDuMenu, useLectureDesSauvegardes } from "./components/menu/crochets";
+import { fermerLaSalle, fermerLeJeu } from "./components/menu/gestes";
+import { ficheDuJeu, lignesJeux, type EntreeJeux } from "./components/menu/RubriqueJeux";
+import { lignesReglages } from "./components/menu/RubriqueReglages";
+import { placeDuMenu, type FicheDeLigne, type Rubrique } from "./lib/menu";
 import type { MenuAction } from "./media/menupad";
 import { ScreenIcon, WaveIcon } from "./components/XmbIcons";
 import { Screen } from "./components/Screen";
@@ -98,7 +100,6 @@ import {
 } from "./lib/usePlaces";
 import { forgetName, rememberedName } from "./lib/name";
 import {
-  THEMES,
   applyTheme,
   rememberMode,
   rememberLobby,
@@ -114,7 +115,7 @@ import {
   storedTouch,
   oublierLaCoque,
 } from "./lib/theme";
-import { FITS, place, qualities, rememberFit, storedFit } from "./lib/fit";
+import { place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
 import {
   apresCtrl,
@@ -131,7 +132,7 @@ import { Bande } from "./components/Bande";
 import { BarreSalle, BoutonSalle } from "./components/BarreSalle";
 import { FeuilleSalle } from "./components/FeuilleSalle";
 import { ManetteSeule } from "./components/ManetteSeule";
-import { COLUMN, largeurPanneau, rememberColumn, storedColumn, widest } from "./lib/column";
+import { largeurPanneau, rememberColumn, storedColumn } from "./lib/column";
 import {
   enAttente,
   publishProfile,
@@ -147,14 +148,13 @@ import type { TramePro } from "./manettes/reglage/Pro";
 import type { Bande as BandeDuReglage } from "./manettes/reglage/Reglage";
 import { deviceLabel } from "./lib/faces";
 import { cn } from "./lib/cn";
-import { arrange, avecAvances, selonAppareil } from "./lib/settings";
-import { aideDeLaSalle, appareilDe, pour } from "./lib/appareil";
+import { aideDeLaSalle, appareilDe } from "./lib/appareil";
 import { clavierEnPause, useFocusJeu } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
 import { keyLabel, keyboardLayout } from "./media/describe";
 import { HoteDesSurcouches, Surcouche } from "./components/Surcouche";
 import { choisirTransition, transition } from "./retro/transitions";
-import { useMe, useMenuIdentity, useRelireIdentite, useRename } from "./lib/me";
+import { useMe, useRename } from "./lib/me";
 import {
   useLobby,
   useRoom,
@@ -175,30 +175,13 @@ import {
 } from "./lib/vitals";
 import type { Session, Snapshot } from "./media/session";
 import { clipAide, clipLabel, micAide } from "./lib/clip";
-import {
-  CONSOLES,
-  consoleName,
-  launchable,
-  moteurDe,
-  preparable,
-  usesProInput,
-} from "./lib/consoles";
-import {
-  launchPicks,
-  readUnlocked,
-  rememberPad,
-  slotFromPick,
-  slotLabel,
-  storedPad,
-  type Pad,
-  type Slot,
-} from "./lib/saves";
+import { CONSOLES, consoleName, moteurDe, preparable, usesProInput } from "./lib/consoles";
+import { rememberPad, slotLabel, storedPad, type Pad, type Slot } from "./lib/saves";
 import { useClip } from "./lib/useClip";
 import {
   CARTE,
   DEMANDE,
   PLACES,
-  EFFETS_RETRO,
   IMAGE,
   PLACE,
   SANS_REPONSE,
@@ -206,8 +189,6 @@ import {
   chefChoisit,
   prixImageLegere,
   MENU,
-  BIBLIO,
-  FICHE,
   TOUCHES,
   ZONE,
   AGRANDIE,
@@ -230,7 +211,7 @@ import {
   type Role as RoleDuCadre,
 } from "./lib/cadre";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
-import { abonner, changerNiveau, changerSons, estNiveau, instantane, NIVEAUX } from "./lib/effets";
+import { abonner, instantane } from "./lib/effets";
 import { consoleDesTouches, sauvegardeDuLancement, sauvegardeRelancee } from "./lib/lancement";
 import {
   entreeDeLAdresse,
@@ -704,47 +685,12 @@ function Room({
     if (!menu && asked === null) return;
     setFeuille(null);
   }, [menu, asked]);
-  /* Les sauvegardes débloquées et l'identité se lisent quand une fiche de
-     jeu peut s'ouvrir : le menu, ou le rayonnage d'une salle sans jeu. Lues
-     menu ouvert seulement, toutes les fiches du rayonnage restaient grisées
-     (B6a, 24 novembre 2026). */
-  const bibliotheque = menu || idle;
-  const checkingIdentity = useMenuIdentity(bibliotheque);
-  /* Et elles se RELISENT à chaque ouverture du menu et de chaque fiche du
-     rayonnage. Au repos, le rayonnage reste à l'écran : lues une fois à
-     l'arrivée, elles proposaient encore une sauvegarde débloquée dont le
-     contenu avait disparu, et une identité absente ne se redemandait
-     jamais (save-options.mjs, 24 novembre 2026). La clé dit quelle lecture
-     vaut : une réponse d'une autre clé ne compte pas, si bien qu'aucun
-     rendu ne montre un ancien choix comme sûr. */
-  const [relecture, setRelecture] = useState(0);
-  const relireIdentite = useRelireIdentite();
-  const relireLaBibliotheque = () => {
-    setRelecture((n) => n + 1);
-    relireIdentite();
-  };
-  const cleDesSauvegardes = bibliotheque ? `${menu ? "menu" : "repos"}:${relecture}` : null;
-  const [sauvegardesLues, setSauvegardesLues] = useState<{
-    cle: string;
-    debloquees: readonly boolean[];
-  } | null>(null);
-  useEffect(() => {
-    if (cleDesSauvegardes === null) return;
-    let current = true;
-    const lire = (debloquees: readonly boolean[]) => {
-      if (current) setSauvegardesLues({ cle: cleDesSauvegardes, debloquees });
-    };
-    void readUnlocked(under("/saves"))
-      .then(lire)
-      .catch(() => lire([]));
-    return () => {
-      current = false;
-    };
-  }, [cleDesSauvegardes]);
-  const unlockedSaves =
-    sauvegardesLues !== null && sauvegardesLues.cle === cleDesSauvegardes
-      ? sauvegardesLues.debloquees
-      : null;
+  /* Les sauvegardes débloquées et l'identité, lues quand une fiche de jeu
+     peut s'ouvrir, et relues à chaque ouverture (chantier menus). */
+  const { unlockedSaves, checkingIdentity, relireLaBibliotheque } = useLectureDesSauvegardes(
+    menu,
+    idle,
+  );
   /** Le jeu ARMÉ, pour ceux qui n'ont pas de choix de sauvegarde.
    *
    * Un jeu de carte mémoire se confirme par son panneau de sauvegarde. Un jeu
@@ -1533,7 +1479,6 @@ function Room({
     const games = (room?.library ?? []).filter((game) => (game.console ?? "?") === one.code);
     return games.length > 0 ? [{ ...one, games }] : [];
   });
-  const plusieursConsoles = shelves.length > 1;
   /** Les joueurs que fermer le jeu arrête, dit dans sa fiche (M10). */
   const tenues = occupied.filter(Boolean).length;
 
@@ -1600,48 +1545,21 @@ function Room({
   /** La fiche d'un jeu, la même dans le menu et sur l'écran éteint (B4 à
    * B8) : la sauvegarde, ce que « Lancer » arrête ou ce qui le suit, et,
    * pour qui ne choisit pas, la phrase de qui choisit à la place du bouton. */
-  const ficheDuJeu = (game: Game): FicheDeLigne => {
-    // Le choix de sauvegarde n'existe que pour un disque dont on sait la
-    // console (ADR D22) : proposer un choix qui ne décide peut-être rien est
-    // pire que ne pas le proposer.
-    const saves = preparable(game.console);
-    const enCours = room?.game ?? null;
-    const assis = port !== null;
-    const arrete = consequence({ enCours, choisi: game, tenues, assis });
-    const suite = suiteDuLancement({
-      console: game.console,
-      allowed: game.guide?.allowed,
-      tenues,
-      assis,
-    });
-    return {
-      consequence: arrete ?? suite,
-      suite: arrete === null ? undefined : suite,
-      agir: enCours?.index === game.index ? BIBLIO.relancer : FICHE.lancer,
-      annuler: FICHE.revenir,
-      choix: saves ? launchPicks(login !== null, unlockedSaves?.[game.index] === true) : undefined,
-      contenu: <GameCard game={game} />,
-      refus: !mine
-        ? port !== null
-          ? BIBLIO.choisit(boss?.name ?? "Quelqu'un")
-          : (whyNotChoose ?? undefined)
-        : launchable(game.console)
-          ? undefined
-          : BIBLIO.pasJouable,
-      // Tant que /saves n'a pas répondu ou que l'identité se vérifie, les
-      // choix ne sont pas sûrs : rien ne part (B6a).
-      occupe: saves && (unlockedSaves === null || checkingIdentity),
-      // Un identifiant qu'on ne reconnaît pas ne lance RIEN, plutôt que de
-      // retomber sur « partie neuve » : c'est ce repli silencieux qui a fait
-      // démarrer tous les jeux Wii sur la mauvaise sauvegarde.
-      onAgir: (id) => {
-        if (!saves) return lancerJeu(game, null);
-        if (unlockedSaves === null || id === null) return;
-        const slot = slotFromPick(id, unlockedSaves[game.index] === true);
-        if (slot !== null) lancerJeu(game, slot);
-      },
-    };
+  /** Ce que la rubrique Jeux et la fiche d'un jeu lisent de la salle
+   * (`components/menu/RubriqueJeux`, chantier menus). */
+  const entreeJeux: EntreeJeux = {
+    enCours: room?.game ?? null,
+    port,
+    tenues,
+    login,
+    unlockedSaves,
+    checkingIdentity,
+    mine,
+    chef: boss?.name ?? null,
+    whyNotChoose,
+    lancerJeu,
   };
+  const ficheDe = (game: Game): FicheDeLigne => ficheDuJeu(game, entreeJeux);
   /* Les rubriques du menu unique (chantier menus, 24 novembre 2026).
    *
    * Construites ici plutôt que dans le composant : ce que le menu MONTRE
@@ -1655,51 +1573,7 @@ function Room({
       // Le choix de la sauvegarde vit SUR le jeu, et se fait au lancement,
       // dans la fiche du jeu : un réglage posé loin de ce qu'il décide est un
       // réglage qu'on oublie d'avoir mis.
-      lignes: shelves.flatMap((shelf) =>
-        shelf.games.map<Ligne>((game) => {
-          // Le choix de sauvegarde n'existe que pour un disque dont on sait
-          // la console (ADR D22) : proposer un choix qui ne décide peut-être
-          // rien est pire que ne pas le proposer.
-          const saves = preparable(game.console);
-          const running = game.index === room?.game?.index;
-          /** Lancer, une fois la sauvegarde décidée quand il y en a une. */
-          return {
-            id: `game${game.index}`,
-            label: game.name,
-            group: plusieursConsoles ? shelf.label : undefined,
-            value: running ? "en cours" : armed === game.index ? "confirmer ?" : undefined,
-            hint: running
-              ? saves
-                ? pour(appareil, "le relancer sur une autre sauvegarde")
-                : "c'est ce qui tourne"
-              : !mine
-                ? (whyNotChoose ?? undefined)
-                : saves
-                  ? pour(appareil, "choisir la sauvegarde, puis lancer")
-                  : armed === game.index
-                    ? "encore une fois pour lancer, ailleurs pour annuler"
-                    : `${pour(appareil, "lancer, deux fois")} : console inconnue.`,
-            // Le jeu QUI TOURNE reste choisissable : le relancer change de
-            // sauvegarde ou de manette. Grisé pour qui ne décide pas du jeu,
-            // et pour une console décrite mais pas encore jouable.
-            disabled:
-              !mine ||
-              !launchable(game.console) ||
-              (saves && (unlockedSaves === null || checkingIdentity)),
-            // Sans sauvegarde à choisir, l'armement à deux pressions : ce
-            // qu'on confirme reste la fin de la partie de tout le monde.
-            onEnter: saves
-              ? undefined
-              : () => {
-                  if (armed !== game.index) return setArmed(game.index);
-                  setArmed(null);
-                  lancerJeu(game, null);
-                },
-            // La décision s'ouvre dans la fiche du jeu, la même qu'au repos.
-            fiche: saves ? ficheDuJeu(game) : undefined,
-          };
-        }),
-      ),
+      lignes: lignesJeux({ ...entreeJeux, shelves, appareil, armed, setArmed }),
     },
     {
       id: "manettes",
@@ -1776,30 +1650,23 @@ function Room({
           setMenu(false);
           onRecover(null);
         },
-        fermerJeu: (index) => {
-          void tell
-            .closeGame(index)
-            .then(() => setFermeture(index))
-            .catch((error: unknown) =>
-              setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
-            );
-        },
-        fermerSalle: () => {
-          void closeSalle({ path: { numero: salle() }, throwOnError: true })
-            .then(() => location.assign("/"))
-            .catch((error: unknown) =>
-              // Le client généré rejette avec le corps de la réponse,
-              // `{ detail }`, et non avec une `Error`.
-              setPreparationError(
-                typeof error === "object" &&
-                  error !== null &&
-                  "detail" in error &&
-                  typeof error.detail === "string"
-                  ? `La salle n'a pas fermé : ${error.detail}.`
-                  : "La salle n'a pas pu fermer. Réessaie.",
-              ),
-            );
-        },
+        // L'iris sur le menu, puis « Fermeture du jeu en cours… » ; la page
+        // de qui ferme la salle part après l'extinction (`components/menu/
+        // gestes`, K13).
+        fermerJeu: (index) =>
+          void fermerLeJeu({
+            fermer: () => tell.closeGame(index),
+            enCours: () => setFermeture(index),
+            surface: () => document.getElementById("menu"),
+            refus: setPreparationError,
+          }),
+        fermerSalle: () =>
+          void fermerLaSalle({
+            fermer: () => closeSalle({ path: { numero: salle() }, throwOnError: true }),
+            partir: () => location.assign("/"),
+            surface: () => document.getElementById("root") ?? document.body,
+            refus: setPreparationError,
+          }),
         ouvrirSalle: () => {
           setMenu(false);
           setFeuille("agrandie");
@@ -1820,197 +1687,42 @@ function Room({
       // Deux groupes, « Image et son » puis « Cet appareil », et les
       // réglages pointus repliés derrière « réglages avancés » (M7a,
       // `lib/settings`).
-      lignes: avecAvances(
-        arrange<Ligne>(
-          selonAppareil<Ligne>(
-            [
-              {
-                id: "sound",
-                label: "son",
-                value: shot?.sound.state === "running" ? "activé" : "éteint",
-                hint: "un navigateur ne fait pas de bruit avant qu'on le lui demande",
-                onEnter: () => void session?.sound.start(),
-              },
-              {
-                id: "half",
-                // Ce qu'on choisit est la qualité qu'on REÇOIT.
-                label: IMAGE.reglage,
-                value: shot?.video.half ? "légère" : "complète",
-                // Un seul prix, et seulement là où il a été mesuré
-                // (`prixImageLegere`, audit T11).
-                hint: half
-                  ? `${sizes.half || IMAGE.legere}, ${prixImage}.`
-                  : `${sizes.full || IMAGE.complete}. Légère si l'image saccade.`,
-                picks: [
-                  { id: "full", label: IMAGE.complete, hint: sizes.full || "toute l'image" },
-                  {
-                    id: "half",
-                    label: IMAGE.legere,
-                    hint: sizes.half ? `${sizes.half} · ${prixImage}` : prixImage,
-                  },
-                ],
-                picked: half ? "half" : "full",
-                onPick: (id) => {
-                  const wanted = id === "half";
-                  session?.video.setHalf(wanted);
-                  setHalf(wanted);
-                },
-              },
-              {
-                id: "fit",
-                label: "image à l'écran",
-                // La taille que le choix en cours donne : deux choix qui
-                // rendent la même image se voient comme tels. L'image reste
-                // visible à côté du menu, et se règle sous les yeux.
-                hint: (() => {
-                  const would = place(fit, picture, space);
-                  return would.width > 0
-                    ? `${Math.round(would.width)}×${Math.round(would.height)} · ne change pas ce que tu reçois`
-                    : "Ne change pas ce que tu reçois.";
-                })(),
-                picks: FITS.map((choice) => ({
-                  id: choice.id,
-                  label: choice.label,
-                  hint: choice.note,
-                })),
-                picked: fit,
-                onPick: (id) => {
-                  const found = FITS.find((choice) => choice.id === id);
-                  if (found) setFit(found.id);
-                },
-              },
-              {
-                id: "volume",
-                label: "volume",
-                // À zéro, le son n'est plus envoyé du tout
-                // (`SoundStream.setMuted`) : le dire.
-                hint: volume <= 0 ? "le son n'est plus envoyé" : "le son de cet appareil",
-                slide: {
-                  value: Math.round(volume * 100),
-                  min: 0,
-                  max: 100,
-                  step: 5,
-                  say: (at) => (at <= 0 ? "sourdine" : `${at} %`),
-                  onSet: (at) => setVolume(at / 100),
-                },
-              },
-              {
-                id: "theme",
-                label: "couleurs",
-                hint: "les couleurs de la salle, sur cet appareil",
-                picks: THEMES.map((choice) => ({
-                  id: choice.id,
-                  label: choice.label,
-                  hint: choice.note,
-                })),
-                picked: theme,
-                onPick: (id) => {
-                  const found = THEMES.find((choice) => choice.id === id);
-                  if (found) setTheme(found.id);
-                },
-              },
-              {
-                // Le réglage des effets rétro du socle (ADR D37), monté ici
-                // sous « Cet appareil » : ses mots sont ceux du salon.
-                id: "effets",
-                label: EFFETS_RETRO.reglage,
-                hint: EFFETS_RETRO.niveaux[effets.niveau].note,
-                picks: NIVEAUX.map((id) => ({
-                  id,
-                  label: EFFETS_RETRO.niveaux[id].label,
-                  hint: EFFETS_RETRO.niveaux[id].note,
-                })),
-                picked: effets.niveau,
-                onPick: (id) => {
-                  if (estNiveau(id)) changerNiveau(id);
-                },
-              },
-              {
-                // Coupés par défaut, et jamais pendant une partie
-                // (`retro/sons.ts`) : ce réglage ne fait que les permettre.
-                id: "sonsMenu",
-                label: EFFETS_RETRO.sons,
-                value: effets.sons ? "oui" : "non",
-                hint: EFFETS_RETRO.sonsNote,
-                bascule: effets.sons,
-                onEnter: () => changerSons(!effets.sons),
-              },
-              {
-                id: "deviceRate",
-                label: "son sans conversion",
-                value: deviceRate ? "oui" : "non",
-                hint: "Peut réduire un grésillement. Peut ajouter un peu de retard.",
-                bascule: deviceRate,
-                onEnter: () => setDeviceRate(!deviceRate),
-              },
-              {
-                id: "lipsync",
-                label: "image calée sur le son",
-                value: lipsync ? `+${Math.round(shot?.soundSyncMs ?? 0)} ms` : "non",
-                hint: lipsync
-                  ? "ajoute aussi du retard aux commandes"
-                  : "retarde l'image pour suivre le son, sur cet écran",
-                bascule: lipsync,
-                onEnter: () => setLipsync(!lipsync),
-              },
-              {
-                id: "bare",
-                label: "colonne de droite",
-                value: bare ? "repliée" : "visible",
-                hint: "rend toute la largeur à l'image (Ctrl)",
-                onEnter: () => setBare(!bare),
-              },
-              {
-                id: "columnWidth",
-                label: "largeur de la colonne",
-                hint: `ou tirer son bord gauche · double-clic : ${COLUMN.normal} px`,
-                // La glissière, parce que la poignée n'a pas de clavier : voir
-                // `ColumnHandle`. Relue à chaque rendu : une fenêtre étroite
-                // ne permet pas la même largeur qu'un grand écran.
-                slide: {
-                  value: column,
-                  min: COLUMN.min,
-                  max: widest(window.innerWidth),
-                  step: COLUMN.step,
-                  say: (at) => `${at} px`,
-                  onSet: (at) => {
-                    setColumn(at);
-                    rememberColumn(at);
-                  },
-                },
-              },
-              {
-                id: "fullscreen",
-                label: "plein écran",
-                value: fullscreen ? "oui" : "non",
-                hint: "toute la fenêtre pour la salle",
-                bascule: fullscreen,
-                onEnter: toggleFullscreen,
-              },
-              {
-                id: "advanced",
-                label: "réglages avancés",
-                value: avances ? "affichés" : "3 de plus",
-                hint: "son sans conversion, image calée sur le son, mesures techniques",
-                deplie: avances,
-                onEnter: () => setAvances(!avances),
-              },
-              entreeConnexion({
-                liaison,
-                images: shot?.video.painted ?? 0,
-                hz: shot?.video.refreshHz ?? 0,
-                port,
-                appareil,
-                compact: tenu,
-                fiche: tenu,
-                voirDetail,
-              }),
-            ],
-            { tiroir: tenu, pleinEcran: plein === "api" },
-          ),
-        ),
+      lignes: lignesReglages({
+        shot,
+        session,
+        half,
+        setHalf,
+        sizes,
+        prixImage,
+        fit,
+        setFit,
+        picture,
+        space,
+        volume,
+        setVolume,
+        theme,
+        setTheme,
+        effets,
+        deviceRate,
+        setDeviceRate,
+        lipsync,
+        setLipsync,
+        bare,
+        setBare,
+        column,
+        setColumn,
+        rememberColumn,
+        fullscreen,
+        toggleFullscreen,
         avances,
-      ),
+        setAvances,
+        liaison,
+        port,
+        appareil,
+        tenu,
+        voirDetail,
+        pleinEcranApi: plein === "api",
+      }),
     },
   ];
 
@@ -2677,19 +2389,9 @@ function Room({
       }
     />
   ) : null;
-  /* La colonne repliée par Ctrl se déplie quand le menu s'ouvre : c'est sa
-     place au bureau. Elle se replie à la fermeture, pour rendre l'image
-     agrandie qu'on avait demandée (focus.mjs, agrandir-ctrl). */
-  const replieeAvantMenu = useRef(false);
-  useEffect(() => {
-    if (menu && bare && placeMenu.lieu === "colonne") {
-      replieeAvantMenu.current = true;
-      setBare(false);
-    } else if (!menu && replieeAvantMenu.current) {
-      replieeAvantMenu.current = false;
-      setBare(true);
-    }
-  }, [menu, bare, placeMenu.lieu, setBare]);
+  /* La colonne repliée par Ctrl se déplie quand le menu s'y ouvre, et se
+     replie à sa fermeture (focus.mjs, agrandir-ctrl). */
+  useColonneDuMenu({ menu, bare, dansLaColonne: placeMenu.lieu === "colonne", setBare });
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (
     <Colonne
@@ -3169,7 +2871,7 @@ function Room({
                 room && room.library.length > 0 ? (
                   <Rayonnage
                     library={room.library}
-                    ficheDe={ficheDuJeu}
+                    ficheDe={ficheDe}
                     dernier={room.dernier_jeu ?? null}
                     focusEntree={phraseDuRepos(role, whyNotChoose) === null}
                     cote={modeSalle === "bureau"}

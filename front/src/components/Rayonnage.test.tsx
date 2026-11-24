@@ -61,11 +61,48 @@ describe("Rayonnage", () => {
     fireEvent.click(cartouche(3));
     expect(cartouche(3).getAttribute("aria-expanded")).toBe("true");
     expect(container.querySelector<HTMLElement>(".n3-rayonnage-rangees")?.hidden).toBe(true);
+    expect(document.getElementById("rayonnage")?.dataset.fiche).toBe("place");
     expect(document.getElementById("ficheJeuTitre")?.textContent).toBe("F-Zero GX");
     expect(document.activeElement).toBe(document.getElementById("ficheJeu-neuve"));
     fireEvent.click(document.getElementById("ficheJeu-commune")!);
     fireEvent.click(document.getElementById("ficheJeuAgir")!);
     expect(onAgir).toHaveBeenCalledWith(3, "commune");
+  });
+
+  it("au bureau, la fiche s'ouvre à côté : les rangées restent et se parcourent, une autre cartouche la remplace", () => {
+    const { container } = render(<Rayonnage library={BANC} ficheDe={ficheDe()} focusEntree cote />);
+    fireEvent.click(cartouche(3));
+    const rayonnage = document.getElementById("rayonnage")!;
+    expect(rayonnage.dataset.fiche).toBe("cote");
+    expect(container.querySelector<HTMLElement>(".n3-rayonnage-rangees")?.hidden).toBe(false);
+    expect(document.activeElement).toBe(document.getElementById("ficheJeu-neuve"));
+    fireEvent.keyDown(cartouche(0), { key: "ArrowRight" });
+    expect(document.activeElement).toBe(cartouche(3));
+    fireEvent.click(cartouche(2));
+    expect(document.getElementById("ficheJeuTitre")?.textContent).toBe("Mario Kart Wii");
+    expect(cartouche(3).getAttribute("aria-expanded")).toBe("false");
+    // Le jumeau : sans « cote », la fiche prend la place des rangées.
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(rayonnage.dataset.fiche).toBeUndefined();
+  });
+
+  it("à côté, la manette parcourt aussi les rangées fiche ouverte", () => {
+    let pad: ((action: MenuAction) => void) | null = null;
+    render(
+      <Rayonnage
+        library={BANC}
+        ficheDe={ficheDe()}
+        focusEntree
+        cote
+        onPad={(h) => {
+          pad = h;
+        }}
+      />,
+    );
+    fireEvent.click(cartouche(0));
+    act(() => cartouche(0).focus());
+    act(() => pad?.("right"));
+    expect(document.activeElement).toBe(cartouche(3));
   });
 
   it("Échap ferme la fiche, rend le focus à la cartouche et ne remonte pas jusqu'à la page", () => {

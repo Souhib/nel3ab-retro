@@ -3172,6 +3172,7 @@ function Room({
                     ficheDe={ficheDuJeu}
                     dernier={room.dernier_jeu ?? null}
                     focusEntree={phraseDuRepos(role, whyNotChoose) === null}
+                    cote={modeSalle === "bureau"}
                     onOuvrir={relireLaBibliotheque}
                     onPad={(handler) => session?.input.setMenu(handler)}
                   />

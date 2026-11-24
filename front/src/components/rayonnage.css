@@ -1,6 +1,6 @@
 /* Le rayonnage de l'écran éteint (chantier menus, B1 à B11) : une rangée
-   par console, des cartouches debout, la fiche d'un jeu à la place des
-   rangées. Sur l'écran noir dans les deux thèmes : l'encre de l'écran, et
+   par console, des cartouches debout, la fiche d'un jeu à côté des
+   rangées au bureau, à leur place ailleurs. Sur l'écran noir dans les deux thèmes : l'encre de l'écran, et
    les jetons de regie.css seulement. */
 .n3-ecran-eteint:has(.n3-rayonnage) {
   justify-content: flex-start;
@@ -19,6 +19,25 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+/* Au bureau, la fiche à côté des rangées (B1) : les rangées gardent ce qui
+   reste, la fiche une largeur fixe, collée en haut de la zone qui défile
+   pour rester en vue pendant qu'on parcourt les rangées. */
+.n3-rayonnage[data-fiche="cote"] {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+.n3-rayonnage[data-fiche="cote"] .n3-rayonnage-rangees {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.n3-rayonnage[data-fiche="cote"] > .n3-menu-fiche {
+  position: sticky;
+  top: 0;
+  flex: 0 0 22rem;
+  max-height: 100%;
+  overflow-y: auto;
 }
 .n3-rangee-titre {
   font-family: var(--police-pixel);

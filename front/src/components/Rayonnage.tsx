@@ -3,8 +3,9 @@
  * 24 novembre 2026, B1 à B12).
  *
  * Une rangée par console, chaque jeu une cartouche dont l'étiquette est sa
- * jaquette. Une cartouche ouvre la fiche du jeu à la place des rangées :
- * la sauvegarde, « Lancer », ce qui suit. Le menu ne s'ouvre plus d'office
+ * jaquette. Une cartouche ouvre la fiche du jeu : la sauvegarde, « Lancer »,
+ * ce qui suit. Au bureau elle se pose à côté des rangées, qui se
+ * parcourent encore ; au téléphone et en paysage, elle prend leur place. Le menu ne s'ouvre plus d'office
  * au repos : sans ce rayonnage, choisir un jeu dans une salle vide passait
  * par un menu plein écran qui cachait la salle.
  *
@@ -59,6 +60,7 @@ export function Rayonnage({
   ficheDe,
   dernier = null,
   focusEntree,
+  cote = false,
   onOuvrir,
   onPad,
   maintenant = MAINTENANT,
@@ -70,6 +72,9 @@ export function Rayonnage({
   dernier?: DernierJeu | null;
   /** Prendre le focus à l'arrivée, si rien d'autre ne l'a. */
   focusEntree: boolean;
+  /** Au bureau, la fiche s'ouvre à côté des rangées, qui restent visibles et
+   * se parcourent ; au téléphone et en paysage, elle prend leur place (B1). */
+  cote?: boolean;
   /** Une fiche s'ouvre : la salle relit les sauvegardes et l'identité. */
   onOuvrir?: () => void;
   /** Donne au rayonnage la manette, et la lui reprend. Absent pendant que
@@ -158,7 +163,7 @@ export function Rayonnage({
       return;
     }
     const geste = FLECHES[event.key as keyof typeof FLECHES];
-    if (geste === undefined || ouvert !== null) return;
+    if (geste === undefined || (ouvert !== null && !cote)) return;
     if (event.target instanceof HTMLElement && bouger(event.target, geste)) event.preventDefault();
   };
 
@@ -179,7 +184,7 @@ export function Rayonnage({
       }
       if (action === "confirm") return ici.click();
       const geste = DE_LA_MANETTE[action];
-      if (geste !== undefined && ouvert === null) bouger(ici, geste);
+      if (geste !== undefined && (ouvert === null || cote)) bouger(ici, geste);
     });
     return () => onPad(null);
   });
@@ -193,9 +198,10 @@ export function Rayonnage({
       ref={boite}
       aria-label={BIBLIO.nom}
       className="n3-rayonnage"
+      data-fiche={ouvert === null ? undefined : cote ? "cote" : "place"}
       onKeyDown={touche}
     >
-      <div className="n3-rayonnage-rangees" hidden={ouvert !== null}>
+      <div className="n3-rayonnage-rangees" hidden={ouvert !== null && !cote}>
         {rangees(library).map((rangee, r) => (
           <section key={rangee.code} className="n3-rangee" aria-labelledby={`rangee-${r}`}>
             <h3 id={`rangee-${r}`} className="n3-rangee-titre">

@@ -456,6 +456,26 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, le soir : la relecture de la suite de la salle.** Sur
+la même branche, sans rien installer. Tenue en main, ta place se lit
+maintenant une fois : sur la rangée des START du panneau, sinon sur ton
+étiquette, que le cadre pose (`geo.etiquette`, `lib/cadre.ts`) dans la
+fente de la manette tenue droite, sous « La salle » en travers, ou en
+tête de la bande quand le panneau n'a que ses lampes (moins de 224 px,
+`PANNEAU_RANGEE`). La relecture n'en voyait aucune à 568 × 320, 667 × 375
+et 740 × 360 en GameCube, et à 932 × 430 en Xbox 360. Aucune taille
+d'image ne change. Tenu droit, la phrase d'aide des places ne se dit plus
+qu'au lecteur d'écran : sa règle visait la phrase de l'ancien `Seats`, et
+« 2P » couvrait ton nom à 360 et 390 px. `cadre.mjs` gagne
+`etiquette-travers` ; son contrôle rouge, un huitième bloc. Restent :
+quelques fenêtres couchées sous 370 px de haut sans étiquette (2 179 cas
+sur 424 080 d'un balayage, aucune taille de téléphone essayée), « toi »
+peint sur ton nom dans ta place START (personnes), et la manette Pro à
+568 × 320, où le cadre ne laisse aucune image (défaut d'avant). Page :
+282 905 octets en brotli. `check` et les portes du navigateur sont verts ;
+`cadre-navigateur` reste rouge sur les étapes de la mascotte, comme avant.
+Récit : « 24 novembre, le soir : ta place qui ne se lisait pas ».
+
 **Au 24 novembre, l'après-midi : la suite de la salle, premier passage.**
 Sur `chantier/retro-salle-2` (worktree `~/nel3ab-chantiers/retro-salle-2`,
 parti d'`integration/retro` 87bc2b3), en même temps que états, salon et
@@ -464,7 +484,8 @@ jeu au bout du panneau, tiré de l'âge que le salon publie
 (`Room.partie.depuis_s`, changé en instant à la réception, rien quand le
 worker sert son menu) ; l'étiquette tapée dans le creux de la manette
 quand aucun panneau ne porte les places (`fente`, `lib/faces.ts`), et sous
-« La salle » en travers ; la vue des touches qui coche le stick et la
+« La salle » en travers (dans une seule des trois mises en page couchées :
+corrigé le soir même, paragraphe suivant) ; la vue des touches qui coche le stick et la
 trame Pro, avec les lectures mortes de l'ancienne règle retirées ; le ▶
 dans la feuille à mi-hauteur ; le panneau d'un bouton déplié qui défile
 au-dessus du pied collé, ce qui rend « Copier le lien » et

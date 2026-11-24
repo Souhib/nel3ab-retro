@@ -2075,9 +2075,10 @@ waited on other tracks is wired on `integration/retro`:
   gesture, 64 to 180 px wide, nearest the middle (`fente`, `lib/faces`).
   A centred slot was tried first and found nothing on a GameCube pad whose
   « La salle » gesture holds the middle. Across, the pad's box also spans
-  the picture, so the label takes the slot the frame already computed
-  under « La salle » (`geo.etiquetteManette`). With a panel, the label is
-  on the player's START and nowhere else.
+  the picture, so the label sits under « La salle ». With the row of
+  START buttons, the label is on the player's START and nowhere else.
+  (Corrected after the review below: the slot under « La salle » existed
+  only in one of the three landscape layouts.)
 - **Stick and Pro activity** (K34). The view reads `InputState.activite`
   (wired by the controllers track); the dead readers of `pressed` left in
   `lib/verification` and the tests that still proved the old rule are gone.
@@ -2089,6 +2090,31 @@ waited on other tracks is wired on `integration/retro`:
   « Copier le lien » after the merge of wave B1.
 - `cadre-navigateur` joins the local gate at the owner's request; its red
   control gains a port and a seventh block against 97a2318.
+
+**Amended 2026-11-24, after the review of « salle-suite ».** The frame,
+not the page, decides where the player's seat can be read when the panel
+does not carry the row of four START buttons (`geo.etiquette`,
+`lib/cadre.ts`): the pad's slot upright, under « La salle » across, or at
+the head of the band when the panel only shows its lamps. The review had
+found neither panel nor label at 568×320, 667×375 and 740×360 on a
+GameCube pad and at 932×430 on a Pro pad: the « tete » layout, which often
+wins, had no label slot, and a panel under 224 px turns the row into
+lamps where no seat is marked. `PANNEAU_RANGEE` (224 px) copies the 200 px
+container query of `places.css` plus the held panel's 12 px edges; a test
+reads both style sheets. The « tete » layout now takes the 28 px between
+« La salle » and the left cluster, at the slot's height (24 px), 6 px from
+both on the real pose. No picture size changes. Weighed: preferring
+« tete-etiquette » for a player (up to 9 % of picture height on a
+GameCube, at 780×360 and 812×375); writing the seat into « La salle »'s
+label (already cut to « La … » at 667×375); dropping « nu » when it had no
+band (a mutant showed a Pro pad at 640×360 falling to an 8 px wide
+picture). The exception left: a landscape window under 370 px high whose
+lamp-only panel has neither a band nor 28 px below the row, 2,179 of
+424,080 cases in a sweep from 480 to 1,400 px, none of the phone sizes
+tested; the frame does not shrink the picture for a label there. In the
+held row, the places' help sentence (`.n3-places-role`) is read only to
+screen readers: the rule that hid it still named `Seats`' sentence, and
+« 2P » covered the player's name at 360 and 390 px.
 
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23

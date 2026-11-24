@@ -54,6 +54,10 @@ const DEPART = {
   boRepond: null,
   /** L'image s'arrête : la salle n'envoie plus d'image, la socket reste. */
   fige: false,
+  /** Les jalons du worker tels que le salon les publie (`Room.partie`, ADR
+   * D43), ou `null` pour un salon qui ne les publie pas. `depuis_s` part tel
+   * quel à chaque envoi : le banc ne le fait pas vieillir. */
+  partie: null,
 };
 
 export async function demarrerParcours({ port, page, flux }) {
@@ -106,6 +110,7 @@ export async function demarrerParcours({ port, page, flux }) {
       ask_lasts: 10,
       media_url: "",
       preparation: state.preparation,
+      ...(state.partie ? { partie: state.partie } : {}),
     };
   };
 

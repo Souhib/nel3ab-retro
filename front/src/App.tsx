@@ -49,6 +49,7 @@ import {
 import { VueTouches, type Releve } from "./components/VueTouches";
 import { CoteBorne } from "./components/CoteBorne";
 import { Credit } from "./components/Credit";
+import { TempsDeJeu, useLancement } from "./components/TempsDeJeu";
 import { Fronton } from "./components/Fronton";
 import { identify } from "./media/families";
 import { verificationDolphin, verificationPro, type ManetteLue } from "./lib/verification";
@@ -810,6 +811,9 @@ function Room({
   bootingNow.current = booting;
   /** Un jeu tourne et a fini de démarrer: la partie, au sens de la page. */
   const enPartie = playing === true && booting === null;
+  /** L'instant de lancement du jeu en cours, d'après l'âge que le salon
+   * publie (`Room.partie.depuis_s`, ADR D43) : le temps de jeu du panneau. */
+  const lancement = useLancement(room?.partie, enPartie);
   /** L'emplacement sur lequel CETTE page a lancé le jeu en cours.
    *
    * Sert à une seule chose: relancer pour changer de manette ne doit pas
@@ -2626,13 +2630,14 @@ function Room({
   /** Le crédit de la borne : les places libres, compté comme les places. */
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   /** Le bout droit du panneau de commande : « Toutes les touches », qui ouvre
-   * le panneau des touches sur le clavier, puis le crédit. */
+   * le panneau des touches sur le clavier, puis le crédit et le temps de jeu. */
   const finDuPanneau = (
     <>
       {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
           « Touches et manettes » passe par la feuille. */}
       {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
       {credit}
+      <TempsDeJeu depuisS={lancement} />
     </>
   );
   const pastilleAgrandie =

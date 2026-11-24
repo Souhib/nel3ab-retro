@@ -137,8 +137,11 @@
   flex: 1;
   min-width: 0;
 }
+/* La rangée tenue en main garde ses 72 px aux quatre places : la phrase
+   d'aide, le crédit et le temps de jeu restent au bureau. */
 .n3-panneau-tenu .n3-panneau-places > div > p.text-faint,
-.n3-panneau-tenu #credit {
+.n3-panneau-tenu #credit,
+.n3-panneau-tenu #tempsDeJeu {
   display: none;
 }
 /* Les places START règlent elles-mêmes leur rangée, debout comprise

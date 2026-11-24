@@ -916,6 +916,51 @@ async function principal() {
       console.log(JSON.stringify({ note: `credit-compte: ${n} puis ${n - 1} en ${ms} ms après l'entrée de l'autre page` }));
     },
 
+    /** Le temps de jeu au bout du panneau, tiré de l'âge que le salon
+     * publie (`Room.partie.depuis_s`, ADR D43) : l'afficheur dit 00:12:3x,
+     * le texte caché dit « 12 min de jeu », et l'horloge bat. Les jumeaux :
+     * un salon sans jalons, puis un worker qui sert son menu, ne montrent
+     * aucun temps (un temps compté depuis l'arrivée de la page mentirait). */
+    async "temps-de-jeu"() {
+      const lire = (page) =>
+        page.evaluate(() => {
+          const el = document.querySelector("#tempsDeJeu");
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return {
+            valeur: el.querySelector(".rt-afficheur-valeur")?.textContent ?? "",
+            lisible: el.querySelector(".sr-only")?.textContent ?? "",
+            cache: el.querySelector(".rt-afficheur")?.closest("[aria-hidden='true']") !== null,
+            dansPanneau: Boolean(el.closest("#panneau")),
+            vu: r.width > 0 && r.height > 0,
+          };
+        });
+      for (const [nom, partie] of [
+        ["salon sans jalons", null],
+        ["worker au menu", { lance: false, image: false, depuis_s: 754 }],
+      ]) {
+        const page = await nouvelle({ width: 1440, height: 900 }, { salle: { partie } });
+        await entrer(page);
+        await sleep(1200);
+        if ((await lire(page)) !== null) throw new Defaut(`${nom}: un temps de jeu est affiché`);
+        await page.close();
+      }
+      const page = await nouvelle({ width: 1440, height: 900 }, { salle: { partie: { lance: true, image: true, depuis_s: 754 } } });
+      await entrer(page);
+      if (!(await jusqua(async () => (await lire(page)) !== null, 4000)))
+        throw new Defaut("aucun temps de jeu alors que le salon publie l'âge de la partie");
+      const lu = await lire(page);
+      if (!lu.dansPanneau || !lu.vu) throw new Defaut("le temps de jeu n'est pas visible dans le panneau de commande");
+      if (!/^00:1[23]:\d\d$/.test(lu.valeur)) throw new Defaut(`l'afficheur dit « ${lu.valeur} », pas 00:12:3x`);
+      if (!lu.cache) throw new Defaut("l'afficheur n'est pas caché au lecteur d'écran");
+      if (!/^1[23] min de jeu$/.test(lu.lisible)) throw new Defaut(`le texte lisible dit « ${lu.lisible} »`);
+      if (!(await jusqua(async () => (await lire(page))?.valeur !== lu.valeur, 2500)))
+        throw new Defaut(`l'horloge ne bat pas : « ${lu.valeur} » pendant 2,5 s`);
+      verdict(await garder(page, "1440×900 temps de jeu"));
+      await capture(page, "temps-de-jeu");
+      await page.close();
+    },
+
     /** L'effet « tramage » : la zone de jeu porte la trame, la toile a son
      * fond opaque, et rien de la trame ne se voit dans le rectangle de
      * l'image. */

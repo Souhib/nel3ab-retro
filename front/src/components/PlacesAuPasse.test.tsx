@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { EntreePlaces } from "../lib/places";
 import { PlacesAuPasse } from "./PlacesAuPasse";
 
@@ -57,13 +57,41 @@ describe("les places d'une salle fermée, au passé (plan des états)", () => {
     expect(document.querySelector("#placesToutes")).toBeNull();
   });
 
-  it("garde les ancres d'Aïn sur chaque place", () => {
+  /* Les mêmes ancres et les mêmes mots que les places d'une salle ouverte
+     (`Places.tsx`) : `start-N` sur le rond START, une seule par place
+     visible, et le numéro et le nom en `data-texte`. */
+  it("garde les ancres d'Aïn sur le rond START de chaque place, une seule fois", () => {
     render(<PlacesAuPasse forme="rangee" entree={entree()} />);
-    expect([1, 2, 3, 4].map((n) => port(n).dataset.ancre)).toEqual([
-      "start-1",
-      "start-2",
-      "start-3",
-      "start-4",
-    ]);
+    for (const n of [1, 2, 3, 4]) {
+      const ancres = document.querySelectorAll(`[data-ancre="start-${n}"]`);
+      expect(ancres).toHaveLength(1);
+      expect(ancres[0]).toBe(port(n).querySelector(".rt-bouton-start"));
+    }
+  });
+
+  it("en petit, la rangée cachée ne porte aucune ancre ; visible, elle les porte", () => {
+    const lignes = vi
+      .spyOn(Element.prototype, "getClientRects")
+      .mockImplementation(() => [] as unknown as DOMRectList);
+    const { unmount } = render(<PlacesAuPasse forme="petite" entree={entree()} />);
+    expect(document.querySelectorAll("[data-ancre]")).toHaveLength(0);
+    unmount();
+    lignes.mockImplementation(() => [new DOMRect(0, 0, 200, 44)] as unknown as DOMRectList);
+    render(<PlacesAuPasse forme="petite" entree={entree()} />);
+    expect(document.querySelectorAll("[data-ancre]")).toHaveLength(4);
+    lignes.mockRestore();
+  });
+
+  it("marque data-texte le numéro et le nom de chaque place, et eux seuls", () => {
+    render(<PlacesAuPasse forme="rangee" entree={entree()} />);
+    const mots = (n: number) =>
+      [...port(n).querySelectorAll("[data-texte]")].map(
+        (e) => e.querySelector(".rt-nom-plein")?.textContent ?? e.textContent,
+      );
+    expect(mots(1)).toEqual(["1P", "libre"]);
+    expect(mots(2)).toEqual(["2P", "Bilel"]);
+    // Le jumeau : ni le bouton entier, ni son rond.
+    expect(port(2).hasAttribute("data-texte")).toBe(false);
+    expect(port(2).querySelector(".rt-bouton-start")?.hasAttribute("data-texte")).toBe(false);
   });
 });

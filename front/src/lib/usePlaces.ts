@@ -24,8 +24,8 @@
  * animations sont des attributs posés une fois (`data-joue`, `data-part`)
  * et retirés par un minuteur ; aucune boucle d'image ici.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { pourTransition, type Scene } from "../mascotte";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { joueur as joueurDuPort, pourTransition, type Scene } from "../mascotte";
 import { sonMenu } from "../retro/sons";
 import { differences, type Occupation } from "./arrivees";
 import type { Hote } from "./cadre";
@@ -188,7 +188,18 @@ export function usePlaces(s: SuiviDesPlaces): {
     if (fait.vient.length > 0) sonMenu("piece");
     if (fait.scene !== null) {
       const hote = e.hote(fait.scene);
-      if (hote !== null) e.arbitre?.demander({ scene: fait.scene, par: "personnes", hote });
+      // Le joueur dont la scène parle : Aïn va à son START (`start-N`) et
+      // prend sa couleur. Sans lui, l'arbitre jouait la place 1 pour tout
+      // le monde (intégration B1, 24 novembre 2026). Un spectateur n'a pas
+      // de place : son contexte ne nomme personne.
+      const qui = fait.joueur === null ? undefined : joueurDuPort(fait.joueur);
+      if (hote !== null)
+        e.arbitre?.demander({
+          scene: fait.scene,
+          par: "personnes",
+          hote,
+          contexte: qui === undefined ? {} : { joueur: qui },
+        });
     }
     const poser = (
       ports: number[],
@@ -221,6 +232,37 @@ export function usePlaces(s: SuiviDesPlaces): {
 }
 
 const VIDE: ReadonlySet<number> = new Set();
+
+/**
+ * La rangée des places se voit-elle ? En petit, quand le panneau n'a pas la
+ * largeur de quatre places, une requête de conteneur (`places.css`) la cache
+ * et `#placesToutes` la remplace ; React ne le sait que par la page. Une
+ * place cachée ne porte pas l'ancre d'Aïn (`start-N`) : une seule ancre par
+ * place visible (intégration du 24 novembre 2026). Les autres formes ne
+ * cachent jamais la rangée.
+ *
+ * La boîte se lit à la pose, puis à chaque changement de taille : une rangée
+ * cachée dès le départ n'a pas de taille, et un `ResizeObserver` ne rappelle
+ * pas pour elle à sa première observation.
+ */
+export function useRangeeVisible(cachable: boolean): [RefObject<HTMLDivElement | null>, boolean] {
+  const rangee = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  useLayoutEffect(() => {
+    const el = rangee.current;
+    if (!cachable || el === null) {
+      setVisible(true);
+      return;
+    }
+    const lire = () => setVisible(el.getClientRects().length > 0);
+    lire();
+    if (typeof ResizeObserver === "undefined") return;
+    const suivi = new ResizeObserver(lire);
+    suivi.observe(el);
+    return () => suivi.disconnect();
+  }, [cachable]);
+  return [rangee, visible];
+}
 
 /** Les secondes qui restent, à 1 Hz, depuis la valeur du salon. `cle`
  * change avec la demande : une nouvelle demande repart de son temps. */

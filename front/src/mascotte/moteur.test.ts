@@ -262,7 +262,7 @@ describe("le décor lu dans la page", () => {
   it("le bouton qui porte sa maison reste un obstacle : Aïn n'en sort pas par-dessus ses mots", () => {
     document.body.innerHTML = `
       <div data-cadre data-sans-image="oui">
-        <button id="salle"><span data-hote="barre"><canvas id="tete"></canvas></span>La salle</button>
+        <button id="salle"><span data-hote="barre"><canvas data-ancre="logo" id="tete"></canvas></span>La salle</button>
         <button id="autre">Son</button>
       </div>`;
     rects.set(document.getElementById("salle") as Element, ancre(0, 0, 120, 44));
@@ -298,6 +298,54 @@ describe("le décor lu dans la page", () => {
         .map((z) => z.qui)
         .sort(),
     ).toEqual(["#autre", "#salle"]);
+  });
+
+  /* Les places START (chantier personnes) : l'ancre `start-N` est le rond
+     START, dans le bouton de la place, à côté du nom. Aïn se pose sur le
+     haut du rond ; le bouton qui le porte n'est pas un mur, mais ses mots
+     (`data-texte`) en sont un. Ancre posée sur le bouton entier, le nom
+     n'était protégé par rien, et l'étiquette de « depart » se posait sur
+     « 2P libre » (cadre-navigateur, intégration B1, 24 novembre 2026). */
+  it("le bouton d'une place qui porte l'ancre de son START n'est pas un mur ; ses mots en sont un", () => {
+    document.body.innerHTML = `
+      <div data-cadre data-sans-image="oui">
+        <button id="port2"><span data-ancre="start-2" id="rond"><span data-texte id="pastille">2P</span></span><span data-texte id="nom">libre</span></button>
+        <div data-hote="coin"><canvas data-ancre="logo" id="logo"></canvas></div>
+      </div>`;
+    rects.set(document.getElementById("port2") as Element, ancre(100, 273, 122, 44));
+    rects.set(document.getElementById("rond") as Element, ancre(100, 273, 44, 44));
+    rects.set(document.getElementById("pastille") as Element, ancre(112, 287, 20, 16));
+    rects.set(document.getElementById("nom") as Element, ancre(150, 273, 27, 20));
+    rects.set(document.getElementById("logo") as Element, ancre(0, 600, 228, 62));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const a = rects.get(this) ?? ancre(0, 0, 0, 0);
+        return {
+          left: a.x,
+          top: a.y,
+          width: a.w,
+          height: a.h,
+          right: a.droite,
+          bottom: a.bas,
+          x: a.x,
+          y: a.y,
+          toJSON: () => a,
+        } as DOMRect;
+      },
+    );
+    const d = lireDecor(
+      document.querySelector("[data-cadre]") as Element,
+      document.getElementById("logo") as Element,
+    );
+    // Aïn se pose au milieu du haut du rond, pas du bouton entier.
+    expect(d.ancre("start-2")?.cx).toBe(122);
+    expect(d.ancre("start-2")?.y).toBe(273);
+    const zones = d.zones();
+    expect(zones.filter((z) => z.nom === "controle")).toEqual([]);
+    const mots = zones.filter((z) => z.nom === "texte").map((z) => z.b);
+    expect(mots).toHaveLength(2);
+    // Le nom, au ras du haut du bouton, est un mur.
+    expect(mots.some((b) => touche(b, [150, 270, 160, 273]))).toBe(true);
   });
 
   it("le contenu d'un <details> fermé ne gêne pas ; ouvert, il gêne", () => {

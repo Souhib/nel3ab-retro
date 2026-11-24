@@ -4,7 +4,18 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { estAin, MARGE_PX, type Ancre, type Decor, type Zone } from "./moteur";
+import {
+  accessoire,
+  estAin,
+  MARGE_PX,
+  objetA,
+  type Ancre,
+  type Boite,
+  type Decor,
+  type PisteObjet,
+  type Plan,
+  type Zone,
+} from "./moteur";
 import { planifier, SCENES_AIN, type IdAin } from "./scenes-ain";
 
 const ancre = (x: number, y: number, w: number, h: number): Ancre => ({
@@ -213,6 +224,64 @@ describe("les replis", () => {
     );
     expect(r.plan?.depuisDehors).toBe(true);
     expect(r.plan?.garde.has("fiche")).toBe(true);
+  });
+});
+
+/** Les boîtes serrées d'un objet de la scène, toutes les 12 ms. */
+function boitesDe(P: Plan, qui: string): Boite[] {
+  const res: Boite[] = [];
+  for (const p of P.pistes) {
+    if (estAin(p) || p.qui !== qui) continue;
+    const o = p as PisteObjet;
+    const { serre } = accessoire(o.dessin);
+    for (let t = o.t0; t <= o.t1; t += 12) {
+      const xy = objetA(P, o, t);
+      if (!xy) continue;
+      const c = P.d.c;
+      res.push([
+        xy[0] + serre[0] * c,
+        xy[1] + serre[1] * c,
+        xy[0] + serre[2] * c,
+        xy[1] + serre[3] * c,
+      ]);
+    }
+  }
+  return res;
+}
+
+/* L'étiquette de « depart » : le START est le rond de la place, et son nom
+   est écrit au ras du haut du bouton (« 2P libre »). La version courte la
+   posait à cheval sur le haut du START, sur le nom : vu à 1280 × 720,
+   1440 × 900 et 390 × 844 dans le vrai cadre (cadre-navigateur, intégration
+   B1, 24 novembre 2026). */
+describe("depart : l'étiquette du joueur ne passe jamais sur sa place", () => {
+  for (const version of ["courte", "complete"] as const)
+    it(`version ${version} : elle se pose au-dessus du START, sans le chevaucher`, () => {
+      const d = salle();
+      const r = planifier("depart", version, d, { joueur: "2" });
+      expect(r.plan, r.refus.join(" ; ")).not.toBeNull();
+      expect(r.version).toBe(version);
+      const start = d.ancre("start-2") as Ancre;
+      const boites = boitesDe(r.plan as Plan, "etiquette");
+      expect(boites.length).toBeGreaterThan(10);
+      for (const b of boites) {
+        const dessus = b[3] <= start.y + 0.01;
+        const aCote = b[2] <= start.x || b[0] >= start.droite;
+        expect(dessus || aCote, `étiquette ${b.map(Math.round).join(",")}`).toBe(true);
+      }
+    });
+
+  it("jumeau : un mot posé juste au-dessus du START fait refuser la version courte", () => {
+    const d = salle();
+    const start = d.ancre("start-2") as Ancre;
+    const mot: Zone = {
+      nom: "texte",
+      b: [start.x - 6, start.y - 12, start.droite + 6, start.y - 2],
+    };
+    const avecMot: Decor = { ...d, zones: () => [...d.zones(), mot] };
+    const r = planifier("depart", "courte", avecMot, { joueur: "2" });
+    expect(r.version).not.toBe("courte");
+    expect(r.refus.join(" ; ")).toMatch(/l'objet etiquette toucherait les mots de l'événement/);
   });
 });
 

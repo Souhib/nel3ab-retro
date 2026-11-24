@@ -98,8 +98,8 @@ const bad = await page.evaluate(() => {
     const text = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
     if (!text) continue;
     // Les lettres des manettes sont posées sur leurs capuchons, pas sur la
-    // carte: `contraste.mjs` et `configuration-ui.mjs` les mesurent contre la
-    // forme peinte sous elles. Ici on ne mesure que le texte du banc.
+    // carte: `contraste.mjs` et la planche (`padmap-qc.mjs`) les mesurent
+    // contre la forme peinte sous elles. Ici on ne mesure que le texte du banc.
     if (el.closest("svg")) continue;
     const s = getComputedStyle(el);
     const size = Number.parseFloat(s.fontSize);

@@ -67,26 +67,15 @@ d'essai qui contourne l'écran ne prouve rien de l'écran.
 
 ## Touches et manettes
 
-`just browser-configuration` vérifie le configurateur isolé. Démarrer Vite sur
-le port 5202 dans `front/` avant de le lancer. Le pilote ouvre
-`/bindings-preview.html`, remplace seulement la manette physique, et exerce les
-vrais composants et la vraie boucle d'entrée. Aucune socket de jeu ni écriture
-vers le salon n'est ouverte. Les captures vont dans `/tmp/nel3ab-configuration`.
-
-Il vérifie une réassignation, les deux lectures du schéma, un axe du clavier,
-les profils nommés, l'apprentissage sur téléphone et son annulation. Les aperçus
-`?shell=wii` et `?shell=switch` vérifient aussi le défilement de quatorze réglages
-et leurs libellés, sans construire la boucle d'entrée. Il complète
-`bindings.mjs`, qui exige une salle et vérifie aussi la survie au rechargement.
-Le pilote isolé ne prouve ni le pilote USB ni la réception par Dolphin.
-
-`just browser-preparation` ouvre `bindings-preview.html?preparation=1` sur Vite
-(port 5202). Le pilote vérifie la sauvegarde, le chargement après relecture et
-la suppression d'un profil, deux états « prêt », puis le défilement sur téléphone.
-Le faux lancement ne construit aucune connexion de jeu. Les vrais échanges
-entre joueurs et le port de contrôle sont vérifiés dans les tests Socket.IO et
-Rust, sur des ports éphémères. Ces preuves ne remplacent pas une partie dans
-Dolphin avec plusieurs types de manette.
+Le panneau « Touches et manettes » se prouve sur un banc, sans rien de
+vivant : `just reglage-navigateur` (place, entrées, pas à pas, marques,
+nombres) et la partie `touches` de `just salle-telephone`, qui ouvre
+`/bindings-preview.html?reglage` au téléphone. La préparation se prouve dans
+`just parcours-navigateur` et sur `bindings-preview.html?preparation`.
+`configuration-ui.mjs` et `preparation-ui.mjs` mesuraient les anciens
+dialogues de cet aperçu ; ils sont retirés avec eux le 24 novembre 2026.
+`bindings.mjs` exige une salle et vérifie aussi la survie au rechargement.
+Aucune de ces preuves ne prouve le pilote USB ni la réception par Dolphin.
 
 `just preparation-test '/chemin/Mario Kart Wii.rvz'` lance `preparation-room.mjs`
 sur une salle complète temporaire. Il construit le binaire de développement,

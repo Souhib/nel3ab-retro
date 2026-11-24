@@ -1,9 +1,10 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { Preparation, usePreparationPro } from "./Preparation";
+import { Preparation } from "./Preparation";
 import { HAUTEUR_DU_COIN } from "./Colonne";
 import { InputStream } from "../media/input";
 import type { Preparation as Pending } from "../client";
+import type { Pad } from "../lib/saves";
 
 const pending: Pending = {
   id: "round-one",
@@ -301,85 +302,47 @@ it("un refus du salon s'écrit dans le bloc et se dit (P10)", async () => {
   expect(annoncer).toHaveBeenCalledWith("La préparation est terminée.");
 });
 
-/* La préparation d'une salle Pro (Switch, Xbox 360). Ces essais vivaient dans
-   `SwitchBindings.test.tsx` avec elle, et l'ont suivie quand elle est sortie
-   du panneau des touches de la trame Pro (23 novembre 2026). L'hôte ci-dessous
-   pose ses morceaux comme ce panneau les pose. */
-function HotePro(props: Parameters<typeof usePreparationPro>[0]) {
-  const { vue } = usePreparationPro(props);
-  if (!vue) return null;
-  return (
-    <>
-      <span>{vue.surtitre}</span>
-      <h2>{vue.titre}</h2>
-      {vue.annuler}
-      {vue.joueurs}
-      {vue.pied}
-    </>
-  );
-}
-
-/** La préparation Pro d'un jeu de `console`, vue par `qui` ; Alice lance. */
-function preparerPro(console: string, qui = "claim-2") {
-  const input = new InputStream((p) => p, vi.fn(), vi.fn());
+/* La préparation d'une salle Pro (Switch, Xbox 360) est le même bloc depuis
+   le 24 novembre 2026 : le crochet `usePreparationPro`, qui la posait dans
+   l'ancien panneau de la trame Pro, est parti avec lui. Ses essais T03 vivent
+   dans `Preparation.appareil.test.tsx` ; le lancement en un geste est ici,
+   sur le bloc, avec la manette Pro (appareil 4). */
+function rendrePro(console: "x360" | "switch", qui: string) {
+  const input = new InputStream((s) => s, vi.fn(), vi.fn());
   vi.spyOn(input, "attribution").mockReturnValue(qui);
   const send = vi.fn().mockResolvedValue(undefined);
-  const preparation = {
-    id: "launch-2",
-    starter: "claim-1",
-    save: 0,
-    allowed: [4],
-    players: [
-      { claim: "claim-1", port: 1, name: "Alice", ready: false, pad: null },
-      { claim: "claim-2", port: 2, name: "Benoit", ready: true, pad: 4 },
-    ],
-  } as Pending;
-  const game = {
-    index: 0,
-    name: "Un jeu",
-    console,
-    guide: {
-      allowed: [4],
-      source: "https://exemple.invalid/manuel",
-      note: "Le manuel.",
-      actions: {},
-    },
-  };
-  const view = render(
-    <HotePro
-      pending={preparation}
-      game={game}
+  render(
+    <Preparation
+      pending={{
+        ...pending,
+        allowed: [4],
+        players: [pending.players[0], { ...pending.players[1], ready: true, pad: 4 }],
+      }}
+      game={{ index: 1, name: "Un jeu", console }}
       input={input}
+      state={input.state()}
+      // Le type `Pad` s'arrête à 3 ; la salle passe le premier appareil
+      // permis tel quel (`useSetupChoice`), ici la manette Pro.
+      selected={4 as Pad}
+      onSelect={vi.fn()}
       send={send}
-      capture={false}
-      dire={vi.fn()}
     />,
   );
-  return { send, ...view };
+  return send;
 }
 
-it("une préparation Xbox 360 parle Xbox 360, pas Switch (audit T03)", () => {
-  const { container } = preparerPro("x360");
-  const texte = container.textContent ?? "";
-  expect(texte).toContain("Avant de jouer · Xbox 360");
-  expect(texte).toContain("manette Xbox 360 · prêt");
-  expect(texte).not.toMatch(/Switch|manette Pro|Nintendo/);
-});
-
-it("le jumeau: une préparation Switch garde la manette Pro", () => {
-  const { container } = preparerPro("switch");
-  const texte = container.textContent ?? "";
-  expect(texte).toContain("Avant de jouer · Switch");
-  expect(texte).toContain("manette Pro · prêt");
-});
-
-it("le chef d'une salle Pro lance en un geste (audit P6)", () => {
-  const { send } = preparerPro("x360", "claim-1");
-  expect(screen.queryByText("Je suis prêt")).toBeNull();
+it("le chef d'une salle Pro lance en un geste, avec la manette Pro (audit P6)", () => {
+  const send = rendrePro("x360", "alice");
+  expect(screen.queryByRole("button", { name: "Je suis prêt" })).toBeNull();
   const lancer = screen.getByRole("button", { name: "Lancer le jeu" });
   expect(lancer).toBeEnabled();
   fireEvent.click(lancer);
-  expect(send).toHaveBeenCalledWith({ id: "launch-2", action: "launch", pad: 4 });
+  expect(send).toHaveBeenCalledWith({ action: "launch", pad: 4, id: "round-one" });
+});
+
+it("le jumeau : dans une salle Pro, qui ne lance pas confirme et ne lance pas", () => {
+  rendrePro("switch", "benoit");
+  expect(screen.queryByRole("button", { name: "Lancer le jeu" })).toBeNull();
 });
 
 // La rangée de gestes colle au-dessus du coin d'Aïn et de « Plus bas » (P2,

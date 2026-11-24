@@ -40,8 +40,14 @@ describe("les classes de la feuille", () => {
     expect(mortes(".n3-a-b { }", `<p className="n3-a" />`)).toEqual(["n3-a-b"]);
   });
 
-  it("aucune classe d'index.css n'est morte", () => {
-    const css = fs.readFileSync(`${SRC}index.css`, "utf-8");
+  /* `index.css` ne déclare plus que 19 classes depuis le retrait des anciens
+     dialogues des touches (24 novembre 2026) : 38 classes y étaient mortes,
+     et ce garde les a toutes nommées. Les feuilles du panneau qui les
+     remplace sont lues avec elle. */
+  const FEUILLES = ["index.css", "components/padmap.css", "manettes/reglage/reglage.css"];
+
+  it("aucune classe d'index.css ni des feuilles des manettes n'est morte", () => {
+    const css = FEUILLES.map((f) => fs.readFileSync(`${SRC}${f}`, "utf-8")).join("\n");
     // La précondition: une lecture vide passerait sur rien.
     expect(declarees(css).length).toBeGreaterThan(50);
     expect(mortes(css, sources)).toEqual([]);

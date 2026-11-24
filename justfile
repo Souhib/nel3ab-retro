@@ -2018,14 +2018,11 @@ docs-deploy: docs
 docs-watch:
     zensical serve
 
-# Le configurateur réel dans Chromium, avec une manette simulée et sans salle.
-# Démarrer `npm run dev -- --host 127.0.0.1 --port 5202` dans front au préalable.
-browser-configuration:
-    cd spikes/m3-browser-drive && node configuration-ui.mjs
-
-# Préparation collective et profils personnels dans l'aperçu isolé, sans lancer de jeu.
-browser-preparation:
-    cd spikes/m3-browser-drive && node preparation-ui.mjs
+# `browser-configuration` et `browser-preparation` mesuraient les anciens
+# dialogues des touches dans l'aperçu ; ils sont partis avec eux le
+# 24 novembre 2026. Le panneau a sa preuve dans `reglage-navigateur` et
+# `salle-telephone`, la préparation dans `parcours-navigateur` et
+# `salle-telephone`.
 
 # Page, salon, worker et Dolphin dans une salle temporaire. Disque Mario Kart Wii
 # requis. Ports, conteneur et sauvegardes propres à l'essai ; le binaire de

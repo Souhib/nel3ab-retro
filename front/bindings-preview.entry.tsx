@@ -1,11 +1,14 @@
-/** Le vrai configurateur, sur une manette simulée et sans accès à la salle. */
+/** Le vrai panneau « Touches et manettes » et le bloc de la préparation, sur
+ * une manette simulée et sans accès à la salle.
+ *
+ * Cet aperçu montait aussi les anciens dialogues des touches (`Bindings`,
+ * `SwitchBindings`) : ils sont retirés le 24 novembre 2026, et l'adresse sans
+ * paramètre montre maintenant le panneau en trame Dolphin. */
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Preparation } from "./src/components/Preparation";
 import type { Preparation as Pending, Game } from "./src/client";
 import type { Pad } from "./src/lib/saves";
-import { Bindings } from "./src/components/Bindings";
-import { SwitchBindings } from "./src/components/SwitchBindings";
 import { InputStream } from "./src/media/input";
 import { Reglage } from "./src/manettes/reglage/Reglage";
 import type { Onglet } from "./src/manettes/entree";
@@ -24,69 +27,9 @@ const pad = {
 Object.defineProperty(navigator, "getGamepads", { value: () => [pad] });
 Object.assign(window, { previewPad: pad });
 
-function Preview() {
-  const [stream] = useState(() => new InputStream((path) => path, () => {}, () => refresh(), true));
-  const [state, setState] = useState(() => stream.state());
-  const preparing = false;
-  const wii = new URLSearchParams(location.search).get("console") === "wii";
-  const [selected, setSelected] = useState<Pad>(1);
-  const [pending, setPending] = useState<Pending>({ id: "preview", game: 0, save: 0, starter: "preview-one", allowed: [1, 0], players: [
-    { port: 1, claim: "preview-one", name: "Souhib", ready: false, pad: null },
-    { port: 2, claim: "preview-two", name: "Yassine", ready: false, pad: null },
-  ] });
-  const game: Game = { index: 0, name: "Mario Kart Wii", console: "wii", guide: { allowed: [1, 0], source: "https://csassets.nintendo.com/noaext/image/private/t_KA_PDF/Wii_Mario_Kart", note: "Commandes de course. Chacun peut choisir un appareil différent.", actions: { "0": { A: "Accélérer", L: "Utiliser un objet" }, "1": { A: "Accélérer", R: "Utiliser un objet (Z du Nunchuk)" } } } };
-  const [open, setOpen] = useState(true);
-  const refresh = () => setState(stream.state());
-  const act = (fn: () => void) => { fn(); refresh(); };
-  useEffect(() => {
-    stream.start();
-    if (preparing) { Object.assign(stream, { receipt: "preview-one" }); stream.blockGameplay(true); }
-    Object.assign(window, { previewReady: () => setPending(p => ({ ...p, players: p.players.map(one => one.port === 2 ? { ...one, ready: true, pad: 0 } : one) })) });
-    const interval = setInterval(refresh, 100);
-    return () => { clearInterval(interval); stream.stop(); };
-  }, [stream]);
-  return <><button type="button" onClick={() => setOpen(true)}>Ouvrir les touches et manettes</button>
-    {open ? <Bindings console={wii ? "wii" : "gc"} held={wii ? selected : 0} state={state}
-      readOnly={preparing && Boolean(pending.players[0].ready)}
-      actions={preparing ? game.guide?.actions[String(selected)] : undefined}
-      preparation={preparing ? <Preparation pending={pending} game={game} input={stream} state={state} selected={selected} onSelect={(kind) => { setSelected(kind); refresh(); }} send={async action => {
-        if (action.action === "choose") setPending(p => ({ ...p, players: p.players.map(one => one.port === 1 ? { ...one, ready: Boolean(action.ready), pad: Number(action.pad) } : one) }));
-        if (action.action === "launch") Object.assign(window, { previewLaunched: true, previewLaunch: action });
-        if (action.action === "cancel") setOpen(false);
-      }} /> : undefined}
-      onCapture={(key, source, sign) => act(() => stream.beginCapture(key, source, sign))}
-      onUse={(at) => act(() => stream.useP(at))} onCancel={() => act(() => stream.cancelCapture())}
-      onLearn={() => act(() => stream.beginLesson(preparing ? "wii" : "gc", preparing ? selected : 0))} onSkip={() => act(() => stream.skipLessonStep())}
-      onResetPad={() => act(() => stream.resetPad())} onResetKeys={() => act(() => stream.resetKeys())}
-      onPickKeys={(name) => act(() => stream.pickKeys(name))} onNewKeys={(name) => act(() => stream.newKeys(name))}
-      onForgetKeys={(name) => act(() => stream.forgetKeys(name))}
-      onClose={() => { stream.cancelCapture(); setOpen(false); }} /> : null}</>;
-}
-/** Le configurateur des salles Pro (Switch, Xbox 360), seul ou pendant une
- * préparation: `?pro=switch` ou `?pro=x360`, et `&preparation`. */
-function PreviewPro({ console: kind }: { console: "switch" | "x360" }) {
-  const [stream] = useState(() => new InputStream((path) => path, () => {}, () => {}, true));
-  const preparing = new URLSearchParams(location.search).has("preparation");
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    stream.start();
-    if (preparing) Object.assign(stream, { receipt: "preview-one" });
-    return () => stream.stop();
-  }, [stream, preparing]);
-  const game: Game = { index: 0, name: kind === "x360" ? "Sonic Generations" : "Mario Kart 8 Deluxe", console: kind };
-  const pending: Pending = { id: "preview", game: 0, save: 0, starter: "preview-one", allowed: [4], players: [
-    { port: 1, claim: "preview-one", name: "Souhib", ready: false, pad: null },
-    { port: 2, claim: "preview-two", name: "Yassine", ready: false, pad: null },
-  ] };
-  return open ? (
-    <SwitchBindings source={stream.switch} input={stream} pending={preparing ? pending : null} game={game}
-      send={async () => {}} close={() => setOpen(false)} />
-  ) : <button type="button" onClick={() => setOpen(true)}>Ouvrir</button>;
-}
 /** Le panneau « Touches et manettes » de la colonne, seul sur la page :
  * `?reglage`, en trame Pro avec `&pro=switch` ou `&pro=x360`, et l'onglet
- * avec `&onglet=clavier`. La préparation garde les dialogues ci-dessus tant
- * que le chantier des menus ne l'a pas sortie (`salle-telephone.mjs`). */
+ * avec `&onglet=clavier`. Sans paramètre aussi (`salle-telephone.mjs`). */
 function PreviewReglage({ pro }: { pro: "switch" | "x360" | null }) {
   const [stream] = useState(() => new InputStream((path) => path, () => {}, () => refresh(), true));
   const [state, setState] = useState(() => stream.state());
@@ -154,10 +97,6 @@ function PreviewPreparation({ pro }: { pro: "switch" | "x360" | null }) {
 const pro = new URLSearchParams(location.search).get("pro");
 const reglage = new URLSearchParams(location.search).has("reglage");
 const preparation = new URLSearchParams(location.search).has("preparation");
-createRoot(document.getElementById("root")!).render(reglage
-  ? <PreviewReglage pro={pro === "switch" || pro === "x360" ? pro : null} />
-  : preparation
+createRoot(document.getElementById("root")!).render(preparation && !reglage
   ? <PreviewPreparation pro={pro === "switch" || pro === "x360" ? pro : null} />
-  : pro === "switch" || pro === "x360"
-  ? <PreviewPro console={pro} />
-  : <Preview />);
+  : <PreviewReglage pro={pro === "switch" || pro === "x360" ? pro : null} />);

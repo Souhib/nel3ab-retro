@@ -22,7 +22,6 @@ import {
   sauvegardeRelancee,
   scenePret,
   titreDuBloc,
-  titrePreparation,
 } from "./lancement";
 
 const AMI = "a".repeat(32) + "-1";
@@ -48,18 +47,6 @@ function preparation(allowed: number[], prets: Record<string, boolean> = {}): Pr
     ],
   };
 }
-
-describe("l'en-tête", () => {
-  it("nomme la console du jeu préparé, pas la Wii", () => {
-    expect(titrePreparation("gc")).toBe("Avant de jouer · GameCube");
-    expect(titrePreparation("x360")).toBe("Avant de jouer · Xbox 360");
-    expect(titrePreparation("switch")).toBe("Avant de jouer · Switch");
-    // Le jumeau: la Wii reste la Wii.
-    expect(titrePreparation("wii")).toBe("Avant de jouer · Wii");
-    // Une console inconnue n'en invente pas une.
-    expect(titrePreparation(undefined)).toBe("Avant de jouer");
-  });
-});
 
 describe("la ligne d'un joueur prêt", () => {
   const pret = (pad: number) => ({ port: 1, claim: AMI, name: "Ami", pad, ready: true });

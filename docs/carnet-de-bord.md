@@ -31120,9 +31120,27 @@ mesures à l'octet. Aucun retrait n'était prévu dans ce passage :
 Bobine et les anciens menus partent avec le chantier menus et
 l'intégration.
 
+**Les portes.** `just check` est d'abord tombé sur `oxlint` : le nom
+`panneau`, dans l'observateur de la colonne, cachait celui de la portée
+au-dessus (`no-shadow`). Renommé, `check` est vert : 1 288 essais Python,
+2 066 essais de la page. Sur la page finale, `focus-navigateur`,
+`etats-navigateur`, `parcours-navigateur`, `salle-telephone`,
+`manette-garde` et `reglage-navigateur` sont verts. Les contrôles rouges
+`focus-navigateur-rouge`, `parcours-navigateur-rouge`,
+`etats-navigateur-rouge` et `cadre-navigateur-rouge` tombent sur leurs
+défauts nommés. `cadre-navigateur` passe ses vingt premières étapes, dont
+les trois nouvelles, puis s'arrête sur la précondition de
+`mascotte-hors-image`. Lancées à part, `ain-immobile` tombe comme le
+passage d'intégration l'avait décrit (100 appels en 2 s, dans une fenêtre
+ouverte pendant une scène), et les cinq suivantes passent. Chaque pilote
+avait son propre port (5491 à 5497) : trois autres chantiers lançaient
+les leurs en même temps.
+
 **Ce qui n'est pas prouvé.** Aucune vraie salle n'a servi la page, aucun
 vrai téléphone ne l'a tenue. Le temps de jeu n'a pas été comparé avec un
-vrai salon : le banc publie un âge fixe, que la page lit une fois.
+vrai salon : le banc publie un âge fixe, que la page lit une fois. La
+porte entière (`gpu-test` et les recettes qui demandent la machine) n'a
+pas tourné : elle revient à l'intégration finale.
 
 ## 12. Glossaire complet
 

@@ -116,6 +116,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
     mic: "off",
     padOnly: false,
     liaison: { etat: "ok" },
+    couvertureVue: 0,
   };
 }
 

@@ -31,6 +31,7 @@ function signaux(changes: Partial<Omit<Signaux, "video">> & { video?: Video } = 
     proposer: false,
     sonDepuisMs: 20,
     manetteDepuisMs: 300,
+    relanceDepuisMs: null,
     site: null,
     salle: null,
     ...rest,

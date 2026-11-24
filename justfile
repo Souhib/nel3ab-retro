@@ -802,7 +802,8 @@ etats-navigateur *args:
 
 # Le contrôle négatif du précédent: les pages d'avant doivent échouer sur le
 # DÉFAUT de chaque étape, pas sur une précondition. 8b58526 est la page d'avant
-# le chantier, e5d6edf celle que la relecture a refusée. Une étape qui passe
+# le chantier, e5d6edf celle que la relecture a refusée, 03b21c0 celle de main
+# avant que l'état ne quitte l'image. Une étape qui passe
 # sur l'une d'elles ne prouve rien.
 etats-navigateur-rouge:
     #!/usr/bin/env bash
@@ -814,6 +815,7 @@ etats-navigateur-rouge:
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
     git show 8b58526:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     git show e5d6edf:core/crates/worker/src/page/index.html > "$dossier/refusee.html"
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/sur-image.html"
     cd spikes/m3-browser-drive
     node etats.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale \
@@ -821,6 +823,36 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
         --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
+    # 03b21c0, la page de main avant le thème rétro : le rideau d'arrivée
+    # restait sur les premières images jusqu'au relevé suivant, la pastille et
+    # le bandeau d'une coupure se posaient sur l'image, la pastille n'était
+    # pas un bouton, l'image arrêtée n'était pas assombrie à sa fiche et
+    # l'arrivée sans image ne proposait pas les autres salles (ADR D40).
+    node etats.mjs --page "$dossier/sur-image.html" --flux "$dossier/flux.h264" \
+        --etapes premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image \
+        --rouge-attendu premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image
+    # 9a4519b, la page des états avant leur troisième passage : aucune
+    # coupure à l'entrée au niveau « tout », et une salle fermée qui
+    # proposait encore ses places libres à prendre (ADR D40).
+    git show 9a4519b:core/crates/worker/src/page/index.html > "$dossier/sans-passe.html"
+    node etats.mjs --page "$dossier/sans-passe.html" --flux "$dossier/flux.h264" \
+        --etapes coupure-entree,fermee-vraie --rouge-attendu coupure-entree,fermee-vraie
+    # aeac1ab, avant le quatrième passage : la colonne d'une salle fermée
+    # disait encore « tu regardes » et « Ils regardent », avec ceux arrivés
+    # après la fermeture (ADR D40).
+    git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/sans-soiree.html"
+    node etats.mjs --page "$dossier/sans-soiree.html" --flux "$dossier/flux.h264" \
+        --etapes fermee-vraie --rouge-attendu fermee-vraie
+    # 884c105, la page des états que la relecture du 24 novembre 2026 a lue :
+    # une pastille aux jetons du jour sur son noir (compteur à 1,16:1), posée
+    # sur la tête d'Aïn dans la barre du téléphone, une extinction qui partait
+    # d'un écran presque blanc, et le balayage sur le titre du plein cadre
+    # (ADR D40). je-reste et l'extension de premiere-image-coupe sont vertes
+    # sur cette page : leurs contrôles rouges sont des mutants, dits au carnet.
+    git show 884c105:core/crates/worker/src/page/index.html > "$dossier/relue.html"
+    node etats.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+        --etapes pastille-contraste,pastille-hors-image,extinction,calques-attente \
+        --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -983,6 +1015,12 @@ focus-navigateur-rouge:
     etapes=telephone,tablette,coques-telephone,surcouche,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # aeac1ab, la page des états avant leur quatrième passage : le geste de
+    # la fiche, focalisé au clavier, laissait le focus sur <body> quand
+    # l'image revenait (ADR D40).
+    git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/fiche.html"
+    node focus.mjs --page "$dossier/fiche.html" --flux "$dossier/flux.h264" \
+        --etapes fiche-focus-rendu --rouge-attendu fiche-focus-rendu
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni

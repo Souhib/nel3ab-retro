@@ -42,7 +42,17 @@ const DEPART = {
   salles: "up",
   ouverte: true,
   redemarre: false,
+  // Ce que le salon publie d'une salle fermée (K37) : depuis combien de
+  // secondes, et pourquoi. Nul : un salon qui ne le sait pas.
+  fermeeDepuis: 125,
+  fermeePour: "inactivite",
   game: true,
+  // Les places que la salle publie : « tenues » (1P au nom de banc) ou
+  // « vides », comme une salle qui ne dit plus qui a joué une fois fermée.
+  sieges: "tenues",
+  // Les noms de ceux qui regardent, sans place : la colonne d'une salle
+  // fermée les garde (« Ce soir dans la salle N »).
+  public: [],
   // La console du jeu en cours: x360 (la manette Pro) ou gc (Dolphin). Ajouté
   // pour le banc du focus, qui doit lire START dans les deux trames.
   console: "x360",
@@ -53,6 +63,10 @@ const DEPART = {
   // worker): 0 GameCube, 1 Wiimote et Nunchuk, 2 guitare, 3 Wiimote seule.
   // Nul: rien d'annoncé. Ajouté pour la carte des touches d'une salle Wii.
   appareil: null,
+  // La place que le message de salle donne à la page sur la socket de la
+  // manette : 1, ou 0 pour un spectateur. Ajouté pour « Je reste », qu'un
+  // spectateur n'a pas (D16).
+  place: 1,
 };
 
 export async function demarrerBanc({ port, page, flux }) {
@@ -69,7 +83,15 @@ export async function demarrerBanc({ port, page, flux }) {
   const sounds = new Set();
   const inputs = new Set();
   const lobbies = new Set();
+  /** Les « je reste » reçus sur `/input` : un octet, `Reste::TAG` (0xE1). */
+  const restes = [];
+  /** Les minutes avant la fermeture que le message de salle annonce. */
+  let fermeDans = 0;
   const note = (texte) => log.push({ a: Date.now(), texte });
+  /** Le message de salle de la socket de la manette, comme le worker :
+   * places, la sienne, qui choisit, minutes avant la fermeture, places
+   * tenues, micros (`readRoomMessage`). */
+  const messageDeSalle = () => Buffer.from([4, state.place, 1, fermeDans, 1, 0, 0, 0, 0]);
 
   const LIBRARY = [
     { index: 0, name: "Jeu du banc", console: "x360", art: false },
@@ -81,13 +103,16 @@ export async function demarrerBanc({ port, page, flux }) {
     game: state.game ? (LIBRARY.find((one) => one.console === state.console) ?? LIBRARY[0]) : null,
     library: LIBRARY,
     seats: [
-      { port: 1, player: "banc", held: true },
+      state.sieges === "vides" ? { port: 1, player: null, held: false } : { port: 1, player: "banc", held: true },
       { port: 2, player: null, held: false },
       { port: 3, player: null, held: false },
       { port: 4, player: null, held: false },
     ],
     owner: { name: "banc", id: "a", moi: true, seat: 1 },
-    people: [{ name: "banc", id: "a", moi: true, seat: 1 }],
+    people: [
+      { name: "banc", id: "a", moi: true, seat: 1 },
+      ...state.public.map((name, i) => ({ name, id: `p${i}`, seat: null, seat_pending: false })),
+    ],
     ask_lasts: 10,
     media_url: "",
   });
@@ -118,6 +143,9 @@ export async function demarrerBanc({ port, page, flux }) {
             numero: 1,
             ouverte: state.ouverte,
             redemarre: state.redemarre,
+            ...(state.ouverte || state.redemarre || state.fermeeDepuis === null
+              ? {}
+              : { fermee_depuis: state.fermeeDepuis, fermee_pour: state.fermeePour }),
             chemin: "/r/1/",
             jeu: state.game ? room().game.name : null,
           },
@@ -239,10 +267,20 @@ export async function demarrerBanc({ port, page, flux }) {
     inputs.add(ws);
     if (state.format === "switch") ws.send("format switch");
     if (state.appareil !== null) ws.send(`pad ${state.appareil}`);
-    ws.send(Buffer.from([4, 1, 1, 0, 1, 0, 0, 0, 0]));
+    ws.send(messageDeSalle());
     let avant = null;
     ws.on("message", (m) => {
       const bytes = Buffer.from(m);
+      // « Je reste » : le worker remet à zéro le compte de cette place, et le
+      // message de salle suivant ne dit plus rien de la fermeture.
+      if (bytes.length === 1 && bytes[0] === 0xe1) {
+        restes.push({ a: Date.now(), place: state.place });
+        if (state.place !== 0) {
+          fermeDans = 0;
+          for (const une of inputs) une.send(messageDeSalle());
+        }
+        return;
+      }
       if (bytes.length === 9 && bytes[0] === 0xe0 && state.video !== "silent") ws.send(bytes);
       // Les boutons de chaque trame de manette, notés quand ils CHANGENT: la
       // boucle envoie toutes les 4 ms, et un relevé complet ne dirait rien de
@@ -300,13 +338,30 @@ export async function demarrerBanc({ port, page, flux }) {
     },
     reinitialiser() {
       Object.assign(state, DEPART);
+      fermeDans = 0;
       for (const ws of [...videos, ...sounds, ...inputs, ...lobbies]) ws.terminate();
     },
+    /** La salle publiée de nouveau par le salon, avec l'état simulé du moment. */
+    annoncerSalle() {
+      for (const ws of lobbies) ws.send(`42["room",${JSON.stringify(room())}]`);
+    },
+    /** La fermeture faute d'activité annoncée par la salle dans `minutes`,
+     * sur chaque socket de manette ouverte ; 0 l'efface. */
+    annoncerFermeture(minutes) {
+      fermeDans = minutes;
+      for (const ws of inputs) ws.send(messageDeSalle());
+    },
+    /** Les « je reste » reçus depuis `depuis`. */
+    restes: (depuis = 0) => restes.filter((un) => un.a >= depuis),
     /** Un démarrage annoncé par le salon, comme quand quelqu'un change de jeu. */
     annoncerDemarrage() {
       for (const ws of lobbies)
         ws.send(`42["booting",${JSON.stringify({ game: "Autre jeu du banc", save: "nouvelle partie" })}]`);
     },
+    /** Les sockets que le banc tient ouvertes, vues de son côté : la preuve
+     * qu'une coupure a vraiment fermé la manette, pas seulement qu'un réglage
+     * du navigateur le prétend. */
+    ouvertes: () => ({ video: videos.size, son: sounds.size, manette: inputs.size }),
     journal: (depuis = 0) => log.filter((ligne) => ligne.a >= depuis),
     /** Les boutons reçus depuis `depuis`, dans l'ordre d'arrivée. */
     trames: (depuis = 0) => trames.filter((une) => une.a >= depuis),

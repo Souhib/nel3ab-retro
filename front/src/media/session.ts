@@ -11,6 +11,7 @@ import { InputStream, type InputState } from "./input";
 import { MicStream, type MicState } from "./mic";
 import { SoundStream, type SoundStats } from "./sound";
 import { VideoStream, type VideoStats } from "./video";
+import { jetons, vues } from "./couverture";
 import type { Liaison } from "./liaison";
 import { VeilleLiaison, type Contexte } from "./veille";
 import { salle, socketUnder } from "../lib/base";
@@ -37,6 +38,10 @@ export type Snapshot = {
    * Dans l'instantané, donc au rythme où React lit: deux fois par seconde.
    * La page n'a qu'à l'afficher, à un seul endroit. */
   liaison: Liaison;
+  /** Les images peintes que la couverture avait vues au moment où cet état a
+   * été décidé (`couverture.vues`). Une couverture armée sur cet état est
+   * refusée si une image plus neuve a été peinte depuis (ADR D40). */
+  couvertureVue: number;
 };
 
 /** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
@@ -88,6 +93,7 @@ export class Session {
     this.mic = new MicStream(socketUrl, () => this.input.attribution());
     this.veille = new VeilleLiaison({
       now: () => performance.now(),
+      horloge: () => Date.now(),
       enLigne: () => navigator.onLine !== false,
       visible: () => document.visibilityState !== "hidden",
       salle,
@@ -112,6 +118,7 @@ export class Session {
 
   /** « Relancer l'image »: une socket vidéo neuve, la place gardée. */
   relancerImage(): void {
+    this.veille.relancer();
     this.video.relancer();
     this.refresh();
   }
@@ -189,6 +196,9 @@ export class Session {
       soundSyncMs: this.video.compensationMs(),
       padOnly: this.padOnly,
       liaison: this.veille.lire({ video, sound, input, padOnly: this.padOnly }),
+      // Relevé avec l'état, pas au rendu : c'est sur ces images-là que
+      // l'état a été décidé.
+      couvertureVue: vues(),
     };
   }
 }
@@ -259,6 +269,7 @@ export function exposeNothingYet(): void {
     stallDecoder: () => false,
     seat: () => null,
     liaison: () => null,
+    couverture: () => ({ jetons: jetons(), vues: vues() }),
     soundGap: () => null,
     room: () => ({ mine: 0, watching: false }),
     padList: () => [],
@@ -360,6 +371,11 @@ export function exposeForTests(session: Session): void {
     /** L'état de liaison que la page affiche: un pilote vérifie le MÊME
      * chiffre que l'écran, pas une seconde lecture des compteurs. */
     liaison: () => session.getSnapshot().liaison,
+    /** La couverture de l'image MAINTENANT, et pas au dernier relevé : les
+     * jetons posés et les images peintes qu'elle a vues. Un pilote le lit à
+     * chaque image d'écran pour prouver qu'aucune image n'est peinte sous
+     * un plein cadre (`etats.mjs`, premiere-image-coupe). */
+    couverture: () => ({ jetons: jetons(), vues: vues() }),
     soundGap: () => session.getSnapshot().soundGapMs,
     /** The room as this page understands it, so a test can say "this page never
      * got a pad" instead of failing for something that is not a defect. */

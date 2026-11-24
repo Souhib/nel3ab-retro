@@ -98,7 +98,7 @@ it("jumeau : deux phrases d'état de suite ne s'additionnent pas", () => {
   try {
     const rendu = render(avec({ etat: "redemarre", arrivee: false }, null));
     vi.advanceTimersByTime(90);
-    rendu.rerender(avec({ etat: "fermee" }, null));
+    rendu.rerender(avec({ etat: "fermee", a: null, pour: null }, null));
     expect(screen.getByRole("status").textContent ?? "").not.toContain("redémarre");
   } finally {
     vi.useRealTimers();

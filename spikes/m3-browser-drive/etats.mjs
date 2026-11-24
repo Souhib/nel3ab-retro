@@ -70,13 +70,22 @@ const browser = await puppeteer.launch({
 });
 
 /** Ce que la page montre de la liaison, lu dans le DOM: une page d'avant n'a
- * pas `nel3abTest.liaison`, et le verdict doit porter sur ce qu'on VOIT. */
+ * pas `nel3abTest.liaison`, et le verdict doit porter sur ce qu'on VOIT.
+ * Depuis que l'état a quitté l'image (ADR D40), il se dit par une fiche
+ * (`#liaison`), un plein cadre (`#arrivee`) ou une pastille seule
+ * (`#pastilleEtat`) : la fiche et le plein cadre d'abord, la pastille
+ * sinon, et le texte des deux. */
 const lire = (page) =>
   page.evaluate(() => {
-    const etat = document.querySelector("#liaison, #arrivee");
+    const etat = document.querySelector("#liaison, #arrivee") ?? document.querySelector("#pastilleEtat");
+    const pastille = document.querySelector("#pastilleEtat");
+    const texte = [etat, pastille !== etat ? pastille : null]
+      .map((el) => el?.textContent?.replace(/\s+/g, " ").trim() ?? "")
+      .filter(Boolean)
+      .join(" ");
     return {
       etat: etat?.getAttribute("data-etat") ?? null,
-      texte: etat?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      texte,
       rough: document.querySelector("#rough") !== null,
       ligne: document.querySelector("#ligneParlee")?.textContent ?? null,
       peintes: globalThis.nel3abTest?.counters?.().painted ?? 0,
@@ -143,6 +152,195 @@ async function entrer(page) {
   await page.evaluate(() => window.dispatchEvent(new Event("pointerup")));
   return Date.now();
 }
+
+/** Le gel jusqu'à sa fiche : « Relancer l'image » paraît à 5,6 s. Rend
+ * l'instant du gel. */
+async function jusquALaFiche(page) {
+  await sleep(1500);
+  const gel = Date.now();
+  banc.regler({ video: "freeze" });
+  const vu = await page.waitForSelector("#relancerImage", { timeout: 9000 }).catch(() => null);
+  if (vu === null) throw new Precondition("pas de fiche « Relancer l'image » en 9 s de gel");
+  return gel;
+}
+
+/** Une boîte d'élément, en nombres (un DOMRect arrive vide de `evaluate`). */
+const BOITE = (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+};
+
+/** Coupe le réseau de la page et le prouve : le navigateur hors ligne, les
+ * sockets fermées par le banc, et aucune rouverte pendant deux secondes. */
+async function couperLeReseau(page) {
+  await page.setOfflineMode(true);
+  banc.regler({ video: "drop" });
+  const debut = Date.now();
+  for (;;) {
+    const o = banc.ouvertes();
+    const seat = await page.evaluate(() => globalThis.nel3abTest?.seat?.() ?? null);
+    if (o.manette === 0 && o.video === 0 && seat === null) break;
+    if (Date.now() - debut > 5000) throw new Precondition(`la coupure n'a pas fermé les sockets: ${JSON.stringify({ ...o, seat })}`);
+    await sleep(100);
+  }
+  await sleep(2000);
+  const apres = banc.ouvertes();
+  if (apres.manette + apres.video + apres.son > 0)
+    throw new Precondition(`une socket s'est rouverte hors ligne: ${JSON.stringify(apres)}`);
+  banc.regler({ video: "live" });
+}
+
+/** Ce qui reçoit le point sur une grille de l'image : la toile du jeu, ou la
+ * neige qui la remplace. Chaque calque est rendu cible du pointeur le temps
+ * de la mesure. */
+const DANS_L_IMAGE = () => {
+  const toile = document.getElementById("screen");
+  if (!toile) return { erreur: "pas de canevas #screen" };
+  const r = toile.getBoundingClientRect();
+  if (r.width < 50 || r.height < 50) return { erreur: `image trop petite: ${r.width}x${r.height}` };
+  const style = document.createElement("style");
+  style.textContent = '.n3-neige, :is([class^="rt-"], [class*=" rt-"]), :is([class^="rt-"], [class*=" rt-"]) * { pointer-events: auto !important; }';
+  document.head.append(style);
+  const vus = new Set();
+  const fautes = [];
+  // Une grille de 5 x 5, et les quatre coins à 2 px du bord : une neige
+  // décalée de 40 px laissait les 25 points de la grille dans la neige
+  // (mutant du 24 novembre 2026).
+  const points = [];
+  for (let i = 1; i <= 5; i++) for (let j = 1; j <= 5; j++) points.push([r.left + (r.width * i) / 6, r.top + (r.height * j) / 6]);
+  for (const x of [r.left + 2, r.right - 3]) for (const y of [r.top + 2, r.bottom - 3]) points.push([x, y]);
+  for (const [px, py] of points) {
+    const x = Math.round(px);
+    const y = Math.round(py);
+    const vu = document.elementFromPoint(x, y);
+    if (vu === toile) vus.add("toile");
+    else if (vu?.classList.contains("n3-neige")) vus.add("neige");
+    else fautes.push(`${x},${y}: ${vu?.tagName ?? "rien"}#${vu?.id ?? ""}.${vu?.className ?? ""}`);
+  }
+  style.remove();
+  return { vus: [...vus], fautes };
+};
+
+/** Le contraste de chaque texte de la pastille contre son fond, et de son
+ * bord, lus dans le style calculé. Le fond est celui du premier ancêtre
+ * opaque : la pastille est l'écran noir de la borne dans les deux thèmes. */
+const CONTRASTE_PASTILLE = () => {
+  const rgb = (c) => {
+    const m = /rgba?\(([^)]+)\)/.exec(c);
+    if (!m) return null;
+    const v = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+    return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 };
+  };
+  const lum = ({ r, g, b }) => {
+    const f = (x) => {
+      const c = x / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const rapport = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100;
+  };
+  const fond = (el) => {
+    for (let e = el; e; e = e.parentElement) {
+      const c = rgb(getComputedStyle(e).backgroundColor);
+      if (c && c.a === 1) return c;
+    }
+    return null;
+  };
+  const p = document.querySelector("#pastilleEtat");
+  if (!p) return { erreur: "pas de pastille" };
+  const texte = p.querySelector(".n3-pastille-texte");
+  const compteur = p.querySelector(".n3-pastille-compteur .rt-afficheur-valeur") ?? p.querySelector(".n3-pastille-compteur");
+  if (!texte || !compteur || !compteur.textContent.trim()) return { erreur: "la pastille n'a pas son texte et son compteur" };
+  const sous = fond(p);
+  if (!sous) return { erreur: "la pastille n'a pas de fond opaque" };
+  const mesure = (el) => {
+    const c = rgb(getComputedStyle(el).color);
+    return { texte: el.textContent.trim(), couleur: getComputedStyle(el).color, rapport: rapport(c, fond(el)) };
+  };
+  return {
+    theme: document.documentElement.dataset.theme ?? null,
+    fond: getComputedStyle(p).backgroundColor,
+    texte: mesure(texte),
+    compteur: mesure(compteur),
+    bord: { couleur: getComputedStyle(p).borderTopColor, rapport: rapport(rgb(getComputedStyle(p).borderTopColor), sous) },
+  };
+};
+
+/** Les pixels clairs d'un rectangle de l'écran, lus sur une vraie capture :
+ * leur nombre et la boîte qu'ils occupent. Clair : une luminance de plus de
+ * 128 sur 255. La capture est décodée par la page, qui sait lire un PNG. */
+async function clairs(page, r) {
+  const png = await page.screenshot({ clip: { x: r.x, y: r.y, width: r.w, height: r.h }, encoding: "base64" });
+  return page.evaluate(async (b64) => {
+    const image = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+    const toile = new OffscreenCanvas(image.width, image.height);
+    const g = toile.getContext("2d");
+    g.drawImage(image, 0, 0);
+    const d = g.getImageData(0, 0, image.width, image.height).data;
+    let n = 0;
+    let haut = Infinity;
+    let bas = -1;
+    let gauche = Infinity;
+    let droite = -1;
+    for (let y = 0; y < image.height; y++)
+      for (let x = 0; x < image.width; x++) {
+        const k = (y * image.width + x) * 4;
+        if (0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2] <= 128) continue;
+        n += 1;
+        haut = Math.min(haut, y);
+        bas = Math.max(bas, y);
+        gauche = Math.min(gauche, x);
+        droite = Math.max(droite, x);
+      }
+    return { n, total: image.width * image.height, w: image.width, hauteur: n ? bas - haut + 1 : 0, largeur: n ? droite - gauche + 1 : 0 };
+  }, png);
+}
+
+/** Deux images d'écran : ce qui vient d'être réglé est rendu. */
+const rendu = (page) => page.evaluate(() => new Promise((fin) => requestAnimationFrame(() => requestAnimationFrame(fin))));
+
+/** Ce qui reçoit le point au centre et aux quatre coins (à 2 px du bord) de
+ * chaque pièce du texte du plein cadre, chaque calque du tube rendu cible du
+ * pointeur le temps de la mesure : un calque est `pointer-events: none`, et
+ * `elementFromPoint` passerait au travers sans le voir. */
+const TEXTE_SOUS_CALQUE = () => {
+  const style = document.createElement("style");
+  style.textContent = '.n3-plein [class^="rt-calque"], .n3-plein .n3-extinction { pointer-events: auto !important; }';
+  document.head.append(style);
+  const pieces = [...document.querySelectorAll("#arrivee :is(.n3-plein-titre, .n3-plein-etapes li, .n3-plein-fait, .n3-plein-cout, .n3-geste)")];
+  const fautes = [];
+  let points = 0;
+  for (const el of pieces) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 6 || r.height < 6) continue;
+    for (const [x, y] of [
+      [r.left + r.width / 2, r.top + r.height / 2],
+      [r.left + 2, r.top + 2],
+      [r.right - 3, r.top + 2],
+      [r.left + 2, r.bottom - 3],
+      [r.right - 3, r.bottom - 3],
+    ]) {
+      points += 1;
+      const vu = document.elementFromPoint(Math.round(x), Math.round(y));
+      if (vu === null || !el.contains(vu))
+        fautes.push(`${el.className.split(" ")[0] || el.tagName} ${Math.round(x)},${Math.round(y)}: ${vu?.tagName ?? "rien"}.${vu?.className ?? ""}`);
+    }
+  }
+  style.remove();
+  return { pieces: pieces.length, points, fautes };
+};
+
+/** Les calques du tube visibles dans la page : posés, affichés, avec une aire. */
+const CALQUES_VUS = () =>
+  [...document.querySelectorAll(".rt-calque-balayage, .rt-calque-vignette, .rt-calque-roulement")]
+    .filter((c) => getComputedStyle(c).display !== "none" && c.getBoundingClientRect().width > 0)
+    .map((c) => c.className);
+
+/** La pastille de la proposition de l'image légère (ADR D40). */
+const OFFRE = '#pastilleEtat[data-etat="irreguliere"]';
 
 const proposes = (depuis) =>
   banc.journal(depuis).filter((l) => l.texte.includes('"qualite"') && l.texte.includes("proposé"));
@@ -230,12 +428,33 @@ const ETAPES = {
     await capture(page, "gel-pastille");
     await sleep(Math.max(0, 5600 - (Date.now() - gel)));
     if ((await page.$("#relancerImage")) === null) throw new Defaut("pas de bandeau ni de « Relancer l'image » à 5,6 s");
+    // Les faits, repliés sous la fiche, et dépliés par un vrai clic.
+    const pli = await page.evaluate(() => {
+      const d = document.querySelector("#liaison details#ceQueTaPageVoit");
+      if (!d) return null;
+      d.scrollIntoView({ block: "center" });
+      const r = d.querySelector("summary").getBoundingClientRect();
+      return { ouvert: d.open, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    if (pli === null) throw new Defaut("pas de « Ce que ta page voit » sous la fiche du gel");
+    if (pli.ouvert) throw new Defaut("« Ce que ta page voit » est déplié d'office");
+    await page.mouse.click(pli.x, pli.y);
+    const deplie = await page.evaluate(() => {
+      const d = document.querySelector("#ceQueTaPageVoit");
+      return { ouvert: d.open, texte: d.textContent };
+    });
+    if (!deplie.ouvert || !deplie.texte.includes("Son : arrive") || !deplie.texte.includes("Image : arrêtée depuis"))
+      throw new Defaut(`« Ce que ta page voit » ne dit pas les faits du gel: ${JSON.stringify(deplie)}`);
     await capture(page, "gel-bandeau");
-    // La colonne reste atteignable: le bouton de signalement de la colonne
-    // reçoit bien le clic, rien ne le couvre.
+    // La colonne reste atteignable, et Signaler y est UNE fois : dans la
+    // fiche quand elle le porte, la ligne de la colonne repliée (K25). Le
+    // bouton reçoit bien le clic, rien ne le couvre.
     const atteint = await page.evaluate(() => {
-      const bouton = document.querySelector("#complain");
-      if (!bouton) return "absent";
+      const signaler = [...document.querySelectorAll("#complain, #signalerEtat")].filter(
+        (b) => b.getClientRects().length > 0,
+      );
+      if (signaler.length !== 1) return `${signaler.length} « Signaler » à l'écran`;
+      const bouton = signaler[0];
       // La colonne défile: le bouton peut être plus bas que la fenêtre.
       bouton.scrollIntoView({ block: "center" });
       const r = bouton.getBoundingClientRect();
@@ -326,14 +545,15 @@ const ETAPES = {
     // L'instant où systemd arrête encore l'ancien processus: « fermée » sans
     // `redemarre`. Puis la relance (« activating »), puis la salle revient.
     banc.regler({ video: "drop", ouverte: false, redemarre: false });
-    const pasFermee = (v) => (v.texte.includes("est fermée") ? "« fermée » pendant un redémarrage" : null);
+    // « est fermée » ou « a fermé à » (K37) : l'un ou l'autre est un défaut ici.
+    const pasFermee = (v) => (/fermée|a fermé/.test(v.texte) ? "« fermée » pendant un redémarrage" : null);
     await durant(page, 1000, pasFermee);
     banc.regler({ redemarre: true });
     // Les sondes partent toutes les trois secondes: « redémarre » arrive avec
     // la suivante. Une seule réponse « fermée » ne doit jamais suffire.
-    const dit = await jusqua(page, (v) => v.texte.includes("redémarre") || v.texte.includes("est fermée"), 5000);
+    const dit = await jusqua(page, (v) => v.texte.includes("redémarre") || /fermée|a fermé/.test(v.texte), 5000);
     if (dit.apres === null) throw new Defaut(`« redémarre » jamais dit en ${Date.now() - debut} ms: ${dit.vu.texte}`);
-    if (dit.vu.texte.includes("est fermée")) throw new Defaut(`« fermée » pendant un redémarrage: ${dit.vu.texte}`);
+    if (/fermée|a fermé/.test(dit.vu.texte)) throw new Defaut(`« fermée » pendant un redémarrage: ${dit.vu.texte}`);
     await capture(page, "redemarre");
     banc.regler({ video: "live", ouverte: true, redemarre: false });
     await durant(page, 4000, pasFermee);
@@ -355,13 +575,304 @@ const ETAPES = {
       page.evaluate(() => ["#inviter", "#takePad, #watchOnly"].filter((s) => document.querySelector(s) !== null));
     const ouverte = await gestes();
     if (ouverte.length !== 2) throw new Precondition(`salle ouverte sans ses deux gestes: ${ouverte}`);
-    banc.regler({ video: "drop", ouverte: false, redemarre: false });
-    const fermee = await jusqua(page, (v) => v.texte.includes("La salle 1 est fermée."), 9000);
+    // Les places du panneau : au présent tant que la salle est ouverte (le
+    // jumeau), au passé une fois fermée (plan des états, salle fermée 1).
+    const lesPlaces = () =>
+      page.evaluate(() => {
+        const rangee = document.querySelector("#ports");
+        const places = [1, 2, 3, 4].map((n) => document.querySelector(`#port${n}`));
+        return {
+          groupe: rangee ? [rangee.getAttribute("role"), rangee.getAttribute("aria-label")] : null,
+          noms: places.map((b) => b?.getAttribute("aria-label") ?? null),
+          actives: places.filter((b) => b !== null && !b.disabled).length,
+          toi: document.querySelectorAll("#ports .n3-place-toi, #ports .n3-couronne").length,
+          role: document.querySelector(".n3-places-role")?.textContent ?? null,
+        };
+      });
+    const auPresent = await lesPlaces();
+    if (auPresent.groupe === null || auPresent.groupe[1] !== null || auPresent.actives !== 4 || auPresent.toi === 0)
+      throw new Precondition(`places d'une salle ouverte inattendues: ${JSON.stringify(auPresent)}`);
+    // La colonne hors du panneau : les étiquettes, le bloc de rôle et le
+    // bilan de la soirée (plan des états, salle fermée 5).
+    const laColonne = () =>
+      page.evaluate(() => {
+        const side = document.querySelector("#side");
+        const hors = (el) => el.closest("#panneau") === null;
+        const ceSoir = document.querySelector("#ceSoir");
+        return {
+          etiquettes: [...(side?.querySelectorAll(".n3-etiquette") ?? [])]
+            .filter(hors)
+            .map((e) => e.querySelector(".sr-only")?.textContent ?? ""),
+          seat: document.querySelector("#side #seat")?.textContent ?? null,
+          regardent: document.querySelector("#ilsRegardent")?.textContent ?? null,
+          ceSoir: ceSoir ? [document.querySelector("#ceSoirTitre")?.textContent ?? null, ceSoir.textContent] : null,
+        };
+      });
+    // Le jumeau, salle ouverte : Lina regarde, au présent, et la colonne dit
+    // qui tient cette page.
+    banc.regler({ public: ["Lina"] });
+    banc.annoncerSalle();
+    await sleep(1200);
+    const colonneOuverte = await laColonne();
+    if (
+      colonneOuverte.ceSoir !== null ||
+      colonneOuverte.seat === null ||
+      !colonneOuverte.regardent?.startsWith("Ils regardent") ||
+      !colonneOuverte.etiquettes.includes("Lina")
+    )
+      throw new Precondition(`colonne d'une salle ouverte inattendue: ${JSON.stringify(colonneOuverte)}`);
+    // Le salon dit depuis quand et pourquoi (K37, `Salle.fermee_depuis`).
+    const fermeeA = Date.now() - 125_000;
+    banc.regler({ video: "drop", ouverte: false, redemarre: false, fermeeDepuis: 125 });
+    const fermee = await jusqua(page, (v) => /La salle 1 (est fermée|a fermé à)/.test(v.texte), 9000);
     if (fermee.apres === null) throw new Defaut(`une salle fermée n'est pas dite fermée en 9 s: ${fermee.vu.texte}`);
     const restes = await gestes();
     if (restes.length > 0) throw new Defaut(`la salle fermée propose encore ${restes.join(" et ")}`);
+    // Le salon publie ensuite la salle sans ses joueurs, et Max arrive après
+    // la fermeture : le panneau garde ceux d'avant, la colonne ceux qui
+    // regardaient, et personne d'autre.
+    banc.regler({ sieges: "vides", public: ["Max"] });
+    banc.annoncerSalle();
+    await sleep(1200);
+    const colonneFermee = await laColonne();
+    if (colonneFermee.ceSoir === null || colonneFermee.ceSoir[0] !== "Ce soir dans la salle 1")
+      throw new Defaut(`la colonne d'une salle fermée ne dit pas « Ce soir dans la salle 1 »: ${JSON.stringify(colonneFermee)}`);
+    if (!colonneFermee.ceSoir[1].includes("Jeu du banc"))
+      throw new Defaut(`la soirée d'une salle fermée ne nomme pas le jeu: ${JSON.stringify(colonneFermee)}`);
+    if (JSON.stringify(colonneFermee.etiquettes) !== JSON.stringify(["Lina"]))
+      throw new Defaut(`la colonne d'une salle fermée a perdu ou changé qui regardait: ${JSON.stringify(colonneFermee)}`);
+    if (colonneFermee.seat !== null || colonneFermee.regardent !== null)
+      throw new Defaut(`la colonne d'une salle fermée parle encore au présent: ${JSON.stringify(colonneFermee)}`);
+    const auPasse = await lesPlaces();
+    if (JSON.stringify(auPasse.groupe) !== JSON.stringify(["group", "Ils ont joué"]))
+      throw new Defaut(`les places d'une salle fermée ne se lisent pas « Ils ont joué »: ${JSON.stringify(auPasse)}`);
+    if (auPasse.noms[0] !== "Place 1 : banc")
+      throw new Defaut(`la salle fermée a perdu qui jouait: ${JSON.stringify(auPasse.noms)}`);
+    if (auPasse.actives !== 0 || auPasse.toi !== 0 || auPasse.role !== null)
+      throw new Defaut(`des places d'une salle fermée gardent un geste, toi, une couronne ou le rôle: ${JSON.stringify(auPasse)}`);
+    // L'heure dite est celle que le salon publie, à la minute près (la sonde
+    // part dans les secondes qui suivent), à l'heure de l'appareil.
+    const heures = await page.evaluate((a) => {
+      const dite = (ms) => {
+        const d = new Date(ms);
+        return `${d.getHours()} h ${String(d.getMinutes()).padStart(2, "0")}`;
+      };
+      return [dite(a - 60_000), dite(a), dite(a + 60_000)];
+    }, fermeeA);
+    const lue = /a fermé à (\d{1,2} h \d{2})\./.exec(fermee.vu.texte)?.[1] ?? null;
+    if (lue === null || !heures.includes(lue))
+      throw new Defaut(`la salle fermée ne dit pas l'heure publiée par le salon (${heures[1]}): ${fermee.vu.texte}`);
+    if (!fermee.vu.texte.includes("Personne n'avait touché au jeu"))
+      throw new Defaut(`la raison publiée par le salon n'est pas dite: ${fermee.vu.texte}`);
+    // Le carnet une seule fois, au tableau des dernières parties (D12).
+    const carnet = await page.evaluate(() =>
+      [...document.querySelectorAll("#dernieresParties")].map((a) => [a.closest("#arrivee") !== null, a.getAttribute("href")]),
+    );
+    if (carnet.length !== 1 || !carnet[0][0] || carnet[0][1] !== "/profil#parties")
+      throw new Defaut(`le carnet n'est pas proposé une fois sur l'écran de la salle fermée: ${JSON.stringify(carnet)}`);
     await capture(page, "fermee");
     await page.close();
+  },
+
+  /** L'extinction d'une salle fermée (plan des états, effet « extinction »),
+   * lue sur de vraies captures, l'effet arrêté à trois instants. À son début,
+   * l'écran est noir : aucun pixel clair. À 60 %, une ligne claire de 4 px
+   * de haut au plus, sur la moitié de l'écran au moins. À 90 %, un point de
+   * 4 px au plus. Elle est jouée une fois (un « animationstart » par
+   * animation), rien ne tourne ensuite, et la toile du jeu garde son
+   * transform, son filtre et son opacité. Jumeaux : une salle qui redémarre,
+   * et le niveau « sobre », n'en jouent aucune. La version d'avant partait
+   * d'un rectangle presque blanc sur tout l'écran : 813 376 px² clairs sur
+   * les 922 432 du plein cadre (relecture du 24 novembre 2026). */
+  async "extinction"() {
+    const ecouter = (page) =>
+      page.evaluate(() => {
+        const e = { debuts: [], fins: [], arretee: false };
+        window.__ext = e;
+        const les = () => document.getAnimations().filter((a) => a.animationName?.startsWith("n3-extinction"));
+        document.addEventListener(
+          "animationstart",
+          (ev) => {
+            if (!ev.animationName.startsWith("n3-extinction")) return;
+            e.debuts.push(ev.animationName);
+            if (e.arretee) return;
+            e.arretee = true;
+            // Arrêtée à son début : la suite se règle de l'extérieur.
+            for (const a of les()) {
+              a.pause();
+              a.currentTime = 0;
+            }
+          },
+          true,
+        );
+        document.addEventListener("animationend", (ev) => ev.animationName.startsWith("n3-extinction") && e.fins.push(ev.animationName), true);
+        window.__extRegler = (t) => {
+          for (const a of les()) a.currentTime = t;
+          return les().length;
+        };
+        window.__extReprendre = () => {
+          for (const a of les()) a.play();
+        };
+        window.__extTournent = () => les().filter((a) => a.playState === "running").length;
+      });
+    const toile = (page) =>
+      page.evaluate(() => {
+        const s = getComputedStyle(document.querySelector("#screen"));
+        return [s.transform, s.filter, s.opacity].join(" | ");
+      });
+    const fermer = (redemarre) => banc.regler({ video: "drop", ouverte: false, redemarre, fermeeDepuis: 30 });
+    const conseille = JSON.stringify({ niveau: "conseille", sons: false });
+
+    const page = await nouvelle(PC, { "nel3ab:effets": conseille });
+    await entrer(page);
+    await sleep(1500);
+    await ecouter(page);
+    const avant = await toile(page);
+    fermer(false);
+    const dite = await jusqua(page, (v) => /La salle 1 (est fermée|a fermé à)/.test(v.texte), 9000);
+    if (dite.apres === null) throw new Precondition(`la salle fermée n'est pas dite fermée en 9 s: ${dite.vu.texte}`);
+    const jouee = await page.waitForFunction(() => window.__ext.arretee, { timeout: 2000 }).catch(() => null);
+    if (jouee === null) throw new Defaut("aucune extinction à la fermeture, au niveau « conseillé »");
+    const ecran = await page.evaluate(() => {
+      const r = document.querySelector("#arrivee .n3-plein-ecran").getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), w: Math.floor(r.width), h: Math.floor(r.height) };
+    });
+    const duree = await page.evaluate(() =>
+      Math.max(...document.getAnimations().filter((a) => a.animationName?.startsWith("n3-extinction")).map((a) => a.effect.getTiming().duration)),
+    );
+    const instants = {};
+    for (const [nom, part] of [
+      ["debut", 0],
+      ["ligne", 0.6],
+      ["point", 0.9],
+    ]) {
+      await page.evaluate((t) => window.__extRegler(t), duree * part);
+      await rendu(page);
+      instants[nom] = await clairs(page, ecran);
+    }
+    const pendant = await toile(page);
+    const lu = JSON.stringify({ duree, ...instants });
+    if (instants.debut.n > instants.debut.total * 0.001)
+      throw new Defaut(`l'extinction commence par ${instants.debut.n} px² clairs sur ${instants.debut.total}, au lieu du noir: ${lu}`);
+    if (instants.ligne.hauteur === 0 || instants.ligne.hauteur > 4 || instants.ligne.largeur < instants.ligne.w / 2)
+      throw new Defaut(`pas de ligne claire à 60 % de l'extinction: ${lu}`);
+    if (instants.point.hauteur > 4 || instants.point.largeur > 4) throw new Defaut(`pas de point à 90 % de l'extinction: ${lu}`);
+    if (pendant !== avant) throw new Defaut(`la toile du jeu change pendant l'extinction: ${avant} puis ${pendant}`);
+    await page.evaluate(() => window.__extReprendre());
+    await sleep(1500);
+    const fin = await page.evaluate(() => ({ ...window.__ext, tournent: window.__extTournent() }));
+    const noms = new Set(fin.debuts);
+    if (!noms.has("n3-extinction") || fin.debuts.length !== noms.size)
+      throw new Defaut(`l'extinction n'est pas jouée une fois: ${JSON.stringify(fin.debuts)}`);
+    if (fin.tournent > 0 || fin.fins.length !== noms.size) throw new Defaut(`l'extinction tourne encore après sa fin: ${JSON.stringify(fin)}`);
+    console.log(JSON.stringify({ extinction: { duree, debut: instants.debut.n, ligne: [instants.ligne.largeur, instants.ligne.hauteur], point: [instants.point.largeur, instants.point.hauteur] } }));
+    await capture(page, "extinction-fin");
+    await page.close();
+
+    // Jumeaux : une salle qui redémarre, puis une salle fermée au niveau sobre.
+    for (const [cas, effets, redemarre, texte] of [
+      ["redémarrage", conseille, true, /redémarre/],
+      ["sobre", JSON.stringify({ niveau: "sobre", sons: false }), false, /La salle 1 (est fermée|a fermé à)/],
+    ]) {
+      const jumeau = await nouvelle(PC, { "nel3ab:effets": effets });
+      await entrer(jumeau);
+      await sleep(1500);
+      await ecouter(jumeau);
+      fermer(redemarre);
+      const vu = await jusqua(jumeau, (v) => texte.test(v.texte), 9000);
+      if (vu.apres === null) throw new Precondition(`${cas}: l'état attendu n'est pas dit en 9 s: ${vu.vu.texte}`);
+      await sleep(1500);
+      const debuts = await jumeau.evaluate(() => window.__ext.debuts);
+      if (debuts.length) throw new Defaut(`${cas}: une extinction est jouée (${debuts})`);
+      await jumeau.close();
+    }
+  },
+
+  /** Les lignes du tube sur l'écran noir (plan des états : balayage,
+   * vignette, roulement), sur le plein cadre de l'arrivée, SOUS le texte :
+   * au centre et aux coins de chaque pièce du texte, c'est le texte qui
+   * reçoit le point, chaque calque rendu cible du pointeur. Au niveau
+   * « tout », les trois calques, de jour comme de nuit : le titre se lit à
+   * 4,5:1 au moins sur le fond qui est sous lui, la vignette a son ombre et
+   * ses coins, le roulement tourne, un cycle par seconde au plus. Au niveau
+   * « conseillé », le balayage seul (la vignette et le roulement sont « à
+   * doser », `lib/effets`). Jumeaux : un calque passé au-dessus du titre est
+   * vu ; la fiche d'une image figée n'a aucun calque ; le niveau « sobre »
+   * n'en montre aucun. Le 24 novembre 2026, le balayage était posé après le
+   * titre et le couvrait (relecture du chantier). */
+  async "calques-attente"() {
+    const fautes = [];
+    for (const [theme, niveau, attendus] of [
+      ["jour", "tout", ["rt-calque-balayage", "rt-calque-vignette", "rt-calque-roulement"]],
+      ["nuit", "tout", ["rt-calque-balayage", "rt-calque-vignette", "rt-calque-roulement"]],
+      ["jour", "conseille", ["rt-calque-balayage"]],
+    ]) {
+      const cas = `${theme} ${niveau}`;
+      const page = await nouvelle(PC, { "nel3ab:theme": theme, "nel3ab:effets": JSON.stringify({ niveau, sons: false }) });
+      banc.regler({ video: "freeze" });
+      await page.click("#enter");
+      if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+        throw new Precondition(`${cas}: pas de plein cadre à l'arrivée`);
+      await sleep(600);
+      const vus = await page.evaluate(CALQUES_VUS);
+      if (JSON.stringify([...vus].sort()) !== JSON.stringify([...attendus].sort()))
+        fautes.push(`${cas}: calques posés ${JSON.stringify(vus)}, attendus ${JSON.stringify(attendus)}`);
+      const sous = await page.evaluate(TEXTE_SOUS_CALQUE);
+      if (sous.pieces < 2) throw new Precondition(`${cas}: ${sous.pieces} pièces de texte dans le plein cadre`);
+      fautes.push(...sous.fautes.slice(0, 4).map((f) => `${cas}: une ligne du tube sur le texte, ${f}`));
+      const m = await page.evaluate(() => {
+        const rgb = (c) => {
+          const v = /rgba?\(([^)]+)\)/.exec(c)?.[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+          return v ? { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 } : null;
+        };
+        const lum = ({ r, g, b }) =>
+          [r, g, b].map((x) => (x / 255 <= 0.03928 ? x / 255 / 12.92 : ((x / 255 + 0.055) / 1.055) ** 2.4)).reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+        const titre = document.querySelector("#arrivee .n3-plein-titre");
+        let fond = null;
+        for (let e = titre; e && !fond; e = e.parentElement) {
+          const c = rgb(getComputedStyle(e).backgroundColor);
+          if (c && c.a === 1) fond = c;
+        }
+        const [x, y] = [lum(rgb(getComputedStyle(titre).color)), lum(fond)].sort((p, q) => q - p);
+        const vignette = getComputedStyle(document.querySelector("#arrivee .rt-calque-vignette"));
+        const roule = document.querySelector("#arrivee .rt-calque-roulement").getAnimations();
+        return {
+          rapport: Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100,
+          vignette: [vignette.boxShadow, vignette.borderTopLeftRadius],
+          roulement: roule.map((a) => [a.effect.getTiming().duration, a.effect.getTiming().iterations]),
+        };
+      });
+      if (m.rapport < 4.5) fautes.push(`${cas}: le titre du plein cadre à ${m.rapport}:1 sur son fond`);
+      if (attendus.includes("rt-calque-vignette") && (m.vignette[0] === "none" || m.vignette[1] === "0px"))
+        fautes.push(`${cas}: la vignette n'a pas son ombre et ses coins: ${m.vignette}`);
+      if (attendus.includes("rt-calque-roulement") && (m.roulement.length !== 1 || !(m.roulement[0][0] >= 1000)))
+        fautes.push(`${cas}: le roulement ne tourne pas en un cycle par seconde au plus: ${JSON.stringify(m.roulement)}`);
+      console.log(JSON.stringify({ calques: cas, titre: m.rapport, roulement: m.roulement, texte: `${sous.pieces} pièces, ${sous.points} points` }));
+      // Le jumeau de la mesure : le balayage passé au-dessus de la plaque.
+      await page.evaluate(() => {
+        document.querySelector("#arrivee .rt-calque-balayage").style.zIndex = "5";
+      });
+      const dessus = await page.evaluate(TEXTE_SOUS_CALQUE);
+      if (dessus.fautes.length === 0) throw new Precondition(`${cas}: un balayage posé sur le titre n'est pas vu`);
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+    // Jumeaux : la fiche d'une image figée, puis l'arrivée au niveau sobre.
+    const fiche = await nouvelle(PC);
+    await entrer(fiche);
+    await jusquALaFiche(fiche);
+    const surFiche = await fiche.evaluate(CALQUES_VUS);
+    if (surFiche.length) throw new Defaut(`des calques du tube avec la fiche d'une image figée: ${surFiche}`);
+    await fiche.close();
+    const sobre = await nouvelle(PC, { "nel3ab:effets": JSON.stringify({ niveau: "sobre", sons: false }) });
+    banc.regler({ video: "freeze" });
+    await sobre.click("#enter");
+    if ((await sobre.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+      throw new Precondition("sobre: pas de plein cadre à l'arrivée");
+    await sleep(600);
+    const auSobre = await sobre.evaluate(CALQUES_VUS);
+    if (auSobre.length) throw new Defaut(`des calques du tube au niveau « sobre »: ${auSobre}`);
+    await sobre.close();
   },
 
   /** Une salle qui refuse l'arrivée n'a jamais répondu: « ne répond pas ». */
@@ -371,12 +882,585 @@ const ETAPES = {
     await page.click("#enter");
     const vu = await jusqua(page, (v) => v.texte.includes("La salle 1 ne répond pas."), 9000);
     if (vu.apres === null) throw new Defaut(`l'arrivée refusée ne dit pas « ne répond pas »: ${vu.vu.texte}`);
+    // Réessayer, et LA sortie : les autres salles sous un salon, quitter la
+    // salle servie seule. Le plein cadre se voit (ADR D40 : sous son jeton).
     const sorties = await page.evaluate(() => [
       document.querySelector("#arrivee #reessayer") !== null,
-      document.querySelector("#arrivee #quitterSalle") !== null,
+      document.querySelector("#arrivee :is(#lesSalles, #quitterSalle)") !== null,
+      getComputedStyle(document.querySelector("#arrivee")).display !== "none",
     ]);
     if (sorties.includes(false)) throw new Defaut(`le rideau n'a pas ses deux sorties: ${sorties}`);
     await capture(page, "arrivee-refusee");
+    await page.close();
+  },
+
+  /** La première image coupe le plein cadre DANS LA MÊME image d'écran
+   * (ADR D40). Le rideau d'avant était retiré par React au relevé suivant,
+   * jusqu'à 500 ms plus tard : la proposition du 23 novembre 2026 a compté
+   * dix images peintes dessous. Chaque dessin sur la toile du jeu est compté
+   * au moment où il a lieu, et une microtâche regarde, avant que le
+   * navigateur ne rende l'image, si le plein cadre se voit encore.
+   *
+   * Aïn joue sur le plateau du plein cadre : la même image d'écran le
+   * renvoie. Chaque sprite visible qui touche le rectangle de la toile à
+   * + 4 px est relevé AU RENDU, par un ResizeObserver créé après ceux de la
+   * mascotte : le navigateur les sert dans l'ordre de leur création, après
+   * les rappels d'animation et avant de peindre. Un observateur créé avant
+   * eux voit encore le sprite que la mascotte retire dans la même mise à
+   * jour du rendu (relecture du 24 novembre 2026, tracée le même jour :
+   * 4 219 px² vus par un observateur créé tôt, aucun par un créé après).
+   * Le cas n'est exercé que si Aïn était sur le plateau au dernier rendu
+   * sans image. */
+  async "premiere-image-coupe"() {
+    const fautes = [];
+    const exerces = [];
+    for (const [vue, reduit] of [
+      [PC, false],
+      [TELEPHONE, false],
+      [PC, true],
+    ]) {
+      const nom = `${vue.width}x${vue.height}${reduit ? " en mouvement réduit" : ""}`;
+      const page = await nouvelle(vue);
+      if (reduit) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+      await page.evaluate(() => {
+        const etat = { peintes: 0, sous: 0, vuAvant: false, fin: false };
+        window.__coupe = etat;
+        const affiche = () => {
+          const el = document.querySelector("#arrivee");
+          return el !== null && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0;
+        };
+        const dessiner = CanvasRenderingContext2D.prototype.drawImage;
+        CanvasRenderingContext2D.prototype.drawImage = function (...a) {
+          const rendu = dessiner.apply(this, a);
+          if (this.canvas?.id === "screen") {
+            etat.peintes += 1;
+            queueMicrotask(() => {
+              if (affiche()) etat.sous += 1;
+            });
+          }
+          return rendu;
+        };
+        const tour = () => {
+          if (etat.fin) return;
+          if (etat.peintes === 0 && affiche()) etat.vuAvant = true;
+          else if (etat.peintes > 0 && affiche()) etat.sous += 1;
+          requestAnimationFrame(tour);
+        };
+        requestAnimationFrame(tour);
+        // Aïn sur la toile, relevé au rendu (voir plus haut). Posé plus tard,
+        // une fois la mascotte installée sur le plateau.
+        etat.ainAvant = null;
+        etat.ainSur = [];
+        window.__releverAin = () => {
+          const sprites = (toile) => {
+            const t = toile.getBoundingClientRect();
+            const m = 4;
+            return [...document.querySelectorAll(".rt-ain-calque canvas.rt-ain-sprite")]
+              .filter((c) => {
+                if (c.hidden) return false;
+                const st = getComputedStyle(c);
+                return st.display !== "none" && st.visibility !== "hidden" && Number(st.opacity) > 0;
+              })
+              .map((c) => {
+                const r = c.getBoundingClientRect();
+                const w = Math.min(r.right, t.right + m) - Math.max(r.left, t.left - m);
+                const h = Math.min(r.bottom, t.bottom + m) - Math.max(r.top, t.top - m);
+                return { acteur: c.dataset.acteur ?? "?", aire: w > 0 && h > 0 ? Math.round(w * h) : 0 };
+              })
+              .filter((v) => v.aire > 0);
+          };
+          const temoin = document.createElement("i");
+          Object.assign(temoin.style, { position: "fixed", left: "-40px", top: "0", width: "1px", height: "1px" });
+          document.body.append(temoin);
+          let bascule = false;
+          new ResizeObserver(() => {
+            if (etat.fin) return;
+            const toile = document.getElementById("screen");
+            if (!toile) return;
+            const vus = sprites(toile);
+            if (etat.peintes === 0) etat.ainAvant = vus.length > 0;
+            else if (vus.length) etat.ainSur.push({ peintes: etat.peintes, vus });
+          }).observe(temoin);
+          const pousser = () => {
+            if (etat.fin) return;
+            bascule = !bascule;
+            temoin.style.width = bascule ? "2px" : "1px";
+            requestAnimationFrame(pousser);
+          };
+          requestAnimationFrame(pousser);
+        };
+      });
+      // La salle répond sans image : l'arrivée se montre, puis l'image vient.
+      banc.regler({ video: "freeze" });
+      await page.click("#enter");
+      const lu = () => page.evaluate(() => window.__coupe);
+      const debut = Date.now();
+      while (!(await lu()).vuAvant && Date.now() - debut < 8000) await sleep(100);
+      if (!(await lu()).vuAvant) throw new Precondition(`${nom}: le plein cadre ne s'est jamais montré avant l'image`);
+      // Aïn sur le plateau d'abord : sa scène d'arrivée ou sa pose clé. Une
+      // page d'avant n'a ni plateau ni mascotte : la mesure d'Aïn ne la
+      // concerne pas, celle du plein cadre si.
+      const plateau = await page
+        .waitForFunction(() => document.querySelector('#arrivee [data-hote="plateau"] .rt-mascotte') !== null, { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+      if (plateau) await page.evaluate(() => window.__releverAin());
+      const avantAin = Date.now();
+      while (plateau && (await lu()).ainAvant !== true && Date.now() - avantAin < 4000) await sleep(25);
+      banc.regler({ video: "live" });
+      while ((await lu()).peintes < 30 && Date.now() - debut < 20000) await sleep(100);
+      if ((await lu()).peintes < 30) throw new Precondition(`${nom}: moins de 30 images peintes`);
+      await sleep(1000);
+      const fin = await page.evaluate(() => {
+        window.__coupe.fin = true;
+        return window.__coupe;
+      });
+      if (fin.sous > 0) fautes.push(`${nom}: ${fin.sous} relevés d'une image peinte sous le plein cadre`);
+      if (plateau) {
+        if (fin.ainAvant !== true) throw new Precondition(`${nom}: Aïn n'était pas sur le plateau au dernier rendu sans image`);
+        exerces.push(nom);
+        if (fin.ainSur.length)
+          fautes.push(`${nom}: Aïn sur la toile à ${fin.ainSur.length} rendus, dès l'image ${fin.ainSur[0].peintes} (${JSON.stringify(fin.ainSur[0].vus)})`);
+      }
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+    console.log(JSON.stringify({ ain_exerce: exerces }));
+  },
+
+  /** La pastille d'une image figée ne touche pas l'image peinte, à + 4 px
+   * (ADR D40), au bureau, au téléphone et en paysage. La page d'avant la
+   * posait en bas de l'image : son « #liaison » de pastille est lu aussi.
+   * Elle ne touche pas non plus la tête d'Aïn, sa maison au téléphone
+   * (`[data-hote="barre"]`), et le centre de la tête la reçoit : à 375x667,
+   * posée dans la barre, elle en couvrait 252 px² (relecture du
+   * 24 novembre 2026).
+   * Le gel est lu dans l'état de la page : en paysage avec le panneau
+   * « petit », la page ne pose la pastille nulle part plutôt que sur
+   * l'image (`placeDeLaPastille`), et ce n'est pas une faute ; trois tailles
+   * au moins doivent la montrer, sinon l'étape ne prouve rien. */
+  async "pastille-hors-image"() {
+    const fautes = [];
+    const vues = [];
+    const tetes = [];
+    for (const vue of [
+      PC,
+      { width: 1280, height: 720 },
+      TELEPHONE,
+      { width: 375, height: 667, isMobile: true, hasTouch: true },
+      { width: 844, height: 390, isMobile: true, hasTouch: true },
+    ]) {
+      const nom = `${vue.width}x${vue.height}`;
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await sleep(1500);
+      banc.regler({ video: "freeze" });
+      const vu = await jusqua(page, (v) => v.etat === "figee" || v.liaison?.etat === "figee", 4000);
+      if (vu.apres === null) throw new Precondition(`${nom}: aucun état figé en 4 s`);
+      await sleep(500);
+      const mesure = await page.evaluate(() => {
+        const p = document.querySelector("#pastilleEtat") ?? document.querySelector("#liaison");
+        const t = document.querySelector("#screen");
+        if (!t) return { erreur: "pas de toile" };
+        if (!p) return { aucune: true };
+        const a = p.getBoundingClientRect();
+        const b = t.getBoundingClientRect();
+        const m = 4;
+        const coupe =
+          a.width > 0 &&
+          a.left < b.right + m &&
+          a.right > b.left - m &&
+          a.top < b.bottom + m &&
+          a.bottom > b.top - m;
+        // La tête d'Aïn, là où la salle la pose au téléphone.
+        const aire = (x, y) =>
+          Math.max(0, Math.min(x.right, y.right) - Math.max(x.left, y.left)) *
+          Math.max(0, Math.min(x.bottom, y.bottom) - Math.max(x.top, y.top));
+        const tete = [...document.querySelectorAll('[data-hote="barre"]')]
+          .map((h) => [h, h.getBoundingClientRect()])
+          .filter(([, r]) => r.width > 0 && r.height > 0)
+          .map(([h, r]) => {
+            const centre = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { sur: Math.round(aire(a, r)), recoit: centre !== null && h.contains(centre), r: [r.left, r.top, r.width, r.height].map(Math.round) };
+          });
+        return { coupe, tete, a: [a.left, a.top, a.width, a.height].map(Math.round), b: [b.left, b.top, b.width, b.height].map(Math.round) };
+      });
+      if (mesure.erreur) throw new Precondition(`${nom}: ${mesure.erreur}`);
+      if (!mesure.aucune) vues.push(nom);
+      if (mesure.coupe) fautes.push(`${nom}: pastille ${mesure.a} sur l'image ${mesure.b}`);
+      for (const t of mesure.tete ?? []) {
+        tetes.push(nom);
+        if (t.sur > 0 || !t.recoit) fautes.push(`${nom}: pastille ${mesure.a} sur la tête d'Aïn ${t.r} (${t.sur} px², centre ${t.recoit ? "reçu" : "couvert"})`);
+      }
+      await capture(page, "pastille-hors-image");
+      banc.regler({ video: "live" });
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+    if (vues.length < 3) throw new Precondition(`pastille montrée à ${vues.length} tailles seulement (${vues})`);
+    console.log(JSON.stringify({ pastille_montree: vues, tete_mesuree: tetes }));
+    if (!tetes.includes("375x667")) throw new Precondition(`la tête d'Aïn n'est pas mesurée à 375x667 (${tetes})`);
+  },
+
+  /** La pastille se lit dans les deux régies. Son fond est l'écran noir de la
+   * borne dans les deux thèmes ; de jour, ses jetons prenaient leurs valeurs
+   * claires sur ce noir, et le compteur du gel tombait à 1,16:1 (relecture
+   * du 24 novembre 2026). Mesurés de jour et de nuit sur la vraie pastille
+   * d'une image figée : son texte et son compteur à 4,5:1 au moins (WCAG
+   * 1.4.3), son bord à 3:1 (WCAG 1.4.11). Le jumeau : un compteur repeint
+   * dans la couleur du fond est vu. */
+  async "pastille-contraste"() {
+    const fautes = [];
+    const lus = [];
+    for (const theme of ["jour", "nuit"]) {
+      const page = await nouvelle(PC, { "nel3ab:theme": theme });
+      const pose = await page.evaluate(() => document.documentElement.dataset.theme ?? null);
+      if (pose !== theme) throw new Precondition(`le thème ${theme} n'est pas posé: ${pose}`);
+      await entrer(page);
+      await sleep(1500);
+      banc.regler({ video: "freeze" });
+      const vue = await page
+        .waitForFunction(() => document.querySelector("#pastilleEtat .n3-pastille-compteur")?.textContent.trim(), { timeout: 6000 })
+        .catch(() => null);
+      if (vue === null) throw new Precondition(`${theme}: pas de pastille avec son compteur en 6 s de gel`);
+      await sleep(300);
+      const m = await page.evaluate(CONTRASTE_PASTILLE);
+      if (m.erreur) throw new Precondition(`${theme}: ${m.erreur}`);
+      lus.push(`${theme} texte ${m.texte.rapport} compteur ${m.compteur.rapport} bord ${m.bord.rapport}`);
+      if (m.texte.rapport < 4.5) fautes.push(`${theme}: texte « ${m.texte.texte} » ${m.texte.couleur} sur ${m.fond}, ${m.texte.rapport}:1`);
+      if (m.compteur.rapport < 4.5)
+        fautes.push(`${theme}: compteur « ${m.compteur.texte} » ${m.compteur.couleur} sur ${m.fond}, ${m.compteur.rapport}:1`);
+      if (m.bord.rapport < 3) fautes.push(`${theme}: bord ${m.bord.couleur} sur ${m.fond}, ${m.bord.rapport}:1`);
+      // Le jumeau : la même mesure voit un compteur peint dans son fond.
+      await page.evaluate((f) => {
+        const c = document.querySelector("#pastilleEtat .n3-pastille-compteur");
+        for (const e of [c, ...c.querySelectorAll("*")]) e.style.setProperty("color", f, "important");
+      }, m.fond);
+      const terni = await page.evaluate(CONTRASTE_PASTILLE);
+      if (terni.compteur.rapport >= 4.5) throw new Precondition(`${theme}: un compteur peint dans son fond n'est pas vu (${terni.compteur.rapport}:1)`);
+      banc.regler({ video: "live" });
+      await page.close();
+    }
+    console.log(JSON.stringify({ pastille_contraste: lus }));
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
+  /** « Je reste » part vraiment (D16) : la salle annonce sa fermeture, un
+   * vrai clic sur #jeReste au centre qui le reçoit, le banc reçoit l'octet
+   * de « je reste » sur la socket de la place, et la pastille part quand le
+   * message de salle suivant n'annonce plus rien. Avant ce pas, aucun pilote
+   * de porte ne cliquait #jeReste, et un mutant `onRester: () => {}`
+   * passait toutes les portes (relecture du 24 novembre 2026). Le jumeau :
+   * un spectateur voit la pastille, sans « Je reste » ni octet envoyé. */
+  async "je-reste"() {
+    const PASTILLE = '#pastilleEtat[data-etat="fermeture"]';
+    // Le joueur de la place 1.
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(1500);
+    const debut = Date.now();
+    banc.annoncerFermeture(5);
+    if ((await page.waitForSelector(PASTILLE, { timeout: 4000 }).catch(() => null)) === null)
+      throw new Precondition("pas de pastille de fermeture 4 s après l'annonce");
+    const bouton = await page.waitForSelector("#jeReste", { visible: true, timeout: 3000 }).catch(() => null);
+    if (bouton === null) throw new Defaut("l'annonce de fermeture ne propose pas « Je reste » à la place 1");
+    const centre = await page.evaluate(() => {
+      const b = document.querySelector("#jeReste");
+      b.scrollIntoView({ block: "center" });
+      const r = b.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const vu = document.elementFromPoint(x, y);
+      return { x, y, recoit: vu !== null && b.contains(vu), vu: vu ? `${vu.tagName}#${vu.id}.${vu.className}` : null };
+    });
+    if (!centre.recoit) throw new Defaut(`« Je reste » ne reçoit pas le point en son centre: ${centre.vu}`);
+    if (banc.restes(debut).length) throw new Precondition("un « je reste » est arrivé avant le clic");
+    await page.mouse.click(centre.x, centre.y);
+    const recu = Date.now();
+    while (banc.restes(debut).length === 0 && Date.now() - recu < 2000) await sleep(50);
+    const restes = banc.restes(debut);
+    if (restes.length !== 1) throw new Defaut(`un clic sur « Je reste » a envoyé ${restes.length} « je reste » au banc, un attendu`);
+    const partie = await page.waitForFunction((sel) => document.querySelector(sel) === null, { timeout: 3000 }, PASTILLE).catch(() => null);
+    if (partie === null) throw new Defaut("la pastille de fermeture reste après « Je reste » et un message de salle sans fermeture");
+    await page.close();
+    // Le jumeau : un spectateur, sans place.
+    const spectateur = await nouvelle(PC);
+    banc.regler({ place: 0 });
+    await entrer(spectateur);
+    await sleep(1500);
+    const avant = Date.now();
+    banc.annoncerFermeture(5);
+    if ((await spectateur.waitForSelector(PASTILLE, { timeout: 4000 }).catch(() => null)) === null)
+      throw new Precondition("le spectateur ne voit pas la pastille de fermeture");
+    await sleep(800);
+    if ((await spectateur.$("#jeReste")) !== null) throw new Defaut("un spectateur se voit proposer « Je reste »");
+    if (banc.restes(avant).length) throw new Defaut("un spectateur a envoyé « je reste »");
+    await spectateur.close();
+  },
+
+  /** La pastille mène au geste de sa fiche (ADR D40) : un vrai clic au
+   * bureau met le focus sur « Relancer l'image » dans la colonne ; un doigt
+   * au téléphone ouvre la feuille agrandie et l'y met. Au doigt, la pastille
+   * fait 44 px au moins dans les deux axes. Le jumeau : avant la fiche, la
+   * pastille est un voyant, pas un bouton, et rien n'a le geste. */
+  async "pastille-mene-au-geste"() {
+    for (const vue of [PC, TELEPHONE]) {
+      const nom = `${vue.width}x${vue.height}`;
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await sleep(1500);
+      banc.regler({ video: "freeze" });
+      const voyant = await jusqua(page, (v) => v.liaison?.etat === "figee", 4000);
+      if (voyant.apres === null) throw new Precondition(`${nom}: aucun gel lu en 4 s`);
+      const avant = await page.evaluate(() => ({
+        balise: document.querySelector("#pastilleEtat")?.tagName ?? null,
+        geste: document.querySelector("#relancerImage") !== null,
+      }));
+      if (avant.geste) throw new Precondition(`${nom}: la fiche est déjà là avant 5 s de gel`);
+      if (avant.balise !== null && avant.balise !== "DIV")
+        throw new Defaut(`${nom}: la pastille seule est un ${avant.balise}, un bouton qui ne mène à rien`);
+      const pastille = await page.waitForSelector("button#pastilleEtat", { timeout: 6000 }).catch(() => null);
+      if (pastille === null) throw new Defaut(`${nom}: la pastille de la fiche n'est pas un bouton`);
+      await sleep(300);
+      const ou = await page.evaluate(() => {
+        const p = document.querySelector("#pastilleEtat");
+        const r = p.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        const sous = document.elementFromPoint(x, y);
+        return { x, y, w: r.width, h: r.height, recoit: sous?.closest("#pastilleEtat") !== null, coarse: matchMedia("(pointer: coarse)").matches };
+      });
+      if (!ou.recoit) throw new Defaut(`${nom}: la pastille ne reçoit pas le point en son centre`);
+      if (vue === TELEPHONE) {
+        if (!ou.coarse) throw new Precondition(`${nom}: le pointeur n'est pas grossier`);
+        if (ou.w < 44 || ou.h < 44) throw new Defaut(`${nom}: pastille de ${Math.round(ou.w)}x${Math.round(ou.h)} px au doigt`);
+        await page.touchscreen.tap(ou.x, ou.y);
+      } else await page.mouse.click(ou.x, ou.y);
+      const focus = await page
+        .waitForFunction(() => document.activeElement?.id === "relancerImage", { timeout: 2000 })
+        .then(() => "relancerImage")
+        .catch(() => page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName));
+      if (focus !== "relancerImage") throw new Defaut(`${nom}: après la pastille, le focus est sur « ${focus} »`);
+      if (vue === TELEPHONE) {
+        const feuille = await page.evaluate(() => {
+          const f = document.querySelector("#feuilleSalle");
+          return f ? { ouverte: f.open, hauteur: f.dataset.hauteur, dedans: f.contains(document.activeElement) } : null;
+        });
+        if (!feuille?.ouverte || feuille.hauteur !== "agrandie" || !feuille.dedans)
+          throw new Defaut(`${nom}: la pastille n'ouvre pas la feuille agrandie sur son geste: ${JSON.stringify(feuille)}`);
+        // La feuille fermée rend le focus à la pastille qui l'avait ouverte.
+        await page.click("#fermerFeuille");
+        const rendu = await page
+          .waitForFunction(() => document.activeElement?.id === "pastilleEtat", { timeout: 2000 })
+          .then(() => "pastilleEtat")
+          .catch(() => page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName));
+        if (rendu !== "pastilleEtat") throw new Defaut(`${nom}: la feuille fermée rend le focus à « ${rendu} »`);
+      }
+      await capture(page, "pastille-mene-au-geste");
+      banc.regler({ video: "live" });
+      await page.close();
+    }
+  },
+
+  /** Une image ARRÊTÉE peut être assombrie, à sa fiche seulement, et la
+   * toute première image nouvelle la rend intacte (K20, ADR D40). Chaque
+   * dessin sur la toile est vérifié dans une microtâche, avant que le
+   * navigateur ne rende l'image. Le jumeau : pendant la pastille seule,
+   * l'image arrêtée reste intacte. */
+  async "gel-image-passee"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await page.evaluate(() => {
+      const etat = { peintes: 0, sombres: 0 };
+      window.__passee = etat;
+      const toile = () => document.querySelector("#screen");
+      const dessiner = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function (...a) {
+        const rendu = dessiner.apply(this, a);
+        if (this.canvas?.id === "screen") {
+          etat.peintes += 1;
+          queueMicrotask(() => {
+            if (getComputedStyle(toile()).opacity !== "1") etat.sombres += 1;
+          });
+        }
+        return rendu;
+      };
+    });
+    const opacite = () => page.evaluate(() => getComputedStyle(document.querySelector("#screen")).opacity);
+    await sleep(1500);
+    banc.regler({ video: "freeze" });
+    const voyant = await jusqua(page, (v) => v.liaison?.etat === "figee", 4000);
+    if (voyant.apres === null) throw new Precondition("aucun gel lu en 4 s");
+    if ((await page.$("#relancerImage")) !== null) throw new Precondition("la fiche est là dès le gel");
+    const pendantLaPastille = await opacite();
+    if (pendantLaPastille !== "1") throw new Defaut(`l'image est assombrie dès la pastille: opacité ${pendantLaPastille}`);
+    if ((await page.waitForSelector("#relancerImage", { timeout: 6000 }).catch(() => null)) === null)
+      throw new Precondition("pas de fiche en 6 s de plus");
+    await sleep(200);
+    const aLaFiche = await opacite();
+    if (aLaFiche !== "0.5") throw new Defaut(`l'image arrêtée n'est pas assombrie à sa fiche: opacité ${aLaFiche}`);
+    const avant = await page.evaluate(() => ({ ...window.__passee }));
+    banc.regler({ video: "live" });
+    const debut = Date.now();
+    while ((await page.evaluate(() => window.__passee.peintes)) - avant.peintes < 60 && Date.now() - debut < 10000) await sleep(100);
+    const apres = await page.evaluate(() => ({ ...window.__passee }));
+    if (apres.peintes - avant.peintes < 60) throw new Precondition(`${apres.peintes - avant.peintes} images peintes après le gel`);
+    if (apres.sombres > 0) throw new Defaut(`${apres.sombres} images nouvelles peintes assombries`);
+    await page.close();
+  },
+
+  /** Le réseau de l'appareil coupé, prouvé du côté du banc. La pastille
+   * « Plus de réseau » hors de l'image, la fiche dans la colonne, et sur
+   * l'image rien d'autre que la neige ou la toile. Le jumeau : le réseau
+   * revient, l'état part et la couverture avec lui. */
+  async "coupee-reseau"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(2000);
+    await couperLeReseau(page);
+    const coupee = await jusqua(page, (v) => v.liaison?.etat === "coupee", 5000);
+    if (coupee.apres === null) throw new Precondition(`pas d'état coupé en 5 s: ${JSON.stringify(coupee.vu)}`);
+    await sleep(300);
+    // L'image d'abord : la page d'avant y posait son bandeau.
+    const image = await page.evaluate(DANS_L_IMAGE);
+    if (image.erreur) throw new Precondition(image.erreur);
+    if (image.fautes.length) throw new Defaut(`sur l'image coupée: ${image.fautes.slice(0, 4).join(" ; ")}`);
+    const dit = await jusqua(page, (v) => v.texte.includes("Plus de réseau"), 3000);
+    if (dit.apres === null) throw new Defaut(`la coupure n'est pas dite « Plus de réseau »: ${JSON.stringify(dit.vu)}`);
+    const lu = await page.evaluate(() => {
+      const p = document.querySelector("#pastilleEtat");
+      const t = document.querySelector("#screen").getBoundingClientRect();
+      const a = p?.getBoundingClientRect();
+      const m = 4;
+      return {
+        pastille: a ? [a.left, a.top, a.width, a.height].map(Math.round) : null,
+        coupe: a ? a.width > 0 && a.left < t.right + m && a.right > t.left - m && a.top < t.bottom + m && a.bottom > t.top - m : null,
+        ficheDansLaColonne: document.querySelector("#side #liaison[data-etat=coupee]") !== null,
+      };
+    });
+    if (lu.pastille === null) throw new Defaut("pas de pastille pour une connexion coupée");
+    if (lu.coupe) throw new Defaut(`la pastille ${lu.pastille} touche l'image`);
+    if (!lu.ficheDansLaColonne) throw new Defaut("la fiche de la coupure n'est pas dans la colonne");
+    await capture(page, "coupee-reseau");
+    await page.setOfflineMode(false);
+    const revenu = await jusqua(page, (v) => v.etat === null && v.ligne === "L'image est revenue.", 8000);
+    if (revenu.apres === null) throw new Defaut(`le retour du réseau n'est pas dit: ${JSON.stringify(revenu.vu)}`);
+    const jetons = await page.evaluate(() => globalThis.nel3abTest.couverture().jetons);
+    if (jetons.length) throw new Defaut(`la couverture reste après le retour des images: ${jetons}`);
+    await page.close();
+  },
+
+  /** K20 : la neige remplace l'image d'une connexion coupée, au niveau
+   * « conseillé ». Elle couvre le rectangle de l'image, change au moins
+   * quinze fois par seconde, et sans flash : d'une image de neige à la
+   * suivante, la luminance moyenne de chaque quart bouge de moins de 10 %.
+   * Le jumeau : au niveau « sobre », pas de neige, l'image arrêtée est
+   * assombrie à sa place. */
+  async "neige-coupee"() {
+    for (const niveau of ["conseille", "sobre"]) {
+      const page = await nouvelle(PC, { "nel3ab:effets": JSON.stringify({ niveau, sons: false }) });
+      const pose = await page.evaluate(() => document.documentElement.dataset.effets);
+      if (pose !== niveau) throw new Precondition(`niveau d'effets « ${pose} » au lieu de « ${niveau} »`);
+      await entrer(page);
+      await sleep(2000);
+      await couperLeReseau(page);
+      const dit = await jusqua(page, (v) => v.liaison?.etat === "coupee", 5000);
+      if (dit.apres === null) throw new Precondition(`${niveau}: pas d'état coupé en 5 s`);
+      await sleep(300);
+      const lu = await page.evaluate(() => {
+        const n = document.querySelector(".n3-neige");
+        const t = document.querySelector("#screen").getBoundingClientRect();
+        const r = n?.getBoundingClientRect();
+        return {
+          visible: n !== null && getComputedStyle(n).display !== "none",
+          ecart: r ? Math.max(Math.abs(r.left - t.left), Math.abs(r.top - t.top), Math.abs(r.width - t.width), Math.abs(r.height - t.height)) : null,
+          toile: getComputedStyle(document.querySelector("#screen")).opacity,
+        };
+      });
+      if (niveau === "sobre") {
+        if (lu.visible) throw new Defaut("de la neige au niveau « sobre »");
+        if (lu.toile !== "0.5") throw new Defaut(`au niveau « sobre », l'image arrêtée n'est pas assombrie: ${lu.toile}`);
+        await page.close();
+        continue;
+      }
+      if (!lu.visible) throw new Defaut("pas de neige sur une connexion coupée au niveau « conseillé »");
+      if (lu.ecart > 2) throw new Defaut(`la neige n'est pas sur le rectangle de l'image (écart ${lu.ecart} px)`);
+      const releve = await page.evaluate(
+        () =>
+          new Promise((fini) => {
+            const n = document.querySelector(".n3-neige");
+            const ctx = n.getContext("2d", { willReadFrequently: true });
+            const quarts = () => {
+              const { data, width, height } = ctx.getImageData(0, 0, n.width, n.height);
+              const somme = [0, 0, 0, 0];
+              for (let y = 0; y < height; y++)
+                for (let x = 0; x < width; x++) {
+                  const i = (y * width + x) * 4;
+                  somme[(y < height / 2 ? 0 : 2) + (x < width / 2 ? 0 : 1)] += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+                }
+              return somme.map((s) => s / ((width * height) / 4));
+            };
+            let derniere = null;
+            const images = [];
+            let changements = 0;
+            const debut = performance.now();
+            const tour = () => {
+              const q = quarts();
+              const cle = q.map((v) => v.toFixed(3)).join();
+              if (cle !== derniere) {
+                if (derniere !== null) changements += 1;
+                derniere = cle;
+                if (images.length < 10) images.push(q);
+              }
+              if (performance.now() - debut < 2000) requestAnimationFrame(tour);
+              else fini({ changements, duree: performance.now() - debut, images });
+            };
+            requestAnimationFrame(tour);
+          }),
+      );
+      const parSeconde = (releve.changements * 1000) / releve.duree;
+      if (parSeconde < 15) throw new Defaut(`la neige change ${parSeconde.toFixed(1)} fois par seconde`);
+      if (releve.images.length < 10) throw new Precondition(`${releve.images.length} images de neige relevées`);
+      for (let k = 1; k < releve.images.length; k++)
+        for (let q = 0; q < 4; q++) {
+          const a = releve.images[k - 1][q];
+          const b = releve.images[k][q];
+          if (a <= 0) throw new Precondition("un quart de neige tout noir");
+          if (Math.abs(b - a) / a >= 0.1) throw new Defaut(`flash: le quart ${q} passe de ${a.toFixed(1)} à ${b.toFixed(1)}`);
+        }
+      await capture(page, "neige-coupee");
+      await page.close();
+    }
+  },
+
+  /** Une salle qui répond sans jamais envoyer d'image. À 15 s, le plein
+   * cadre propose de réessayer et les autres salles, et le temps depuis
+   * lequel la salle répond avance. Le jumeau : à 3 s, aucun geste, la salle
+   * a encore le temps de répondre. */
+  async "arrivee-sans-image"() {
+    const page = await nouvelle(PC);
+    banc.regler({ video: "freeze" });
+    await page.click("#enter");
+    const gestes = () =>
+      page.evaluate(() => ({
+        reessayer: document.querySelector("#arrivee #reessayer") !== null,
+        salles: document.querySelector("#arrivee #lesSalles") !== null,
+        texte: document.querySelector("#arrivee")?.textContent ?? "",
+      }));
+    await sleep(3000);
+    const tot = await gestes();
+    if (!tot.texte) throw new Precondition("pas de plein cadre à l'arrivée");
+    if (tot.reessayer || tot.salles) throw new Defaut(`à 3 s, l'arrivée parle déjà de panne: ${tot.texte}`);
+    await sleep(12_000);
+    const tard = await gestes();
+    if (!tard.reessayer || !tard.salles) throw new Defaut(`à 15 s, pas de « Réessayer » ou d'« Autres salles »: ${tard.texte}`);
+    const depuis = (t) => Number(/répond depuis (\d+) s/.exec(t)?.[1] ?? NaN);
+    const un = depuis(tard.texte);
+    await sleep(2000);
+    const deux = depuis((await gestes()).texte);
+    if (!Number.isFinite(un) || !Number.isFinite(deux)) throw new Defaut(`le temps depuis lequel la salle répond n'est pas dit: ${tard.texte}`);
+    if (deux <= un) throw new Defaut(`le compte n'avance pas: ${un} s puis ${deux} s`);
+    await capture(page, "arrivee-sans-image");
     await page.close();
   },
 
@@ -434,18 +1518,215 @@ const ETAPES = {
     await sleep(Math.max(0, 31_000 - (Date.now() - entree)));
     const debut = Date.now();
     for (let tour = 0; tour < 7; tour++) {
-      await sleep(12_000);
+      // La pastille de l'offre paraît quand la liaison va bien, et la panne
+      // suivante la remplace : elle se guette pendant la phase vivante.
+      const vivante = Date.now();
+      while (Date.now() - vivante < 12_000 && !(await page.$(OFFRE))) await sleep(250);
+      if (await page.$(OFFRE)) break;
       // Tout se tait, la sonde du site aussi: c'est le Wi-Fi qui cale.
       banc.regler({ video: "silent", salles: "hang" });
       await sleep(4000);
       banc.regler({ video: "live", salles: "up" });
-      if (proposes(debut).length > 0) break;
+      if (proposes(debut).length > 0 || (await page.$(OFFRE))) break;
+    }
+    // Depuis le 24 novembre 2026 (ADR D40), la proposition paraît d'abord en
+    // pastille, et sa fiche vit dans la feuille au téléphone : « proposé »
+    // ne part qu'au montage de la fiche, quand la pastille l'ouvre (E3).
+    const offre = await page.$(OFFRE);
+    if (offre) {
+      await offre.tap();
+      await jusqua(page, (v) => v.rough, 3000);
+      await sleep(300);
     }
     if (proposes(debut).length === 0)
       throw new Defaut(`aucune proposition en ${Math.round((Date.now() - debut) / 1000)} s de liaison qui cale`);
     const vu = await jusqua(page, (v) => v.rough, 1500);
     if (vu.apres === null) throw new Defaut("« proposé » au journal sans proposition à l'écran");
     await capture(page, "proposition");
+    await page.close();
+  },
+
+  /** Le plein cadre de l'arrivée tient sur un téléphone court : le titre,
+   * les étapes, le fait et les gestes dans l'écran noir et dans la fenêtre,
+   * rien de coupé, chaque geste haut de 44 px. Mesuré pendant l'arrivée (à
+   * 3 s) et quand elle est perdue (à 15 s), à 375x667, 320x568 et en
+   * travers à 844x390. Le jumeau : un titre trop long pour l'écran est vu. */
+  async "arrivee-courte"() {
+    const MESURE = () => {
+      const ecran = document.querySelector("#arrivee .n3-plein-ecran");
+      if (!ecran || getComputedStyle(document.querySelector("#arrivee")).display === "none") return { erreur: "pas de plein cadre" };
+      const e = ecran.getBoundingClientRect();
+      const fautes = [];
+      if (ecran.scrollHeight > ecran.clientHeight + 1) fautes.push(`l'écran déborde de ${ecran.scrollHeight - ecran.clientHeight} px`);
+      // Chaque pièce du texte, sur sa plaque depuis le 24 novembre 2026.
+      for (const el of ecran.querySelectorAll(":scope > :not(i), .n3-plein-plaque > *, .n3-geste")) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0) continue;
+        const nom = el.id || el.className.split(" ")[0] || el.tagName;
+        if (r.top < e.top - 1 || r.bottom > e.bottom + 1 || r.left < e.left - 1 || r.right > e.right + 1)
+          fautes.push(`${nom} hors de l'écran noir`);
+        if (r.top < 0 || r.bottom > innerHeight + 1 || r.left < 0 || r.right > innerWidth + 1) fautes.push(`${nom} hors de la fenêtre`);
+        if (el.classList.contains("n3-geste") && r.height < 44) fautes.push(`${nom} haut de ${Math.round(r.height)} px`);
+      }
+      return { fautes, gestes: ecran.querySelectorAll(".n3-geste").length, etapes: ecran.querySelectorAll("li").length };
+    };
+    const fautes = [];
+    for (const vue of [
+      { width: 375, height: 667, isMobile: true, hasTouch: true },
+      { width: 320, height: 568, isMobile: true, hasTouch: true },
+      { width: 844, height: 390, isMobile: true, hasTouch: true },
+    ]) {
+      const nom = `${vue.width}x${vue.height}`;
+      const page = await nouvelle(vue);
+      banc.regler({ video: "freeze" });
+      await page.click("#enter");
+      await sleep(3000);
+      const tot = await page.evaluate(MESURE);
+      if (tot.erreur) throw new Precondition(`${nom}: ${tot.erreur} à 3 s`);
+      if (tot.etapes !== 2) throw new Precondition(`${nom}: ${tot.etapes} étapes à 3 s`);
+      fautes.push(...tot.fautes.map((f) => `${nom} à 3 s: ${f}`));
+      await capture(page, "arrivee-courte-3s");
+      await sleep(12_500);
+      const tard = await page.evaluate(MESURE);
+      if (tard.erreur) throw new Precondition(`${nom}: ${tard.erreur} à 15 s`);
+      if (tard.gestes < 2) throw new Precondition(`${nom}: ${tard.gestes} gestes à 15 s`);
+      fautes.push(...tard.fautes.map((f) => `${nom} à 15 s: ${f}`));
+      await capture(page, "arrivee-courte-15s");
+      if (vue.width === 320) {
+        await page.evaluate(() => {
+          document.querySelector("#arrivee h2").textContent = "Un titre beaucoup trop long ".repeat(12);
+        });
+        const jumeau = await page.evaluate(MESURE);
+        if (!jumeau.fautes?.length) throw new Precondition(`${nom}: un titre trop long pour l'écran n'est pas vu`);
+      }
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
+  /** La colonne ne bouge pas quand l'image arrive : les boîtes des enfants
+   * de #side relevées avant la première image et une seconde après sont les
+   * mêmes, au pixel. Le jumeau : un enfant déplacé d'un pixel est vu. */
+  /** L'effet « coupure » (niveau « tout ») : un quart de seconde de neige à
+   * l'entrée dans le plein cadre « Connexion », comme en changeant de chaîne
+   * pour la salle. Le jeton vit 300 ms au plus, sa neige se voit, et aucune
+   * image n'est peinte dessous : la première image le lève comme le reste.
+   * Les jumeaux : au niveau « conseillé » et en mouvement réduit, jamais ;
+   * et l'entrée dans une connexion coupée au niveau « tout » ne le pose pas,
+   * parce qu'une vraie coupure peut arriver là. */
+  async "coupure-entree"() {
+    const observer = (page) =>
+      page.evaluate(() => {
+        window.__couv = [];
+        const lire = () => {
+          const c = document.querySelector(".n3-coupure");
+          window.__couv.push({
+            t: performance.now(),
+            jetons: (document.documentElement.getAttribute("data-couverture") ?? "").split(" ").filter(Boolean),
+            vues: globalThis.nel3abTest?.couverture?.().vues ?? null,
+            vue: c !== null && getComputedStyle(c).display !== "none" && c.getBoundingClientRect().width > 0,
+          });
+        };
+        lire();
+        new MutationObserver(lire).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-couverture"],
+        });
+      });
+    /** Les passages du jeton « coupure » : début, fin, images vues, neige vue. */
+    const passages = async (page) => {
+      const releve = await page.evaluate(() => window.__couv);
+      const vus = [];
+      let ouvert = null;
+      for (const r of releve) {
+        const pose = r.jetons.includes("coupure");
+        if (pose && ouvert === null) ouvert = { debut: r.t, vues: r.vues, vue: r.vue, fin: null, vuesFin: null };
+        if (!pose && ouvert !== null) {
+          vus.push({ ...ouvert, fin: r.t, vuesFin: r.vues });
+          ouvert = null;
+        }
+      }
+      if (ouvert !== null) vus.push(ouvert);
+      return vus;
+    };
+    const tout = JSON.stringify({ niveau: "tout", sons: false });
+    for (const video of ["freeze", "live"]) {
+      const page = await nouvelle(PC, { "nel3ab:effets": tout });
+      if ((await page.evaluate(() => document.documentElement.dataset.effets)) !== "tout")
+        throw new Precondition("le niveau « tout » n'est pas posé");
+      banc.regler({ video });
+      await observer(page);
+      await page.click("#enter");
+      await sleep(1500);
+      const vus = await passages(page);
+      if (vus.length !== 1) throw new Defaut(`${video}: ${vus.length} coupures à l'entrée au niveau « tout », une attendue`);
+      const [c] = vus;
+      if (c.fin === null) throw new Defaut(`${video}: la coupure ne finit pas en 1,5 s`);
+      if (c.fin - c.debut > 300) throw new Defaut(`${video}: la coupure dure ${Math.round(c.fin - c.debut)} ms, 300 au plus`);
+      if (!c.vue) throw new Defaut(`${video}: le jeton « coupure » est posé sans neige visible`);
+      if (c.vues === null || c.vuesFin - c.vues > 1)
+        throw new Defaut(`${video}: ${c.vuesFin - c.vues} images peintes sous la coupure`);
+      await page.close();
+    }
+    // Jumeaux : niveau conseillé, mouvement réduit.
+    for (const cas of ["conseille", "reduit"]) {
+      const page = await nouvelle(PC, {
+        "nel3ab:effets": cas === "reduit" ? tout : JSON.stringify({ niveau: "conseille", sons: false }),
+      });
+      if (cas === "reduit") await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+      banc.regler({ video: "freeze" });
+      await observer(page);
+      await page.click("#enter");
+      if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+        throw new Precondition(`${cas}: pas de plein cadre à l'entrée`);
+      await sleep(800);
+      const vus = await passages(page);
+      if (vus.length) throw new Defaut(`${cas}: une coupure à l'entrée (${vus.length})`);
+      await page.close();
+    }
+    // Jumeau : une vraie coupure au niveau « tout » ne pose pas l'effet.
+    const page = await nouvelle(PC, { "nel3ab:effets": tout });
+    await entrer(page);
+    await sleep(1000);
+    await observer(page);
+    await couperLeReseau(page);
+    const dit = await jusqua(page, (v) => v.liaison?.etat === "coupee", 5000);
+    if (dit.apres === null) throw new Precondition("pas d'état coupé en 5 s");
+    await sleep(500);
+    const vus = await passages(page);
+    if (vus.length) throw new Defaut("une coupure de chaîne sur une vraie connexion coupée");
+    await page.close();
+  },
+
+  async "colonne-stable"() {
+    const page = await nouvelle(PC);
+    banc.regler({ video: "freeze" });
+    await page.click("#enter");
+    if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+      throw new Precondition("pas de plein cadre avant l'image");
+    await sleep(1500);
+    const boites = () =>
+      page.evaluate(() =>
+        [...(document.querySelector("#side")?.children ?? [])].map((el) => {
+          const r = el.getBoundingClientRect();
+          return `${el.id || el.className}:${[r.left, r.top, r.width, r.height].map(Math.round)}`;
+        }),
+      );
+    const avant = await boites();
+    if (avant.length < 2) throw new Precondition(`la colonne n'a que ${avant.length} enfants`);
+    banc.regler({ video: "live" });
+    const vu = await jusqua(page, (v) => v.peintes > 0, 8000);
+    if (vu.apres === null) throw new Precondition("aucune image peinte en 8 s");
+    await sleep(1000);
+    const apres = await boites();
+    const bouges = avant.filter((b, i) => b !== apres[i]);
+    if (bouges.length || avant.length !== apres.length)
+      throw new Defaut(`la colonne bouge à l'arrivée de l'image: ${bouges.map((b, i) => `${b} → ${apres[avant.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${avant.length} puis ${apres.length} enfants`}`);
+    await page.evaluate(() => {
+      document.querySelector("#side").lastElementChild.style.marginTop = "1px";
+    });
+    const jumeau = await boites();
+    if (jumeau.every((b, i) => b === apres[i])) throw new Precondition("un enfant déplacé d'un pixel n'est pas vu");
     await page.close();
   },
 };

@@ -34,8 +34,10 @@ import {
   MEMOIRE_VIDE,
   type Etat,
   type Fenetre,
+  type Fermeture,
   type Liaison,
   type Memoire,
+  type PourFermee,
   type Signaux,
 } from "./liaison";
 
@@ -70,6 +72,9 @@ export type Contexte = {
 
 export type Monde = {
   now: () => number;
+  /** L'heure murale (`Date.now()`) : l'heure d'une fermeture se dit en
+   * heures et minutes, `now` n'en sait rien. */
+  horloge: () => number;
   enLigne: () => boolean;
   visible: () => boolean;
   salle: () => number;
@@ -106,6 +111,20 @@ export const FERMEE_CONFIRMEE_MS = 2500;
 
 type Reponse = { a: number; site: "repond" | "relais" | "muet"; salle: Signaux["salle"] };
 
+const POUR: readonly PourFermee[] = ["inactivite", "arret", "panne"];
+
+/** L'heure murale d'une fermeture que le salon dit depuis `depuis` secondes,
+ * et sa raison quand elle est l'une des trois connues. */
+function lireFermeture(depuis: unknown, pour: unknown, mur: number): Fermeture {
+  return {
+    a:
+      typeof depuis === "number" && Number.isFinite(depuis) && depuis >= 0
+        ? mur - depuis * 1000
+        : null,
+    pour: POUR.find((une) => une === pour) ?? null,
+  };
+}
+
 export class VeilleLiaison {
   private readonly monde: Monde;
   private memoire: Memoire = MEMOIRE_VIDE;
@@ -116,12 +135,18 @@ export class VeilleLiaison {
   private gelSalle: boolean | null = null;
   /** La première réponse « fermée » de la série en cours. */
   private fermeeVueA: number | null = null;
+  /** L'heure et la raison lues dans la première réponse « fermée » de la
+   * série : celles des sondes suivantes, arrondies à la seconde, feraient
+   * changer la minute dite sous les yeux. */
+  private fermeture: Fermeture | null = null;
   /** Depuis quand l'onglet est visible: `-Infinity` s'il l'était à l'arrivée. */
   private visibleA: number | null;
   private sondeA: number | null = null;
   private enVol = false;
   private reponse: Reponse | null = null;
   private derniere: Liaison = { etat: "ok" };
+  /** L'instant du dernier « Relancer l'image », `null` sans relance. */
+  private relanceA: number | null = null;
 
   constructor(monde: Monde) {
     this.monde = monde;
@@ -131,6 +156,12 @@ export class VeilleLiaison {
   /** Ce que la page sait: le jeu, le démarrage, la proposition. */
   dire(contexte: Contexte): void {
     this.contexte = contexte;
+  }
+
+  /** « Relancer l'image » vient d'être demandé : la règle saura si l'image
+   * reste figée après (`APRES_RELANCE_MS`). */
+  relancer(): void {
+    this.relanceA = this.monde.now();
   }
 
   /** L'onglet vient peut-être de changer d'état. Appelé par l'événement, et
@@ -151,7 +182,10 @@ export class VeilleLiaison {
     if (muette && attend) this.sonder(now);
     // La vidéo parle: une série de « fermée » d'avant ne compte plus pour la
     // prochaine chute.
-    if (!muette) this.fermeeVueA = null;
+    if (!muette) {
+      this.fermeeVueA = null;
+      this.fermeture = null;
+    }
     const frais = this.reponse !== null && now - this.reponse.a < SONDE_FRAICHE_MS;
     const lu = lireLiaison(
       {
@@ -177,8 +211,10 @@ export class VeilleLiaison {
         },
         sonDepuisMs: flux.sound.sinceChunkMs,
         manetteDepuisMs: flux.input.sinceHeardMs,
+        relanceDepuisMs: this.relanceA === null ? null : now - this.relanceA,
         site: frais && this.reponse ? this.reponse.site : null,
         salle: frais && this.reponse ? this.reponse.salle : null,
+        fermeture: frais && this.reponse?.salle === "fermee" ? this.fermeture : null,
       },
       this.memoire,
       now,
@@ -218,14 +254,22 @@ export class VeilleLiaison {
     this.sondeA = now;
     this.enVol = true;
     const numero = this.monde.salle();
-    const fin = (site: Reponse["site"], dite: Signaux["salle"] | "fermee?") => {
+    const fin = (
+      site: Reponse["site"],
+      dite: Signaux["salle"] | "fermee?",
+      fermeture: Fermeture | null = null,
+    ) => {
       this.enVol = false;
       const a = this.monde.now();
       let salle: Signaux["salle"] = dite === "fermee?" ? null : dite;
       if (dite === "fermee?") {
         this.fermeeVueA ??= a;
+        this.fermeture ??= fermeture;
         if (a - this.fermeeVueA >= FERMEE_CONFIRMEE_MS) salle = "fermee";
-      } else this.fermeeVueA = null;
+      } else {
+        this.fermeeVueA = null;
+        this.fermeture = null;
+      }
       this.reponse = { a, site, salle };
     };
     let signal: AbortSignal | undefined;
@@ -242,11 +286,22 @@ export class VeilleLiaison {
         // Wi-Fi ou une page d'erreur ont répondu, mais pas lui.
         if (!Array.isArray(liste)) return fin("relais", null);
         const trouvee = (
-          liste as { numero?: unknown; ouverte?: unknown; redemarre?: unknown }[]
+          liste as {
+            numero?: unknown;
+            ouverte?: unknown;
+            redemarre?: unknown;
+            fermee_depuis?: unknown;
+            fermee_pour?: unknown;
+          }[]
         ).find((s) => s?.numero === numero);
         if (trouvee?.redemarre === true) return fin("repond", "redemarre");
         if (trouvee?.ouverte === true) return fin("repond", "ouverte");
-        if (trouvee?.ouverte === false) return fin("repond", "fermee?");
+        if (trouvee?.ouverte === false)
+          return fin(
+            "repond",
+            "fermee?",
+            lireFermeture(trouvee.fermee_depuis, trouvee.fermee_pour, this.monde.horloge()),
+          );
         return fin("repond", null);
       })
       .catch(() => fin("muet", null));

@@ -14,7 +14,7 @@
  * l'écran, cette ligne le dit en mots.
  */
 import { useEffect, useRef, useState } from "react";
-import { phraseDemande, phraseLiaison } from "../lib/liaison-mots";
+import { phraseDemande, phraseFermeture, phraseLiaison } from "../lib/liaison-mots";
 import type { Liaison } from "../media/liaison";
 
 /** Le temps qu'une nouvelle garde la ligne : une phrase d'état qui arrive
@@ -31,6 +31,7 @@ export function LigneParlee({
   demande,
   delai,
   peintes,
+  fermeDans = 0,
   nouvelle = null,
 }: {
   liaison: Liaison;
@@ -40,6 +41,10 @@ export function LigneParlee({
   delai: number;
   /** Les images peintes par la page, lues quand l'état change (`phraseLiaison`). */
   peintes: number;
+  /** Les minutes avant la fermeture faute d'activité, 0 sans compte : dites
+   * à l'entrée, à la dernière minute et quand la salle reste
+   * (`phraseFermeture`), jamais chaque minute. */
+  fermeDans?: number;
   /** Une nouvelle d'un autre chantier (une arrivée, « Lien copié. », un
    * signalement), dite une fois. `cle` change à chaque nouvelle : la même
    * phrase deux fois de suite se redit. */
@@ -51,7 +56,10 @@ export function LigneParlee({
   const images = useRef(peintes);
   images.current = peintes;
   // La clé de l'état sans ses durées: c'est elle qui décide s'il y a du neuf.
-  const cle = JSON.stringify({ ...liaison, depuisMs: undefined, niveau: undefined });
+  // Le niveau du gel y reste : la fiche qui paraît dit son geste, une fois
+  // (« Tu peux relancer l'image. »). Depuis quand la salle répond avance
+  // deux fois par seconde, et n'y est pas.
+  const cle = JSON.stringify({ ...liaison, depuisMs: undefined, repondDepuisMs: undefined });
   /** La dernière nouvelle dite et son heure, pour `TENUE_NOUVELLE_MS`. */
   const derniere = useRef<{ texte: string; a: number } | null>(null);
   useEffect(() => {
@@ -65,6 +73,12 @@ export function LigneParlee({
     // compte ici.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle, salle]);
+  const fermeture = useRef(fermeDans);
+  useEffect(() => {
+    const phrase = phraseFermeture(fermeture.current, fermeDans);
+    fermeture.current = fermeDans;
+    if (phrase !== "") setDit(phrase);
+  }, [fermeDans]);
   const demandee = phraseDemande(demande, delai);
   useEffect(() => {
     if (demandee === "") return;

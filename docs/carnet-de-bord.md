@@ -31009,7 +31009,441 @@ branche d'intégration.
 finale. Aucun worker n'est reconstruit ni installé, et aucune vraie salle
 n'a servi la page.
 
+### 24 novembre, l'après-midi : l'état quitte l'image, premier passage du chantier « états »
+
+**Le contexte.** Jusqu'ici, la salle disait son état SUR l'image : un
+bandeau posé sur la dernière image quand elle gelait, un rideau à l'arrivée,
+la proposition de l'image légère en bas, l'avis de fermeture et celui de
+l'image légère dans la pile du haut. Le thème rétro tient une règle plus
+dure (ADR D37, D39) : rien ne passe sur une image qui bouge. Le
+propriétaire a tranché le cas limite (K20) : la neige remplace l'image d'une
+connexion coupée ; une image ARRÊTÉE peut être assombrie, et l'assombrissement
+part à la toute première image nouvelle ; jamais rien sur une image vivante.
+Le chantier part d'`integration/retro` (87bc2b3), dans le worktree
+`~/nel3ab-chantiers/retro-etats`, branche `chantier/retro-etats`.
+
+**Ce qui a été fait.** L'état se décide en UN modèle par rendu
+(`front/src/lib/etat-modele.ts`) : une seule pastille, une seule fiche, ou le
+plein cadre de la borne. La pastille est un voyant hors de l'image : dans la
+pile des avis que la salle pose dans une bande noire ou en tête de colonne,
+ou, sur un téléphone sans bande, en haut de la grappe droite de la manette ou
+dans la barre (`lib/etat-place.ts`). La fiche, avec la phrase, le fait et le
+geste, vit en tête de la colonne au bureau, et dans la feuille agrandie au
+téléphone ; la pastille l'ouvre. Le plein cadre est l'écran noir de la borne
+quand il n'y a pas d'image du tout (arrivée, salle fermée, salle qui ne
+répond pas avant toute image), avec Aïn en grand sur son plateau. Les mots
+sont dans `lib/liaison-mots.ts`, y compris les phrases du chargement que le
+chantier menus a demandées (« Chantier Royal démarre encore, depuis 20 s. »,
+« Aucune image de Chantier Royal. Sami peut le relancer. »). « Je reste »
+appelle le message `reste` du worker. Les scènes d'Aïn passent par
+l'arbitre de la salle.
+
+**Le piège que la couverture évite.** Retirer le rideau depuis React, c'est
+le retirer au relevé suivant, jusqu'à une demi-seconde plus tard : des
+images du jeu sont peintes dessous. La couverture (`media/couverture.ts`) est
+un attribut sur la racine de la page, que la feuille de style lit ; la boucle
+de peinture le retire elle-même, juste après avoir dessiné l'image, dans la
+même tâche. Le navigateur ne rend donc jamais une image peinte sous le plein
+cadre. Et une couverture ne s'arme pas sur une image plus neuve que celle sur
+laquelle l'état a été décidé : l'instantané retient le compte des images
+vues avec l'état.
+
+**La preuve, et son contrôle rouge.** L'étape `premiere-image-coupe` compte
+chaque dessin sur la toile du jeu au moment où il a lieu, et regarde dans une
+microtâche, avant que le navigateur ne rende l'image, si le plein cadre se
+voit encore. Verte sur la nouvelle page ; rouge sur la page de `main`
+(45 à 49 relevés d'une image peinte sous le rideau) et sur un mutant sans
+l'appel de la boucle de peinture (43 à 53). L'étape `pastille-hors-image`
+rougit sur `main` aux quatre tailles. Les deux entrent dans
+`etats-navigateur-rouge`.
+
+**Trois choses qui ont résisté.** L'assombrissement devait prendre 400 ms :
+la garde du cadre de la salle refuse toute animation qui touche la toile, et
+elle a raison, il se fait d'un coup. La fiche devait vivre dans la bande du
+téléphone tenu droit : mesurée à 390x844, la bande ne tient que la pastille,
+et les gestes passaient sous la manette à l'écran ; elle va dans la feuille.
+Et la garde des manettes, qui posait une copie de l'ancien avis en haut de
+l'écran, a montré qu'à 375x667 et en paysage 16:9 la pastille n'a aucune
+place hors de l'image : ni bande, ni grappe libre, ni barre assez large. Le
+même trou existe dans la vraie salle à 844x390, où le panneau « petit » prend
+la place au-dessus de la grappe droite. La page ne la pose nulle part plutôt
+que sur l'image ; la ligne parlée et la feuille disent l'état. C'est une
+place à trouver avec la salle.
+
+**Une étape qui guettait au mauvais moment.** `lien-qui-cale` lisait le
+journal pour « proposé ». Depuis que la fiche de l'offre vit dans la feuille
+au téléphone, « proposé » ne part qu'à son ouverture (E3) : l'étape guette
+maintenant la pastille « L'image saute » pendant la phase où la liaison va
+bien, car la panne suivante la remplace, puis la touche. Les comptes de
+propositions d'avant et d'après ce changement ne se comparent plus
+directement : une proposition décidée mais jamais ouverte n'est plus notée.
+
+**Un faux pas à ne pas refaire.** Un `npx prettier --write` sur `src/media`
+a reformaté cinquante et un fichiers à la largeur de prettier : le projet
+formate avec oxfmt (`npm run format`), et ses deux styles acceptent l'un et
+l'autre. Le commit a été défait avant d'aller plus loin. Formater par
+`npm run format` ou `npx oxfmt <fichiers>`, jamais par un autre outil.
+
+**Le poids.** 284 319 octets en brotli, soit 2 559 de plus pour une
+enveloppe de 7 000. Bobine reste dans la page tant que l'écran de chargement
+(menus) et l'ouverture (salon) l'importent.
+
+**Ce qui reste.** L'arrivée sur un téléphone court, la salle fermée au
+passé (panneau, « Ce soir dans la salle »), le pli « Ce que ta page voit »,
+les sons, la place de la pastille sans bande, l'amendement de D29 avec la
+salle, et les étapes de pilote du plan non écrites (neige-coupee,
+gel-image-passee, colonne-stable, arrivee-sans-image).
+
+### 24 novembre, le soir : les états, deuxième passage
+
+**Ce qui a été fait.** Six choses, chacune vue rouge avant d'être verte.
+
+- La salle fermée dit son heure et sa raison. Le salon publie depuis combien
+  de secondes elle est fermée et pourquoi (`fermee_depuis`, `fermee_pour`,
+  décision K37 : c'est la page qui les lit). La veille de la liaison
+  (`media/veille.ts`) garde l'heure de la première réponse « fermée » de la
+  série, parce que les sondes suivantes, arrondies à la seconde, pouvaient
+  faire changer la minute sous les yeux. Le titre devient « La salle 1 a
+  fermé à 23 h 12. », suivi de la raison (« Personne n'avait touché au jeu
+  depuis longtemps. »). Sans heure connue, il reste « La salle 1 est
+  fermée. » : la page n'invente pas d'heure. La raison ne donne pas de
+  durée, parce que la demi-heure par défaut se change par une variable du
+  worker que la page ne lit pas. Sous un salon, l'écran propose aussi
+  « Dernières parties », un lien vers le carnet de jeu (`/profil#parties`,
+  décision D12 du propriétaire : le carnet note qui a joué et qui a regardé).
+- La fiche d'une image figée a un pli, « Ce que ta page voit » : l'image
+  arrêtée depuis combien de secondes, le son, la salle, l'écho de la
+  manette. Replié par défaut, pour qui veut comprendre ou signaler.
+- À l'entrée d'une coupure ou d'une salle injoignable, la fiche tremble
+  (niveau « tout ») et le son grave d'erreur sonne (sons allumés, jeu sans
+  le focus). C'est le socle qui décide s'ils jouent ; la page décide quand :
+  à l'entrée seulement, pas en restant dans la panne, ni quand la fiche se
+  monte plus tard dans la feuille qu'on ouvre.
+- Sur un téléphone de 320 px tenu droit, l'écran noir de l'arrivée perdue
+  fait 211 px de haut, et son contenu débordait de 8 px. Sous 260 px de
+  haut, une requête de conteneur serre les marges et passe le fait et le
+  coût du geste en petit. La même capture montrait Aïn assis sur la phrase
+  « Réessayer rouvre la liaison… » : elle porte maintenant `data-texte`,
+  comme le titre et le fait, et Aïn ne s'y pose plus.
+- Au téléphone, la pastille ouvre la feuille agrandie sur le geste de sa
+  fiche. En se fermant, la feuille rendait le focus au bouton « La salle » :
+  la bande qui porte la pastille se démonte quand la feuille grandit, et le
+  dialogue n'avait plus à qui le rendre. La page retient maintenant que la
+  pastille a ouvert la feuille, et lui rend le focus.
+- Sept étapes de pilote nouvelles : `pastille-mene-au-geste`,
+  `gel-image-passee`, `coupee-reseau`, `neige-coupee`, `arrivee-sans-image`,
+  `arrivee-courte` et `colonne-stable`.
+
+**Des étapes qui passaient du premier coup.** Cinq des nouvelles étapes
+étaient vertes dès leur premier lancement. Une étape verte du premier coup
+ne prouve rien tant qu'on ne l'a pas vue rougir : deux pages mutantes ont
+été construites, chacune avec des défauts réintroduits exprès (le focus
+retiré, l'appel `lever()` retiré, la neige décalée de 40 px, le compte de
+secondes figé ; puis l'image assombrie dès la pastille, la neige à cinq
+images par seconde, l'arrivée perdue à 2 s). Chaque étape a rougi sur son
+défaut, sauf une : `coupee-reseau` ne voyait pas la neige décalée, parce
+que les 25 points de sa grille tombaient tous dans la neige, même décalée.
+Quatre points aux coins de l'image, à 2 px du bord, l'ont fait rougir. La
+leçon : une grille au sixième de l'image laisse passer tout ce qui est plus
+fin qu'un sixième.
+
+Quatre des nouvelles étapes rougissent aussi contre la page de main
+d'avant le thème (03b21c0), sur leur défaut, et entrent dans
+`etats-navigateur-rouge`. `coupee-reseau` a dû regarder l'image AVANT les
+mots : la page d'avant échouait d'abord sur « Plus de réseau », un mot, et
+pas sur son bandeau posé sur l'image, le défaut que l'étape vise.
+
+**La coupure prouvée du côté du banc.** Le mode hors ligne du navigateur
+ne ferme pas une socket déjà ouverte. L'étape coupe donc le réseau du
+navigateur, fait fermer les sockets par le banc, et vérifie de son côté
+qu'aucune n'est rouverte pendant deux secondes.
+
+**Une étape rouge qui reste rouge : `colonne-stable`.** Le plan disait que
+la colonne ne bougeait déjà pas quand la première image arrive, et qu'il
+suffisait de le prouver. Mesuré, c'est faux deux fois. Sur cette branche, le
+panneau de commande est posé sous l'écran tant qu'il n'y a pas d'image,
+puis passe dans la colonne à la première image 4:3 à 1440x900
+(`panneauAuBureau`, dans `lib/cadre.ts`) : tout ce qui le suit descend de
+204 px. Sur la page de main 03b21c0, le bloc de diagnostic grandissait de
+22 px. Le défaut est dans un fichier de la salle ; l'étape est la dernière
+d'`etats-navigateur` et la recette sort en échec sur elle tant qu'il n'est
+pas corrigé.
+
+**Le poids.** 284 891 octets en brotli, soit 528 de plus que le premier
+passage (284 363). Rien de retiré : Bobine reste importé par l'écran de
+chargement (menus) et l'ouverture (salon).
+
+**Ce qui reste.** La place de la pastille tenue en main quand ni bande, ni
+grappe, ni barre ne la tiennent ; un vrai emplacement dans la barre ; la
+salle fermée au passé sur le panneau (les START éteints) et « Ce soir dans
+la salle N » dans la colonne ; l'effet « coupure » à l'entrée ; les parties
+téléphone de `salle-telephone` ; `avertissement-fermeture.mjs`, qui demande
+un worker construit et une ROM.
+
+### 24 novembre, la nuit : les états, troisième passage
+
+**Ce qui a été fait.** Deux choses, chacune vue rouge avant d'être verte.
+
+- L'effet « coupure » (niveau « tout ») : à l'apparition de l'écran noir
+  « Connexion à la salle N », un quart de seconde de neige, comme quand on
+  change de chaîne pour la salle. C'est un jeton de plus dans la couverture
+  (`media/couverture.ts`, le jeton « coupure ») : il se retire seul au bout
+  de 250 ms, et la première image peinte le lève avec l'écran noir, comme
+  le reste. L'état au moment où l'écran noir apparaît décide seul : une
+  salle qui répond de nouveau après une panne ne « change pas de chaîne »,
+  parce qu'une vraie coupure peut arriver là. Rien au niveau « conseillé »,
+  rien quand l'appareil demande moins de mouvement.
+- Une salle fermée garde ses places, au passé. Avant, le panneau d'une
+  salle fermée proposait « Place 1, libre : la prendre » et disait « prends
+  une place libre pour jouer », dans une salle qui n'existe plus. Le panneau
+  montre maintenant les quatre boutons START éteints, chacun avec
+  l'étiquette de qui tenait la place, sans « toi », sans couronne ni micro ;
+  aucune place ne se prend, et le groupe se lit « Ils ont joué » au lecteur
+  d'écran. La page garde les places vues avant la fermeture : ce que le
+  salon publie ensuite peut ne plus dire qui a joué.
+
+**Comment on l'a vu rougir.** Pour la coupure, une étape de pilote nouvelle,
+`coupure-entree`, rougit sur la page d'avant (aucune coupure à l'entrée).
+Elle relève l'attribut de la couverture à chaque changement : une seule
+coupure, 300 ms au plus, sa neige visible, et au plus une image peinte (celle
+qui la lève). Ses jumeaux : niveau « conseillé », mouvement réduit, et une
+vraie connexion coupée au niveau « tout » ; aucun ne doit poser l'effet.
+Dans les essais du composant, chaque jumeau a rougi sur un mutant fait pour
+lui (la condition sur la panne retirée, celle du mouvement réduit, celle du
+niveau). Pour les places, `fermee-vraie` lit le panneau avant et après la
+fermeture ; le banc publie ensuite la salle sans ses joueurs. Une page
+mutante qui oublie les places d'avant rougit sur son défaut : « la salle
+fermée a perdu qui jouait ». Les deux étapes entrent dans
+`etats-navigateur-rouge`, contre la page d'avant ce passage (9a4519b), où
+chacune rougit sur son défaut.
+
+**Les portes du passage.** La machine tournait à une charge moyenne de 57 :
+d'autres chantiers lançaient leurs pilotes en même temps, et l'un tenait le
+port fixe de `etats-navigateur-rouge`. Ses quatre blocs ont été relancés à
+l'identique sur un port privé, et sont rouges comme attendu. L'étape
+`clic-court` de `salle-telephone` a rougi (des tâches longues de 84 à 213 ms
+au clic sur une place) : lancée seule trois fois en alternance avec la page
+d'avant ce passage, elle a rougi deux fois de chaque côté, sur des tâches de
+50 à 58 ms, et le clic lui-même prenait 8 à 9 ms des deux côtés. C'est la
+charge, pas ce passage. `parcours-navigateur` et `cadre-navigateur` gardent
+les rouges connus de la vague B1 (invitation, `mascotte-hors-image`,
+`ain-immobile`) ; leurs autres étapes, lancées par leur nom, passent.
+
+**Un piège évité de justesse.** Pour construire cette page mutante, la
+première commande remettait le fichier d'origine par `git checkout`. Or
+`App.tsx` portait le travail du passage, pas encore committé : la commande
+l'aurait effacé. Le garde de la session l'a refusée. La leçon : committer
+avant de fabriquer un mutant, défaire le mutant par la substitution inverse,
+et lire `git diff` pour voir qu'il ne reste rien. Second détail du même
+essai : `npx vite build` seul efface `SOURCES`, le fichier que relit le
+tampon de la page ; `just front-build` le refait.
+
+**Toujours rouge : `colonne-stable`.** Rien n'a changé : le panneau de
+commande passe de sous l'écran à la colonne à la première image 4:3 à
+1440x900, et la colonne descend de 204 px. Ce passage n'a pas tranché, parce
+que la place du panneau dépend du format de l'image, que la page ne connaît
+qu'à la première image. Trois pistes pour qui décide : le format attendu de
+chaque console (rien ne le dit aujourd'hui, et la Wii peut être en 16:9),
+le dernier format vu dans cette salle (la première visite bougerait encore),
+ou un panneau qui ne dépend pas du format. Le fichier est celui de la salle.
+
+**Le poids.** 285 293 octets en brotli : 297 pour la coupure, 105 pour les
+places au passé, 402 sur le deuxième passage (284 891).
+
+**Ce qui reste.** « Ce soir dans la salle N » dans la colonne d'une salle
+fermée (elle dit encore « tu regardes ») ; la place de la pastille tenue en
+main sans bande, grappe ni barre, et ses emplacements dans la barre et sur
+le panneau au bureau ; les parties téléphone de `salle-telephone` ;
+`avertissement-fermeture.mjs`, qui demande un worker construit et une ROM.
+
+### 24 novembre, plus tard dans la nuit : les états, quatrième passage
+
+**Ce qui a été fait.** Deux changements que la personne voit, et deux
+mesures au téléphone.
+
+- La colonne d'une salle fermée parlait encore au présent : « banc · tu
+  regardes », et « Ils regardent » avec les personnes arrivées après la
+  fermeture. Elle dit maintenant « Ce soir dans la salle 1 », le nom du jeu,
+  et « Ils ont regardé » avec les étiquettes tapées de ceux qui regardaient
+  au moment de la fermeture. Ceux qui ont joué restent sur le panneau, au
+  passé, et la colonne ne les répète pas. Le lien vers le carnet reste sur
+  l'écran noir, une seule fois : le plan le mettait aussi dans la colonne,
+  ce qui l'aurait montré deux fois. La durée de la partie attend une donnée
+  que le salon ne publie pas encore ; elle ne s'affiche pas, plutôt que de
+  s'afficher à zéro.
+- Au clavier, la personne qui allait sur « Relancer l'image » perdait ses
+  touches quand l'image revenait : la fiche partait avec le bouton, et le
+  focus tombait sur le document entier. Les touches n'allaient plus au jeu
+  jusqu'à un clic sur l'image. La fiche regarde maintenant, juste avant que
+  React ne la retire, si elle tient le focus. S'il retombe ensuite sur le
+  document, la page le rend au jeu. Ce que la personne a choisi ailleurs (un
+  rang de la colonne, par exemple) garde son focus.
+- `salle-telephone` gagne deux parties. `arrivee-telephone` : l'écran noir
+  d'une arrivée sans réponse tient sur l'écran du téléphone (titre et fait
+  dans le cadre et hors des zones sûres), « Réessayer » reçoit un vrai
+  appui, et la manette n'est pas montée dessous. `pastille` : cinq états,
+  neuf tailles, une image 4:3 et deux en 16:9 ; la pastille n'a aucune aire
+  commune avec l'image ni avec une touche, et elle reçoit le point en son
+  centre.
+
+**Comment on l'a vu rougir.** `fermee-vraie` lit la colonne avant la
+fermeture (Lina regarde) puis après (Max arrive une fois la salle fermée).
+Sur la page d'avant, elle rougit : pas de « Ce soir », « tu regardes », et
+Max dans la liste. Une page mutante qui lit les présents du moment au lieu
+de ceux d'avant rougit aussi, sur « a perdu ou changé qui regardait ».
+`fiche-focus-rendu`, nouvelle étape de `focus.mjs`, rougit sur la page
+d'avant : le focus était sur BODY. Elle vérifie d'abord que la fiche ne
+prend pas le focus au jeu, et son jumeau garde le focus d'un rang choisi.
+Les deux parties du téléphone ont rougi chacune sur un mutant : une
+pastille posée sur l'image (5 736 à 8 323 px² dessus), une pastille posée
+sur la grappe droite (308 à 1 562 px² sur les touches), et un écran noir dont
+le titre et les gestes sortent du cadre.
+
+**Ce que la mesure a corrigé.** La partie `pastille` devait d'abord dire
+« non posée » aux tailles où le pilote de `manette-garde` ne trouvait pas de
+place le 24 novembre après-midi (375x667, paysage 16:9). Mesurée ici, la
+pastille y est posée. Les tailles sans place sont deux autres : le
+téléphone tenu droit et court (390x664, 375x548), où « La salle » vit dans
+la manette et où il n'y a ni barre ni bande. La liste du pilote suit la
+mesure, et une absence ailleurs est un défaut, pour que la mesure ne passe
+jamais à vide.
+
+**Les portes du passage.** `just check` passe. Les pilotes ont tourné l'un
+après l'autre, chacun sur un port privé : `focus-navigateur`,
+`salle-telephone` (121 relevés justes) et `manette-garde` passent.
+`etats-navigateur` ne rougit que sur `colonne-stable`, comme avant ;
+`parcours-navigateur` sur `invitation` et `cadre-navigateur` sur
+`mascotte-hors-image` et `ain-immobile`, les rouges connus de la vague B1 ;
+les étapes qui les suivent, lancées par leur nom, passent. Les quatre
+recettes rouges rougissent comme attendu.
+
+**Le poids.** 285 540 octets en brotli : 79 pour la soirée d'une salle
+fermée, 168 pour le focus rendu, 247 sur le troisième passage (285 293).
+
+**Ce qui reste.** `colonne-stable` est toujours rouge (le panneau de commande
+de la salle change de place à la première image 4:3). La pastille du
+téléphone tenu droit et court n'a pas de place ; les pistes sont un point
+sur « La salle » dans la manette, ou une place que la salle réserve.
+`avertissement-fermeture.mjs` n'est pas lancé : il demande un worker construit
+et une ROM.
+
+### 24 novembre, au bout de la nuit : les états, la relecture et ses sept constats
+
+**Ce que la relecture a trouvé, et ce qui en reste.** Une relecture
+indépendante du chantier a relevé sept points. Chacun a été rejoué avant
+d'être corrigé ou écarté.
+
+- **Aïn sur l'image à la première image : pas reproduit comme peint.** La
+  relecture voyait le sprite d'Aïn (4 219 px² à 1440x900) sur la toile du
+  jeu au rendu de la première image peinte. Sa sonde relevait par un
+  observateur de taille (`ResizeObserver`, voir le glossaire) créé tôt. Le
+  navigateur sert ces observateurs dans l'ordre où ils ont été créés, tous
+  avant de peindre. Tracé rappel par rappel : l'observateur de la mascotte
+  (`observateurDe`, dans `mascotte/rendu.ts`) voit le plateau du plein cadre
+  s'effondrer quand la couverture « plein » est levée, et retire le sprite
+  dans la même mise à jour du rendu. Un observateur créé après lui ne voit
+  plus rien, à 1440x900, à 390x844 et en mouvement réduit. Le code n'a donc
+  pas changé. `premiere-image-coupe` relève maintenant Aïn sur la toile à
+  + 4 px par un observateur créé après ceux de la mascotte, et exige qu'Aïn
+  ait été sur le plateau au dernier rendu sans image, sans quoi le cas n'est
+  pas exercé. Elle rougit sur un mutant dont la mascotte n'observe plus le
+  plateau : Aïn reste sur la toile pendant 21 à 25 rendus.
+- **La pastille illisible de jour.** Son fond est l'écran noir de la borne
+  dans les deux thèmes, mais elle prenait les couleurs du thème de la page :
+  de jour, le compteur du gel était bleu nuit sur noir, à 1,16:1. Elle porte
+  maintenant la régie de nuit, comme les deux autres avis de la pile.
+  `pastille-contraste` mesure son texte, son compteur et son bord, de jour
+  et de nuit ; elle rougit sur la page d'avant.
+- **La pastille sur la tête d'Aïn.** Au téléphone tenu droit, posée dans la
+  barre, elle partait de 8 px du bord et couvrait la tête d'Aïn, qui est sa
+  maison au téléphone. Elle commence maintenant après la tête et son écart,
+  à 50 px. La tête entre dans les zones que mesurent `salle-telephone` et
+  `pastille-hors-image`, toutes deux vues rouges avant (de 104 à 419 px²
+  selon l'état). La pastille couvre toujours le nom de la salle et celui du
+  jeu, comme D40 le décide : ces noms restent lus par les lecteurs d'écran.
+- **La logique des états écrite dans `App.tsx`.** La partition ne laisse à
+  un chantier qu'un commit de câblage dans `App.tsx` (voir le glossaire).
+  Six commits y avaient mis de la logique. Elle vit maintenant dans des
+  fichiers d'etats : `useEtatDeLaSalle.ts` (le modèle et sa couverture, ce
+  que fait chaque geste, le chemin de la pastille au geste de sa fiche, ce
+  qu'une salle montrait avant de fermer), `etat-place.ts`, `etat-modele.ts`,
+  et `PlacesAuPasse.tsx` pour les places d'une salle fermée. Chaque essai
+  nouveau a été vu rouge sur son mutant. `Places.tsx`, son essai,
+  `places.css` et les mots `PLACES` de personnes sont revenus à leur état de
+  la branche d'intégration. Le câblage d'`App.tsx` tient en un commit, le
+  dernier commit de code de la branche, suivi de la page. L'histoire n'a pas
+  été réécrite : les contrôles rouges lisent des pages de cette branche par
+  leur commit (9a4519b, aeac1ab, 884c105). Trois touches aux blocs de
+  personnes restent dans le câblage, et leur sont demandées : `BlocRole` et
+  « Ils regardent » se taisent dans une salle fermée, les places passent à
+  `PlacesAuPasse`, et la ligne du coin se tait quand une fiche dit déjà
+  l'état.
+- **`colonne-stable` rouge.** Toujours rouge, pour la même raison : à
+  1440x900, le panneau de commande passe de sous l'écran à la colonne à la
+  première image 4:3 (`panneauAuBureau`, un fichier de la salle, que
+  `chantier/retro-salle-2` ne touche pas). La porte `etats-navigateur` est
+  rouge sur cette branche, et la branche ne se fusionne pas avant que la
+  salle tranche la place du panneau.
+- **« Je reste » sans preuve.** Aucune porte ne cliquait `#jeReste`, et le
+  seul pilote qui le faisait appuyait sur une touche du jeu quand le bouton
+  manquait. Le banc annonce maintenant la fermeture dans le message de salle
+  et compte les octets de « je reste ». `je-reste` clique le bouton, exige un
+  octet et un seul, puis le départ de la pastille ; son jumeau est un
+  spectateur, sans bouton ni octet. Elle rougit sur un mutant du câblage où
+  « Je reste » ne fait rien (0 octet reçu). `avertissement-fermeture.mjs`
+  perd son repli au clavier.
+- **L'extinction et les lignes du tube.** L'extinction d'une salle fermée
+  commençait par un rectangle presque blanc sur tout l'écran : 813 376 px²
+  clairs sur une capture. Elle part maintenant du noir. Deux rideaux noirs
+  viennent du haut et du bas et se ferment sur une ligne claire, la ligne se
+  resserre en un point, puis l'écran « fermée » paraît, en 650 ms. Le
+  balayage passait aussi sur le titre de l'écran noir : le texte a
+  maintenant une plaque pleine, posée au-dessus des lignes du tube.
+  `extinction` arrête l'effet à 0, 60 et 90 % et lit trois captures (le
+  noir, une ligne de 2 px sur toute la largeur, un point de 2 px), exige une
+  seule lecture et une toile intacte, et ses jumeaux (le redémarrage, le
+  niveau sobre) n'en ont aucune. `calques-attente` rend chaque calque cible
+  du pointeur et exige que le texte reçoive le point au centre et aux coins
+  de chaque pièce ; le titre se lit à 18,38:1 de jour comme de nuit. Les
+  deux étapes rougissent sur la page d'avant.
+
+**Ce que la mesure a corrigé.** Le plan voulait la vignette et le roulement
+au niveau « conseillé ». Le socle les range « à doser » : ils ne sont qu'au
+niveau « tout ». L'étape suit le socle, et le vérifie dans les deux sens
+(les trois calques au niveau « tout », le balayage seul au niveau
+« conseillé », aucun au niveau « sobre »).
+
+**Les portes.** `just check` passe sur l'arbre final. Les pilotes ont tourné
+l'un après l'autre, chacun sur un port privé : `focus-navigateur` (28
+étapes), `salle-telephone` (121 relevés justes) et `manette-garde` (41)
+passent. `etats-navigateur` passe ses 25 premières étapes et rougit sur
+`colonne-stable`, comme avant. `parcours-navigateur` rougit sur
+`invitation`, et `cadre-navigateur` sur `mascotte-hors-image` (précondition)
+et `ain-immobile`, les rouges connus de la vague B1 ; les étapes qui les
+suivent, lancées par leur nom, passent. Les quatre recettes rouges
+rougissent comme attendu ; celle d'etats gagne un sixième bloc contre la
+page relue (884c105).
+
+**Le poids.** 285 884 octets en brotli, contre 285 540 au quatrième passage :
+64 pour les trois corrections de l'écran (285 604 au commit f792f38), 280 pour
+la logique sortie d'`App.tsx` et les places au passé. Rien de mesurable n'est
+retiré : Bobine reste dans la page tant que menus et salon l'importent.
+
+**Ce qui reste.** `colonne-stable`, à la salle. La pastille du téléphone tenu
+droit et court n'a toujours pas de place. Les trois touches aux blocs de
+personnes, à reprendre par personnes. `avertissement-fermeture.mjs` n'est
+pas lancé : il demande un worker construit et une ROM.
+
 ## 12. Glossaire complet
+
+**Couverture (de l'image)** : ce qui se montre à la place d'une image du
+jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image
+assombrie). Un attribut sur la racine de la page, que la boucle de peinture
+retire à la première image dessinée.
+
+**Microtâche** : un morceau de code que le navigateur exécute juste après
+la tâche en cours, avant de rendre l'image suivante. Le pilote y regarde ce
+qui se verrait, une fois l'image dessinée.
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
 née des claviers sans lettres arabes. Le 3 y note la lettre ʿayn (ع), dont le
@@ -32850,3 +33284,15 @@ la bande, le panneau de commande, la manette tactile.
 conflit de texte, et dont le résultat ne marche plus, parce que chacune
 supposait ce que l'autre change. Git ne peut pas le voir ; seules les
 preuves lancées sur le résultat le montrent.
+
+**Observateur de taille (`ResizeObserver`)** : un rappel que le navigateur
+appelle quand un élément change de taille. Il est servi pendant la mise à
+jour du rendu, après les rappels d'animation et avant de peindre l'image
+d'écran. Plusieurs observateurs sont servis dans l'ordre où ils ont été
+créés : un relevé fait par le premier ne voit pas ce que les suivants
+changent encore avant la peinture.
+
+**Commit de câblage** : le seul commit qu'un chantier du thème rétro peut
+faire dans `App.tsx`, selon la partition : ses imports, le montage de ses
+pièces dans les emplacements du cadre, et le retrait des blocs qu'il
+remplace. La logique vit dans les fichiers du chantier.

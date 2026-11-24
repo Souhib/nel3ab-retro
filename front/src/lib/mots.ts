@@ -840,3 +840,33 @@ export const REGLAGE = {
 } as const;
 
 // ==== fin manettes ====
+
+// ==== chantier etats ====
+/** Les gestes des états de la salle. Leurs phrases vivent dans
+ * `lib/liaison-mots.ts`, vérifiées par sa propre garde. */
+export const ETAT = {
+  relancer: "Relancer l'image",
+  reessayer: "Réessayer",
+  nonMerci: "Non merci",
+  /** La réponse à l'avis de fermeture : la salle compte la place comme
+   * active, sans que le jeu reçoive rien (D16, ADR D43). */
+  rester: "Je reste",
+  revenir: enBouton(`revenir en ${IMAGE.complete}`),
+  garder: "Garder",
+  /** Le lien d'une salle fermée vers le carnet du salon (D12). */
+  parties: "Dernières parties",
+  /** Ce qu'une salle fermée garde dans la colonne : le jeu et ceux qui
+   * regardaient. Ceux qui ont joué sont sur le panneau, au passé. */
+  ceSoir: (salle: number) => `Ce soir dans la salle ${salle}`,
+  ontRegarde: "Ils ont regardé",
+  /** Les places d'une salle fermée, au passé (`PlacesAuPasse`) : le groupe,
+   * et une place que personne ne tenait. */
+  ontJoue: "Ils ont joué",
+  restaitLibre: (n: number) => `Place ${n}, libre`,
+  /** Le pli de la fiche d'une image figée : les faits, ligne à ligne. */
+  voit: "Ce que ta page voit",
+  /** Les étapes de l'arrivée, dites pour un lecteur d'écran. */
+  fait: "fait",
+  enCours: "en cours",
+} as const;
+// ==== fin etats ====

@@ -1169,6 +1169,58 @@ const ETAPES = {
   },
 
   /** A11Y-10 et A11Y-11: les contrôles de la colonne ont un nom et un état. */
+  /** La fiche d'état et le clavier (chantier etats, ADR D40). Une fiche qui
+   * paraît ne prend pas le focus au jeu ; un geste de la fiche focalisé au
+   * clavier, qui disparaît quand l'image revient, rend le clavier au jeu au
+   * lieu de le laisser tomber sur le document. Le jumeau : un rang que la
+   * personne a choisi garde son focus quand l'image revient. */
+  async "fiche-focus-rendu"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    const debut = await actif(page);
+    if (!debut.dansZone) throw new Precondition(`à l'entrée, le focus n'est pas au jeu: ${JSON.stringify(debut)}`);
+    const start = async () => {
+      const depuis = Date.now();
+      await appuyer(page, "Enter");
+      await sleep(250);
+      return (recus(depuis) & START_DOLPHIN) !== 0;
+    };
+    const geler = async () => {
+      banc.regler({ video: "freeze" });
+      if (!(await attendre(page, () => document.querySelector("#relancerImage") !== null, 9000)))
+        throw new Precondition("aucune fiche de gel en 9 s");
+    };
+    const revenir = async () => {
+      banc.regler({ video: "live" });
+      if (!(await attendre(page, () => document.querySelector("#relancerImage") === null, 6000)))
+        throw new Precondition("la fiche du gel reste 6 s après le retour de l'image");
+      await sleep(300);
+    };
+    await geler();
+    const pendant = await actif(page);
+    if (!pendant.dansZone) throw new Defaut(`la fiche a pris le focus au jeu: ${JSON.stringify(pendant)}`);
+    if (!(await start())) throw new Defaut("pendant la fiche, Entrée au jeu n'envoie plus START");
+    // La pastille mène au geste, au clavier.
+    await page.focus("#pastilleEtat");
+    await page.keyboard.press("Enter");
+    if (!(await attendre(page, () => document.activeElement?.id === "relancerImage", 2000)))
+      throw new Precondition(`la pastille ne mène pas au geste: ${JSON.stringify(await actif(page))}`);
+    await revenir();
+    const apres = await actif(page);
+    if (!apres.dansZone) throw new Defaut(`le geste parti avec la fiche laisse le focus sur « ${apres.id || apres.tag} »`);
+    if (!(await start())) throw new Defaut("après la fiche, Entrée n'envoie pas START");
+    // Le jumeau : un rang choisi au clavier pendant la fiche garde son focus.
+    await geler();
+    const rang = await ouvreMesures(page);
+    await page.focus(rang);
+    const choisi = await actif(page);
+    await revenir();
+    const garde = await actif(page);
+    if (garde.id !== choisi.id || garde.dansZone)
+      throw new Defaut(`le retour de l'image a pris le focus du rang « ${choisi.id} »: ${JSON.stringify(garde)}`);
+    await page.close();
+  },
+
   async "noms"() {
     const page = await nouvelle(PC);
     await entrer(page);

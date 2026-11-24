@@ -67,6 +67,7 @@ const figee: Liaison = {
   son: true,
   manette: true,
   niveau: "bandeau",
+  apresRelance: false,
 };
 
 it("la colonne dit l'état de la liaison, avec les mots du bandeau", () => {
@@ -81,7 +82,9 @@ it("la colonne dit l'état de la liaison, avec les mots du bandeau", () => {
   expect(decodeur.detail).toContain("ton appareil ne l'affiche plus");
   const coupee = diagnostic({ etat: "coupee", cause: "reseau", depuisMs: 3000 }, sample(), 2);
   expect(coupee.title).toBe("coupée");
-  expect(diagnostic({ etat: "fermee" }, sample(), 2).detail).toContain("La salle 2 est fermée.");
+  expect(diagnostic({ etat: "fermee", a: null, pour: null }, sample(), 2).detail).toContain(
+    "La salle 2 est fermée.",
+  );
 });
 
 it("jumeau: une liaison en marche garde ce que seule la colonne sait", () => {

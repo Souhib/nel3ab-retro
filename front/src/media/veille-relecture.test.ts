@@ -38,6 +38,7 @@ function veille(fetch: (url: string) => Promise<Response>) {
   const horloge = { t: 1_000_000 };
   const v = new VeilleLiaison({
     now: () => horloge.t,
+    horloge: () => horloge.t,
     enLigne: () => true,
     visible: () => true,
     salle: () => 1,

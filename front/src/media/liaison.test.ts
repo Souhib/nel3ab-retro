@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  APRES_RELANCE_MS,
   FIGEE_BANDEAU_MS,
   FIGEE_MS,
   lireLiaison,
@@ -27,6 +28,7 @@ function signaux(
     proposer: false,
     sonDepuisMs: 20,
     manetteDepuisMs: 300,
+    relanceDepuisMs: null,
     site: null,
     salle: null,
     ...rest,
@@ -187,6 +189,25 @@ describe("l'image figée côté salle (le 21 novembre 2026)", () => {
     expect(lireLiaison(tombee, m, 1_003_000).liaison.etat).not.toBe("figee");
   });
 
+  /** Un gel de 30 s, la salle qui répond, et la relance il y a `relance` ms. */
+  const gel30 = (relance: number | null) =>
+    signaux({
+      relanceDepuisMs: relance,
+      video: { entenduDepuisMs: 200, imageRecueDepuisMs: 30_000, peinteDepuisMs: 30_000 },
+    });
+  it("dit la relance vaine quand l'image reste figée dix secondes après elle", () => {
+    expect(lire(gel30(APRES_RELANCE_MS + 2000)).liaison).toMatchObject({ apresRelance: true });
+  });
+  it("jumeau : une relance de moins de dix secondes n'est pas encore vaine", () => {
+    expect(lire(gel30(APRES_RELANCE_MS - 500)).liaison).toMatchObject({ apresRelance: false });
+  });
+  it("jumeau : une relance faite AVANT ce gel ne compte pas pour lui", () => {
+    // Relancé il y a 40 s, gelé depuis 30 s : ce gel-ci n'a pas été relancé.
+    expect(lire(gel30(40_000)).liaison).toMatchObject({ etat: "figee", apresRelance: false });
+  });
+  it("jumeau : sans relance, jamais", () => {
+    expect(lire(gel30(null)).liaison).toMatchObject({ etat: "figee", apresRelance: false });
+  });
   it("ne parle pas de gel pendant un démarrage, ni dans une salle sans jeu", () => {
     expect(etat({ ...gel(9000), demarrageDepuisMs: 4000 })).toBe("demarrage");
     expect(etat({ ...gel(9000), jeu: false })).toBe("ok");
@@ -314,6 +335,20 @@ describe("l'arrivée dans la salle", () => {
   it("a une fin à quinze secondes, et pas avant", () => {
     expect(lire(arrivee({ demarreeDepuisMs: 15_000 })).liaison).toMatchObject({ perdue: true });
     expect(lire(arrivee({ demarreeDepuisMs: 14_000 })).liaison).toMatchObject({ perdue: false });
+  });
+  it("dit depuis quand la salle répond sans image : l'âge de la socket ouverte", () => {
+    const vu = lire(
+      arrivee({ entenduDepuisMs: 200, ouverteDepuisMs: 9000, demarreeDepuisMs: 16_000 }),
+    );
+    expect(vu.liaison).toMatchObject({ perdue: true, salleRepond: true, repondDepuisMs: 9000 });
+  });
+  it("jumeau : une salle qui ne répond pas n'a pas de durée de réponse", () => {
+    const muette = lire(
+      arrivee({ entenduDepuisMs: 4000, ouverteDepuisMs: 9000, demarreeDepuisMs: 16_000 }),
+    );
+    expect(muette.liaison).toMatchObject({ salleRepond: false, repondDepuisMs: null });
+    const fermee = lire(arrivee({ connectee: false, ouverteDepuisMs: null, coupeeDepuisMs: 800 }));
+    expect(fermee.liaison).toMatchObject({ salleRepond: false, repondDepuisMs: null });
   });
   it("dit si la salle répond pendant qu'on attend l'image", () => {
     expect(lire(arrivee({ entenduDepuisMs: 200 })).liaison).toMatchObject({ salleRepond: true });

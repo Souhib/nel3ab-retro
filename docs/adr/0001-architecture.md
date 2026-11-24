@@ -1217,6 +1217,14 @@ than the game. A closed room no longer offers « Inviter quelqu'un » or
 and the spoken line no longer says « Première image reçue. » before any picture
 was painted.
 
+Amended 2026-11-24 by D40. The one link state and its media-layer rule stay;
+the « one place on the picture » does not. The state is now said off the
+picture (a pastille, a sheet in the column or the phone's sheet, the
+cabinet's full frame when there is no picture at all), and what covers the
+picture is lifted by the paint loop on the first painted image. The banner
+became the sheet, the curtain the full frame; the frozen, banner and arrival
+thresholds above are unchanged.
+
 ### D30: The game keyboard lives in a focusable game zone; room menus are modal dialogs whose cursor is the focus, 2026-11-22
 
 The accessibility audit of 2026-11-22 found two keyboard owners on the room
@@ -2053,6 +2061,185 @@ during a click (the keyboard notice is born from the click that leaves the
 picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
+
+### D40: The room's state leaves the picture, and its cover lifts on the first painted image, 2026-11-24
+
+Context. Until this change, the room's state was said on the picture: a
+banner over the last image, a curtain on arrival, the light-image offer at
+the bottom of the image, the closing notice and the automatic light-image
+notice at its top or in the notice pile. D37 and D39 rule that nothing passes
+over a live picture. The owner's K20 ruling (24 November 2026) is: snow
+replaces the picture of a cut connection; a STOPPED picture may be dimmed,
+lifted on the very first new image; nothing ever on a live picture.
+
+Decision. One pure model per render (`lib/etat-modele.ts`) picks ONE state
+by priority (full frame, then cut, unreachable, restarting, closing soon,
+display stopped, frozen, light image, light-image offer) and says it in three
+pieces, each off the picture: a pastille (`#pastilleEtat`, in the notice
+pile placed by the room, or tenu en main at the top of the right pad cluster
+or in the bar, never on the picture: `lib/etat-place.ts`), a sheet (`#liaison`,
+`#rough`, at the head of the column, or in the expanded sheet on a phone),
+and the full frame of the cabinet (`#arrivee`) when there is no picture at
+all. The column's Signaler row hides while the sheet carries Signaler (K25).
+The words live in `lib/liaison-mots.ts`, including the loading sentences the
+menus workstream asked for; Aïn's scene per state comes from
+`lib/etat-scene.ts` through the room's arbiter, never `premiere-image` (K06).
+
+The cover is a set of tokens on `:root[data-couverture]`
+(`media/couverture.ts`): `plein` (the full frame; the game canvas is hidden,
+not covered), `neige` (cut connection only, at the levels that have the snow
+effect; the canvas is hidden and a noise canvas shows in its rectangle) and
+`passee` (a stopped picture at 50 % opacity, at the sheet only, instantly,
+because the room's guard refuses any animation that touches the canvas). The
+paint loop calls `lever()` right after `this.painted += 1` (`media/video.ts`):
+one addition and one comparison when nothing is set, and when something is,
+the attribute goes in the same task as the drawing, before the browser renders
+the frame. `armer(token, seen)` refuses when an image newer than the one the
+state was decided on has already been painted: the snapshot records
+`couverture.vues()` with the state (`couvertureVue`). A cover is armed once
+per entry into a state, so a frame that lifts it is not covered again at the
+next snapshot.
+
+Proof. `etats.mjs premiere-image-coupe` counts each drawing on `#screen` as
+it happens and checks, in a microtask before rendering, whether the full
+frame still shows (1440x900, 390x844, reduced motion): green on this page,
+red on main 03b21c0 (45 to 49 samples of a painted image under the curtain)
+and red on a mutant without the `lever()` call (43 to 53).
+`pastille-hors-image` measures the frozen-state pastille at + 4 px of the
+image at four sizes: red on 03b21c0 at all four. Both join
+`etats-navigateur-rouge`. `manette-garde` measures the real closing pastille
+placed by `placeDeLaPastille` instead of a copy of the old notice.
+
+Cost: +2 559 bytes brotli (281 760 to 284 319), within the 7 000 envelope;
+Bobine stays in the bundle until `Booting.tsx` (menus) and `Ouverture.tsx`
+(salon) stop importing it. Not done in this pass: the arrival on short
+phones, the closed room's past-tense panel and evening column, the
+"what your page sees" fold, the sound cues, and the bar pastille's own slot in
+`BarreSalle` (today it covers the room name, which stays in the DOM).
+
+Weighed: lifting the cover from React (up to 500 ms late, the measured
+defect); a fade-out on the first image (a live picture under a fading layer);
+a 400 ms dimming transition (refused by `vit-figee-immobile`, an animation on
+the canvas); the sheet in the phone's band (measured at 390x844: the band
+holds the pastille only, and the sheet's buttons fell under the touch pad);
+a pastille on the picture when no band, free cluster or bar can hold it
+(nowhere is better: the spoken line and the sheet behind "La salle" still
+say the state).
+
+Amended 2026-11-24, second pass. The closed room says when and why: the
+watch (`media/veille.ts`) reads `fermee_depuis` and `fermee_pour` from
+`/api/salles` (K37) and keeps the values of the first "closed" answer of the
+series, so the minute said cannot change between probes rounded to the
+second; with no time known, the title stays "est fermée" and no time is
+made up. Under a lobby the closed screen also links to the play journal
+(`/profil#parties`, D12). The frozen-image sheet folds what the page sees
+(picture, sound, room, pad echo) under "Ce que ta page voit". Entering a
+cut or unreachable state shakes the sheet and plays the error sound, both
+gated by the base layer (level "tout", sounds off by default, never while
+the game has focus); a sheet mounted later in the opened phone sheet does
+not shake. Below 260 px of height the full frame tightens its spacing (at
+320x568 it overflowed by 8 px), and the cost line carries `data-texte` so
+Aïn does not sit on it. A sheet opened by the pastille gives the focus back
+to the pastille on close, not to "La salle".
+
+Proof, second pass: `pastille-mene-au-geste`, `gel-image-passee`,
+`coupee-reseau`, `neige-coupee`, `arrivee-sans-image`, `arrivee-courte` and
+`colonne-stable` in `etats.mjs`. Each was seen red on a mutant page built
+for it, and four of them join the 03b21c0 block of
+`etats-navigateur-rouge`. `colonne-stable` is red on this branch: the
+command panel sits under the screen without a picture and moves into the
+column on the first 4:3 picture at 1440x900 (`panneauAuBureau`, a room
+file), pushing the column down 204 px; it was also red on 03b21c0, where the
+diagnosis block grew by 22 px. Weight: 284 891 bytes brotli (+528 on the
+first pass).
+
+Amended 2026-11-24, third pass. The "coupure" effect (level "tout") is a
+fourth cover token: when the full frame first appears in the arrival state,
+250 ms of snow under the token "coupure", removed by its timer or lifted with
+the rest by the first painted image. The state at the full frame's first
+mount decides alone, so a room answering again after a failure never shows
+it; nothing at "conseillé" or under reduced motion. A closed room keeps its
+seats in the past tense: the command panel shows the four START buttons
+unlit with the tag of whoever held each seat, without "toi", crown or mic,
+disabled, the group named "Ils ont joué"; the page keeps the seats it saw
+before the closing, since what the lobby publishes afterwards may no longer
+say who played. Weighed: leaving the live seats (a closed room offered "Place
+1, libre : la prendre"). Proof: `coupure-entree` in `etats.mjs`, red on the
+page before, with three twins (conseillé, reduced motion, a real cut at
+"tout"); `fermee-vraie` reads the panel before and after, the bench then
+publishes the room without its players, and a mutant page that forgets the
+earlier seats fails on "la salle fermée a perdu qui jouait". Weight: 285 293
+bytes brotli (+402 on the second pass). `colonne-stable` stays red, for the
+room's track to decide.
+
+Amended 2026-11-24, fourth pass. A closed room's column says "Ce soir dans
+la salle N": the game, and the people who were watching at the closing as
+typed tags (`CeSoir`, `#ceSoir`), in place of "Ils regardent" and the role
+block, which spoke in the present tense ("tu regardes"). The page keeps the
+game and the watchers it saw before the closing, like the seats; someone who
+arrives afterwards did not watch. The players stay on the panel, and the
+link to the logbook stays on the screen, once: the plan put it in the column
+too, which would have shown it twice. A fiche gesture that held the keyboard
+focus no longer drops it on `<body>` when the fiche leaves (the picture
+comes back, the state changes): the fiche checks, before its removal,
+whether it holds the focus, and if the focus falls on the document the page
+returns it to the game zone (`FicheEtat`, `onFocusPerdu`). A row the person
+chose elsewhere keeps its focus. Proof: `fermee-vraie` reads the column
+before (a watcher) and after (another person arrives after the closing),
+red on the page before and on a wiring mutant without the memory;
+`fiche-focus-rendu` in `focus.mjs`, red on the page before (focus on BODY),
+with its twin; two new parts of `salle-telephone` (`arrivee-telephone`,
+`pastille`: five states, nine sizes, 4:3 and 16:9, no common area with the
+picture or any touch key), each red on a mutant made for it. The handheld
+pastille still has no place in short portrait (390x664, 375x548), where
+"La salle" lives in the touch pad: the driver reports it as "non posée", for
+the room's track to decide. Weight: 285 540 bytes brotli (+247 on the third
+pass).
+
+Amended 2026-11-24, fifth pass (independent review, seven findings, each
+replayed first). Aïn over the first painted image was not reproduced as
+painted: the review read the render with a `ResizeObserver` created before
+the mascot's, and the browser serves observers in creation order before it
+paints. Traced callback by callback, the mascot's observer (`observateurDe`
+in `mascotte/rendu.ts`) sees the full frame's plateau collapse when the
+"plein" token is lifted and removes the sprite in the same rendering update;
+an observer created after it sees nothing at 1440x900, 390x844 and under
+reduced motion. No code change; `premiere-image-coupe` now records Aïn's
+sprites over the canvas at + 4 px from an observer created after the
+mascot's, requires Aïn on the plateau at the last render without a picture,
+and is red on a mutant whose mascot no longer observes the plateau (21 to 25
+renders). The pastille now carries the night régie: its background is the
+cabinet's black in both themes, and by day its counter fell to 1.16:1
+(`pastille-contraste`, text 4.5:1, border 3:1, both themes). In the phone's
+bar it starts after Aïn's head (`BARRE_TETE_PX`, 50 px), the head being his
+home on a phone; `salle-telephone` and `pastille-hors-image` measure the head.
+It still covers the room and game names, which stay readable by screen
+readers. The extinction starts from black: two black curtains from top and
+bottom close on a light line, the line narrows to a point, 650 ms; the old
+one opened on an almost white full screen. The full frame's text sits on a
+solid plaque above the tube layers, which drew over the title. `extinction`
+reads three screenshots with the effect paused at 0, 60 and 90 %, one play,
+an untouched canvas, none on restart or at "sobre"; `calques-attente`
+hit-tests every text piece with the layers made targetable, reads the
+title's contrast by day and by night, and the vignette and roll at "tout"
+(the base layer rates them "à doser", so not at "conseillé", unlike the
+plan). `je-reste` clicks `#jeReste` and requires one "reste" byte at the
+bench and the pastille gone, with a spectator twin; red on a wiring mutant
+where "Je reste" does nothing. The etats logic left `App.tsx` for etats
+files (`components/useEtatDeLaSalle.ts`, `lib/etat-place.ts`,
+`lib/etat-modele.ts`, `components/PlacesAuPasse.tsx`); `Places.tsx`, its
+test, `places.css` and `PLACES` are back to the integration branch. The
+`App.tsx` change is one wiring commit, the last code commit, followed by the
+page; history was not rewritten, because the negative controls read this
+branch's pages by commit. Three touches to the people blocks stay in the
+wiring and are requested from that track: the role block and "Ils
+regardent" fall silent in a closed room, the seats switch to
+`PlacesAuPasse`, and the corner line falls silent when a sheet already says
+the state. `colonne-stable` stays red (`panneauAuBureau`, a room file that
+`chantier/retro-salle-2` does not touch): this branch does not merge until
+the room's track decides where the panel goes. Weight: 285 884 bytes brotli
+(+344 on the fourth pass: +64 for the three screen fixes, +280 for the
+extraction and the past-tense seats).
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

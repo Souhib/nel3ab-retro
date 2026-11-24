@@ -7,7 +7,6 @@
  * scroll away from the game they are playing. Its width is dragged between two
  * bounds (`lib/column`), and the picture takes whatever is left.
  */
-import { Bobine } from "./bobine/Bobine";
 import { MUTE_SETTLES_MS, muteNews, type MuteNews } from "./lib/sourdine";
 import { typingIn } from "./lib/typing";
 import { base, salle, under } from "./lib/base";
@@ -29,7 +28,23 @@ import { ETROIT_SOUS } from "./lib/menu-xmb";
 import { entreeConnexion } from "./lib/rayons";
 import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
-import { EtatSalle } from "./components/EtatSalle";
+import {
+  CeSoir,
+  EtatPastille,
+  FicheEtat,
+  Neige,
+  PleinCadre,
+  ScenesDesEtats,
+} from "./components/EtatSalle";
+import { PlacesAuPasse } from "./components/PlacesAuPasse";
+import {
+  rappelsDeLEtat,
+  useAllerAuGeste,
+  useAvantLaFermeture,
+  useModeleDeLEtat,
+} from "./components/useEtatDeLaSalle";
+import { signaleDansLaFiche } from "./lib/etat-modele";
+import { lieuDeLaFiche, montageDeLaPastille } from "./lib/etat-place";
 import { LigneParlee } from "./components/LigneParlee";
 import { AnnonceEnLettres } from "./components/AnnonceEnLettres";
 import { Ouverture } from "./components/Ouverture";
@@ -254,7 +269,15 @@ import {
   type Role as RoleDuCadre,
 } from "./lib/cadre";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
-import { abonner, changerNiveau, changerSons, estNiveau, instantane, NIVEAUX } from "./lib/effets";
+import {
+  abonner,
+  changerNiveau,
+  changerSons,
+  effetsDu,
+  estNiveau,
+  instantane,
+  NIVEAUX,
+} from "./lib/effets";
 import { consoleDesTouches, sauvegardeAnnoncee, sauvegardeRelancee } from "./lib/lancement";
 import {
   entreeDeLAdresse,
@@ -877,14 +900,9 @@ function Room({
    * seconde, comme tout ce que la page affiche. */
   const soundOff = shot ? shot.sound.state !== "running" : false;
   // Le compte à rebours de fermeture, dit par le worker dans le message de
-  // salle. Masqué d'un clic, et RÉARMÉ quand le compte s'efface: une salle
-  // sauvée puis redélaissée doit prévenir de nouveau.
+  // salle. Il n'est plus masqué d'un clic : il ne couvre plus rien. La
+  // pastille le dit hors de l'image, la fiche porte « Je reste » (ADR D40).
   const closingIn = shot?.input.closingIn ?? 0;
-  const [closingHidden, setClosingHidden] = useState(false);
-  useEffect(() => {
-    if (closingIn === 0) setClosingHidden(false);
-  }, [closingIn]);
-  const closingSoon = closingIn > 0 && !closingHidden ? closingIn : null;
   /** L'état de la liaison, tel que la couche média l'a calculé. */
   const liaison: Liaison = shot?.liaison ?? { etat: "ok" };
   /** La salle est fermée: la colonne ne propose plus ni place, ni invitation,
@@ -895,6 +913,13 @@ function Room({
   const nomSalle = room?.name ?? `salle ${salle()}`;
   /** Où mène la sortie: les autres salles sous un salon, `null` servie seule. */
   const sortie = sortieVers(location.pathname);
+  /** Ce que les mots de l'état savent en plus de la liaison
+   * (`lib/liaison-mots`). */
+  const contexteEtat = {
+    moteur: moteurDe(room?.game?.console),
+    jeu: room?.game?.name ?? null,
+    salon: sortie !== null,
+  };
 
   /* Le relevé qui part au salon toutes les dix secondes.
      Par des références et non par des dépendances: `shot` change deux fois par
@@ -1352,7 +1377,7 @@ function Room({
   const voile = voileSurImage({
     repos: idle && !menu && !configuring,
     chargement: booting !== null,
-    rideau: dire(liaison, salle(), moteurDe(room?.game?.console)).niveau === "rideau",
+    rideau: dire(liaison, salle(), contexteEtat).niveau === "plein",
     padOnly,
   });
   /** La page a choisi de regarder (`input.watching`), et ne tient pas de
@@ -1510,6 +1535,22 @@ function Room({
     setHalf(true);
     setReduced(true);
   }, [overloaded, half, denied, declined, session]);
+
+  /** L'état de la salle en UN modèle (`lib/etat-modele`) : une seule
+   * pastille, une seule fiche, ou le plein cadre. Une page-manette n'attend
+   * pas d'image, et un chargement a son propre écran : seule la fermeture
+   * proche leur reste. */
+  const modele = useModeleDeLEtat({
+    liaison: booting === null && !padOnly ? liaison : { etat: "ok" },
+    salle: salle(),
+    contexte: contexteEtat,
+    fermeDans: closingIn,
+    place: port !== null,
+    legerePassee: reduced,
+    legere: half,
+    neige: effetsDu(effets).has("neige"),
+    vues: shot?.couvertureVue ?? 0,
+  });
 
   /** Les consoles présentes dans cette bibliothèque, dans l'ordre des sorties.
    *
@@ -2343,33 +2384,48 @@ function Room({
   const don = useDonDiffere((ok) => repondre.current(ok));
   /* Les places START 1P à 4P (chantier personnes). La rangée est posée par
      le cadre : sous l'image, au pied de la colonne, debout ou en petit. */
+  const entreeDesPlaces = {
+    places: shot?.input.players ?? 4,
+    tenues: occupied,
+    noms: names,
+    micros: shot?.input.mics ?? [],
+    chef: boss?.seat,
+    mienne: port,
+  };
+  /* Une salle fermée garde ses places et sa soirée d'avant la fermeture
+     (chantier etats, `useAvantLaFermeture`). */
+  const placesDAvant = useAvantLaFermeture(salleFermee, entreeDesPlaces);
+  const ceSoir = useAvantLaFermeture(salleFermee, {
+    jeu: room?.game?.name ?? null,
+    regardaient: regardentDe(people),
+  });
+  const formeDuPanneau = formeDesPlaces(
+    geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme,
+  );
   const places = (
     <>
-      <Places
-        forme={formeDesPlaces(geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme)}
-        entree={{
-          places: shot?.input.players ?? 4,
-          tenues: occupied,
-          noms: names,
-          micros: shot?.input.mics ?? [],
-          chef: boss?.seat,
-          mienne: port,
-        }}
-        vient={suivi.vient}
-        part={suivi.part}
-        carte={carte}
-        onPrendre={(choisie) => {
-          fermerLaCarte();
-          session?.input.take(choisie);
-        }}
-        onCarte={basculer}
-        // En petit et trop étroite, la rangée devient un bouton : il ouvre la
-        // salle, où les places ont leur taille.
-        onToutes={() => {
-          if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
-          else setBare(false);
-        }}
-      />
+      {salleFermee ? (
+        <PlacesAuPasse forme={formeDuPanneau} entree={placesDAvant} />
+      ) : (
+        <Places
+          forme={formeDuPanneau}
+          entree={entreeDesPlaces}
+          vient={suivi.vient}
+          part={suivi.part}
+          carte={carte}
+          onPrendre={(choisie) => {
+            fermerLaCarte();
+            session?.input.take(choisie);
+          }}
+          onCarte={basculer}
+          // En petit et trop étroite, la rangée devient un bouton : il ouvre la
+          // salle, où les places ont leur taille.
+          onToutes={() => {
+            if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
+            else setBare(false);
+          }}
+        />
+      )}
       {shot?.input.displaced ? (
         <p id="displaced" className="text-note text-alert">
           {PLACES.deplace}
@@ -2448,7 +2504,8 @@ function Room({
     etat: geo.etat,
     role: roleDuCadre,
     appareil,
-    fiche: false,
+    // La fiche porte Signaler pendant une panne (K25).
+    fiche: signaleDansLaFiche(modele),
   });
   /** La vue des touches montrée : celle qu'un rang a ouverte, ou celle du
    * clavier à la première visite. Seulement tant que son rang existe : une
@@ -2644,6 +2701,45 @@ function Room({
     setSuggestHalf(false);
     sending.current.quality("accepté");
   };
+  /** Les gestes de la fiche et du plein cadre, avec les moyens de la salle
+   * (chantier etats, `rappelsDeLEtat`). */
+  const rappels = rappelsDeLEtat({
+    session,
+    quitter: quitterLaSalle,
+    signaler: complain,
+    garde: garde.current,
+    reduire: takeHalf,
+    cale: rough.current,
+    qualite: (mot) => sending.current.quality(mot),
+    sansProposition: () => setSuggestHalf(false),
+    legere: setHalf,
+    avisLegere: setReduced,
+    refuserLegere: () => setDeclined(true),
+  });
+  const lieuFiche = lieuDeLaFiche(couches.colonne);
+  const fiche = (
+    <FicheEtat
+      modele={modele}
+      rappels={rappels}
+      onPropositionVue={() => {
+        if (proposalTold.current) return;
+        proposalTold.current = true;
+        sending.current.quality("proposé");
+      }}
+      // Un geste parti avec la fiche ne laisse pas le clavier sur le document.
+      onFocusPerdu={() => zone.current?.focus({ preventScroll: true })}
+    />
+  );
+  /** La pastille mène au geste de sa fiche (chantier etats). */
+  const allerAuGeste = useAllerAuGeste({
+    lieu: lieuFiche,
+    feuilleOuverte: feuille !== null,
+    menu,
+    ouvrirFeuille: () => setFeuille("agrandie"),
+  });
+  /** Où se pose la pastille : dans la pile des avis, à part tenue en main,
+   * ou nulle part plutôt que sur l'image (`lib/etat-place`). */
+  const pastille = montageDeLaPastille(modele, geo, tenu);
   /** Un geste du réglage des touches, suivi d'un `refresh`: ce sont des
    * changements locaux et immédiats, et attendre le prochain instantané ferait
    * clignoter l'écran une demi-seconde plus tard. */
@@ -2727,7 +2823,7 @@ function Room({
             envoi: envoiDuReglage,
           };
   /** Ce que la salle dit d'elle quand elle ne vit pas, en tête du panneau. */
-  const ditDuReglage = dire(liaison, salle(), moteurDe(room?.game?.console));
+  const ditDuReglage = dire(liaison, salle(), contexteEtat);
   const bandeDuReglage: BandeDuReglage | null =
     geo.etat === "vit" || !ditDuReglage.titre ? null : { phrase: ditDuReglage.titre };
   /** Une partie tourne et une autre place que la mienne est tenue. */
@@ -2740,7 +2836,7 @@ function Room({
      23 novembre 2026, cette pile se posait en haut de l'image (`#avisDuHaut`),
      et l'avis du format réduit en bas. */
   const avis =
-    closingSoon !== null || reduced || pastilleAgrandie || pauseClavier ? (
+    pastille.pile || pastilleAgrandie || pauseClavier ? (
       <div
         id="avisDuCadre"
         ref={setPile}
@@ -2759,23 +2855,11 @@ function Room({
               }
         }
       >
-        {/* La salle va fermer faute d'activité, cliquable pour disparaître: un
-            message qu'on ne peut pas faire taire finit par être contourné en
-            fermant l'onglet. */}
-        {closingSoon !== null ? (
-          <button
-            type="button"
-            id="closingNotice"
-            onClick={() => setClosingHidden(true)}
-            className="pointer-events-auto w-full max-w-[52ch] border border-alert/60 bg-panel px-4 py-3 text-center text-corps leading-relaxed text-bright"
-          >
-            <span className="float-left -mt-1 mr-3" aria-hidden="true">
-              <Bobine pose="dort" taille={44} />
-            </span>
-            Personne n&apos;a joué depuis un moment: la salle ferme dans {closingSoon}
-            {closingSoon > 1 ? " minutes" : " minute"}. Touche une manette pour rester.
-          </button>
-        ) : null}
+        {/* L'état de la salle en un voyant : la fermeture proche, une image
+            figée, l'image légère. Il remplace l'avis de fermeture et celui
+            de l'image légère, qui se posaient en haut et en bas de l'image
+            jusqu'au 23 novembre 2026 (ADR D40). */}
+        {pastille.pile ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null}
         {/* Le clavier ne joue plus: le focus est sur la colonne (`lib/focus-jeu`,
             `clavierEnPause`). */}
         {pauseClavier ? (
@@ -2792,41 +2876,6 @@ function Room({
             >
               Rendre les touches au jeu
             </button>
-          </div>
-        ) : null}
-        {/* L'image est passée en image légère toute seule: on le DIT, et on
-            laisse revenir. */}
-        {reduced ? (
-          <div
-            id="reducedNotice"
-            className="pointer-events-auto flex max-w-[46ch] flex-col gap-2 border border-rule bg-panel px-4 py-3 text-center"
-          >
-            <p className="text-corps leading-relaxed text-bright">
-              Ta connexion ne suivait pas : passage en image légère.
-            </p>
-            <div className="flex justify-center gap-2">
-              <button
-                type="button"
-                id="keepReduced"
-                onClick={() => setReduced(false)}
-                className="border border-rule px-2 py-0.5 text-note text-muted hover:border-rule-bright"
-              >
-                Garder
-              </button>
-              <button
-                type="button"
-                id="undoReduced"
-                onClick={() => {
-                  setDeclined(true);
-                  session?.video.setHalf(false);
-                  setHalf(false);
-                  setReduced(false);
-                }}
-                className="border border-indigo px-2 py-0.5 text-note text-indigo"
-              >
-                Revenir en {IMAGE.complete}
-              </button>
-            </div>
           </div>
         ) : null}
         {/* L'image agrandie par Ctrl : trois secondes, puis à chaque mouvement
@@ -2848,12 +2897,12 @@ function Room({
    * regarde. Dans la colonne, et dans la bande d'une salle tenue en main
    * pour qui regarde : la colonne n'y est montée que dans la feuille
    * agrandie, qui démonte la bande. Jamais deux fois. */
-  const blocRole = (
+  const blocRole = salleFermee ? null : (
     <BlocRole
       nom={name}
       place={port}
       libre={premiereLibre}
-      onPrendre={salleFermee ? undefined : () => session?.input.play()}
+      onPrendre={() => session?.input.play()}
     />
   );
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
@@ -2885,9 +2934,16 @@ function Room({
           {menu || cartesDansLaBande ? null : cartes}
         </>
       }
+      // La fiche de l'état en tête de la colonne, au bureau comme dans la
+      // feuille agrandie.
+      etat={fiche}
       role={blocRole}
       personnes={
         <>
+          {/* Une salle fermée : ce soir dans la salle, gardé d'avant. */}
+          {salleFermee ? (
+            <CeSoir salle={salle()} jeu={ceSoir.jeu} regardaient={ceSoir.regardaient} />
+          ) : null}
           {/* Le rôle dit en clair: « Bo choisit le jeu. » La reprise du
               rôle ne se montre que quand le worker dit que le chef ne
               joue plus (`repriseDuRole`, audit T12). */}
@@ -2911,7 +2967,7 @@ function Room({
               </button>
             </div>
           ) : null}
-          <IlsRegardent people={people} owner={boss} />
+          {salleFermee ? null : <IlsRegardent people={people} owner={boss} />}
           {salleFermee ? null : (
             <Inviter
               lien={(entree) => lienDInvitation(location.origin, base(), entree)}
@@ -3122,7 +3178,10 @@ function Room({
           mesures={mode === "details"}
           onMesures={() => setMode(mode === "details" ? "normal" : "details")}
           // L'état de la liaison en clair (chantier personnes).
-          ligne={shot ? ligneDeLaLiaison(liaison, shot.video).texte : undefined}
+          // Elle se tait quand une fiche dit déjà l'état (`ligneCoin`).
+          ligne={
+            shot ? (modele.ligneCoin ?? ligneDeLaLiaison(liaison, shot.video).texte) : undefined
+          }
         />
       }
     />
@@ -3225,34 +3284,13 @@ function Room({
             </div>
           ) : null}
 
-          {/* L'état de la salle, à UN seul endroit: ici, sur l'image, et jamais
-            sur toute la page. La colonne reste vivante pendant une panne, avec
-            les places, « quitter » et « signaler » (audit P4, E7). Rien pour
-            une page-manette, qui n'a pas d'image à attendre. */}
-          {booting === null && !padOnly ? (
-            <EtatSalle
-              liaison={liaison}
-              salle={salle()}
-              moteur={moteurDe(room?.game?.console)}
-              cadre={cadre}
-              onRelancer={() => session?.relancerImage()}
-              onReessayer={() => session?.relancerImage()}
-              onQuitter={quitterLaSalle}
-              onSignaler={complain}
-              garde={garde.current}
-              onReduire={takeHalf}
-              onGarder={() => {
-                rough.current.settled();
-                setSuggestHalf(false);
-                sending.current.quality("refusé");
-              }}
-              onPropositionVue={() => {
-                if (proposalTold.current) return;
-                proposalTold.current = true;
-                sending.current.quality("proposé");
-              }}
-            />
-          ) : null}
+          {/* Le plein cadre de la borne, quand il n'y a pas d'image du tout,
+            et la neige d'une connexion coupée, à la place de l'image : les
+            deux ne se montrent que sous leur jeton de couverture, levé par la
+            première image peinte (ADR D40). La pastille et la fiche vivent
+            hors de l'image. Rien pour une page-manette. */}
+          {booting === null && !padOnly ? <PleinCadre modele={modele} rappels={rappels} /> : null}
+          {modele.couverture === "neige" && cadre ? <Neige cadre={cadre} /> : null}
 
           {/* L'écran de chargement d'un changement de jeu, dans la zone de
             l'image lui aussi, et SOUS le menu: son bouton « ouvrir le menu »
@@ -3310,6 +3348,10 @@ function Room({
                       (performance.now() - booting.at) / 1000,
                       booting.stalled ?? false,
                     ),
+                    // Le nom du jeu et qui peut le relancer : demandés par
+                    // le chantier menus (C1a, C9).
+                    jeu: booting.game,
+                    relance: boss ? (boss.moi ? "moi" : { nom: boss.name }) : null,
                   }
                 : liaison
             }
@@ -3317,11 +3359,21 @@ function Room({
             demande={demandeRecue}
             delai={demandeRecue?.chemin === "reprise" ? REPRISE_REPONSE_S : (room?.ask_lasts ?? 10)}
             peintes={shot?.video.painted ?? 0}
+            fermeDans={closingIn}
             nouvelle={nouvelle}
           />
           {/* La même nouvelle, écrite lettre par lettre sur l'ancre de
               l'annonce du socle (effet « lettres »). */}
           <AnnonceEnLettres nouvelle={nouvelle} />
+          {/* Les scènes d'Aïn par état, par l'arbitre du cadre (K10) : sur le
+              plateau du plein cadre, sinon là où la salle la pose. */}
+          <ScenesDesEtats
+            moment={{
+              liaison: booting === null && !padOnly ? liaison : { etat: "ok" },
+              fermeDans: closingIn,
+            }}
+            hote={(scene) => (modele.niveau === "plein" ? "plateau" : ouEstLaMascotte(geo, scene))}
+          />
           {/* Les arrivées et les départs, suivis sous le cadre pour son
               arbitre des scènes. */}
           <SuiviPlaces
@@ -3426,6 +3478,11 @@ function Room({
               />
             ) : null}
           </Bande>
+        ) : null}
+        {pastille.aPart ? (
+          <div className="n3-pastille-place" style={placeDe(pastille.aPart)}>
+            <EtatPastille modele={modele} onAller={allerAuGeste} />
+          </div>
         ) : null}
         {tenu && geo.manette && couches.pave ? (
           <div className="n3-manette-boite" style={placeDe(geo.manette.rect)}>

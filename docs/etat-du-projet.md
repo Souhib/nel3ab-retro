@@ -221,6 +221,63 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
+**Au 24 novembre, l'après-midi : l'état quitte l'image (chantier états,
+premier passage).** Sur `chantier/retro-etats` (worktree
+`~/nel3ab-chantiers/retro-etats`), parti d'`integration/retro` 87bc2b3 ;
+rien dans `main`, rien d'installé, rien de poussé. L'état de la salle se dit
+en une pastille hors de l'image, une fiche en tête de colonne (dans la
+feuille au téléphone) ou le plein cadre de la borne sans image
+(`lib/etat-modele.ts`, `lib/etat-place.ts`, `components/EtatSalle.tsx`). La
+couverture de l'image (`media/couverture.ts`) est levée par la boucle de
+peinture à la première image (ADR D40) ; la neige ne remplace que l'image
+d'une connexion coupée, l'image figée n'est assombrie qu'à sa fiche (K20).
+Les phrases du chargement de menus sont dans `lib/liaison-mots.ts`. Page :
+284 319 octets en brotli. Reste : voir l'entrée du carnet du même jour.
+
+**Au 24 novembre, le soir : les états, deuxième passage.** Même branche,
+toujours hors de `main`, rien d'installé ni de poussé. La salle fermée dit
+l'heure et la raison que publie le salon (K37) et mène au carnet sous un
+salon (D12) ; la fiche du gel a son pli « Ce que ta page voit » ; la fiche
+tremble et le son d'erreur sonne à l'entrée d'une coupure (selon le socle) ;
+le plein cadre tient à 320x568 ; la feuille ouverte par la pastille lui rend
+le focus. Sept étapes nouvelles dans `etats.mjs`, chacune vue rouge sur un
+mutant. `colonne-stable` reste ROUGE : le panneau de commande passe dans la
+colonne à la première image 4:3 (`panneauAuBureau`, fichier de la salle), et
+`etats-navigateur` sort en échec sur elle. Page : 284 891 octets en brotli.
+
+**Au 24 novembre, la nuit : les états, troisième passage.** Même branche,
+hors de `main`, rien d'installé ni de poussé. L'effet « coupure » (niveau
+« tout ») : un quart de seconde de neige à l'apparition de l'écran
+« Connexion », levé par la première image. Une salle fermée garde ses places
+au passé sur le panneau : START éteints, étiquettes de qui jouait, aucun
+geste, « Ils ont joué ». `colonne-stable` reste ROUGE pour la même raison
+(fichier de la salle). Page : 285 293 octets en brotli.
+
+**Au 24 novembre, plus tard dans la nuit : les états, quatrième passage.**
+Même branche, hors de `main`, rien d'installé ni de poussé. La colonne d'une
+salle fermée dit « Ce soir dans la salle N » : le jeu et ceux qui
+regardaient à la fermeture, en étiquettes, à la place de « Ils regardent »
+et de « tu regardes ». Un geste de la fiche qui tenait le focus le rend au
+jeu quand la fiche part, au lieu de le laisser sur le document.
+`salle-telephone` gagne les parties `arrivee-telephone` et `pastille`. Tenu
+droit et court (390x664, 375x548), la pastille n'est posée nulle part : à
+décider avec la salle. `colonne-stable` reste ROUGE (fichier de la salle).
+Page : 285 540 octets en brotli.
+
+**Au 24 novembre, au bout de la nuit : les états, la relecture.** Même
+branche, hors de `main`, rien d'installé ni de poussé. Sept constats rejoués :
+la pastille porte la régie de nuit (son compteur était à 1,16:1 de jour) ;
+dans la barre du téléphone, elle commence après la tête d'Aïn ; l'extinction
+part du noir et le texte du plein cadre a sa plaque au-dessus des lignes du
+tube ; « Je reste » est prouvé par un vrai clic et l'octet reçu au banc ; la
+logique des états a quitté `App.tsx` (un seul commit de câblage, le dernier
+de code), et les fichiers de personnes sont revenus à l'intégration. Aïn sur
+la première image n'a pas été reproduit comme peint (un observateur créé
+après celui de la mascotte ne le voit pas) ; `premiere-image-coupe` le garde.
+Trois touches aux blocs de personnes leur sont demandées. `colonne-stable`
+reste ROUGE (fichier de la salle) : pas de fusion avant que la salle tranche.
+Page : 285 884 octets en brotli.
+
 **Au 24 novembre : le chantier personnes, cinq passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de

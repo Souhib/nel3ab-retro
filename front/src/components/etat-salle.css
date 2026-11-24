@@ -140,6 +140,25 @@ button.n3-pastille {
   line-height: 1.45;
   color: var(--legende);
 }
+/* « Ce que ta page voit » : replié, en étiquette du socle ; les lignes en
+   chiffres tabulaires pour que les durées ne dansent pas. */
+.n3-fiche-voit summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--legende);
+  cursor: pointer;
+}
+.n3-fiche-voit ul {
+  margin: 0;
+  padding-left: var(--espace-4);
+  font-size: var(--text-note);
+  line-height: 1.45;
+  color: var(--legende);
+  font-variant-numeric: tabular-nums;
+}
 .n3-etat-gestes {
   display: flex;
   flex-wrap: wrap;

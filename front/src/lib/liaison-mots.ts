@@ -79,7 +79,13 @@ export type Dit = {
   signaler: "a-cote" | "derniere-ligne" | "plein" | null;
   pastille: Pastille | null;
   etapes?: Etape[];
+  /** Ce que ta page voit, ligne à ligne, replié sous la fiche : les faits
+   * qui ont fait dire l'état, pour qui veut comprendre ou signaler. */
+  voit?: Vu[];
 };
+
+/** Une ligne de « Ce que ta page voit » : un flux, et ce que la page en sait. */
+export type Vu = { quoi: string; vu: string };
 
 /** Ce que la page sait en plus de la liaison, pour la dire. */
 export type Contexte = {
@@ -164,6 +170,12 @@ export function dire(liaison: Liaison, salle: number, contexte: Contexte = {}): 
       const detail = liaison.son
         ? "Le son arrive encore."
         : "La salle répond, mais n'envoie plus d'image.";
+      const voit: Vu[] = [
+        { quoi: "Image", vu: `arrêtée depuis ${secondes} s` },
+        { quoi: "Son", vu: liaison.son ? "arrive" : "n'arrive plus" },
+        { quoi: "Salle", vu: "répond" },
+        { quoi: "Manette", vu: liaison.manette ? "reçoit son écho" : "pas d'écho" },
+      ];
       if (liaison.apresRelance)
         return {
           niveau: "fiche",
@@ -173,6 +185,7 @@ export function dire(liaison: Liaison, salle: number, contexte: Contexte = {}): 
           actions: ["relancer"],
           signaler: "plein",
           pastille,
+          voit,
         };
       return {
         niveau: "fiche",
@@ -182,6 +195,7 @@ export function dire(liaison: Liaison, salle: number, contexte: Contexte = {}): 
         actions: ["relancer"],
         signaler: "a-cote",
         pastille,
+        voit,
       };
     }
     case "decodeur":

@@ -855,6 +855,8 @@ export const ETAT = {
   garder: "Garder",
   /** Le lien d'une salle fermée vers le carnet du salon (D12). */
   parties: "Dernières parties",
+  /** Le pli de la fiche d'une image figée : les faits, ligne à ligne. */
+  voit: "Ce que ta page voit",
   /** Les étapes de l'arrivée, dites pour un lecteur d'écran. */
   fait: "fait",
   enCours: "en cours",

@@ -103,6 +103,29 @@ describe("l'image figée", () => {
     expect(dit.signaler).toBe("a-cote");
     expect(dit.pastille).toEqual({ texte: "Image figée", icone: "arret", compteur: 14 });
   });
+  it("le détail replié dit ce que ta page voit : l'image, le son, la salle, la manette", () => {
+    expect(dire(figee(14_000), 1).voit).toEqual([
+      { quoi: "Image", vu: "arrêtée depuis 14 s" },
+      { quoi: "Son", vu: "arrive" },
+      { quoi: "Salle", vu: "répond" },
+      { quoi: "Manette", vu: "reçoit son écho" },
+    ]);
+    expect(dire(figee(24_000, true, "bandeau", true), 1).voit?.[0]).toEqual({
+      quoi: "Image",
+      vu: "arrêtée depuis 24 s",
+    });
+  });
+  it("jumeau: sans son ni écho, le détail le dit ; la pastille seule n'a pas de détail", () => {
+    const sourd: Liaison = { ...figee(14_000, false), manette: false } as Liaison;
+    expect(dire(sourd, 1).voit).toEqual([
+      { quoi: "Image", vu: "arrêtée depuis 14 s" },
+      { quoi: "Son", vu: "n'arrive plus" },
+      { quoi: "Salle", vu: "répond" },
+      { quoi: "Manette", vu: "pas d'écho" },
+    ]);
+    expect(dire(figee(3000, true, "pastille"), 1).voit).toBeUndefined();
+    expect(dire({ etat: "decodeur", depuisMs: 6400 }, 1).voit).toBeUndefined();
+  });
   it("jumeau: sans son, il ne dit pas que le son arrive", () => {
     const dit = dire(figee(14_000, false), 1);
     expect(dit.detail).toBe("La salle répond, mais n'envoie plus d'image.");

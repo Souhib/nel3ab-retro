@@ -86,6 +86,29 @@ describe("l'image figée, dite hors de l'image", () => {
     expect(document.querySelectorAll("#liaison [data-texte]")).toHaveLength(2);
   });
 
+  it("« Ce que ta page voit » est replié sous la fiche, et se déplie", () => {
+    montrer(gel(14_000, "bandeau"));
+    const pli = document.querySelector<HTMLDetailsElement>("#liaison details#ceQueTaPageVoit");
+    expect(pli).not.toBeNull();
+    expect(pli?.open).toBe(false);
+    expect(pli?.querySelector("summary")?.textContent).toBe("Ce que ta page voit");
+    const lignes = [...(pli?.querySelectorAll("li") ?? [])].map((li) => li.textContent);
+    expect(lignes).toEqual([
+      "Image : arrêtée depuis 14 s",
+      "Son : arrive",
+      "Salle : répond",
+      "Manette : reçoit son écho",
+    ]);
+    // Le pli n'est pas un mot de l'événement : Aïn peut passer à côté.
+    expect(pli?.querySelector("[data-texte]")).toBeNull();
+  });
+
+  it("jumeau : la fiche d'une salle injoignable n'a pas ce pli", () => {
+    montrer({ etat: "injoignable", site: "repond", arrivee: false, depuisMs: 6000 });
+    expect(document.querySelector("#liaison")).not.toBeNull();
+    expect(document.querySelector("#ceQueTaPageVoit")).toBeNull();
+  });
+
   it("la pastille mène au geste quand la fiche existe", () => {
     const { onAller } = montrer(gel(14_000, "bandeau"));
     const pastille = document.querySelector<HTMLElement>("#pastilleEtat");

@@ -2054,6 +2054,70 @@ picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
 
+### D40: The room's state leaves the picture, and its cover lifts on the first painted image, 2026-11-24
+
+Context. Until this change, the room's state was said on the picture: a
+banner over the last image, a curtain on arrival, the light-image offer at
+the bottom of the image, the closing notice and the automatic light-image
+notice at its top or in the notice pile. D37 and D39 rule that nothing passes
+over a live picture. The owner's K20 ruling (24 November 2026) is: snow
+replaces the picture of a cut connection; a STOPPED picture may be dimmed,
+lifted on the very first new image; nothing ever on a live picture.
+
+Decision. One pure model per render (`lib/etat-modele.ts`) picks ONE state
+by priority (full frame, then cut, unreachable, restarting, closing soon,
+display stopped, frozen, light image, light-image offer) and says it in three
+pieces, each off the picture: a pastille (`#pastilleEtat`, in the notice
+pile placed by the room, or tenu en main at the top of the right pad cluster
+or in the bar, never on the picture: `lib/etat-place.ts`), a sheet (`#liaison`,
+`#rough`, at the head of the column, or in the expanded sheet on a phone),
+and the full frame of the cabinet (`#arrivee`) when there is no picture at
+all. The column's Signaler row hides while the sheet carries Signaler (K25).
+The words live in `lib/liaison-mots.ts`, including the loading sentences the
+menus workstream asked for; Aïn's scene per state comes from
+`lib/etat-scene.ts` through the room's arbiter, never `premiere-image` (K06).
+
+The cover is a set of tokens on `:root[data-couverture]`
+(`media/couverture.ts`): `plein` (the full frame; the game canvas is hidden,
+not covered), `neige` (cut connection only, at the levels that have the snow
+effect; the canvas is hidden and a noise canvas shows in its rectangle) and
+`passee` (a stopped picture at 50 % opacity, at the sheet only, instantly,
+because the room's guard refuses any animation that touches the canvas). The
+paint loop calls `lever()` right after `this.painted += 1` (`media/video.ts`):
+one addition and one comparison when nothing is set, and when something is,
+the attribute goes in the same task as the drawing, before the browser renders
+the frame. `armer(token, seen)` refuses when an image newer than the one the
+state was decided on has already been painted: the snapshot records
+`couverture.vues()` with the state (`couvertureVue`). A cover is armed once
+per entry into a state, so a frame that lifts it is not covered again at the
+next snapshot.
+
+Proof. `etats.mjs premiere-image-coupe` counts each drawing on `#screen` as
+it happens and checks, in a microtask before rendering, whether the full
+frame still shows (1440x900, 390x844, reduced motion): green on this page,
+red on main 03b21c0 (45 to 49 samples of a painted image under the curtain)
+and red on a mutant without the `lever()` call (43 to 53).
+`pastille-hors-image` measures the frozen-state pastille at + 4 px of the
+image at four sizes: red on 03b21c0 at all four. Both join
+`etats-navigateur-rouge`. `manette-garde` measures the real closing pastille
+placed by `placeDeLaPastille` instead of a copy of the old notice.
+
+Cost: +2 559 bytes brotli (281 760 to 284 319), within the 7 000 envelope;
+Bobine stays in the bundle until `Booting.tsx` (menus) and `Ouverture.tsx`
+(salon) stop importing it. Not done in this pass: the arrival on short
+phones, the closed room's past-tense panel and evening column, the
+"what your page sees" fold, the sound cues, and the bar pastille's own slot in
+`BarreSalle` (today it covers the room name, which stays in the DOM).
+
+Weighed: lifting the cover from React (up to 500 ms late, the measured
+defect); a fade-out on the first image (a live picture under a fading layer);
+a 400 ms dimming transition (refused by `vit-figee-immobile`, an animation on
+the canvas); the sheet in the phone's band (measured at 390x844: the band
+holds the pastille only, and the sheet's buttons fell under the touch pad);
+a pastille on the picture when no band, free cluster or bar can hold it
+(nowhere is better: the spoken line and the sheet behind "La salle" still
+say the state).
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on

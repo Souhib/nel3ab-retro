@@ -221,6 +221,19 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
+**Au 24 novembre, l'après-midi : l'état quitte l'image (chantier états,
+premier passage).** Sur `chantier/retro-etats` (worktree
+`~/nel3ab-chantiers/retro-etats`), parti d'`integration/retro` 87bc2b3 ;
+rien dans `main`, rien d'installé, rien de poussé. L'état de la salle se dit
+en une pastille hors de l'image, une fiche en tête de colonne (dans la
+feuille au téléphone) ou le plein cadre de la borne sans image
+(`lib/etat-modele.ts`, `lib/etat-place.ts`, `components/EtatSalle.tsx`). La
+couverture de l'image (`media/couverture.ts`) est levée par la boucle de
+peinture à la première image (ADR D40) ; la neige ne remplace que l'image
+d'une connexion coupée, l'image figée n'est assombrie qu'à sa fiche (K20).
+Les phrases du chargement de menus sont dans `lib/liaison-mots.ts`. Page :
+284 319 octets en brotli. Reste : voir l'entrée du carnet du même jour.
+
 **Au 24 novembre : le chantier personnes, cinq passages.** Sur
 `chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
 parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de

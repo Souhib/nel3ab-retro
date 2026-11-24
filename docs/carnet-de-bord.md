@@ -31009,7 +31009,91 @@ branche d'intégration.
 finale. Aucun worker n'est reconstruit ni installé, et aucune vraie salle
 n'a servi la page.
 
+### 24 novembre, l'après-midi : l'état quitte l'image, premier passage du chantier « états »
+
+**Le contexte.** Jusqu'ici, la salle disait son état SUR l'image : un
+bandeau posé sur la dernière image quand elle gelait, un rideau à l'arrivée,
+la proposition de l'image légère en bas, l'avis de fermeture et celui de
+l'image légère dans la pile du haut. Le thème rétro tient une règle plus
+dure (ADR D37, D39) : rien ne passe sur une image qui bouge. Le
+propriétaire a tranché le cas limite (K20) : la neige remplace l'image d'une
+connexion coupée ; une image ARRÊTÉE peut être assombrie, et l'assombrissement
+part à la toute première image nouvelle ; jamais rien sur une image vivante.
+Le chantier part d'`integration/retro` (87bc2b3), dans le worktree
+`~/nel3ab-chantiers/retro-etats`, branche `chantier/retro-etats`.
+
+**Ce qui a été fait.** L'état se décide en UN modèle par rendu
+(`front/src/lib/etat-modele.ts`) : une seule pastille, une seule fiche, ou le
+plein cadre de la borne. La pastille est un voyant hors de l'image : dans la
+pile des avis que la salle pose dans une bande noire ou en tête de colonne,
+ou, sur un téléphone sans bande, en haut de la grappe droite de la manette ou
+dans la barre (`lib/etat-place.ts`). La fiche, avec la phrase, le fait et le
+geste, vit en tête de la colonne au bureau, et dans la feuille agrandie au
+téléphone ; la pastille l'ouvre. Le plein cadre est l'écran noir de la borne
+quand il n'y a pas d'image du tout (arrivée, salle fermée, salle qui ne
+répond pas avant toute image), avec Aïn en grand sur son plateau. Les mots
+sont dans `lib/liaison-mots.ts`, y compris les phrases du chargement que le
+chantier menus a demandées (« Chantier Royal démarre encore, depuis 20 s. »,
+« Aucune image de Chantier Royal. Sami peut le relancer. »). « Je reste »
+appelle le message `reste` du worker. Les scènes d'Aïn passent par
+l'arbitre de la salle.
+
+**Le piège que la couverture évite.** Retirer le rideau depuis React, c'est
+le retirer au relevé suivant, jusqu'à une demi-seconde plus tard : des
+images du jeu sont peintes dessous. La couverture (`media/couverture.ts`) est
+un attribut sur la racine de la page, que la feuille de style lit ; la boucle
+de peinture le retire elle-même, juste après avoir dessiné l'image, dans la
+même tâche. Le navigateur ne rend donc jamais une image peinte sous le plein
+cadre. Et une couverture ne s'arme pas sur une image plus neuve que celle sur
+laquelle l'état a été décidé : l'instantané retient le compte des images
+vues avec l'état.
+
+**La preuve, et son contrôle rouge.** L'étape `premiere-image-coupe` compte
+chaque dessin sur la toile du jeu au moment où il a lieu, et regarde dans une
+microtâche, avant que le navigateur ne rende l'image, si le plein cadre se
+voit encore. Verte sur la nouvelle page ; rouge sur la page de `main`
+(45 à 49 relevés d'une image peinte sous le rideau) et sur un mutant sans
+l'appel de la boucle de peinture (43 à 53). L'étape `pastille-hors-image`
+rougit sur `main` aux quatre tailles. Les deux entrent dans
+`etats-navigateur-rouge`.
+
+**Trois choses qui ont résisté.** L'assombrissement devait prendre 400 ms :
+la garde du cadre de la salle refuse toute animation qui touche la toile, et
+elle a raison, il se fait d'un coup. La fiche devait vivre dans la bande du
+téléphone tenu droit : mesurée à 390x844, la bande ne tient que la pastille,
+et les gestes passaient sous la manette à l'écran ; elle va dans la feuille.
+Et la garde des manettes, qui posait une copie de l'ancien avis en haut de
+l'écran, a montré qu'à 375x667 et en paysage 16:9 la pastille n'a aucune
+place hors de l'image : ni bande, ni grappe libre, ni barre assez large. La
+page ne la pose nulle part plutôt que sur l'image ; la ligne parlée et la
+feuille disent l'état. C'est une place à trouver avec la salle.
+
+**Un faux pas à ne pas refaire.** Un `npx prettier --write` sur `src/media`
+a reformaté cinquante et un fichiers à la largeur de prettier : le projet
+formate avec oxfmt (`npm run format`), et ses deux styles acceptent l'un et
+l'autre. Le commit a été défait avant d'aller plus loin. Formater par
+`npm run format` ou `npx oxfmt <fichiers>`, jamais par un autre outil.
+
+**Le poids.** 284 319 octets en brotli, soit 2 559 de plus pour une
+enveloppe de 7 000. Bobine reste dans la page tant que l'écran de chargement
+(menus) et l'ouverture (salon) l'importent.
+
+**Ce qui reste.** L'arrivée sur un téléphone court, la salle fermée au
+passé (panneau, « Ce soir dans la salle »), le pli « Ce que ta page voit »,
+les sons, la place de la pastille sans bande, l'amendement de D29 avec la
+salle, et les étapes de pilote du plan non écrites (neige-coupee,
+gel-image-passee, colonne-stable, arrivee-sans-image).
+
 ## 12. Glossaire complet
+
+**Couverture (de l'image)** : ce qui se montre à la place d'une image du
+jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image
+assombrie). Un attribut sur la racine de la page, que la boucle de peinture
+retire à la première image dessinée.
+
+**Microtâche** : un morceau de code que le navigateur exécute juste après
+la tâche en cours, avant de rendre l'image suivante. Le pilote y regarde ce
+qui se verrait, une fois l'image dessinée.
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
 née des claviers sans lettres arabes. Le 3 y note la lettre ʿayn (ع), dont le

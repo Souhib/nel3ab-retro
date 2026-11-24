@@ -2286,6 +2286,30 @@ a mutant that silences the line.
 Weight of the room page: 281 607 brotli bytes before this pass, 281 539
 after (minifier only); the lobby bundle is unchanged.
 
+#### D41, review fixes, 2026-11-24: the logo link's name, and a START keeps its focus
+
+- **The header logo link names itself.** On the three lobby pages the logo
+  is a link to `/`. Once Aïn is painted, the static logo (`role=img`,
+  « nel3ab ») is `display:none` and Aïn's canvas is `aria-hidden`, so the
+  link had no accessible name (WCAG 2.4.4 and 4.1.2). It now carries
+  `aria-label="<!--MOT:entete.logo-->"`, « nel3ab, les salles », from
+  `SALON_ENTETE.logo` in `mots.ts`. A name that must hold is set on the
+  element, not drawn from content that can be hidden.
+- **`remplirStarts` updates each START in place,** port by port (ring,
+  word, name tag, `href`, `data-plein`, `data-ancre`, `aria-label`).
+  Rebuilding all four whenever one place or the advised place changed
+  dropped a keyboard user's focus to `body`. Only a place that turns from
+  free to taken, or back, changes node, because a link becomes a tag.
+
+Guards: `test_accueil.py` marks the focused node with a witness and requires
+the same node after the poll (red before the fix and on a mutant that puts
+`replaceChildren` back; twin: the focused place itself is taken).
+`salon-navigateur` gains `start-focus` and reads the link's name in Chrome's
+accessibility tree in `ain-logo`; both are red on 323aa52.
+
+Weight of the room page: 281 539 brotli bytes, byte-identical; only its
+stamp changes, since `mots.ts` is an input.
+
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

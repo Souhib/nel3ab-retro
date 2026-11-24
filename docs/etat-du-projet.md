@@ -603,6 +603,26 @@ comme prévu (Caddyfile pas installé, services plus anciens) ; `just docs`
 vert. Récit : « 24 novembre, en fin d'après-midi : le salon, cinquième
 passage ».
 
+**Au 24 novembre, le soir : la relecture du salon, deux corrections.** Même
+branche et même worktree ; rien dans `main`, rien poussé ni installé. Une
+relecture indépendante de 323aa52 a relevé deux défauts, reproduits par ses
+sondes avant toute correction. Le lien du logo de l'en-tête n'avait plus de
+nom une fois Aïn peint : il porte maintenant `aria-label` « nel3ab, les
+salles » (`SALON_ENTETE.logo`). `remplirStarts` refaisait les quatre places
+d'une borne à chaque changement, et le focus du clavier tombait sur le corps
+de la page quand une autre place se remplissait : chaque place est mise à jour
+sur place (ADR D41, corrections de la relecture). Preuves : un essai jsdom au
+témoin dans `test_accueil.py`, l'étape `start-focus` et le nom du lien dans
+`ain-logo` (`salon-navigateur`), toutes deux rouges sur 323aa52 dans
+`salon-navigateur-rouge`. Page de salle : 281 539 octets en brotli, identique
+octet pour octet. Portes : `just check` vert ; `salon` (30 étapes), `focus`,
+`etats`, `salle-telephone`, `manette-garde`, `reglage` et tous les contrôles
+rouges verts ; `parcours` rouge sur « invitation » et `cadre` sur
+`mascotte-hors-image` et `ain-immobile`, défauts connus de la vague B1, toutes
+leurs autres étapes vertes une à une (`vit-figee-immobile` rouge une fois sous
+une charge de 61, verte trois fois seule) ; `just docs` vert. Récit :
+« 24 novembre, le soir : la relecture du salon, deux constats ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

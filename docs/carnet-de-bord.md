@@ -31434,6 +31434,74 @@ comme au passage précédent : `parcours` sur « invitation » et `cadre` sur
 redirection de Caddy pas encore installée et des services plus anciens que ce
 chantier.
 
+### 24 novembre, le soir : la relecture du salon, deux constats
+
+**Le contexte.** Une relecture indépendante a lu le chantier du salon à la
+fin de son cinquième passage (323aa52). Elle a écrit deux sondes dans Chrome
+et relevé deux défauts, tous deux introduits par le chantier. Les deux ont
+été reproduits tels quels avant d'y toucher.
+
+**Un lien qui ne disait plus son nom.** Sur les trois pages du salon, le logo
+de l'en-tête est devenu un lien vers « / » ; avant, c'était un simple texte.
+Ce lien tirait son nom du logo qu'il contient, une image nommée « nel3ab ».
+Mais dès qu'Aïn est peint, ce logo passe en `display:none`, et la toile d'Aïn
+est muette pour un lecteur d'écran (`aria-hidden`). Le lien restait dans
+l'ordre de la touche Tab sans aucun nom : un lecteur d'écran disait « lien »,
+rien d'autre. La sonde l'a lu dans l'arbre d'accessibilité de Chrome, sur les
+trois pages : un nom vide. La correction donne au lien son propre nom,
+« nel3ab, les salles », écrit dans `mots.ts` comme tous les mots du salon. La
+leçon dépasse ce lien : un élément qui tire son nom de son contenu le perd
+quand ce contenu se cache. Un nom qui doit tenir se pose sur l'élément.
+
+**Un focus perdu quand quelqu'un d'autre s'assoit.** Une personne qui se
+déplace au clavier peut s'arrêter sur « Prendre la place 4 ». Si une autre
+personne prenait la place 2 de la même salle, le relevé suivant, cinq
+secondes plus tard, faisait tomber ce focus sur le corps de la page. La
+cause : `remplirStarts` refaisait les quatre places d'une borne dès que l'une
+d'elles, ou la place conseillée, changeait. Le lien de la place 4 était
+remplacé par un lien neuf, au même texte et au même nom, mais ce n'était plus
+le même élément. Le code disait pourtant, quelques lignes plus bas, que les
+bornes sont mises à jour et pas refaites, justement pour garder ce focus : la
+règle s'arrêtait à la borne et ne descendait pas jusqu'aux places. Chaque
+place est maintenant mise à jour sur place : son rond, son mot, son
+étiquette, son lien et son nom. Seule une place qui passe de libre à prise,
+ou l'inverse, change d'élément, puisqu'un lien devient une étiquette.
+
+**Les preuves.** Un essai jsdom, dans `just check`, pose un témoin sur le lien
+focalisé et exige le même élément après le relevé. Il échouait avant la
+correction, et il échoue encore quand on remet la reconstruction complète.
+Comparer le nom de l'élément focalisé ne suffirait pas : un lien refait au
+même nom a le même nom, et il n'a plus le focus. Son jumeau : la place
+focalisée elle-même prise, et le focus quitte l'élément sorti de la page.
+Dans Chrome, `salon-navigateur` gagne l'étape `start-focus` (la même scène,
+avec un jumeau où rien ne change), et l'étape `ain-logo` lit le nom du lien
+sur les trois pages. Le contrôle rouge prend la page de 323aa52 : les deux
+étapes y tombent sur leur défaut, « le lien du logo s'appelle «  » » et « le
+focus du clavier tombe sur BODY ».
+
+**Le poids.** La page de salle ne change pas : 281 539 octets en brotli,
+identique octet pour octet. Le nom du lien vit dans une table du salon que la
+page n'importe pas ; seul son tampon change, parce que `mots.ts` est une de
+ses entrées.
+
+**Les portes.** Elles ont tourné après le dernier commit de code, une à une.
+`just check` est vert (1 358 essais du salon, 2 087 de la page). Les preuves
+`salon` (30 étapes), `focus`, `etats`, `salle-telephone`, `manette-garde` et
+`reglage` sont vertes, avec tous les contrôles rouges, ceux de `parcours` et de
+`cadre` compris. Trois étapes restent rouges sans que ce changement y soit
+pour rien, et la page qu'elles lisent est celle de 323aa52, octet pour
+octet : `parcours` sur « invitation » (« Copier le lien » n'a rien copié),
+`cadre` sur `mascotte-hors-image` et `ain-immobile`, les défauts connus de la
+vague B1 ; les autres étapes des deux pilotes passent une à une. Une
+quatrième, `vit-figee-immobile`, a rougi une fois dans la série : la carte
+« L'image arrive, mais ton appareil ne l'a pas » restait sur l'image au
+téléphone. La machine portait alors une charge moyenne de 61, d'autres
+navigateurs de test tournant à côté. Relancée seule trois fois, elle passe
+trois fois. C'est une tendance, pas une preuve : l'étape mérite d'être
+regardée sous charge par le chantier qui la possède. `deploy-check` n'a pas
+tourné : rien d'installé ne change, et il reste rouge tant que la
+redirection de Caddy n'est pas installée.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -33307,3 +33375,13 @@ une durée. Elle sert au carnet commun à dire qui regardait une partie.
 **Carnet commun** : ce que chaque carnet dit des autres depuis le
 24 novembre 2026 : avec qui tu as joué, à quelle place, et qui regardait.
 Chacun ne lit que le sien.
+
+**Nom accessible** : le nom qu'un lecteur d'écran annonce pour un élément de
+la page, par exemple « nel3ab, les salles, lien ». Le navigateur le calcule
+depuis `aria-label`, ou à défaut depuis le texte et les images nommées que
+l'élément contient. Un contenu caché ne compte pas.
+
+**Arbre d'accessibilité** : ce que le navigateur donne aux lecteurs d'écran :
+chaque élément utile de la page avec son rôle (lien, bouton, image) et son
+nom accessible. Chrome le montre à un pilote, qui peut donc lire le nom qu'un
+lecteur d'écran dirait.

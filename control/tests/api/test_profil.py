@@ -613,3 +613,204 @@ async def test_un_titre_xbox_360_sous_la_racine_switch_n_est_pas_liste(
 
 def test_le_reglage_xbox_360_de_la_fixture_est_jetable(settings: Settings, tmp_path: Path) -> None:
     assert settings.xbox360_config == tmp_path / "xbox360.json"
+
+
+# ---- Le carnet commun (D12, 24 novembre 2026): avec qui, et qui regardait ----
+
+CLARA = {"Tailscale-User-Login": "clara@example.com", "Tailscale-User-Name": "Clara"}
+DORA = {"Tailscale-User-Login": "dora@example.com", "Tailscale-User-Name": "Dora"}
+
+
+def presence(
+    parties: Parties,
+    login: str,
+    ident: str,
+    debut: datetime,
+    secondes: float | None,
+    *,
+    regard: bool = False,
+    place_tenue: int = 1,
+    pseudo: str | None = None,
+    salle: int = 1,
+    jeu: dict | None = MARIO,
+) -> None:
+    """Une place ou un regard au journal, telle que la tablée l'écrit depuis D12."""
+    quoi = "regard" if regard else "place"
+    champs: dict = {"id": ident, "salle": salle, "jeu": jeu}
+    if not regard:
+        champs.update(place=place_tenue, lance=None, sauvegarde="inconnue")
+    if pseudo is not None:
+        champs["pseudo"] = pseudo
+    parties.ecrire(login, f"{quoi}_debut", quand=debut, **champs)
+    if secondes is not None:
+        parties.ecrire(
+            login,
+            f"{quoi}_fin",
+            quand=debut + timedelta(seconds=secondes),
+            id=ident,
+            salle=salle,
+            secondes=secondes,
+            raison="deconnectee",
+        )
+
+
+async def une_partie(client: httpx.AsyncClient, qui: dict[str, str]) -> dict:
+    reponse = await client.get("/api/me/parties", headers=qui)
+    assert reponse.status_code == 200, reponse.text
+    (partie,) = reponse.json()["parties"]
+    return partie
+
+
+async def test_deux_joueurs_de_la_meme_soiree_se_voient_chacun_dans_son_carnet(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 3600, pseudo="Alice")
+    presence(
+        parties,
+        "benoit@example.com",
+        "b" * 16,
+        SOIR + timedelta(minutes=10),
+        600,
+        place_tenue=3,
+        pseudo="Benoît",
+    )
+    vue_alice = await une_partie(client, ALICE)
+    vue_benoit = await une_partie(client, BENOIT)
+    assert vue_alice["avec"] == [{"nom": "Benoît", "place": 3}]
+    assert vue_benoit["avec"] == [{"nom": "Alice", "place": 1}]
+    assert vue_alice["regardaient"] == vue_benoit["regardaient"] == []
+
+
+async def test_le_carnet_commun_ne_nomme_que_la_meme_salle_le_meme_jeu_et_le_meme_moment(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Les jumeaux: une autre salle, un autre jeu, après la fin, et avant le début."""
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(parties, "benoit@example.com", "b" * 16, SOIR, 600, salle=2, pseudo="Benoît")
+    presence(parties, "clara@example.com", "c" * 16, SOIR, 600, jeu=TENNIS, pseudo="Clara")
+    presence(
+        parties, "dora@example.com", "d" * 16, SOIR + timedelta(seconds=600), 60, pseudo="Dora"
+    )
+    presence(parties, "eve@example.com", "e" * 16, SOIR - timedelta(seconds=60), 60, pseudo="Eve")
+    assert (await une_partie(client, ALICE))["avec"] == []
+    # Et chacun d'eux ne voit pas Alice non plus.
+    assert (await une_partie(client, BENOIT))["avec"] == []
+    assert (await une_partie(client, DORA))["avec"] == []
+
+
+async def test_qui_regardait_est_dit_a_part_de_qui_jouait(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(
+        parties,
+        "clara@example.com",
+        "c" * 16,
+        SOIR + timedelta(seconds=30),
+        120,
+        regard=True,
+        pseudo="Clara",
+    )
+    presence(
+        parties,
+        "dora@example.com",
+        "d" * 16,
+        SOIR + timedelta(seconds=10),
+        60,
+        regard=True,
+        pseudo="Dora",
+    )
+    # Le jumeau: un regard après la fin de la partie.
+    presence(
+        parties,
+        "eve@example.com",
+        "e" * 16,
+        SOIR + timedelta(seconds=700),
+        60,
+        regard=True,
+        pseudo="Eve",
+    )
+    partie = await une_partie(client, ALICE)
+    assert partie["avec"] == []
+    assert partie["regardaient"] == ["Dora", "Clara"]
+    # Qui regardait puis a pris une place compte comme joueur, une seule fois.
+    presence(
+        parties,
+        "dora@example.com",
+        "f" * 16,
+        SOIR + timedelta(seconds=70),
+        100,
+        place_tenue=2,
+        pseudo="Dora",
+    )
+    partie = await une_partie(client, ALICE)
+    assert partie["avec"] == [{"nom": "Dora", "place": 2}]
+    assert partie["regardaient"] == ["Clara"]
+
+
+async def test_le_pseudo_actuel_l_emporte_et_sans_pseudo_personne_n_est_nomme(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(parties, "benoit@example.com", "b" * 16, SOIR, 600, place_tenue=2, pseudo="Ben")
+    # Une ligne d'avant D12, sans pseudo, d'une personne qui n'en a jamais choisi.
+    presence(parties, "clara@example.com", "c" * 16, SOIR, 600, place_tenue=3)
+    assert (await une_partie(client, ALICE))["avec"] == [{"nom": "Ben", "place": 2}]
+    renomme = await client.put(
+        "/api/me",
+        headers={**BENOIT, "Origin": "https://nel3ab.app", "Sec-Fetch-Site": "same-origin"},
+        json={"name": "Benoît le grand"},
+    )
+    assert renomme.status_code == 200, renomme.text
+    assert (await une_partie(client, ALICE))["avec"] == [{"nom": "Benoît le grand", "place": 2}]
+
+
+async def test_une_place_sans_fin_ne_compte_que_si_elle_commence_pendant_la_mienne(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Jamais prolongée: un salon redémarré au milieu ne fait pas inventer un compagnon."""
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(
+        parties, "benoit@example.com", "b" * 16, SOIR + timedelta(seconds=300), None, pseudo="Ben"
+    )
+    presence(
+        parties, "clara@example.com", "c" * 16, SOIR - timedelta(seconds=1), None, pseudo="Clara"
+    )
+    assert (await une_partie(client, ALICE))["avec"] == [{"nom": "Ben", "place": 1}]
+
+
+async def test_le_carnet_commun_ne_rend_ni_adresse_ni_empreinte(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(parties, "benoit@example.com", "b" * 16, SOIR, 600, place_tenue=2, pseudo="Ben")
+    presence(parties, "clara@example.com", "c" * 16, SOIR, 60, regard=True, pseudo="Clara")
+    texte = (await client.get("/api/me/parties", headers=ALICE)).text
+    assert "Ben" in texte and "Clara" in texte
+    for login in ("benoit@example.com", "clara@example.com"):
+        assert login not in texte
+        assert empreinte(login) not in texte
+    # Les autres lectures n'ouvrent pas les fichiers des autres.
+    for route in ("/api/me/profil", "/api/me/jeux"):
+        assert "Ben" not in (await client.get(route, headers=ALICE)).text
+
+
+async def test_une_longue_presence_reste_trouvee_derriere_une_courte_finie_avant(
+    client: httpx.AsyncClient, parties: Parties
+) -> None:
+    """Deux onglets de Benoît: l'un regarde toute la soirée, l'autre tient une
+    place dix secondes avant la partie d'Alice. Le regard la touche encore."""
+    presence(parties, "alice@example.com", "a" * 16, SOIR, 600, pseudo="Alice")
+    presence(
+        parties,
+        "benoit@example.com",
+        "b" * 16,
+        SOIR - timedelta(seconds=60),
+        3600,
+        regard=True,
+        pseudo="Ben",
+    )
+    presence(
+        parties, "benoit@example.com", "c" * 16, SOIR - timedelta(seconds=30), 10, pseudo="Ben"
+    )
+    assert (await une_partie(client, ALICE))["regardaient"] == ["Ben"]

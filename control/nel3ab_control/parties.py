@@ -26,7 +26,18 @@ son décalage) et `quoi`:
 - `place_fin`: la place `id` se termine, au bout de `secondes` mesurées sur
   l'horloge monotone, pour une `raison`;
 - `lancement`: cette personne a lancé un `jeu` dans une `salle`, avec tel
-  `emplacement` et donc telle `sauvegarde`.
+  `emplacement` et donc telle `sauvegarde`;
+- `regard_debut` et `regard_fin`: la même chose qu'une place, sans `place`,
+  pour une personne qui regarde (carnet commun, D12, depuis le
+  24 novembre 2026). Les débuts portent aussi le `pseudo` du moment.
+
+# Le carnet commun (D12)
+
+Décision de Souhib, 24 novembre 2026: le salon note qui a joué et qui a
+regardé chaque partie, et chacun voit dans SON carnet les personnes avec qui
+il a joué. Personne ne lit le carnet d'un autre: le salon relit les fichiers
+des autres (`tous`) pour trouver qui tenait une place ou regardait dans la
+même salle, au même jeu, au même moment, et ne rend que leur pseudo.
 
 Un début sans fin n'est jamais prolongé: le salon qui redémarre perd ses places
 ouvertes, et le lecteur les montre « durée inconnue ».
@@ -41,6 +52,7 @@ première se plaint une fois sur la sortie d'erreur.
 import json
 import logging
 import os
+import re
 import stat
 from dataclasses import dataclass
 from datetime import datetime
@@ -61,6 +73,9 @@ VERSION = 1
 #: tiennent plus de cinquante mille lignes, des années de soirées. Au-delà, le
 #: lecteur lit la FIN du fichier et le dit dans le journal du service.
 TAILLE_LUE = 16 * 1024 * 1024
+
+#: Le nom d'un fichier du journal: une empreinte SHA-256 en hexadécimal.
+_FICHIER = re.compile(r"^([0-9a-f]{64})\.jsonl$")
 
 
 class Fin(StrEnum):
@@ -230,6 +245,30 @@ class Parties:
         est une personne qui n'a encore rien joué.
         """
         return lire_fichier(self.chemin(login))
+
+    def tous(self) -> dict[str, list[dict[str, Any]]]:
+        """Les lignes de chaque fichier du dossier, par empreinte.
+
+        Pour le carnet commun (D12): qui tenait une place ou regardait en même
+        temps que moi. Seuls les fichiers au nom d'une empreinte sont lus, et
+        seulement s'ils sont ordinaires (`lire_fichier`). Un dossier absent ou
+        illisible ne nomme personne.
+
+        Sur un fil, comme `lire`. Mesuré le 24 novembre 2026 sur lgf: vingt
+        fichiers de 5 000 lignes (19,8 Mo, des années de soirées) se lisent en
+        0,64 à 0,79 s, médiane 0,74 s sur sept lectures. Le journal n'a
+        aujourd'hui que quelques lignes par personne.
+        """
+        try:
+            entrees = list(os.scandir(self._dossier))
+        except OSError:
+            return {}
+        sortie: dict[str, list[dict[str, Any]]] = {}
+        for entree in entrees:
+            trouve = _FICHIER.match(entree.name)
+            if trouve is not None:
+                sortie[trouve.group(1)] = lire_fichier(Path(entree.path))
+        return sortie
 
     def deja_assis(self, login: str, salle: int) -> bool | None:
         """Cette personne a-t-elle déjà tenu une place dans cette salle ?

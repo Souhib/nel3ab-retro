@@ -16,10 +16,22 @@ sauvegarde appartient à celle qui a lancé le jeu, sauf « tout débloqué », 
 jeu dans cette salle. Un jeu qui tournait avant le salon n'a pas de lancement
 connu: sa place le dit (`lance` vaut rien, la sauvegarde est inconnue), plutôt
 que d'en inventer un.
+
+# Qui regardait (D12, décision du 24 novembre 2026)
+
+Le carnet commun dit à chacun avec qui il a joué et qui regardait. Une place
+tenue le dit déjà; un spectateur n'en tient pas. Une session qui annonce
+« aucune manette » ouvre donc un REGARD, écrit comme une place sans prise
+(`regard_debut`, `regard_fin`), coupé aux mêmes moments: changement de jeu,
+départ, fermeture, ou la place qu'elle prend. Sans identité, rien n'est écrit,
+comme pour une place.
+
+Chaque début porte le pseudo du moment: le carnet affiche le pseudo actuel
+quand la personne en a choisi un, et celui-là sinon.
 """
 
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from dataclasses import dataclass
 from time import monotonic
 
@@ -58,6 +70,10 @@ class PlaceOuverte:
     depuis: float
     #: Le numéro du dernier ordre de changement de jeu au moment du début.
     generation: int
+    #: Le pseudo au moment du début, écrit dans la ligne.
+    pseudo: str = ""
+    #: Un regard: la session regarde sans tenir de prise (`port` ne compte pas).
+    regard: bool = False
 
 
 class Tablee:
@@ -71,6 +87,8 @@ class Tablee:
         self._horloge = horloge
         #: Session -> sa place ouverte. Une session tient une place au plus.
         self._ouvertes: dict[str, PlaceOuverte] = {}
+        #: Session -> son regard ouvert, tant qu'elle regarde sans place.
+        self._regards: dict[str, PlaceOuverte] = {}
         #: Session -> « est-ce sa première fois dans cette salle », pour l'état
         #: public. Gardé tant que la session tient sa place.
         self._premieres: dict[str, bool] = {}
@@ -100,7 +118,7 @@ class Tablee:
             return None
         return self._premieres.get(session)
 
-    def assis(self, session: str, login: str | None, port: int) -> None:
+    def assis(self, session: str, login: str | None, port: int, pseudo: str = "") -> None:
         """Une session tient cette prise. Écrit un début si la place est nouvelle.
 
         Sans identité, rien n'est écrit: il n'y a pas de fichier à qui
@@ -119,7 +137,28 @@ class Tablee:
             self._premieres.pop(session, None)
         else:
             self._premieres[session] = not deja
-        self._commence(session, login, port, self._jeu)
+        self._commence(session, login, port, self._jeu, pseudo)
+
+    def regarde(self, session: str, login: str | None, pseudo: str = "") -> None:
+        """Une session regarde sans place. Écrit un début de regard s'il est nouveau.
+
+        Une page redit « aucune manette » à chaque reconnexion de sa socket:
+        un regard déjà ouvert continue, il ne recommence pas.
+        """
+        if login is None or session in self._regards:
+            return
+        self._regards[session] = self._ouvre(login, None, self._jeu, pseudo, regard=True)
+
+    def oublie_regards(self, vivantes: Container[str]) -> None:
+        """Termine le regard des sessions qui ne sont plus là."""
+        for session in [session for session in self._regards if session not in vivantes]:
+            self.ne_regarde_plus(session, Fin.DECONNECTEE)
+
+    def ne_regarde_plus(self, session: str, raison: Fin) -> None:
+        """Le regard de cette session se termine. Rien si elle ne regardait pas."""
+        ouvert = self._regards.pop(session, None)
+        if ouvert is not None:
+            self._termine(ouvert, raison)
 
     def leve(self, session: str, raison: Fin) -> None:
         """La place de cette session se termine. Rien si elle n'en tenait pas."""
@@ -157,7 +196,14 @@ class Tablee:
                 continue
             del self._ouvertes[session]
             self._termine(ouverte, Fin.JEU_CHANGE)
-            self._commence(session, ouverte.login, ouverte.port, courant)
+            self._commence(session, ouverte.login, ouverte.port, courant, ouverte.pseudo)
+        for session, ouvert in list(self._regards.items()):
+            if ouvert.jeu == courant:
+                continue
+            self._termine(ouvert, Fin.JEU_CHANGE)
+            self._regards[session] = self._ouvre(
+                ouvert.login, None, courant, ouvert.pseudo, regard=True
+            )
 
     def lance(self, login: str | None, pseudo: str, jeu: JeuJoue, emplacement: int | None) -> None:
         """Quelqu'un a lancé ce jeu, et le worker a pris l'ordre.
@@ -211,6 +257,8 @@ class Tablee:
         """La salle ferme: toutes ses places se terminent."""
         for session in list(self._ouvertes):
             self.leve(session, Fin.SALLE_FERMEE)
+        for session in list(self._regards):
+            self.ne_regarde_plus(session, Fin.SALLE_FERMEE)
         self._jeu, self._jeu_connu = None, False
 
     def ouvertes(self, login: str) -> dict[str, float]:
@@ -222,18 +270,49 @@ class Tablee:
             if ouverte.login == login
         }
 
-    def _commence(self, session: str, login: str, port: int, jeu: JeuJoue | None) -> None:
+    def toutes(self) -> dict[str, float]:
+        """Chaque place et chaque regard ouverts, de tout le monde: `id` et secondes.
+
+        Pour le carnet commun: la place d'un autre, encore tenue, recouvre la
+        mienne. Les `id` sont des jetons tirés au hasard, sans adresse.
+        """
+        maintenant = self._horloge()
+        return {
+            ouverte.id: max(0.0, maintenant - ouverte.depuis)
+            for ouverte in (*self._ouvertes.values(), *self._regards.values())
+        }
+
+    def _commence(
+        self, session: str, login: str, port: int, jeu: JeuJoue | None, pseudo: str
+    ) -> None:
+        self._ouvertes[session] = self._ouvre(login, port, jeu, pseudo)
+        self._parties.assis(login, self.salle)
+
+    def _ouvre(
+        self, login: str, port: int | None, jeu: JeuJoue | None, pseudo: str, regard: bool = False
+    ) -> PlaceOuverte:
+        """Écrit le début d'une place, ou d'un regard quand `port` est rien."""
         lancement = self._lancements.get(jeu.identite()) if jeu else None
         ouverte = PlaceOuverte(
             id=secrets.token_hex(8),
             login=login,
-            port=port,
+            port=port or 0,
             jeu=jeu,
             depuis=self._horloge(),
             generation=self._generation,
+            pseudo=pseudo,
+            regard=regard,
         )
-        self._ouvertes[session] = ouverte
-        self._parties.assis(login, self.salle)
+        if regard:
+            self._parties.ecrire(
+                login,
+                "regard_debut",
+                id=ouverte.id,
+                salle=self.salle,
+                jeu=jeu.ligne() if jeu else None,
+                pseudo=pseudo,
+            )
+            return ouverte
         self._parties.ecrire(
             login,
             "place_debut",
@@ -243,12 +322,14 @@ class Tablee:
             jeu=jeu.ligne() if jeu else None,
             lance=lancement.ligne() if lancement else None,
             sauvegarde=(lancement.sauvegarde if lancement else Sauvegarde.INCONNUE).value,
+            pseudo=pseudo,
         )
+        return ouverte
 
     def _termine(self, ouverte: PlaceOuverte, raison: Fin) -> None:
         self._parties.ecrire(
             ouverte.login,
-            "place_fin",
+            "regard_fin" if ouverte.regard else "place_fin",
             id=ouverte.id,
             salle=self.salle,
             secondes=round(max(0.0, self._horloge() - ouverte.depuis), 1),

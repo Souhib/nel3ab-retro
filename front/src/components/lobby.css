@@ -101,3 +101,49 @@ button.n3-avant-place:hover .n3-avant-mot,
 button.n3-avant-place:focus-visible .n3-avant-mot {
   color: var(--signal);
 }
+
+/* La maison d'Aïn : le logo de l'en-tête. Une fois Aïn peint, le logo
+   statique se cache (`rt-mascotte-hote`, posé par `poserMascotte`), comme au
+   salon (`accueil.html`, `.marque`). */
+.n3-avant-maison {
+  display: block;
+  width: clamp(114px, 30vw, 152px);
+}
+.n3-avant-maison.rt-mascotte-hote > span:not(.rt-mascotte) {
+  display: none;
+}
+
+/* Le sol d'Aïn sur le panneau : une ligne d'un pixel au bord BAS, hors de la
+   grille des places. Au bord haut, Aïn debout près de son START montait
+   jusqu'au titre du jeu (`data-texte`) avec l'étiquette sur la tête, et la
+   scène se repliait (parcours.mjs, avant-salle-ain). */
+.n3-avant-borne-panneau {
+  position: relative;
+}
+.n3-avant-sol {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* Les points de passage d'Aïn (`passage-1`, `passage-2`) : deux marques de
+   2 × 1 px à gauche de la fiche, à hauteur de l'espace sous l'en-tête et du
+   bord haut du panneau. Le planificateur y fait passer Aïn quand le chemin
+   direct toucherait un contrôle. */
+.n3-avant-passage {
+  position: absolute;
+  width: 2px;
+  height: 1px;
+  pointer-events: none;
+}
+.n3-avant-passage-haut {
+  left: -4rem;
+  bottom: -0.625rem;
+}
+.n3-avant-passage-bas {
+  bottom: 0;
+  left: calc(-5rem - 2px);
+}

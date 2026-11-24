@@ -1,7 +1,25 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
-import { Lobby, estLibre, salonAuDessus } from "./Lobby";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aplatDuJoueur } from "../lib/etiquette";
+
+/* Aïn doublé : les scènes demandées, sans moteur ni toile. */
+const mascotte = vi.hoisted(() => ({ jouer: vi.fn(), poserMascotte: vi.fn() }));
+vi.mock("../mascotte", () => mascotte);
+/* La transition doublée : ce qu'on lui demande, et le geste qu'elle tient. */
+const transitions = vi.hoisted(() => ({
+  choisirTransition: vi.fn((): string | null => null),
+  transition: vi.fn(async (_type: unknown, _cible: unknown, milieu: () => void) => milieu()),
+}));
+vi.mock("../retro/transitions", () => transitions);
+
+const { Lobby, estLibre, salonAuDessus } = await import("./Lobby");
+
+beforeEach(() => {
+  mascotte.jouer.mockClear();
+  mascotte.poserMascotte.mockClear();
+  transitions.choisirTransition.mockReset().mockReturnValue(null);
+  transitions.transition.mockClear();
+});
 
 const salle = (sieges: (string | null)[], plus: Record<string, unknown> = {}) =>
   ({
@@ -180,4 +198,151 @@ it("aucune classe de lobby.css n'est déclarée par une autre feuille de la page
   expect(declarees(fs.readFileSync(`${SRC}components/cadre.css`, "utf-8")).has(".n3-borne")).toBe(
     true,
   );
+});
+
+describe("Aïn dans l'avant-salle", () => {
+  const rendre = (sieges: (string | null)[]) => {
+    const props = {
+      name: "Souhib",
+      login: null,
+      failed: false,
+      salon: true,
+      onEnter: vi.fn(),
+      onWatch: vi.fn(),
+      onForget: vi.fn(),
+      onRename: vi.fn(),
+    };
+    const vue = render(<Lobby room={salle(sieges)} {...props} />);
+    return (suivants: (string | null)[]) =>
+      vue.rerender(<Lobby room={salle(suivants)} {...props} />);
+  };
+
+  it("vit dans le logo de l'en-tête, posé au montage", () => {
+    poser();
+    const maison = document.querySelector('header [data-hote="logo"]');
+    expect(maison).not.toBeNull();
+    expect(mascotte.poserMascotte).toHaveBeenCalledWith(maison);
+  });
+
+  it("une place qui se libère dans une salle pleine : « depart » vers son START, et le plein tout de suite", () => {
+    const changer = rendre(["Souhib", "Nour", "Jo", "Inès"]);
+    expect(mascotte.jouer).not.toHaveBeenCalled();
+    changer(["Souhib", "Nour", "Jo", null]);
+    expect(mascotte.jouer).toHaveBeenCalledTimes(1);
+    const [scene, options] = mascotte.jouer.mock.calls[0] as [
+      string,
+      { hote: HTMLElement; contexte: unknown },
+    ];
+    expect(scene).toBe("depart");
+    expect(options.contexte).toEqual({ joueur: "4" });
+    expect(options.hote.dataset.hote).toBe("logo");
+    // Le plein n'attend pas la scène.
+    expect(pleins()).toEqual([document.querySelector("#enter")]);
+    expect(document.querySelector("#enter")?.textContent).toBe("Prendre la place 4");
+  });
+
+  it("le jumeau : un premier état avec la place 4 déjà libre ne joue rien", () => {
+    rendre(["Souhib", "Nour", "Jo", null]);
+    expect(mascotte.jouer).not.toHaveBeenCalled();
+  });
+
+  it("quelqu'un d'autre prend la place 4 : « arrivee » à sa place", () => {
+    const changer = rendre(["Souhib", "Nour", "Jo", null]);
+    changer(["Souhib", "Nour", "Jo", "Dora"]);
+    expect(mascotte.jouer).toHaveBeenCalledTimes(1);
+    expect(mascotte.jouer.mock.calls[0]?.[0]).toBe("arrivee");
+    expect(mascotte.jouer.mock.calls[0]?.[1]).toMatchObject({
+      contexte: {
+        joueur: "4",
+      },
+    });
+  });
+
+  it("le même état relu ne rejoue rien", () => {
+    const changer = rendre(["Souhib", null, null, null]);
+    changer(["Souhib", null, null, null]);
+    changer(["Souhib", null, null, null]);
+    expect(mascotte.jouer).not.toHaveBeenCalled();
+  });
+
+  it("un départ et une arrivée ensemble : le départ, une seule scène", () => {
+    const changer = rendre(["Souhib", "Nour", null, null]);
+    changer(["Souhib", null, "Jo", null]);
+    expect(mascotte.jouer).toHaveBeenCalledTimes(1);
+    expect(mascotte.jouer.mock.calls[0]?.[0]).toBe("depart");
+    expect(mascotte.jouer.mock.calls[0]?.[1]).toMatchObject({
+      contexte: {
+        joueur: "2",
+      },
+    });
+  });
+
+  it("chaque place porte son ancre start-N, prise ou libre, et le panneau son sol", () => {
+    poser(salle(["Souhib", null, "Jo", null]));
+    for (const n of [1, 2, 3, 4]) {
+      const ancres = document.querySelectorAll(`[data-ancre="start-${n}"]`);
+      expect(ancres, `start-${n}`).toHaveLength(1);
+      expect(ancres[0]?.getAttribute("data-port")).toBe(String(n));
+    }
+    const sols = document.querySelectorAll('#lobbySeats > [data-sol="panneau"]');
+    expect(sols).toHaveLength(1);
+    // Le sol ne contient rien : le planificateur exempte ce qui est dedans.
+    expect(sols[0]?.children).toHaveLength(0);
+    // Les deux points de passage, sans contenu non plus (parcours.mjs,
+    // avant-salle-ain : sans eux, « depart » touchait « Changer ton nom »).
+    for (const nom of ["passage-1", "passage-2"]) {
+      const passages = document.querySelectorAll(`[data-ancre="${nom}"]`);
+      expect(passages, nom).toHaveLength(1);
+      expect(passages[0]?.children).toHaveLength(0);
+    }
+  });
+});
+
+describe("entrer par la transition « entrer-salle » (K13)", () => {
+  const animer = () => {
+    const avant = document.body.animate;
+    document.body.animate = vi.fn() as unknown as typeof document.body.animate;
+    return () => {
+      document.body.animate = avant;
+    };
+  };
+
+  it("« Prendre la place 3 » passe par la transition du moment, et entre au milieu", () => {
+    transitions.choisirTransition.mockReturnValue("mosaique");
+    const remettre = animer();
+    try {
+      const { onEnter } = poser(salle(["Souhib", "Nour", null, null]));
+      fireEvent.click(document.querySelector("#enter")!);
+      expect(transitions.choisirTransition).toHaveBeenCalledWith("entrer-salle");
+      expect(transitions.transition).toHaveBeenCalledTimes(1);
+      expect(transitions.transition.mock.calls[0]?.[0]).toBe("mosaique");
+      expect(onEnter).toHaveBeenCalledWith(3);
+    } finally {
+      remettre();
+    }
+  });
+
+  it("« Regarder » aussi, et un second clic pendant la transition ne repart pas", () => {
+    transitions.choisirTransition.mockReturnValue("tuiles");
+    // Une transition qui ne finit pas : la page reste couverte.
+    transitions.transition.mockImplementation(() => new Promise<void>(() => {}));
+    const remettre = animer();
+    try {
+      const { onEnter, onWatch } = poser(salle(["Souhib", "Nour", "Jo", "Inès"]));
+      fireEvent.click(document.querySelector("#watch")!);
+      fireEvent.click(document.querySelector("#watch")!);
+      expect(transitions.transition).toHaveBeenCalledTimes(1);
+      expect(onWatch).not.toHaveBeenCalled();
+      expect(onEnter).not.toHaveBeenCalled();
+    } finally {
+      remettre();
+    }
+  });
+
+  it("le jumeau : sans transition (mouvement réduit), le geste part tout de suite", () => {
+    const { onEnter } = poser(salle(["Souhib", null, null, null]));
+    fireEvent.click(document.querySelector('#lobbySeats [data-port="3"]')!);
+    expect(transitions.transition).not.toHaveBeenCalled();
+    expect(onEnter).toHaveBeenCalledWith(3);
+  });
 });

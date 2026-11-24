@@ -23,17 +23,29 @@
  * Prendre une place précise entre avec `?entrer=jouer&place=N`
  * (`lib/entree`) : la salle demande CETTE place, au lieu de la première libre.
  *
+ * Aïn vit dans le logo de l'en-tête (`data-hote="logo"`). Quand une place se
+ * libère, il joue « depart » vers son START ; quand quelqu'un d'autre en
+ * prend une, « arrivee ». Le premier état reçu ne joue rien : ouvrir la page
+ * sur une salle pleine n'est pas voir quatre personnes arriver
+ * (`lib/arrivees`). Chaque place porte l'ancre `start-N`, et le panneau son
+ * sol `panneau`. Entrer, à une place ou pour regarder, passe par la
+ * transition « entrer-salle » (K13) ; ton propre clic n'attend aucune scène.
+ *
  * Les identifiants `#toRooms`, `#rename`, `#newName`, `#enter`, `#watch`,
  * `#room` et `#lobbySeats [data-port][data-state]` sont un contrat avec les
  * pilotes de navigateur.
  */
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Room, Seat } from "../client";
+import { differences, type Occupation } from "../lib/arrivees";
 import { NAME_MAX } from "../lib/name";
 import { consoleLue } from "../lib/consoles";
 import { aplatDuJoueur } from "../lib/etiquette";
 import { AVANT_SALLE, chefChoisit, pastille, prendreLaPlace } from "../lib/mots";
 import { salonAuDessus } from "../lib/entree";
+import { jouer, poserMascotte } from "../mascotte";
+import type { Joueur } from "../mascotte/dessin";
+import { choisirTransition, transition } from "../retro/transitions";
 import { Etiquette } from "./Etiquette";
 import { Logo } from "./Logo";
 import "./lobby.css";
@@ -46,6 +58,60 @@ export { salonAuDessus } from "../lib/entree";
  * pas tenue : une page sans nom qui tient une manette n'est pas une place
  * libre. Un ancien worker ne dit rien de `held` : seul le nom compte alors. */
 export const estLibre = (seat: Seat): boolean => !seat.player && seat.held !== true;
+
+/** Ce que `lib/arrivees` compare : les places tenues et leurs noms. */
+const occupation = (seats: readonly Seat[]): Occupation => ({
+  tenues: seats.map((seat) => !estLibre(seat)),
+  noms: new Map(seats.flatMap((seat) => (seat.player ? [[seat.port, seat.player] as const] : []))),
+});
+
+const JOUEURS: readonly Joueur[] = ["1", "2", "3", "4"];
+
+/**
+ * Aïn dans le logo de l'avant-salle : peint au montage, puis une scène par
+ * changement de places, jamais au premier état reçu. Un départ passe avant
+ * une arrivée quand les deux arrivent ensemble : c'est la place qui s'ouvre
+ * qu'on attend.
+ */
+function useAinDeLAvantSalle(seats: readonly Seat[] | undefined) {
+  const maison = useRef<HTMLDivElement>(null);
+  const avant = useRef<Occupation | null>(null);
+  useEffect(() => {
+    if (maison.current) poserMascotte(maison.current);
+  }, []);
+  useEffect(() => {
+    if (!seats || seats.length === 0) return;
+    const apres = occupation(seats);
+    const { arrivees, departs } = differences(avant.current, apres, new Set());
+    avant.current = apres;
+    const hote = maison.current;
+    const port = departs[0]?.port ?? arrivees[0]?.port;
+    const joueur = port === undefined ? undefined : JOUEURS[port - 1];
+    if (!hote || !joueur) return;
+    jouer(departs.length > 0 ? "depart" : "arrivee", { hote, contexte: { joueur } });
+  }, [seats]);
+  return maison;
+}
+
+/** Entrer par la transition « entrer-salle » sur toute la page (K13) : des
+ * tuiles en « tout », une mosaïque en « conseillé », un fondu en « sobre »,
+ * rien en mouvement réduit. Le geste part au milieu, quand la page est
+ * couverte ; un second clic pendant ce temps ne repart pas. */
+function useEntrerParTransition() {
+  const enCours = useRef(false);
+  return (geste: () => void) => {
+    const type = choisirTransition("entrer-salle");
+    const surface = document.getElementById("root") ?? document.body;
+    // Sans animation, le geste part tout de suite, sans garde : rien n'est
+    // en cours qu'un second clic pourrait doubler.
+    if (type === null || typeof surface.animate !== "function") return geste();
+    if (enCours.current) return;
+    enCours.current = true;
+    void transition(type, surface, geste).finally(() => {
+      enCours.current = false;
+    });
+  };
+}
 
 export function Lobby({
   room,
@@ -81,6 +147,8 @@ export function Lobby({
   const spectateurs = (room?.people ?? []).filter((p) => !p.seat).map((p) => p.name);
   const chef = room?.owner?.name ?? null;
   const console = consoleLue(room?.game?.console);
+  const maison = useAinDeLAvantSalle(room?.seats);
+  const entrer = useEntrerParTransition();
 
   return (
     /* `min-h-full` et `my-auto` plutôt que `h-full` et un centrage : centrée
@@ -88,9 +156,20 @@ export function Lobby({
        l'on ne peut pas défiler (audit M9, 22 novembre 2026). */
     <div className="n3-avant-salle flex min-h-full flex-col items-center p-6 paysage-bas:px-6 paysage-bas:py-3">
       <div className="my-auto flex w-full max-w-md flex-col gap-5 paysage-bas:grid paysage-bas:max-w-3xl paysage-bas:grid-cols-[3fr_2fr] paysage-bas:items-start paysage-bas:gap-x-5 paysage-bas:gap-y-3">
-        <header className="flex flex-col gap-2 paysage-bas:col-span-2">
+        <header className="relative flex flex-col gap-2 paysage-bas:col-span-2">
+          {/* Un point de passage d'Aïn, à gauche de la fiche, entre l'en-tête
+              et la borne : le chemin direct du logo au panneau touchait
+              « Changer ton nom » (parcours.mjs, avant-salle-ain). */}
+          <span
+            className="n3-avant-passage n3-avant-passage-haut"
+            data-ancre="passage-1"
+            aria-hidden="true"
+          />
           <div className="flex items-center justify-between gap-3">
-            <Logo />
+            {/* La maison d'Aïn : le logo, qu'il remplace une fois peint. */}
+            <div ref={maison} className="n3-avant-maison" data-hote="logo">
+              <Logo />
+            </div>
             {salon ? (
               <a id="toRooms" href="/" className="n3-avant-lien">
                 {AVANT_SALLE.autres}
@@ -116,12 +195,20 @@ export function Lobby({
               ) : null}
             </div>
             <div id="lobbySeats" className="n3-avant-borne-panneau">
+              {/* Le sol d'Aïn : le bord haut du panneau, où « depart » le pose,
+                  et son second point de passage, à gauche de la borne. */}
+              <span className="n3-avant-sol" data-sol="panneau" aria-hidden="true" />
+              <span
+                className="n3-avant-passage n3-avant-passage-bas"
+                data-ancre="passage-2"
+                aria-hidden="true"
+              />
               {seats.map((seat) => (
                 <PlaceDuPanneau
                   key={seat.port}
                   seat={seat}
                   conseillee={seat.port === conseillee}
-                  onPrendre={() => onEnter(seat.port)}
+                  onPrendre={() => entrer(() => onEnter(seat.port))}
                 />
               ))}
             </div>
@@ -133,7 +220,7 @@ export function Lobby({
                 <button
                   type="button"
                   id="enter"
-                  onClick={() => onEnter(conseillee ?? undefined)}
+                  onClick={() => entrer(() => onEnter(conseillee ?? undefined))}
                   className="rt-boite rt-bouton rt-bouton-plein n3-avant-bouton"
                 >
                   <i className="rt-ombre" aria-hidden="true" />
@@ -143,7 +230,7 @@ export function Lobby({
               <button
                 type="button"
                 id="watch"
-                onClick={onWatch}
+                onClick={() => entrer(onWatch)}
                 className={
                   pleine
                     ? "rt-boite rt-bouton rt-bouton-plein n3-avant-bouton sm:col-span-2"
@@ -182,7 +269,13 @@ function PlaceDuPanneau({
   const couleur = { "--rt-joueur": aplatDuJoueur(seat.port) } as CSSProperties;
   if (!estLibre(seat)) {
     return (
-      <div className="n3-avant-place" data-port={seat.port} data-state="busy" style={couleur}>
+      <div
+        className="n3-avant-place"
+        data-port={seat.port}
+        data-state="busy"
+        data-ancre={`start-${seat.port}`}
+        style={couleur}
+      >
         <span className="rt-bouton-start" aria-hidden="true">
           {pastille(seat.port)}
         </span>
@@ -200,6 +293,7 @@ function PlaceDuPanneau({
       className="n3-avant-place"
       data-port={seat.port}
       data-state="free"
+      data-ancre={`start-${seat.port}`}
       data-conseillee={conseillee ? "" : undefined}
       aria-label={prendreLaPlace(seat.port)}
       onClick={onPrendre}

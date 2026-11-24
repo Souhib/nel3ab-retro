@@ -160,6 +160,13 @@ export function prixManetteSeule(moteur: string | null | undefined): string {
     : "c'est autant de wifi et de batterie rendus";
 }
 
+/** La même chose en une aide du menu, sous 70 caractères (M8). */
+export function aideManetteSeule(moteur: string | null | undefined): string {
+  return moteur === "dolphin"
+    ? "Sans image ni son : 13,6 Mbit/s de wifi rendus par appareil."
+    : "Sans image ni son : du wifi et de la batterie rendus.";
+}
+
 /** Les commandes dessinées à l'écran d'un téléphone, sous un seul nom.
  *
  * Le menu disait « commandes tactiles », la feuille du bas « Cacher la manette »
@@ -862,6 +869,20 @@ export const MENU = {
   aucuneLigne: "Rien ici pour l'instant.",
   /** Le pied, nommé pour un lecteur d'écran. */
   pied: "Touches du menu",
+  /** La rubrique Manettes (M9). */
+  touches: "touches et manettes",
+  clavier: "toutes les touches du clavier",
+  aideClavier: "Chaque touche du clavier, et ce qu'elle fait dans le jeu.",
+  attendCorrespondances: "La manette branchée attend ses correspondances.",
+  profilClavier: (nom: string) => `Profil clavier « ${nom} ».`,
+  appareilWii: "appareil des jeux Wii",
+  /** Ce qui suit un nouvel appareil Wii, selon le jeu en cours. */
+  wiiRelance: "Passer à la Wiimote relance le jeu.",
+  wiiSansRelance: "Entre Nunchuk et guitare, rien ne relance.",
+  wiiProchain: "Appareil du prochain jeu Wii.",
+  aideTactile: "Pour jouer au téléphone, avec ou sans clavier et manettes.",
+  avecImage: "non, avec l'image",
+  sansImage: "oui, sans image",
 } as const;
 
 /** La fiche d'une décision, dans le menu (M10, M15) : elle dit ce que le
@@ -874,6 +895,9 @@ export const FICHE = {
   sauvegarde: "Sauvegarde",
   /** Le résumé de la connexion mène au détail. */
   detail: "Voir le détail",
+  /** La fermeture demandée, comme état de la ligne et de sa fiche (P10). */
+  fermeture: "fermeture…",
+  fermetureEnCours: "Fermeture du jeu en cours…",
 } as const;
 
 /** La bibliothèque : les rangées de l'écran éteint et la fiche d'un jeu

@@ -81,6 +81,7 @@ export const SETTINGS: readonly Arranged[] = [
  * l'appareil des jeux Wii, puis le téléphone. */
 export const MANETTES: readonly Arranged[] = [
   { id: "bindings", group: MENU.groupes.manette },
+  { id: "touches-clavier", group: MENU.groupes.manette },
   { id: "pad", group: MENU.groupes.wii },
   { id: "touchpad", group: MENU.groupes.telephone },
   { id: "padonly", group: MENU.groupes.telephone },

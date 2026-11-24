@@ -19,6 +19,7 @@ import { GameCard } from "./components/GameCard";
 import { Rayonnage } from "./components/Rayonnage";
 import { setupGameKey } from "./lib/setups";
 import { Preparation, PreparationEnBref } from "./components/Preparation";
+import { lignesManettes } from "./lib/rubriques";
 import { useSetupChoice } from "./lib/useSetupChoice";
 import { Entrance } from "./components/Entrance";
 import { Lobby } from "./components/Lobby";
@@ -111,7 +112,6 @@ import {
   storedTheme,
   storedTouch,
   oublierLaCoque,
-  TOUCHPADS,
 } from "./lib/theme";
 import { FITS, place, qualities, rememberFit, storedFit } from "./lib/fit";
 import { useBare } from "./lib/fullscreen";
@@ -146,7 +146,7 @@ import type { TramePro } from "./manettes/reglage/Pro";
 import type { Bande as BandeDuReglage } from "./manettes/reglage/Reglage";
 import { deviceLabel } from "./lib/faces";
 import { cn } from "./lib/cn";
-import { arrange, avecAvances, MANETTES, selonAppareil } from "./lib/settings";
+import { arrange, avecAvances, selonAppareil } from "./lib/settings";
 import { aideDeLaSalle, appareilDe, pour } from "./lib/appareil";
 import { clavierEnPause, useFocusJeu } from "./lib/focus-jeu";
 import { aideDejaVue, aideDolphin, aidePro, retenirAideVue } from "./lib/aide-clavier";
@@ -183,7 +183,6 @@ import {
   usesProInput,
 } from "./lib/consoles";
 import {
-  PADS,
   launchPicks,
   readUnlocked,
   rememberPad,
@@ -206,10 +205,7 @@ import {
   chefChoisit,
   enMenu,
   prixImageLegere,
-  prixManetteSeule,
-  MANETTE_SEULE,
   SORTIES,
-  TACTILE,
   MENU,
   BIBLIO,
   FICHE,
@@ -673,6 +669,9 @@ function Room({
    * il prend la place des rangs de la colonne, jamais celle de l'image. */
   const reglage = useReglage();
   const [preparationError, setPreparationError] = useState("");
+  /** Le jeu dont cette page a demandé la fermeture, tant qu'il tourne :
+   * « fermer le jeu » le dit au lieu d'un avis (P10). */
+  const [fermetureDemandee, setFermeture] = useState<number | null>(null);
   /* L'attente d'une image (arrivée, coupure, gel) ne se mesure plus ici: la
      couche média calcule un seul état de liaison (`media/liaison.ts`), qui
      distingue aussi « pas ENCORE d'image » de « plus d'image ». Ce rendu
@@ -1291,6 +1290,15 @@ function Room({
     session?.input.choosePad(pad);
   }, [session, pad]);
 
+  /** Oubliée dès que le jeu change : rien à fermer de plus, et le même jeu
+   * relancé plus tard ne se dit pas en fermeture. */
+  const fermeture =
+    fermetureDemandee !== null && room?.game?.index === fermetureDemandee
+      ? fermetureDemandee
+      : null;
+  useEffect(() => {
+    if (fermetureDemandee !== null && fermeture === null) setFermeture(null);
+  }, [fermetureDemandee, fermeture]);
   const pendingSetup = room?.preparation ?? null;
   const [setupChoice, setSetupChoice] = useSetupChoice(pad, pendingSetup);
   /* La préparation ne bloque plus le jeu (P1, 24 novembre 2026) : elle était
@@ -1654,71 +1662,21 @@ function Room({
       id: "manettes",
       label: MENU.rubriques.manettes,
       // Une rubrique à elle : régler sa manette demandait dix gestes quand
-      // elle était la dixième entrée des réglages (audit P12).
-      lignes: arrange<Ligne>(
-        [
-          {
-            id: "bindings",
-            label: "touches et manettes",
-            // Une manette qui attend ses correspondances le dit ici aussi :
-            // l'avis de branchement s'efface au bout de cinq secondes (P12).
-            ...(shot && manetteAConfigurer(shot.input)
-              ? { value: "à configurer", hint: "la manette branchée attend ses correspondances" }
-              : { hint: `profil clavier « ${shot?.input.keyProfile ?? "défaut"} »` }),
-            // Le panneau vit dans la colonne : le menu se ferme, et le jeu de
-            // cette place reçoit un état neutre tant qu'il est ouvert.
-            onEnter: () => ouvrirLesTouches("manette"),
-          },
-          {
-            id: "pad",
-            // « appareil » : ce choix dit ce que le jeu voit (manette
-            // GameCube, Wiimote, guitare), pas quelle manette on tient.
-            label: "appareil des jeux Wii",
-            // Une seule des deux à la fois : elles lisent le même tuyau, et un
-            // jeu qui voit les deux compte deux manettes pour une personne.
-            hint:
-              room?.game?.console === "wii"
-                ? pad === 0
-                  ? "Passer à la Wiimote relance le jeu."
-                  : "Entre Nunchuk et guitare, rien ne relance."
-                : "Appareil du prochain jeu Wii.",
-            picks: PADS.map((one) => ({ id: String(one.id), label: one.label, hint: one.note })),
-            picked: String(pad),
-            // Relu dans la table, jamais deviné : la guitare retombait sur la
-            // manette GameCube sans un mot.
-            onPick: (id: string) => {
-              const wanted = PADS.find((one) => String(one.id) === id)?.id;
-              if (wanted !== undefined) switchPad(wanted);
-            },
-          },
-          {
-            id: "touchpad",
-            label: TACTILE,
-            hint: "Pour jouer au téléphone, avec ou sans clavier et manettes.",
-            picks: TOUCHPADS.map((choice) => ({
-              id: choice.id,
-              label: choice.label,
-              hint: choice.note,
-            })),
-            picked: touchPref,
-            onPick: (id) => setTouchPref(id as typeof touchPref),
-          },
-          {
-            id: "padonly",
-            label: MANETTE_SEULE,
-            hint: `Ce téléphone sans image ni son : ${prixManetteSeule(moteurDe(room?.game?.console))}.`,
-            picks: [
-              { id: "avec", label: "non, avec l'image" },
-              { id: "sans", label: "oui, sans image" },
-            ],
-            picked: padOnly ? "sans" : "avec",
-            // Changer de mode reconstruit la session : la place tenue est
-            // rendue puis reprise.
-            onPick: (id) => onPadOnly(id === "sans"),
-          },
-        ],
-        MANETTES,
-      ),
+      // elle était la dixième entrée des réglages (audit P12). Construite
+      // hors d'ici, et essayée pour chaque console (`lib/rubriques`, M8).
+      lignes: lignesManettes({
+        aConfigurer: shot ? manetteAConfigurer(shot.input) : false,
+        profilClavier: shot?.input.keyProfile ?? "défaut",
+        console: room?.game?.console,
+        moteur: moteurDe(room?.game?.console),
+        pad,
+        touchPref,
+        padOnly,
+        ouvrirTouches: ouvrirLesTouches,
+        switchPad,
+        setTouchPref,
+        onPadOnly,
+      }),
     },
     {
       id: "salle",
@@ -1749,6 +1707,9 @@ function Room({
               {
                 id: "close-game",
                 label: "fermer le jeu",
+                // Une fermeture demandée est l'état de la ligne et de sa
+                // fiche, pas une erreur dans un avis (P10).
+                value: fermeture === room.game.index ? FICHE.fermeture : undefined,
                 hint: "Les sauvegardes sont conservées.",
                 fiche: {
                   consequence:
@@ -1757,11 +1718,14 @@ function Room({
                       : "La partie s'arrête. La salle reste ouverte.",
                   agir: "Fermer le jeu",
                   annuler: FICHE.continuer,
+                  occupe: fermeture === room.game.index,
+                  suite: fermeture === room.game.index ? FICHE.fermetureEnCours : undefined,
                   onAgir: () => {
                     if (!room.game) return;
+                    const index = room.game.index;
                     void tell
-                      .closeGame(room.game.index)
-                      .then(() => setPreparationError("Fermeture du jeu en cours…"))
+                      .closeGame(index)
+                      .then(() => setFermeture(index))
                       .catch((error: unknown) =>
                         setPreparationError(error instanceof Error ? error.message : SANS_REPONSE),
                       );

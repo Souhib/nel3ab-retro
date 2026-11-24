@@ -593,6 +593,149 @@ const ETAPES = {
       throw new Defaut(`la manette annonce b6 = 0.65 et l'horodatage 98765 ; les nombres disent « ${vu.b6} » et « ${vu.horodatage} »`);
   },
 
+  /** Changement 13 et touches-switch-xbox 3 : à l'appui, des coins encadrent
+   * ta pièce et une ligne pointillée la relie à la commande, pendant que
+   * l'étape suivante se cadre. Lu à chaque image (`requestAnimationFrame`),
+   * pas après coup : jusqu'au 24 novembre 2026, l'étape suivante, émise dans
+   * le même appel que la réponse, retirait coins et ligne avant toute
+   * peinture. Un bouton d'abord, puis le stick gauche. */
+  async marques() {
+    const fautes = [];
+    const page = await nouvelle({ width: 1440, height: 900 });
+    await entrer(page);
+    await ouvrirParLaManette(page);
+    if (!(await toucher(page, "#learnPad"))) throw new Precondition("pas de « Régler pas à pas »");
+    if (!(await jusqua(() => page.$("#commencerLecon").then(Boolean), 2000)))
+      throw new Precondition("pas de « Commencer »");
+    await toucher(page, "#commencerLecon");
+    const attendue = () =>
+      page.evaluate(() => document.querySelector("#reglage [data-attendue]")?.getAttribute("data-part") ?? null);
+    if (!(await jusqua(async () => (await attendue()) === "A", 3000)))
+      throw new Precondition(`la première étape n'attend pas A (${await attendue()})`);
+    // Le relevé : à chaque image, les pièces qui portent des coins (et leur
+    // stick), la ligne, et les pièces cadrées.
+    const relever = () =>
+      page.evaluate(() => {
+        cancelAnimationFrame(window.__releve ?? 0);
+        window.__vues = [];
+        const lire = () => {
+          const r = document.querySelector("#reglage");
+          if (r)
+            window.__vues.push({
+              coins: [...r.querySelectorAll('[data-marque="coins"]')].map(
+                (p) => `${p.getAttribute("data-part")}${p.dataset.stick ? `/${p.dataset.stick}` : ""}`,
+              ),
+              ligne: r.querySelector(".n3-liaison line") !== null,
+              cadre: [...r.querySelectorAll('[data-marque="cadre"]')].map((p) => p.getAttribute("data-part")),
+            });
+          window.__releve = requestAnimationFrame(lire);
+        };
+        lire();
+      });
+    const vues = () => page.evaluate(() => window.__vues);
+    await relever();
+    await page.evaluate(() => window.__bouton(0, true));
+    await sleep(300);
+    await page.evaluate(() => window.__bouton(0, false));
+    const apresBouton = await vues();
+    if (apresBouton.length < 5) throw new Precondition(`seulement ${apresBouton.length} images relevées`);
+    const peintes = apresBouton.filter((v) => v.coins.includes("b0"));
+    if (!peintes.length) fautes.push(`aucune image ne peint les coins de b0 après l'appui (${apresBouton.length} images)`);
+    else if (!peintes.some((v) => v.ligne)) fautes.push("les coins de b0 sont peints sans la ligne qui les relie à A");
+    else if (!peintes.some((v) => v.cadre.length && !v.cadre.includes("A")))
+      fautes.push("pendant les coins, l'étape suivante n'est pas cadrée");
+    // Le stick gauche : passer jusqu'à l'étape qui l'attend, puis le pousser.
+    await sleep(400);
+    for (let i = 0; i < 20 && (await attendue()) !== "x"; i += 1) {
+      await page.click("#passerEtape");
+      await sleep(150);
+    }
+    if ((await attendue()) !== "x") throw new Precondition("aucune étape n'attend le stick");
+    await sleep(200);
+    await relever();
+    await page.evaluate(() => {
+      window.__pad.axes[0] = 0.95;
+      window.__pad.timestamp += 16;
+    });
+    await sleep(300);
+    await page.evaluate(() => {
+      window.__pad.axes[0] = 0;
+      window.__pad.timestamp += 16;
+    });
+    const apresStick = await vues();
+    if (!apresStick.some((v) => v.coins.some((c) => c.endsWith("/a0") && v.ligne)))
+      fautes.push(`aucune image ne peint les coins du stick a0 et sa ligne après la poussée (${apresStick.length} images)`);
+    await page.evaluate(() => cancelAnimationFrame(window.__releve ?? 0));
+    await capture(page, "marques");
+    await page.close();
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
+  /** Le focus du pas à pas au clavier seul (Entrée, Échap), comme une
+   * personne sans souris : après « Régler pas à pas », après « Commencer »,
+   * et Échap qui remonte d'un cran à la fois (l'invite, puis le pas à pas,
+   * puis le panneau). Jusqu'au 24 novembre 2026, le focus tombait sur le
+   * document : l'invite ne se fermait pas, et un pas à pas arrêté laissait
+   * le panneau ouvert. */
+  async "focus-pas"() {
+    const fautes = [];
+    const page = await nouvelle({ width: 1440, height: 900 });
+    await entrer(page);
+    await ouvrirParLaManette(page);
+    const focus = () =>
+      page.evaluate(() => {
+        const a = document.activeElement;
+        return {
+          ou: `${a?.tagName.toLowerCase() ?? "rien"}${a?.id ? `#${a.id}` : ""}`,
+          id: a?.id ?? "",
+          dans: a?.closest?.("[data-reglage]") != null,
+          pas: a?.closest?.("[data-pas-a-pas]") != null,
+        };
+      });
+    const la = (sel) => page.$(sel).then(Boolean);
+    if (!(await la("#learnPad"))) throw new Precondition("pas de « Régler pas à pas »");
+    await page.focus("#learnPad");
+    await page.keyboard.press("Enter");
+    await sleep(300);
+    if (!(await la("#commencerLecon"))) throw new Precondition("Entrée sur « Régler pas à pas » n'ouvre pas l'invite");
+    let f = await focus();
+    if (f.id !== "commencerLecon") fautes.push(`après « Régler pas à pas », le focus est sur ${f.ou}`);
+    await page.keyboard.press("Escape");
+    await sleep(300);
+    f = await focus();
+    const invite = await la("#commencerLecon");
+    const ouvert = await la("[data-reglage]");
+    if (invite || !ouvert || f.id !== "learnPad")
+      fautes.push(
+        `Échap sur l'invite : invite ${invite ? "toujours là" : "fermée"}, panneau ${ouvert ? "ouvert" : "fermé"}, focus sur ${f.ou}`,
+      );
+    if (!(await la("[data-reglage]"))) throw new Precondition("le panneau s'est fermé avant le pas à pas");
+    if (!(await la("#commencerLecon"))) {
+      await page.focus("#learnPad");
+      await page.keyboard.press("Enter");
+      await sleep(300);
+    }
+    await page.focus("#commencerLecon");
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => la("[data-pas-a-pas]"), 2000)))
+      throw new Precondition("Entrée sur « Commencer » ne lance pas le pas à pas");
+    await sleep(300);
+    f = await focus();
+    if (!f.pas) fautes.push(`après « Commencer », le focus est sur ${f.ou}`);
+    await page.keyboard.press("Escape");
+    await sleep(400);
+    f = await focus();
+    const pas = await la("[data-pas-a-pas]");
+    if (pas || !(await la("[data-reglage]")) || !f.dans)
+      fautes.push(`premier Échap au pas à pas : ${pas ? "il continue" : "il s'arrête"}, focus sur ${f.ou}`);
+    await page.keyboard.press("Escape");
+    await sleep(400);
+    if (await la("[data-reglage]")) fautes.push(`le second Échap ne ferme pas le panneau (focus sur ${(await focus()).ou})`);
+    await capture(page, "focus-pas");
+    await page.close();
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
   /** Le pas à pas d'une salle GameCube, par la vraie boucle : la ligne
    * attendue est marquée, un appui la fait passer à la suivante, et une
    * seconde après, aucune animation ne tourne plus dans le panneau (rien ne

@@ -1024,6 +1024,12 @@ reglage-navigateur-rouge:
     git -C ../.. show 842e4c9:core/crates/worker/src/page/index.html > "$dossier/passage6.html"
     node reglage.mjs --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
         --etapes nombres --rouge-attendu nombres
+    # La page relue le 24 novembre 2026 (9b1c8e8) : l'étape suivante retire
+    # les coins et la ligne d'une réponse avant toute peinture, et le focus
+    # tombe sur le document après « Régler pas à pas » et « Commencer ».
+    git -C ../.. show 9b1c8e8:core/crates/worker/src/page/index.html > "$dossier/relue.html"
+    node reglage.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+        --etapes marques,focus-pas --rouge-attendu marques,focus-pas
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

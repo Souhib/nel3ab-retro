@@ -30,7 +30,7 @@ import {
   type Piece,
   type Rect,
 } from "./faces";
-import { encombrement } from "./faces";
+import { encombrement, fente, FENTE } from "./faces";
 import { place } from "./fit";
 import { GAMECUBE, SWITCH_PRO, XBOX_360, mirrorX, type PadMap } from "./padmap";
 import { labels as switchLabels, xboxLabels } from "./switch-labels";
@@ -666,5 +666,74 @@ describe("la place qu'une manette demande au cadre", () => {
     const avec = placePad(SWITCH_FACE, box, { left: 0, right: 0 }, ["feuille"]);
     expect(sans.pieces.filter((one) => one.kind === "geste")).toHaveLength(0);
     expect(avec.pieces.filter((one) => one.kind === "geste")).toHaveLength(1);
+  });
+});
+
+describe("la fente de l'étiquette, dans le creux de la manette", () => {
+  const FACES_TENUES = [DOLPHIN_FACE, SWITCH_FACE, XBOX_FACE] as const;
+
+  it("tenue droite, de 320 à 1024 px, la fente tient à 6 px au moins de toute touche, geste compris", () => {
+    let vues = 0;
+    for (const face of FACES_TENUES) {
+      const { hauteur } = encombrement(face);
+      for (let w = 320; w <= 1024; w += 4) {
+        const h = hauteur(w);
+        if (h === null) throw new Error(`${face.title} : rien ne tient à ${w} px de large`);
+        for (const gestes of [[], ["feuille"]] as const) {
+          const pose = placePad(face, { width: w, height: h }, { left: 0, right: 0 }, gestes);
+          const f = fente(pose.pieces, { width: w, height: h });
+          const ou = `${face.title} ${w}×${h}, ${gestes.length} geste`;
+          if (f === null) throw new Error(`${ou} : pas de fente`);
+          expect(f.w, ou).toBeGreaterThanOrEqual(FENTE.MIN);
+          expect(f.w, ou).toBeLessThanOrEqual(FENTE.MAX);
+          expect(f.h, ou).toBe(FENTE.HAUT);
+          // Dans les marges de la boîte, où le doigt glisse hors du verre.
+          expect(f.x, ou).toBeGreaterThanOrEqual(SIZES.MARGIN);
+          expect(f.y, ou).toBeGreaterThanOrEqual(SIZES.MARGIN);
+          expect(f.x + f.w, ou).toBeLessThanOrEqual(w - SIZES.MARGIN);
+          expect(f.y + f.h, ou).toBeLessThanOrEqual(h - SIZES.MARGIN);
+          // Mesuré par `gapBetween`, pas par la recherche elle-même.
+          for (const piece of pose.pieces)
+            expect(gapBetween(f, piece.rect), `${ou}, ${piece.kind}`).toBeGreaterThanOrEqual(
+              FENTE.ECART,
+            );
+          vues += 1;
+        }
+      }
+    }
+    expect(vues).toBeGreaterThan(1000);
+  });
+
+  it("sur une manette Pro de 375 px sans geste, le creux du milieu, sous − et +", () => {
+    const h = encombrement(SWITCH_FACE).hauteur(375)!;
+    const pose = placePad(SWITCH_FACE, { width: 375, height: h }, { left: 0, right: 0 }, []);
+    const f = fente(pose.pieces, { width: 375, height: h })!;
+    const rect = (cle: string) =>
+      pose.pieces.find((p) => p.kind === "touche" && p.touche.key === cle)!.rect;
+    // Centrée, et plus bas que le bas des deux touches du milieu.
+    expect(Math.abs(f.x + f.w / 2 - 375 / 2)).toBeLessThanOrEqual(1);
+    expect(f.y).toBeGreaterThanOrEqual(rect("MINUS").y + rect("MINUS").h + FENTE.ECART);
+    expect(f.y).toBeGreaterThanOrEqual(rect("PLUS").y + rect("PLUS").h + FENTE.ECART);
+  });
+
+  // Les jumeaux : un creux trop étroit, ou bouché, ne donne aucune fente.
+  it("rien quand aucun passage n'a la largeur de trois lettres et du numéro", () => {
+    const W = 300;
+    const H = 200;
+    const mur = (x: number, w: number): Piece<string> => ({
+      kind: "geste",
+      geste: "feuille",
+      rect: { x, y: 0, w, h: H },
+    });
+    // Deux murs de toute la hauteur qui laissent FENTE.MIN - 1 au milieu.
+    const etroit = FENTE.MIN - 1 + 2 * FENTE.ECART;
+    const gauche = (W - etroit) / 2;
+    const pieces = [mur(0, gauche), mur(gauche + etroit, W - gauche - etroit)];
+    expect(fente(pieces, { width: W, height: H })).toBeNull();
+    // Un pixel de plus, et elle tient, à l'écart près des deux murs.
+    const juste = [mur(0, gauche - 1), mur(gauche + etroit, W - gauche - etroit)];
+    const f = fente(juste, { width: W, height: H })!;
+    expect(f.w).toBe(FENTE.MIN);
+    expect(fente([mur(0, W)], { width: W, height: H })).toBeNull();
   });
 });

@@ -1027,6 +1027,97 @@ async function principal() {
       verdict(fautes);
     },
 
+    /** en-jeu-tactile.5 : sans panneau, ton étiquette tapée se pose dans le
+     * creux de la manette tenue droite (375×548, GameCube puis Xbox 360) :
+     * visible, dans la boîte de la manette, hors de l'image, à 6 px au moins
+     * de chaque touche et de « La salle », avec ton numéro. Les jumeaux : à
+     * 390×844 le panneau porte tes places, et aucune étiquette n'est dans la
+     * manette (une chose, une fois) ; en travers, une seule, sous « La
+     * salle » ou nulle part. */
+    async "etiquette-manette"() {
+      const fautes = [];
+      const lire = (page) =>
+        page.evaluate(() => {
+          const toutes = [...document.querySelectorAll("#etiquetteManette")];
+          const el = toutes[0];
+          if (!el) {
+            const r = document.querySelector("#port1")?.getBoundingClientRect();
+            return { n: 0, panneau: r !== undefined && r.width > 0 && r.height > 0 };
+          }
+          const boite = (x) => {
+            const r = x.getBoundingClientRect();
+            return { x: r.left, y: r.top, w: r.width, h: r.height };
+          };
+          const ecart = (a, b) =>
+            Math.hypot(
+              Math.max(0, b.x - (a.x + a.w), a.x - (b.x + b.w)),
+              Math.max(0, b.y - (a.y + a.h), a.y - (b.y + b.h)),
+            );
+          const e = boite(el);
+          const pieces = [...document.querySelectorAll(".n3-pave > :not(#etiquetteManette), #laSalleCote")]
+            .map((p) => ({ nom: p.dataset.touche ?? p.dataset.geste ?? p.id ?? p.className, r: boite(p) }))
+            .filter((p) => p.r.w > 0);
+          const proche = pieces
+            .map((p) => ({ nom: p.nom, d: ecart(e, p.r) }))
+            .sort((a, b) => a.d - b.d)[0];
+          const manette = el.closest(".n3-manette-boite");
+          const ecran = document.querySelector("#screen");
+          const t = ecran ? boite(ecran) : null;
+          const coupe =
+            t !== null &&
+            Math.min(e.x + e.w, t.x + t.w) - Math.max(e.x, t.x) > 0.5 &&
+            Math.min(e.y + e.h, t.y + t.h) - Math.max(e.y, t.y) > 0.5;
+          return {
+            n: toutes.length,
+            vue: e.w > 0 && e.h > 0 && getComputedStyle(el).visibility !== "hidden",
+            dansLaManette: manette !== null,
+            coupe,
+            proche,
+            texte: el.textContent ?? "",
+            // Le panneau porte les places : la place 1 visible.
+            panneau: (() => {
+              const r = document.querySelector("#port1")?.getBoundingClientRect();
+              return r !== undefined && r.width > 0 && r.height > 0;
+            })(),
+          };
+        });
+      for (const cas of [
+        { nom: "375×548 GameCube", vue: { width: 375, height: 548, isMobile: true, hasTouch: true }, salle: {}, attendu: "manette" },
+        { nom: "375×548 Xbox 360", vue: { width: 375, height: 548, isMobile: true, hasTouch: true }, salle: { jeu: 1 }, attendu: "manette" },
+        { nom: "390×844", vue: { width: 390, height: 844, isMobile: true, hasTouch: true }, salle: {}, attendu: "aucune" },
+        { nom: "844×390", vue: { width: 844, height: 390, isMobile: true, hasTouch: true }, salle: {}, attendu: "cote" },
+      ]) {
+        const page = await nouvelle(cas.vue, { salle: cas.salle });
+        await entrer(page);
+        if (!(await jusqua(() => page.$(".n3-pave").then(Boolean), 4000)))
+          throw new Precondition(`${cas.nom}: la manette à l'écran n'est pas montée`);
+        await sleep(400);
+        const lu = await lire(page);
+        if (cas.attendu === "aucune") {
+          if (!lu.panneau) throw new Precondition(`${cas.nom}: pas de panneau, le jumeau ne dit rien`);
+          if (lu.n !== 0) fautes.push(`${cas.nom}: une étiquette dans la manette alors que le panneau porte les places`);
+        } else if (cas.attendu === "cote" && lu.panneau) {
+          // En travers, le cadre a pu choisir le panneau : alors aucune.
+          if (lu.n !== 0) fautes.push(`${cas.nom}: une étiquette alors que le panneau porte les places`);
+        } else {
+          if (lu.panneau) throw new Precondition(`${cas.nom}: le cadre pose un panneau, l'étape ne prouve rien`);
+          if (lu.n !== 1) fautes.push(`${cas.nom}: ${lu.n} étiquettes, une attendue`);
+          else {
+            if (!lu.vue) fautes.push(`${cas.nom}: l'étiquette n'est pas visible`);
+            if (cas.attendu === "manette" && !lu.dansLaManette) fautes.push(`${cas.nom}: l'étiquette n'est pas dans la boîte de la manette`);
+            if (lu.coupe) fautes.push(`${cas.nom}: l'étiquette coupe l'image`);
+            if (lu.proche && lu.proche.d < 6) fautes.push(`${cas.nom}: l'étiquette est à ${lu.proche.d.toFixed(1)} px de ${lu.proche.nom}`);
+            if (!lu.texte.includes("1P")) fautes.push(`${cas.nom}: l'étiquette ne dit pas le numéro (« ${lu.texte} »)`);
+          }
+          fautes.push(...(await garder(page, `${cas.nom} étiquette`)));
+        }
+        console.log(JSON.stringify({ note: `etiquette-manette ${cas.nom}: ${JSON.stringify(lu)}` }));
+        await capture(page, `etiquette-manette${cas.salle.jeu ? "-pro" : ""}`);
+        await page.close();
+      }
+      verdict(fautes);
+    },
+
     /** K13 : « Quitter la salle » part par la transition « sortir-salle »
      * (mosaïque au niveau « tout », fondu en « sobre »), et l'image est
      * cachée AVANT que la transition ne commence : rien ne passe sur une

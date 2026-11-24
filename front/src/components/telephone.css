@@ -390,3 +390,25 @@
     opacity: 0.4;
   }
 }
+
+/* Ton étiquette tapée quand aucun panneau ne porte les places : sous « La
+   salle » en travers (`geo.etiquetteManette`), ou dans la fente du creux de
+   la manette tenue droite (`manette-tactile.css`). Elle ne prend pas le
+   pointeur. Le numéro « 1P » à l'encre de la place, puis le ruban. */
+.n3-etiquette-cote {
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  pointer-events: none;
+}
+.n3-etiquette-cote > .n3-etiquette {
+  min-width: 0;
+}
+.n3-etiquette-numero {
+  flex-shrink: 0;
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  color: var(--etiquette-encre, var(--encre));
+}

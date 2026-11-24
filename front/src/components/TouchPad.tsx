@@ -48,12 +48,13 @@
  *   annule les pointeurs et laisserait sinon un bouton enfoncé pour toujours ;
  * - l'état pressé d'une touche est du CSS (`:active`), donc il coûte zéro rendu.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ButtonName } from "../media/pad";
 import { stickFrom, type Touch } from "../media/touch";
 import {
   DOLPHIN_FACE,
   crossFrom,
+  fente,
   placePad,
   type FaceOf,
   type Frame,
@@ -298,6 +299,10 @@ export type BoiteDuCadre = {
   gestes: readonly Geste[];
   dansLesBandes: boolean;
   tete: boolean;
+  /** L'étiquette tapée du joueur (chantier personnes), à poser dans la fente
+   * du creux (`fente`, lib/faces) : seulement quand aucun panneau ne la
+   * porte. Une pose sans fente ne la montre pas. */
+  etiquette?: ReactNode;
 };
 
 /** Le pavé commun : il mesure, place et pose. Les deux manettes le partagent. */
@@ -377,6 +382,11 @@ export function Pave<K extends string>({
             right: Math.max(0, bar - inset.right),
           }),
     [face, size, bar, inset, cadre],
+  );
+  /** La fente de l'étiquette, quand le cadre en donne une à poser. */
+  const fenteDeLEtiquette = useMemo(
+    () => (cadre?.etiquette ? fente(pose.pieces, size) : null),
+    [cadre?.etiquette, pose, size],
   );
 
   const key = (touche: Touche<K>, rect: Rect) => (
@@ -485,6 +495,11 @@ export function Pave<K extends string>({
       data-degradee={pose.degraded ?? undefined}
     >
       {pose.pieces.map(draw)}
+      {fenteDeLEtiquette ? (
+        <div id="etiquetteManette" className="n3-pave-etiquette" style={at(fenteDeLEtiquette)}>
+          {cadre?.etiquette}
+        </div>
+      ) : null}
     </div>
   );
 }

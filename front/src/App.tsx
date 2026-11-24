@@ -94,9 +94,12 @@ import { IlsRegardent } from "./components/IlsRegardent";
 import { Mesures } from "./components/Mesures";
 import { ligneDeLaLiaison } from "./lib/mesures";
 import { SuiviPlaces } from "./components/SuiviPlaces";
+import { Etiquette } from "./components/Etiquette";
+import { encreDuJoueur } from "./lib/etiquette";
 import {
   formeDesPlaces,
   hoteDesPlaces,
+  lesPlaces,
   regardentDe,
   REPRISE_REPONSE_S,
   sujetDeLaCarte,
@@ -236,6 +239,7 @@ import {
   TOUCHES,
   ZONE,
   AGRANDIE,
+  pastille,
 } from "./lib/mots";
 import {
   Cadre,
@@ -2347,18 +2351,19 @@ function Room({
   const don = useDonDiffere((ok) => repondre.current(ok));
   /* Les places START 1P à 4P (chantier personnes). La rangée est posée par
      le cadre : sous l'image, au pied de la colonne, debout ou en petit. */
+  const entreeDesPlaces = {
+    places: shot?.input.players ?? 4,
+    tenues: occupied,
+    noms: names,
+    micros: shot?.input.mics ?? [],
+    chef: boss?.seat,
+    mienne: port,
+  };
   const places = (
     <>
       <Places
         forme={formeDesPlaces(geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme)}
-        entree={{
-          places: shot?.input.players ?? 4,
-          tenues: occupied,
-          noms: names,
-          micros: shot?.input.mics ?? [],
-          chef: boss?.seat,
-          mienne: port,
-        }}
+        entree={entreeDesPlaces}
         vient={suivi.vient}
         part={suivi.part}
         carte={carte}
@@ -2601,6 +2606,25 @@ function Room({
    * souris, rien tenue droite ou sous l'image ; « La salle » parmi ses
    * touches quand la barre manque, et toujours à la souris. La tête de la
    * mascotte y passe seulement tenue en main (`ouEstLaMascotte`). */
+  /** Ton étiquette tapée (chantier personnes), ton numéro devant, quand
+   * aucun panneau ne porte les places (en-jeu-tactile.5) : dans le creux
+   * de la manette tenue droite (`fente`, lib/faces), sous « La salle » en
+   * travers (`geo.etiquetteManette`). Une chose, une fois : avec un
+   * panneau, elle est sur ta place START, et nulle part ailleurs. */
+  const maPlace = port === null ? null : (lesPlaces(entreeDesPlaces)[port - 1] ?? null);
+  const tonEtiquette =
+    tenu && !padOnly && maPlace !== null && geo.panneau.rect === null ? (
+      <>
+        <span
+          className="n3-etiquette-numero"
+          aria-hidden="true"
+          style={{ "--etiquette-encre": encreDuJoueur(maPlace.port) } as React.CSSProperties}
+        >
+          {pastille(maPlace.port)}
+        </span>
+        <Etiquette nom={maPlace.nom ?? name} place={maPlace.port} lettres={maPlace.lettres} />
+      </>
+    ) : null;
   const boiteDeLaManette: BoiteDuCadre | undefined = geo.manette
     ? {
         bandes: geo.manette.grappes
@@ -2609,6 +2633,9 @@ function Room({
         gestes: geo.salleDansLaManette ? ["feuille"] : [],
         dansLesBandes: geo.manette.grappes !== null,
         tete: tenu && geo.salleDansLaManette,
+        // En travers, la boîte couvre aussi le dessous de l'image : la fente
+        // n'y a pas sa place, le cadre en donne une sous « La salle ».
+        etiquette: geo.manette.grappes === null ? tonEtiquette : null,
       }
     : undefined;
   /** La pile des avis va dans la bande d'une salle tenue en main : jamais sur
@@ -3390,6 +3417,15 @@ function Room({
             style={placeDe(geo.boutonSalle)}
             tete
           />
+        ) : null}
+        {tonEtiquette && geo.manette?.grappes && geo.etiquetteManette ? (
+          <div
+            id="etiquetteManette"
+            className="n3-etiquette-cote"
+            style={placeDe(geo.etiquetteManette)}
+          >
+            {tonEtiquette}
+          </div>
         ) : null}
         {panneauTenu ? (
           <div style={placeDe(panneauTenu)} className="n3-panneau-tenu">

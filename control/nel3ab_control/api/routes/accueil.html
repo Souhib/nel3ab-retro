@@ -37,8 +37,8 @@
   .entete { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.4rem;
             border-bottom: 2px solid var(--trait); padding-bottom: .5rem; }
   /* Le logo « relief en escalier » (ADR D37), posé au démarrage du salon. */
-  .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
-            --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
+  .marque { display: inline-flex; align-items: center; align-self: center; min-height: 44px;
+            color: inherit; text-decoration: none; --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
   /* La maison d'Aïn (ADR D41, D46): le paquet du salon peint le logo dans
      une toile, à 2 px par pixel d'Aïn quand la marque a 228 px, 1 au-dessous.
      Le logo statique reste pour une page sans script, et se cache quand Aïn
@@ -184,7 +184,11 @@
   .plein:disabled, .cadre:disabled { cursor: not-allowed; opacity: .6; }
   .panneau [hidden] { display: none; }
   .rt-start { margin: 0; text-transform: uppercase; }
-  .rt-credit { margin: 0 0 0 auto; text-transform: uppercase; color: var(--legende); font-size: 14px; }
+  /* Le crédit du socle ne passe pas à la ligne; à 320 px, « Salles ouvertes
+     2 · Places libres 2 » débordait de 37 px (salon-navigateur, 24 novembre
+     2026). Ici il le peut, entre ses mots. */
+  .rt-credit { margin: 0 0 0 auto; text-transform: uppercase; color: var(--legende); font-size: 14px;
+               white-space: normal; }
   .mot { margin: 0; font-size: clamp(14px, 1.4vw, 18px); color: var(--legende); }
   .mot[data-refus="oui"] { color: var(--alerte); }
   .mot:empty { display: none; }

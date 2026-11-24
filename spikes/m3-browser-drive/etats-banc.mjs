@@ -1,5 +1,5 @@
 // Le banc des états de la salle: la page COMMITTÉE, un salon et une salle
-// SIMULÉS, sur un seul port de 5400 à 5499. Aucune salle ni aucun salon vivant
+// SIMULÉS, sur un seul port (`port.mjs`). Aucune salle ni aucun salon vivant
 // n'est touché, aucun émulateur ne tourne.
 //
 // Écrit pour le chantier « états » du 22 novembre 2026 (l'image figée du
@@ -17,6 +17,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { brotliCompressSync } from "node:zlib";
 import { WebSocketServer } from "ws";
+import { ecouter, verifierPort } from "./port.mjs";
 
 /** Les unités d'accès d'un flux Annex B dont chaque image commence par un
  * délimiteur (NAL 9), comme `-x264-params aud=1` les écrit. */
@@ -73,8 +74,9 @@ const DEPART = {
   refus: null,
 };
 
-export async function demarrerBanc({ port, page, flux }) {
-  if (!(port >= 5400 && port <= 5499)) throw new Error(`port ${port} hors de la plage du banc`);
+export async function demarrerBanc({ port: demande, page, flux }) {
+  // 0 : le système choisit ; le vrai port est lu après l'écoute.
+  let port = verifierPort(demande);
   const PAGE = readFileSync(page);
   const BR = brotliCompressSync(PAGE);
   const empreinte = createHash("sha256").update(PAGE).digest("hex");
@@ -335,8 +337,9 @@ export async function demarrerBanc({ port, page, flux }) {
     });
   }
 
-  await new Promise((pret) => server.listen(port, "127.0.0.1", pret));
+  port = await ecouter(server, port);
   return {
+    port,
     url: `http://127.0.0.1:${port}/r/1/`,
     empreinte,
     /** Change l'état simulé. `drop` coupe aussi les sockets en cours. */

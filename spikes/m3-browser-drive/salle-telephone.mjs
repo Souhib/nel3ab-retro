@@ -95,8 +95,9 @@
 // vers une salle vivante.
 //
 //   node salle-telephone.mjs [dossier des captures] [--page <index.html construit>]
+//        [--port 5446]
 //
-// Port 5446 par défaut, ou SALLE_TELEPHONE_PORT.
+// Sans `--port`, Vite prend un port libre (`port.mjs`).
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -104,17 +105,21 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer";
+import { portDemande } from "./port.mjs";
 
 const HERE = import.meta.dirname;
 const REPO = resolve(HERE, "..", "..");
 const FRONT = join(REPO, "front");
-const PORT = Number(process.env.SALLE_TELEPHONE_PORT ?? 5446);
 const args = process.argv.slice(2);
+const PORT = portDemande(args);
 const pageAt = args.indexOf("--page");
 const BUILT = resolve(
   pageAt >= 0 ? args[pageAt + 1] : join(REPO, "core", "crates", "worker", "src", "page", "index.html"),
 );
-const OUT = resolve(args.find((one, i) => !one.startsWith("--") && args[i - 1] !== "--page") ?? join(tmpdir(), "salle-telephone"));
+const OUT = resolve(
+  args.find((one, i) => !one.startsWith("--") && !["--page", "--port"].includes(args[i - 1])) ??
+    join(tmpdir(), "salle-telephone"),
+);
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
 // SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,menu-etroit,
@@ -264,7 +269,8 @@ const server = await createServer({
   server: { host: "127.0.0.1", port: PORT, strictPort: true, hmr: false, fs: { allow: [REPO] } },
 });
 await server.listen();
-const BASE = `http://127.0.0.1:${PORT}`;
+// Le port que Vite a vraiment pris : le système le choisit sans `--port`.
+const BASE = `http://127.0.0.1:${server.httpServer.address().port}`;
 
 mkdirSync(OUT, { recursive: true });
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });

@@ -5,7 +5,7 @@
 // which jsdom does not provide), and `padmap-shot.mjs` writes a screenshot at
 // /tmp/padmap-visuel.png (or the path given as first argument). The preview
 // is served by Vite; this script starts it, waits for it, runs the checks, and
-// stops it.
+// stops it. Vite listens on a free port, or on `--port N` (`port.mjs`).
 //
 // Depuis le 23 novembre 2026, `padmap-qc.mjs` vérifie aussi les comptes
 // d'inscriptions, les contrastes d'appui et les réglages de la planche. Son
@@ -18,9 +18,13 @@
 // `npm run dev`, whose configuration relays /api and the sockets to the live
 // room: a preview has no reason to reach a running service.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { portDemande, portLibre } from "./port.mjs";
 
 const HERE = import.meta.dirname;
-const PORT = "5299";
+const ARGS = process.argv.slice(2);
+const PORT = String(portDemande(ARGS) || (await portLibre()));
+/** The screenshot path: the first argument that is not an option. */
+const SORTIE = ARGS.find((one, i) => !one.startsWith("--") && ARGS[i - 1] !== "--port") ?? "/tmp/padmap-visuel.png";
 const PREVIEW = `http://localhost:${PORT}/padmap-preview.html`;
 
 const dev = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", PORT, "--strictPort"], {
@@ -77,7 +81,7 @@ try {
   } else {
     console.log(`jumeau : ${defauts.length} contrastes refusés, comme voulu`);
   }
-  execFileSync("node", ["padmap-shot.mjs", process.argv[2] ?? "/tmp/padmap-visuel.png"], {
+  execFileSync("node", ["padmap-shot.mjs", SORTIE], {
     cwd: HERE,
     env,
     stdio: "inherit",

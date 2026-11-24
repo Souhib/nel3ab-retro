@@ -8,6 +8,7 @@
 // aucun salon ne démarre, aucune salle ne s'ouvre (K40).
 //
 //   node salon.mjs [--port 5462] [--etape nom] [--pages pages.json]
+//   (sans --port, un port libre : `port.mjs`)
 //                  [--rouge-attendu etape,etape]
 //
 // `--rouge-attendu` est le contrôle négatif: chaque étape nommée doit échouer
@@ -15,13 +16,14 @@
 import { existsSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { demarrerSalon } from "./salon-banc.mjs";
+import { portDemande } from "./port.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
   const i = args.indexOf(`--${nom}`);
   return i >= 0 ? args[i + 1] : defaut;
 };
-const PORT = Number(option("port", "5462"));
+const PORT = portDemande(args);
 const SEULE = option("etape");
 const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
 

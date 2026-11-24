@@ -15,12 +15,15 @@
 //   node parcours.mjs --page <index.html> --flux <flux.h264> [--port 5477]
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
 //
+// Sans `--port`, le banc prend un port libre (`port.mjs`).
+//
 // Sans `--rouge-attendu`, sort en échec dès qu'une étape échoue. Avec, sort en
 // succès seulement si CHACUNE des étapes nommées échoue sur son défaut.
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { BIBLIOTHEQUE, BO, MOI, demarrerParcours } from "./parcours-banc.mjs";
+import { portDemande } from "./port.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
@@ -30,7 +33,7 @@ const option = (nom, defaut = null) => {
 const PAGE = option("page");
 const FLUX = option("flux");
 if (!PAGE || !FLUX) throw new Error("usage: parcours.mjs --page <index.html> --flux <flux.h264>");
-const PORT = Number(option("port", "5477"));
+const PORT = portDemande(args);
 const CAPTURES = option("captures");
 const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
 const TOUT = ROUGE !== null;
@@ -49,7 +52,7 @@ const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url)).arrayBuffer()))
   .digest("hex");
 if (servie !== empreinte) throw new Error(`la page servie (${servie}) n'est pas ${PAGE} (${empreinte})`);
-console.log(JSON.stringify({ page: PAGE, sha256: empreinte }));
+console.log(JSON.stringify({ page: PAGE, sha256: empreinte, port: banc.port }));
 
 const browser = await puppeteer.launch({
   headless: true,

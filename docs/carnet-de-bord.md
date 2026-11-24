@@ -32889,6 +32889,55 @@ du salon (K39) n'est pas installée. `avertissement-fermeture.mjs` demande
 un worker construit et une ROM. Aucun worker n'est reconstruit ni
 installé, et aucune vraie salle n'a servi la page.
 
+### 24 novembre, au bout de la nuit : le ménage de fin, et deux portes qui rougissaient au hasard
+
+**Le contexte.** La branche `integration/retro` porte tout le thème
+rétro : le socle, les données, la salle en deux passages, personnes, Aïn,
+les manettes, les états, le salon avec le carnet commun, les menus. Depuis
+`main` (03b21c0), 468 commits, dont neuf commits de fusion. Avant `main`,
+quelques chantiers de fin travaillent en même temps, chacun sur sa branche
+partie de la tête de la vague B2 (928bd03). Celui-ci, « fin-menage »,
+retire Bobine, donne un port en option à chaque pilote du navigateur,
+cherche la cause de deux portes qui rougissaient au hasard, refait la
+ligne de la porte locale, vérifie les numéros de l'ADR et tient ce carnet
+et l'état du projet pour l'ensemble. Rien ne va dans `main`, rien n'est
+poussé ni installé.
+
+**Un port à soi pour chaque pilote.** Un pilote du navigateur démarre
+son propre banc : un petit serveur qui sert la page et simule la salle et
+le salon. Jusqu'ici, chaque banc écoutait sur un port fixe, 5473 pour les
+états, 5477 pour les parcours, 5478 pour le cadre, 5481 pour le focus. Le
+port est le numéro sur lequel un serveur attend ses visiteurs, et deux
+serveurs ne peuvent pas écouter sur le même. Or plusieurs chantiers
+lancent leurs portes en même temps sur cette machine : pendant la vague
+B2, `etats-navigateur-rouge` n'a pas pu prendre 5473, qu'un autre
+chantier tenait, et ses commandes ont été relancées à la main sur un autre
+port, parce que les recettes `-rouge` n'acceptaient pas de port du tout.
+
+Un module commun, `spikes/m3-browser-drive/port.mjs`, règle la question
+pour tous. Sans option, le banc demande le port 0 : c'est la façon de
+dire au système « donne-m'en un libre », et il en donne un entre 32768 et
+60999, libre au moment où il le donne. Deux pilotes lancés en même temps
+ne se heurtent donc plus. `--port N` en impose un, de 5400 à 5999 : une
+plage loin des ports des salles vivantes (8100 à 8200) et de Jellyfin
+(8096), pour qu'une faute de frappe ne prenne pas l'un d'eux ; un nombre
+hors de la plage, ou une option sans nombre, arrête le pilote. Les trois
+bancs (`etats-banc.mjs`, `parcours-banc.mjs`, `salon-banc.mjs`) et les
+douze pilotes qui avaient un port fixe le prennent maintenant là : les six
+qui lancent un banc (états, focus et son second banc 16:9, parcours,
+cadre, réglage, salon), les deux qui lancent Vite dans leur processus
+(`manette-garde.mjs`, `salle-telephone.mjs`, qui lisaient une variable
+d'environnement et lisent maintenant le port que Vite a vraiment pris), et
+les quatre qui lancent Vite à part (`planche-ain.mjs`,
+`regie-mise-en-page.mjs`, `banc-visuel.mjs`, `padmap-visuel.mjs`). Ces
+quatre-là reçoivent un port libre sondé juste avant, et Vite le prend avec
+`--strictPort` : si un autre processus le prend entre les deux, Vite
+refuse de démarrer, il ne partage rien. Dans le justfile, chaque recette
+`-rouge` accepte maintenant des arguments et les passe à chacun de ses
+appels : `just focus-navigateur-rouge --port 5561` lance tous ses blocs
+sur 5561. Le journal de chaque pilote écrit son port en tête, à côté de
+l'empreinte de la page servie.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

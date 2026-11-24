@@ -3,7 +3,7 @@
 // petit serveur local avec des API simulées. Aucun salon ne démarre, aucune
 // salle ne s'ouvre: le POST d'ouverture est noté et répondu par le banc (K40).
 //
-//   const banc = await demarrerSalon({ port: 5462 });
+//   const banc = await demarrerSalon({ port: 0 });   // 0 : un port libre (`port.mjs`)
 //   banc.regler({ salles: [...], post: { statut: 201, corps: {...}, delai: 800 } });
 //   banc.envois  // les corps des POST /api/salles reçus
 //
@@ -12,6 +12,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { ecouter } from "./port.mjs";
 
 const ASSEMBLER = [
   "import json, sys",
@@ -129,12 +130,10 @@ export async function demarrerSalon({ port, pages = null }) {
       return json(res, 404, { detail: "absent du banc" });
     });
   });
-  await new Promise((ok, refus) => {
-    serveur.once("error", refus);
-    serveur.listen(port, "127.0.0.1", ok);
-  });
-  const base = `http://127.0.0.1:${port}`;
+  const ecoute = await ecouter(serveur, port);
+  const base = `http://127.0.0.1:${ecoute}`;
   return {
+    port: ecoute,
     base,
     url: `${base}/`,
     envois,

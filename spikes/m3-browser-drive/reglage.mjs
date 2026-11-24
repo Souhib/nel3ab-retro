@@ -11,6 +11,7 @@
 // sans rien de vivant.
 //
 //   node reglage.mjs --page <index.html> --flux <flux.h264> [--port 5482]
+//   (sans --port, un port libre : `port.mjs`)
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
 //
 // Sans `--rouge-attendu`, sort en échec dès qu'une étape échoue. Avec, sort en
@@ -19,6 +20,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { Defaut, Precondition, gardeDeLImage } from "./cadre.mjs";
+import { portDemande } from "./port.mjs";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -32,7 +34,7 @@ const option = (nom, defaut = null) => {
 const PAGE = option("page");
 const FLUX = option("flux");
 if (!PAGE || !FLUX) throw new Error("usage: reglage.mjs --page <index.html> --flux <flux.h264>");
-const PORT = Number(option("port", "5482"));
+const PORT = portDemande(args);
 const CAPTURES = option("captures");
 const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
 const TOUT = ROUGE !== null;
@@ -44,7 +46,7 @@ const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url)).arrayBuffer()))
   .digest("hex");
 if (servie !== empreinte) throw new Error(`la page servie (${servie}) n'est pas ${PAGE} (${empreinte})`);
-console.log(JSON.stringify({ page: PAGE, sha256: empreinte }));
+console.log(JSON.stringify({ page: PAGE, sha256: empreinte, port: banc.port }));
 
 const browser = await puppeteer.launch({
   headless: true,

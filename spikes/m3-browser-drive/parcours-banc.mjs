@@ -1,5 +1,5 @@
 // Le banc des parcours de la salle: la page COMMITTÉE, un salon et une salle
-// SIMULÉS sur un seul port de 5400 à 5499. Aucune salle ni aucun salon vivant
+// SIMULÉS sur un seul port (`port.mjs`). Aucune salle ni aucun salon vivant
 // n'est touché, aucun émulateur ne tourne.
 //
 // Écrit après la relecture du chantier « parcours et mots » (22 novembre
@@ -22,6 +22,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { WebSocketServer } from "ws";
 import { unitesDe } from "./etats-banc.mjs";
+import { ecouter, verifierPort } from "./port.mjs";
 
 /** L'attribution que le banc donne à chaque socket d'entrée: celle de la page. */
 export const MOI = "0123456789abcdef0123456789abcdef-1";
@@ -63,8 +64,10 @@ const DEPART = {
   partie: null,
 };
 
-export async function demarrerParcours({ port, page, flux }) {
-  if (!(port >= 5400 && port <= 5499)) throw new Error(`port ${port} hors de la plage du banc`);
+export async function demarrerParcours({ port: demande, page, flux }) {
+  // 0 : le système choisit ; `base` est écrit après l'écoute, avant toute
+  // requête.
+  verifierPort(demande);
   const PAGE = readFileSync(page);
   const empreinte = createHash("sha256").update(PAGE).digest("hex");
   const AUS = unitesDe(readFileSync(flux));
@@ -78,7 +81,7 @@ export async function demarrerParcours({ port, page, flux }) {
    * stick x pousse à droite : une flèche arrivée au jeu. */
   const journal = { entrees: 0, suppressions: [], evenements: [], droite: 0 };
 
-  const base = `http://127.0.0.1:${port}`;
+  let base = null;
   const tenues = () => {
     const prises = new Set([...places.keys()]);
     if (state.bo) prises.add(2);
@@ -292,8 +295,10 @@ export async function demarrerParcours({ port, page, flux }) {
     for (const ws of lobbies) if (ws.readyState === 1) ws.send(`42["room",${JSON.stringify(room())}]`);
   }
 
-  await new Promise((pret) => server.listen(port, "127.0.0.1", pret));
+  const port = await ecouter(server, demande);
+  base = `http://127.0.0.1:${port}`;
   return {
+    port,
     base,
     url: `${base}/r/1/`,
     empreinte,

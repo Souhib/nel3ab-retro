@@ -17,6 +17,7 @@
 // « A negative control must fail at the step it claims »).
 //
 //   node etats.mjs --page <index.html> --flux <flux.h264> [--port 5473]
+//   (sans --port, un port libre : `port.mjs`)
 //        [--etapes a,b] [--taille 1440x900] [--captures dossier] [--tout]
 //        [--rouge-attendu a,b]
 //
@@ -27,6 +28,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { demarrerBanc } from "./etats-banc.mjs";
+import { portDemande } from "./port.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
@@ -37,7 +39,7 @@ const drapeau = (nom) => args.includes(`--${nom}`);
 const PAGE = option("page");
 const FLUX = option("flux");
 if (!PAGE || !FLUX) throw new Error("usage: etats.mjs --page <index.html> --flux <flux.h264>");
-const PORT = Number(option("port", "5473"));
+const PORT = portDemande(args);
 const CAPTURES = option("captures");
 const TAILLE = option("taille");
 const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
@@ -62,7 +64,7 @@ const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url, { headers: { "accept-encoding": "identity" } })).arrayBuffer()))
   .digest("hex");
 if (servie !== empreinte) throw new Error(`la page servie (${servie}) n'est pas ${PAGE} (${empreinte})`);
-console.log(JSON.stringify({ page: PAGE, sha256: empreinte }));
+console.log(JSON.stringify({ page: PAGE, sha256: empreinte, port: banc.port }));
 
 const browser = await puppeteer.launch({
   headless: true,

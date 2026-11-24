@@ -1,11 +1,11 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RecoveryNotice } from "../lib/room";
+import type { Reprise } from "../lib/places";
 import type { MenuAction } from "../media/menupad";
 import { CartePlace } from "./CartePlace";
 
-const notice = (n: Partial<RecoveryNotice> = {}): RecoveryNotice => ({
+const notice = (n: Partial<Reprise> = {}): Reprise => ({
   id: "r1",
   port: 2,
   from: "Moi",
@@ -98,6 +98,40 @@ describe("la carte d'une place", () => {
     expect(prendre.hasAttribute("aria-disabled")).toBe(false);
     fireEvent.click(prendre);
     expect(onAction).toHaveBeenCalledWith({ action: "finish", id: "r1" });
+  });
+
+  /* « Donner ma place » : le salon renvoie à qui demande `remaining` 0 sans
+     raison (`Recovery.remaining` rend 0 une fois acceptée). La carte n'avait
+     qu'une lecture d'un reste à 0, le silence, et affirmait « Bilel n'a pas
+     répondu » après un oui (relecture du 24 novembre 2026). */
+  it("une place donnée se dit donnée, jamais un silence, et se prend tout de suite", () => {
+    const onAction = vi.fn();
+    const { rerender } = render(
+      <CartePlace {...rien} sujet={null} notice={notice()} onAction={onAction} />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    rerender(
+      <CartePlace
+        {...rien}
+        sujet={null}
+        notice={notice({ remaining: 0, accepted: true })}
+        onAction={onAction}
+      />,
+    );
+    expect(screen.getByRole("heading").textContent).toBe("Bilel te laisse sa place 2.");
+    expect(document.body.textContent).not.toContain("n'a pas répondu");
+    const prendre = document.querySelector<HTMLButtonElement>("#confirmRecovery")!;
+    expect(prendre.hasAttribute("aria-disabled")).toBe(false);
+    fireEvent.click(prendre);
+    expect(onAction).toHaveBeenCalledWith({ action: "finish", id: "r1" });
+  });
+
+  it("jumeau : un salon d'avant le champ « accepted » laisse une phrase neutre, pas un silence", () => {
+    render(<CartePlace {...rien} sujet={null} notice={notice({ remaining: 0 })} />);
+    expect(screen.getByRole("heading").textContent).toBe("Tu peux prendre la place 2.");
+    expect(document.body.textContent).not.toContain("n'a pas répondu");
   });
 
   it("annule la demande", () => {
@@ -265,7 +299,7 @@ describe("la carte d'une place au clavier", () => {
     onAction = rien.onAction,
   }: {
     depart: Parameters<typeof CartePlace>[0]["sujet"];
-    notice?: RecoveryNotice | null;
+    notice?: Reprise | null;
     onFermer: () => void;
     onAction?: (a: Record<string, unknown>) => void;
   }) {

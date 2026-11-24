@@ -20,6 +20,19 @@
 import type { FormePanneau, Hote } from "./cadre";
 import { initialesDeLaSalle } from "./etiquette";
 import { PLACES } from "./mots";
+import type { RecoveryNotice } from "./room";
+
+/**
+ * Une reprise telle que le salon l'envoie (`api/ws/recovery.py`, `notify`).
+ *
+ * `accepted` dit que la personne visée a répondu « Donner ma place » : le
+ * salon rend alors `remaining` à 0, et sans ce champ la page ne savait
+ * distinguer un oui d'un silence (relecture du 24 novembre 2026). Il manque
+ * aux salons d'avant ce jour : la carte dit alors une phrase neutre.
+ * `RecoveryNotice` (`lib/room`, hors de ce chantier) garde le type étroit ;
+ * la socket transmet l'objet entier.
+ */
+export type Reprise = RecoveryNotice & { accepted?: boolean };
 
 export type EtatPlace = "free" | "busy" | "mine";
 

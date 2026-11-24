@@ -540,6 +540,12 @@ export const CARTE = {
   annuler: "Annuler la demande",
   prendre: (n: number) => `Prendre la place ${n}`,
   silence: (nom: string) => `${nom} n'a pas répondu`,
+  /** « Donner ma place » reçu par le salon (`accepted`). */
+  laisse: (nom: string, n: number | null) =>
+    n === null ? `${nom} te laisse choisir le jeu.` : `${nom} te laisse sa place ${n}.`,
+  /** Un reste à 0 venu d'un salon qui ne dit pas encore `accepted`. */
+  peux: (n: number | null) =>
+    n === null ? "Tu peux choisir le jeu." : `Tu peux prendre la place ${n}.`,
   garde: (nom: string, n: number) => `${nom} garde sa place ${n}.`,
   ta: (n: number) => `Ta place ${n}`,
   tuJoues: (comment: string) => `Tu joues ${comment}.`,

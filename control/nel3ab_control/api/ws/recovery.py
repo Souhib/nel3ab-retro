@@ -32,6 +32,12 @@ async def notify(request: Recovery, reason: str | None = None) -> None:
                 "asking": sid == request.asker,
                 "remaining": request.remaining(monotonic()),
                 "reason": reason,
+                # « Donner ma place » rend `remaining` à 0 : sans ce champ, la
+                # page de qui demande lisait ce 0 comme un silence (relecture
+                # du 24 novembre 2026). Une page d'avant l'ignore. `respond`
+                # marque la demande avant de lire la réponse : un refus porte
+                # aussi `accepted`, et c'est sa raison qui le dit fini.
+                "accepted": request.accepted and reason is None,
             },
             to=sid,
         )

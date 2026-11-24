@@ -245,3 +245,33 @@ async def test_the_reasons_for_the_game_choice_do_not_say_chief(room):
         (await recovery.recover("souhib", {"action": "begin", "port": 9}))["error"],
     ]
     assert not [e for e in errors if "manette" in e or "chef" in e], errors
+
+
+def _avis(room, sid):
+    return [
+        call.args[1]
+        for call in room.emit.await_args_list
+        if call.args[0] == "recovery" and call.kwargs["to"] == sid
+    ]
+
+
+async def test_a_given_place_says_so_to_the_asker_and_not_a_silence(room):
+    """« Donner ma place » rend `remaining` à 0 : sans `accepted`, la page de
+    qui demande lisait ce 0 comme un silence et affichait « Lu n'a pas
+    répondu » (relecture du 24 novembre 2026)."""
+    request = await begin(room, 2)
+    assert _avis(room, "souhib")[-1]["accepted"] is False
+    assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": True}))["ok"]
+    dit = _avis(room, "souhib")[-1]
+    assert dit["accepted"] is True
+    assert dit["remaining"] == 0
+    assert dit["reason"] is None
+
+
+async def test_a_refusal_is_not_an_acceptance(room):
+    """Le jumeau : un refus garde `accepted` faux, et passe par sa raison."""
+    request = await begin(room, 2)
+    assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": False}))["ok"]
+    dit = _avis(room, "souhib")[-1]
+    assert dit["accepted"] is False
+    assert dit["reason"] == "Lu garde sa place 2."

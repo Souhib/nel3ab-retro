@@ -16,11 +16,10 @@
  * Aucune région vivante ici : la ligne parlée de la salle dit les nouvelles.
  */
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
-import type { RecoveryNotice } from "../lib/room";
 import { CARTE, PLACE } from "../lib/mots";
 import type { MenuAction } from "../media/menupad";
 import { useReste } from "../lib/usePlaces";
-import { echapFermeLaCarte } from "../lib/places";
+import { echapFermeLaCarte, type Reprise } from "../lib/places";
 import { CARTE_PLACE } from "./Places";
 import "./places.css";
 
@@ -47,7 +46,7 @@ export function CartePlace({
   sujet: SujetCarte | null;
   /** La reprise en cours, venue du salon. La carte ne lit que celle où je
    * demande (`asking`) ; celle qui vise ma place est à `DemandeRecue`. */
-  notice: RecoveryNotice | null;
+  notice: Reprise | null;
   erreur?: string;
   /** Une réponse est en vol : tenu par le parent, la carte peut se remonter. */
   occupe?: boolean;
@@ -144,7 +143,19 @@ export function CartePlace({
       </Actions>
     );
   } else if (attente) {
-    entete = reste > 0 ? CARTE.chezLui(qui) : CARTE.silence(qui);
+    /* Trois lectures d'un reste à 0, et une seule est un silence : le
+       compte local fini alors que le salon donnait encore du temps. Un
+       « Donner ma place » arrive avec `remaining` 0 et `accepted` ; sans ce
+       champ (salon d'avant le 24 novembre 2026), la carte ne prétend ni
+       l'un ni l'autre. */
+    entete =
+      reste > 0
+        ? CARTE.chezLui(qui)
+        : demande.accepted === true
+          ? CARTE.laisse(qui, port)
+          : demande.remaining > 0
+            ? CARTE.silence(qui)
+            : CARTE.peux(port);
     corps = (
       <>
         {reste > 0 ? <Piste secondes={demande.remaining} /> : null}

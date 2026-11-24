@@ -16,8 +16,8 @@
 import { BUTTON, type PadReading } from "./pad";
 
 /** Ce qu'un menu comprend. Pas de « bouton 7 »: un menu a quatre directions,
- * une façon de dire oui et une de dire non. */
-export type MenuAction = "up" | "down" | "left" | "right" | "confirm" | "back";
+ * une façon de dire oui, une de dire non, et Start qui rend la main au jeu. */
+export type MenuAction = "up" | "down" | "left" | "right" | "confirm" | "back" | "jeu";
 
 /** Au-delà de quoi un stick compte comme poussé. Plus haut que la zone morte:
  * un stick qui traîne à 0,2 ne veut pas dire « descends ». */
@@ -52,7 +52,10 @@ export class MenuPad {
     // pouce gauche.
     const pressed = reading.buttons & ~this.held;
     this.held = reading.buttons;
-    if ((pressed & BUTTON.A) !== 0 || (pressed & BUTTON.START) !== 0) return "confirm";
+    if ((pressed & BUTTON.A) !== 0) return "confirm";
+    // Start ferme le menu, comme le bouton de pause d'une console. Il valait
+    // « confirm » jusqu'au 24 novembre 2026 (M6 du chantier menus).
+    if ((pressed & BUTTON.START) !== 0) return "jeu";
     if ((pressed & BUTTON.B) !== 0) return "back";
 
     const way = directionOf(reading);

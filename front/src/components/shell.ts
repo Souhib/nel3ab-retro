@@ -108,6 +108,7 @@ const SWAPPED: Record<MenuAction, MenuAction> = {
   right: "down",
   confirm: "confirm",
   back: "back",
+  jeu: "jeu",
 };
 
 export function useShell(
@@ -234,7 +235,7 @@ export function useShell(
     // défiler la liste derrière.
     if (picking !== null) return inPicker(raw);
     const action = swapAxes ? SWAPPED[raw] : raw;
-    if (action === "back") return onClose();
+    if (action === "back" || action === "jeu") return onClose();
     if (action === "confirm") return choose(row);
     if (action === "up") return point(row >= perRow ? row - perRow : row);
     if (action === "down") return point(row + perRow < items.length ? row + perRow : row);

@@ -2054,6 +2054,50 @@ picture, pushed the pressed button down, and the release landed on its
 neighbour: `clic-colonne` red without the hold).
 
 
+### D41: The room's entry screens and the lobby's return address, 2026-11-24
+
+Chantier « salon », first pass. The parts of the salon plan that the room page
+and the proxy carry; the lobby's own pages (home, upload, logbook) follow in
+the next pass and will extend this entry.
+
+Decision:
+
+- **One drawing for the antechamber.** The three drawings of 2026-09-13
+  (`classique`, `cables`, `plan`), their switch on the page and the stored
+  choice (`nel3ab:lobby`) are removed. The antechamber is the room's cabinet
+  as the lobby's home will show it: console, game, who chooses, who watches,
+  then a control panel of four START places. A taken place carries its
+  player's typed label at the seat colour; a free one is a button that takes
+  it. The first free place is the only filled button, « Prendre la place N »;
+  a full room gives the filled button to « Regarder la partie ». A place held
+  without a name (`held` true) is not free.
+- **A precise place in the address.** `?entrer=jouer&place=N`, N from 1 to 4
+  (`lib/entree.ts`), enters to play and asks for THAT place. The worker first
+  gives the first free place; once the page holds it, it takes N with
+  `session.input.take` if the room still says N is free, then removes `place`
+  from the address so a reload does not ask again. `take` displaces whoever
+  holds a place, hence the check; the polite `prefer=N` the worker already
+  reads would avoid the brief first place, but needs a change in
+  `media/input.ts`, which belongs to the manettes chantier.
+- **« Qui joue ? » mounts the name field of the personnes chantier**
+  (`ChampNom`, `useNom`, K03): a visible label, an always-active button that
+  refuses an empty name with its reason.
+- **The proxy's redirect names the room (K39).** A closed room sends
+  `/?salle=fermee&n=N` for rooms 1 to 3, one line per room like the
+  `handle_path` blocks above it; the old redirect stays for a room path that
+  names none. A real Caddy serves the installed blocks in
+  `control/tests/test_caddyfile.py`, the room ports replaced by a closed one.
+  The file on the machine changes only when the owner installs it, so
+  `deploy-check` diverges until then.
+
+Consequence: CSS class names of independently owned sheets can collide. The
+antechamber's `.n3-borne` was also the room frame's cabinet (`cadre.css`,
+`display: none` outside the « borne » effect) and hid the whole cabinet in
+Chrome while every jsdom test passed. The antechamber's classes now live under
+`n3-avant`, a test refuses any other sheet declaring one, and the browser step
+hit-tests the centre of each place.
+
+
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 
 **Status:** four passes of the `manettes` work site, on
@@ -2341,6 +2385,41 @@ Decision:
 returns false without a seat or on a closed socket, so a screen never says
 « kept » when nothing left. No screen calls it yet: the closing notice
 belongs to the states track.
+
+
+### D44: The shared logbook: who played, and who watched, 2026-11-24
+
+The owner decided on 2026-11-24 (plan « donnees », D12): the lobby notes who
+played and who watched each game, and each person sees in THEIR logbook the
+people they played with. Nobody reads anyone else's logbook.
+
+Decision:
+
+- **A watcher writes a « regard »** to the play journal (`parties.py`): a
+  session that announces « no pad » opens `regard_debut` (room, game, nickname)
+  and closes it with `regard_fin` (seconds, reason) when the game changes, the
+  page leaves or is swept as absent, the room closes, or a place is granted. A
+  refused place leaves the watcher watching. A repeated announcement keeps the
+  same regard. Without an identity, or from a test bench, nothing is written,
+  as for a place.
+- **Every start line carries the nickname of the moment**, for people who
+  never chose one.
+- **The list of games reads the other files** (`Parties.tous`) and gives each
+  game `avec` (nickname and place of whoever held a place in the same room,
+  at the same game, while one of my places ran) and `regardaient` (nicknames
+  of the watchers). The current chosen nickname wins over the line's. An
+  interval is never extended: a place without a seen end counts for an
+  instant, and only touches if it starts during one of mine. No hash nor
+  address leaves the lobby; the profile, games and saves readings do not open
+  the other files.
+- **Cost.** Measured on lgf on 2026-11-24 with twenty files of 5,000 lines
+  (19.8 MB, years of evenings): 0.74 s to read them, 1.7 s for a page of fifty
+  games compared naively, 0.87 s once presences are indexed by room and game
+  and scanned backwards with a running latest end. On a thread, for the games
+  list only. The journal started on 2026-11-21 and holds a few lines per person.
+
+Rejected: a whole-house table of every evening (option C of the plan), not
+proposed without explicit consent.
 
 
 ### D45: Game pictures without an open room, 2026-11-23

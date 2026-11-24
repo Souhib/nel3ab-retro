@@ -456,6 +456,35 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre : le chantier salon, premier passage.** Sur
+`chantier/retro-salon`, partie d'`integration/retro` (87bc2b3), dans
+`~/nel3ab-chantiers/retro-salon`. Rien dans `main`, rien poussé ni installé.
+Fait : le carnet commun (D12, ADR D44) : un spectateur identifié écrit un
+regard au journal des parties, chaque début porte le pseudo du moment, et la
+liste des parties dit `avec` (pseudo et place) et `regardaient`, relus dans
+les fichiers des autres sans en rendre ni adresse ni empreinte ; le carnet
+l'écrit sous chaque partie. La redirection de Caddy dit le numéro de la
+salle (`/?salle=fermee&n=N`, K39), prouvée par un vrai Caddy sur un port de
+boucle locale ; `deploy-check` divergera jusqu'à l'installation par le
+propriétaire. La place précise `?entrer=jouer&place=N`, l'avant-salle à un
+seul dessin (la borne et son panneau START ; « câbles », « plan »,
+`browser-lobby` et `lobby-visuel.mjs` retirés) et « Qui joue ? » avec le
+champ du nom de personnes (ADR D41). Page : 279 903 octets en brotli,
+1 857 de moins qu'à la base. Portes : `just check`, `just docs`,
+`focus-navigateur`, `etats-navigateur`, `salle-telephone`, `manette-garde`
+et `parcours-navigateur-rouge` verts ; `parcours-navigateur` rouge sur
+« Copier le lien », le défaut déjà connu de la vague B1, ses vingt-deux
+étapes suivantes vertes par leur nom, dont `avant-salle-places` réécrite et
+`place-precise`, chacune rouge sur sa page de référence ;
+`cadre-navigateur` rouge sur `mascotte-hors-image` (précondition) et
+`ain-immobile` (défaut), connus de la vague B1 et à la mascotte, ses cinq
+étapes suivantes vertes. Reste au passage suivant : l'accueil (rangée, mire HORS
+ANTENNE, APPUIE SUR START, démo, crédits, cycle, pointeur, courbure), le
+dépôt et son image de jaquette, le carnet en tableau DERNIÈRES PARTIES,
+l'ouverture, Aïn dans les pages du salon et les scènes de l'avant-salle, la
+preuve `salon-navigateur`. Récit : « 24 novembre, l'après-midi : le salon,
+premier passage ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

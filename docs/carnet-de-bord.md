@@ -31009,6 +31009,82 @@ branche d'intégration.
 finale. Aucun worker n'est reconstruit ni installé, et aucune vraie salle
 n'a servi la page.
 
+### 24 novembre, l'après-midi : le salon, premier passage
+
+**Le contexte.** Dernière vague du thème rétro. Le chantier « salon » a les
+pages du salon (l'accueil, le dépôt d'un jeu, le carnet), les écrans
+d'entrée de la salle (l'ouverture, « Qui joue ? », l'avant-salle) et, depuis
+que le propriétaire l'a décidé le matin même, le carnet commun. Il part
+d'`integration/retro` (87bc2b3), dans le worktree
+`~/nel3ab-chantiers/retro-salon`, à côté des chantiers « états » et
+« menus » qui travaillent en même temps. Ce premier passage fait ce que
+les autres attendent : les données du carnet commun, la redirection de
+Caddy, la place précise dans l'adresse, l'avant-salle et « Qui joue ? ».
+L'accueil, le dépôt et le carnet en tableau suivent au passage suivant.
+
+**Le carnet commun.** Le propriétaire a dit oui : le salon note qui a joué
+et qui a regardé chaque partie, et chacun voit dans SON carnet les gens avec
+qui il a joué. Une place tenue était déjà écrite au journal des parties ;
+un spectateur, non. Un spectateur identifié ouvre donc un « regard », écrit
+comme une place sans manette, et fermé aux mêmes moments : changement de
+jeu, départ, fermeture de la salle, ou la place qu'on lui accorde. Une
+place refusée le laisse regarder, et son regard continue. Pour savoir avec
+qui j'ai joué, le salon relit les fichiers des autres et ne garde que les
+places et les regards de la même salle, au même jeu, qui touchent une des
+miennes. Il ne rend que des pseudos : ni adresse, ni empreinte. Le carnet
+de chacun dit, sous chaque partie, « Tu as joué avec Ben (2P) et Clara
+(3P). Dora a regardé. ». Un intervalle n'est jamais prolongé : une place
+dont la fin n'a pas été vue (le salon a redémarré) compte pour un instant.
+
+**Ce que ça coûte, mesuré.** Vingt personnes de cinq mille lignes chacune,
+des années de soirées, font 19,8 Mo. Les relire prend 0,74 s. Comparer
+chaque partie d'une page de cinquante à chaque présence des autres prenait
+1,7 s de plus ; rangées par salle et par jeu, puis parcourues à rebours en
+gardant la fin la plus tardive vue, 0,87 s en tout. C'est un plafond pour
+un volume que le journal, commencé le 21 novembre, mettra des années à
+atteindre. Un essai a d'abord laissé passer un mutant de ce parcours : un
+long regard caché derrière une place courte finie avant ma partie. Un essai
+de plus le tue.
+
+**Le numéro de salle dans la redirection.** Une salle éteinte renvoyait au
+salon par `/?salle=fermee`, sans dire laquelle. Caddy dit maintenant
+`&n=3`. L'essai sert le vrai bloc des salles par un vrai Caddy, sur un port
+de la boucle locale, les ports des salles remplacés par un port fermé : il
+était rouge sur l'ancien fichier, vert sur le nouveau. Le fichier installé
+ne change qu'avec le propriétaire, donc `deploy-check` diverge jusque-là.
+
+**Une place précise, et un seul dessin d'avant-salle.** `?entrer=jouer&place=3`
+entre pour jouer à la place 3. La salle reçoit d'abord la première place
+libre, puis demande la 3 si la salle la dit encore libre, et l'oublie dans
+l'adresse : un rechargement ne doit pas la redemander à quelqu'un qui l'a
+prise entre-temps. Les trois dessins de l'avant-salle (« classique »,
+« câbles », « plan ») laissent la place à un seul : la borne de la salle et
+son panneau de quatre boutons START, la première place libre en seul bouton
+plein. La page de salle y gagne 1 857 octets en brotli (281 760 avant,
+279 903 après), les deux dessins retirés pesant plus que la borne et
+« Qui joue ? ».
+
+**Un piège : deux feuilles, un nom.** La borne de l'avant-salle s'appelait
+`.n3-borne`. La salle a aussi sa borne, dans `cadre.css`, cachée hors de
+l'effet « borne ». Dans Chrome, toute la borne de l'avant-salle
+disparaissait, boutons compris. Tous les essais de jsdom passaient : jsdom
+ne fait pas de mise en page, il ne voit ni largeur ni `display`. L'étape du
+navigateur passait aussi, parce qu'elle lisait le DOM et pas l'écran. Trois
+corrections : les classes de l'avant-salle prennent un préfixe à elles,
+`n3-avant` ; un essai refuse qu'une autre feuille en déclare une (rouge sur
+l'ancien nom) ; l'étape vérifie que le centre de chaque place rend bien la
+place (`elementFromPoint`), rouge sur la page cachée. La leçon : un nom de
+classe est un espace partagé entre chantiers, comme un fichier.
+
+**Ce qui reste rouge et n'est pas d'ici.** `parcours-navigateur` tombe sur
+« Copier le lien » sous le pied collé de la colonne, le défaut déjà relevé
+à l'intégration de la vague B1 (personnes et mascotte) ; les vingt-deux
+étapes suivantes, lancées par leur nom, passent. `cadre-navigateur` tombe
+sur les deux étapes d'Aïn déjà relevées au même endroit
+(`mascotte-hors-image`, `ain-immobile`) ; les cinq suivantes passent. Les
+autres preuves du navigateur et les contrôles rouges de `parcours` sont
+verts.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -32850,3 +32926,11 @@ la bande, le panneau de commande, la manette tactile.
 conflit de texte, et dont le résultat ne marche plus, parce que chacune
 supposait ce que l'autre change. Git ne peut pas le voir ; seules les
 preuves lancées sur le résultat le montrent.
+
+**Regard (au journal des parties)** : la trace d'une personne qui regarde
+une salle sans tenir de manette, écrite comme une place : un début, une fin,
+une durée. Elle sert au carnet commun à dire qui regardait une partie.
+
+**Carnet commun** : ce que chaque carnet dit des autres depuis le
+24 novembre 2026 : avec qui tu as joué, à quelle place, et qui regardait.
+Chacun ne lit que le sien.

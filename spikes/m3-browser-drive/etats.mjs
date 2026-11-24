@@ -342,14 +342,15 @@ const ETAPES = {
     // L'instant où systemd arrête encore l'ancien processus: « fermée » sans
     // `redemarre`. Puis la relance (« activating »), puis la salle revient.
     banc.regler({ video: "drop", ouverte: false, redemarre: false });
-    const pasFermee = (v) => (v.texte.includes("est fermée") ? "« fermée » pendant un redémarrage" : null);
+    // « est fermée » ou « a fermé à » (K37) : l'un ou l'autre est un défaut ici.
+    const pasFermee = (v) => (/fermée|a fermé/.test(v.texte) ? "« fermée » pendant un redémarrage" : null);
     await durant(page, 1000, pasFermee);
     banc.regler({ redemarre: true });
     // Les sondes partent toutes les trois secondes: « redémarre » arrive avec
     // la suivante. Une seule réponse « fermée » ne doit jamais suffire.
-    const dit = await jusqua(page, (v) => v.texte.includes("redémarre") || v.texte.includes("est fermée"), 5000);
+    const dit = await jusqua(page, (v) => v.texte.includes("redémarre") || /fermée|a fermé/.test(v.texte), 5000);
     if (dit.apres === null) throw new Defaut(`« redémarre » jamais dit en ${Date.now() - debut} ms: ${dit.vu.texte}`);
-    if (dit.vu.texte.includes("est fermée")) throw new Defaut(`« fermée » pendant un redémarrage: ${dit.vu.texte}`);
+    if (/fermée|a fermé/.test(dit.vu.texte)) throw new Defaut(`« fermée » pendant un redémarrage: ${dit.vu.texte}`);
     await capture(page, "redemarre");
     banc.regler({ video: "live", ouverte: true, redemarre: false });
     await durant(page, 4000, pasFermee);
@@ -371,11 +372,33 @@ const ETAPES = {
       page.evaluate(() => ["#inviter", "#takePad, #watchOnly"].filter((s) => document.querySelector(s) !== null));
     const ouverte = await gestes();
     if (ouverte.length !== 2) throw new Precondition(`salle ouverte sans ses deux gestes: ${ouverte}`);
-    banc.regler({ video: "drop", ouverte: false, redemarre: false });
-    const fermee = await jusqua(page, (v) => v.texte.includes("La salle 1 est fermée."), 9000);
+    // Le salon dit depuis quand et pourquoi (K37, `Salle.fermee_depuis`).
+    const fermeeA = Date.now() - 125_000;
+    banc.regler({ video: "drop", ouverte: false, redemarre: false, fermeeDepuis: 125 });
+    const fermee = await jusqua(page, (v) => /La salle 1 (est fermée|a fermé à)/.test(v.texte), 9000);
     if (fermee.apres === null) throw new Defaut(`une salle fermée n'est pas dite fermée en 9 s: ${fermee.vu.texte}`);
     const restes = await gestes();
     if (restes.length > 0) throw new Defaut(`la salle fermée propose encore ${restes.join(" et ")}`);
+    // L'heure dite est celle que le salon publie, à la minute près (la sonde
+    // part dans les secondes qui suivent), à l'heure de l'appareil.
+    const heures = await page.evaluate((a) => {
+      const dite = (ms) => {
+        const d = new Date(ms);
+        return `${d.getHours()} h ${String(d.getMinutes()).padStart(2, "0")}`;
+      };
+      return [dite(a - 60_000), dite(a), dite(a + 60_000)];
+    }, fermeeA);
+    const lue = /a fermé à (\d{1,2} h \d{2})\./.exec(fermee.vu.texte)?.[1] ?? null;
+    if (lue === null || !heures.includes(lue))
+      throw new Defaut(`la salle fermée ne dit pas l'heure publiée par le salon (${heures[1]}): ${fermee.vu.texte}`);
+    if (!fermee.vu.texte.includes("Personne n'avait touché au jeu"))
+      throw new Defaut(`la raison publiée par le salon n'est pas dite: ${fermee.vu.texte}`);
+    // Le carnet une seule fois, au tableau des dernières parties (D12).
+    const carnet = await page.evaluate(() =>
+      [...document.querySelectorAll("#dernieresParties")].map((a) => [a.closest("#arrivee") !== null, a.getAttribute("href")]),
+    );
+    if (carnet.length !== 1 || !carnet[0][0] || carnet[0][1] !== "/profil#parties")
+      throw new Defaut(`le carnet n'est pas proposé une fois sur l'écran de la salle fermée: ${JSON.stringify(carnet)}`);
     await capture(page, "fermee");
     await page.close();
   },

@@ -42,6 +42,10 @@ const DEPART = {
   salles: "up",
   ouverte: true,
   redemarre: false,
+  // Ce que le salon publie d'une salle fermée (K37) : depuis combien de
+  // secondes, et pourquoi. Nul : un salon qui ne le sait pas.
+  fermeeDepuis: 125,
+  fermeePour: "inactivite",
   game: true,
   // La console du jeu en cours: x360 (la manette Pro) ou gc (Dolphin). Ajouté
   // pour le banc du focus, qui doit lire START dans les deux trames.
@@ -118,6 +122,9 @@ export async function demarrerBanc({ port, page, flux }) {
             numero: 1,
             ouverte: state.ouverte,
             redemarre: state.redemarre,
+            ...(state.ouverte || state.redemarre || state.fermeeDepuis === null
+              ? {}
+              : { fermee_depuis: state.fermeeDepuis, fermee_pour: state.fermeePour }),
             chemin: "/r/1/",
             jeu: state.game ? room().game.name : null,
           },

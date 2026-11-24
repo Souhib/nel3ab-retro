@@ -215,3 +215,41 @@ describe("les replis", () => {
     expect(r.plan?.garde.has("fiche")).toBe(true);
   });
 });
+
+describe("sur le plateau, chercher vise Aïn et non le coin du plateau", () => {
+  it("la cartouche s'enfonce dans sa tête, sous la phrase de l'écran éteint", () => {
+    const c = 2.5;
+    const maison: [number, number] = [628, 496];
+    let phrase: Zone = { nom: "texte", b: [414, 300, 722, 326] };
+    const d: Decor = {
+      c,
+      tete: false,
+      maison,
+      // Le logo virtuel du plateau (moteur.ts, `lireDecor`).
+      logo: [maison[0] - 59 * c, maison[1] - 25 * c],
+      largeur: 1440,
+      ancre: () => null,
+      zones: () => [phrase],
+      sols: () => [{ nom: "plateau", x0: 500, x1: 756, y: 496 }],
+      passages: () => [],
+      image: () => null,
+    };
+    const r = planifier("chercher", "courte", d);
+    expect(r.refus).toEqual([]);
+    expect(r.version).toBe("courte");
+    const enfonce = r.plan?.pistes.filter((p) => p.qui === "enfonce") ?? [];
+    expect(enfonce.length).toBe(4);
+    for (const p of enfonce) {
+      if (estAin(p) || !p.de) throw new Error("piste d'objet sans départ");
+      // Au-dessus de la tête, au milieu, et jamais sur la phrase.
+      expect(Math.abs(p.de[0] + 10 - maison[0])).toBeLessThan(15);
+      expect(p.de[1]).toBeGreaterThan(326);
+    }
+    // Le jumeau : la phrase juste au-dessus du plateau, la cartouche qui
+    // tombe la toucherait ; la courte est refusée pour ses mots.
+    phrase = { nom: "texte", b: [414, 360, 722, 386] };
+    const pres = planifier("chercher", "courte", d);
+    expect(pres.version).not.toBe("courte");
+    expect(pres.refus.join()).toContain("les mots de l'événement");
+  });
+});

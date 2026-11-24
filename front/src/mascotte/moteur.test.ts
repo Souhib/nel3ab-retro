@@ -340,4 +340,73 @@ describe("le décor lu dans la page", () => {
         .sort(),
     ).toEqual(["#mic", "#titre"]);
   });
+  it("le plateau n'a pas de logo : ce qui se mesure du logo se mesure d'Aïn, à sa place", () => {
+    document.body.innerHTML = `
+      <div data-cadre data-sans-image="oui">
+        <div data-zone-jeu><p data-texte id="phrase">Bo choisit le jeu.</p>
+          <div data-hote="plateau"><span id="plateau"></span></div></div>
+      </div>`;
+    rects.set(document.getElementById("phrase") as Element, ancre(416, 362, 304, 22));
+    rects.set(document.getElementById("plateau") as Element, ancre(500, 400, 256, 96));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const a = rects.get(this) ?? ancre(0, 0, 0, 0);
+        return {
+          left: a.x,
+          top: a.y,
+          width: a.w,
+          height: a.h,
+          right: a.droite,
+          bottom: a.bas,
+          x: a.x,
+          y: a.y,
+          toJSON: () => a,
+        } as DOMRect;
+      },
+    );
+    const racine = document.querySelector("[data-cadre]") as Element;
+    const d = lireDecor(racine, document.getElementById("plateau") as Element, {
+      plateau: true,
+      c: 2.5,
+    });
+    // Ses pieds au milieu du bas du plateau ; le logo est celui dont il
+    // serait le 3 (fente à 48, pieds à 25 lignes du haut).
+    expect(d.maison).toEqual([628, 496]);
+    expect(d.logo).toEqual([628 - 59 * 2.5, 496 - 25 * 2.5]);
+    // Le haut de sa tête est sous la phrase, pas le coin du plateau.
+    expect(d.logo[1]).toBeGreaterThan(384);
+    expect(d.zones().map((z) => z.nom)).toEqual(["texte"]);
+  });
+
+  it("sans image, un bouton posé dans la zone de jeu (l'écran éteint) est un obstacle", () => {
+    document.body.innerHTML = `
+      <div data-cadre data-sans-image="oui">
+        <div data-zone-jeu id="zone" role="button" tabindex="0">
+          <button id="choisir">Choisir un jeu</button>
+          <div data-hote="plateau"><span id="plateau"></span></div></div>
+      </div>`;
+    rects.set(document.getElementById("zone") as Element, ancre(0, 0, 1200, 900));
+    rects.set(document.getElementById("choisir") as Element, ancre(560, 360, 160, 40));
+    rects.set(document.getElementById("plateau") as Element, ancre(500, 420, 256, 96));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const a = rects.get(this) ?? ancre(0, 0, 0, 0);
+        return {
+          left: a.x,
+          top: a.y,
+          width: a.w,
+          height: a.h,
+          right: a.droite,
+          bottom: a.bas,
+          x: a.x,
+          y: a.y,
+          toJSON: () => a,
+        } as DOMRect;
+      },
+    );
+    const racine = document.querySelector("[data-cadre]") as Element;
+    const d = lireDecor(racine, document.getElementById("plateau") as Element, { plateau: true });
+    // Le bouton, oui ; la zone elle-même, même visable, non.
+    expect(d.zones().map((z) => z.qui)).toEqual(["#choisir"]);
+  });
 });

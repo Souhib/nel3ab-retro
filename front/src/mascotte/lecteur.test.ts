@@ -221,3 +221,46 @@ describe("les trois façons de finir", () => {
     expect(h.image(16)).toBe(0);
   });
 });
+
+describe("la pose clé lit le décor de maintenant", () => {
+  it("le logo a bougé depuis le montage : sa bulle le suit et se montre", () => {
+    vi.useFakeTimers();
+    horloge();
+    // Au montage, le logo est encore en haut, sous une ligne d'état ; la page
+    // s'installe ensuite et le pose plus bas, loin d'elle.
+    let y = 450;
+    const bouge = (): Decor => ({
+      ...decor(),
+      logo: [490, y],
+      maison: [608, y + 50],
+      zones: () => [{ nom: "ligne", b: [400, 380, 700, 449] }],
+    });
+    const th = new Theatre(logo, "logo", bouge);
+    y = 650;
+    th.poseCle({ pose: { oeil: "ferme", fx: [{ t: "z", c: "W" }] }, reste: true }, "1", () => {});
+    expect(sprites().map((cv) => cv.dataset.acteur)).toEqual(["bulle"]);
+    const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(sprites()[0].style.transform);
+    expect(Number(m?.[2])).toBeGreaterThan(600);
+    expect(Number(m?.[2])).toBeLessThan(650);
+    vi.useRealTimers();
+  });
+});
+
+describe("effacer", () => {
+  it("rend l'air neutre, sans bulle, sans objet, et finit la pose", () => {
+    vi.useFakeTimers();
+    horloge();
+    const th = new Theatre(logo, "logo", decor);
+    th.poseCle(
+      { pose: { oeil: "grand", fx: [{ t: "excl", c: "R" }] }, reste: true },
+      "1",
+      () => {},
+    );
+    expect(sprites()).toHaveLength(1);
+    th.effacer();
+    expect(th.air).toEqual({});
+    expect(th.poseFixe).toBeNull();
+    expect(sprites()).toHaveLength(0);
+    vi.useRealTimers();
+  });
+});

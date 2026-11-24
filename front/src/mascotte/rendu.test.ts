@@ -236,3 +236,277 @@ describe("les niveaux", () => {
     expect(logo?.dataset.refus).toBe("");
   });
 });
+
+/* ── Relecture du 24 novembre 2026 ────────────────────────────────────── */
+
+/** Une mise en page à la main : jsdom n'en a pas. Chaque sélecteur reçoit
+ * la boîte que Chrome lui donnerait ; un essai la change pour simuler la
+ * colonne qui défile, la fenêtre qui rétrécit, ou l'image que Ctrl agrandit. */
+function miseEnPage(depart: Record<string, [number, number, number, number]>) {
+  const boites = new Map(Object.entries(depart));
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+    const b = [...boites].find(([sel]) => this.matches(sel))?.[1] ?? [0, 0, 0, 0];
+    return DOMRect.fromRect({ x: b[0], y: b[1], width: b[2], height: b[3] });
+  });
+  return boites;
+}
+/** Le logo au pied d'une colonne, à 2 px par pixel d'Aïn, et l'image à
+ * gauche, loin de lui. */
+const COLONNE: Record<string, [number, number, number, number]> = {
+  '[data-hote="coin"] > canvas': [40, 600, 228, 62],
+  '[data-sol="coin"]': [40, 650, 228, 1],
+  '[data-ancre="devant"]': [80, 650, 2, 1],
+  "#screen": [300, 0, 600, 400],
+};
+const cadreDe = () => document.querySelector("[data-cadre]") as HTMLElement;
+const logoDuCoin = () => hote("coin").querySelector("canvas.rt-mascotte") as HTMLCanvasElement;
+const boiteDe = (acteur: string) => {
+  const cv = [
+    ...document.querySelectorAll<HTMLCanvasElement>(`.rt-ain-sprite[data-acteur="${acteur}"]`),
+  ].find((x) => !x.hidden);
+  const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(cv?.style.transform ?? "");
+  const s = (cv?.dataset.serre ?? "").split(" ").map(Number);
+  return m ? [+m[1] + s[0], +m[2] + s[1], +m[1] + s[2], +m[2] + s[3]] : null;
+};
+
+describe("la mise en page change sous ce qu'Aïn montre dehors", () => {
+  /** Un ResizeObserver à la main : jsdom n'en a pas. `signaler` appelle
+   * chaque observateur pour les éléments qu'il suit, comme Chrome quand une
+   * taille change ou qu'un élément quitte la page (0 × 0). */
+  let observateurs: { cb: ResizeObserverCallback; suivis: Set<Element> }[] = [];
+  const signaler = () => {
+    for (const o of observateurs)
+      o.cb(
+        [...o.suivis].map((target) => ({ target }) as ResizeObserverEntry),
+        {} as ResizeObserver,
+      );
+  };
+  beforeEach(() => {
+    observateurs = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        suivis = new Set<Element>();
+        constructor(cb: ResizeObserverCallback) {
+          observateurs.push({ cb, suivis: this.suivis });
+        }
+        observe(el: Element) {
+          this.suivis.add(el);
+        }
+        unobserve(el: Element) {
+          this.suivis.delete(el);
+        }
+        disconnect() {
+          this.suivis.clear();
+        }
+      },
+    );
+    cadreDe().setAttribute("data-sans-image", "non");
+    cadreDe().setAttribute("data-etat", "vit");
+  });
+
+  it("Ctrl agrandit l'image sous la bulle d'endort : elle se tait", async () => {
+    const boites = miseEnPage(COLONNE);
+    jouer("endort", { hote: hote("coin"), version: "courte" });
+    images(400);
+    expect(visibles()).toEqual(["bulle"]);
+    boites.set("#screen", [0, 0, 1400, 1050]);
+    cadreDe().setAttribute("data-agrandie", "oui");
+    await Promise.resolve();
+    expect(visibles()).toEqual([]);
+  });
+
+  it("jumeau : l'image agrandie loin de la bulle, la bulle reste", async () => {
+    const boites = miseEnPage(COLONNE);
+    jouer("endort", { hote: hote("coin"), version: "courte" });
+    images(400);
+    boites.set("#screen", [300, 0, 700, 450]);
+    cadreDe().setAttribute("data-agrandie", "oui");
+    await Promise.resolve();
+    expect(visibles()).toEqual(["bulle"]);
+  });
+
+  it("la maison démontée : plus rien d'Aïn dans la page, même sans geste", () => {
+    miseEnPage(COLONNE);
+    jouer("endort", { hote: hote("coin"), version: "courte" });
+    images(400);
+    expect(visibles()).toEqual(["bulle"]);
+    hote("coin").remove();
+    signaler();
+    expect(visibles()).toEqual([]);
+    expect(document.querySelectorAll(".rt-ain-calque")).toHaveLength(0);
+  });
+
+  it("la colonne défile : Aïn qui attendait devant le logo rentre, avec la pose clé de sa scène", () => {
+    const boites = miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(400);
+    expect(visibles()).toContain("ain");
+    // Le défilement de 300 px : le logo monte, un bouton passe sous Aïn.
+    cadreDe().insertAdjacentHTML("beforeend", '<button id="mesures">Mesures</button>');
+    boites.set('[data-hote="coin"] > canvas', [40, 300, 228, 62]);
+    boites.set('[data-sol="coin"]', [40, 350, 228, 1]);
+    boites.set('[data-ancre="devant"]', [80, 350, 2, 1]);
+    boites.set("#mesures", [40, 590, 140, 60]);
+    hote("coin").dispatchEvent(new Event("scroll"));
+    expect(visibles()).not.toContain("ain");
+    expect(logoDuCoin().hasAttribute("data-dehors")).toBe(false);
+    expect(logoDuCoin().dataset.version).toBe("cle");
+    // La bulle de sa pose clé suit le logo, au-dessus de lui.
+    const b = boiteDe("bulle");
+    expect(visibles()).toEqual(["bulle"]);
+    expect(b?.[3]).toBeLessThanOrEqual(300);
+    expect(b?.[3]).toBeGreaterThan(260);
+  });
+
+  it("jumeau : un défilement qui ne bouge rien le laisse dehors", () => {
+    miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(400);
+    hote("coin").dispatchEvent(new Event("scroll"));
+    expect(visibles()).toContain("ain");
+    expect(logoDuCoin().hasAttribute("data-dehors")).toBe(true);
+  });
+
+  it("la fenêtre rétrécit, le logo part à gauche : Aïn ne reste pas seul hors de la page", () => {
+    const boites = miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(400);
+    expect(visibles()).toContain("ain");
+    boites.set('[data-hote="coin"] > canvas', [10, 600, 228, 62]);
+    boites.set('[data-sol="coin"]', [10, 650, 228, 1]);
+    boites.set('[data-ancre="devant"]', [50, 650, 2, 1]);
+    window.dispatchEvent(new Event("resize"));
+    expect(visibles()).not.toContain("ain");
+    expect(logoDuCoin().hasAttribute("data-dehors")).toBe(false);
+  });
+
+  it("une scène en cours dont la colonne défile est coupée : Aïn rentre, aucune image demandée", () => {
+    const boites = miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(8);
+    expect(enAttente()).toBe(1);
+    boites.set('[data-hote="coin"] > canvas', [40, 300, 228, 62]);
+    hote("coin").dispatchEvent(new Event("scroll"));
+    expect(enAttente()).toBe(0);
+    expect(visibles()).toEqual([]);
+  });
+});
+
+describe("un contrôle qui arrive sous Aïn", () => {
+  it("pendant une scène, un bouton monté sous lui coupe la scène : Aïn rentre", async () => {
+    cadreDe().setAttribute("data-sans-image", "non");
+    const boites = miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(30);
+    expect(visibles()).toContain("ain");
+    const a = boiteDe("ain") ?? [0, 0, 0, 0];
+    boites.set("#choisir", [a[0], a[1], a[2] - a[0], a[3] - a[1]]);
+    cadreDe().insertAdjacentHTML("beforeend", '<button id="choisir">Choisir un jeu</button>');
+    await Promise.resolve();
+    expect(visibles()).toEqual([]);
+    expect(enAttente()).toBe(0);
+  });
+
+  it("jumeau : un bouton monté loin de lui ne coupe rien", async () => {
+    cadreDe().setAttribute("data-sans-image", "non");
+    const boites = miseEnPage(COLONNE);
+    jouer("decroche", { hote: hote("coin"), version: "complete" });
+    images(30);
+    boites.set("#choisir", [900, 20, 100, 30]);
+    cadreDe().insertAdjacentHTML("beforeend", '<button id="choisir">Choisir un jeu</button>');
+    await Promise.resolve();
+    expect(visibles()).toContain("ain");
+    expect(enAttente()).toBe(1);
+  });
+});
+
+describe("la pose clé montrée en entier", () => {
+  const reduit = () =>
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: q.includes("reduce"),
+      addEventListener() {},
+    }));
+  /** Le plateau d'un écran éteint de 1440 × 900 : 256 × 96 sous la phrase. */
+  const ECRAN: Record<string, [number, number, number, number]> = {
+    ...COLONNE,
+    '[data-hote="plateau"] > .rt-mascotte': [500, 500, 256, 96],
+    '[data-hote="plateau"]': [500, 500, 256, 96],
+  };
+
+  for (const [nom, regler] of [
+    ["en mouvement réduit", reduit],
+    ["au niveau Sobre", () => changerNiveau("sobre")],
+  ] as const)
+    it(`${nom}, sur le plateau, Aïn se montre immobile avec sa bulle, et le logo du coin montre sa place`, async () => {
+      miseEnPage(ECRAN);
+      poserMascotte(hote("coin"));
+      regler();
+      jouer("dort", { hote: hote("plateau"), contexte: { joueur: "2" } });
+      expect(enAttente()).toBe(0);
+      expect(visibles().sort()).toEqual(["ain", "bulle"]);
+      const a = boiteDe("ain");
+      // À sa place : les pieds au bas du plateau (596), au milieu.
+      expect(Math.abs((a?.[3] ?? 0) - 596)).toBeLessThanOrEqual(3);
+      expect(Math.abs(((a?.[0] ?? 0) + (a?.[2] ?? 0)) / 2 - 628)).toBeLessThan(12);
+      expect(logoDuCoin().hasAttribute("data-dehors")).toBe(true);
+      // La première image le renvoie au logo.
+      cadreDe().setAttribute("data-sans-image", "non");
+      await Promise.resolve();
+      expect(visibles()).toEqual([]);
+      expect(logoDuCoin().hasAttribute("data-dehors")).toBe(false);
+    });
+
+  it("jumeau : une pose clé qui ne reste pas rend Aïn au coin à la fin de son minuteur", () => {
+    vi.useFakeTimers();
+    miseEnPage(ECRAN);
+    poserMascotte(hote("coin"));
+    reduit();
+    jouer("chercher", { hote: hote("plateau") });
+    expect(visibles()).toEqual(["ain"]);
+    vi.advanceTimersByTime(2300);
+    expect(visibles()).toEqual([]);
+    expect(logoDuCoin().hasAttribute("data-dehors")).toBe(false);
+    vi.useRealTimers();
+  });
+});
+
+describe("la panne finie, sa pose s'efface", () => {
+  beforeEach(() => {
+    cadreDe().setAttribute("data-sans-image", "non");
+    cadreDe().setAttribute("data-etat", "figee");
+  });
+
+  it("la version courte d'arret finit dans le logo avec son « ! » : la salle revit, il s'efface", async () => {
+    miseEnPage(COLONNE);
+    jouer("arret", { hote: hote("coin"), version: "courte" });
+    images(400);
+    expect(visibles()).toEqual(["bulle"]);
+    cadreDe().setAttribute("data-etat", "vit");
+    await Promise.resolve();
+    expect(visibles()).toEqual([]);
+    expect(enAttente()).toBe(0);
+  });
+
+  it("la pose clé d'arret (mouvement réduit) s'efface aussi quand la salle revit", async () => {
+    miseEnPage(COLONNE);
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: q.includes("reduce"),
+      addEventListener() {},
+    }));
+    jouer("arret", { hote: hote("coin") });
+    expect(visibles()).toEqual(["bulle"]);
+    cadreDe().setAttribute("data-etat", "vit");
+    await Promise.resolve();
+    expect(visibles()).toEqual([]);
+  });
+
+  it("jumeau : tant que la panne dure (figée puis coupée), la pose reste", async () => {
+    miseEnPage(COLONNE);
+    jouer("arret", { hote: hote("coin"), version: "courte" });
+    images(400);
+    cadreDe().setAttribute("data-etat", "coupee");
+    await Promise.resolve();
+    expect(visibles()).toEqual(["bulle"]);
+  });
+});

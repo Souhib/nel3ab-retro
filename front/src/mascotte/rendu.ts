@@ -29,7 +29,7 @@
 import { mouvementReduit, niveau } from "../lib/effets";
 import { LOGO_W, TH, TW, type Joueur } from "./dessin";
 import { relirePalette, Theatre, type Cle } from "./lecteur";
-import { lireDecor, touche, type Contexte, type Zone } from "./moteur";
+import { lireDecor, touche, type Contexte, type Decor } from "./moteur";
 import { AU_SALON, planifier, SCENES_AIN, type IdAin } from "./scenes-ain";
 import type { Scene, Version } from "./scenes";
 
@@ -105,6 +105,11 @@ function creer(hote: HTMLElement, el: HTMLElement, sorte: string): Theatre {
       : lireDecor(racine, el, { tete: mode === "tete" });
   const th = new Theatre(el, mode, decor);
   THEATRES.set(el, th);
+  // La maison qui change de taille, ou qui part (React la démonte quand Ctrl
+  // agrandit l'image) : ce qu'Aïn montre dehors a été placé pour l'ancienne.
+  const ro = observateurDe(racine);
+  ro?.observe(el);
+  ro?.observe(hote);
   // Un seul Aïn : quand il joue sur le plateau, le logo de la même salle
   // montre sa place en pointillés, et la retrouve quand il rentre.
   if (mode === "plateau")
@@ -160,7 +165,32 @@ function pourTous(fn: (th: Theatre) => void) {
 /* ── Les écouteurs, une fois par page ─────────────────────────────────── */
 
 const RACINES = new WeakSet<object>();
+const OBSERVATEURS = new WeakMap<object, ResizeObserver>();
 let pageEcoutee = false;
+
+/**
+ * Ce qui change la mise en page sans passer par une scène : la fenêtre, la
+ * colonne qui défile, l'image que Ctrl agrandit, la maison qui grandit ou
+ * que React démonte. Les sprites d'Aïn sont posés en coordonnées de la
+ * fenêtre, dans un calque fixe : vérifiés contre l'ancienne mise en page,
+ * ils peuvent se retrouver sur l'image ou sur un contrôle. Chacun de ces
+ * changements les replace (`rajuster`). Le 24 novembre 2026, la bulle
+ * « Z » d'endort restait posée sur l'image agrandie par Ctrl, sans fin.
+ */
+function observateurDe(racine: ParentNode): ResizeObserver | null {
+  if (typeof ResizeObserver !== "function") return null;
+  let ro = OBSERVATEURS.get(racine);
+  if (!ro) {
+    ro = new ResizeObserver(() =>
+      pourTous((th) => {
+        if (racineDe(th.maison) === racine) rajuster(th, true);
+      }),
+    );
+    OBSERVATEURS.set(racine, ro);
+  }
+  return ro;
+}
+
 function ecouter(racine: ParentNode) {
   if (!pageEcoutee && typeof window !== "undefined") {
     pageEcoutee = true;
@@ -172,49 +202,111 @@ function ecouter(racine: ParentNode) {
       attributes: true,
       attributeFilter: ["class", "data-theme", "style"],
     });
-    window.addEventListener("resize", () => pourTous(rajuster), { passive: true });
+    window.addEventListener("resize", () => pourTous((th) => rajuster(th, true)), {
+      passive: true,
+    });
+    // Le défilement de n'importe quel élément (la colonne) : il ne remonte
+    // pas, mais il traverse la capture du document.
+    document.addEventListener("scroll", () => pourTous((th) => rajuster(th)), {
+      capture: true,
+      passive: true,
+    });
     document.addEventListener("pointermove", suivre, { passive: true });
   }
   const cadre = racine instanceof Element ? racine : null;
   if (!cadre || RACINES.has(cadre)) return;
   RACINES.add(cadre);
+  // La zone de jeu qui change de taille (l'image agrandie, la colonne qui
+  // s'ouvre) : l'image a bougé sous ce qu'Aïn montre dehors.
+  const zone = cadre.querySelector("[data-zone-jeu]");
+  if (zone) observateurDe(cadre)?.observe(zone);
   // La première image coupe le plateau, même sans demande (K06), et l'image
-  // qui revient d'une panne ramène Aïn au logo.
-  new MutationObserver(() => {
+  // qui revient d'une panne ramène Aïn au logo. `style` porte la géométrie
+  // du cadre (`--cadre-image-*`), `data-agrandie` l'image agrandie.
+  new MutationObserver((ms) => {
     const image = cadre.getAttribute("data-sans-image") === "non";
+    const vit =
+      ms.some((m) => m.attributeName === "data-etat") && cadre.getAttribute("data-etat") === "vit";
     pourTous((th) => {
       if (!cadre.contains(th.maison)) return;
-      if (image && th.mode === "plateau") th.terminer("couper");
-      if (image && th.mode === "plateau") th.rentrer();
-      if (cadre.getAttribute("data-etat") === "vit" && th.dehors && !th.joue) rentrerDe(th);
-      if (th.dehors && surLImage(th)) {
+      if (image && th.mode === "plateau") {
         th.terminer("couper");
+        th.finirPose();
         th.rentrer();
-        th.peindreMaison();
       }
+      if (vit) revivre(th);
+      rajuster(th);
     });
-  }).observe(cadre, { attributes: true, attributeFilter: ["data-sans-image", "data-etat"] });
+  }).observe(cadre, {
+    attributes: true,
+    attributeFilter: ["data-sans-image", "data-etat", "data-agrandie", "style"],
+  });
+  // Ce que React ajoute, retire ou réécrit dans la salle peut passer sous un
+  // sprite sans que rien ne change de taille : « Choisir un jeu » arrivé
+  // pendant la première scène du plateau se trouvait sous la bulle
+  // (relecture du 24 novembre 2026). Rien à faire quand Aïn ne montre rien
+  // hors de son logo : `rajuster` rend la main tout de suite.
+  new MutationObserver(() =>
+    pourTous((th) => {
+      if (cadre.contains(th.maison)) rajuster(th);
+    }),
+  ).observe(cadre, { childList: true, subtree: true, characterData: true });
 }
-const surLImage = (th: Theatre) => {
-  const img: Zone | undefined = th
-    .relire()
-    .zones()
-    .find((z) => z.nom === "image");
-  const b = th.ain.visible ? th.ain.cv.getBoundingClientRect() : null;
-  return !!img && !!b && touche([b.left, b.top, b.right, b.bottom], img.b);
+
+/** Où sont le logo et l'image, à l'échelle près : ce dont dépend tout ce
+ * qu'une scène a placé. */
+const empreinte = (d: Decor) => {
+  const i = d.image();
+  return [d.logo[0], d.logo[1], d.c, d.largeur, i?.x, i?.y, i?.w, i?.h]
+    .map((v) => (v === undefined ? "-" : Math.round(v)))
+    .join();
 };
-/** La fenêtre change : l'échelle du logo suit, et Aïn dehors rentre s'il
- * toucherait maintenant l'image. */
-function rajuster(th: Theatre) {
-  if (th.mode === "logo" && th.maison instanceof HTMLCanvasElement) {
+
+/**
+ * La mise en page a changé. `echelle` : la taille a pu changer aussi (la
+ * fenêtre, la maison) ; le logo suit.
+ *
+ * Si Aïn ne montre rien hors de son logo, rien d'autre à faire. Sinon, le
+ * décor est relu : si le logo ou l'image a bougé, ou si Aïn, sa bulle ou un
+ * objet touche maintenant une zone, la scène en cours est coupée (Aïn
+ * rentre), et celui qui attendait dehors rentre avec la pose clé de sa
+ * scène, tant que l'état dure. La bulle chez lui est replacée, ou se tait.
+ */
+function rajuster(th: Theatre, echelle = false) {
+  const avant = empreinte(th.d);
+  if (echelle && th.mode === "logo" && th.maison instanceof HTMLCanvasElement) {
     const hote = th.maison.parentElement;
     const c = echelleLogo(hote?.clientWidth ?? 0);
     th.maison.style.width = `${LOGO_W * c}px`;
     if (hote) poserSols(hote, c);
   }
-  th.relire();
-  if (th.dehors && !th.joue && surLImage(th)) th.rentrer();
+  if (!echelle && !th.montreDehors) return;
+  const d = th.relire();
+  const Z = d.zones();
+  const gene = empreinte(d) !== avant || th.boites().some((b) => Z.some((z) => touche(b, z.b)));
+  if (th.joue) {
+    if (gene) th.terminer("couper");
+  } else if (gene && (th.dehors || th.objetsVisibles)) {
+    const id = th.dehors?.scene as IdAin | undefined;
+    th.rentrer();
+    const def: { reste?: boolean } | undefined = id ? SCENES_AIN[id] : undefined;
+    if (id && def?.reste) {
+      th.maison.dataset.version = "cle";
+      poser(th, id, {});
+      return;
+    }
+  }
   th.peindreMaison();
+}
+
+/** La salle revit (une image vivante après une panne) : la pose de la
+ * panne n'a plus lieu d'être, qu'elle soit dans le logo ou dehors. K06 :
+ * rien ne joue, Aïn rentre. */
+function revivre(th: Theatre) {
+  if (th.joue) th.terminer("couper");
+  const dehors = th.dehors !== null;
+  th.effacer();
+  if (dehors) rentrerDe(th);
 }
 function rentrerDe(th: Theatre) {
   if (mouvementReduit() || niveau() === "sobre") {
@@ -224,7 +316,10 @@ function rentrerDe(th: Theatre) {
   }
   const r = planifier("retour", "complete", th.relire(), {}, th.dehors);
   if (r.plan) th.lancer(r.plan, () => {});
-  else th.rentrer();
+  else {
+    th.rentrer();
+    th.peindreMaison();
+  }
 }
 /** Niveau Tout : l'œil suit le pointeur, sauf sur l'image du jeu. Un calcul
  * par geste, au plus un par image. */

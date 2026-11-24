@@ -96,6 +96,8 @@ class Acteur {
   cle: string | null = null;
   g: Grille | null = null;
   visible = false;
+  /** La boîte serrée, en pixels de la page depuis le coin de la toile. */
+  serre: Boite | null = null;
   constructor(calque: HTMLElement, nom: string) {
     this.cv = document.createElement("canvas");
     this.cv.className = "rt-ain-sprite";
@@ -132,11 +134,18 @@ class Acteur {
     // La boîte serrée, en pixels de la page depuis le coin de la toile : ce
     // que le planificateur a vérifié, et ce que les pilotes relèvent.
     const s = boiteSerree(g);
-    this.cv.dataset.serre = s ? s.map((v) => v * c).join(" ") : "";
+    this.serre = s ? [s[0] * c, s[1] * c, s[2] * c, s[3] * c] : null;
+    this.cv.dataset.serre = this.serre ? this.serre.join(" ") : "";
     const ctx = this.cv.getContext("2d");
     ctx?.clearRect(0, 0, b.width, b.height);
     ctx?.drawImage(b, 0, 0);
     mesure.peints++;
+  }
+  /** Sa boîte serrée dans la fenêtre, s'il se voit. */
+  boite(): Boite | null {
+    const s = this.serre;
+    if (!this.visible || !s || Number.isNaN(this.x)) return null;
+    return [this.x + s[0], this.y + s[1], this.x + s[2], this.y + s[3]];
   }
 }
 
@@ -207,11 +216,16 @@ export class Theatre {
     return this.courante !== null;
   }
 
-  /** Peint le logo (ou la tête) : Aïn dedans, ou sa place en pointillés. */
+  /** Peint le logo (ou la tête) : Aïn dedans, ou sa place en pointillés.
+   * Sur le plateau, sa pose clé. */
   peindreMaison() {
+    if (this.mode === "plateau") {
+      this.peindrePlateau();
+      return;
+    }
     const m = this.maison;
     const la = this.present && !this.ailleurs;
-    if (m instanceof HTMLCanvasElement && this.mode !== "plateau") {
+    if (m instanceof HTMLCanvasElement) {
       const c = this.d.c;
       const tete = this.mode === "tete";
       m.style.width = `${(tete ? TW : LOGO_W) * c}px`;
@@ -238,14 +252,107 @@ export class Theatre {
       ];
       // Une bulle chez lui ne couvre pas plus qu'une scène : si sa place
       // touche une zone (les mots de « La salle » qui porte sa tête), il
-      // garde son air sans bulle.
-      if (this.d.zones().some((z) => touche(b, z.b))) this.bulle.montrer(false);
+      // garde son air sans bulle. Elle se tait aussi quand le logo est hors
+      // de ce qui se voit (la colonne a défilé) : seule, elle flotterait
+      // sur ce qui a pris la place du logo.
+      if (!(this.d.enVue?.() ?? true) || this.d.zones().some((z) => touche(b, z.b)))
+        this.bulle.montrer(false);
       else {
         this.bulle.dessin(B.g, B.cle, c, this.k, this.mesure);
         this.bulle.placer(x, y, this.k);
         this.bulle.montrer(true);
       }
     } else if (this.present && !this.courante) this.bulle.montrer(false);
+  }
+
+  /**
+   * Le plateau n'a pas de logo : entre deux scènes, rien n'y est peint, et
+   * Aïn est au coin. Seule sa pose clé (mouvement réduit, niveau Sobre) s'y
+   * montre, en sprite immobile à sa place, avec sa bulle ; le logo du coin
+   * montre alors la sienne en pointillés. Sans pose, ni bulle ni Aïn : une
+   * bulle seule flottait sur la phrase de l'écran éteint (relecture du
+   * 24 novembre 2026).
+   */
+  private peindrePlateau() {
+    if (this.courante) return;
+    // Sans repeindre : le plateau n'a rien d'autre à peindre que ceci.
+    const dire = (v: boolean) => {
+      if (this.present === v) return;
+      this.present = v;
+      this.surPresence?.(v);
+    };
+    const air = this.air;
+    if (!this.poseFixe || air === NEUTRE) {
+      if (!this.dehors) {
+        this.ain.montrer(false);
+        this.bulle.montrer(false);
+        dire(true);
+      }
+      return;
+    }
+    const d = this.d;
+    const pose: Pose = { forme: "3", ...air };
+    const j = air.joueur ?? "1";
+    const A = grilleDe(pose, j, false);
+    const [x, y] = coinAin(d, d.maison);
+    const Z = d.zones();
+    const boite = (s: Boite, x0: number, y0: number): Boite => [
+      x0 + s[0] * d.c,
+      y0 + s[1] * d.c,
+      x0 + s[2] * d.c,
+      y0 + s[3] * d.c,
+    ];
+    const gene = (b: Boite) => Z.some((z) => touche(b, z.b));
+    if (!(d.enVue?.() ?? true) || gene(boite(A.serre, x, y))) {
+      // Pas de place sur l'écran noir : Aïn reste au coin.
+      this.ain.montrer(false);
+      this.bulle.montrer(false);
+      dire(true);
+      return;
+    }
+    this.ain.dessin(A.g, A.cle, d.c, this.k, this.mesure);
+    this.ain.placer(x, y, this.k);
+    this.ain.montrer(true);
+    let bulle = false;
+    if (pose.fx?.length) {
+      const B = bulleDe(pose.fx, j);
+      const [bx, by] = placeBulle(d, A.serre, d.maison, B.g);
+      if (!gene(boite(B.serre, bx, by))) {
+        this.bulle.dessin(B.g, B.cle, d.c, this.k, this.mesure);
+        this.bulle.placer(bx, by, this.k);
+        bulle = true;
+      }
+    }
+    this.bulle.montrer(bulle);
+    dire(false);
+  }
+
+  /** Les boîtes serrées de tout ce qui se voit hors du logo : Aïn, sa
+   * bulle, ses objets. */
+  boites(): Boite[] {
+    const res: Boite[] = [];
+    for (const a of [this.ain, this.bulle, ...this.objets.values()]) {
+      const b = a.boite();
+      if (b) res.push(b);
+    }
+    return res;
+  }
+  /** Quelque chose d'Aïn se voit hors de sa maison (un sprite). */
+  get montreDehors() {
+    return this.boites().length > 0;
+  }
+  /** Des objets d'une scène restent posés (la fiche, les « toc »). */
+  get objetsVisibles() {
+    return [...this.objets.values()].some((o) => o.visible);
+  }
+
+  /** L'état qui avait donné sa pose est fini : Aïn reprend son air neutre,
+   * sans bulle ni objet. S'il est dehors, l'appelant le fait rentrer. */
+  effacer() {
+    this.finirPose();
+    this.air = NEUTRE;
+    this.cacherObjets();
+    this.peindreMaison();
   }
 
   private mettrePresent(v: boolean) {
@@ -436,10 +543,14 @@ export class Theatre {
     this.terminer("fin");
     this.finirPose();
     this.rentrer();
+    // Le décor de maintenant : celui du montage plaçait la bulle là où le
+    // logo était avant que la page ne s'installe, et elle ne se montrait
+    // jamais (relecture du 24 novembre 2026).
+    this.relire();
     this.air = cle ? { ...cle.pose, joueur: joueur ?? null } : NEUTRE;
-    this.peindreMaison();
     const reste = !!cle?.reste;
     this.poseFixe = { minuteur: 0, reste };
+    this.peindreMaison();
     if (!reste)
       this.poseFixe.minuteur = setTimeout(() => {
         this.finirPose();
@@ -464,10 +575,12 @@ export class Theatre {
     this.peindreMaison();
   }
 
-  /** Retire les toiles de la page : la maison est partie. */
+  /** Retire les toiles de la page : la maison est partie. Le logo d'à côté
+   * retrouve Aïn s'il jouait ici. */
   detruire() {
     this.terminer("couper");
     this.finirPose();
+    this.rentrer();
     this.calque.remove();
   }
 

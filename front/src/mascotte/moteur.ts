@@ -84,7 +84,32 @@ export type Decor = {
   image(): Ancre | null;
   /** La largeur de la fenêtre : un bond hors de la page y finit. */
   largeur: number;
+  /** La maison se voit en entier : dans la fenêtre, et dans chaque ancêtre
+   * qui cache ce qui déborde (la colonne qui défile). Sans elle, oui. */
+  enVue?: () => boolean;
 };
+
+/** La boîte `b` tient entière dans `vue` (sans vue, tout tient). */
+export const dedans = (b: Boite, vue: Boite | null) =>
+  !vue ||
+  (b[0] >= vue[0] - 0.5 && b[1] >= vue[1] - 0.5 && b[2] <= vue[2] + 0.5 && b[3] <= vue[3] + 0.5);
+
+/** La part de la fenêtre où `el` peut se voir : coupée par chaque ancêtre
+ * qui ne laisse rien déborder. */
+export function vueDe(el: Element): Boite {
+  const vue: Boite = [0, 0, globalThis.innerWidth ?? 1024, globalThis.innerHeight ?? 768];
+  for (let a = el.parentElement; a; a = a.parentElement) {
+    const s = getComputedStyle(a);
+    if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+    const r = a.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    vue[0] = Math.max(vue[0], r.left);
+    vue[1] = Math.max(vue[1], r.top);
+    vue[2] = Math.min(vue[2], r.right);
+    vue[3] = Math.min(vue[3], r.bottom);
+  }
+  return vue;
+}
 
 /** La marge autour de l'image : 4 px, plus 0,6 px pour l'arrondi des
  * sprites au pixel de l'écran. Les autres zones prennent la moitié. */
@@ -151,13 +176,25 @@ export function lireDecor(
     : tete
       ? [l.x + TETE_X * c, l.y + TETE_Y * c]
       : [l.x + (FENTE_X + 11) * c, l.y + 25 * c];
+  // Le plateau n'a pas de logo : son coin est celui qu'aurait un logo dont
+  // Aïn, à sa place, serait le 3. Ce qui se mesure depuis le logo (le haut
+  // du 3 où la cartouche s'enfonce, la bulle chez lui) se mesure alors
+  // depuis Aïn. Le coin du plateau mettait la cartouche sur la phrase de
+  // l'écran éteint (relecture du 24 novembre 2026).
+  const coinLogo: Point = o.plateau
+    ? [maison[0] - (FENTE_X + 11) * c, maison[1] - 25 * c]
+    : [l.x, l.y];
   const tous = (sel: string) => [...racine.querySelectorAll(sel)];
   return {
     c,
     tete,
     maison,
-    logo: [l.x, l.y],
+    logo: coinLogo,
     largeur: globalThis.innerWidth ?? 1024,
+    enVue: () => {
+      const r = logo.getBoundingClientRect();
+      return dedans([r.left, r.top, r.right, r.bottom], vueDe(logo));
+    },
     ancre(nom) {
       const el = racine.querySelector(`[data-ancre="${nom}"]`);
       return el ? rectVisible(el) : null;
@@ -168,7 +205,12 @@ export function lireDecor(
       const img = imageDe(racine);
       if (img) res.push({ nom: "image", b: elargir(img, MARGE) });
       for (const el of tous(CONTROLES)) {
-        if (el.closest("[data-zone-jeu], [data-ancre], [data-sol], [data-hote]")) continue;
+        // Ce qui est posé dans la zone de jeu compte aussi : sans image, le
+        // « Choisir un jeu » de l'écran éteint y vit, et le planificateur
+        // ne le voyait pas (relecture du 24 novembre 2026). La zone
+        // elle-même n'est pas un contrôle : son image est la zone « image ».
+        if (el.matches("[data-zone-jeu]") || el.closest("[data-ancre], [data-sol], [data-hote]"))
+          continue;
         const r = rectVisible(el);
         const nom = el.getAttribute("data-interdit") === "ligne" ? "ligne" : "controle";
         if (r)

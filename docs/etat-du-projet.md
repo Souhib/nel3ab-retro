@@ -511,6 +511,36 @@ de jeux de la proposition au dépôt, une pièce partagée pour l'en-tête commu
 la nouvelle V8 de l'accueil. Récit : « 24 novembre, le soir : le salon,
 deuxième passage ».
 
+**Au 24 novembre, la nuit : le chantier salon, troisième passage.** Même
+branche (`chantier/retro-salon`) et même worktree ; rien dans `main`, rien
+poussé ni installé. Fait (ADR D41, troisième partie) : l'ouverture en
+squelette de la salle (colonne à la largeur gardée, panneau aux START éteints,
+maison d'Aïn au coin, thème suivi, « nel3ab ne répond pas encore. » à 8 s,
+« Entrer en tant que [nom] », scène « attente » une fois), et le même
+squelette dans `front/index.html` avant le script ; Aïn dans le logo de
+l'avant-salle (« depart » et « arrivee », ancres `start-N`, sol du panneau,
+deux points de passage) et la transition « entrer-salle » (K13) sur
+l'avant-salle seule, la mosaïque y cédant au fondu (elle retardait la
+première image de 800 ms) ; la boucle d'attention de l'accueil (`salon/attention.ts`, trois
+« attente » puis « dort ») ; la bibliothèque en rangée de jeux au dépôt, avec
+la pile des envois et le décor complet de la scène « depot ». Preuves
+nouvelles : `ouverture-sans-saut`, `ouverture-theme` et `ouverture-statique`
+dans `etats-navigateur`, `avant-salle-ain` dans `parcours-navigateur`,
+`attention`, `cycle`, `clignotement`, `pointeur`, `rayon` et `depot-scene`
+dans `salon-navigateur`, chacune rouge sur une page d'avant dans sa recette
+`-rouge`. Page de salle : 281 661 octets en brotli (279 903 avant) ; paquet
+du salon : 18 304. Portes : `just check` vert (1 325 essais Python, 2 081 de
+la page) ; `etats`, `salon`, `focus`, `salle-telephone`, `manette-garde`,
+`reglage`, leurs contrôles rouges et `just docs` verts ; `parcours`
+(« invitation ») et `cadre` (`mascotte-hors-image`, `ain-immobile`) rouges sur
+les défauts connus de la vague B1, toutes leurs autres étapes vertes une à
+une ; `gpu-test`, `deploy-check` et les autres portes de `just` non lancées
+(`deploy-check` divergera sur `deploy/Caddyfile` tant qu'il n'est pas
+installé). Reste : une pièce partagée pour
+l'en-tête commun des trois pages du salon, Aïn endormi sur la pile du dépôt
+et la boîte qui glisse dans la rangée, les mots du salon dans `lib/mots.ts`.
+Récit : « 24 novembre, la nuit : le salon, troisième passage ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

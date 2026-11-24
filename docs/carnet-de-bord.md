@@ -31162,6 +31162,110 @@ refaits dans le bon ordre. La leçon : `git rm` prépare la suppression tout
 de suite, et le `git commit` suivant l'emporte, quels que soient les
 fichiers nommés à `git add`.
 
+### 24 novembre, la nuit : le salon, troisième passage
+
+**Le contexte.** Le même chantier, toujours dans son worktree, sans rien
+pousser ni installer. Ce passage fait ce qui restait côté salle et ce qui
+manquait à Aïn dans le salon : l'écran d'ouverture, les scènes de
+l'avant-salle, la boucle d'attention de l'accueil et la rangée de jeux du
+dépôt.
+
+**L'ouverture devient un squelette.** Pendant que le site dit qui on est, la
+page montrait une carte au milieu d'un fond de nuit, avec Bobine qui marchait.
+Quand la salle arrivait, sa colonne apparaissait d'un coup à droite : un saut.
+L'ouverture dessine maintenant la salle avant qu'elle arrive, ce qu'on appelle
+un écran squelette : l'écran noir, le panneau et ses quatre START éteints en
+pointillés, la colonne avec « Salle 1 », et la maison d'Aïn là où sera le
+coin. Les rectangles viennent du même calcul que la salle, avec la largeur de
+colonne que ce navigateur a gardée. Le fond suit le thème ; l'écran reste noir.
+À huit secondes, la colonne dit « nel3ab ne répond pas encore. », compte les
+secondes hors de la région que lit un lecteur d'écran (une seconde de plus ne
+se relit pas à voix haute), et propose « Réessayer » ou « Entrer en tant que
+Bilel ». Aïn joue « attente » une fois, à ce moment-là, et rien d'autre.
+`front/index.html` porte le même squelette pour les premières images, avant
+que le script de la page ait tourné, avec un petit script qui écrit le numéro
+de la salle.
+
+**Trois défauts trouvés par la mesure.** Une nouvelle étape de
+`etats-navigateur`, `ouverture-sans-saut`, tient l'identité en suspens (le
+navigateur retient la requête), mesure la colonne, son titre et la maison
+d'Aïn, puis lâche l'identité et mesure la salle. Elle a d'abord vu Aïn
+descendre de 44 px : le coin de la salle a une ligne d'état au-dessus de la
+maison, que le squelette n'avait pas. Une autre, `ouverture-statique`, sert la
+page sans son script : la colonne du squelette d'avant React tombait sous
+l'écran, parce que la règle CSS demandait un pointeur « fin », que Chrome sans
+écran ne déclare pas. La règle suit maintenant celle de la salle : un doigt
+n'est jamais au bureau. Chaque étape a son jumeau (un squelette décalé de 20 px
+doit être vu), et les trois rougissent sur la page d'avant.
+
+**Aïn dans l'avant-salle.** Le logo de l'en-tête devient sa maison. Quand une
+place se libère, il va chercher l'étiquette de qui part sur son START
+(« depart ») ; quand quelqu'un d'autre prend une place, il la lui rend
+(« arrivee »). Ouvrir la page sur une salle pleine ne joue rien : ce n'est pas
+voir quatre personnes arriver. Dans Chrome, la version complète se repliait :
+son chemin du logo au panneau touchait « Changer ton nom ». Deux points de
+passage à gauche de la fiche lui font contourner la ligne, et le sol posé au
+bord bas du panneau garde l'étiquette, sur sa tête, loin du titre du jeu. Un
+mutant sans les points de passage retombe sur `#rename`. Entrer passe par la
+transition « entrer-salle » (des tuiles, une mosaïque ou un fondu selon le
+niveau d'effets), décidée par la partition (K13).
+
+**Une transition qui retardait l'image.** Les portes du navigateur ont fait
+tomber une étape d'un autre chantier, `demande-place`, qui regarde l'image
+peu après qu'on a pris sa place : un voile d'arrivée la couvrait encore. La
+transition jouait d'abord sur toute la page, donc aussi sur la salle montée
+en son milieu ; elle joue maintenant sur l'avant-salle seule. Mais l'étape
+tombait encore. Mesuré dans Chrome sans écran, quatre entrées de chaque
+côté : la première image arrivait 460 ms après la place prise sans
+transition, 1 295 ms avec la mosaïque du niveau « conseillé », 485 ms avec
+les tuiles de « tout », 483 ms avec le fondu de « sobre ». La mosaïque passe
+par des filtres SVG sur toute la fenêtre, qui occupent le navigateur. À
+l'entrée, elle cède donc au fondu. Ce chiffre vient d'un navigateur sans
+écran sur cette machine : c'est une tendance, pas une mesure sur un vrai
+téléphone. L'étape `demande-place` elle-même mesure avant de savoir qu'une
+image est peinte ; c'est à son chantier de l'attendre.
+
+**L'accueil attire l'œil, puis s'endort.** À zéro salle, Aïn lève les yeux à
+2,5 s, puis toutes les 6 s, trois fois, puis s'endort. Un clic ou une touche
+l'arrête ; passer la souris non, puisque c'est justement à qui regarde sans
+rien faire qu'il s'adresse. La boucle vit dans le paquet du salon, pour être
+essayée sous une horloge simulée ; l'accueil l'arme et la coupe. Quatre
+étapes nouvelles de `salon-navigateur` vérifient aussi, dans Chrome, ce que
+le socle donne à l'accueil : la mire qui glisse au plus d'un pas par seconde,
+« Appuie sur Start » qui clignote sans s'éteindre, la flèche en pixels.
+
+**La bibliothèque sur une étagère.** Au dépôt, la bibliothèque devient une
+rangée de boîtes et de cartouches sur une planche, au-dessus de la zone où
+l'on lâche ses fichiers, avec la pile des envois pas encore rangés. La place
+libre en tête et la planche sont le décor de la scène « depot ». Posée sous la
+zone, la rangée obligeait la boîte à traverser « Lâche tes fichiers ici » pour
+monter sur la planche, et la scène se repliait sur une pose immobile : la
+rangée vit donc au-dessus.
+
+**Un essai rouge passé dans un commit.** Le coureur jsdom de l'accueil jouait
+« attente » dès que la boucle était armée. Les essais nouveaux, lancés seuls
+avec `-k attention`, passaient ; un essai voisin, qui lit les scènes dans
+l'ordre, est devenu rouge, et le commit est parti avec lui. Il est corrigé au
+commit suivant. La leçon, déjà écrite pour les portes : relancer le fichier
+entier, pas seulement les essais qu'on vient d'écrire.
+
+**Les portes.** `just check` est vert (1 325 essais Python, 2 081 essais de
+la page). Dans un vrai navigateur, `etats`, `salon`, `focus`,
+`salle-telephone`, `manette-garde`, `reglage` et leurs contrôles rouges sont
+verts, comme `just docs`. Deux restent rouges sur des défauts connus de la
+vague B1, hors du salon : `parcours` sur « invitation » (« Copier le lien »
+ne copie rien) et `cadre` sur `mascotte-hors-image` (précondition) et
+`ain-immobile` ; les vingt-sept autres étapes de `parcours` et les
+vingt-deux autres de `cadre` passent quand on les nomme. Deux faux rouges en
+chemin : `salon-navigateur-rouge` n'a pas pu ouvrir son port, qu'un autre
+chantier occupait au même moment (relancée, verte), et `avant-salle-ain`
+tombait sur la pose clé après une étape qui laisse le niveau « sobre » dans
+le stockage du navigateur : l'étape nomme maintenant son niveau.
+
+**Le poids.** La page de salle passe de 279 903 à 281 661 octets en brotli :
+1 314 pour le squelette de l'ouverture, 444 pour Aïn dans l'avant-salle et sa
+transition. Le paquet du salon passe de 18 170 à 18 304 octets.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -31178,6 +31282,14 @@ toucheraient l'image du jeu, un contrôle ou un mot.
 
 **Sprite** : une petite image qu'on déplace d'un bloc au-dessus du décor,
 comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
+
+**Écran squelette** : ce qu'une page montre pendant qu'elle attend ses
+données : les rectangles de l'écran final, vides, à leur place. Quand le
+contenu arrive, rien ne saute.
+
+**Point de passage (d'Aïn)** : une marque invisible de la page par laquelle
+le planificateur peut faire passer Aïn quand le chemin direct toucherait un
+contrôle ou un mot.
 
 **Ancre (d'Aïn)** : un élément de la page marqué `data-ancre`, là où Aïn va
 se poser ou d'où part un objet : le haut d'un bouton START, la prise de la

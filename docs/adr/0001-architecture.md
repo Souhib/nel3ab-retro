@@ -2135,6 +2135,61 @@ credit line 37 px wider than a 320 px phone). Its negative control imports
 older `control/` trees with `python -S`, because the editable install would
 otherwise shadow the archive.
 
+#### D41, third pass, 2026-11-24: the opening, the antechamber's Aïn, the upload shelf
+
+- **The opening draws the room before it arrives.** While the identity and
+  the pad settings are pending, `Ouverture` renders the room's rectangles
+  from the same geometry (`useGeometrie`, state « connexion », the stored
+  column width): the black screen, the panel with four dashed START places,
+  the column with « Salle N » and « On ouvre la salle N… », and Aïn's house
+  where the room's corner will be, its status line's height reserved. It
+  follows the theme (the forced night régie and Bobine are gone); the screen
+  stays black. At eight seconds: « nel3ab ne répond pas encore. », a count
+  outside the announced region, « Réessayer » as the only filled button, and
+  « Entrer en tant que [nom gardé] » or « Entrer quand même ». Aïn plays
+  « attente » once at that limit, nothing before or after. In hand, the
+  column takes the largest free band around the screen, without a house.
+  `front/index.html` carries the same skeleton for the frames before the
+  script, with a small classic script that writes the room number and the
+  stored column width; the worker hashes every inline script (`script_policy`).
+  The skeleton carries none of the room's identifiers (`#side`, `#panneau`):
+  a driver waiting for them still waits for the real room.
+- **Aïn in the antechamber.** The header logo is his house (`data-hote="logo"`).
+  A seat that frees plays « depart » to its START, a seat taken by someone
+  else « arrivee »; the first state received plays nothing (`lib/arrivees`).
+  Each place carries `start-N`, the panel its floor at its bottom edge, and
+  two passage marks to the left of the card route him around « Changer ton
+  nom ». Entering, at a place or to watch, goes through the « entrer-salle »
+  transition (K13), played on the antechamber only: on the whole page, its
+  second half filtered the room mounted in the middle, screen included.
+  Amendment to K13: the mosaic yields to the fade there. In headless Chrome
+  it delayed the room's first picture by 800 ms (1 295 ms after the seat was
+  taken instead of 460, four runs per side, 2026-11-24), while the tiles
+  (485 ms) and the fade (483 ms) cost nothing. Without animation the gesture
+  leaves at once.
+- **The home page's attention loop** lives in the lobby bundle
+  (`salon/attention.ts`, `nel3abSalon.surAttention`): « attente » at 2.5 s,
+  then every 6 s, three rounds, then « dort ». A skipped round (hidden tab)
+  counts, a gesture stops it (hovering is not one), reduced motion never arms
+  it. Bundle: 18 304 brotli bytes.
+- **The upload page shows the library as a shelf,** above the drop zone: one
+  box or cartridge per catalogue game, a free slot first (`place-libre`), the
+  board and the floor under it (`etagere-haut`, `etagere-bas`), and the pile
+  of uploads not yet stored. Below the zone, the box of the « depot » scene
+  crossed the zone's words on its way up and the scene fell back to its key
+  pose; above it, the scene plays complete.
+
+Weight of the room page: 279 903 brotli bytes before this pass, 281 661
+after (opening skeleton +1 314, antechamber +444 with its transition fix).
+
+Consequence: three checks found what the unit tests passed. `(pointer: fine)`
+is not declared by headless Chrome, so the static skeleton's column fell under
+the screen (`ouverture-statique`); the skeleton's house sat 44 px higher than
+the room's corner until the status line's height was reserved
+(`ouverture-sans-saut`); Aïn's complete departure touched « Changer ton nom »
+until two passage marks were added (`avant-salle-ain`, whose mutant without
+them fails on `#rename`).
+
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

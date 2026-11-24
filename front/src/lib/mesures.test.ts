@@ -61,7 +61,7 @@ describe("chiffres", () => {
 });
 
 describe("la ligne de la liaison en clair", () => {
-  const video = (v: Partial<VideoStats> = {}): VideoStats =>
+  const image = (v: Partial<VideoStats> = {}): VideoStats =>
     ({
       awaitingRestart: false,
       paintedSince: 5000,
@@ -75,35 +75,35 @@ describe("la ligne de la liaison en clair", () => {
     }) as VideoStats;
 
   it("dit « Tout arrive » quand rien ne manque", () => {
-    expect(ligneDeLaLiaison({ etat: "ok" }, video())).toEqual({
+    expect(ligneDeLaLiaison({ etat: "ok" }, image())).toEqual({
       texte: "Tout arrive",
       bonne: true,
     });
   });
 
   it("dit « L'image saute », jamais par la couleur seule, sur une liaison irrégulière ou débordée", () => {
-    expect(ligneDeLaLiaison({ etat: "irreguliere" }, video())).toEqual({
+    expect(ligneDeLaLiaison({ etat: "irreguliere" }, image())).toEqual({
       texte: "L'image saute",
       bonne: false,
     });
-    expect(ligneDeLaLiaison({ etat: "ok" }, video({ overloaded: true }))).toEqual({
+    expect(ligneDeLaLiaison({ etat: "ok" }, image({ overloaded: true }))).toEqual({
       texte: "L'image saute",
       bonne: false,
     });
   });
 
   it("dit l'état de la liaison quand elle n'est pas en marche, avec sa majuscule", () => {
-    expect(ligneDeLaLiaison({ etat: "fermee" } as Liaison, video())).toEqual({
+    expect(ligneDeLaLiaison({ etat: "fermee" } as Liaison, image())).toEqual({
       texte: "Salle fermée",
       bonne: false,
     });
   });
 
   it("ne dit pas « Tout arrive » quand l'écran affiche moins que le jeu, ni avant la première image", () => {
-    expect(ligneDeLaLiaison({ etat: "ok" }, video({ refreshHz: 30, sourceHz: 60 })).bonne).toBe(
+    expect(ligneDeLaLiaison({ etat: "ok" }, image({ refreshHz: 30, sourceHz: 60 })).bonne).toBe(
       false,
     );
-    expect(ligneDeLaLiaison({ etat: "ok" }, video({ paintedSince: 0 })).texte).toBe(
+    expect(ligneDeLaLiaison({ etat: "ok" }, image({ paintedSince: 0 })).texte).toBe(
       "Image en préparation",
     );
   });

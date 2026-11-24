@@ -133,7 +133,8 @@ salon-navigateur *args:
 # l'ancien carnet (son nom se changeait dans une salle).
 # 84b969f: le nouvel accueil avant les deux corrections du navigateur.
 # Sur 2a98279 encore, la mire ne glisse pas, Appuie sur Start n'existe pas et
-# le pointeur reste celui du système. cb0909b: l'accueil avant la boucle
+# le pointeur reste celui du système, la démo ne joue pas et la mire reste
+# plate au niveau « tout ». cb0909b: l'accueil avant la boucle
 # d'attention d'Aïn et la rangée de jeux du dépôt (24 novembre 2026,
 # troisième passage). 5fae6b0: l'en-tête recopié dans chaque page, qui avait
 # dérivé (le dépôt sans « Tu es »), et que le carnet ne rafraîchissait pas;
@@ -154,7 +155,7 @@ salon-navigateur-rouge:
     done
     cd spikes/m3-browser-drive
     node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
-    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur,demo,courbure
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
     node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
     node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse

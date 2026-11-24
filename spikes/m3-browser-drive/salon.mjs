@@ -681,6 +681,80 @@ ETAPES["depot-scene"] = async () => {
   await jumeau.close();
 };
 
+/** Avance l'horloge de la page de `ms` sans attendre (temps virtuel de
+ * Chrome) : les minuteries tombent dans l'ordre, les relevés de la liste
+ * partent vraiment vers le banc. Le budget épuisé, l'horloge reste en
+ * pause jusqu'au prochain appel : « advance » sans budget la ferait courir
+ * sans fin, et la démo tomberait entre deux gestes du pilote. */
+async function avancer(page, ms) {
+  page.horloge ??= await page.createCDPSession();
+  const fini = new Promise((ok) => page.horloge.once("Emulation.virtualTimeBudgetExpired", ok));
+  await page.horloge.send("Emulation.setVirtualTimePolicy", { policy: "advance", budget: ms });
+  await fini;
+  await page.horloge.send("Emulation.setVirtualTimePolicy", { policy: "pause" });
+}
+
+/** La démo (effet « demo », niveau « tout ») : à zéro salle, après 30 s sans
+ * geste, la page passe en démo et Aïn joue « demo ». L'horloge est avancée
+ * de 31 s en temps virtuel. Les jumeaux : un geste à 20 s repousse la démo
+ * (rien à 31 s), et au niveau conseillé rien ne joue. */
+ETAPES.demo = async () => {
+  const essai = async (n, geste) => {
+    const page = await nouvelle(PC, { reglage: { salles: VIDE }, avant: niveau(n) });
+    await dessinee(page);
+    // Une scène jouée est notée au moment où elle part : l'attente d'Aïn
+    // (2,5 s, 8,5 s…) en joue d'autres, et la toile ne garde que la dernière.
+    await page.evaluate(() => {
+      window.__scenes = [];
+      const jouer = window.nel3abAin.scene;
+      window.nel3abAin.scene = (quoi, options) => { window.__scenes.push(quoi); return jouer(quoi, options); };
+    });
+    if (geste) {
+      await avancer(page, 20000);
+      await page.keyboard.press("Shift");
+      await avancer(page, 11000);
+    } else {
+      await avancer(page, 31000);
+    }
+    const vu = await page.evaluate(() => ({ demo: document.body.hasAttribute("data-demo"), scenes: window.__scenes }));
+    await page.close();
+    return vu;
+  };
+  const tout = await essai("tout", false);
+  defaut(tout.demo && tout.scenes.includes("demo"), `après 30 s sans geste au niveau « tout » : ${JSON.stringify(tout)}`);
+  const repousse = await essai("tout", true);
+  defaut(!repousse.demo && !repousse.scenes.includes("demo"), `un geste à 20 s n'a pas repoussé la démo : ${JSON.stringify(repousse)}`);
+  const conseille = await essai("conseille", false);
+  defaut(!conseille.demo && !conseille.scenes.includes("demo"), `la démo joue au niveau conseillé : ${JSON.stringify(conseille)}`);
+};
+
+/** L'écran bombé (effet « courbure », niveau « tout ») : la mire porte le
+ * filtre `#rt-bombe` du socle, une vraie carte de déplacement. Le jumeau :
+ * au niveau conseillé, la mire reste plate. */
+ETAPES.courbure = async () => {
+  const lire = async (n) => {
+    const page = await nouvelle(PC, { reglage: { salles: VIDE }, avant: niveau(n) });
+    await dessinee(page);
+    const vu = await page.evaluate(() => {
+      const mire = document.querySelector(".vide");
+      const filtre = document.getElementById("rt-bombe");
+      return {
+        filtre: mire ? getComputedStyle(mire).filter : null,
+        carte: filtre?.querySelector("feImage")?.getAttribute("href")?.slice(0, 22) ?? null,
+        deplace: filtre?.querySelector("feDisplacementMap") !== null && filtre !== null,
+        large: mire?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    await page.close();
+    return vu;
+  };
+  const tout = await lire("tout");
+  defaut(tout.large > 0 && /url\("?#rt-bombe"?\)/.test(tout.filtre ?? ""), `la mire n'est pas bombée au niveau « tout » : ${JSON.stringify(tout)}`);
+  defaut(tout.deplace && /^data:image\//.test(tout.carte ?? ""), `le filtre #rt-bombe n'a pas sa carte : ${JSON.stringify(tout)}`);
+  const conseille = await lire("conseille");
+  defaut(conseille.filtre === "none", `la mire est bombée au niveau conseillé : ${JSON.stringify(conseille)}`);
+};
+
 /** Un jeu rangé pendant la visite (plan salon, salon-importer#8) : un envoi
  * en vérification au chargement passe à rangé ; Aïn joue « depot », et la
  * boîte du jeu quitte le haut de la pile pour sa place dans la rangée, en

@@ -61,6 +61,12 @@
      de ligne de base. */
   .marque { display: inline-flex; align-self: center; color: inherit; text-decoration: none;
             --rt-logo-hauteur: clamp(20px, 2vw, 26px); }
+  /* La maison d'Aïn (ADR D41, D46): le paquet du salon peint le logo dans
+     une toile, à 2 px par pixel d'Aïn quand la marque a 228 px, 1 au-dessous.
+     Le logo statique reste pour une page sans script, et se cache quand Aïn
+     est peint à sa place. */
+  .marque[data-hote] { width: clamp(114px, 18vw, 228px); }
+  .marque.rt-mascotte-hote > .rt-logo { display: none; }
   .rail-fait { font-family: var(--police-machine); font-size: clamp(13px, 1.2vw, 16px);
                color: var(--legende); letter-spacing: .12em; }
   /* L'horloge est une PREUVE DE VIE, pas une décoration: elle avance tant
@@ -317,7 +323,7 @@
 
   <main class="page">
     <div class="rail">
-      <span class="marque"><!--RETRO:LOGO--></span>
+      <span class="marque" data-hote="logo"><!--RETRO:LOGO--></span>
       <span class="rail-fait" id="antenne"></span>
       <a id="carnet" href="/profil" hidden>CARNET DE JEU</a>
       <span class="rail-fait" id="horloge">--:--:--</span>
@@ -762,5 +768,6 @@
     .then(droits => { document.getElementById("importer").hidden = !droits.peut_importer; })
     .catch(() => {});
 </script>
+<!--RETRO:AIN-->
 </body>
 </html>

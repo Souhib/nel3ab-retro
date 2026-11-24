@@ -4,9 +4,10 @@ import { relative, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
 /**
- * Le paquet d'Aïn pour les pages du salon (`src/mascotte/salon.ts`, ADR
- * D46) : un seul fichier, une fonction appelée tout de suite (IIFE), sans
- * React, écrit à côté des autres copies du salon
+ * Le paquet du salon (`src/salon/paquet.ts`, ADR D41 et D46) : Aïn
+ * (`src/mascotte/salon.ts`) et les gestes d'arcade du socle, en un seul
+ * fichier, une fonction appelée tout de suite (IIFE), sans React, écrit à
+ * côté des autres copies du salon
  * (`control/nel3ab_control/api/routes/retro/ain.js`). `just ain-salon`.
  *
  * Sa marque, `ain.SOURCES`, est écrite par `tampon()` après la construction :
@@ -71,7 +72,7 @@ export default defineConfig({
     minify: true,
     target: "es2022",
     lib: {
-      entry: resolve(ICI, "src/mascotte/salon.ts"),
+      entry: resolve(ICI, "src/salon/paquet.ts"),
       formats: ["iife"],
       name: "nel3abAinSalon",
       fileName: () => "ain.js",

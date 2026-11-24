@@ -314,6 +314,37 @@ async def test_le_reglage_des_effets_est_au_pied_de_l_accueil(
     assert reglage not in (await client.get("/importer", headers={})).text
 
 
+async def test_les_trois_pages_du_salon_portent_ain_dans_leur_logo(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le paquet du salon (ADR D41) et sa maison, dans chaque page servie.
+
+    Le paquet peint Aïn dans l'élément `data-hote="logo"` et donne au salon
+    `nel3abAin` et `nel3abSalon`. Le logo statique reste dans la maison, pour
+    une page sans script. Le paquet est posé APRÈS le corps: il cherche sa
+    maison au chargement.
+    """
+    paquet = retro.piece("ain.js")
+    assert "nel3abAin" in paquet
+    assert "nel3abSalon" in paquet
+    for chemin in ("/", "/importer", "/profil"):
+        page = (await client.get(chemin, headers={})).text
+        assert "<!--RETRO:AIN-->" not in page, chemin
+        assert f"<script>\n{paquet}\n</script>" in page, chemin
+        maison = re.search(r'<(?:span|a) class="marque" data-hote="logo"[^>]*>\s*<svg', page)
+        assert maison, f"{chemin}: pas de maison pour Aïn, ou sans le logo statique"
+        assert page.index(paquet) > maison.start(), chemin
+        assert page.count('data-hote="logo"') == 1, chemin
+
+
+def test_un_paquet_qui_fermerait_sa_balise_est_refuse() -> None:
+    """Le paquet est posé tel quel: `</script` dedans couperait la page en deux."""
+    with pytest.raises(ValueError, match="</script"):
+        retro.script('var a = "</SCRIPT>";')
+    # Le jumeau: un paquet ordinaire passe, dans sa balise.
+    assert retro.script("var a = 1;") == "<script>\nvar a = 1;\n</script>"
+
+
 def test_une_page_sans_en_tete_ni_feuille_du_theme_est_refusee() -> None:
     """Une marque oubliée se voit au démarrage du salon, pas dans une page servie."""
     with pytest.raises(ValueError, match="EN-TETE"):

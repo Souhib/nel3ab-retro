@@ -805,25 +805,34 @@ try {
             // Le menu du jeu, depuis la feuille, puis retour à la feuille.
             if (name === "gc") {
               await tap(page, '[data-entree="menu"]');
-              if (!(await attendre(page, () => document.querySelector("#menu")?.open === true)))
+              // Depuis le menu unique (24 novembre 2026), le menu n'est plus
+              // un dialogue plein cadre : une section posée hors de l'image,
+              // sous elle tenu droit, à côté couché (ADR D30 amendé).
+              if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
                 bad.push("« Menu du jeu » n'ouvre pas le menu");
               else {
                 await sleep(300);
                 await page.screenshot({ path: join(OUT, `menu-${name}-${size}.png`) });
                 if (await page.$("#feuilleSalle")) bad.push("la feuille reste ouverte sous le menu");
-                // Le fond du menu va jusqu'aux bords : posé dans la zone sûre,
-                // il laissait une bande de fond uni sous l'encoche.
-                const fond = await page.evaluate(() => {
-                  const r = document
-                    .querySelector("#menu .pointer-events-none.absolute.inset-0.overflow-hidden")
-                    ?.getBoundingClientRect();
-                  return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+                const lu = await page.evaluate(() => {
+                  const m = document.querySelector("#menu").getBoundingClientRect();
+                  const t = document.querySelector("#screen canvas")?.getBoundingClientRect();
+                  const s = document.querySelector("#closeMenu")?.getBoundingClientRect();
+                  const w = t ? Math.min(m.right, t.right) - Math.max(m.left, t.left) : 0;
+                  const h = t ? Math.min(m.bottom, t.bottom) - Math.max(m.top, t.top) : 0;
+                  return {
+                    coupe: w > 0.5 && h > 0.5 ? Math.round(w * h) : 0,
+                    surImage: document.querySelector("#menu").dataset.surImage ?? null,
+                    sortie: s ? Math.round(s.height) : 0,
+                    touch: getComputedStyle(document.querySelector("#menu")).touchAction,
+                  };
                 });
-                if (!fond) bad.push("le fond du menu est absent");
-                else if (fond.left > 0.5 || fond.top > 0.5 || fond.right < width - 0.5 || fond.bottom < height - 0.5)
-                  bad.push(
-                    `le fond du menu s'arrête à [${Math.round(fond.left)}, ${Math.round(fond.top)}, ${Math.round(fond.right)}, ${Math.round(fond.bottom)}] dans ${width}x${height}`,
-                  );
+                // Une image 16:9 couchée ne laisse pas de bande lisible : le
+                // menu le dit (data-sur-image), défaut connu à trancher avec
+                // la salle. Ailleurs, il ne touche pas l'image.
+                if (lu.coupe > 0 && lu.surImage !== "oui") bad.push(`le menu couvre ${lu.coupe} px² de l'image`);
+                if (lu.sortie < 44) bad.push(`la sortie du menu fait ${lu.sortie} px de haut`);
+                if (lu.touch === "none") bad.push("le menu bloque le défilement au doigt (touch-action: none)");
                 await page.evaluate(() => document.querySelector("#closeMenu")?.click());
                 await attendre(page, () => document.querySelector("#menu") === null);
               }
@@ -1357,7 +1366,8 @@ try {
   if (part("ctrl")) {
     const ouverts = (page) =>
       page.evaluate(() =>
-        [...document.querySelectorAll("dialog[open]")]
+        // Le menu n'est plus un dialogue (D30 amendé) : il compte quand même.
+        [...document.querySelectorAll("dialog[open], section#menu")]
           .map((d) => (d.dataset.hauteur ? `${d.id}:${d.dataset.hauteur}` : d.id))
           .join(", "),
       );
@@ -1373,7 +1383,7 @@ try {
         await page.waitForSelector("#laSalle", { timeout: 20000 });
         await sleep(700);
         await page.keyboard.press("Escape");
-        if (!(await attendre(page, () => document.querySelector("#menu")?.open === true))) bad.push("Échap n'ouvre pas le menu");
+        if (!(await attendre(page, () => document.querySelector("#menu") !== null))) bad.push("Échap n'ouvre pas le menu");
         await sleep(400);
         await ctrl(page);
         const sousMenu = await ouverts(page);

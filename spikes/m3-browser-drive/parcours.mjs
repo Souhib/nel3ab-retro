@@ -818,10 +818,13 @@ const ETAPES = {
     await menu(page, "salle");
     if (!(await page.$("#item-close-room"))) throw new Defaut("le chef n'a pas « fermer la salle »");
     await page.click("#item-close-room");
-    if (!(await jusqua(() => page.$("#pick-close").then(Boolean), 2000)))
+    // Depuis le menu unique (24 novembre 2026), la confirmation est la fiche
+    // de la ligne, dans le menu : sa conséquence et « Fermer la salle ».
+    if (!(await jusqua(() => page.$("#fiche #ficheAgir").then(Boolean), 2000)))
       throw new Defaut("« fermer la salle » ne demande pas de confirmer");
+    if (banc.journal.suppressions.length !== 0) throw new Defaut("un clic sur la ligne seule a fermé la salle");
     await capture(page, "fermer-salle");
-    await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.click("#pick-close")]);
+    await Promise.all([page.waitForNavigation({ timeout: 5000 }).catch(() => null), page.click("#ficheAgir")]);
     if (!(await jusqua(async () => banc.journal.suppressions.length === 1, 3000)))
       throw new Defaut("aucune demande de fermeture n'est partie");
     if (!(await jusqua(async () => (await adresse(page)) === "/", 3000)))
@@ -842,10 +845,13 @@ const ETAPES = {
     if (await page.$("#recoverOwner"))
       throw new Defaut("« Prendre le rôle de chef » proposé alors que le chef joue");
     await menu(page, "jeux");
-    // Un AUTRE jeu que celui qui tourne: celui-là se relance, il n'est pas grisé.
+    // Un AUTRE jeu que celui qui tourne: celui-là se relance, il n'est pas
+    // grisé. Plus de dossier par console depuis le menu unique : les jeux sont
+    // rangés sous le nom de leur console. Les pages d'avant des contrôles
+    // rouges ont encore le dossier Wii : on l'ouvre s'il existe.
     await page.evaluate(() => document.querySelector("#item-shelf-wii")?.click());
     if (!(await jusqua(() => page.$("#item-game2").then(Boolean), 3000)))
-      throw new Precondition("le dossier Wii ne montre pas le jeu");
+      throw new Precondition("la rubrique Jeux ne montre pas le jeu Wii");
     await page.evaluate(() => document.querySelector("#item-game2")?.click());
     await sleep(500);
     const aide = await page.evaluate(() => document.querySelector("#item-game2")?.innerText ?? "");

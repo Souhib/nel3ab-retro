@@ -977,11 +977,19 @@ focus-navigateur-rouge:
     git show f4b90c5:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     git show 55047a9:core/crates/worker/src/page/index.html > "$dossier/relue.html"
     cd spikes/m3-browser-drive
-    etapes=entree-colonne,entree-jeu-pro,menu-entree-focus,menu-modal,curseur-focus,aides-clavier,aides-manette,premiere-visite,rubriques,telephone,noms,entree-sans-clic,tab-retour,surcouche,coques-telephone
+    etapes=entree-colonne,entree-jeu-pro,premiere-visite,rubriques,telephone,noms,entree-sans-clic,tab-retour
     node focus.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
-    etapes=telephone,tablette,coques-telephone,surcouche,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
+    etapes=telephone,tablette,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # Le menu unique (chantier menus, 24 novembre 2026) : ses étapes réécrites
+    # rougissent sur la page de main 03b21c0, qui a encore le menu plein cadre,
+    # les trois formes, le pied toujours là et le sélecteur. menu-entree-focus
+    # et menu-entree-curseur sont des jumeaux : ils passent sur les deux pages.
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
+    etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette
+    node focus.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 
 # ==== chantier salle ====

@@ -141,7 +141,8 @@ for (const scheme of ["dark", "light"]) {
   console.log(`\n== ${quoi} ==`);
 
   // La zone d'image, et V6 sur une salle Switch.
-  const page = await ouvrir(base, { scheme, room: salle(1), storage: { "nel3ab:shell": "ps3" } });
+  // Plus de clé de forme du menu depuis le menu unique (24 novembre 2026).
+  const page = await ouvrir(base, { scheme, room: salle(1) });
   await enterRoom(page);
   await wait(1500);
   const ecran = await page.evaluate(() => getComputedStyle(document.querySelector("#screen").parentElement).backgroundColor);

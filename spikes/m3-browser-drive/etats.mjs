@@ -380,24 +380,56 @@ const ETAPES = {
     await page.close();
   },
 
-  /** « ouvrir le menu » depuis l'écran de chargement: le menu doit être
-   * au-dessus, pas caché dessous en captant le clavier (audit P2, E5). */
+  /** C2 (chantier menus, 24 novembre 2026): l'écran de chargement n'a plus
+   * de bouton de menu ; « Menu du jeu » de la colonne ouvre le menu À CÔTÉ,
+   * et le titre du chargement reste visible. Le jumeau : menu fermé, la même
+   * sonde au centre de la place du menu tombe dans la colonne. */
   async "chargement-menu"() {
     const page = await nouvelle(PC);
     await entrer(page);
     banc.annoncerDemarrage();
     if ((await page.waitForSelector("#booting", { timeout: 3000 }).catch(() => null)) === null)
       throw new Precondition("pas d'écran de chargement après l'annonce");
-    const bouton = await page.waitForSelector("#bootingMenu", { timeout: 12000 }).catch(() => null);
-    if (bouton === null) throw new Precondition("pas de bouton « ouvrir le menu » en 12 s");
-    await bouton.click();
-    await sleep(400);
-    const dessus = await page.evaluate(() => {
-      const sous = document.elementFromPoint(innerWidth * 0.3, innerHeight / 2);
-      return sous?.closest("#menu") ? "menu" : (sous?.closest("[id]")?.id ?? "rien");
-    });
-    if (dessus !== "menu") throw new Defaut(`le menu ouvert depuis le chargement est sous « ${dessus} »`);
+    // Le bouton de l'écran venait au bout de 8 s : on attend au-delà.
+    await sleep(9000);
+    if ((await page.$("#booting")) === null) throw new Precondition("l'écran de chargement est parti avant 9 s");
+    if ((await page.$("#bootingMenu")) !== null) throw new Defaut("l'écran de chargement porte encore un bouton de menu");
+    if ((await page.$("#openMenu")) === null) throw new Precondition("pas de « Menu du jeu » dans la colonne");
+    const titre = () =>
+      page.evaluate(() => {
+        const t = document.querySelector("#booting h1, #booting h2, #booting [data-titre]") ?? document.querySelector("#booting");
+        const r = t.getBoundingClientRect();
+        return [r.x + r.width / 2, r.y + r.height / 2];
+      });
+    await page.click("#openMenu");
+    if ((await page.waitForFunction(() => document.querySelector("#menu") !== null, { timeout: 2000 }).catch(() => null)) === null)
+      throw new Precondition("« Menu du jeu » n'a pas ouvert le menu pendant le chargement");
+    await sleep(300);
+    const [tx, ty] = await titre();
+    const lu = await page.evaluate(
+      (tx, ty) => {
+        const m = document.querySelector("#menu").getBoundingClientRect();
+        const centre = document.elementFromPoint(m.x + m.width / 2, m.y + Math.min(m.height / 2, 200));
+        const surTitre = document.elementFromPoint(tx, ty);
+        return {
+          menu: Boolean(centre?.closest("#menu")),
+          titre: Boolean(surTitre?.closest("#booting")),
+          sous: surTitre?.closest("[id]")?.id ?? "rien",
+          place: [m.x + m.width / 2, m.y + Math.min(m.height / 2, 200)],
+        };
+      },
+      tx,
+      ty,
+    );
     await capture(page, "chargement-menu");
+    if (!lu.menu) throw new Defaut("le centre du menu ouvert pendant le chargement n'est pas dans le menu");
+    if (!lu.titre) throw new Defaut(`le titre du chargement est sous « ${lu.sous} »`);
+    // Le jumeau : menu fermé, la même sonde tombe dans la colonne.
+    await page.keyboard.press("Escape");
+    if ((await page.waitForFunction(() => document.querySelector("#menu") === null, { timeout: 2000 }).catch(() => null)) === null)
+      throw new Precondition("Échap ne ferme pas le menu");
+    const ferme = await page.evaluate(([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest("#side")), lu.place);
+    if (!ferme) throw new Defaut("menu fermé, sa place n'est pas la colonne");
     await page.close();
   },
 

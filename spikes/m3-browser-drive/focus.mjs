@@ -382,78 +382,122 @@ const ETAPES = {
   },
 
   /** A11Y-02: dans le menu, Entrée et Espace sur le bouton qui a le focus
-   * activent CE bouton, pas l'entrée sous le curseur. */
+   * activent CE bouton, pas la ligne sous le curseur. Depuis le menu unique
+   * (24 novembre 2026), la ligne choisie d'abord est un jeu, qui ouvre sa
+   * fiche : Entrée sur « Reprendre la partie » ferme le menu sans l'ouvrir. */
   async "menu-entree-focus"() {
     for (const touche of ["Enter", "Space"]) {
       const page = await nouvelle(PC);
       await entrer(page);
       await ouvrirMenu(page);
-      if ((await page.$("#item-shelf-gc")) === null) throw new Precondition("pas de dossier GameCube dans « jeux »");
-      const selon = await page.$eval("#item-shelf-gc", (el) => el.getAttribute("data-selected"));
-      if (selon !== "true") {
-        // Le curseur sur le dossier GameCube, comme dans le relevé de l'audit.
-        await page.keyboard.press("ArrowDown");
-        await sleep(200);
-      }
+      const jeu = await choisie(page);
+      if (jeu === null || !jeu.startsWith("item-game")) throw new Precondition(`la ligne choisie n'est pas un jeu (${jeu})`);
       await page.focus("#closeMenu");
       await page.keyboard.press(touche);
       await sleep(400);
-      if (await page.evaluate(() => document.querySelector("[id^=item-game]") !== null))
-        throw new Defaut(`${touche} sur « reprendre » a ouvert le dossier sous le curseur`);
+      if (await page.evaluate(() => document.querySelector("#fiche, [id^=item-shelf]") !== null))
+        throw new Defaut(`${touche} sur « reprendre » a ouvert la ligne sous le curseur`);
       if (await menuOuvert(page)) throw new Defaut(`${touche} sur « reprendre » n'a pas fermé le menu`);
       await page.close();
     }
   },
 
-  /** Le jumeau: Entrée sur l'entrée choisie l'active, au clavier seul. */
+  /** Le jumeau (M4): Entrée sur la ligne d'un jeu l'active, au clavier seul,
+   * ouvre sa fiche et met le focus sur la sauvegarde cochée. */
   async "menu-entree-curseur"() {
     const page = await nouvelle(PC);
     await entrer(page);
     await ouvrirMenu(page);
-    // Le curseur sur le dossier GameCube, par les flèches.
-    for (let i = 0; i < 3 && (await page.$eval("#item-shelf-gc", (el) => el.dataset.selected)) !== "true"; i += 1) {
+    // Le jeu GameCube du banc a des sauvegardes : sa ligne ouvre une fiche.
+    // Elle reste grisée tant que la page n'a pas lu /saves.
+    if ((await page.$("#item-game1")) === null) throw new Precondition("pas de ligne pour le jeu GameCube");
+    if (!(await attendre(page, () => document.querySelector("#item-game1")?.getAttribute("aria-disabled") !== "true", 4000)))
+      throw new Precondition("la ligne du jeu GameCube reste grisée");
+    for (let i = 0; i < 4 && (await choisie(page)) !== "item-game1"; i += 1) {
       await page.keyboard.press("ArrowDown");
       await sleep(150);
     }
+    if ((await choisie(page)) !== "item-game1") throw new Precondition("les flèches n'atteignent pas le jeu GameCube");
     await page.keyboard.press("Enter");
-    if (!(await attendre(page, () => document.querySelector("[id^=item-game]") !== null)))
-      throw new Defaut("Entrée sur le dossier choisi ne l'a pas ouvert");
-    await capture(page, "menu-dossier");
+    if (!(await attendre(page, () => document.querySelector("#fiche") !== null)))
+      throw new Defaut("Entrée sur la ligne choisie n'a pas ouvert sa fiche");
+    const focus = await page.evaluate(() => {
+      const el = document.activeElement;
+      return { id: el?.id ?? "", coche: el instanceof HTMLInputElement && el.type === "radio" && el.checked };
+    });
+    if (!focus.coche) throw new Defaut(`le focus de la fiche n'est pas la sauvegarde cochée (${focus.id})`);
+    await capture(page, "menu-fiche");
     await page.close();
   },
 
-  /** A11Y-04: le menu prend le focus, Tab ne sort pas du menu, et la fermeture
-   * rend le focus à quelque chose de vivant. */
-  async "menu-modal"() {
+  /** M2 et W2 (ADR D30 amendé): le menu se pose hors de l'image, l'image
+   * garde son rectangle, le focus entre dans le menu, et Échap pendant une
+   * partie rend le focus au jeu. Le menu n'est plus modal : Tab peut en
+   * sortir, et un focus qui arrive dans la zone de jeu le ferme. */
+  async "menu-en-colonne"() {
+    for (const vue of [{ width: 1280, height: 720 }, PC, TELEPHONE, TRAVERS]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      const rect = () =>
+        page.evaluate(() => {
+          const c = document.querySelector("[data-zone-jeu] canvas")?.getBoundingClientRect();
+          return c ? [c.x, c.y, c.width, c.height].map(Math.round).join(",") : null;
+        });
+      const avant = await rect();
+      if (avant === null) throw new Precondition(`à ${vue.width} px, pas d'image`);
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition(`à ${vue.width} px, Échap n'a pas ouvert le menu`);
+      await sleep(300);
+      const lu = await page.evaluate(() => {
+        const m = document.querySelector("#menu").getBoundingClientRect();
+        const z = document.querySelector("[data-zone-jeu] canvas").getBoundingClientRect();
+        const l = Math.max(0, Math.min(m.right, z.right) - Math.max(m.left, z.left));
+        const h = Math.max(0, Math.min(m.bottom, z.bottom) - Math.max(m.top, z.top));
+        return {
+          aire: Math.round(l * h),
+          bas: Math.round(m.bottom),
+          H: innerHeight,
+          modal: document.querySelector("dialog#menu") !== null,
+          focus: Boolean(document.activeElement?.closest("#menu")),
+        };
+      });
+      await capture(page, "menu-en-colonne");
+      if (lu.modal) throw new Defaut(`à ${vue.width} px, le menu est encore un dialogue`);
+      if (lu.aire > 0) throw new Defaut(`à ${vue.width} px, le menu couvre ${lu.aire} px² de l'image`);
+      if ((await rect()) !== avant) throw new Defaut(`à ${vue.width} px, l'image a bougé à l'ouverture (${avant} → ${await rect()})`);
+      if (lu.bas > lu.H + 1) throw new Defaut(`à ${vue.width} px, le bas du menu sort de la fenêtre (${lu.bas} > ${lu.H})`);
+      if (!lu.focus) throw new Defaut(`à ${vue.width} px, le focus n'est pas dans le menu à l'ouverture`);
+      // M3a : menu ouvert, une flèche ne pousse pas le stick (→ change de
+      // rubrique, et c'est le stick horizontal que le banc relève).
+      const depuis = Date.now();
+      await appuyer(page, "ArrowRight");
+      await sleep(200);
+      if (banc.trames(depuis).some((t) => t.x !== undefined && t.x !== 0))
+        throw new Defaut(`à ${vue.width} px, une flèche dans le menu a poussé le stick`);
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") === null)))
+        throw new Defaut(`à ${vue.width} px, Échap n'a pas fermé le menu`);
+      await sleep(200);
+      const ferme = await actif(page);
+      if (!ferme.dansZone) throw new Defaut(`à ${vue.width} px, la fermeture ne rend pas le focus au jeu (${ferme.tag}#${ferme.id})`);
+      await page.close();
+    }
+    // Le jumeau : un clic sur l'image, menu ouvert, ferme le menu et donne
+    // le clavier au jeu.
     const page = await nouvelle(PC);
     await entrer(page);
     await page.click("#openMenu");
     if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
-      throw new Precondition("« menu » n'a pas ouvert le menu");
-    await sleep(300);
-    const ouvert = await actif(page);
-    if (!ouvert.dansMenu) throw new Defaut(`le focus n'est pas dans le menu à l'ouverture (${ouvert.tag}#${ouvert.id})`);
-    for (let i = 0; i < 14; i += 1) {
-      await page.keyboard.press("Tab");
-      const ici = await actif(page);
-      if (!ici.dansMenu && ici.tag !== "BODY") throw new Defaut(`Tab ${i + 1} sort du menu vers ${ici.tag}#${ici.id}`);
-    }
-    await page.keyboard.press("Escape");
+      throw new Precondition("« Menu du jeu » n'a pas ouvert le menu");
+    await page.mouse.click(...(await centre(page, "#screen")));
     if (!(await attendre(page, () => document.querySelector("#menu") === null)))
-      throw new Defaut("Échap n'a pas fermé le menu");
-    await sleep(200);
-    const ferme = await actif(page);
-    if (ferme.tag === "BODY" || ferme.id === "openMenu")
-      throw new Defaut(`le focus retombe sur ${ferme.tag}#${ferme.id} et non sur le jeu`);
-    if (!ferme.dansZone) throw new Defaut(`la fermeture ne rend pas le focus au jeu (${ferme.tag}#${ferme.id})`);
-    // Le jumeau: menu fermé, la colonne se rejoint au clavier.
-    await page.keyboard.press("Tab");
-    const suite = await actif(page);
-    if (suite.dansMenu || suite.tag === "BODY") throw new Defaut(`Tab après le menu ne va nulle part (${suite.tag})`);
+      throw new Defaut("un clic sur l'image ne ferme pas le menu");
     await page.close();
   },
 
-  /** A11Y-02 et A11Y-11: le curseur EST le focus, et il est dit. */
+  /** A11Y-02, A11Y-11 et M4: le curseur EST le focus, et il est dit. Une
+   * ligne de choix reçoit le focus sur sa pastille cochée. */
   async "curseur-focus"() {
     const page = await nouvelle(PC);
     await entrer(page);
@@ -464,45 +508,56 @@ const ETAPES = {
     await sleep(250);
     const lu = await page.evaluate(() => {
       const choisi = [...document.querySelectorAll("#menu [id^=item-]")].find((el) => el.dataset.selected === "true");
+      const ici = document.activeElement;
       return {
         choisi: choisi?.id ?? null,
-        focus: document.activeElement?.id ?? "",
+        focus: ici?.id ?? "",
+        dedans: Boolean(choisi && ici && choisi.contains(ici)),
         courant: choisi?.getAttribute("aria-current") ?? null,
-        rayon: document.querySelector("#menu [id^=ray-][aria-current=true]")?.id ?? null,
-        autres: [...document.querySelectorAll("#menu [id^=item-]")].filter((el) => el.tabIndex === 0).length,
+        rayon: document.querySelector("#menu [role=tab][aria-selected=true]")?.id ?? null,
+        tabulables: [...document.querySelectorAll("#menuPanneau *")].filter((el) => el.tabIndex === 0).length,
       };
     });
-    if (lu.choisi === null) throw new Precondition("aucune entrée choisie dans le menu");
-    if (lu.focus !== lu.choisi) throw new Defaut(`le focus (${lu.focus || "rien"}) n'est pas l'entrée choisie (${lu.choisi})`);
-    if (lu.courant !== "true") throw new Defaut("l'entrée choisie ne porte pas aria-current");
-    if (lu.rayon === null) throw new Defaut("la rubrique choisie ne porte pas aria-current");
-    if (lu.autres !== 1) throw new Defaut(`${lu.autres} entrées sont dans l'ordre de tabulation, une seule devrait l'être`);
+    if (lu.choisi === null) throw new Precondition("aucune ligne choisie dans le menu");
+    if (!lu.dedans) throw new Defaut(`le focus (${lu.focus || "rien"}) n'est pas dans la ligne choisie (${lu.choisi})`);
+    if (lu.courant !== "true") throw new Defaut("la ligne choisie ne porte pas aria-current");
+    if (lu.rayon !== "ray-manettes") throw new Defaut(`→ n'a pas choisi la rubrique Manettes (${lu.rayon})`);
+    if (lu.tabulables !== 1) throw new Defaut(`${lu.tabulables} éléments du panneau sont dans la tabulation, un seul devrait l'être`);
     await capture(page, "menu-curseur");
     await page.close();
   },
 
-  /** T02: au clavier, le menu parle Entrée et Échap. */
+  /** M6: le pied ne vient qu'après un premier usage du clavier, et dit les
+   * rubriques et Échap. Ouvert à la souris, pas de pied. */
   async "aides-clavier"() {
     const page = await nouvelle(PC);
     await entrer(page);
-    await ouvrirMenu(page);
-    const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "");
-    if (/A choisi/.test(pied)) throw new Defaut(`le pied parle encore de la manette au clavier: « ${pied} »`);
-    if (!/Entrée/.test(pied) || !/Échap/.test(pied)) throw new Defaut(`le pied ne dit ni Entrée ni Échap: « ${pied} »`);
-    if (/rayon/.test(pied)) throw new Defaut(`le pied parle de « rayon »: « ${pied} »`);
+    await page.click("#openMenu");
+    if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+      throw new Precondition("« Menu du jeu » n'a pas ouvert le menu");
+    await sleep(300);
+    if ((await page.$("#menu footer")) !== null) throw new Defaut("ouvert à la souris, le menu montre déjà son pied");
+    await page.keyboard.press("ArrowDown");
+    await sleep(200);
+    const pied = await page.evaluate(() => document.querySelector("#menu footer")?.textContent ?? null);
+    if (pied === null) throw new Defaut("après une flèche, le menu n'a pas de pied");
+    if (!/Échap/.test(pied) || !/rubriques/.test(pied)) throw new Defaut(`le pied ne dit ni Échap ni les rubriques: « ${pied} »`);
+    if (/\bA\b|Start/.test(pied)) throw new Defaut(`le pied parle de la manette au clavier: « ${pied} »`);
     await capture(page, "menu-clavier");
     await page.close();
   },
 
-  /** Le jumeau: avec une manette branchée, le même pied parle A et B. */
+  /** Le jumeau: avec une manette branchée, le même pied parle A, B et
+   * Start, et jamais Échap. */
   async "aides-manette"() {
     const page = await nouvelle(PC, { manette: true, premiere: true });
     await entrer(page);
     await ouvrirMenu(page);
-    const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "");
-    if (!/A\s*choisir/.test(pied) || !/B\s*(retour|reprendre)/i.test(pied))
-      throw new Defaut(`avec une manette, le pied ne parle pas A et B: « ${pied} »`);
-    if (/Entrée/.test(pied)) throw new Defaut(`avec une manette, le pied parle encore Entrée: « ${pied} »`);
+    const pied = await page.$eval("#menu footer", (el) => el.textContent ?? "").catch(() => null);
+    if (pied === null) throw new Defaut("avec une manette, le menu n'a pas de pied");
+    if (!/A\s*valider/.test(pied) || !/B\s*revenir/.test(pied) || !/Start/.test(pied))
+      throw new Defaut(`avec une manette, le pied ne parle pas A, B et Start: « ${pied} »`);
+    if (/Échap/.test(pied)) throw new Defaut(`avec une manette, le pied parle encore Échap: « ${pied} »`);
     // Et la colonne ne montre pas la carte du clavier à qui tient une manette.
     await page.keyboard.press("Escape");
     await sleep(300);
@@ -744,40 +799,53 @@ const ETAPES = {
     }
   },
 
-  /** Les coques Wii et Switch sur un téléphone: la sortie est entière dans
-   * l'écran et fait 44 px. La sortie de la Switch « Reprendre » sortait à
-   * droite (x 324 à 430 sur 390). */
-  async "coques-telephone"() {
-    for (const coque of ["switch", "wii"]) {
-      const page = await nouvelle(TELEPHONE, { stockage: { "nel3ab:shell": coque } });
-      await entrer(page);
-      await page.keyboard.press("Escape");
-      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
-        throw new Precondition(`Échap n'a pas ouvert le menu ${coque}`);
-      await sleep(400);
-      await capture(page, `menu-${coque}`);
-      const sortie = await page.evaluate(() => {
-        const el = document.querySelector("#closeMenu");
-        if (!el) return null;
-        const r = el.getBoundingClientRect();
-        const ici = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-        return {
-          gauche: Math.round(r.left),
-          droite: Math.round(r.right),
-          h: Math.round(r.height),
-          w: Math.round(r.width),
-          libre: Boolean(ici && el.contains(ici)),
-          W: innerWidth,
-          H: innerHeight,
-          bas: Math.round(r.bottom),
-        };
-      });
-      if (sortie === null) throw new Precondition(`pas de sortie dans la coque ${coque}`);
-      if (sortie.gauche < 0 || sortie.droite > sortie.W || sortie.bas > sortie.H)
-        throw new Defaut(`coque ${coque}: la sortie sort de l'écran ${JSON.stringify(sortie)}`);
-      if (sortie.h < 44 || sortie.w < 44) throw new Defaut(`coque ${coque}: la sortie fait ${sortie.w}x${sortie.h}`);
-      if (!sortie.libre) throw new Defaut(`coque ${coque}: la sortie est couverte`);
-      await page.close();
+  /** M1, W1 et S1: une seule forme de menu. Avec l'ancienne clé de forme
+   * (Wii, Switch), le menu a ses quatre onglets, ses lignes ont toutes le
+   * même bord gauche, rien ne déborde en largeur, la sortie est entière et
+   * fait 44 px, et la clé est effacée. */
+  async "une-seule-forme"() {
+    for (const coque of ["wii", "switch"]) {
+      for (const vue of [PC, TELEPHONE]) {
+        const page = await nouvelle(vue, { stockage: { "nel3ab:shell": coque } });
+        await entrer(page);
+        await page.keyboard.press("Escape");
+        if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+          throw new Precondition(`Échap n'a pas ouvert le menu (${coque})`);
+        await sleep(400);
+        await capture(page, `menu-${coque}`);
+        const lu = await page.evaluate(() => {
+          const menu = document.querySelector("#menu");
+          const bords = new Set(
+            [...menu.querySelectorAll("[id^=item-]")].map((el) => Math.round(el.getBoundingClientRect().left)),
+          );
+          const s = document.querySelector("#closeMenu")?.getBoundingClientRect();
+          const ici = s ? document.elementFromPoint(s.x + s.width / 2, s.y + s.height / 2) : null;
+          let cle = "?";
+          try {
+            cle = localStorage.getItem("nel3ab:shell");
+          } catch {}
+          return {
+            onglets: menu.querySelectorAll("[role=tab]").length,
+            bords: [...bords],
+            deborde: menu.scrollWidth > menu.clientWidth + 1,
+            sortie: s ? { g: Math.round(s.left), d: Math.round(s.right), h: Math.round(s.height), bas: Math.round(s.bottom) } : null,
+            libre: Boolean(ici && document.querySelector("#closeMenu").contains(ici)),
+            W: innerWidth,
+            H: innerHeight,
+            cle,
+          };
+        });
+        const ou = `${coque} à ${vue.width} px`;
+        if (lu.onglets !== 4) throw new Defaut(`${ou}: ${lu.onglets} onglets au lieu de quatre`);
+        if (lu.bords.length !== 1) throw new Defaut(`${ou}: les lignes ont ${lu.bords.length} bords gauches (${lu.bords})`);
+        if (lu.deborde) throw new Defaut(`${ou}: le menu déborde en largeur`);
+        if (lu.sortie === null) throw new Defaut(`${ou}: pas de sortie`);
+        if (lu.sortie.g < 0 || lu.sortie.d > lu.W || lu.sortie.bas > lu.H || lu.sortie.h < 44)
+          throw new Defaut(`${ou}: la sortie sort de l'écran ou fait moins de 44 px ${JSON.stringify(lu.sortie)}`);
+        if (!lu.libre) throw new Defaut(`${ou}: la sortie est couverte`);
+        if (lu.cle !== null) throw new Defaut(`${ou}: la clé nel3ab:shell est restée (${lu.cle})`);
+        await page.close();
+      }
     }
   },
 
@@ -820,12 +888,11 @@ const ETAPES = {
     await page.close();
   },
 
-  /** Les avis posés au-dessus du menu (`Surcouche`): l'avis d'un lancement est
-   * DANS le menu ouvert, visible, ne couvre pas la sortie, et garde ses touches:
-   * ni une flèche ni Échap sur son bouton ne conduisent le menu. Aucun essai ne
-   * citait `Surcouche` dans la première version, et le mutant qui retirait la
-   * garde `[data-surcouche]` passait. */
-  async "surcouche"() {
+  /** P10 et M10: le refus ou l'avis d'un geste du menu s'écrit dans le
+   * bloc du menu, visible, sans couvrir sa sortie. « Fermer le jeu » passe
+   * par sa fiche ; ses touches restent à l'avis. Échap dans la fiche revient
+   * à la liste sans fermer le menu. */
+  async "refus-dans-le-bloc"() {
     for (const vue of [PC, TELEPHONE]) {
       const page = await nouvelle(vue);
       await entrer(page);
@@ -833,15 +900,19 @@ const ETAPES = {
       if ((await page.$("#ray-salle")) === null) throw new Precondition("pas de rubrique « salle »");
       await page.click("#ray-salle");
       await sleep(300);
-      if ((await page.$("#item-close-game")) === null) throw new Precondition("pas d'entrée « fermer le jeu »");
+      if ((await page.$("#item-close-game")) === null) throw new Precondition("pas de ligne « fermer le jeu »");
       await page.click("#item-close-game");
-      if (!(await attendre(page, () => document.querySelector("#pick-close") !== null)))
-        throw new Precondition("le sélecteur de « fermer le jeu » ne s'ouvre pas");
-      await page.click("#pick-close");
+      // Le défaut d'avant le menu unique : la confirmation était un
+      // sélecteur posé par-dessus, pas une fiche dans le bloc du menu.
+      if (!(await attendre(page, () => document.querySelector("#menu #fiche #ficheAgir") !== null)))
+        throw new Defaut("« fermer le jeu » ne s'ouvre pas en fiche dans le menu");
+      if (await page.evaluate(() => document.querySelector(".n3-preparation-error") !== null))
+        throw new Defaut("un clic sur la ligne seule a fermé le jeu");
+      await page.click("#ficheAgir");
       if (!(await attendre(page, () => document.querySelector(".n3-preparation-error") !== null, 4000)))
         throw new Precondition("aucun avis après « fermer le jeu »");
       await sleep(300);
-      await capture(page, "surcouche");
+      await capture(page, "refus-dans-le-bloc");
       const lu = await page.evaluate(() => {
         const avis = document.querySelector(".n3-preparation-error");
         const r = avis.getBoundingClientRect();
@@ -857,38 +928,27 @@ const ETAPES = {
           bouton: Math.round(bouton?.getBoundingClientRect().height ?? 0),
         };
       });
-      if (!lu.dansMenu) throw new Defaut("l'avis n'est pas dans le menu ouvert: le dialogue modal le rend inerte");
-      if (!lu.visible) throw new Defaut("l'avis est couvert par le menu");
+      if (!lu.dansMenu) throw new Defaut("l'avis n'est pas dans le bloc du menu");
+      if (!lu.visible) throw new Defaut("l'avis est couvert");
       if (!lu.sortieLibre) throw new Defaut(`à ${vue.width} px, l'avis couvre la sortie du menu`);
       if (lu.bouton < 44) throw new Defaut(`à ${vue.width} px, le bouton de l'avis fait ${lu.bouton} px de haut`);
-      // Les touches de l'avis lui restent.
-      const avant = await choisie(page);
-      if (avant === null) throw new Precondition("aucune entrée choisie dans « salle »");
-      const rang = await page.$$eval("#menu [id^=item-]", (els, id) => els.findIndex((el) => el.id === id), avant);
-      const fleche = rang > 0 ? "ArrowUp" : "ArrowDown";
+      // Les flèches sur le bouton de l'avis ne déplacent rien dans la fiche.
       await page.focus(".n3-preparation-error button");
-      await page.keyboard.press(fleche);
-      await sleep(250);
-      if ((await choisie(page)) !== avant) throw new Defaut("une flèche sur le bouton de l'avis a déplacé le curseur du menu");
+      await page.keyboard.press("ArrowDown");
+      await sleep(200);
+      if (await page.evaluate(() => !document.activeElement?.closest(".n3-preparation-error")))
+        throw new Defaut("une flèche sur le bouton de l'avis a déplacé le focus");
+      // Échap dans la fiche revient à la liste, le menu reste ouvert.
+      await page.focus("#ficheRevenir");
       await page.keyboard.press("Escape");
-      await sleep(400);
-      if (!(await menuOuvert(page))) throw new Defaut("Échap sur le bouton de l'avis a fermé le menu");
-      // Le geste « retour » d'Android arrive par l'événement `cancel` du
-      // dialogue, sans touche: le même, le focus sur l'avis.
-      const retour = () =>
-        page.evaluate(() => document.querySelector("#menu")?.dispatchEvent(new Event("cancel", { cancelable: true })));
-      await retour();
-      await sleep(400);
-      if (!(await menuOuvert(page))) throw new Defaut("le geste retour, le focus sur l'avis, a fermé le menu");
-      // Le jumeau: la même flèche, sur l'entrée choisie, déplace le curseur.
-      await page.focus(`#${avant}`);
-      await page.keyboard.press(fleche);
-      await sleep(250);
-      if ((await choisie(page)) === avant) throw new Defaut("une flèche sur l'entrée choisie ne déplace plus le curseur");
-      // Et le geste retour, le focus sur une entrée, ferme le menu.
-      await retour();
+      await sleep(300);
+      if (!(await menuOuvert(page))) throw new Defaut("Échap dans la fiche a fermé le menu");
+      if (await page.evaluate(() => document.querySelector("#fiche") !== null))
+        throw new Defaut("Échap dans la fiche n'est pas revenu à la liste");
+      // Le jumeau : Échap sur la liste ferme le menu.
+      await page.keyboard.press("Escape");
       if (!(await attendre(page, () => document.querySelector("#menu") === null)))
-        throw new Defaut("le geste retour, le focus sur une entrée, ne ferme plus le menu");
+        throw new Defaut("Échap sur la liste ne ferme plus le menu");
       await page.close();
     }
   },
@@ -1018,12 +1078,12 @@ const ETAPES = {
     const tel = await ouvrir(TELEPHONE);
     const lu = await tel.evaluate(() => ({
       menu: document.querySelector("#menu") !== null,
-      resume: document.querySelector("#picker dl")?.textContent ?? null,
+      resume: document.querySelector("#fiche dl")?.textContent ?? null,
       colonne: Math.round(document.querySelector("aside")?.getBoundingClientRect().width ?? 0),
     }));
     await capture(tel, "connexion");
     if (!lu.menu || lu.resume === null)
-      throw new Defaut(`sur un téléphone, « état de la connexion » n'ouvre pas son résumé dans le menu (${JSON.stringify(lu)})`);
+      throw new Defaut(`sur un téléphone, « état de la connexion » n'ouvre pas son résumé dans la fiche du menu (${JSON.stringify(lu)})`);
     if (!/en marche/.test(lu.resume)) throw new Defaut(`le résumé ne dit pas l'état: « ${lu.resume} »`);
     await tel.close();
     // Le jumeau: sur un ordinateur, le détail s'ouvre dans la colonne.

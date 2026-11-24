@@ -892,6 +892,18 @@ parcours-navigateur-rouge:
     etapes=rayonnage,lancer-seul,bibliotheque-clavier
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # Sur la même page, la préparation est un dialogue modal qui coupe le jeu
+    # et propose une liste au lieu de radios (chantier menus, P1, P7).
+    etapes=preparation-gamecube,preparation-wii,preparation-x360
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # ae1725a, la page du chantier menus juste avant le bloc de préparation :
+    # la bande du téléphone existe, mais elle ne dit rien de la préparation.
+    # La page de main n'a pas encore de bande : l'étape y tombe sur sa
+    # précondition, et ne prouverait rien.
+    git show ae1725a:core/crates/worker/src/page/index.html > "$dossier/menus-ae1725a.html"
+    node parcours.mjs --page "$dossier/menus-ae1725a.html" --flux "$dossier/flux.h264" \
+        --etapes preparation-telephone --rouge-attendu preparation-telephone
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible

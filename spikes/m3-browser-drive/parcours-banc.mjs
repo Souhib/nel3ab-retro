@@ -67,7 +67,9 @@ export async function demarrerParcours({ port, page, flux }) {
   const inputs = new Set();
   const lobbies = new Set();
   const videos = new Set();
-  const journal = { entrees: 0, suppressions: [], evenements: [] };
+  /** `droite` compte les trames de manette (13 octets, `encodePad`) dont le
+   * stick x pousse à droite : une flèche arrivée au jeu. */
+  const journal = { entrees: 0, suppressions: [], evenements: [], droite: 0 };
 
   const base = `http://127.0.0.1:${port}`;
   const tenues = () => {
@@ -206,6 +208,7 @@ export async function demarrerParcours({ port, page, flux }) {
     ws.on("message", (m) => {
       const b = Buffer.from(m);
       if (b.length === 9 && b[0] === 0xe0) ws.send(b);
+      if (b.length === 13 && b.readInt16LE(3) > 0) journal.droite += 1;
     });
     ws.on("close", () => {
       inputs.delete(ws);
@@ -288,6 +291,7 @@ export async function demarrerParcours({ port, page, flux }) {
       for (const ws of [...inputs, ...lobbies, ...videos]) ws.terminate();
       places.clear();
       journal.entrees = 0;
+      journal.droite = 0;
       journal.suppressions.length = 0;
       journal.evenements.length = 0;
     },

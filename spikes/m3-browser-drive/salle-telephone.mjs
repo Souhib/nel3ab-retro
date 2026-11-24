@@ -1090,26 +1090,12 @@ try {
     await page.close();
   }
 
-  // La préparation en paysage (M11) : elle garde ses dialogues, avec le
-  // réglage d'avant dedans, tant que le chantier des menus ne l'a pas sortie
-  // dans la colonne. Hors préparation, le réglage est le panneau, mesuré
-  // plus bas.
-  const PANNEAUX = {
-    preparation: {
-      url: "bindings-preview.html?preparation",
-      dialog: ".n3-bindings",
-      header: ".n3-bindings-header",
-      content: ".n3-bindings-scroll",
-      close: null,
-    },
-    "pro-preparation": {
-      url: "bindings-preview.html?pro=x360&preparation",
-      dialog: ".n3-switch-setup",
-      header: ".n3-switch-setup > header",
-      content: ".n3-switch-body",
-      close: null,
-    },
-  };
+  // La préparation à plusieurs (chantier menus, P1, P2, P8, 24 novembre
+  // 2026) : un bloc de la colonne, dans la feuille agrandie d'une salle
+  // tenue en main. Il n'est plus un dialogue plein écran. Au téléphone comme
+  // en paysage : la page ne défile pas en largeur, chaque bouton et chaque
+  // choix fait 44 px au moins, et le geste principal se voit sans défiler
+  // (la rangée des gestes colle au bas de la colonne).
   for (const [width, height] of part("touches")
     ? [
         [844, 390],
@@ -1117,44 +1103,34 @@ try {
         [390, 844],
       ]
     : []) {
-    for (const [nom, panneau] of Object.entries(PANNEAUX)) {
-      // Tenu droit, les dialogues de préparation prennent déjà tout l'écran
-      // par leur propre règle.
-      if (height > width) continue;
-      const { page, errors } = await ouvrir({ width, height, url: `${BASE}/${panneau.url}` });
+    for (const [nom, suffixe] of [
+      ["preparation", ""],
+      ["pro-preparation", "&pro=x360"],
+    ]) {
+      const { page, errors, zone } = await ouvrir({ width, height, url: `${BASE}/bindings-preview.html?preparation${suffixe}` });
       const bad = [];
       try {
-        await page.waitForSelector(`${panneau.dialog}[open]`, { timeout: 20000 });
-        await sleep(700);
+        await page.waitForSelector("#preparation", { timeout: 20000 });
+        await sleep(500);
         await page.screenshot({ path: join(OUT, `${nom}-${width}x${height}.png`) });
-        const m = await page.evaluate((panneau) => {
-          // Un objet simple : un DOMRect revient vide de `evaluate`, ses
-          // champs vivent sur son prototype.
-          const box = (s) => {
-            const r = s ? document.querySelector(s)?.getBoundingClientRect() : null;
-            return r ? { width: r.width, height: r.height } : null;
-          };
-          return {
-            dialog: box(panneau.dialog),
-            header: box(panneau.header),
-            content: box(panneau.content),
-            close: box(panneau.close),
-          };
-        }, panneau);
-        if (!m.dialog || m.dialog.height < height - 1)
-          bad.push(`le panneau fait ${Math.round(m.dialog?.height ?? 0)} px de haut sur ${height}`);
-        if (!m.dialog || m.dialog.width < width - 1)
-          bad.push(`le panneau fait ${Math.round(m.dialog?.width ?? 0)} px de large sur ${width}`);
-        if (!m.header) bad.push(`${panneau.header} est absent`);
-        else if (m.header.height > height * 0.3) bad.push(`l'en-tête prend ${Math.round(m.header.height)} px sur ${height}`);
-        if (!m.content || m.content.height < height * 0.4) bad.push(`le contenu n'a que ${Math.round(m.content?.height ?? 0)} px de haut`);
-        if (panneau.close && (!m.close || Math.min(m.close.width, m.close.height) < FLOOR - 0.5))
-          bad.push(`fermer mesure ${Math.round(m.close?.width ?? 0)}x${Math.round(m.close?.height ?? 0)} px`);
+        if (await page.$("dialog[open]")) bad.push("un dialogue est ouvert pendant la préparation");
+        bad.push(...(await page.evaluate(etat)));
+        bad.push(...dansLaZone("#launchPrepared", await page.evaluate(boite, "#launchPrepared"), zone, width, height));
+        const petits = await page.evaluate((floor) =>
+          [...document.querySelectorAll("#preparation :is(button, label)")]
+            .map((el) => [el, el.getBoundingClientRect()])
+            .filter(([, r]) => r.width > 0 && Math.min(r.width, r.height) < floor - 0.5)
+            .map(([el, r]) => `${el.id || el.textContent.trim().slice(0, 24)} mesure ${Math.round(r.width)}x${Math.round(r.height)} px`),
+        FLOOR);
+        bad.push(...petits);
+        // Rien à mesurer ne prouve rien : un bloc sans gestes passerait.
+        const gestes = await page.evaluate(() => document.querySelectorAll("#preparation button").length);
+        if (gestes < 3) bad.push(`le bloc n'a que ${gestes} boutons`);
       } catch (error) {
-        bad.push(`le panneau ne s'ouvre pas : ${error.message}`);
+        bad.push(`la préparation ne se montre pas : ${error.message}`);
       }
       bad.push(...errors.map((e) => `erreur de page : ${e}`));
-      say(bad.length === 0, `réglage « ${nom} » ${width}x${height}`, bad);
+      say(bad.length === 0, `préparation « ${nom} » ${width}x${height}`, bad);
       await page.close();
     }
   }

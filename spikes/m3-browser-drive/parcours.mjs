@@ -981,48 +981,143 @@ const ETAPES = {
     await parti.close();
   },
 
-  /** T04: une préparation GameCube dit GameCube, et l'écran des touches lit
-   * une manette GameCube; le jumeau Wii garde sa lecture des commandes. */
+  /** T04 et P1: la préparation est un bloc de la colonne, pas un dialogue ;
+   * elle dit GameCube, n'ouvre pas l'écran des touches, et le jeu reçoit
+   * encore les touches. Le jumeau : « Essayer mes touches » ouvre le réglage,
+   * qui, lui, retient les gestes, et la flèche n'arrive plus. */
   async "preparation-gamecube"() {
     const page = await nouvelle(PC, { salle: { bo: true, preparation: preparation(0, [0], false) } });
     await entrer(page);
-    if (!(await jusqua(() => page.$(".n3-preparation").then(Boolean), 8000)))
-      throw new Precondition("le panneau de préparation ne s'ouvre pas");
-    const panneau = await texte(page, ".n3-preparation");
-    if (!panneau.includes("Avant de jouer · GameCube"))
-      throw new Defaut(`l'en-tête d'une préparation GameCube: « ${panneau.slice(0, 60)} »`);
+    if (!(await jusqua(() => page.$("#preparation, .n3-preparation").then(Boolean), 8000)))
+      throw new Precondition("la préparation ne se montre pas");
+    const bloc = await page.evaluate(() => {
+      const b = document.querySelector("#preparation");
+      return {
+        colonne: b?.closest("#side") != null,
+        dialogue: document.querySelector("dialog[open]") !== null,
+        texte: (b?.textContent ?? "").replace(/\s+/g, " "),
+      };
+    });
+    if (!bloc.colonne) throw new Defaut("la préparation n'est pas un bloc de la colonne (#side #preparation)");
+    if (bloc.dialogue) throw new Defaut("un dialogue reste ouvert pendant la préparation");
+    if (!bloc.texte.includes("GameCube")) throw new Defaut(`le bloc ne dit pas GameCube: « ${bloc.texte.slice(0, 80)} »`);
+    if (bloc.texte.includes("Avant de jouer")) throw new Defaut("le bloc garde le sur-titre « Avant de jouer »");
     if ((await page.$("#reading")) || /Lecture des commandes/.test(await texte(page)))
-      throw new Defaut("l'écran des touches lit les commandes d'un jeu Wii");
+      throw new Defaut("l'écran des touches lit les commandes pendant une préparation");
+    const fleche = async () => {
+      const avant = banc.journal.droite;
+      await page.focus("[data-zone-jeu]");
+      await page.keyboard.down("ArrowRight");
+      await sleep(400);
+      await page.keyboard.up("ArrowRight");
+      await sleep(300);
+      return banc.journal.droite > avant;
+    };
+    if (!(await fleche())) throw new Defaut("pendant la préparation, une flèche dans la zone de jeu n'arrive pas au jeu");
     await capture(page, "preparation-gamecube");
+    await page.click("#essayerTouches");
+    if (!(await jusqua(() => page.$("#side #preparation").then(Boolean), 2000)))
+      throw new Defaut("« Essayer mes touches » fait disparaître la préparation");
+    await sleep(500);
+    if (await fleche()) throw new Defaut("le réglage ouvert par « Essayer mes touches » laisse passer la flèche au jeu");
     await page.close();
+  },
+
+  /** P7 et P9 : une préparation Wii se choisit en radios ; qui regarde lit
+   * le compte, sans bouton. */
+  async "preparation-wii"() {
     const wii = await nouvelle(PC, {
-      salle: { jeu: 2, bo: true, preparation: preparation(2, [1, 0], false) },
+      salle: { jeu: 2, bo: true, chef: "bo", preparation: { ...preparation(2, [1, 0], false), starter: BO } },
     });
     await entrer(wii);
-    if (!(await jusqua(() => wii.$("#reading").then(Boolean), 8000)))
-      throw new Defaut("une préparation Wii n'a plus sa lecture des commandes");
+    if (!(await jusqua(() => wii.$("#preparation, .n3-preparation").then(Boolean), 8000)))
+      throw new Precondition("la préparation Wii ne se montre pas");
+    const choix = await wii.evaluate(() => ({
+      radios: document.querySelectorAll("#preparation input[type=radio]").length,
+      listes: document.querySelectorAll("#preparation select, .n3-preparation select").length,
+      titre: document.querySelector("#preparationTitre")?.textContent ?? "",
+    }));
+    if (choix.radios !== 2 || choix.listes !== 0)
+      throw new Defaut(`les appareils Wii: ${choix.radios} radios et ${choix.listes} listes`);
+    if (choix.titre !== "Bo lance le prochain jeu") throw new Defaut(`le titre dit « ${choix.titre} »`);
+    if (!(await wii.$("#pretPrepared"))) throw new Defaut("un joueur de la préparation n'a pas « Je suis prêt »");
     await wii.close();
   },
 
-  /** T03 et P6: une préparation Xbox 360 nomme sa manette, ne regrette pas des
-   * boutons Switch, et le chef lance en un geste. */
+  /** T03 et P6: une préparation Xbox 360 est le même bloc, nomme sa manette,
+   * ne regrette pas des boutons Switch, et le chef lance en un geste. */
   async "preparation-x360"() {
     const page = await nouvelle(PC, {
       salle: { jeu: 1, bo: true, preparation: preparation(1, [4], true, 4) },
     });
     await entrer(page);
-    if (!(await jusqua(() => page.$(".n3-switch-setup[open]").then(Boolean), 8000)))
-      throw new Precondition("le panneau de la manette Pro ne s'ouvre pas");
-    const panneau = await texte(page, ".n3-switch-setup[open]");
-    if (!panneau.includes("manette Xbox 360 · prêt") || /Manette Pro · prêt|manette Pro · prêt/.test(panneau))
+    if (!(await jusqua(() => page.$("#preparation, .n3-switch-setup[open]").then(Boolean), 8000)))
+      throw new Precondition("la préparation Xbox 360 ne se montre pas");
+    if (!(await page.$("#side #preparation")))
+      throw new Defaut("la préparation Xbox 360 garde son dialogue au lieu du bloc de la colonne");
+    const panneau = await texte(page, "#preparation");
+    if (!panneau.includes("manette Xbox 360 · prêt") || /manette Pro · prêt/i.test(panneau))
       throw new Defaut("la ligne de Bo ne nomme pas la manette Xbox 360");
     if (panneau.includes("Home, Capture")) throw new Defaut("une salle Xbox 360 regrette Home et Capture");
-    const pret = await page.evaluate(() =>
-      [...document.querySelectorAll(".n3-switch-setup[open] button")].some((b) => b.textContent.trim() === "Je suis prêt"),
-    );
-    if (pret) throw new Defaut("le chef doit encore dire « Je suis prêt »");
+    if (await page.$("#pretPrepared")) throw new Defaut("le chef doit encore dire « Je suis prêt »");
+    if (!(await page.evaluate(() => document.querySelector("#cancelPrepared")?.textContent.trim() === "Garder Sonic Generations")))
+      throw new Defaut("l'annulation ne dit pas qu'elle garde le jeu en cours");
+    const avant = banc.journal.evenements.length;
+    await page.click("#launchPrepared");
+    const lance = () =>
+      banc.journal.evenements
+        .slice(avant)
+        .some((e) => Array.isArray(e.quoi) && e.quoi[0] === "preparation" && e.quoi[1]?.action === "launch" && e.quoi[1]?.pad === 4);
+    if (!(await jusqua(lance, 3000))) throw new Defaut("« Lancer le jeu » n'envoie pas le lancement avec la manette Pro");
     await capture(page, "preparation-x360");
     await page.close();
+  },
+
+  /** P8 : au téléphone, la bande dit la préparation en une ligne et ouvre
+   * le bloc dans la feuille de la salle ; la manette à l'écran reste montée
+   * et rien ne se pose sur l'image. Le jumeau : sans préparation, la bande
+   * n'en dit rien. */
+  async "preparation-telephone"() {
+    const page = await nouvelle(TELEPHONE, {
+      salle: { bo: true, chef: "bo", preparation: { ...preparation(0, [0], false), starter: BO } },
+      stockage: { "nel3ab:touchpad": "on" },
+    });
+    await entrer(page);
+    // `entrer` ouvre la feuille de la salle pour lire la place : la refermer.
+    await page.evaluate(() => document.querySelector("#fermerFeuille")?.click());
+    if (!(await jusqua(() => page.$("#bande").then(Boolean), 8000)))
+      throw new Precondition("la feuille refermée, la bande ne revient pas");
+    if (!(await jusqua(() => page.$("#bande #ouvrirPreparation").then(Boolean), 4000))) {
+      const vu = await page.evaluate(() => ({
+        bande: document.querySelector("#bande") !== null,
+        bref: document.querySelector("#preparationEnBref")?.parentElement?.id ?? null,
+        bloc: document.querySelector("#preparation")?.parentElement?.closest("[id]")?.id ?? null,
+      }));
+      throw new Defaut(`la bande ne dit pas la préparation (${JSON.stringify(vu)})`);
+    }
+    const bref = await page.evaluate(() => ({
+      ligne: document.querySelector("#preparationEnBref p")?.textContent ?? "",
+      bouton: document.querySelector("#ouvrirPreparation")?.textContent.trim() ?? "",
+      pave: document.querySelector(".n3-pave") !== null,
+      dialogue: document.querySelector("dialog[open]:not(#feuilleSalle)") !== null,
+    }));
+    if (bref.ligne !== "Bo lance le prochain jeu, Mario Party 4") throw new Defaut(`la bande dit « ${bref.ligne} »`);
+    if (bref.bouton !== "Choisir ma manette") throw new Defaut(`le bouton de la bande dit « ${bref.bouton} »`);
+    if (!bref.pave) throw new Defaut("la manette à l'écran disparaît pendant la préparation");
+    if (bref.dialogue) throw new Defaut("un dialogue s'ouvre de lui-même pendant la préparation");
+    await page.click("#ouvrirPreparation");
+    if (!(await jusqua(() => page.$("#preparation #pretPrepared").then(Boolean), 3000)))
+      throw new Defaut("« Choisir ma manette » n'ouvre pas le bloc de la préparation");
+    await capture(page, "preparation-telephone");
+    await page.close();
+    const sans = await nouvelle(TELEPHONE, { stockage: { "nel3ab:touchpad": "on" } });
+    await entrer(sans);
+    await sans.evaluate(() => document.querySelector("#fermerFeuille")?.click());
+    if (!(await jusqua(() => sans.$("#bande").then(Boolean), 8000)))
+      throw new Precondition("sans préparation, la bande ne revient pas");
+    await sleep(500);
+    if (await sans.$("#preparationEnBref")) throw new Defaut("la bande dit une préparation qui n'existe pas");
+    await sans.close();
   },
 
   /** T06: qui a lancé lit « ma sauvegarde »; les autres, le mot du salon. */

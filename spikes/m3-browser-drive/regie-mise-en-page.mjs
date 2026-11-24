@@ -162,16 +162,18 @@ for (const scheme of ["dark", "light"]) {
   noter(`V6 dialogue Switch centré (${quoi})`, centre, `marges ${d.gauche.toFixed(0)} / ${d.droite.toFixed(0)} px, haut ${d.haut.toFixed(0)} / bas ${d.bas.toFixed(0)} px`);
   await page.close();
 
-  // V9: l'aperçu de la préparation.
+  // V9 et P12: l'aperçu de la préparation, un bloc de colonne depuis le
+  // 24 novembre 2026. Un seul bord gauche : le titre et la liste des joueurs
+  // partent du même bord, à 1 px près.
   const prep = await ouvrir(new URL("bindings-preview.html?preparation", base).href, { scheme, viewport: { width: 1440, height: 1000 } });
-  await exiger(prep, ".n3-preparation-players > div", "V9 · préparation");
+  await exiger(prep, "#preparation .n3-prep-joueurs li", "V9 · préparation");
   await wait(400);
   const p = await prep.evaluate(() => {
-    const titre = document.querySelector(".n3-preparation-heading").getBoundingClientRect();
-    const cases = document.querySelector(".n3-preparation-players").getBoundingClientRect();
-    return { titre: titre.left, cases: cases.left, carte: document.querySelector(".n3-preparation").getBoundingClientRect().left };
+    const titre = document.querySelector("#preparationTitre").getBoundingClientRect();
+    const cases = document.querySelector(".n3-prep-joueurs").getBoundingClientRect();
+    return { titre: titre.left, cases: cases.left };
   });
-  noter(`V9 cases alignées sur le titre (${quoi})`, Math.abs(p.titre - p.cases) < 1 && p.titre - p.carte > 20, `titre à ${p.titre.toFixed(0)} px, cases à ${p.cases.toFixed(0)} px, carte à ${p.carte.toFixed(0)} px`);
+  noter(`V9 cases alignées sur le titre (${quoi})`, Math.abs(p.titre - p.cases) <= 1, `titre à ${p.titre.toFixed(0)} px, cases à ${p.cases.toFixed(0)} px`);
   await prep.close();
 
   // V8: l'accueil du salon sur un téléphone.

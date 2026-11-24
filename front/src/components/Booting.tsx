@@ -32,7 +32,6 @@ export function Booting({
   step,
   stalled = false,
   console: code,
-  onMenu,
   onGiveUp,
 }: {
   game: string;
@@ -42,7 +41,6 @@ export function Booting({
   step: Step;
   /** Vrai quand la page a cessé d'attendre: plus rien n'arrivera tout seul. */
   stalled?: boolean;
-  onMenu?: () => void;
   onGiveUp?: () => void;
 }) {
   const reached = STEPS.indexOf(step);
@@ -124,20 +122,15 @@ export function Booting({
             : "Le jeu met plus longtemps que d’habitude."}
         </p>
       ) : null}
-      {(perdu || waited >= 8) && (onMenu ?? onGiveUp) ? (
+      {/* Plus de bouton de menu ici (C2, 24 novembre 2026) : « Menu du jeu »
+          de la colonne ouvre le menu à côté de cet écran, jamais dessus. */}
+      {/* « arrêter d'attendre » et non « annuler »: ce bouton n'annule rien
+          dans la salle, il retire cet écran d'ici (audit T08). */}
+      {perdu && onGiveUp ? (
         <div className="flex flex-wrap justify-center gap-2">
-          {onMenu ? (
-            <button type="button" id="bootingMenu" className="n3-action" onClick={onMenu}>
-              ouvrir le menu
-            </button>
-          ) : null}
-          {/* « arrêter d'attendre » et non « annuler »: ce bouton n'annule
-              rien dans la salle, il retire cet écran d'ici (audit T08). */}
-          {onGiveUp && perdu ? (
-            <button type="button" id="bootingGiveUp" className="n3-action" onClick={onGiveUp}>
-              arrêter d&apos;attendre
-            </button>
-          ) : null}
+          <button type="button" id="bootingGiveUp" className="n3-action" onClick={onGiveUp}>
+            arrêter d&apos;attendre
+          </button>
         </div>
       ) : null}
     </div>

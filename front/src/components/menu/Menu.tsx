@@ -297,6 +297,21 @@ export function Menu({
     };
   }, [horsColonne]);
 
+  /* Le fondu et le défilé déplacent les lignes le temps de leur animation :
+     le ▶ posé à l'ouverture restait devant le vide (vu par etats.mjs au
+     niveau « tout »). Il se repose quand une animation du menu finit. */
+  useEffect(() => {
+    const surface = boite.current;
+    if (!surface) return;
+    const fini = () => {
+      const ici = document.activeElement;
+      if (ici && surface.contains(ici))
+        ici.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    };
+    surface.addEventListener("animationend", fini);
+    return () => surface.removeEventListener("animationend", fini);
+  }, []);
+
   /* Un menu ouvert au clavier montre son pied tout de suite : le navigateur
      marque le focus posé après une touche comme visible. */
   useEffect(() => {

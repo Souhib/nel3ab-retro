@@ -3091,7 +3091,6 @@ function Room({
               console={room?.library.find((one) => one.name === booting.game)?.console}
               save={booting.save}
               stalled={booting.stalled ?? false}
-              onMenu={() => setMenu(true)}
               onGiveUp={() => {
                 setBooting(null);
                 setMenu(true);

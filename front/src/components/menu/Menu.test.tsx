@@ -431,3 +431,27 @@ describe("la fermeture", () => {
     expect(getComputedStyle(boite).touchAction).not.toBe("none");
   });
 });
+
+describe("le ▶ après une animation", () => {
+  it("se repose sur la ligne qui a le focus quand le fondu finit", () => {
+    menu();
+    const vus: string[] = [];
+    document.addEventListener("focusin", (e) => vus.push((e.target as HTMLElement).id));
+    document
+      .getElementById("menuPanneau")!
+      .dispatchEvent(new Event("animationend", { bubbles: true }));
+    expect(vus).toEqual(["item-game0"]);
+  });
+
+  it("le jumeau : rien quand le focus est hors du menu", () => {
+    render(<button type="button" id="dehors" />);
+    menu();
+    act(() => document.getElementById("dehors")!.focus());
+    const vus: string[] = [];
+    document.addEventListener("focusin", (e) => vus.push((e.target as HTMLElement).id));
+    document
+      .getElementById("menuPanneau")!
+      .dispatchEvent(new Event("animationend", { bubbles: true }));
+    expect(vus).toEqual([]);
+  });
+});

@@ -221,6 +221,54 @@ const DANS_L_IMAGE = () => {
   return { vus: [...vus], fautes };
 };
 
+/** Le contraste de chaque texte de la pastille contre son fond, et de son
+ * bord, lus dans le style calculé. Le fond est celui du premier ancêtre
+ * opaque : la pastille est l'écran noir de la borne dans les deux thèmes. */
+const CONTRASTE_PASTILLE = () => {
+  const rgb = (c) => {
+    const m = /rgba?\(([^)]+)\)/.exec(c);
+    if (!m) return null;
+    const v = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+    return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 };
+  };
+  const lum = ({ r, g, b }) => {
+    const f = (x) => {
+      const c = x / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const rapport = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100;
+  };
+  const fond = (el) => {
+    for (let e = el; e; e = e.parentElement) {
+      const c = rgb(getComputedStyle(e).backgroundColor);
+      if (c && c.a === 1) return c;
+    }
+    return null;
+  };
+  const p = document.querySelector("#pastilleEtat");
+  if (!p) return { erreur: "pas de pastille" };
+  const texte = p.querySelector(".n3-pastille-texte");
+  const compteur = p.querySelector(".n3-pastille-compteur .rt-afficheur-valeur") ?? p.querySelector(".n3-pastille-compteur");
+  if (!texte || !compteur || !compteur.textContent.trim()) return { erreur: "la pastille n'a pas son texte et son compteur" };
+  const sous = fond(p);
+  if (!sous) return { erreur: "la pastille n'a pas de fond opaque" };
+  const mesure = (el) => {
+    const c = rgb(getComputedStyle(el).color);
+    return { texte: el.textContent.trim(), couleur: getComputedStyle(el).color, rapport: rapport(c, fond(el)) };
+  };
+  return {
+    theme: document.documentElement.dataset.theme ?? null,
+    fond: getComputedStyle(p).backgroundColor,
+    texte: mesure(texte),
+    compteur: mesure(compteur),
+    bord: { couleur: getComputedStyle(p).borderTopColor, rapport: rapport(rgb(getComputedStyle(p).borderTopColor), sous) },
+  };
+};
+
 /** La pastille de la proposition de l'image légère (ADR D40). */
 const OFFRE = '#pastilleEtat[data-etat="irreguliere"]';
 
@@ -683,6 +731,49 @@ const ETAPES = {
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
     if (vues.length < 3) throw new Precondition(`pastille montrée à ${vues.length} tailles seulement (${vues})`);
     console.log(JSON.stringify({ pastille_montree: vues }));
+  },
+
+  /** La pastille se lit dans les deux régies. Son fond est l'écran noir de la
+   * borne dans les deux thèmes ; de jour, ses jetons prenaient leurs valeurs
+   * claires sur ce noir, et le compteur du gel tombait à 1,16:1 (relecture
+   * du 24 novembre 2026). Mesurés de jour et de nuit sur la vraie pastille
+   * d'une image figée : son texte et son compteur à 4,5:1 au moins (WCAG
+   * 1.4.3), son bord à 3:1 (WCAG 1.4.11). Le jumeau : un compteur repeint
+   * dans la couleur du fond est vu. */
+  async "pastille-contraste"() {
+    const fautes = [];
+    const lus = [];
+    for (const theme of ["jour", "nuit"]) {
+      const page = await nouvelle(PC, { "nel3ab:theme": theme });
+      const pose = await page.evaluate(() => document.documentElement.dataset.theme ?? null);
+      if (pose !== theme) throw new Precondition(`le thème ${theme} n'est pas posé: ${pose}`);
+      await entrer(page);
+      await sleep(1500);
+      banc.regler({ video: "freeze" });
+      const vue = await page
+        .waitForFunction(() => document.querySelector("#pastilleEtat .n3-pastille-compteur")?.textContent.trim(), { timeout: 6000 })
+        .catch(() => null);
+      if (vue === null) throw new Precondition(`${theme}: pas de pastille avec son compteur en 6 s de gel`);
+      await sleep(300);
+      const m = await page.evaluate(CONTRASTE_PASTILLE);
+      if (m.erreur) throw new Precondition(`${theme}: ${m.erreur}`);
+      lus.push(`${theme} texte ${m.texte.rapport} compteur ${m.compteur.rapport} bord ${m.bord.rapport}`);
+      if (m.texte.rapport < 4.5) fautes.push(`${theme}: texte « ${m.texte.texte} » ${m.texte.couleur} sur ${m.fond}, ${m.texte.rapport}:1`);
+      if (m.compteur.rapport < 4.5)
+        fautes.push(`${theme}: compteur « ${m.compteur.texte} » ${m.compteur.couleur} sur ${m.fond}, ${m.compteur.rapport}:1`);
+      if (m.bord.rapport < 3) fautes.push(`${theme}: bord ${m.bord.couleur} sur ${m.fond}, ${m.bord.rapport}:1`);
+      // Le jumeau : la même mesure voit un compteur peint dans son fond.
+      await page.evaluate((f) => {
+        const c = document.querySelector("#pastilleEtat .n3-pastille-compteur");
+        for (const e of [c, ...c.querySelectorAll("*")]) e.style.setProperty("color", f, "important");
+      }, m.fond);
+      const terni = await page.evaluate(CONTRASTE_PASTILLE);
+      if (terni.compteur.rapport >= 4.5) throw new Precondition(`${theme}: un compteur peint dans son fond n'est pas vu (${terni.compteur.rapport}:1)`);
+      banc.regler({ video: "live" });
+      await page.close();
+    }
+    console.log(JSON.stringify({ pastille_contraste: lus }));
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
   /** La pastille mène au geste de sa fiche (ADR D40) : un vrai clic au

@@ -194,7 +194,10 @@ export function EtatPastille({ modele, onAller }: { modele: Modele; onAller?: ()
     id: "pastilleEtat",
     "data-etat": modele.id,
     "data-offre": p.offre ? "" : undefined,
-    className: "n3-pastille",
+    // L'écran noir de la borne dans les deux thèmes : ses jetons sont ceux
+    // de la nuit, comme les avis voisins de la pile. De jour, le compteur du
+    // gel tombait à 1,16:1 (pilote etats, pastille-contraste).
+    className: "n3-pastille regie-nuit",
   };
   if (modele.niveau === "fiche" && onAller)
     return (

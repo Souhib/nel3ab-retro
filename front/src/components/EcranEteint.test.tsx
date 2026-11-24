@@ -91,6 +91,22 @@ describe("l'écran éteint", () => {
     const { container } = monter(arbitre().a, null);
     expect(container.querySelector('[data-hote="plateau"]')).not.toBeNull();
   });
+
+  it("ses mots sont ceux de l'événement : le titre et la phrase portent data-texte", () => {
+    // Aïn joue sur le plateau, sous ces mots ; le planificateur ne les évite
+    // que marqués (`mascotte/moteur.ts`). Sans marque, la cartouche de
+    // « chercher » couvrait « verras » (relecture du 24 novembre 2026).
+    const { container } = monter(arbitre().a, "Bo choisit le jeu. Tu le verras démarrer ici.");
+    const marques = [...container.querySelectorAll("[data-texte]")].map((e) => e.textContent);
+    expect(marques).toEqual([
+      "Pas encore de jeu.",
+      "Bo choisit le jeu. Tu le verras démarrer ici.",
+    ]);
+    // Le jumeau : à qui choisit, le bouton n'est pas un mot (c'est un
+    // contrôle, que le planificateur lit d'office) ; le titre l'est.
+    const chef = monter(arbitre().a, null).container;
+    expect([...chef.querySelectorAll("[data-texte]")].map((e) => e.tagName)).toEqual(["H2"]);
+  });
 });
 
 describe("la phrase du repos", () => {

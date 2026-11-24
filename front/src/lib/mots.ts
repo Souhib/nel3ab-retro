@@ -879,4 +879,32 @@ export const FICHE = {
   detail: "Voir le détail",
 } as const;
 
+/** La bibliothèque : les rangées de l'écran éteint et la fiche d'un jeu
+ * (B1 à B11, `lib/bibliotheque`). */
+export const BIBLIO = {
+  /** Le nom de la bibliothèque pour un lecteur d'écran. */
+  nom: "Les jeux de la salle",
+  titre: (console: string, n: number) => `${console}, ${n} ${n > 1 ? "jeux" : "jeu"}`,
+  /** La note d'une console à l'essai, sous le titre de sa rangée. */
+  essai: "Un jeu peut ralentir ou s'arrêter.",
+  /** Ce qui suit « Lancer » (`suiteDuLancement`). */
+  toutDeSuite: "Le jeu part tout de suite.",
+  chacunPret: "Chacun dit qu'il est prêt, puis le jeu part.",
+  /** Ce que « Lancer » arrête (`consequence`). */
+  arrete: (jeu: string, n: number, assis: boolean) =>
+    n === 0
+      ? `${jeu} s'arrête.`
+      : n === 1
+        ? `${jeu} s'arrête ${assis ? "pour toi" : "pour 1 joueur"}.`
+        : `${jeu} s'arrête pour les ${n} joueurs.`,
+  repart: "La partie repart de la sauvegarde choisie.",
+  relancer: "Relancer",
+  /** Qui ne choisit pas lit la fiche, sans « Lancer » (B8). */
+  choisit: (nom: string) => `${nom} choisit le jeu et la sauvegarde.`,
+  pasJouable: "Cette console n'est pas encore jouable ici.",
+  /** Le dernier jeu de la salle (D06), sous les rangées. */
+  dernier: (titre: string, quand: string) => `Le dernier jeu de cette salle : ${titre}, ${quand}.`,
+  ouvrirFiche: "Ouvrir sa fiche",
+} as const;
+
 // ==== fin menus ====

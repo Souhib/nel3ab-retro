@@ -4,9 +4,12 @@ import manifest from "../../../consoles/consoles.json";
 import { consoleLue } from "../components/LobbyPlan";
 import { ConsoleIcon, GameIcon } from "../components/XmbIcons";
 import {
+  aLEssai,
+  appareilsDe,
   CONSOLE_CODES,
   CONSOLES,
   consoleLabel,
+  seulDe,
   launchable,
   preparable,
   smoothArt,
@@ -33,7 +36,7 @@ it("garde les noms d'étagère d'avant, et la Xbox 360 sans mention", () => {
     "GameCube",
     "Wii",
     "Switch",
-    "Switch 2 (expérimental)",
+    "Switch 2 à l'essai",
     "Xbox 360",
     "à classer",
   ]);
@@ -51,7 +54,32 @@ it("ne dit la mention que par le drapeau, jamais dans un nom ou une note", () =>
   }
   // Le jumeau: la mention de la Switch 2 vient bien du drapeau, ajoutée ici.
   expect(manifest.consoles.find((one) => one.code === "switch2")?.experimental).toBe(true);
-  expect(consoleLabel("switch2")).toMatch(/expérimental/);
+  expect(consoleLabel("switch2")).toMatch(/à l'essai/);
+  expect(aLEssai("switch2")).toBe(true);
+  // Le jumeau négatif : aucune autre console, ni un code inconnu, n'est à l'essai.
+  expect(["gc", "wii", "switch", "x360", "?", undefined].map(aLEssai)).toEqual([
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+  ]);
+});
+
+it("lit les appareils et le joueur seul comme le salon", () => {
+  // `allowed_devices` et `CONSOLES.solo` du salon lisent les mêmes champs.
+  expect(appareilsDe("wii")).toEqual([1, 0, 2, 3]);
+  expect(appareilsDe("gc")).toEqual([0]);
+  expect(appareilsDe("?")).toEqual([]);
+  expect(seulDe("switch2")).toBe(true);
+  expect(["gc", "wii", "switch", "x360", "?"].map(seulDe)).toEqual([
+    false,
+    false,
+    false,
+    false,
+    false,
+  ]);
 });
 
 it("sépare les sens de l'ancien isSwitchConsole", () => {

@@ -28,9 +28,11 @@ function described(code: string | undefined): Described | undefined {
 export const CONSOLES: readonly { code: string; label: string; note: string }[] = [
   ...DESCRIBED.map((one) => ({
     code: one.code,
-    // « expérimental » vient du drapeau, pas du nom: le salon et le worker lisent
+    // « à l'essai » vient du drapeau, pas du nom: le salon et le worker lisent
     // le même nom, et un nom qui porte un statut finit par mentir sur lui.
-    label: one.experimental ? `${one.label} (expérimental)` : one.label,
+    // « (expérimental) » jusqu'au 24 novembre 2026 : le mot d'un laboratoire,
+    // pas celui d'une borne (chantier menus, B3).
+    label: one.experimental ? `${one.label} à l'essai` : one.label,
     note: one.note,
   })),
   // Un disque dont l'outil n'a pas su dire la console. Il a quand même son
@@ -86,4 +88,23 @@ export function preparable(code: string | undefined): boolean {
  * chemin en deux pressions: c'est le worker qui décide, comme avant. */
 export function launchable(code: string | undefined): boolean {
   return described(code)?.playable !== false;
+}
+
+/** Vrai pour une console que la salle garde à l'essai (le drapeau
+ * `experimental` du manifeste), la Switch 2 depuis le 22 novembre 2026. */
+export function aLEssai(code: string | undefined): boolean {
+  return described(code)?.experimental === true;
+}
+
+/** Les appareils qu'une préparation propose pour cette console, lus dans le
+ * manifeste comme le salon le fait (`CONSOLES.devices`). Vide pour un code
+ * inconnu, « ? » compris. */
+export function appareilsDe(code: string | undefined): readonly number[] {
+  return described(code)?.devices ?? [];
+}
+
+/** Vrai quand la salle ne valide qu'un joueur pour cette console, comme
+ * `CONSOLES.solo` du salon : la préparation ne compte alors que le chef. */
+export function seulDe(code: string | undefined): boolean {
+  return described(code)?.players === 1;
 }

@@ -5,7 +5,8 @@
  * salle) : en tête de la colonne, dans une bande noire. Tenue en main, la
  * pile vit dans la bande du téléphone, quand elle existe. Sans bande :
  *
- * - en paysage, en haut de la grappe droite de la manette, au-dessus des
+ * - dans la bande noire au-dessus de l'image (le fronton) ou à sa droite,
+ *   ou en paysage en haut de la grappe droite de la manette, au-dessus des
  *   gâchettes (`emplacementPastille`, K12) ;
  * - tenu droit, dans la barre, à la place du nom de la salle, qui reste lu
  *   par les lecteurs d'écran : la pastille le couvre, « La salle » reste à
@@ -24,12 +25,19 @@ export const BARRE_SALLE_PX = 140;
 /** Ce qu'une pastille doit avoir pour se lire : « Ferme dans 30 min ». */
 export const PASTILLE_MIN_PX = 120;
 
+/** Les lieux de la salle où la pastille se pose seule, sans recouvrir rien. */
+const A_PART: readonly string[] = ["fronton", "bordure", "grappe-droite"];
+
 export type PlacePastille = { lieu: "pile" } | { lieu: "a-part"; rect: Rect } | null;
 
 export function placeDeLaPastille(geo: Geometrie, tenu: boolean): PlacePastille {
   if (!tenu) return { lieu: "pile" };
+  // Le fronton, la bordure droite et le haut de la grappe droite sont hors
+  // de l'image par construction (`emplacementPastille` de la salle). Le
+  // panneau, lui, porte les places START : la pastille ne s'y pose pas
+  // par-dessus.
   const ici = emplacementPastille(geo);
-  if (ici?.lieu === "grappe-droite" && ici.rect) return { lieu: "a-part", rect: ici.rect };
+  if (ici?.rect && A_PART.includes(ici.lieu)) return { lieu: "a-part", rect: ici.rect };
   if (geo.bande !== null && geo.bande.h >= 44) return { lieu: "pile" };
   if (geo.barre !== null) {
     const largeur = geo.barre.w - BARRE_SALLE_PX - 8;

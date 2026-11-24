@@ -55,6 +55,13 @@ describe("la place de la pastille, tenue en main", () => {
     expect(place.rect.y).toBe(0);
     expect(place.rect.x + place.rect.w).toBeLessThanOrEqual(375 - BARRE_SALLE_PX);
   });
+  it("prend le fronton de la salle, hors de l'image, quand il existe", () => {
+    const g = { ...geo(844, 390), fronton: { x: 162, y: 0, w: 520, h: 44 } };
+    expect(placeDeLaPastille(g, true)).toEqual({
+      lieu: "a-part",
+      rect: { x: 162, y: 0, w: 520, h: 44 },
+    });
+  });
   it("jumeau : une barre trop étroite ne la prend pas", () => {
     const g = geo(375, 667);
     const etroite = { ...g, bande: null, barre: { x: 0, y: 0, w: 200, h: 52 } };

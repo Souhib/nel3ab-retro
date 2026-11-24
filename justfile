@@ -64,7 +64,15 @@ default: local
 # tiroir passait sans bruit. Même prix de nature (Chrome, rien de vivant, Vite
 # sans relais sur 5446 et 5437), et mesuré le 22 novembre 2026 sur cette
 # machine: 112 s et 48 s.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde
+#
+# `reglage-navigateur` et `reglage-navigateur-rouge` y entrent le 24 novembre
+# 2026, à la fusion du chantier manettes sur la branche d'intégration, comme
+# son plan et la partition le prévoient: le panneau « Touches et manettes »
+# vit dans la colonne, que jsdom ne met pas en page, et le contrôle rouge
+# garde ses pages de référence. Même prix de nature (Chrome, la page
+# committée, rien de vivant), mesuré ce jour-là sur cette machine: 43 s et
+# 42 s.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,

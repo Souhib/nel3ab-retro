@@ -2040,7 +2040,7 @@ function Room({
                 id: "advanced",
                 label: "réglages avancés",
                 value: avances ? "affichés" : "3 de plus",
-                hint: "son sans conversion, image calée sur le son, connexion",
+                hint: "son sans conversion, image calée sur le son, mesures techniques",
                 deplie: avances,
                 onEnter: () => setAvances(!avances),
               },

@@ -1043,7 +1043,7 @@ const ETAPES = {
     await page.close();
   },
 
-  /** « état de la connexion » sur un téléphone: le résumé s'ouvre dans le
+  /** « mesures techniques » sur un téléphone: le résumé s'ouvre dans le
    * menu, et la colonne ne coupe pas l'écran en deux moitiés de 195 px. La
    * valeur dit l'état, pas un compte d'images (relecture du 22 novembre 2026). */
   async "connexion-telephone"() {
@@ -1063,14 +1063,14 @@ const ETAPES = {
         await page.$eval("#item-advanced", (el) => el.click());
         await sleep(300);
       }
-      if ((await page.$("#item-connexion")) === null) throw new Precondition("pas d'entrée « état de la connexion »");
+      if ((await page.$("#item-connexion")) === null) throw new Precondition("pas d'entrée « mesures techniques »");
       // `data-valeur` depuis la relecture; avant, la valeur était le dernier
       // enfant de l'entrée.
       const valeur = await page.$eval(
         "#item-connexion",
         (el) => (el.querySelector("[data-valeur]") ?? el.lastElementChild)?.textContent?.trim() ?? "",
       );
-      if (/images?$/.test(valeur)) throw new Defaut(`la valeur de « état de la connexion » est un compte: « ${valeur} »`);
+      if (/images?$/.test(valeur)) throw new Defaut(`la valeur de « mesures techniques » est un compte: « ${valeur} »`);
       await page.$eval("#item-connexion", (el) => el.click());
       await sleep(400);
       return page;
@@ -1083,13 +1083,13 @@ const ETAPES = {
     }));
     await capture(tel, "connexion");
     if (!lu.menu || lu.resume === null)
-      throw new Defaut(`sur un téléphone, « état de la connexion » n'ouvre pas son résumé dans la fiche du menu (${JSON.stringify(lu)})`);
+      throw new Defaut(`sur un téléphone, « mesures techniques » n'ouvre pas son résumé dans la fiche du menu (${JSON.stringify(lu)})`);
     if (!/en marche/.test(lu.resume)) throw new Defaut(`le résumé ne dit pas l'état: « ${lu.resume} »`);
     await tel.close();
     // Le jumeau: sur un ordinateur, le détail s'ouvre dans la colonne.
     const pc = await ouvrir(PC);
     if (!(await attendre(pc, () => document.querySelector("#stats") !== null && document.querySelector("#menu") === null)))
-      throw new Defaut("sur un ordinateur, « état de la connexion » n'ouvre plus le détail dans la colonne");
+      throw new Defaut("sur un ordinateur, « mesures techniques » n'ouvre plus le détail dans la colonne");
     await pc.close();
   },
 

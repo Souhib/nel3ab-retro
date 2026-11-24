@@ -13,7 +13,8 @@ import type { Ligne } from "./menu";
 import { FICHE } from "./mots";
 
 /**
- * « état de la connexion », l'entrée qui a remplacé la rubrique « mesures ».
+ * « mesures techniques » (« état de la connexion » jusqu'au 24 novembre 2026,
+ * M5), l'entrée qui a remplacé la rubrique « mesures ».
  *
  * La rubrique « mesures » en tenait une sur quatre, au même rang que « jeux »,
  * pour trois chiffres de diagnostic (audit T13). Ils sont ici, repliés, et le
@@ -49,7 +50,7 @@ export function entreeConnexion({
   const ou = compact ? "dans la salle" : "dans la colonne";
   return {
     id: "connexion",
-    label: "état de la connexion",
+    label: "mesures techniques",
     value: NOM_ETAT[liaison.etat],
     ...(appareil === "tactile" || fiche
       ? {

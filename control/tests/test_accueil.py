@@ -313,6 +313,45 @@ async def test_deux_releves_manques_figent_la_liste_et_aine_decroche(
 
 
 @AVEC_JSDOM
+async def test_a_zero_salle_ain_attire_l_attention_jusqu_a_ce_qu_une_salle_s_ouvre(
+    client: httpx.AsyncClient,
+) -> None:
+    """La boucle d'attention (« attente » trois fois, puis « dort ») est armée
+    une fois à zéro salle, même relue, et coupée quand une salle s'ouvre. Sa
+    cadence est essayée sous horloge simulée dans `salon/attention.test.ts`."""
+    dit = await _jouer(
+        client, [_trois(salle(1)), _trois(salle(1)), _trois(ouverte(1, ["Nour", None, None, None]))]
+    )
+    assert dit["attention"] == ["arme", "coupe"]
+    assert dit["scenes"].count("attente") == 1
+
+
+@AVEC_JSDOM
+async def test_une_salle_ouverte_n_arme_pas_la_boucle_d_attention(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le jumeau : une salle tourne dès le chargement, rien n'attire l'œil vers
+    « Ouvrir une salle »."""
+    dit = await _jouer(
+        client,
+        [
+            _trois(ouverte(1, ["Nour", None, None, None])),
+            _trois(ouverte(1, ["Nour", None, None, None])),
+        ],
+    )
+    assert dit["attention"] == []
+    assert "attente" not in dit["scenes"]
+
+
+@AVEC_JSDOM
+async def test_une_liste_figee_coupe_la_boucle_d_attention(client: httpx.AsyncClient) -> None:
+    """Deux relevés manqués : la liste ne dit plus la vérité, Aïn ne
+    montre plus « Ouvrir une salle »."""
+    dit = await _jouer(client, [_trois(salle(1)), {"statut": 502}, {"statut": 502}])
+    assert dit["attention"] == ["arme", "coupe"]
+
+
+@AVEC_JSDOM
 async def test_ouvrir_une_salle_la_montre_ici_sans_partir(client: httpx.AsyncClient) -> None:
     """Après « Ouvrir une salle », la page ne part plus vers l'avant-salle.
 

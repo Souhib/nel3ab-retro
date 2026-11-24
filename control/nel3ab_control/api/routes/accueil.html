@@ -541,6 +541,17 @@
     } else if (!armer && finirDemo) { finirDemo(); finirDemo = null; }
   }
 
+  /** La boucle d'attention à zéro salle (`nel3abSalon.surAttention`) :
+   * « attente » à 2,5 s puis toutes les 6 s, trois tours, puis « dort ».
+   * Armée une fois par passage à zéro salle ; un geste l'arrête jusqu'au
+   * prochain. Une salle qui s'ouvre la coupe. */
+  let finirAttention = null;
+  function armerAttention(armer) {
+    if (armer && !finirAttention && arcade?.surAttention) {
+      finirAttention = arcade.surAttention((scene) => ain(scene));
+    } else if (!armer && finirAttention) { finirAttention(); finirAttention = null; }
+  }
+
   // ── Le dessin d'un tour ───────────────────────────────────────────────
   function dessiner(salles) {
     derniereListe = salles;
@@ -579,6 +590,7 @@
       for (const reste of vieilles.values()) reste.remove();
     }
     armerDemo(zero && rates < 2);
+    armerAttention(zero && rates < 2);
     dire(salles, zero, conseil);
   }
 

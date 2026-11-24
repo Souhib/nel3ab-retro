@@ -16,8 +16,8 @@
 //
 // Rend, pour chaque tour suivant le premier, ce qu'un observateur a vu
 // changer dans la rangée, ce que la ligne d'annonce dit, et la vue entière
-// (accroche, bornes, places, panneau); puis les scènes demandées à Aïn et les
-// POST envoyés.
+// (accroche, bornes, places, panneau); puis les scènes demandées à Aïn, les
+// POST envoyés et la boucle d'attention, armée ou coupée.
 import { createRequire } from "node:module";
 import { text } from "node:stream/consumers";
 
@@ -28,6 +28,8 @@ const entree = JSON.parse(await text(process.stdin));
 const { page, tours } = entree;
 const reponses = [...tours];
 const envois = [];
+/** Les armements et coupures de la boucle d'attention (`surAttention`). */
+const attention = [];
 let sonder = null;
 
 const reponse = (statut, corps) => ({ ok: statut >= 200 && statut < 300, status: statut, json: async () => corps });
@@ -60,6 +62,24 @@ const dom = new JSDOM(page, {
       sonder = rappel;
       return 1;
     };
+    // La boucle d'attention du paquet, doublée au moment où le paquet la
+    // pose : son armement et sa coupure sont relevés, et son premier tour
+    // joue tout de suite au lieu d'attendre 2,5 s.
+    let salon;
+    Object.defineProperty(window, "nel3abSalon", {
+      configurable: true,
+      get: () => salon,
+      set(valeur) {
+        salon = valeur;
+        if (valeur && typeof valeur.surAttention === "function") {
+          valeur.surAttention = (jouer) => {
+            attention.push("arme");
+            jouer("attente");
+            return () => attention.push("coupe");
+          };
+        }
+      },
+    });
   },
 });
 const { window } = dom;
@@ -167,6 +187,7 @@ process.stdout.write(
     rendus,
     scenes,
     envois,
+    attention,
     vivante: liste.getAttribute("aria-live"),
     role: annonce.getAttribute("role"),
   }),

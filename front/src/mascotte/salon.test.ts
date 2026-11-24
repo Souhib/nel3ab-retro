@@ -166,6 +166,7 @@ describe("le paquet dans une page du salon", () => {
       "initiales",
       "poserCalquesAttente",
       "poserFiltreBombe",
+      "surAttention",
       "surInactivite",
       "surStart",
     ]);

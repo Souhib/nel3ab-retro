@@ -8,6 +8,7 @@
  * jamais « une image est arrivée ».
  */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { armer, ATTRIBUT, jetons, retirer, vues } from "./couverture";
 import { VideoStream } from "./video";
 
 type FakeSocket = {
@@ -149,6 +150,46 @@ it("date la dernière image peinte, et rien avant la première", () => {
   expect(peinte.sincePaintedMs).toBeLessThan(100);
   vi.advanceTimersByTime(2500);
   expect(video.stats().sincePaintedMs).toBeGreaterThanOrEqual(2500);
+  video.stop();
+});
+
+/* La couverture (D40) : la boucle de peinture la lève elle-même, dans le
+   tour qui peint l'image. Un mutant sans l'appel de `paint` garde le plein
+   cadre jusqu'au relevé suivant de React, et ces deux essais tombent. */
+it("la première image peinte lève la couverture dans le même tour de peinture", () => {
+  const video = ouverte();
+  const decide = vues();
+  expect(armer("plein", decide)).toBe(true);
+  // Un tour de peinture sans image prête ne lève rien.
+  paint(performance.now());
+  expect(document.documentElement.getAttribute(ATTRIBUT)).toBe("plein");
+  let tours = 0;
+  while (video.stats().painted === 0 && tours < 30) {
+    last().onmessage({ data: image() });
+    vi.advanceTimersByTime(16);
+    paint(performance.now());
+    tours += 1;
+    // Tant que rien n'est peint, la couverture tient ; dès qu'une image
+    // l'est, elle est partie, sans attendre un autre tour.
+    if (video.stats().painted === 0)
+      expect(document.documentElement.getAttribute(ATTRIBUT)).toBe("plein");
+  }
+  expect(video.stats().painted).toBe(1);
+  expect(document.documentElement.getAttribute(ATTRIBUT)).toBeNull();
+  expect(vues()).toBe(decide + 1);
+  video.stop();
+});
+
+it("jumeau : chaque image peinte est comptée, et la couverture n'est plus armable dessus", () => {
+  const video = ouverte();
+  const decide = vues();
+  images(20);
+  const peintes = video.stats().painted;
+  expect(peintes).toBeGreaterThan(0);
+  expect(vues() - decide).toBe(peintes);
+  expect(armer("passee", decide)).toBe(false);
+  expect(jetons()).toEqual([]);
+  for (const jeton of jetons()) retirer(jeton);
   video.stop();
 });
 

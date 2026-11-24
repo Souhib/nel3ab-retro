@@ -16,6 +16,7 @@ import {
   stuckAtCeiling,
 } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
+import { lever } from "./couverture";
 import { under } from "../lib/base";
 
 /** How long without a byte before the connection is presumed dead.
@@ -1065,6 +1066,10 @@ export class VideoStream {
     this.sampleDark(next.frame);
     next.frame.close();
     this.painted += 1;
+    // La couverture (plein cadre, neige, image assombrie) part dans CETTE
+    // image d'écran, pas au relevé suivant de React (`couverture.ts`, D40).
+    // Une addition et une comparaison quand rien n'est posé.
+    lever();
     this.lastPainted = now;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;

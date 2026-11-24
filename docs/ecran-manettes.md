@@ -976,8 +976,8 @@ décision à l'ADR D42 et D35. Ce qui n'est pas lisible dans le code :
   bande, la manette et l'étiquette de la bande sont absents de cette
   géométrie ; la barre reste, avec « La salle ».
 - **L'entrée de la feuille compte ses rangées.** Trois rangées de deux
-  entrées tiennent dans `FEUILLE_MI_MIN` ; une rangée de plus coûte 48 px
-  (`RANGEE_MI`). Ajouter une entrée à la feuille déplace ce calcul : la
+  entrées tiennent dans `FEUILLE_MI_MIN` ; une rangée de plus coûte 80 px
+  (`RANGEE_MI`), mesurés à 390 × 844 et non déduits d'un `min-height`. Ajouter une entrée à la feuille déplace ce calcul : la
   feuille ne défile jamais (`salle-telephone`).
 - **Le rang vient juste sous Signaler**, qui reste premier (K25). À 1280×720
   avec une image 4:3, les places sont au pied de la colonne et les rangs

@@ -1755,7 +1755,8 @@ held upright and right of it held sideways, and opening it closes the
 sheet. The touch pad is not mounted while it is open, and its place goes to
 the panel. The sheet at mid height carries a "Touches et manettes" entry
 after the game menu only when its row fits: three rows of two entries fit
-in `FEUILLE_MI_MIN`, and each extra row costs 48 px (`lib/feuille.ts`).
+in `FEUILLE_MI_MIN`, and each extra row costs 80 px, measured at 390 × 844
+(a fourth row took the content from 275 to 347 and 353 px; `lib/feuille.ts`).
 Held sideways, its single column would scroll, so the entry lives at the
 head of the whole room's column, as the clip already does.
 
@@ -3087,7 +3088,7 @@ rectangle, so the enlarged sheet still carries it there (`manette-seule`,
 red on 672dcb6). `placeDuReglage`, a rule nothing read, is gone.
 `place-tenu` enters the gate with `rang`, `etiquette` and
 `feuille-reglage`; all four fail on their defect on 928bd03. The page
-weighs 278 222 bytes brotli (−1 425 on 928bd03).
+weighs 278 234 bytes brotli (−1 413 on 928bd03).
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

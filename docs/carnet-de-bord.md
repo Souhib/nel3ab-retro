@@ -32959,10 +32959,22 @@ entrée. Sa hauteur a été mesurée le 23 novembre : trois rangées de deux
 entrées tiennent dans 276 px, et rien ne doit y défiler. Pendant une partie,
 la feuille a déjà six entrées ; une septième ouvre une quatrième rangée, et
 à 375 × 667 la feuille n'a que 287 px. L'entrée ne s'y pose donc que si sa
-rangée tient : trois rangées, plus une par tranche de 48 px au-delà. À
+rangée tient : trois rangées, plus une par tranche de 80 px au-delà. À
 390 × 844 (380 px), elle y est ; à 375 × 667 en partie, non, et le rang de la
 salle entière la porte. En travers, la feuille n'a qu'une colonne, qui
 défilait déjà avec le clip : même règle que lui.
+
+Le premier jet comptait 48 px par rangée, déduits de la feuille de style :
+une entrée de 44 px et 4 px d'écart. La première série de portes a mesuré
+autre chose : à 390 × 844, la quatrième rangée porte le contenu de 275 à
+347 px, 353 quand le son est coupé. Le détail de chaque entrée tient sur
+deux lignes dans une colonne de téléphone. Avec 48 px, une feuille de 324 à
+352 px aurait défilé ; aucune taille essayée ne tombait dans cet intervalle,
+et aucune porte ne l'aurait dit. Un essai épingle maintenant 350 px (pas
+d'entrée) et 356 px (l'entrée). Leçon : une hauteur se mesure dans le
+rendu, elle ne se déduit pas d'un `min-height`. Une tablette tenue droite
+pose quatre entrées par rangée ; la règle les compte deux par deux, et garde
+l'entrée en tête de la salle entière quand elle tiendrait peut-être.
 
 **Le constat 4 était encore réel.** La relecture des manettes avait mesuré
 le panneau sur l'image vivante, tenu en main, dans la feuille agrandie. Sur
@@ -33023,7 +33035,7 @@ construction a échoué, la page d'avant est restée en place et l'étape est
 passée. Ce vert ne prouvait rien ; refait en gardant l'import utilisé, il
 tombe.
 
-**Le poids.** 278 222 octets en brotli, 1 425 de moins qu'à 928bd03 : les
+**Le poids.** 278 234 octets en brotli, 1 413 de moins qu'à 928bd03 : les
 règles mortes partent, le rang, l'entrée, l'étiquette et la place tenue
 arrivent.
 

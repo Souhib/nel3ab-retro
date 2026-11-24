@@ -186,6 +186,11 @@ describe("« Touches et manettes » à mi-hauteur", () => {
     expect(ids({ ...TELEPHONE, clip: null, reglage: true, hauteurMi: BASSE })).toContain("reglage");
     // Sans hauteur connue, rien n'est promis.
     expect(ids({ ...TELEPHONE, clip: null, reglage: true })).not.toContain("reglage");
+    // La quatrième rangée mesurée : 347 à 353 px de contenu à 390×844, pour
+    // 275 avec trois rangées (salle-telephone, 24 novembre 2026). Une feuille
+    // de 350 px la ferait défiler.
+    expect(ids({ ...TELEPHONE, reglage: true, hauteurMi: 350 })).not.toContain("reglage");
+    expect(ids({ ...TELEPHONE, reglage: true, hauteurMi: 356 })).toContain("reglage");
   });
 
   it("en travers, la colonne unique défilerait : l'entrée reste en tête de la salle entière", () => {

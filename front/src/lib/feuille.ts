@@ -77,9 +77,14 @@ export type EtatFeuille = {
   hauteurMi?: number;
 };
 
-/** Une rangée de la feuille à mi-hauteur tenue droite : une entrée de 44 px
- * et 4 px d'écart (`telephone.css`). */
-export const RANGEE_MI = 48;
+/** Une rangée de plus de la feuille à mi-hauteur tenue droite, mesurée et
+ * non déduite : 347 à 353 px de contenu à 390×844 avec une quatrième
+ * rangée, pour 275 avec trois (salle-telephone, 24 novembre 2026). Une
+ * entrée fait 44 px au moins (`telephone.css`), mais son détail tient sur
+ * deux lignes dans une colonne de téléphone : le premier calcul, 48 px,
+ * aurait laissé défiler une feuille de 324 à 352 px. 80 px gardent 3 px
+ * sur la pire mesure. */
+export const RANGEE_MI = 80;
 
 /** Les rangées que `FEUILLE_MI_MIN` tient sur deux colonnes : trois, mesurées
  * le 23 novembre 2026 (275 px de contenu à 375 et à 390 px de large). */
@@ -88,7 +93,9 @@ const RANGEES_MIN = 3;
 /** « Touches et manettes » à mi-hauteur, après le menu (chantier manettes,
  * 24 novembre 2026), seulement quand sa rangée tient : la feuille ne défile
  * jamais (salle-telephone). Tenue droite, deux entrées par rangée ; une
- * rangée de plus demande 48 px au-delà de `FEUILLE_MI_MIN`. À 375×667, la
+ * rangée de plus demande `RANGEE_MI` au-delà de `FEUILLE_MI_MIN`. Une
+ * tablette tenue droite en pose quatre par rangée : la règle la compte pour
+ * deux, et garde alors l'entrée en tête de la salle entière. À 375×667, la
  * feuille n'a que 287 px : pendant une partie, sept entrées feraient quatre
  * rangées, et l'entrée reste en tête de la colonne de la salle entière. En
  * travers, la colonne unique défilait déjà avec le clip : même règle. */

@@ -17,6 +17,7 @@ function geo(largeur: number, hauteur: number, image = { width: 640, height: 480
     zonesSures: SANS_ZONES,
     image,
     ajustement: "remplir",
+    base: null,
     etat: "vit",
     role: "joueur",
     manette: MANETTES.dolphin,

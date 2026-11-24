@@ -24,11 +24,14 @@ import {
 import {
   SANS_ZONES,
   attributsDuCadre,
+  baseDuPanneau,
   miseEnPage,
   ouEstLaMascotte,
   premiereImage,
   variablesDuCadre,
+  type BaseDuPanneau,
   type Entree,
+  type EntreeDuCadre,
   type Geometrie,
   type Rect,
   type ZonesSures,
@@ -93,11 +96,22 @@ export function Cadre({
   );
 }
 
-/** La géométrie, recalculée seulement quand une de ses entrées change. */
-export function useGeometrie(e: Entree): Geometrie {
-  const { fenetre, zonesSures, image } = e;
+/** La géométrie, recalculée seulement quand une de ses entrées change.
+ *
+ * Elle retient d'un calcul à l'autre la base de la mise en page à la souris
+ * (`baseDuPanneau`) : le format attendu de la console jusqu'au premier
+ * changement de mise en page qui suit la première image. Le calcul reste
+ * pur ; seul ce souvenir passe d'un rendu au suivant. Le relire deux fois
+ * de suite (StrictMode) rend la même base : rien n'a changé entre les deux. */
+export function useGeometrie(e: EntreeDuCadre): Geometrie {
+  const { fenetre, zonesSures, image, formatAttendu } = e;
+  const souvenir = useRef<{ entree: EntreeDuCadre; base: BaseDuPanneau } | null>(null);
   return useMemo(
-    () => miseEnPage(e),
+    () => {
+      const base = baseDuPanneau(souvenir.current, e);
+      souvenir.current = { entree: e, base };
+      return miseEnPage({ ...e, base } satisfies Entree);
+    },
     // Les champs un par un, et pas `e` : la salle construit un objet neuf à
     // chaque rendu, qui recalculerait la géométrie à chaque instantané. Le
     // prix de cette liste : un champ ajouté à `Entree` doit l'être ici aussi,
@@ -120,6 +134,8 @@ export function useGeometrie(e: Entree): Geometrie {
       e.largeurColonne,
       e.largeurPanneau,
       e.agrandie,
+      formatAttendu?.width,
+      formatAttendu?.height,
     ],
   );
 }

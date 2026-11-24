@@ -97,6 +97,8 @@ function Salle() {
     zonesSures,
     image: picture,
     ajustement: "remplir",
+    // Tenu en main : la base de la souris n'y sert pas (`baseDuPanneau`).
+    base: null,
     etat: "vit",
     role: "joueur",
     manette: pro ? MANETTES.pro : MANETTES.dolphin,

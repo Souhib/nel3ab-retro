@@ -149,20 +149,28 @@ describe("les flèches (M4)", () => {
   });
 });
 
-const entree = (plus: Partial<Entree>): Entree => ({
-  mode: "bureau",
-  fenetre: { width: 1440, height: 900 },
-  zonesSures: SANS_ZONES,
-  image: { width: 1216, height: 896 },
-  ajustement: "remplir",
-  etat: "vit",
-  role: "joueur",
-  manette: null,
-  largeurColonne: 304,
-  largeurPanneau: null,
-  agrandie: false,
-  ...plus,
-});
+/** Une entrée du cadre. Sa base par défaut est l'image reçue et son
+ * réglage, comme après un changement de mise en page (`baseDuPanneau`) ;
+ * sans image, aucune. */
+const entree = (plus: Partial<Entree>): Entree => {
+  const image = plus.image ?? { width: 1216, height: 896 };
+  const ajustement = plus.ajustement ?? "remplir";
+  return {
+    mode: "bureau",
+    fenetre: { width: 1440, height: 900 },
+    zonesSures: SANS_ZONES,
+    image,
+    ajustement,
+    base: image.width > 0 && image.height > 0 ? { image, ajustement } : null,
+    etat: "vit",
+    role: "joueur",
+    manette: null,
+    largeurColonne: 304,
+    largeurPanneau: null,
+    agrandie: false,
+    ...plus,
+  };
+};
 
 /** Aucun rectangle : une pose sans image n'a rien à couvrir. */
 const AUCUN: Rect = { x: 0, y: 0, w: 0, h: 0 };

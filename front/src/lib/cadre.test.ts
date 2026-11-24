@@ -10,6 +10,7 @@ import {
   SANS_IMAGE,
   SANS_ZONES,
   attributsDuCadre,
+  baseDuPanneau,
   emplacementPastille,
   etatDuCadre,
   memePose,
@@ -19,8 +20,10 @@ import {
   ouEstLaMascotte,
   panneauAuBureau,
   variablesDuCadre,
+  type BaseDuPanneau,
   type DessinManette,
   type Entree,
+  type EntreeDuCadre,
   type EtatDuCadre,
   type Rect,
   type ZonesSures,
@@ -36,20 +39,28 @@ const QUATRE_TIERS: Size = { width: 640, height: 480 };
 const FORMATS = [SEIZE_NEUF, GAMECUBE, QUATRE_TIERS];
 const AJUSTEMENTS: Fit[] = FITS.map((one) => one.id);
 
-const entree = (plus: Partial<Entree>): Entree => ({
-  mode: "bureau",
-  fenetre: { width: 1440, height: 900 },
-  zonesSures: SANS_ZONES,
-  image: SEIZE_NEUF,
-  ajustement: "remplir",
-  etat: "vit",
-  role: "joueur",
-  manette: null,
-  largeurColonne: 304,
-  largeurPanneau: null,
-  agrandie: false,
-  ...plus,
-});
+/** Une entrée du cadre. Sa base par défaut est l'image reçue et son
+ * réglage, comme après un changement de mise en page (`baseDuPanneau`) ;
+ * sans image, aucune. */
+const entree = (plus: Partial<Entree>): Entree => {
+  const image = plus.image ?? SEIZE_NEUF;
+  const ajustement = plus.ajustement ?? "remplir";
+  return {
+    mode: "bureau",
+    fenetre: { width: 1440, height: 900 },
+    zonesSures: SANS_ZONES,
+    image,
+    ajustement,
+    base: image.width > 0 && image.height > 0 ? { image, ajustement } : null,
+    etat: "vit",
+    role: "joueur",
+    manette: null,
+    largeurColonne: 304,
+    largeurPanneau: null,
+    agrandie: false,
+    ...plus,
+  };
+};
 
 const coupe = (a: Rect, b: Rect): number => {
   const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
@@ -277,6 +288,148 @@ describe("le panneau de commande au bureau", () => {
       entree({ largeurPanneau: 700, fenetre: { width: 1024, height: 768 } }),
     );
     expect(etroite.colonne?.w).toBe(512);
+  });
+});
+
+describe("la base du panneau : la première image ne déplace rien", () => {
+  const XBOX: Size = { width: 16, height: 9 };
+  const CUBE: Size = { width: 4, height: 3 };
+  const RIEN: Size = { width: 0, height: 0 };
+  /** Ce que la salle donne à `useGeometrie`, avant l'image. */
+  const arrivee = (plus: Partial<EntreeDuCadre> = {}): EntreeDuCadre => ({
+    mode: "bureau",
+    fenetre: { width: 1440, height: 900 },
+    zonesSures: SANS_ZONES,
+    image: RIEN,
+    ajustement: "remplir",
+    formatAttendu: XBOX,
+    etat: "connexion",
+    role: "joueur",
+    manette: null,
+    largeurColonne: 304,
+    largeurPanneau: null,
+    agrandie: false,
+    ...plus,
+  });
+  /** Les calculs successifs, comme `useGeometrie` les enchaîne. */
+  const suite = (entrees: EntreeDuCadre[]) => {
+    let avant: { entree: EntreeDuCadre; base: BaseDuPanneau } | null = null;
+    return entrees.map((e) => {
+      const base = baseDuPanneau(avant, e);
+      avant = { entree: e, base };
+      return { base, geo: miseEnPage({ ...e, base }) };
+    });
+  };
+
+  it("garde le panneau d'une Xbox 360 sous l'écran quand une image 4:3 arrive à 1440×900", () => {
+    // Le défaut de colonne-stable : sur l'image reçue, la première image 4:3
+    // rangeait le panneau dans la colonne (48 px libres sous elle).
+    const [noir, image] = suite([arrivee(), arrivee({ image: QUATRE_TIERS, etat: "vit" })]);
+    expect(noir.geo.panneau).toEqual({ forme: "sous", rect: { x: 0, y: 812, w: 1136, h: 88 } });
+    expect(image.geo.panneau).toEqual(noir.geo.panneau);
+    expect(image.geo.ecran).toEqual(noir.geo.ecran);
+    expect(image.base).toEqual({ image: XBOX, ajustement: "remplir" });
+    // L'image reçue est bien celle qui se pose, dans l'écran gardé.
+    expect(image.geo.pose).toEqual(place("remplir", QUATRE_TIERS, { width: 1136, height: 812 }));
+    // Le jumeau : décidé sur l'image reçue, le même calcul la range.
+    expect(miseEnPage(entree({ image: QUATRE_TIERS })).panneau.forme).toBe("colonne");
+  });
+
+  it("range le panneau d'une GameCube dans la colonne dès l'écran noir, et l'y laisse", () => {
+    const [noir, image] = suite([
+      arrivee({ formatAttendu: CUBE }),
+      arrivee({ formatAttendu: CUBE, image: GAMECUBE, etat: "vit" }),
+    ]);
+    expect(noir.geo.panneau).toEqual({ forme: "colonne", rect: null });
+    expect(image.geo.panneau).toEqual(noir.geo.panneau);
+    // Le jumeau : l'écran noir sans format attendu (aucun jeu) garde le
+    // panneau sous lui, comme avant.
+    const [repos] = suite([arrivee({ formatAttendu: null, etat: "repos" })]);
+    expect(repos.geo.panneau.forme).toBe("sous");
+  });
+
+  it("ne change la base ni pour une taille d'image ni pour un état", () => {
+    const [, , figee, autre] = suite([
+      arrivee(),
+      arrivee({ image: QUATRE_TIERS, etat: "vit" }),
+      arrivee({ image: QUATRE_TIERS, etat: "figee" }),
+      arrivee({ image: GAMECUBE, etat: "vit" }),
+    ]);
+    expect(figee.base).toEqual({ image: XBOX, ajustement: "remplir" });
+    expect(autre.base).toEqual({ image: XBOX, ajustement: "remplir" });
+    expect(autre.geo.panneau.forme).toBe("sous");
+  });
+
+  it("prend la vraie image au premier changement naturel qui la trouve", () => {
+    const image = arrivee({ image: QUATRE_TIERS, etat: "vit" });
+    const changes: [string, Partial<EntreeDuCadre>][] = [
+      ["un redimensionnement", { fenetre: { width: 1440, height: 899 } }],
+      ["un panneau qui se ferme", { largeurPanneau: null }],
+      ["la colonne élargie", { largeurColonne: 320 }],
+      ["un autre réglage de la pose", { ajustement: "remplir-net" }],
+      ["l'image agrandie", { agrandie: true }],
+    ];
+    for (const [quoi, change] of changes) {
+      const depart = quoi === "un panneau qui se ferme" ? { largeurPanneau: 560 } : {};
+      const [, , apres] = suite([
+        arrivee(depart),
+        { ...image, ...depart },
+        { ...image, ...change },
+      ]);
+      expect(apres.base, quoi).toEqual({
+        image: QUATRE_TIERS,
+        ajustement: change.ajustement ?? "remplir",
+      });
+    }
+    // Revenue à la même taille, la fenêtre garde la base de l'image : la
+    // place ne revient pas au format attendu d'avant.
+    const [, , , retour] = suite([
+      arrivee(),
+      image,
+      { ...image, fenetre: { width: 1440, height: 899 } },
+      image,
+    ]);
+    expect(retour.geo.panneau.forme).toBe("colonne");
+    // Le jumeau : un changement naturel sans image (encore l'écran noir)
+    // garde le format attendu.
+    const [, encoreNoir] = suite([arrivee(), arrivee({ fenetre: { width: 1400, height: 900 } })]);
+    expect(encoreNoir.base).toEqual({ image: XBOX, ajustement: "remplir" });
+  });
+
+  it("repart du format attendu quand le jeu change de console", () => {
+    const [, , , cube] = suite([
+      arrivee(),
+      arrivee({ image: QUATRE_TIERS, etat: "vit" }),
+      arrivee({ image: QUATRE_TIERS, etat: "vit", fenetre: { width: 1440, height: 899 } }),
+      arrivee({ formatAttendu: CUBE, etat: "demarrage", fenetre: { width: 1440, height: 899 } }),
+    ]);
+    expect(cube.base).toEqual({ image: CUBE, ajustement: "remplir" });
+    // Le jumeau : le même format attendu, écrit dans un nouvel objet, ne
+    // compte pas pour un changement de console.
+    const [, , memeFormat] = suite([
+      arrivee(),
+      arrivee({ image: QUATRE_TIERS, etat: "vit", fenetre: { width: 1440, height: 899 } }),
+      arrivee({
+        image: QUATRE_TIERS,
+        etat: "vit",
+        fenetre: { width: 1440, height: 899 },
+        formatAttendu: { ...XBOX },
+      }),
+    ]);
+    expect(memeFormat.base).toEqual({ image: QUATRE_TIERS, ajustement: "remplir" });
+  });
+
+  it("décide aussi la hauteur de l'écran étroit sur la base", () => {
+    const etroit = { mode: "etroit" as const, fenetre: { width: 860, height: 900 } };
+    const [noir, image] = suite([
+      arrivee(etroit),
+      arrivee({ ...etroit, image: QUATRE_TIERS, etat: "vit" }),
+    ]);
+    // 860 px de large en 16:9 : 484 px d'écran, et la colonne dessous.
+    expect(noir.geo.colonne).toEqual({ x: 0, y: 484, w: 860, h: 416 });
+    expect(image.geo.colonne).toEqual(noir.geo.colonne);
+    // Le jumeau : sur l'image reçue, la colonne descendait à 645 px.
+    expect(miseEnPage(entree({ ...etroit, image: QUATRE_TIERS })).colonne?.y).toBe(645);
   });
 });
 

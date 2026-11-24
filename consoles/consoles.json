@@ -39,6 +39,7 @@
       "devices": [0],
       "lock": null,
       "art": "banner",
+      "format": "4:3",
       "media": "disc",
       "folder": "gc",
       "registration": "dolphin-header",
@@ -47,7 +48,8 @@
       "playable": true,
       "why": {
         "devices": "Une GameCube n'a qu'une manette : la préparation lui sert à choisir la sauvegarde, pas un appareil.",
-        "extensions": "Les mêmes que la Wii : le balayage ne sait pas laquelle des deux avant que dolphin-tool ait lu le disque (emulator::disc)."
+        "extensions": "Les mêmes que la Wii : le balayage ne sait pas laquelle des deux avant que dolphin-tool ait lu le disque (emulator::disc).",
+        "format": "Le format d'image attendu de la console, lu par la page seule (lib/consoles.ts, formatAttendu) : 4:3 pour la GameCube et la Wii, 16:9 pour la Switch, la Switch 2 et la Xbox 360, décidé par le chef de chantier le 24 novembre 2026. La salle du bureau y décide la place du panneau de commande avant la première image, et la première image ne déplace plus rien (lib/cadre.ts, baseDuPanneau). Ce n'est pas une mesure par jeu : un jeu Wii en 16:9 garde la place décidée en 4:3 jusqu'au prochain changement de mise en page (redimensionnement, panneau fermé)."
       }
     },
     {
@@ -61,6 +63,7 @@
       "devices": [1, 0, 2, 3],
       "lock": null,
       "art": "wii-save",
+      "format": "4:3",
       "media": "disc",
       "folder": "wii",
       "registration": "dolphin-header",
@@ -88,6 +91,7 @@
       "devices": [4],
       "lock": "switch",
       "art": "sidecar",
+      "format": "16:9",
       "media": "card",
       "folder": "switch",
       "registration": "sidecar",
@@ -115,6 +119,7 @@
       "devices": [4],
       "lock": "switch",
       "art": "sidecar",
+      "format": "16:9",
       "media": "card",
       "folder": "switch2",
       "registration": "sidecar",
@@ -143,6 +148,7 @@
       "devices": [4],
       "lock": null,
       "art": "sidecar",
+      "format": "16:9",
       "media": "disc",
       "folder": "xbox360",
       "registration": "sidecar",

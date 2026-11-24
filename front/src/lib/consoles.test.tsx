@@ -9,6 +9,7 @@ import {
   CONSOLES,
   consoleLabel,
   consoleLue,
+  formatAttendu,
   seulDe,
   launchable,
   preparable,
@@ -103,6 +104,25 @@ it("sépare les sens de l'ancien isSwitchConsole", () => {
   // La préparation: les cinq consoles jouables depuis le 21 novembre 2026, pas « ? ».
   expect(CONSOLE_CODES.filter(preparable)).toEqual(["gc", "wii", "switch", "switch2", "x360"]);
   expect(preparable("?")).toBe(false);
+});
+
+it("lit le format attendu de chaque console dans le manifeste", () => {
+  // Décidé le 24 novembre 2026 : la place du panneau du bureau s'y décide
+  // avant la première image (`baseDuPanneau` de lib/cadre).
+  expect(formatAttendu("gc")).toEqual({ width: 4, height: 3 });
+  expect(formatAttendu("wii")).toEqual({ width: 4, height: 3 });
+  expect(formatAttendu("switch")).toEqual({ width: 16, height: 9 });
+  expect(formatAttendu("switch2")).toEqual({ width: 16, height: 9 });
+  expect(formatAttendu("x360")).toEqual({ width: 16, height: 9 });
+  // Chaque console du manifeste en a un qui se lit : une console ajoutée
+  // sans format rougit ici.
+  for (const one of manifest.consoles) expect(formatAttendu(one.code), one.code).not.toBeNull();
+  // Le jumeau négatif : un disque muet et un code inconnu n'en ont pas.
+  expect([formatAttendu("?"), formatAttendu("nes"), formatAttendu(undefined)]).toEqual([
+    null,
+    null,
+    null,
+  ]);
 });
 
 it("grise une console décrite mais pas jouable, et pas un disque muet", () => {

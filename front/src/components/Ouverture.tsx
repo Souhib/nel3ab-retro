@@ -95,6 +95,9 @@ export function Ouverture({
     zonesSures,
     image: RIEN,
     ajustement: storedFit(),
+    // La salle n'est pas encore lue : aucune console, donc le panneau d'un
+    // écran noir (`baseDuPanneau`).
+    formatAttendu: null,
     etat: "connexion",
     role: "joueur",
     manette: null,

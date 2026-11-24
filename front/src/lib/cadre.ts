@@ -29,6 +29,11 @@
  * plus petite et laisse bien plus de place. On calcule donc la pose avec et
  * sans le panneau, par `place` de `lib/fit`, et on compare.
  *
+ * Cette pose est celle de la BASE (`baseDuPanneau`) : le format attendu de
+ * la console tant qu'aucun changement de mise en page n'a suivi la première
+ * image, la vraie image ensuite. La première image ne déplace donc rien
+ * (24 novembre 2026).
+ *
  * # La manette tactile se mesure dans sa propre pose
  *
  * Les dimensions des manettes (`MANETTES`) viennent de `encombrement` dans
@@ -252,6 +257,10 @@ export const COLONNE_ETROITE_MIN = 240;
 /** Le format supposé quand l'image n'est pas encore connue (4:3). */
 export const FORMAT_PAR_DEFAUT = 4 / 3;
 
+/** Les mêmes proportions, pour un jeu dont la console n'annonce pas de
+ * format (« ? », un disque muet) : la base de `baseDuPanneau`. */
+export const PROPORTIONS_PAR_DEFAUT: Size = { width: 4, height: 3 };
+
 /**
  * Ce que chaque manette tactile demande au cadre, lu dans sa pose
  * (`encombrement`) : la hauteur de sa boîte tenue droite pour une largeur, et
@@ -267,6 +276,14 @@ export const MANETTES: Readonly<Record<"dolphin" | "pro", DessinManette>> = {
 
 /* ── La géométrie ─────────────────────────────────────────────────────── */
 
+/**
+ * Ce sur quoi la mise en page à la souris se décide : la place du panneau de
+ * commande au bureau, la façon de la manette « toujours », la hauteur de
+ * l'image en fenêtre étroite. `null` sans jeu : le panneau se pose alors
+ * comme sous un écran noir. `baseDuPanneau` la tient.
+ */
+export type BaseDuPanneau = { image: Size; ajustement: Fit } | null;
+
 export type Entree = {
   mode: Mode;
   /** La fenêtre entière, zones sûres comprises. */
@@ -275,6 +292,10 @@ export type Entree = {
   /** La taille de l'image REÇUE, 0×0 tant qu'aucune n'est décodée. */
   image: Size;
   ajustement: Fit;
+  /** Ce sur quoi la souris se décide (`baseDuPanneau`) : le format attendu
+   * de la console, puis la vraie image après le premier changement de mise
+   * en page qui la suit. L'image reçue (`image`) reste celle qui se pose. */
+  base: BaseDuPanneau;
   etat: EtatDuCadre;
   role: Role;
   /** Le dessin de la manette tactile montrée, ou `null` sans elle. */
@@ -411,6 +432,75 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   cedeAuxEtats: false,
 });
 
+/** Ce que la salle donne à `useGeometrie` : l'entrée du cadre, avec le
+ * format attendu de la console au lieu de la base, que le crochet tient. */
+export type EntreeDuCadre = Omit<Entree, "base"> & {
+  /** Le format qu'annonce la console du jeu (`formatAttendu` de
+   * `lib/consoles`, 4:3 faute de mieux), `null` sans jeu. */
+  formatAttendu: Size | null;
+};
+
+const memeTaille = (a: Size | null, b: Size | null): boolean =>
+  a === b || (a !== null && b !== null && a.width === b.width && a.height === b.height);
+
+/** Un changement de mise en page « naturel » : tout ce qui change la
+ * géométrie, sauf l'image reçue et l'état. Une fenêtre redimensionnée, un
+ * panneau qui se ferme, la colonne élargie, l'image agrandie, un autre
+ * réglage de la pose, la manette « toujours » posée ou retirée. */
+function changementNaturel(a: EntreeDuCadre, b: EntreeDuCadre): boolean {
+  return (
+    a.mode !== b.mode ||
+    a.fenetre.width !== b.fenetre.width ||
+    a.fenetre.height !== b.fenetre.height ||
+    a.zonesSures.haut !== b.zonesSures.haut ||
+    a.zonesSures.droite !== b.zonesSures.droite ||
+    a.zonesSures.bas !== b.zonesSures.bas ||
+    a.zonesSures.gauche !== b.zonesSures.gauche ||
+    a.ajustement !== b.ajustement ||
+    a.role !== b.role ||
+    a.manette !== b.manette ||
+    a.largeurColonne !== b.largeurColonne ||
+    a.largeurPanneau !== b.largeurPanneau ||
+    a.agrandie !== b.agrandie
+  );
+}
+
+/**
+ * La base de la mise en page à la souris, d'un calcul au suivant
+ * (décision du chef de chantier, 24 novembre 2026).
+ *
+ * Jusque-là, le panneau de commande se décidait sur l'image reçue : à
+ * 1440×900, l'écran noir d'une arrivée le posait sous l'écran, puis la
+ * première image 4:3 le rangeait dans la colonne et poussait tout ce qui
+ * était dessous de 204 px (`colonne-stable` d'etats.mjs). Il se décide
+ * maintenant sur le FORMAT ATTENDU de la console, connu avant la première
+ * image (GameCube et Wii 4:3, Switch, Switch 2 et Xbox 360 16:9), posé en
+ * « remplir » : sa vraie taille n'est pas connue avant elle.
+ *
+ * - au premier calcul, et chaque fois que le format attendu change (un
+ *   autre jeu), la base est ce format ;
+ * - la première image, et toute autre taille d'image ou tout autre état, ne
+ *   changent rien : la place reste celle du format attendu, même si l'image
+ *   réelle diffère ;
+ * - au premier changement naturel (`changementNaturel`) qui trouve une
+ *   image, la base devient cette image et son réglage.
+ *
+ * Pure : la salle lui passe ce qu'elle a retenu du calcul d'avant.
+ */
+export function baseDuPanneau(
+  avant: { entree: EntreeDuCadre; base: BaseDuPanneau } | null,
+  e: EntreeDuCadre,
+): BaseDuPanneau {
+  const attendue: BaseDuPanneau = e.formatAttendu
+    ? { image: e.formatAttendu, ajustement: "remplir" }
+    : null;
+  if (avant === null || !memeTaille(avant.entree.formatAttendu, e.formatAttendu)) return attendue;
+  if (changementNaturel(avant.entree, e) && connue(e.image) && !sansImage(e.etat)) {
+    return { image: e.image, ajustement: e.ajustement };
+  }
+  return avant.base;
+}
+
 /** La décision du bureau : le panneau sous l'écran si l'image n'y perd rien. */
 export function panneauAuBureau(e: {
   ecran: Size;
@@ -522,7 +612,9 @@ function bureau(e: Entree): Geometrie {
   const col = e.agrandie ? 0 : Math.max(0, Math.min(Math.floor(W / 2), Math.round(voulue)));
   const largeur = W - col;
   const colonne = e.agrandie ? null : rect(largeur, 0, col, H);
-  const format = formatDe(e.image);
+  // La base, pas l'image reçue : la première image ne déplace rien
+  // (`baseDuPanneau`).
+  const format = formatDe(e.base?.image ?? e.image);
   if (e.agrandie) {
     const zone = rect(0, 0, W, H);
     const pave = e.manette ? manetteALaSouris(e.manette, zone, format) : null;
@@ -543,9 +635,9 @@ function bureau(e: Entree): Geometrie {
   const boite = avant?.ecran ?? rect(0, 0, largeur, H);
   const decision = panneauAuBureau({
     ecran: { width: boite.w, height: boite.h },
-    image: e.image,
-    ajustement: e.ajustement,
-    sansImage: sansImage(e.etat),
+    image: e.base?.image ?? { width: 0, height: 0 },
+    ajustement: e.base?.ajustement ?? e.ajustement,
+    sansImage: e.base === null,
   });
   const p = decision.forme === "sous" ? decision.hauteur : 0;
   const zone = rect(0, 0, largeur, H - p);
@@ -567,7 +659,9 @@ function bureau(e: Entree): Geometrie {
 
 function etroit(e: Entree): Geometrie {
   const { width: W, height: H } = e.fenetre;
-  const format = formatDe(e.image);
+  // La hauteur de l'écran, et donc le haut de la colonne, sur la base
+  // (`baseDuPanneau`) : une image 16:9 qui arrive ne remonte pas la colonne.
+  const format = formatDe(e.base?.image ?? e.image);
   if (e.agrandie) {
     const zone = rect(0, 0, W, H);
     const pave = e.manette ? manetteALaSouris(e.manette, zone, format) : null;

@@ -191,7 +191,14 @@ import {
 } from "./lib/vitals";
 import type { Session, Snapshot } from "./media/session";
 import { clipAide, clipLabel, micAide } from "./lib/clip";
-import { CONSOLES, consoleName, moteurDe, preparable, usesProInput } from "./lib/consoles";
+import {
+  CONSOLES,
+  consoleName,
+  formatAttendu,
+  moteurDe,
+  preparable,
+  usesProInput,
+} from "./lib/consoles";
 import { rememberPad, slotLabel, storedPad, type Pad, type Slot } from "./lib/saves";
 import { useClip } from "./lib/useClip";
 import {
@@ -220,6 +227,7 @@ import {
 } from "./components/Cadre";
 import {
   MANETTES as DESSINS_MANETTES,
+  PROPORTIONS_PAR_DEFAUT,
   etatDuCadre,
   lieuDesAvis,
   modeDuCadre,
@@ -1827,6 +1835,10 @@ function Room({
     zonesSures,
     image: picture,
     ajustement: fit,
+    // Le format que la console annonce, connu avant la première image : le
+    // panneau du bureau s'y décide, et l'image qui arrive ne le déplace pas
+    // (`baseDuPanneau`, colonne-stable d'etats.mjs).
+    formatAttendu: room?.game ? (formatAttendu(room.game.console) ?? PROPORTIONS_PAR_DEFAUT) : null,
     etat: etatDuCadre({
       liaison: liaison.etat,
       chargement: booting !== null,

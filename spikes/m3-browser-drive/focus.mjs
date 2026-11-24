@@ -34,6 +34,13 @@
 //
 //   node focus.mjs --page <index.html> --flux <flux.h264> [--port 5481]
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
+//        [--flux-large <flux 16:9>] [--port-large 5480]
+//
+// `--flux-large` sert une image 16:9 sur un second banc (`--port-large`, le
+// port d'avant par défaut ; le suivant, 5482, est celui de reglage.mjs). Un
+// banc ne sert qu'un flux, et un téléphone couché ne pose pas le menu au même
+// endroit pour une image 4:3 et 16:9 (menu-en-colonne, relecture du
+// 24 novembre 2026).
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
@@ -68,6 +75,11 @@ const START_DOLPHIN = 1 << 7;
 const PLUS_SWITCH = 1 << 9;
 
 const banc = await demarrerBanc({ port: PORT, page: PAGE, flux: FLUX });
+const FLUX_LARGE = option("flux-large");
+const PORT_LARGE = Number(option("port-large", String(PORT - 1)));
+/** Le second banc, à l'image 16:9, démarré par la première étape qui le
+ * demande. */
+let bancLarge = null;
 const empreinte = createHash("sha256").update(readFileSync(PAGE)).digest("hex");
 const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url, { headers: { "accept-encoding": "identity" } })).arrayBuffer()))
@@ -280,6 +292,78 @@ async function centre(page, selecteur) {
   return r;
 }
 
+/** Une page sur le banc 16:9 (une Xbox 360, sa manette Pro), entrée et
+ * peinte : 30 images au moins. */
+async function nouvelleLarge(vue) {
+  if (!FLUX_LARGE) throw new Precondition("pas de flux 16:9 (--flux-large)");
+  bancLarge ??= await demarrerBanc({ port: PORT_LARGE, page: PAGE, flux: FLUX_LARGE });
+  bancLarge.reinitialiser();
+  bancLarge.regler({ console: "x360", format: "switch" });
+  const page = await browser.newPage();
+  await page.setViewport(vue);
+  await page.evaluateOnNewDocument(() => {
+    try {
+      if (!sessionStorage.getItem("banc-focus")) {
+        localStorage.clear();
+        sessionStorage.setItem("banc-focus", "1");
+      }
+      localStorage.setItem("nel3ab:name", "banc");
+      localStorage.setItem("nel3ab:banc", "1");
+      localStorage.setItem("nel3ab:aide-clavier", "vue");
+    } catch {}
+  });
+  page.on("pageerror", (e) => console.error(`[pageerror] ${e.message}`));
+  await page.goto(bancLarge.url, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#enter", { timeout: 15000 });
+  await page.click("#enter");
+  const debut = Date.now();
+  while ((await peintes(page)) < 30) {
+    if (Date.now() - debut > 20000) throw new Precondition("la page 16:9 n'a pas peint 30 images en 20 s");
+    await sleep(100);
+  }
+  return page;
+}
+
+/** Ce que le menu ouvert couvre : l'image VISIBLE (la zone cachée ne compte
+ * pas), « La salle », et ce qui reçoit le doigt sur la partie visible de ses
+ * lignes. `elementFromPoint` et non les boîtes : une boîte ne dit pas qui
+ * est dessus. */
+const couvertureDuMenu = (page) =>
+  page.evaluate(() => {
+    const m = document.querySelector("#menu");
+    const mb = m.getBoundingClientRect();
+    const zone = document.querySelector("[data-zone-jeu]");
+    const c = zone.querySelector("canvas").getBoundingClientRect();
+    const coupe = (a, b) =>
+      Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+      Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const cachee = getComputedStyle(zone).visibility === "hidden";
+    const bouton = document.querySelector("#laSalleCote, #laSalle");
+    const dessus = [];
+    for (const el of m.querySelectorAll("[id^=item-], [role=tab], #closeMenu")) {
+      const r = el.getBoundingClientRect();
+      for (let fx = 0.05; fx < 1; fx += 0.15)
+        for (let fy = 0.2; fy < 1; fy += 0.3) {
+          const x = r.x + r.width * fx;
+          const y = r.y + r.height * fy;
+          // La partie visible seulement : une ligne qui a défilé sous le bord
+          // du menu n'est pas couverte, elle est cachée par lui.
+          if (x <= mb.left || x >= mb.right || y <= mb.top || y >= mb.bottom) continue;
+          const t = document.elementFromPoint(x, y);
+          if (t && !m.contains(t) && !t.closest(".rt-curseur"))
+            dessus.push(`${el.id || el.getAttribute("role")} <- ${t.closest("[id]")?.id ?? t.className}`);
+        }
+    }
+    return {
+      lieu: m.dataset.lieu,
+      cachee,
+      surImage: cachee ? 0 : Math.round(coupe(mb, c)),
+      part: cachee ? 0 : +(coupe(mb, c) / (c.width * c.height)).toFixed(3),
+      surBouton: bouton ? Math.round(coupe(mb, bouton.getBoundingClientRect())) : null,
+      dessus: [...new Set(dessus)],
+    };
+  });
+
 const ETAPES = {
   /** A11Y-01: Entrée sur un bouton de la colonne active CE bouton, et la salle
    * ne reçoit pas START. */
@@ -481,6 +565,51 @@ const ETAPES = {
       await sleep(200);
       const ferme = await actif(page);
       if (!ferme.dansZone) throw new Defaut(`à ${vue.width} px, la fermeture ne rend pas le focus au jeu (${ferme.tag}#${ferme.id})`);
+      await page.close();
+    }
+    // Relecture du 24 novembre 2026 : couché avec une image 16:9 et la
+    // manette Pro, aucune bande ne se lit ; le menu couvrait alors 42 % de
+    // l'image vivante, et « La salle » une de ses lignes. Il prend la place
+    // de l'écran, et l'image s'y cache le temps du menu, sans bouger.
+    {
+      const page = await nouvelleLarge(TRAVERS);
+      const rect = () =>
+        page.evaluate(() => {
+          const c = document.querySelector("[data-zone-jeu] canvas").getBoundingClientRect();
+          return [c.x, c.y, c.width, c.height].map(Math.round).join(",");
+        });
+      const avant = await rect();
+      const format = await page.evaluate(() => {
+        const c = document.querySelector("[data-zone-jeu] canvas").getBoundingClientRect();
+        return c.width / c.height;
+      });
+      if (Math.abs(format - 16 / 9) > 0.05) throw new Precondition(`l'image du banc large n'est pas en 16:9 (${format.toFixed(2)})`);
+      await page.evaluate(() => document.querySelector("[data-zone-jeu]")?.focus());
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition("couché 16:9, Échap n'a pas ouvert le menu");
+      await sleep(400);
+      const lu = await couvertureDuMenu(page);
+      const p0 = await peintes(page);
+      await sleep(600);
+      const p1 = await peintes(page);
+      await capture(page, "menu-en-colonne-16-9");
+      if (lu.surImage > 0)
+        throw new Defaut(`couché 16:9, le menu couvre ${lu.surImage} px² de l'image visible (${Math.round(lu.part * 100)} %)`);
+      if (lu.surBouton !== 0) throw new Defaut(`couché 16:9, « La salle » et le menu se couvrent (${lu.surBouton} px²)`);
+      if (lu.dessus.length) throw new Defaut(`couché 16:9, des lignes du menu sont sous autre chose : ${lu.dessus.join(", ")}`);
+      if ((await rect()) !== avant) throw new Defaut(`couché 16:9, l'image a bougé à l'ouverture (${avant} → ${await rect()})`);
+      // L'image cachée n'est pas arrêtée : la boucle peint dessous.
+      if (p1 - p0 < 10) throw new Defaut(`couché 16:9, la page ne peint plus sous le menu (${p1 - p0} images en 600 ms)`);
+      // Le jumeau : fermé, l'image revient à sa place et le focus au jeu.
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") === null)))
+        throw new Defaut("couché 16:9, Échap n'a pas fermé le menu");
+      await sleep(200);
+      const apres = await page.evaluate(() => getComputedStyle(document.querySelector("[data-zone-jeu]")).visibility);
+      if (apres !== "visible") throw new Defaut(`couché 16:9, l'image reste cachée après le menu (${apres})`);
+      if ((await rect()) !== avant) throw new Defaut("couché 16:9, l'image a bougé à la fermeture");
+      if (!(await actif(page)).dansZone) throw new Defaut("couché 16:9, la fermeture ne rend pas le focus au jeu");
       await page.close();
     }
     // Le jumeau : un clic sur l'image, menu ouvert, ferme le menu et donne
@@ -1107,7 +1236,166 @@ const ETAPES = {
     if (!vu) throw new Defaut("la fiche ne dit pas que la fermeture est en cours");
     if (!(await page.evaluate(() => document.querySelector("#ficheAgir")?.disabled === true)))
       throw new Defaut("« Fermer le jeu » reste actif pendant la fermeture");
+    // Relecture du 24 novembre 2026 : le bouton grisé sous le focus le
+    // laissait tomber sur <body>, où Échap ne faisait plus rien. Le focus
+    // reste dans la fiche, sur un élément qui le prend, et Échap revient à
+    // la liste.
+    await sleep(300);
+    const ici = await page.evaluate(() => {
+      const el = document.activeElement;
+      return { id: el?.id || el?.tagName, dansFiche: Boolean(el?.closest("#fiche")), grise: Boolean(el?.matches(":disabled")) };
+    });
+    if (!ici.dansFiche || ici.grise) throw new Defaut(`la fermeture en cours, le focus est sur ${ici.id}, hors de la fiche ou grisé`);
+    await page.keyboard.press("Escape");
+    if (!(await attendre(page, () => document.querySelector("#fiche") === null && document.querySelector("#menu") !== null)))
+      throw new Defaut("la fermeture en cours, Échap ne revient pas à la liste du menu");
     await capture(page, "fermeture-en-cours");
+    await page.close();
+  },
+
+  /** L'anneau de focus du menu et du rayonnage se voit en entier : ses
+   * quatre côtés tiennent dans la boîte qui défile. Relecture du 24 novembre
+   * 2026 : chaque ligne du menu avait la largeur de #menu, qui défile, et
+   * l'anneau (3 px, décalé de 2 px) en sortait des deux côtés ; il ne
+   * restait que deux traits. Le jumeau : la même mesure, menu sans sa
+   * marge, voit l'anneau coupé. */
+  async "anneau-menu"() {
+    const mesurer = (page) =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        const cs = getComputedStyle(el);
+        if (cs.outlineStyle === "none") return { id: el.id || el.className, sans: true };
+        const r = el.getBoundingClientRect();
+        const dehors = Math.max(0, parseFloat(cs.outlineWidth) + parseFloat(cs.outlineOffset));
+        let p = el.parentElement;
+        while (p) {
+          const s = getComputedStyle(p);
+          if (s.overflowX !== "visible" || s.overflowY !== "visible") break;
+          p = p.parentElement;
+        }
+        const c = p.getBoundingClientRect();
+        const g = c.left + p.clientLeft;
+        const h = c.top + p.clientTop;
+        return {
+          id: el.id || el.className,
+          gauche: Math.max(0, g - (r.left - dehors)),
+          droite: Math.max(0, r.right + dehors - (g + p.clientWidth)),
+          haut: Math.max(0, h - (r.top - dehors)),
+          bas: Math.max(0, r.bottom + dehors - (h + p.clientHeight)),
+        };
+      });
+    /** Les arrêts du clavier dans le menu : chaque ligne de chaque rubrique,
+     * par ↓ (le focus posé après une touche est visible). */
+    const arrets = async (page) => {
+      const vus = [];
+      for (const id of RUBRIQUES) {
+        await page.click(`#ray-${id}`);
+        await sleep(250);
+        await page.keyboard.press("ArrowDown");
+        await sleep(150);
+        for (let i = 0; i < 14; i += 1) {
+          vus.push(await mesurer(page));
+          const avant = await page.evaluate(() => document.activeElement?.id);
+          await page.keyboard.press("ArrowDown");
+          await sleep(120);
+          if ((await page.evaluate(() => document.activeElement?.id)) === avant) break;
+        }
+      }
+      return vus;
+    };
+    const coupes = (vus) => vus.filter((v) => !v.sans && v.gauche + v.droite + v.haut + v.bas > 0.5);
+    for (const vue of [PC, { width: 1280, height: 720 }, TELEPHONE]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await page.evaluate(() => document.querySelector("[data-zone-jeu]")?.focus());
+      await page.keyboard.press("Escape");
+      if (!(await attendre(page, () => document.querySelector("#menu") !== null)))
+        throw new Precondition(`à ${vue.width} px, Échap n'a pas ouvert le menu`);
+      await sleep(300);
+      const vus = await arrets(page);
+      if (vus.filter((v) => !v.sans).length < 8) throw new Precondition(`à ${vue.width} px, moins de huit arrêts avec un anneau`);
+      const mal = coupes(vus);
+      if (mal.length)
+        throw new Defaut(`à ${vue.width} px, l'anneau est coupé sur ${mal.length} arrêt(s) : ${JSON.stringify(mal.slice(0, 3))}`);
+      // Le jumeau, à la première taille : sans sa marge, la mesure voit
+      // l'anneau coupé. Sinon elle ne prouverait rien.
+      if (vue === PC) {
+        await page.addStyleTag({ content: ".n3-menu-unique { padding: 0 !important; }" });
+        await sleep(100);
+        if (coupes(await arrets(page)).length === 0)
+          throw new Precondition("le jumeau : menu sans marge, la mesure ne voit aucun anneau coupé");
+      }
+      await page.close();
+    }
+    // Le rayonnage de l'écran éteint : la cartouche qui a le focus.
+    const page = await nouvelle(PC);
+    banc.regler({ game: false });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    if ((await page.$("#enter")) !== null) await page.click("#enter");
+    if (!(await attendre(page, () => document.querySelector("#rayonnage [data-jeu]") !== null, 15000)))
+      throw new Precondition("pas de rayonnage au repos");
+    await sleep(1500);
+    await page.focus("#rayonnage [data-jeu]");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
+    await sleep(250);
+    const cartouche = await mesurer(page);
+    if (!String(cartouche.id).includes("n3-cartouche")) throw new Precondition(`le focus n'est pas sur une cartouche (${cartouche.id})`);
+    if (coupes([cartouche]).length) throw new Defaut(`l'anneau d'une cartouche est coupé : ${JSON.stringify(cartouche)}`);
+    await page.close();
+  },
+
+  /** « Plus bas » (M11) dans le menu, qui défile dans sa propre boîte : la
+   * rubrique Réglages à 1280x720 cache des lignes sous le bord, et le repère
+   * le dit. Le jumeau : une rubrique qui tient n'en a pas, et le repère
+   * s'efface quand on arrive en bas. */
+  async "plus-bas-menu"() {
+    let page = await nouvelle({ width: 1280, height: 720 });
+    await entrer(page);
+    await ouvrirMenu(page);
+    await page.click("#ray-reglages");
+    await sleep(500);
+    const lire = () =>
+      page.evaluate(() => {
+        const m = document.querySelector("#menu");
+        const mb = m.getBoundingClientRect();
+        const r = document.querySelector("#menuPlusBas")?.getBoundingClientRect();
+        const sous = [...m.querySelectorAll("[id^=item-]")].filter((el) => el.getBoundingClientRect().top >= mb.bottom).length;
+        return {
+          sous,
+          repere: r ? r.height > 0 && r.bottom <= mb.bottom + 1 && r.top >= mb.top && r.bottom >= mb.bottom - 2 : false,
+          police: r ? getComputedStyle(document.querySelector("#menuPlusBas")).fontFamily : null,
+        };
+      });
+    const reglages = await lire();
+    if (reglages.sous === 0) throw new Precondition("à 1280x720, Réglages tient sans défiler");
+    if (!reglages.repere) throw new Defaut(`à 1280x720, ${reglages.sous} lignes de Réglages sous le bord, sans « Plus bas » au bas du menu`);
+    if (!/Pixelify/i.test(reglages.police ?? "")) throw new Defaut(`« Plus bas » n'est pas en Pixelify Sans (${reglages.police})`);
+    await page.evaluate(() => {
+      const m = document.querySelector("#menu");
+      m.scrollTop = m.scrollHeight;
+    });
+    await sleep(300);
+    if ((await lire()).repere) throw new Defaut("en bas du menu, « Plus bas » reste");
+    // Le jumeau, au grand bureau : la première rubrique qui tient sans
+    // défiler (à 1280x720, aucune ne tient).
+    await page.close();
+    const page2 = await nouvelle(PC);
+    await entrer(page2);
+    await ouvrirMenu(page2);
+    page = page2;
+    let courte = null;
+    for (const id of ["jeux", "manettes", "salle"]) {
+      await page.click(`#ray-${id}`);
+      await sleep(500);
+      const lu = await lire();
+      if (lu.sous === 0) {
+        courte = { id, ...lu };
+        break;
+      }
+    }
+    if (courte === null) throw new Precondition("à 1280x720, aucune rubrique ne tient sans défiler");
+    if (courte.repere) throw new Defaut(`la rubrique ${courte.id} tient, et « Plus bas » s'affiche`);
     await page.close();
   },
 
@@ -1508,6 +1796,7 @@ for (const nom of voulues) {
 }
 await browser.close();
 await banc.fermer();
+await bancLarge?.fermer();
 
 if (ROUGE) {
   const rate = ROUGE.filter((nom) => resultats.find((r) => r.nom === nom)?.verdict !== "defaut");

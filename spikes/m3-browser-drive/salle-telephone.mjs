@@ -803,7 +803,10 @@ try {
               await sleep(300);
             }
             // Le menu du jeu, depuis la feuille, puis retour à la feuille.
-            if (name === "gc") {
+            // L'image 16:9 aussi (x360) : couchée, elle ne laisse aucune
+            // bande lisible, et le menu la couvrait (relecture du
+            // 24 novembre 2026).
+            if (name === "gc" || name === "x360") {
               await tap(page, '[data-entree="menu"]');
               // Depuis le menu unique (24 novembre 2026), le menu n'est plus
               // un dialogue plein cadre : une section posée hors de l'image,
@@ -820,17 +823,20 @@ try {
                   const s = document.querySelector("#closeMenu")?.getBoundingClientRect();
                   const w = t ? Math.min(m.right, t.right) - Math.max(m.left, t.left) : 0;
                   const h = t ? Math.min(m.bottom, t.bottom) - Math.max(m.top, t.top) : 0;
+                  const zone = document.querySelector("[data-zone-jeu]");
                   return {
                     coupe: w > 0.5 && h > 0.5 ? Math.round(w * h) : 0,
-                    surImage: document.querySelector("#menu").dataset.surImage ?? null,
+                    cachee: zone ? getComputedStyle(zone).visibility === "hidden" : false,
+                    lieu: document.querySelector("#menu").dataset.lieu,
                     sortie: s ? Math.round(s.height) : 0,
                     touch: getComputedStyle(document.querySelector("#menu")).touchAction,
                   };
                 });
-                // Une image 16:9 couchée ne laisse pas de bande lisible : le
-                // menu le dit (data-sur-image), défaut connu à trancher avec
-                // la salle. Ailleurs, il ne touche pas l'image.
-                if (lu.coupe > 0 && lu.surImage !== "oui") bad.push(`le menu couvre ${lu.coupe} px² de l'image`);
+                // Rien sur une image qu'on voit : à côté d'elle, ou à la place
+                // de l'écran quand aucune bande ne se lit, l'image cachée le
+                // temps du menu (`placeDuMenu`, lieu « ecran »).
+                if (lu.coupe > 0 && !lu.cachee) bad.push(`le menu couvre ${lu.coupe} px² de l'image visible`);
+                if (lu.cachee && lu.lieu !== "ecran") bad.push(`l'image est cachée sous un menu posé ${lu.lieu}`);
                 if (lu.sortie < 44) bad.push(`la sortie du menu fait ${lu.sortie} px de haut`);
                 if (lu.touch === "none") bad.push("le menu bloque le défilement au doigt (touch-action: none)");
                 await page.evaluate(() => document.querySelector("#closeMenu")?.click());

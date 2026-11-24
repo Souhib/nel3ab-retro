@@ -1000,8 +1000,15 @@ focus-navigateur *args:
     ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
         -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    # Le même flux en 16:9 (Switch, Xbox 360), sur un second banc : un
+    # téléphone couché ne pose pas le menu au même endroit (menu-en-colonne,
+    # relecture du 24 novembre 2026).
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=1280x720:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux-large.h264"
     cd spikes/m3-browser-drive
-    node focus.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" {{args}}
+    node focus.mjs --page ../../core/crates/worker/src/page/index.html --flux "$dossier/flux.h264" \
+        --flux-large "$dossier/flux-large.h264" {{args}}
 
 # Le contrôle négatif du précédent: la page d'avant ce chantier (f4b90c5) doit
 # échouer sur le DÉFAUT de chaque étape, pas sur une précondition. Les jumeaux
@@ -1060,6 +1067,17 @@ focus-navigateur-rouge:
     git show 41e9b33:core/crates/worker/src/page/index.html > "$dossier/menus-41e9b33.html"
     node focus.mjs --page "$dossier/menus-41e9b33.html" --flux "$dossier/flux.h264" \
         --etapes refus-dans-le-bloc --rouge-attendu refus-dans-le-bloc
+    # cd2d5b3, la page que la relecture du 24 novembre 2026 a trouvée
+    # fausse : couché en 16:9, le menu couvre 42 % de l'image vivante ; « Fermer
+    # le jeu » grisé sous le focus le laisse sur <body> ; l'anneau d'une ligne
+    # est coupé des deux côtés ; Réglages cache huit lignes sans « Plus bas ».
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=1280x720:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux-large.h264"
+    git show cd2d5b3:core/crates/worker/src/page/index.html > "$dossier/menus-cd2d5b3.html"
+    etapes=menu-en-colonne,fermeture-en-cours,anneau-menu,plus-bas-menu
+    node focus.mjs --page "$dossier/menus-cd2d5b3.html" --flux "$dossier/flux.h264" \
+        --flux-large "$dossier/flux-large.h264" --etapes "$etapes" --rouge-attendu "$etapes"
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni

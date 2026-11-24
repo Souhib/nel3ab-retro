@@ -926,6 +926,21 @@ const ETAPES = {
       throw new Defaut(
         `la fiche (${Math.round(vu.fiche.gauche)} px) n'est pas à côté des rangées (bord droit ${Math.round(vu.rangees.droite)} px)`,
       );
+    // La cartouche dont la fiche est ouverte sort de 4 px de sa rangée, et
+    // les autres restent (« boîte tirée », relecture du 24 novembre 2026 :
+    // l'effet n'était pas branché). Lu contre sa place dans la rangée (son
+    // <li>), que la translation ne déplace pas.
+    const tirees = await page.evaluate(() =>
+      [...document.querySelectorAll("#rayonnage [data-jeu]")].map((b) => ({
+        jeu: b.getAttribute("data-jeu"),
+        sortie: Math.round(b.parentElement.getBoundingClientRect().top - b.getBoundingClientRect().top),
+      })),
+    );
+    const ouverte = tirees.find((t) => t.jeu === "0");
+    if (ouverte?.sortie !== 4)
+      throw new Defaut(`la cartouche ouverte ne sort pas de 4 px de sa rangée (${ouverte?.sortie} px)`);
+    const bougees = tirees.filter((t) => t.jeu !== "0" && t.sortie !== 0);
+    if (bougees.length) throw new Defaut(`des cartouches fermées sortent de leur rangée : ${JSON.stringify(bougees)}`);
     // Les rangées se parcourent fiche ouverte, et une autre cartouche la remplace.
     await page.focus('#rayonnage [data-jeu="0"]');
     await page.keyboard.press("ArrowRight");

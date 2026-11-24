@@ -33054,6 +33054,22 @@ ligne pour `--port`, et deux leçons ajoutées à la règle 4 (l'horloge part
 avant le geste qu'elle mesure ; une boîte lue trop tôt montre une place
 qui va bouger).
 
+**Les numéros de l'ADR.** Les chantiers ont réservé leurs numéros
+d'avance (D37 à D46), puis fusionné dans un autre ordre. Relu à la fin :
+de D1 à D46, aucun doublon, aucun trou, chaque amendement rangé sous sa
+décision. Seule exception, ancienne : D15 est écrite avant D13 et D14
+depuis la première version du document, en août, et `### D6 amended` la
+suit ; elles restent à leur place. La règle « un chantier qui fusionne
+hors de l'ordre prend le prochain numéro libre » ne vivait que dans la
+partition. Elle vit maintenant dans `tools/adr-numeros.py`, que
+`just docs` lance avant le site, donc aussi la CI de la documentation.
+Avant de lire le vrai fichier, le contrôle éprouve chaque règle sur un
+texte fautif qu'il fabrique, et sort en 2 s'il ne sait plus refuser.
+Quatre copies fautives de l'ADR sont refusées, chacune avec son motif : un
+D44 écrit deux fois, un D47 qui laisse un trou, D44 et D45 échangés, et
+l'amendement de D46 rangé sous D45. Un mutant qui coupe la règle de
+l'ordre sort en 2 : « un trou » et « le désordre » acceptés à tort.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

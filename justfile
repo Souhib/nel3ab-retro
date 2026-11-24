@@ -2022,7 +2022,14 @@ doc:
 # run.
 #
 # Needs the tool once: `uv tool install zensical`.
+#
+# Les numéros des décisions de l'ADR passent avant le site (24 novembre 2026,
+# intégration finale du thème rétro) : en ordre, sans doublon ni trou, chaque
+# amendement sous sa décision. Huit chantiers ont réservé et pris des numéros
+# en parallèle ; la règle ne vivait que dans leur partition
+# (`tools/adr-numeros.py`).
 docs:
+    python3 tools/adr-numeros.py docs/adr/0001-architecture.md
     zensical build --strict
 
 # Rebuild the files Caddy already serves from `site/` under `/docs`, then show

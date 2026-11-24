@@ -153,6 +153,9 @@ async function entrer(page) {
   return Date.now();
 }
 
+/** La pastille de la proposition de l'image légère (ADR D40). */
+const OFFRE = '#pastilleEtat[data-etat="irreguliere"]';
+
 const proposes = (depuis) =>
   banc.journal(depuis).filter((l) => l.texte.includes('"qualite"') && l.texte.includes("proposé"));
 
@@ -560,12 +563,25 @@ const ETAPES = {
     await sleep(Math.max(0, 31_000 - (Date.now() - entree)));
     const debut = Date.now();
     for (let tour = 0; tour < 7; tour++) {
-      await sleep(12_000);
+      // La pastille de l'offre paraît quand la liaison va bien, et la panne
+      // suivante la remplace : elle se guette pendant la phase vivante.
+      const vivante = Date.now();
+      while (Date.now() - vivante < 12_000 && !(await page.$(OFFRE))) await sleep(250);
+      if (await page.$(OFFRE)) break;
       // Tout se tait, la sonde du site aussi: c'est le Wi-Fi qui cale.
       banc.regler({ video: "silent", salles: "hang" });
       await sleep(4000);
       banc.regler({ video: "live", salles: "up" });
-      if (proposes(debut).length > 0) break;
+      if (proposes(debut).length > 0 || (await page.$(OFFRE))) break;
+    }
+    // Depuis le 24 novembre 2026 (ADR D40), la proposition paraît d'abord en
+    // pastille, et sa fiche vit dans la feuille au téléphone : « proposé »
+    // ne part qu'au montage de la fiche, quand la pastille l'ouvre (E3).
+    const offre = await page.$(OFFRE);
+    if (offre) {
+      await offre.tap();
+      await jusqua(page, (v) => v.rough, 3000);
+      await sleep(300);
     }
     if (proposes(debut).length === 0)
       throw new Defaut(`aucune proposition en ${Math.round((Date.now() - debut) / 1000)} s de liaison qui cale`);

@@ -113,7 +113,6 @@ import {
   THEMES,
   applyTheme,
   rememberMode,
-  rememberLobby,
   rememberShell,
   rememberTheme,
   shellLabel,
@@ -123,7 +122,6 @@ import {
   rememberTouch,
   showsTouchPad,
   storedPadOnly,
-  storedLobby,
   storedShell,
   storedTheme,
   storedTouch,
@@ -260,10 +258,14 @@ import {
   entreeDeLAdresse,
   entreeDeLaSession,
   retenirEntree,
+  retenirPlace,
   lienDInvitation,
+  oublierPlace,
+  placeDeLAdresse,
   sortieVers,
   type Entree,
 } from "./lib/entree";
+import { estLibre } from "./components/Lobby";
 import { Aide } from "./components/Aide";
 import { Inviter } from "./components/Inviter";
 import { useSession, useSnapshot } from "./lib/useSession";
@@ -305,6 +307,8 @@ export default function App() {
   };
   /** La personne a choisi d'entrer sans attendre le site. Voir `Ouverture`. */
   const [sansAttendre, setSansAttendre] = useState(false);
+  /** « Ce n'est pas toi ? » vient d'oublier le nom gardé : « Qui joue ? » le dit. */
+  const [oublie, setOublie] = useState(false);
 
   // Pas le formulaire tant que l'identité n'a pas répondu: l'afficher une demi
   // seconde avant de le retirer se lit comme un défaut. Mais plus une page
@@ -321,7 +325,7 @@ export default function App() {
 
   const identified = me?.login ?? null;
   const name = identified ? me!.name : local;
-  if (!name) return <Entrance onName={setLocal} />;
+  if (!name) return <Entrance onName={setLocal} salle={`salle ${salle()}`} oublie={oublie} />;
   return (
     <Named
       name={name}
@@ -340,6 +344,7 @@ export default function App() {
       onForget={() => {
         forgetName();
         entrer(null);
+        setOublie(true);
         setLocal("");
       }}
     />
@@ -434,18 +439,6 @@ function Named({
       setRecoveryError(error instanceof Error ? error.message : SANS_REPONSE);
     }
   };
-  /* Le dessin de l'écran d'ENTRÉE, retenu comme la coquille et pour la même
-     raison: quelqu'un qui a choisi son écran ne veut pas le rechoisir à chaque
-     visite.
-     ICI, dans le composant qui rend `<Lobby>`, et pas plus bas avec les
-     réglages de la salle. Mes deux insertions y avaient atterri parce que ce
-     fichier porte plusieurs `useState(storedX)` et que j'ai remplacé la
-     première occurrence en supposant l'état et son effet voisins: l'état s'est
-     posé dans un composant, son usage dans un autre, et rien ne pouvait
-     marcher. */
-  const [look, setLook] = useState(storedLobby);
-  useEffect(() => rememberLobby(look), [look]);
-
   return (
     <HoteDesSurcouches>
       {entered === null ? (
@@ -457,9 +450,12 @@ function Named({
             name={name}
             login={login}
             failed={isError}
-            look={look}
-            onLook={setLook}
-            onEnter={onEnter}
+            onEnter={(numero) => {
+              // « Prendre la place 3 » : la place va dans l'adresse, et la
+              // salle la lit comme celle d'un lien de l'accueil du salon.
+              if (numero !== undefined) retenirPlace(numero);
+              onEnter();
+            }}
             onWatch={onWatch}
             onForget={onForget}
             onRename={(chosen) => rename.mutate(chosen)}
@@ -1121,6 +1117,23 @@ function Room({
   }, [session, playing, bootingAt, suggestHalf]);
 
   const port = shot?.input.port ?? null;
+
+  /* Une place précise demandée par l'adresse (`?place=N`, lien de l'accueil
+     du salon ou de l'avant-salle). Le worker donne d'abord la première libre ;
+     une fois cette place reçue, la page demande CELLE-CI si la salle la dit
+     encore libre, puis l'oublie dans l'adresse : un rechargement ne la
+     redemande pas, peut-être à quelqu'un qui l'a prise depuis. Prise par
+     `take`, la seule demande d'une place précise que la couche média offre :
+     la place est vérifiée libre juste avant, pour ne déloger personne. */
+  const placeDemandee = useRef(placeDeLAdresse(location.search));
+  useEffect(() => {
+    const voulue = placeDemandee.current;
+    if (voulue === null || !session || watching || port === null || !room) return;
+    placeDemandee.current = null;
+    oublierPlace();
+    const siege = room.seats.find((seat) => seat.port === voulue);
+    if (voulue !== port && siege !== undefined && estLibre(siege)) session.input.take(voulue);
+  }, [session, watching, port, room]);
   /** Ce que la personne tient, pour que chaque aide nomme ses touches à elle:
    * Entrée et Échap au clavier, A et B à la manette (audit T02). */
   const appareil = appareilDe(shot?.input.padId ?? null, coarse);

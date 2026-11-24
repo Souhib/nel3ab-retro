@@ -591,8 +591,17 @@ Pas fait, par choix : Aïn couché à côté du tableau du carnet (à confirmer
 par le propriétaire). Reste, hors de ce chantier : Aïn endormi sur la pile du
 dépôt (une variante de la scène « dort », au chantier de la mascotte) ;
 `deploy-check` divergera sur `deploy/Caddyfile` tant qu'il n'est pas
-installé. Portes : voir le récit, « 24 novembre, en fin d'après-midi : le
-salon, cinquième passage ».
+installé. Portes : `just check` vert (2 087 essais de la page) ; `gpu-test`
+(Jellyfin vérifié au repos avant), `clip-audio-test`, `switch-saves-test`,
+`switch-capture-test`, `xbox360-test`, `abri-test` verts ; `focus`, `etats`,
+`salle-telephone`, `manette-garde`, `reglage`, `salon` (29 étapes) et tous
+les contrôles rouges verts (celui d'`etats` relancé seul après une collision
+de port avec un autre chantier) ; `parcours` rouge sur « invitation » et
+`cadre` sur `mascotte-hors-image` et `ain-immobile`, défauts connus de la
+vague B1, toutes leurs autres étapes vertes une à une ; `deploy-check` rouge
+comme prévu (Caddyfile pas installé, services plus anciens) ; `just docs`
+vert. Récit : « 24 novembre, en fin d'après-midi : le salon, cinquième
+passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

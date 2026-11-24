@@ -31420,6 +31420,20 @@ Les tables du salon vivent dans `mots.ts` sans entrer dans la page : rien ne
 les y importe, et la construction les laisse de côté. L'écart vient du
 minifieur.
 
+**Les portes.** Toutes ont tourné, une à une, après le dernier commit de
+code. `just check` est vert (2 087 essais de la page), comme les essais de la
+carte graphique (Jellyfin vérifié au repos avant), du clip, des sauvegardes
+Switch, de la capture, de la Xbox 360 et de la copie chiffrée, et les preuves
+`focus`, `etats`, `salle-telephone`, `manette-garde`, `reglage` et `salon`
+(29 étapes), avec tous leurs contrôles rouges. Le contrôle rouge d'`etats` a
+d'abord échoué en une seconde : un autre chantier tenait son port. Relancé
+seul, il est vert. Trois restent rouges sans que le salon y soit pour rien,
+comme au passage précédent : `parcours` sur « invitation » et `cadre` sur
+`mascotte-hors-image` et `ain-immobile`, des défauts connus de la vague B1
+(leurs autres étapes passent une à une), et `deploy-check`, qui voit la
+redirection de Caddy pas encore installée et des services plus anciens que ce
+chantier.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,

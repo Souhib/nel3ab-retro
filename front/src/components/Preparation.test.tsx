@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Preparation, usePreparationPro } from "./Preparation";
+import { HAUTEUR_DU_COIN } from "./Colonne";
 import { InputStream } from "../media/input";
 import type { Preparation as Pending } from "../client";
 
@@ -21,7 +22,7 @@ beforeEach(() => localStorage.clear());
 function show(qui: string, extra: Partial<Parameters<typeof Preparation>[0]> = {}) {
   const input = new InputStream((s) => s, vi.fn(), vi.fn());
   vi.spyOn(input, "attribution").mockReturnValue(qui);
-  render(
+  const bloc = () => (
     <Preparation
       pending={pending}
       input={input}
@@ -30,8 +31,11 @@ function show(qui: string, extra: Partial<Parameters<typeof Preparation>[0]> = {
       onSelect={vi.fn()}
       send={vi.fn().mockResolvedValue(undefined)}
       {...extra}
-    />,
+    />
   );
+  const vue = render(bloc());
+  /** Un rendu de plus, avec les mêmes données. */
+  return { encore: () => vue.rerender(bloc()) };
 }
 
 it("le bloc ne se met pas de côté : il ne couvre rien (P1)", () => {
@@ -376,4 +380,70 @@ it("le chef d'une salle Pro lance en un geste (audit P6)", () => {
   expect(lancer).toBeEnabled();
   fireEvent.click(lancer);
   expect(send).toHaveBeenCalledWith({ id: "launch-2", action: "launch", pad: 4 });
+});
+
+// La rangée de gestes colle au-dessus du coin d'Aïn et de « Plus bas » (P2,
+// ADR D46) : sa marge suit les deux hauteurs, écrites ailleurs. Les modules
+// de Node sont importés à l'exécution, comme dans `lib/regie.test.ts` : la
+// page n'a pas leurs types.
+type Fs = { readFileSync: (chemin: string, codage: "utf-8") => string };
+const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as Fs;
+const lire = (relatif: string) =>
+  fs.readFileSync(new URL(relatif, import.meta.url).pathname, "utf-8");
+const preparationCss = lire("./preparation.css");
+const cadreCss = lire("./cadre.css");
+it("la rangée de gestes colle au-dessus du coin et de « Plus bas », à leur hauteur", () => {
+  const regle =
+    /\.n3-colonne:has\(\.n3-colonne-pied\) \.n3-prep-actions \{\s*bottom: calc\((\d+)px \+ ([\d.]+rem)\);/.exec(
+      preparationCss,
+    );
+  expect(regle).not.toBeNull();
+  expect(Number(regle![1])).toBe(HAUTEUR_DU_COIN);
+  const plusBas = /\.n3-plus-bas \{[^}]*?\sheight: ([\d.]+rem);/.exec(cadreCss);
+  expect(plusBas?.[1]).toBe(regle![2]);
+});
+
+// P2 : un choix qui prend le focus sous la rangée collée défile au-dessus
+// d'elle, au focus et après le rendu qui suit (l'avis du clavier pousse la
+// colonne). jsdom n'a pas de mise en page : les boîtes sont posées à la main.
+it("un choix caché sous la rangée de gestes défile au-dessus d'elle, au focus et après un rendu", () => {
+  const defile = vi.fn();
+  const avant = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = defile;
+  let basDuChoix = 300;
+  const boite = (haut: number, bas: number) =>
+    ({ top: haut, bottom: bas, height: bas - haut }) as DOMRect;
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: HTMLElement) {
+      if (this.classList.contains("n3-prep-actions")) return boite(400, 500);
+      return boite(basDuChoix - 30, basDuChoix);
+    },
+  );
+  try {
+    const { encore } = show("benoit");
+    const radio = document.querySelector<HTMLInputElement>("#preparation input[type=radio]")!;
+    // Le jumeau : au-dessus de la rangée, rien ne défile.
+    act(() => radio.focus());
+    expect(defile).not.toHaveBeenCalled();
+    // Sous la rangée : il défile, et la marge suit la hauteur de la rangée.
+    basDuChoix = 420;
+    act(() => radio.blur());
+    act(() => radio.focus());
+    expect(defile).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("preparation")?.style.getPropertyValue("--hauteur-gestes")).toBe(
+      "100px",
+    );
+    // Après un rendu qui le repousse dessous, encore une fois.
+    defile.mockClear();
+    encore();
+    expect(defile).toHaveBeenCalledTimes(1);
+    // Un geste de la rangée ne fait rien défiler : il est collé.
+    defile.mockClear();
+    act(() => document.querySelector<HTMLElement>(".n3-prep-actions button")!.focus());
+    encore();
+    expect(defile).not.toHaveBeenCalled();
+  } finally {
+    HTMLElement.prototype.scrollIntoView = avant;
+    vi.restoreAllMocks();
+  }
 });

@@ -127,3 +127,20 @@
   color: var(--legende);
   cursor: not-allowed;
 }
+
+/* Au bureau, le coin d'Aïn colle lui aussi au pied de la colonne (ADR D46) :
+   la rangée de gestes colle AU-DESSUS de lui et de « Plus bas », sinon le
+   coin la couvrait dès que la colonne débordait (parcours.mjs, garde-focus,
+   24 novembre 2026). La hauteur est `HAUTEUR_DU_COIN` (Colonne.tsx) plus
+   « Plus bas » (2,5 rem, cadre.css) ; `Preparation.test.tsx` la relit. */
+.n3-colonne:has(.n3-colonne-pied) .n3-prep-actions {
+  bottom: calc(161px + 2.5rem);
+}
+/* Ce qui prend le focus dans le bloc, hors de la rangée, s'arrête au-dessus
+   d'elle (`garderAuDessusDesGestes`) : la marge de défilement de la colonne
+   ne compte que le coin, et la rangée tient sur une à trois lignes : sa
+   hauteur du moment vient de `garderAuDessusDesGestes`. L'étiquette d'un
+   choix compte, pas seulement son bouton. */
+#preparation :is(label, input, button, select, a, [tabindex]):not(.n3-prep-actions *) {
+  scroll-margin-bottom: calc(var(--hauteur-gestes, 7rem) + 0.5rem);
+}

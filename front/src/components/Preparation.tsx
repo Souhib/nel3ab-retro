@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { Game, Participant, Preparation as Pending } from "../client";
 import type { InputState, InputStream } from "../media/input";
 import { PADS, slotLabel, type Pad, type Slot } from "../lib/saves";
@@ -100,6 +100,27 @@ function useAnnoncePrets(
  * avec son choix, les autres confirment le leur, qui regarde lit le compte.
  * Ce que chacun voit est calculé par `lib/lancement`.
  */
+/** Le focus d'un choix du bloc reste au-dessus de la rangée de gestes collée
+ * (P2). Le défilement natif du focus ne bouge rien tant que l'élément tient
+ * dans la colonne, même sous une barre collée ; et l'avis du clavier, qui
+ * naît du même focus, pousse ensuite la colonne vers le bas (parcours.mjs,
+ * garde-focus, 24 novembre 2026). D'où un contrôle au focus ET après chaque
+ * rendu : il ne fait défiler que si l'étiquette touche la rangée.
+ * `scrollIntoView` compte la marge que `preparation.css` lui donne, faite de
+ * la hauteur de la rangée (`--hauteur-gestes`). */
+function garderAuDessusDesGestes(bloc: HTMLElement | null): void {
+  const ici = document.activeElement;
+  if (!bloc || !(ici instanceof HTMLElement) || !bloc.contains(ici)) return;
+  if (ici.closest(".n3-prep-actions")) return;
+  const gestes = bloc.querySelector(".n3-prep-actions")?.getBoundingClientRect();
+  const cible = ici.closest("label") ?? ici;
+  if (!gestes || cible.getBoundingClientRect().bottom <= gestes.top) return;
+  // La rangée tient sur une à trois lignes selon la largeur et les gestes :
+  // la marge suit sa hauteur du moment.
+  bloc.style.setProperty("--hauteur-gestes", `${Math.ceil(gestes.height)}px`);
+  cible.scrollIntoView?.({ block: "nearest" });
+}
+
 export function Preparation({
   pending,
   game,
@@ -126,6 +147,9 @@ export function Preparation({
   /** La ligne parlée de la salle, seule région polie (P10). */
   annoncer?: (texte: string) => void;
 }) {
+  const bloc = useRef<HTMLElement | null>(null);
+  // Après chaque rendu : l'avis du clavier né du focus a pu pousser le bloc.
+  useLayoutEffect(() => garderAuDessusDesGestes(bloc.current));
   const [notice, setNotice] = useState("");
   const [working, setWorking] = useState(false);
   const moi = input.attribution();
@@ -167,7 +191,13 @@ export function Preparation({
       }),
     );
   return (
-    <section id="preparation" className="n3-prep" aria-labelledby="preparationTitre">
+    <section
+      id="preparation"
+      className="n3-prep"
+      aria-labelledby="preparationTitre"
+      ref={bloc}
+      onFocus={() => garderAuDessusDesGestes(bloc.current)}
+    >
       <h2 id="preparationTitre" className="n3-prep-titre">
         {titreDuBloc(pending, moi)}
       </h2>

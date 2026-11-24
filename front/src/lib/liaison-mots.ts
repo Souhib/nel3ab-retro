@@ -339,7 +339,7 @@ export function direLegere(): Dit {
   return {
     niveau: "fiche",
     titre: "Ton image est passée en image légère.",
-    detail: "Les images n'arrivaient plus assez régulièrement. " + "Elle ne change que ton écran.",
+    detail: "Les images n'arrivaient plus assez régulièrement. Elle ne change que ton écran.",
     actions: ["revenir", "garder-legere"],
     signaler: null,
     pastille: { texte: enBouton(IMAGE.legere), icone: "plume" },

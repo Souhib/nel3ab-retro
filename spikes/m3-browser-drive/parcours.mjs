@@ -454,8 +454,10 @@ const ETAPES = {
 
   /** A11Y-18 (plan personnes, places-demande 14) : Bo arrive, sa phrase est
    * écrite dans la ligne parlée, et 90 ms plus tard le salon annonce un
-   * démarrage. La ligne dit « Le jeu démarre. » sans avoir effacé
-   * l'arrivée. Sur la page de 54d1f6f, la phrase d'état la remplaçait. */
+   * démarrage. La ligne dit « Sonic Generations démarre. » sans avoir
+   * effacé l'arrivée. Sur la page de 54d1f6f, la phrase d'état la
+   * remplaçait. Depuis le chargement réécrit (chantier menus, C9), la ligne
+   * nomme le jeu ; les pages d'avant disaient « Le jeu démarre. ». */
   async "annonce-arrivee"() {
     const page = await nouvelle(PC);
     await entrer(page);
@@ -466,7 +468,7 @@ const ETAPES = {
     const arrivee = await texte(page, "#ligneParlee");
     await sleep(90);
     banc.annoncer({ game: "Sonic Generations", save: "nouvelle partie" });
-    if (!(await jusqua(async () => /Le jeu démarre/.test(await texte(page, "#ligneParlee")), 3000)))
+    if (!(await jusqua(async () => /(Le jeu|Sonic Generations) démarre/.test(await texte(page, "#ligneParlee")), 3000)))
       throw new Precondition(`le démarrage n'est pas dit : « ${await texte(page, "#ligneParlee")} »`);
     const ensuite = await texte(page, "#ligneParlee");
     if (!ensuite.includes(arrivee))

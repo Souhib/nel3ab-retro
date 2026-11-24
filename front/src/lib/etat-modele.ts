@@ -105,3 +105,8 @@ export function modeleEtat(e: Entree): Modele {
     ligneCoin: e.legere ? LIGNE_LEGERE : null,
   };
 }
+
+/** La fiche porte Signaler pendant une panne : la colonne ne le répète pas
+ * dans ses rangs (K25, jamais deux à l'écran). */
+export const signaleDansLaFiche = (m: Modele): boolean =>
+  m.niveau === "fiche" && m.signaler !== null;

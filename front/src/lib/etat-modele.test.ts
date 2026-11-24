@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Liaison } from "../media/liaison";
-import { LIGNE_LEGERE, modeleEtat, type Entree } from "./etat-modele";
+import { LIGNE_LEGERE, modeleEtat, signaleDansLaFiche, type Entree } from "./etat-modele";
 
 const figee = (depuisMs: number, niveau: "pastille" | "bandeau"): Liaison => ({
   etat: "figee",
@@ -136,5 +136,20 @@ describe("la ligne du coin ne répète pas la fiche", () => {
     const m = modeleEtat(entree({ legere: true }));
     expect(m.niveau).toBe("rien");
     expect(m.ligneCoin).toBe(LIGNE_LEGERE);
+  });
+});
+
+describe("Signaler une seule fois à l'écran (K25)", () => {
+  it("la fiche d'une panne le porte : la colonne le retire de ses rangs", () => {
+    expect(signaleDansLaFiche(modeleEtat(entree({ liaison: figee(14_000, "bandeau") })))).toBe(
+      true,
+    );
+  });
+  it("jumeau : une pastille seule, un plein cadre ou rien ne le portent pas", () => {
+    expect(signaleDansLaFiche(modeleEtat(entree({ liaison: figee(3000, "pastille") })))).toBe(
+      false,
+    );
+    expect(signaleDansLaFiche(modeleEtat(entree({ liaison: ARRIVEE })))).toBe(false);
+    expect(signaleDansLaFiche(modeleEtat(entree()))).toBe(false);
   });
 });

@@ -862,6 +862,10 @@ export const ETAT = {
    * regardaient. Ceux qui ont joué sont sur le panneau, au passé. */
   ceSoir: (salle: number) => `Ce soir dans la salle ${salle}`,
   ontRegarde: "Ils ont regardé",
+  /** Les places d'une salle fermée, au passé (`PlacesAuPasse`) : le groupe,
+   * et une place que personne ne tenait. */
+  ontJoue: "Ils ont joué",
+  restaitLibre: (n: number) => `Place ${n}, libre`,
   /** Le pli de la fiche d'une image figée : les faits, ligne à ligne. */
   voit: "Ce que ta page voit",
   /** Les étapes de l'arrivée, dites pour un lecteur d'écran. */

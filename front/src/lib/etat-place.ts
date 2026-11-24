@@ -56,3 +56,24 @@ export function placeDeLaPastille(geo: Geometrie, tenu: boolean): PlacePastille 
   }
   return null;
 }
+
+/** Où la salle monte la pastille de ce modèle : dans la pile des avis, à
+ * part sur un rectangle tenu en main, ou nulle part (aucune pastille, ou
+ * aucune place hors de l'image). */
+export function montageDeLaPastille(
+  modele: { pastille: unknown },
+  geo: Geometrie,
+  tenu: boolean,
+): { pile: boolean; aPart: Rect | null } {
+  if (modele.pastille === null) return { pile: false, aPart: null };
+  const place = placeDeLaPastille(geo, tenu);
+  return { pile: place?.lieu === "pile", aPart: place?.lieu === "a-part" ? place.rect : null };
+}
+
+/** Où vit la fiche : en tête de la colonne quand elle est à côté de l'image
+ * ou dessous, sinon dans la feuille agrandie, où la colonne entière l'a en
+ * tête et où la pastille l'ouvre. Pas dans la bande d'un téléphone : mesurée
+ * à 390x844 le 24 novembre 2026, elle ne tient que la pastille, et les
+ * gestes de la fiche passaient sous la manette à l'écran. */
+export const lieuDeLaFiche = (colonne: string | null): "colonne" | "feuille" =>
+  colonne === "a-cote" || colonne === "dessous" ? "colonne" : "feuille";

@@ -126,6 +126,14 @@ button.n3-pastille {
   pointer-events: none;
 }
 
+/* ── Les places d'une salle fermée ───────────────────────────────────── */
+
+/* Au passé, sans geste (`PlacesAuPasse`) : la main ne dit pas qu'on peut
+   cliquer sur une place qui ne mène plus nulle part. */
+.n3-places[data-passe] :is(.n3-place, .n3-places-toutes) {
+  cursor: default;
+}
+
 /* ── La fiche ────────────────────────────────────────────────────────── */
 
 .n3-fiche {

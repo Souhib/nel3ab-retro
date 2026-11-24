@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { MANETTES, miseEnPage, modeDuCadre, SANS_ZONES } from "./cadre";
-import { BARRE_SALLE_PX, BARRE_TETE_PX, placeDeLaPastille } from "./etat-place";
+import {
+  BARRE_SALLE_PX,
+  BARRE_TETE_PX,
+  lieuDeLaFiche,
+  montageDeLaPastille,
+  placeDeLaPastille,
+} from "./etat-place";
 
 /** La géométrie d'une salle tenue en main, comme la page la calcule. */
 function geo(largeur: number, hauteur: number, image = { width: 640, height: 480 }) {
@@ -78,5 +84,42 @@ describe("la place de la pastille, tenue en main", () => {
     const g = geo(375, 667);
     const etroite = { ...g, bande: null, barre: { x: 0, y: 0, w: 200, h: 52 } };
     expect(placeDeLaPastille(etroite, true)).toBeNull();
+  });
+});
+
+describe("où la salle monte la pastille et la fiche", () => {
+  const pastille = { pastille: { texte: "Image figée" } };
+  it("au bureau, dans la pile des avis", () => {
+    expect(montageDeLaPastille(pastille, geo(1440, 900), false)).toEqual({
+      pile: true,
+      aPart: null,
+    });
+  });
+  it("tenue en main sans bande, à part dans la barre", () => {
+    const g = { ...geo(375, 667), bande: null, barre: { x: 0, y: 0, w: 375, h: 52 } };
+    const m = montageDeLaPastille(pastille, g, true);
+    expect(m.pile).toBe(false);
+    expect(m.aPart).toEqual({
+      x: BARRE_TETE_PX,
+      y: 0,
+      w: 375 - BARRE_TETE_PX - BARRE_SALLE_PX,
+      h: 52,
+    });
+  });
+  it("jumeau : sans pastille, nulle part", () => {
+    expect(montageDeLaPastille({ pastille: null }, geo(1440, 900), false)).toEqual({
+      pile: false,
+      aPart: null,
+    });
+  });
+  it("jumeau : sans place hors de l'image, nulle part plutôt que dessus", () => {
+    const g = { ...geo(375, 667), bande: null, barre: { x: 0, y: 0, w: 200, h: 52 } };
+    expect(montageDeLaPastille(pastille, g, true)).toEqual({ pile: false, aPart: null });
+  });
+  it("la fiche en tête de la colonne à côté ou dessous, sinon dans la feuille", () => {
+    expect(lieuDeLaFiche("a-cote")).toBe("colonne");
+    expect(lieuDeLaFiche("dessous")).toBe("colonne");
+    expect(lieuDeLaFiche("feuille")).toBe("feuille");
+    expect(lieuDeLaFiche(null)).toBe("feuille");
   });
 });

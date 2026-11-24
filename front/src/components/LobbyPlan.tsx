@@ -68,6 +68,7 @@
 import type { Person, Room, Seat } from "../client";
 import { cn } from "../lib/cn";
 import { consoleName } from "../lib/consoles";
+import { pastille } from "../lib/mots";
 import { PLAYER_COLOURS } from "../media/players";
 
 /** Le sol, la dalle, et les trois encres. Mesures dans l'en-tête. */
@@ -316,7 +317,7 @@ export function LobbyPlan({
                         className="font-mono text-mini uppercase tracking-[0.22em]"
                         style={{ color: couleur }}
                       >
-                        P{seat.port}
+                        {pastille(seat.port)}
                       </span>
                       <span
                         className="max-w-[176px] truncate text-corps"

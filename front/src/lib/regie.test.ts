@@ -670,3 +670,46 @@ it("la copie du salon est celle de la page", () => {
   if (env?.N3_REGIE_ECRIRE === "1") fs.writeFileSync(SALON, css);
   expect(fs.readFileSync(SALON, "utf-8"), "control/.../routes/regie.css est périmé").toBe(css);
 });
+
+/* ==== chantier personnes ==== */
+/* L'annonce des places sur l'ancre du socle (`AnnonceEnLettres`) : son encre
+   vient de `components/places.css`, et l'ancre vit sur quatre hôtes. Sur le
+   fronton, le fond est l'écran, noir dans les deux régies ; l'encre
+   commune `--signal` y tombait à 3,28:1 de jour, en 17 px (relecture du
+   24 novembre 2026). L'essai lit la règle que la cascade applique au
+   fronton, la sienne si elle existe, sinon la règle commune. */
+describe("chantier personnes : l'annonce des places sur ses hôtes", () => {
+  const places = fs.readFileSync(ici("../components/places.css"), "utf-8");
+  /** Le jeton de `color` d'une règle de `places.css`, ou `null`. */
+  const encreDe = (selecteur: string): string | null => {
+    const nue = places.replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const regle of nue.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if ((regle[1] ?? "").replace(/\s+/g, " ").trim() !== selecteur) continue;
+      const lu = /(?:^|;|\s)color\s*:\s*var\((--[\w-]+)\)/.exec(regle[2] ?? "");
+      if (lu) return lu[1] ?? null;
+    }
+    return null;
+  };
+  const COMMUNE = '[data-ancre="annonce"]:not(:empty)';
+  const FRONTON = `.n3-fronton ${COMMUNE}`;
+
+  it("lit la règle commune : la précondition de l'essai", () => {
+    expect(encreDe(COMMUNE)).toBe("--signal");
+  });
+
+  it("sur le fronton, l'annonce tient 4,5:1 sur l'écran, dans les deux régies", () => {
+    const encre = encreDe(FRONTON) ?? encreDe(COMMUNE);
+    expect(encre).not.toBeNull();
+    for (const theme of ["nuit", "jour"] as const) {
+      expect(
+        contrast(couleur(theme, encre ?? ""), couleur(theme, "--ecran")),
+        `${theme}: ${encre} sur --ecran`,
+      ).toBeGreaterThanOrEqual(AA_TEXT);
+    }
+  });
+
+  it("jumeau : le signal du jour ne se lirait pas sur l'écran", () => {
+    expect(contrast(couleur("jour", "--signal"), couleur("jour", "--ecran"))).toBeLessThan(AA_TEXT);
+  });
+});
+/* ==== fin personnes ==== */

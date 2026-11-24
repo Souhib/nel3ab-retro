@@ -37,56 +37,18 @@ export function Instruments({
 
   return (
     <div className="flex flex-col gap-3 text-corps">
-      {/* Ce que l'état de liaison lit, et ce qu'il en conclut. Les mêmes
-          chiffres que `media/liaison.ts`: un gel se lit ici en secondes
-          pendant qu'il dure, et la conclusion est écrite en mots. */}
-      <Panel title="liaison">
-        <Readout
-          label="état"
-          value={NOM_ETAT[liaison.etat]}
-          tone={liaison.etat === "ok" ? "good" : liaison.etat === "cachee" ? "faint" : "alert"}
-        />
-        <Readout
-          label="socket vidéo"
-          value={video.connected ? duree(video.sinceOpenedMs) : duree(video.downForMs)}
-          unit={video.connected ? "s ouverte" : "s coupée"}
-          tone={video.connected ? "faint" : "alert"}
-        />
-        <Readout
-          label="dernier message"
-          value={duree(video.sinceHeardMs)}
-          unit="s"
-          tone="faint"
-          hint="Vide compris: la salle en envoie un toutes les 500 ms quand elle n'a pas d'image. Il dit qu'elle est là, rien de plus."
-        />
-        <Readout
-          label="dernière image reçue"
-          value={duree(video.sinceUnitMs)}
-          unit={`s · ${video.units} reçues`}
-          tone={video.sinceUnitMs !== null && video.sinceUnitMs >= FIGEE_MS ? "alert" : "faint"}
-          hint="Avant tout décodage: une image jetée parce que l'onglet est caché compte quand même comme arrivée."
-        />
-        <Readout
-          label="dernière image peinte"
-          value={duree(video.sincePaintedMs)}
-          unit="s"
-          tone="faint"
-        />
-        <Readout
-          label="attente d'image"
-          value={duree(video.sinceStartedMs)}
-          unit="s depuis le départ du flux"
-          tone="faint"
-        />
-      </Panel>
-
-      <Panel title="image">
+      {/* Quatre groupes, dans l'ordre de ce que la personne regarde : l'image,
+          le son, la manette, puis la liaison qui les porte (plan personnes,
+          mesures 2, 23 novembre 2026). Les reprises de l'image vont avec
+          l'image, le numéro de la séance avec la liaison, que le signalement
+          cite. */}
+      <Panel title="L'image">
         <Readout label="arrivées" value={video.shown} />
         <Readout label="peintes" value={video.painted} />
         <Readout
           label="durée d'affichage"
           value={`${cadence.p50}`}
-          unit={`rafraîch. (p05 ${cadence.p05}, p95 ${cadence.p95})`}
+          unit={`rafraîch. (au mieux ${cadence.p05}, au pire (1 fois sur 20) ${cadence.p95})`}
           tone={even ? "good" : "normal"}
           hint="Sur un écran 240 Hz, une source à 60 images par seconde doit tenir 4 rafraîchissements, toujours."
         />
@@ -119,9 +81,9 @@ export function Instruments({
         <Readout
           label="écarts d'arrivée"
           value={`${video.gapMs.p50.toFixed(1)} / ${video.gapMs.p95.toFixed(1)}`}
-          unit="ms p50/p95"
+          unit="ms d'habitude / au pire (1 fois sur 20)"
           tone={video.gapMs.p95 > 33 ? "alert" : "normal"}
-          hint="16,7 ms est régulier. Un p95 bien au-dessus veut dire que les images arrivent par paquets."
+          hint="16,7 ms est régulier. Un « au pire » bien au-dessus veut dire que les images arrivent par paquets."
         />
         {/* Les tailles écrites en dur (608×448, 1216×896) étaient celles de
             Dolphin, fausses pour une Switch: l'image reçue dit la sienne. */}
@@ -156,7 +118,7 @@ export function Instruments({
         <Readout
           label="attente avant peinture"
           value={`${video.waitMs.p50.toFixed(0)} / ${video.waitMs.p95.toFixed(0)}`}
-          unit="ms p50/p95"
+          unit="ms d'habitude / au pire (1 fois sur 20)"
           tone="faint"
           hint="Combien de temps une image reste décodée dans la file avant son tour. Grand veut dire que l'horaire la fait attendre; nul veut dire qu'elle arrive déjà en retard."
         />
@@ -167,9 +129,7 @@ export function Instruments({
           tone={video.jitterMs > 25 ? "alert" : "normal"}
           hint="De combien la plus lente des images ordinaires est plus lente que la plus rapide. La page l'ajoute à son tampon, donc une bonne liaison n'ajoute rien."
         />
-      </Panel>
 
-      <Panel title="reprises">
         <Readout
           label="socket muette"
           value={video.stalls}
@@ -200,7 +160,7 @@ export function Instruments({
         />
       </Panel>
 
-      <Panel title="son">
+      <Panel title="Le son">
         <Readout
           label="état"
           value={etatDuSon(sound.state)}
@@ -261,7 +221,7 @@ export function Instruments({
         />
       </Panel>
 
-      <Panel title="manette">
+      <Panel title="La manette">
         <Readout
           label="place"
           value={input.port ?? "aucune"}
@@ -311,9 +271,49 @@ export function Instruments({
         ) : null}
       </Panel>
 
-      <Panel title="séance">
+      {/* Ce que l'état de liaison lit, et ce qu'il en conclut. Les mêmes
+          chiffres que `media/liaison.ts`: un gel se lit ici en secondes
+          pendant qu'il dure, et la conclusion est écrite en mots. */}
+      <Panel title="La liaison">
         <Readout
-          label="numéro"
+          label="état"
+          value={NOM_ETAT[liaison.etat]}
+          tone={liaison.etat === "ok" ? "good" : liaison.etat === "cachee" ? "faint" : "alert"}
+        />
+        <Readout
+          label="socket vidéo"
+          value={video.connected ? duree(video.sinceOpenedMs) : duree(video.downForMs)}
+          unit={video.connected ? "s ouverte" : "s coupée"}
+          tone={video.connected ? "faint" : "alert"}
+        />
+        <Readout
+          label="dernier message"
+          value={duree(video.sinceHeardMs)}
+          unit="s"
+          tone="faint"
+          hint="Vide compris: la salle en envoie un toutes les 500 ms quand elle n'a pas d'image. Il dit qu'elle est là, rien de plus."
+        />
+        <Readout
+          label="dernière image reçue"
+          value={duree(video.sinceUnitMs)}
+          unit={`s · ${video.units} reçues`}
+          tone={video.sinceUnitMs !== null && video.sinceUnitMs >= FIGEE_MS ? "alert" : "faint"}
+          hint="Avant tout décodage: une image jetée parce que l'onglet est caché compte quand même comme arrivée."
+        />
+        <Readout
+          label="dernière image peinte"
+          value={duree(video.sincePaintedMs)}
+          unit="s"
+          tone="faint"
+        />
+        <Readout
+          label="attente d'image"
+          value={duree(video.sinceStartedMs)}
+          unit="s depuis le départ du flux"
+          tone="faint"
+        />
+        <Readout
+          label="numéro de la séance"
           value={VISIT}
           id="visit"
           tone="faint"

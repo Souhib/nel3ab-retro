@@ -29,7 +29,8 @@
  * - **place**: l'emplacement 1 à 4. « place 2 », « 2 places libres »,
  *   « Prendre une place », « Rendre ma place » (`PLACE`).
  * - **manette**: l'objet qu'on tient, et lui seul. « Aucune manette détectée. »
- * - **P1 à P4**: la pastille de couleur d'une place, jamais un nom.
+ * - **1P à 4P**: la pastille d'une place, comme sur une borne (`pastille`),
+ *   jamais un nom.
  * - **chef**: la personne qui choisit le jeu. « Bo choisit le jeu. »
  * - **nouvelle partie**, **tout débloqué**, **ma sauvegarde**: les trois
  *   sauvegardes. Aux autres: « la sauvegarde de Bo ».
@@ -468,3 +469,202 @@ export const BRANCHEE = {
 } as const;
 
 // ==== fin salle ====
+
+// ==== chantier personnes ====
+
+/** La pastille d'une place, « 1P » à « 4P », comme l'écran de sélection d'une
+ * borne d'arcade (« P1 » jusqu'au 23 novembre 2026). Un numéro hors de 1 à 4
+ * n'est pas une place : il n'a pas de pastille, plutôt qu'un « 0P » ou un
+ * « 5P » sur un bouton. Pas d'exception non plus : le numéro vient du réseau,
+ * et une exception dans un rendu viderait toute la page. */
+export function pastille(place: number): string {
+  return Number.isInteger(place) && place >= 1 && place <= 4 ? `${place}P` : "";
+}
+
+/** Les places START du panneau (`components/Places`) : le nom accessible de
+ * chaque bouton dit la place, qui la tient et ce que fait un toucher, parce
+ * que le dessin seul ne le dit à personne (audit A11Y-11). En casse normale :
+ * les capitales d'arcade viennent de la feuille. */
+export const PLACES = {
+  /** Écrit sur sa propre place, à la place de son nom d'étiquette. */
+  toi: "toi",
+  /** Ce que dit une place sans nom à la place d'une étiquette. */
+  vide: "libre",
+  sansNom: "tenue",
+  /** Le badge qui saute sur une place qui s'allume (effet « arrive »). */
+  pret: "prêt !",
+  /** Le bouton qui montre les quatre places quand la rangée en petit n'a
+   * pas leur largeur. */
+  toutes: (dites: string) => `Les places : ${dites}. Les voir dans la salle`,
+  libre: (n: number) => `Place ${n}, libre : la prendre`,
+  tenue: (n: number) => `Place ${n}, tenue : la reprendre`,
+  aToi: (n: number) => `Place ${n} : la tienne`,
+  aQuelquun: (n: number, nom: string) => `Place ${n} : ${nom}`,
+  choisit: "choisit le jeu",
+  tuChoisis: "tu choisis le jeu",
+  microCoupe: "micro coupé",
+  demander: "lui demander sa place",
+  roleJoue: (n: number) => `Tu joues à la place ${n}.`,
+  roleLibre: "Tu regardes : prends une place libre pour jouer.",
+  rolePlein: "Tu regardes : touche la place d'un joueur pour la lui demander.",
+  /** Le worker a donné ma place à quelqu'un d'autre. */
+  deplace:
+    "Quelqu'un a repris ta place. Choisis une place libre, ou demande la sienne à un joueur.",
+} as const;
+
+/** Les arrivées et les départs, dits une fois par la ligne parlée de la salle
+ * (`lib/usePlaces`). Aucune durée qui avance : la ligne serait relue. */
+export const ARRIVEES = {
+  premiere: (nom: string, n: number) => `${nom} prend la place ${n}.`,
+  retour: (nom: string, n: number) => `${nom} revient à la place ${n}.`,
+  sansNom: (n: number) => `La place ${n} est prise.`,
+  depart: (nom: string, n: number) => `${nom} rend la place ${n}.`,
+  departSansNom: (n: number) => `La place ${n} est libre.`,
+  prisePar: (n: number, nom: string) => `Ta place ${n} est à ${nom}. Tu regardes.`,
+  regarde: (nom: string) => `${nom} regarde la partie.`,
+} as const;
+
+/** La carte d'une place (`components/CartePlace`) : demander la place de
+ * quelqu'un selon la vraie règle du salon (20 s, puis la reprise confirmée),
+ * reprendre une place sans nom, ou rendre la sienne. Aucune phrase genrée sur
+ * l'autre personne, et plus de « est prévenu ». */
+export const CARTE = {
+  estA: (n: number, nom: string) => `La place ${n} est à ${nom}`,
+  tenue: (n: number) => `La place ${n} est tenue`,
+  personne: "Personne n'y est nommé : tu peux la reprendre.",
+  delai: (nom: string, s: number, n: number) =>
+    `${nom} a ${s} s pour répondre. Sans réponse, tu pourras prendre la place ${n}.`,
+  demander: "Lui demander sa place",
+  reprendre: (n: number) => `Reprendre la place ${n}`,
+  chezLui: (nom: string) => `Ta demande est chez ${nom}`,
+  annuler: "Annuler la demande",
+  prendre: (n: number) => `Prendre la place ${n}`,
+  silence: (nom: string) => `${nom} n'a pas répondu`,
+  /** « Donner ma place » reçu par le salon (`accepted`). */
+  laisse: (nom: string, n: number | null) =>
+    n === null ? `${nom} te laisse choisir le jeu.` : `${nom} te laisse sa place ${n}.`,
+  /** Un reste à 0 venu d'un salon qui ne dit pas encore `accepted`. */
+  peux: (n: number | null) =>
+    n === null ? "Tu peux choisir le jeu." : `Tu peux prendre la place ${n}.`,
+  garde: (nom: string, n: number) => `${nom} garde sa place ${n}.`,
+  ta: (n: number) => `Ta place ${n}`,
+  tuJoues: (comment: string) => `Tu joues ${comment}.`,
+  nom: "Ton nom se change entre deux parties, depuis l'avant-salle.",
+  choix: "Le choix du jeu",
+  choixA: (nom: string) => `${nom} choisit le jeu`,
+  choisir: "Choisir le jeu",
+  fermer: "Fermer",
+  restant: (s: number) => `${s} s`,
+  /** Comment je joue, sur la carte de ma place (`tuJoues`). */
+  auClavier: "au clavier",
+  auDoigt: "au doigt",
+  aLaManette: "à la manette",
+} as const;
+
+/** La demande reçue (`components/DemandeRecue`) : jamais sur l'image, un
+ * geste qui ne coûte rien en premier, et « Donner » qui s'annule 4 s. */
+export const DEMANDE = {
+  titre: (nom: string, n: number) => `${nom} demande ta place ${n}`,
+  reprise: (s: number, nom: string) => `Sans réponse dans ${s} s, ${nom} pourra la prendre.`,
+  ancienne: (s: number) => `Sans réponse dans ${s} s, tu la gardes.`,
+  manette: "A sur ta manette garde ta place.",
+  garder: "Garder ma place",
+  donner: "Donner ma place",
+  donne: (n: number, nom: string) => `Tu donnes ta place ${n} à ${nom}`,
+  annuler: "Annuler",
+  prise: (nom: string, n: number) => `${nom} a pris ta place ${n}.`,
+  redemander: "Redemander une place",
+  /** Le libellé du bouton « La salle » pendant une demande, en paysage. */
+  libelle: (nom: string) => `${nom} · ta place`,
+} as const;
+
+/** Inviter quelqu'un (`components/Inviter`) : un panneau déplié dans la
+ * colonne, le lien pour jouer ou pour regarder, son code, et la condition du
+ * réseau privé, toujours dite. Une seule région parle : la ligne de la salle. */
+export const INVITER = {
+  bouton: "Inviter quelqu'un",
+  legende: "Le lien ouvre la salle",
+  pourJouer: "pour jouer",
+  pourRegarder: "pour regarder",
+  attend: (n: number) => `La place ${n} attend ton invité.`,
+  pleine: "Aucune place libre : ton invité pourra regarder.",
+  lien: "Le lien",
+  copier: "Copier le lien",
+  copierCourt: "Copier",
+  envoyer: "Envoyer le lien",
+  replier: "Replier l'invitation",
+  copie: "Lien copié.",
+  envoye: "Lien envoyé.",
+  nonCopie: "Le lien n'a pas pu être copié. Il est sélectionné.",
+  aLaMain: "Ton navigateur n'a pas pu copier : le lien est sélectionné, copie-le à la main.",
+  reseau: "Le lien ne marche que pour qui est déjà sur le réseau privé de nel3ab.",
+  code: (pour: string) => `Code QR du lien ${pour}`,
+  tropLong: "Ce lien est trop long pour un code : copie-le.",
+} as const;
+
+/** L'heure d'un accusé, à la française : « 21 h 42 », « 9 h 05 ». */
+export const heureDite = (d: Date): string =>
+  `${d.getHours()} h ${String(d.getMinutes()).padStart(2, "0")}`;
+
+/** Signaler un problème (`components/Signaler`) : un seul composant, posé au
+ * premier rang de la colonne, dans la feuille, ou dans la fiche d'un état
+ * (K25). En casse de phrase, comme ses voisins. */
+export const SIGNALER = {
+  pret: "Signaler un problème",
+  court: "Signaler",
+  envoi: "Envoi…",
+  tenu: (s: number) => `Déjà signalé il y a ${s} s`,
+  reste: (s: number) => `Tu pourras en envoyer un autre dans ${s} s.`,
+  note: (heure: string) =>
+    `C'est noté, à ${heure}. Les deux dernières minutes de mesures partent avec, pour la maison.`,
+  sansReponse:
+    "Le signalement n'est pas parti : le site ne répond pas. Il passe par le site, pas par la salle. Réessaie dès que la page le rejoint.",
+  reessayer: "Réessayer",
+} as const;
+
+/** « Ils regardent » (`components/IlsRegardent`) : les spectateurs en
+ * étiquettes tapées, et qui arrive sans place encore annoncée. */
+export const REGARDENT = {
+  arrive: (nom: string) =>
+    `${nom} arrive : sa place n'est pas encore annoncée. Si c'est toi sur un autre appareil, recharge cette page pour la retrouver.`,
+} as const;
+
+/** Les mesures de la liaison (`components/Mesures`), au premier niveau : ce
+ * que le joueur lit. Un chiffre qu'on n'a pas encore se dit « pas encore
+ * mesuré », jamais une valeur de repli ni un zéro. Les mots d'atelier restent
+ * sous le pli des mesures techniques. */
+export const MESURES = {
+  titre: "Ta liaison",
+  /** La ligne du coin et « Ta liaison », quand rien ne manque. */
+  toutArrive: "Tout arrive",
+  saute: "L'image saute",
+  peintes: (n: number) =>
+    n < 2 ? `${n} image peinte par seconde` : `${n} images peintes par seconde`,
+  jeu: (n: number) => `le jeu en fait ${n}`,
+  sousLeJeu: "moins que le jeu",
+  allerRetour: (ms: number) => `${ms} ms d'aller-retour pour tes touches`,
+  pire: (ms: number) => `${ms} ms au pire entre deux images, une fois sur vingt`,
+  pasEncore: "pas encore mesuré",
+  peintesSans: "Images peintes par seconde",
+  jeuSans: "Le jeu",
+  allerRetourSans: "Aller-retour de tes touches",
+  pireSans: "Écart au pire entre deux images",
+  direct: "Trajet direct jusqu'à la salle.",
+  relais: "Trajet par un relais : souvent plus lent, rarement la seule cause d'une saccade.",
+  inconnu: "Trajet inconnu pour l'instant : la page n'a pas encore pu le lire.",
+  legereRefusee: "L'image légère n'existe pas pour la taille d'image de ce jeu.",
+  technique: "Mesures techniques, pour chercher une panne",
+} as const;
+
+/** Le champ du nom (`components/ChampNom`), à l'entrée et dans l'avant-salle :
+ * un libellé visible, son aide, la raison d'un refus, et l'aperçu de
+ * l'étiquette telle que les autres la verront. */
+export const NOM = {
+  libelle: "Ton nom",
+  aide: "Il s'affiche sur ta place.",
+  vide: "Tape ton nom pour entrer.",
+  apercu: "Ton étiquette, telle que les autres la verront",
+  coupe: "Ton nom sera coupé sur ta place.",
+} as const;
+
+// ==== fin personnes ====

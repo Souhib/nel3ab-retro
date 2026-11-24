@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { rangsDeLaColonne, type Rang } from "../lib/colonne";
+import { COLONNE } from "../lib/mots";
 import { Coin } from "./Coin";
 import { BlocRole, Colonne, IlsRegardent } from "./Colonne";
 import { PanneauCommande } from "./PanneauCommande";
@@ -141,11 +142,27 @@ describe("le coin", () => {
     const ouvrir = vi.fn();
     const { rerender } = render(<Coin mesures={false} onMesures={ouvrir} />);
     const ligne = document.getElementById("mesures");
-    expect(ligne?.getAttribute("aria-pressed")).toBe("false");
+    // Un bouton qui déplie les mesures, pas un interrupteur (plan personnes).
+    expect(ligne?.getAttribute("aria-expanded")).toBe("false");
+    expect(ligne?.hasAttribute("aria-pressed")).toBe(false);
+    expect(ligne?.hasAttribute("aria-controls")).toBe(false);
     fireEvent.click(ligne!);
     expect(ouvrir).toHaveBeenCalledOnce();
     rerender(<Coin mesures onMesures={ouvrir} />);
-    expect(document.getElementById("mesures")?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.getElementById("mesures")?.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById("mesures")?.getAttribute("aria-controls")).toBe("stats");
+  });
+
+  it("dit l'état de la liaison en clair quand on le lui donne, et ses mesures sinon", () => {
+    const { rerender } = render(<Coin mesures={false} onMesures={() => {}} ligne="Tout arrive" />);
+    const nom = () => document.getElementById("mesures")?.textContent ?? "";
+    // L'état, puis ce que la ligne ouvre : un nom qui dit son geste.
+    expect(nom()).toBe(`Tout arrive : ${COLONNE.mesures}`);
+    rerender(<Coin mesures={false} onMesures={() => {}} />);
+    expect(nom()).toBe(COLONNE.mesures);
+    // Le jumeau : une ligne tue garde un nom.
+    rerender(<Coin mesures={false} onMesures={() => {}} ligne="" />);
+    expect(nom()).toBe(COLONNE.mesures);
   });
 
   it("porte l'hôte de la mascotte sous la ligne, pas dedans", () => {

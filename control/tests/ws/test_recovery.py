@@ -205,3 +205,73 @@ async def test_a_request_does_not_guess_when_the_worker_cannot_answer(room, monk
 async def test_invalid_payloads_cannot_start_a_request(room, payload):
     assert not (await recovery.recover("souhib", payload))["ok"]
     assert room.rooms.recovery is None
+
+
+def _raisons(room) -> list[str]:
+    """Les raisons envoyées aux pages, dans l'ordre."""
+    return [
+        call.args[1]["reason"]
+        for call in room.emit.await_args_list
+        if call.args[0] == "recovery" and call.args[1]["reason"] is not None
+    ]
+
+
+async def test_the_reasons_name_a_place_and_never_a_pad(room):
+    """Une place s'appelle une place (lexique de la page, 22 novembre 2026).
+
+    Les raisons du salon s'affichent telles quelles dans la carte de la place ;
+    « garde sa manette » et « reprend la manette 2 » nommaient l'objet qu'on
+    tient au lieu de l'emplacement que la page appelle « place 2 ».
+    """
+    request = await begin(room, 2)
+    assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": False}))["ok"]
+    assert _raisons(room)[-1] == "Lu garde sa place 2."
+    room.clock[0] += 61
+    request = await begin(room, 2)
+    room.clock[0] += 20
+    assert (await recovery.recover("souhib", {"action": "finish", "id": request}))["ok"]
+    assert _raisons(room)[-1] == "Souhib reprend la place 2."
+    # Le jumeau : aucune raison envoyée ne dit « manette » ni « chef ».
+    assert _raisons(room)
+    assert not [r for r in _raisons(room) if "manette" in r or "chef" in r]
+
+
+async def test_the_reasons_for_the_game_choice_do_not_say_chief(room):
+    request = await begin(room)
+    assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": False}))["ok"]
+    assert _raisons(room)[-1] == "Lu garde le choix du jeu."
+    errors = [
+        (await recovery.recover("lu", {"action": "begin"}))["error"],
+        (await recovery.recover("souhib", {"action": "begin", "port": 9}))["error"],
+    ]
+    assert not [e for e in errors if "manette" in e or "chef" in e], errors
+
+
+def _avis(room, sid):
+    return [
+        call.args[1]
+        for call in room.emit.await_args_list
+        if call.args[0] == "recovery" and call.kwargs["to"] == sid
+    ]
+
+
+async def test_a_given_place_says_so_to_the_asker_and_not_a_silence(room):
+    """« Donner ma place » rend `remaining` à 0 : sans `accepted`, la page de
+    qui demande lisait ce 0 comme un silence et affichait « Lu n'a pas
+    répondu » (relecture du 24 novembre 2026)."""
+    request = await begin(room, 2)
+    assert _avis(room, "souhib")[-1]["accepted"] is False
+    assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": True}))["ok"]
+    dit = _avis(room, "souhib")[-1]
+    assert dit["accepted"] is True
+    assert dit["remaining"] == 0
+    assert dit["reason"] is None
+
+
+async def test_a_refusal_is_not_an_acceptance(room):
+    """Le jumeau : un refus garde `accepted` faux, et passe par sa raison."""
+    request = await begin(room, 2)
+    assert (await recovery.recover("lu", {"action": "answer", "id": request, "ok": False}))["ok"]
+    dit = _avis(room, "souhib")[-1]
+    assert dit["accepted"] is False
+    assert dit["reason"] == "Lu garde sa place 2."

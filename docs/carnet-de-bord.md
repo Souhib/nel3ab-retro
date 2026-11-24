@@ -29467,6 +29467,445 @@ la page, page à jour), comme `focus-navigateur` (27 étapes),
 et 932×430) et `parcours-navigateur` (13 étapes, dont
 `preparation-x360`). La porte entière attend toujours l'intégration finale.
 
+### 23 novembre, la nuit : les places deviennent des boutons START
+
+**Le contexte.** Le chantier « personnes » de la dernière vague reprend tout
+ce qui touche aux gens dans la salle : les places, la demande de place,
+l'invitation, le signalement, les mesures et le champ du nom. Ce premier
+passage pose les pièces sans les monter : la partition veut que le câblage
+d'`App.tsx` soit le dernier commit de chaque branche, refait à la fusion. Les
+composants existent donc, avec leurs essais, mais la salle montre encore les
+prises de `Seats`.
+
+**Ce qui est posé.** Les places deviennent des boutons START ronds, « 1P » à
+« 4P », allumés à la couleur du joueur (`Places.tsx`, classes du socle
+`.rt-bouton-start`). Chaque place est un bouton entier, avec son étiquette
+tapée (`Etiquette.tsx`), la couronne de qui choisit le jeu et le micro, en
+pixels sur la grille du socle. Une place libre se prend d'un toucher. Une
+place tenue ouvre sa carte (`CartePlace.tsx`), où l'on demande la place, où
+l'on reprend une place sans nom, ou, pour la sienne, où on la rend. Le double
+toucher caché de cinq secondes qui reprenait une place sans nom devient un
+bouton écrit. La demande reçue (`DemandeRecue.tsx`) remplace le bandeau posé
+sur l'image : « Garder ma place » en premier et seul plein, « Donner ma
+place » annulable pendant 4 s. `lib/usePlaces.ts` remplace la scène de la
+Bobine : une arrivée allume la place et fait sauter « 3P prêt ! » dessus,
+jamais au-dessus, demande la scène de la mascotte à l'arbitre de la salle et
+se dit une fois. `arrivees.ts` et la mémoire des vus quittent `bobine/` pour
+`lib/`.
+
+**Les initiales.** Le socle calcule déjà trois lettres (`initiales`, K35).
+Deux règles s'y ajoutent pour une salle. Un nom court est complété par des
+tirets (« Al » donne « AL- »). Deux personnes aux mêmes lettres prennent
+TOUTES LES DEUX leur numéro de place en troisième signe : deux « Lina » aux
+places 1 et 3 donnent « LI1 » et « LI3 ». Remplacer le second venu seulement
+aurait fait dépendre les lettres de l'ordre d'arrivée, et deux pages
+ouvertes à des moments différents n'auraient pas montré les mêmes.
+
+**Un essai qui ne pouvait pas échouer.** Le passage de « P1 » à « 1P » se fait
+en un seul commit, pour qu'une même place n'ait jamais deux noms. Le premier
+essai écrit pour le garder parcourait les chaînes visibles et cherchait
+« P1 » à « P4 ». Il passait sur l'ancienne page. Le parcours voit
+`P{seat.port}` comme un « P » seul, suivi d'une expression : le numéro n'est
+jamais dans la chaîne. L'essai lit maintenant aussi la source, à la recherche
+d'un « P » collé à un numéro calculé, et il était rouge sur sept endroits
+avant la correction : l'avant-salle et ses deux plans, la préparation deux
+fois, la prise de `Seats`. La leçon : un essai de vocabulaire doit être vu
+rouge sur la page d'avant, pas seulement vert sur la nouvelle.
+
+**La page disait le contraire du salon.** La ligne parlée annonçait toute
+demande avec « Sans réponse, tu la gardes. » C'est la règle de l'ancienne
+demande `ask`, que la page n'émet plus. Le chemin de tous les jours est la
+reprise (`api/ws/recovery.py`) : sans réponse en 20 s, la personne qui
+demande peut prendre la place. `phraseDemande` reçoit maintenant le chemin, et
+dit « Sans réponse, Lina pourra la prendre. » pour une reprise. L'essai a été
+écrit d'abord et vu rouge. La proposition promettait 10 s et « la place te
+reste » : la carte suit le salon, pas la proposition.
+
+**Les raisons du salon.** La carte affiche la raison du salon telle quelle.
+« Lu est là et garde sa manette » devient « Lu garde sa place 2. », et le rôle
+de chef devient le choix du jeu. Le protocole ne change pas, seulement le
+texte. Ces raisons se mettent en service avant la page, le salon d'abord.
+
+**Ce que vérifient les essais.** Chaque garde a son jumeau, et quatre mutants
+ont été essayés à la main : sans la résolution des doublons, sans la garde de
+stabilité (la mascotte jouerait départs et arrivées pendant un démarrage de
+jeu), avec la scène de départ pour plusieurs places à la fois (une salle qui
+ferme), et les deux raisons du salon d'avant. Chacun fait tomber l'essai qui
+le nomme.
+
+**Le poids.** La page passe de 249 486 à 249 903 octets en brotli, 417 de plus :
+la couronne et le micro en pixels et la pastille du lexique, que `Seats`
+monte encore. Les places, les cartes et `usePlaces` ne pèseront qu'au câblage,
+avec les retraits de `Seats`, `Socket`, `Swap`, `Recovery` et de la scène de
+la Bobine, qui libèrent de la place.
+
+### 23 novembre, la nuit, second passage : les places montées dans la salle
+
+**Le contexte.** Le premier passage du chantier « personnes » avait posé les
+places START, les cartes et le suivi des arrivées sans les monter. Ce second
+passage écrit ce qui manquait (l'invitation et son code QR, Signaler, les
+mesures, le champ du nom, « Ils regardent ») puis câble le tout dans
+`App.tsx`, en un seul commit, et retire ce que les places remplacent :
+`Seats`, `Socket`, `Swap`, `Recovery`, `ConnectionDiagnostic`, et la scène
+et le canapé de la Bobine.
+
+**Un code QR prouvé par un autre encodeur.** Le 22 novembre, l'invitation
+avait écarté le code QR : il fallait une dépendance, ou un encodeur maison à
+prouver. La maquette en avait écrit un de 150 lignes ; il est porté en
+TypeScript (`lib/qr.ts`). La preuve vient d'un oracle, c'est-à-dire d'un
+autre programme qui sait déjà répondre : l'encodeur de Kazuhiko Arase, sous
+licence MIT, que npm livre dans `qrcode-terminal`. Un script
+(`front/qr-reference.mjs`) lui fait écrire 224 matrices : 28 liens de 1 à
+178 octets, chacun sous les huit masques de la norme. Le script ne lit
+jamais l'encodeur de la page, sinon la référence jugerait son propre code.
+L'essai compare chaque matrice par son empreinte, et les deux liens de salle
+réels ligne par ligne. Deux mutants ont été essayés à la main : le masque 4
+réécrit, et un bit du format déplacé. Les deux font tomber l'essai. Un lien
+de plus de 180 octets est refusé, jamais coupé : un code qui mène à une
+moitié d'adresse serait pire qu'aucun code. Le module n'est évalué qu'à
+l'ouverture de l'invitation (import dynamique) ; ses octets restent dans la
+page, puisque la construction en un fichier inline tout. Aucun vrai
+téléphone ne l'a encore lu : c'est un essai à faire avec le propriétaire.
+
+**Inviter, Signaler, les mesures.** « Inviter quelqu'un » déplie un panneau :
+le lien pour jouer ou pour regarder (« pour jouer » désactivé dans une salle
+pleine), la place libre que l'invité prendra, le code, le lien entier, et
+« Copier le lien ». Une copie refusée sélectionne le lien et le dit. « Lien
+copié. » passe par la seule ligne parlée de la salle, qui reçoit maintenant
+les nouvelles des autres chantiers (`LigneParlee`, prop `nouvelle`) : avant,
+Inviter, la reprise et Signaler avaient chacun leur région, et un lecteur
+d'écran entendait trois voix. « Signaler un problème » dit l'heure de
+l'accusé, « Déjà signalé il y a 12 s » et le temps qui reste, et reste
+focalisable (`aria-disabled`) pour que ces mots se lisent au clavier. Il ne
+suppose plus la cause d'un échec : sans accusé, « le site ne répond pas » et
+« Réessayer » ; un refus du salon se dit avec ses mots. Les mesures
+(`Mesures.tsx`) remplacent le diagnostic de la colonne : une phrase, puis
+trois chiffres avec leur sens écrit. Chacun se dit « pas encore mesuré » tant
+qu'il ne l'est pas, jamais une valeur de repli : c'est la leçon du
+« pages 250 img/s » du 21 novembre. Un mutant qui rendait la cadence du jeu
+sans sa garde a fait tomber deux essais.
+
+**Le champ du nom, et la bulle du navigateur.** `ChampNom` a un libellé
+visible, une aide, et refuse un nom vide avec sa raison. Le premier essai du
+refus était rouge pour une raison qu'on n'attendait pas : le champ portait
+`required`, et le navigateur bloquait l'envoi avec sa propre bulle avant que
+la page ne dise la sienne. Le champ porte `aria-required` à la place. L'écran
+« Qui joue ? » appartient au chantier salon (K03), qui montera le champ.
+
+**Ce que le navigateur a trouvé.** Deux défauts sont passés à travers les
+quelque 1 700 essais de la page, et la preuve du téléphone
+(`salle-telephone`) les a vus tous les deux :
+
+- la demande reçue disparaissait aussitôt. La salle monte la carte vide en
+  permanence, et le temps restant de « pas de demande » valait 0. Au premier
+  rendu d'une demande, ce 0 n'avait pas encore été remplacé, et l'ancienne
+  demande expirait sur-le-champ. L'essai unitaire montait la carte avec sa
+  demande dès le départ, et ne pouvait pas le voir. Le temps restant
+  appartient maintenant à sa clé (`useReste`), et un essai monte la carte
+  vide, puis lui donne une demande : il était rouge avant la correction.
+  La leçon : un composant que le produit monte vide se teste monté vide ;
+- en travers, la carte se posait dans la bande de droite, large d'une
+  centaine de pixels, et sortait de l'écran par le bas. Elle vit maintenant
+  dans la bande d'un téléphone tenu droit seulement. En travers, « La salle »
+  dit « Bo · ta place » et ouvre la feuille agrandie, où la carte est collée
+  en tête de la colonne ;
+- au repos, la scène d'arrivée de la mascotte se jouait sur l'écran éteint,
+  par-dessus « Choisir un jeu » (`cadre-navigateur`, mascotte-hors-image).
+  Une arrivée parle des places : elle se joue maintenant au bord du panneau,
+  dans la barre d'un téléphone, ou dans le coin (`hoteDesPlaces`).
+
+**Une précondition intermittente, expliquée.** Au premier passage, l'étape
+`un-plein` de la salle avait échoué une fois sur sa précondition, puis passé
+deux fois. Avec les places dans la colonne, elle échouait à chaque fois, ce
+qui a permis de la comprendre. À 1440 × 900, la colonne déborde. Le premier
+clic fait naître l'avis « Le jeu ne reçoit plus tes touches » en tête de la
+colonne, qui pousse tout de 110 px entre le moment où le pilote calcule le
+point du second clic et le clic lui-même : le clic tombait à côté de
+« Rendre ma place ». Centrer chaque cible avant de cliquer règle l'étape ;
+le décalage sous le pointeur reste une question pour le chantier salle.
+
+**Les règles d'avant.** Le chantier salle avait resserré les prises de
+`Seats` par des règles provisoires (`cadre.css`, `telephone.css`). Elles
+visaient l'ancien dessin et écrasaient la grille des places START : les
+icônes de la couronne et du micro y prenaient la hauteur du panneau. Elles
+sont retirées avec `Seats`.
+
+**Le poids.** La page passe de 249 903 à 255 536 octets en brotli (+5 633). La
+mesure sépare ce qui entre et ce qui sort, en construisant trois pages depuis
+leurs commits : avant le câblage (253 792), la même sans les montages
+d'avant (249 650), et après. Le panneau d'Inviter, son code QR, Signaler et
+les mots entrent avant le câblage : +3 889. Le câblage ajoute les places,
+les cartes, le suivi et les mesures : +5 886. Les retraits de `Seats`,
+`Socket`, `Swap`, `Recovery`, `ConnectionDiagnostic` et de la scène de la
+Bobine rendent 4 142 octets. Depuis son départ (249 486), le chantier
+personnes en est à +6 050, pour une enveloppe de 8 000. La construction est
+déterministe : la page reconstruite depuis l'archive du commit a le même
+poids, à l'octet, que la page committée.
+
+### 23 novembre, la nuit, troisième passage : Échap, la ligne parlée et les preuves au vrai clavier
+
+**Le contexte.** Après le second passage, les places START étaient montées
+dans la salle, mais plusieurs gestes n'avaient été prouvés qu'en jsdom, qui
+n'a ni vrai focus ni vraie touche. Ce passage écrit les preuves navigateur
+que le plan demandait, et chacune a trouvé ou confirmé un défaut.
+
+**Une fonction pure testée n'est pas une fonction câblée.**
+`echapFermeLaCarte` existait depuis le premier passage, avec ses essais
+verts : elle dit si Échap doit fermer la carte d'une place (le focus est
+dans la carte, ou sur sa place). Personne ne l'appelait. Au vrai clavier,
+Échap dans la carte ouvrait le menu du jeu par-dessus, et « Fermer » laissait
+le focus tomber sur le corps de la page. La carte écoute maintenant Échap au
+niveau du document et l'arrête là quand il la concerne : le menu, que la
+salle ouvre depuis `window`, ne le reçoit plus. Ailleurs, Échap garde son
+sens. « Fermer » rend le focus à la place, « Prendre » le pose sur la place
+prise. Pendant une demande en attente, Échap n'annule rien : la carte n'a
+pas de « Fermer », seulement « Annuler la demande ».
+
+**Cinq étapes de navigateur, dans `parcours.mjs`.** Le plan les rangeait dans
+trois pilotes ; elles vivent toutes dans celui des parcours, parce que son
+banc sait asseoir Bo à la place 2 et noter ce que la page envoie au salon.
+Le banc répond aussi à une demande de reprise comme le salon (20 s, puis
+« Demande annulée. »). Les étapes : `places-clavier` (Tab, Entrée, Échap, et
+la place qui garde le focus quand Bo part et revient), `demande-place` (la
+demande hors de l'image, avec la règle du salon), `signaler-visible`
+(« Signaler un problème » sans défiler à trois tailles de bureau),
+`annonce-arrivee` et `annonce-lettres`. Chacune rougit sur son défaut dans
+`parcours-navigateur-rouge` : la page de `main` (03b21c0) pose la demande sur
+l'image et cache « Signaler » sous le pli ; la page du second passage
+(54d1f6f) ouvre le menu par la carte, efface l'arrivée et laisse l'ancre
+vide. Ce commit ne vit que sur la branche du chantier : sa page est gardée
+dans `spikes/m3-browser-drive/rouges/`, avec son empreinte vérifiée avant
+usage, comme celles du chantier salle.
+
+**Une arrivée effacée avant d'être lue.** La ligne parlée est une région
+polie : un lecteur d'écran la lit quand elle se calme. Quand Bo s'assied et
+que le salon annonce un démarrage 90 ms plus tard, « Bo prend la place 2. »
+était remplacé par « Le jeu démarre. » avant d'être lu. Une phrase d'état qui
+suit une nouvelle de moins de 1,5 s s'y ajoute maintenant ; au-delà, elle
+la remplace comme avant. Deux phrases d'état de suite ne s'additionnent pas.
+L'étape a aussi compté les régions parlées de la salle et en a trouvé deux :
+la ligne, et `#controller-status`, qui dit les manettes branchées. Celle-là
+appartient au chantier manettes ; l'étape la nomme et l'exclut, et un mutant
+qui remet une région sur la rangée des places la fait rougir.
+
+**L'annonce en lettres.** La même nouvelle s'écrit lettre par lettre sur
+l'ancre de l'annonce que le cadre pose (le fronton, l'en-tête de la colonne,
+la barre du téléphone), puis s'efface 6 s après. Le socle veut une région
+pour écrire lettre par lettre, afin que le lecteur reçoive la phrase
+entière d'un coup. On lui donne un élément détaché que personne ne lit, et
+pas `#ligneParlee` : React tient le nœud de texte de cette ligne, et
+remplacer son texte de l'extérieur détacherait ce nœud. Les mises à jour
+suivantes de React iraient dans un nœud qui n'est plus dans la page, et la
+ligne se tairait sans erreur.
+
+**Un essai qui lisait la racine du disque.** Les mesures techniques passent de
+six panneaux à quatre (L'image, Le son, La manette, La liaison), et « p95 »
+devient « au pire (1 fois sur 20) ». Un instantané complet de la page ne se
+construit pas en jsdom, alors l'essai lit la source. Écrit
+`new URL("./Instruments.tsx", import.meta.url)`, il cherchait
+`/src/components/Instruments.tsx` à la racine du disque : Vite réécrit cette
+forme exacte en adresse de ressource, au moment de transformer le fichier.
+Passer par une fonction (`ici(…)`), comme les autres essais qui lisent une
+source, garde le vrai chemin.
+
+**Quatre pilotes corrigés sans être relancés.** `swap`, `steal`, `claim` et
+`preparation-room` lisaient encore `data-armed`, `#asked`, `#recovery`,
+`disabled` sur la confirmation et « chef de la salle ». Ils suivent
+maintenant la carte de la place. Les trois premiers visent la salle vivante,
+le dernier monte une vraie salle jetable : deux choses interdites à ce
+chantier. Leur syntaxe est vérifiée, leur relance revient au propriétaire.
+
+**Le poids.** La page passe de 255 536 à 255 962 octets en brotli (+426), sans
+rien retirer : la carte au clavier, la tenue de la ligne parlée, l'annonce
+en lettres et les mots des mesures. Depuis son départ (249 486), le chantier
+personnes en est à +6 476, pour une enveloppe de 8 000.
+
+### 24 novembre, avant l'aube : une salle inconnue n'est pas une salle vide
+
+**Le contexte.** Le quatrième passage du chantier personnes écrit les deux
+preuves de navigateur qui restaient au plan : la rangée des places ne touche
+jamais l'image (`places-sous-image`), et une arrivée non plus (`arrivee`),
+dans `salle-telephone`. Les deux ont trouvé un défaut, et la seconde en a
+trouvé un dans un essai.
+
+**Tout le monde arrivait au chargement.** Pour vérifier « 3P prêt ! » à chaque
+image, l'étape ouvre une salle où Ami et Bo sont déjà assis, puis fait
+asseoir Cam. « prêt ! » s'allumait sur trois places, pas une. En suivant la
+page dès son ouverture, on voit pourquoi : au chargement, elle allumait
+« 1P prêt ! » et « 2P prêt ! » pendant 2,2 s et disait « La place 1 est prise.
+La place 2 est prise. ». Au tout premier rendu, ni la réponse du salon ni
+l'instantané de la page n'existent encore. L'occupation valait alors quatre
+places libres, la liaison valait « en marche » par défaut, et cet état vide
+servait de référence : la vraie salle, arrivée un instant après, ressemblait
+à deux arrivées. L'essai de la fonction pure disait bien « le premier état ne
+fait rien, même une salle pleine » ; le câblage ne lui donnait jamais ce
+premier état. L'occupation vaut maintenant `null` tant que la salle n'est pas
+connue, et rien ne se compare à `null`. Le mutant qui traite `null` comme
+une salle vide rougit dans l'essai, et celui qui retire la garde d'`App.tsx`
+rougit dans le navigateur, aux six tailles.
+
+**Une rangée de 114 px pour quatre places de 44 px.** Sur un iPhone SE couché
+(667x375) avec la manette à l'écran, le cadre pose sous l'image « La salle »
+puis le panneau des places : 114 px de large, 56 px de haut. Chaque place y
+mesurait 17 px, les ronds se chevauchaient, la 4P était coupée. Avec les
+effets « tout », les initiales sous le rond portaient la rangée à 64 px, et
+elle sortait du panneau de 4 px vers l'image. Ce défaut n'a été vu qu'en
+lançant toute la suite : le navigateur du pilote garde le stockage d'une
+page à l'autre, et l'étape du thème avait laissé les effets à « tout ».
+Lancée seule, l'étape passait. Elle écrit maintenant le niveau des effets
+pour chaque page, et passe aux trois. La correction tient en CSS : en petit,
+seul le rond reste ; et quand le panneau a moins de 200 px (quatre ronds et
+trois écarts), une requête de conteneur cache la rangée et montre un seul
+bouton, quatre lampes à la couleur des joueurs, qui ouvre la salle où
+chaque place a sa taille.
+
+**Un essai qui ne voyait pas l'image.** L'étape de la demande de place, écrite
+au second passage, vérifiait que la carte ne touche pas l'image en cherchant
+`#screen canvas`. La toile est `#screen` elle-même : la garde ne trouvait
+rien et ne pouvait pas rougir. Le commit de ce jour-là disait « la demande
+hors de l'image en travers » : c'était faux. Corrigée, elle a rougi en
+travers, où la carte vit dans la feuille agrandie que le joueur ouvre par
+« La salle ». Cette feuille couvre le bord gauche de l'image, environ
+200 px ; c'est la place que le cadre lui donne, pas celle de la carte.
+L'étape dit maintenant où la carte doit être (dans la bande tenu droit,
+dans la feuille en travers), ne juge l'image que dans la bande, et écrit la
+précondition qu'une toile a été trouvée.
+
+**Le clic sur une place.** Le plan voulait que prendre une place reste une
+tâche courte, mesurée processeur ralenti quatre fois. La mesure se fait sur
+la page construite : servie par Vite, React tourne en développement,
+plusieurs fois plus lent, et ne dirait rien du joueur. La première version
+comptait les tâches longues dans les 400 ms après le clic, et en a vu une de
+50 ms une fois sur quatre : une tâche qui commence 300 ms plus tard n'est
+pas celle du clic. La version gardée mesure le travail du clic lui-même,
+du premier écouteur de la fenêtre au dernier : de 6 à 11 ms sur cinq clics,
+à CPU x4, sur cette machine. C'est une mesure d'un soir, pas une garantie.
+
+**La ligne du coin en clair.** Elle disait « Mesures de la liaison » ; elle
+dit l'état : « Tout arrive », « L'image saute », « Image en préparation »,
+ou le nom de l'état de la liaison. Elle déplie les mesures à la place des
+rangs, donc elle porte `aria-expanded` et non plus `aria-pressed`, et son
+nom dit l'état puis le geste. Une entrée « Ta liaison » à mi-hauteur de la
+feuille du téléphone a été essayée et retirée : à 375x667, elle portait le
+contenu à 323 px pour 287, et la feuille défilait. Au téléphone, la même
+ligne, dans la salle entière, dit l'état et ouvre les mesures.
+
+**Le poids.** La page passe de 255 962 à 256 476 octets en brotli (+514), sans
+rien retirer. Depuis son départ (249 486), le chantier personnes en est à
++6 990, pour une enveloppe de 8 000.
+
+### 24 novembre, le matin : la relecture du chantier personnes
+
+**Le contexte.** Une relecture indépendante du chantier personnes a relevé
+neuf constats, chacun avec un script de navigateur ou un essai qui le
+montrait. Les neuf ont été reproduits sur la page de cc8c8a6 avant toute
+correction. Chaque correction a un essai rouge d'abord, et huit étapes
+nouvelles de `parcours.mjs` rougissent sur cette page, gardée dans
+`spikes/m3-browser-drive/rouges/` avec son empreinte, chacune sur son défaut.
+
+**Une raison envoyée à deux personnes.** Le salon envoie la même raison de
+fin de reprise à qui demande et à qui tient la place (`notify`, dans
+`api/ws/recovery.py`) : « Ami garde sa place 1. », « Demande annulée. »,
+une expiration, « Bo reprend la place 1. ». La page la passait à la carte de
+la place dans les deux cas. Chez qui tenait la place, la carte s'ouvrait,
+prenait le focus à la zone de jeu et lui proposait « Prendre la place 3 ».
+Un joueur au clavier qui venait de garder sa place perdait ses touches, et
+un clic de trop l'aurait déplacé. La carte ne lit plus que la demande de qui
+demande (`asking`). Pour l'autre, la fin se dit par la ligne parlée, sans
+carte et sans focus. La leçon : un message adressé à deux rôles n'a pas le
+même sens pour chacun, et l'essai doit se mettre à la place des deux.
+
+**Une carte qui revenait seule.** La salle gardait le numéro de la carte
+ouverte. Quand la place se libérait, la carte disparaissait faute de sujet,
+mais le numéro restait. Au retour de Bo, la carte se rouvrait et prenait le
+focus, sans que personne l'ait touchée. La carte vit maintenant dans un
+crochet du chantier (`useCarteDePlace`) qui l'oublie dès que sa place n'a
+plus de sujet. L'oubli se fait pendant le rendu, et non dans un effet :
+aucun état où la carte garde un numéro sans sujet n'est jamais montré.
+
+**Des issues muettes.** Le panneau `Recovery`, retiré le 23 novembre, disait
+le refus, l'annulation et l'expiration par une alerte. La carte qui l'a
+remplacé n'a pas de région parlée, et personne n'envoyait ces phrases à la
+ligne parlée : pour un lecteur d'écran, une demande refusée ne se disait
+plus. `useDireLaReprise` les dit une fois, en phrase urgente, que l'effet
+« lettres » écrit d'un coup, et dit aussi l'erreur d'un geste.
+
+**Un oui lu comme un silence.** Après « Donner ma place », le salon renvoie à
+qui demande un temps restant de zéro et aucune raison. La carte n'avait
+qu'une lecture d'un zéro : « Bo n'a pas répondu ». Le salon envoie
+maintenant `accepted`, et la carte dit « Bo te laisse sa place 2. ». Un
+piège en l'écrivant : `respond`, dans le contrôleur des reprises, marque la
+demande acceptée avant de lire la réponse, donc un refus portait aussi
+`accepted`. Le champ ne vaut vrai que sans raison, et un essai du salon
+garde le refus. Une page servie par un salon d'avant ce champ lit un zéro
+sans raison et dit une phrase neutre, « Tu peux prendre la place 2. » :
+elle ne prétend ni un oui ni un silence.
+
+**Une cadence qui survivait à l'image.** Les mesures recalculaient les
+images peintes par seconde seulement quand leur compteur changeait. Celui
+d'une image figée ne change plus : le panneau gardait « 60 images peintes
+par seconde » à côté d'une phrase qui disait l'image figée. C'est encore
+une valeur qui voyage comme une mesure. Le compte se fait maintenant à
+chaque instantané de la page, deux fois par seconde, et une fenêtre sans
+image compte zéro : un nombre d'événements, pas une valeur de repli.
+
+**Le signal sur le noir.** L'annonce écrite sur l'ancre du socle prenait la
+couleur du signal. Sur le fronton, le fond est l'écran, noir dans les deux
+régies, et le signal du jour y tenait 3,28 pour 1 en 17 px. Le socle avait
+créé une encre pour ce fond, `--fronton-encre` ; l'annonce la prend sur le
+fronton. L'essai de la régie lit la règle que la cascade applique au
+fronton dans `places.css`, et son jumeau garde le signal du jour refusé
+sur l'écran.
+
+**Un banc moins strict que le salon.** Le salon dit `seat_pending` vrai pour
+toute personne qui arrive, tant que sa page n'a dit ni sa place ni « aucune
+manette », et le schéma lit un champ absent comme vrai. La salle comptait
+pourtant parmi ceux qui regardent toute personne sans place : Sami était
+annoncé « Sami regarde la partie. » avec la scène du spectateur, pendant que
+la colonne disait qu'il arrivait. La règle vit dans `regarde`, partagée par
+« Ils regardent » et les arrivées. Le banc des parcours n'envoyait aucun
+`seat_pending`. Avec la règle juste, ses personnes auraient toutes été
+« en arrivée » : il l'envoie maintenant comme le salon.
+
+**Les ancres d'Aïn.** Le contrat de la mascotte demande une ancre `start-1`
+à `start-4` sur chaque bouton START, pour que son arrivée et son départ
+aillent à la place du joueur. Aucune n'existait. Elles sont posées sur le
+bouton lui-même, car le planificateur exclut des zones interdites l'élément
+qui porte l'ancre. Les lampes du bouton unique, en petit, n'en portent pas :
+le planificateur prend la première ancre d'un nom, qui serait la place
+cachée, et sans ancre visible la scène se replie en version courte. Le
+changement d'une arrivée sait maintenant son joueur. L'arbitre de la salle
+ne transmet pas encore de contexte : il sera passé au câblage qui suivra la
+fusion de la mascotte.
+
+**Le commit de câblage.** La partition veut un seul commit de câblage dans
+`App.tsx`, le dernier de la branche, refait à la fusion. Cinq commits le
+touchaient déjà (967ccf7, puis 67c3870, cda7c9b, 9f70cab et 2090c98), et
+l'état du projet affirmait le contraire. Réécrire l'histoire pour les
+réunir aurait laissé des commits qui ne construisent plus, et des empreintes
+citées dans ce carnet sans commit derrière. Ce passage met donc toute sa
+logique dans les fichiers du chantier, et n'ajoute à `App.tsx` qu'un
+sixième commit, le dernier du code de la branche ; seule la page
+reconstruite le suit. À la fusion, on rejoue les six dans cet ordre, ou,
+ce qui revient au même, la différence d'`App.tsx` entre `integration/retro`
+et la branche. Deux mutants de ce câblage (l'ancien filtre de ceux qui
+regardent, et l'appel qui dit les issues retiré) rougissent dans le
+navigateur. `Coin.tsx` et `colonne.mjs`, au chantier salle, avaient été
+touchés au quatrième passage : la salle doit les valider.
+
+**Une étape qui laissait les mesures ouvertes.** Lancée seule, chaque étape
+nouvelle passait. Lancée avec toute la suite, `signaler-visible` tombait :
+« aucun #complain ». L'étape d'avant, `mesures-figee`, dépliait les mesures,
+et la page s'en souvient (`nel3ab:mode`) ; le navigateur du pilote garde ce
+stockage d'une page à l'autre, et la page suivante s'ouvrait sur les
+mesures, sans les rangs de la colonne. C'est le même piège que le niveau
+des effets au passage précédent. Chaque page du pilote part maintenant des
+mesures repliées, comme elle part de la vue des touches lue.
+
+**Le poids.** La page passe de 256 476 à 257 012 octets en brotli (+536),
+sans rien retirer. Depuis son départ (249 486), le chantier personnes en est
+à +7 526, pour une enveloppe de 8 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31132,3 +31571,60 @@ effet. Son état appartient au composant qui l'appelle.
 **Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
 composant modifié sans recharger la page ni perdre son état. Il ne le fait
 que pour un fichier qui n'exporte que des composants.
+
+**Étiquette tapée** : le nom d'une personne en Pixelify, à l'encre de sa place,
+sur un ruban du creux de la régie. Elle remplace le bout de scotch écrit au
+feutre de la proposition « Scotch et feutre ».
+
+**Bouton START (place)** : une place de la salle, dessinée comme le bouton rond
+d'une borne d'arcade, « 1P » à « 4P », allumée à la couleur du joueur quand
+elle est prise.
+
+**Code QR** : un carré de modules noirs et blancs qu'un téléphone lit avec
+son appareil photo pour ouvrir une adresse. L'invitation en dessine un pour
+le lien de la salle.
+
+**Reed-Solomon (correction d'erreurs)** : des octets ajoutés à un message,
+calculés sur les autres, qui permettent de reconstituer ce qu'une tache ou
+une perte a effacé. Le code QR en porte, comme le flux d'image de la salle.
+
+**Masque (d'un code QR)** : un motif fixe, un parmi huit, qu'on superpose aux
+données pour éviter de grandes plages d'une seule couleur, difficiles à lire.
+
+**Oracle (dans un essai)** : un autre programme, déjà fiable, dont on
+compare les réponses à celles du code essayé. Il ne doit jamais dépendre du
+code qu'il juge.
+
+**Région polie (aria-live="polite", role="status")** : une région vivante
+que le lecteur d'écran lit quand elle cesse de changer, sans couper ce qu'il
+dit. Un texte remplacé aussitôt après avoir été écrit peut donc n'être
+jamais lu.
+
+**Propagation (d'un événement)** : le trajet d'une touche ou d'un clic dans
+la page, de l'élément touché jusqu'au document puis à la fenêtre. Un
+écouteur placé plus bas peut l'arrêter (`stopPropagation`) : ceux du dessus
+ne le reçoivent pas.
+
+**Tâche longue** : un travail du navigateur qui l'occupe plus de 50 ms
+d'affilée. Pendant ce temps, la page ne répond ni au doigt ni au clavier.
+Le navigateur les signale (`PerformanceObserver`, type `longtask`), sans
+dire de quel geste elles viennent : il faut les rapprocher du geste par
+l'heure.
+
+**Ralentir le processeur (CPU x4)** : un réglage des outils de Chrome qui
+fait tourner la page quatre fois plus lentement, pour approcher un téléphone
+modeste sur un ordinateur rapide. C'est une approximation : un vrai
+téléphone n'est pas un ordinateur ralenti.
+
+**Ancre d'une scène (`data-ancre`)** : un élément de la page qui dit à la
+mascotte où aller, par son nom (`start-2` pour le bouton START de la place
+2). Le planificateur lit sa boîte dans le rendu, et ne calcule aucun trajet
+depuis une coordonnée écrite à la main.
+
+**Instantané (de la page)** : la copie de l'état de l'image, du son et de
+la manette que la salle relit deux fois par seconde pour React. À ne pas
+confondre avec l'instantané d'une sauvegarde.
+
+**Qui tient la place (la cible d'une reprise)** : la personne assise à la
+place qu'un autre demande. Le salon lui envoie la demande, puis la même fin
+qu'à celui qui demande.

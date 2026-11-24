@@ -187,7 +187,11 @@ try {
   // Les deux contenus de la colonne: les mesures, ouvertes par la ligne du
   // coin (`#mesures`), puis les rangs, « Autres réglages » déplié.
   for (const mode of ["details", "normal"]) {
-    const ouvertes = await page.evaluate(() => document.querySelector("#mesures")?.getAttribute("aria-pressed") === "true");
+    // aria-expanded depuis le 24 novembre 2026 ; aria-pressed avant.
+    const ouvertes = await page.evaluate(() => {
+      const ligne = document.querySelector("#mesures");
+      return (ligne?.getAttribute("aria-expanded") ?? ligne?.getAttribute("aria-pressed")) === "true";
+    });
     if (ouvertes !== (mode === "details")) await page.click("#mesures");
     await page.evaluate(() => {
       const autres = document.querySelector("#autresReglages");

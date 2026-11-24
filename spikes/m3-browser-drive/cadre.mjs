@@ -623,8 +623,17 @@ async function principal() {
       const vusJoueur = await pleins(joueur);
       if (vusJoueur.length > 1) fautes.push(`joueur: ${vusJoueur.length} boutons pleins (${vusJoueur.join(", ")})`);
       // Rendre sa place, et regarder: le bloc de rôle offre alors la sienne.
-      await joueur.click("#autresReglages > summary");
-      await joueur.click("#watchOnly");
+      // Centrés avant le clic : depuis les places START (chantier personnes,
+      // 23 novembre 2026), la colonne déborde à 1440 × 900, et l'avis « Le
+      // jeu ne reçoit plus tes touches », né du premier clic, pousse la
+      // colonne de 110 px entre le calcul du point et le clic. Le clic
+      // tombait à côté de « Rendre ma place », et l'étape échouait sur sa
+      // précondition.
+      for (const cible of ["#autresReglages > summary", "#watchOnly"]) {
+        await joueur.$eval(cible, (e) => e.scrollIntoView({ block: "center" }));
+        await sleep(200);
+        await joueur.click(cible);
+      }
       if (!(await jusqua(() => joueur.$("#takePad").then(Boolean), 5000)))
         throw new Precondition("après « Rendre ma place », pas de « Prendre une place »");
       const vusSpectateur = await pleins(joueur);

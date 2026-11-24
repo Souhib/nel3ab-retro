@@ -64,6 +64,19 @@ describe("l'invitation", () => {
       "play",
     );
   });
+
+  it("entre pour regarder quand l'invitation le demande", () => {
+    expect(lienDInvitation("https://nel3ab.app", "/r/1/", "watch")).toBe(
+      "https://nel3ab.app/r/1/?entrer=regarder",
+    );
+    expect(
+      entreeDeLAdresse(new URL(lienDInvitation("https://n.invalid", "/r/1", "watch")).search),
+    ).toBe("watch");
+    // Jumeau : demander « jouer » ne donne pas « regarder ».
+    expect(lienDInvitation("https://nel3ab.app", "/r/1/", "play")).toBe(
+      "https://nel3ab.app/r/1/?entrer=jouer",
+    );
+  });
 });
 
 describe("l'adresse suit la place", () => {

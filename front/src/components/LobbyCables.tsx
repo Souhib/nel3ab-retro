@@ -53,7 +53,7 @@
  */
 import type { Room } from "../client";
 import { cn } from "../lib/cn";
-import { placesLibres } from "../lib/mots";
+import { pastille, placesLibres } from "../lib/mots";
 import { PLAYER_COLOURS } from "../media/players";
 
 /** L'ardoise porte le texte, la baie porte les câbles. Mesures dans l'en-tête. */
@@ -253,7 +253,7 @@ export function LobbyCables({
                     className="w-6 shrink-0 font-mono text-mini"
                     style={{ color: taken ? ENCRE : SOURDE }}
                   >
-                    P{seat.port}
+                    {pastille(seat.port)}
                   </span>
                   <Cable colour={colour} taken={taken} port={seat.port} />
                   <span

@@ -1,0 +1,445 @@
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Occupation } from "./arrivees";
+import type { Reprise, SujetCarte } from "./places";
+import type { Arbitre } from "./scenes-salle";
+import {
+  changement,
+  PART_MS,
+  useCarteDePlace,
+  useDireLaReprise,
+  usePlaces,
+  VIENT_MS,
+  type Annoncer,
+  type SuiviDesPlaces,
+} from "./usePlaces";
+
+const occ = (tenues: boolean[], noms: [number, string][] = []): Occupation => ({
+  tenues,
+  noms: new Map(noms),
+});
+const etat = (occupation: Occupation, mienne: number | null = null, regardent: string[] = []) => ({
+  occupation,
+  mienne,
+  regardent,
+});
+
+describe("ce qu'un changement fait", () => {
+  it("le premier état reçu ne fait rien, même une salle pleine", () => {
+    const plein = etat(occ([true, true, true, true], [[1, "Ami"]]), null, ["Sami"]);
+    expect(changement(null, plein, new Set())).toEqual({
+      phrases: [],
+      scene: null,
+      joueur: null,
+      vient: [],
+      part: [],
+    });
+  });
+
+  it("une première arrivée allume la place, joue l'arrivée et la dit", () => {
+    const fait = changement(
+      etat(occ([false, false, false, false])),
+      etat(occ([false, false, true, false], [[3, "JO"]])),
+      new Set(),
+    );
+    expect(fait).toEqual({
+      phrases: ["JO prend la place 3."],
+      scene: "arrivee",
+      joueur: 3,
+      vient: [3],
+      part: [],
+    });
+  });
+
+  /* Le contrat d'Aïn (emplacements-salle.json, mascotte) : `arrivee` et
+     `depart` vont au START du joueur (`start-N`), et l'arbitre passe
+     `contexte.joueur`. Sans le port dans le changement, ces scènes
+     n'atteignaient jamais la place et retombaient en pose (relecture du
+     24 novembre 2026). */
+  it("la scène sait de quel joueur elle parle : l'arrivée et le départ", () => {
+    const arrive = changement(
+      etat(occ([false, false, false, false])),
+      etat(
+        occ(
+          [false, true, true, false],
+          [
+            [2, "Lu"],
+            [3, "JO"],
+          ],
+        ),
+      ),
+      new Set(["Lu"]),
+    );
+    // Lu revient, JO arrive pour la première fois : la scène est celle de JO.
+    expect(arrive.scene).toBe("arrivee");
+    expect(arrive.joueur).toBe(3);
+    const part = changement(
+      etat(occ([false, true, false, false], [[2, "Bo"]])),
+      etat(occ([false, false, false, false])),
+      new Set(),
+    );
+    expect(part.scene).toBe("depart");
+    expect(part.joueur).toBe(2);
+  });
+
+  it("jumeau : sans scène, ou pour un spectateur, aucun joueur", () => {
+    const retour = changement(
+      etat(occ([false, false, false, false])),
+      etat(occ([false, false, true, false], [[3, "JO"]])),
+      new Set(["JO"]),
+    );
+    expect(retour.scene).toBeNull();
+    expect(retour.joueur).toBeNull();
+    const regarde = changement(etat(occ([false])), etat(occ([false]), null, ["Sami"]), new Set());
+    expect(regarde.scene).not.toBeNull();
+    expect(regarde.joueur).toBeNull();
+  });
+
+  it("un retour allume la place sans scène", () => {
+    const fait = changement(
+      etat(occ([false, false, false, false])),
+      etat(occ([false, false, true, false], [[3, "JO"]])),
+      new Set(["JO"]),
+    );
+    expect(fait.scene).toBeNull();
+    expect(fait.vient).toEqual([3]);
+    expect(fait.phrases).toEqual(["JO revient à la place 3."]);
+  });
+
+  it("une place tenue sans nom s'allume sans scène et sans prénom inventé", () => {
+    const fait = changement(etat(occ([false])), etat(occ([true])), new Set());
+    expect(fait.scene).toBeNull();
+    expect(fait.phrases).toEqual(["La place 1 est prise."]);
+  });
+
+  it("un départ seul éteint la place, joue le départ et le dit", () => {
+    const fait = changement(
+      etat(occ([false, false, false, true], [[4, "Inès"]])),
+      etat(occ([false, false, false, false])),
+      new Set(),
+    );
+    expect(fait).toEqual({
+      phrases: ["Inès rend la place 4."],
+      scene: "depart",
+      joueur: 4,
+      vient: [],
+      part: [4],
+    });
+  });
+
+  it("une salle qui libère toutes ses places n'appelle pas la mascotte", () => {
+    const fait = changement(
+      etat(
+        occ(
+          [true, true, true, true],
+          [
+            [1, "A"],
+            [2, "B"],
+          ],
+        ),
+      ),
+      etat(occ([false, false, false, false])),
+      new Set(),
+    );
+    expect(fait.scene).toBeNull();
+    expect(fait.part).toEqual([1, 2, 3, 4]);
+  });
+
+  it("dit en une phrase à qui on a pris sa place", () => {
+    const fait = changement(
+      etat(occ([false, true, false, false], [[2, "Moi"]]), 2),
+      etat(occ([false, true, false, false], [[2, "Lina"]]), null),
+      new Set(["Lina"]),
+    );
+    expect(fait.phrases).toEqual(["Ta place 2 est à Lina. Tu regardes."]);
+    // La place change de main : elle se rallume, elle ne s'éteint pas.
+    expect(fait.part).toEqual([]);
+    expect(fait.vient).toEqual([2]);
+  });
+
+  it("un nouveau spectateur se dit et joue la scène du spectateur", () => {
+    const fait = changement(
+      etat(occ([true], [[1, "Bo"]]), null, []),
+      etat(occ([true], [[1, "Bo"]]), null, ["Sami"]),
+      new Set(),
+    );
+    expect(fait.phrases).toEqual(["Sami regarde la partie."]);
+    // La table du socle associe l'événement « spectateur » à une scène.
+    expect(fait.scene).not.toBeNull();
+    // Le jumeau : qui rend sa place et regarde n'est pas un nouveau spectateur.
+    const rend = changement(
+      etat(occ([true], [[1, "Bo"]]), null, []),
+      etat(occ([false]), null, ["Bo"]),
+      new Set(),
+    );
+    expect(rend.phrases).toEqual(["Bo rend la place 1."]);
+  });
+});
+
+describe("usePlaces", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const arbitre = () => {
+    const demander = vi.fn<Arbitre["demander"]>(() => null);
+    return {
+      demander,
+      arbitre: { demander, couper: () => {}, enCours: () => null } satisfies Arbitre,
+    };
+  };
+
+  const suivi = (o: Partial<SuiviDesPlaces>): SuiviDesPlaces => ({
+    occupation: occ([false, false, false, false]),
+    mienne: null,
+    regardent: [],
+    salle: "1",
+    stable: true,
+    arbitre: null,
+    hote: () => "coin",
+    annoncer: () => {},
+    ...o,
+  });
+
+  it("une première arrivée : la scène une fois, l'annonce une fois, la place allumée 2,2 s", () => {
+    const { demander, arbitre: a } = arbitre();
+    const annoncer = vi.fn();
+    const { result, rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a, annoncer }),
+    });
+    rerender(
+      suivi({ arbitre: a, annoncer, occupation: occ([false, false, true, false], [[3, "JO"]]) }),
+    );
+    expect(demander).toHaveBeenCalledTimes(1);
+    expect(demander).toHaveBeenCalledWith({ scene: "arrivee", par: "personnes", hote: "coin" });
+    expect(annoncer.mock.calls).toEqual([["JO prend la place 3.", "ordinaire"]]);
+    expect([...result.current.vient]).toEqual([3]);
+    // Le même état, reçu de nouveau dans des objets neufs : rien de plus.
+    rerender(
+      suivi({ arbitre: a, annoncer, occupation: occ([false, false, true, false], [[3, "JO"]]) }),
+    );
+    expect(demander).toHaveBeenCalledTimes(1);
+    act(() => {
+      vi.advanceTimersByTime(VIENT_MS - 1);
+    });
+    expect(result.current.vient.has(3)).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(result.current.vient.size).toBe(0);
+  });
+
+  it("la page ouverte sur une salle pleine ne joue rien et ne dit rien", () => {
+    const { demander, arbitre: a } = arbitre();
+    const annoncer = vi.fn();
+    const { result } = renderHook(() =>
+      usePlaces(
+        suivi({
+          arbitre: a,
+          annoncer,
+          occupation: occ([true, true, true, true], [[1, "A"]]),
+        }),
+      ),
+    );
+    expect(demander).not.toHaveBeenCalled();
+    expect(annoncer).not.toHaveBeenCalled();
+    expect(result.current.vient.size).toBe(0);
+  });
+
+  it("une salle encore inconnue, puis pleine : personne n'arrive ; ensuite, une vraie arrivée se voit", () => {
+    const { demander, arbitre: a } = arbitre();
+    const annoncer = vi.fn();
+    const plein = occ(
+      [true, true, false, false],
+      [
+        [1, "A"],
+        [2, "B"],
+      ],
+    );
+    const { result, rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a, annoncer, occupation: null }),
+    });
+    rerender(suivi({ arbitre: a, annoncer, occupation: plein }));
+    expect(annoncer).not.toHaveBeenCalled();
+    expect(demander).not.toHaveBeenCalled();
+    expect(result.current.vient.size).toBe(0);
+    // Le jumeau : la référence est bien posée, la place 3 arrive.
+    rerender(
+      suivi({
+        arbitre: a,
+        annoncer,
+        occupation: occ(
+          [true, true, true, false],
+          [
+            [1, "A"],
+            [2, "B"],
+            [3, "C"],
+          ],
+        ),
+      }),
+    );
+    expect([...result.current.vient]).toEqual([3]);
+    expect(annoncer.mock.calls).toEqual([["C prend la place 3.", "ordinaire"]]);
+  });
+
+  it("un démarrage de jeu ne joue ni départ ni arrivée, et la référence repart de zéro", () => {
+    const { demander, arbitre: a } = arbitre();
+    const annoncer = vi.fn();
+    const plein = occ(
+      [true, true, false, false],
+      [
+        [1, "A"],
+        [2, "B"],
+      ],
+    );
+    const { result, rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a, annoncer, occupation: plein }),
+    });
+    // Le démarrage libère les places, puis elles reviennent.
+    rerender(
+      suivi({ arbitre: a, annoncer, stable: false, occupation: occ([false, false, false, false]) }),
+    );
+    rerender(suivi({ arbitre: a, annoncer, stable: true, occupation: plein }));
+    expect(demander).not.toHaveBeenCalled();
+    expect(annoncer).not.toHaveBeenCalled();
+    expect(result.current.vient.size + result.current.part.size).toBe(0);
+  });
+
+  it("un départ éteint la place 420 ms et joue le départ", () => {
+    const { demander, arbitre: a } = arbitre();
+    const { result, rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a, occupation: occ([false, true], [[2, "Bo"]]) }),
+    });
+    rerender(suivi({ arbitre: a, occupation: occ([false, false]) }));
+    expect(demander).toHaveBeenCalledWith({ scene: "depart", par: "personnes", hote: "coin" });
+    expect([...result.current.part]).toEqual([2]);
+    act(() => {
+      vi.advanceTimersByTime(PART_MS);
+    });
+    expect(result.current.part.size).toBe(0);
+  });
+
+  it("ne joue pas quand la mascotte n'a pas d'endroit où jouer", () => {
+    const { demander, arbitre: a } = arbitre();
+    const { rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a, hote: () => null }),
+    });
+    rerender(suivi({ arbitre: a, hote: () => null, occupation: occ([true], [[1, "Neuf"]]) }));
+    expect(demander).not.toHaveBeenCalled();
+  });
+
+  it("retient qui s'est assis : une seconde arrivée est un retour", () => {
+    const { demander, arbitre: a } = arbitre();
+    const { rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a }),
+    });
+    rerender(suivi({ arbitre: a, occupation: occ([true], [[1, "Bo"]]) }));
+    rerender(suivi({ arbitre: a, occupation: occ([false]) }));
+    rerender(suivi({ arbitre: a, occupation: occ([true], [[1, "Bo"]]) }));
+    const scenes = demander.mock.calls.map(([d]) => d.scene);
+    expect(scenes).toEqual(["arrivee", "depart"]);
+  });
+});
+
+describe("useCarteDePlace", () => {
+  const bo: SujetCarte = { type: "autre", port: 2, nom: "Bo", delai: 20 };
+  const montee = (sujets: Map<number, SujetCarte>) =>
+    renderHook((m: Map<number, SujetCarte>) => useCarteDePlace((n) => m.get(n) ?? null), {
+      initialProps: sujets,
+    });
+
+  it("une place libérée ferme sa carte, et la reprise de la place ne la rouvre pas", () => {
+    const { result, rerender } = montee(new Map([[2, bo]]));
+    act(() => result.current.basculer(2));
+    expect(result.current.sujet).toEqual(bo);
+    // Bo part : la place 2 n'a plus de sujet.
+    rerender(new Map());
+    expect(result.current.sujet).toBeNull();
+    expect(result.current.carte).toBeNull();
+    // Bo revient : la carte reste fermée, personne ne l'a rouverte.
+    rerender(new Map([[2, bo]]));
+    expect(result.current.sujet).toBeNull();
+    expect(result.current.carte).toBeNull();
+  });
+
+  it("jumeau : tant que la place garde son sujet, la carte reste ouverte et suit son état", () => {
+    const { result, rerender } = montee(new Map([[2, bo]]));
+    act(() => result.current.basculer(2));
+    const lina: SujetCarte = { type: "autre", port: 2, nom: "Lina", delai: 20 };
+    rerender(new Map([[2, lina]]));
+    expect(result.current.carte).toBe(2);
+    expect(result.current.sujet).toEqual(lina);
+    // Un second toucher sur la même place la referme.
+    act(() => result.current.basculer(2));
+    expect(result.current.carte).toBeNull();
+  });
+});
+
+describe("useDireLaReprise", () => {
+  const reprise = (r: Partial<Reprise> = {}): Reprise => ({
+    id: "r1",
+    port: 2,
+    from: "Ami",
+    to: "Bo",
+    asking: true,
+    remaining: 20,
+    reason: null,
+    ...r,
+  });
+  const montee = (annoncer: Annoncer) =>
+    renderHook(({ r, e }: { r: Reprise | null; e: string }) => useDireLaReprise(r, e, annoncer), {
+      initialProps: { r: null as Reprise | null, e: "" },
+    });
+
+  it("dit la raison du salon une fois, urgente, à qui demande comme à qui tient la place", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: reprise(), e: "" });
+    expect(annoncer).not.toHaveBeenCalled();
+    rerender({ r: reprise({ remaining: 0, reason: "Bo garde sa place 2." }), e: "" });
+    // Le même avis reçu de nouveau : rien de plus.
+    rerender({ r: reprise({ remaining: 0, reason: "Bo garde sa place 2." }), e: "" });
+    rerender({
+      r: reprise({ id: "r2", asking: false, from: "Lina", to: "Ami", reason: "Demande annulée." }),
+      e: "",
+    });
+    expect(annoncer.mock.calls).toEqual([
+      ["Bo garde sa place 2.", "urgente"],
+      ["Demande annulée.", "urgente"],
+    ]);
+  });
+
+  it("dit une place donnée à qui demande, une fois", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: reprise({ remaining: 0, accepted: true }), e: "" });
+    rerender({ r: reprise({ remaining: 0, accepted: true }), e: "" });
+    expect(annoncer.mock.calls).toEqual([["Bo te laisse sa place 2.", "ordinaire"]]);
+  });
+
+  it("dit l'erreur d'un geste, et la redit quand le même geste échoue encore", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: null, e: "Attends un instant avant de redemander." });
+    rerender({ r: null, e: "" });
+    rerender({ r: null, e: "Attends un instant avant de redemander." });
+    expect(annoncer.mock.calls).toEqual([
+      ["Attends un instant avant de redemander.", "urgente"],
+      ["Attends un instant avant de redemander.", "urgente"],
+    ]);
+  });
+
+  it("jumeau : une demande en attente, ou celle qui vise ma place, ne se dit pas ici", () => {
+    const annoncer = vi.fn<Annoncer>();
+    const { rerender } = montee(annoncer);
+    rerender({ r: reprise(), e: "" });
+    rerender({ r: reprise({ asking: false, from: "Bo", to: "Ami" }), e: "" });
+    // Le salon d'avant `accepted` : un reste à 0 n'est pas dit donné.
+    rerender({ r: reprise({ id: "r3", remaining: 0 }), e: "" });
+    expect(annoncer).not.toHaveBeenCalled();
+  });
+});

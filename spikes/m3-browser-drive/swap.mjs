@@ -46,23 +46,35 @@ await wait(3500);
 const own = await seatOf(asker);
 say(own !== held, `page 1 tient ${held}, page 2 tient ${own}`);
 
-// La page 2 demande la manette de la page 1, depuis la colonne.
+// La page 2 demande la place de la page 1 : le toucher ouvre la carte de la
+// place, « Lui demander sa place » part au salon (la reprise, chantier
+// personnes, 23 novembre 2026). Non relancé ce jour-là : ce pilote vise la
+// salle vivante.
 await press(asker, `#port${held}`);
+await wait(600);
+await press(asker, "#demanderPlace");
 await wait(1200);
-say(await asker.$("#asking") !== null, "le demandeur voit sa demande partir");
-say(await holder.$("#asked") !== null, "le porteur voit la demande arriver");
+say(await asker.$("#annulerDemande") !== null, "le demandeur voit sa demande partir");
+say(await holder.$("#demandeRecue") !== null, "le porteur voit la demande arriver");
 
 // Il refuse d'abord: rien ne doit bouger.
-await press(holder, "#keepSeat");
+await press(holder, "#keepRecovery");
 await wait(1500);
-say((await seatOf(holder)) === held, "après un refus, le porteur garde sa manette");
-const said = await asker.evaluate(() => document.getElementById("asking")?.textContent ?? "");
-say(/a dit non/.test(said), `le demandeur est prévenu du refus (« ${said.replace("fermer", "").trim()} »)`);
+say((await seatOf(holder)) === held, "après un refus, le porteur garde sa place");
+const said = await asker.evaluate(() => document.getElementById("cartePlace")?.textContent ?? "");
+say(/garde sa place/.test(said), `le demandeur est prévenu du refus (« ${said.replace("Fermer", "").trim()} »)`);
 
-// Il redemande, et cette fois on accepte.
+// Il redemande une minute plus tard (le salon refuse avant), et cette fois
+// on accepte. « Donner » s'annule pendant 4 s, puis le demandeur prend.
+await press(asker, "#cartePlace button");
+await wait(61000);
 await press(asker, `#port${held}`);
+await wait(600);
+await press(asker, "#demanderPlace");
 await wait(1200);
-await press(holder, "#giveSeat");
+await press(holder, "#giveRecovery");
+await wait(5000);
+await press(asker, "#confirmRecovery");
 await wait(4000);
 say((await seatOf(asker)) === held, `la manette ${held} a changé de main`);
 say((await seatOf(holder)) !== held, "l'ancien porteur ne l'a pas reprise par réflexe");

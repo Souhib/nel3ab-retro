@@ -10,7 +10,7 @@ import "../index.css";
 import { Bobine, type Pose } from "../bobine/Bobine";
 import { Chargement } from "../bobine/Chargement";
 import type { Support } from "../bobine/support";
-import { Seats } from "../components/Seats";
+import { Places } from "../components/Places";
 
 const POSES: { pose: Pose; tenue?: Parameters<typeof Bobine>[0]["tenue"]; legende: string }[] = [
   { pose: "repos", legende: "repos" },
@@ -86,16 +86,18 @@ function Rangee() {
       </div>
       <div id="colonne" className="w-[280px] border border-rule bg-panel p-4 pt-14">
         <p className="mb-2 text-note tracking-[0.2em] text-indigo">MANETTES</p>
-        <Seats
-          players={4}
-          busy={tenues}
-          mics={[false, false, false, false]}
-          names={noms}
-          mine={mine}
-          displaced={false}
-          ownerSeat={null}
-          onTake={(port) => bascule(port, NOMS[port - 1] ?? "?")}
-          onAsk={() => {}}
+        <Places
+          forme="deux-rangees"
+          entree={{
+            places: 4,
+            tenues: tenues,
+            noms,
+            micros: [false, false, false, false],
+            chef: null,
+            mienne: mine,
+          }}
+          onPrendre={(port) => bascule(port, NOMS[port - 1] ?? "?")}
+          onCarte={() => {}}
         />
       </div>
     </div>

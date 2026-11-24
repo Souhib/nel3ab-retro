@@ -294,18 +294,30 @@ export function phraseLiaison(
   }
 }
 
+// ==== chantier personnes ====
 /** Une demande de place, dite UNE fois et en mots.
  *
  * L'ancien bandeau était une alerte assertive qui réécrivait « 9 s », « 8 s »…
  * chaque seconde: dix interruptions de suite en pleine partie (audit A11Y-09).
- * Le délai se dit en entier, une fois, avec ce qui arrive sans réponse. */
+ * Le délai se dit en entier, une fois, avec ce qui arrive sans réponse.
+ *
+ * Ce qui arrive sans réponse dépend du chemin du salon (23 novembre 2026,
+ * chantier personnes). La reprise, que la page emploie, laisse l'autre
+ * prendre la place après le délai (`api/ws/recovery.py`) ; l'ancienne
+ * demande `ask`, que la page écoute encore, la laisse à qui la tient. La
+ * phrase disait « tu la gardes » pour les deux, le contraire du salon sur
+ * le chemin de tous les jours. Sans chemin dit, c'est l'ancienne demande :
+ * le seul appelant d'avant ce changement. */
 export function phraseDemande(
-  demande: { from: string; port: number } | null,
+  demande: { from: string; port: number; chemin?: "reprise" | "ancienne" } | null,
   secondes: number,
 ): string {
   if (demande === null) return "";
-  return `${demande.from} demande ta place ${demande.port}. Tu as ${Math.ceil(secondes)} secondes pour répondre. Sans réponse, tu la gardes.`;
+  const sansReponse =
+    demande.chemin === "reprise" ? `${demande.from} pourra la prendre.` : "tu la gardes.";
+  return `${demande.from} demande ta place ${demande.port}. Tu as ${Math.ceil(secondes)} secondes pour répondre. Sans réponse, ${sansReponse}`;
 }
+// ==== fin personnes ====
 
 /** Une ligne du résumé de la connexion. */
 export type LigneResume = { nom: string; valeur: string };

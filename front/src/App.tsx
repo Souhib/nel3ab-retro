@@ -31,6 +31,7 @@ import { useMicro } from "./lib/micro";
 import { Booting } from "./components/Booting";
 import { EtatSalle } from "./components/EtatSalle";
 import { LigneParlee } from "./components/LigneParlee";
+import { AnnonceEnLettres } from "./components/AnnonceEnLettres";
 import { Ouverture } from "./components/Ouverture";
 import { attenteDemarrage, bootingStep, suiteDuChargement } from "./lib/booting";
 import { GardeSignalement } from "./lib/garde-signalement";
@@ -39,7 +40,6 @@ import {
   AutresReglages,
   BlocRole,
   Colonne,
-  IlsRegardent,
   RangAgrandir,
   RangManette,
   RangMenu,
@@ -61,14 +61,11 @@ import {
 import { Coin } from "./components/Coin";
 import { EcranEteint, phraseDuRepos } from "./components/EcranEteint";
 import { PanneauCommande } from "./components/PanneauCommande";
-import { ConnectionDiagnostic } from "./components/ConnectionDiagnostic";
 import { Instruments } from "./components/Instruments";
 import { MesuresTechniques } from "./components/MesuresTechniques";
 import { Signaler } from "./components/Signaler";
 import { rangsDeLaColonne } from "./lib/colonne";
 import { ColumnHandle } from "./components/ColumnHandle";
-import { Recovery } from "./components/Recovery";
-import { Asked as AskedBanner } from "./components/Swap";
 import { Channels } from "./components/Channels";
 import { Home } from "./components/Home";
 import { Xmb, type XmbCategory, type XmbItem } from "./components/Xmb";
@@ -95,7 +92,27 @@ import {
 import { Screen } from "./components/Screen";
 import { SwitchTouchPad } from "./components/SwitchTouchPad";
 import { TouchPad, type BoiteDuCadre } from "./components/TouchPad";
-import { Seats } from "./components/Seats";
+import { Places } from "./components/Places";
+import { CartePlace } from "./components/CartePlace";
+import { DemandeRecue, type DemandeEnCours } from "./components/DemandeRecue";
+import { IlsRegardent } from "./components/IlsRegardent";
+import { Mesures } from "./components/Mesures";
+import { ligneDeLaLiaison } from "./lib/mesures";
+import { SuiviPlaces } from "./components/SuiviPlaces";
+import {
+  formeDesPlaces,
+  hoteDesPlaces,
+  regardentDe,
+  REPRISE_REPONSE_S,
+  sujetDeLaCarte,
+} from "./lib/places";
+import {
+  useCarteDePlace,
+  useDireLaReprise,
+  useDonDiffere,
+  type Annoncer,
+  type Nature,
+} from "./lib/usePlaces";
 import { forgetName, rememberedName } from "./lib/name";
 import {
   SHELLS,
@@ -185,6 +202,9 @@ import {
 } from "./lib/saves";
 import { useClip } from "./lib/useClip";
 import {
+  CARTE,
+  DEMANDE,
+  PLACES,
   EFFETS_RETRO,
   IMAGE,
   PLACE,
@@ -216,6 +236,7 @@ import {
   etatDuCadre,
   lieuDesAvis,
   modeDuCadre,
+  ouEstLaMascotte,
   type Role as RoleDuCadre,
 } from "./lib/cadre";
 import { pourquoiPasChoisir, repriseDuRole } from "./lib/chef";
@@ -357,8 +378,8 @@ function Named({
   const yieldSeat = useRef<(() => void) | null>(null);
   const [recovery, setRecovery] = useState<RecoveryNotice | null>(null);
   const [recoveryError, setRecoveryError] = useState("");
-  /** Une réponse de reprise en vol. Ici et non dans `Recovery`: le panneau se
-   * remonte en passant dans le menu ouvert (`Surcouche`). */
+  /** Une réponse de reprise en vol. Ici et non dans la carte de la place :
+   * la carte se remonte en passant dans le menu ouvert (`Surcouche`). */
   const [recoveryBusy, setRecoveryBusy] = useState(false);
 
   /** Cette page ne sert-elle que de manette.
@@ -459,6 +480,20 @@ function Named({
           // Sans réponse, il ne se passe rien: la bannière s'en va et le service a
           // déjà oublié la demande de son côté.
           onExpire={() => setAsked(null)}
+          // La reprise vit dans la salle depuis le 23 novembre 2026 : la carte
+          // de la place et la demande reçue, dans la colonne ou la bande,
+          // jamais sur l'image (le panneau fixe de `Recovery` s'en va).
+          recovery={recovery}
+          recoveryError={recoveryError}
+          recoveryBusy={recoveryBusy}
+          onRecoveryAction={(action) => {
+            setRecoveryBusy(true);
+            void recover(action).finally(() => setRecoveryBusy(false));
+          }}
+          onRecoveryClose={() => {
+            setRecovery(null);
+            setRecoveryError("");
+          }}
           tell={lobby}
           bind={(take, give, boot, pad) => {
             takeSeat.current = take;
@@ -468,21 +503,6 @@ function Named({
           }}
         />
       )}
-      {/* Au-dessus du menu quand il est ouvert: voir `Surcouche`. */}
-      <Surcouche>
-        <Recovery
-          notice={recovery}
-          error={recoveryError}
-          busy={recoveryBusy}
-          onBusy={setRecoveryBusy}
-          onAction={recover}
-          pad={(handler) => padTo.current?.(handler)}
-          onClose={() => {
-            setRecovery(null);
-            setRecoveryError("");
-          }}
-        />
-      </Surcouche>
     </HoteDesSurcouches>
   );
 }
@@ -509,6 +529,10 @@ const TICKS_PER_VITALS = VITALS_EVERY / TRAIL_EVERY;
  */
 const START_VOLUME = 0.2;
 
+/** Les places qui viennent de s'allumer et de s'éteindre (`usePlaces`). */
+type SuiviVu = { vient: ReadonlySet<number>; part: ReadonlySet<number> };
+const SANS_SUIVI: SuiviVu = { vient: new Set(), part: new Set() };
+
 function Room({
   name,
   login,
@@ -523,6 +547,11 @@ function Room({
   onAnswer,
   onExpire,
   onRecover,
+  recovery,
+  recoveryError,
+  recoveryBusy,
+  onRecoveryAction,
+  onRecoveryClose,
   bind,
   tell,
 }: {
@@ -549,6 +578,12 @@ function Room({
   onAnswer: (ok: boolean) => void;
   onExpire: () => void;
   onRecover: (port: number | null) => void;
+  /** La reprise en cours, venue du salon : la mienne, ou celle qui vise ma place. */
+  recovery: RecoveryNotice | null;
+  recoveryError: string;
+  recoveryBusy: boolean;
+  onRecoveryAction: (action: Record<string, unknown>) => void;
+  onRecoveryClose: () => void;
   /** Rend à l'étage du dessus de quoi prendre et céder une place: la socket du
    * salon vit là-haut, la manette vit ici, et la négociation traverse les deux. */
   bind: (
@@ -2241,20 +2276,142 @@ function Room({
      le cadre le pose lui-même (`panneauTenu`, plus bas). */
   const panneauSous =
     geo.mode === "bureau" && geo.panneau.forme === "sous" ? geo.panneau.rect : null;
-  /* Les places, que le chantier personnes remplacera par START 1P à 4P. */
+  /** La carte ouverte d'une place, qui se ferme et s'oublie quand sa place
+   * n'a plus de sujet (`useCarteDePlace`). */
+  const {
+    carte,
+    sujet,
+    basculer,
+    fermer: fermerLaCarte,
+  } = useCarteDePlace((n) =>
+    sujetDeLaCarte(n, {
+      mienne: port,
+      noms: names,
+      tenues: occupied,
+      comment:
+        appareil === "clavier" ? CARTE.auClavier : onTouch ? CARTE.auDoigt : CARTE.aLaManette,
+    }),
+  );
+  /** Les places qui s'allument et s'éteignent, suivies sous le cadre
+   * (`SuiviPlaces`, qui lit l'arbitre des scènes). */
+  const [suivi, setSuivi] = useState<SuiviVu>(SANS_SUIVI);
+  /** La dernière nouvelle des places, de l'invitation ou du signalement,
+   * pour la seule ligne parlée de la salle. */
+  const [nouvelle, setNouvelle] = useState<{
+    texte: string;
+    cle: number;
+    nature: Nature;
+  } | null>(null);
+  const annoncer = useCallback<Annoncer>(
+    (texte, nature) => setNouvelle((avant) => ({ texte, nature, cle: (avant?.cle ?? 0) + 1 })),
+    [],
+  );
+  // L'issue d'une reprise, pour qui demande comme pour qui tient la place.
+  useDireLaReprise(recovery, recoveryError, annoncer);
+  /** « Donner » s'annule pendant 4 s ; la réponse part ensuite au bon chemin. */
+  const repondre = useRef<(ok: boolean) => void>(() => {});
+  const don = useDonDiffere((ok) => repondre.current(ok));
+  /* Les places START 1P à 4P (chantier personnes). La rangée est posée par
+     le cadre : sous l'image, au pied de la colonne, debout ou en petit. */
   const places = (
-    <Seats
-      ownerSeat={boss?.seat}
-      players={shot?.input.players ?? 4}
-      busy={occupied}
-      mics={shot?.input.mics ?? []}
-      names={names}
-      premieres={premieres}
-      mine={port}
-      displaced={shot?.input.displaced ?? false}
-      onTake={(chosen) => session?.input.take(chosen)}
-      onAsk={(chosen) => onRecover(chosen)}
-    />
+    <>
+      <Places
+        forme={formeDesPlaces(geo.panneau.forme === "absent" ? "petit" : geo.panneau.forme)}
+        entree={{
+          places: shot?.input.players ?? 4,
+          tenues: occupied,
+          noms: names,
+          micros: shot?.input.mics ?? [],
+          chef: boss?.seat,
+          mienne: port,
+        }}
+        vient={suivi.vient}
+        part={suivi.part}
+        carte={carte}
+        onPrendre={(choisie) => {
+          fermerLaCarte();
+          session?.input.take(choisie);
+        }}
+        onCarte={basculer}
+        // En petit et trop étroite, la rangée devient un bouton : il ouvre la
+        // salle, où les places ont leur taille.
+        onToutes={() => {
+          if ("feuille" in ouvrirLaSalle(tenu)) setFeuille("agrandie");
+          else setBare(false);
+        }}
+      />
+      {shot?.input.displaced ? (
+        <p id="displaced" className="text-note text-alert">
+          {PLACES.deplace}
+        </p>
+      ) : null}
+    </>
+  );
+  /* La carte d'une place, la reprise en cours et la demande reçue : dans la
+     colonne au bureau, dans la bande au téléphone, au-dessus du menu quand
+     il est ouvert ; jamais sur l'image. */
+  /** La reprise qui vise MA place, en attente de réponse. */
+  const repriseRecue =
+    recovery !== null && !recovery.asking && recovery.reason === null && recovery.port !== null
+      ? recovery
+      : null;
+  /** La demande reçue : la reprise du salon, ou l'ancienne demande (`asked`). */
+  const demandeRecue: DemandeEnCours | null = repriseRecue
+    ? {
+        from: repriseRecue.from,
+        port: repriseRecue.port ?? 0,
+        lasts: repriseRecue.remaining,
+        chemin: "reprise",
+      }
+    : asked
+      ? { from: asked.from, port: asked.port, lasts: room?.ask_lasts ?? 10, chemin: "ancienne" }
+      : null;
+  repondre.current = (ok) => {
+    if (repriseRecue) onRecoveryAction({ action: "answer", id: repriseRecue.id, ok });
+    else onAnswer(ok);
+  };
+  const cartes = (
+    <>
+      <CartePlace
+        sujet={sujet}
+        notice={recovery !== null && repriseRecue === null ? recovery : null}
+        erreur={recoveryError}
+        occupe={recoveryBusy}
+        libre={premiereLibre}
+        pad={(handler) => session?.input.setMenu(handler)}
+        onDemander={(choisie) => {
+          fermerLaCarte();
+          onRecover(choisie);
+        }}
+        onPrendre={(choisie) => {
+          fermerLaCarte();
+          onRecoveryClose();
+          session?.input.take(choisie);
+        }}
+        onAction={onRecoveryAction}
+        onFermer={() => {
+          fermerLaCarte();
+          onRecoveryClose();
+        }}
+        onRendre={
+          salleFermee
+            ? undefined
+            : () => {
+                fermerLaCarte();
+                session?.input.watchOnly();
+              }
+        }
+      />
+      <DemandeRecue
+        demande={demandeRecue}
+        donne={don.donne}
+        pad={(handler) => session?.input.setMenu(handler)}
+        onGarder={don.garder}
+        onDonner={don.donner}
+        onAnnulerDon={don.annuler}
+        onExpire={repriseRecue ? undefined : onExpire}
+      />
+    </>
   );
   /** Les rangs de la colonne, selon l'état, le rôle et l'appareil. */
   const rangs = rangsDeLaColonne({
@@ -2359,7 +2516,10 @@ function Room({
   /** « La salle » : la feuille à mi-hauteur quand la salle est tenue en main,
    * la colonne dépliée à la souris (la manette « toujours » d'un grand écran
    * le pose parmi ses touches). */
-  const ouvrirLaFeuille = () => (tenu ? setFeuille("mi") : setBare(false));
+  // Pendant une demande, la feuille s'ouvre agrandie : la carte y est, dans
+  // la colonne, quand la bande manque (en travers).
+  const ouvrirLaFeuille = () =>
+    tenu ? setFeuille(demandeRecue ? "agrandie" : "mi") : setBare(false);
   /** K13 : « Quitter la salle » part par la transition « sortir-salle »
    * (mosaïque, ou fondu en « sobre »), sur toute la page. `transition` cache
    * l'image AVANT de commencer : rien ne passe sur une image vivante. En
@@ -2375,12 +2535,16 @@ function Room({
       quitte.current = false;
     });
   };
+  /** « Lina · ta place » sur le bouton « La salle » pendant une demande : en
+   * paysage, la bande manque, et la demande ne se voit que là. */
+  const libelleSalle = demandeRecue ? DEMANDE.libelle(demandeRecue.from) : undefined;
   /** La manette à l'écran, dans la boîte du cadre ou par-dessus l'écran. */
   const manetteTactile = (cadreDeLaManette: BoiteDuCadre | undefined) =>
     session === null ? null : usesProInput(room?.game?.console) ? (
       <SwitchTouchPad
         source={session.input.switch}
         console={room?.game?.console}
+        libelleSalle={libelleSalle}
         bar={bande}
         // Le son coupé se voit aussi sur la manette Pro : en salle Xbox
         // 360, rien ne le disait (audit M10).
@@ -2395,6 +2559,7 @@ function Room({
          * le cadre lui donne sa boîte et ses bandes. */
         bar={bande}
         touch={session.input.touch}
+        libelleSalle={libelleSalle}
         soundOff={soundOff}
         onFeuille={ouvrirLaFeuille}
         cadre={cadreDeLaManette}
@@ -2417,6 +2582,13 @@ function Room({
   /** La pile des avis va dans la bande d'une salle tenue en main : jamais sur
    * l'image, et pas dans une colonne qu'on ne voit pas. */
   const avisDansLaBande = tenu && geo.bande !== null;
+  /** Les cartes de place vont dans la bande d'un téléphone tenu droit,
+   * sinon dans la colonne (au bureau, ou dans la feuille agrandie) : jamais
+   * deux fois. En travers, la bande a une centaine de pixels de large et la
+   * carte en sortait par le bas (salle-telephone, 844x390) : « La salle »
+   * dit alors « Bo · ta place » et ouvre la feuille agrandie sur la carte. */
+  const cartesDansLaBande =
+    avisDansLaBande && couches.colonne !== "feuille" && modeSalle === "portrait";
   /** Le panneau de commande d'une salle tenue en main : où le cadre le pose
    * (sous l'image, debout dans la bande gauche), pas pour une manette seule.
    * La feuille agrandie le couvre : il passe alors dans sa colonne, pour que
@@ -2586,17 +2758,14 @@ function Room({
       largeur={couches.colonne === "a-cote" ? column : null}
       forme={couches.colonne ?? "a-cote"}
       margeHaut={lieuAvis.lieu === "colonne" ? hauteurPile : undefined}
-      avis={lieuAvis.lieu === "colonne" ? avis : null}
-      etat={
-        !idle && shot && !shot.padOnly ? (
-          <ConnectionDiagnostic
-            video={shot.video}
-            liaison={shot.liaison}
-            salle={salle()}
-            moteur={moteurDe(room?.game?.console)}
-            onReduce={takeHalf}
-          />
-        ) : null
+      // La carte d'une place et la demande reçue, en tête de la colonne et
+      // collées en haut : dans la feuille d'un téléphone en travers, posées
+      // plus bas, elles passaient sous le bord (salle-telephone, 844x390).
+      avis={
+        <>
+          {lieuAvis.lieu === "colonne" ? avis : null}
+          {menu || cartesDansLaBande ? null : cartes}
+        </>
       }
       role={blocRole}
       personnes={
@@ -2617,15 +2786,21 @@ function Room({
               <button
                 id="recoverOwner"
                 type="button"
-                className="border border-rule px-3 py-2 text-corps text-muted hover:text-indigo"
+                className="n3-rang"
                 onClick={() => onRecover(null)}
               >
-                Prendre le rôle de chef
+                {CARTE.choisir}
               </button>
             </div>
           ) : null}
           <IlsRegardent people={people} owner={boss} />
-          {salleFermee ? null : <Inviter lien={lienDInvitation(location.origin, base())} />}
+          {salleFermee ? null : (
+            <Inviter
+              lien={(entree) => lienDInvitation(location.origin, base(), entree)}
+              libre={premiereLibre}
+              annoncer={annoncer}
+            />
+          )}
         </>
       }
       panneau={
@@ -2637,7 +2812,7 @@ function Room({
       }
       rangs={rangs}
       contenus={{
-        signaler: <Signaler onComplain={complain} garde={garde.current} />,
+        signaler: <Signaler onComplain={complain} garde={garde.current} annoncer={annoncer} />,
         son: (
           <RangSon
             joue={shot?.sound.state === "running"}
@@ -2767,13 +2942,23 @@ function Room({
       vue={
         mode === "details" ? (
           <div id="stats">
-            <MesuresTechniques>
-              {shot ? (
-                <Instruments shot={shot} moteur={moteurDe(room?.game?.console)} />
-              ) : (
-                <p className="text-corps text-faint">Pas encore de mesures.</p>
-              )}
-            </MesuresTechniques>
+            {shot ? (
+              <Mesures
+                video={shot.video}
+                allerRetourMs={shot.input.roundTripMs}
+                liaison={shot.liaison}
+                salle={salle()}
+                moteur={moteurDe(room?.game?.console)}
+                onReduce={takeHalf}
+                technique={
+                  <MesuresTechniques>
+                    <Instruments shot={shot} moteur={moteurDe(room?.game?.console)} />
+                  </MesuresTechniques>
+                }
+              />
+            ) : (
+              <p className="text-corps text-faint">Pas encore de mesures.</p>
+            )}
           </div>
         ) : vueMontree ? (
           <VueTouches
@@ -2804,6 +2989,8 @@ function Room({
         <Coin
           mesures={mode === "details"}
           onMesures={() => setMode(mode === "details" ? "normal" : "details")}
+          // L'état de la liaison en clair (chantier personnes).
+          ligne={shot ? ligneDeLaLiaison(liaison, shot.video).texte : undefined}
         />
       }
     />
@@ -2886,15 +3073,6 @@ function Room({
             oublié avoir choisi ce mode. La toile reste montée derrière: elle
             appartient à la boucle média, qui la tient par une référence, et la
             démonter reviendrait à mettre React sur le chemin des images. */}
-          {asked ? (
-            <AskedBanner
-              from={asked.from}
-              port={asked.port}
-              lasts={room?.ask_lasts ?? 10}
-              onAnswer={onAnswer}
-              onExpire={onExpire}
-            />
-          ) : null}
 
           {learning ? (
             <div className="flex items-center justify-between gap-4 border-t border-indigo/40 bg-indigo/10 px-4 py-2 text-corps">
@@ -3002,9 +3180,37 @@ function Room({
                 : liaison
             }
             salle={salle()}
-            demande={asked}
-            delai={room?.ask_lasts ?? 10}
+            demande={demandeRecue}
+            delai={demandeRecue?.chemin === "reprise" ? REPRISE_REPONSE_S : (room?.ask_lasts ?? 10)}
             peintes={shot?.video.painted ?? 0}
+            nouvelle={nouvelle}
+          />
+          {/* La même nouvelle, écrite lettre par lettre sur l'ancre de
+              l'annonce du socle (effet « lettres »). */}
+          <AnnonceEnLettres nouvelle={nouvelle} />
+          {/* Les arrivées et les départs, suivis sous le cadre pour son
+              arbitre des scènes. */}
+          <SuiviPlaces
+            // Ni la salle du salon ni l'instantané de la page : la salle
+            // n'est pas encore connue, et rien ne s'y compare.
+            occupation={
+              room !== undefined && shot !== null
+                ? { tenues: occupied, noms: names, premieres }
+                : null
+            }
+            mienne={port}
+            // Sans qui arrive encore (`seat_pending`) : il ne regarde pas.
+            regardent={regardentDe(people)}
+            salle={String(salle())}
+            stable={booting === null && liaison.etat === "ok"}
+            hote={(scene) =>
+              hoteDesPlaces(ouEstLaMascotte(geo, scene), {
+                tenu,
+                panneauSous: panneauSous !== null,
+              })
+            }
+            annoncer={annoncer}
+            onVu={setSuivi}
           />
         </div>
         {/* À la souris, la manette « toujours » dans les marges que le cadre
@@ -3040,7 +3246,8 @@ function Room({
           <BoutonSalle
             id="laSalleCote"
             sonCoupe={soundOff}
-            onSalle={() => setFeuille("mi")}
+            libelle={libelleSalle}
+            onSalle={() => setFeuille(demandeRecue ? "agrandie" : "mi")}
             style={placeDe(geo.boutonSalle)}
             tete
           />
@@ -3068,6 +3275,7 @@ function Room({
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
           <Bande rect={geo.bande} ancre={!geo.barre}>
             {avis}
+            {cartesDansLaBande && !menu ? cartes : null}
             {regardeParChoix ? blocRole : null}
             {shot?.input.padId && port !== null && !padOnly ? (
               <ManetteDansLaBande
@@ -3198,6 +3406,9 @@ function Room({
           })()
         : null}
 
+      {/* La carte d'une place et la demande reçue, au-dessus du menu quand il
+          est ouvert : le menu remplace encore toute la page (D30). */}
+      {menu ? <Surcouche>{cartes}</Surcouche> : null}
       {/* Au-dessus du menu: l'erreur naît d'un lancement choisi dans le menu
           (voir `Surcouche`). */}
       {preparationError ? (

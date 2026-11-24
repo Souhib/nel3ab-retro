@@ -178,12 +178,8 @@
   align-items: center;
   gap: 1rem;
 }
-.n3-panneau[data-forme="sous"] #ports {
-  grid-template-columns: repeat(4, calc((var(--panneau-h) - 1.75rem) * 72 / 84));
-}
-.n3-panneau[data-forme="sous"] #ports > button > span.block {
-  max-width: 6rem;
-}
+/* Les places START règlent elles-mêmes leur rangée (`places.css`, chantier
+   personnes) : les règles des prises de `Seats` sont parties avec elles. */
 
 /* L'écran éteint : noir dans les deux thèmes (`--ecran`), son texte à
    l'encre de l'écran, qui ne change pas de thème non plus. */

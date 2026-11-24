@@ -40,9 +40,12 @@ console.log(`ports proposés : ${await second.evaluate(() =>
 // C'est `steal.mjs` qui pin cette séquence; ici on la suit pour arriver au fait
 // que cet essai vérifie, à savoir qu'une page OUVERTE garde son port jusqu'à ce
 // qu'une personne le lui prenne.
+// Depuis le 23 novembre 2026 : le toucher ouvre la carte de la place, et
+// « Reprendre la place 1 » (#reprendrePlace) la prend. Non relancé ce
+// jour-là : ce pilote vise la salle vivante.
 await second.click("#port1");
 await wait(800);
-await second.click("#port1");
+await second.click("#reprendrePlace");
 await wait(2500);
 const took = await seatOf(second);
 console.log(`page 2 après les deux clics : "${took}"`);

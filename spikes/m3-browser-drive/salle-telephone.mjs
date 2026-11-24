@@ -65,6 +65,22 @@
 //      manette, et « Prendre la place N » est dans la bande ; en travers, le
 //      panneau est debout.
 //
+// Ajouté par le chantier personnes le 23 novembre 2026 :
+//
+//  21. la rangée des places ne touche jamais la toile, dessous, en tête de
+//      colonne, debout ou en petit selon le cadre, aux trois niveaux
+//      d'effets ; ses places font 44 px, ne se recouvrent pas et tiennent
+//      dans le panneau ; trop étroite, elle est un seul bouton qui ouvre la
+//      salle ; son jumeau, la rangée posée sur l'image, est vu ;
+//  22. une page ouverte sur une salle pleine n'allume aucun « prêt ! » et
+//      n'annonce personne ; puis, quand Cam s'assied, à chaque image pendant
+//      2,6 s, « 3P prêt ! » ne coupe pas la toile, et le centre et les coins
+//      de la toile rendent la toile ; deux jumeaux, un « prêt ! » et un
+//      calque posés sur l'image ;
+//  23. sur la page construite, à CPU x4, le clic sur une place libre
+//      travaille moins de 50 ms ; son jumeau, un clic qui tient le
+//      processeur 120 ms, est vu.
+//
 // Le salon est simulé par une fausse socket (`salon: true`), qui répond à la
 // poignée de main d'engine.io et laisse la garde envoyer un événement : une
 // annonce de chargement, une demande de place, une reprise. Elle ne sort pas
@@ -102,7 +118,7 @@ const OUT = resolve(args.find((one, i) => !one.startsWith("--") && args[i - 1] !
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
 // SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,
-// manette-seule,demande.
+// manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court.
 const SEUL = process.env.SEUL?.split(",") ?? null;
 const part = (name) => SEUL === null || SEUL.includes(name);
 
@@ -133,7 +149,9 @@ const DRAWER_MUST = {
   "demander la place d'un autre (la 2)": "#port2",
   "prendre ou rendre sa place": "#takePad, #watchOnly",
   signaler: "#complain",
-  "le diagnostic de la liaison": "#connection-diagnostic > summary",
+  // Les mesures de la liaison, ouvertes par la ligne du coin (23 novembre
+  // 2026 : `ConnectionDiagnostic` est parti dans `Mesures`).
+  "les mesures de la liaison": "#mesures",
   "les spectateurs": "section[aria-labelledby='ilsRegardent']",
   // Le curseur quand le son joue, le bouton qui l'allume sinon.
   "le son": "#side input[type='range'], #sound",
@@ -493,6 +511,156 @@ function leurreSurLImage() {
   });
   pave.append(leurre);
   return true;
+}
+
+/** Les cas des places hors de l'image : taille, tactile, manette à l'écran,
+ * jeu, et la forme de la rangée attendue (`formeDesPlaces`). Le premier porte
+ * les jumeaux.
+ *
+ * Au bureau, la forme suit l'image : à 1440x900, une image 4:3 remplit la
+ * hauteur et ne laisse pas les 64 px du panneau (la rangée monte en tête de
+ * colonne), une image 16:9 les laisse (la rangée est dessous). Le plan du
+ * chantier attendait « dessous » pour la 4:3 ; le cadre de la salle en
+ * décide autrement, et la garde lit ce qu'il décide. Tenue en main, l'écran
+ * court en travers (667x375) a la rangée en petit ; 375x667 tenu droit n'a
+ * pas de panneau du tout, et ses places vivent dans la feuille. */
+const PLACES_CAS = [
+  { width: 1440, height: 900, coarse: false, touchpad: "auto", game: 1, image: "pw=1280&ph=720", attendue: "rangee" },
+  { width: 1440, height: 900, coarse: false, touchpad: "auto", game: 0, image: "", attendue: "deux-rangees" },
+  { width: 1280, height: 720, coarse: false, touchpad: "auto", game: 0, image: "", attendue: "deux-rangees" },
+  { width: 390, height: 844, coarse: true, touchpad: "auto", game: 0, image: "", attendue: "rangee" },
+  { width: 667, height: 375, coarse: true, touchpad: "auto", game: 0, image: "", attendue: "petite" },
+  { width: 844, height: 390, coarse: true, touchpad: "off", game: 0, image: "", attendue: "debout" },
+];
+
+/** La rangée des places est rendue et a une taille. */
+const placesVisibles = () => {
+  const rangee = document.querySelector(".n3-places");
+  return rangee !== null && rangee.checkVisibility() && rangee.getBoundingClientRect().width > 0;
+};
+
+/** La toile, la rangée des places et sa forme, en nombres : un DOMRect
+ * arrive vide de `page.evaluate`. */
+function placesEtToile() {
+  const nombres = (el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  };
+  const toile = document.querySelector("#screen");
+  // La rangée entière : ses places, ou le bouton qui les montre toutes
+  // quand elles n'ont pas la largeur (`#placesToutes`).
+  const ports = document.querySelector(".n3-places");
+  // Les cibles visibles de la rangée : chacune fait 44 px, aucune n'en
+  // recouvre une autre, et toutes tiennent dans le panneau que le cadre donne.
+  const panneau = document.querySelector("#panneau");
+  const cibles = [...(ports?.querySelectorAll("button") ?? [])]
+    .filter((b) => b.checkVisibility() && b.getBoundingClientRect().width > 0)
+    .map((b) => ({ id: b.id, ...nombres(b) }));
+  const defauts = [];
+  const cadre = panneau ? nombres(panneau) : null;
+  for (const [i, a] of cibles.entries()) {
+    if (Math.min(a.right - a.left, a.bottom - a.top) < 43.5)
+      defauts.push(`${a.id} mesure ${Math.round(a.right - a.left)}x${Math.round(a.bottom - a.top)} px`);
+    if (cadre && (a.left < cadre.left - 0.5 || a.right > cadre.right + 0.5 || a.top < cadre.top - 0.5 || a.bottom > cadre.bottom + 0.5))
+      defauts.push(`${a.id} sort du panneau`);
+    for (const b of cibles.slice(i + 1)) {
+      const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      if (w > 0.5 && h > 0.5) defauts.push(`${a.id} recouvre ${b.id} sur ${Math.round(w)}x${Math.round(h)} px`);
+    }
+  }
+  return {
+    cibles: cibles.length,
+    defauts,
+    toile: toile ? nombres(toile) : null,
+    ports: ports ? nombres(ports) : null,
+    panneau: document.querySelector("#panneau")?.getAttribute("data-forme") ?? null,
+    rangee: ports?.getAttribute("data-forme") ?? null,
+    colonne: ports !== null && ports.closest("#side") !== null,
+  };
+}
+
+const croiseLaToile = (a, toile) =>
+  a !== null &&
+  toile !== null &&
+  Math.min(a.right, toile.right) - Math.max(a.left, toile.left) > 0.5 &&
+  Math.min(a.bottom, toile.bottom) - Math.max(a.top, toile.top) > 0.5;
+
+const cadreDe = (r) => `[${Math.round(r.left)}, ${Math.round(r.top)}, ${Math.round(r.right)}, ${Math.round(r.bottom)}]`;
+
+/** Le niveau des effets, écrit pour chaque page : le navigateur du pilote
+ * garde le stockage d'une page à l'autre, et une étape précédente laissait
+ * « tout » allumé (le 23 novembre 2026, la rangée en petit ne débordait
+ * qu'après l'étape du thème). */
+const effetsAuNiveau = (niveau) => ({ "nel3ab:effets": JSON.stringify({ niveau, sons: false }) });
+
+/** Le jumeau des places : la rangée posée exprès sur l'image. */
+function leurreDesPlaces() {
+  const c = document.querySelector("#screen").getBoundingClientRect();
+  const style = document.createElement("style");
+  style.textContent = `.n3-places { position: fixed !important; left: ${c.left + 8}px !important; top: ${c.top + 8}px !important; }`;
+  document.head.append(style);
+}
+
+/** Combien de temps suivre une arrivée : les 2,2 s de « prêt ! », et la marge
+ * d'un salon qui annonce un peu après. */
+const SUIVI_MS = 2600;
+
+/** La salle quand Cam s'assied à la place 3, pour la première fois. */
+const AVEC_CAM = (() => {
+  const salle = room(0);
+  return {
+    ...salle,
+    seats: salle.seats.map((s) => (s.port === 3 ? { port: 3, player: "Cam", held: true, claim: "cam", premiere: true } : s)),
+    people: salle.people.map((p) => (p.name === "Cam" ? { ...p, seat: 3 } : p)),
+  };
+})();
+
+/** À chaque image pendant `ms` : la boîte de chaque « prêt ! » contre la
+ * toile, et ce que rendent le centre et les quatre coins de la toile (à 3 px
+ * du bord). Tourne dans la page. */
+function suivreLArrivee(ms) {
+  return new Promise((resolve) => {
+    const toile = document.querySelector("#screen");
+    const nom = (el) => (el === null ? "rien" : el.id || el.className || el.tagName);
+    const debut = performance.now();
+    let avant = debut;
+    const r = { images: 0, pretVu: 0, prets: [], dites: [], pireEcart: 0, croise: [], cache: [] };
+    const pas = () => {
+      const t = performance.now();
+      r.images += 1;
+      r.pireEcart = Math.max(r.pireEcart, t - avant);
+      avant = t;
+      const c = toile.getBoundingClientRect();
+      const dite = document.querySelector("#ligneParlee")?.textContent ?? "";
+      if (dite !== "" && !r.dites.includes(dite)) r.dites.push(dite);
+      for (const p of document.querySelectorAll(".rt-pret")) {
+        const b = p.getBoundingClientRect();
+        if (b.width === 0 || b.height === 0) continue;
+        r.pretVu += 1;
+        const qui = p.textContent.split(" ")[0];
+        if (!r.prets.includes(qui)) r.prets.push(qui);
+        const w = Math.min(b.right, c.right) - Math.max(b.left, c.left);
+        const h = Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top);
+        if (w > 0.5 && h > 0.5) r.croise.push(`à ${Math.round(t - debut)} ms, « ${p.textContent} » coupe l'image sur ${Math.round(w)}x${Math.round(h)} px`);
+      }
+      const i = 3;
+      const points = [
+        [c.left + c.width / 2, c.top + c.height / 2],
+        [c.left + i, c.top + i],
+        [c.right - i, c.top + i],
+        [c.left + i, c.bottom - i],
+        [c.right - i, c.bottom - i],
+      ];
+      for (const [x, y] of points) {
+        const e = document.elementFromPoint(x, y);
+        if (e !== toile) r.cache.push(`à ${Math.round(t - debut)} ms, (${Math.round(x)}, ${Math.round(y)}) rend ${nom(e)}, pas la toile`);
+      }
+      if (t - debut < ms) requestAnimationFrame(pas);
+      else resolve(r);
+    };
+    requestAnimationFrame(pas);
+  });
 }
 
 try {
@@ -1348,8 +1516,18 @@ try {
       await page.waitForSelector(OPENER, { timeout: 20000 });
       if (!(await attendre(page, () => window.__salonConnecte === true, null, 6000))) bad.push("le faux salon ne se connecte pas");
       await sleep(400);
+      // La demande vit dans la bande tenue droite, jamais sur l'image. En
+      // travers, la bande manque : « La salle » dit « Bo · ta place » et
+      // s'ouvre sur la feuille agrandie, où la carte attend.
+      const montrer = async (titre) => {
+        if (await attendre(page, () => document.querySelector("#demandeRecue") !== null, null, 2000)) return true;
+        const libelle = await page.evaluate((s) => document.querySelector(s)?.getAttribute("aria-label") ?? "", OPENER);
+        if (!libelle.includes("Bo")) bad.push(`${titre} : « La salle » ne la dit pas (« ${libelle} »)`);
+        await page.click(OPENER);
+        return attendre(page, () => document.querySelector("#feuilleSalle #demandeRecue") !== null, null, 3000);
+      };
       await page.evaluate(() => window.__salon.emit("asked", { from: "Bo", port: 1 }));
-      if (!(await attendre(page, () => document.querySelector("#asked") !== null))) bad.push("la demande de place ne se montre pas");
+      if (!(await montrer("la demande de place"))) bad.push("la demande de place ne se montre pas");
       else {
         await sleep(400);
         await page.screenshot({ path: join(OUT, `demande-${width}x${height}.png`) });
@@ -1358,27 +1536,45 @@ try {
             const r = document.querySelector(s)?.getBoundingClientRect();
             return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
           };
-          return { demande: box("#asked"), plus: box('[data-geste="feuille"]') };
+          return {
+            demande: box("#demandeRecue"),
+            plus: box('[data-geste="feuille"]'),
+            image: box("#screen"),
+            dansLaFeuille: document.querySelector("#demandeRecue")?.closest("#feuilleSalle") != null,
+          };
         });
-        const { demande, plus } = deux;
-        if (demande && plus) {
-          const w = Math.min(demande.right, plus.right) - Math.max(demande.left, plus.left);
-          const h = Math.min(demande.bottom, plus.bottom) - Math.max(demande.top, plus.top);
-          if (w > 0.5 && h > 0.5) bad.push(`« La salle » mord sur la demande de place : ${Math.round(w)}x${Math.round(h)} px`);
-        }
+        const { demande, plus, image, dansLaFeuille } = deux;
+        // La toile est `#screen` elle-même. Jusqu'au 23 novembre 2026, ce cas
+        // cherchait « #screen canvas », ne trouvait rien, et la garde de
+        // l'image ne pouvait jamais rougir : la précondition est dite.
+        if (!image) bad.push("précondition : la toile du jeu est introuvable");
+        const croise = (a, b) =>
+          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+        if (demande && plus && croise(demande, plus)) bad.push("« La salle » mord sur la demande de place");
+        // Tenue droite, la carte est dans la bande et ne touche pas l'image.
+        // En travers, elle est dans la feuille agrandie que le joueur a ouverte
+        // par « La salle » : cette feuille, un dialogue, couvre le bord gauche
+        // de l'image (mesuré le 23 novembre 2026), et sa place est celle du
+        // cadre de la salle, pas de la carte.
+        const ou = width > height ? "feuille" : "bande";
+        if (dansLaFeuille !== (ou === "feuille")) bad.push(`la demande n'est pas dans la ${ou}`);
+        if (ou === "bande" && demande && image && croise(demande, image)) bad.push("la demande de place touche l'image du jeu");
         if (demande && demande.top < zone.top - 0.5) bad.push(`la demande commence à ${Math.round(demande.top)} px, sous l'encoche`);
         bad.push(...(await page.evaluate(etat)));
         for (const s of ["#giveSeat", "#keepSeat"]) bad.push(...dansLaZone(s, await page.evaluate(boite, s), zone, width, height));
         await page.click("#keepSeat");
+        await page.evaluate(() => document.querySelector("#fermerFeuille")?.click());
       }
       await page.evaluate(() =>
         window.__salon.emit("recovery", { id: "banc", port: 1, from: "Bo", to: "Ami", asking: false, remaining: 30, reason: null }),
       );
-      if (!(await attendre(page, () => document.querySelector("#recovery") !== null))) bad.push("la reprise de la salle ne se montre pas");
+      if (!(await montrer("la reprise"))) bad.push("la reprise de la salle ne se montre pas");
       else {
         await sleep(300);
         await page.screenshot({ path: join(OUT, `reprise-${width}x${height}.png`) });
-        const r = await page.evaluate(boite, "#recovery");
+        if (!(await page.$("#keepRecovery"))) bad.push("la reprise reçue n'offre pas « Garder ma place »");
+        const r = await page.evaluate(boite, "#demandeRecue");
         if (r && (r.top < zone.top - 0.5 || r.left < zone.left - 0.5 || r.right > width - zone.right + 0.5))
           bad.push(`la reprise sort des zones sûres : [${Math.round(r.left)}, ${Math.round(r.top)}, ${Math.round(r.right)}]`);
       }
@@ -1387,6 +1583,251 @@ try {
     }
     bad.push(...errors.map((e) => `erreur de page : ${e}`));
     say(bad.length === 0, `demande de place et reprise ${width}x${height}`, bad);
+    await page.close();
+  }
+
+  // 21. Les places sous l'image (chantier personnes, 23 novembre 2026) : la
+  // rangée des places ne touche jamais la toile. À 1440x900, une image 4:3
+  // laisse la hauteur du panneau, et la rangée est dessous ; à 1280x720, elle
+  // ne la laisse pas, et la rangée passe en tête de colonne ; tenue en main,
+  // elle est sous l'image, debout dans la bande gauche en travers, ou en
+  // petit quand l'écran est court. Le jumeau : la rangée posée exprès sur
+  // l'image est vue.
+  for (const [rang, { width, height, coarse, touchpad, game, image, attendue }, niveau] of part("places-sous-image")
+    ? [...PLACES_CAS.entries()].flatMap(([rang, cas]) => ["sobre", "conseille", "tout"].map((niveau) => [rang, cas, niveau]))
+    : []) {
+    const what = `places hors de l'image ${width}x${height}${game === 1 ? " 16:9" : ""}, effets ${niveau}`;
+    const { page, errors } = await ouvrir({
+      width,
+      height,
+      coarse,
+      game,
+      url: `${BASE}/r/1/?entrer=jouer&${image}`,
+      stockage: { "nel3ab:touchpad": touchpad, ...effetsAuNiveau(niveau) },
+    });
+    const bad = [];
+    try {
+      await page.waitForSelector("#screen", { timeout: 20000 });
+      if (!(await attendre(page, placesVisibles, null, 6000))) bad.push("précondition : la rangée des places n'est pas visible");
+      else {
+        await sleep(400);
+        await page.screenshot({ path: join(OUT, `places-${width}x${height}-${attendue}-${niveau}.png`) });
+        const vu = await page.evaluate(placesEtToile);
+        if (vu.toile === null) bad.push("précondition : pas de toile");
+        else if (croiseLaToile(vu.ports, vu.toile))
+          bad.push(`la rangée des places touche l'image : ${cadreDe(vu.ports)} contre ${cadreDe(vu.toile)}`);
+        if (vu.cibles === 0) bad.push("précondition : aucune place à toucher dans la rangée");
+        bad.push(...vu.defauts);
+        if (vu.rangee !== attendue) bad.push(`la rangée est « ${vu.rangee} », « ${attendue} » attendue (panneau « ${vu.panneau} »)`);
+        if (attendue === "rangee" && vu.toile && vu.ports.top < vu.toile.bottom - 0.5)
+          bad.push(`la rangée « sous l'image » commence à ${Math.round(vu.ports.top)} px, l'image finit à ${Math.round(vu.toile.bottom)}`);
+        if (attendue === "deux-rangees" && !vu.colonne) bad.push("la rangée en tête de colonne n'est pas dans la colonne");
+        // Trop étroite, la rangée en petit est un bouton qui ouvre la salle,
+        // où chaque place se prend.
+        const toutes = await page.evaluate(() => document.querySelector("#placesToutes")?.checkVisibility() === true);
+        if (attendue === "petite" && !toutes) bad.push("la rangée en petit de 114 px n'est pas devenue un seul bouton");
+        if (toutes) {
+          await tap(page, "#placesToutes");
+          if (!(await attendre(page, (s) => document.querySelector(s) !== null, AGRANDIE, 3000))) bad.push("« les places » n'ouvre pas la salle agrandie");
+          else if (!(await page.evaluate(() => document.querySelector("#feuilleSalle #port3")?.checkVisibility() === true)))
+            bad.push("la salle agrandie ne montre pas la place 3");
+        }
+        // Le jumeau, une fois : la même mesure voit une rangée posée sur l'image.
+        if (rang === 0 && niveau === "conseille") {
+          await page.evaluate(leurreDesPlaces);
+          const leurre = await page.evaluate(placesEtToile);
+          say(
+            croiseLaToile(leurre.ports, leurre.toile),
+            "jumeau : la garde voit la rangée des places posée sur l'image",
+          );
+        }
+      }
+    } catch (error) {
+      bad.push(`le parcours s'arrête : ${error.message}`);
+    }
+    bad.push(...errors.map((e) => `erreur de page : ${e}`));
+    say(bad.length === 0, what, bad);
+    await page.close();
+  }
+
+  // 22. Une arrivée ne passe jamais sur l'image (chantier personnes) : Cam
+  // s'assied à la place 3, et pendant les 2,2 s où « 3P prêt ! » saute sur la
+  // place, à chaque image, sa boîte ne coupe pas la toile, et le centre et
+  // les quatre coins de la toile rendent la toile (`elementFromPoint`). La
+  // précondition : « prêt ! » se voit, sinon l'arrivée n'a pas eu lieu et la
+  // garde ne prouve rien. Le jumeau : un « prêt ! » posé exprès sur l'image
+  // est vu, aux deux mesures.
+  for (const [rang, { width, height, coarse, touchpad, game, image, attendue }, niveau] of part("arrivee")
+    ? [...PLACES_CAS.entries()].flatMap(([rang, cas]) => ["conseille", "tout"].map((niveau) => [rang, cas, niveau]))
+    : []) {
+    const what = `arrivée hors de l'image ${width}x${height}, rangée ${attendue}, effets ${niveau}`;
+    const { page, errors } = await ouvrir({
+      width,
+      height,
+      coarse,
+      game,
+      url: `${BASE}/r/1/?entrer=jouer&${image}`,
+      salon: true,
+      stockage: { "nel3ab:touchpad": touchpad, ...effetsAuNiveau(niveau) },
+    });
+    const bad = [];
+    try {
+      await page.waitForSelector("#screen", { timeout: 20000 });
+      // Une page ouverte sur une salle où Ami et Bo sont déjà assis : personne
+      // n'arrive. Suivie dès que la toile existe, jusqu'à 2,6 s après que la
+      // rangée se montre : un « prêt ! » de chargement durerait 2,2 s.
+      const auChargement = page.evaluate(suivreLArrivee, 6000);
+      if (!(await attendre(page, () => window.__salonConnecte === true, null, 6000))) bad.push("précondition : le faux salon ne se connecte pas");
+      if (!(await attendre(page, placesVisibles, null, 6000))) bad.push("précondition : la rangée des places n'est pas visible");
+      const charge = await auChargement;
+      if (charge.pretVu > 0) bad.push(`une page ouverte sur une salle pleine allume « prêt ! » ${charge.pretVu} fois : ${charge.prets.join(", ")}`);
+      // Les trois phrases d'une arrivée (`ARRIVEES` de lib/mots) : avec un
+      // nom, un retour, ou une place tenue dont le salon n'a pas encore dit
+      // le nom.
+      for (const dite of charge.dites)
+        if (/prend la place|revient à la place|La place \d est prise/.test(dite))
+          bad.push(`une page ouverte sur une salle pleine annonce : « ${dite} »`);
+      const auRepos = await page.evaluate(suivreLArrivee, 100);
+      if (auRepos.cache.length > 0) bad.push(`précondition : au repos, la toile ne rend pas ses points : ${auRepos.cache[0]}`);
+      if (bad.length === 0) {
+        // Le suivi tourne dans la page pendant que le salon annonce Cam.
+        const enCours = page.evaluate(suivreLArrivee, SUIVI_MS);
+        await sleep(50);
+        await page.evaluate((salle) => window.__salon.emit("room", salle), AVEC_CAM);
+        const suivi = await enCours;
+        await page.screenshot({ path: join(OUT, `arrivee-${width}x${height}-${attendue}-${niveau}.png`) });
+        if (suivi.pretVu === 0) bad.push("précondition : « 3P prêt ! » ne s'est jamais vu, l'arrivée n'a pas eu lieu");
+        if (suivi.prets.some((qui) => qui !== "3P")) bad.push(`Cam arrive à la place 3, et « prêt ! » s'allume sur ${suivi.prets.join(", ")}`);
+        // L'arrivée se dit, une fois, dans la ligne parlée : la précondition
+        // que la garde du chargement lit bien ce qui se dit.
+        if (!suivi.dites.some((dite) => dite.includes("Cam prend la place 3."))) bad.push(`l'arrivée de Cam ne se dit pas : ${JSON.stringify(suivi.dites)}`);
+        if (suivi.images < SUIVI_MS / 50) bad.push(`${suivi.images} images en ${SUIVI_MS} ms : la page n'a pas été suivie à chaque image`);
+        bad.push(...suivi.croise.slice(0, 3), ...suivi.cache.slice(0, 3));
+        console.log(
+          `        ${what} : ${suivi.images} images, « prêt ! » sur ${suivi.pretVu}, écart au pire ${Math.round(suivi.pireEcart)} ms`,
+        );
+        if (rang === 0 && niveau === "conseille") {
+          // Les jumeaux, chacun pour sa mesure : un « prêt ! » posé sur
+          // l'image (sa boîte), puis un calque au-dessus d'elle
+          // (`elementFromPoint`, qui ne voit pas ce qui laisse passer les
+          // clics, comme « prêt ! » lui-même).
+          const pose = await page.evaluate(() => {
+            const c = document.querySelector("#screen").getBoundingClientRect();
+            const pret = document.createElement("span");
+            pret.className = "rt-pret";
+            pret.textContent = "leurre";
+            Object.assign(pret.style, { position: "fixed", left: `${c.left + 10}px`, top: `${c.top + 10}px`, width: "40px", height: "20px" });
+            document.body.append(pret);
+            return pret.getBoundingClientRect().width > 0;
+          });
+          const boiteVue = await page.evaluate(suivreLArrivee, 120);
+          say(pose && boiteVue.croise.length > 0, "jumeau : la garde voit un « prêt ! » posé sur l'image");
+          await page.evaluate(() => {
+            const c = document.querySelector("#screen").getBoundingClientRect();
+            const calque = document.createElement("div");
+            Object.assign(calque.style, {
+              position: "fixed",
+              left: `${c.left + c.width / 2 - 20}px`,
+              top: `${c.top + c.height / 2 - 20}px`,
+              width: "40px",
+              height: "40px",
+              zIndex: "2147483647",
+            });
+            document.body.append(calque);
+          });
+          const pointVu = await page.evaluate(suivreLArrivee, 120);
+          say(pointVu.cache.length > 0, "jumeau : la garde voit un calque sur le centre de l'image");
+        }
+      }
+    } catch (error) {
+      bad.push(`le parcours s'arrête : ${error.message}`);
+    }
+    bad.push(...errors.map((e) => `erreur de page : ${e}`));
+    say(bad.length === 0, what, bad);
+    await page.close();
+  }
+
+  // 23. Le clic sur une place libre reste une tâche courte : rien ne se joue
+  // dans le même tour que le clic (chantier personnes). Mesuré sur la page
+  // CONSTRUITE, React de production, le processeur ralenti quatre fois : la
+  // page de Vite fait tourner React en développement, plusieurs fois plus
+  // lent, et ne dirait rien du joueur. Le jumeau : un écouteur qui tient le
+  // processeur 120 ms sur une autre place est vu.
+  if (part("clic-court")) {
+    const built = readFileSync(BUILT, "utf8");
+    const { page, errors } = await ouvrir({
+      width: 1440,
+      height: 900,
+      coarse: false,
+      url: `${BASE}/construite/r/1/?entrer=jouer`,
+      built,
+    });
+    const bad = [];
+    try {
+      await page.waitForSelector('#port4[data-state="free"]', { timeout: 20000 });
+      await page.waitForSelector('#port3[data-state="free"]', { timeout: 2000 });
+      await sleep(800);
+      const cdp = await page.createCDPSession();
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+      // Le travail du clic : du premier écouteur (window, capture) au dernier
+      // (window, bulle), donc le gestionnaire de React, son rendu et ses
+      // effets synchrones, qui passent entre les deux. Et les tâches longues
+      // (plus de 50 ms) qui commencent avec lui, s'il en déborde.
+      await page.evaluate(() => {
+        window.__clics = [];
+        window.__longues = [];
+        let debut = 0;
+        window.addEventListener("click", () => (debut = performance.now()), { capture: true });
+        window.addEventListener("click", () => window.__clics.push({ a: debut, ms: performance.now() - debut }));
+        new PerformanceObserver((liste) =>
+          window.__longues.push(...liste.getEntries().map((e) => ({ a: e.startTime, ms: e.duration }))),
+        ).observe({ type: "longtask" });
+      });
+      const clic = async (selector, fois) => {
+        await page.evaluate(() => {
+          window.__clics = [];
+          window.__longues = [];
+        });
+        for (let i = 0; i < fois; i += 1) {
+          await page.click(selector);
+          await sleep(500);
+        }
+        return page.evaluate(() => ({
+          clics: window.__clics.map((c) => c.ms),
+          longues: window.__longues
+            .filter((t) => window.__clics.some((c) => t.a + t.ms >= c.a - 1 && t.a <= c.a + c.ms + 1))
+            .map((t) => t.ms),
+        }));
+      };
+      const vu = await clic("#port4", 5);
+      if (vu.clics.length !== 5) bad.push(`précondition : ${vu.clics.length} clics sur 5 ont atteint la page`);
+      const pire = Math.max(...vu.clics);
+      if (pire >= 50) bad.push(`le clic sur la place 4 travaille ${Math.round(pire)} ms au pire, à CPU x4`);
+      for (const ms of vu.longues) bad.push(`une tâche longue de ${Math.round(ms)} ms commence avec un clic sur la place 4`);
+      console.log(
+        `        clic sur une place libre à CPU x4, cinq fois : ${vu.clics.map((ms) => Math.round(ms)).join(", ")} ms, ${vu.longues.length} tâche longue`,
+      );
+      await page.evaluate(() =>
+        document.querySelector("#port3").addEventListener(
+          "click",
+          () => {
+            const fin = performance.now() + 120;
+            while (performance.now() < fin);
+          },
+          { capture: true },
+        ),
+      );
+      const jumeau = await clic("#port3", 1);
+      say(
+        jumeau.clics.length === 1 && jumeau.clics[0] >= 100 && jumeau.longues.some((ms) => ms >= 100),
+        "jumeau : la garde voit un clic qui tient le processeur 120 ms",
+      );
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    } catch (error) {
+      bad.push(`le parcours s'arrête : ${error.message}`);
+    }
+    bad.push(...errors.map((e) => `erreur de page : ${e}`));
+    say(bad.length === 0, "le clic sur une place libre reste sous 50 ms, processeur ralenti quatre fois", bad);
     await page.close();
   }
 } finally {

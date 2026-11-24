@@ -8,6 +8,14 @@
  */
 export const NAME_MAX = 24;
 
+/** Le nom qu'un champ a reçu, sans ses espaces de bord et borné à
+ * `NAME_MAX`, ou `null` quand il n'y a rien à garder : le champ le refuse
+ * alors avec sa raison (`ChampNom`), au lieu d'un bouton grisé muet. */
+export function verifierNom(tape: string): string | null {
+  const nom = tape.trim().slice(0, NAME_MAX);
+  return nom === "" ? null : nom;
+}
+
 const REMEMBERED = "nel3ab:name";
 
 export function rememberedName(): string {

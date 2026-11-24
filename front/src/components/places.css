@@ -1,0 +1,422 @@
+/* Les places START, l'étiquette tapée, et les cartes du chantier personnes.
+   Aucune couleur n'est déclarée ici : tout vient des jetons de la régie
+   (`src/regie.css`), dont `lib/regie.test.ts` calcule les contrastes. */
+
+/* ── L'étiquette tapée ─────────────────────────────────────────────── */
+.n3-etiquette {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  padding: 1px 5px;
+  border-left: 3px solid var(--rt-joueur, var(--trait));
+  background: var(--creux);
+  color: var(--etiquette-encre, var(--encre));
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.n3-etiquette-nom {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Les places START ─────────────────────────────────────────────── */
+.n3-places {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.n3-places-rangee {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.n3-place {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.375rem;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--encre);
+  text-align: left;
+  cursor: pointer;
+}
+.n3-place-start {
+  grid-row: 1 / span 2;
+  font-size: var(--text-note);
+}
+.n3-place-texte {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+.n3-place-vide {
+  color: var(--legende);
+  font-size: var(--text-note);
+}
+.n3-place-toi {
+  flex-shrink: 0;
+  color: var(--legende);
+  font-family: var(--police-titre);
+  font-size: var(--text-note);
+  text-transform: uppercase;
+}
+.n3-place-signes {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.n3-places-role {
+  margin: 0;
+  color: var(--legende);
+  font-size: var(--text-note);
+  line-height: 1.35;
+}
+
+/* Le bouton START s'enfonce au clic, comme sur une borne (effet « boutons »). */
+.fx-boutons .n3-place:active .rt-bouton-start {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+/* Sous l'image : une rangée, la phrase du rôle à droite des places. */
+.n3-places[data-forme="rangee"] {
+  height: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+.n3-places[data-forme="rangee"] .n3-places-rangee {
+  flex: 0 1 36rem;
+  min-width: 0;
+}
+.n3-places[data-forme="rangee"] .n3-places-role {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* Au pied de la colonne : deux rangées de deux. */
+.n3-places[data-forme="deux-rangees"] .n3-places-rangee {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Debout dans la bande d'un téléphone couché : une place sous l'autre. */
+.n3-places[data-forme="debout"] .n3-places-rangee {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* En petit au téléphone : le rond seul, 44 px ; le nom, les initiales et la
+   phrase restent dans la feuille. Le panneau en petit a moins de 70 px de
+   haut : les initiales sous le rond (effets « tout ») le portaient à 64 px,
+   et la rangée débordait sur l'image (24 novembre 2026, à 667x375). */
+.n3-places[data-forme="petite"] .n3-place {
+  grid-template-columns: 44px;
+  justify-items: center;
+}
+.n3-places[data-forme="petite"] .n3-place-start {
+  grid-row: auto;
+}
+.n3-places[data-forme="petite"] .n3-place-texte,
+.n3-places[data-forme="petite"] .n3-place-signes {
+  display: none;
+}
+
+/* En petit, quand les quatre places n'ont pas leurs 44 px chacune (quatre
+   ronds et trois écarts de 8 px : 200 px), un seul bouton les montre toutes,
+   en lampes, et ouvre la salle. Mesuré le 24 novembre 2026 : à 667x375 avec
+   la manette à l'écran, le cadre donne 114 px au panneau, et chaque place
+   mesurait 17 px de large. */
+.n3-places[data-forme="petite"]:has(> .n3-places-toutes) {
+  container-type: inline-size;
+}
+.n3-places-toutes {
+  position: relative;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 2px solid var(--trait);
+  background: var(--creux);
+  color: var(--encre);
+  font-family: var(--police-titre);
+  cursor: pointer;
+}
+.n3-places-lampe {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--rayon-rond);
+  border: 2px solid var(--rt-joueur, var(--trait));
+  background: var(--creux);
+  color: var(--encre);
+  font-size: var(--text-note);
+}
+.n3-places-lampe[data-libre] {
+  border-style: dashed;
+  border-color: var(--start-eteint-trait);
+  color: var(--start-eteint-encre);
+  background: var(--start-eteint-fond);
+}
+@container (width < 200px) {
+  .n3-places-rangee {
+    display: none;
+  }
+  .n3-places-toutes {
+    display: flex;
+  }
+}
+.n3-places[data-forme="petite"] .n3-places-role {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Un départ : la place reste allumée 420 ms et s'éteint en trois paliers,
+   puis elle devient libre ; son numéro reste écrit. Rien ne bouge : seule
+   la clarté change, une fois. */
+.fx-arrive .n3-place[data-part] .rt-bouton-start {
+  animation: n3-place-eteint 0.42s steps(3, end) 1 forwards;
+}
+@keyframes n3-place-eteint {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-arrive .n3-place[data-part] .rt-bouton-start {
+    animation: none;
+  }
+}
+
+/* ── Les cartes : une place, une demande reçue ─────────────────────── */
+.n3-carte {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  --rt-fond: var(--plaque);
+  --rt-bord: var(--trait);
+}
+.n3-carte-titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  font-weight: 400;
+  line-height: 1.3;
+}
+.n3-carte-titre:focus {
+  outline: none;
+}
+.n3-carte-titre:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
+}
+.n3-carte-phrase {
+  margin: 0;
+  font-size: var(--text-corps);
+  line-height: 1.45;
+}
+.n3-carte-reste {
+  color: var(--legende);
+  font-family: var(--police-machine);
+  font-variant-numeric: tabular-nums;
+}
+.n3-carte-erreur {
+  margin: 0;
+  color: var(--alerte);
+}
+.n3-carte-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.n3-carte-bouton {
+  min-height: 44px;
+  padding: 0.375rem 0.875rem;
+  color: var(--encre);
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+}
+.n3-carte-bouton[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* La piste du temps : elle se vide une fois, sans clignoter. */
+.n3-piste {
+  display: block;
+  height: 4px;
+  background: var(--creux);
+}
+.n3-piste > i {
+  display: block;
+  height: 100%;
+  background: var(--signal);
+  transform-origin: left center;
+  animation-name: n3-piste;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes n3-piste {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .n3-piste > i {
+    animation: none;
+  }
+}
+.n3-carte-bouton.rt-bouton-plein {
+  color: var(--bouton-plein-encre);
+}
+
+/* ── Inviter quelqu'un ─────────────────────────────────────────────── */
+.n3-invitation-choix {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-corps);
+}
+.n3-invitation-choix:has(input:disabled) {
+  color: var(--legende);
+}
+.n3-invitation-start {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  font-size: var(--text-note);
+}
+/* Le lien entier, qui passe à la ligne, et se sélectionne d'un geste. */
+.n3-invitation-lien {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  font-family: var(--police-machine);
+  font-size: var(--text-note);
+  color: var(--encre);
+}
+/* Le cadre du code : sa taille est fixée avant le dessin, pour que le code
+   qui arrive ne pousse rien. Noir sur blanc dans les deux thèmes. */
+.n3-qr-cadre {
+  display: grid;
+  width: 148px;
+  height: 148px;
+  place-items: center;
+}
+.n3-qr {
+  width: 100%;
+  height: 100%;
+}
+.n3-qr-fond {
+  fill: var(--blanc);
+}
+.n3-qr-modules {
+  fill: var(--noir);
+}
+
+/* ── Signaler ─────────────────────────────────────────────────────── */
+/* Tenu, le bouton reste focalisable pour que « Déjà signalé il y a 12 s »
+   se lise au clavier ; il se dit éteint par la couleur de la légende. */
+#complain[aria-disabled="true"],
+#signalerEtat[aria-disabled="true"] {
+  color: var(--legende);
+  cursor: default;
+}
+
+/* ── Le champ du nom ──────────────────────────────────────────────── */
+.n3-champ-libelle {
+  font-family: var(--police-titre);
+  font-size: var(--text-corps);
+  color: var(--encre);
+}
+/* 16 px : un champ plus petit fait zoomer un téléphone iOS au focus. */
+.n3-champ {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--champ-trait);
+  background: var(--champ-fond);
+  color: var(--encre);
+  font-size: 16px;
+}
+.n3-champ:focus-visible {
+  outline: var(--focus-largeur) solid var(--focus);
+  outline-offset: 1px;
+}
+.n3-champ[aria-invalid="true"] {
+  border-color: var(--alerte);
+}
+/* La case d'une place de la rangée sous une image de 768 px : quatre cases
+   et leurs trois écarts de 8 px. */
+.n3-apercu-place {
+  --apercu-place: 186px;
+  display: grid;
+  width: var(--apercu-place);
+  max-width: 100%;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 0.375rem;
+  align-items: center;
+}
+.n3-apercu-start {
+  width: 44px;
+  height: 44px;
+}
+
+/* ── Les mesures de la liaison ────────────────────────────────────── */
+.n3-mesures {
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--text-corps);
+}
+/* Un chiffre mauvais porte toujours son mot ; la couleur s'ajoute. */
+.n3-mesures dd[data-mauvais] {
+  color: var(--alerte);
+}
+
+/* L'annonce des places sur l'ancre du socle (`AnnonceEnLettres`, effet
+   « lettres ») : une ligne en Pixelify, coupée par des points de suspension
+   plutôt que de pousser le titre du jeu hors du fronton. L'ancre vide ne
+   prend aucune place. */
+[data-ancre="annonce"]:not(:empty) {
+  min-width: 0;
+  flex: 0 1 auto;
+  margin-left: 1ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--police-titre);
+  color: var(--signal);
+}
+/* Sur le fronton, le fond est l'écran, noir dans les deux régies : le signal
+   du jour y tombait à 3,28:1 (relecture du 24 novembre 2026). L'encre du
+   fronton est faite pour ce fond (`lib/regie.test.ts`). */
+.n3-fronton [data-ancre="annonce"]:not(:empty) {
+  color: var(--fronton-encre);
+}

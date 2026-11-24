@@ -32,6 +32,12 @@ async def notify(request: Recovery, reason: str | None = None) -> None:
                 "asking": sid == request.asker,
                 "remaining": request.remaining(monotonic()),
                 "reason": reason,
+                # « Donner ma place » rend `remaining` à 0 : sans ce champ, la
+                # page de qui demande lisait ce 0 comme un silence (relecture
+                # du 24 novembre 2026). Une page d'avant l'ignore. `respond`
+                # marque la demande avant de lire la réponse : un refus porte
+                # aussi `accepted`, et c'est sa raison qui le dit fini.
+                "accepted": request.accepted and reason is None,
             },
             to=sid,
         )
@@ -74,28 +80,26 @@ async def recover(sid: str, data: object) -> dict[str, Any]:
                     raise ValueError("Une reprise est déjà en attente dans la salle.")
                 port = data.get("port")
                 if port is not None and (type(port) is not int or not 1 <= port <= 4):
-                    raise ValueError("Cette manette n'existe pas.")
+                    raise ValueError("Cette place n'existe pas.")
                 if port is None:
                     boss = people.owner(rooms.numero)
                     if boss is None or boss[0] is None or not session.get("login"):
-                        raise ValueError(
-                            "Une identité est nécessaire pour reprendre le rôle de chef."
-                        )
+                        raise ValueError("Une identité est nécessaire pour choisir le jeu.")
                     expected, target = boss
                     if expected == session["login"]:
-                        raise ValueError("Tu es déjà le chef de la salle.")
+                        raise ValueError("Tu choisis déjà le jeu.")
                     targets = people.sessions(rooms.numero)[expected]
                 else:
                     observed = await read_seats(rooms.settings.worker_control)
                     if observed is None:
-                        raise ValueError("Les manettes ne répondent pas. Réessaie.")
+                        raise ValueError("Les places ne répondent pas. Réessaie.")
                     rooms.observe_seats(observed)
                     holder = rooms.holder_of(port)
                     seat = rooms.seats()[port - 1]
                     if holder is None or seat.claim is None or seat.player is None:
                         raise ValueError("Cette place a changé. Sélectionne-la à nouveau.")
                     if holder == sid:
-                        raise ValueError("Tu tiens déjà cette manette.")
+                        raise ValueError("Tu tiens déjà cette place.")
                     expected, target, targets = seat.claim, seat.player, [holder]
                 refused = rooms.recovery_refused.get(port or 0)
                 if refused and refused[0] == expected and now < refused[1]:
@@ -120,8 +124,12 @@ async def recover(sid: str, data: object) -> dict[str, Any]:
                         rooms.recovery = None
                         await notify(
                             request,
-                            f"{request.target} est là et garde "
-                            + ("son rôle." if request.port is None else "sa manette."),
+                            f"{request.target} garde "
+                            + (
+                                "le choix du jeu."
+                                if request.port is None
+                                else f"sa place {request.port}."
+                            ),
                         )
                     else:
                         await notify(request)
@@ -136,23 +144,23 @@ async def recover(sid: str, data: object) -> dict[str, Any]:
                         if request.login is None or not people.transfer_owner(
                             rooms.numero, request.expected, request.login
                         ):
-                            raise ValueError("Le chef a changé. Réessaie.")
+                            raise ValueError("Qui choisit le jeu a changé. Réessaie.")
                         rooms.told_owner = -1
                     else:
                         observed = await read_seats(rooms.settings.worker_control)
                         if observed is None:
-                            raise ValueError("Les manettes ne répondent pas. Réessaie.")
+                            raise ValueError("Les places ne répondent pas. Réessaie.")
                         rooms.observe_seats(observed)
                         if not current(request, rooms, people):
-                            raise ValueError("Cette manette a changé de mains. Réessaie.")
+                            raise ValueError("Cette place a changé de mains. Réessaie.")
                     rooms.recovery = None
                     await notify(
                         request,
-                        f"{request.source} reprend "
+                        f"{request.source} "
                         + (
-                            "le rôle de chef."
+                            "choisit maintenant le jeu."
                             if request.port is None
-                            else f"la manette {request.port}."
+                            else f"reprend la place {request.port}."
                         ),
                     )
                     await broadcast(rooms, people, journal, bool(session.get("banc")))

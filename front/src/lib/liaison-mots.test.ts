@@ -212,12 +212,24 @@ describe("la ligne parlée", () => {
     expect(phraseLiaison({ etat: "ok" }, redemarre, 1, 1)).toBe("La salle 1 redémarre.");
     expect(phraseLiaison(redemarre, { etat: "ok" }, 1, 1)).toBe("L'image est revenue.");
   });
-  it("annonce une demande de manette une fois, avec le délai en mots", () => {
-    expect(phraseDemande({ from: "Lina", port: 2 }, 10)).toBe(
+  // ==== chantier personnes ====
+  it("annonce une demande de place une fois, selon la règle de son chemin", () => {
+    // La reprise, le chemin que la page emploie : le silence laisse l'autre
+    // prendre la place (`api/ws/recovery.py`). La phrase disait le contraire.
+    expect(phraseDemande({ from: "Lina", port: 2, chemin: "reprise" }, 20)).toBe(
+      "Lina demande ta place 2. Tu as 20 secondes pour répondre. Sans réponse, Lina pourra la prendre.",
+    );
+    // L'ancienne demande, que la page écoute encore : le silence garde.
+    expect(phraseDemande({ from: "Lina", port: 2, chemin: "ancienne" }, 10)).toBe(
       "Lina demande ta place 2. Tu as 10 secondes pour répondre. Sans réponse, tu la gardes.",
+    );
+    // Le jumeau : la reprise ne dit jamais « tu la gardes ».
+    expect(phraseDemande({ from: "Lina", port: 2, chemin: "reprise" }, 20)).not.toMatch(
+      /tu la gardes/,
     );
     expect(phraseDemande(null, 10)).toBe("");
   });
+  // ==== fin personnes ====
 });
 
 describe("le vocabulaire tenu", () => {

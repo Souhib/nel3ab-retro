@@ -757,7 +757,14 @@ etats-navigateur-rouge:
 # chef, le verbe du chef et la reprise de son rôle, les noms de console d'une
 # préparation GameCube et Xbox 360, « ma sauvegarde » pour qui lance, les
 # cibles au doigt et les places de l'avant-salle. Chaque étape a son jumeau
-# (`parcours.mjs`).
+# (`parcours.mjs`). Le 23 novembre 2026, le chantier personnes y a ajouté les
+# places au vrai clavier, la demande de place hors de l'image avec la règle
+# du salon, l'arrivée qui reste dite quand l'état change aussitôt après, et
+# « Signaler » visible sans défiler à trois tailles de bureau. Le 24 novembre
+# 2026, sa relecture a ajouté huit étapes : la raison du salon chez qui tient
+# la place, la carte qui ne revient pas seule, le refus et le don dits, qui
+# arrive n'est pas un spectateur, l'annonce lisible sur le fronton, les
+# ancres START d'Aïn et la cadence d'une image figée.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
 # salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
@@ -799,6 +806,49 @@ parcours-navigateur-rouge:
         --etapes "$etapes" --rouge-attendu "$etapes"
     etapes=place-suit-adresse,menu-chef,cibles-tactiles,avant-salle-places
     node parcours.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # 03b21c0, la page de main avant le thème rétro : « Inviter » y copie
+    # d'un coup, sans panneau ni code, et l'étape réécrite le 23 novembre
+    # 2026 doit y tomber sur ce défaut.
+    git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes invitation --rouge-attendu invitation
+    # Sur la même page, la demande de place se pose sur l'image (le panneau
+    # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
+    etapes=demande-place,signaler-visible
+    node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
+    # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
+    # dite 90 ms après une arrivée l'efface de la ligne parlée, et l'ancre
+    # de l'annonce du socle reste vide. Ce commit ne vit que
+    # sur `chantier/retro-personnes` : sa page est gardée dans `rouges/`,
+    # avec son empreinte vérifiée avant usage, comme celles de la salle.
+    rouges="$(pwd)/rouges"
+    lue=$(git hash-object "$rouges/personnes-54d1f6f.html")
+    attendue=$(awk '$3 == "personnes-54d1f6f.html" { print $1 }' "$rouges/EMPREINTES")
+    if [ "$lue" != "$attendue" ]; then
+        echo "personnes-54d1f6f.html n'est plus la page de 54d1f6f ($lue au lieu de $attendue)" >&2
+        exit 1
+    fi
+    node parcours.mjs --page "$rouges/personnes-54d1f6f.html" --flux "$dossier/flux.h264" \
+        --etapes places-clavier,annonce-arrivee,annonce-lettres \
+        --rouge-attendu places-clavier,annonce-arrivee,annonce-lettres
+    # cc8c8a6, la page que la relecture du 24 novembre 2026 a refusée : la
+    # raison du salon ouvre la carte chez qui tient la place, la carte se
+    # rouvre seule au retour de Bo, aucune issue de reprise n'est dite, un
+    # don se lit comme un silence, qui arrive est annoncé spectateur,
+    # l'annonce du fronton tient 3,28:1 de jour, les START n'ont pas
+    # d'ancre d'Aïn, et une image figée garde sa cadence. Gardée dans
+    # `rouges/` comme celle de 54d1f6f.
+    lue=$(git hash-object "$rouges/personnes-cc8c8a6.html")
+    attendue=$(awk '$3 == "personnes-cc8c8a6.html" { print $1 }' "$rouges/EMPREINTES")
+    if [ "$lue" != "$attendue" ]; then
+        echo "personnes-cc8c8a6.html n'est plus la page de cc8c8a6 ($lue au lieu de $attendue)" >&2
+        exit 1
+    fi
+    etapes=carte-cible,carte-revient,refus-dit,don-dit,arrivee-a-confirmer,annonce-fronton,ancres-start,mesures-figee
+    node parcours.mjs --page "$rouges/personnes-cc8c8a6.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.

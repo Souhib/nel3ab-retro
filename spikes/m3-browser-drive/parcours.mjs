@@ -76,7 +76,10 @@ async function nouvelle(vue, { salle = {}, stockage = {}, avant = null } = {}) {
     }
     // La vue des touches de la première visite prend la place des rangs de
     // la colonne (chantier salle, étape 6); les parcours partent d'une vue lue.
-  }, { "nel3ab:aide-clavier": "vue", ...stockage });
+    // Les mesures aussi (`nel3ab:mode`) : le navigateur garde le stockage
+    // d'une page à l'autre, et `mesures-figee`, qui les déplie, privait
+    // l'étape suivante de « Signaler » (24 novembre 2026).
+  }, { "nel3ab:aide-clavier": "vue", "nel3ab:mode": "normal", ...stockage });
   if (avant) await page.evaluateOnNewDocument(avant);
   await page.setRequestInterception(true);
   page.on("request", (req) => {
@@ -97,6 +100,35 @@ const texte = (page, sel = "body") =>
     (s) => (document.querySelector(s)?.textContent ?? "").replace(/\s+/g, " ").trim(),
     sel,
   );
+
+/** L'identifiant de l'élément qui a le focus. */
+const idActif = (page) => page.evaluate(() => document.activeElement?.id ?? "");
+/** Le focus est-il dans la zone de jeu, où vont les touches du jeu ? */
+const dansLeJeu = (page) =>
+  page.evaluate(() => document.activeElement?.closest("[data-zone-jeu]") != null);
+/** La place qui est à moi, ou `null`. */
+const maPlace = (page) =>
+  page.evaluate(
+    () => [1, 2, 3, 4].find((n) => document.querySelector(`#port${n}`)?.dataset.state === "mine") ?? null,
+  );
+/** Le contraste WCAG de deux couleurs [r, g, b]. */
+function contraste(a, b) {
+  const l = ([r, g, bl]) => {
+    const c = [r, g, bl].map((v) => {
+      const x = v / 255;
+      return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const [hi, lo] = [l(a), l(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+/** Le centre d'un élément, en nombres (un DOMRect arrive vide de `evaluate`). */
+const centreDe = (page, sel) =>
+  page.$eval(sel, (el) => {
+    const r = el.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  });
 
 /** Attend que `test` soit vrai, au plus `ms`. Rend vrai s'il l'est devenu. */
 async function jusqua(test, ms, pas = 100) {
@@ -139,7 +171,7 @@ async function entrer(page) {
     });
     return false;
   }, 5000, 300);
-  if (!(await jusqua(async () => /place \d|manette \d|P\d/.test(await siege(page)), 8000)))
+  if (!(await jusqua(async () => /place \d|manette \d|\dP|P\d/.test(await siege(page)), 8000)))
     throw new Precondition(`aucune place prise en entrant: « ${await siege(page)} »`);
 }
 
@@ -270,8 +302,11 @@ const ETAPES = {
     await page.close();
   },
 
-  /** P11: « Inviter quelqu'un » copie le lien qui entre dans CETTE salle pour
-   * jouer. Sans feuille de partage (un ordinateur), c'est le presse-papiers. */
+  /** P11: « Inviter quelqu'un » déplie un panneau (23 novembre 2026) : le code
+   * QR n'est dessiné qu'à l'ouverture, « Copier le lien » copie le lien qui
+   * entre dans CETTE salle pour jouer, et la ligne parlée le dit. Le jumeau :
+   * « pour regarder » copie le lien qui entre pour regarder. Sans feuille de
+   * partage (un ordinateur), c'est le presse-papiers. */
   async invitation() {
     const page = await nouvelle(PC, {
       avant: () => {
@@ -284,14 +319,480 @@ const ETAPES = {
     });
     await entrer(page);
     if (!(await page.$("#inviter"))) throw new Defaut("aucun bouton pour inviter");
+    if (await page.$(".n3-qr")) throw new Defaut("le code QR est dessiné avant l'ouverture");
     await page.click("#inviter");
+    if (!(await jusqua(() => page.$("#copierLien").then(Boolean), 2000)))
+      throw new Defaut("« Inviter » ne déplie aucun panneau avec « Copier le lien »");
+    const deplie = await page.$eval("#inviter", (b) => b.getAttribute("aria-expanded"));
+    if (deplie !== "true") throw new Defaut(`#inviter dit aria-expanded=${deplie}`);
+    if (!(await jusqua(() => page.$(".n3-qr path").then(Boolean), 3000)))
+      throw new Defaut("le code QR n'est pas dessiné à l'ouverture");
+    await page.click("#copierLien");
     if (!(await jusqua(() => page.evaluate(() => typeof window.__copie === "string"), 3000)))
-      throw new Defaut("« Inviter » n'a rien copié");
+      throw new Defaut("« Copier le lien » n'a rien copié");
     const copie = await page.evaluate(() => window.__copie);
     if (copie !== `${banc.base}/r/1/?entrer=jouer`) throw new Defaut(`lien copié: ${copie}`);
-    if (!/Lien copié/.test(await texte(page, "#side"))) throw new Defaut("la copie n'est pas dite");
+    if (!(await jusqua(async () => /Lien copié/.test(await texte(page, "#ligneParlee")), 2000)))
+      throw new Defaut("la copie n'est pas dite par la ligne parlée");
+    // Le jumeau : regarder.
+    await page.evaluate(() => (window.__copie = undefined));
+    await page.click("input[type=radio][value=watch]");
+    await page.click("#copierLien");
+    if (!(await jusqua(() => page.evaluate(() => typeof window.__copie === "string"), 3000)))
+      throw new Defaut("« Copier le lien » n'a rien copié pour regarder");
+    const regarder = await page.evaluate(() => window.__copie);
+    if (regarder !== `${banc.base}/r/1/?entrer=regarder`)
+      throw new Defaut(`lien pour regarder copié: ${regarder}`);
     await capture(page, "invitation");
     await page.close();
+  },
+
+  /** A11Y-09 (plan personnes, places-demande 1) : les places au vrai
+   * clavier. Tab mène à la place de Bo, Entrée ouvre sa carte et y pose le
+   * focus, Échap la ferme et rend le focus à la place sans ouvrir le menu du
+   * jeu ; la place garde le focus quand Bo part puis revient (aucun
+   * démontage). Le jumeau : Échap depuis la zone de jeu laisse la carte et
+   * ouvre le menu, comme avant. Écrite le 23 novembre 2026 ; la page de
+   * 54d1f6f (`rouges/personnes-54d1f6f.html`), où Échap ouvrait le menu par
+   * la carte, doit y tomber sur son défaut. */
+  async "places-clavier"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    if (!(await page.$("#port2"))) throw new Precondition("aucune place #port2");
+    await page.mouse.click(...(await centreDe(page, "#screen")));
+    let appuis = 0;
+    while ((await idActif(page)) !== "port2") {
+      if (++appuis > 80) throw new Precondition("80 Tab n'ont jamais atteint #port2");
+      await page.keyboard.press("Tab");
+    }
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => page.$("#cartePlace").then(Boolean), 2000)))
+      throw new Precondition("Entrée sur la place de Bo n'ouvre aucune carte");
+    if ((await idActif(page)) !== "cartePlaceTitre")
+      throw new Defaut(`la carte ouverte au clavier n'a pas le focus (${await idActif(page)})`);
+    await page.keyboard.press("Escape");
+    await sleep(300);
+    if (await page.$("#menu")) throw new Defaut("Échap dans la carte ouvre le menu du jeu");
+    if (await page.$("#cartePlace")) throw new Defaut("Échap dans la carte ne la ferme pas");
+    if ((await idActif(page)) !== "port2")
+      throw new Defaut(`Échap ne rend pas le focus à la place (${await idActif(page)})`);
+    // La rangée se met à jour en place : Bo part, puis revient.
+    banc.regler({ bo: false });
+    if (!(await jusqua(() => page.$eval("#port2", (b) => b.dataset.state === "free"), 3000)))
+      throw new Precondition("la place 2 ne se libère pas quand Bo part");
+    banc.regler({ bo: true });
+    if (!(await jusqua(() => page.$eval("#port2", (b) => b.dataset.state === "busy"), 3000)))
+      throw new Precondition("la place 2 ne se reprend pas quand Bo revient");
+    if ((await idActif(page)) !== "port2")
+      throw new Defaut(`la place a perdu le focus quand Bo est parti et revenu (${await idActif(page)})`);
+    // Le jumeau : la carte ouverte, Échap depuis la zone de jeu ouvre le menu.
+    await page.keyboard.press("Enter");
+    if (!(await jusqua(() => page.$("#cartePlace").then(Boolean), 2000)))
+      throw new Precondition("Entrée ne rouvre pas la carte");
+    await page.focus("[data-zone-jeu]");
+    await page.keyboard.press("Escape");
+    if (!(await jusqua(() => page.$("#menu").then(Boolean), 2000)))
+      throw new Defaut("Échap depuis la zone de jeu n'ouvre plus le menu");
+    await capture(page, "places-clavier");
+    await page.close();
+  },
+
+  /** Plan personnes, places-demande 4 : demander la place de Bo. La demande
+   * s'écrit hors de l'image, dit la vraie règle du salon (sans réponse, tu
+   * pourras prendre la place) et attend le délai avant « Prendre ». Le banc
+   * répond comme `api/ws/recovery.py`. Sur 03b21c0, le panneau fixe de
+   * `Recovery` se posait en haut de la page, sur l'image. */
+  async "demande-place"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    const depuis = Date.now();
+    await page.click("#port2");
+    // La page d'après ouvre d'abord la carte de la place ; celle d'avant
+    // demandait au premier clic.
+    if (await jusqua(() => page.$("#demanderPlace").then(Boolean), 1500)) await page.click("#demanderPlace");
+    const demandee = () =>
+      banc.journal.evenements.some(
+        (e) => e.a >= depuis && e.quoi[0] === "recover" && e.quoi[1]?.action === "begin" && e.quoi[1]?.port === 2,
+      );
+    if (!(await jusqua(async () => demandee(), 3000))) throw new Precondition("la page n'a pas demandé la place 2");
+    const boite = "#cartePlace, #recovery";
+    if (!(await jusqua(() => page.evaluate((s) => document.querySelector(s)?.textContent.includes("Bo") ?? false, boite), 3000)))
+      throw new Precondition("la demande en cours ne s'écrit nulle part");
+    const pose = await page.evaluate((s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      const t = document.querySelector("#screen").getBoundingClientRect();
+      const coupe = r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom;
+      const points = [
+        [t.left + t.width / 2, t.top + t.height / 2],
+        [t.left + 3, t.top + 3],
+        [t.right - 3, t.top + 3],
+        [t.left + 3, t.bottom - 3],
+        [t.right - 3, t.bottom - 3],
+      ];
+      const caches = points.filter(([x, y]) => document.elementFromPoint(x, y)?.id !== "screen").length;
+      return { coupe, caches, boite: [r.left, r.top, r.width, r.height].map(Math.round) };
+    }, boite);
+    if (pose.coupe) throw new Defaut(`la demande se pose sur l'image (boîte ${pose.boite.join(" ")})`);
+    if (pose.caches > 0) throw new Defaut(`${pose.caches} point(s) de l'image ne rendent plus l'image`);
+    const dit = await texte(page, boite);
+    if (!dit.includes("Sans réponse, tu pourras prendre la place 2"))
+      throw new Defaut(`la demande ne dit pas la règle du salon : « ${dit} »`);
+    const attend = await page.$eval("#confirmRecovery", (b) => b.getAttribute("aria-disabled") === "true" || b.disabled);
+    if (!attend) throw new Defaut("« Prendre la place 2 » est permis avant le délai");
+    // Le jumeau : annuler part au salon.
+    await page.click("#annulerDemande");
+    if (
+      !(await jusqua(
+        async () => banc.journal.evenements.some((e) => e.a >= depuis && e.quoi[0] === "recover" && e.quoi[1]?.action === "cancel"),
+        2000,
+      ))
+    )
+      throw new Defaut("« Annuler » n'a rien envoyé au salon");
+    await capture(page, "demande-place");
+    await page.close();
+  },
+
+  /** A11Y-18 (plan personnes, places-demande 14) : Bo arrive, sa phrase est
+   * écrite dans la ligne parlée, et 90 ms plus tard le salon annonce un
+   * démarrage. La ligne dit « Le jeu démarre. » sans avoir effacé
+   * l'arrivée. Sur la page de 54d1f6f, la phrase d'état la remplaçait. */
+  async "annonce-arrivee"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(800);
+    banc.regler({ bo: true });
+    if (!(await jusqua(async () => /Bo/.test(await texte(page, "#ligneParlee")), 4000)))
+      throw new Precondition(`l'arrivée de Bo n'est pas dite : « ${await texte(page, "#ligneParlee")} »`);
+    const arrivee = await texte(page, "#ligneParlee");
+    await sleep(90);
+    banc.annoncer({ game: "Sonic Generations", save: "nouvelle partie" });
+    if (!(await jusqua(async () => /Le jeu démarre/.test(await texte(page, "#ligneParlee")), 3000)))
+      throw new Precondition(`le démarrage n'est pas dit : « ${await texte(page, "#ligneParlee")} »`);
+    const ensuite = await texte(page, "#ligneParlee");
+    if (!ensuite.includes(arrivee))
+      throw new Defaut(`l'arrivée (« ${arrivee} ») est effacée par l'état : « ${ensuite} »`);
+    // Le jumeau : la ligne parlée est la seule région de la salle, hors de
+    // `#controller-status` (ControllerStatus, chantier manettes, qui dit les
+    // manettes branchées ; le réunir à la ligne est à ce chantier-là).
+    // Inviter, Signaler et la reprise avaient chacun la leur.
+    const regions = await page.evaluate(() =>
+      [...document.querySelectorAll("[role=status], [role=alert], [aria-live]:not([aria-live=off])")]
+        .filter((e) => e.id !== "controller-status")
+        .map((e) => `${e.tagName.toLowerCase()}#${e.id}.${e.className}`),
+    );
+    if (regions.length !== 1 || !regions[0].startsWith("p#ligneParlee"))
+      throw new Defaut(`${regions.length} régions parlées dans la salle : ${regions.join(", ")}`);
+    await page.close();
+  },
+
+  /** Effet « lettres » (plan personnes) : l'arrivée de Bo s'écrit sur
+   * l'ancre de l'annonce du socle, hors de l'image, puis s'efface. Sur la
+   * page de 54d1f6f, l'ancre restait vide. */
+  async "annonce-lettres"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(800);
+    if (!(await page.$('[data-ancre="annonce"]'))) throw new Precondition("aucune ancre d'annonce dans la salle");
+    banc.regler({ bo: true });
+    if (!(await jusqua(async () => /Bo/.test(await texte(page, "#ligneParlee")), 4000)))
+      throw new Precondition("l'arrivée de Bo n'est pas dite");
+    const phrase = await texte(page, "#ligneParlee");
+    if (!(await jusqua(async () => (await texte(page, '[data-ancre="annonce"]')) === phrase, 3000)))
+      throw new Defaut(`l'ancre ne dit pas l'arrivée : « ${await texte(page, '[data-ancre="annonce"]')} »`);
+    const pose = await page.evaluate(() => {
+      const r = document.querySelector('[data-ancre="annonce"]').getBoundingClientRect();
+      const t = document.querySelector("#screen").getBoundingClientRect();
+      return { coupe: r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom, haut: r.height };
+    });
+    if (pose.coupe) throw new Defaut("l'annonce s'écrit sur l'image");
+    if (pose.haut === 0) throw new Defaut("l'ancre écrite n'a aucune hauteur : personne ne la voit");
+    await capture(page, "annonce-lettres");
+    // Le jumeau : elle s'efface (ANNONCE_RESTE_MS, 6 s après la fin).
+    if (!(await jusqua(async () => (await texte(page, '[data-ancre="annonce"]')) === "", 9000)))
+      throw new Defaut("l'annonce reste écrite sur l'ancre");
+    await page.close();
+  },
+
+  /* Les huit étapes qui suivent viennent de la relecture du chantier
+     personnes du 24 novembre 2026. Chacune doit rougir sur son défaut sur
+     la page de cc8c8a6 (`rouges/personnes-cc8c8a6.html`). */
+
+  /** Celui qui TIENT la place reçoit, après sa réponse, la raison du salon :
+   * `notify` l'envoie à qui demande ET aux cibles. Sur cc8c8a6, elle ouvrait
+   * la carte de la place, prenait le focus à la zone de jeu et proposait
+   * « Prendre la place 3 ». La raison se dit par la ligne parlée, sans
+   * carte et sans focus. Le jumeau : la demande reçue s'affiche, elle aussi
+   * sans prendre le focus. */
+  async "carte-cible"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    const mienne = await maPlace(page);
+    if (mienne === null) throw new Precondition("aucune place n'est à moi");
+    for (const [id, raison] of [
+      ["banc-cible-1", `Ami garde sa place ${mienne}.`],
+      ["banc-cible-2", "Demande annulée."],
+    ]) {
+      const avis = { id, port: mienne, from: "Bo", to: "Ami", asking: false, accepted: false };
+      await page.focus("[data-zone-jeu]");
+      banc.avisDeReprise({ ...avis, remaining: 20, reason: null });
+      if (!(await jusqua(() => page.$("#demandeRecue").then(Boolean), 2000)))
+        throw new Precondition("la demande de Bo ne s'affiche pas");
+      if (!(await dansLeJeu(page)))
+        throw new Defaut(`la demande reçue prend le focus à la zone de jeu (${await idActif(page)})`);
+      banc.avisDeReprise({ ...avis, remaining: 0, reason: raison });
+      if (!(await jusqua(async () => !(await page.$("#demandeRecue")), 2000)))
+        throw new Precondition("la demande reçue reste après la raison du salon");
+      await sleep(300);
+      if (await page.$("#cartePlace"))
+        throw new Defaut(`« ${raison} » ouvre une carte chez qui tient la place : « ${await texte(page, "#cartePlace")} »`);
+      if (!(await dansLeJeu(page)))
+        throw new Defaut(`« ${raison} » prend le focus à la zone de jeu (${await idActif(page)})`);
+      if (!(await jusqua(async () => (await texte(page, "#ligneParlee")).includes(raison), 2000)))
+        throw new Defaut(`la ligne parlée ne dit pas « ${raison} » : « ${await texte(page, "#ligneParlee")} »`);
+    }
+    await page.close();
+  },
+
+  /** La carte ouverte sur la place de Bo disparaît quand Bo part. Sur
+   * cc8c8a6, la page gardait son numéro : au retour de Bo, la carte se
+   * rouvrait seule et prenait le focus à la zone de jeu. Le jumeau : un clic
+   * sur la place la rouvre. */
+  async "carte-revient"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    await page.click("#port2");
+    if (!(await jusqua(() => page.$("#cartePlace").then(Boolean), 2000)))
+      throw new Precondition("un clic sur 2P n'ouvre aucune carte");
+    banc.regler({ bo: false });
+    if (!(await jusqua(async () => !(await page.$("#cartePlace")), 3000)))
+      throw new Precondition("la carte reste quand Bo part");
+    await page.focus("[data-zone-jeu]");
+    banc.regler({ bo: true });
+    if (!(await jusqua(() => page.$eval("#port2", (b) => b.dataset.state === "busy"), 3000)))
+      throw new Precondition("Bo ne revient pas à la place 2");
+    await sleep(400);
+    if (await page.$("#cartePlace"))
+      throw new Defaut(`la carte se rouvre seule au retour de Bo : « ${await texte(page, "#cartePlace")} »`);
+    if (!(await dansLeJeu(page)))
+      throw new Defaut(`le retour de Bo prend le focus à la zone de jeu (${await idActif(page)})`);
+    await page.click("#port2");
+    if (!(await jusqua(() => page.$("#cartePlace").then(Boolean), 2000)))
+      throw new Defaut("un clic sur 2P ne rouvre plus la carte");
+    await page.close();
+  },
+
+  /** Bo refuse : la carte le montre, et la ligne parlée, seule région de la
+   * salle, le dit. Sur cc8c8a6, aucune issue d'une reprise n'était dite :
+   * le panneau `Recovery` retiré la disait par `role=alert`. */
+  async "refus-dit"() {
+    const page = await nouvelle(PC, { salle: { bo: true, boRepond: "garde" } });
+    await entrer(page);
+    await page.click("#port2");
+    if (!(await jusqua(() => page.$("#demanderPlace").then(Boolean), 2000)))
+      throw new Precondition("la carte de Bo n'a pas « Lui demander sa place »");
+    await page.click("#demanderPlace");
+    if (!(await jusqua(async () => (await texte(page, "#cartePlace")).includes("Bo garde sa place 2."), 3000)))
+      throw new Precondition(`le refus ne s'écrit pas dans la carte : « ${await texte(page, "#cartePlace")} »`);
+    if (!(await jusqua(async () => (await texte(page, "#ligneParlee")).includes("Bo garde sa place 2."), 2000)))
+      throw new Defaut(`la ligne parlée ne dit pas le refus : « ${await texte(page, "#ligneParlee")} »`);
+    await page.close();
+  },
+
+  /** Bo donne sa place : le salon renvoie un reste à 0 sans raison, avec
+   * `accepted`. Sur cc8c8a6, la carte n'avait qu'une lecture d'un reste à 0
+   * et affirmait « Bo n'a pas répondu ». La place se prend tout de suite, et
+   * la ligne parlée le dit. */
+  async "don-dit"() {
+    const page = await nouvelle(PC, { salle: { bo: true, boRepond: "donne" } });
+    await entrer(page);
+    await page.click("#port2");
+    if (!(await jusqua(() => page.$("#demanderPlace").then(Boolean), 2000)))
+      throw new Precondition("la carte de Bo n'a pas « Lui demander sa place »");
+    await page.click("#demanderPlace");
+    if (!(await jusqua(() => page.$("#confirmRecovery").then(Boolean), 3000)))
+      throw new Precondition("la demande en cours ne s'affiche pas");
+    if (
+      !(await jusqua(async () => !(await texte(page, "#cartePlaceTitre")).startsWith("Ta demande est chez"), 3000))
+    )
+      throw new Precondition("le don de Bo ne change rien à la carte");
+    const titre = await texte(page, "#cartePlaceTitre");
+    if (/n'a pas répondu/.test(titre)) throw new Defaut(`une place donnée se dit un silence : « ${titre} »`);
+    if (titre !== "Bo te laisse sa place 2.") throw new Defaut(`la carte dit « ${titre} »`);
+    const attend = await page.$eval("#confirmRecovery", (b) => b.getAttribute("aria-disabled") === "true");
+    if (attend) throw new Defaut("« Prendre la place 2 » attend encore après le don");
+    if (!(await jusqua(async () => (await texte(page, "#ligneParlee")).includes(titre), 2000)))
+      throw new Defaut(`la ligne parlée ne dit pas le don : « ${await texte(page, "#ligneParlee")} »`);
+    await page.close();
+  },
+
+  /** Sami entre : le salon le dit sans place, sa place à confirmer
+   * (`seat_pending`). Il arrive, il ne regarde pas. Sur cc8c8a6, la ligne
+   * parlée disait « Sami regarde la partie. » pendant que la colonne disait
+   * qu'il arrivait. Le jumeau : placé par le salon sans place, il regarde,
+   * et la ligne le dit. */
+  async "arrivee-a-confirmer"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await sleep(800);
+    const sami = { name: "Sami", id: "s", moi: false, seat: null };
+    banc.regler({ autres: [{ ...sami, seat_pending: true }] });
+    if (!(await jusqua(async () => (await texte(page, "[aria-labelledby=ilsRegardent]")).includes("Sami arrive"), 3000)))
+      throw new Precondition("la colonne ne dit pas que Sami arrive");
+    await sleep(700);
+    const dit = await texte(page, "#ligneParlee");
+    if (/Sami regarde/.test(dit)) throw new Defaut(`qui arrive est annoncé spectateur : « ${dit} »`);
+    banc.regler({ autres: [{ ...sami, seat_pending: false }] });
+    if (!(await jusqua(async () => /Sami regarde la partie/.test(await texte(page, "#ligneParlee")), 3000)))
+      throw new Defaut(`un vrai spectateur n'est pas annoncé : « ${await texte(page, "#ligneParlee")} »`);
+    await page.close();
+  },
+
+  /** L'annonce écrite sur l'ancre du socle se lit sur le fond de son hôte,
+   * de jour comme de nuit. Sur cc8c8a6, le fronton (fond de l'écran, noir)
+   * l'écrivait au signal du jour : 3,28:1 en 17 px. L'encre et le fond sont
+   * lus dans le rendu, le fond sur le premier ancêtre opaque. */
+  async "annonce-fronton"() {
+    // Le jumeau du calcul : le signal du jour sur le noir, mesuré à 3,28:1.
+    if (contraste([59, 79, 214], [0, 0, 0]) >= 4.5) throw new Error("le calcul du contraste est faux");
+    for (const [schema, niveau, fronton] of [
+      ["light", "conseille", true],
+      ["dark", "conseille", true],
+      ["light", "sobre", false],
+    ]) {
+      const page = await nouvelle(
+        { width: 1280, height: 1024 },
+        { stockage: { "nel3ab:effets": JSON.stringify({ niveau, sons: false }) } },
+      );
+      await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: schema }]);
+      await entrer(page);
+      await sleep(800);
+      banc.regler({ bo: true });
+      const ancre = '[data-ancre="annonce"]';
+      if (!(await jusqua(async () => (await texte(page, ancre)).length > 3, 4000)))
+        throw new Precondition(`${schema} ${niveau} : l'ancre n'écrit pas l'arrivée de Bo`);
+      const lu = await page.evaluate((sel) => {
+        const nombres = (t) => (t.match(/[\d.]+/g) ?? []).map(Number);
+        const a = document.querySelector(sel);
+        let fond = null;
+        let hote = "";
+        for (let e = a; e && fond === null; e = e.parentElement) {
+          const v = nombres(getComputedStyle(e).backgroundColor);
+          if (v.length === 3 || (v.length === 4 && v[3] === 1)) {
+            fond = v.slice(0, 3);
+            hote = e.id || String(e.className);
+          }
+        }
+        return {
+          encre: nombres(getComputedStyle(a).color).slice(0, 3),
+          fond,
+          hote,
+          fronton: a.closest("#fronton") !== null,
+        };
+      }, ancre);
+      if (lu.fond === null) throw new Precondition(`${schema} ${niveau} : aucun fond opaque sous l'ancre`);
+      if (fronton && !lu.fronton)
+        throw new Precondition(`${schema} ${niveau} : l'ancre n'est pas sur le fronton (${lu.hote})`);
+      const c = contraste(lu.encre, lu.fond);
+      if (c < 4.5)
+        throw new Defaut(
+          `${schema} ${niveau} : l'annonce sur ${lu.hote} tient ${c.toFixed(2)}:1 (encre ${lu.encre}, fond ${lu.fond})`,
+        );
+      await page.close();
+    }
+  },
+
+  /** Le contrat d'Aïn : `start-1` à `start-4` sur chaque bouton START, une
+   * fois, visibles et hors de l'image. Sur cc8c8a6, aucune ancre n'existait,
+   * et l'arrivée et le départ ne pouvaient atteindre la place du joueur. */
+  async "ancres-start"() {
+    const page = await nouvelle(PC, { salle: { bo: true } });
+    await entrer(page);
+    const lu = await page.evaluate(() => {
+      const t = document.querySelector("#screen").getBoundingClientRect();
+      return {
+        toutes: document.querySelectorAll('[data-ancre^="start-"]').length,
+        places: [1, 2, 3, 4].map((n) => {
+          const a = document.querySelectorAll(`[data-ancre="start-${n}"]`);
+          const r = a[0]?.getBoundingClientRect();
+          return {
+            n,
+            combien: a.length,
+            surLaPlace: a[0] !== undefined && a[0] === document.querySelector(`#port${n}`),
+            visible: r !== undefined && r.width > 0 && r.height > 0,
+            surLImage: r !== undefined && r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom,
+          };
+        }),
+      };
+    });
+    for (const p of lu.places) {
+      if (p.combien !== 1) throw new Defaut(`${p.combien} ancre(s) start-${p.n}`);
+      if (!p.surLaPlace) throw new Defaut(`start-${p.n} n'est pas sur #port${p.n}`);
+      if (!p.visible) throw new Defaut(`start-${p.n} n'a aucune boîte`);
+      if (p.surLImage) throw new Defaut(`start-${p.n} est sur l'image`);
+    }
+    if (lu.toutes !== 4) throw new Defaut(`${lu.toutes} ancres start- dans la salle`);
+    await page.close();
+  },
+
+  /** L'image s'arrête : les mesures comptent zéro image peinte, puis la
+   * cadence revient avec les images. Sur cc8c8a6, la cadence ne se
+   * recalculait qu'au changement du compteur, et le panneau gardait la
+   * dernière, « 60 images peintes par seconde », sur une image figée. */
+  async "mesures-figee"() {
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await page.click("#mesures");
+    if (!(await jusqua(() => page.$("#panneauMesures").then(Boolean), 2000)))
+      throw new Precondition("la ligne du coin ne déplie pas les mesures");
+    const lire = () => texte(page, "#panneauMesures .n3-mesures dd");
+    if (!(await jusqua(async () => /^[1-9]\d* images? peintes? par seconde/.test(await lire()), 5000)))
+      throw new Precondition(`aucune cadence lue avant le gel : « ${await lire()} »`);
+    banc.regler({ fige: true });
+    if (!(await jusqua(async () => /^0 images? peintes? par seconde/.test(await lire()), 5000)))
+      throw new Defaut(`une image figée garde une cadence : « ${await lire()} »`);
+    banc.regler({ fige: false });
+    if (!(await jusqua(async () => /^[1-9]\d* images? peintes? par seconde/.test(await lire()), 8000)))
+      throw new Defaut(`la cadence ne revient pas avec les images : « ${await lire()} »`);
+    await page.close();
+  },
+
+  /** P7 (plan personnes, signaler 0) : « Signaler un problème » se voit sans
+   * défiler dans la colonne, à trois tailles de bureau. Sur 03b21c0, à
+   * 1280 × 720, il était sous le pli. */
+  async "signaler-visible"() {
+    for (const vue of [
+      { width: 1440, height: 900 },
+      { width: 1366, height: 768 },
+      { width: 1280, height: 720 },
+    ]) {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      if (!(await page.$("#complain"))) throw new Precondition(`aucun #complain à ${vue.width} × ${vue.height}`);
+      const vu = await page.evaluate(() => {
+        const b = document.querySelector("#complain");
+        const r = b.getBoundingClientRect();
+        let haut = 0;
+        let bas = innerHeight;
+        for (let p = b.parentElement; p; p = p.parentElement) {
+          const s = getComputedStyle(p);
+          if (/(auto|scroll|hidden)/.test(s.overflowY)) {
+            const q = p.getBoundingClientRect();
+            haut = Math.max(haut, q.top);
+            bas = Math.min(bas, q.bottom);
+          }
+        }
+        const centre = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return { haut: r.top, bas: r.bottom, visibleDe: haut, visibleA: bas, touche: b.contains(centre) };
+      });
+      if (vu.haut < vu.visibleDe || vu.bas > vu.visibleA + 0.5 || !vu.touche)
+        throw new Defaut(
+          `à ${vue.width} × ${vue.height}, #complain va de ${Math.round(vu.haut)} à ${Math.round(vu.bas)} px, ` +
+            `la colonne montre ${Math.round(vu.visibleDe)} à ${Math.round(vu.visibleA)} px` +
+            (vu.touche ? "" : ", et son centre ne le touche pas"),
+        );
+      await capture(page, "signaler-visible");
+      await page.close();
+    }
   },
 
   /** P8: une seule sortie, « Quitter la salle », vers les autres salles. */

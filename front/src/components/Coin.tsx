@@ -33,12 +33,20 @@ export function Coin({
         id="mesures"
         // Un clic de souris rend le clavier au jeu (`lib/focus-jeu`).
         data-rend-le-jeu=""
-        aria-pressed={mesures}
+        // Il déplie les mesures (`#stats`) à la place des rangs : un bouton qui
+        // ouvre, pas un interrupteur (plan personnes, mesures 0).
+        aria-expanded={mesures}
+        aria-controls={mesures ? "stats" : undefined}
         onClick={onMesures}
         className="n3-coin-ligne"
       >
         <IconeRang nom="horloge" />
         <span className="flex-1 truncate">{ligne ?? COLONNE.mesures}</span>
+        {/* L'état en clair ne dit pas ce que la ligne ouvre : son nom le dit,
+            et une ligne tue (`ligne=""`) garde un nom. */}
+        {ligne === undefined ? null : (
+          <span className="sr-only">{ligne ? ` : ${COLONNE.mesures}` : COLONNE.mesures}</span>
+        )}
         {mesures ? <span className="text-faint">{COLONNE.revenir}</span> : null}
       </button>
       <div

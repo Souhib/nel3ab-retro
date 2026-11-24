@@ -7,15 +7,18 @@
  * rien d'autre, sans DOM ni horloge, pour qu'un test puisse la vérifier.
  *
  * Trois façons d'arriver, et elles ne méritent pas le même geste:
- * - « premiere »: quelqu'un de connu qui ne s'est jamais branché dans cette
- *   salle. Bobine vient lui brancher sa manette;
- * - « retour »: quelqu'un de connu déjà vu. La fiche claque dans la prise, et
- *   c'est tout: refaire la scène à chaque retour la rendrait vite pénible;
+ * - « premiere »: quelqu'un de connu qui ne s'est jamais assis dans cette
+ *   salle. La mascotte joue sa scène d'arrivée (`lib/usePlaces`);
+ * - « retour »: quelqu'un de connu déjà vu. La place s'allume, et c'est tout:
+ *   refaire la scène à chaque retour la rendrait vite pénible;
  * - « fantome »: une prise tenue sans nom connu (un rechargement, un joueur que
  *   le salon ne nomme pas encore). Même geste que le retour.
  *
  * Le premier état reçu ne produit AUCUNE arrivée. Ouvrir la page sur une salle
  * pleine n'est pas voir quatre personnes arriver.
+ *
+ * Déplacé de `bobine/` le 23 novembre 2026 (chantier personnes) : la Bobine
+ * s'en va, la différence reste.
  *
  * Qui décide de « première » ou « retour »: le SALON d'abord. Il le lit dans le
  * journal des parties et l'envoie avec la prise (`Seat.premiere`), le même pour

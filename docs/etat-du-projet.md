@@ -219,6 +219,91 @@ octets en brotli (+50). Les menus peuvent réécrire la préparation, et les
 manettes retirer le réglage, sans toucher au code de l'autre. Récit : « 23
 novembre, la nuit encore : la préparation Pro sort du panneau des touches ».
 
+**Au 24 novembre : le chantier personnes, cinq passages.** Sur
+`chantier/retro-personnes` (worktree `~/nel3ab-chantiers/retro-personnes`),
+parti d'`integration/retro` ; rien dans `main`, rien d'installé, rien de
+poussé. Six commits touchent `App.tsx`, contre la règle d'un seul câblage :
+967ccf7, 67c3870, cda7c9b, 9f70cab, 2090c98, puis le câblage du cinquième
+passage, dernier commit de code de la branche, suivi de la seule page
+reconstruite. À la fusion, rejouer les six dans cet ordre, ou la différence
+d'`App.tsx` entre `integration/retro` et la branche, qui est la même.
+L'histoire n'est pas réécrite : les commits d'entre-deux ne construiraient
+plus. Montés dans la salle par ces commits :
+les places START 1P à 4P (`Places.tsx`) dans le panneau que le cadre pose,
+avec l'étiquette tapée ; la carte d'une place (`CartePlace.tsx`) et la
+demande reçue (`DemandeRecue.tsx`), en tête de la colonne au bureau, dans la
+bande d'un téléphone tenu droit, dans la feuille agrandie en travers, et
+au-dessus du menu ouvert, jamais sur l'image ; les arrivées et départs
+(`SuiviPlaces`, `lib/usePlaces.ts`) par l'arbitre des scènes ; « Ils
+regardent » en étiquettes ; « Inviter quelqu'un » en panneau, avec le lien
+pour jouer ou pour regarder et un code QR (`lib/qr.ts`, prouvé contre
+l'encodeur d'Arase sur 224 matrices) ; « Signaler un problème » qui dit
+l'heure de l'accusé et ne suppose pas la cause d'un échec ; les mesures
+(`Mesures.tsx`) où un chiffre absent se dit « pas encore mesuré » ; une seule
+ligne parlée pour toutes ces nouvelles. Retirés : `Seats`, `Socket`, `Swap`,
+`Recovery`, `ConnectionDiagnostic`, `bobine/Branchement` et `bobine/Canape`,
+et les règles provisoires de `Seats` dans `cadre.css` et `telephone.css`.
+Prêts, non montés : `ChampNom` et l'aperçu de l'étiquette, que le chantier
+salon montera dans « Qui joue ? » (K03). Mise en service : le salon d'abord
+(`api/ws/recovery.py`, raisons qui nomment une place), la page ensuite. Le
+troisième passage branche Échap sur la carte d'une place (le focus revient
+à la place, le menu du jeu ne s'ouvre plus par la carte), garde une arrivée
+dans la ligne parlée quand l'état change aussitôt après (1,5 s), écrit la
+même nouvelle lettre par lettre sur l'ancre de l'annonce du socle
+(`AnnonceEnLettres`), et range les mesures techniques en quatre groupes
+(L'image, Le son, La manette, La liaison). Preuves navigateur dans
+`parcours.mjs` : `places-clavier`, `demande-place`, `signaler-visible`,
+`annonce-arrivee`, `annonce-lettres`, chacune rouge sur son défaut dans
+`parcours-navigateur-rouge` (03b21c0, et la page de 54d1f6f gardée dans
+`spikes/m3-browser-drive/rouges/`). `swap`, `steal`, `claim` et
+`preparation-room` suivent la carte de la place, sans avoir été relancés
+(salle vivante, ou vraie salle jetable). Le quatrième passage corrige deux
+défauts vus par ses preuves : une page ouverte sur une salle pleine
+allumait « 1P prêt ! » et « 2P prêt ! » et annonçait les places prises
+(une salle encore inconnue comptait pour vide), et la rangée en petit
+d'un téléphone couché de 667x375 donnait 17 px à chaque place (elle devient
+un seul bouton qui ouvre la salle quand le panneau a moins de 200 px). La
+ligne du coin dit la liaison en clair (« Tout arrive », « L'image saute »)
+et déplie les mesures (`aria-expanded`). `salle-telephone` gagne
+`places-sous-image`, `arrivee` et `clic-court` (6 à 11 ms à CPU x4 sur la
+page construite) ; sa garde de la demande, qui cherchait une toile
+inexistante, voit maintenant l'image. La page fait 256 476 octets en
+brotli au quatrième passage. Le cinquième corrige les neuf constats de
+sa relecture : la raison du salon n'ouvre plus de carte chez qui tient la
+place, et ne lui prend plus le focus ; la carte d'une place libérée
+s'oublie (`useCarteDePlace`) et ne revient plus seule ; le refus,
+l'annulation, l'expiration, le don et l'erreur d'un geste se disent par la
+ligne parlée (`useDireLaReprise`) ; le salon envoie `accepted`, et un don
+se dit « Bo te laisse sa place 2. » au lieu d'un silence (une page servie
+par un salon d'avant dit « Tu peux prendre la place 2. ») ; une image
+figée compte zéro image peinte ; l'annonce sur le fronton prend
+`--fronton-encre` ; qui arrive (`seat_pending`) n'est plus annoncé
+spectateur ; les boutons START portent `data-ancre="start-N"` pour Aïn, et
+le changement d'une arrivée sait son joueur. Huit étapes nouvelles de
+`parcours.mjs` (`carte-cible`, `carte-revient`, `refus-dit`, `don-dit`,
+`arrivee-a-confirmer`, `annonce-fronton`, `ancres-start`,
+`mesures-figee`) rougissent sur la page de cc8c8a6, gardée dans
+`rouges/`. La page fait 257 012 octets en brotli, 7 526 de plus que le
+départ du chantier (enveloppe 8 000) : +3 889 avant le câblage, +5 886 au
+câblage, 4 142 rendus par les retraits, +426 au troisième passage, +514 au
+quatrième, +536 au cinquième. Mise en service : le salon avant la page
+(`accepted`), même si la page survit à l'ancien salon. Restent : le
+contexte `{joueur}` des scènes, à passer au câblage qui suivra la fusion
+de la mascotte (l'arbitre de la salle ne le transmet pas encore) ; la
+validation par la salle des retouches de `Coin.tsx` et de `colonne.mjs`
+faites au quatrième passage ; `nom-champ` et
+`nom-apercu`, qui attendent « Qui joue ? » du salon ; l'entrée « Ta
+liaison » de la feuille, qui faisait défiler la feuille à 375x667 et attend
+une décision du chantier salle sur sa hauteur ; l'icône oui ou non de la
+ligne ; le refus du mot « chef » dans les chaînes visibles, qui attend le
+menu ; la région `#controller-status` du chantier manettes, à réunir à la
+ligne parlée. Récits : « 23 novembre, la nuit : les places deviennent des
+boutons START », « 23 novembre, la nuit, second passage : les places
+montées dans la salle », « 23 novembre, la nuit, troisième passage :
+Échap, la ligne parlée et les preuves au vrai clavier », « 24 novembre,
+avant l'aube : une salle inconnue n'est pas une salle vide » et « 24
+novembre, le matin : la relecture du chantier personnes ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

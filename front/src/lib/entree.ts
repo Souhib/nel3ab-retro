@@ -65,14 +65,15 @@ export function sortieVers(chemin: string): string | null {
   return salonAuDessus(chemin) ? "/" : null;
 }
 
-/** Le lien d'invitation: cette salle, pour jouer.
+/** Le lien d'invitation: cette salle, pour jouer ou pour regarder.
  *
  * `chemin` est le préfixe de la salle (`lib/base`), `origine` celle de la page.
  * Le lien ne marche que pour qui est déjà sur le réseau privé: l'invitation le
- * dit en une ligne, elle n'ouvre rien d'elle-même. */
-export function lienDInvitation(origine: string, chemin: string): string {
+ * dit en une ligne, elle n'ouvre rien d'elle-même. Regarder existe depuis le
+ * 23 novembre 2026: une salle pleine peut encore inviter quelqu'un à voir. */
+export function lienDInvitation(origine: string, chemin: string, entree: Entree = "play"): string {
   const prefixe = chemin.endsWith("/") ? chemin : `${chemin}/`;
-  return `${origine}${prefixe}?${PARAM}=${MOTS.play}`;
+  return `${origine}${prefixe}?${PARAM}=${MOTS[entree]}`;
 }
 
 /** L'entrée qui correspond à ce que fait la session: regarder, ou jouer.

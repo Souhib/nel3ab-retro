@@ -394,7 +394,8 @@ export type Relance = NonNullable<Extract<Liaison, { etat: "demarrage" }>["relan
  * jeu (C5, D05) ; sinon le seuil que l'écran a franchi (`seuilLong`), vingt
  * secondes sans mesure. Réuni à la fusion de menus (vague B2) : les deux
  * chantiers avaient écrit cette phrase, la forme est celle des états et la
- * mesure celle des menus. */
+ * mesure celle des menus. « ou choisir un autre jeu » de menus y entre le
+ * 24 novembre 2026, pour qui choisit le jeu seulement. */
 export function phraseDemarrage(
   attente: "long" | "echec" | undefined,
   jeu: string | null = null,
@@ -404,7 +405,11 @@ export function phraseDemarrage(
   const nom = jeu ?? "Le jeu";
   if (attente === "echec") {
     const aucune = jeu ? `Aucune image de ${jeu}.` : "Aucune image du jeu.";
-    if (relance === "moi") return `${aucune} Tu peux le relancer.`;
+    // Seule la personne qui choisit le jeu (« moi », la même que les gestes
+    // de l'écran de chargement, C7a) peut aussi en choisir un autre :
+    // décision du chef de chantier du 24 novembre 2026, qui reprend les
+    // mots que menus avait écrits. Les autres apprennent qui peut relancer.
+    if (relance === "moi") return `${aucune} Tu peux le relancer ou choisir un autre jeu.`;
     if (relance !== null) return `${aucune} ${relance.nom} peut le relancer.`;
     return aucune;
   }

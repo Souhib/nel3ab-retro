@@ -49,7 +49,7 @@ const ici = (relatif: string) => new URL(relatif, import.meta.url).pathname;
 const SRC = ici("../");
 
 /** Les dossiers dont les chaînes n'arrivent PAS à l'écran, par leur nom.
- * `client/` est généré, `apercu/` est la planche de Bobine, et `test/` ne sert
+ * `client/` est généré, `apercu/` est la planche d'Aïn, et `test/` ne sert
  * qu'aux essais. Tout le reste de `src` est lu, sous-dossiers compris: la
  * première liste nommait les dossiers lus, et un dossier ajouté demain aurait
  * échappé à l'essai sans un mot (relecture du 22 novembre 2026). */

@@ -32,7 +32,9 @@ d'écran :
   dans le menu de la salle et au pied de l'accueil.
 - **Encore là.** Bobine (`front/src/bobine/`, `routes/bobine/`), les trois
   tableaux de bord (XMB, Wii, Switch) et les dessins de manettes de la régie :
-  les sept chantiers d'écran les remplaceront écran par écran.
+  les sept chantiers d'écran les remplaceront écran par écran. (Depuis : le
+  salon a retiré sa copie de Bobine, les menus les trois tableaux, et le
+  ménage de fin du 24 novembre le dossier `front/src/bobine/`.)
 
 - **Retouches demandées par les chantiers d'écran** (K14, K27 et K28 de leur
   partition). Le cycle de la mire fait un pas par seconde. Les jetons de

@@ -33012,6 +33012,33 @@ règle `colonne-stable` fixera la place du panneau avant la première
 image, mais les quatre rangs entreront toujours avec elle : l'étape ne
 dépend pas de ce travail.
 
+**Bobine part.** Bobine était le machiniste de la salle, dessiné le
+21 novembre : une bobine de câble debout, qui branchait la manette de qui
+entrait et disait l'état de la salle sur l'image. Aïn, le 3 du logo, l'a
+remplacé (ADR D46), et chaque chantier a retiré ses propres imports : la
+salle dans `App.tsx`, les états dans `EtatSalle`, les menus dans
+`Booting`, le salon dans `Ouverture`. Le salon a aussi retiré sa propre
+copie de Bobine (ADR D41). Depuis la vague B2, plus aucun fichier de la
+page ne l'importait, et la page construite ne contenait aucune de ses
+chaînes ; seul un essai lisait encore sa feuille. Le dossier
+`front/src/bobine/` part en entier : six fichiers, 1 140 lignes, dont le
+seul essai qui ne visait que lui (`support.test.ts`).
+
+Deux restes sont traités avec lui. L'essai des feuilles
+(`regie.test.ts`, « aucun sélecteur ne nomme un thème qui n'existe plus »)
+exigeait, en précondition, de trouver `bobine.css` : c'était la feuille du
+défaut qui avait fait écrire l'essai. Il exige maintenant de trouver les
+feuilles de la page et l'accueil du salon ; un mutant qui ne lit aucune
+feuille le fait rougir sur cette précondition. Et `etat-salle.css` gardait
+les règles de la carte de Bobine (`n3-etat-carte`, `-bob`, `-bulle`,
+`-titre`, `-detail`, `-actions`, `-rideau`, 142 lignes), avec un
+commentaire qui disait qu'`Ouverture.tsx` les lisait encore. Plus rien ne
+les lit : ni la page, ni le salon, ni les pilotes. Elles partent, et la
+page passe de 279 647 à 279 110 octets en brotli (−537), à 20 890 du
+plafond. La clé de stockage `n3-bobine-vus` reste : c'est la mémoire,
+chez chaque spectateur, des personnes déjà vues, et la renommer
+l'effacerait (`lib/memoire-des-vus.ts` le dit).
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du

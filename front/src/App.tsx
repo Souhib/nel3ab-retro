@@ -2602,14 +2602,15 @@ function Room({
         cadre={cadreDeLaManette}
       />
     );
-  /** Ton étiquette tapée (chantier personnes), ton numéro devant, quand
-   * aucun panneau ne porte les places (en-jeu-tactile.5) : dans le creux
-   * de la manette tenue droite (`fente`, lib/faces), sous « La salle » en
-   * travers (`geo.etiquetteManette`). Une chose, une fois : avec un
-   * panneau, elle est sur ta place START, et nulle part ailleurs. */
+  /** Ton étiquette tapée (chantier personnes), ton numéro devant, là où le
+   * cadre la pose quand la rangée du panneau ne porte pas ta place
+   * (en-jeu-tactile.5, `geo.etiquette`) : dans le creux de la manette tenue
+   * droite (`fente`, lib/faces), sous « La salle » en travers, ou en tête de
+   * la bande quand le panneau n'a que ses lampes. Une chose, une fois : avec
+   * la rangée, elle est sur ta place START, et nulle part ailleurs. */
   const maPlace = port === null ? null : (lesPlaces(entreeDesPlaces)[port - 1] ?? null);
   const tonEtiquette =
-    tenu && !padOnly && maPlace !== null && geo.panneau.rect === null ? (
+    tenu && !padOnly && maPlace !== null && geo.etiquette !== null ? (
       <>
         <span
           className="n3-etiquette-numero"
@@ -2635,7 +2636,7 @@ function Room({
         tete: tenu && geo.salleDansLaManette,
         // En travers, la boîte couvre aussi le dessous de l'image : la fente
         // n'y a pas sa place, le cadre en donne une sous « La salle ».
-        etiquette: geo.manette.grappes === null ? tonEtiquette : null,
+        etiquette: geo.etiquette?.lieu === "fente" ? tonEtiquette : null,
       }
     : undefined;
   /** La pile des avis va dans la bande d'une salle tenue en main : jamais sur
@@ -3418,11 +3419,11 @@ function Room({
             tete
           />
         ) : null}
-        {tonEtiquette && geo.manette?.grappes && geo.etiquetteManette ? (
+        {tonEtiquette && geo.etiquette?.lieu === "cote" ? (
           <div
             id="etiquetteManette"
             className="n3-etiquette-cote"
-            style={placeDe(geo.etiquetteManette)}
+            style={placeDe(geo.etiquette.rect)}
           >
             {tonEtiquette}
           </div>
@@ -3449,6 +3450,11 @@ function Room({
         ) : null}
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
           <Bande rect={geo.bande} ancre={!geo.barre}>
+            {tonEtiquette && geo.etiquette?.lieu === "bande" ? (
+              <div id="etiquetteManette" className="n3-etiquette-bande">
+                {tonEtiquette}
+              </div>
+            ) : null}
             {avis}
             {cartesDansLaBande && !menu ? cartes : null}
             {regardeParChoix ? blocRole : null}

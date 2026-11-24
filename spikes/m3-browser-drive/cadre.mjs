@@ -326,6 +326,149 @@ async function principal() {
 
   const peintes = (page) => page.evaluate(() => globalThis.nel3abTest?.counters?.().painted ?? 0);
 
+  /**
+   * Où se lit ta place, place 1 tenue au doigt : sur la rangée du panneau
+   * (`#port1` visible), ou sur ton étiquette (`#etiquetteManette`), jamais
+   * les deux, jamais aucun. `cas.panneau` et `cas.lieu` disent ce que la
+   * taille doit montrer ; un écart est un défaut. L'étiquette et l'étiquette
+   * de ta place START doivent se lire : on leur rend le pointeur le temps
+   * du test de touche (`elementFromPoint` ignore un élément sans pointeur),
+   * et rien d'autre ne doit être au-dessus d'elles.
+   */
+  async function verifierEtiquette(cas) {
+    const fautes = [];
+    const page = await nouvelle({ ...cas.vue, isMobile: true, hasTouch: true }, { salle: cas.salle });
+    await entrer(page);
+    if (!(await jusqua(() => page.$(".n3-pave").then(Boolean), 4000)))
+      throw new Precondition(`${cas.nom}: la manette à l'écran n'est pas montée`);
+    await sleep(400);
+    const lu = await page.evaluate(() => {
+      const boite = (x) => {
+        const r = x.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+      };
+      const ecart = (a, b) =>
+        Math.hypot(Math.max(0, b.x - (a.x + a.w), a.x - (b.x + b.w)), Math.max(0, b.y - (a.y + a.h), a.y - (b.y + b.h)));
+      const coupe = (a, b) =>
+        Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+      /** Ce qui reçoit le doigt sur ce que `el` montre : ses lignes de texte
+       * et ses boîtes rendues (un `Range`, car le texte peut déborder de la
+       * boîte de `el` : à 390×844, « AMI » sortait de ta place et passait
+       * sous « 2P »), cinq points sur le milieu de chacune, pointeur rendu à
+       * `el` et à ses enfants le temps du test. `lignes` compte ce qui a été
+       * lu : zéro, c'est que rien ne se montre. */
+      const lecture = (el) => {
+        const touches = [el, ...el.querySelectorAll("*")];
+        const avant = touches.map((x) => x.style.pointerEvents);
+        for (const x of touches) x.style.pointerEvents = "auto";
+        const plage = document.createRange();
+        plage.selectNodeContents(el);
+        const lignes = [...plage.getClientRects()].filter((r) => r.width > 2 && r.height > 2);
+        const vus = [];
+        for (const r of lignes)
+          for (let i = 0; i < 5; i += 1)
+            vus.push(document.elementFromPoint(r.left + 1 + ((r.width - 2) * (i + 0.5)) / 5, r.top + r.height / 2));
+        touches.forEach((x, i) => {
+          x.style.pointerEvents = avant[i];
+        });
+        return { lignes: lignes.length, vus };
+      };
+      const nomDe = (x) => {
+        if (!x) return "rien";
+        const id = x.closest("[id]")?.id;
+        return `${x.tagName.toLowerCase()}.${String(x.className).split(" ")[0]}${id ? ` dans #${id}` : ""} « ${(x.textContent ?? "").trim().slice(0, 30)} »`;
+      };
+      const ecran = document.querySelector("#screen");
+      const image = ecran ? boite(ecran) : null;
+      const port1 = document.querySelector("#port1");
+      const r1 = port1 ? boite(port1) : null;
+      const panneau = r1 !== null && r1.w > 0 && r1.h > 0;
+      // L'étiquette de ta place START : rien d'une autre place ni de la
+      // phrase d'aide au-dessus. Ce qui vient de ta place même (« toi ») est
+      // noté à part : c'est la place de personnes.
+      let place = null;
+      if (panneau) {
+        const etiquette = port1.querySelector(".n3-etiquette");
+        const lu = etiquette ? lecture(etiquette) : { lignes: 0, vus: [] };
+        place = {
+          lignes: lu.lignes,
+          dehors: [...new Set(lu.vus.filter((x) => !x?.closest("#port1")).map(nomDe))],
+          dedans: [...new Set(lu.vus.filter((x) => x?.closest("#port1") && !etiquette.contains(x)).map(nomDe))],
+        };
+      }
+      const toutes = [...document.querySelectorAll("#etiquetteManette")];
+      const el = toutes[0];
+      if (!el) return { n: 0, panneau, place, image };
+      const e = boite(el);
+      const salle = document.querySelector("#laSalleCote");
+      const s = salle ? boite(salle) : null;
+      const pieces = [...document.querySelectorAll(".n3-pave > :not(#etiquetteManette), #laSalleCote")]
+        .map((p) => ({ nom: p.dataset.touche ?? p.dataset.geste ?? p.id ?? p.className, r: boite(p) }))
+        .filter((p) => p.r.w > 0);
+      const proche = pieces.map((p) => ({ nom: p.nom, d: ecart(e, p.r) })).sort((a, b) => a.d - b.d)[0];
+      const lieu = el.closest(".n3-manette-boite")
+        ? "fente"
+        : el.closest("#bande")
+          ? "bande"
+          : el.classList.contains("n3-etiquette-cote")
+            ? "cote"
+            : "ailleurs";
+      return {
+        n: toutes.length,
+        panneau,
+        place,
+        image,
+        lieu,
+        rect: e,
+        vue: e.w > 0 && e.h > 0 && getComputedStyle(el).visibility !== "hidden",
+        dansLaFenetre: e.x >= 0 && e.y >= 0 && e.x + e.w <= innerWidth && e.y + e.h <= innerHeight,
+        coupe: image !== null && coupe(e, image),
+        sousLaSalle: s !== null && e.y >= s.y + s.h && Math.min(e.x + e.w, s.x + s.w) - Math.max(e.x, s.x) > 0,
+        proche,
+        lu: (() => {
+          const { lignes, vus } = lecture(el);
+          return { lignes, dessus: [...new Set(vus.filter((x) => !el.contains(x)).map(nomDe))] };
+        })(),
+        texte: el.textContent ?? "",
+      };
+    });
+    console.log(JSON.stringify({ note: `etiquette ${cas.nom}: ${JSON.stringify(lu)}` }));
+    if (!lu.image || lu.image.w < 1 || lu.image.h < 1) throw new Precondition(`${cas.nom}: pas d'image à l'écran`);
+    if (lu.panneau !== cas.panneau)
+      fautes.push(`${cas.nom}: ${lu.panneau ? "la rangée du panneau est là" : "la rangée du panneau manque"}, attendu ${cas.panneau ? "la rangée" : "sans rangée"}`);
+    // Ton nom sur ta place START : tenu droit, la rangée le montre. En
+    // travers, le panneau est « petit » et le garde pour la feuille
+    // (`places.css`) : `cas.nomSurLaPlace` le dit, la page ne le choisit pas.
+    if (cas.panneau && cas.nomSurLaPlace) {
+      if (!lu.place || lu.place.lignes === 0) fautes.push(`${cas.nom}: ton nom ne se montre pas sur ta place START`);
+      else {
+        if (lu.place.dehors.length) fautes.push(`${cas.nom}: ton nom sur ta place START est couvert par ${lu.place.dehors.join(", ")}`);
+        if (lu.place.dedans.length)
+          console.log(JSON.stringify({ note: `${cas.nom}: dans ta place START, au-dessus de ton nom (personnes) : ${lu.place.dedans.join(", ")}` }));
+      }
+    }
+    const voulues = cas.lieu ? 1 : 0;
+    if (lu.n !== voulues)
+      fautes.push(
+        `${cas.nom}: ${lu.n} étiquette(s) hors du panneau, ${voulues} attendue${cas.lieu ? ` (${cas.lieu})` : " : la rangée porte ta place, une chose, une fois"}`,
+      );
+    else if (cas.lieu) {
+      if (lu.lieu !== cas.lieu) fautes.push(`${cas.nom}: l'étiquette est posée « ${lu.lieu} », attendu « ${cas.lieu} »`);
+      if (!lu.vue) fautes.push(`${cas.nom}: l'étiquette n'est pas visible`);
+      if (!lu.dansLaFenetre) fautes.push(`${cas.nom}: l'étiquette sort de la fenêtre`);
+      if (lu.coupe) fautes.push(`${cas.nom}: l'étiquette coupe l'image`);
+      if (cas.lieu !== "fente" && !lu.sousLaSalle) fautes.push(`${cas.nom}: l'étiquette n'est pas sous « La salle »`);
+      if (lu.proche && lu.proche.d < 6) fautes.push(`${cas.nom}: l'étiquette est à ${lu.proche.d.toFixed(1)} px de ${lu.proche.nom}`);
+      if (lu.lu.lignes === 0) fautes.push(`${cas.nom}: l'étiquette ne montre rien`);
+      if (lu.lu.dessus.length) fautes.push(`${cas.nom}: l'étiquette est couverte par ${lu.lu.dessus.join(", ")}`);
+      if (!lu.texte.includes("1P")) fautes.push(`${cas.nom}: l'étiquette ne dit pas le numéro (« ${lu.texte} »)`);
+      fautes.push(...(await garder(page, `${cas.nom} étiquette`)));
+    }
+    await capture(page, `etiquette-${cas.nom.replace(/[^0-9a-zA-Z]+/g, "-")}`);
+    await page.close();
+    return fautes;
+  }
+
   async function entrer(page) {
     await page.goto(banc.url, { waitUntil: "domcontentloaded" });
     try {
@@ -1027,94 +1170,52 @@ async function principal() {
       verdict(fautes);
     },
 
-    /** en-jeu-tactile.5 : sans panneau, ton étiquette tapée se pose dans le
-     * creux de la manette tenue droite (375×548, GameCube puis Xbox 360) :
+    /** en-jeu-tactile.5, tenu droit : sans panneau, ton étiquette tapée se
+     * pose dans le creux de la manette (375×548, GameCube puis Xbox 360) :
      * visible, dans la boîte de la manette, hors de l'image, à 6 px au moins
-     * de chaque touche et de « La salle », avec ton numéro. Les jumeaux : à
-     * 390×844 le panneau porte tes places, et aucune étiquette n'est dans la
-     * manette (une chose, une fois) ; en travers, une seule, sous « La
-     * salle » ou nulle part. */
+     * de chaque touche et de « La salle », avec ton numéro, rien au-dessus
+     * d'elle. Les jumeaux, à 390×844 et 360×740 : le panneau porte tes
+     * places, aucune étiquette n'est dans la manette (une chose, une fois),
+     * et l'étiquette de ta place START se lit, sans rien d'une autre place
+     * ni de la phrase d'aide par-dessus (relecture du 24 novembre 2026 : la
+     * phrase écrasait la rangée, et « 2P » couvrait ton nom). Le panneau de
+     * chaque cas est affirmé, pas lu pour choisir quoi vérifier. */
     async "etiquette-manette"() {
       const fautes = [];
-      const lire = (page) =>
-        page.evaluate(() => {
-          const toutes = [...document.querySelectorAll("#etiquetteManette")];
-          const el = toutes[0];
-          if (!el) {
-            const r = document.querySelector("#port1")?.getBoundingClientRect();
-            return { n: 0, panneau: r !== undefined && r.width > 0 && r.height > 0 };
-          }
-          const boite = (x) => {
-            const r = x.getBoundingClientRect();
-            return { x: r.left, y: r.top, w: r.width, h: r.height };
-          };
-          const ecart = (a, b) =>
-            Math.hypot(
-              Math.max(0, b.x - (a.x + a.w), a.x - (b.x + b.w)),
-              Math.max(0, b.y - (a.y + a.h), a.y - (b.y + b.h)),
-            );
-          const e = boite(el);
-          const pieces = [...document.querySelectorAll(".n3-pave > :not(#etiquetteManette), #laSalleCote")]
-            .map((p) => ({ nom: p.dataset.touche ?? p.dataset.geste ?? p.id ?? p.className, r: boite(p) }))
-            .filter((p) => p.r.w > 0);
-          const proche = pieces
-            .map((p) => ({ nom: p.nom, d: ecart(e, p.r) }))
-            .sort((a, b) => a.d - b.d)[0];
-          const manette = el.closest(".n3-manette-boite");
-          const ecran = document.querySelector("#screen");
-          const t = ecran ? boite(ecran) : null;
-          const coupe =
-            t !== null &&
-            Math.min(e.x + e.w, t.x + t.w) - Math.max(e.x, t.x) > 0.5 &&
-            Math.min(e.y + e.h, t.y + t.h) - Math.max(e.y, t.y) > 0.5;
-          return {
-            n: toutes.length,
-            vue: e.w > 0 && e.h > 0 && getComputedStyle(el).visibility !== "hidden",
-            dansLaManette: manette !== null,
-            coupe,
-            proche,
-            texte: el.textContent ?? "",
-            // Le panneau porte les places : la place 1 visible.
-            panneau: (() => {
-              const r = document.querySelector("#port1")?.getBoundingClientRect();
-              return r !== undefined && r.width > 0 && r.height > 0;
-            })(),
-          };
-        });
       for (const cas of [
-        { nom: "375×548 GameCube", vue: { width: 375, height: 548, isMobile: true, hasTouch: true }, salle: {}, attendu: "manette" },
-        { nom: "375×548 Xbox 360", vue: { width: 375, height: 548, isMobile: true, hasTouch: true }, salle: { jeu: 1 }, attendu: "manette" },
-        { nom: "390×844", vue: { width: 390, height: 844, isMobile: true, hasTouch: true }, salle: {}, attendu: "aucune" },
-        { nom: "844×390", vue: { width: 844, height: 390, isMobile: true, hasTouch: true }, salle: {}, attendu: "cote" },
-      ]) {
-        const page = await nouvelle(cas.vue, { salle: cas.salle });
-        await entrer(page);
-        if (!(await jusqua(() => page.$(".n3-pave").then(Boolean), 4000)))
-          throw new Precondition(`${cas.nom}: la manette à l'écran n'est pas montée`);
-        await sleep(400);
-        const lu = await lire(page);
-        if (cas.attendu === "aucune") {
-          if (!lu.panneau) throw new Precondition(`${cas.nom}: pas de panneau, le jumeau ne dit rien`);
-          if (lu.n !== 0) fautes.push(`${cas.nom}: une étiquette dans la manette alors que le panneau porte les places`);
-        } else if (cas.attendu === "cote" && lu.panneau) {
-          // En travers, le cadre a pu choisir le panneau : alors aucune.
-          if (lu.n !== 0) fautes.push(`${cas.nom}: une étiquette alors que le panneau porte les places`);
-        } else {
-          if (lu.panneau) throw new Precondition(`${cas.nom}: le cadre pose un panneau, l'étape ne prouve rien`);
-          if (lu.n !== 1) fautes.push(`${cas.nom}: ${lu.n} étiquettes, une attendue`);
-          else {
-            if (!lu.vue) fautes.push(`${cas.nom}: l'étiquette n'est pas visible`);
-            if (cas.attendu === "manette" && !lu.dansLaManette) fautes.push(`${cas.nom}: l'étiquette n'est pas dans la boîte de la manette`);
-            if (lu.coupe) fautes.push(`${cas.nom}: l'étiquette coupe l'image`);
-            if (lu.proche && lu.proche.d < 6) fautes.push(`${cas.nom}: l'étiquette est à ${lu.proche.d.toFixed(1)} px de ${lu.proche.nom}`);
-            if (!lu.texte.includes("1P")) fautes.push(`${cas.nom}: l'étiquette ne dit pas le numéro (« ${lu.texte} »)`);
-          }
-          fautes.push(...(await garder(page, `${cas.nom} étiquette`)));
-        }
-        console.log(JSON.stringify({ note: `etiquette-manette ${cas.nom}: ${JSON.stringify(lu)}` }));
-        await capture(page, `etiquette-manette${cas.salle.jeu ? "-pro" : ""}`);
-        await page.close();
-      }
+        { nom: "375×548 GameCube", vue: { width: 375, height: 548 }, salle: {}, panneau: false, lieu: "fente" },
+        { nom: "375×548 Xbox 360", vue: { width: 375, height: 548 }, salle: { jeu: 1 }, panneau: false, lieu: "fente" },
+        { nom: "390×844", vue: { width: 390, height: 844 }, salle: {}, panneau: true, nomSurLaPlace: true, lieu: null },
+        { nom: "360×740", vue: { width: 360, height: 740 }, salle: {}, panneau: true, nomSurLaPlace: true, lieu: null },
+      ])
+        fautes.push(...(await verifierEtiquette(cas)));
+      verdict(fautes);
+    },
+
+    /** en-jeu-tactile.5, en travers : la relecture du 24 novembre 2026 n'y
+     * voyait ni panneau ni étiquette à 568×320, 667×375 et 740×360 en
+     * GameCube, et à 932×430 en Xbox 360. Chaque taille dit où se lit ta
+     * place sur le banc (image 4:3) : sous « La salle » au-dessus de la
+     * grappe gauche (« cote »), en tête de la bande quand le panneau n'a que
+     * ses lampes (« bande »), ou sur la rangée du panneau (aucune étiquette).
+     * 568×320 en Xbox 360 n'y est pas : la manette Pro y demande deux grappes
+     * de 308 px, et le cadre n'y laisse aucune image (défaut à part,
+     * remonté le même jour). */
+    async "etiquette-travers"() {
+      const fautes = [];
+      const travers = (width, height) => ({ width, height });
+      for (const cas of [
+        { nom: "568×320 GameCube", vue: travers(568, 320), salle: {}, panneau: false, lieu: "bande" },
+        { nom: "667×375 GameCube", vue: travers(667, 375), salle: {}, panneau: false, lieu: "bande" },
+        { nom: "667×375 Xbox 360", vue: travers(667, 375), salle: { jeu: 1 }, panneau: true, nomSurLaPlace: false, lieu: null },
+        { nom: "740×360 GameCube", vue: travers(740, 360), salle: {}, panneau: false, lieu: "cote" },
+        { nom: "740×360 Xbox 360", vue: travers(740, 360), salle: { jeu: 1 }, panneau: true, nomSurLaPlace: false, lieu: null },
+        { nom: "844×390 GameCube", vue: travers(844, 390), salle: {}, panneau: false, lieu: "cote" },
+        { nom: "844×390 Xbox 360", vue: travers(844, 390), salle: { jeu: 1 }, panneau: true, nomSurLaPlace: false, lieu: null },
+        { nom: "932×430 GameCube", vue: travers(932, 430), salle: {}, panneau: false, lieu: "cote" },
+        { nom: "932×430 Xbox 360", vue: travers(932, 430), salle: { jeu: 1 }, panneau: false, lieu: "cote" },
+      ])
+        fautes.push(...(await verifierEtiquette(cas)));
       verdict(fautes);
     },
 

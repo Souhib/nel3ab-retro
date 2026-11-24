@@ -519,10 +519,17 @@
     const conseil = rates >= 2 ? null : conseillee(salles);
     poser(document.body, "data-vide", zero ? "oui" : "non");
 
+    // La rangée n'entre qu'une fois : quand elle remplace la mire, en un
+    // fondu de 250 ms (plan salon, salon-accueil#15). Au premier rendu, et
+    // en mouvement réduit, elle est là d'un coup.
+    const avaitMire = liste.querySelector(".vide") !== null;
     if (zero) {
       if (!liste.querySelector(".vide")) liste.replaceChildren(mire());
     } else {
       liste.querySelector(".vide")?.remove();
+      const reduit = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (avaitMire && !reduit)
+        liste.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: 250, easing: "ease-out" });
       // Les bornes sont MISES À JOUR, pas refaites: refaire relance les
       // animations et fait tomber le focus du clavier en pleine navigation.
       const vieilles = new Map([...liste.children].map((n) => [n.dataset.salle, n]));

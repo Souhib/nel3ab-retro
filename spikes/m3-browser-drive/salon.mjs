@@ -728,6 +728,45 @@ ETAPES.demo = async () => {
   defaut(!conseille.demo && !conseille.scenes.includes("demo"), `la démo joue au niveau conseillé : ${JSON.stringify(conseille)}`);
 };
 
+/** La rangée entre une seule fois (plan salon, salon-accueil#15) : au premier
+ * rendu elle est là d'un coup, sans animation ; quand elle remplace la mire
+ * après une réponse, elle entre en un fondu de 250 ms. Le jumeau : en
+ * mouvement réduit, elle remplace la mire sans fondu. */
+ETAPES["rangee-entre"] = async () => {
+  const fondu = () => {
+    const liste = document.getElementById("salles");
+    return liste.getAnimations().map((a) => ({ duree: a.effect.getTiming().duration,
+      bouge: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((c) => !["offset", "computedOffset", "easing", "composite"].includes(c))))].join() }));
+  };
+  const premier = await nouvelle(PC, { reglage: { salles: RANGEE } });
+  await dessinee(premier);
+  const vus = await premier.evaluate(fondu);
+  defaut(vus.length === 0, `la rangée s'anime au premier rendu : ${JSON.stringify(vus)}`);
+  await premier.close();
+  const essai = async (mouvement) => {
+    const page = await nouvelle(PC, { reglage: { salles: VIDE } });
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }, { name: "prefers-reduced-motion", value: mouvement }]);
+    await dessinee(page);
+    exiger(await page.$(".vide") !== null, "pas de mire à zéro salle");
+    banc.regler({ salles: RANGEE });
+    // Le prochain relevé (toutes les 5 s) remplace la mire : on le guette à
+    // chaque image, pour ne pas manquer un fondu de 250 ms.
+    const vu = await page.waitForFunction(() => {
+      const liste = document.getElementById("salles");
+      if (liste.querySelector(".vide") || !liste.querySelector("article")) return null;
+      return liste.getAnimations().map((a) => ({ duree: a.effect.getTiming().duration,
+        bouge: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((c) => !["offset", "computedOffset", "easing", "composite"].includes(c))))].join() }));
+    }, { timeout: 8000, polling: "raf" }).then((h) => h.jsonValue()).catch(() => null);
+    await page.close();
+    return vu;
+  };
+  const anime = await essai("no-preference");
+  defaut(anime !== null && anime.length === 1 && anime[0].duree === 250 && anime[0].bouge === "opacity",
+    `la rangée qui remplace la mire : ${JSON.stringify(anime)}`);
+  const reduit = await essai("reduce");
+  defaut(reduit !== null && reduit.length === 0, `en mouvement réduit, la rangée s'anime : ${JSON.stringify(reduit)}`);
+};
+
 /** L'écran bombé (effet « courbure », niveau « tout ») : la mire porte le
  * filtre `#rt-bombe` du socle, une vraie carte de déplacement. Le jumeau :
  * au niveau conseillé, la mire reste plate. */

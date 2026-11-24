@@ -314,6 +314,10 @@ export async function demarrerBanc({ port, page, flux }) {
       for (const ws of lobbies)
         ws.send(`42["booting",${JSON.stringify({ game: "Autre jeu du banc", save: "nouvelle partie" })}]`);
     },
+    /** Les sockets que le banc tient ouvertes, vues de son côté : la preuve
+     * qu'une coupure a vraiment fermé la manette, pas seulement qu'un réglage
+     * du navigateur le prétend. */
+    ouvertes: () => ({ video: videos.size, son: sounds.size, manette: inputs.size }),
     journal: (depuis = 0) => log.filter((ligne) => ligne.a >= depuis),
     /** Les boutons reçus depuis `depuis`, dans l'ordre d'arrivée. */
     trames: (depuis = 0) => trames.filter((une) => une.a >= depuis),

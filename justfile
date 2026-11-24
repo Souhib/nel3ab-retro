@@ -824,11 +824,13 @@ etats-navigateur-rouge:
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
         --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
     # 03b21c0, la page de main avant le thème rétro : le rideau d'arrivée
-    # restait sur les premières images jusqu'au relevé suivant, et la pastille
-    # se posait sur l'image (ADR D40).
+    # restait sur les premières images jusqu'au relevé suivant, la pastille et
+    # le bandeau d'une coupure se posaient sur l'image, la pastille n'était
+    # pas un bouton, l'image arrêtée n'était pas assombrie à sa fiche et
+    # l'arrivée sans image ne proposait pas les autres salles (ADR D40).
     node etats.mjs --page "$dossier/sur-image.html" --flux "$dossier/flux.h264" \
-        --etapes premiere-image-coupe,pastille-hors-image \
-        --rouge-attendu premiere-image-coupe,pastille-hors-image
+        --etapes premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image \
+        --rouge-attendu premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image
 
 # Les parcours de la salle, dans un vrai navigateur.
 #

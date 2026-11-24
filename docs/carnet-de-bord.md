@@ -29794,6 +29794,118 @@ ligne, dans la salle entière, dit l'état et ouvre les mesures.
 rien retirer. Depuis son départ (249 486), le chantier personnes en est à
 +6 990, pour une enveloppe de 8 000.
 
+### 24 novembre, le matin : la relecture du chantier personnes
+
+**Le contexte.** Une relecture indépendante du chantier personnes a relevé
+neuf constats, chacun avec un script de navigateur ou un essai qui le
+montrait. Les neuf ont été reproduits sur la page de cc8c8a6 avant toute
+correction. Chaque correction a un essai rouge d'abord, et huit étapes
+nouvelles de `parcours.mjs` rougissent sur cette page, gardée dans
+`spikes/m3-browser-drive/rouges/` avec son empreinte, chacune sur son défaut.
+
+**Une raison envoyée à deux personnes.** Le salon envoie la même raison de
+fin de reprise à qui demande et à qui tient la place (`notify`, dans
+`api/ws/recovery.py`) : « Ami garde sa place 1. », « Demande annulée. »,
+une expiration, « Bo reprend la place 1. ». La page la passait à la carte de
+la place dans les deux cas. Chez qui tenait la place, la carte s'ouvrait,
+prenait le focus à la zone de jeu et lui proposait « Prendre la place 3 ».
+Un joueur au clavier qui venait de garder sa place perdait ses touches, et
+un clic de trop l'aurait déplacé. La carte ne lit plus que la demande de qui
+demande (`asking`). Pour l'autre, la fin se dit par la ligne parlée, sans
+carte et sans focus. La leçon : un message adressé à deux rôles n'a pas le
+même sens pour chacun, et l'essai doit se mettre à la place des deux.
+
+**Une carte qui revenait seule.** La salle gardait le numéro de la carte
+ouverte. Quand la place se libérait, la carte disparaissait faute de sujet,
+mais le numéro restait. Au retour de Bo, la carte se rouvrait et prenait le
+focus, sans que personne l'ait touchée. La carte vit maintenant dans un
+crochet du chantier (`useCarteDePlace`) qui l'oublie dès que sa place n'a
+plus de sujet. L'oubli se fait pendant le rendu, et non dans un effet :
+aucun état où la carte garde un numéro sans sujet n'est jamais montré.
+
+**Des issues muettes.** Le panneau `Recovery`, retiré le 23 novembre, disait
+le refus, l'annulation et l'expiration par une alerte. La carte qui l'a
+remplacé n'a pas de région parlée, et personne n'envoyait ces phrases à la
+ligne parlée : pour un lecteur d'écran, une demande refusée ne se disait
+plus. `useDireLaReprise` les dit une fois, en phrase urgente, que l'effet
+« lettres » écrit d'un coup, et dit aussi l'erreur d'un geste.
+
+**Un oui lu comme un silence.** Après « Donner ma place », le salon renvoie à
+qui demande un temps restant de zéro et aucune raison. La carte n'avait
+qu'une lecture d'un zéro : « Bo n'a pas répondu ». Le salon envoie
+maintenant `accepted`, et la carte dit « Bo te laisse sa place 2. ». Un
+piège en l'écrivant : `respond`, dans le contrôleur des reprises, marque la
+demande acceptée avant de lire la réponse, donc un refus portait aussi
+`accepted`. Le champ ne vaut vrai que sans raison, et un essai du salon
+garde le refus. Une page servie par un salon d'avant ce champ lit un zéro
+sans raison et dit une phrase neutre, « Tu peux prendre la place 2. » :
+elle ne prétend ni un oui ni un silence.
+
+**Une cadence qui survivait à l'image.** Les mesures recalculaient les
+images peintes par seconde seulement quand leur compteur changeait. Celui
+d'une image figée ne change plus : le panneau gardait « 60 images peintes
+par seconde » à côté d'une phrase qui disait l'image figée. C'est encore
+une valeur qui voyage comme une mesure. Le compte se fait maintenant à
+chaque instantané de la page, deux fois par seconde, et une fenêtre sans
+image compte zéro : un nombre d'événements, pas une valeur de repli.
+
+**Le signal sur le noir.** L'annonce écrite sur l'ancre du socle prenait la
+couleur du signal. Sur le fronton, le fond est l'écran, noir dans les deux
+régies, et le signal du jour y tenait 3,28 pour 1 en 17 px. Le socle avait
+créé une encre pour ce fond, `--fronton-encre` ; l'annonce la prend sur le
+fronton. L'essai de la régie lit la règle que la cascade applique au
+fronton dans `places.css`, et son jumeau garde le signal du jour refusé
+sur l'écran.
+
+**Un banc moins strict que le salon.** Le salon dit `seat_pending` vrai pour
+toute personne qui arrive, tant que sa page n'a dit ni sa place ni « aucune
+manette », et le schéma lit un champ absent comme vrai. La salle comptait
+pourtant parmi ceux qui regardent toute personne sans place : Sami était
+annoncé « Sami regarde la partie. » avec la scène du spectateur, pendant que
+la colonne disait qu'il arrivait. La règle vit dans `regarde`, partagée par
+« Ils regardent » et les arrivées. Le banc des parcours n'envoyait aucun
+`seat_pending`. Avec la règle juste, ses personnes auraient toutes été
+« en arrivée » : il l'envoie maintenant comme le salon.
+
+**Les ancres d'Aïn.** Le contrat de la mascotte demande une ancre `start-1`
+à `start-4` sur chaque bouton START, pour que son arrivée et son départ
+aillent à la place du joueur. Aucune n'existait. Elles sont posées sur le
+bouton lui-même, car le planificateur exclut des zones interdites l'élément
+qui porte l'ancre. Les lampes du bouton unique, en petit, n'en portent pas :
+le planificateur prend la première ancre d'un nom, qui serait la place
+cachée, et sans ancre visible la scène se replie en version courte. Le
+changement d'une arrivée sait maintenant son joueur. L'arbitre de la salle
+ne transmet pas encore de contexte : il sera passé au câblage qui suivra la
+fusion de la mascotte.
+
+**Le commit de câblage.** La partition veut un seul commit de câblage dans
+`App.tsx`, le dernier de la branche, refait à la fusion. Cinq commits le
+touchaient déjà (967ccf7, puis 67c3870, cda7c9b, 9f70cab et 2090c98), et
+l'état du projet affirmait le contraire. Réécrire l'histoire pour les
+réunir aurait laissé des commits qui ne construisent plus, et des empreintes
+citées dans ce carnet sans commit derrière. Ce passage met donc toute sa
+logique dans les fichiers du chantier, et n'ajoute à `App.tsx` qu'un
+sixième commit, le dernier du code de la branche ; seule la page
+reconstruite le suit. À la fusion, on rejoue les six dans cet ordre, ou,
+ce qui revient au même, la différence d'`App.tsx` entre `integration/retro`
+et la branche. Deux mutants de ce câblage (l'ancien filtre de ceux qui
+regardent, et l'appel qui dit les issues retiré) rougissent dans le
+navigateur. `Coin.tsx` et `colonne.mjs`, au chantier salle, avaient été
+touchés au quatrième passage : la salle doit les valider.
+
+**Une étape qui laissait les mesures ouvertes.** Lancée seule, chaque étape
+nouvelle passait. Lancée avec toute la suite, `signaler-visible` tombait :
+« aucun #complain ». L'étape d'avant, `mesures-figee`, dépliait les mesures,
+et la page s'en souvient (`nel3ab:mode`) ; le navigateur du pilote garde ce
+stockage d'une page à l'autre, et la page suivante s'ouvrait sur les
+mesures, sans les rangs de la colonne. C'est le même piège que le niveau
+des effets au passage précédent. Chaque page du pilote part maintenant des
+mesures repliées, comme elle part de la vue des touches lue.
+
+**Le poids.** La page passe de 256 476 à 257 012 octets en brotli (+536),
+sans rien retirer. Depuis son départ (249 486), le chantier personnes en est
+à +7 526, pour une enveloppe de 8 000.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31503,3 +31615,16 @@ l'heure.
 fait tourner la page quatre fois plus lentement, pour approcher un téléphone
 modeste sur un ordinateur rapide. C'est une approximation : un vrai
 téléphone n'est pas un ordinateur ralenti.
+
+**Ancre d'une scène (`data-ancre`)** : un élément de la page qui dit à la
+mascotte où aller, par son nom (`start-2` pour le bouton START de la place
+2). Le planificateur lit sa boîte dans le rendu, et ne calcule aucun trajet
+depuis une coordonnée écrite à la main.
+
+**Instantané (de la page)** : la copie de l'état de l'image, du son et de
+la manette que la salle relit deux fois par seconde pour React. À ne pas
+confondre avec l'instantané d'une sauvegarde.
+
+**Qui tient la place (la cible d'une reprise)** : la personne assise à la
+place qu'un autre demande. Le salon lui envoie la demande, puis la même fin
+qu'à celui qui demande.

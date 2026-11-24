@@ -117,7 +117,7 @@ const BUILT = resolve(
 const OUT = resolve(args.find((one, i) => !one.startsWith("--") && args[i - 1] !== "--page") ?? join(tmpdir(), "salle-telephone"));
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
-// SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,
+// SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,menu-etroit,
 // manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court.
 const SEUL = process.env.SEUL?.split(",") ?? null;
 const part = (name) => SEUL === null || SEUL.includes(name);
@@ -1337,6 +1337,82 @@ try {
   // 14. Ctrl seule. Tenue en main (une tablette au clavier), sous le menu
   // puis sous la feuille à mi-hauteur : la feuille agrandie s'ouvre SEULE.
   // Deux dialogues modaux empilés rendaient le bouton « menu » sans effet.
+  // M11 (chantier menus) : à 320, 375 et 390 px de large, au niveau « tout »
+  // (texte en pixels, icônes au-dessus du mot), les quatre onglets du menu
+  // tiennent sans défilement de côté ni mot coupé, et le menu laisse
+  // défiler au doigt. Le jumeau force quatre onglets par rang : à 320 px,
+  // un mot doit sortir de son onglet, sans quoi la mesure ne voit rien.
+  if (part("menu-etroit")) {
+    const lire = (page) =>
+      page.evaluate(() => {
+        const liste = document.querySelector("#menu [role=tablist]");
+        const onglets = [...document.querySelectorAll("#menu [role=tab]")];
+        return {
+          niveau: document.documentElement.dataset.effets ?? null,
+          police: onglets[0] ? getComputedStyle(onglets[0]).fontFamily : "",
+          liste: liste ? { large: liste.scrollWidth, vue: liste.clientWidth } : null,
+          coupes: onglets.filter((o) => o.scrollWidth > o.clientWidth + 1).map((o) => o.textContent.trim()),
+          bas: onglets.map((o) => Math.round(o.getBoundingClientRect().height)),
+          doigt: getComputedStyle(document.querySelector("#menu")).touchAction,
+          page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+    const ouvrirLeMenu = async (page) => {
+      await page.waitForSelector(OPENER, { timeout: 20000 });
+      await sleep(600);
+      await tap(page, OPENER);
+      await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
+      await sleep(300);
+      await tap(page, '[data-entree="menu"]');
+      return attendre(page, () => document.querySelector("#menu [role=tab]") !== null);
+    };
+    for (const [width, height] of [
+      [320, 568],
+      [375, 667],
+      [390, 844],
+    ]) {
+      const what = `menu à ${width}x${height}, effets tout : quatre onglets entiers, rien de côté`;
+      const { page, errors } = await ouvrir({
+        width,
+        height,
+        url: `${BASE}/r/1/?entrer=jouer`,
+        stockage: effetsAuNiveau("tout"),
+      });
+      const bad = [];
+      try {
+        if (!(await ouvrirLeMenu(page))) bad.push("« Menu du jeu » n'ouvre pas le menu");
+        else {
+          await sleep(300);
+          await page.screenshot({ path: join(OUT, `menu-tout-${width}x${height}.png`) });
+          const lu = await lire(page);
+          if (lu.niveau !== "tout" || !lu.police.startsWith('"Pixelify Sans"'))
+            bad.push(`précondition : niveau ${lu.niveau}, police des onglets ${lu.police}`);
+          if (!lu.liste) bad.push("le menu n'a pas de liste d'onglets");
+          else if (lu.liste.large > lu.liste.vue + 1)
+            bad.push(`les onglets défilent de côté (${lu.liste.large} px pour ${lu.liste.vue})`);
+          if (lu.coupes.length > 0) bad.push(`mot coupé dans ${lu.coupes.join(", ")}`);
+          if (lu.bas.some((h) => h < 44)) bad.push(`un onglet fait moins de 44 px de haut (${lu.bas.join(", ")})`);
+          if (lu.doigt === "none") bad.push("le menu bloque le défilement au doigt (touch-action: none)");
+          if (lu.page > 0) bad.push(`la page défile de côté de ${lu.page} px`);
+          // Le jumeau, à 320 px seulement : quatre onglets par rang.
+          if (width === 320) {
+            await page.addStyleTag({
+              content: ".n3-menu-onglets { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }",
+            });
+            await sleep(200);
+            const casse = await lire(page);
+            if (casse.coupes.length === 0 && casse.liste?.large <= casse.liste?.vue + 1)
+              bad.push("jumeau : quatre onglets par rang à 320 px, et la mesure ne voit aucun mot coupé");
+          }
+        }
+        if (errors.length > 0) bad.push(...errors.map((e) => `erreur de page : ${e}`));
+      } finally {
+        await page.close();
+      }
+      say(bad.length === 0, what, bad);
+    }
+  }
+
   // Étroite à la souris : la colonne est sous l'image, sans feuille, et Ctrl
   // agrandit l'image puis la rend.
   if (part("ctrl")) {

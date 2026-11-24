@@ -15,9 +15,12 @@
  * écran ne sert qu'à une page sans identité. « Ce n'est pas toi ? » y mène,
  * champ vide, et le dit (`autreNom`).
  */
+import { useEffect, useRef } from "react";
+
 import { rememberName } from "../lib/name";
 import { QUI_JOUE } from "../lib/mots";
 import { useNom } from "../lib/useNom";
+import { poserMascotte } from "../mascotte";
 import { ChampNom } from "./ChampNom";
 import { Logo } from "./Logo";
 import "./lobby.css";
@@ -34,6 +37,13 @@ export function Entrance({
   oublie?: boolean;
 }) {
   const nom = useNom();
+  // La maison d'Aïn sur cet écran : le logo au-dessus du formulaire (plan
+  // salon, entree-nom#3, traduit pour Aïn). Posé au montage, au repos :
+  // aucune scène ne joue pendant qu'on tape son nom.
+  const maison = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (maison.current) poserMascotte(maison.current);
+  }, []);
   return (
     <div className="flex min-h-full items-center justify-center p-6">
       <form
@@ -48,7 +58,9 @@ export function Entrance({
         }}
       >
         <header className="flex flex-col gap-2">
-          <Logo />
+          <div ref={maison} className="n3-avant-maison" data-hote="logo">
+            <Logo />
+          </div>
           <h1 className="rt-titre text-large">{QUI_JOUE.titre}</h1>
           <p className="text-corps text-muted">{QUI_JOUE.intro}</p>
           {oublie ? <p className="text-corps text-muted">{QUI_JOUE.autreNom}</p> : null}

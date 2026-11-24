@@ -106,6 +106,36 @@ planche-garde *args:
 # Le chantier salon le branche dans ses pages.
 ain-salon:
     cd front && npx vite build --config vite.ain-salon.config.ts --logLevel warn
+
+# Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
+# du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit
+# tomber sur le DÉFAUT de chaque étape, pas sur une précondition: la maison
+# hors de vue au pied d'une colonne qui déborde (maison-en-vue), la bulle
+# restée sur l'image agrandie (ain-mise-en-page), la pose clé sans bulle au
+# coin ni Aïn sur le plateau (ain-pose-cle), la cartouche sur la phrase de
+# l'écran éteint et la maison hors de vue (mascotte-hors-image). La page est
+# gardée dans `spikes/m3-browser-drive/rouges/` avec son empreinte git
+# (`EMPREINTES-mascotte`), vérifiée avant usage, comme celles de la salle.
+mascotte-navigateur-rouge *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    rouges="$(pwd)/spikes/m3-browser-drive/rouges"
+    while read -r empreinte commit fichier; do
+        lue=$(git hash-object "$rouges/$fichier")
+        if [ "$lue" != "$empreinte" ]; then
+            echo "$fichier n'est plus la page de $commit ($lue au lieu de $empreinte)" >&2
+            exit 1
+        fi
+    done < "$rouges/EMPREINTES-mascotte"
+    ffmpeg -hide_banner -loglevel error -f lavfi -i testsrc2=size=640x480:rate=60 \
+        -frames:v 180 -c:v libx264 -profile:v baseline -preset ultrafast -tune zerolatency \
+        -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
+    cd spikes/m3-browser-drive
+    etapes=maison-en-vue,ain-mise-en-page,ain-pose-cle,mascotte-hors-image
+    node cadre.mjs --page "$rouges/mascotte-24cdaa2.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
 # ==== fin mascotte ====
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by

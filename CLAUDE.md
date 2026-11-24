@@ -734,6 +734,7 @@ Markdown alone does not update the site.
 | `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
 | `just planche-garde` | the mascot's board in Chrome: every room and lobby scene plays its full version, no sprite box on the picture, a control or a word, and no animation frame for two seconds after a scene (Vite without relays) |
 | `just ain-salon` | builds the mascot bundle for the lobby pages (`retro/ain.js` and its stamp `ain.SOURCES`); `front-build` runs it, `salon.test.ts` refuses a stale one |
+| `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build; also refreshes the site served by Caddy |

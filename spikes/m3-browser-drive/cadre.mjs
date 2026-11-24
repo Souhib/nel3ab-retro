@@ -372,6 +372,82 @@ async function principal() {
     if (!fait) throw new Precondition("pas de socket d'entrée ouverte pour annoncer la fermeture");
   }
 
+  /**
+   * La sonde d'Aïn, posée avant la page : à chaque image d'écran, PENDANT et
+   * HORS d'une scène, la boîte serrée de chaque sprite visible (`data-serre`)
+   * contre l'image peinte, chaque contrôle, chaque mot marqué (`data-texte`)
+   * et les mots de l'écran éteint (`#idle-room h2, #idle-room p`, même sans
+   * marque). Un contrôle ou un mot compte seulement là où il se voit : un
+   * point de la part commune au sprite et à lui doit le toucher
+   * (`elementFromPoint`, qui ne voit pas le calque d'Aïn). Ce qui défile
+   * sous le pied collé de la colonne ne se voit pas. C'est une autre façon
+   * de lire que celle du planificateur (`moteur.ts` coupe les rectangles
+   * par l'abri de la maison) : la sonde ne partage pas son angle mort.
+   * Une sonde qui ne regardait que pendant `[data-scene]` n'a jamais vu
+   * la bulle « Z » restée sur l'image agrandie (relecture du 24 novembre
+   * 2026).
+   */
+  const SONDE_AIN = () => {
+    const etat = { images: 0, hors: 0, scenes: {}, lieux: {}, fautes: {} };
+    window.__mascotte = etat;
+    const coupe = (a, b) =>
+      Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
+      Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+    const AUTRES =
+      'button, a[href], input, select, summary, [role="button"], #liaison, #fronton, #mesures, [data-texte], #idle-room h2, #idle-room p';
+    /** Un point de la part commune au sprite et à `o` le touche-t-il ? */
+    const seVoit = (o, r, b) => {
+      const x0 = Math.max(r.left, b.left);
+      const x1 = Math.min(r.right, b.right);
+      const y0 = Math.max(r.top, b.top);
+      const y1 = Math.min(r.bottom, b.bottom);
+      for (let i = 0; i <= 4; i += 1)
+        for (let j = 0; j <= 4; j += 1) {
+          const x = x0 + ((x1 - x0) * (i + 0.5)) / 5.5;
+          const y = y0 + ((y1 - y0) * (j + 0.5)) / 5.5;
+          if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) continue;
+          const ici = document.elementFromPoint(x, y);
+          if (ici && (o === ici || o.contains(ici))) return true;
+        }
+      return false;
+    };
+    const tour = () => {
+      const maison = document.querySelector(".rt-mascotte[data-scene]");
+      const nom = maison ? maison.dataset.scene : "(hors scène)";
+      let vus = 0;
+      for (const s of document.querySelectorAll(".rt-ain-sprite")) {
+        if (s.hidden || !s.dataset.serre) continue;
+        vus += 1;
+        const c = s.getBoundingClientRect();
+        const [x0, y0, x1, y1] = s.dataset.serre.split(" ").map(Number);
+        const r = { left: c.left + x0, top: c.top + y0, right: c.left + x1, bottom: c.top + y1 };
+        const qui = `${nom} (${s.dataset.acteur})`;
+        const toile = document.querySelector("#screen");
+        const peintes = globalThis.nel3abTest?.counters?.().painted ?? 0;
+        const cadre = document.querySelector("[data-cadre]");
+        const image = cadre?.getAttribute("data-sans-image") !== "oui" && peintes > 0;
+        if (toile && image && coupe(r, toile.getBoundingClientRect())) etat.fautes[`${qui} sur l'image`] = 1;
+        for (const o of document.querySelectorAll(AUTRES)) {
+          if (o.closest("[data-hote]")) continue;
+          const b = o.getBoundingClientRect();
+          if (b.width < 1 || b.height < 1 || o.closest("details:not([open]) > :not(summary)")) continue;
+          if (coupe(r, b) && seVoit(o, r, b)) {
+            const nomO = o.id ? `#${o.id}` : o.tagName.toLowerCase();
+            etat.fautes[`${qui} sur ${nomO} « ${(o.textContent ?? "").trim().slice(0, 30)} »`] = 1;
+          }
+        }
+      }
+      if (maison) {
+        etat.scenes[nom] = (etat.scenes[nom] ?? 0) + 1;
+        const lieu = `#${maison.closest("[id]")?.id ?? "?"}`;
+        etat.lieux[lieu] = (etat.lieux[lieu] ?? 0) + 1;
+        etat.images += 1;
+      } else if (vus > 0) etat.hors += 1;
+      requestAnimationFrame(tour);
+    };
+    requestAnimationFrame(tour);
+  };
+
   const ETAPES = {
     /** La garde elle-même: un calque posé exprès sur l'image, puis un filtre
      * sur la toile, doivent être vus. Sans ce jumeau, une garde muette
@@ -1210,50 +1286,17 @@ async function principal() {
      * tête dans la barre ou dans « La salle » au téléphone, le plateau de
      * l'écran noir au repos. Image par image, la boîte serrée de chaque
      * sprite (`data-serre`, celle que le planificateur a vérifiée) ne touche
-     * ni l'image peinte, ni un contrôle, ni un mot. Le jumeau rouge glisse
-     * l'image sous le logo pendant une scène : la sonde doit l'y voir. */
+     * ni l'image peinte, ni un contrôle, ni un mot, pendant les scènes et
+     * entre elles (`SONDE_AIN`). Au bureau, la maison doit être en vue avant
+     * la première scène : au pied d'une colonne qui débordait, elle était
+     * sous le bas de la fenêtre, et les deux cas du bureau ne pouvaient pas
+     * échouer (relecture du 24 novembre 2026). Au repos, le plateau joue
+     * pour qui choisit le jeu (un bouton) et pour qui le regarde choisir
+     * (une phrase). Deux jumeaux rouges : l'image glissée sous le logo
+     * pendant une scène, et un sprite posé sur la phrase de l'écran éteint
+     * hors de toute scène ; la sonde doit voir les deux. */
     async "mascotte-hors-image"() {
-      const sonde = () => {
-        const etat = { images: 0, scenes: {}, lieux: {}, fautes: {} };
-        window.__mascotte = etat;
-        const coupe = (a, b) =>
-          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 &&
-          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
-        const AUTRES = 'button, a[href], input, select, [role="button"], #liaison, #fronton, #mesures, [data-texte]';
-        const tour = () => {
-          const maison = document.querySelector(".rt-mascotte[data-scene]");
-          if (maison) {
-            const nom = maison.dataset.scene;
-            etat.scenes[nom] = (etat.scenes[nom] ?? 0) + 1;
-            const lieu = `#${maison.closest("[id]")?.id ?? "?"}`;
-            etat.lieux[lieu] = (etat.lieux[lieu] ?? 0) + 1;
-            etat.images += 1;
-            for (const s of document.querySelectorAll(".rt-ain-sprite")) {
-              if (s.hidden || !s.dataset.serre) continue;
-              const c = s.getBoundingClientRect();
-              const [x0, y0, x1, y1] = s.dataset.serre.split(" ").map(Number);
-              const r = { left: c.left + x0, top: c.top + y0, right: c.left + x1, bottom: c.top + y1 };
-              const qui = `${nom} (${s.dataset.acteur})`;
-              const toile = document.querySelector("#screen");
-              const peintes = globalThis.nel3abTest?.counters?.().painted ?? 0;
-              const cadre = document.querySelector("[data-cadre]");
-              const image = cadre?.getAttribute("data-sans-image") !== "oui" && peintes > 0;
-              if (toile && image && coupe(r, toile.getBoundingClientRect())) etat.fautes[`${qui} sur l'image`] = 1;
-              for (const o of document.querySelectorAll(AUTRES)) {
-                if (o.closest("[data-hote]")) continue;
-                const b = o.getBoundingClientRect();
-                if (b.width < 1 || b.height < 1 || o.closest("details:not([open]) > :not(summary)")) continue;
-                if (coupe(r, b)) {
-                  const nomO = o.id ? `#${o.id}` : o.tagName.toLowerCase();
-                  etat.fautes[`${qui} sur ${nomO} « ${(o.textContent ?? "").trim().slice(0, 30)} »`] = 1;
-                }
-              }
-            }
-          }
-          requestAnimationFrame(tour);
-        };
-        requestAnimationFrame(tour);
-      };
+      const sonde = SONDE_AIN;
       const lire = (page) => page.evaluate(() => window.__mascotte);
       const SALLE = [
         "arrivee", "spectateur", "depart", "attente", "attente-chargement", "chercher", "rebrancher",
@@ -1292,6 +1335,7 @@ async function principal() {
         { nom: "844×390", vue: { width: 844, height: 390, isMobile: true, hasTouch: true }, salle: {}, hote: "barre", exige: "#laSalleCote" },
         { nom: "375×548", vue: { width: 375, height: 548, isMobile: true, hasTouch: true }, salle: {}, hote: "barre", exige: "#laSalleManette" },
         { nom: "1440×900 au repos", vue: { width: 1440, height: 900 }, salle: { jeu: null, chef: "moi", decide: true }, hote: "plateau", repos: true },
+        { nom: "1440×900 au repos, qui regarde", vue: { width: 1440, height: 900 }, salle: { jeu: null, chef: "bo", decide: false }, hote: "plateau", repos: true, phrase: true },
       ];
       for (const un of cas) {
         const page = await nouvelle(un.vue, { salle: un.salle });
@@ -1310,6 +1354,20 @@ async function principal() {
           }
         }
         if (!(await page.$(`[data-hote="${un.hote}"]`))) throw new Precondition(`${un.nom}: pas d'hôte « ${un.hote} »`);
+        if (un.phrase && !(await page.$("#idle-room p"))) throw new Precondition(`${un.nom}: l'écran éteint n'a pas de phrase`);
+        if (un.hote === "coin") {
+          await sleep(300);
+          const vue = await page.evaluate(() => {
+            const logo = document.querySelector('[data-hote="coin"] > canvas');
+            if (!logo) return null;
+            const r = logo.getBoundingClientRect();
+            const side = document.querySelector("#side")?.getBoundingClientRect();
+            const dans = r.top >= 0 && r.bottom <= innerHeight && (!side || (r.top >= side.top && r.bottom <= side.bottom));
+            return { dans, haut: Math.round(r.top), bas: Math.round(r.bottom), fenetre: innerHeight };
+          });
+          if (vue && !vue.dans)
+            fautes.push(`${un.nom}: la maison d'Aïn est hors de vue (logo ${vue.haut} à ${vue.bas}, fenêtre ${vue.fenetre})`);
+        }
         const versions = await jouerTout(page, un.hote);
         if (Object.values(versions).includes("sans-crochet")) {
           // Une page d'avant Aïn : rien à jouer ici, mais les hôtes se
@@ -1356,6 +1414,28 @@ async function principal() {
       await page.close();
       if (!Object.keys(essai?.fautes ?? {}).some((f) => f.includes("sur l'image")))
         throw new Precondition(`la sonde ne voit pas Aïn posé sur l'image (${JSON.stringify(essai)})`);
+      // Le second jumeau : hors de toute scène, un sprite posé à la main sur
+      // la phrase de l'écran éteint. La sonde regarde aussi entre deux scènes,
+      // et les mots de l'écran même sans marque.
+      const mots = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "bo", decide: false } });
+      await mots.evaluateOnNewDocument(sonde);
+      await entrerAuRepos(mots);
+      await sleep(300);
+      const pose = await mots.evaluate(() => {
+        const p = document.querySelector("#idle-room p")?.getBoundingClientRect();
+        const s = document.querySelector(".rt-ain-sprite");
+        if (!p || !s || document.querySelector("[data-scene]")) return false;
+        Object.assign(s, { hidden: false, width: 20, height: 20 });
+        s.dataset.serre = "0 0 20 20";
+        s.style.transform = `translate(${p.left + p.width / 2}px, ${p.top}px)`;
+        return true;
+      });
+      if (!pose) throw new Precondition("jumeau des mots : pas de phrase ou pas de sprite hors scène");
+      await sleep(300);
+      const vuMot = await mots.evaluate(() => window.__mascotte);
+      await mots.close();
+      if (!Object.keys(vuMot?.fautes ?? {}).some((f) => f.startsWith("(hors scène)") && f.includes(" sur p ")))
+        throw new Precondition(`la sonde ne voit pas un sprite posé sur la phrase hors scène (${JSON.stringify(vuMot?.fautes)})`);
       verdict(fautes);
     },
 
@@ -1483,6 +1563,247 @@ async function principal() {
       await mutante.close();
       if (vus < 10) throw new Precondition(`jumeau : une boucle qui ne s'arrête pas donne ${vus} appels en 1 s`);
       console.log(JSON.stringify({ etape: "ain-immobile", jumeau: "boucle sans fin", appels_en_1_s: vus }));
+      verdict(fautes);
+    },
+
+    /** La maison d'Aïn en vue (ADR D46, K26) : aux sept tailles de bureau,
+     * à l'entrée, colonne défilée en bas puis remontée, le logo du coin tient
+     * en entier dans la fenêtre et dans la colonne, et reçoit le point de son
+     * centre (rien ne le couvre). Au pied d'une colonne qui défilait, il était
+     * hors de vue à cinq tailles sur sept (relecture du 24 novembre 2026).
+     * Le coin mesure `HAUTEUR_DU_COIN` (161 px), la marge de défilement que
+     * la colonne garde pour lui. Le jumeau : le pied décollé par l'essai, le
+     * logo sort de la vue à 1440 × 900. */
+    async "maison-en-vue"() {
+      const lire = (page) =>
+        page.evaluate(() => {
+          const logo = document.querySelector('[data-hote="coin"] > canvas');
+          if (!logo) return null;
+          const r = logo.getBoundingClientRect();
+          const side = document.querySelector("#side")?.getBoundingClientRect() ?? null;
+          const dans =
+            r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth &&
+            (!side || (r.top >= side.top - 0.5 && r.bottom <= side.bottom + 0.5));
+          const ici = document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.6);
+          const coin = document.querySelector("#coin")?.getBoundingClientRect();
+          return {
+            logo: [r.left, r.top, r.right, r.bottom].map(Math.round),
+            dans,
+            auPoint: ici === logo,
+            coin: coin ? Math.round(coin.height) : null,
+            deborde: (() => {
+              const c = document.querySelector("#side");
+              return c ? c.scrollHeight > c.clientHeight + 1 : false;
+            })(),
+          };
+        });
+      const defiler = (page, ou) =>
+        page.evaluate((ou) => {
+          const c = document.querySelector("#side");
+          if (c) c.scrollTop = ou === "bas" ? c.scrollHeight : 0;
+        }, ou);
+      const fautes = [];
+      let debordent = 0;
+      for (const vue of BUREAUX) {
+        const ici = `${vue.width}×${vue.height}`;
+        const page = await nouvelle(vue);
+        await entrer(page);
+        await sleep(300);
+        for (const quand of ["à l'entrée", "colonne en bas", "colonne remontée"]) {
+          if (quand === "colonne en bas") await defiler(page, "bas");
+          if (quand === "colonne remontée") await defiler(page, "haut");
+          await sleep(150);
+          const lu = await lire(page);
+          if (!lu) {
+            fautes.push(`${ici}: pas de logo au coin`);
+            break;
+          }
+          if (quand === "à l'entrée" && lu.deborde) debordent += 1;
+          if (!lu.dans) fautes.push(`${ici} ${quand}: le logo est hors de vue (${lu.logo.join(", ")})`);
+          else if (!lu.auPoint) fautes.push(`${ici} ${quand}: le logo est couvert`);
+          if (quand === "à l'entrée" && lu.coin !== 161)
+            fautes.push(`${ici}: le coin mesure ${lu.coin} px, la colonne en garde 161 (HAUTEUR_DU_COIN)`);
+        }
+        await page.close();
+      }
+      // Sans colonne qui déborde, l'étape ne prouverait rien du pied collé.
+      if (debordent === 0) throw new Precondition("aucune taille de bureau ne fait déborder la colonne");
+      // Le jumeau : le pied décollé, le logo doit sortir de la vue.
+      const page = await nouvelle({ width: 1440, height: 900 });
+      await entrer(page);
+      await page.addStyleTag({ content: ".n3-colonne-pied { position: static !important; }" });
+      await sleep(200);
+      const decolle = await lire(page);
+      await page.close();
+      if (!decolle || decolle.dans)
+        throw new Precondition(`jumeau : pied décollé, la sonde voit encore le logo (${JSON.stringify(decolle)})`);
+      console.log(JSON.stringify({ etape: "maison-en-vue", debordent, jumeau: decolle.logo }));
+      verdict(fautes);
+    },
+
+    /** Aïn suit la mise en page (ADR D46). Après « endort » (sa bulle « Z »
+     * chez lui) et « decroche » (lui dehors, devant le logo), hors de toute
+     * scène : la colonne défile, la fenêtre rétrécit, Ctrl agrandit l'image
+     * puis la rend. La sonde (`SONDE_AIN`) regarde à chaque image d'écran,
+     * pendant et hors des scènes : rien d'Aïn sur l'image, un contrôle ou un
+     * mot. Ses sprites sont posés en coordonnées de la fenêtre ; le
+     * 24 novembre 2026, la bulle restait sur l'image agrandie, et Aïn hors
+     * de la fenêtre rétrécie. Le jumeau : un sprite posé à la main sur
+     * l'image, hors scène, est vu. */
+    async "ain-mise-en-page"() {
+      const fautes = [];
+      for (const vue of [
+        { width: 1680, height: 1050 },
+        { width: 1440, height: 900 },
+      ])
+        for (const scene of ["endort", "decroche"]) {
+          const ici = `${vue.width}×${vue.height} ${scene}`;
+          const page = await nouvelle(vue);
+          await page.evaluateOnNewDocument(SONDE_AIN);
+          await entrer(page);
+          await page.click("#zone-jeu");
+          const v = await page.evaluate((s) => window.nel3abAin?.jouer(s, "coin", {}) ?? "sans-crochet", scene);
+          if (v === "sans-crochet") throw new Precondition("la page n'expose pas nel3abAin");
+          await jusqua(() => page.evaluate(() => !document.querySelector(".rt-mascotte[data-scene]")), 6000, 30);
+          await sleep(200);
+          const dehors = await page.evaluate(() =>
+            [...document.querySelectorAll(".rt-ain-sprite")].filter((x) => !x.hidden).map((x) => x.dataset.acteur),
+          );
+          if (dehors.length === 0) throw new Precondition(`${ici}: rien d'Aïn ne reste hors du logo après la scène`);
+          // La colonne défile (quand elle déborde), d'un bout à l'autre.
+          await page.evaluate(() => {
+            const c = document.querySelector("#side");
+            if (c) c.scrollTop = c.scrollHeight;
+          });
+          await sleep(300);
+          await page.evaluate(() => {
+            const c = document.querySelector("#side");
+            if (c) c.scrollTop = Math.max(0, c.scrollTop - 300);
+          });
+          await sleep(300);
+          // La fenêtre rétrécit de 300 px, puis revient.
+          await page.setViewport({ ...vue, width: vue.width - 300 });
+          await sleep(500);
+          await page.setViewport(vue);
+          await sleep(500);
+          // Ctrl agrandit l'image, puis la rend.
+          await page.click("#zone-jeu");
+          await page.keyboard.down("Control");
+          await page.keyboard.up("Control");
+          if (!(await jusqua(async () => (await page.$("#side")) === null, 3000)))
+            throw new Precondition(`${ici}: Ctrl ne replie pas la colonne`);
+          await sleep(600);
+          await page.keyboard.down("Control");
+          await page.keyboard.up("Control");
+          await sleep(600);
+          const lu = await page.evaluate(() => window.__mascotte);
+          if (!lu || lu.hors === 0) throw new Precondition(`${ici}: la sonde n'a rien vu hors scène`);
+          console.log(JSON.stringify({ etape: "ain-mise-en-page", cas: ici, hors: lu.hors, fautes: Object.keys(lu.fautes).length }));
+          fautes.push(...Object.keys(lu.fautes).map((f) => `${ici}: ${f}`));
+          await page.close();
+        }
+      // Le jumeau : hors de toute scène, un sprite posé sur l'image.
+      const page = await nouvelle({ width: 1440, height: 900 });
+      await page.evaluateOnNewDocument(SONDE_AIN);
+      await entrer(page);
+      await sleep(300);
+      const pose = await page.evaluate(() => {
+        const t = document.querySelector("#screen")?.getBoundingClientRect();
+        const s = document.querySelector(".rt-ain-sprite");
+        if (!t || !s || document.querySelector("[data-scene]")) return false;
+        Object.assign(s, { hidden: false, width: 20, height: 20 });
+        s.dataset.serre = "0 0 20 20";
+        s.style.transform = `translate(${t.left + 40}px, ${t.top + 40}px)`;
+        return true;
+      });
+      if (!pose) throw new Precondition("jumeau : pas d'image ou pas de sprite hors scène");
+      await sleep(300);
+      const vu = await page.evaluate(() => window.__mascotte);
+      await page.close();
+      if (!Object.keys(vu?.fautes ?? {}).some((f) => f.startsWith("(hors scène)") && f.includes("sur l'image")))
+        throw new Precondition(`jumeau : la sonde ne voit pas un sprite posé sur l'image hors scène (${JSON.stringify(vu)})`);
+      verdict(fautes);
+    },
+
+    /** La pose clé se voit en entier (ADR D46) : en mouvement réduit et au
+     * niveau Sobre, elle se lit dans les PIXELS des sprites, pas dans
+     * `data-version`. Au coin (1920 × 1080, maison en vue), la bulle de
+     * chaque pose qui en a une est peinte au-dessus du logo. Sur le plateau
+     * (écran noir), Aïn y est peint immobile, et le logo du coin montre sa
+     * place en pointillés. Le 24 novembre 2026, les deux ne montraient rien
+     * alors que le logo disait « cle ». Le jumeau : « attente » n'a pas de
+     * pose clé, et la même lecture n'y trouve rien. */
+    async "ain-pose-cle"() {
+      const peints = (page) =>
+        page.evaluate(() =>
+          [...document.querySelectorAll(".rt-ain-sprite")]
+            .filter((x) => !x.hidden)
+            .map((x) => {
+              // La boîte serrée (`data-serre`) : la toile a des marges vides.
+              const r = x.getBoundingClientRect();
+              const [x0, y0, x1, y1] = (x.dataset.serre || "0 0 0 0").split(" ").map(Number);
+              let plein = 0;
+              const d = x.getContext("2d")?.getImageData(0, 0, x.width, x.height).data ?? [];
+              for (let i = 3; i < d.length; i += 4) if (d[i] > 0) plein += 1;
+              return {
+                acteur: x.dataset.acteur,
+                plein,
+                b: [r.left + x0, r.top + y0, r.left + x1, r.top + y1].map(Math.round),
+              };
+            }),
+        );
+      const fautes = [];
+      for (const regle of [
+        { nom: "mouvement réduit", reduit: true, niveau: "tout" },
+        { nom: "Sobre", reduit: false, niveau: "sobre" },
+      ]) {
+        const page = await nouvelle({ width: 1920, height: 1080 }, { niveau: regle.niveau });
+        if (regle.reduit) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+        await entrer(page);
+        await sleep(300);
+        // En mouvement réduit, `jouer` rend une lecture sans version : le
+        // crochet se reconnaît à sa fonction, pas à ce qu'il rend.
+        if (!(await page.evaluate(() => typeof window.nel3abAin?.jouer === "function")))
+          throw new Precondition("la page n'expose pas nel3abAin");
+        for (const scene of ["arrivee", "spectateur", "endort", "arret"]) {
+          await page.evaluate((s) => window.nel3abAin.jouer(s, "coin", { joueur: "3" }), scene);
+          await sleep(150);
+          const logo = await page.evaluate(() => {
+            const r = document.querySelector('[data-hote="coin"] > canvas').getBoundingClientRect();
+            return [r.left, r.top, r.right, r.bottom];
+          });
+          const bulle = (await peints(page)).find((x) => x.acteur === "bulle");
+          if (!bulle || bulle.plein === 0) fautes.push(`${regle.nom}, coin, ${scene}: pas de bulle peinte`);
+          else if (bulle.b[3] > logo[1] + 2 || bulle.b[3] < logo[1] - 60 || bulle.b[0] < logo[0] || bulle.b[2] > logo[2])
+            fautes.push(`${regle.nom}, coin, ${scene}: la bulle n'est pas au-dessus du logo (${bulle.b.join(", ")})`);
+          await sleep(100);
+        }
+        await page.close();
+        const repos = await nouvelle({ width: 1440, height: 900 }, { niveau: regle.niveau, salle: { jeu: null, chef: "moi", decide: true } });
+        if (regle.reduit) await repos.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+        await entrerAuRepos(repos);
+        await sleep(500);
+        for (const scene of ["dort", "chercher", "arrivee", "attente"]) {
+          await repos.evaluate((s) => window.nel3abAin?.jouer(s, "plateau", { joueur: "2" }), scene);
+          await sleep(150);
+          const vus = await peints(repos);
+          const plateau = await repos.evaluate(() => {
+            const r = document.querySelector('[data-hote="plateau"]').getBoundingClientRect();
+            return { b: [r.left, r.top, r.right, r.bottom], dehors: document.querySelector('[data-hote="coin"] > canvas')?.hasAttribute("data-dehors") };
+          });
+          const ain = vus.find((x) => x.acteur === "ain");
+          if (scene === "attente") {
+            // Le jumeau : sans pose clé, rien.
+            if (ain) throw new Precondition(`${regle.nom}: « attente » n'a pas de pose clé, et la lecture y voit Aïn`);
+            continue;
+          }
+          if (!ain || ain.plein === 0) fautes.push(`${regle.nom}, plateau, ${scene}: Aïn n'est pas peint`);
+          else if (ain.b[0] < plateau.b[0] - 4 || ain.b[2] > plateau.b[2] + 4 || ain.b[3] > plateau.b[3] + 4)
+            fautes.push(`${regle.nom}, plateau, ${scene}: Aïn n'est pas sur le plateau (${ain.b.join(", ")} hors de ${plateau.b.map(Math.round).join(", ")})`);
+          else if (!plateau.dehors) fautes.push(`${regle.nom}, plateau, ${scene}: le logo du coin garde Aïn aussi`);
+        }
+        await repos.close();
+      }
       verdict(fautes);
     },
 

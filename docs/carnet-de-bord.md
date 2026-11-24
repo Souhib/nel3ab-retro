@@ -31334,6 +31334,13 @@ l'étape s'arrêtait sur sa précondition. Elle fait défiler la pastille dans
 la vue, demande à `elementFromPoint` ce qui reçoit le point, puis clique à
 la souris.
 
+**Une phrase a un lecteur ailleurs.** Dans la course complète des
+parcours, l'étape `annonce-arrivee` du chantier personnes s'est arrêtée sur
+sa précondition : elle attendait « Le jeu démarre » dans la ligne parlée,
+qui dit maintenant « Sonic Generations démarre. ». Changer une phrase, c'est
+chercher qui la lit, pilotes compris. L'étape accepte les deux formes, pour
+que sa page rouge d'avant tombe toujours sur son propre défaut.
+
 **Le poids.** La page passe de 274 537 à 276 156 octets en brotli 11, soit
 1 619 de plus : 1 144 pour le chargement (cases, mire, gestes, feuille de
 style) et 475 pour la rubrique Salle. Ce passage ne retire rien du paquet.

@@ -479,7 +479,7 @@ la même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
   `aides-fixes`, `mouvement-menu`, `fiche-lancer`, `refus-dans-le-bloc`
   avec un vrai refus du banc), salle-telephone mesure le bloc.
 
-Page : 274 395 octets en brotli 11 (4 355 de moins). Récit : « 24 novembre,
+Page : 274 537 octets en brotli 11 (4 213 de moins). Récit : « 24 novembre,
 la nuit : la préparation sort du dialogue ». Reste au chantier : l'état
 PRÊT ou CHOISIT… sur les boutons START (avec le chantier personnes), les
 étapes du chargement en cases de pixels et ses actions par rôle, « Signaler »

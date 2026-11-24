@@ -31243,10 +31243,13 @@ caractères. Celle de la manette seule en faisait 107 dans une salle
 GameCube. Elle gagne « toutes les touches du clavier », qui ouvre le réglage
 des manettes sur son onglet Clavier. Chaque onglet du menu porte une icône
 en pixels au niveau qui les montre : une cartouche, ajoutée au jeu du
-socle, pour Jeux, puis la manette, la porte et les curseurs.
+socle, pour Jeux, puis la manette, la porte et les curseurs. Posée à côté
+du mot, l'icône faisait sortir « Réglages » de 4 px d'un téléphone de
+390 px : seule la course complète de la porte l'a vu, pas les étapes
+lancées une à une sur le bureau. Elle est au-dessus du mot.
 
-**Le poids.** La page passe de 278 750 à 274 395 octets en brotli 11, soit
-4 355 de moins : `Bindings` et la branche de préparation de `SwitchBindings`
+**Le poids.** La page passe de 278 750 à 274 537 octets en brotli 11, soit
+4 213 de moins : `Bindings` et la branche de préparation de `SwitchBindings`
 ne sont plus dans le paquet. Leurs fichiers restent, pour l'aperçu des
 touches et leurs essais ; le chantier des manettes les retire.
 

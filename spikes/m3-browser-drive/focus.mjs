@@ -935,6 +935,10 @@ const ETAPES = {
       await page.click("#ficheAgir");
       if (!(await attendre(page, () => document.querySelector(".n3-preparation-error") !== null, 4000)))
         throw new Precondition("aucun avis après un refus de « fermer le jeu »");
+      // Au bureau, Aïn joue « refus » au coin, par l'arbitre (sa maison
+      // porte la scène qu'elle joue).
+      if (vue === PC && !(await attendre(page, () => document.querySelector('[data-scene="refus"]') !== null, 3000)))
+        throw new Defaut("un refus du salon ne joue pas la scène « refus »");
       await sleep(300);
       await capture(page, "refus-dans-le-bloc");
       const lu = await page.evaluate(() => {

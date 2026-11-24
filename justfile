@@ -1016,6 +1016,11 @@ focus-navigateur-rouge:
     git show 49be12b:core/crates/worker/src/page/index.html > "$dossier/menus-49be12b.html"
     node focus.mjs --page "$dossier/menus-49be12b.html" --flux "$dossier/flux.h264" \
         --etapes fermeture-en-cours --rouge-attendu fermeture-en-cours
+    # 41e9b33, la page suivante : le refus s'écrit dans le bloc, mais Aïn ne
+    # joue pas « refus » au coin.
+    git show 41e9b33:core/crates/worker/src/page/index.html > "$dossier/menus-41e9b33.html"
+    node focus.mjs --page "$dossier/menus-41e9b33.html" --flux "$dossier/flux.h264" \
+        --etapes refus-dans-le-bloc --rouge-attendu refus-dans-le-bloc
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni

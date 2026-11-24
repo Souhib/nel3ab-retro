@@ -5,12 +5,20 @@
  * l'image vivante, et un fond qui bouge tirerait l'oeil hors du jeu. */
 
 .n3-menu-unique {
+  /* L'anneau de focus du socle (3 px, décalé de 2 px) se dessine HORS de
+     l'élément, et #menu, qui défile, coupe ce qui dépasse de sa boîte : une
+     ligne pleine largeur ne gardait que ses traits du haut et du bas, 5 px
+     coupés de chaque côté (relecture du 24 novembre 2026). Le menu réserve
+     cette place sur ses bords, et le défilement la garde en haut. */
+  --menu-marge: calc(var(--focus-largeur) + 2px);
   display: flex;
   min-height: 0;
   flex: 1 1 0;
   flex-direction: column;
   gap: 0.75rem;
   overflow-y: auto;
+  padding: var(--menu-marge);
+  scroll-padding-top: var(--menu-marge);
   /* Le focus qui défile garde sa place au-dessus de la barre « Lancer »
      collée au bas d'une fiche (M4, M15). */
   scroll-padding-bottom: 7rem;
@@ -22,11 +30,19 @@
    de l'image. Au-dessus de la manette à l'écran, dont la place reste
    réservée sous lui. */
 .n3-menu-pose {
+  --menu-marge: 0.75rem;
   position: fixed;
   z-index: 30;
-  padding: 0.75rem;
+  padding: var(--menu-marge);
   background: var(--panel);
   border-top: 1px solid var(--filet);
+}
+
+/* Sur l'écran d'un téléphone couché (`placeDuMenu`, lieu « ecran ») : la zone
+   de jeu est cachée sous le menu, pas modifiée ; elle garde sa taille et la
+   boucle média peint dessous. */
+[data-zone-jeu][data-image-sous-menu] {
+  visibility: hidden;
 }
 
 .n3-menu-tete {
@@ -284,6 +300,19 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+/* « Plus bas » (M11) : #menu défile dans sa propre boîte, et le repère de la
+   colonne ne voyait pas ce défilement (relecture du 24 novembre 2026 : au
+   bureau, huit lignes de Réglages sous le bord, sans repère). Le même
+   repère que la colonne (`.n3-plus-bas` de cadre.css), collé au bas de ce
+   qui se voit du menu, d'un bord à l'autre. */
+.n3-menu-unique > .n3-menu-plus-bas {
+  /* Collé au bord de la boîte, pas au bord de sa marge : la marge de 5 px
+     laissait voir une ligne sous lui. */
+  bottom: calc(-1 * var(--menu-marge));
+  margin-inline: calc(-1 * var(--menu-marge));
+  font-family: var(--police-titre);
 }
 
 .n3-menu-pied {

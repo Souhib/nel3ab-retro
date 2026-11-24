@@ -13,7 +13,10 @@
  * Le menu n'est plus un `<dialog>` ouvert par `showModal()`. Au bureau il
  * prend la place des rangs de la colonne ; tenu en main, celle du panneau et
  * de la manette sous l'image, ou une bande à côté d'elle (`placeDuMenu`).
- * L'image reste vivante et visible à côté. Le focus entre dans le menu à
+ * L'image reste vivante et visible à côté. Un téléphone couché sans bande
+ * lisible (une image 16:9) le pose à la place de l'écran : l'image s'y cache
+ * le temps du menu, sans changer de taille, et revient à sa fermeture. Rien
+ * ne passe sur une image qu'on voit. Le focus entre dans le menu à
  * l'ouverture ; Échap le ferme ; un focus qui arrive dans la zone de jeu le
  * ferme aussi (un clic sur l'image, ou Tab) ; à la fermeture, le focus va au
  * jeu pendant une partie (`useFocusJeu`) et revient à l'ouvreur sans partie.
@@ -43,9 +46,9 @@ import {
   type Rubrique,
   type Sous,
 } from "../../lib/menu";
-import { MENU, SORTIES_MENU } from "../../lib/mots";
+import { COLONNE, MENU, SORTIES_MENU } from "../../lib/mots";
 import { IconeRang } from "../Colonne";
-import { activerCurseur, sonMenu } from "../../retro";
+import { activerCurseur, sonMenu, zonesDeJeu } from "../../retro";
 import { Reperes } from "../Reperes";
 import { Fiche } from "./Fiche";
 import "./menu.css";
@@ -86,6 +89,13 @@ function cibleDe(ligne: HTMLElement | null): HTMLElement | null {
     ligne.querySelector<HTMLElement>("button")
   );
 }
+
+/** La marque que le menu pose sur la zone de jeu quand il prend la place de
+ * l'écran (`menu.css` la cache). La sienne, et non `IMAGE_CACHEE` des
+ * transitions : la neige d'une connexion coupée pose et retire aussi
+ * celle-là, et la fin de l'une aurait rendu l'image que l'autre cache
+ * encore. */
+export const IMAGE_SOUS_MENU = "data-image-sous-menu";
 
 /** La place du menu au bureau : la colonne, à la place de ses rangs. */
 const DANS_LA_COLONNE: PlaceDuMenu = { lieu: "colonne" };
@@ -136,7 +146,27 @@ export function Menu({
   const fiche = ficheDe === null ? null : (lignes.find((l) => l.id === ficheDe) ?? null);
 
   const sortie = partie ? SORTIES_MENU.reprendre : SORTIES_MENU.fermer;
-  const phrase = partie ? (joue ? MENU.tesTouches : MENU.regarde) : null;
+  const cache = place.lieu !== "colonne" && place.cacheImage;
+  const phrase = partie
+    ? joue
+      ? MENU.tesTouches
+      : cache
+        ? MENU.regardeCachee
+        : MENU.regarde
+    : null;
+
+  /* Sur l'écran, l'image se cache le temps du menu (`placeDuMenu`) : cachée,
+     pas modifiée, elle garde sa taille et continue de peindre dessous. Posé
+     avant la peinture, pour qu'aucune image ne paraisse sous le menu, et
+     rendue au démontage. */
+  useLayoutEffect(() => {
+    if (!cache) return;
+    const zones = zonesDeJeu(document);
+    for (const zone of zones) zone.setAttribute(IMAGE_SOUS_MENU, "");
+    return () => {
+      for (const zone of zones) zone.removeAttribute(IMAGE_SOUS_MENU);
+    };
+  }, [cache]);
 
   /** Focus sur la ligne `i` de la rubrique affichée. */
   const allerA = (i: number) => {
@@ -159,20 +189,50 @@ export function Menu({
   };
   /** Ce que le focus doit rejoindre après le rendu d'une rubrique ou d'une
    * fiche : le DOM de la nouvelle n'existe pas encore au moment du geste. */
-  const aPoser = useRef<"ligne" | "onglet" | "fiche" | "retour" | null>("ligne");
+  const aPoser = useRef<"ligne" | "onglet" | "fiche" | "attente" | "retour" | null>("ligne");
+
+  /** Le focus dans la fiche ouverte : le choix coché, le bouton qui agit, ou
+   * « Revenir », pourvu qu'il le prenne. Un élément grisé ne prend pas le
+   * focus : sans cette garde, une fiche en refus (B8), qui lit ses
+   * sauvegardes ou ferme le jeu le laissait tomber sur <body>, où Échap ne
+   * faisait plus rien (relecture du 24 novembre 2026, comme `Rayonnage`).
+   * Pendant une lecture, il attend sur le titre et passe au choix coché
+   * quand elle répond. */
+  const poserDansLaFiche = () => {
+    const ici = boite.current;
+    const titre = ici?.querySelector<HTMLElement>("#ficheTitre") ?? null;
+    const cible =
+      ici?.querySelector<HTMLElement>("#fiche input[type=radio]:checked:enabled") ??
+      ici?.querySelector<HTMLElement>("#ficheAgir:enabled") ??
+      null;
+    if (cible === null && fiche?.fiche?.occupe === true && titre !== null) {
+      titre.focus({ preventScroll: true });
+      aPoser.current = "attente";
+      return;
+    }
+    (cible ?? ici?.querySelector<HTMLElement>("#ficheRevenir"))?.focus({ preventScroll: true });
+  };
+
   useLayoutEffect(() => {
     const ou = aPoser.current;
     aPoser.current = null;
-    if (ou === null) return;
+    if (ou === null) {
+      // Le geste a grisé ce qui avait le focus (« Fermer le jeu » qui passe à
+      // « Fermeture du jeu en cours… ») : le navigateur l'envoie sur <body>.
+      const ici = document.activeElement;
+      const perdu = ici === null || ici === document.body;
+      const dansFiche = ici instanceof HTMLElement && ici.closest("#fiche") !== null;
+      if (fiche?.fiche && (perdu || (dansFiche && ici.matches(":disabled")))) poserDansLaFiche();
+      return;
+    }
     if (ou === "onglet") {
       boite.current?.querySelector<HTMLElement>(`#ray-${rubriques[rubrique]?.id ?? ""}`)?.focus();
       return;
     }
-    if (ou === "fiche") {
-      const cible =
-        boite.current?.querySelector<HTMLElement>("#fiche input[type=radio]:checked") ??
-        boite.current?.querySelector<HTMLElement>("#ficheAgir");
-      cible?.focus();
+    if (ou === "fiche" || ou === "attente") {
+      // En attente, quelqu'un a pu déplacer le focus : on ne le reprend pas.
+      if (ou === "attente" && document.activeElement?.id !== "ficheTitre") return;
+      poserDansLaFiche();
       return;
     }
     const id = lignes[courante]?.id;
@@ -184,6 +244,17 @@ export function Menu({
     else
       boite.current?.querySelector<HTMLElement>(`#ray-${rubriques[rubrique]?.id ?? ""}`)?.focus();
   });
+
+  /* La ligne de la fiche a quitté sa rubrique (le jeu fermé emporte
+     « Fermer le jeu ») : la fiche s'est démontée sous le focus, qui revient
+     à la liste. */
+  const ficheDisparue = ficheDe !== null && fiche === null;
+  useLayoutEffect(() => {
+    if (!ficheDisparue) return;
+    const ici = document.activeElement;
+    setFicheDe(null);
+    if (ici === null || ici === document.body) aPoser.current = "retour";
+  }, [ficheDisparue]);
 
   /** Ouvre la fiche d'une ligne, sa première sauvegarde cochée. */
   const ouvrirFiche = (ligne: Ligne) => {
@@ -330,6 +401,7 @@ export function Menu({
   }, [pied]);
 
   const reperes = pied === null ? [] : piedDuMenu(pied, partie);
+  const suite = useSuiteCachee(boite);
 
   return (
     <section
@@ -337,8 +409,10 @@ export function Menu({
       ref={boite}
       aria-label={MENU.nom}
       data-lieu={place.lieu}
-      data-sur-image={place.lieu === "colonne" ? undefined : place.surImage ? "oui" : "non"}
-      className={cn("n3-menu-unique", horsColonne && "n3-menu-pose")}
+      data-image-cachee={place.lieu === "colonne" ? undefined : cache ? "oui" : "non"}
+      // La flèche en pixels au niveau « tout », jamais pendant une partie
+      // (effet « pointeur », `effets.css`).
+      className={cn("n3-menu-unique", horsColonne && "n3-menu-pose", !partie && "rt-pointeur")}
       style={
         horsColonne
           ? {
@@ -454,8 +528,50 @@ export function Menu({
           <Reperes liste={reperes} />
         </footer>
       ) : null}
+      {/* Un repère, pas une commande : hors de la tabulation et sans prise
+          au doigt, comme celui de la colonne. Pas dans une fiche : sa barre
+          « Lancer » est déjà collée au même bas. */}
+      {suite && fiche === null ? (
+        <div id="menuPlusBas" aria-hidden="true" className="n3-plus-bas n3-menu-plus-bas">
+          <IconeRang nom="chevron" />
+          {COLONNE.plusBas}
+        </div>
+      ) : null}
     </section>
   );
+}
+
+/** Vrai tant que le bas du menu n'est pas en vue : il défile dans sa propre
+ * boîte. Lu au défilement, quand sa taille ou son contenu change, une fois
+ * par image au plus ; jamais à chaque image du jeu. */
+function suiteCachee(boite: HTMLElement): boolean {
+  return boite.scrollTop + boite.clientHeight < boite.scrollHeight - 2;
+}
+
+function useSuiteCachee(boite: React.RefObject<HTMLElement | null>): boolean {
+  const [suite, setSuite] = useState(false);
+  useEffect(() => {
+    const el = boite.current;
+    if (!el) return;
+    let image = 0;
+    const lire = () => {
+      cancelAnimationFrame(image);
+      image = requestAnimationFrame(() => setSuite(suiteCachee(el)));
+    };
+    lire();
+    el.addEventListener("scroll", lire, { passive: true });
+    const taille = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(lire);
+    taille?.observe(el);
+    const ajouts = typeof MutationObserver === "undefined" ? null : new MutationObserver(lire);
+    ajouts?.observe(el, { childList: true, subtree: true });
+    return () => {
+      cancelAnimationFrame(image);
+      el.removeEventListener("scroll", lire);
+      taille?.disconnect();
+      ajouts?.disconnect();
+    };
+  }, [boite]);
+  return suite;
 }
 
 /** Les attributs que toute ligne porte : son identifiant, sa forme, et la

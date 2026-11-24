@@ -8,7 +8,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { MenuAction } from "../../media/menupad";
 import type { Rubrique } from "../../lib/menu";
 import { MENU, SORTIES_MENU } from "../../lib/mots";
-import { Menu } from "./Menu";
+import { cacherLImage, IMAGE_CACHEE } from "../../retro";
+import { IMAGE_SOUS_MENU, Menu } from "./Menu";
 
 const rubriques = (plus: Partial<Record<Rubrique["id"], Rubrique["lignes"]>> = {}): Rubrique[] => [
   {
@@ -308,6 +309,171 @@ describe("une décision ouvre une fiche (M10, M15)", () => {
   });
 });
 
+// Relecture du 24 novembre 2026 : le focus visait le choix coché ou le bouton
+// qui agit sans vérifier qu'ils le prenaient. Une fiche grisée, en refus ou
+// qui passe à « Fermeture du jeu en cours… » le laissait tomber sur <body>,
+// où Échap ne faisait plus rien : menu et fiche restaient ouverts.
+describe("le focus d'une fiche grisée (M4, B6a, B8)", () => {
+  const jeu = (fiche: Partial<NonNullable<Rubrique["lignes"][number]["fiche"]>> = {}) =>
+    rubriques({
+      jeux: [
+        {
+          id: "game3",
+          label: "Zelda",
+          fiche: {
+            consequence: "Ça arrête la partie de tout le monde.",
+            agir: "Lancer",
+            annuler: "Revenir à la liste",
+            choix: [
+              { id: "a", label: "partie neuve" },
+              { id: "b", label: "ta sauvegarde" },
+            ],
+            coche: "b",
+            onAgir: () => {},
+            ...fiche,
+          },
+        },
+      ],
+    });
+  const ouvrir = () => fireEvent.click(document.getElementById("item-game3")!);
+
+  it("en refus, va à « Revenir », et Échap revient à la liste", () => {
+    const onClose = vi.fn();
+    menu({ rubriques: jeu({ refus: "Sami choisit le jeu." }), onClose });
+    ouvrir();
+    expect(document.activeElement?.id).toBe("ficheRevenir");
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(document.getElementById("fiche")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("pendant la lecture des sauvegardes, attend sur le titre, puis passe au choix coché", () => {
+    const vue = menu({ rubriques: jeu({ occupe: true }) });
+    ouvrir();
+    expect(document.activeElement?.id).toBe("ficheTitre");
+    vue.rerender(<Menu rubriques={jeu()} partie joue appareil="clavier" onClose={() => {}} />);
+    expect(document.activeElement?.id).toBe("fiche-b");
+  });
+
+  it("le jumeau : un focus parti du titre pendant la lecture n'est pas repris", () => {
+    const vue = menu({ rubriques: jeu({ occupe: true }) });
+    ouvrir();
+    act(() => document.getElementById("ficheRevenir")!.focus());
+    vue.rerender(<Menu rubriques={jeu()} partie joue appareil="clavier" onClose={() => {}} />);
+    expect(document.activeElement?.id).toBe("ficheRevenir");
+  });
+
+  it("quand « Fermer le jeu » passe à occupé sous le focus, le garde dans la fiche", () => {
+    const onClose = vi.fn();
+    const vue = menu({ rubriques: jeu(), onClose });
+    ouvrir();
+    act(() => document.getElementById("ficheAgir")!.focus());
+    vue.rerender(
+      <Menu rubriques={jeu({ occupe: true })} partie joue appareil="clavier" onClose={onClose} />,
+    );
+    const ici = document.activeElement as HTMLElement;
+    expect(document.getElementById("fiche")!.contains(ici)).toBe(true);
+    expect(ici.matches(":disabled")).toBe(false);
+    fireEvent.keyDown(ici, { key: "Escape" });
+    expect(document.getElementById("fiche")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("une fiche dont la ligne disparaît", () => {
+  // Le jeu fermé, la ligne « Fermer le jeu » quitte la rubrique Salle : la
+  // fiche se démonte sous le focus, qui tombait sur <body>.
+  it("rend le focus à la liste, où Échap ferme le menu", () => {
+    const onClose = vi.fn();
+    const avec = rubriques({
+      salle: [
+        { id: "leave", label: "quitter", onEnter: () => {} },
+        {
+          id: "close-game",
+          label: "fermer le jeu",
+          fiche: {
+            consequence: "c",
+            agir: "Fermer le jeu",
+            annuler: "Continuer",
+            onAgir: () => {},
+          },
+        },
+      ],
+    });
+    const sans = rubriques({ salle: [{ id: "leave", label: "quitter", onEnter: () => {} }] });
+    const vue = menu({ initiale: "salle", rubriques: avec, onClose });
+    fireEvent.click(document.getElementById("item-close-game")!);
+    expect(document.activeElement?.id).toBe("ficheAgir");
+    vue.rerender(
+      <Menu
+        rubriques={sans}
+        initiale="salle"
+        partie={false}
+        joue
+        appareil="clavier"
+        onClose={onClose}
+      />,
+    );
+    expect(document.getElementById("fiche")).toBeNull();
+    expect(document.getElementById("menu")!.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Relecture du 24 novembre 2026 : #menu défile dans sa propre boîte, et le
+// repère « Plus bas » de la colonne ne le voyait pas (M11).
+describe("« Plus bas » dans le menu (M11)", () => {
+  /** jsdom n'a pas de mise en page : les mesures du défilement, posées. */
+  const mesures = (el: HTMLElement, m: { haut: number; vue: number; tout: number }) => {
+    Object.defineProperty(el, "scrollTop", { value: m.haut, configurable: true });
+    Object.defineProperty(el, "clientHeight", { value: m.vue, configurable: true });
+    Object.defineProperty(el, "scrollHeight", { value: m.tout, configurable: true });
+  };
+  const image = () => new Promise((fin) => requestAnimationFrame(() => fin(null)));
+
+  it("se montre tant que des lignes sont sous le bord, puis s'efface en bas", async () => {
+    menu();
+    const boite = document.getElementById("menu")!;
+    mesures(boite, { haut: 0, vue: 498, tout: 1424 });
+    await act(async () => {
+      fireEvent.scroll(boite);
+      await image();
+    });
+    const repere = document.getElementById("menuPlusBas");
+    expect(repere).not.toBeNull();
+    expect(repere!.getAttribute("aria-hidden")).toBe("true");
+    expect(repere!.tabIndex).toBe(-1);
+    mesures(boite, { haut: 926, vue: 498, tout: 1424 });
+    await act(async () => {
+      fireEvent.scroll(boite);
+      await image();
+    });
+    expect(document.getElementById("menuPlusBas")).toBeNull();
+  });
+
+  it("le jumeau : une rubrique qui tient n'a pas de repère", async () => {
+    menu();
+    const boite = document.getElementById("menu")!;
+    mesures(boite, { haut: 0, vue: 498, tout: 498 });
+    await act(async () => {
+      fireEvent.scroll(boite);
+      await image();
+    });
+    expect(document.getElementById("menuPlusBas")).toBeNull();
+  });
+});
+
+describe("la flèche en pixels (effet « pointeur »)", () => {
+  it("se pose sur le menu d'une salle sans jeu, jamais pendant une partie", () => {
+    const vue = menu({ partie: false });
+    expect(document.getElementById("menu")!.classList.contains("rt-pointeur")).toBe(true);
+    vue.unmount();
+    menu({ partie: true });
+    expect(document.getElementById("menu")!.classList.contains("rt-pointeur")).toBe(false);
+  });
+});
+
 describe("le pied (M6)", () => {
   it("n'existe pas avant un premier usage du clavier, puis dit les rubriques", () => {
     menu();
@@ -432,12 +598,70 @@ describe("la fermeture", () => {
   });
 
   it("tenu en main, se pose hors de l'image et le dit", () => {
-    menu({ place: { lieu: "sous", rect: { x: 0, y: 339, w: 390, h: 505 }, surImage: false } });
+    const zone = document.body.appendChild(document.createElement("div"));
+    zone.setAttribute("data-zone-jeu", "");
+    menu({ place: { lieu: "sous", rect: { x: 0, y: 339, w: 390, h: 505 }, cacheImage: false } });
     const boite = document.getElementById("menu")!;
     expect(boite.dataset.lieu).toBe("sous");
-    expect(boite.dataset.surImage).toBe("non");
+    expect(boite.dataset.imageCachee).toBe("non");
     expect(boite.style.top).toBe("339px");
     expect(getComputedStyle(boite).touchAction).not.toBe("none");
+    // Le jumeau du cas suivant : à côté de l'image, elle reste visible.
+    expect(zone.hasAttribute(IMAGE_SOUS_MENU)).toBe(false);
+    zone.remove();
+  });
+
+  // Relecture du 24 novembre 2026 : couché, une image 16:9 ne laisse pas de
+  // bande, et le menu couvrait 42 % de l'image vivante. Sur l'écran, il
+  // cache l'image le temps du menu, et la rend à sa fermeture.
+  it("sur l'écran, cache l'image tant qu'il est ouvert, et la rend", () => {
+    const zone = document.body.appendChild(document.createElement("div"));
+    zone.setAttribute("data-zone-jeu", "");
+    const place = {
+      lieu: "ecran",
+      rect: { x: 148, y: 0, w: 548, h: 308 },
+      cacheImage: true,
+    } as const;
+    const { unmount } = menu({ place });
+    expect(document.getElementById("menu")!.dataset.imageCachee).toBe("oui");
+    expect(zone.hasAttribute(IMAGE_SOUS_MENU)).toBe(true);
+    // La neige d'une coupure pose et retire sa propre marque : sa fin ne
+    // rend pas l'image que le menu cache encore.
+    cacherLImage(document)();
+    expect(zone.hasAttribute(IMAGE_SOUS_MENU)).toBe(true);
+    unmount();
+    expect(zone.hasAttribute(IMAGE_SOUS_MENU)).toBe(false);
+    zone.remove();
+  });
+
+  it("refermé, ne rend pas une image que la neige cache encore", () => {
+    const zone = document.body.appendChild(document.createElement("div"));
+    zone.setAttribute("data-zone-jeu", "");
+    const remontrer = cacherLImage(document);
+    const place = {
+      lieu: "ecran",
+      rect: { x: 148, y: 0, w: 548, h: 308 },
+      cacheImage: true,
+    } as const;
+    menu({ place }).unmount();
+    expect(zone.hasAttribute(IMAGE_CACHEE)).toBe(true);
+    remontrer();
+    zone.remove();
+  });
+
+  it("dit à qui regarde que l'image cachée revient, et rien de tel à côté d'elle", () => {
+    const place = {
+      lieu: "ecran",
+      rect: { x: 148, y: 0, w: 548, h: 308 },
+      cacheImage: true,
+    } as const;
+    const { unmount } = menu({ joue: false, place });
+    expect(screen.getByText(MENU.regardeCachee)).toBeTruthy();
+    expect(screen.queryByText(MENU.regarde)).toBeNull();
+    unmount();
+    menu({ joue: false, place: { ...place, lieu: "cote", cacheImage: false } });
+    expect(screen.getByText(MENU.regarde)).toBeTruthy();
+    expect(screen.queryByText(MENU.regardeCachee)).toBeNull();
   });
 });
 

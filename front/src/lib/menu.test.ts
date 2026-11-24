@@ -10,6 +10,7 @@ import {
   AIDE_MAX,
   aidesTropLongues,
   BANDE_MIN,
+  HAUTEUR_MIN,
   enGroupes,
   formeDe,
   ICONE_DE_RUBRIQUE,
@@ -163,6 +164,9 @@ const entree = (plus: Partial<Entree>): Entree => ({
   ...plus,
 });
 
+/** Aucun rectangle : une pose sans image n'a rien à couvrir. */
+const AUCUN: Rect = { x: 0, y: 0, w: 0, h: 0 };
+
 const coupe = (a: Rect, b: Rect): number =>
   Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) *
   Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
@@ -196,7 +200,7 @@ describe("la place du menu (M2)", () => {
         const geo = miseEnPage(e);
         const place = placeDuMenu(geo, fenetre, SANS_ZONES);
         if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
-        expect(place.surImage).toBe(false);
+        expect(place.cacheImage).toBe(false);
         expect(coupe(place.rect, geo.image!)).toBe(0);
         expect(place.rect.y + place.rect.h).toBe(fenetre.height);
         expect(place.rect.h).toBeGreaterThan(200);
@@ -219,24 +223,131 @@ describe("la place du menu (M2)", () => {
       const geo = miseEnPage(entree({ mode: "paysage", fenetre, manette }));
       const place = placeDuMenu(geo, fenetre, SANS_ZONES);
       if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
-      expect(place.surImage).toBe(false);
+      expect(place.lieu).toBe("cote");
+      expect(place.cacheImage).toBe(false);
       expect(place.rect.w).toBeGreaterThanOrEqual(BANDE_MIN);
       expect(coupe(place.rect, geo.image!)).toBe(0);
-      // « La salle » en haut de la bande gauche ne couvre pas le menu.
-      if (geo.boutonSalle) expect(coupe(place.rect, geo.boutonSalle)).toBe(0);
+      expect(geo.boutonSalle).not.toBeNull();
+      expect(coupe(place.rect, geo.boutonSalle!)).toBe(0);
     }
   });
 
-  // Le jumeau : une image 16:9 couchée ne laisse que deux bandes de 75 px.
-  // Le repli couvre le bord de l'image, et il le DIT au lieu de le taire.
-  it("dit quand il n'y a pas de place à côté d'une image couchée", () => {
+  // Le défaut de la relecture du 24 novembre 2026 : un téléphone couché, une
+  // image 16:9 et la manette Pro (Switch, Xbox 360) laissent deux bandes de
+  // 148 px. Le repli posait le menu sur 380 px à gauche : 42 % de l'image
+  // vivante couverts, et « La salle » par-dessus une ligne du menu. Le menu
+  // prend maintenant la place de l'écran, et l'image se cache le temps du
+  // menu : rien ne passe sur une image qu'on voit.
+  it("sans bande lisible, prend l'écran et cache l'image, sans toucher « La salle »", () => {
     const fenetre = { width: 844, height: 390 };
     const geo = miseEnPage(
-      entree({ mode: "paysage", fenetre, image: { width: 1280, height: 720 } }),
+      entree({
+        mode: "paysage",
+        fenetre,
+        image: { width: 1280, height: 720 },
+        manette: MANETTES.pro,
+      }),
     );
     const place = placeDuMenu(geo, fenetre, SANS_ZONES);
     if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
-    expect(place.surImage).toBe(true);
-    expect(coupe(place.rect, geo.image!)).toBeGreaterThan(0);
+    expect(place.lieu).toBe("ecran");
+    expect(place.cacheImage).toBe(true);
+    expect(place.rect).toEqual(geo.ecran);
+    expect(geo.boutonSalle).not.toBeNull();
+    expect(coupe(place.rect, geo.boutonSalle!)).toBe(0);
+    expect(geo.manette?.grappes).toBeTruthy();
+    expect(coupe(place.rect, geo.manette!.grappes!.g)).toBe(0);
+    expect(coupe(place.rect, geo.manette!.grappes!.d)).toBe(0);
+  });
+
+  // Le jumeau : la même fenêtre et la même manette avec une image 4:3 laissent
+  // une bande assez large ; l'image reste visible, et « La salle », posé sous
+  // l'image dans cette bande, n'écrase plus le menu à 2 px de haut.
+  it("garde l'image visible quand une bande suffit, et passe au-dessus de « La salle »", () => {
+    const fenetre = { width: 844, height: 390 };
+    const geo = miseEnPage(
+      entree({
+        mode: "paysage",
+        fenetre,
+        image: { width: 640, height: 480 },
+        manette: MANETTES.pro,
+      }),
+    );
+    const place = placeDuMenu(geo, fenetre, SANS_ZONES);
+    if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
+    expect(place.lieu).toBe("cote");
+    expect(place.cacheImage).toBe(false);
+    expect(coupe(place.rect, geo.image!)).toBe(0);
+    expect(geo.boutonSalle).not.toBeNull();
+    expect(coupe(place.rect, geo.boutonSalle!)).toBe(0);
+    expect(place.rect.h).toBeGreaterThanOrEqual(HAUTEUR_MIN);
+  });
+
+  // Toutes les poses couchées d'un téléphone et d'une tablette : jamais sur
+  // une image visible, jamais sous « La salle » ni sous ton étiquette, dans
+  // la zone sûre. Les gardes comptent leurs cas : une boucle qui ne
+  // rencontrerait aucun bouton ne prouverait rien.
+  it("couché, ne couvre jamais une image visible, ni « La salle », ni ton étiquette", () => {
+    const cas = { total: 0, bouton: 0, etiquette: 0, cachee: 0, cote: 0, grappes: 0 };
+    for (const [width, height] of [
+      [844, 390],
+      [780, 360],
+      [932, 430],
+      [667, 375],
+      [736, 414],
+      [568, 320],
+      [1024, 600],
+      [1180, 820],
+    ] as const)
+      for (const image of [
+        { width: 1280, height: 720 },
+        { width: 640, height: 480 },
+        { width: 1216, height: 896 },
+      ])
+        for (const manette of [MANETTES.pro, MANETTES.dolphin, null])
+          for (const role of ["joueur", "regarde"] as const)
+            for (const zones of [SANS_ZONES, { haut: 0, droite: 47, bas: 21, gauche: 47 }]) {
+              const fenetre = { width, height };
+              const geo = miseEnPage(
+                entree({ mode: "paysage", fenetre, zonesSures: zones, image, manette, role }),
+              );
+              const place = placeDuMenu(geo, fenetre, zones);
+              if (place.lieu === "colonne") throw new Error("tenu en main, pas de colonne");
+              const ici = `${width}x${height} ${image.width} ${role} ${zones.gauche}`;
+              cas.total += 1;
+              const r = place.rect;
+              expect(r.w, ici).toBeGreaterThan(0);
+              expect(r.h, ici).toBeGreaterThan(0);
+              expect(r.x, ici).toBeGreaterThanOrEqual(zones.gauche);
+              expect(r.y, ici).toBeGreaterThanOrEqual(zones.haut);
+              expect(r.x + r.w, ici).toBeLessThanOrEqual(width - zones.droite);
+              expect(r.y + r.h, ici).toBeLessThanOrEqual(height - zones.bas);
+              expect(place.cacheImage, ici).toBe(place.lieu === "ecran");
+              if (place.cacheImage) {
+                cas.cachee += 1;
+                // Sur l'écran, le menu laisse aussi les deux grappes de la
+                // manette à l'écran.
+                for (const grappe of Object.values(geo.manette?.grappes ?? {})) {
+                  cas.grappes += 1;
+                  expect(coupe(r, grappe), `${ici} grappe`).toBe(0);
+                }
+              } else {
+                cas.cote += 1;
+                expect(coupe(r, geo.image ?? AUCUN), ici).toBe(0);
+              }
+              for (const [nom, obstacle] of [
+                ["bouton", geo.boutonSalle],
+                ["etiquette", geo.etiquetteManette],
+              ] as const) {
+                if (obstacle === null) continue;
+                cas[nom] += 1;
+                expect(coupe(r, obstacle), `${ici} ${nom}`).toBe(0);
+              }
+            }
+    expect(cas.bouton).toBeGreaterThan(100);
+    expect(cas.etiquette).toBeGreaterThan(0);
+    expect(cas.cachee).toBeGreaterThan(20);
+    expect(cas.cote).toBeGreaterThan(20);
+    expect(cas.grappes).toBeGreaterThan(10);
   });
 });

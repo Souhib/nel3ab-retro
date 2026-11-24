@@ -172,24 +172,62 @@ export function voisin(index: number, n: number, sens: 1 | -1): number {
   return Math.min(n - 1, Math.max(0, index + sens));
 }
 
-/** Où le menu se pose (M2) : jamais sur l'image du jeu.
+/** Où le menu se pose (M2) : jamais sur une image qu'on voit.
  *
  * - au bureau et en fenêtre étroite, dans la colonne, à la place de ses rangs ;
  * - tenu droit, sous l'image, à la place du panneau, de la bande et de la
  *   manette à l'écran (la place reste réservée : l'image ne bouge pas) ;
- * - couché, dans la plus large des deux bandes à côté de l'image.
+ * - couché, dans une bande à côté de l'image, la gauche d'abord, sous ou
+ *   au-dessus de « La salle » et de ton étiquette quand elles y sont ;
+ * - couché, quand aucune bande ne se lit (`lieu: "ecran"`), à la place de
+ *   l'écran : l'image se cache le temps du menu (`cacheImage`).
  *
- * Couché, une image 16:9 ne laisse que deux bandes de 75 px : il n'y a pas
- * de place à côté d'elle. Le menu prend alors la feuille agrandie de la salle,
- * qui couvre le bord de l'image, et `surImage` le dit (`data-sur-image`) :
- * c'est un défaut connu, à trancher avec le chantier salle, plutôt qu'un
- * menu de 75 px qu'on ne peut pas lire. */
+ * Le dernier cas vient de la relecture du 24 novembre 2026. Un téléphone
+ * couché avec une image 16:9 et la manette Pro (Switch, Xbox 360) laisse deux
+ * bandes de 148 px ; sans manette, deux bandes de 75 px. Le repli d'avant
+ * posait le menu sur 380 px à gauche : il couvrait 42 % (844×390) à 48 %
+ * (780×360) de l'image vivante, et « La salle » passait sur une de ses
+ * lignes. L'image garde sa taille et ses pixels ; cachée, elle continue de
+ * peindre dessous et revient à la fermeture (`retro/image`, `cacherLImage`). */
 export type PlaceDuMenu =
   | { lieu: "colonne" }
-  | { lieu: "sous" | "cote"; rect: Rect; surImage: boolean };
+  | { lieu: "sous" | "cote" | "ecran"; rect: Rect; cacheImage: boolean };
 
 /** La bande la plus étroite où le menu se lit encore. */
 export const BANDE_MIN = 150;
+
+/** La hauteur la plus petite où le menu montre sa sortie, ses onglets et le
+ * haut de sa première ligne sans défiler. */
+export const HAUTEUR_MIN = 200;
+
+/** L'écart gardé autour de « La salle » et de ton étiquette. */
+const ECART = 4;
+
+const aire = (r: Rect): number => Math.max(0, r.w) * Math.max(0, r.h);
+const lisible = (r: Rect): boolean => r.w >= BANDE_MIN && r.h >= HAUTEUR_MIN;
+
+/** Le plus haut morceau libre d'une bande verticale : la bande entière, moins
+ * la hauteur de chaque obstacle qui la croise. */
+function libre(x: number, w: number, haut: number, bas: number, autour: Rect[]): Rect {
+  let morceaux: [number, number][] = [[haut, bas]];
+  for (const o of autour) {
+    if (o.x >= x + w || o.x + o.w <= x) continue;
+    const de = o.y - ECART;
+    const a = o.y + o.h + ECART;
+    morceaux = morceaux.flatMap(([d, f]): [number, number][] =>
+      a <= d || de >= f
+        ? [[d, f]]
+        : (
+            [
+              [d, Math.min(f, de)],
+              [Math.max(d, a), f],
+            ] as [number, number][]
+          ).filter(([dd, ff]) => ff > dd),
+    );
+  }
+  const [d, f] = morceaux.reduce((m, c) => (c[1] - c[0] > m[1] - m[0] ? c : m), [haut, haut]);
+  return { x, y: d, w: Math.max(0, w), h: f - d };
+}
 
 export function placeDuMenu(
   geo: Geometrie,
@@ -212,29 +250,53 @@ export function placeDuMenu(
         w: fenetre.width - zones.gauche - zones.droite,
         h: bas - haut,
       },
-      surImage: false,
+      cacheImage: false,
     };
   }
   const haut = zones.haut;
-  const gauche = geo.ecran ? Math.floor(geo.ecran.x) - zones.gauche : 0;
-  const droite = geo.ecran
-    ? fenetre.width - zones.droite - Math.ceil(geo.ecran.x + geo.ecran.w)
-    : 0;
-  if (Math.max(gauche, droite) >= BANDE_MIN) {
-    const x = gauche >= droite ? zones.gauche : fenetre.width - zones.droite - droite;
-    const w = gauche >= droite ? gauche : droite;
-    // « La salle » se pose en haut de la bande gauche (`boutonSalle`) : le
-    // menu commence sous lui, sinon le bouton couvrait sa sortie.
-    const bouton = geo.boutonSalle;
-    const y =
-      bouton && bouton.x < x + w && bouton.x + bouton.w > x ? bouton.y + bouton.h + 4 : haut;
-    return { lieu: "cote", rect: { x, y, w, h: bas - y }, surImage: false };
+  const gaucheZone = zones.gauche;
+  const droiteZone = fenetre.width - zones.droite;
+  const ecran = geo.ecran;
+  if (ecran === null) {
+    // Sans écran (une manette seule) : rien à cacher, la moitié gauche.
+    const w = Math.min(380, Math.round((droiteZone - gaucheZone) / 2));
+    return {
+      lieu: "cote",
+      rect: libre(gaucheZone, w, haut, bas, obstacles(geo)),
+      cacheImage: false,
+    };
   }
-  const repli = geo.feuille?.agrandie ?? {
-    x: 0,
-    y: 0,
-    w: Math.min(380, fenetre.width),
-    h: fenetre.height,
-  };
-  return { lieu: "cote", rect: repli, surImage: true };
+  const autour = obstacles(geo);
+  const xDroite = Math.ceil(ecran.x + ecran.w);
+  const bandes = [
+    libre(gaucheZone, Math.floor(ecran.x) - gaucheZone, haut, bas, autour),
+    libre(xDroite, droiteZone - xDroite, haut, bas, autour),
+  ].filter((b) => b.w > 0 && b.h > 0);
+  const plusGrande = (liste: Rect[]) =>
+    liste.reduce<Rect | null>((m, r) => (m === null || aire(r) > aire(m) ? r : m), null);
+  // La bande gauche d'abord, celle de « La salle », comme avant ; la droite
+  // quand la gauche ne se lit pas.
+  const bande = bandes.find(lisible);
+  if (bande) return { lieu: "cote", rect: bande, cacheImage: false };
+  // Aucune bande ne se lit : l'écran, s'il se lit mieux qu'elles. Son
+  // rectangle, gardé dans la zone sûre, est celui de l'image cachée.
+  // « La salle » peut mordre sur l'écran : sans manette, avec les zones
+  // sûres d'un iPhone (844×390), il le déborde de 7 px.
+  const x = Math.max(ecran.x, gaucheZone);
+  const surEcran = libre(
+    x,
+    Math.min(ecran.x + ecran.w, droiteZone) - x,
+    Math.max(ecran.y, haut),
+    Math.min(ecran.y + ecran.h, bas),
+    autour,
+  );
+  const etroite = plusGrande(bandes);
+  if (lisible(surEcran) || etroite === null || aire(surEcran) > aire(etroite))
+    return { lieu: "ecran", rect: surEcran, cacheImage: true };
+  return { lieu: "cote", rect: etroite, cacheImage: false };
+}
+
+/** Ce qu'une bande ne couvre jamais : « La salle » et ton étiquette. */
+function obstacles(geo: Geometrie): Rect[] {
+  return [geo.boutonSalle, geo.etiquetteManette].filter((r): r is Rect => r !== null);
 }

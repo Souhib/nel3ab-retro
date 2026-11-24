@@ -29679,6 +29679,134 @@ pas encore dans la vraie salle : il y faut les START et la prise des autres
 chantiers. Le paquet du salon n'est encore servi par aucune page. Personne
 n'a regardé Aïn à froid, ni sur un vrai téléphone, ni sous WebKit.
 
+### 24 novembre : la relecture d'Aïn, ou ce que le planificateur avait vérifié doit rester vrai
+
+Une relecture indépendante a rendu sept constats sur le chantier mascotte.
+Chacun a d'abord été reproduit avec sa sonde, sur la page committée, avant
+d'écrire une ligne.
+
+**Les sprites ne suivaient pas la page.** Aïn, sa bulle et ses objets sont
+des toiles posées dans un calque fixe, en coordonnées de la fenêtre. Le
+planificateur vérifie leur trajet au départ d'une scène, contre la page de
+cet instant. Ensuite, rien ne les replaçait. Après « endort », la bulle « Z »
+reste au-dessus du logo ; Ctrl agrandit l'image, la colonne disparaît, et la
+bulle reste là, sur l'image vivante, sans limite de durée. Après
+« decroche », Aïn attend devant le logo ; la fenêtre rétrécit de 420 px, le
+logo part à gauche, Aïn reste hors de la fenêtre et le logo montre sa place
+vide. La sonde de l'étape `mascotte-hors-image` ne regardait que pendant une
+scène : elle n'avait aucune chance de voir l'un ou l'autre.
+
+La correction fait relire la page à chaque changement de mise en page : la
+fenêtre, un défilement (n'importe lequel, pris au vol sur le document), les
+attributs et le style de la racine de la salle, un observateur de taille
+(ResizeObserver) sur chaque maison et sur la zone de jeu, et un observateur
+de mutations (MutationObserver) sur ce que React ajoute ou réécrit dans la
+salle. Quand Aïn ne montre rien hors de son logo, la relecture s'arrête
+tout de suite. Sinon, si le logo ou l'image a bougé, ou si Aïn, sa bulle ou
+un objet touche maintenant une zone, la scène est coupée et Aïn rentre ;
+celui qui attendait dehors rentre avec la pose clé de sa scène, tant que la
+panne dure. Une maison que React démonte emporte son calque. Le dernier
+observateur vient d'un cas que personne n'avait demandé : sur l'écran noir,
+le bouton « Choisir un jeu » arrive parfois après la première scène, sous la
+bulle de « arrivee ». Rien n'y changeait de taille ; seule une mutation le
+disait.
+
+**La pose clé ne se montrait pas.** En mouvement réduit et au niveau Sobre,
+la pose clé plaçait sa bulle avec le décor lu au montage du logo, quand la
+page ne s'était pas encore installée : la bulle tombait sur une zone et se
+taisait. Sur l'écran noir, il n'y a pas de logo, et la pose clé n'y peignait
+rien. Dans les deux cas, le logo disait pourtant « cle » (`data-version`).
+La pose relit maintenant la page avant de se poser ; sur l'écran noir, Aïn
+se tient immobile à sa place, avec sa bulle, et le logo du coin montre la
+sienne en pointillés. L'étape nouvelle `ain-pose-cle` lit les pixels des
+sprites, pas l'attribut. Elle a d'abord échoué sur elle-même : en mouvement
+réduit, `jouer()` rend une lecture sans version, et le pilote prenait ce vide
+pour un crochet absent. Le crochet se reconnaît maintenant à sa fonction.
+
+**La panne restait sur le logo.** Une scène de panne qui finit chez lui
+garde son air : le relief gris et le « ! » d'arrêt, le « Z » d'endort. Quand
+l'image revivait, rien ne les effaçait, et la règle K06 interdit de jouer
+une scène à ce moment. La salle qui revit efface maintenant l'air, la bulle
+et les objets, et coupe une scène en cours, sans rien jouer. Le jumeau : une
+panne qui en suit une autre (figée puis coupée) garde la pose.
+
+**La maison était hors de vue.** Le premier passage avait descendu le logo
+au pied de la colonne et agrandi le coin de 64 à 96 px. La colonne déborde à
+cinq des sept tailles de bureau de la garde, et le logo était sous le bas de
+la fenêtre : les scènes du coin se jouaient hors de l'écran, et les deux cas
+de bureau de `mascotte-hors-image` ne pouvaient pas échouer. Au bureau, le
+coin colle maintenant au pied de ce qui se voit (un élément collant), et la
+colonne garde ses 161 px dans sa marge de défilement du bas, pour que le
+focus ne s'arrête jamais dessous. La décision K26 du propriétaire, le logo
+au pied de la colonne, ne change pas.
+
+Ce choix a aussitôt fait tomber toutes les scènes du coin : les rangs qui
+défilent sous le pied collé gardent leur boîte, et le planificateur les
+prenait pour des obstacles posés sur le logo. À 1280 × 720 et 1440 × 900,
+seize scènes sur seize étaient refusées jusqu'à la pose animée. Le décor
+coupe maintenant chaque contrôle et chaque mot par l'abri de la maison (son
+ancêtre collé) : ce qui est dessous en entier ne compte pas, ce qui l'est à
+moitié compte pour sa part visible. La sonde lit la même chose autrement,
+point par point avec `elementFromPoint`, pour ne pas partager l'angle mort
+du planificateur. Le prix du pied collé : quand la colonne déborde, 161 px
+de ce qui se voit vont au coin. C'est au propriétaire de dire s'il le garde.
+
+**Les mots de l'écran noir n'étaient pas protégés.** Le planificateur évite
+les mots marqués `data-texte`, et aucun composant de la salle n'en portait.
+Sur l'écran noir, la cartouche de « chercher » s'enfonçait dans la phrase
+« Bo choisit le jeu. Tu le verras démarrer ici. » : la scène mesurait le haut
+du 3 depuis le coin du plateau, comme s'il y avait un logo, à 146 px de là.
+Le titre et la phrase de l'écran éteint portent maintenant la marque ; un
+bouton posé dans la zone de jeu compte comme obstacle ; et sur le plateau, ce
+qui se mesurait du logo se mesure d'Aïn à sa place, comme si un logo
+l'entourait dont il serait le 3.
+
+**Les marques du panneau n'ont pas de propriétaire.** Les versions complètes
+d'arrêt, d'endort, de coupe, de prêt et de rebrancher demandent six marques
+posées sur un sol du panneau de commande (`toque`, `siege`, `rattrape`,
+`public`, `fiche-sol`, `branche`) et le sol `panneau`. Le premier passage
+les avait confiées à la salle, déjà fusionnée. Elles ne sont pas posées ici :
+leur place se décide sur le panneau réel, qui est à la salle. Le travail est
+inscrit comme restant, pour la salle, et en attendant `data-refus` dit chaque
+repli.
+
+**Le protocole.** Ce chantier avait modifié des fichiers gelés du socle
+(`mascotte/index.ts`, `scenes.ts`, `Mascotte.tsx`) et un fichier de la salle
+(`lib/scenes-salle.ts`) sans le demander. Les ajouts restent, puisque les
+scènes en dépendent, et sont demandés au socle et à la salle, avec une
+annonce aux chantiers personnes, etats et menus : le champ `contexte` de
+`jouer()`, trois scènes nouvelles, et l'événement « spectateur » qui joue
+maintenant la scène du même nom au lieu de « depart ». Le crochet des
+pilotes, `nel3abAin.jouer`, jouait une scène sans passer par l'arbitre de la
+salle, pour tout visiteur : il n'existe plus que dans un navigateur piloté
+(`navigator.webdriver`).
+
+**Les preuves.** Chaque essai nouveau a d'abord été lancé sur les sources
+d'avant : dix essais du rendu, trois du décor, deux du lecteur, un de l'écran
+éteint échouent sur leur défaut, et leurs jumeaux passent des deux côtés.
+Trois étapes s'ajoutent à `cadre-navigateur` : `maison-en-vue`,
+`ain-mise-en-page` et `ain-pose-cle`, et `mascotte-hors-image` regarde
+maintenant entre deux scènes, joue l'écran noir aussi pour qui regarde
+choisir, et a un second jumeau, un sprite posé sur la phrase. La recette
+`just mascotte-navigateur-rouge` les joue sur la page d'avant la relecture
+(24cdaa2, gardée avec son empreinte) : les quatre tombent sur leur défaut
+nommé.
+
+**Le poids.** La page de la salle passe de 261 613 à 262 649 octets en
+brotli 11, soit 1 036 de plus. Le paquet du salon passe de 15 237 à 16 202
+octets, sous son plafond de 16 800. Rien n'est retiré dans ce passage.
+
+**La leçon.** Un planificateur qui vérifie un trajet le vérifie pour une
+page. Tout ce qu'il pose et laisse en place doit être revérifié quand la
+page change, et la sonde doit regarder aussi quand rien ne joue. Une
+seconde leçon est venue en chemin : un élément collé cache ce qui défile
+dessous, mais la boîte de ce qui est caché ne le sait pas.
+
+**Ce qui n'est pas prouvé.** Les six marques du panneau manquent toujours
+au vrai cadre. Le pied collé coûte 161 px de colonne, et le propriétaire ne
+l'a pas encore vu. Personne n'a regardé Aïn à froid, ni sur un vrai
+téléphone, ni sous WebKit.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -31369,3 +31497,21 @@ effet. Son état appartient au composant qui l'appelle.
 **Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
 composant modifié sans recharger la page ni perdre son état. Il ne le fait
 que pour un fichier qui n'exporte que des composants.
+
+**Observateur de taille (ResizeObserver)** : une fonction du navigateur qui
+prévient quand la boîte d'un élément change de taille, y compris quand
+l'élément quitte la page (sa taille devient nulle). Il ne dit rien d'un
+élément qui bouge sans changer de taille.
+
+**Observateur de mutations (MutationObserver)** : une fonction du navigateur
+qui prévient quand des éléments sont ajoutés, retirés ou réécrits sous un
+élément, ou quand certains de ses attributs changent. Il prévient après le
+changement, à la fin de la tâche en cours.
+
+**Navigateur piloté (navigator.webdriver)** : un indicateur que le navigateur
+met à vrai quand un programme le commande, comme Puppeteer dans les pilotes
+du dépôt. La page d'un visiteur ordinaire le voit faux.
+
+**Abri (de la maison d'Aïn)** : l'ancêtre collé ou fixe du logo, comme le
+pied de la colonne du bureau. Il passe devant ce qui défile : ce qui est
+dessous ne se voit pas, et ne gêne pas Aïn.

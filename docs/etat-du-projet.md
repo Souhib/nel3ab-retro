@@ -244,6 +244,26 @@ depuis la vague A). Récits : « 23 novembre, la dernière vague : Aïn entre
 dans la salle » et « 23 novembre, deuxième passage : la planche d'Aïn, son
 paquet pour le salon, et rien entre deux scènes ».
 
+**Au 24 novembre : la relecture d'Aïn.** Sept constats d'une relecture
+indépendante, tous reproduits puis corrigés sur la même branche, sauf les
+marques du panneau. Les sprites d'Aïn suivent la mise en page (fenêtre,
+défilement, Ctrl, maison démontée, bouton monté dessous) ; la pose clé du
+mouvement réduit et du niveau Sobre se voit au coin et sur l'écran noir ;
+la pose d'une panne s'efface quand l'image revit ; au bureau, le coin colle
+au pied de ce qui se voit, et la maison est en vue aux sept tailles ; les
+mots de l'écran éteint portent `data-texte` ; le crochet `nel3abAin.jouer`
+n'existe que dans un navigateur piloté. `cadre-navigateur` gagne
+`maison-en-vue`, `ain-mise-en-page` et `ain-pose-cle`, et
+`mascotte-hors-image` sonde aussi entre deux scènes ;
+`just mascotte-navigateur-rouge` les fait tomber sur la page d'avant. La
+page fait 262 649 octets en brotli (+1 036), le paquet du salon 16 202
+(+965). Restent : les six marques du sol du panneau (`toque`, `siege`,
+`rattrape`, `public`, `fiche-sol`, `branche`) et le sol `panneau`, à poser
+par la salle ; la demande au socle et à la salle des ajouts de `jouer()`, de
+`SCENES` et de `SCENES_DE` ; l'avis du propriétaire sur les 161 px du pied
+collé. Récit : « 24 novembre : la relecture d'Aïn, ou ce que le
+planificateur avait vérifié doit rester vrai ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

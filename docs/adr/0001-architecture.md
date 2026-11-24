@@ -2241,6 +2241,56 @@ disagree on ranks); positions written in the scenes (every layout of
 `lib/cadre.ts` would need its own); WAAPI keyframes per scene (a planner
 cannot check a path it does not compute).
 
+#### D46 amendment, 2026-11-24: what the planner checked must stay true
+
+An independent review found that the planner's check held only for the
+layout it read at the start of a scene. Aïn's sprites live in window
+coordinates, in a fixed layer; nothing moved them afterwards. After
+`endort`, Ctrl enlarged the live picture under the « Z » bubble, which stayed
+there with no time limit; after `decroche`, a narrower window left Aïn outside
+the window and the logo empty. The guard step looked only during
+`[data-scene]`, so it never saw either. Decision:
+
+- **Every layout change re-reads the scene** (`rendu.ts`, `rajuster`): the
+  window, any scroll (captured on the document), the room root's `style`,
+  `data-agrandie` and `data-sans-image`, a `ResizeObserver` on each home and
+  on the game zone, and a `MutationObserver` on what React adds or rewrites
+  in the room. When Aïn shows nothing outside his logo, it returns at once.
+  Otherwise, if the logo or the picture moved, or if Aïn, his bubble or an
+  object now touches a zone, the scene is cut and Aïn returns home; one who
+  waited outside comes back with the key pose of his scene while the state
+  lasts. The bubble at home is placed again, or hides when the logo leaves
+  what is visible. A home that React unmounts destroys its layer.
+- **The key pose is shown in full.** It re-reads the page before placing its
+  bubble (the mount-time layout put it where nothing could show it). On the
+  black screen, which has no logo, Aïn stands still at his place with his
+  bubble, and the corner logo shows his place dotted. What scenes measured
+  from the logo is measured, on the black screen, from Aïn himself (a
+  virtual logo whose 3 he is).
+- **A pose ends with its outage.** When the room lives again (`data-etat`
+  back to `vit`), the air, bubble and objects of the outage are cleared and a
+  running scene is cut; K06 still plays nothing.
+- **The home stays in view.** Beside the picture, the corner sticks to the
+  foot of what is visible (`position: sticky`) and the column keeps its
+  161 px as bottom scroll padding. K26 (the logo at the foot of the column)
+  is unchanged. What scrolls under that foot is hidden, so the planner cuts
+  every control and word by the home's sticky ancestor; without that cut,
+  every corner scene was refused at 1280 × 720 and 1440 × 900.
+- **The words of the black screen are the event's.** Its title and phrase
+  carry `data-texte`; a control placed inside the game zone (« Choisir un
+  jeu ») counts as an obstacle.
+- **The drivers' hook exists only in a driven browser** (`navigator.webdriver`):
+  it plays without the room's arbiter.
+- **Weight.** The room page goes from 261 613 to 262 649 bytes brotli
+  (+1 036), the lounge bundle from 15 237 to 16 202 (+965, ceiling 16 800).
+  Nothing is removed in this change.
+
+The six floor marks the full versions ask for in the room (`toque`, `siege`,
+`rattrape`, `public`, `fiche-sol`, `branche`) and the `panneau` floor are not
+placed by this change. They belong on the floors of the salle's control panel;
+until the salle places them, those full versions fall back and `data-refus`
+says so.
+
 ## Consequences
 
 - AV1 encoding is unavailable (needs RDNA3+). Target H.264/HEVC.

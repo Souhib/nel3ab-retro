@@ -451,6 +451,15 @@ machine".
   page-wide count of animation frames at rest found 125 in two seconds: the
   pad pump, not the mascot. Attribute a count to its source before judging
   it, and keep the twin that proves the filter still sees the source.
+- **What a planner checked holds for one layout.** On 2026-11-24, the
+  mascot's sprites, placed once in window coordinates, stayed on the picture
+  that Ctrl had enlarged, and outside a window that had shrunk; the probe
+  looked only during a scene and saw neither. Anything left on screen after
+  a check is checked again when the layout changes (window, scroll, root
+  attributes, a resized or removed home, a control mounted underneath), and
+  a probe watches between scenes too. A sticky element hides what scrolls
+  under it, but the hidden boxes still report their rectangles: clip them,
+  and let the probe ask `elementFromPoint` instead of sharing that rule.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that

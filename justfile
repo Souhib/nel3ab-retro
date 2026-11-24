@@ -184,6 +184,15 @@ salon-navigateur-rouge:
 # l'écran éteint et la maison hors de vue (mascotte-hors-image). La page est
 # gardée dans `spikes/m3-browser-drive/rouges/` avec son empreinte git
 # (`EMPREINTES-mascotte`), vérifiée avant usage, comme celles de la salle.
+#
+# Le second bloc (fin-ain, 24 novembre 2026) lit la page de l'intégration
+# 4ecbc23 : l'étiquette de « depart » s'y posait à cheval sur le haut de la
+# place, sur « 2P libre », à 1280×720, 1440×900 et 390×844. Le jumeau des
+# mots de mascotte-hors-image exigeait une page calme 300 ms après l'entrée
+# et levait sa précondition avant le verdict : ces trois fautes sont restées
+# cachées deux vagues. Ce commit vit sur integration/retro, fusionnée sans
+# réécriture : `git show` le lit. Les arguments vont aux deux blocs
+# (`--port 5521`).
 mascotte-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -204,6 +213,9 @@ mascotte-navigateur-rouge *args:
     etapes=maison-en-vue,ain-mise-en-page,ain-pose-cle,mascotte-hors-image
     node cadre.mjs --page "$rouges/mascotte-24cdaa2.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
+    git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/integration.html"
+    node cadre.mjs --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
+        --etapes mascotte-hors-image --rouge-attendu mascotte-hors-image {{args}}
 # ==== fin mascotte ====
 
 # The control plane's own gate, which is its owner's: ruff, ty, pytest, driven by

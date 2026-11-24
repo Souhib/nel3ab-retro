@@ -23,11 +23,11 @@ it("joue une pièce à chaque réponse retenue et un son grave au débranchement
   annonces.emettre({ type: "fin" });
   // Jumeau : ni une étape, ni un relâché, ni la fin ne sonnent.
   expect(jouer).not.toHaveBeenCalled();
-  annonces.emettre({ type: "recu", indice: "b0" });
+  annonces.emettre({ type: "recu", control: "A", indice: "b0" });
   annonces.emettre({ type: "suspendu" });
   expect(jouer.mock.calls).toEqual([["piece"], ["erreur"]]);
   arreter();
-  annonces.emettre({ type: "recu", indice: "b0" });
+  annonces.emettre({ type: "recu", control: "A", indice: "b0" });
   expect(jouer).toHaveBeenCalledTimes(2);
 });
 

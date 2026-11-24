@@ -2190,6 +2190,59 @@ the room's corner until the status line's height was reserved
 until two passage marks were added (`avant-salle-ain`, whose mutant without
 them fails on `#rename`).
 
+#### D41, fourth pass, 2026-11-24: one header, the upload page in words, Aïn's single house
+
+- **One header for the three lobby pages,** placed by `retro.py`: the mark
+  `<!--RETRO:BANDEAU /chemin-->` puts `retro/bandeau.html` (logo, the three
+  pages, « Tu es », and the script that fills them) and marks the page's own
+  link `aria-current`, visible even without the right; `/*__SALON__*/` puts
+  `retro/salon.css` (the header's rules and the typed label). Copied into each
+  page until then, it had drifted: the upload page had neither « Tu es » nor
+  « Changer ton nom », and its « Ton carnet » link stayed hidden from
+  everyone, since nothing showed it. On the logbook page the header's link
+  opens the rename dialog in place, and the header follows the new name
+  (`nel3abBandeau.nom`). An unknown path in the mark raises at start-up.
+- **The upload page drops the player colours and the stamps** (plan salon,
+  salon-importer#4, #5, #7, #8). The zone says « Pose tes fichiers ici, ou »
+  with « Choisir des fichiers » as the only filled button at rest, and
+  « Lâche-les : ils se rangent dès qu'ils sont lus. » under a drag. A card
+  has no ESTIMATION label: a sentence says where an upload stopped and how to
+  resume, or, as an alert, what failed and how to repair (`phraseEnvoi`). The
+  console the server recognised is a typed label whose edge carries the
+  outcome. Who may upload: « Peuvent déposer » and « Ne peuvent pas », a
+  typed label per person, a sentence instead of the TAILNET or DÉJÀ VENU chips
+  (`phraseDe`), « Donner le droit » or « Retirer le droit » (`boutonDe`); the
+  colour drawn from the address (`priseDe`) is gone. A game stored during the
+  visit glides from the top of the pile to its slot in the shelf, 900 ms,
+  `transform` only; with reduced motion, or without a pile, it appears in
+  150 ms by `opacity`. A verification seen from the page counts as followed,
+  even when it began before the page loaded.
+- **« Qui joue ? » makes its logo Aïn's house,** at rest, as the antechamber
+  does (entree-nom#3, translated for Aïn): no scene while a name is typed.
+- **The home page's row enters once** (salon-accueil#15): nothing moves on
+  the first render; when the row replaces the « Hors antenne » card after a
+  room answers, it fades in over 250 ms, `opacity` only, and not at all with
+  reduced motion.
+- **Not done, by choice: Aïn lying beside the logbook table** (salon-profil#3).
+  The plan wrote it for Quatrou. The logbook page already has Aïn's house in
+  its header; a second host would paint a second Aïn on the same page, against
+  the owner's ruling that he lives in the logo and leaves it for a scene. The
+  « range » scene already takes him to the table. To be confirmed by the owner.
+- **Not done: Aïn asleep on the upload pile.** The « dort » scene ends in his
+  house; sleeping on the pile's anchor needs a scene variant in
+  `front/src/mascotte/scenes-ain.ts`, which belongs to the mascot's work.
+
+New browser checks: `salon-navigateur` gains `depot-zone`, `trousseau`,
+`depot-glisse`, `demo`, `courbure` and `rangee-entre`, and its `entete` and
+`changer-nom` cover the three pages; `parcours-navigateur` gains `salle-pleine-avant-salle`
+(the bench now holds all four seats). `demo` advances Chrome's clock by 31 s
+of virtual time (`Emulation.setVirtualTimePolicy`) and then pauses it: the
+« advance » policy without a budget kept running between the driver's
+gestures. Each is red on the page it replaces, in the `-rouge` recipes.
+
+Weight of the room page: 281 661 brotli bytes before this pass, 281 607
+after; the lobby bundle is unchanged.
+
 
 ### D42: Touches et manettes: one lesson machine for both frames, flat drawings coloured by seat, 2026-11-23
 

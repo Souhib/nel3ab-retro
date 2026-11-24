@@ -31266,6 +31266,89 @@ le stockage du navigateur : l'étape nomme maintenant son niveau.
 1 314 pour le squelette de l'ouverture, 444 pour Aïn dans l'avant-salle et sa
 transition. Le paquet du salon passe de 18 170 à 18 304 octets.
 
+### 24 novembre, le soir tard : le salon, quatrième passage
+
+**Le contexte.** Le même chantier, dans son worktree, sans rien pousser ni
+installer. Ce passage reprend ce que le troisième avait laissé : l'en-tête
+recopié dans les trois pages du salon, la suite du dépôt, une étape de
+parcours pour la salle pleine, et deux effets de l'accueil que rien ne
+vérifiait dans un vrai navigateur.
+
+**Un en-tête recopié avait déjà dérivé.** L'accueil, le dépôt et le carnet
+portaient chacun leur copie de l'en-tête : le logo, les trois pages, « Tu es »
+et « Changer ton nom ». Au moment de les réunir, la copie du dépôt n'avait ni
+« Tu es » ni « Changer ton nom », et son lien « Ton carnet » restait caché à
+tout le monde : le script qui le montre n'était que dans l'accueil. Le carnet,
+lui, ne changeait pas le nom de l'en-tête quand on changeait le sien.
+L'en-tête est maintenant une seule pièce, posée par `retro.py` comme le logo :
+la page dit où elle est (`<!--RETRO:BANDEAU /importer-->`), et son lien porte
+la marque de la page courante. Ce lien reste visible même à qui n'a pas le
+droit d'y être : la page le lui dit elle-même. Un essai compare l'en-tête des
+trois pages servies, et l'étape `entete` de `salon-navigateur` les ouvre
+toutes les trois. Un mutant qui cache le lien courant sans droit est tué.
+
+**Le dépôt parle en phrases.** Les quatre carrés de couleur de joueur de la
+zone de dépôt, l'étiquette ESTIMATION des cartes et le mot « interrompu »
+disparaissent. Une couleur de joueur ne sert qu'aux joueurs, et personne n'est
+à une place sur cette page. La zone dit « Pose tes fichiers ici, ou », avec
+« Choisir des fichiers » comme seul bouton plein ; quand on y glisse des
+fichiers, « Lâche-les : ils se rangent dès qu'ils sont lus. ». Un envoi arrêté
+dit « Arrêté à 27 %. Redépose « x » pour reprendre. » ; un envoi raté le dit
+en alerte, avec la réparation. La liste de qui peut déposer devient « Peuvent
+déposer » et « Ne peuvent pas » : une étiquette tapée par personne, une phrase
+(« Sur le tailnet, a déjà un nom au salon. ») au lieu des puces en capitales,
+et « Donner le droit » ou « Retirer le droit ». Quand un jeu se range pendant
+la visite, sa boîte quitte le haut de la pile et glisse à sa place dans la
+rangée. Le banc de `salon-navigateur` sait maintenant faire passer un envoi de
+la vérification au rangé, et simuler la liste des personnes.
+
+**Aïn n'a qu'une maison par page.** Le plan prévoyait la mascotte posée à
+côté du formulaire de « Qui joue ? », et couchée à côté du tableau du carnet.
+Il avait été écrit pour Quatrou, avant qu'Aïn soit choisi. Pour « Qui joue ? »,
+le logo au-dessus du formulaire devient sa maison, comme à l'avant-salle :
+il y est posé, et ne joue rien pendant qu'on tape son nom. Pour le carnet, le
+logo de l'en-tête est déjà sa maison ; une seconde maison peindrait un second
+Aïn sur la même page, alors que la décision dit qu'il vit dans le logo et en
+sort pour une scène. Ce point n'est donc pas fait, et attend l'avis du
+propriétaire. Aïn endormi sur la pile du dépôt attend aussi : sa scène
+« dort » finit dans la maison, et une variante posée sur la pile appartient
+au chantier de la mascotte.
+
+**Une salle pleine.** Le banc du parcours ne savait tenir que deux places.
+Il en tient maintenant quatre, et l'étape `salle-pleine-avant-salle` vérifie
+qu'une salle pleine n'offre aucune place, que « Regarder la partie » est son
+seul bouton plein et qu'il reçoit le clic. Quand une place se libère,
+« Prendre la place N » redevient le seul plein. La page de `main` n'avait,
+dans ce cas, aucun bouton plein.
+
+**Trente secondes en une.** La démo de l'accueil part après trente secondes
+sans geste, au niveau « tout ». Attendre trente secondes dans chaque essai
+aurait allongé la porte. Chrome sait faire avancer l'horloge d'une page sans
+attendre : c'est le temps virtuel. Le premier essai a laissé l'horloge en
+avance libre après le budget, et la démo est tombée entre deux gestes du
+pilote, ce qui a fait passer le jumeau (« un geste à 20 s repousse la démo »)
+pour un défaut. L'horloge reste maintenant en pause entre deux avances. Une
+autre étape vérifie l'écran bombé de la mire, au même niveau. Enfin, la rangée de
+l'accueil ne s'anime plus au premier rendu : elle n'entre, en un fondu d'un
+quart de seconde, que quand elle remplace la mire parce qu'une salle répond.
+
+**Les portes.** Toutes ont tourné cette fois, y compris celles qui ne
+regardent pas le salon. `just check` est vert (2 082 essais de la page), comme
+les preuves du navigateur et leurs contrôles rouges, les essais de la carte
+graphique (après avoir vérifié que Jellyfin ne transcodait rien), du clip, des
+sauvegardes Switch, de la capture, de la Xbox 360 et de la copie chiffrée.
+Trois restent rouges, sans que le salon y soit pour rien : `parcours` sur
+« invitation » et `cadre` sur deux étapes d'Aïn dans la salle, des défauts
+connus de la vague B1 (leurs autres étapes passent une à une), et
+`deploy-check`, qui voit que la nouvelle redirection de Caddy n'est pas
+installée et que les services tournent avec un code plus ancien que ce
+chantier. C'est attendu : rien n'est installé avant la fusion. Chaque étape
+nouvelle rougit sur la page qu'elle remplace.
+
+**Le poids.** La page de salle passe de 281 661 à 281 607 octets en brotli.
+Le seul changement de la page est la maison d'Aïn dans « Qui joue ? » ; le
+reste de l'écart vient du minifieur. Le paquet du salon ne change pas.
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -31290,6 +31373,12 @@ contenu arrive, rien ne saute.
 **Point de passage (d'Aïn)** : une marque invisible de la page par laquelle
 le planificateur peut faire passer Aïn quand le chemin direct toucherait un
 contrôle ou un mot.
+
+**Temps virtuel** : une horloge que Chrome fait avancer à la demande, sans
+attendre : les minuteries d'une page tombent dans leur ordre, mais trente
+secondes passent en une fraction de seconde. Un pilote s'en sert pour
+vérifier ce qui n'arrive qu'après une longue attente, comme la démo de
+l'accueil.
 
 **Ancre (d'Aïn)** : un élément de la page marqué `data-ancre`, là où Aïn va
 se poser ou d'où part un objet : le haut d'un bouton START, la prise de la

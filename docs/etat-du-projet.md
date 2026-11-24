@@ -541,6 +541,39 @@ l'en-tête commun des trois pages du salon, Aïn endormi sur la pile du dépôt
 et la boîte qui glisse dans la rangée, les mots du salon dans `lib/mots.ts`.
 Récit : « 24 novembre, la nuit : le salon, troisième passage ».
 
+**Au 24 novembre, le soir tard : le chantier salon, quatrième passage.** Même
+branche (`chantier/retro-salon`) et même worktree ; rien dans `main`, rien
+poussé ni installé. Fait (ADR D41, quatrième partie) : un seul en-tête pour
+les trois pages du salon, posé par `retro.py` (`retro/bandeau.html`,
+`retro/salon.css`, marque `<!--RETRO:BANDEAU /chemin-->`), qui corrige la
+dérive des copies (le dépôt sans « Tu es », « Ton carnet » caché) ; le dépôt
+sans couleur de joueur ni tampon (zone « Pose tes fichiers ici, ou » et
+« Choisir des fichiers » seul plein, phrases des envois, trousseau
+« Peuvent déposer » et « Ne peuvent pas » en étiquettes et en phrases) et la
+boîte d'un jeu rangé qui glisse de la pile à la rangée ; Aïn au repos dans le
+logo de « Qui joue ? » ; la rangée de l'accueil qui entre en fondu quand elle
+remplace la mire. Preuves nouvelles : `depot-zone`, `trousseau`,
+`depot-glisse`, `demo` (temps virtuel de Chrome), `courbure` et
+`rangee-entre` dans `salon-navigateur`, `entete` et `changer-nom` étendues
+aux trois pages, `salle-pleine-avant-salle` dans `parcours-navigateur` (le
+banc tient les quatre places), chacune rouge sur une page d'avant dans sa
+recette `-rouge`. Page de salle : 281 607 octets en brotli (281 661 avant) ;
+paquet du salon inchangé. Portes : `just check` vert (2 082 essais de la page) ; `salon`, `focus`,
+`etats`, `salle-telephone`, `manette-garde`, `reglage` et tous les contrôles
+rouges (`salon`, `focus`, `etats`, `parcours`, `cadre`, `reglage`) verts ;
+`gpu-test` (81 essais, Jellyfin vérifié au repos avant), `clip-audio-test`,
+`switch-saves-test`, `switch-capture-test`, `xbox360-test` et `abri-test`
+verts ; `parcours` rouge sur « invitation » et `cadre` sur
+`mascotte-hors-image` (précondition) et `ain-immobile`, les défauts connus de
+la vague B1, toutes leurs autres étapes vertes une à une ; `deploy-check`
+rouge comme prévu : `deploy/Caddyfile` (K39) n'est pas installé, et les
+services tournent avec un code plus ancien que ce worktree. Pas fait, par choix : Aïn
+couché à côté du tableau du carnet (une seconde maison peindrait un second
+Aïn ; à confirmer par le propriétaire). Reste : Aïn endormi sur la pile du
+dépôt (une variante de la scène « dort », au chantier de la mascotte), les
+mots du salon dans `lib/mots.ts`. Récit : « 24 novembre, le soir tard : le
+salon, quatrième passage ».
+
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie
 sans gel sous X11. Le champ `experimental` passe à faux dans

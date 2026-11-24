@@ -839,7 +839,11 @@ etats-navigateur *args:
 # Le contrôle négatif du précédent: les pages d'avant doivent échouer sur le
 # DÉFAUT de chaque étape, pas sur une précondition. 8b58526 est la page d'avant
 # le chantier, e5d6edf celle que la relecture a refusée. Une étape qui passe
-# sur l'une d'elles ne prouve rien.
+# sur l'une d'elles ne prouve rien. cb0909b est la dernière page dont
+# l'ouverture était une carte au milieu de l'écran (24 novembre 2026) : la
+# colonne de la salle y apparaît d'un coup (`ouverture-sans-saut`), sur le fond
+# de nuit quel que soit le thème (`ouverture-theme`), après une phrase seule
+# au milieu de la page (`ouverture-statique`).
 etats-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -850,6 +854,7 @@ etats-navigateur-rouge:
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
     git show 8b58526:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     git show e5d6edf:core/crates/worker/src/page/index.html > "$dossier/refusee.html"
+    git show cb0909b:core/crates/worker/src/page/index.html > "$dossier/sans-squelette.html"
     cd spikes/m3-browser-drive
     node etats.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale \
@@ -857,6 +862,9 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
         --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
+    node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
+        --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
+        --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique
 
 # Les parcours de la salle, dans un vrai navigateur.
 #

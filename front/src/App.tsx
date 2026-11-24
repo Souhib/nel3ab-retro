@@ -93,14 +93,26 @@ import { Screen } from "./components/Screen";
 import { SwitchTouchPad } from "./components/SwitchTouchPad";
 import { TouchPad, type BoiteDuCadre } from "./components/TouchPad";
 import { Places } from "./components/Places";
-import { CartePlace, type SujetCarte } from "./components/CartePlace";
+import { CartePlace } from "./components/CartePlace";
 import { DemandeRecue, type DemandeEnCours } from "./components/DemandeRecue";
 import { IlsRegardent } from "./components/IlsRegardent";
 import { Mesures } from "./components/Mesures";
 import { ligneDeLaLiaison } from "./lib/mesures";
 import { SuiviPlaces } from "./components/SuiviPlaces";
-import { formeDesPlaces, hoteDesPlaces, REPRISE_REPONSE_S } from "./lib/places";
-import { useDonDiffere, type Annoncer, type Nature } from "./lib/usePlaces";
+import {
+  formeDesPlaces,
+  hoteDesPlaces,
+  regardentDe,
+  REPRISE_REPONSE_S,
+  sujetDeLaCarte,
+} from "./lib/places";
+import {
+  useCarteDePlace,
+  useDireLaReprise,
+  useDonDiffere,
+  type Annoncer,
+  type Nature,
+} from "./lib/usePlaces";
 import { forgetName, rememberedName } from "./lib/name";
 import {
   SHELLS,
@@ -2264,8 +2276,22 @@ function Room({
      le cadre le pose lui-même (`panneauTenu`, plus bas). */
   const panneauSous =
     geo.mode === "bureau" && geo.panneau.forme === "sous" ? geo.panneau.rect : null;
-  /** La carte ouverte : le numéro de la place touchée, ou `null`. */
-  const [carte, setCarte] = useState<number | null>(null);
+  /** La carte ouverte d'une place, qui se ferme et s'oublie quand sa place
+   * n'a plus de sujet (`useCarteDePlace`). */
+  const {
+    carte,
+    sujet,
+    basculer,
+    fermer: fermerLaCarte,
+  } = useCarteDePlace((n) =>
+    sujetDeLaCarte(n, {
+      mienne: port,
+      noms: names,
+      tenues: occupied,
+      comment:
+        appareil === "clavier" ? CARTE.auClavier : onTouch ? CARTE.auDoigt : CARTE.aLaManette,
+    }),
+  );
   /** Les places qui s'allument et s'éteignent, suivies sous le cadre
    * (`SuiviPlaces`, qui lit l'arbitre des scènes). */
   const [suivi, setSuivi] = useState<SuiviVu>(SANS_SUIVI);
@@ -2280,6 +2306,8 @@ function Room({
     (texte, nature) => setNouvelle((avant) => ({ texte, nature, cle: (avant?.cle ?? 0) + 1 })),
     [],
   );
+  // L'issue d'une reprise, pour qui demande comme pour qui tient la place.
+  useDireLaReprise(recovery, recoveryError, annoncer);
   /** « Donner » s'annule pendant 4 s ; la réponse part ensuite au bon chemin. */
   const repondre = useRef<(ok: boolean) => void>(() => {});
   const don = useDonDiffere((ok) => repondre.current(ok));
@@ -2301,10 +2329,10 @@ function Room({
         part={suivi.part}
         carte={carte}
         onPrendre={(choisie) => {
-          setCarte(null);
+          fermerLaCarte();
           session?.input.take(choisie);
         }}
-        onCarte={(choisie) => setCarte((ouverte) => (ouverte === choisie ? null : choisie))}
+        onCarte={basculer}
         // En petit et trop étroite, la rangée devient un bouton : il ouvre la
         // salle, où les places ont leur taille.
         onToutes={() => {
@@ -2322,21 +2350,6 @@ function Room({
   /* La carte d'une place, la reprise en cours et la demande reçue : dans la
      colonne au bureau, dans la bande au téléphone, au-dessus du menu quand
      il est ouvert ; jamais sur l'image. */
-  const sujet: SujetCarte | null =
-    carte === null
-      ? null
-      : carte === port
-        ? {
-            type: "mienne",
-            port: carte,
-            comment:
-              appareil === "clavier" ? CARTE.auClavier : onTouch ? CARTE.auDoigt : CARTE.aLaManette,
-          }
-        : names.has(carte)
-          ? { type: "autre", port: carte, nom: names.get(carte) ?? "", delai: REPRISE_REPONSE_S }
-          : occupied[carte - 1]
-            ? { type: "sans-nom", port: carte }
-            : null;
   /** La reprise qui vise MA place, en attente de réponse. */
   const repriseRecue =
     recovery !== null && !recovery.asking && recovery.reason === null && recovery.port !== null
@@ -2367,24 +2380,24 @@ function Room({
         libre={premiereLibre}
         pad={(handler) => session?.input.setMenu(handler)}
         onDemander={(choisie) => {
-          setCarte(null);
+          fermerLaCarte();
           onRecover(choisie);
         }}
         onPrendre={(choisie) => {
-          setCarte(null);
+          fermerLaCarte();
           onRecoveryClose();
           session?.input.take(choisie);
         }}
         onAction={onRecoveryAction}
         onFermer={() => {
-          setCarte(null);
+          fermerLaCarte();
           onRecoveryClose();
         }}
         onRendre={
           salleFermee
             ? undefined
             : () => {
-                setCarte(null);
+                fermerLaCarte();
                 session?.input.watchOnly();
               }
         }
@@ -3186,7 +3199,8 @@ function Room({
                 : null
             }
             mienne={port}
-            regardent={people.filter((p) => p.seat == null).map((p) => p.name)}
+            // Sans qui arrive encore (`seat_pending`) : il ne regarde pas.
+            regardent={regardentDe(people)}
             salle={String(salle())}
             stable={booting === null && liaison.etat === "ok"}
             hote={(scene) =>

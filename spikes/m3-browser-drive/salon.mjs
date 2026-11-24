@@ -183,6 +183,23 @@ const ETAPES = {
     defaut(maison.logo === "none", `le logo statique reste visible sous Aïn: ${maison.logo}`);
     defaut(page.hors.length === 0, `requêtes hors du banc: ${page.hors}`);
     await page.close();
+    // Le logo est un lien vers « / ». Aïn peint, le logo statique (role=img,
+    // « nel3ab ») passe en display:none et la toile est aria-hidden: le lien
+    // ne tirait plus son nom de rien, et un lecteur d'écran disait « lien »
+    // tout court (relecture du 24 novembre 2026). Le nom est lu dans l'arbre
+    // d'accessibilité de Chrome, sur les trois pages qui portent l'en-tête.
+    for (const chemin of ["/", "/profil", "/importer"]) {
+      const ici = await nouvelle(PC, { chemin, reglage: { salles: VIDE } });
+      await ici.waitForFunction(() => document.querySelector("a.marque.rt-mascotte-hote canvas.rt-mascotte") !== null, { timeout: 8000 })
+        .catch(() => { throw new Precondition(`${chemin}: Aïn n'est jamais peint dans le logo`); });
+      const cache = await ici.$eval("a.marque svg.rt-logo", (svg) => getComputedStyle(svg).display);
+      exiger(cache === "none", `${chemin}: le logo statique reste visible, son nom ne dit rien du défaut: ${cache}`);
+      const lien = await ici.$("a.marque");
+      const ax = await ici.accessibility.snapshot({ root: lien, interestingOnly: false });
+      exiger(ax?.role === "link", `${chemin}: le logo n'est pas un lien: ${ax?.role}`);
+      defaut(ax.name === "nel3ab, les salles", `${chemin}: le lien du logo s'appelle « ${ax.name} », Aïn peint`);
+      await ici.close();
+    }
   },
 
   async "mire-vide"() {
@@ -980,6 +997,56 @@ ETAPES["carnet-range"] = async () => {
   for (const [nom, id] of [["déjà vue", "b".repeat(16)], ["première visite", null]]) {
     const jumeau = await ouvrir(id);
     defaut(!jumeau.range && jumeau.allumee === null, `${nom} : ${JSON.stringify(jumeau)}`);
+  }
+};
+
+/** « start-focus » : une personne au clavier arrêtée sur « Prendre la place
+ * 4 » y reste quand une AUTRE place de la même salle se remplit, et que la
+ * place conseillée passe de 2 à 3. `remplirStarts` refaisait les quatre START
+ * à chaque changement, et le focus tombait sur le corps de la page
+ * (relecture du 24 novembre 2026). Le témoin est le NŒUD focalisé, pas son
+ * nom: un lien refait au même nom ne garde pas le focus. Le jumeau : rien ne
+ * change, et le focus reste aussi; sans lui, un sondage qui volerait le focus
+ * de lui-même passerait pour le défaut. */
+ETAPES["start-focus"] = async () => {
+  const accelere = () => {
+    const vrai = window.setInterval.bind(window);
+    window.setInterval = (f, ms, ...r) => vrai(f, ms === 5000 ? 400 : ms, ...r);
+  };
+  const avant = [ouverte(1, ["Sami", null, null, null], { jeu: "Wii Sports", chef: "Sami" }), salle(2), salle(3)];
+  const apres = [ouverte(1, ["Sami", "Lou", null, null], { jeu: "Wii Sports", chef: "Sami" }), salle(2), salle(3)];
+  for (const change of [false, true]) {
+    const page = await nouvelle(PC, { reglage: { salles: avant }, avant: accelere });
+    await dessinee(page);
+    await page.waitForSelector('a.start[data-place="4"]', { timeout: 5000 })
+      .catch(() => { throw new Precondition("la place 4 de la salle 1 n'est pas un lien"); });
+    const plein = await page.$eval("a.start[data-plein]", (a) => a.dataset.place);
+    exiger(plein === "2", `place conseillée avant: ${plein}`);
+    await page.focus('a.start[data-place="4"]');
+    const pose = await page.evaluate(() => {
+      document.activeElement.dataset.temoin = "oui";
+      return document.activeElement.getAttribute("aria-label");
+    });
+    exiger(pose === "Prendre la place 4 de la salle 1", `focus posé sur: ${pose}`);
+    if (change) {
+      banc.regler({ salles: apres });
+      await page.waitForFunction(() => document.querySelector('a.start[data-plein]')?.dataset.place === "3"
+        && [...document.querySelectorAll(".start .etiquette")].some((e) => e.textContent === "Lou"), { timeout: 5000 })
+        .catch(() => { throw new Precondition("Lou ne prend jamais la place 2 sur la page"); });
+    }
+    // Deux relevés de plus: un focus perdu au tour suivant se verrait aussi.
+    await sleep(1000);
+    const vu = await page.evaluate(() => ({
+      balise: document.activeElement?.tagName,
+      temoin: document.activeElement?.dataset?.temoin ?? null,
+      nom: document.activeElement?.getAttribute("aria-label") ?? null,
+      lien: document.activeElement?.getAttribute("href") ?? null,
+    }));
+    const quand = change ? "Lou prend la place 2" : "rien ne change";
+    defaut(vu.temoin === "oui", `${quand}, et le focus du clavier tombe sur ${vu.balise} « ${vu.nom} »`);
+    defaut(vu.nom === "Prendre la place 4 de la salle 1" && vu.lien === "/r/1/?entrer=jouer&place=4",
+      `${quand}, et le START focalisé dit ${JSON.stringify(vu)}`);
+    await page.close();
   }
 };
 

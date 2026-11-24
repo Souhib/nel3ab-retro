@@ -143,6 +143,9 @@ salon-navigateur *args:
 # nomme pas la salle, l'accueil n'a pas de crédit et le carnet ne range rien
 # (24 novembre 2026, cinquième passage). L'étape « annonce » est plus vieille
 # que toutes ces pages: son contrôle est un mutant qui tait l'annonce.
+# 323aa52: la fin du cinquième passage, que la relecture du 24 novembre 2026
+# a prise en défaut deux fois: le lien du logo sans nom une fois Aïn peint,
+# et le focus du clavier perdu quand une autre place de la salle se remplit.
 salon-navigateur-rouge:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -150,7 +153,7 @@ salon-navigateur-rouge:
     trap 'rm -rf "$dossier"' EXIT
     python="$PWD/control/.venv/bin/python"
     site=$("$python" -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-    for commit in a32de82 2a98279 84b969f cb0909b 5fae6b0; do
+    for commit in a32de82 2a98279 84b969f cb0909b 5fae6b0 323aa52; do
         mkdir -p "$dossier/$commit"
         git archive "$commit" control consoles | tar -x -C "$dossier/$commit"
         (cd "$dossier/$commit/control" && PYTHONPATH="$PWD:$site" "$python" -S -c "import json, sys
@@ -163,6 +166,7 @@ salon-navigateur-rouge:
     node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
     node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
     node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse,rangee-entre
+    node salon.mjs --pages "$dossier/323aa52.json" --rouge-attendu ain-logo,start-focus
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
 # du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit

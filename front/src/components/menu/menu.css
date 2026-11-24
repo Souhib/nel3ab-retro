@@ -47,7 +47,7 @@
 }
 
 .n3-menu-phrase,
-.n3-ligne-aide {
+.n3-menu-ligne-aide {
   font-family: var(--police-texte);
   font-size: var(--text-note);
   line-height: 1.4;
@@ -55,20 +55,27 @@
 }
 
 /* Les quatre onglets tiennent dans 320 px, en Pixelify Sans comme au niveau
-   « tout » (M11) : une grille de quatre colonnes égales, jamais un
-   défilement horizontal. */
-.n3-onglets {
+   « tout » (M11) : deux par rang dans une colonne étroite, quatre dès que le
+   menu a la place, jamais un défilement horizontal ni un mot coupé. L'écart
+   entre deux colonnes laisse sa place au ▶ du socle, posé devant l'onglet
+   qui a le focus. */
+.n3-menu-unique {
+  container-type: inline-size;
+}
+.n3-menu-onglets {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 1.25rem;
+  padding-left: 1rem;
   border-bottom: 1px solid var(--filet);
 }
-/* Une bande étroite, couché : deux onglets par rang. */
-.n3-menu-pose[data-lieu="cote"] .n3-onglets {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+@container (min-width: 22rem) {
+  .n3-menu-onglets {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
-.n3-onglet {
+.n3-menu-onglet {
   min-height: 2.75rem;
   padding: 0.25rem 0.125rem;
   border-bottom: 3px solid transparent;
@@ -76,13 +83,13 @@
   font-size: var(--text-corps);
   color: var(--legende);
   text-align: center;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
-.n3-onglet[aria-selected="true"] {
+.n3-menu-onglet[aria-selected="true"] {
   border-bottom-color: var(--signal);
   color: var(--encre);
 }
-.n3-onglet:hover {
+.n3-menu-onglet:hover {
   color: var(--encre);
 }
 
@@ -107,7 +114,7 @@
 /* Une ligne : pleine largeur, son libellé et sa valeur sur une rangée, son
    aide dessous, toujours visible (M8). Rien ne change de hauteur quand le
    focus bouge : le fond et l'anneau seulement. */
-.n3-ligne {
+.n3-menu-ligne {
   display: flex;
   width: 100%;
   min-width: 0;
@@ -121,18 +128,18 @@
   font-size: var(--text-corps);
   color: var(--encre);
 }
-.n3-ligne[data-selected="true"] {
+.n3-menu-ligne[data-selected="true"] {
   border-color: var(--trait);
   background: var(--survol);
 }
-.n3-ligne-bouton:hover {
+.n3-menu-ligne-bouton:hover {
   border-color: var(--trait);
 }
-.n3-ligne[aria-disabled="true"] .n3-ligne-libelle {
+.n3-menu-ligne[aria-disabled="true"] .n3-menu-ligne-libelle {
   color: var(--legende);
 }
 
-.n3-ligne-tete {
+.n3-menu-ligne-tete {
   display: flex;
   width: 100%;
   min-width: 0;
@@ -141,11 +148,11 @@
   gap: 0.5rem;
   padding: 0;
 }
-.n3-ligne-libelle {
+.n3-menu-ligne-libelle {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.n3-ligne-valeur {
+.n3-menu-ligne-valeur {
   flex-shrink: 0;
   font-family: var(--police-titre);
   font-size: var(--text-note);
@@ -154,31 +161,37 @@
 
 /* Les pastilles d'un choix, côte à côte sur leur ligne (M7a) : le point
    coché est un carré plein, les autres un carré vide. */
-.n3-pastilles {
+.n3-menu-pastilles {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 0.75rem;
 }
-.n3-pastille {
+.n3-menu-pastille {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2rem;
   align-items: center;
   gap: 0.375rem;
   cursor: pointer;
 }
-.n3-pastille input {
+/* 44 px au doigt pour chaque pastille. */
+@media (pointer: coarse) {
+  .n3-menu-pastille {
+    min-height: 2.75rem;
+  }
+}
+.n3-menu-pastille input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
-.n3-pastille-point {
+.n3-menu-point {
   display: inline-block;
   width: 0.75rem;
   height: 0.75rem;
   flex-shrink: 0;
   border: 2px solid var(--trait);
 }
-.n3-pastille-point::after {
+.n3-menu-point::after {
   content: "";
   display: block;
   width: 100%;
@@ -186,27 +199,27 @@
   background: var(--encre);
   opacity: 0;
 }
-.n3-pastille input:checked + .n3-pastille-point::after {
+.n3-menu-pastille input:checked + .n3-menu-point::after {
   opacity: 1;
 }
-.n3-pastille input:focus-visible + .n3-pastille-point {
+.n3-menu-pastille input:focus-visible + .n3-menu-point {
   outline: var(--focus-largeur) solid var(--focus);
   outline-offset: 2px;
 }
 
-.n3-glissiere {
+.n3-menu-glissiere {
   width: 100%;
   accent-color: var(--signal);
 }
 
 /* La fiche : la conséquence et ses boutons forment une barre collée au bas
    de la zone qui défile (M15). */
-.n3-fiche {
+.n3-menu-fiche {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
-.n3-fiche-choix {
+.n3-menu-fiche-choix {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
@@ -214,7 +227,7 @@
   border: 0;
   padding: 0;
 }
-.n3-fiche-barre {
+.n3-menu-fiche-barre {
   position: sticky;
   bottom: 0;
   display: flex;
@@ -223,16 +236,16 @@
   padding-block: 0.5rem;
   background: var(--panel);
 }
-.n3-fiche-consequence {
+.n3-menu-fiche-consequence {
   font-size: var(--text-corps);
 }
-.n3-fiche-boutons {
+.n3-menu-fiche-boutons {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.n3-fiche-agir,
-.n3-fiche-revenir {
+.n3-menu-fiche-agir,
+.n3-menu-fiche-revenir {
   display: flex;
   min-height: 2.75rem;
   flex: 1 1 auto;

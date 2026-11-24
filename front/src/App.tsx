@@ -2663,9 +2663,17 @@ function Room({
     />
   ) : null;
   /* La colonne repliée par Ctrl se déplie quand le menu s'ouvre : c'est sa
-     place au bureau. */
+     place au bureau. Elle se replie à la fermeture, pour rendre l'image
+     agrandie qu'on avait demandée (focus.mjs, agrandir-ctrl). */
+  const replieeAvantMenu = useRef(false);
   useEffect(() => {
-    if (menu && bare && placeMenu.lieu === "colonne") setBare(false);
+    if (menu && bare && placeMenu.lieu === "colonne") {
+      replieeAvantMenu.current = true;
+      setBare(false);
+    } else if (!menu && replieeAvantMenu.current) {
+      replieeAvantMenu.current = false;
+      setBare(true);
+    }
   }, [menu, bare, placeMenu.lieu, setBare]);
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (

@@ -213,6 +213,8 @@ describe("la place du menu (M2)", () => {
       expect(place.surImage).toBe(false);
       expect(place.rect.w).toBeGreaterThanOrEqual(BANDE_MIN);
       expect(coupe(place.rect, geo.image!)).toBe(0);
+      // « La salle » en haut de la bande gauche ne couvre pas le menu.
+      if (geo.boutonSalle) expect(coupe(place.rect, geo.boutonSalle)).toBe(0);
     }
   });
 

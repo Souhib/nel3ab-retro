@@ -196,16 +196,14 @@ export function placeDuMenu(
     ? fenetre.width - zones.droite - Math.ceil(geo.ecran.x + geo.ecran.w)
     : 0;
   if (Math.max(gauche, droite) >= BANDE_MIN) {
-    const rect =
-      gauche >= droite
-        ? { x: zones.gauche, y: haut, w: gauche, h: bas - haut }
-        : {
-            x: fenetre.width - zones.droite - droite,
-            y: haut,
-            w: droite,
-            h: bas - haut,
-          };
-    return { lieu: "cote", rect, surImage: false };
+    const x = gauche >= droite ? zones.gauche : fenetre.width - zones.droite - droite;
+    const w = gauche >= droite ? gauche : droite;
+    // « La salle » se pose en haut de la bande gauche (`boutonSalle`) : le
+    // menu commence sous lui, sinon le bouton couvrait sa sortie.
+    const bouton = geo.boutonSalle;
+    const y =
+      bouton && bouton.x < x + w && bouton.x + bouton.w > x ? bouton.y + bouton.h + 4 : haut;
+    return { lieu: "cote", rect: { x, y, w, h: bas - y }, surImage: false };
   }
   const repli = geo.feuille?.agrandie ?? {
     x: 0,

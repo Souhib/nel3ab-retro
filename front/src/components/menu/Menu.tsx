@@ -362,7 +362,7 @@ export function Menu({
         {phrase ? <p className="n3-menu-phrase">{phrase}</p> : null}
       </header>
       {avis ? <div className="n3-menu-avis">{avis}</div> : null}
-      <div role="tablist" aria-label={MENU.nom} className="n3-onglets">
+      <div role="tablist" aria-label={MENU.nom} className="n3-menu-onglets">
         {rubriques.map((r, i) => (
           <button
             key={r.id}
@@ -372,7 +372,7 @@ export function Menu({
             aria-selected={i === rubrique}
             aria-controls="menuPanneau"
             tabIndex={i === rubrique ? 0 : -1}
-            className="n3-onglet rt-halo-boite"
+            className="n3-menu-onglet rt-halo-boite"
             onClick={() => {
               if (i === rubrique) return;
               setRubrique(i);
@@ -396,7 +396,7 @@ export function Menu({
         {fiche?.fiche ? (
           <Fiche ligne={fiche} coche={coche} onCocher={setCoche} onRevenir={fermerFiche} />
         ) : lignes.length === 0 ? (
-          <p className="n3-ligne-aide">{MENU.aucuneLigne}</p>
+          <p className="n3-menu-ligne-aide">{MENU.aucuneLigne}</p>
         ) : (
           enGroupes(lignes).map((bloc) => (
             // Un bloc se nomme par sa première ligne : un groupe peut revenir
@@ -438,12 +438,12 @@ function marques(ligne: Ligne, actif: boolean) {
 
 function Tete({ ligne }: { ligne: Ligne }) {
   return (
-    <span className="n3-ligne-tete">
-      <span data-libelle id={`libelle-${ligne.id}`} className="n3-ligne-libelle">
+    <span className="n3-menu-ligne-tete">
+      <span data-libelle id={`libelle-${ligne.id}`} className="n3-menu-ligne-libelle">
         {ligne.label}
       </span>
       {ligne.value ? (
-        <span data-valeur id={`valeur-${ligne.id}`} className="n3-ligne-valeur">
+        <span data-valeur id={`valeur-${ligne.id}`} className="n3-menu-ligne-valeur">
           {ligne.value}
         </span>
       ) : null}
@@ -453,7 +453,7 @@ function Tete({ ligne }: { ligne: Ligne }) {
 
 function Aide({ ligne }: { ligne: Ligne }) {
   return ligne.hint ? (
-    <span id={`aide-${ligne.id}`} className="n3-ligne-aide">
+    <span id={`aide-${ligne.id}`} className="n3-menu-ligne-aide">
       {ligne.hint}
     </span>
   ) : null;
@@ -477,17 +477,17 @@ function LigneDuMenu({
     const choix = ligne.picks ?? [];
     const premiere = coche === null || !choix.some((c) => c.id === coche);
     return (
-      <fieldset {...marques(ligne, actif)} aria-describedby={aide} className="n3-ligne">
-        <legend className="n3-ligne-tete">
-          <span data-libelle className="n3-ligne-libelle">
+      <fieldset {...marques(ligne, actif)} aria-describedby={aide} className="n3-menu-ligne">
+        <legend className="n3-menu-ligne-tete">
+          <span data-libelle className="n3-menu-ligne-libelle">
             {ligne.label}
           </span>
         </legend>
-        <div className="n3-pastilles">
+        <div className="n3-menu-pastilles">
           {choix.map((c, i) => {
             const coché = c.id === coche;
             return (
-              <label key={c.id} className="n3-pastille">
+              <label key={c.id} className="n3-menu-pastille">
                 <input
                   type="radio"
                   name={`choix-${ligne.id}`}
@@ -498,7 +498,7 @@ function LigneDuMenu({
                   tabIndex={actif && (coché || (premiere && i === 0)) ? 0 : -1}
                   onChange={() => ligne.onPick?.(c.id)}
                 />
-                <span className="n3-pastille-point" aria-hidden="true" />
+                <span className="n3-menu-point" aria-hidden="true" />
                 <span>{c.label}</span>
               </label>
             );
@@ -512,12 +512,12 @@ function LigneDuMenu({
   if (forme === "glissiere" && ligne.slide) {
     const g = ligne.slide;
     return (
-      <div {...marques(ligne, actif)} className="n3-ligne">
-        <label htmlFor={`range-${ligne.id}`} className="n3-ligne-tete">
-          <span data-libelle className="n3-ligne-libelle">
+      <div {...marques(ligne, actif)} className="n3-menu-ligne">
+        <label htmlFor={`range-${ligne.id}`} className="n3-menu-ligne-tete">
+          <span data-libelle className="n3-menu-ligne-libelle">
             {ligne.label}
           </span>
-          <span data-valeur className="n3-ligne-valeur">
+          <span data-valeur className="n3-menu-ligne-valeur">
             {g.say(g.value)}
           </span>
         </label>
@@ -533,7 +533,7 @@ function LigneDuMenu({
           disabled={ligne.disabled}
           tabIndex={actif ? 0 : -1}
           onChange={(event) => g.onSet(Number(event.target.value))}
-          className="n3-glissiere"
+          className="n3-menu-glissiere"
         />
         <Aide ligne={ligne} />
       </div>
@@ -560,7 +560,7 @@ function LigneDuMenu({
       aria-describedby={aide}
       tabIndex={actif ? 0 : -1}
       onClick={activer}
-      className="n3-ligne n3-ligne-bouton"
+      className="n3-menu-ligne n3-menu-ligne-bouton"
     >
       <Tete ligne={ligne} />
       <Aide ligne={ligne} />
@@ -585,16 +585,16 @@ function Fiche({
   const fiche = ligne.fiche;
   if (!fiche) return null;
   return (
-    <div id="fiche" role="group" aria-labelledby="ficheTitre" className="n3-fiche">
+    <div id="fiche" role="group" aria-labelledby="ficheTitre" className="n3-menu-fiche">
       <h3 id="ficheTitre" className="n3-menu-titre">
         {ligne.label}
       </h3>
       {fiche.contenu}
       {fiche.choix ? (
-        <fieldset id="ficheChoix" className="n3-fiche-choix">
+        <fieldset id="ficheChoix" className="n3-menu-fiche-choix">
           <legend className="n3-menu-titre">{FICHE.sauvegarde}</legend>
           {fiche.choix.map((c) => (
-            <label key={c.id} className="n3-pastille n3-fiche-pastille">
+            <label key={c.id} className="n3-menu-pastille n3-menu-fiche-pastille">
               <input
                 type="radio"
                 name="fiche-choix"
@@ -603,24 +603,24 @@ function Fiche({
                 checked={coche === c.id}
                 onChange={() => onCocher(c.id)}
               />
-              <span className="n3-pastille-point" aria-hidden="true" />
+              <span className="n3-menu-point" aria-hidden="true" />
               <span className="flex flex-col">
                 <span>{c.label}</span>
-                {c.hint ? <span className="n3-ligne-aide">{c.hint}</span> : null}
+                {c.hint ? <span className="n3-menu-ligne-aide">{c.hint}</span> : null}
               </span>
             </label>
           ))}
         </fieldset>
       ) : null}
-      <div className="n3-fiche-barre" data-lancer>
-        <p className="n3-fiche-consequence">
+      <div className="n3-menu-fiche-barre" data-lancer>
+        <p className="n3-menu-fiche-consequence">
           <strong>{fiche.consequence}</strong>
         </p>
-        <div className="n3-fiche-boutons">
+        <div className="n3-menu-fiche-boutons">
           <button
             type="button"
             id="ficheAgir"
-            className="rt-boite rt-bouton rt-bouton-plein n3-fiche-agir"
+            className="rt-boite rt-bouton rt-bouton-plein n3-menu-fiche-agir"
             onClick={() => {
               sonMenu("valider");
               fiche.onAgir(fiche.choix ? coche : null);
@@ -632,7 +632,7 @@ function Fiche({
           <button
             type="button"
             id="ficheRevenir"
-            className="rt-boite rt-bouton n3-fiche-revenir"
+            className="rt-boite rt-bouton n3-menu-fiche-revenir"
             onClick={onRevenir}
           >
             <i className="rt-ombre" aria-hidden="true" />

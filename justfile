@@ -930,6 +930,11 @@ parcours-navigateur-rouge:
     etapes=demande-place,signaler-visible
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # 742b011, la page du chantier menus avant B1 : au bureau, la fiche d'un
+    # jeu prenait la place des rangées au lieu de se poser à côté.
+    git show 742b011:core/crates/worker/src/page/index.html > "$dossier/menus-742b011.html"
+    node parcours.mjs --page "$dossier/menus-742b011.html" --flux "$dossier/flux.h264" \
+        --etapes fiche-a-cote --rouge-attendu fiche-a-cote
     # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
     # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
     # dite 90 ms après une arrivée l'efface de la ligne parlée, et l'ancre

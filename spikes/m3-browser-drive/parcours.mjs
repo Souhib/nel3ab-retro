@@ -881,6 +881,79 @@ const ETAPES = {
     await partie.close();
   },
 
+  /** B1 (chantier menus) : au bureau, la fiche d'un jeu s'ouvre À CÔTÉ des
+   * rangées, qui restent visibles et se parcourent ; une autre cartouche
+   * remplace la fiche. Le jumeau : au téléphone, la fiche prend la place
+   * des rangées. Rouge sur la page d'avant, où la fiche les cachait partout. */
+  async "fiche-a-cote"() {
+    const page = await nouvelle(PC, { salle: { jeu: null } });
+    await entrer(page);
+    if (!(await jusqua(() => page.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Precondition("la salle sans jeu ne montre pas ses jeux (#rayonnage absent)");
+    await page.click('#rayonnage [data-jeu="0"]');
+    if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Precondition("la cartouche n'ouvre pas la fiche du jeu");
+    await sleep(300);
+    const mesure = () =>
+      page.evaluate(() => {
+        const boite = (n) => {
+          const r = n?.getBoundingClientRect();
+          return r && r.width > 0 && r.height > 0
+            ? { gauche: r.left, droite: r.right, haut: r.top, bas: r.bottom }
+            : null;
+        };
+        const visible = (n) => {
+          const r = n?.getBoundingClientRect();
+          if (!r || r.width === 0) return false;
+          const ici = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 20));
+          return ici !== null && n.contains(ici);
+        };
+        const autre = document.querySelector('#rayonnage [data-jeu]:not([data-jeu="0"])');
+        return {
+          rangees: boite(document.querySelector(".n3-rayonnage-rangees")),
+          fiche: boite(document.querySelector("#ficheJeu")),
+          cartoucheVue: visible(document.querySelector('#rayonnage [data-jeu="0"]')),
+          ficheVue: visible(document.querySelector("#ficheJeuTitre")),
+          autre: autre?.getAttribute("data-jeu") ?? null,
+          titre: document.querySelector("#ficheJeuTitre")?.textContent ?? "",
+        };
+      });
+    const vu = await mesure();
+    if (!vu.rangees || !vu.cartoucheVue)
+      throw new Defaut("au bureau, la fiche ouverte cache les rangées");
+    if (!vu.fiche || !vu.ficheVue) throw new Defaut("la fiche ouverte n'est pas visible");
+    if (vu.fiche.gauche < vu.rangees.droite - 1)
+      throw new Defaut(
+        `la fiche (${Math.round(vu.fiche.gauche)} px) n'est pas à côté des rangées (bord droit ${Math.round(vu.rangees.droite)} px)`,
+      );
+    // Les rangées se parcourent fiche ouverte, et une autre cartouche la remplace.
+    await page.focus('#rayonnage [data-jeu="0"]');
+    await page.keyboard.press("ArrowRight");
+    const apres = await page.evaluate(() => document.activeElement?.getAttribute("data-jeu") ?? null);
+    if (apres === null || apres === "0")
+      throw new Defaut("fiche ouverte, → ne passe pas à la cartouche suivante");
+    if (!vu.autre) throw new Precondition("le banc n'a qu'un jeu");
+    await page.click(`#rayonnage [data-jeu="${vu.autre}"]`);
+    await sleep(300);
+    const remplace = await mesure();
+    if (remplace.titre === vu.titre)
+      throw new Defaut("une autre cartouche ne remplace pas la fiche ouverte");
+    await capture(page, "fiche-a-cote");
+    await page.close();
+    // Le jumeau : au téléphone, la fiche prend la place des rangées.
+    const tel = await nouvelle(TELEPHONE, { salle: { jeu: null } });
+    await entrer(tel);
+    if (await tel.$("#fermerFeuille")) await tel.click("#fermerFeuille");
+    if (!(await jusqua(() => tel.$("#rayonnage [data-jeu]").then(Boolean), 5000)))
+      throw new Precondition("au téléphone, la salle sans jeu ne montre pas ses jeux");
+    await tel.$eval('#rayonnage [data-jeu="0"]', (b) => b.click());
+    if (!(await jusqua(() => tel.$("#ficheJeu").then(Boolean), 3000)))
+      throw new Precondition("au téléphone, la cartouche n'ouvre pas la fiche");
+    const cachees = await tel.$eval(".n3-rayonnage-rangees", (n) => n.getBoundingClientRect().height === 0);
+    if (!cachees) throw new Defaut("au téléphone, les rangées restent sous la fiche");
+    await tel.close();
+  },
+
   /** B4 : seul dans la salle, la cartouche puis « Lancer », sauvegarde déjà
    * cochée : un seul « begin » part au salon, avec direct. Le jumeau : la
    * cartouche seule n'envoie rien. */
@@ -929,6 +1002,12 @@ const ETAPES = {
     await page.keyboard.press("Enter");
     if (!(await jusqua(() => page.$("#ficheJeu").then(Boolean), 3000)))
       throw new Defaut("Entrée sur une cartouche n'ouvre pas la fiche");
+    // Depuis le 24 novembre 2026 au soir, chaque fiche relit les sauvegardes :
+    // le focus attend sur son titre, puis passe au choix coché à la réponse.
+    await jusqua(
+      () => page.evaluate(() => document.activeElement instanceof HTMLInputElement && document.activeElement.checked),
+      2000,
+    );
     const ouvert = await page.evaluate(() => ({
       etendu: document.querySelector('[data-jeu="2"]')?.getAttribute("aria-expanded"),
       coche: document.activeElement instanceof HTMLInputElement && document.activeElement.checked,

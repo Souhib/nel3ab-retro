@@ -72,7 +72,7 @@ default: local
 # garde ses pages de référence. Même prix de nature (Chrome, la page
 # committée, rien de vivant), mesuré ce jour-là sur cette machine: 43 s et
 # 42 s.
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge salon-navigateur salon-navigateur-rouge
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -114,6 +114,41 @@ planche-garde *args:
 # Le chantier salon le branche dans ses pages.
 ain-salon:
     cd front && npx vite build --config vite.ain-salon.config.ts --logLevel warn
+
+# Le salon dans un vrai Chrome (ADR D41): l'accueil tel que les modules du
+# salon l'assemblent, servi par un banc aux API simulées
+# (`spikes/m3-browser-drive/salon.mjs`, port 5462 par défaut). Aucun salon ne
+# démarre et aucune salle ne s'ouvre (K40). jsdom exécute la même page dans
+# `test_accueil.py`, mais ne voit ni une cible de 31 px, ni une page qui
+# déborde de 37 px à 320 px: les deux défauts que ce pilote a trouvés le
+# 24 novembre 2026.
+salon-navigateur *args:
+    cd spikes/m3-browser-drive && node salon.mjs {{args}}
+
+# Le contrôle négatif de salon-navigateur: chaque étape doit échouer sur son
+# DÉFAUT contre les pages d'un commit plus ancien, assemblées par SES modules
+# (une archive de `control/`, importée sans le paquet installé en mode
+# éditable, d'où `python -S`). a32de82: le salon sans Aïn. 2a98279: Aïn, et
+# l'ancien accueil (en-tête, jauge, deux pleins, départ vers la salle).
+# 84b969f: le nouvel accueil avant les deux corrections du navigateur.
+salon-navigateur-rouge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dossier=$(mktemp -d)
+    trap 'rm -rf "$dossier"' EXIT
+    python="$PWD/control/.venv/bin/python"
+    site=$("$python" -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+    for commit in a32de82 2a98279 84b969f; do
+        mkdir -p "$dossier/$commit"
+        git archive "$commit" control consoles | tar -x -C "$dossier/$commit"
+        (cd "$dossier/$commit/control" && PYTHONPATH="$PWD:$site" "$python" -S -c "import json, sys
+    from nel3ab_control.api.routes import accueil, importer, profil
+    json.dump({'/': accueil.PAGE, '/importer': importer.PAGE, '/profil': profil.PAGE}, sys.stdout)") > "$dossier/$commit.json"
+    done
+    cd spikes/m3-browser-drive
+    node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee
+    node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
 # du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit

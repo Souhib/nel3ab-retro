@@ -1378,6 +1378,33 @@ Weighed: the fiche beside the rows on a desktop (the proposal). Deferred:
 replacing the rows keeps one focus model for every size, and the side
 layout needs the frame's measures.
 
+#### D30 addendum, 2026-11-24 night: the preparation is a block, not a dialog
+
+The multiplayer preparation left the keys dialogs (`Bindings`,
+`SwitchBindings`) for a non-modal block, `#preparation`
+(`components/Preparation.tsx`), for every console.
+
+1. **Where.** Under the column header on a desktop (`Colonne`'s
+   `preparation` prop), and in the expanded sheet of a hand-held room; the
+   band of a hand-held room says who launches which game, and « Choisir ma
+   manette » opens the sheet. The menu open in the column hides the block,
+   like the role block.
+2. **Input.** The block does not hold the game's input: only the keys
+   panel, opened by « Essayer mes touches » (`ouvrirReglage`), blocks
+   gameplay. « Plus tard » and the watching overlay are gone, since nothing
+   needs to be put aside.
+3. **Speech.** The room's spoken line stays the only polite region: a
+   player who becomes ready is said once; the chief's countdown is silent;
+   a refusal is written in the block, said, and plays Aïn's « refus » scene
+   through the arbiter.
+4. **Closing a game** is a state of its menu line and fiche
+   (« fermeture… »), no longer a message in the error notice.
+
+Weighed: a panel replacing the touch pad on a phone (the proposal, P8).
+Deferred: the sheet already carries the column, and the band keeps the pad
+mounted. `Bindings` and `SwitchBindings` are no longer mounted by the room;
+their removal belongs to the controllers workstream.
+
 ### D31: The player-facing vocabulary is a module, and a test holds it, 2026-11-22
 
 The UI audit counted five names for one seat (manette, place, prise, port, P1),

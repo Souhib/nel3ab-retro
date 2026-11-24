@@ -31184,6 +31184,78 @@ chargement en reprend un peu.
 illustrations dans une étiquette 3:1 restent à voir. Au bureau, la fiche
 prend la place des rangées au lieu de se poser à côté. Aucune vraie manette.
 
+### 24 novembre, la nuit : la préparation sort du dialogue
+
+Troisième passage du chantier menus. Quand quelqu'un lance un jeu à
+plusieurs, chacun dit avec quoi il joue, puis « Je suis prêt ». Ce panneau,
+la **préparation**, vivait jusqu'ici dans le dialogue des touches
+(`Bindings` pour les consoles Dolphin, `SwitchBindings` pour la Switch et la
+Xbox 360) : un calque modal qui couvrait l'image, coupait les touches du jeu
+et ne se refermait qu'avec « Plus tard ». Les autres lisaient une pastille
+posée par-dessus, « Préparation de Mario Kart · 1/2 joueurs prêts ».
+
+**Ce qui change.** La préparation est un bloc, `#preparation`, posé sous
+l'en-tête de la colonne au bureau, et dans la feuille agrandie d'une salle
+tenue en main. Le jeu continue, visible, et les touches restent au jeu :
+le pilote le prouve en envoyant une flèche dans la zone de jeu pendant une
+préparation, et le banc la reçoit. Le titre dit qui lance (« Tu prépares le
+prochain jeu », « Bo lance le prochain jeu ») ; la ligne dessous dit la
+console et la sauvegarde, sans sur-titre en capitales. Les appareils se
+choisissent en radios, pas dans une liste. « Essayer mes touches » ouvre le
+réglage du chantier des manettes au lieu de le porter, et c'est le seul
+moment où les touches du jeu sont retenues. Les gestes (« Lancer le jeu »,
+« Je suis prêt », « Garder Mario Party 4 ») forment une rangée de boutons
+de borne collée au bas de ce qui se voit. Qui regarde lit « 1 joueur sur 2
+est prêt. », sans bouton, et la pastille par-dessus disparaît. Au
+téléphone, la bande dit « Bo lance le prochain jeu, Mario Party 4 » et
+« Choisir ma manette » ouvre la feuille où le bloc attend ; la manette à
+l'écran reste montée. Une seule mise en page pour toutes les consoles : la
+préparation Pro n'a plus son propre panneau dans la salle.
+
+**Ce qui se dit.** La ligne parlée de la salle reste la seule région
+polie : « Bo est prêt. » s'y dit une fois, le compte à rebours du chef ne
+parle pas, et un refus du salon s'écrit dans le bloc et s'y dit aussi. Un
+refus fait jouer « refus » à Aïn par l'arbitre, et sonne l'erreur quand les
+sons du menu sont allumés. Une fermeture de jeu acceptée n'est plus écrite
+dans l'avis des erreurs : la ligne « fermer le jeu » dit « fermeture… », et
+sa fiche le dit sous ses boutons en grisant « Fermer le jeu ».
+
+**Un piège du pilote.** Au téléphone, l'aide `entrer` du parcours ouvre la
+feuille de la salle pour lire la place. L'étape de la bande voyait donc le
+bloc dans la feuille et pas la bande, et tombait sur une fausse panne. Elle
+referme la feuille avant de regarder. Et sur la page de `main`, qui n'a pas
+encore de bande, l'étape tombe sur sa précondition : son contrôle rouge
+utilise la page de ce chantier juste avant le changement (ae1725a).
+
+**Un piège du contrôle.** La relecture demandait une étape « aides-fixes »
+qui rougisse sur la page de `main` parce que la ligne choisie y changeait de
+hauteur. Mesuré, ce n'est pas le cas : le menu façon XMB avait des lignes de
+74 px fixes. Son défaut était ailleurs : l'aide ne se montrait que sous la
+ligne choisie, tronquée. L'étape vérifie donc les deux : chaque ligne montre
+son aide entière, et ni les lignes ni leurs écarts ne bougent après huit
+flèches. L'étape « fiche-lancer » n'a aucune page d'avant qui rougisse sur
+son défaut (`main` n'a pas de fiche) : elle a été vue rouge sur un mutant
+sans barre collée, à 1280x720, la barre « Lancer » finissant à 756 px.
+
+**Hors d'App.tsx.** La rubrique Manettes se construit maintenant dans
+`lib/rubriques.ts`, essayée pour chaque console : chaque aide tient sous 70
+caractères. Celle de la manette seule en faisait 107 dans une salle
+GameCube. Elle gagne « toutes les touches du clavier », qui ouvre le réglage
+des manettes sur son onglet Clavier. Chaque onglet du menu porte une icône
+en pixels au niveau qui les montre : une cartouche, ajoutée au jeu du
+socle, pour Jeux, puis la manette, la porte et les curseurs.
+
+**Le poids.** La page passe de 278 750 à 274 395 octets en brotli 11, soit
+4 355 de moins : `Bindings` et la branche de préparation de `SwitchBindings`
+ne sont plus dans le paquet. Leurs fichiers restent, pour l'aperçu des
+touches et leurs essais ; le chantier des manettes les retire.
+
+**Ce qui n'est pas prouvé.** Le bloc n'a été vu qu'au banc : aucune vraie
+préparation à quatre, aucune vraie manette. En paysage sans bande, la
+préparation ne se dit qu'en ouvrant la feuille. Les boutons START ne disent
+pas encore « PRÊT » ou « CHOISIT… » par place (la fonction existe,
+`etatParPlace`, la rangée des places appartient au chantier personnes).
+
 ## 12. Glossaire complet
 
 **Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
@@ -32732,6 +32804,16 @@ posés sur l'écran éteint (`components/Rayonnage.tsx`).
 **90e centile** : la durée sous laquelle tombent neuf démarrages sur dix.
 Au-delà, un démarrage est « plus long que d'habitude » ; la médiane, elle,
 dit la durée ordinaire.
+
+**Préparation (à plusieurs)** : le moment entre « Lancer » et le
+démarrage d'un jeu à plusieurs, où chacun dit avec quel appareil il joue
+puis « Je suis prêt ». Depuis le 24 novembre dans la nuit, c'est un bloc de
+la colonne, plus un dialogue.
+
+**Rangée collée** : une rangée de boutons qui reste au bas de ce qui se
+voit quand le reste défile (`position: sticky` en CSS). Ce qui défile passe
+dessous : un bouton posé au-dessus d'elle peut se retrouver caché, d'où les
+gestes rangés dans la rangée elle-même.
 
 **Fondu par paliers** : une apparition en quatre marches d'opacité en
 120 ms, au lieu d'un fondu continu, comme sur une console d'époque. C'est la

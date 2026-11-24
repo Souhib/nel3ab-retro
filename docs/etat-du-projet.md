@@ -456,6 +456,36 @@ l'étiquette de la scène `depart` posée sur « 2P libre », parce que l'ancre
 « 24 novembre, après la relecture des manettes : la vague B1 sur la
 branche d'intégration ».
 
+**Au 24 novembre, la nuit : le chantier menus, troisième passage.** Sur
+la même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
+
+- **La préparation en bloc** (`components/Preparation.tsx`,
+  `preparation.css`) : `#preparation` sous l'en-tête de la colonne et dans
+  la feuille agrandie, pour toutes les consoles ; le jeu continue et garde
+  ses touches ; titre de qui lance, ligne du jeu, radios, « Essayer mes
+  touches » vers le réglage des manettes, rangée de gestes collée,
+  « Garder X » ; qui regarde lit le compte. La salle ne monte plus
+  `Bindings` ni `SwitchBindings` ; « Plus tard » et la pastille
+  « Préparation de … » sont partis. Au téléphone, la bande dit la
+  préparation et « Choisir ma manette » ouvre la feuille.
+- **Ce qui se dit** : « Bo est prêt. » une fois dans la ligne parlée ; un
+  refus écrit dans le bloc, dit, et joué par Aïn (« refus ») ; une
+  fermeture de jeu acceptée est l'état de sa ligne et de sa fiche.
+- **La rubrique Manettes** construite hors d'`App.tsx` (`lib/rubriques.ts`),
+  aides sous 70 caractères pour chaque console, et « toutes les touches du
+  clavier ». Une icône en pixels par onglet du menu.
+- **Les pilotes** : parcours (`preparation-gamecube`, `preparation-wii`,
+  `preparation-x360`, `preparation-telephone`), focus (`fermeture-en-cours`,
+  `aides-fixes`, `mouvement-menu`, `fiche-lancer`, `refus-dans-le-bloc`
+  avec un vrai refus du banc), salle-telephone mesure le bloc.
+
+Page : 274 395 octets en brotli 11 (4 355 de moins). Récit : « 24 novembre,
+la nuit : la préparation sort du dialogue ». Reste au chantier : l'état
+PRÊT ou CHOISIT… sur les boutons START (avec le chantier personnes), les
+étapes du chargement en cases de pixels et ses actions par rôle, « Signaler »
+et « [Nour] choisit le jeu. » dans la rubrique Salle, la fiche à côté des
+rangées au bureau, les étapes `garde-focus` et `pastilles`.
+
 **Au 24 novembre, le soir : le chantier menus, deuxième passage.** Sur la
 même branche, rien dans `main`, rien de poussé ni d'installé. Livré :
 

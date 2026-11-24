@@ -510,3 +510,26 @@ describe("la panne finie, sa pose s'efface", () => {
     expect(visibles()).toEqual(["bulle"]);
   });
 });
+
+describe("le crochet des pilotes", () => {
+  const crochet = () => (globalThis as { nel3abAin?: { jouer?: unknown } }).nel3abAin;
+  afterEach(() => {
+    delete (globalThis as { nel3abAin?: unknown }).nel3abAin;
+    delete (navigator as { webdriver?: boolean }).webdriver;
+  });
+
+  it("n'existe que dans un navigateur piloté : il joue sans l'arbitre de la salle", async () => {
+    // Un visiteur ordinaire : aucun moyen de jouer une scène par-dessus une
+    // panne depuis la console (relecture du 24 novembre 2026).
+    delete (globalThis as { nel3abAin?: unknown }).nel3abAin;
+    Object.defineProperty(navigator, "webdriver", { value: false, configurable: true });
+    vi.resetModules();
+    await import("./index");
+    expect(crochet()?.jouer).toBeUndefined();
+    // Le jumeau : Chrome piloté par un pilote (`navigator.webdriver`).
+    Object.defineProperty(navigator, "webdriver", { value: true, configurable: true });
+    vi.resetModules();
+    await import("./index");
+    expect(typeof crochet()?.jouer).toBe("function");
+  });
+});

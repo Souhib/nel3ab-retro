@@ -133,11 +133,14 @@ export const sceneEnCours = (hote: HTMLElement): Scene | null => enCours.get(hot
  * Pour les pilotes du navigateur (`cadre.mjs`, étape « mascotte-hors-image ») :
  * joue une scène, version complète, sur l'hôte `ou` de la page
  * (`data-hote`), sans passer par l'arbitre. Rend la version jouée, ou
- * « sans-hote ». Rien d'autre n'est exposé.
+ * « sans-hote ». Seulement dans un navigateur piloté (`navigator.webdriver`,
+ * vrai sous Puppeteer) : il contourne l'arbitre de la salle, et un visiteur
+ * n'a pas à jouer une scène par-dessus une panne depuis la console.
  */
-(globalThis as Record<string, unknown>).nel3abAin = {
-  jouer(scene: Scene, ou: string, contexte?: Contexte) {
-    const hote = document.querySelector<HTMLElement>(`[data-hote="${ou}"]`);
-    return hote ? jouer(scene, { hote, version: "complete", contexte }).version : "sans-hote";
-  },
-};
+if (globalThis.navigator?.webdriver === true)
+  (globalThis as Record<string, unknown>).nel3abAin = {
+    jouer(scene: Scene, ou: string, contexte?: Contexte) {
+      const hote = document.querySelector<HTMLElement>(`[data-hote="${ou}"]`);
+      return hote ? jouer(scene, { hote, version: "complete", contexte }).version : "sans-hote";
+    },
+  };

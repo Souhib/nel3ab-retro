@@ -1,6 +1,6 @@
 // Exécute la VRAIE page d'accueil servie par le salon dans jsdom, tour après tour.
 //
-// Reçoit sur son entrée `{ page, tours, adresse?, post?, cliquer?, moi?, droits? }`:
+// Reçoit sur son entrée `{ page, tours, adresse?, post?, cliquer?, moi?, droits?, focus? }`:
 //
 // - `page`: le HTML que le salon sert, paquet du salon compris;
 // - `tours`: la réponse de `/api/salles` à chaque tour de sondage. Une liste
@@ -12,7 +12,9 @@
 // - `cliquer`: `{ apres: i, cible: "#ouvrir" }` clique une cible après le
 //   tour `i`; la réponse du POST est `post` (`{ statut, corps }`), et le POST
 //   prend le tour suivant de `tours` pour son relevé;
-// - `moi`, `droits`: les réponses de `/api/me` et `/api/imports/droits`.
+// - `moi`, `droits`: les réponses de `/api/me` et `/api/imports/droits`;
+// - `focus`: un sélecteur, focalisé et marqué d'un témoin après le premier
+//   dessin; chaque vue dit qui tient le focus (`actif`).
 //
 // Rend, pour chaque tour suivant le premier, ce qu'un observateur a vu
 // changer dans la rangée, ce que la ligne d'annonce dit, et la vue entière
@@ -127,6 +129,13 @@ function vue() {
     jauge: document.querySelector(".jauge") !== null,
     horlogePerdue: document.getElementById("horloge").dataset.perdue ?? null,
     retour: { cache: cache(document.getElementById("retour")), texte: texte(document.getElementById("retour-mot")) },
+    // Ce qui tient le focus du clavier: le témoin dit si c'est le NŒUD que
+    // `focus` a focalisé, et pas un nœud refait au même nom.
+    actif: (() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return null;
+      return { temoin: el.dataset?.temoin === "oui", nom: el.getAttribute("aria-label"), lien: el.getAttribute("href") };
+    })(),
     adresse: window.location.pathname + window.location.search,
     bornes: [...liste.querySelectorAll("article.salle")].map((art) => ({
       salle: art.dataset.salle,
@@ -164,6 +173,14 @@ const decrire = (r) => ({
   cible: String(r.target.className || r.target.parentElement?.className || r.target.nodeName),
   attribut: r.attributeName,
 });
+if (entree.focus) {
+  // Le focus du clavier posé après le premier dessin, sur un nœud marqué.
+  const cible = document.querySelector(entree.focus);
+  if (!cible) throw new Error(`rien à focaliser: ${entree.focus}`);
+  cible.dataset.temoin = "oui";
+  cible.focus();
+  if (document.activeElement !== cible) throw new Error(`le focus ne se pose pas sur ${entree.focus}`);
+}
 const rendus = [{ mutations: [], annonce: annonce.textContent, vue: vue() }];
 for (let tour = 1; tour <= tours.length; tour += 1) {
   if (entree.cliquer?.apres === tour - 1) {

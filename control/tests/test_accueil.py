@@ -449,6 +449,43 @@ async def test_une_place_qui_se_remplit_sous_les_yeux_s_allume_une_fois(
 
 
 @AVEC_JSDOM
+async def test_une_place_libre_garde_son_lien_et_le_focus_quand_une_autre_se_remplit(
+    client: httpx.AsyncClient,
+) -> None:
+    """Le focus du clavier reste sur « Prendre la place 4 » quand Lou prend la 2.
+
+    La place conseillée passe aussi de 2 à 3. `remplirStarts` refaisait les
+    quatre START d'une borne à chaque changement: le lien focalisé était
+    remplacé par un lien neuf au même nom, et le focus tombait sur le corps de
+    la page (relecture du 24 novembre 2026). Le témoin marque le NŒUD.
+    """
+    avant = _trois(ouverte(1, ["sami", None, None, None]))
+    apres = _trois(ouverte(1, ["sami", "lou", None, None]))
+    focus = 'a.start[data-place="4"]'
+    dit = await _jouer(client, [avant, apres, apres], focus=focus)
+    pose, change, reste = dit["rendus"]
+
+    assert pose["vue"]["actif"] == {
+        "temoin": True,
+        "nom": "Prendre la place 4 de la salle 1",
+        "lien": "/r/1/?entrer=jouer&place=4",
+    }
+    # La précondition: le relevé a bien été dessiné (Lou assise, le plein à 3).
+    starts = change["vue"]["bornes"][0]["starts"]
+    assert [s["etiquette"] for s in starts] == ["sami", "lou", None, None]
+    assert [s["plein"] for s in starts] == [False, False, True, False]
+    assert change["vue"]["actif"] == pose["vue"]["actif"]
+    assert reste["vue"]["actif"] == pose["vue"]["actif"]
+
+    # Le jumeau: la place focalisée elle-même est prise; son lien n'existe
+    # plus, et le focus ne reste pas sur un nœud sorti de la page.
+    pris = _trois(ouverte(1, ["sami", None, None, "lou"]))
+    dit = await _jouer(client, [avant, pris], focus=focus)
+    assert dit["rendus"][-1]["vue"]["bornes"][0]["starts"][3]["lien"] is None
+    assert dit["rendus"][-1]["vue"]["actif"] is None
+
+
+@AVEC_JSDOM
 async def test_le_retour_d_une_salle_dit_laquelle_et_pourquoi(client: httpx.AsyncClient) -> None:
     """K39: Caddy renvoie `/?salle=fermee&n=N`; la page dit ce qui est arrivé à N.
 

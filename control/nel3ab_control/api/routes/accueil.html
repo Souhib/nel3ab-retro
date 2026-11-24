@@ -380,8 +380,14 @@
 
   /** Les quatre START d'une borne. Une place prise porte l'étiquette de son
    * joueur et s'allume à sa couleur; une place libre est un lien qui la
-   * prend; la place conseillée est le seul bouton plein. Refaits seulement
-   * quand quelque chose change. */
+   * prend; la place conseillée est le seul bouton plein. Mis à jour sur
+   * place, port par port, et seulement quand quelque chose change: une place
+   * qui reste libre garde son lien, et avec lui le focus du clavier. Les
+   * refaire tous les quatre faisait tomber ce focus sur le corps de la page
+   * dès qu'une AUTRE place se remplissait (relecture du 24 novembre 2026,
+   * `test_accueil.py` et l'étape start-focus de `salon.mjs`). Seule une
+   * place qui passe de libre à prise, ou l'inverse, change de nœud: un lien
+   * devient une étiquette. */
   function remplirStarts(ol, salle, places, conseil) {
     const plein = conseil?.salle.numero === salle.numero ? conseil.port : 0;
     const cle = JSON.stringify([places, salle.chemin, plein]);
@@ -389,39 +395,56 @@
     const avant = ol.dataset.noms ? JSON.parse(ol.dataset.noms) : null;
     ol.dataset.cle = cle;
     ol.dataset.noms = JSON.stringify(places ? places.map((p) => p.nom) : null);
-    ol.replaceChildren();
     for (const port of [1, 2, 3, 4]) {
       const place = places?.[port - 1] ?? null;
       const libre = place?.libre === true;
-      const cible = libre ? element("a", "start") : element("span", "start");
-      cible.dataset.place = String(port);
-      const rond = element("span", "rt-bouton-start", `${port}P`);
-      rond.setAttribute("aria-hidden", "true");
-      if (place && !libre) rond.style.setProperty("--rt-joueur", `var(--p${port})`);
-      else rond.dataset.libre = "";
-      cible.append(rond);
+      let li = ol.children[port - 1];
+      if (!li) { li = element("li"); ol.append(li); }
+      let cible = li.firstElementChild;
+      if (!cible || cible.tagName !== (libre ? "A" : "SPAN")) {
+        cible = element(libre ? "a" : "span", "start");
+        cible.dataset.place = String(port);
+        const rond = element("span", "rt-bouton-start", `${port}P`);
+        rond.setAttribute("aria-hidden", "true");
+        cible.append(rond);
+        li.replaceChildren(cible);
+      }
+      const rond = cible.firstElementChild;
+      if (place && !libre) {
+        rond.style.setProperty("--rt-joueur", `var(--p${port})`);
+        poser(rond, "data-libre", null);
+      } else {
+        rond.style.removeProperty("--rt-joueur");
+        poser(rond, "data-libre", "");
+      }
+      // Le second enfant: le mot d'une place libre, l'étiquette d'une prise.
+      const second = cible.children[1] ?? null;
       if (libre) {
-        cible.href = lienPlace(salle, port);
-        cible.append(element("span", "start-mot",
-          plein === port ? mots("accueil.prendreLaPlace", { place: port }) : mots("accueil.prendre")));
-        cible.setAttribute("aria-label", mots("accueil.prendreLaPlaceDe", { place: port, n: salle.numero }));
-        if (plein === port) { cible.dataset.plein = ""; cible.dataset.ancre = "place-libre"; }
+        poser(cible, "href", lienPlace(salle, port));
+        const dit = plein === port ? mots("accueil.prendreLaPlace", { place: port }) : mots("accueil.prendre");
+        if (second) ecrire(second, dit);
+        else cible.append(element("span", "start-mot", dit));
+        poser(cible, "aria-label", mots("accueil.prendreLaPlaceDe", { place: port, n: salle.numero }));
+        poser(cible, "data-plein", plein === port ? "" : null);
+        poser(cible, "data-ancre", plein === port ? "place-libre" : null);
       } else if (place) {
-        cible.append(etiquette(place.nom, port));
-        cible.setAttribute("aria-label", mots("accueil.placeDe", { place: port, nom: place.nom }));
+        if (second?.textContent !== place.nom) {
+          if (second) second.replaceWith(etiquette(place.nom, port));
+          else cible.append(etiquette(place.nom, port));
+        }
+        poser(cible, "aria-label", mots("accueil.placeDe", { place: port, nom: place.nom }));
         // Une place qui se remplit SOUS les yeux s'allume une fois (effet
         // « arrive »); une page qui s'ouvre sur une salle pleine ne bouge pas.
         if (avant && avant[port - 1] === null) {
           cible.dataset.arrive = "";
           cible.dataset.joue = "";
           setTimeout(() => cible.removeAttribute("data-joue"), 1300);
-        }
+        } else poser(cible, "data-arrive", null);
       } else {
-        cible.setAttribute("aria-label", mots("accueil.placeInconnue", { place: port }));
+        second?.remove();
+        poser(cible, "aria-label", mots("accueil.placeInconnue", { place: port }));
+        poser(cible, "data-arrive", null);
       }
-      const li = element("li");
-      li.append(cible);
-      ol.append(li);
     }
   }
 

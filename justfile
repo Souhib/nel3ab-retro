@@ -1101,6 +1101,16 @@ cadre-navigateur-rouge port="5478":
     etapes=temps-de-jeu,etiquette-manette,feuille-curseur
     node cadre.mjs --port {{port}} --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
+    # Huitième bloc (relecture de la suite de la salle, 24 novembre 2026):
+    # la page de 9038256 pose ton étiquette tenue droite, mais en travers ni
+    # la variante « tete » ni un panneau à lampes ne montrent ta place
+    # (568×320, 667×375 et 740×360 en GameCube, 932×430 en Xbox 360), et la
+    # phrase des places, que plus rien ne cachait, pousse « 2P » sur ton nom
+    # à 390×844 et 360×740. Ce commit ne vit que sur la branche du chantier:
+    # sa page est gardée dans `rouges/`, avec son empreinte.
+    etapes=etiquette-manette,etiquette-travers
+    node cadre.mjs --port {{port}} --page "$rouges/salle-9038256.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
 # ==== fin salle ====
 
 # ==== manettes ====

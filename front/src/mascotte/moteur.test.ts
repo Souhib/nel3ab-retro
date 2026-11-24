@@ -378,6 +378,52 @@ describe("le décor lu dans la page", () => {
     expect(d.zones().map((z) => z.nom)).toEqual(["texte"]);
   });
 
+  it("ce qui défile sous le pied collé de la colonne ne gêne pas ; sa part visible, si", () => {
+    document.body.innerHTML = `
+      <div data-cadre data-sans-image="oui">
+        <aside id="side">
+          <button id="dessous">Tes touches</button>
+          <button id="moitie">Autres réglages</button>
+          <button id="dessus">Menu</button>
+          <div id="pied" style="position: sticky">
+            <div data-hote="coin"><canvas id="logo"></canvas></div></div>
+        </aside>
+      </div>`;
+    rects.set(document.getElementById("pied") as Element, ancre(1000, 740, 304, 161));
+    rects.set(document.getElementById("logo") as Element, ancre(1040, 830, 228, 62));
+    rects.set(document.getElementById("dessous") as Element, ancre(1012, 800, 280, 40));
+    rects.set(document.getElementById("moitie") as Element, ancre(1012, 720, 280, 40));
+    rects.set(document.getElementById("dessus") as Element, ancre(1012, 600, 280, 40));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        const a = rects.get(this) ?? ancre(0, 0, 0, 0);
+        return {
+          left: a.x,
+          top: a.y,
+          width: a.w,
+          height: a.h,
+          right: a.droite,
+          bottom: a.bas,
+          x: a.x,
+          y: a.y,
+          toJSON: () => a,
+        } as DOMRect;
+      },
+    );
+    const racine = document.querySelector("[data-cadre]") as Element;
+    const zones = lireDecor(racine, document.getElementById("logo") as Element).zones();
+    expect(zones.map((z) => z.qui)).toEqual(["#moitie", "#dessus"]);
+    // De « Autres réglages », seule la part au-dessus du pied gêne.
+    expect(zones[0].b[3]).toBeCloseTo(740 + MARGE_PX / 2 + 0.3);
+    // Le jumeau : sans pied collé, les trois gênent.
+    (document.getElementById("pied") as HTMLElement).style.position = "static";
+    expect(
+      lireDecor(racine, document.getElementById("logo") as Element)
+        .zones()
+        .map((z) => z.qui),
+    ).toEqual(["#dessous", "#moitie", "#dessus"]);
+  });
+
   it("sans image, un bouton posé dans la zone de jeu (l'écran éteint) est un obstacle", () => {
     document.body.innerHTML = `
       <div data-cadre data-sans-image="oui">

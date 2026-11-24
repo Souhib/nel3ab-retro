@@ -158,6 +158,34 @@ export function imageDe(racine: ParentNode): Ancre | null {
   return rectVisible(toile ?? zone);
 }
 
+/** L'abri de la maison : son ancêtre collé (`sticky`) ou fixe, comme le
+ * pied de la colonne du bureau, qui passe devant ce qui défile. */
+function abriDe(logo: Element, racine: ParentNode): Element | null {
+  for (let a = logo.parentElement; a && a !== racine; a = a.parentElement) {
+    const p = getComputedStyle(a).position;
+    if (p === "sticky" || p === "fixed") return a;
+  }
+  return null;
+}
+
+/**
+ * Ce qui se voit d'un élément qui défile sous l'abri de la maison : la part
+ * au-dessus (ou au-dessous) de l'abri, ou rien s'il est dessous en entier.
+ * Le pied collé de la colonne est opaque : un bouton passé dessous ne se
+ * voit pas, et Aïn, qui joue devant ce pied, ne le couvre pas. Sans cette
+ * coupe, les rangs cachés sous le coin interdisaient toute scène au logo
+ * (cadre-navigateur, 24 novembre 2026).
+ */
+function horsDeLAbri(r: Ancre, el: Element, abri: Element | null): Ancre | null {
+  if (!abri || abri.contains(el)) return r;
+  const a = rectVisible(abri);
+  if (!a || r.x < a.x - 0.5 || r.droite > a.droite + 0.5) return r;
+  if (r.bas <= a.y || r.y >= a.bas) return r;
+  if (r.y >= a.y && r.bas <= a.bas) return null;
+  if (r.y < a.y) return enAncre({ left: r.x, top: r.y, width: r.w, height: a.y - r.y });
+  return enAncre({ left: r.x, top: a.bas, width: r.w, height: r.bas - a.bas });
+}
+
 /**
  * Le décor d'une page, lu dans le DOM sous `racine`. `logo` est l'élément
  * qui porte Aïn quand il est chez lui (le logo, ou la tête dans la barre,
@@ -204,6 +232,11 @@ export function lireDecor(
       const res: Zone[] = [];
       const img = imageDe(racine);
       if (img) res.push({ nom: "image", b: elargir(img, MARGE) });
+      const abri = abriDe(logo, racine);
+      const visible = (el: Element) => {
+        const r = rectVisible(el);
+        return r ? horsDeLAbri(r, el, abri) : null;
+      };
       for (const el of tous(CONTROLES)) {
         // Ce qui est posé dans la zone de jeu compte aussi : sans image, le
         // « Choisir un jeu » de l'écran éteint y vit, et le planificateur
@@ -211,7 +244,7 @@ export function lireDecor(
         // elle-même n'est pas un contrôle : son image est la zone « image ».
         if (el.matches("[data-zone-jeu]") || el.closest("[data-ancre], [data-sol], [data-hote]"))
           continue;
-        const r = rectVisible(el);
+        const r = visible(el);
         const nom = el.getAttribute("data-interdit") === "ligne" ? "ligne" : "controle";
         if (r)
           res.push({
@@ -221,7 +254,7 @@ export function lireDecor(
           });
       }
       for (const el of tous("[data-texte]")) {
-        const r = rectVisible(el);
+        const r = visible(el);
         if (r) res.push({ nom: "texte", b: elargir(r, MARGE / 2) });
       }
       return res;

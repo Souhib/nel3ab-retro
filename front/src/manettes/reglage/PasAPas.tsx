@@ -2,11 +2,65 @@
  * deux trames (Dolphin et Pro). Rien ici ne lit une manette : chaque trame
  * passe ses mots et ses gestes, et la machine d'étapes reste dans
  * `media/lesson` (`Pas`). */
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { effetActif, mouvementReduit } from "../../lib/effets";
 import { REGLAGE } from "../../lib/mots";
 import { ecrireChiffres, poserAfficheur } from "../../retro/chiffres";
 import { annoncerLettres } from "../../retro/lettres";
+
+/** Le focus est tombé sur le document. */
+function focusPerdu(): boolean {
+  const actif = document.activeElement;
+  return !actif || actif === document.body;
+}
+
+/** Le focus est tombé, ou il est dans le panneau. Un focus que la personne a
+ * posé ailleurs (la zone de jeu) n'est jamais repris. */
+function focusAuPanneau(): boolean {
+  return focusPerdu() || document.activeElement?.closest("[data-reglage]") !== null;
+}
+
+/** Ce qui reprend le focus quand l'invite ou une étape s'en va : la reprise
+ * d'un pas à pas suspendu, la première commande passée, sinon « Régler pas à
+ * pas ». Le premier présent et actif gagne. */
+const SUITES = ["reprendreLecon", "reglerPassee", "learnPad"] as const;
+
+/**
+ * Rend le focus au panneau quand ce bloc part en le tenant.
+ *
+ * « Régler pas à pas », « Commencer » et « Passer » à la dernière étape
+ * disparaissent à leur propre clic. Le focus tombait alors sur le document,
+ * où ni l'Échap du panneau (`Reglage.tsx`) ni un lecteur d'écran ne le
+ * retrouvent (relecture du 24 novembre 2026). La suite se cherche à l'image
+ * d'après : elle n'existe qu'une fois le rendu qui retire ce bloc posé. Si
+ * d'ici là un autre bloc a pris le focus (le titre de l'étape qui commence),
+ * il le garde.
+ */
+function useFocusRendu(bloc: RefObject<HTMLElement | null>): void {
+  useLayoutEffect(() => {
+    const el = bloc.current;
+    const panneau = el?.closest<HTMLElement>("[data-reglage]") ?? null;
+    // Le nettoyage d'un effet de mise en page passe avant le retrait du
+    // bloc : il sait encore s'il tenait le focus.
+    return () => {
+      if (!el?.contains(document.activeElement)) return;
+      requestAnimationFrame(() => {
+        if (!focusPerdu()) return;
+        const suite = SUITES.map((id) => document.getElementById(id)).find(
+          (b): b is HTMLButtonElement => b instanceof HTMLButtonElement && !b.disabled,
+        );
+        (suite ?? panneau)?.focus();
+      });
+    };
+  }, [bloc]);
+}
 
 /** Un bouton du panneau : la boîte en escalier du socle, plein ou non. */
 export function Bouton({
@@ -80,9 +134,18 @@ export function PasAPas({
   onPasser: () => void;
   onArreter: () => void;
 }) {
+  const bloc = useRef<HTMLElement>(null);
+  const titre = useRef<HTMLHeadingElement>(null);
+  useFocusRendu(bloc);
+  // Le pas à pas commence par « Commencer » ou « Reprendre », qui viennent de
+  // disparaître : le focus va au titre de l'étape, que le lecteur d'écran lit,
+  // et pas à « Passer », qu'une Entrée de trop déclencherait.
+  useEffect(() => {
+    if (focusAuPanneau()) titre.current?.focus();
+  }, []);
   return (
-    <section className="n3-pas" aria-labelledby="pasTitre" data-pas-a-pas="">
-      <h3 id="pasTitre" className="n3-pas-titre">
+    <section ref={bloc} className="n3-pas" aria-labelledby="pasTitre" data-pas-a-pas="">
+      <h3 ref={titre} id="pasTitre" className="n3-pas-titre" tabIndex={-1}>
         <span className="sr-only">{REGLAGE.etape(etape, total)}</span>
         <span aria-hidden="true">{REGLAGE.etapeCourte}</span>
         <Compteur etape={etape} total={total} />
@@ -109,7 +172,10 @@ export function PasAPas({
 }
 
 /** Avant la première étape : lâcher la manette, puis commencer. Le repos est
- * pris au clic sur « Commencer » (`InputState.neutre`). */
+ * pris au clic sur « Commencer » (`InputState.neutre`).
+ *
+ * L'invite est ce qui est en cours : Échap l'annule elle seule et rend le
+ * focus à « Régler pas à pas », un second Échap ferme le panneau. */
 export function AvantLePas({
   onCommencer,
   onAnnuler,
@@ -117,8 +183,24 @@ export function AvantLePas({
   onCommencer: () => void;
   onAnnuler: () => void;
 }) {
+  const bloc = useRef<HTMLDivElement>(null);
+  useFocusRendu(bloc);
+  // « Régler pas à pas » vient de disparaître à son propre clic.
+  useEffect(() => {
+    if (focusAuPanneau()) document.getElementById("commencerLecon")?.focus();
+  }, []);
   return (
-    <div className="n3-reglage-avis" role="status">
+    <div
+      ref={bloc}
+      className="n3-reglage-avis"
+      role="status"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onAnnuler();
+      }}
+    >
       <p>{REGLAGE.repos}</p>
       <div className="n3-reglage-gestes">
         <Bouton plein id="commencerLecon" onClick={onCommencer}>

@@ -7,7 +7,7 @@
  * en cours, puis ferme. Le conteneur prend le focus (`tabIndex` -1) : un clic
  * sur un texte du panneau le garde dans le panneau, et les flèches qui
  * suivent ne partent pas au jeu (C12). */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { Hote } from "../../lib/cadre";
 import { REGLAGE } from "../../lib/mots";
 import { identify } from "../../media/families";
@@ -129,6 +129,10 @@ export function Reglage({
   bande = null,
 }: ReglageProps) {
   const racine = useRef<HTMLElement>(null);
+  // Échap qui arrête un pas à pas Pro relit le panneau aussitôt : la trame
+  // change sans le rendre, et la suite du focus doit exister à l'image
+  // d'après.
+  const [, relire] = useReducer((n: number) => n + 1, 0);
   usePro(trame.genre === "pro" ? trame : null);
   useFier(trame, vit, hote);
   const occupe = occupeDe(trame);
@@ -176,8 +180,11 @@ export function Reglage({
         if (event.key !== "Escape") return;
         event.preventDefault();
         event.stopPropagation();
-        if (!occupe) return onFermer();
+        // Lu au moment de la touche : la trame Pro change sans rendre le
+        // panneau, qui ne se relit que deux fois par seconde (`usePro`).
+        if (!occupeDe(trame)) return onFermer();
         const retour = annuler(trame);
+        relire();
         requestAnimationFrame(() => (document.getElementById(retour) ?? racine.current)?.focus());
       }}
     >
@@ -186,7 +193,7 @@ export function Reglage({
         <Bouton
           id="fermerReglage"
           onClick={() => {
-            if (occupe) annuler(trame);
+            if (occupeDe(trame)) annuler(trame);
             onFermer();
           }}
         >

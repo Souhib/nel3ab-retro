@@ -218,6 +218,132 @@ describe("Échap", () => {
   });
 });
 
+// La relecture du 24 novembre 2026 : « Régler pas à pas » et « Commencer »
+// disparaissent à leur propre clic, et le focus tombait sur le document. Ni
+// l'Échap du panneau ni un lecteur d'écran ne le retrouvaient : l'invite ne se
+// fermait pas, et un pas à pas arrêté laissait le panneau ouvert à Échap.
+describe("le focus du pas à pas", () => {
+  const dans = () => document.activeElement?.closest("[data-reglage]") ?? null;
+  const bouton = (nom: string) => screen.getByRole("button", { name: nom });
+  const LECON = { control: "A" as const, step: 1, total: 16, waiting: false };
+
+  it("suit chaque geste, et Échap remonte d'un cran à la fois jusqu'à fermer", async () => {
+    const { input, onFermer, poser } = monterDolphin({ state: etat(XBOX) });
+    bouton("Régler pas à pas").focus();
+    fireEvent.click(bouton("Régler pas à pas"));
+    await act(image);
+    expect(document.activeElement).toBe(bouton("Commencer"));
+    // Échap annule l'invite seule, et rend le focus à « Régler pas à pas ».
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await act(image);
+    expect(screen.queryByRole("button", { name: "Commencer" })).toBeNull();
+    expect(onFermer).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(bouton("Régler pas à pas"));
+    fireEvent.click(bouton("Régler pas à pas"));
+    await act(image);
+    fireEvent.click(bouton("Commencer"));
+    expect(input.beginLesson).toHaveBeenCalledTimes(1);
+    poser(etat({ ...XBOX, lesson: LECON }));
+    await act(image);
+    expect(document.activeElement?.closest("[data-pas-a-pas]")).not.toBeNull();
+    // Échap arrête le pas à pas ; la salle relit l'instantané sans leçon.
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(input.cancelCapture).toHaveBeenCalledTimes(1);
+    poser(etat(XBOX));
+    await act(image);
+    expect(document.activeElement).toBe(bouton("Régler pas à pas"));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onFermer).toHaveBeenCalledTimes(1);
+  });
+
+  it("à la fin, va à la première commande passée", async () => {
+    const { poser } = monterDolphin({ state: etat({ ...XBOX, lesson: LECON }) });
+    bouton("Passer cette commande").focus();
+    poser(etat({ ...XBOX, lessonResult: { retenues: 15, passees: ["B"], garde: "avant" } }));
+    await act(image);
+    expect(document.activeElement).toBe(bouton("Régler B dans la liste"));
+  });
+
+  it("à la fin sans commande passée, va à « Régler pas à pas »", async () => {
+    const { poser } = monterDolphin({ state: etat({ ...XBOX, lesson: LECON }) });
+    bouton("Passer cette commande").focus();
+    poser(etat({ ...XBOX, lessonResult: { retenues: 16, passees: [], garde: "avant" } }));
+    await act(image);
+    expect(dans()).not.toBeNull();
+    expect(document.activeElement).toBe(bouton("Régler pas à pas"));
+  });
+
+  it("un débranchement mène à « Reprendre »", async () => {
+    const { poser } = monterDolphin({ state: etat({ ...XBOX, lesson: LECON }) });
+    bouton("Passer cette commande").focus();
+    poser(etat({ ...XBOX, suspendu: { etape: 4, total: 16, id: XBOX.padId } }));
+    await act(image);
+    expect(document.activeElement).toBe(bouton("Reprendre à l'étape 4"));
+  });
+
+  it("ne reprend jamais un focus posé hors du panneau", async () => {
+    const { poser } = monterDolphin({ state: etat({ ...XBOX, lesson: LECON }) });
+    const dehors = document.createElement("button");
+    document.body.append(dehors);
+    dehors.focus();
+    poser(etat({ ...XBOX, lessonResult: { retenues: 16, passees: [], garde: "avant" } }));
+    await act(image);
+    expect(document.activeElement).toBe(dehors);
+    // Ni une étape qui commence.
+    poser(etat({ ...XBOX, lesson: LECON }));
+    await act(image);
+    expect(document.activeElement).toBe(dehors);
+    dehors.remove();
+  });
+
+  it("vaut aussi pour la trame Pro", async () => {
+    const source = new SwitchInput();
+    const pad = {
+      id: "Xbox Wireless Controller",
+      index: 0,
+      connected: true,
+      mapping: "standard",
+      axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, () => ({ value: 0, pressed: false, touched: false })),
+    } as unknown as Gamepad;
+    source.poll(new Set(), [pad]);
+    const onFermer = vi.fn();
+    const trame: TramePro = {
+      genre: "pro",
+      console: "Switch",
+      xbox: false,
+      manette: "manette Pro",
+      source,
+      input: { switchActive: () => true, surReglage: () => rien },
+      place: 1,
+    };
+    render(
+      <Reglage
+        onglet="manette"
+        onOnglet={rien}
+        onFermer={onFermer}
+        autres={false}
+        vit
+        trame={trame}
+      />,
+    );
+    bouton("Régler pas à pas").focus();
+    fireEvent.click(bouton("Régler pas à pas"));
+    await act(image);
+    expect(document.activeElement).toBe(bouton("Commencer"));
+    fireEvent.click(bouton("Commencer"));
+    await act(image);
+    expect(source.lecon).not.toBeNull();
+    expect(document.activeElement?.closest("[data-pas-a-pas]")).not.toBeNull();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await act(image);
+    expect(source.lecon).toBeNull();
+    expect(document.activeElement).toBe(bouton("Régler pas à pas"));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onFermer).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("le pas à pas", () => {
   it("remplace la liste par la consigne et une jauge de seize segments", () => {
     const { container } = monterDolphin({

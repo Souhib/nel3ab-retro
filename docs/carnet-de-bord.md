@@ -31308,6 +31308,15 @@ la manette et où il n'y a ni barre ni bande. La liste du pilote suit la
 mesure, et une absence ailleurs est un défaut, pour que la mesure ne passe
 jamais à vide.
 
+**Les portes du passage.** `just check` passe. Les pilotes ont tourné l'un
+après l'autre, chacun sur un port privé : `focus-navigateur`,
+`salle-telephone` (121 relevés justes) et `manette-garde` passent.
+`etats-navigateur` ne rougit que sur `colonne-stable`, comme avant ;
+`parcours-navigateur` sur `invitation` et `cadre-navigateur` sur
+`mascotte-hors-image` et `ain-immobile`, les rouges connus de la vague B1 ;
+les étapes qui les suivent, lancées par leur nom, passent. Les quatre
+recettes rouges rougissent comme attendu.
+
 **Le poids.** 285 540 octets en brotli : 79 pour la soirée d'une salle
 fermée, 168 pour le focus rendu, 247 sur le troisième passage (285 293).
 

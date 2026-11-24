@@ -15,6 +15,7 @@ import { sonMenu } from "../../retro/sons";
 import { identify } from "../../media/families";
 import type { InputStream } from "../../media/input";
 import {
+  NOM_MAX,
   SWITCH_BUTTONS,
   SWITCH_TARGETS,
   defaultSwitchProfile,
@@ -457,7 +458,7 @@ export function ProfilsPro({ trame }: { trame: TramePro }) {
       </ul>
       <label>
         {REGLAGE.nomProfil}{" "}
-        <input value={nom} maxLength={64} onChange={(e) => setNom(e.target.value)} />
+        <input value={nom} maxLength={NOM_MAX} onChange={(e) => setNom(e.target.value)} />
       </label>
       <div className="n3-reglage-gestes">
         <Bouton

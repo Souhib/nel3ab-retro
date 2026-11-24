@@ -571,6 +571,40 @@ export const REGLAGE = {
   /** Une copie de tes réglages attend l'accord du service (`enAttente`). */
   garde: "Gardé ici, envoi au prochain passage.",
   reessayer: "Réessayer maintenant",
+  /** Les profils du clavier (`ProfilsDolphin`) : le nom d'une copie, la
+   * référence de la salle, et la publication. */
+  nomVide: "Donne un nom à la copie.",
+  nomPris: "Ce nom existe déjà.",
+  nomReserve: "Ce préfixe est réservé à la salle.",
+  nomAide: (max: number) => `Un nom unique, ${max} caractères au plus.`,
+  /** Une option de la liste des profils, quand c'est une référence. */
+  referenceNom: (nom: string) => `${nom}, référence de la salle`,
+  reference: "Référence de la salle. La modifier crée une copie à toi et garde l’original.",
+  aToi: "Profil à toi. Tes changements s’appliquent tout de suite.",
+  cree: (nom: string) => `Le profil « ${nom} » est créé et en service.`,
+  publier: "Publier dans la salle",
+  publication: "Publication…",
+  publie: "Profil publié dans la salle.",
+  publicationGardee: "Publication impossible. Tes réglages à toi sont gardés.",
+  publicationPlusTard: "Publication impossible. Réessaie dans un instant.",
+  /** Les avis de la trame Pro (`media/switch.ts`), que le panneau affiche
+   * tels quels (`SwitchInput.message` et ses refus). */
+  pro: {
+    brancher: "Branche une manette et appuie sur un bouton.",
+    debranchee: "Manette débranchée : assignation annulée.",
+    assignee: "Commande assignée. Relâche le bouton ou le stick.",
+    toucheAssignee: "Touche assignée.",
+    attendTouche: "Appuie sur une touche. Échap pour annuler.",
+    attendManette: "Appuie sur un bouton ou déplace le stick demandé. Échap pour annuler.",
+    annulee: "Assignation annulée.",
+    nom: (max: number) => `Donne un nom de 1 à ${max} caractères.`,
+    plein: (n: number) => `${n} profils sont déjà enregistrés.`,
+    absent: "Ce profil n’existe pas.",
+    tropGrand: "Le fichier est trop grand.",
+    invalide: "Ce fichier n’est pas un profil de manette valide.",
+    nonRange:
+      "Configuration active, mais ce navigateur n’a pas pu l’enregistrer. Exporte le profil pour le garder.",
+  },
   exporter: "Exporter dans un fichier",
   importer: "Importer un fichier",
   tropGrand: "Fichier trop grand.",

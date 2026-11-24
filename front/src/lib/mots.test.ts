@@ -510,4 +510,32 @@ describe("chantier manettes : les mots du réglage", () => {
     expect(REGLAGE.suspendu(5)).toContain("arrêté à l'étape 5");
     expect(REGLAGE.suspendu(5)).not.toMatch(/manette \d/);
   });
+
+  /** Une phrase : des lettres, et un blanc entre deux mots ou une fin de
+   * phrase. Un identifiant (« learnPad »), un séparateur (« : ») ou un
+   * gabarit sans mot (« …/… ») n'en sont pas. */
+  const phrase = (texte: string) =>
+    /\p{L}/u.test(texte) && (/\p{L}\s+\p{L}/u.test(texte) || /[.…!?]$/u.test(texte.trim()));
+
+  it("reconnaît une phrase, et laisse passer un identifiant ou un séparateur", () => {
+    for (const oui of ["Publier dans la salle", "Publication…", "Ce nom existe déjà."])
+      expect(phrase(oui), oui).toBe(true);
+    for (const non of ["learnPad", "manette", " (…)", "…/…", "×", ": "])
+      expect(phrase(non), non).toBe(false);
+  });
+
+  // La relecture du 24 novembre 2026 : les phrases des profils du clavier
+  // (`manettes/reglage/Dolphin.tsx`) et deux avis de la trame Pro
+  // (`media/switch.ts`) étaient écrits en dur, et l'essai des mots refusés
+  // restait vert. Le panneau et la trame qu'il affiche parlent par le lexique.
+  it("le panneau et la trame Pro n'écrivent aucune phrase hors du lexique", () => {
+    const du = (c: Chaine) => c.fichier.startsWith("manettes/") || c.fichier === "media/switch.ts";
+    // Précondition : le parcours lit bien ces fichiers.
+    expect(sources.some((s) => s.fichier === "manettes/reglage/Dolphin.tsx")).toBe(true);
+    expect(sources.some((s) => s.fichier === "media/switch.ts")).toBe(true);
+    const enDur = chaines
+      .filter((c) => du(c) && phrase(c.texte))
+      .map((c) => `${c.fichier}:${c.ligne} « ${c.texte} »`);
+    expect(enDur).toEqual([]);
+  });
 });

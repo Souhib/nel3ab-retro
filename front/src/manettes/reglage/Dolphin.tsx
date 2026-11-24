@@ -444,11 +444,11 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
   const siens = state.keyProfiles.filter((un) => !state.lockedProfiles.includes(un)).length;
   const propre = nom.trim();
   const faute = !propre
-    ? "Donne un nom à la copie."
+    ? REGLAGE.nomVide
     : state.keyProfiles.includes(propre)
-      ? "Ce nom existe déjà."
+      ? REGLAGE.nomPris
       : propre.startsWith(ROOM_MARK)
-        ? "Ce préfixe est réservé à la salle."
+        ? REGLAGE.nomReserve
         : "";
   return (
     <div className="n3-profils">
@@ -466,23 +466,18 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
       >
         {state.keyProfiles.map((un) => (
           <option key={un} value={un}>
-            {un}
-            {state.lockedProfiles.includes(un) ? ", référence de la salle" : ""}
+            {state.lockedProfiles.includes(un) ? REGLAGE.referenceNom(un) : un}
           </option>
         ))}
       </select>
-      <p>
-        {verrouille
-          ? "Référence de la salle. La modifier crée une copie à toi et garde l’original."
-          : "Profil à toi. Tes changements s’appliquent tout de suite."}
-      </p>
+      <p>{verrouille ? REGLAGE.reference : REGLAGE.aToi}</p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
           if (faute) return;
           agir(trame, (input) => input.newKeys(propre));
           setNom("");
-          setAvis(`Le profil « ${propre} » est créé et en service.`);
+          setAvis(REGLAGE.cree(propre));
         }}
       >
         <label htmlFor="profileName">{REGLAGE.enregistrer}</label>
@@ -502,9 +497,7 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
           <i className="rt-ombre" aria-hidden="true" />
           {REGLAGE.enregistrer}
         </button>
-        <p id="profileNameHelp">
-          {nom && faute ? faute : `Un nom unique, ${NAME_MAX} caractères au plus.`}
-        </p>
+        <p id="profileNameHelp">{nom && faute ? faute : REGLAGE.nomAide(NAME_MAX)}</p>
       </form>
       <div className="n3-reglage-gestes">
         {!verrouille && siens > 1 ? (
@@ -529,16 +522,16 @@ export function ProfilsDolphin({ trame }: { trame: TrameDolphin }) {
               setEnvoi(true);
               setAvis("");
               try {
-                if (await publier(state.keyProfile)) setAvis("Profil publié dans la salle.");
-                else refuser("Publication impossible. Tes réglages à toi sont gardés.");
+                if (await publier(state.keyProfile)) setAvis(REGLAGE.publie);
+                else refuser(REGLAGE.publicationGardee);
               } catch {
-                refuser("Publication impossible. Réessaie dans un instant.");
+                refuser(REGLAGE.publicationPlusTard);
               } finally {
                 setEnvoi(false);
               }
             }}
           >
-            {envoi ? "Publication…" : "Publier dans la salle"}
+            {envoi ? REGLAGE.publication : REGLAGE.publier}
           </Bouton>
         ) : null}
       </div>

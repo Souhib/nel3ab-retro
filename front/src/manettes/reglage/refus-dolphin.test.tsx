@@ -4,6 +4,7 @@
  * jumeau : une publication acceptée ne joue et ne secoue rien. */
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { REGLAGE } from "../../lib/mots";
 import { InputStream } from "../../media/input";
 import type { EntreeDolphin, TrameDolphin } from "./Dolphin";
 import { Reglage } from "./Reglage";
@@ -76,7 +77,7 @@ describe("une publication du clavier refusée", () => {
   it("joue le son grave et secoue l'avis quand le salon refuse", async () => {
     const publier = monter(async () => false);
     await publier();
-    const avis = screen.getByText("Publication impossible. Tes réglages à toi sont gardés.");
+    const avis = screen.getByText(REGLAGE.publicationGardee);
     expect(joues).toEqual(["erreur"]);
     expect(secoues).toEqual([avis]);
   });
@@ -86,7 +87,7 @@ describe("une publication du clavier refusée", () => {
       throw new Error("hors ligne");
     });
     await publier();
-    const avis = screen.getByText("Publication impossible. Réessaie dans un instant.");
+    const avis = screen.getByText(REGLAGE.publicationPlusTard);
     expect(joues).toEqual(["erreur"]);
     expect(secoues).toEqual([avis]);
   });
@@ -102,7 +103,7 @@ describe("une publication du clavier refusée", () => {
   it("ne joue et ne secoue rien quand la publication passe", async () => {
     const publier = monter(async () => true);
     await publier();
-    expect(screen.getByText("Profil publié dans la salle.")).toBeTruthy();
+    expect(screen.getByText(REGLAGE.publie)).toBeTruthy();
     expect(joues).toEqual([]);
     expect(secoues).toEqual([]);
   });

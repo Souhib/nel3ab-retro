@@ -14,6 +14,12 @@ import {
   type Snapshot,
 } from "./lesson";
 import { centred, travel, DEAD_ZONE, type Control, type StickAxis } from "./pad";
+import { REGLAGE } from "../lib/mots";
+
+/** Le nom d'un profil Pro, et le nombre de profils nommés qu'un navigateur
+ * garde : les avis les disent, la garde les applique. */
+export const NOM_MAX = 64;
+const PROFILS_MAX = 24;
 
 // Frozen with protocol::switch. Home, capture and motion are not guest gameplay
 // inputs in this prototype; offering them would advertise an unconnected button.
@@ -382,7 +388,7 @@ export class SwitchInput implements InputSource {
     this.cancel();
     const pad = this.pad;
     if (!pad) {
-      this.message = "Branche une manette et appuie sur un bouton.";
+      this.message = REGLAGE.pro.brancher;
       return;
     }
     this.resultat = null;
@@ -484,7 +490,7 @@ export class SwitchInput implements InputSource {
     if (capture?.source === "pad") {
       if (!pad || pad.id !== capture.id) {
         this.cancel();
-        this.message = "Manette débranchée : assignation annulée.";
+        this.message = REGLAGE.pro.debranchee;
       } else if (capture.machine) {
         const moved = capture.machine.feed(snapshot(pad));
         const axis = capture.target.slice(0, 2) as SwitchAxis;
@@ -513,7 +519,7 @@ export class SwitchInput implements InputSource {
           });
           this.releasing = { id: pad.id, machine: capture.machine };
           this.capturing = null;
-          this.message = "Commande assignée. Relâche le bouton ou le stick.";
+          this.message = REGLAGE.pro.assignee;
           this.persist();
         }
       }
@@ -574,14 +580,14 @@ export class SwitchInput implements InputSource {
       if (this.profile.keys[target] === event.code) delete this.profile.keys[target];
     this.profile.keys[this.capturing.target] = event.code;
     this.capturing = null;
-    this.message = "Touche assignée.";
+    this.message = REGLAGE.pro.toucheAssignee;
     this.persist();
     return true;
   }
   begin(target: SwitchTarget, source: "key" | "pad"): void {
     this.cancel();
     if (source === "pad" && !this.pad) {
-      this.message = "Branche une manette et appuie sur un bouton.";
+      this.message = REGLAGE.pro.brancher;
       return;
     }
     this.capturing = {
@@ -591,13 +597,10 @@ export class SwitchInput implements InputSource {
         ? { machine: new Capture(snapshot(this.pad)), id: this.pad.id }
         : {}),
     };
-    this.message =
-      source === "key"
-        ? "Appuie sur une touche. Échap pour annuler."
-        : "Appuie sur un bouton ou déplace le stick demandé. Échap pour annuler.";
+    this.message = source === "key" ? REGLAGE.pro.attendTouche : REGLAGE.pro.attendManette;
   }
   cancel(): void {
-    if (this.capturing) this.message = "Assignation annulée.";
+    if (this.capturing) this.message = REGLAGE.pro.annulee;
     this.capturing = null;
   }
   releaseBeforePlay(): void {
@@ -630,9 +633,9 @@ export class SwitchInput implements InputSource {
   }
   save(name: string): void {
     name = name.trim();
-    if (!name || name.length > 64) throw new Error("Donne un nom de 1 à 64 caractères.");
-    if (!Object.hasOwn(this.named, name) && Object.keys(this.named).length >= 24)
-      throw new Error("24 profils sont déjà enregistrés.");
+    if (!name || name.length > NOM_MAX) throw new Error(REGLAGE.pro.nom(NOM_MAX));
+    if (!Object.hasOwn(this.named, name) && Object.keys(this.named).length >= PROFILS_MAX)
+      throw new Error(REGLAGE.pro.plein(PROFILS_MAX));
     Object.defineProperty(this.named, name, {
       value: structuredClone(this.profile),
       enumerable: true,
@@ -643,7 +646,7 @@ export class SwitchInput implements InputSource {
   }
   /** Oublie un profil nommé, et le range aussitôt. */
   forget(name: string): void {
-    if (!Object.hasOwn(this.named, name)) throw new Error("Ce profil n’existe pas.");
+    if (!Object.hasOwn(this.named, name)) throw new Error(REGLAGE.pro.absent);
     delete this.named[name];
     if (!this.persist()) throw new Error(this.message);
   }
@@ -662,15 +665,15 @@ export class SwitchInput implements InputSource {
   }
 
   load(name: string): void {
-    if (!Object.hasOwn(this.named, name)) throw new Error("Ce profil n’existe pas.");
+    if (!Object.hasOwn(this.named, name)) throw new Error(REGLAGE.pro.absent);
     this.profile = structuredClone(this.named[name]);
     this.releaseBeforePlay();
     if (!this.persist()) throw new Error(this.message);
   }
   import(text: string): void {
-    if (text.length > 100_000) throw new Error("Le fichier est trop grand.");
+    if (text.length > 100_000) throw new Error(REGLAGE.pro.tropGrand);
     const profile = readSwitchProfile(JSON.parse(text));
-    if (!profile) throw new Error("Ce fichier n’est pas un profil de manette valide.");
+    if (!profile) throw new Error(REGLAGE.pro.invalide);
     this.profile = profile;
     this.releaseBeforePlay();
     if (!this.persist()) throw new Error(this.message);
@@ -679,15 +682,16 @@ export class SwitchInput implements InputSource {
     try {
       const text = JSON.stringify({ working: this.profile, named: this.named });
       // Match the read bound: a successful save must survive the next visit.
-      if (text.length > 200_000 || !readSwitchProfile(this.profile))
-        throw new Error("profile limit");
-      this.saveAccount?.(text);
-      localStorage.setItem(STORAGE, text);
-      return true;
+      if (text.length <= 200_000 && readSwitchProfile(this.profile)) {
+        this.saveAccount?.(text);
+        localStorage.setItem(STORAGE, text);
+        return true;
+      }
     } catch {
-      this.message =
-        "Configuration active, mais ce navigateur n’a pas pu l’enregistrer. Exporte le profil pour le garder.";
-      return false;
+      // Un stockage refusé (navigation privée, quota plein) se dit comme une
+      // limite dépassée : le réglage tient, il n'est pas gardé.
     }
+    this.message = REGLAGE.pro.nonRange;
+    return false;
   }
 }

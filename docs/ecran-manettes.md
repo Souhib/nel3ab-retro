@@ -722,6 +722,32 @@ n'est pas lisible dans le code :
   `--mutant-contraste` doit échouer sur la Xbox seule. Ses tailles sont
   marquées `data-format` : `data-taille` appartient aux textes des dessins.
 
+## La vignette d'un changement, 24 novembre 2026
+
+Sixième passage du chantier manettes. Récit au carnet, entrée « 24 novembre,
+avant l'aube encore : les manettes, sixième passage » ; décision à l'ADR D42.
+Ce qui n'est pas lisible dans le code :
+
+- **La vignette ne double jamais un dessin visible.** `useHorsDeVue`
+  (`manettes/reglage/Vignette.tsx`) observe la pièce encadrée du dessin de
+  gauche ; la ligne en cours ne porte la vignette que tant que cette pièce
+  n'est pas entière à l'écran. Sans `IntersectionObserver`, rien n'est monté.
+  Le constat porte le nom de sa pièce : celui d'une pièce d'avant ne vaut
+  pas pour la suivante.
+- **La pièce se cherche par égalité exacte**, pas par sélecteur : la
+  GameCube a un stick `x` et un bouton `X`, et jsdom ne distingue pas la
+  casse dans `[data-part="X"]`. `marques.ts` et `tenues.ts` gardent le
+  sélecteur, juste dans Chrome.
+- **`PadMapView recadrer`** rend le `svg` seul, caché au lecteur d'écran,
+  avec un `viewBox` carré autour de la pièce. Il garde `data-padmap` pour
+  ses couleurs : un essai ou un pilote qui cherche `[data-padmap]` doit se
+  limiter à `.n3-dessins`. La feuille coupe la vignette à sa boîte
+  (`overflow: hidden`) : les dessins laissent déborder leur tracé.
+- **En trame Pro, un sens de stick encadre son stick** : le dessin reçoit
+  `pieceDe(lx+)`, soit `LS`, comme les marques du pas à pas.
+- **L'aperçu `bindings-preview.html?reglage`** monte le panneau seul
+  (`&pro=x360`, `&onglet=clavier`), avec les zones sûres que la colonne
+  garde dans la salle ; `salle-telephone.mjs` le mesure au téléphone.
 
 ## Le panneau « Touches et manettes », 23 novembre 2026 (tard)
 

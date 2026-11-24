@@ -29866,6 +29866,68 @@ refus de la trame Pro secoue aussi l'avis qui le dit, en plus du son grave.
 plus longs que les valeurs qu'ils remplacent, et les règles de l'appui
 clair s'ajoutent. Le budget est de 300 000.
 
+### 24 novembre, avant l'aube encore : les manettes, sixième passage
+
+**Le contexte.** Les deux gros morceaux attendent toujours d'autres
+chantiers : la préparation vit encore dans les anciens dialogues (chantier
+des menus), et la place du panneau tenu en main attend le cadre de la
+salle. Ce passage reprend trois points qui ne dépendent que des manettes.
+
+**La pièce qu'on change sortait de l'écran.** Pour changer une commande, on
+clique « Changer » sur sa ligne, puis on appuie sur la manette. Les dessins
+sont au-dessus de la table. À 1 280 × 720 et au téléphone, changer une des
+dernières lignes fait défiler les dessins hors de la vue : le pilote a
+mesuré la pièce encadrée à 442 pixels au-dessus du haut de la fenêtre. La
+personne ne voyait plus ce qu'elle réglait. Maintenant, tant que cette
+pièce n'est pas entière à l'écran, la ligne porte une vignette de 64 pixels :
+le même dessin, recadré autour de la pièce, avec ses coins. Le navigateur dit
+lui-même ce qui se voit, par un `IntersectionObserver` posé sur la pièce ;
+il tient compte de la fenêtre et de la colonne qui défile. Quand le dessin
+se voit, rien n'est monté. L'étape `changer-visible` du pilote du panneau le
+prouve à deux tailles, avec son jumeau à 1 440 × 900 : la première ligne
+garde les dessins en vue, et aucune vignette n'y vient. Un mutant qui monte
+toujours la vignette tombe sur ce jumeau.
+
+**Une boîte de 64 pixels qui peignait toute une manette.** La première
+vignette passait l'essai et dessinait pourtant une GameCube entière par-dessus
+les lignes voisines : les dessins laissent déborder leur tracé hors de leur
+cadre, et le recadrage n'avait changé que la boîte. La capture l'a montré,
+pas la mesure. Le pilote vérifie maintenant huit points autour de la
+vignette, à 6 pixels de son bord, et aucun ne doit tomber sur elle. Il
+vérifie aussi que la consigne de la ligne reste entière : la vignette grandit
+la ligne, et au téléphone elle poussait la phrase sous le bord. La vignette
+se pose donc à côté de la phrase, et la ligne se garde en vue. Leçon : une
+boîte mesurée ne dit pas ce qu'un `svg` peint ; il faut regarder autour.
+
+**Un stick qu'on change n'était pas encadré.** En trame Pro, changer un sens
+de stick (« stick gauche vers la droite ») ne posait aucun cadre sur le
+dessin : la pièce s'appelle `LS`, la commande `lx+`, et le dessin les
+comparait tels quels. Les marques du pas à pas faisaient déjà la conversion.
+Le dessin la fait aussi, avec un essai écrit avant la correction.
+
+**Le panneau mesuré au téléphone, et trois champs trop petits.**
+`salle-telephone.mjs` mesurait encore le dialogue des touches et le
+configurateur Pro seuls, que la salle ne monte plus hors préparation. L'aperçu
+des touches gagne une entrée qui monte le panneau seul, en trame Dolphin ou
+Pro, sur chaque onglet. Le pilote y vérifie trois tailles de téléphone : pas
+de défilement en largeur, aucune cible sur une autre, « Fermer » et l'onglet
+dans les zones sûres, chaque contrôle à 44 pixels au moins. Sa première
+mesure a trouvé la liste des profils à 19 pixels de haut, le champ du nom à
+24 et le titre « Les nombres de ta manette » à 24. Ils font 44 pixels
+maintenant. L'aperçu, lui, garde les zones sûres comme la colonne de la salle
+le fait : sans cela, il faisait échouer « Fermer » pour une raison qui
+n'existe pas dans la salle.
+
+**Un refus du clavier se dit comme un refus Pro.** « Publication
+impossible » joue le son grave du socle et secoue l'avis qui le dit, comme
+un fichier refusé en trame Pro. L'avis n'existe qu'avec sa phrase : la
+secousse part après l'affichage, et un compteur secoue aussi un second refus
+qui dit la même phrase.
+
+**Le poids.** 260 609 octets en brotli après ce passage (+566 sur le
+précédent : la vignette, les champs à 44 pixels et le refus du clavier).
+Rien n'est encore retiré : les anciens dialogues hébergent la préparation.
+
 ## 12. Glossaire complet
 
 **Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
@@ -31556,6 +31618,15 @@ boîte change de taille, sans qu'elle ait à la mesurer à chaque image.
 élément ou un attribut change, sans qu'elle ait à le relire à chaque image.
 Il prévient aussi pour une écriture qui ne change rien : la page n'écrit donc
 que ce qui change.
+
+**IntersectionObserver** : l'outil du navigateur qui prévient une page quand
+un élément entre dans la partie visible de l'écran ou en sort, et dit quelle
+part de lui se voit. Il tient compte des cadres qui défilent et coupent leur
+contenu, comme la colonne de la salle.
+
+**Vignette (d'un changement)** : le petit dessin de 64 pixels que la ligne
+d'une commande montre pendant un « Changer », quand le grand dessin est sorti
+de l'écran : la pièce attendue et ses coins, recadrées.
 
 **Pilote (de navigateur)** : un script qui ouvre la page dans un vrai Chrome
 sans écran, clique, appuie et mesure ce que le navigateur affiche, là où un

@@ -2215,6 +2215,25 @@ on the Xbox alone. At the full level the lesson's end sentence types
 itself out through the socle's `annoncerLettres`, and a refused Pro gesture
 shakes its notice. The page weighs 260 043 bytes brotli.
 
+**Sixth pass: the part being changed stays on screen.** Changing a row near
+the bottom of the table scrolled the drawings out of view (the framed part
+measured at -442 px at 1280 × 720). While that part is not wholly visible,
+an `IntersectionObserver` on it (`useHorsDeVue`, `manettes/reglage/
+Vignette.tsx`) mounts a 64 px thumbnail in the row: the same plan with a
+viewBox cropped around the part (`PadMapView recadrer`), clipped to its box
+because the drawings let their outline overflow, laid beside the
+instruction, and the row kept in view. Without the observer (jsdom, an old
+browser) nothing is mounted and the drawing stays the reference. The
+`changer-visible` step of `reglage.mjs` proves it at 1280 × 720 and
+390 × 844, fails on the previous page (e62f583), and its twin at
+1440 × 900 refuses a thumbnail while the drawing is visible. In the Pro
+frame, a stick direction (`lx+`) now frames its stick (`pieceDe`), as the
+lesson marks already did. `salle-telephone.mjs` measures the panel itself
+through `bindings-preview.html?reglage` instead of the dialogs it replaced
+outside a preparation, and found three 19 to 24 px controls, now 44 px. A
+refused keyboard publication sounds and shakes like a refused Pro gesture.
+The page weighs 260 609 bytes brotli.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

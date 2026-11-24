@@ -274,7 +274,17 @@ comptes d'inscriptions, contrastes, réglages de 44 px) ; phrase de fin en
 lettres et secousse d'un refus Pro au niveau tout. Toujours en attente :
 le retrait des anciens dialogues (chantier menus) et la place tenue en main
 (chantier salle). Page : 260 043 octets. Récit : « 24 novembre, avant
-l'aube : les manettes, cinquième passage ».
+l'aube : les manettes, cinquième passage ». Sixième passage : pendant un
+« Changer », la pièce attendue reste à l'écran (vignette de 64 px dans la
+ligne quand le dessin sort de la vue, étape `changer-visible` de
+`reglage-navigateur` et son contrôle rouge) ; en trame Pro, changer un sens
+de stick encadre son stick ; `salle-telephone` mesure le panneau lui-même
+(`bindings-preview.html?reglage`) et ses listes, champs et titres passent à
+44 px ; une publication refusée du clavier secoue son avis. Toujours en
+attente : le retrait des anciens dialogues (chantier menus), la place tenue
+en main (chantier salle), l'étiquette tapée de « Ta manette » (chantier
+personnes). Page : 260 609 octets. Récit : « 24 novembre, avant l'aube
+encore : les manettes, sixième passage ».
 
 **Au 22 novembre, l'après-midi : la Xbox 360 n'est plus expérimentale.** À la
 demande du propriétaire, après la partie de Sonic de douze minutes et demie

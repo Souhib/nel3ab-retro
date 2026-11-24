@@ -2077,11 +2077,13 @@ const ETAPES = {
     const bouges = avant.filter((b, i) => b !== apres[i]);
     if (bouges.length || avant.length !== apres.length)
       throw new Defaut(`la colonne bouge à l'arrivée de l'image: ${bouges.map((b, i) => `${b} → ${apres[avant.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${avant.length} puis ${apres.length} enfants`}`);
-    // Le jumeau décale le PREMIER enfant : le dernier est le curseur ▶ du
-    // socle (`rt-curseur`, posé là par la salle le 23 novembre 2026), sans
-    // boîte, qu'une marge ne déplace pas.
+    // Le jumeau décale le premier enfant qui a une boîte : le dernier est le
+    // curseur ▶ du socle (`rt-curseur`, posé là par la salle le 23 novembre
+    // 2026) et le premier la pile des avis vide (`empty:hidden`), sans
+    // boîte l'un et l'autre, qu'une marge ne déplace pas.
     await page.evaluate(() => {
-      document.querySelector("#side").firstElementChild.style.marginTop = "1px";
+      const vu = [...document.querySelector("#side").children].find((el) => el.getBoundingClientRect().height > 0);
+      if (vu) vu.style.marginTop = "1px";
     });
     const jumeau = await boites();
     if (jumeau.every((b, i) => b === apres[i])) throw new Precondition("un enfant déplacé d'un pixel n'est pas vu");

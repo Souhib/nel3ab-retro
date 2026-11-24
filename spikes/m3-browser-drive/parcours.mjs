@@ -947,19 +947,78 @@ const ETAPES = {
 
   /** T05: l'avant-salle compte des places, et sa porte dit « Rejoindre »,
    * comme l'accueil des salles. Sous les trois dessins de l'avant-salle. */
+  /** L'avant-salle n'a plus qu'un dessin (24 novembre 2026, chantier salon) :
+   * la borne et son panneau START. La première place libre est le seul bouton
+   * plein, « Prendre la place N », et « manettes libres » ne revient pas. Le
+   * jumeau : Bo assis en 2, la place 1 reste conseillée et la 2 n'est pas à
+   * prendre. */
   async "avant-salle-places"() {
-    for (const look of ["classique", "cables", "plan"]) {
-      const page = await nouvelle(PC, { salle: { bo: true }, stockage: { "nel3ab:lobby": look } });
+    for (const bo of [false, true]) {
+      const page = await nouvelle(PC, { salle: { bo } });
       await page.goto(banc.url, { waitUntil: "domcontentloaded" });
       await page.waitForSelector("#enter", { timeout: 15000 });
       await sleep(800);
       const vu = await texte(page);
-      if (/manettes? libres?/i.test(vu)) throw new Defaut(`« manettes libres » dans le dessin ${look}`);
-      const porte = await page.evaluate(() => document.querySelector("#enter").textContent.trim());
-      if (porte !== "Rejoindre") throw new Defaut(`la porte du dessin ${look} dit « ${porte} »`);
-      await capture(page, `avant-salle-${look}`);
+      if (/manettes? libres?/i.test(vu)) throw new Defaut("« manettes libres » dans l'avant-salle");
+      const lu = await page.evaluate(() => ({
+        porte: document.querySelector("#enter").textContent.trim(),
+        pleins: [...document.querySelectorAll(".rt-bouton-plein")].map((b) => b.id),
+        etats: [...document.querySelectorAll("#lobbySeats [data-port]")].map((p) => p.dataset.state),
+        bascule: document.querySelector("#lookSwitch") !== null,
+      }));
+      if (lu.bascule) throw new Defaut("l'avant-salle propose encore un autre dessin");
+      if (lu.etats.length !== 4) throw new Precondition(`${lu.etats.length} places dans le panneau`);
+      if (lu.porte !== "Prendre la place 1") throw new Defaut(`la porte dit « ${lu.porte} »`);
+      if (lu.pleins.join() !== "enter") throw new Defaut(`boutons pleins : ${lu.pleins.join(", ")}`);
+      const deux = bo ? "busy" : "free";
+      if (lu.etats[1] !== deux) throw new Defaut(`place 2 « ${lu.etats[1]} », attendu « ${deux} »`);
+      await capture(page, `avant-salle-${bo ? "bo" : "vide"}`);
       await page.close();
     }
+  },
+
+  /** `?entrer=jouer&place=3` (lien de l'accueil du salon) entre à la place 3,
+   * pas à la première libre, et l'adresse oublie la place une fois prise.
+   * Puis le bouton de la place 3 de l'avant-salle fait de même. Le jumeau :
+   * Bo tient la 2, un lien vers la 2 ne la lui prend pas. */
+  async "place-precise"() {
+    const page = await nouvelle(PC);
+    await page.goto(`${banc.url}?entrer=jouer&place=3`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#screen", { timeout: 15000 }).catch(() => {
+      throw new Precondition("`?entrer=jouer&place=3` n'entre pas dans la salle");
+    });
+    if (!(await jusqua(async () => /place \d/.test(await siege(page)), 8000)))
+      throw new Precondition(`entré pour jouer sans place : « ${await siege(page)} »`);
+    if (!(await jusqua(async () => /place 3/.test(await siege(page)), 4000)))
+      throw new Defaut(`le lien de la place 3 a donné « ${await siege(page)} »`);
+    if (!(await jusqua(async () => (await adresse(page)) === "/r/1/?entrer=jouer", 3000)))
+      throw new Defaut(`l'adresse garde la place : ${await adresse(page)}`);
+    await page.close();
+
+    const avant = await nouvelle(PC);
+    await avant.goto(banc.url, { waitUntil: "domcontentloaded" });
+    await avant.waitForSelector('#lobbySeats button[data-port="3"]', { timeout: 15000 });
+    await sleep(500);
+    await avant.click('#lobbySeats button[data-port="3"]');
+    await avant.waitForSelector("#screen", { timeout: 15000 });
+    if (!(await jusqua(async () => /place 3/.test(await siege(avant)), 8000)))
+      throw new Defaut(`« Prendre » de la place 3 a donné « ${await siege(avant)} »`);
+    await capture(avant, "place-precise");
+    await avant.close();
+
+    const jumeau = await nouvelle(PC, { salle: { bo: true } });
+    const prises = (banc.journal.prises ?? []).length;
+    await jumeau.goto(`${banc.url}?entrer=jouer&place=2`, { waitUntil: "domcontentloaded" });
+    await jumeau.waitForSelector("#screen", { timeout: 15000 });
+    if (!(await jusqua(async () => /place \d/.test(await siege(jumeau)), 8000)))
+      throw new Precondition(`entré pour jouer sans place : « ${await siege(jumeau)} »`);
+    await sleep(1500);
+    if ((banc.journal.prises ?? []).length !== prises)
+      throw new Defaut("la page a demandé la place 2, tenue par Bo");
+    if (!/place 1/.test(await siege(jumeau))) throw new Defaut(`le jumeau tient « ${await siege(jumeau)} »`);
+    if ((await adresse(jumeau)) !== "/r/1/?entrer=jouer")
+      throw new Defaut(`l'adresse du jumeau garde la place : ${await adresse(jumeau)}`);
+    await jumeau.close();
   },
 };
 

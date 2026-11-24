@@ -161,7 +161,7 @@ export async function demarrerParcours({ port, page, flux }) {
       ws.on("error", () => {});
       if (url.pathname === "/r/1/video") return video(ws);
       if (url.pathname === "/r/1/sound") return ws.close();
-      if (url.pathname === "/r/1/input") return input(ws);
+      if (url.pathname === "/r/1/input") return input(ws, url);
       if (url.pathname === "/socket.io/") return lobby(ws);
       ws.close();
     });
@@ -189,12 +189,19 @@ export async function demarrerParcours({ port, page, flux }) {
   }
 
   /** Une socket d'entrée prend la première place libre, comme le worker, et la
-   * rend en se fermant. Le message de salle dit la place et les places tenues. */
-  function input(ws) {
+   * rend en se fermant. Le message de salle dit la place et les places tenues.
+   * `take=N` (une place précise, 24 novembre 2026) donne N quand ni Bo ni une
+   * autre socket ne la tient ; le journal retient chaque `take` demandé. */
+  function input(ws, url) {
     journal.entrees += 1;
     inputs.add(ws);
     const prises = tenues();
-    const libre = [1, 2, 3, 4].find((n) => !prises.has(n)) ?? 0;
+    const voulue = Number(url?.searchParams.get("take") ?? NaN);
+    if (Number.isInteger(voulue) && voulue >= 1) journal.prises = [...(journal.prises ?? []), voulue];
+    const libre =
+      (voulue >= 1 && voulue <= 4 && !prises.has(voulue) ? voulue : null) ??
+      [1, 2, 3, 4].find((n) => !prises.has(n)) ??
+      0;
     if (libre) places.set(libre, ws);
     const jeu = state.jeu === null ? null : BIBLIOTHEQUE[state.jeu];
     if (jeu && ["switch", "switch2", "x360"].includes(jeu.console)) ws.send("format switch");

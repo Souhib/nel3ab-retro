@@ -256,6 +256,9 @@ export type Ligne = {
   enCours: boolean;
   /** La consigne pendant un changement : « Appuie sur un bouton… ». */
   attente: string;
+  /** Pendant un changement, quand les dessins sont sortis de l'écran : la
+   * pièce attendue en petit (`Vignette`). */
+  vignette?: ReactNode;
 };
 
 /** « Toutes les correspondances » : changer une commande se fait ici, dans
@@ -285,8 +288,16 @@ export function Correspondances({
   courante?: string | null;
   pied?: ReactNode;
 }) {
+  // La vignette grandit la ligne : elle la garde entière en vue, consigne
+  // comprise, sans remonter vers les dessins qui sont hors de l'écran.
+  const table = useRef<HTMLTableElement>(null);
+  const vignette = lignes.some((ligne) => ligne.enCours && ligne.vignette);
+  useLayoutEffect(() => {
+    if (vignette)
+      table.current?.querySelector('tr[data-attend="oui"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [vignette]);
   return (
-    <table className="n3-correspondances" aria-label={titre}>
+    <table ref={table} className="n3-correspondances" aria-label={titre}>
       <thead>
         <tr>
           <th scope="col">{REGLAGE.dansLeJeu}</th>
@@ -308,7 +319,16 @@ export function Correspondances({
               {ligne.nom}
               {ligne.sous ? <small>{ligne.sous}</small> : null}
             </th>
-            <td>{ligne.enCours ? <span role="status">{ligne.attente}</span> : ligne.valeur}</td>
+            <td>
+              {ligne.enCours ? (
+                <span className="n3-attente">
+                  {ligne.vignette}
+                  <span role="status">{ligne.attente}</span>
+                </span>
+              ) : (
+                ligne.valeur
+              )}
+            </td>
             <td>
               {ligne.enCours ? (
                 <Bouton onClick={onAnnuler}>{REGLAGE.annuler}</Bouton>

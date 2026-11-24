@@ -971,8 +971,9 @@ cadre-navigateur-rouge:
 # « Touches et manettes » dans un vrai navigateur (chantier manettes, L7) : le
 # panneau prend la place de la colonne sans toucher l'image (bureau et
 # fenêtre étroite), « Toutes les touches » ouvre le clavier et Échap rend le
-# focus, la vue de la manette suit la trame Pro (K34), et le pas à pas tourne
-# sur une manette simulée. La page COMMITTÉE, le banc des parcours, une
+# focus, la vue de la manette suit la trame Pro (K34), le pas à pas tourne
+# sur une manette simulée, et la pièce attendue d'un « Changer » reste à
+# l'écran (vignette). La page COMMITTÉE, le banc des parcours, une
 # manette Xbox simulée ; rien de vivant, port 5482.
 #
 #   just reglage-navigateur                        les étapes de la porte
@@ -1012,6 +1013,12 @@ reglage-navigateur-rouge:
     git -C ../.. show bc72ba9:core/crates/worker/src/page/index.html > "$dossier/cablage.html"
     node reglage.mjs --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
         --etapes zones --rouge-attendu zones
+    # La page du cinquième passage (e62f583) laisse la pièce attendue hors de
+    # l'écran quand on change une ligne du bas : changer-visible doit y rougir
+    # sur l'absence de vignette, à 1280 × 720 et au téléphone.
+    git -C ../.. show e62f583:core/crates/worker/src/page/index.html > "$dossier/passage5.html"
+    node reglage.mjs --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
+        --etapes changer-visible --rouge-attendu changer-visible
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

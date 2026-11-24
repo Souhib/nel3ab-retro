@@ -436,6 +436,128 @@ const ETAPES = {
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
+  /** Changement 12 : pendant un « Changer », la pièce attendue reste à
+   * l'écran. À 1280 × 720 et au téléphone, changer la DERNIÈRE ligne de la
+   * table fait défiler les dessins hors de la vue : la ligne porte alors une
+   * vignette de 64 px de la pièce encadrée. Le jumeau, à 1440 × 900 sur la
+   * PREMIÈRE ligne : les dessins restent en vue, aucune vignette n'est
+   * montée, et c'est la pièce encadrée du dessin qui se voit. */
+  async "changer-visible"() {
+    const fautes = [];
+    const cas = [
+      { vue: { width: 1280, height: 720 }, ligne: "last", vignette: true },
+      { vue: { width: 390, height: 844, isMobile: true, hasTouch: true }, ligne: "last", vignette: true },
+      { vue: { width: 1440, height: 900 }, ligne: "first", vignette: false },
+    ];
+    for (const { vue, ligne, vignette } of cas) {
+      const ici = `${vue.width}×${vue.height}`;
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await ouvrirParLaManette(page);
+      if (!(await page.$("[data-reglage]"))) throw new Defaut(`${ici}: « Changer » n'ouvre pas le panneau de la colonne`);
+      await sleep(300);
+      const cle = await page.evaluate(
+        (quelle) => {
+          const lignes = [...document.querySelectorAll("#page-manette table.n3-correspondances tbody tr[data-cle]")];
+          return (quelle === "last" ? lignes.at(-1) : lignes[0])?.dataset.cle ?? null;
+        },
+        ligne,
+      );
+      if (!cle) throw new Precondition(`${ici}: la table de la manette n'a aucune ligne`);
+      // Le vrai geste sur « Changer » (`toucher` fait défiler la ligne en vue).
+      // Par attribut : une clé de commande n'est pas toujours un identifiant CSS.
+      if (!(await toucher(page, `#reglage [id="pad-${cle.replaceAll('"', '\\"')}"]`)))
+        throw new Precondition(`${ici}: pas de « Changer » pour ${cle}`);
+      if (!(await jusqua(() => page.$('#reglage tr[data-attend="oui"]').then(Boolean), 2000)))
+        throw new Precondition(`${ici}: « Changer » de ${cle} ne lance aucun changement`);
+      await sleep(400);
+      const lu = await page.evaluate(() => {
+        /** La part visible d'un élément : sa boîte rognée par la fenêtre et
+         * par chaque ancêtre qui coupe ce qui dépasse, et ce que reçoit le
+         * point en son centre. */
+        const vue = (el) => {
+          if (!el) return null;
+          const b = el.getBoundingClientRect();
+          const r = { left: b.left, top: b.top, right: b.right, bottom: b.bottom };
+          for (let p = el.parentElement; p; p = p.parentElement) {
+            const s = getComputedStyle(p);
+            if (s.overflowX === "visible" && s.overflowY === "visible") continue;
+            const a = p.getBoundingClientRect();
+            r.left = Math.max(r.left, a.left);
+            r.top = Math.max(r.top, a.top);
+            r.right = Math.min(r.right, a.right);
+            r.bottom = Math.min(r.bottom, a.bottom);
+          }
+          r.left = Math.max(r.left, 0);
+          r.top = Math.max(r.top, 0);
+          r.right = Math.min(r.right, innerWidth);
+          r.bottom = Math.min(r.bottom, innerHeight);
+          const visible = Math.max(0, r.right - r.left) * Math.max(0, r.bottom - r.top);
+          const cx = b.left + b.width / 2;
+          const cy = b.top + b.height / 2;
+          const point = cx >= 0 && cy >= 0 && cx <= innerWidth && cy <= innerHeight ? document.elementFromPoint(cx, cy) : null;
+          return {
+            haut: Math.round(b.top),
+            bas: Math.round(b.bottom),
+            aire: Math.round(b.width * b.height),
+            visible: Math.round(visible),
+            recu: point !== null && (point === el || el.contains(point)),
+          };
+        };
+        const ligne = document.querySelector('#reglage tr[data-attend="oui"]');
+        const petite = ligne?.querySelector(".n3-vignette") ?? null;
+        /** Ce que la vignette peint HORS de sa boîte : sa boîte dit 64 px,
+         * mais un `svg` qui laisse déborder son dessin couvre les lignes
+         * voisines (premier essai du 24 novembre 2026). Huit points à 6 px
+         * autour d'elle ne doivent rendre aucun de ses éléments. */
+        const deborde = () => {
+          if (!petite) return [];
+          const b = petite.getBoundingClientRect();
+          const [g, d, h, bas] = [b.left - 6, b.right + 6, b.top - 6, b.bottom + 6];
+          const mx = b.left + b.width / 2;
+          const my = b.top + b.height / 2;
+          return [
+            [g, h], [mx, h], [d, h], [g, my], [d, my], [g, bas], [mx, bas], [d, bas],
+          ]
+            .filter(([x, y]) => x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight)
+            .filter(([x, y]) => petite.contains(document.elementFromPoint(x, y)))
+            .map(([x, y]) => `${Math.round(x)},${Math.round(y)}`);
+        };
+        return {
+          cle: ligne?.dataset.cle ?? null,
+          piece: vue(document.querySelector('#reglage .n3-dessins [data-padmap] [data-attendue="oui"]')),
+          vignette: vue(petite),
+          consigne: vue(ligne?.querySelector('[role="status"]')),
+          deborde: deborde(),
+          vignettes: document.querySelectorAll(".n3-vignette").length,
+          hauteur: innerHeight,
+        };
+      });
+      if (!lu.piece || lu.piece.aire < 1) throw new Precondition(`${ici}: la pièce de ${cle} n'est pas encadrée sur le dessin`);
+      const entiere = (b) => b !== null && b.aire > 0 && b.visible >= b.aire - 1 && b.recu;
+      const dit = (b) => (b ? `de ${b.haut} à ${b.bas} px, ${b.visible} px² visibles sur ${b.aire}` : "absente");
+      if (vignette) {
+        if (entiere(lu.piece)) throw new Precondition(`${ici}: les dessins restent en vue après « Changer » de ${cle}, rien à prouver`);
+        if (!entiere(lu.vignette))
+          fautes.push(`${ici}: pendant « Changer » de ${cle}, la pièce attendue sort de l'écran (${dit(lu.piece)}, fenêtre de ${lu.hauteur} px) et la ligne n'a pas de vignette entière (${dit(lu.vignette)})`);
+        else if (Math.round(lu.vignette.bas - lu.vignette.haut) !== 64)
+          fautes.push(`${ici}: la vignette fait ${lu.vignette.bas - lu.vignette.haut} px de haut, 64 attendus`);
+        // La consigne (« Appuie sur… ») reste lisible à côté de la vignette :
+        // la ligne qui grandit ne la pousse pas sous le bord.
+        if (!entiere(lu.consigne))
+          fautes.push(`${ici}: la consigne de ${cle} n'est pas entière à l'écran (${dit(lu.consigne)})`);
+        if (lu.deborde.length)
+          fautes.push(`${ici}: la vignette peint hors de sa boîte, en ${lu.deborde.join(" ; ")}`);
+      } else {
+        if (!entiere(lu.piece)) fautes.push(`${ici}: la pièce attendue de ${cle} n'est pas entière à l'écran (${dit(lu.piece)})`);
+        if (lu.vignettes !== 0) fautes.push(`${ici}: ${lu.vignettes} vignette montée alors que les dessins sont en vue`);
+      }
+      await capture(page, `changer-${ligne}`);
+      await page.close();
+    }
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
   /** Le pas à pas d'une salle GameCube, par la vraie boucle : la ligne
    * attendue est marquée, un appui la fait passer à la suivante, et une
    * seconde après, aucune animation ne tourne plus dans le panneau (rien ne

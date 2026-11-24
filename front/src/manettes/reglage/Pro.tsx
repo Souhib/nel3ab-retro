@@ -4,7 +4,7 @@
  *
  * `SwitchInput` ne passe pas par l'instantané de la page : le panneau se relit
  * deux fois par seconde (règle 8), et les dessins se peignent hors de React. */
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState, type RefObject } from "react";
 import type { Game } from "../../client";
 import { REGLAGE } from "../../lib/mots";
 import { SWITCH_PRO, XBOX_360, physicalMap } from "../../lib/padmap";
@@ -40,7 +40,8 @@ import {
 } from "./PasAPas";
 import { IconeRang } from "../../components/Colonne";
 import { tenirDessins } from "./inscriptions";
-import { poserMarques } from "./marques";
+import { pieceDe, poserMarques } from "./marques";
+import { useHorsDeVue, Vignette } from "./Vignette";
 
 export type TramePro = {
   genre: "pro";
@@ -115,7 +116,14 @@ function useGeste(source: SwitchInput) {
   return { avis: avis || source.message, avisRef, refuser, geste };
 }
 
-function DessinsPro({ trame }: { trame: TramePro }) {
+function DessinsPro({
+  trame,
+  paire,
+}: {
+  trame: TramePro;
+  /** La racine des deux dessins, que la table lit aussi (`useHorsDeVue`). */
+  paire: RefObject<HTMLDivElement | null>;
+}) {
   const gauche = useRef<HTMLDivElement>(null);
   const droite = useRef<HTMLDivElement>(null);
   const { source } = trame;
@@ -136,14 +144,16 @@ function DessinsPro({ trame }: { trame: TramePro }) {
     frame = requestAnimationFrame(peindre);
     return () => cancelAnimationFrame(frame);
   }, [source]);
-  const paire = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const racine = paire.current;
     return racine ? poserMarques(racine, (ecoute) => source.surLecon(ecoute)) : undefined;
-  }, [source]);
+  }, [source, paire]);
   const pad = source.pad;
   const identite = pad ? identify(pad.id, pad.mapping) : null;
-  useEffect(() => (paire.current ? tenirDessins(paire.current) : undefined), [identite?.name]);
+  useEffect(
+    () => (paire.current ? tenirDessins(paire.current) : undefined),
+    [identite?.name, paire],
+  );
   return (
     <div className="n3-controller-pair n3-dessins" ref={paire}>
       <div ref={gauche}>
@@ -152,7 +162,8 @@ function DessinsPro({ trame }: { trame: TramePro }) {
           title={REGLAGE.recoit(trame.console)}
           note={trame.manette}
           place={trame.place}
-          waiting={source.lecon?.demandee ?? source.capturing?.target ?? null}
+          // Un sens de stick (« lx+ ») encadre son stick, comme les marques.
+          waiting={pieceDe(source.lecon?.demandee ?? source.capturing?.target ?? "") || null}
         />
       </div>
       <div ref={droite}>
@@ -198,6 +209,11 @@ export function ManettePro({
   const occupe = Boolean(source.capturing || lecon);
   const fin = source.resultat;
   const suspendu = source.suspendu;
+  // Changer une ligne du bas fait défiler les dessins hors de la vue : la
+  // ligne montre alors la pièce attendue (changement 12).
+  const dessins = useRef<HTMLDivElement>(null);
+  const changee = source.capturing?.source === "pad" ? pieceDe(source.capturing.target) : null;
+  const horsDeVue = useHorsDeVue(dessins, changee);
   const valeur = (cible: SwitchTarget): string => {
     const entree = estBouton(cible)
       ? appareil?.buttons[cible]
@@ -215,6 +231,10 @@ export function ManettePro({
     valeur: valeur(cible),
     enCours: source.capturing?.target === cible && source.capturing.source === "pad",
     attente: estBouton(cible) ? REGLAGE.attendManette : REGLAGE.pousse(noms(cible).nom),
+    vignette:
+      horsDeVue && changee === pieceDe(cible) ? (
+        <Vignette map={trame.xbox ? XBOX_360 : SWITCH_PRO} piece={changee} place={trame.place} />
+      ) : undefined,
   });
   const table = (cibles: readonly SwitchTarget[], titre: string, pied?: string) => (
     <Correspondances
@@ -324,7 +344,7 @@ export function ManettePro({
           }
         />
       ) : null}
-      <DessinsPro trame={trame} />
+      <DessinsPro trame={trame} paire={dessins} />
       {lecon ? null : (
         <>
           <h3>{REGLAGE.correspondances}</h3>
@@ -364,6 +384,7 @@ export function ClavierPro({ trame }: { trame: TramePro }) {
   const { source } = trame;
   const { avis, avisRef, geste } = useGeste(source);
   const noms = nomsPro(trame);
+  const dessins = useRef<HTMLDivElement>(null);
   return (
     <>
       <div
@@ -382,7 +403,7 @@ export function ClavierPro({ trame }: { trame: TramePro }) {
       >
         {REGLAGE.essai}
       </div>
-      <DessinsPro trame={trame} />
+      <DessinsPro trame={trame} paire={dessins} />
       <Correspondances
         titre={REGLAGE.correspondances}
         colonne={REGLAGE.touche}

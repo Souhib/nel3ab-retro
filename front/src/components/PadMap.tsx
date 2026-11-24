@@ -83,6 +83,7 @@ export function PadMapView({
   rawLabels = false,
   place = null,
   absente = false,
+  recadrer,
 }: {
   map: PadMap;
   title: string;
@@ -97,10 +98,16 @@ export function PadMapView({
   place?: 1 | 2 | 3 | 4 | null;
   /** Aucune manette vue : la coque seule, tramée sous l'effet « tramage ». */
   absente?: boolean;
+  /** La vignette d'un changement (`manettes/reglage/Vignette.tsx`) : le même
+   * dessin recadré autour de cette pièce, sans légende ni clic. La ligne de
+   * la table dit déjà ce qui est attendu ; la vignette est cachée au lecteur
+   * d'écran. */
+  recadrer?: string;
 }) {
   // Le décor de la coque est découpé par elle : une découpe n'est pas une
   // lumière, et sans elle les grains de la manette Pro débordent du dessin.
   const decoupe = `${useId().replaceAll(":", "")}-coque`;
+  const cadre = recadrer ? map.parts.find((part) => part.key === recadrer) : undefined;
   const piece = (part: Part): ReactNode => {
     const label = labels?.[part.key] ?? (part.label || part.key);
     const { coins, fleche } = coinsDe(part);
@@ -206,43 +213,55 @@ export function PadMapView({
     );
   };
 
+  // Le carré de la vignette : la boîte de la pièce, ses coins (1,6) et une
+  // marge pour qu'un peu de la manette autour la situe.
+  const marge = cadre ? Math.max(cadre.r * (cadre.wide ?? 1), cadre.r) + 5 : 0;
+  const dessin = (
+    <svg
+      viewBox={
+        cadre
+          ? `${+(cadre.x - marge).toFixed(2)} ${+(cadre.y - marge).toFixed(2)} ${+(marge * 2).toFixed(2)} ${+(marge * 2).toFixed(2)}`
+          : (map.viewBox ?? "-2 -2 104 66")
+      }
+      role={cadre ? undefined : onSelect ? "group" : "img"}
+      aria-label={cadre ? undefined : title}
+      aria-hidden={cadre ? "true" : undefined}
+      data-padmap={map.id}
+      data-place={place ?? undefined}
+      data-absente={absente ? "oui" : undefined}
+      style={absente ? ({ "--trame": `url(#${decoupe}-trame)` } as CSSProperties) : undefined}
+      className={cadre ? "n3-vignette" : "w-full"}
+    >
+      {absente ? (
+        <pattern id={`${decoupe}-trame`} width="1" height="1" patternUnits="userSpaceOnUse">
+          <rect width="0.5" height="0.5" className="n3-trame" />
+          <rect x="0.5" y="0.5" width="0.5" height="0.5" className="n3-trame" />
+        </pattern>
+      ) : null}
+      <g>
+        {map.wire ? <path d={map.wire} className="n3-wire" /> : null}
+        <Layers layers={map.under} />
+        {map.parts.filter((part) => part.under).map(piece)}
+        <path d={map.body} className="n3-shell" />
+        <clipPath id={decoupe}>
+          <path d={map.body} />
+        </clipPath>
+        <g clipPath={`url(#${decoupe})`}>
+          <Layers layers={map.art} />
+        </g>
+        <Layers layers={map.deco} />
+        {map.parts.filter((part) => !part.under).map(piece)}
+      </g>
+    </svg>
+  );
+  if (cadre) return dessin;
   return (
     <figure className={cn("n3-controller", className)}>
       <figcaption>
         <span className="text-corps font-medium">{title}</span>
         {note ? <span className="text-note text-muted">{note}</span> : null}
       </figcaption>
-      <svg
-        viewBox={map.viewBox ?? "-2 -2 104 66"}
-        role={onSelect ? "group" : "img"}
-        aria-label={title}
-        data-padmap={map.id}
-        data-place={place ?? undefined}
-        data-absente={absente ? "oui" : undefined}
-        style={absente ? ({ "--trame": `url(#${decoupe}-trame)` } as CSSProperties) : undefined}
-        className="w-full"
-      >
-        {absente ? (
-          <pattern id={`${decoupe}-trame`} width="1" height="1" patternUnits="userSpaceOnUse">
-            <rect width="0.5" height="0.5" className="n3-trame" />
-            <rect x="0.5" y="0.5" width="0.5" height="0.5" className="n3-trame" />
-          </pattern>
-        ) : null}
-        <g>
-          {map.wire ? <path d={map.wire} className="n3-wire" /> : null}
-          <Layers layers={map.under} />
-          {map.parts.filter((part) => part.under).map(piece)}
-          <path d={map.body} className="n3-shell" />
-          <clipPath id={decoupe}>
-            <path d={map.body} />
-          </clipPath>
-          <g clipPath={`url(#${decoupe})`}>
-            <Layers layers={map.art} />
-          </g>
-          <Layers layers={map.deco} />
-          {map.parts.filter((part) => !part.under).map(piece)}
-        </g>
-      </svg>
+      {dessin}
     </figure>
   );
 }

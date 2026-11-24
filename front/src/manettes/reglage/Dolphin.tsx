@@ -28,7 +28,8 @@ import {
 } from "./PasAPas";
 import { IconeRang } from "../../components/Colonne";
 import { tenirDessins } from "./inscriptions";
-import { poserMarques } from "./marques";
+import { pieceDe, poserMarques } from "./marques";
+import { useHorsDeVue, Vignette } from "./Vignette";
 
 export type EntreeDolphin = Pick<
   InputStream,
@@ -109,6 +110,14 @@ export function ManetteDolphin({
   const lecon = state.lesson;
   const fin = state.lessonResult;
   const passee = fin?.passees[0];
+  // Changer une ligne du bas fait défiler les dessins hors de la vue : la
+  // ligne montre alors la pièce attendue (changement 12).
+  const changee = state.capturing?.source === "pad" ? pieceDe(state.capturing.control) : null;
+  const horsDeVue = useHorsDeVue(dessins, changee);
+  const place =
+    state.port === 1 || state.port === 2 || state.port === 3 || state.port === 4
+      ? state.port
+      : null;
   const lignes: Ligne[] = controls.map((one) => ({
     cle: one.key,
     nom: one.label,
@@ -116,6 +125,10 @@ export function ManetteDolphin({
     valeur: (identity && describePad(state.profile, identity, one.key)) || REGLAGE.rien,
     enCours: state.capturing?.control === one.key && state.capturing.source === "pad",
     attente: isStick(one.key) ? REGLAGE.pousse(one.ask) : REGLAGE.attendManette,
+    vignette:
+      horsDeVue && changee === pieceDe(one.key) ? (
+        <Vignette map={EMULATED[vu]!} piece={changee} place={place} />
+      ) : undefined,
   }));
 
   return (

@@ -178,6 +178,25 @@
 .n3-correspondances [data-attend="oui"] {
   background: var(--plaque);
 }
+/* La vignette d'un changement (`Vignette.tsx`) : la pièce attendue et ses
+   coins en 64 px, quand les dessins sont sortis de l'écran. Les dessins
+   laissent déborder leur tracé (`padmap.css`) ; la vignette le coupe à sa
+   boîte, sinon la manette entière couvre les lignes voisines. */
+.n3-attente {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-2);
+}
+.n3-correspondances .n3-vignette {
+  display: block;
+  flex: none;
+  overflow: hidden;
+  width: 64px;
+  height: 64px;
+  margin-block: var(--espace-1);
+  border: 2px solid var(--filet);
+  background: var(--fond);
+}
 .n3-essai-clavier {
   padding: var(--espace-4);
   border: 2px dashed var(--filet);

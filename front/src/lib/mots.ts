@@ -672,6 +672,8 @@ const laConsole = (nom: string | null) => (nom ? `la ${nom}` : "le jeu");
  * ses boutons. La fin du pas à pas et la manette débranchée suivent. */
 export const REGLAGE = {
   titre: "Touches et manettes",
+  /** Sous le titre de l'entrée de la feuille « La salle » (`lib/feuille`). */
+  entreeFeuille: "Ta manette, ton clavier, tes profils.",
   /** Au bout du panneau de commande : ouvre le panneau sur le clavier. */
   toutes: "Toutes les touches",
   fermer: "Fermer",

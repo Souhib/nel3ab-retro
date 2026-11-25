@@ -274,7 +274,9 @@ async function touches(page, what) {
   await exiger(page, "#item-bindings", `${what} (entrée du menu)`);
   await page.evaluate(() => document.querySelector("#item-bindings")?.click());
   await wait(900);
-  await exiger(page, ".n3-bindings[open], .n3-switch-setup[open]", what);
+  // Le panneau de la colonne depuis le 24 novembre 2026 : les dialogues
+  // `.n3-bindings` et `.n3-switch-setup` sont retirés.
+  await exiger(page, "#reglage", what);
 }
 
 const screens = [];

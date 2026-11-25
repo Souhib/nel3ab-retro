@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Game, Participant, Preparation as Pending } from "../client";
 import type { InputState, InputStream } from "../media/input";
-import { PADS, slotLabel, type Pad, type Slot } from "../lib/saves";
+import { PADS, type Pad } from "../lib/saves";
 import {
   ATTENTE_SANS_MS,
   choixAppareil,
@@ -13,7 +13,6 @@ import {
   nomAppareil,
   scenePret,
   titreDuBloc,
-  titrePreparation,
 } from "../lib/lancement";
 import { pastille, PREPARATION, SANS_REPONSE } from "../lib/mots";
 import { useAttente } from "../lib/useAttente";
@@ -94,7 +93,9 @@ function useAnnoncePrets(
  * La préparation à plusieurs, en un bloc non modal (P1 à P9, 24 novembre
  * 2026), pour toutes les consoles.
  *
- * Elle vivait dans le dialogue des touches (`Bindings`, `SwitchBindings`) :
+ * Elle vivait dans le dialogue des touches (`Bindings`, `SwitchBindings`,
+ * retirés le 24 novembre 2026 avec `usePreparationPro`, qui portait la
+ * moitié Pro) :
  * un calque modal qui couvrait l'image, bloquait l'entrée du jeu et ne se
  * fermait qu'avec « Plus tard ». Elle se pose maintenant en tête de la
  * colonne au bureau, et dans la feuille d'une salle tenue en main ; le jeu
@@ -366,179 +367,4 @@ export function PreparationEnBref({
       </button>
     </div>
   );
-}
-
-/** Ce que la préparation d'une salle Pro rend au panneau des touches de la
- * trame Pro (`SwitchBindings`), qui l'héberge. */
-export type PreparationPro = {
-  /** Le joueur de cette page a confirmé son choix : le réglage se fige. */
-  pret: boolean;
-  /** Un geste attend la réponse du salon : le réglage se fige aussi. */
-  occupe: boolean;
-  /** Les morceaux du panneau, chacun à la place qu'il avait ; rien hors d'une
-   * préparation. */
-  vue: {
-    /** Au-dessus du titre : « Avant de jouer · Xbox 360 ». */
-    surtitre: string;
-    /** Le nom du jeu préparé. */
-    titre: string | undefined;
-    /** « Annuler le lancement » pour qui l'a lancée, rien pour les autres. */
-    annuler: ReactNode;
-    /** La sauvegarde et la ligne de chaque joueur, en tête du corps. */
-    joueurs: ReactNode;
-    /** Le geste de chacun, au pied du panneau ; rien pour qui regarde. */
-    pied: ReactNode;
-  } | null;
-};
-
-/**
- * La préparation à plusieurs d'une salle à manette Pro (Switch, Xbox 360).
- *
- * Elle vivait dans `SwitchBindings`, mêlée au réglage des touches de la trame
- * Pro. Elle en sort ici le 23 novembre 2026, sans rien changer à ce que la
- * page montre, pour que deux chantiers changent chacun sa moitié : le réglage
- * appartient au chantier des manettes, la préparation à celui des menus. Le
- * panneau pose les morceaux de `vue` là où ils étaient (en-tête, tête du
- * corps, pied), et partage sa ligne d'état (`dire`).
- *
- * Ce que chacun voit est calculé par `lib/lancement`, comme pour `Preparation`.
- * La manette Pro est l'appareil 4.
- *
- * Depuis le 24 novembre 2026, la salle ne monte plus `SwitchBindings` pendant
- * une préparation : le bloc `Preparation` sert toutes les consoles. Ce crochet
- * ne vit plus que dans la branche `pending` de `SwitchBindings` et dans son
- * aperçu ; il part avec elle quand le chantier des manettes retire l'ancien
- * dialogue.
- */
-// Un crochet exporté à côté d'un composant prive ce fichier du rechargement à
-// chaud de Vite : en développement, une retouche de ce fichier perd l'état des
-// composants affichés. Rien ne change pour la page construite, et la
-// partition range la préparation Pro ici, chez le chantier des menus, qui la
-// réécrira.
-// oxlint-disable-next-line only-export-components
-export function usePreparationPro({
-  pending,
-  game,
-  input,
-  send,
-  capture,
-  dire,
-}: {
-  pending: Pending | null;
-  game?: Game | null;
-  input: InputStream;
-  send: (action: Record<string, unknown>) => Promise<void>;
-  /** Une commande du réglage attend d'être actionnée : le pied attend aussi. */
-  capture: boolean;
-  /** Écrit dans la ligne d'état du panneau, que le réglage partage. */
-  dire: (texte: string) => void;
-}): PreparationPro {
-  const [busy, setBusy] = useState(false);
-  const me = pending?.players.find((p) => p.claim === input.attribution());
-  const ready = me?.ready ?? false;
-  const starter = pending?.starter === input.attribution();
-  /** Depuis quand le chef attend: depuis l'arrivée du dernier absent, compté
-   * comme dans `Preparation` (`useAttente`). */
-  const attendu = useAttente(pending ?? null, input.attribution());
-  useScenePret(pending?.players ?? null);
-  const run = async (geste: () => Promise<void>) => {
-    setBusy(true);
-    dire("");
-    try {
-      await geste();
-    } catch (e) {
-      dire(e instanceof Error ? e.message : SANS_REPONSE);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const act = (action: Record<string, unknown>) => run(() => send({ ...action, id: pending?.id }));
-  /** Le lancement du chef, compris aussi d'un salon d'avant (`lancerEnChef`).
-   * La manette Pro est l'appareil 4. */
-  const lancer = (sansAttendre: boolean) =>
-    run(() =>
-      lancerEnChef(send, {
-        id: pending?.id,
-        pad: 4,
-        ...(sansAttendre ? { sans_attendre: true as const } : {}),
-      }),
-    );
-  if (!pending) return { pret: ready, occupe: busy, vue: null };
-  const gestes = gestesDuLancement(pending, input.attribution(), attendu, game?.console);
-  const principal = gestes.principal;
-  return {
-    pret: ready,
-    occupe: busy,
-    vue: {
-      surtitre: titrePreparation(game?.console ?? undefined),
-      titre: game?.name,
-      annuler: starter ? (
-        <button disabled={busy} onClick={() => void act({ action: "cancel" })}>
-          Annuler le lancement
-        </button>
-      ) : null,
-      joueurs: (
-        <section className="n3-preparation">
-          <p>
-            Sauvegarde : {slotLabel(pending.save as Slot)}. Chacun teste ses commandes et charge son
-            profil.
-          </p>
-          <div className="n3-preparation-players">
-            {pending.players.map((p) => (
-              <div key={p.claim} data-ready={p.ready}>
-                <span>{pastille(p.port)}</span>
-                <strong>{p.name ?? ""}</strong>
-                <small>
-                  {p.claim === pending.starter && !p.ready
-                    ? "lance le jeu"
-                    : ligneJoueur(p, game?.console ?? undefined)}
-                </small>
-              </div>
-            ))}
-          </div>
-        </section>
-      ),
-      pied: principal ? (
-        <footer>
-          {principal.quoi === "lancer" ? (
-            <>
-              <button
-                id="launchPrepared"
-                disabled={busy || capture || !principal.actif}
-                onClick={() => void lancer(false)}
-              >
-                {principal.label}
-              </button>
-              {gestes.sansAttendre ? (
-                <button
-                  id="launchWithout"
-                  disabled={busy}
-                  title={gestes.sansAttendre.note}
-                  onClick={() => void lancer(true)}
-                >
-                  {gestes.sansAttendre.label}
-                </button>
-              ) : null}
-              <span>
-                {gestes.sansAttendre?.note ??
-                  (gestes.attente
-                    ? `${gestes.attente} Sans réponse au bout de ${Math.round(ATTENTE_SANS_MS / 1000)} s, tu pourras lancer sans attendre.`
-                    : "")}
-              </span>
-            </>
-          ) : (
-            <>
-              <button
-                disabled={busy || capture}
-                onClick={() => void act({ action: "choose", pad: 4, ready: !ready })}
-              >
-                {principal.label}
-              </button>
-              <span>{gestes.attente ?? "Le chef lance le jeu quand chacun est prêt."}</span>
-            </>
-          )}
-        </footer>
-      ) : null,
-    },
-  };
 }

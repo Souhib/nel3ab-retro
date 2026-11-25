@@ -14,6 +14,7 @@ describe("les rangs de la colonne", () => {
   it("donne en partie, au clavier, l'ordre de la maquette avec Signaler en tête", () => {
     expect(rangsDeLaColonne(base)).toEqual([
       "signaler",
+      "reglage",
       "son",
       "menu",
       "touches",
@@ -32,7 +33,12 @@ describe("les rangs de la colonne", () => {
   });
 
   it("retire au repos ce qui ne sert à rien au lieu de le griser, et garde le menu (K23)", () => {
-    expect(rangsDeLaColonne({ ...base, etat: "repos" })).toEqual(["signaler", "menu", "autres"]);
+    expect(rangsDeLaColonne({ ...base, etat: "repos" })).toEqual([
+      "signaler",
+      "reglage",
+      "menu",
+      "autres",
+    ]);
   });
 
   it.each(SANS_IMAGE)(
@@ -51,21 +57,38 @@ describe("les rangs de la colonne", () => {
     expect(rangsDeLaColonne({ ...base, etat: "connexion" })).toEqual(rangsDeLaColonne(base));
     // Les jumeaux : une arrivée dans une salle sans partie, et un chargement
     // (le clip reste caché pendant un lancement, C8), n'ont pas ces rangs.
+    // « Touches et manettes » y reste : on règle sa manette avant de jouer
+    // (chantier manettes, 24 novembre 2026).
     expect(rangsDeLaColonne({ ...base, etat: "connexion", partie: false })).toEqual([
       "signaler",
+      "reglage",
       "menu",
       "autres",
     ]);
     expect(rangsDeLaColonne({ ...base, etat: "demarrage" })).toEqual([
       "signaler",
+      "reglage",
       "menu",
       "autres",
     ]);
     expect(rangsDeLaColonne({ ...base, etat: "repos", partie: false })).toEqual([
       "signaler",
+      "reglage",
       "menu",
       "autres",
     ]);
+  });
+
+  it("met « Touches et manettes » en tête, juste sous Signaler, pour qui tient une place", () => {
+    for (const appareil of ["clavier", "manette", "tactile"] as const) {
+      const rangs = rangsDeLaColonne({ ...base, appareil });
+      expect(rangs.indexOf("reglage")).toBe(rangs.indexOf("signaler") + 1);
+    }
+    // Sans Signaler (une fiche parle), il passe en tête.
+    expect(rangsDeLaColonne({ ...base, etat: "figee", fiche: true })[0]).toBe("reglage");
+    // Les jumeaux : ni pour qui regarde, ni dans une salle fermée.
+    expect(rangsDeLaColonne({ ...base, role: "regarde" })).not.toContain("reglage");
+    expect(rangsDeLaColonne({ ...base, etat: "fermee" })).not.toContain("reglage");
   });
 
   it("ne donne à un spectateur ni le menu ni ses touches", () => {

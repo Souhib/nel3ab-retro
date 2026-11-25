@@ -65,7 +65,8 @@ Après une retouche, dans cet ordre :
 2. `just padmap-visuel` : dans un vrai navigateur, chaque pièce est sur la coque,
    chaque gâchette dépasse, le vibrato touche et dépasse ;
 3. `just banc-visuel` : silhouette et touche appuyée à 3:1 au moins ;
-4. `just browser-configuration` (Vite sur 5202) : inscriptions lisibles sur les
-   sept ambiances, au repos et appuyées ;
+4. `just reglage-navigateur` : le panneau tient ses dessins, ses zones de clic
+   et ses marques (`browser-configuration`, qui mesurait l'ancien dialogue, est
+   retiré avec lui le 24 novembre 2026) ;
 5. `node padmap-carte.mjs <id> <sortie> "?sim"` pour regarder une manette de
    près, touches tenues.

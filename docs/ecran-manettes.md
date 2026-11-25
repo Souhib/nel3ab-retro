@@ -1,11 +1,84 @@
 # L'écran des deux manettes
 
-Note de reprise pour l'écran `touches → les deux manettes`. Elle dit ce qui n'est
-pas lisible dans les fichiers, et ce qui casse quand on l'ignore.
+Note de reprise pour l'écran des deux manettes, dans le panneau « Touches et
+manettes ». Elle dit ce qui n'est pas lisible dans les fichiers, et ce qui casse
+quand on l'ignore.
 
-**Périmètre au 9 septembre 2026.** L'invariant ci-dessous concerne Dolphin.
-La Switch possède une trame et un configurateur distincts, décrits à la fin de
-cette note. L'[état du projet](etat-du-projet.md) relie les deux parcours.
+**Périmètre au 24 novembre 2026.** Un seul écran règle les touches : le
+panneau de `front/src/manettes/`, pour la trame Dolphin (GameCube, Wii) et pour
+la trame Pro (Switch, Xbox 360). Les anciens dialogues (`Bindings.tsx`,
+`SwitchBindings.tsx`) sont retirés ce jour-là ; la préparation à plusieurs est
+un bloc de la colonne (`Preparation.tsx`, chantier menus) et n'est plus ici.
+La section suivante dit ce qui existe ; l'invariant vient ensuite, puis
+l'histoire datée, gardée telle qu'elle a été écrite. L'[état du
+projet](etat-du-projet.md) relie les parcours.
+
+## Ce qui existe, au 24 novembre 2026
+
+- **Un panneau, une entrée.** `ouvrirReglage(onglet)` (`manettes/entree.ts`)
+  ouvre le panneau ou change d'onglet ; `HoteReglage` le monte. La salle
+  l'appelle par `ouvrirLesTouches` d'`App.tsx`, qui ferme le menu (et la
+  feuille, tenue en main). Cinq chemins y mènent : le rang « Touches et
+  manettes » en tête de la colonne, juste sous Signaler (`RangReglage`,
+  `lib/colonne.ts`) ; l'entrée du même nom de la feuille « La salle » à
+  mi-hauteur, quand sa rangée tient (`lib/feuille.ts`) ; « Changer » de la vue
+  des touches ; « Toutes les touches » au bout du panneau de commande, au
+  bureau ; la rubrique Manettes du menu.
+- **Sa place, jamais sur l'image.** Au bureau, il prend la place des rangs de
+  la colonne, élargie (`largeurPanneau`, K24) ; en fenêtre étroite, la colonne
+  est sous l'image. Tenu en main, le cadre lui donne un rectangle à lui
+  (`Geometrie.reglage`, `lib/cadre.ts`) : sous l'image tenu droit, du bas de
+  l'image au bas de la zone sûre (l'image ne rapetisse que pour lui laisser
+  240 px) ; à droite en travers, 380 px au plus, l'image rangée à gauche. La
+  salle le monte dans `#reglageTenu`. Un seul panneau à la fois : la colonne
+  ne le monte que quand le cadre ne lui donne pas de place. Une page
+  « manette seule » n'en a pas (pas d'image à épargner) : la feuille
+  agrandie s'ouvre et sa colonne le porte (étape `manette-seule`).
+- **La manette à l'écran n'est pas montée** pendant le réglage
+  (`couchesDeLaSalle`) : elle enverrait au jeu ce qu'on essaie. Tenu droit, sa
+  place revient au panneau.
+- **Ton étiquette** (D7 du plan manettes) : sous « Ta manette », le numéro de
+  ta place à son encre et le ruban d'`Etiquette` (chantier personnes), tes
+  initiales sous l'effet « initiales » (`TonEtiquette.tsx`). La salle donne ton
+  nom aux deux trames (`etiquette`). Rien pour qui regarde, rien sous le dessin
+  de ce que le jeu reçoit, rien dans un dessin.
+- **Les deux trames.** `Dolphin.tsx` pose `Wiring` (l'invariant ci-dessous),
+  `Pro.tsx` peint ses deux dessins par `paintPro`. Les onglets Manette,
+  Clavier et Profils sont les mêmes ; les mots vivent dans `REGLAGE`
+  (`lib/mots.ts`).
+
+| Fichier | Ce qu'il porte |
+|---|---|
+| `front/src/manettes/entree.ts`, `HoteReglage.tsx` | L'ouverture, l'onglet, l'ouvreur et le focus rendu |
+| `front/src/manettes/RangReglage.tsx` | Le rang « Touches et manettes » de la colonne |
+| `front/src/manettes/ToutesLesTouches.tsx` | « Toutes les touches », au bout du panneau de commande |
+| `front/src/manettes/reglage/Reglage.tsx`, `Onglets.tsx` | Le panneau, sa tête, ses onglets, Échap |
+| `front/src/manettes/reglage/Dolphin.tsx`, `Pro.tsx` | Les deux trames : dessins, correspondances, clavier, profils |
+| `front/src/manettes/reglage/PasAPas.tsx` | Le pas à pas, la table des correspondances, les avis |
+| `front/src/manettes/reglage/TonEtiquette.tsx` | Ton étiquette sous « Ta manette » |
+| `front/src/manettes/reglage/marques.ts`, `tenues.ts`, `zones.ts`, `inscriptions.ts` | Ce qui se pose hors de React sur les dessins |
+| `front/src/manettes/reglage/reglage.css` | Le panneau, ses marques, sa place tenue en main |
+| `front/src/components/PadMap.tsx`, `padmap.css` | Le dessin commun, aplats, appui à la couleur de la place |
+| `front/src/components/Wiring.tsx`, `Bench.tsx`, `KeyboardWiring.tsx` | Les deux manettes Dolphin, le banc, le clavier |
+| `front/src/lib/padmap.ts`, `wiring.ts`, `bench.ts` | Les plans, la lecture brute, `paintWiring`, `paintPro`, `paintBench` |
+| `front/src/media/lesson.ts`, `input.ts`, `switch.ts`, `pad.ts` | La capture, le pas à pas, les deux trames, l'activité envoyée |
+| `front/src/lib/cadre.ts` (`Geometrie.reglage`) | La place du panneau tenu en main (fichier de la salle) |
+| `front/bindings-preview.html` | L'aperçu sans salle : le panneau (`?reglage`, `&pro=x360`, `&onglet=`), la préparation (`?preparation`) |
+| `spikes/m3-browser-drive/reglage.mjs` | La preuve dans un vrai navigateur (`just reglage-navigateur`) |
+
+**Les preuves.** `just reglage-navigateur` sur le banc des parcours : place au
+bureau et tenu en main (`place`, `place-tenu`), le rang (`rang`), l'entrée de
+la feuille (`feuille-reglage`), la page « manette seule » (`manette-seule`),
+l'étiquette (`etiquette`), les entrées et le
+focus, l'activité de la trame Pro, les zones de clic, la vignette d'un
+changement, les nombres, les marques, le focus du pas à pas et le pas à pas.
+`just reglage-navigateur-rouge` les fait rougir sur les pages de 9fb659e,
+bc72ba9, e62f583, 842e4c9, 9b1c8e8, 928bd03 et 672dcb6. `just salle-telephone` mesure
+le panneau seul au téléphone (`bindings-preview.html?reglage`) ; `just
+banc-visuel` et `just padmap-visuel` les dessins et leurs contrastes. Les
+pilotes qui visent une vraie salle (`bindings.mjs`, `banc.mjs`,
+`contraste.mjs`, `debordement.mjs`, `capture-salle.mjs`) ne sont lancés par
+aucun chantier (K40).
 
 ## L'invariant, et tout en découle
 
@@ -25,7 +98,7 @@ Un plan qui introduirait une clé à lui ne s'allumerait jamais. Un essai le ref
 
 Les correspondances sont **décidées** dans `core/crates/emulator/src/config.rs`
 (`wiimote_ini`, `guitar_binds`). Les plans de `front/src/lib/padmap.ts` ne font
-que les **dessiner**. Si l'un change, l'autre suit — jamais l'inverse. Il n'y a
+que les **dessiner**. Si l'un change, l'autre suit, jamais l'inverse. Il n'y a
 pas d'essai qui relie les deux: c'est un trou connu, et le premier endroit à
 regarder quand une touche s'allume au mauvais endroit.
 
@@ -56,7 +129,7 @@ profil de la salle Switch ou Xbox 360. Elle ne tient aucune table ; si
 
 Un adaptateur GameCube rapporte une gâchette **au repos à 0,6**, donc le
 navigateur la déclare `pressed` en permanence. Sans précaution, le schéma
-s'allume tout seul — sur l'écran même censé rassurer sur ce que la salle voit.
+s'allume tout seul, sur l'écran même censé rassurer sur ce que la salle voit.
 
 `heldOn` fait donc deux choses:
 
@@ -104,7 +177,7 @@ Les deux côtés s'inclinent à partir de nombres qui se ressemblent et n'ont pa
 le même sens. Ce que le jeu reçoit compte le vertical vers le **haut**
 (`readPad` nie déjà l'axe du navigateur, et c'est ce qui part sur le fil); le
 navigateur compte vers le **bas**, comme SVG. Passés tels quels, les deux
-schémas penchaient en sens contraires pour la même poussée — visible seulement
+schémas penchaient en sens contraires pour la même poussée, visible seulement
 à l'écran, le jeu allait bien.
 
 Une paire de nombres ne dit pas de quel repère elle vient. `upward` et
@@ -121,9 +194,20 @@ dessinées, à la cadence de l'écran, et la feuille de style fait le reste. Rea
 n'est jamais rendu pendant ce temps.
 
 Ne pas remplacer par un état React. Ne pas faire dépendre les couleurs de la
-boucle: elles vivent dans `index.css`, la boucle ne change qu'un attribut.
+boucle: elles vivent dans `components/padmap.css` et la section manettes de
+`regie.css` (dans `index.css` jusqu'au 23 novembre 2026), la boucle ne change
+qu'un attribut.
+
+## L'histoire, datée
+
+Les sections qui suivent sont gardées telles qu'elles ont été écrites. Quand
+une décision a été remplacée, une ligne le dit et renvoie à ce qui la
+remplace ; « Ce qui existe » en tête de cette note fait foi.
 
 ## Le configurateur du 6 septembre 2026
+
+*Le dialogue décrit ici est retiré le 24 novembre 2026 ; ses trois sections
+sont les onglets du panneau.*
 
 L'écran porte désormais le même titre depuis le menu jusqu'au dialogue :
 « Touches et manettes ». Trois sections séparent la manette physique, les touches
@@ -200,7 +284,8 @@ code :
 ## Apprendre sans agir dans le jeu
 
 La leçon expose la commande attendue, l'étape et l'attente de relâchement.
-`Bindings` la garde visible dans le dialogue et `PadMapView` éclaire la pièce
+`Bindings` la gardait visible dans le dialogue (le pas à pas du panneau,
+`PasAPas.tsx`, depuis le 23 novembre 2026) et `PadMapView` éclaire la pièce
 attendue. Sur téléphone, la consigne précède les dessins pendant l'apprentissage.
 
 Le bouton de configuration ouvre d'abord une consigne de repos. Annuler ne
@@ -237,6 +322,10 @@ branché après confirmation. Ce choix est figé dans le dessin pendant la
 préparation, pour ne pas faire tester un appareil différent de celui confirmé.
 
 ## Les fichiers et les preuves
+
+*Table du 22 novembre 2026. `SwitchBindings.tsx`, `Bindings.tsx` et
+`FeuilleDuBas.tsx` n'existent plus : la table à jour est dans « Ce qui
+existe ».*
 
 | Fichier | Responsabilité |
 |---|---|
@@ -275,10 +364,9 @@ réseau désordonnées. `profile.test.ts` a les jumeaux des formats acceptés.
 
 ## Vérifier à l'écran
 
-Démarrer Vite sur le port 5202 dans `front/`, puis lancer
-`just browser-configuration`. Le pilote ouvre le configurateur réel sur une
-manette simulée, sans socket de jeu ni écriture au salon. Il teste les gestes
-et photographie ordinateur, téléphone et apprentissage.
+`just browser-configuration` ouvrait le configurateur réel sur une manette
+simulée, dans l'aperçu. Il est retiré avec l'ancien dialogue le 24 novembre
+2026 ; `just reglage-navigateur` prouve le panneau (« Ce qui existe »).
 
 `just banc-visuel` monte également les vrais composants et vérifie son lot de
 contrastes. Il doit sortir en erreur si un texte ou un trait échoue. Depuis le
@@ -302,6 +390,10 @@ l'ancienne page ne peut pas valider celle de l'arbre de travail.
 
 ## Préparation et profils personnels
 
+*Le 24 novembre 2026, la préparation devient un bloc de la colonne pour
+toutes les consoles (chantier menus), et le dialogue part ; « Mes profils
+complets » reste dans l'onglet Profils du panneau.*
+
 `Preparation.tsx` est inséré dans le même dialogue, dans la zone défilante. Le
 salon garde les choix et l'état « prêt » ; la page garde ses correspondances.
 La personne peut charger, enregistrer, mettre à jour ou supprimer un profil
@@ -319,7 +411,8 @@ indication vient d'un manuel, pas d'une lecture de la mémoire du jeu. Elle ne
 prouve pas que Dolphin a reçu l'appui ; seule une séance de jeu peut prouver
 l'enchaînement complet.
 
-`just browser-preparation` teste ce parcours sans salle. Les tests Python font
+`just browser-preparation` testait ce parcours sans salle (retiré le
+24 novembre 2026 ; `just parcours-navigateur` prouve le bloc). Les tests Python font
 participer deux vrais clients et un spectateur à une préparation, en utilisant
 un port TCP jetable pour le faux worker. Les tests Rust vérifient séparément
 les attributions, le refus d'un ancien choix et les fichiers Dolphin par port.
@@ -372,8 +465,9 @@ reste fermé. `Bindings.tsx` porte les deux sections sous le dessin et l'éditeu
 sa propre lecture, aucun rendu React n'est ajouté à chaque appui.
 
 La préparation collective utilise ce même panneau. Les pilotes
-`configuration-ui.mjs` et `preparation-ui.mjs` vérifient l'ordre, les deux états
-initiaux et la possibilité de refermer les correspondances, sur le vrai dialogue.
+`configuration-ui.mjs` et `preparation-ui.mjs` vérifiaient l'ordre, les deux états
+initiaux et la possibilité de refermer les correspondances, sur le vrai dialogue ;
+ils sont retirés avec lui le 24 novembre 2026.
 
 Depuis le 6 septembre au soir, les correspondances occupent **une seule colonne**,
 également pendant la préparation. Il s'agit de l'ordre de lecture des commandes ;
@@ -396,6 +490,10 @@ coques. Un nombre de joueurs inconnu ou des gestes non pris en charge sont dits
 explicitement ; une fiche ne s'applique pas par ressemblance de titre.
 
 ## Le parcours Switch, 9 septembre 2026
+
+*`SwitchBindings.tsx` est retiré le 24 novembre 2026 : la trame Pro se règle
+dans le panneau (`manettes/reglage/Pro.tsx`), la préparation Pro dans le bloc
+`Preparation`.*
 
 `SwitchBindings.tsx` permet de tester la lecture physique, de modifier les touches
 et de charger, enregistrer, importer ou exporter un profil personnel. Le même
@@ -798,7 +896,8 @@ code :
   restent hors de cette règle.
 - **Tenu en main, le panneau couvre encore l'image.** Il attend un
   emplacement de `lib/cadre.ts` (chantier salle) ; `place-tenu` le mesure,
-  hors de la porte.
+  hors de la porte. *Remplacé le 24 novembre 2026 au soir :
+  `Geometrie.reglage`, et `place-tenu` est dans la porte.*
 - **La preuve dans le navigateur** : les étapes `marques` (relevé à chaque
   image) et `focus-pas` (clavier seul) de `reglage.mjs`, rouges sur 9b1c8e8.
 
@@ -807,7 +906,8 @@ code :
 Le panneau « Touches et manettes » vit dans `front/src/manettes/`. Depuis le
 quatrième passage, `App.tsx` le monte en vue de la colonne (`HoteReglage`) ;
 les dialogues `Bindings` et `SwitchBindings` n'hébergent plus que la
-préparation à plusieurs, jusqu'à ce que le chantier des menus la sorte. Ce
+préparation à plusieurs, jusqu'à ce que le chantier des menus la sorte
+(c'est fait, et les dialogues sont retirés le 24 novembre 2026). Ce
 qu'il faut savoir avant d'y toucher :
 
 - **Le chemin d'ouverture.** Le menu, « Changer » de la vue des touches et
@@ -815,7 +915,8 @@ qu'il faut savoir avant d'y toucher :
   commande) passent par `ouvrirLesTouches` d'`App.tsx`, qui ferme le menu
   modal puis appelle `ouvrirReglage`. Tenu en main, la colonne vit dans la
   feuille agrandie, qui couvre l'image : la place sous l'image et à droite
-  en travers attend la géométrie du cadre (chantier salle).
+  en travers attend la géométrie du cadre (chantier salle). *Remplacé le
+  24 novembre 2026 au soir : voir « Ce qui existe ».*
 - **La largeur.** Au bureau, le cadre reçoit `largeurPanneau` et la colonne
   prend la largeur du cadre tant que le panneau est ouvert. Retirer l'un ou
   l'autre fait échouer l'étape `place` de `reglage.mjs`.
@@ -862,3 +963,27 @@ qu'il faut savoir avant d'y toucher :
 - **Les pièces ne sont plus dans la tabulation** (`tabIndex` -1) : la table
   « Toutes les correspondances » est le chemin du clavier. Un clic de souris
   sur une pièce choisit encore sa ligne.
+
+## La fin du chantier, 24 novembre 2026 (soir)
+
+Récit au carnet, entrée « 24 novembre, le soir : la fin des manettes » ;
+décision à l'ADR D42 et D35. Ce qui n'est pas lisible dans le code :
+
+- **Le cadre décide la place tenue en main, App la monte.** `Entree.reglage`
+  fait poser `Geometrie.reglage` à `portrait` et `paysage` ; une manette seule
+  (`seule`) n'en a pas. `useGeometrie` liste le champ dans ses dépendances :
+  sans lui, le rectangle resterait celui du calcul d'avant. Le panneau, la
+  bande, la manette et l'étiquette de la bande sont absents de cette
+  géométrie ; la barre reste, avec « La salle ».
+- **L'entrée de la feuille compte ses rangées.** Trois rangées de deux
+  entrées tiennent dans `FEUILLE_MI_MIN` ; une rangée de plus coûte 80 px
+  (`RANGEE_MI`), mesurés à 390 × 844 et non déduits d'un `min-height`. Ajouter une entrée à la feuille déplace ce calcul : la
+  feuille ne défile jamais (`salle-telephone`).
+- **Le rang vient juste sous Signaler**, qui reste premier (K25). À 1280×720
+  avec une image 4:3, les places sont au pied de la colonne et les rangs
+  passent sous le pied collé : le rang se rejoint en faisant défiler. Un clic
+  de pilote passe par `toucher` (le centre de ce qui reçoit le point), sinon
+  il tomberait sur « Plus bas ».
+- **Les classes mortes ont un garde.** `classes.test.ts` lit `index.css`,
+  `padmap.css` et `reglage.css` ; il a nommé les 38 classes que les anciens
+  dialogues laissaient dans `index.css`.

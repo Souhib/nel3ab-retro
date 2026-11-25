@@ -19,9 +19,10 @@
  * Ce module dit QUOI montrer à mi-hauteur ; `FeuilleSalle` le pose. Le son
  * coupé passe en tête : c'est la seule entrée qui répare quelque chose.
  */
+import { FEUILLE_MI_MIN } from "./cadre";
 import type { PleinEcran } from "./plein-ecran";
 import { clipAide, type ClipState } from "./clip";
-import { TACTILE } from "./mots";
+import { REGLAGE, TACTILE } from "./mots";
 
 /** Le nom du bouton « La salle », lu à voix haute : le son coupé y est dit
  * en mots, la pastille rouge seule ne se lisant pas. Un seul texte pour le
@@ -42,6 +43,7 @@ export const OUVRE_LA_FEUILLE = '[data-geste="feuille"]';
 export type IdEntree =
   | "son"
   | "menu"
+  | "reglage"
   | "clip"
   | "manette"
   | "plein-ecran"
@@ -69,7 +71,45 @@ export type EtatFeuille = {
   clip: ClipState | null;
   /** Le téléphone est en travers : la feuille n'a qu'une colonne. */
   travers?: boolean;
+  /** La page tient une place : « Touches et manettes » la concerne. */
+  reglage?: boolean;
+  /** La hauteur de la feuille à mi-hauteur (`geo.feuille.mi`), en pixels. */
+  hauteurMi?: number;
 };
+
+/** Une rangée de plus de la feuille à mi-hauteur tenue droite, mesurée et
+ * non déduite : 347 à 353 px de contenu à 390×844 avec une quatrième
+ * rangée, pour 275 avec trois (salle-telephone, 24 novembre 2026). Une
+ * entrée fait 44 px au moins (`telephone.css`), mais son détail tient sur
+ * deux lignes dans une colonne de téléphone : le premier calcul, 48 px,
+ * aurait laissé défiler une feuille de 324 à 352 px. 80 px gardent 3 px
+ * sur la pire mesure. */
+export const RANGEE_MI = 80;
+
+/** Les rangées que `FEUILLE_MI_MIN` tient sur deux colonnes : trois, mesurées
+ * le 23 novembre 2026 (275 px de contenu à 375 et à 390 px de large). */
+const RANGEES_MIN = 3;
+
+/** « Touches et manettes » à mi-hauteur, après le menu (chantier manettes,
+ * 24 novembre 2026), seulement quand sa rangée tient : la feuille ne défile
+ * jamais (salle-telephone). Tenue droite, deux entrées par rangée ; une
+ * rangée de plus demande `RANGEE_MI` au-delà de `FEUILLE_MI_MIN`. Une
+ * tablette tenue droite en pose quatre par rangée : la règle la compte pour
+ * deux, et garde alors l'entrée en tête de la salle entière. À 375×667, la
+ * feuille n'a que 287 px : pendant une partie, sept entrées feraient quatre
+ * rangées, et l'entrée reste en tête de la colonne de la salle entière. En
+ * travers, la colonne unique défilait déjà avec le clip : même règle. */
+function avecLeReglage(entrees: EntreeFeuille[], e: EtatFeuille): EntreeFeuille[] {
+  if (!e.reglage || e.travers || e.hauteurMi === undefined) return entrees;
+  const tiennent = RANGEES_MIN + Math.floor((e.hauteurMi - FEUILLE_MI_MIN) / RANGEE_MI);
+  if (Math.ceil((entrees.length + 1) / 2) > tiennent) return entrees;
+  const apres = entrees.findIndex((une) => une.id === "menu") + 1;
+  return [
+    ...entrees.slice(0, apres),
+    { id: "reglage", titre: REGLAGE.titre, detail: REGLAGE.entreeFeuille, alerte: false },
+    ...entrees.slice(apres),
+  ];
+}
 
 /** Le clip, à mi-hauteur : quarante-cinq secondes ne se demandent pas
  * après coup, et la feuille agrandie était à deux touchers (feuille-du-bas.2,
@@ -95,7 +135,11 @@ function entreeClip(clip: ClipState): EntreeFeuille {
   };
 }
 
-export function entreesDeLaFeuille({
+export function entreesDeLaFeuille(etat: EtatFeuille): EntreeFeuille[] {
+  return avecLeReglage(entreesDeLaPartie(etat), etat);
+}
+
+function entreesDeLaPartie({
   sonCoupe,
   manette,
   plein,

@@ -42,6 +42,7 @@ import {
 import { IconeRang } from "../../components/Colonne";
 import { tenirDessins } from "./inscriptions";
 import { pieceDe, poserMarques } from "./marques";
+import { TonEtiquette, type NomDeLaPlace } from "./TonEtiquette";
 import { useHorsDeVue, Vignette } from "./Vignette";
 
 export type TramePro = {
@@ -56,6 +57,8 @@ export type TramePro = {
   guide?: Game["guide"];
   place: 1 | 2 | 3 | 4 | null;
   envoi?: Envoi;
+  /** Ton nom dans la salle, pour l'étiquette de « Ta manette » (D7). */
+  etiquette?: NomDeLaPlace | null;
 };
 
 /** « ZL · gâchette gauche » devient « ZL », et dessous « gâchette gauche » :
@@ -175,6 +178,7 @@ function DessinsPro({
           rawLabels={!identite?.standard}
           place={trame.place}
           absente={!pad}
+          etiquette={<TonEtiquette place={trame.place} qui={trame.etiquette} />}
         />
       </div>
     </div>

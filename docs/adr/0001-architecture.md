@@ -1786,6 +1786,18 @@ the antechamber puts its card and its two buttons side by side: in one column,
 measures the bottom of `#enter` at every size; it failed at 844x390, 932x430
 and 667x375 before the change.
 
+Amended 2026-11-24 (manettes, the key settings). Held in hand, the
+"Touches et manettes" panel is not a layer of the room sheet: the frame
+gives it a rectangle of its own (`Geometrie.reglage`), below the picture
+held upright and right of it held sideways, and opening it closes the
+sheet. The touch pad is not mounted while it is open, and its place goes to
+the panel. The sheet at mid height carries a "Touches et manettes" entry
+after the game menu only when its row fits: three rows of two entries fit
+in `FEUILLE_MI_MIN`, and each extra row costs 80 px, measured at 390 × 844
+(a fourth row took the content from 275 to 347 and 353 px; `lib/feuille.ts`).
+Held sideways, its single column would scroll, so the entry lives at the
+head of the whole room's column, as the clip already does.
+
 ### D36: The host never follows a link inside a folder a container writes, 2026-11-22
 
 Each engine container mounts its save slot read-write, under the host's own
@@ -3128,6 +3140,32 @@ that claimed otherwise are corrected here, and `place-tenu` stays red outside
 the gate. `reglage.mjs` gains `marques` (read on every frame) and
 `focus-pas` (keyboard only), both red on 9b1c8e8. The page weighs 261 286
 bytes brotli.
+
+**The end of the work site (24 November, evening).** On
+`chantier/retro-fin-manettes`, from `integration/retro` (928bd03). The old
+dialogs `Bindings.tsx` and `SwitchBindings.tsx` are removed with their
+tests, `usePreparationPro` (the Pro half of the preparation they hosted) and
+38 dead classes of `index.css`, all named by `classes.test.ts`, which now
+also reads `padmap.css` and `reglage.css`. The preparation is one block for
+every console (`Preparation`, menus): its Pro launch sends the Pro pad
+(device 4) in one gesture, tested on the block and in `parcours-navigateur`
+(`preparation-x360`). Your typed label (D7 of the plan) sits in the legend
+of "Ta manette": the seat number in its ink and the `Etiquette` ribbon,
+beside the drawing, never on the shell, nothing for a spectator.
+"Touches et manettes" has its own row at the head of the column, right
+under "Signaler", which stays first (K25), for whoever holds a seat, and an
+entry in the room sheet at mid height when its row fits (the sheet never
+scrolls; at 375 × 667 during a game a fourth row would, and the entry stays
+in the whole room). Held in hand, the panel no longer lives in the enlarged
+sheet over the picture (review finding 4): the frame sets
+`Geometrie.reglage`, below the picture held upright down to the safe-area
+bottom, at the right held sideways (380 px at most, half at most), and the
+room mounts it there; a pad-only page has no picture to spare and no such
+rectangle, so the enlarged sheet still carries it there (`manette-seule`,
+red on 672dcb6). `placeDuReglage`, a rule nothing read, is gone.
+`place-tenu` enters the gate with `rang`, `etiquette` and
+`feuille-reglage`; all four fail on their defect on 928bd03. The page
+weighs 278 234 bytes brotli (−1 413 on 928bd03).
 
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 

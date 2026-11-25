@@ -5,8 +5,11 @@
 // pytest verts, puisque jsdom ne pose rien. Ce pilote mesure dans un vrai rendu,
 // sous un système sombre puis clair:
 //
-//   V6  le dialogue des réglages Switch est centré (il était collé en haut à
-//       gauche: `margin: auto` manquait à `.n3-switch-setup`);
+//   V6  le réglage des touches d'une salle Switch prend la colonne, à côté
+//       de l'image, sans dialogue. V6 mesurait le dialogue Switch, qui était
+//       collé en haut à gauche (`margin: auto` manquait à `.n3-switch-setup`) ;
+//       ce dialogue est retiré le 24 novembre 2026 avec l'ancien réglage, et
+//       le panneau qui le remplace vit dans la colonne;
 //   V8  sur un téléphone de 390 px, les quatre START de chaque borne de
 //       l'accueil tiennent sur une ligne, dans la borne, à 44 px de haut au
 //       moins. Avant le 24 novembre 2026, V8 mesurait la légende de la jauge,
@@ -154,14 +157,23 @@ for (const scheme of ["dark", "light"]) {
   await page.evaluate(() => document.querySelector("#ray-manettes")?.click());
   await exiger(page, '#ray-manettes[data-selected="true"]', "V6 · manettes");
   await page.evaluate(() => document.querySelector("#item-bindings")?.click());
-  await exiger(page, "dialog.n3-switch-setup[open]", "V6 · réglages Switch");
+  await exiger(page, "#reglage", "V6 · réglages Switch");
   await wait(400);
   const d = await page.evaluate(() => {
-    const r = document.querySelector("dialog.n3-switch-setup").getBoundingClientRect();
-    return { gauche: r.left, droite: innerWidth - r.right, haut: r.top, bas: innerHeight - r.bottom };
+    const r = document.querySelector("#reglage").getBoundingClientRect();
+    const i = document.querySelector("#screen").getBoundingClientRect();
+    const l = Math.max(0, Math.min(r.right, i.right) - Math.max(r.left, i.left));
+    const h = Math.max(0, Math.min(r.bottom, i.bottom) - Math.max(r.top, i.top));
+    return {
+      colonne: document.querySelector("#reglage").closest("#side") !== null,
+      dialogue: document.querySelector("dialog[open]") !== null,
+      pro: document.querySelector("#reglage")?.textContent.includes("Switch") ?? false,
+      largeur: r.width,
+      surImage: Math.round(l * h),
+    };
   });
-  const centre = Math.abs(d.gauche - d.droite) < 2 && Math.abs(d.haut - d.bas) < 2 && d.gauche > 20;
-  noter(`V6 dialogue Switch centré (${quoi})`, centre, `marges ${d.gauche.toFixed(0)} / ${d.droite.toFixed(0)} px, haut ${d.haut.toFixed(0)} / bas ${d.bas.toFixed(0)} px`);
+  const range = d.colonne && !d.dialogue && d.pro && d.largeur >= 300 && d.surImage === 0;
+  noter(`V6 réglage Switch dans la colonne (${quoi})`, range, JSON.stringify(d));
   await page.close();
 
   // V9 et P12: l'aperçu de la préparation, un bloc de colonne depuis le

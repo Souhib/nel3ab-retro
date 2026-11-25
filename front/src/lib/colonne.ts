@@ -11,6 +11,10 @@
  *
  * - signaler : en premier (K25, mesuré visible à 1280×720 par personnes) ;
  *   caché pendant qu'une fiche d'état parle, qui porte alors Signaler ;
+ * - reglage : « Touches et manettes », juste sous Signaler, pour qui tient
+ *   une place, au repos compris (on règle sa manette avant de jouer) ; pas
+ *   dans une salle fermée. Le panneau prend la place des rangs (chantier
+ *   manettes, 24 novembre 2026) ;
  * - son : un jeu tourne ;
  * - menu : partout sauf une salle fermée, au repos compris (K23 : le
  *   rayonnage se pose sur l'écran éteint, « Menu du jeu » reste ici) ; pas
@@ -30,6 +34,7 @@ import { sansImage, type EtatDuCadre, type Role } from "./cadre";
 
 export const RANGS = [
   "signaler",
+  "reglage",
   "son",
   "menu",
   "touches",
@@ -57,6 +62,7 @@ export function rangsDeLaColonne(e: {
   const joue = e.role === "joueur";
   const rangs: Rang[] = [];
   if (!e.fiche) rangs.push("signaler");
+  if (joue && e.etat !== "fermee") rangs.push("reglage");
   if (jeu) rangs.push("son");
   if (joue && e.etat !== "fermee") rangs.push("menu");
   if (joue && jeu) {

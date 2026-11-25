@@ -32,6 +32,7 @@ import { IconeRang } from "../../components/Colonne";
 import { restsOf } from "../../lib/wiring";
 import { tenirDessins } from "./inscriptions";
 import { pieceDe, poserMarques } from "./marques";
+import { TonEtiquette, type NomDeLaPlace } from "./TonEtiquette";
 import { useHorsDeVue, Vignette } from "./Vignette";
 
 export type EntreeDolphin = Pick<
@@ -69,6 +70,8 @@ export type TrameDolphin = {
   /** « Mes profils » complets (`SetupProfiles`), posés par la salle. */
   profils?: ReactNode;
   envoi?: Envoi;
+  /** Ton nom dans la salle, pour l'étiquette de « Ta manette » (D7). */
+  etiquette?: NomDeLaPlace | null;
 };
 
 /** Le geste, puis la relecture de l'instantané. */
@@ -249,6 +252,7 @@ export function ManetteDolphin({
             setCourante(key);
             document.querySelector(`tr[data-cle="${key}"]`)?.scrollIntoView({ block: "nearest" });
           }}
+          etiquette={<TonEtiquette place={place} qui={trame.etiquette} />}
         />
       </div>
       {lecon ? null : (

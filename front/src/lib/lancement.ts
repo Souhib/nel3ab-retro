@@ -8,7 +8,10 @@
  * qui lance et ce que dit la ligne d'un joueur, et ils ont divergé: la ligne
  * d'un joueur prêt disait « Manette Pro · prêt » dans une salle Xbox 360, et
  * l'en-tête d'une préparation GameCube disait « Wii » (audit T03, T04, P6,
- * 22 novembre 2026). Les deux lisent maintenant ce module.
+ * 22 novembre 2026). Les deux lisaient ensuite ce module. Depuis le
+ * 24 novembre 2026, il n'en reste qu'un, le bloc `Preparation`, pour toutes
+ * les consoles : l'en-tête du panneau Pro (`titrePreparation`) est parti avec
+ * lui.
  *
  * # Un geste par personne
  *
@@ -159,12 +162,6 @@ export async function lancerEnChef(
     await send({ action: "choose", id: lancement.id, pad: lancement.pad, ready: true });
     await send({ action: "launch", ...lancement });
   }
-}
-
-/** L'en-tête: la console du jeu préparé, jamais une console écrite en dur. */
-export function titrePreparation(console: string | undefined): string {
-  const nom = consoleName(console);
-  return nom ? `Avant de jouer · ${nom}` : "Avant de jouer";
 }
 
 /** Le nom de l'appareil d'une place, dans la salle de ce jeu.

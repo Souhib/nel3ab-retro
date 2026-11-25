@@ -1,5 +1,5 @@
 /** Deux lectures du même appui: la correspondance et les indices physiques. */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { modelSnapshot } from "../media/lesson";
 import { identityOf } from "../media/describe";
 import { EMULATED, physicalMap } from "../lib/padmap";
@@ -18,11 +18,14 @@ export function Wiring({
   pad,
   selected,
   onSelect,
+  etiquette,
 }: {
   state: InputState;
   pad: Pad;
   selected: ControlKey;
   onSelect: (key: ControlKey) => void;
+  /** Ton étiquette, dans la légende de « Ta manette » (D7). */
+  etiquette?: ReactNode;
 }) {
   const room = useRef<HTMLDivElement>(null);
   const held = state.pads.find((one) => one.index === state.using) ?? null;
@@ -93,6 +96,7 @@ export function Wiring({
           rawLabels={!identity?.standard}
           place={place}
           absente={!held}
+          etiquette={etiquette}
         />
       </div>
       <p className="text-corps leading-relaxed text-muted">

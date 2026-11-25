@@ -30,6 +30,7 @@ import {
   ExpandIcon,
   GameIcon,
   HomeScreenIcon,
+  KeysIcon,
   PadIcon,
   RoomIcon,
   ScreenIcon,
@@ -40,6 +41,7 @@ import "./telephone.css";
 const ICONES: Record<IdEntree, React.ReactNode> = {
   son: <SoundIcon className="h-full w-full" />,
   menu: <GameIcon className="h-full w-full" />,
+  reglage: <KeysIcon className="h-full w-full" />,
   clip: <ScreenIcon className="h-full w-full" />,
   manette: <PadIcon className="h-full w-full" />,
   "plein-ecran": <ExpandIcon className="h-full w-full" />,

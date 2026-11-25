@@ -1,20 +1,186 @@
 /** La place du réglage des touches dans la salle : jamais sur l'image. */
 import { describe, expect, it } from "vitest";
+import {
+  MANETTES,
+  REGLAGE_TENU,
+  SANS_ZONES,
+  miseEnPage,
+  type Entree,
+  type Rect,
+  type ZonesSures,
+} from "./cadre";
 import { COLUMN, largeurPanneau, PANNEAU } from "./column";
-import { couchesDeLaSalle, placeDuReglage } from "./disposition";
+import { couchesDeLaSalle } from "./disposition";
+import type { Size } from "./fit";
 
-describe("placeDuReglage", () => {
-  it("prend la colonne au bureau à la souris, et passe dessous en fenêtre étroite", () => {
-    expect(placeDuReglage({ largeur: 1440, hauteur: 900, grossier: false })).toBe("colonne");
-    expect(placeDuReglage({ largeur: 900, hauteur: 700, grossier: false })).toBe("colonne");
-    expect(placeDuReglage({ largeur: 899, hauteur: 700, grossier: false })).toBe("dessous");
+/* La place du panneau tenu en main (constat 4 de la relecture des manettes,
+   24 novembre 2026). Jusque-là, la salle le posait dans sa feuille agrandie,
+   qui couvrait l'image : 113 880 px² à 390×844, 85 020 à 844×390.
+   `placeDuReglage` disait la bonne règle sans que rien ne la lise ; le cadre
+   pose maintenant le rectangle lui-même (`Geometrie.reglage`). Les chantiers
+   de fin de la salle et des manettes l'avaient écrit chacun ; l'intégration
+   du 25 novembre 2026 garde la règle de la salle (`REGLAGE_TENU`,
+   `lib/cadre.ts`), et ces essais la lisent. */
+const ZONES_IPHONE: ZonesSures = { haut: 47, droite: 0, bas: 34, gauche: 0 };
+const ZONES_COUCHE: ZonesSures = { haut: 0, droite: 47, bas: 21, gauche: 47 };
+const FORMATS: Size[] = [
+  { width: 1280, height: 720 },
+  { width: 640, height: 480 },
+];
+const MANETTES_TENUES = [MANETTES.dolphin, MANETTES.pro, null];
+
+const tenu = (plus: Partial<Entree>): Entree => ({
+  mode: "portrait",
+  fenetre: { width: 390, height: 844 },
+  zonesSures: SANS_ZONES,
+  image: FORMATS[0]!,
+  ajustement: "remplir",
+  base: { image: FORMATS[0]!, ajustement: "remplir" },
+  etat: "vit",
+  role: "joueur",
+  manette: MANETTES.dolphin,
+  largeurColonne: 304,
+  largeurPanneau: null,
+  agrandie: false,
+  reglage: false,
+  ...plus,
+});
+
+const coupe = (a: Rect, b: Rect): number => {
+  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+  return w > 0.5 && h > 0.5 ? w * h : 0;
+};
+
+describe("le réglage tenu en main", () => {
+  it("monte sous l'image tenu droit, sur toute la largeur de la zone sûre, jusqu'en bas", () => {
+    let vus = 0;
+    for (const [width, height] of [
+      // 375×548 : un téléphone court, où l'image rapetisse pour garder
+      // `REGLAGE_TENU.hauteurMin` (280 px) au panneau.
+      [375, 548],
+      [375, 667],
+      [390, 844],
+      [430, 932],
+      [768, 1024],
+    ] as const)
+      for (const zonesSures of [SANS_ZONES, ZONES_IPHONE])
+        for (const image of FORMATS)
+          for (const manette of MANETTES_TENUES) {
+            const geo = miseEnPage(
+              tenu({ fenetre: { width, height }, zonesSures, image, manette, reglage: true }),
+            );
+            const ici = `${width}×${height} ${image.width}×${image.height} ${manette ? "manette" : "sans"}`;
+            expect(geo.reglage, ici).not.toBeNull();
+            expect(geo.image, ici).not.toBeNull();
+            const r = geo.reglage!;
+            expect(coupe(r, geo.image!), ici).toBe(0);
+            expect(coupe(r, geo.ecran!), ici).toBe(0);
+            expect(r.y, ici).toBeGreaterThanOrEqual(geo.ecran!.y + geo.ecran!.h);
+            expect(r.x, ici).toBe(zonesSures.gauche);
+            expect(r.w, ici).toBe(width - zonesSures.gauche - zonesSures.droite);
+            expect(r.y + r.h, ici).toBe(height - zonesSures.bas);
+            expect(r.h, ici).toBeGreaterThanOrEqual(REGLAGE_TENU.hauteurMin);
+            // Rien d'autre ne se pose dans sa place : ni la manette à
+            // l'écran, ni le panneau, ni la bande.
+            expect(geo.manette, ici).toBeNull();
+            expect(geo.bande, ici).toBeNull();
+            expect(geo.panneau.rect, ici).toBeNull();
+            vus += 1;
+          }
+    expect(vus).toBe(60);
   });
 
-  it("se range à droite au doigt tenu en travers, tablette comprise, et dessous tenu droit", () => {
-    expect(placeDuReglage({ largeur: 1024, hauteur: 768, grossier: true })).toBe("droite");
-    expect(placeDuReglage({ largeur: 844, hauteur: 390, grossier: true })).toBe("droite");
-    expect(placeDuReglage({ largeur: 390, hauteur: 844, grossier: true })).toBe("dessous");
-    expect(placeDuReglage({ largeur: 768, hauteur: 1024, grossier: true })).toBe("dessous");
+  it("tenu droit, l'image ne bouge pas quand la manette à l'écran lui gardait sa place", () => {
+    for (const image of FORMATS) {
+      const avant = miseEnPage(tenu({ image }));
+      const pendant = miseEnPage(tenu({ image, reglage: true }));
+      expect(pendant.image).toEqual(avant.image);
+    }
+  });
+
+  it("se range à droite de l'image en travers, téléphone et tablette, sans la toucher", () => {
+    let vus = 0;
+    for (const [width, height, zonesSures] of [
+      [667, 375, SANS_ZONES],
+      [844, 390, ZONES_COUCHE],
+      [932, 430, ZONES_COUCHE],
+      [1024, 768, SANS_ZONES],
+      [1366, 1024, SANS_ZONES],
+    ] as const)
+      for (const image of FORMATS)
+        for (const manette of MANETTES_TENUES) {
+          const geo = miseEnPage(
+            tenu({
+              mode: "paysage",
+              fenetre: { width, height },
+              zonesSures,
+              image,
+              manette,
+              reglage: true,
+            }),
+          );
+          const ici = `${width}×${height} ${image.width}×${image.height} ${manette ? "manette" : "sans"}`;
+          expect(geo.reglage, ici).not.toBeNull();
+          expect(geo.image, ici).not.toBeNull();
+          const r = geo.reglage!;
+          const i = geo.image!;
+          expect(coupe(r, i), ici).toBe(0);
+          expect(r.x, ici).toBeGreaterThanOrEqual(i.x + i.w);
+          expect(r.x + r.w, ici).toBe(width - zonesSures.droite);
+          expect(r.y, ici).toBe(zonesSures.haut);
+          expect(r.h, ici).toBe(height - zonesSures.haut - zonesSures.bas);
+          expect(r.w, ici).toBeGreaterThanOrEqual(REGLAGE_TENU.largeurMin);
+          expect(r.w, ici).toBeLessThanOrEqual(REGLAGE_TENU.largeurMax);
+          // L'image garde la plus grande part de ce qui reste.
+          expect(i.w * i.h, ici).toBeGreaterThan(0.25 * width * height * 0.5);
+          expect(geo.manette, ici).toBeNull();
+          vus += 1;
+        }
+    expect(vus).toBe(30);
+  });
+
+  it("le jumeau : sans réglage ouvert, aucun rectangle ; au bureau, la colonne le porte", () => {
+    expect(miseEnPage(tenu({})).reglage).toBeNull();
+    expect(
+      miseEnPage(tenu({ mode: "paysage", fenetre: { width: 844, height: 390 } })).reglage,
+    ).toBeNull();
+    expect(
+      miseEnPage(tenu({ mode: "bureau", fenetre: { width: 1440, height: 900 }, reglage: true }))
+        .reglage,
+    ).toBeNull();
+    expect(
+      miseEnPage(tenu({ mode: "etroit", fenetre: { width: 800, height: 900 }, reglage: true }))
+        .reglage,
+    ).toBeNull();
+  });
+
+  it("une manette seule : le panneau prend la place de la manette à l'écran, sous la barre", () => {
+    // Elle n'a pas d'image à épargner. Le cadre lui donne la même place
+    // qu'aux autres : la manette n'est pas montée pendant le réglage
+    // (`couchesDeLaSalle`), et le panneau prend ce qu'elle occupait.
+    for (const [mode, width, height] of [
+      ["portrait", 390, 844],
+      ["paysage", 844, 390],
+    ] as const) {
+      const ici = `${mode} ${width}×${height}`;
+      // La page « manette seule » dessine sa manette (`manetteDuCadre`).
+      const seule = tenu({ mode, fenetre: { width, height }, role: "seule" });
+      const avant = miseEnPage(seule);
+      const pendant = miseEnPage({ ...seule, reglage: true });
+      // Le jumeau : fermé, la manette seule a son panneau, et aucun réglage.
+      expect(avant.reglage, ici).toBeNull();
+      expect(avant.panneau.rect, ici).not.toBeNull();
+      const r = pendant.reglage;
+      expect(r, ici).not.toBeNull();
+      expect(r!.w * r!.h, ici).toBeGreaterThan(0);
+      // La page « manette seule » monte sa manette dans `panneau.rect` : il
+      // s'efface, et rien ne se pose sur le panneau des touches.
+      expect(pendant.panneau.rect, ici).toBeNull();
+      expect(pendant.manette, ici).toBeNull();
+      if (pendant.barre)
+        expect(r!.y, ici).toBeGreaterThanOrEqual(pendant.barre.y + pendant.barre.h);
+    }
   });
 });
 

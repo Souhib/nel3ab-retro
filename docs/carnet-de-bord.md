@@ -33170,7 +33170,193 @@ téléphone. Les six marques du sol du panneau et le sol `panneau` restent à
 la salle. À 1440 × 900 au repos, les places sont sous le bas de la
 fenêtre : ce chantier l'a vu en passant, sans le mesurer davantage.
 
+### 24 novembre, le soir : la fin des manettes
+
+Un chantier de fin, « fin-manettes », reprend ce que le chantier des
+manettes avait laissé, sur `chantier/retro-fin-manettes`, partie de la
+branche d'intégration à 928bd03, dans `~/nel3ab-chantiers/retro-fin-manettes`.
+Rien dans `main`, rien de poussé ni d'installé. D'autres chantiers de fin
+travaillent en même temps sur d'autres points ; chacun lance ses pilotes sur
+sa dizaine de ports au-dessus de 5500. Les deux bancs de la salle
+refusaient tout port hors de 5400 à 5499 : leur garde va maintenant
+jusqu'à 5599, toujours loin des ports vivants.
+
+**Les anciens dialogues partent.** Depuis la vague B2, la préparation à
+plusieurs est un bloc de la colonne pour toutes les consoles, et le panneau
+« Touches et manettes » règle les deux trames. `Bindings.tsx` et
+`SwitchBindings.tsx` n'étaient plus montés que par l'aperçu
+(`bindings-preview.html`) et par leurs propres essais. Ils partent, avec
+`usePreparationPro`, la moitié Pro de la préparation qu'ils hébergeaient,
+et l'en-tête de ce panneau Pro (`titrePreparation`), que plus rien ne lisait.
+Le lancement Pro ne devait pas casser : le chef d'une salle Xbox 360 lance en
+un geste avec la manette Pro (l'appareil 4). Un essai le dit maintenant sur
+le bloc, avec son jumeau, et un mutant qui lance avec l'appareil 1 le fait
+tomber. Dans un vrai navigateur, l'étape `preparation-x360` de
+`parcours-navigateur` et les préparations « pro-preparation » de
+`salle-telephone` le vérifient de bout en bout.
+
+Les règles de style des dialogues restaient dans `index.css`. Un garde les
+cherche : `classes.test.ts` liste les classes qu'une feuille déclare et
+qu'aucune source ne pose (une **classe morte**). Il a nommé les 38 d'un
+coup, et un petit outil les a retirées sélecteur par sélecteur : une règle
+qui visait à la fois une classe morte et une vivante garde la vivante (les
+deux dessins empilés sous 600 px, les boutons de 42 px). Puis le garde est
+tombé sur sa propre précondition : il exigeait plus de 50 classes déclarées
+pour juger, et `index.css` n'en avait plus que 19. Baisser le seuil l'aurait
+laissé juger presque rien ; il lit maintenant aussi les feuilles du panneau
+(`padmap.css`, `reglage.css`). Leçon : le plancher d'un garde suit ce qu'il
+lit, pas l'inverse.
+
+Deux pilotes ne mesuraient que ces dialogues dans l'aperçu
+(`configuration-ui.mjs`, `preparation-ui.mjs`) : ils partent avec leurs
+recettes. Ceux qui visent une vraie salle (`bindings.mjs`, `banc.mjs`,
+`contraste.mjs`, `debordement.mjs`, `capture-salle.mjs`) ne sont lancés par
+aucun chantier (K40) : leurs sélecteurs passent au panneau, sans preuve
+qu'ils tournent. L'étape V6 de `regie-mise-en-page.mjs` mesure maintenant le
+panneau d'une salle Switch dans la colonne au lieu du dialogue centré ; le
+pilote tombe avant elle, sur la page d'intégration comme ici (l'image noire,
+puis le rayon des manettes introuvable), donc V6 n'a pas été vu passer.
+
+**Ton étiquette sous « Ta manette ».** Le plan voulait l'étiquette tapée du
+joueur (son numéro, sa couleur, son nom) dans la **légende** du dessin de sa
+manette, c'est-à-dire la ligne de texte qui le titre, et pas collée sur la
+coque, où elle cacherait des touches. Elle attendait le composant
+`Etiquette` du chantier personnes, qui est sur la branche depuis la vague
+B1. La légende de « Ta manette » porte maintenant « 2P » à l'encre de ta
+place puis ton ruban, avec tes trois initiales quand l'effet « initiales »
+est allumé. Rien pour qui regarde, qui n'a pas de place, et rien sous le
+dessin de ce que le jeu reçoit. Les deux essais positifs tombaient avant le
+composant ; trois mutants tombent.
+
+**Un rang en tête, et une entrée dans la feuille.** « Touches et manettes »
+s'ouvrait par la vue de l'appareil tenu, par « Toutes les touches » et par le
+menu. Il a maintenant son **rang**, une ligne de la colonne de la salle, en
+tête : juste sous Signaler, qui reste premier comme la partition l'a décidé
+(K25). Pour qui tient une place, même avant de jouer, pas dans une salle
+fermée ni pour qui regarde.
+
+La feuille « La salle » d'un téléphone, à mi-hauteur, devait prendre la même
+entrée. Sa hauteur a été mesurée le 23 novembre : trois rangées de deux
+entrées tiennent dans 276 px, et rien ne doit y défiler. Pendant une partie,
+la feuille a déjà six entrées ; une septième ouvre une quatrième rangée, et
+à 375 × 667 la feuille n'a que 287 px. L'entrée ne s'y pose donc que si sa
+rangée tient : trois rangées, plus une par tranche de 80 px au-delà. À
+390 × 844 (380 px), elle y est ; à 375 × 667 en partie, non, et le rang de la
+salle entière la porte. En travers, la feuille n'a qu'une colonne, qui
+défilait déjà avec le clip : même règle que lui.
+
+Le premier jet comptait 48 px par rangée, déduits de la feuille de style :
+une entrée de 44 px et 4 px d'écart. La première série de portes a mesuré
+autre chose : à 390 × 844, la quatrième rangée porte le contenu de 275 à
+347 px, 353 quand le son est coupé. Le détail de chaque entrée tient sur
+deux lignes dans une colonne de téléphone. Avec 48 px, une feuille de 324 à
+352 px aurait défilé ; aucune taille essayée ne tombait dans cet intervalle,
+et aucune porte ne l'aurait dit. Un essai épingle maintenant 350 px (pas
+d'entrée) et 356 px (l'entrée). Leçon : une hauteur se mesure dans le
+rendu, elle ne se déduit pas d'un `min-height`. Une tablette tenue droite
+pose quatre entrées par rangée ; la règle les compte deux par deux, et garde
+l'entrée en tête de la salle entière quand elle tiendrait peut-être.
+
+**Le constat 4 était encore réel.** La relecture des manettes avait mesuré
+le panneau sur l'image vivante, tenu en main, dans la feuille agrandie. Sur
+la tête d'intégration, l'étape `place-tenu` le mesurait encore : 113 880 px²
+sur l'image à 390 × 844, 85 020 à 844 × 390. Le chef de chantier a tranché :
+sous l'image ou à droite, sans la recouvrir. Le cadre (`lib/cadre.ts`) pose
+maintenant un rectangle pour le panneau quand il est ouvert. Tenu droit, du
+bas de l'image au bas de la zone sûre, sur toute la largeur : la manette à
+l'écran n'est pas montée pendant le réglage, sa place lui revient, et
+l'image ne bouge pas ; elle ne rapetisse que pour lui laisser 240 px (à
+375 × 548). En travers, à droite, 380 px au plus, la largeur où la feuille
+agrandie le portait déjà, et l'image se range à gauche. La salle ferme la
+feuille et monte le panneau dans ce rectangle. Les essais du cadre balaient
+60 poses droites et 30 couchées sans une intersection avec l'image ; quatre
+mutants tombent. `placeDuReglage`, qui disait cette règle sans que rien ne
+la lise, part avec son essai.
+
+**Un piège : la tablette n'avait pas de « Vérifier les boutons ».** Depuis le
+quatrième passage, `place-tenu` s'arrêtait à 1024 × 768 sur une précondition,
+« Vérifier les boutons n'ouvre aucune feuille », et le chantier l'avait mise
+au compte de la salle. Un pilote de diagnostic a montré autre chose : à
+cette taille, la salle n'a pas de bande, donc pas de « Vérifier les
+boutons ». Le pilote passait alors par la feuille et touchait son entrée
+« manette »… qui cache les touches à l'écran. Les touches cachées, la bande
+réapparaissait avec son bouton, et le message accusait la page. Le chemin de
+secours passe maintenant par « Touches et manettes », dans la feuille ou en
+tête de la salle entière. Leçon : avant de blâmer la page sur un message de
+précondition, vérifier que l'élément nommé existe, et qu'un chemin de secours
+ouvre bien ce que son nom dit.
+
+**Un clic sous le pied de la colonne.** À 1280 × 720 avec une image 4:3, les
+places sont au pied de la colonne et les rangs passent sous le pied collé
+(« Plus bas » et la maison d'Aïn). Le premier jet de l'étape `rang` cliquait
+le rang par la souris de puppeteer, qui fait défiler l'élément puis clique
+son centre : le clic tombait sur « Plus bas ». C'est le défaut de « Copier le
+lien » de la vague B1, vu de l'autre côté. Le pilote passe par `toucher`, qui
+fait défiler au plus près puis vérifie ce que reçoit le point. Pour une
+personne, le rang se rejoint en faisant défiler la colonne.
+
+**Une page « manette seule » perdait son panneau.** Une fois la place tenue
+câblée, une relecture du câblage a posé une question : et une page qui n'est
+qu'une manette, sans image ? Le cadre ne lui donne pas de rectangle, puisqu'il
+n'y a pas d'image à épargner, et la salle ne montait plus le panneau que dans
+ce rectangle. Ouvert par le menu, il ne se montrait nulle part. Une étape
+nouvelle, `manette-seule`, l'a vu rouge sur la page de ce câblage (672dcb6)
+et vert sur 928bd03. Le remède garde pour elle l'ancien chemin : la feuille
+agrandie s'ouvre, et la colonne porte le panneau dès que le cadre ne lui
+donne pas de place. C'est le second commit du chantier dans `App.tsx`, contre
+la règle d'un seul câblage par branche : le défaut est venu après lui.
+
+**Les preuves.** `place-tenu` entre dans la porte de `reglage-navigateur`,
+qui gagne `rang`, `etiquette` et `feuille-reglage`. Les quatre rougissent sur
+leur défaut sur la page de 928bd03, ajoutée à `reglage-navigateur-rouge`,
+qui prend maintenant un port. Cinq mutants du câblage d'`App.tsx`, page
+reconstruite à chaque fois, font tomber leur étape. Le premier jet du
+troisième retirait le rang et laissait son import sans usage : la
+construction a échoué, la page d'avant est restée en place et l'étape est
+passée. Ce vert ne prouvait rien ; refait en gardant l'import utilisé, il
+tombe.
+
+**Le poids.** 278 234 octets en brotli, 1 413 de moins qu'à 928bd03 : les
+règles mortes partent, le rang, l'entrée, l'étiquette et la place tenue
+arrivent.
+
+**Les portes**, sur la tête 8a485b3, pilotes sur les ports 5540 à 5549 :
+`just check`, `reglage-navigateur` (quatorze étapes), `focus-navigateur`,
+`parcours-navigateur`, `salle-telephone`, `manette-garde`, `salon-navigateur`,
+`planche-garde` et `just docs` sortent en 0 ; les sept contrôles rouges
+(`reglage`, `cadre`, `mascotte`, `focus`, `etats`, `parcours`, `salon`)
+rougissent comme attendu. `etats-navigateur` reste rouge sur ses deux défauts
+connus, `arrivee-sans-image` et `colonne-stable`, et ses 31 autres étapes
+passent ; `cadre-navigateur` sur la précondition de `mascotte-hors-image` et
+sur `ain-immobile`, ses 26 autres étapes passant par leur nom. Ces quatre
+rouges appartiennent à d'autres chantiers de fin. Une première série,
+lancée pendant que d'autres chantiers faisaient tourner leurs navigateurs,
+avait vu `salle-telephone` rougir une fois sur le clic d'une place libre au
+processeur ralenti quatre fois (une tâche de 52 ms pour 50 permises) ; la
+série finale passe. Une instabilité sous charge, pas une preuve dans un sens
+ni dans l'autre.
+
+**Ce qui n'est pas prouvé.** Les pilotes d'une vraie salle n'ont pas tourné
+(K40), et `preparation-room.mjs` et `switch-room.mjs` attendent encore les
+dialogues de préparation (`#bindingsPanel`, `.n3-switch-setup`), du chantier
+des menus. Aucun téléphone réel n'a tenu le panneau. À 1280 × 720 en 4:3, le
+rang est sous le pied collé tant qu'on ne fait pas défiler.
+
 ## 12. Glossaire complet
+
+**Classe morte** : une classe qu'une feuille de style déclare et qu'aucune
+source de la page ne pose. Elle ne se voit pas à l'écran, mais elle part dans
+la page et pèse. `classes.test.ts` les cherche dans `index.css` et dans les
+feuilles du panneau des touches.
+
+**Rang (de la colonne)** : une ligne de la colonne de la salle, sous la tête :
+Signaler, « Touches et manettes », le son, le menu, la vue de l'appareil,
+garder, agrandir, autres réglages. Un rang qui ne sert à rien disparaît au
+lieu d'être grisé (`lib/colonne.ts`).
+
+**Légende (d'un dessin)** : la ligne de texte qui titre un dessin de
+manette, « Ce que le jeu reçoit » ou « Ta manette », avec le nom de
+l'appareil dessous. Ton étiquette s'y pose, à côté du dessin.
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
 jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image

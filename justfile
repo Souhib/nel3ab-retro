@@ -1351,13 +1351,17 @@ cadre-navigateur-rouge port="5478":
 # fenêtre étroite), « Toutes les touches » ouvre le clavier et Échap rend le
 # focus, la vue de la manette suit la trame Pro (K34), le pas à pas tourne
 # sur une manette simulée, et la pièce attendue d'un « Changer » reste à
-# l'écran (vignette). Tenu en main, il a sa place du cadre, sous l'image ou
-# à sa droite, sans la recouvrir (place-tenu, dans la porte depuis le
-# 24 novembre 2026). La page COMMITTÉE, le banc des parcours, une manette
-# Xbox simulée ; rien de vivant, port 5482.
+# l'écran (vignette). Depuis le 24 novembre 2026 (fin du chantier) : tenu en
+# main, le panneau a sa place sous l'image ou à droite d'elle (`place-tenu`,
+# entrée dans la porte), le rang « Touches et manettes » ouvre le panneau
+# (`rang`), la feuille « La salle » porte son entrée quand sa rangée tient
+# (`feuille-reglage`), et ton étiquette se lit sous « Ta manette »
+# (`etiquette`). La page COMMITTÉE, le banc des parcours, une manette Xbox
+# simulée ; rien de vivant, port 5482 par défaut.
 #
-#   just reglage-navigateur                        toutes les étapes
-#   just reglage-navigateur --etapes place-tenu    une seule
+#   just reglage-navigateur                        les étapes de la porte
+#   just reglage-navigateur --etapes place-tenu    une étape
+#   just reglage-navigateur --port 5540            un autre port
 #   just reglage-navigateur --captures <dossier>   avec les captures
 reglage-navigateur *args:
     #!/usr/bin/env bash
@@ -1374,8 +1378,9 @@ reglage-navigateur *args:
 # integration/retro) ouvre l'ancien dialogue modal par-dessus l'image, n'a pas
 # « Toutes les touches », ne suit pas la trame Pro dans la vue de la manette,
 # et ne monte aucun panneau dans la colonne. Chaque étape doit y rougir sur
-# son défaut, pas sur une précondition.
-reglage-navigateur-rouge:
+# son défaut, pas sur une précondition. `just reglage-navigateur-rouge 5541`
+# la lance sur un autre port que 5482.
+reglage-navigateur-rouge port="5482":
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -1386,36 +1391,44 @@ reglage-navigateur-rouge:
     git show 9fb659e:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     cd spikes/m3-browser-drive
     etapes=place,entrees,activite-pro,pas-a-pas
-    node reglage.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+    node reglage.mjs --port {{port}} --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes"
     # La page du câblage (bc72ba9) monte le panneau, sans zone de clic sur
     # les pièces du dessin : l'étape zones doit y rougir sur leur absence.
     git -C ../.. show bc72ba9:core/crates/worker/src/page/index.html > "$dossier/cablage.html"
-    node reglage.mjs --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
+    node reglage.mjs --port {{port}} --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
         --etapes zones --rouge-attendu zones
     # La page du cinquième passage (e62f583) laisse la pièce attendue hors de
     # l'écran quand on change une ligne du bas : changer-visible doit y rougir
     # sur l'absence de vignette, à 1280 × 720 et au téléphone.
     git -C ../.. show e62f583:core/crates/worker/src/page/index.html > "$dossier/passage5.html"
-    node reglage.mjs --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
+    node reglage.mjs --port {{port}} --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
         --etapes changer-visible --rouge-attendu changer-visible
     # La page du sixième passage (842e4c9) peint le banc hors de sa racine :
     # nombres doit y rougir sur « 0.00 » quand la manette annonce 0,65.
     git -C ../.. show 842e4c9:core/crates/worker/src/page/index.html > "$dossier/passage6.html"
-    node reglage.mjs --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
+    node reglage.mjs --port {{port}} --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
         --etapes nombres --rouge-attendu nombres
     # La page relue le 24 novembre 2026 (9b1c8e8) : l'étape suivante retire
     # les coins et la ligne d'une réponse avant toute peinture, et le focus
     # tombe sur le document après « Régler pas à pas » et « Commencer ».
     git -C ../.. show 9b1c8e8:core/crates/worker/src/page/index.html > "$dossier/relue.html"
-    node reglage.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+    node reglage.mjs --port {{port}} --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes marques,focus-pas --rouge-attendu marques,focus-pas
-    # La page de la vague B2 (4ecbc23) : tenu en main, le panneau vivait dans
-    # la feuille agrandie, qui couvrait l'image à 390 × 844, 844 × 390 et
-    # 1024 × 768 (place-tenu, chantier de fin de la salle, 24 novembre 2026).
-    git -C ../.. show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
-    node reglage.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
-        --etapes place-tenu --rouge-attendu place-tenu
+    # La page d'intégration d'avant la fin du chantier (928bd03) : tenu en
+    # main, le panneau vit dans la feuille agrandie, qui couvre l'image
+    # (constat 4) ; pas de rang « Touches et manettes », pas d'entrée dans la
+    # feuille, pas d'étiquette sous « Ta manette ».
+    git -C ../.. show 928bd03:core/crates/worker/src/page/index.html > "$dossier/integration.html"
+    etapes=place-tenu,rang,etiquette,feuille-reglage
+    node reglage.mjs --port {{port}} --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes"
+    # La page du premier câblage de la place tenue (672dcb6) : une page
+    # « manette seule » n'a pas de place tenue, et le panneau ouvert par le
+    # menu ne se montrait nulle part.
+    git -C ../.. show 672dcb6:core/crates/worker/src/page/index.html > "$dossier/tenue.html"
+    node reglage.mjs --port {{port}} --page "$dossier/tenue.html" --flux "$dossier/flux.h264" \
+        --etapes manette-seule --rouge-attendu manette-seule
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
@@ -2046,14 +2059,11 @@ docs-deploy: docs
 docs-watch:
     zensical serve
 
-# Le configurateur réel dans Chromium, avec une manette simulée et sans salle.
-# Démarrer `npm run dev -- --host 127.0.0.1 --port 5202` dans front au préalable.
-browser-configuration:
-    cd spikes/m3-browser-drive && node configuration-ui.mjs
-
-# Préparation collective et profils personnels dans l'aperçu isolé, sans lancer de jeu.
-browser-preparation:
-    cd spikes/m3-browser-drive && node preparation-ui.mjs
+# `browser-configuration` et `browser-preparation` mesuraient les anciens
+# dialogues des touches dans l'aperçu ; ils sont partis avec eux le
+# 24 novembre 2026. Le panneau a sa preuve dans `reglage-navigateur` et
+# `salle-telephone`, la préparation dans `parcours-navigateur` et
+# `salle-telephone`.
 
 # Page, salon, worker et Dolphin dans une salle temporaire. Disque Mario Kart Wii
 # requis. Ports, conteneur et sauvegardes propres à l'essai ; le binaire de

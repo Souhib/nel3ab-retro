@@ -46,13 +46,15 @@ await press("#ray-manettes");
 await wait(500);
 await press("#item-bindings");
 await wait(700);
-await press("#view-schema");
 await press("details:has([data-bench]) > summary");
 await wait(900);
 await page.evaluate(() => document.fonts.ready);
 await wait(600);
 
-const panel = await page.$("#bindingsPanel");
+// Le panneau de la colonne depuis le 24 novembre 2026 (`#bindingsPanel`,
+// l'ancien dialogue, est retiré) ; ses nombres sont « Les nombres de ta
+// manette », un `<details>` qui porte le banc.
+const panel = await page.$("#reglage");
 await panel.screenshot({ path: out });
 console.log(`écrit ${out}`);
 await browser.close();

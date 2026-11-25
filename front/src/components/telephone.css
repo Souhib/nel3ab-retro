@@ -484,3 +484,9 @@
   background: var(--plaque);
   border-top: 2px solid var(--trait);
 }
+/* En travers, le filet passe à gauche : il sépare le panneau de l'image
+   posée à sa gauche (chantier manettes, 24 novembre 2026). */
+[data-mode="paysage"] .n3-reglage-tenu {
+  border-top: 0;
+  border-left: 2px solid var(--trait);
+}

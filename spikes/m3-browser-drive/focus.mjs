@@ -36,8 +36,8 @@
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
 //        [--flux-large <flux 16:9>] [--port-large 5480]
 //
-// `--flux-large` sert une image 16:9 sur un second banc (`--port-large`, le
-// port d'avant par défaut ; le suivant, 5482, est celui de reglage.mjs). Un
+// Sans `--port` ni `--port-large`, chaque banc prend un port libre
+// (`port.mjs`). `--flux-large` sert une image 16:9 sur un second banc. Un
 // banc ne sert qu'un flux, et un téléphone couché ne pose pas le menu au même
 // endroit pour une image 4:3 et 16:9 (menu-en-colonne, relecture du
 // 24 novembre 2026).
@@ -45,6 +45,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { demarrerBanc } from "./etats-banc.mjs";
+import { portDemande } from "./port.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
@@ -54,7 +55,7 @@ const option = (nom, defaut = null) => {
 const PAGE = option("page");
 const FLUX = option("flux");
 if (!PAGE || !FLUX) throw new Error("usage: focus.mjs --page <index.html> --flux <flux.h264>");
-const PORT = Number(option("port", "5481"));
+const PORT = portDemande(args);
 const CAPTURES = option("captures");
 const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
 if (CAPTURES) mkdirSync(CAPTURES, { recursive: true });
@@ -76,7 +77,7 @@ const PLUS_SWITCH = 1 << 9;
 
 const banc = await demarrerBanc({ port: PORT, page: PAGE, flux: FLUX });
 const FLUX_LARGE = option("flux-large");
-const PORT_LARGE = Number(option("port-large", String(PORT - 1)));
+const PORT_LARGE = portDemande(args, "port-large");
 /** Le second banc, à l'image 16:9, démarré par la première étape qui le
  * demande. */
 let bancLarge = null;
@@ -85,7 +86,7 @@ const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url, { headers: { "accept-encoding": "identity" } })).arrayBuffer()))
   .digest("hex");
 if (servie !== empreinte) throw new Error(`la page servie (${servie}) n'est pas ${PAGE} (${empreinte})`);
-console.log(JSON.stringify({ page: PAGE, sha256: empreinte }));
+console.log(JSON.stringify({ page: PAGE, sha256: empreinte, port: banc.port }));
 
 const browser = await puppeteer.launch({
   headless: true,
@@ -161,6 +162,16 @@ const peintes = (page) => page.evaluate(() => globalThis.nel3abTest?.counters?.(
 /** Entre dans la salle. `clavier`: par Entrée sur le bouton, sans aucun clic,
  * comme une personne qui n'a pas touché la souris. */
 async function entrer(page, { clavier = false, depuis = null } = {}) {
+  // `depuis`: une page entrée seule au chargement a pu envoyer sa première
+  // trame avant cet appel; on compte depuis le rechargement. Sinon on compte
+  // depuis AVANT le geste d'entrée. Le banc ne note une trame que quand ses
+  // boutons changent, et une page sans transition d'entrée (celle de main,
+  // 03b21c0) envoie sa première trame, la seule, 4 à 12 ms après le retour
+  // du clic (quinze entrées mesurées le 24 novembre 2026, charge 63). Une
+  // horloge partie après le clic la manquait dès que le pilote prenait la
+  // main plus tard que ça, et l'étape tombait sur « aucune trame » au lieu
+  // de son défaut : une fois sur trois dans `focus-navigateur-rouge`.
+  const debut = depuis ?? Date.now();
   // Depuis le 22 novembre 2026, l'adresse porte l'entrée (`?entrer=jouer`,
   // audit P9): un rechargement revient dans la salle sans repasser par
   // l'avant-salle. On ne passe la porte que s'il y en a une.
@@ -170,9 +181,6 @@ async function entrer(page, { clavier = false, depuis = null } = {}) {
       await page.keyboard.press("Enter");
     } else await page.click("#enter");
   }
-  // `depuis`: une page entrée seule au chargement a pu envoyer sa première
-  // trame avant cet appel; on compte depuis le rechargement.
-  const debut = depuis ?? Date.now();
   while ((await peintes(page)) < 30) {
     if (Date.now() - debut > 20000) throw new Precondition("la page n'a pas peint 30 images en 20 s");
     await sleep(100);

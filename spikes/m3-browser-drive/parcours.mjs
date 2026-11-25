@@ -15,12 +15,15 @@
 //   node parcours.mjs --page <index.html> --flux <flux.h264> [--port 5477]
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
 //
+// Sans `--port`, le banc prend un port libre (`port.mjs`).
+//
 // Sans `--rouge-attendu`, sort en échec dès qu'une étape échoue. Avec, sort en
 // succès seulement si CHACUNE des étapes nommées échoue sur son défaut.
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import puppeteer from "puppeteer";
 import { BIBLIOTHEQUE, BO, MOI, demarrerParcours } from "./parcours-banc.mjs";
+import { portDemande } from "./port.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut = null) => {
@@ -30,7 +33,7 @@ const option = (nom, defaut = null) => {
 const PAGE = option("page");
 const FLUX = option("flux");
 if (!PAGE || !FLUX) throw new Error("usage: parcours.mjs --page <index.html> --flux <flux.h264>");
-const PORT = Number(option("port", "5477"));
+const PORT = portDemande(args);
 const CAPTURES = option("captures");
 const ROUGE = option("rouge-attendu")?.split(",").filter(Boolean) ?? null;
 const TOUT = ROUGE !== null;
@@ -49,7 +52,7 @@ const servie = createHash("sha256")
   .update(Buffer.from(await (await fetch(banc.url)).arrayBuffer()))
   .digest("hex");
 if (servie !== empreinte) throw new Error(`la page servie (${servie}) n'est pas ${PAGE} (${empreinte})`);
-console.log(JSON.stringify({ page: PAGE, sha256: empreinte }));
+console.log(JSON.stringify({ page: PAGE, sha256: empreinte, port: banc.port }));
 
 const browser = await puppeteer.launch({
   headless: true,
@@ -91,34 +94,6 @@ async function nouvelle(vue, { salle = {}, stockage = {}, avant = null } = {}) {
 }
 
 const siege = (page) => page.evaluate(() => document.querySelector("#seat")?.textContent ?? "");
-/** Un vrai clic sur une cible amenée dans la vue de sa colonne, comme une
- * personne qui fait défiler : la cible doit recevoir le point en son centre
- * (`elementFromPoint`) deux relevés de suite, à 100 ms d'écart, avant que le
- * clic parte. La colonne défile aussi d'elle-même quand un panneau s'ouvre,
- * et son pied collé grandit quand « Plus bas » paraît : un seul relevé
- * tombait parfois entre les deux. Au bout de 2 s, c'est une précondition
- * qui manque, et le clic n'est pas envoyé à ce qui la couvre. */
-async function cliquerVisible(page, selecteur) {
-  const releve = () =>
-    page.evaluate((sel) => {
-      const cible = document.querySelector(sel);
-      if (!cible) return "absent";
-      cible.scrollIntoView({ block: "nearest" });
-      const r = cible.getBoundingClientRect();
-      const ici = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return ici === cible || cible.contains(ici) ? null : ici ? `${ici.tagName.toLowerCase()}.${ici.className}` : "rien";
-    }, selecteur);
-  const fin = Date.now() + 2000;
-  let couvert = await releve();
-  let deSuite = couvert === null ? 1 : 0;
-  while (deSuite < 2 && Date.now() < fin) {
-    await sleep(100);
-    couvert = await releve();
-    deSuite = couvert === null ? deSuite + 1 : 0;
-  }
-  if (deSuite < 2) throw new Precondition(`${selecteur} ne reçoit pas le point : ${couvert}`);
-  await page.click(selecteur);
-}
 const adresse = (page) => page.evaluate(() => location.pathname + location.search);
 /** Le texte d'un élément tel qu'il est écrit, et non tel que la feuille de
  * style le montre: `innerText` rend « AVANT DE JOUER » pour une étiquette en
@@ -166,6 +141,61 @@ async function jusqua(test, ms, pas = 100) {
     if (Date.now() > fin) return false;
     await sleep(pas);
   }
+}
+
+/** La salle montre son image, et sa colonne l'a lue : le cadre dit « vit »
+ * (`data-etat`, `lib/cadre`). Les rangs du son, du clip et d'Agrandir, et
+ * au bureau le panneau de commande, entrent dans la colonne au même rendu,
+ * jusqu'à 450 ms après qu'une place se lit dans `#seat` (mesuré le
+ * 24 novembre 2026). Un clic posé avant ce rendu vise une colonne qui va
+ * changer sous lui. */
+async function imageEnPlace(page) {
+  const vu = await jusqua(
+    () => page.evaluate(() => document.querySelector('[data-cadre][data-etat="vit"][data-sans-image="non"]') !== null),
+    10000,
+  );
+  if (!vu) {
+    const etat = await page.evaluate(() => document.querySelector("[data-cadre]")?.dataset.etat ?? "pas de cadre");
+    throw new Precondition(`la salle ne montre pas son image (cadre : ${etat})`);
+  }
+}
+
+/** Un vrai clic au centre de `sel`, comme une personne qui fait défiler la
+ * colonne jusqu'à lui : amené au milieu de son conteneur, immobile trois
+ * images de suite, et son centre rend bien `sel` (`elementFromPoint`). Le
+ * pied collé de la colonne (« Plus bas » et le coin d'Aïn) couvre son bas :
+ * une boîte dans la fenêtre ne dit pas qui reçoit le point, et un clic à son
+ * centre tombait sur le pied (`place-suit-adresse`, 24 novembre 2026). */
+async function cliquer(page, sel) {
+  const lu = await page.evaluate(async (s) => {
+    const el = document.querySelector(s);
+    if (!el) return { absent: true };
+    el.scrollIntoView({ block: "center" });
+    let avant = "";
+    let stables = 0;
+    for (let i = 0; i < 120 && stables < 3; i += 1) {
+      await new Promise((r) => requestAnimationFrame(r));
+      const r = el.getBoundingClientRect();
+      const ici = `${r.left},${r.top},${r.width},${r.height}`;
+      stables = ici === avant ? stables + 1 : 0;
+      avant = ici;
+    }
+    const r = el.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const recoit = document.elementFromPoint(x, y);
+    return {
+      x,
+      y,
+      stable: stables >= 3,
+      touche: recoit !== null && el.contains(recoit),
+      sous: recoit ? `${recoit.tagName.toLowerCase()}${recoit.id ? `#${recoit.id}` : ""}` : "rien",
+    };
+  }, sel);
+  if (lu.absent) throw new Precondition(`${sel} n'est pas dans la page`);
+  if (!lu.stable) throw new Precondition(`${sel} bouge encore après deux secondes d'images`);
+  if (!lu.touche) throw new Precondition(`le centre de ${sel} tombe sur ${lu.sous}`);
+  await page.mouse.click(lu.x, lu.y);
 }
 
 /** Entre dans la salle par la porte de l'avant-salle, comme sur toutes les
@@ -302,7 +332,7 @@ const ETAPES = {
     });
     if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
       throw new Precondition(`entré pour regarder: « ${await siege(page)} »`);
-    await page.click("#takePad");
+    await cliquer(page, "#takePad");
     if (!(await jusqua(async () => /place \d/.test(await siege(page)), 8000)))
       throw new Precondition(`« Prendre une place » sans place: « ${await siege(page)} »`);
     if (!(await jusqua(async () => (await adresse(page)) === "/r/1/?entrer=jouer", 3000)))
@@ -314,15 +344,22 @@ const ETAPES = {
     // Le jumeau: entré pour jouer, puis levé.
     // « Rendre ma place » vit dans « Autres réglages » depuis le
     // 23 novembre 2026 (colonne de la salle) : on le déplie d'abord.
-    // Avec une GameCube à 1440×900, le panneau de commande est au pied de la
-    // colonne, et « Autres réglages » passe sous le coin collé d'Aïn : une
-    // personne fait défiler la colonne. Le clic au centre tombait sur le
-    // coin, « sans effet ». Sur la page d'avant la fin de la salle, le
-    // panneau n'y descendait qu'à la première image : l'étape passait quand
-    // elle cliquait avant elle, d'où son échec une fois sur cinq (24 novembre
-    // 2026). Chaque cible est amenée dans la vue, et doit recevoir le point.
-    await cliquerVisible(page, "#autresReglages > summary");
-    await cliquerVisible(page, "#watchOnly");
+    // Une fois sur cinq, l'étape tombait ici sur « Node is either not
+    // clickable or not an Element » (vague B1, 24 novembre 2026). Le clic
+    // partait dès que la place se lisait, et la colonne changeait ensuite à
+    // la première image : avant elle, « Autres réglages » était en haut et
+    // le clic passait ; après elle, il était au pied de la colonne, sous
+    // « Plus bas », et « Rendre ma place » restait hors d'atteinte. Depuis la
+    // fin de la salle, le panneau de commande d'une GameCube est au pied de
+    // la colonne dès l'arrivée (format attendu), et « Autres réglages » passe
+    // sous le coin collé d'Aïn : un clic à son centre tombait sur le coin à
+    // chaque passage. L'étape attend donc la colonne de l'image, et clique
+    // comme une personne qui fait défiler, au point vérifié.
+    await imageEnPlace(page);
+    await cliquer(page, "#autresReglages > summary");
+    if (!(await jusqua(() => page.evaluate(() => document.querySelector("#autresReglages")?.open === true), 2000)))
+      throw new Precondition("le clic n'ouvre pas « Autres réglages »");
+    await cliquer(page, "#watchOnly");
     if (!(await jusqua(async () => /tu regardes/.test(await siege(page)), 5000)))
       throw new Precondition(`« Rendre ma place » sans effet: « ${await siege(page)} »`);
     if (!(await jusqua(async () => (await adresse(page)) === "/r/1/?entrer=regarder", 3000)))

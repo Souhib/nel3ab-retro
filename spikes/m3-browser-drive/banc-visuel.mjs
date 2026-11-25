@@ -1,7 +1,8 @@
 // Le banc d'essai, regardé. Vite sert l'aperçu, aucune salle n'est touchée.
 //
-//   node banc-visuel.mjs SORTIE.png
-//       démarre son propre Vite avec `vite.planche.config.ts`, la configuration
+//   node banc-visuel.mjs SORTIE.png [--port 5471]
+//       démarre son propre Vite, sur un port libre sans `--port`
+//       (`port.mjs`), avec `vite.planche.config.ts`, la configuration
 //       SANS relais vers les salles: la configuration par défaut relaie `/api`,
 //       `/video` et `/input` vers les ports vivants, et un pilote d'aperçu n'a
 //       rien à y faire, même s'il n'y envoie rien aujourd'hui;
@@ -16,22 +17,25 @@
 // standard en régie de jour, sans qu'aucun passage ne le voie.
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
+import { portDemande, portLibre } from "./port.mjs";
 
 const out = process.argv[2] ?? "/tmp/banc-visuel.png";
 const given = process.argv.find((arg) => /^https?:\/\//.test(arg));
+const PORT = given ? null : portDemande(process.argv.slice(2)) || (await portLibre());
 let vite = null;
 if (!given) {
   // Un groupe de processus à lui : `npx` lance Vite comme enfant, et tuer
-  // `npx` seul laissait Vite écouter sur 5471 après la fin du banc, ce qui
+  // `npx` seul laissait Vite écouter sur son port (5471, fixe alors) après la
+  // fin du banc, ce qui
   // faisait échouer le lancement suivant (vu le 23 novembre 2026).
-  vite = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", "5471", "--strictPort"], {
+  vite = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", String(PORT), "--strictPort"], {
     cwd: new URL("../../front/", import.meta.url).pathname,
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
   });
   // Sur TOUTE sortie, une exception comprise : le 24 novembre 2026, une capture
   // vers un dossier absent a levé avant la dernière ligne, et Vite est resté
-  // sur 5471.
+  // sur son port.
   process.on("exit", () => {
     try {
       process.kill(-vite.pid, "SIGTERM");
@@ -44,7 +48,7 @@ if (!given) {
     vite.stdout.on("data", (b) => { if (/Local:/.test(String(b))) { clearTimeout(timer); resolve(); } });
   });
 }
-const base = given ?? "http://127.0.0.1:5471/";
+const base = given ?? `http://127.0.0.1:${PORT}/`;
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });
 let failed = 0;
 for (const scheme of ["dark", "light"]) {

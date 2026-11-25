@@ -40,22 +40,24 @@
 // ce serveur est refusée par le navigateur. Le cache de Vite va dans un dossier
 // temporaire, pas dans le `node_modules` partagé.
 //
-//   node manette-garde.mjs [dossier des captures]
+//   node manette-garde.mjs [dossier des captures] [--port 5437]
 //
-// Port 5437 par défaut, ou MANETTE_GARDE_PORT. Sort en erreur au premier
-// constat rouge, après avoir tout parcouru.
+// Sans `--port`, Vite prend un port libre (`port.mjs`). Sort en erreur au
+// premier constat rouge, après avoir tout parcouru.
 import { createRequire } from "node:module";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer";
+import { portDemande } from "./port.mjs";
 
 const HERE = import.meta.dirname;
 const REPO = resolve(HERE, "..", "..");
 const FRONT = join(REPO, "front");
-const PORT = Number(process.env.MANETTE_GARDE_PORT ?? 5437);
-const OUT = resolve(process.argv[2] ?? join(tmpdir(), "manette-garde"));
+const args = process.argv.slice(2);
+const PORT = portDemande(args);
+const OUT = resolve(args.find((one, i) => !one.startsWith("--") && args[i - 1] !== "--port") ?? join(tmpdir(), "manette-garde"));
 const ENTRY = join(HERE, "manette-garde.entry.tsx");
 
 // La règle elle-même. Douze pixels : la marge que l'audit du 22 novembre 2026
@@ -181,7 +183,8 @@ const server = await createServer({
   server: { host: "127.0.0.1", port: PORT, strictPort: true, hmr: false, fs: { allow: [REPO] } },
 });
 await server.listen();
-const BASE = `http://127.0.0.1:${PORT}`;
+// Le port que Vite a vraiment pris : le système le choisit sans `--port`.
+const BASE = `http://127.0.0.1:${server.httpServer.address().port}`;
 
 mkdirSync(OUT, { recursive: true });
 const browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox"] });

@@ -27,15 +27,17 @@
 // coupée.
 //
 //   node planche-ain.mjs [--port 5489] [--mesures versions,hors-zones,immobile]
+//   (sans --port, un port libre : `port.mjs`)
 import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
+import { portDemande, portLibre } from "./port.mjs";
 
 const args = process.argv.slice(2);
 const option = (nom, defaut) => {
   const i = args.indexOf(`--${nom}`);
   return i >= 0 ? args[i + 1] : defaut;
 };
-const PORT = Number(option("port", "5489"));
+const PORT = portDemande(args) || (await portLibre());
 const MESURES = option("mesures", "versions,hors-zones,immobile").split(",");
 const LIEUX = option("lieux", "salle,salon,plateau").split(",");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -602,8 +602,17 @@ describe("les feuilles ne visent que les deux régies", () => {
     // Le 22 novembre 2026, les sept ambiances sont devenues deux régies, et
     // bobine.css visait encore `instrument-clair` et `famicom` pour sa console:
     // une règle qui ne s'appliquait plus à rien, et une console sombre sur la
-    // craie du jour.
-    expect(FEUILLES.map(([nom]) => nom)).toContain("src/bobine/bobine.css");
+    // craie du jour. Bobine est partie le 24 novembre 2026 ; la précondition
+    // vérifie que la marche lit encore les feuilles de la page et celles du
+    // salon.
+    expect(FEUILLES.map(([nom]) => nom)).toEqual(
+      expect.arrayContaining([
+        "src/regie.css",
+        "src/index.css",
+        "src/components/etat-salle.css",
+        "salon/accueil.html",
+      ]),
+    );
     const morts = FEUILLES.flatMap(([nom, texte]) =>
       [...texte.matchAll(/data-theme="([^"]+)"/g)]
         .map((m) => m[1] ?? "")

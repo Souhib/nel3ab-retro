@@ -19,9 +19,10 @@
 //
 // et la zone d'image reste noire dans les deux régies.
 //
-//   node regie-mise-en-page.mjs
+//   node regie-mise-en-page.mjs [--port 5472]
 //       démarre son propre Vite avec `vite.planche.config.ts`, SANS relais
-//       vers les salles (`just regie-visuel`);
+//       vers les salles (`just regie-visuel`), sur un port libre sans
+//       `--port` (`port.mjs`);
 //
 //   node regie-mise-en-page.mjs http://127.0.0.1:54xx/
 //       contre un Vite sans relais déjà lancé.
@@ -32,11 +33,13 @@
 import { spawn, spawnSync } from "node:child_process";
 import puppeteer from "puppeteer";
 import { enterRoom } from "./open.mjs";
+import { portDemande, portLibre } from "./port.mjs";
 
 const given = process.argv.find((arg) => /^https?:\/\//.test(arg));
+const PORT = given ? null : portDemande(process.argv.slice(2)) || (await portLibre());
 let vite = null;
 if (!given) {
-  vite = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", "5472", "--strictPort"], {
+  vite = spawn("npx", ["vite", "--config", "vite.planche.config.ts", "--port", String(PORT), "--strictPort"], {
     cwd: new URL("../../front/", import.meta.url).pathname,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -47,7 +50,7 @@ if (!given) {
     vite.stdout.on("data", (b) => { if (/Local:/.test(String(b))) { clearTimeout(timer); resolve(); } });
   });
 }
-const base = given ?? "http://127.0.0.1:5472/";
+const base = given ?? `http://127.0.0.1:${PORT}/`;
 const origine = new URL(base).origin;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 

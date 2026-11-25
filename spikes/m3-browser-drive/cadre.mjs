@@ -25,6 +25,7 @@
 // Rien de vivant n'est touché.
 //
 //   node cadre.mjs --page <index.html> --flux <flux.h264> [--port 5478]
+//   (sans --port, un port libre : `port.mjs`)
 //        [--etapes a,b] [--captures dossier] [--rouge-attendu a,b]
 //
 // Sans `--rouge-attendu`, sort en échec dès qu'une étape échoue. Avec, sort en
@@ -180,6 +181,7 @@ function verdict(fautes) {
 async function principal() {
   const puppeteer = (await import("puppeteer")).default;
   const { demarrerParcours } = await import("./parcours-banc.mjs");
+  const { portDemande } = await import("./port.mjs");
   const args = process.argv.slice(2);
   const option = (nom, defaut = null) => {
     const i = args.indexOf(`--${nom}`);
@@ -188,7 +190,7 @@ async function principal() {
   const PAGE = option("page");
   const FLUX = option("flux");
   if (!PAGE || !FLUX) throw new Error("usage: cadre.mjs --page <index.html> --flux <flux.h264>");
-  const PORT = Number(option("port", "5478"));
+  const PORT = portDemande(args);
   const CAPTURES = option("captures");
   // `--clair jour` ou `--clair nuit` : la préférence du système, pour les
   // captures de nuit et de jour (étape 8). Sans elle, celle de Chrome.
@@ -203,7 +205,7 @@ async function principal() {
     .update(Buffer.from(await (await fetch(banc.url)).arrayBuffer()))
     .digest("hex");
   if (servie !== empreinte) throw new Error(`la page servie (${servie}) n'est pas ${PAGE} (${empreinte})`);
-  console.log(JSON.stringify({ page: PAGE, sha256: empreinte }));
+  console.log(JSON.stringify({ page: PAGE, sha256: empreinte, port: banc.port }));
 
   const browser = await puppeteer.launch({
     headless: true,

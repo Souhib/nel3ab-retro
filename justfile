@@ -47,7 +47,7 @@ default: local
 # relecture du chantier du focus a trouvé que rien ne les lançait: une
 # régression passait la porte sans bruit. Elles demandent Chrome (puppeteer) et
 # ffmpeg, déjà exigé par `clip-audio-test`, et servent la page committée sur un
-# port de 5400 à 5599, sans rien de vivant. Leur prix, mesuré le jour même:
+# port à eux, sans rien de vivant. Leur prix, mesuré le jour même:
 # 1 min 25 s et 4 min 35 s, dont près de trois minutes pour les deux étapes de
 # `etats-navigateur` qui attendent une proposition de format réduit.
 #
@@ -62,8 +62,7 @@ default: local
 # relecture de la salle au doigt: elles vivaient hors de toute porte alors que
 # trois bancs du même genre y étaient, et une régression de la manette ou du
 # tiroir passait sans bruit. Même prix de nature (Chrome, rien de vivant, Vite
-# sans relais sur 5446 et 5437), et mesuré le 22 novembre 2026 sur cette
-# machine: 112 s et 48 s.
+# sans relais), et mesuré le 22 novembre 2026 sur cette machine: 112 s et 48 s.
 #
 # `reglage-navigateur` et `reglage-navigateur-rouge` y entrent le 24 novembre
 # 2026, à la fusion du chantier manettes sur la branche d'intégration, comme
@@ -79,7 +78,20 @@ default: local
 # navigateur. Même prix de nature, et le plus long des bancs: 4 min 35 s
 # d'étapes mesurées le 24 novembre 2026 jusqu'à `mascotte-hors-image`, qui
 # s'arrêtait alors sur sa précondition (voir le carnet de ce jour).
-local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur reglage-navigateur-rouge salon-navigateur salon-navigateur-rouge cadre-navigateur
+#
+# À l'intégration finale du thème rétro, le même jour, `planche-garde` y
+# entre, et les deux contrôles rouges en sortent (décision du chef de
+# chantier). La planche est la seule preuve que chaque scène d'Aïn joue en
+# entier sans rien poser sur l'image, un contrôle ou un mot (2 min 36 s
+# mesurées le 23 novembre 2026). Un contrôle rouge, lui, prouve qu'une étape
+# sait rougir contre des pages figées dans l'histoire : rien d'autre qu'un
+# changement de son pilote ne peut changer sa couleur, et il se lance avec ce
+# changement (règle 4 de CLAUDE.md), pas à chaque commit.
+#
+# Chaque pilote prend un port libre que le système lui donne, ou celui de
+# `--port N` (5400 à 5999, `spikes/m3-browser-drive/port.mjs`) : deux
+# chantiers qui lancent leurs portes en même temps ne se heurtent plus.
+local: check gpu-test clip-audio-test switch-saves-test switch-capture-test xbox360-test abri-test deploy-check focus-navigateur etats-navigateur parcours-navigateur salle-telephone manette-garde reglage-navigateur salon-navigateur cadre-navigateur planche-garde
 
 # La copie chiffrée des sauvegardes sur le NAS (docs/abri.md), éprouvée contre un
 # faux dossier personnel et un dépôt jetable: restauration à l'identique,
@@ -104,8 +116,8 @@ planche port="5391":
 # requestAnimationFrame ni animation en cours pendant deux secondes après la
 # fin d'une scène. Chaque mesure a son jumeau dans le pilote (une ancre
 # retirée, l'image glissée sous le logo, le compteur qui monte pendant la
-# scène). Rien de vivant: un Vite sans relais sur 5489. 2 min 36 s mesurées
-# le 23 novembre 2026.
+# scène). Rien de vivant: un Vite sans relais, sur un port libre ou sur
+# `--port`. 2 min 36 s mesurées le 23 novembre 2026.
 #
 #   just planche-garde                          tout
 #   just planche-garde --mesures immobile       une mesure
@@ -124,7 +136,7 @@ ain-salon:
 
 # Le salon dans un vrai Chrome (ADR D41): l'accueil tel que les modules du
 # salon l'assemblent, servi par un banc aux API simulées
-# (`spikes/m3-browser-drive/salon.mjs`, port 5462 par défaut). Aucun salon ne
+# (`spikes/m3-browser-drive/salon.mjs`, un port libre sans `--port`). Aucun salon ne
 # démarre et aucune salle ne s'ouvre (K40). jsdom exécute la même page dans
 # `test_accueil.py`, mais ne voit ni une cible de 31 px, ni une page qui
 # déborde de 37 px à 320 px: les deux défauts que ce pilote a trouvés le
@@ -153,7 +165,7 @@ salon-navigateur *args:
 # 323aa52: la fin du cinquième passage, que la relecture du 24 novembre 2026
 # a prise en défaut deux fois: le lien du logo sans nom une fois Aïn peint,
 # et le focus du clavier perdu quand une autre place de la salle se remplit.
-salon-navigateur-rouge:
+salon-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -168,12 +180,12 @@ salon-navigateur-rouge:
     json.dump({'/': accueil.PAGE, '/importer': importer.PAGE, '/profil': profil.PAGE}, sys.stdout)") > "$dossier/$commit.json"
     done
     cd spikes/m3-browser-drive
-    node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo
-    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur,demo,courbure,start,retour,credit,carnet-range
-    node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320
-    node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene
-    node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse,rangee-entre
-    node salon.mjs --pages "$dossier/323aa52.json" --rouge-attendu ain-logo,start-focus
+    node salon.mjs --pages "$dossier/a32de82.json" --rouge-attendu ain-logo {{args}}
+    node salon.mjs --pages "$dossier/2a98279.json" --rouge-attendu entete,mire-vide,un-seul-plein,places,reveil-coupe,liste-figee,changer-nom,depot,cycle,clignotement,pointeur,demo,courbure,start,retour,credit,carnet-range {{args}}
+    node salon.mjs --pages "$dossier/84b969f.json" --rouge-attendu cibles-44,sans-defilement-320 {{args}}
+    node salon.mjs --pages "$dossier/cb0909b.json" --rouge-attendu attention,rayon,depot-scene {{args}}
+    node salon.mjs --pages "$dossier/5fae6b0.json" --rouge-attendu entete,changer-nom,depot-zone,trousseau,depot-glisse,rangee-entre {{args}}
+    node salon.mjs --pages "$dossier/323aa52.json" --rouge-attendu ain-logo,start-focus {{args}}
 
 # Le contrôle négatif des étapes d'Aïn de cadre-navigateur: la page de la fin
 # du deuxième passage (24cdaa2, avant la relecture du 24 novembre 2026) doit
@@ -551,10 +563,12 @@ padmap-visuel *args:
 # nuit et jour, qui doivent donner deux panneaux différents.
 # Écrite après l'audit du 22 novembre 2026, où taper R sur un iPhone cachait
 # la manette. Hors de `check` parce qu'elle demande Chrome; dans `local`. Vite
-# sert la page sans relais vers la salle, sur le port 5437 (MANETTE_GARDE_PORT
-# pour un autre).
-manette-garde out="/tmp/manette-garde":
-    cd spikes/m3-browser-drive && node manette-garde.mjs {{out}}
+# sert la page sans relais vers la salle, sur un port libre.
+#
+#   just manette-garde                      captures dans /tmp/manette-garde
+#   just manette-garde <dossier> --port 5437
+manette-garde *args:
+    cd spikes/m3-browser-drive && node manette-garde.mjs {{args}}
 
 # La salle sur téléphone et tablette, sur l'arbre de travail.
 #
@@ -576,10 +590,13 @@ manette-garde out="/tmp/manette-garde":
 # avec la politique du worker. Un faux salon (une socket qui répond à la
 # poignée de main d'engine.io) lui laisse envoyer une annonce. Hors de `check`
 # parce qu'elle demande Chrome; dans `local`. Vite sert la page sans relais,
-# avec une fausse session média (`salle-telephone.session.ts`), sur le port
-# 5446 (SALLE_TELEPHONE_PORT).
-salle-telephone out="/tmp/salle-telephone":
-    cd spikes/m3-browser-drive && node salle-telephone.mjs {{out}}
+# avec une fausse session média (`salle-telephone.session.ts`), sur un port
+# libre.
+#
+#   just salle-telephone                      captures dans /tmp/salle-telephone
+#   just salle-telephone <dossier> --port 5446
+salle-telephone *args:
+    cd spikes/m3-browser-drive && node salle-telephone.mjs {{args}}
 
 # Le banc d'essai, regardé et mesuré.
 #
@@ -589,8 +606,8 @@ salle-telephone out="/tmp/salle-telephone":
 # plutôt que par `browser-contraste`: celui-là tape le worker en vie, donc la
 # page compilée dans son binaire, et ne voit pas un écran pas encore déployé.
 # Vite sert l'aperçu tout seul, aucune salle n'est touchée.
-banc-visuel:
-    cd spikes/m3-browser-drive && node banc-visuel.mjs /tmp/banc-visuel.png
+banc-visuel *args:
+    cd spikes/m3-browser-drive && node banc-visuel.mjs /tmp/banc-visuel.png {{args}}
 
 # La mise en page que l'audit visuel du 22 novembre 2026 a corrigée: le
 # dialogue Switch centré, la légende de la jauge de l'accueil sur un téléphone,
@@ -598,8 +615,8 @@ banc-visuel:
 # régies. Hors de `check` pour la même raison que le banc: jsdom ne pose rien.
 # Son propre Vite sans relais, l'accueil assemblé par les modules du salon:
 # aucune salle ni aucun salon n'est touché.
-regie-visuel:
-    cd spikes/m3-browser-drive && node regie-mise-en-page.mjs
+regie-visuel *args:
+    cd spikes/m3-browser-drive && node regie-mise-en-page.mjs {{args}}
 
 # Le même écran, mais contre la VRAIE salle et sa page déployée.
 #
@@ -854,13 +871,15 @@ gpu-test:
 # proposer. Chaque étape en rejoue un avec son jumeau (`etats.mjs`).
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert. Un
-# salon et une salle simulés, sur un port de 5400 à 5599: aucune salle vivante,
-# aucun émulateur. Le flux est un vrai H.264, fabriqué ici par ffmpeg plutôt
-# que committé (1,6 Mo). Hors de `check`: Chrome, ffmpeg et cinq minutes.
+# salon et une salle simulés, sur un port libre (`port.mjs`): aucune salle
+# vivante, aucun émulateur. Le flux est un vrai H.264, fabriqué ici par
+# ffmpeg plutôt que committé (1,6 Mo). Hors de `check`: Chrome, ffmpeg et cinq
+# minutes.
 #
 #   just etats-navigateur                          toutes les étapes
 #   just etats-navigateur --etapes gel-dit         une seule
 #   just etats-navigateur --captures /tmp/etats    avec les captures
+#   just etats-navigateur --port 5473              sur un port imposé
 etats-navigateur *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -881,7 +900,7 @@ etats-navigateur *args:
 # colonne de la salle y apparaît d'un coup (`ouverture-sans-saut`), sur le fond
 # de nuit quel que soit le thème (`ouverture-theme`), après une phrase seule
 # au milieu de la page (`ouverture-statique`).
-etats-navigateur-rouge:
+etats-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -896,10 +915,10 @@ etats-navigateur-rouge:
     cd spikes/m3-browser-drive
     node etats.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
         --etapes gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale \
-        --rouge-attendu gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale
+        --rouge-attendu gel-dit,chargement-menu,gel-sans-proposition,lien-qui-cale {{args}}
     node etats.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
         --etapes reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale \
-        --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale
+        --rouge-attendu reprise-45,socket-muette,relais-502,redemarrage,arrivee-refusee,lien-qui-cale {{args}}
     # 03b21c0, la page de main avant le thème rétro : le rideau d'arrivée
     # restait sur les premières images jusqu'au relevé suivant, la pastille et
     # le bandeau d'une coupure se posaient sur l'image, la pastille n'était
@@ -907,19 +926,19 @@ etats-navigateur-rouge:
     # l'arrivée sans image ne proposait pas les autres salles (ADR D40).
     node etats.mjs --page "$dossier/sur-image.html" --flux "$dossier/flux.h264" \
         --etapes premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image \
-        --rouge-attendu premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image
+        --rouge-attendu premiere-image-coupe,pastille-hors-image,coupee-reseau,pastille-mene-au-geste,gel-image-passee,arrivee-sans-image {{args}}
     # 9a4519b, la page des états avant leur troisième passage : aucune
     # coupure à l'entrée au niveau « tout », et une salle fermée qui
     # proposait encore ses places libres à prendre (ADR D40).
     git show 9a4519b:core/crates/worker/src/page/index.html > "$dossier/sans-passe.html"
     node etats.mjs --page "$dossier/sans-passe.html" --flux "$dossier/flux.h264" \
-        --etapes coupure-entree,fermee-vraie --rouge-attendu coupure-entree,fermee-vraie
+        --etapes coupure-entree,fermee-vraie --rouge-attendu coupure-entree,fermee-vraie {{args}}
     # aeac1ab, avant le quatrième passage : la colonne d'une salle fermée
     # disait encore « tu regardes » et « Ils regardent », avec ceux arrivés
     # après la fermeture (ADR D40).
     git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/sans-soiree.html"
     node etats.mjs --page "$dossier/sans-soiree.html" --flux "$dossier/flux.h264" \
-        --etapes fermee-vraie --rouge-attendu fermee-vraie
+        --etapes fermee-vraie --rouge-attendu fermee-vraie {{args}}
     # 884c105, la page des états que la relecture du 24 novembre 2026 a lue :
     # une pastille aux jetons du jour sur son noir (compteur à 1,16:1), posée
     # sur la tête d'Aïn dans la barre du téléphone, une extinction qui partait
@@ -929,7 +948,7 @@ etats-navigateur-rouge:
     git show 884c105:core/crates/worker/src/page/index.html > "$dossier/relue.html"
     node etats.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes pastille-contraste,pastille-hors-image,extinction,calques-attente \
-        --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente
+        --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente {{args}}
     # 4ecbc23, la page de la vague B2 : à 1440×900, la première image 4:3
     # rangeait le panneau de commande dans la colonne et poussait ses
     # enfants de 204 px. Le panneau s'y décidait sur l'image reçue, et non
@@ -937,23 +956,23 @@ etats-navigateur-rouge:
     # La pastille d'une image figée n'avait pas de place sur le panneau.
     git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
     node etats.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
-        --etapes colonne-stable,pastille-panneau --rouge-attendu colonne-stable,pastille-panneau
+        --etapes colonne-stable,pastille-panneau --rouge-attendu colonne-stable,pastille-panneau {{args}}
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
         --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
-        --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique
+        --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique {{args}}
     # 2f2ea39, la page du chantier menus avant le chargement réécrit (24
     # novembre 2026) : la ligne parlée dit « Le jeu démarre. » sans le nom du
     # jeu, et l'écran n'a pas de mire. clip-chargement n'a pas de page rouge :
     # la colonne cachait déjà le clip pendant un chargement (C8, gardé).
     git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
     node etats.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
-        --etapes chargement-annonces,mire-charge --rouge-attendu chargement-annonces,mire-charge
+        --etapes chargement-annonces,mire-charge --rouge-attendu chargement-annonces,mire-charge {{args}}
     # 03b21c0, la page de main avant le thème rétro : téléphone en travers,
     # l'écran de chargement coupe ses deux boutons au bas de la fenêtre (C3).
     # La page de 2f2ea39 n'en avait plus qu'un, qui tenait : pas de rouge là.
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node etats.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes chargement-paysage --rouge-attendu chargement-paysage
+        --etapes chargement-paysage --rouge-attendu chargement-paysage {{args}}
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -973,7 +992,7 @@ etats-navigateur-rouge:
 # ancres START d'Aïn et la cadence d'une image figée.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
-# salon et une salle simulés sur un port de 5400 à 5599 (`parcours-banc.mjs`),
+# salon et une salle simulés sur un port libre (`parcours-banc.mjs`),
 # aucune salle vivante, aucun émulateur. Hors de `check`: Chrome et ffmpeg.
 #
 #   just parcours-navigateur                          toutes les étapes
@@ -996,7 +1015,7 @@ parcours-navigateur *args:
 # tombe sur sa précondition. e851a64 est la page que la relecture a refusée:
 # seules y rougissent les quatre étapes de ses défauts, les autres y passent,
 # et c'est ce qu'elles doivent faire.
-parcours-navigateur-rouge:
+parcours-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -1009,41 +1028,41 @@ parcours-navigateur-rouge:
     cd spikes/m3-browser-drive
     etapes=entree-adresse,rechargement,invitation,quitter,fermer-salle,menu-chef,preparation-gamecube,preparation-x360,lanceur-ma-sauvegarde,cibles-tactiles,avant-salle-places
     node parcours.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     etapes=place-suit-adresse,menu-chef,cibles-tactiles,avant-salle-places
     node parcours.mjs --page "$dossier/refusee.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # 03b21c0, la page de main avant le thème rétro : « Inviter » y copie
     # d'un coup, sans panneau ni code, et l'étape réécrite le 23 novembre
     # 2026 doit y tomber sur ce défaut. Une salle pleine n'y avait aucun
     # bouton plein (salle-pleine-avant-salle, 24 novembre 2026).
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes invitation --rouge-attendu invitation
+        --etapes invitation --rouge-attendu invitation {{args}}
     # Et la place précise (`?place=N`, 24 novembre 2026) : cette page ne lit
     # pas le paramètre, le worker lui donne la première libre.
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes place-precise --rouge-attendu place-precise
+        --etapes place-precise --rouge-attendu place-precise {{args}}
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes salle-pleine-avant-salle --rouge-attendu salle-pleine-avant-salle
+        --etapes salle-pleine-avant-salle --rouge-attendu salle-pleine-avant-salle {{args}}
     # Sur la même page, la salle sans jeu ouvre son menu d'office et n'a pas
     # de rayonnage : les trois étapes du chantier menus (24 novembre 2026)
     # doivent y tomber sur ce défaut.
     etapes=rayonnage,lancer-seul,bibliotheque-clavier
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # Sur la même page, la préparation est un dialogue modal qui coupe le jeu
     # et propose une liste au lieu de radios (chantier menus, P1, P7).
     etapes=preparation-gamecube,preparation-wii,preparation-x360
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # ae1725a, la page du chantier menus juste avant le bloc de préparation :
     # la bande du téléphone existe, mais elle ne dit rien de la préparation.
     # La page de main n'a pas encore de bande : l'étape y tombe sur sa
     # précondition, et ne prouverait rien.
     git show ae1725a:core/crates/worker/src/page/index.html > "$dossier/menus-ae1725a.html"
     node parcours.mjs --page "$dossier/menus-ae1725a.html" --flux "$dossier/flux.h264" \
-        --etapes preparation-telephone --rouge-attendu preparation-telephone
+        --etapes preparation-telephone --rouge-attendu preparation-telephone {{args}}
     # 2f2ea39, la page du chantier menus avant le chargement réécrit : qui a
     # lancé y lit « sur « ma sauvegarde » » au lieu de « Sur ta sauvegarde. »
     # (C6), et la rubrique Salle du menu ne dit pas qui choisit le jeu (M10).
@@ -1051,28 +1070,28 @@ parcours-navigateur-rouge:
     # le chargement à l'arrivée (C10, une preuve qui manquait).
     git show 2f2ea39:core/crates/worker/src/page/index.html > "$dossier/menus-2f2ea39.html"
     node parcours.mjs --page "$dossier/menus-2f2ea39.html" --flux "$dossier/flux.h264" \
-        --etapes lanceur-ma-sauvegarde,menu-salle --rouge-attendu lanceur-ma-sauvegarde,menu-salle
+        --etapes lanceur-ma-sauvegarde,menu-salle --rouge-attendu lanceur-ma-sauvegarde,menu-salle {{args}}
     # Sur la même page, la demande de place se pose sur l'image (le panneau
     # fixe de `Recovery`), et « Signaler » est sous le pli de la colonne.
     etapes=demande-place,signaler-visible
     node parcours.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # 742b011, la page du chantier menus avant B1 : au bureau, la fiche d'un
     # jeu prenait la place des rangées au lieu de se poser à côté.
     git show 742b011:core/crates/worker/src/page/index.html > "$dossier/menus-742b011.html"
     node parcours.mjs --page "$dossier/menus-742b011.html" --flux "$dossier/flux.h264" \
-        --etapes fiche-a-cote --rouge-attendu fiche-a-cote
+        --etapes fiche-a-cote --rouge-attendu fiche-a-cote {{args}}
     # 1ee8b49, la même page un commit plus tard : à 1280x720, la rangée de
     # gestes de la préparation descend sous le coin d'Aïn, et les radios du
     # menu font défiler la colonne sous lui.
     git show 1ee8b49:core/crates/worker/src/page/index.html > "$dossier/menus-1ee8b49.html"
     node parcours.mjs --page "$dossier/menus-1ee8b49.html" --flux "$dossier/flux.h264" \
-        --etapes garde-focus --rouge-attendu garde-focus
+        --etapes garde-focus --rouge-attendu garde-focus {{args}}
     # cd2d5b3, la page relue le 24 novembre 2026 : la fiche se pose à côté
     # des rangées, mais la cartouche ouverte ne sort pas de sa rangée.
     git show cd2d5b3:core/crates/worker/src/page/index.html > "$dossier/menus-cd2d5b3.html"
     node parcours.mjs --page "$dossier/menus-cd2d5b3.html" --flux "$dossier/flux.h264" \
-        --etapes fiche-a-cote --rouge-attendu fiche-a-cote
+        --etapes fiche-a-cote --rouge-attendu fiche-a-cote {{args}}
     # 54d1f6f, la page du passage 2 du chantier personnes : la carte d'une
     # place existe, mais Échap y ouvre le menu du jeu, et une phrase d'état
     # dite 90 ms après une arrivée l'efface de la ligne parlée, et l'ancre
@@ -1088,7 +1107,7 @@ parcours-navigateur-rouge:
     fi
     node parcours.mjs --page "$rouges/personnes-54d1f6f.html" --flux "$dossier/flux.h264" \
         --etapes places-clavier,annonce-arrivee,annonce-lettres \
-        --rouge-attendu places-clavier,annonce-arrivee,annonce-lettres
+        --rouge-attendu places-clavier,annonce-arrivee,annonce-lettres {{args}}
     # cc8c8a6, la page que la relecture du 24 novembre 2026 a refusée : la
     # raison du salon ouvre la carte chez qui tient la place, la carte se
     # rouvre seule au retour de Bo, aucune issue de reprise n'est dite, un
@@ -1104,13 +1123,13 @@ parcours-navigateur-rouge:
     fi
     etapes=carte-cible,carte-revient,refus-dit,don-dit,arrivee-a-confirmer,annonce-fronton,ancres-start,mesures-figee
     node parcours.mjs --page "$rouges/personnes-cc8c8a6.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # 77fae49, la page du salon avant Aïn dans l'avant-salle (24 novembre
     # 2026) : le logo de l'en-tête est une image, rien ne joue quand une
     # place se libère.
     git show 77fae49:core/crates/worker/src/page/index.html > "$dossier/avant-ain.html"
     node parcours.mjs --page "$dossier/avant-ain.html" --flux "$dossier/flux.h264" \
-        --etapes avant-salle-ain --rouge-attendu avant-salle-ain
+        --etapes avant-salle-ain --rouge-attendu avant-salle-ain {{args}}
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #
@@ -1123,7 +1142,7 @@ parcours-navigateur-rouge:
 # les trames que reçoit le banc (`focus.mjs`).
 #
 # Le même banc que `etats-navigateur`: la page COMMITTÉE, un salon et une salle
-# simulés sur un port de 5400 à 5599. Hors de `check`, que la CI partage: Chrome,
+# simulés sur un port libre. Hors de `check`, que la CI partage: Chrome,
 # ffmpeg et une minute et demie. Dans `local` depuis la relecture du
 # 22 novembre 2026: une preuve que rien n'appelle ne garde rien.
 #
@@ -1161,7 +1180,7 @@ focus-navigateur *args:
 # échouer sur son défaut. `entree-sans-clic` et `tab-retour` passent sur
 # 55047a9, qui avait déjà ce câblage: elles rougissent sur f4b90c5 et contre
 # les mutants qui le retirent (carnet, 22 novembre 2026).
-focus-navigateur-rouge:
+focus-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -1174,16 +1193,16 @@ focus-navigateur-rouge:
     cd spikes/m3-browser-drive
     etapes=entree-colonne,entree-jeu-pro,premiere-visite,rubriques,telephone,noms,entree-sans-clic,tab-retour
     node focus.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     etapes=telephone,tablette,anneau,clic-colonne,avis-haut,carte-wii,connexion-telephone
     node focus.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # aeac1ab, la page des états avant leur quatrième passage : le geste de
     # la fiche, focalisé au clavier, laissait le focus sur <body> quand
     # l'image revenait (ADR D40).
     git show aeac1ab:core/crates/worker/src/page/index.html > "$dossier/fiche.html"
     node focus.mjs --page "$dossier/fiche.html" --flux "$dossier/flux.h264" \
-        --etapes fiche-focus-rendu --rouge-attendu fiche-focus-rendu
+        --etapes fiche-focus-rendu --rouge-attendu fiche-focus-rendu {{args}}
     # Le menu unique (chantier menus, 24 novembre 2026) : ses étapes réécrites
     # rougissent sur la page de main 03b21c0, qui a encore le menu plein cadre,
     # les trois formes, le pied toujours là et le sélecteur. menu-entree-focus
@@ -1198,19 +1217,19 @@ focus-navigateur-rouge:
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     etapes=menu-en-colonne,une-seule-forme,refus-dans-le-bloc,curseur-focus,aides-clavier,aides-manette,aides-fixes,mouvement-menu,pastilles
     node focus.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # 49be12b, la page du chantier menus juste avant P10 : une fermeture
     # acceptée s'y écrit encore comme une erreur, dans l'avis du menu. La
     # page de main n'a pas de fiche pour « fermer le jeu » : l'étape y
     # tomberait sur sa précondition.
     git show 49be12b:core/crates/worker/src/page/index.html > "$dossier/menus-49be12b.html"
     node focus.mjs --page "$dossier/menus-49be12b.html" --flux "$dossier/flux.h264" \
-        --etapes fermeture-en-cours --rouge-attendu fermeture-en-cours
+        --etapes fermeture-en-cours --rouge-attendu fermeture-en-cours {{args}}
     # 41e9b33, la page suivante : le refus s'écrit dans le bloc, mais Aïn ne
     # joue pas « refus » au coin.
     git show 41e9b33:core/crates/worker/src/page/index.html > "$dossier/menus-41e9b33.html"
     node focus.mjs --page "$dossier/menus-41e9b33.html" --flux "$dossier/flux.h264" \
-        --etapes refus-dans-le-bloc --rouge-attendu refus-dans-le-bloc
+        --etapes refus-dans-le-bloc --rouge-attendu refus-dans-le-bloc {{args}}
     # cd2d5b3, la page que la relecture du 24 novembre 2026 a trouvée
     # fausse : couché en 16:9, le menu couvre 42 % de l'image vivante ; « Fermer
     # le jeu » grisé sous le focus le laisse sur <body> ; l'anneau d'une ligne
@@ -1221,7 +1240,7 @@ focus-navigateur-rouge:
     git show cd2d5b3:core/crates/worker/src/page/index.html > "$dossier/menus-cd2d5b3.html"
     etapes=menu-en-colonne,fermeture-en-cours,anneau-menu,plus-bas-menu
     node focus.mjs --page "$dossier/menus-cd2d5b3.html" --flux "$dossier/flux.h264" \
-        --flux-large "$dossier/flux-large.h264" --etapes "$etapes" --rouge-attendu "$etapes"
+        --flux-large "$dossier/flux-large.h264" --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
 
 # ==== chantier salle ====
 # Le cadre de la salle, dans un vrai navigateur: rien ne se pose sur l'image ni
@@ -1229,7 +1248,7 @@ focus-navigateur-rouge:
 # partie, avec la fermeture proche annoncée, avec le clavier rendu à la
 # colonne, et l'image agrandie par Ctrl (`cadre.mjs`, chantier salle du
 # 23 novembre 2026). Même banc que `parcours-navigateur` (Chrome, ffmpeg, rien
-# de vivant, port 5478).
+# de vivant, un port libre).
 #
 #   just cadre-navigateur                         toutes les étapes
 #   just cadre-navigateur --etapes agrandie       une seule
@@ -1265,9 +1284,9 @@ cadre-mesure:
 # gardées dans le dépôt (`spikes/m3-browser-drive/rouges/`, relecture du
 # 23 novembre 2026), chacune avec l'empreinte git de la page de son commit
 # (`EMPREINTES`), vérifiée avant usage. Une copie changée arrête la recette.
-# `just cadre-navigateur-rouge 5491` la lance sur un autre port, quand une
-# autre branche tient 5478.
-cadre-navigateur-rouge port="5478":
+# Sans `--port`, chaque passage prend un port libre ;
+# `just cadre-navigateur-rouge --port 5491` en impose un.
+cadre-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -1285,36 +1304,36 @@ cadre-navigateur-rouge port="5478":
         -g 60 -bf 0 -x264-params aud=1:repeat-headers=1 -f h264 "$dossier/flux.h264"
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     cd spikes/m3-browser-drive
-    node cadre.mjs --port {{port}} --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit
+    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" --etapes garde-voit {{args}}
     # manette-branchee: l'avis de branchement de cette page couvre L.
     # souris-toujours: la manette « toujours » se pose sur l'image à la souris.
     # sortir-salle: Quitter part sans la transition « sortir-salle » (K13).
     etapes=rien-sur-image,agrandie,manette-branchee,souris-toujours,sortir-salle
-    node cadre.mjs --port {{port}} --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # La page de la fin du passage 1 (0fef99e) a déjà le cadre, mais ni le
     # panneau de commande ni la colonne nouvelle: elle doit tomber sur le
     # panneau absent de l'écran et sur les onglets restés là.
     etapes=meuble-place,une-fois
-    node cadre.mjs --port {{port}} --page "$rouges/salle-0fef99e.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$rouges/salle-0fef99e.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # La page de la colonne du bureau (3cada57) ouvre encore son menu d'office
     # dans une salle au repos.
     etapes=repos-sans-menu
-    node cadre.mjs --port {{port}} --page "$rouges/salle-3cada57.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$rouges/salle-3cada57.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # Quatrième bloc (étape 7): la page de l'étape 6 (2cb36ba) n'a ni
     # fronton, ni crédit, ni trame, ni décor de borne; chaque étape doit y
     # rougir sur son défaut, pas sur le jumeau de son balayage.
     etapes=fronton-bande,credit-compte,tramage-hors-image,borne-bandes
-    node cadre.mjs --port {{port}} --page "$rouges/salle-2cb36ba.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$rouges/salle-2cb36ba.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # Cinquième bloc (étape 4): la page de l'étape 7 (cf3bba1) pose la
     # manette tactile par-dessus l'écran; tenue en main, elle doit rougir sur
     # les touches posées sur l'image, pas sur une manette absente.
     etapes=tenu-rien-sur-image
-    node cadre.mjs --port {{port}} --page "$rouges/salle-cf3bba1.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$rouges/salle-cf3bba1.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # Sixième bloc (passage 5): la page de la fin du passage 4 (acfa4c7) garde
     # ses touches à l'écran devant une vraie manette, sa bande ne dit pas
     # quelle manette joue, sa feuille à mi-hauteur n'a pas le clip, et ni son
@@ -1322,8 +1341,8 @@ cadre-navigateur-rouge port="5478":
     # Passage 6: sans barre (844×390, 375×548), aucune scène de la mascotte
     # n'y joue, faute d'hôte dans « La salle ».
     etapes=manette-branchee,manette-vraie,feuille-clip,fronton-bande,tenu-rien-sur-image,mascotte-hors-image
-    node cadre.mjs --port {{port}} --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$rouges/salle-acfa4c7.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # Septième bloc (suite de la salle, 24 novembre 2026): la page de
     # l'intégration 97a2318 n'affiche pas le temps de jeu que le salon publie,
     # ne pose pas ton étiquette dans la manette sans panneau, et n'a pas de ▶
@@ -1331,8 +1350,8 @@ cadre-navigateur-rouge port="5478":
     # qu'on fusionne sans réécrire: `git show` le lit.
     git show 97a2318:core/crates/worker/src/page/index.html > "$dossier/integration.html"
     etapes=temps-de-jeu,etiquette-manette,feuille-curseur
-    node cadre.mjs --port {{port}} --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # Huitième bloc (relecture de la suite de la salle, 24 novembre 2026):
     # la page de 9038256 pose ton étiquette tenue droite, mais en travers ni
     # la variante « tete » ni un panneau à lampes ne montrent ta place
@@ -1341,8 +1360,8 @@ cadre-navigateur-rouge port="5478":
     # à 390×844 et 360×740. Ce commit ne vit que sur la branche du chantier:
     # sa page est gardée dans `rouges/`, avec son empreinte.
     etapes=etiquette-manette,etiquette-travers
-    node cadre.mjs --port {{port}} --page "$rouges/salle-9038256.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node cadre.mjs --page "$rouges/salle-9038256.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
 # ==== fin salle ====
 
 # ==== manettes ====
@@ -1357,7 +1376,7 @@ cadre-navigateur-rouge port="5478":
 # (`rang`), la feuille « La salle » porte son entrée quand sa rangée tient
 # (`feuille-reglage`), et ton étiquette se lit sous « Ta manette »
 # (`etiquette`). La page COMMITTÉE, le banc des parcours, une manette Xbox
-# simulée ; rien de vivant, port 5482 par défaut.
+# simulée ; rien de vivant, un port libre.
 #
 #   just reglage-navigateur                        les étapes de la porte
 #   just reglage-navigateur --etapes place-tenu    une étape
@@ -1378,9 +1397,8 @@ reglage-navigateur *args:
 # integration/retro) ouvre l'ancien dialogue modal par-dessus l'image, n'a pas
 # « Toutes les touches », ne suit pas la trame Pro dans la vue de la manette,
 # et ne monte aucun panneau dans la colonne. Chaque étape doit y rougir sur
-# son défaut, pas sur une précondition. `just reglage-navigateur-rouge 5541`
-# la lance sur un autre port que 5482.
-reglage-navigateur-rouge port="5482":
+# son défaut, pas sur une précondition.
+reglage-navigateur-rouge *args:
     #!/usr/bin/env bash
     set -euo pipefail
     dossier=$(mktemp -d)
@@ -1391,44 +1409,44 @@ reglage-navigateur-rouge port="5482":
     git show 9fb659e:core/crates/worker/src/page/index.html > "$dossier/avant.html"
     cd spikes/m3-browser-drive
     etapes=place,entrees,activite-pro,pas-a-pas
-    node reglage.mjs --port {{port}} --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node reglage.mjs --page "$dossier/avant.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # La page du câblage (bc72ba9) monte le panneau, sans zone de clic sur
     # les pièces du dessin : l'étape zones doit y rougir sur leur absence.
     git -C ../.. show bc72ba9:core/crates/worker/src/page/index.html > "$dossier/cablage.html"
-    node reglage.mjs --port {{port}} --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
-        --etapes zones --rouge-attendu zones
+    node reglage.mjs --page "$dossier/cablage.html" --flux "$dossier/flux.h264" \
+        --etapes zones --rouge-attendu zones {{args}}
     # La page du cinquième passage (e62f583) laisse la pièce attendue hors de
     # l'écran quand on change une ligne du bas : changer-visible doit y rougir
     # sur l'absence de vignette, à 1280 × 720 et au téléphone.
     git -C ../.. show e62f583:core/crates/worker/src/page/index.html > "$dossier/passage5.html"
-    node reglage.mjs --port {{port}} --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
-        --etapes changer-visible --rouge-attendu changer-visible
+    node reglage.mjs --page "$dossier/passage5.html" --flux "$dossier/flux.h264" \
+        --etapes changer-visible --rouge-attendu changer-visible {{args}}
     # La page du sixième passage (842e4c9) peint le banc hors de sa racine :
     # nombres doit y rougir sur « 0.00 » quand la manette annonce 0,65.
     git -C ../.. show 842e4c9:core/crates/worker/src/page/index.html > "$dossier/passage6.html"
-    node reglage.mjs --port {{port}} --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
-        --etapes nombres --rouge-attendu nombres
+    node reglage.mjs --page "$dossier/passage6.html" --flux "$dossier/flux.h264" \
+        --etapes nombres --rouge-attendu nombres {{args}}
     # La page relue le 24 novembre 2026 (9b1c8e8) : l'étape suivante retire
     # les coins et la ligne d'une réponse avant toute peinture, et le focus
     # tombe sur le document après « Régler pas à pas » et « Commencer ».
     git -C ../.. show 9b1c8e8:core/crates/worker/src/page/index.html > "$dossier/relue.html"
-    node reglage.mjs --port {{port}} --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
-        --etapes marques,focus-pas --rouge-attendu marques,focus-pas
+    node reglage.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
+        --etapes marques,focus-pas --rouge-attendu marques,focus-pas {{args}}
     # La page d'intégration d'avant la fin du chantier (928bd03) : tenu en
     # main, le panneau vit dans la feuille agrandie, qui couvre l'image
     # (constat 4) ; pas de rang « Touches et manettes », pas d'entrée dans la
     # feuille, pas d'étiquette sous « Ta manette ».
     git -C ../.. show 928bd03:core/crates/worker/src/page/index.html > "$dossier/integration.html"
     etapes=place-tenu,rang,etiquette,feuille-reglage
-    node reglage.mjs --port {{port}} --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
-        --etapes "$etapes" --rouge-attendu "$etapes"
+    node reglage.mjs --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     # La page du premier câblage de la place tenue (672dcb6) : une page
     # « manette seule » n'a pas de place tenue, et le panneau ouvert par le
     # menu ne se montrait nulle part.
     git -C ../.. show 672dcb6:core/crates/worker/src/page/index.html > "$dossier/tenue.html"
-    node reglage.mjs --port {{port}} --page "$dossier/tenue.html" --flux "$dossier/flux.h264" \
-        --etapes manette-seule --rouge-attendu manette-seule
+    node reglage.mjs --page "$dossier/tenue.html" --flux "$dossier/flux.h264" \
+        --etapes manette-seule --rouge-attendu manette-seule {{args}}
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
@@ -2044,7 +2062,14 @@ doc:
 # run.
 #
 # Needs the tool once: `uv tool install zensical`.
+#
+# Les numéros des décisions de l'ADR passent avant le site (24 novembre 2026,
+# intégration finale du thème rétro) : en ordre, sans doublon ni trou, chaque
+# amendement sous sa décision. Huit chantiers ont réservé et pris des numéros
+# en parallèle ; la règle ne vivait que dans leur partition
+# (`tools/adr-numeros.py`).
 docs:
+    python3 tools/adr-numeros.py docs/adr/0001-architecture.md
     zensical build --strict
 
 # Rebuild the files Caddy already serves from `site/` under `/docs`, then show

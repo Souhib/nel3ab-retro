@@ -6,6 +6,78 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 24 novembre, au bout de la nuit : le thème rétro réuni, et ce qui
+reste avant `main`.** Le point d'entrée pour l'ensemble du thème rétro ;
+les blocs datés qui suivent gardent chaque chantier et chaque vague.
+
+- **Où.** Tout est sur `integration/retro` (worktree
+  `~/nel3ab-chantiers/retro-integration`, tête 928bd03) : le socle, les
+  données (lots 1 et 2), la salle (deux passages), personnes, Aïn, les
+  manettes, les états, le salon avec le carnet commun, les menus ; 468
+  commits depuis `main`, dont neuf fusions. `main` reste sur 03b21c0. Rien
+  n'est poussé ni installé, aucun worker n'est reconstruit, aucune vraie
+  salle n'a servi la page.
+- **Ce que la salle et le salon montrent.** Le thème de consoles 8 et
+  16 bits et ses effets à trois niveaux (D37) ; le cadre de la salle, où
+  rien ne passe sur l'image (D39) ; l'état hors de l'image, la couverture
+  levée à la première image peinte (D40) ; les écrans d'entrée et les
+  pages du salon, un seul en-tête, les mots dans `mots.ts` (D41) ; « Touches
+  et manettes » dans la colonne (D42) ; les jalons du worker (D43) ; le
+  carnet commun (D44) ; les jaquettes sans salle (D45) ; Aïn, le 3 du logo
+  (D46) ; un seul menu, dans la colonne (D30 amendée). Bobine et les trois
+  anciens menus sont partis.
+- **Le chantier de fin « fin-menage ».** Sur `chantier/retro-fin-menage`
+  (worktree `~/nel3ab-chantiers/retro-fin-menage`, parti de 928bd03) :
+  `front/src/bobine/` retiré avec les règles mortes de sa carte ; chaque
+  pilote qui sert sa page et chaque recette `-rouge` prend `--port N` (5400
+  à 5999), et un port libre donné par le système sans lui
+  (`spikes/m3-browser-drive/port.mjs`) ; les deux instabilités connues
+  corrigées à la cause (`focus-navigateur-rouge` : l'horloge de l'entrée
+  part avant le clic ; `place-suit-adresse` : l'étape attend la colonne de
+  la première image et clique au point vérifié) ; la porte `local` reçoit
+  `planche-garde` et perd ses deux contrôles rouges ; les numéros de l'ADR
+  vérifiés par `tools/adr-numeros.py` dans `just docs`. Page :
+  279 110 octets en brotli, 20 890 sous le plafond.
+- **Les autres chantiers de fin**, partis du même commit en même temps :
+  la place du panneau au bureau décidée sur le format attendu de la
+  console (`colonne-stable`), la pastille d'état tenue en main, « ou
+  choisir un autre jeu » dans la phrase d'échec du chargement, le menu qui
+  évite l'étiquette posée en tête de la bande, les ancres d'Aïn et les
+  preuves de la mascotte dans `cadre.mjs`, l'horloge
+  d'`arrivee-sans-image`, et l'amendement de D29. Leurs résultats sont
+  dans leurs propres blocs.
+- **Les portes de fin-menage.** Sur une machine chargée (charge 64 à 81),
+  chaque pilote sur la dizaine 5560 : `just check`, `focus-navigateur`,
+  `parcours-navigateur`, `manette-garde`, `salon-navigateur`,
+  `reglage-navigateur`, `planche-garde`, les sept contrôles rouges et
+  `just docs` sont verts. Rouges, et au travail d'autres chantiers de fin :
+  `etats-navigateur` (`arrivee-sans-image` ; lancées toutes, `colonne-stable`
+  aussi, et deux instabilités vues une fois, `mire-charge` et
+  `arrivee-courte`, vertes quatre fois en alternance) et `cadre-navigateur`
+  (`mascotte-hors-image`, `ain-immobile`). `salle-telephone` rougit sur un
+  seuil de 50 ms à processeur ralenti, aussi sur l'arbre de 928bd03 : à
+  remesurer au repos. Récit : carnet, « 24 novembre, au bout de la nuit :
+  le ménage de fin, et deux portes qui rougissaient au hasard ».
+- **Avant `main`.** Réunir les chantiers de fin sur `integration/retro`,
+  reconstruire la page, trier le glossaire du carnet (les sigles du thème
+  rétro y sont ajoutés en tête, dans l'ordre d'arrivée), puis la porte
+  `just` entière, dont `gpu-test` après avoir vérifié en lecture seule que
+  Jellyfin ne sert rien. `deploy-check` est rouge dans un worktree par
+  construction (les services tournent avec le code de `main`) ; depuis
+  l'arbre principal, il doit ne diverger que sur `deploy/Caddyfile` tant
+  que le propriétaire ne l'a pas installé, ce que ce chantier n'a pas
+  vérifié.
+- **La mise en service, dans cet ordre.** Le salon d'abord
+  (`deploy/salon-importable.sh`, puis son redémarrage), qui sait répondre
+  aux pages nouvelles ; puis le worker reconstruit sans salle ouverte, qui
+  porte la page et publie ses jalons. `deploy/Caddyfile` (K39) est au
+  propriétaire : sans lui, l'accueil ne distingue pas une salle fermée
+  d'une salle qui redémarre.
+- **Ce qui n'est pas prouvé.** Aucune vraie salle, aucun vrai téléphone,
+  aucun WebKit, aucune vraie manette n'a tenu la page ; Aïn n'a pas été
+  regardé à froid par une personne ; le coût des effets au niveau « tout »
+  n'est pas mesuré sur une machine au repos.
+
 **Au 23 novembre : le socle du thème rétro, sur une branche.** Le
 propriétaire a choisi un thème de consoles 8 et 16 bits et de salle d'arcade
 autour de la mire « HORS ANTENNE », le logo en pixels « relief en escalier »,
@@ -32,7 +104,9 @@ d'écran :
   dans le menu de la salle et au pied de l'accueil.
 - **Encore là.** Bobine (`front/src/bobine/`, `routes/bobine/`), les trois
   tableaux de bord (XMB, Wii, Switch) et les dessins de manettes de la régie :
-  les sept chantiers d'écran les remplaceront écran par écran.
+  les sept chantiers d'écran les remplaceront écran par écran. (Depuis : le
+  salon a retiré sa copie de Bobine, les menus les trois tableaux, et le
+  ménage de fin du 24 novembre le dossier `front/src/bobine/`.)
 
 - **Retouches demandées par les chantiers d'écran** (K14, K27 et K28 de leur
   partition). Le cycle de la mire fait un pas par seconde. Les jetons de

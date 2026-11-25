@@ -33342,6 +33342,269 @@ dialogues de préparation (`#bindingsPanel`, `.n3-switch-setup`), du chantier
 des menus. Aucun téléphone réel n'a tenu le panneau. À 1280 × 720 en 4:3, le
 rang est sous le pied collé tant qu'on ne fait pas défiler.
 
+### 24 novembre, au bout de la nuit : le ménage de fin, et deux portes qui rougissaient au hasard
+
+**Le contexte.** La branche `integration/retro` porte tout le thème
+rétro : le socle, les données, la salle en deux passages, personnes, Aïn,
+les manettes, les états, le salon avec le carnet commun, les menus. Depuis
+`main` (03b21c0), 468 commits, dont neuf commits de fusion. Avant `main`,
+quelques chantiers de fin travaillent en même temps, chacun sur sa branche
+partie de la tête de la vague B2 (928bd03). Celui-ci, « fin-menage »,
+retire Bobine, donne un port en option à chaque pilote du navigateur,
+cherche la cause de deux portes qui rougissaient au hasard, refait la
+ligne de la porte locale, vérifie les numéros de l'ADR et tient ce carnet
+et l'état du projet pour l'ensemble. Rien ne va dans `main`, rien n'est
+poussé ni installé.
+
+**Un port à soi pour chaque pilote.** Un pilote du navigateur démarre
+son propre banc : un petit serveur qui sert la page et simule la salle et
+le salon. Jusqu'ici, chaque banc écoutait sur un port fixe, 5473 pour les
+états, 5477 pour les parcours, 5478 pour le cadre, 5481 pour le focus. Le
+port est le numéro sur lequel un serveur attend ses visiteurs, et deux
+serveurs ne peuvent pas écouter sur le même. Or plusieurs chantiers
+lancent leurs portes en même temps sur cette machine : pendant la vague
+B2, `etats-navigateur-rouge` n'a pas pu prendre 5473, qu'un autre
+chantier tenait, et ses commandes ont été relancées à la main sur un autre
+port, parce que les recettes `-rouge` n'acceptaient pas de port du tout.
+
+Un module commun, `spikes/m3-browser-drive/port.mjs`, règle la question
+pour tous. Sans option, le banc demande le port 0 : c'est la façon de
+dire au système « donne-m'en un libre », et il en donne un entre 32768 et
+60999, libre au moment où il le donne. Deux pilotes lancés en même temps
+ne se heurtent donc plus. `--port N` en impose un, de 5400 à 5999 : une
+plage loin des ports des salles vivantes (8100 à 8200) et de Jellyfin
+(8096), pour qu'une faute de frappe ne prenne pas l'un d'eux ; un nombre
+hors de la plage, ou une option sans nombre, arrête le pilote. Les trois
+bancs (`etats-banc.mjs`, `parcours-banc.mjs`, `salon-banc.mjs`) et les
+douze pilotes qui avaient un port fixe le prennent maintenant là : les six
+qui lancent un banc (états, focus et son second banc 16:9, parcours,
+cadre, réglage, salon), les deux qui lancent Vite dans leur processus
+(`manette-garde.mjs`, `salle-telephone.mjs`, qui lisaient une variable
+d'environnement et lisent maintenant le port que Vite a vraiment pris), et
+les quatre qui lancent Vite à part (`planche-ain.mjs`,
+`regie-mise-en-page.mjs`, `banc-visuel.mjs`, `padmap-visuel.mjs`). Ces
+quatre-là reçoivent un port libre sondé juste avant, et Vite le prend avec
+`--strictPort` : si un autre processus le prend entre les deux, Vite
+refuse de démarrer, il ne partage rien. Dans le justfile, chaque recette
+`-rouge` accepte maintenant des arguments et les passe à chacun de ses
+appels : `just focus-navigateur-rouge --port 5561` lance tous ses blocs
+sur 5561. Le journal de chaque pilote écrit son port en tête, à côté de
+l'empreinte de la page servie.
+
+**`focus-navigateur-rouge`, une fois sur trois.** Pendant la vague B2,
+ce contrôle rouge est tombé une fois sur une précondition au lieu du
+défaut attendu : l'étape `menu-en-colonne`, sur la page de `main`
+(03b21c0), disait « la page n'envoie aucune trame : elle ne tient pas de
+place », après 9,4 s. Relancée, elle rougissait comme il faut, sur son
+défaut (« à 1280 px, le menu est encore un dialogue »). Une porte qui
+rougit sans raison est une porte qu'on apprend à sauter : il fallait la
+cause.
+
+Pour savoir si la page tient une place, le pilote attend une trame de
+manette reçue par le banc après l'entrée dans la salle. Mais le banc ne
+note une trame que quand ses boutons changent : la page en envoie une
+toutes les 4 ms, presque toutes identiques, et les noter toutes ne dirait
+rien de plus. Au repos, la seule trame notée est donc la première. Une
+copie du pilote, hors du dépôt, a mesuré quinze entrées sur la page de
+`main`, sur cette machine chargée (charge 63) : la première trame arrive
+de 4 à 12 ms après que le clic sur « Entrer » rend la main au pilote, et
+c'est la seule notée. Or le pilote lisait l'horloge APRÈS le clic. Il
+tourne dans une boucle d'événements : un seul fil, qui exécute ses tâches
+l'une après l'autre, et sur une machine occupée la suite du clic peut
+attendre son tour plus de 12 ms. L'horloge partait alors après la seule
+trame, et l'étape n'en voyait aucune. Les pages nouvelles ne montrent pas
+ce défaut : elles entrent par la transition du salon, qui retarde
+l'arrivée d'une demi-seconde.
+
+La preuve par le défaut réintroduit : la même copie, arrêtée 50 ms après
+le clic, tombe deux fois de suite sur la précondition, en 9 408 et
+9 410 ms, le message et la durée de la vague B2. La correction fait partir
+l'horloge avant le geste d'entrée. Avec elle, la copie arrêtée 50 ms, puis
+500 ms, rougit sur le défaut de l'étape. Le jumeau : une page à qui le
+banc ne donne aucune place (un spectateur) tombe toujours sur la
+précondition, sur la page de `main` comme sur la page actuelle. La garde
+garde, elle ne dépend plus de la vitesse du pilote.
+
+**`place-suit-adresse`, une fois sur cinq.** Pendant la vague B1, cette
+étape de `parcours-navigateur` est tombée une fois sur une erreur de
+puppeteer (« Node is either not clickable or not an Element », 1,5 s),
+puis a passé quatre fois. L'étape entre pour regarder, prend une place,
+recharge, puis rend sa place par « Autres réglages », un `<details>` de la
+colonne, et « Rendre ma place ».
+
+Une copie du pilote qui note la position de « Autres réglages » après le
+rechargement montre ce qui bouge. L'étape cliquait dès qu'une place se
+lisait dans le bloc de rôle. Environ 450 ms plus tard, la première image
+peinte atteint la colonne : React lit la session deux fois par seconde,
+et le cadre passe de « connexion » à « vit ». À 1440 × 900, le panneau de
+commande entre alors dans la colonne, et quatre rangs y apparaissent (le
+son, tes touches, le clip, Agrandir). « Autres réglages » descend de
+412 px, de y = 360 à y = 772, sous le pied collé de la colonne (« Plus
+bas » et la maison d'Aïn). Un clic parti avant ce rendu passait ; un clic
+parti après tombait sur le pied, et « Rendre ma place » restait hors
+d'atteinte.
+
+La preuve : l'ancienne étape, forcée à cliquer après l'image, échoue à
+chaque fois. Sur la page de la vague B1 (a166dec), elle rend exactement
+l'erreur de ce jour-là, en 1,6 s. Sur la page actuelle, le clic tombe sur
+le pied, et l'étape s'arrête sur « Rendre ma place sans effet ». La
+correction a deux parties, et chacune a son mutant. L'étape attend
+d'abord que le cadre dise « vit » (`data-etat`) : la colonne de l'image
+est alors posée. Puis elle clique comme une personne qui fait défiler la
+colonne : la cible amenée au milieu de son conteneur, immobile trois
+images de suite, et son centre vérifié par `elementFromPoint` avant un
+vrai clic de souris ; elle vérifie ensuite que « Autres réglages » s'est
+ouvert. Huit passages sur la page actuelle et un sur la page de la vague
+B1 sont verts. Sans le défilement, la vérification du point refuse le
+clic sur les deux pages (« le centre tombe sur » le pied). Avec l'attente
+mais l'ancien clic, l'étape échoue à chaque fois : l'attente seule
+n'aurait fait que rendre l'échec certain. Le 23 novembre, `cadre.mjs`
+avait rencontré le même piège dans son étape `un-plein` et centrait déjà
+ses clics ; `parcours.mjs` ne l'avait pas appris. Le chantier de fin qui
+règle `colonne-stable` fixera la place du panneau avant la première
+image, mais les quatre rangs entreront toujours avec elle : l'étape ne
+dépend pas de ce travail.
+
+**Bobine part.** Bobine était le machiniste de la salle, dessiné le
+21 novembre : une bobine de câble debout, qui branchait la manette de qui
+entrait et disait l'état de la salle sur l'image. Aïn, le 3 du logo, l'a
+remplacé (ADR D46), et chaque chantier a retiré ses propres imports : la
+salle dans `App.tsx`, les états dans `EtatSalle`, les menus dans
+`Booting`, le salon dans `Ouverture`. Le salon a aussi retiré sa propre
+copie de Bobine (ADR D41). Depuis la vague B2, plus aucun fichier de la
+page ne l'importait, et la page construite ne contenait aucune de ses
+chaînes ; seul un essai lisait encore sa feuille. Le dossier
+`front/src/bobine/` part en entier : six fichiers, 1 140 lignes, dont le
+seul essai qui ne visait que lui (`support.test.ts`).
+
+Deux restes sont traités avec lui. L'essai des feuilles
+(`regie.test.ts`, « aucun sélecteur ne nomme un thème qui n'existe plus »)
+exigeait, en précondition, de trouver `bobine.css` : c'était la feuille du
+défaut qui avait fait écrire l'essai. Il exige maintenant de trouver les
+feuilles de la page et l'accueil du salon ; un mutant qui ne lit aucune
+feuille le fait rougir sur cette précondition. Et `etat-salle.css` gardait
+les règles de la carte de Bobine (`n3-etat-carte`, `-bob`, `-bulle`,
+`-titre`, `-detail`, `-actions`, `-rideau`, 142 lignes), avec un
+commentaire qui disait qu'`Ouverture.tsx` les lisait encore. Plus rien ne
+les lit : ni la page, ni le salon, ni les pilotes. Elles partent, et la
+page passe de 279 647 à 279 110 octets en brotli (−537), à 20 890 du
+plafond. La clé de stockage `n3-bobine-vus` reste : c'est la mémoire,
+chez chaque spectateur, des personnes déjà vues, et la renommer
+l'effacerait (`lib/memoire-des-vus.ts` le dit).
+
+**La porte locale.** `just`, la porte avant un commit, lance maintenant
+`planche-garde`, et ne lance plus les deux contrôles rouges qui y étaient
+entrés à la fusion des manettes et du salon (`reglage-navigateur-rouge`,
+`salon-navigateur-rouge`). C'est la décision du chef de chantier, et elle
+a deux raisons. La planche d'Aïn est la seule preuve que chaque scène joue
+en entier sans rien poser sur l'image, sur un contrôle ou sur un mot
+(2 min 36 s mesurées le 23 novembre). Un contrôle rouge, lui, prouve
+qu'une étape sait rougir, contre des pages figées dans l'histoire : rien
+d'autre qu'un changement de son pilote ne peut changer sa couleur. Il se
+lance avec ce changement (règle 4 de `CLAUDE.md`), pas à chaque commit.
+`CLAUDE.md` suit : la liste de la règle 7, la table des commandes, une
+ligne pour `--port`, et deux leçons ajoutées à la règle 4 (l'horloge part
+avant le geste qu'elle mesure ; une boîte lue trop tôt montre une place
+qui va bouger).
+
+**Les numéros de l'ADR.** Les chantiers ont réservé leurs numéros
+d'avance (D37 à D46), puis fusionné dans un autre ordre. Relu à la fin :
+de D1 à D46, aucun doublon, aucun trou, chaque amendement rangé sous sa
+décision. Seule exception, ancienne : D15 est écrite avant D13 et D14
+depuis la première version du document, en août, et `### D6 amended` la
+suit ; elles restent à leur place. La règle « un chantier qui fusionne
+hors de l'ordre prend le prochain numéro libre » ne vivait que dans la
+partition. Elle vit maintenant dans `tools/adr-numeros.py`, que
+`just docs` lance avant le site, donc aussi la CI de la documentation.
+Avant de lire le vrai fichier, le contrôle éprouve chaque règle sur un
+texte fautif qu'il fabrique, et sort en 2 s'il ne sait plus refuser.
+Quatre copies fautives de l'ADR sont refusées, chacune avec son motif : un
+D44 écrit deux fois, un D47 qui laisse un trou, D44 et D45 échangés, et
+l'amendement de D46 rangé sous D45. Un mutant qui coupe la règle de
+l'ordre sort en 2 : « un trou » et « le désordre » acceptés à tort.
+
+**Les portes.** Sur la page de ce chantier (279 110 octets, sha256
+e4672c2d…, lu en tête des journaux), chaque pilote sur un port de la
+dizaine 5560, sur une machine chargée de bout en bout (charge de 64 à 81 :
+d'autres chantiers tournaient en même temps).
+
+- `just check` est vert : 1 358 essais Python, 182 fichiers et 2 376
+  essais de la page, un fichier et un essai de moins qu'à la vague B2
+  (ceux de Bobine). Son premier passage était rouge sur la mise en forme
+  de `regie.test.ts`, corrigée avant le commit.
+- Verts : `focus-navigateur` (36 étapes), `parcours-navigateur` (38),
+  `manette-garde` (41 lignes), `salon-navigateur`, `reglage-navigateur`
+  (9 étapes) et `planche-garde`.
+- Les sept contrôles rouges tombent sur leurs défauts nommés, aucun sur
+  une précondition : focus (7 blocs, deux fois), états (9), parcours (16),
+  cadre (9), mascotte (1), salon (6) et réglage (5). Sur la page e851a64,
+  `place-suit-adresse` rougit toujours sur son défaut (« assis, l'adresse
+  dit encore /r/1/?entrer=regarder »).
+- Les deux instabilités, revues : `place-suit-adresse` passe dix-neuf
+  fois sur dix-neuf sur la page actuelle, et une fois sur la page de la
+  vague B1 ; `menu-en-colonne` rougit sur son défaut six fois de suite
+  sur la page de `main`, en plus des deux passages entiers du contrôle.
+- `etats-navigateur` s'arrête sur `arrivee-sans-image`, que corrige un
+  autre chantier de fin. Lancées toutes (`--tout`), ses 33 étapes en
+  donnent 29 vertes : `arrivee-sans-image` et `colonne-stable`, connues,
+  et deux que la vague B2 avait vues vertes. `mire-charge` a lu deux
+  barres allumées (« 4,5 ») sur un de ses 45 relevés, au moment d'un
+  changement de barre. `arrivee-courte` est tombée sur sa précondition
+  (« 0 gestes à 15 s ») : elle compte, comme `arrivee-sans-image`, depuis
+  le clic, et l'arrivée perdue vient à 15,5 s. Relancées en alternance,
+  page de 928bd03 puis page de ce chantier, deux fois chacune : vertes les
+  quatre fois. Ce sont des instabilités, pas un effet de ce chantier.
+  `arrivee-courte` relève du même remède qu'`arrivee-sans-image` ; la
+  cause de `mire-charge` n'est pas établie.
+- `cadre-navigateur` s'arrête sur la précondition de
+  `mascotte-hors-image`, après 21 étapes vertes. Lancées à part,
+  `ain-immobile` rougit (102 appels en 2 s), et les cinq suivantes
+  passent. Les deux sont au chantier de fin de la mascotte.
+- `salle-telephone` a 124 lignes vertes et une rouge : « le clic sur une
+  place libre reste sous 50 ms, processeur ralenti quatre fois », une
+  tâche longue de 51 ms. Relancée seule et en alternance, la partie
+  rougit aussi sur l'arbre de 928bd03, deux fois sur deux (55 et 53 ms),
+  et une fois sur deux sur celui-ci (53 ms). Un seuil de temps lu sur une
+  machine à charge 65 ne prouve rien dans un sens ni dans l'autre : à
+  refaire au repos.
+- Hors de la porte, les pilotes visuels sur leur port libre :
+  `banc-visuel` et `padmap-visuel` sont verts. La partition comptait
+  `padmap-visuel` parmi les preuves interdites (K40) quand il lançait
+  `npm run dev` ; depuis le 23 novembre, il sert l'aperçu par
+  `vite.planche.config.ts`, sans relais, et ne touche rien de vivant.
+  `regie-visuel` est rouge,
+  et l'était déjà sur l'arbre de 928bd03 : il attend encore l'ancien
+  dialogue Switch (V6) et ne trouve pas « #ray-manettes » à l'ouverture
+  du menu. Il est périmé depuis les fusions des menus et des manettes ;
+  la partition donne sa réécriture à la salle et aux manettes.
+- `just docs` est vert, numéros de l'ADR compris. Poids lu par
+  `stamp.mjs` : 279 110 octets en brotli, 20 890 sous le plafond.
+
+**Ce qui reste.** Les autres chantiers de fin (`colonne-stable`, la
+pastille tenue en main, la phrase d'échec du chargement, le menu et
+l'étiquette de la bande, les ancres et les preuves d'Aïn,
+`arrivee-sans-image`, l'amendement de D29) se réunissent ensuite sur
+`integration/retro`. Ce chantier y touche des fichiers partagés :
+`justfile`, `CLAUDE.md`, le carnet et l'état, `etat-salle.css` (des
+états), `regie.test.ts` (du socle), `mots.test.ts`, et les pilotes et
+bancs de chaque chantier (une ligne de port en tête de chacun ; dans
+`focus.mjs`, la fonction `entrer` ; dans `parcours.mjs`, l'étape
+`place-suit-adresse` et deux fonctions). Le glossaire du carnet est à
+trier une fois les chantiers de fin réunis : les sigles du thème rétro y
+sont entrés en tête, dans l'ordre d'arrivée, et le trier pendant que
+d'autres chantiers y ajoutent ferait un conflit sur tout le glossaire.
+`regie-visuel` est à réécrire, `salle-telephone` à relancer au repos. La
+porte `just` entière (`gpu-test` après avoir vérifié en lecture seule que
+Jellyfin ne sert rien, `deploy-check`, les essais Switch et Xbox 360,
+`abri-test`) n'a pas tourné ici.
+
+**Ce qui n'est pas prouvé.** Les ports libres sont vus dans les pilotes
+de la porte et dans les trois pilotes visuels. `preparation-ui.mjs` et
+`configuration-ui.mjs` attendent toujours un Vite lancé à la main par
+`npm run dev`, interdit ici : ils n'ont pas changé. Les deux causes
+d'instabilité sont prouvées par le défaut réintroduit, sur une machine
+chargée ; aucune série n'a tourné sur une machine au repos.
+
 ## 12. Glossaire complet
 
 **Classe morte** : une classe qu'une feuille de style déclare et qu'aucune
@@ -33357,6 +33620,25 @@ lieu d'être grisé (`lib/colonne.ts`).
 **Légende (d'un dessin)** : la ligne de texte qui titre un dessin de
 manette, « Ce que le jeu reçoit » ou « Ta manette », avec le nom de
 l'appareil dessous. Ton étiquette s'y pose, à côté du dessin.
+
+**Port libre** : un port réseau que le système choisit lui-même quand un
+serveur demande le port 0. Il est libre au moment où le système le donne,
+et deux bancs lancés ensemble en reçoivent deux différents. Sur cette
+machine, il tombe entre 32768 et 60999.
+
+**Boucle d'événements** : le fil unique qui exécute le code d'un
+processus Node, ou d'une page, une tâche après l'autre. Un événement prêt
+attend que la tâche en cours finisse : sur une machine chargée, un pilote
+reprend la main plusieurs millisecondes après le retour d'un clic.
+
+**Course (entre deux événements)** : deux choses qui arrivent presque en
+même temps, dans un ordre que rien ne fixe, quand le résultat dépend de
+celle qui passe la première. Une porte qui rougit « une fois sur cinq »
+cache souvent une course.
+
+**Instabilité (d'une porte)** : une porte qui rougit de temps en temps sans
+que le code change. Tant que sa cause n'est pas trouvée, la porte ne dit
+plus rien : on apprend à relancer au lieu de lire.
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
 jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image

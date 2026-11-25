@@ -6,6 +6,8 @@ import {
   BARRE_TETE_PX,
   lieuDeLaFiche,
   montageDeLaPastille,
+  PASTILLE_DOIGT_PX,
+  PASTILLE_LARGE_PX,
   PASTILLE_MIN_PX,
   placeDeLaPastille,
 } from "./etat-place";
@@ -28,6 +30,18 @@ function geo(largeur: number, hauteur: number, image = { width: 640, height: 480
     agrandie: false,
     reglage: false,
   });
+}
+
+/** Une image posée sous un fronton de `h` px, à 844x390 : le fronton en
+ * haut de l'écran, l'image juste dessous. */
+function sousUnFronton(h: number) {
+  const g = geo(844, 390);
+  return {
+    ...g,
+    ecran: { x: 0, y: 0, w: 844, h: 390 },
+    fronton: { x: 162, y: 0, w: 520, h },
+    image: { x: 162, y: h, w: 520, h: 390 - h },
+  };
 }
 
 const coupe = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
@@ -109,12 +123,76 @@ describe("la place de la pastille, tenue en main", () => {
       PASTILLE_MIN_PX,
     );
   });
-  it("prend le fronton de la salle, hors de l'image, quand il existe", () => {
-    const g = { ...geo(844, 390), fronton: { x: 162, y: 0, w: 520, h: 44 } };
+  it("prend le fronton de la salle, hors de l'image, quand il la tient avec sa marge", () => {
+    // 44 px de bouton au doigt et 4 px au-dessus comme au-dessous : 52.
+    const g = sousUnFronton(52);
     expect(placeDeLaPastille(g, true)).toEqual({
       lieu: "a-part",
-      rect: { x: 162, y: 0, w: 520, h: 44 },
+      rect: { x: 162, y: 0, w: 520, h: 52 },
     });
+  });
+  it("jumeau : un fronton de 40 à 51 px ne la prend pas, elle déborderait sur l'image", () => {
+    // Relecture finale du 25 novembre 2026 : à 1080x810 en « entier », un
+    // fronton de 42 px posait la pastille « Ferme dans 5 min » (44 px) à
+    // 1 px sur la première rangée de l'image.
+    for (const h of [40, 42, 44, 51]) {
+      const g = sousUnFronton(h);
+      expect(placeDeLaPastille(g, true), `fronton de ${h} px`).not.toEqual({
+        lieu: "a-part",
+        rect: g.fronton,
+      });
+    }
+  });
+  it("posée à part, sa boîte au doigt reste à 4 px de l'image, à toutes les tailles", () => {
+    // Le balayage de la relecture finale (25 novembre 2026) : 8 367 mises en
+    // page posaient le bouton de 44 px sur l'image, toutes en « entier » ou
+    // « origine », avec une image 640x480 ou 640x528. Le rectangle seul ne
+    // touchait jamais l'image : c'est la pastille centrée dedans qui débordait.
+    const images = [
+      { width: 640, height: 480 },
+      { width: 640, height: 528 },
+      { width: 1280, height: 720 },
+    ];
+    const ajustements = ["remplir", "entier", "origine"] as const;
+    const manettes = [null, MANETTES.dolphin, MANETTES.pro];
+    const fautes: string[] = [];
+    let aPart = 0;
+    for (let largeur = 320; largeur <= 1400; largeur += 12)
+      for (let hauteur = 320; hauteur <= 1400; hauteur += 12)
+        for (const image of images)
+          for (const ajustement of ajustements)
+            for (const manette of manettes) {
+              const g = miseEnPage({
+                mode: modeDuCadre({ largeur, hauteur, grossier: true, role: "joueur" }),
+                fenetre: { width: largeur, height: hauteur },
+                zonesSures: SANS_ZONES,
+                image,
+                ajustement,
+                base: { image, ajustement },
+                etat: "figee",
+                role: "joueur",
+                manette,
+                largeurColonne: 304,
+                largeurPanneau: null,
+                agrandie: false,
+                reglage: false,
+              });
+              const place = placeDeLaPastille(g, true);
+              if (place?.lieu !== "a-part" || g.image === null) continue;
+              aPart += 1;
+              const r = place.rect;
+              const boite = {
+                x: r.x + (r.w - PASTILLE_LARGE_PX) / 2 - 4,
+                y: r.y + (r.h - PASTILLE_DOIGT_PX) / 2 - 4,
+                w: PASTILLE_LARGE_PX + 8,
+                h: PASTILLE_DOIGT_PX + 8,
+              };
+              if (coupe(boite, g.image) && fautes.length < 5)
+                fautes.push(`${largeur}x${hauteur} ${ajustement} ${image.width}x${image.height}`);
+            }
+    // Le cas est exercé : des pastilles posées à part, pas un balayage vide.
+    expect(aPart).toBeGreaterThan(1000);
+    expect(fautes).toEqual([]);
   });
   it("jumeau : une barre trop étroite ne la prend pas", () => {
     const g = geo(375, 667);

@@ -126,8 +126,11 @@ async function capture(page, nom) {
   await page.screenshot({ path: `${CAPTURES}/${vue.width}x${vue.height}-${nom}.png` });
 }
 
-async function nouvelle(vue, stockage = {}) {
+async function nouvelle(vue, stockage = {}, reglage = null) {
   banc.reinitialiser();
+  // Un état du banc posé AVANT le chargement : la console du jeu décide le
+  // format attendu dès la première lecture de la salle.
+  if (reglage) banc.regler(reglage);
   const page = await browser.newPage();
   await page.setViewport(taille(vue));
   await page.evaluateOnNewDocument((stockage) => {
@@ -1197,6 +1200,56 @@ const ETAPES = {
       }
       await capture(page, "pastille-hors-image");
       banc.regler({ video: "live" });
+      await page.close();
+    }
+    // Une tablette couchée, un jeu GameCube en « entier », et la fermeture
+    // annoncée sur une image VIVANTE : le fronton n'y mesure que 42 px, et la
+    // pastille « Ferme dans 5 min », un bouton de 44 px au doigt, débordait
+    // de 1 px sur la première rangée de l'image (relecture finale du
+    // 25 novembre 2026). Le point au milieu de la pastille, sur cette rangée,
+    // doit rendre la toile.
+    {
+      const nom = "1080x810 entier gc, fermeture";
+      const page = await nouvelle({ width: 1080, height: 810, isMobile: true, hasTouch: true }, { "nel3ab:fit": "entier" }, { console: "gc" });
+      await entrer(page);
+      await sleep(1000);
+      banc.annoncerFermeture(5);
+      const vue = await page
+        .waitForFunction(() => document.querySelector("#pastilleEtat")?.textContent.includes("Ferme"), { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+      const mesure = await page.evaluate(() => {
+        const p = document.querySelector("#pastilleEtat");
+        const t = document.querySelector("#screen");
+        if (!t) return { erreur: "pas de toile" };
+        const ecran = document.querySelector("[data-cadre]")?.getAttribute("data-mode") ?? null;
+        const b = t.getBoundingClientRect();
+        // Le fronton du cadre doit exister : sans bande au-dessus de l'image,
+        // le cas de la relecture n'est pas exercé.
+        if (b.top < 40) return { erreur: `image à ${Math.round(b.top)} px du haut, pas de fronton`, ecran };
+        if (!p) return { aucune: true, ecran };
+        const a = p.getBoundingClientRect();
+        const m = 4;
+        const coupe = a.left < b.right + m && a.right > b.left - m && a.top < b.bottom + m && a.bottom > b.top - m;
+        const x = Math.round(Math.min(Math.max(a.left + a.width / 2, b.left + 1), b.right - 1));
+        const recoit = document.elementFromPoint(x, Math.floor(b.top) + 0.5);
+        return {
+          coupe,
+          ecran,
+          toileRecoit: recoit === t,
+          recoit: recoit ? `${recoit.tagName}#${recoit.id}` : null,
+          a: [a.left, a.top, a.width, a.height].map(Math.round),
+          b: [b.left, b.top, b.width, b.height].map(Math.round),
+        };
+      });
+      if (mesure.erreur) throw new Precondition(`${nom}: ${mesure.erreur}`);
+      if (!vue && !mesure.aucune) throw new Precondition(`${nom}: la fermeture n'est pas dite en 5 s`);
+      if (!mesure.aucune) vues.push(nom);
+      if (mesure.coupe) fautes.push(`${nom}: pastille ${mesure.a} à moins de 4 px de l'image ${mesure.b}`);
+      if (!mesure.aucune && !mesure.toileRecoit)
+        fautes.push(`${nom}: la première rangée de l'image sous la pastille rend ${mesure.recoit}, pas la toile`);
+      console.log(JSON.stringify({ tablette: mesure }));
+      banc.annoncerFermeture(0);
       await page.close();
     }
     if (fautes.length) throw new Defaut(fautes.join(" ; "));

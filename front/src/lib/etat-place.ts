@@ -43,6 +43,19 @@ export const BARRE_TETE_PX = 50;
 /** Ce qu'une pastille doit avoir pour se lire : « Ferme dans 30 min ». */
 export const PASTILLE_MIN_PX = 120;
 
+/** La hauteur d'une pastille au doigt : un bouton de 44 px quand elle mène à
+ * sa fiche (`etat-salle.css`). */
+export const PASTILLE_DOIGT_PX = 44;
+
+/** La plus large pastille posée seule, en px : « La salle ne répond plus »
+ * mesure 231 px en bouton dans Chrome, à 1080x810 au doigt (25 novembre
+ * 2026 ; « Ferme dans 30 min » 198, « Image figée » 150), arrondi au-dessus.
+ * Posée à part, rien ne la coupe : elle prend la largeur de ses mots. */
+export const PASTILLE_LARGE_PX = 240;
+
+/** L'écart que la pastille garde avec l'image, en px (ADR D40). */
+const MARGE_PX = 4;
+
 /** Les lieux de la salle où la pastille se pose seule, sans recouvrir rien. */
 const A_PART: readonly string[] = ["fronton", "bordure", "grappe-droite"];
 
@@ -67,14 +80,47 @@ export function placeDeLaPastille(geo: Geometrie, tenu: boolean): PlacePastille 
   // de l'image par construction (`emplacementPastille` de la salle). Le
   // panneau tenu en main, lui, n'a de place que pour les places START : la
   // pastille ne s'y pose pas.
-  const ici = emplacementPastille(geo);
-  if (ici?.rect && A_PART.includes(ici.lieu)) return { lieu: "a-part", rect: ici.rect };
+  //
+  // Le rectangle seul ne suffit pas : la pastille s'y centre sans être coupée
+  // (`.n3-pastille-place`), et un bouton de 44 px dans un fronton de 42 px
+  // débordait de 1 px sur la première rangée de l'image (relecture finale,
+  // 25 novembre 2026, 1080x810 en « entier »). Un fronton trop bas laisse
+  // donc passer au lieu suivant, comme une bande noire absente.
+  const premier = emplacementPastille(geo);
+  const sansFronton = geo.fronton ? emplacementPastille({ ...geo, fronton: null }) : null;
+  for (const ici of [premier, sansFronton]) {
+    if (ici?.rect && A_PART.includes(ici.lieu) && tientAPart(geo, ici.rect))
+      return { lieu: "a-part", rect: ici.rect };
+  }
   if (geo.bande !== null && geo.bande.h >= 44) return { lieu: "pile" };
   if (geo.barre !== null) {
     const largeur = geo.barre.w - BARRE_TETE_PX - BARRE_NOM_PX - BARRE_SALLE_PX;
     if (largeur >= PASTILLE_MIN_PX) return { lieu: "barre" };
   }
   return null;
+}
+
+/**
+ * La pastille la plus large, au doigt, centrée dans `rect` comme
+ * `.n3-pastille-place` la pose, tient-elle sans toucher l'image à 4 px près
+ * et sans sortir de l'écran ? Pure : les mesures sont celles de Chrome
+ * (`PASTILLE_LARGE_PX`, `PASTILLE_DOIGT_PX`).
+ */
+function tientAPart(geo: Geometrie, rect: Rect): boolean {
+  const x = rect.x + (rect.w - PASTILLE_LARGE_PX) / 2;
+  const y = rect.y + (rect.h - PASTILLE_DOIGT_PX) / 2;
+  if (geo.ecran) {
+    const e = geo.ecran;
+    if (x < e.x || x + PASTILLE_LARGE_PX > e.x + e.w) return false;
+    if (y < e.y || y + PASTILLE_DOIGT_PX > e.y + e.h) return false;
+  }
+  const im = geo.image;
+  if (im === null) return true;
+  const gauche = x - MARGE_PX;
+  const haut = y - MARGE_PX;
+  const droite = x + PASTILLE_LARGE_PX + MARGE_PX;
+  const bas = y + PASTILLE_DOIGT_PX + MARGE_PX;
+  return !(gauche < im.x + im.w && droite > im.x && haut < im.y + im.h && bas > im.y);
 }
 
 /** Où la salle monte la pastille de ce modèle : dans la pile des avis, sur

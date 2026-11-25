@@ -1850,6 +1850,28 @@ unchanged: no Docker command moved. Not proven: a real container, and a slot
 where an engine created a legitimate link. The Switch save import, the Rust
 unlocked-save module and the Dolphin paths were not reviewed from this angle.
 
+**Amended 2026-11-25 (final review of the retro theme): the Dolphin session
+folder.** Dolphin's session folder is mounted read-write in its container
+(D45). The worker wrote its own choices there with `std::fs::write` and read
+them with `read_to_string`, both following links: `chosen-rom`, `chosen-pad`,
+`chosen-save`, `chosen-person`, `chosen-setup`, `game-closed`,
+`personal-save-mount` and the new-game request. A link left at one of these
+names made the worker overwrite a host file with a game name or a person's
+address; a named pipe at `chosen-setup` or `chosen-pad` blocked its start
+after the lobby had already answered 201. `open_on_order` (D17) had added a
+trigger at start and a new read. All of them now go through
+`nel3ab_emulator::session_file`: a fresh provisional name created with
+`O_CREAT | O_EXCL | O_NOFOLLOW` from the folder's descriptor, renamed over
+the wanted name (`renameat` replaces a link or a pipe instead of following
+it); reads with `O_NOFOLLOW | O_NONBLOCK` that accept only a regular file of
+at most 4 KiB, anything else read as absent, and the new-game request
+refused as damaged. Proof: three worker tests (links to seven names, a link
+at `game-closed` when the order names a missing game, pipes at four names
+under a 3-second deadline), each red on the code before, with the choices
+still written as regular files; `personal`'s request test with a link and a
+pipe. Not reviewed: the save folders Dolphin writes under `saves/`, and
+`personal::mount`'s `create_dir_all` there.
+
 ### D37: A retro theme, and its effects behind a three-level setting per device, 2026-11-23
 
 The owner rejected the « régie » screens of D26 (graphite, chalk, violet) and
@@ -2662,6 +2684,28 @@ the habit is measured. The room passes `relance: canClose ? "moi" : boss ?
 { nom } : null`. Two menus tests, rewritten to these words, were red on this
 entry's body alone (20 s instead of 35, no habit) before the merge.
 
+**Amended 2026-11-25 (final review): the cover lifts on a canvas that has
+the picture's format.** Lifting in the paint loop showed the canvas before
+React had sized it for the picture: with no picture in the snapshot, `place`
+gave a SQUARE, and the first live images were painted stretched in it (13 at
+1440x900, 18 at 390x844) until the next snapshot. On `main`, the curtain hid
+them. Three changes. `Screen` sizes the empty canvas on the console's
+expected format (« remplir », no prescale) and writes which picture its box
+is laid out for (`data-boite`, and `data-proportions` when only the aspect
+counts). The paint loop lifts the cover only when that box fits the painted
+picture (`couverture.boiteJuste`: the exact pixels for « entier » and
+« origine », the aspect within 2 % for « remplir »); otherwise the lift
+waits, retried right after the snapshot is re-read and on every tick, so a
+still picture is not left covered. The session re-reads the snapshot as
+soon as a new format is decoded. The same rule covers a « démarrage » cover
+lifted on a game of another format. Rejected: keeping only the expected
+format, since a GameCube image of 640x528 is 9 % away from 4:3. Proof:
+`premiere-image-coupe` reads the rendered box of the canvas against its
+pixels at each visible image (45, 43 and 49 off-format readings on the page
+of 6e2559f, none after), and still faults a cover kept over a right box; the
+lift waits one image, 15 to 17 ms, on the bench whose console announces
+16:9 for a 4:3 stream.
+
 ### D41: The room's entry screens and the lobby's return address, 2026-11-24
 
 Chantier « salon », first pass. The parts of the salon plan that the room page
@@ -2714,7 +2758,8 @@ hit-tests the centre of each place.
   arcade gestures (`surStart`, `surInactivite`, `initiales`), the test card's
   layers, the curved-screen filter and the pixel pointer, under
   `nel3abSalon`. `retro.py` inserts it through `<!--RETRO:AIN-->` in a
-  classic script and refuses a bundle containing `</script`. Each page has
+  classic script and refuses a bundle containing a script end tag (`<`
+  followed by `/script`). Each page has
   one `data-hote="logo"` around the static logo, hidden once Aïn is painted.
   Weight: 16 222 brotli bytes before, 18 170 after; the lobby loads it apart
   from the room page, which stays at 279 903.
@@ -3290,6 +3335,20 @@ Decision:
 
 Rejected: a whole-house table of every evening (option C of the plan), not
 proposed without explicit consent.
+
+**Amended 2026-11-25 (final review): a regard opens only on an intention to
+watch.** The room page opens the lobby socket as soon as the identity is
+known, on the antechamber too, which shows no picture. `useLobby` announced
+« no pad » on connecting and every second, and the lobby opened a regard:
+someone left on the antechamber entered every player's « regardaient » and
+the welcome page's `regardent`. The page now announces nothing until the
+room has called `seat` (« Regarder », « Rendre ma place », or the pad the
+worker gave); the lobby keeps such a person as arriving (`seat_pending`).
+The lobby is unchanged, so an older page still announces. Proof:
+`room.test.tsx` mounts the hook without `seat()` and requires no emission
+(red before), and `test_carnet_commun.py` holds the lobby's side: a
+connected page that announces nothing is neither in `regardaient` nor in
+`regardent`, and « no pad » puts it in both.
 
 
 ### D45: Game pictures without an open room, 2026-11-23

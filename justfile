@@ -2061,9 +2061,19 @@ doc:
 # amendement sous sa décision. Huit chantiers ont réservé et pris des numéros
 # en parallèle ; la règle ne vivait que dans leur partition
 # (`tools/adr-numeros.py`).
+#
+# Et chaque titre du carnet, de l'ADR et de l'état arrive dans sa page
+# construite (25 novembre 2026, relecture finale) : un `</script` écrit dans
+# un bout de code coupait le rendu du carnet et de l'ADR depuis la veille,
+# glossaire compris, et le build strict ne le voyait pas
+# (`tools/titres-rendus.py`).
 docs:
     python3 tools/adr-numeros.py docs/adr/0001-architecture.md
     zensical build --strict
+    python3 tools/titres-rendus.py \
+        docs/carnet-de-bord.md site/carnet-de-bord/index.html \
+        docs/adr/0001-architecture.md site/adr/0001-architecture/index.html \
+        docs/etat-du-projet.md site/etat-du-projet/index.html
 
 # Rebuild the files Caddy already serves from `site/` under `/docs`, then show
 # the address. No service restart or Tailscale configuration change is needed.

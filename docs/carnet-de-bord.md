@@ -31526,8 +31526,8 @@ la touche Entrée et le bouton Start d'une manette (`surStart`), le mode
 démo (`surInactivite`), les calques de la mire, le filtre de l'écran bombé
 et la flèche en pixels. Une entrée, `front/src/salon/paquet.ts`, les réunit ;
 `retro.py` pose le paquet par une marque de plus, `<!--RETRO:AIN-->`, dans
-un script classique. Un paquet qui contiendrait `</script` fermerait sa
-balise au milieu du code : le salon refuse alors de démarrer, plutôt que de
+un script classique. Un paquet qui contiendrait une fin de balise de script
+(`<` suivi de `/script`) fermerait sa balise au milieu du code : le salon refuse alors de démarrer, plutôt que de
 servir une page coupée. Le paquet pesait 16 222 octets en brotli ; il en
 pèse 18 170. Il ne compte pas dans la page de la salle, qui reste à 279 903.
 
@@ -33072,8 +33072,8 @@ au ras du haut : la capture montre l'étiquette « 2P » sur le mot
 était le bouton entier, et qu'il ne fait jamais un mur de l'élément d'une
 ancre : c'est là qu'Aïn se pose. Rien dans le bouton n'était donc
 protégé. Les deux autres fautes venaient de l'étape elle-même : à 844 × 390
-et 375 × 548, elle disait « la scène joue dans #arrivee, pas dans
-#laSalleCote ». Le plein cadre d'arrivée des états joue une scène à
+et 375 × 548, elle disait « la scène joue dans `#arrivee`, pas dans
+`#laSalleCote` ». Le plein cadre d'arrivée des états joue une scène à
 l'entrée, coupée par la première image, et l'étape la comptait avec les
 siennes.
 
@@ -34040,7 +34040,10 @@ pilote sur un port libre :
 
 Les sept contrôles rouges, lancés ensuite de 6 h 09 à 6 h 36, sortent en 0,
 chacun rouge sur ses défauts nommés. `colonne-stable` rougit contre la page
-de `main` sur son défaut : la colonne bouge à l'arrivée de l'image.
+de la vague B2 (4ecbc23) sur son défaut : la colonne bouge à l'arrivée de
+l'image. (Corrigé le même jour : cette phrase disait d'abord « la page de
+`main` », que la relecture finale a relevé ; aucune recette ne la lance
+contre `main`.)
 
 **`deploy-check`, encore.** Il rougit pour les deux causes des tours de la
 nuit, et rien d'autre. En fichiers, la seule différence entre `deploy/` et
@@ -34059,6 +34062,229 @@ de Sonarr, 5 de Radarr, 4 de Bazarr, 1 de qBittorrent, et deux passages de
 cette nuit n'est toujours pas prouvée faite, et rien n'y a été touché.
 Aucune vraie salle, aucun vrai téléphone, aucune vraie manette n'a tenu la
 page, et rien n'est fusionné dans `main` ni installé.
+
+### 25 novembre, dans la matinée : la relecture finale, onze constats et leurs essais rouges
+
+Une relecture indépendante de `integration/retro` a relevé onze défauts
+importants et sept mineurs, chacun avec sa preuve. Je les ai tous
+reproduits avant d'y toucher : les sondes de la relecture tournaient
+encore, et je les ai relancées sur la page de 6e2559f. Chaque correction
+a son essai rouge d'abord, vu rouge sur l'ancien code ou sur un mutant,
+puis vert. Ce récit les prend dans l'ordre de la relecture.
+
+**La première image, étirée dans une toile carrée.** Depuis D40, la boucle
+de peinture lève la couverture de l'arrivée dans l'image même où la
+première image est peinte, sans attendre React. Mais la boîte de la toile,
+elle, est taillée par React, sur l'instantané que la session relit deux
+fois par seconde. Avant la première image, l'instantané ne connaît aucune
+taille, et `place` rend alors un carré. Les premières images vivantes se
+montraient donc étirées dans ce carré : 13 à 1440x900, 18 à 390x844, puis
+l'image changeait de taille et de format au relevé suivant. Sur `main`, le
+rideau restait jusqu'à ce relevé et cachait tout. La couverture levée tôt
+avait donc découvert un défaut que le rideau cachait. Trois changements
+le règlent. La toile vide se taille sur le format attendu de la console.
+Elle dit pour quelle image sa boîte est taillée, par deux attributs. La
+boucle ne lève la couverture que si cette boîte est juste : les pixels
+exacts en « entier » et « origine », les proportions à 2 % près en
+« remplir ». Sinon la levée attend, et la session relit l'instantané dès
+qu'un nouveau format est décodé. Le format attendu seul ne suffisait pas :
+une image GameCube de 640x528 est à 9 % du 4:3. La preuve,
+`premiere-image-coupe`, relève maintenant à chaque image visible la boîte
+rendue de la toile contre ses pixels : 45, 43 et 49 relevés hors format
+sur l'ancienne page, aucun après. Sur le banc, la console annonce du 16:9
+pour un flux 4:3 : la levée y attend une image, 15 à 17 ms. Une
+couverture gardée sur une boîte déjà juste reste une faute. La règle
+écrite par D40 change (« dans la même image ») : l'ADR est amendé.
+
+**La pastille d'un pixel sur l'image, et une garde trop large.** Tenue en
+main, la pastille se posait seule dans la bande au-dessus de l'image (le
+fronton) dès 40 px. Au doigt, c'est un bouton de 44 px, centré sans être
+coupé : à 1080x810, un jeu GameCube en « entier » laisse un fronton de
+42 px, et « Ferme dans 5 min » mordait d'un pixel sur la première rangée
+d'une image vivante. Un `elementFromPoint` sur cette rangée rendait la
+pastille. Ma première garde voulait que la plus large pastille
+(« La salle ne répond plus », 231 px mesurés) tienne centrée avec 4 px de
+marge. `salle-telephone` a aussitôt trouvé trois tailles couchées sans
+plus aucune pastille. J'avais oublié une règle de la feuille de style :
+`max-width: 100%`. Dans la grappe droite de la manette, la pastille ne
+fait jamais plus que la grappe, 156 px, et ne déborde pas en largeur.
+Seule sa hauteur déborde. La garde lit maintenant la largeur bornée par
+le rectangle. La leçon : avant de modéliser la boîte d'un élément, lire la
+règle qui la taille, pas seulement la mesure d'un cas. L'étape
+`pastille-hors-image` gagne la tablette 1080x810 avec la fermeture
+annoncée, rouge sur l'ancienne page.
+
+**L'ouverture d'une tablette couchée.** L'écran d'ouverture pose sa colonne
+dans la plus grande bande libre autour de l'écran noir. Sur une tablette
+couchée, l'écran remplit presque tout : la bande mesurait 0 px de haut à
+1024x768, 43,5 px de large à 1180x820, 0,5 px à 1366x1024. Le titre parlé
+et « Réessayer » sortaient de l'écran. Pire, à 1366x1024 la colonne
+débordait de 32 px, et l'émulation mobile de Chrome élargissait alors
+`innerWidth`, que la salle lisait comme taille de fenêtre : après
+l'entrée, la page défilait et quatre touches sortaient de l'écran. Deux
+corrections, chacune avec son essai. La colonne prend la bande si elle se
+lit (150 px sur 200, les minimums du menu), sinon elle se pose sur l'écran
+noir, qui ne porte encore aucune image. Et la salle lit la vue de mise en
+page (`documentElement.clientWidth`), pas `innerWidth`. L'étape
+`ouverture-tablette` est rouge sur l'ancienne page aux trois tailles ; ce
+n'est mesuré que sous l'émulation de Chrome, pas dans un vrai Safari
+d'iPad.
+
+**Le chiffre de latence relu.** La page « manette seule » écrit « Tes
+touches mettent 72 ms à arriver. » dans une région vivante (`aria-live`).
+Sur un lien lent, quand la phrase compte, un lecteur d'écran la relisait
+à chaque changement de médiane, jusqu'à une fois par seconde. La phrase
+reste sur la page, sans région. La ligne parlée dit seulement le
+changement de catégorie, une fois, après 3 s de tenue, et jamais le
+chiffre : « Tes touches arrivent lentement. ». `salle-telephone` compte
+les régions de cette page sur 5 s, avec une fausse session dont
+l'aller-retour bouge chaque seconde : trois régions et 5 relectures sur
+l'ancien code, deux régions et une annonce après.
+
+**Le curseur du volume.** Dans la rubrique Réglages du menu, au doigt, il
+gardait les 16 px de Chrome. Il prend la boîte de 44 px de celui de la
+feuille. `salle-telephone` ne mesurait du menu que sa sortie ; il passe
+maintenant chaque rubrique à la mesure des 44 px, en mesurant une case
+par son étiquette, qui reçoit le doigt.
+
+**L'avant-salle au carnet commun.** La page ouvre la socket du salon dès
+que l'identité est connue, sur l'avant-salle aussi. Elle y annonçait
+« aucune manette » chaque seconde, et le salon lit cette annonce comme un
+regard (D44) : une personne restée sur l'avant-salle entrait dans
+« regardaient » du carnet de chaque joueur, et dans « regardent » de
+l'accueil, sans avoir vu la partie. La page se tait maintenant tant que
+la salle n'a rien dit de sa manette ; le salon la tient pour quelqu'un
+qui arrive. L'essai du crochet était rouge avant, et un essai du salon
+fixe le contrat dans les deux sens.
+
+**Les liens du dossier de session de Dolphin.** C'est le défaut de D36, que
+le socle avait corrigé pour les salles externes, mais dans le worker
+lui-même. Le dossier de session est monté en écriture dans le conteneur
+de Dolphin. Le worker y écrivait ses choix retenus (`chosen-rom`,
+`chosen-pad`, `chosen-person`, `game-closed`…) en suivant les liens, et
+les relisait sans craindre un tube nommé. Un moteur compromis pouvait y
+laisser un lien vers un fichier de l'hôte : le worker l'écrasait avec le
+nom du jeu ou l'adresse de la personne. Un tube à `chosen-setup` bloquait
+son démarrage. Le nouveau module `session_file` écrit sous un nom
+provisoire neuf, sans suivre de lien, puis renomme par-dessus : un
+renommage remplace un lien au lieu de le suivre. Il ne lit qu'un fichier
+ordinaire, sans attendre. Trois essais du worker étaient rouges avant :
+l'hôte recevait « Melee.rvz », un lien à `game-closed` vidait sa cible, et
+le démarrage restait bloqué au-delà de 3 s. Restent hors de cette
+correction les dossiers de sauvegarde que Dolphin écrit lui-même.
+
+**Une mesure qui passait à vide.** La preuve que la pastille ne se pose
+jamais sur le nom de la salle vivait derrière `if (nom)`. Un simple
+renommage de la classe du nom cachait une pastille posée dessus, et
+l'étape restait verte. Une barre sans nom lu est maintenant une faute, et
+le nom doit être lu au moins une fois à quatre tailles.
+
+**Qui peut relancer.** Seule la phrase « Tu peux le relancer ou choisir un
+autre jeu » était éprouvée, pas le câblage qui décide à qui la dire : le
+mutant qui la dit à tout le monde passait la suite entière. L'étape
+`echec-qui-relance` joue deux rôles. Pour franchir le plafond de 60 s du
+chargement sans l'attendre, elle avance l'horloge `performance.now` de la
+page. Le mutant y tombe, et la page de la vague B2, qui ne disait pas
+« ou choisir un autre jeu » à qui choisit, aussi.
+
+**Deux gardes qui se cachaient l'une l'autre.** Dans `baseDuPanneau`,
+« une image connue » et « un état avec image » suffisaient chacune à faire
+passer le seul essai. Retirer l'une ou l'autre ne rougissait rien, comme
+l'écrit déjà CLAUDE.md. Chacune a son essai, et l'ouverture du panneau des
+touches en fenêtre étroite, que seul `reglage` détecte, aussi. Les trois
+mutants tombent.
+
+**Un faux plus clément que le vrai.** Le faux `ResizeObserver` d'un essai
+des places rappelait tous les observateurs créés, même ceux qui
+n'observaient rien. On pouvait oublier d'observer la rangée sans qu'aucun
+essai ne rougisse. Le faux retient maintenant ce qu'on lui fait observer.
+Dans Chrome, `ancres-start-cachees` vérifie à 667x375 qu'une rangée
+cachée ne porte aucune ancre d'Aïn ; elle est rouge sur la page de B2.
+
+**Les mineurs.** Corrigés : le menu rend enfin le focus à ce qui l'a
+ouvert (il le lisait après avoir posé le focus sur sa propre ligne) ;
+trois gardes sans essai en ont un (un onglet qui vide le stockage, le
+seuil de 44 px de la bande, l'air neutre d'une scène coupée) ; le crochet
+de pilote d'Aïn dit qu'il rend la version demandée, pas celle jouée. Le
+dernier mineur portait sur ce carnet : l'entrée de ce matin écrivait que
+`colonne-stable` rougit contre `main`, alors que la recette la lance
+contre la page de la vague B2 ; la phrase est corrigée. Restent connus,
+non corrigés : le panneau « Touches et manettes » monte des régions
+`role="status"` en même temps que leur texte, qui ne disent donc rien et
+doublent la ligne parlée ; le nom accessible d'une place remplace « 1P »
+et « toi », qu'une personne qui pilote à la voix ne peut plus dire (WCAG
+2.5.3) ; et la place du menu d'une page « manette seule » n'a pas
+d'essai, et couvre la barre en paysage.
+
+**Ce que les portes ont trouvé en passant.** Deux choses, après les
+corrections. D'abord, `just check` a rougi sur le balayage de la pastille :
+223 000 mises en page prenaient 5,6 s sous la charge de la porte, au-delà
+des 5 s de vitest. Par pas de 24 px, il en fait 57 000, en 1,6 s, avec une
+échéance dite. Ensuite, `colonne-stable` a rougi dans la suite entière et
+passait seule. La cause n'était pas le hasard : ma nouvelle tablette de
+`pastille-hors-image` laissait le réglage « entier » dans le stockage du
+navigateur, que les étapes suivantes partagent. Le réglage fuyait, mais ce
+qu'il montrait était vrai. En « entier », l'image 640x480 laisse à
+1440x900 un fronton de 166 px. À la première image, ce fronton prenait le
+nom du jeu et l'ancre de l'annonce, et la tête de la colonne perdait
+30 px : tout ce qui la suit remontait. La ligne du jeu garde maintenant sa
+place, invisible quand le fronton dit le nom, et l'ancre reste montée.
+`colonne-stable` passe dans les deux réglages, et chaque étape qui pose
+« entier » le retire en partant. La leçon : une étape qui ne rougit que
+dans la suite entière dit souvent un état partagé, et cet état peut
+cacher un vrai défaut ; il faut le nommer avant de l'effacer.
+
+**Le carnet et l'ADR, coupés sur le site depuis la veille.** Le lien de
+l'état du projet vers cette entrée a fait rougir `just docs` : « anchor does
+not exist ». L'ancre était juste ; c'est la page construite qui s'arrêtait.
+Le 24 novembre, un bout de code du carnet et de l'ADR citait la fin d'une
+balise de script, `<` suivi de `/script`, écrite d'un seul tenant. Le
+Markdown du site l'a prise pour du HTML, et la page s'arrêtait là : le
+carnet au deuxième passage du salon, l'ADR à D41. Tout ce qui suivait,
+glossaire compris, n'était plus servi, et le build strict restait vert. Une
+ligne de texte qui commençait par `#laSalleCote` donnait aussi un titre de
+plus. Les deux sont réécrites, et `just docs` compte maintenant, pour le
+carnet, l'ADR et l'état, les titres écrits et les titres rendus
+(`tools/titres-rendus.py`), rouge sur la page coupée (816 titres écrits,
+791 rendus). Ce que le site a servi entre-temps n'est pas rattrapé : il
+faut lancer `just docs` dans l'arbre principal après la fusion.
+
+**Les portes**, sur ccbeb6b (la page reconstruite après la tête de
+colonne), de 8 h 34 à 9 h 48, une après l'autre, chaque pilote sur un port
+libre ; `salle-telephone` relancé sur 9f22c4a, qui ne change que son
+pilote. Les recettes qui touchent la carte graphique sont parties chacune
+après une lecture libre : aucun conteneur de salle, aucun client lisible de
+`/dev/dri`, aucun `ffmpeg`, le serveur de Jellyfin lu en entier sans
+descripteur sur la carte. Cinq processus de mon compte ne se lisent pas,
+parce qu'ils ont gagné des capacités ou changé de compte (`systemd --user`,
+`sd-pam`, `sshd`, Caddy et la boîte noire) : ils sont nommés, pas comptés
+comme lus.
+
+| Recette | Sortie | Ce qu'elle a fait |
+|---|---|---|
+| `check` | 0 | 553 essais Rust, 1 371 Python, 24 salles dorées, 72 moteurs, 183 fichiers et 2 443 essais du front, la page à jour (279 622 o) |
+| `focus-navigateur` | 0 | 36 étapes |
+| `etats-navigateur` | 0 | 36 étapes, dont `ouverture-tablette` et `echec-qui-relance` |
+| `parcours-navigateur` | 0 | 39 étapes, dont `ancres-start-cachees` |
+| `salle-telephone` | 0 | 134 lignes ok (sur 9f22c4a) |
+| `manette-garde` | 0 | 41 lignes ok |
+| `cadre-navigateur` | 0 | 28 étapes |
+| `salon-navigateur` | 0 | 30 étapes |
+| `reglage-navigateur` | 0 | 14 étapes |
+| `planche-garde` | 0 | les trois mesures et leurs jumeaux |
+| les sept contrôles rouges | 0 | chacun rouge sur ses défauts nommés, les quatre étapes de 6e2559f et les deux de 4ecbc23 comprises |
+| `gpu-test` | 0 | 81 essais sur la vraie carte |
+| `clip-audio-test`, `switch-saves-test`, `switch-capture-test`, `xbox360-test`, `abri-test` | 0 | comme au matin |
+| `deploy-check` | 1 | les deux causes connues, et elles seules |
+
+`deploy-check` rougit encore pour ses deux causes, sans rien de neuf. En
+fichiers, la seule différence entre `deploy/` et la machine est
+`deploy/Caddyfile`, les treize lignes de K39, et le Caddyfile installé est
+celui de `main` à l'octet (`cmp`). Le salon et la boîte noire tournent
+toujours avec un code plus ancien que le `consoles.json` de `main` : seule
+la mise en service le lève. Rien n'est fusionné dans `main`, poussé ni
+installé ; aucun worker n'est reconstruit, aucune vraie salle n'a servi la
+page. La page pèse 279 622 o en brotli, 762 de plus que ce matin.
 
 ## 12. Glossaire complet
 
@@ -34978,6 +35204,12 @@ retire à la première image dessinée.
 React appelle pendant le rendu d'un composant pour lui donner un état ou un
 effet. Son état appartient au composant qui l'appelle.
 
+**Descripteur de dossier (`openat`, `renameat`)** : un dossier ouvert une
+fois, dont le programme garde la poignée. `openat` ouvre un nom DANS ce
+dossier, et `renameat` y renomme : aucun chemin n'est relu entre-temps.
+Avec `O_NOFOLLOW`, un lien posé à ce nom est refusé au lieu d'être suivi ;
+un renommage par-dessus un lien remplace le lien, sans toucher sa cible.
+
 **Écran squelette** : ce qu'une page montre pendant qu'elle attend ses
 données : les rectangles de l'écran final, vides, à leur place. Quand le
 contenu arrive, rien ne saute.
@@ -35312,6 +35544,11 @@ ouverte, alors que systemd ne dit que depuis quand le jeu en cours tourne.
 personne n'y touche. Elle n'est pas toujours zéro : un adaptateur GameCube
 pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
 
+**ResizeObserver** : l'interface du navigateur qui prévient un script
+quand un élément qu'on lui a fait observer change de taille. Il ne dit
+rien des éléments qu'on ne lui a pas confiés : un faux, dans un essai, ne
+doit pas en dire plus.
+
 **Salle tenue en main** : la salle au doigt ou pour une page « manette
 seule », tenue droite (portrait) ou en travers (paysage). Chaque pièce y est
 posée par le cadre en pixels, hors des zones sûres.
@@ -35342,6 +35579,11 @@ Le navigateur les signale (`PerformanceObserver`, type `longtask`), sans
 dire de quel geste elles viennent : il faut les rapprocher du geste par
 l'heure.
 
+**Taille intrinsèque (d'une toile)** : le nombre de pixels qu'une toile
+`<canvas>` porte (640x480), distinct de la boîte où la page la pose (sa
+taille CSS, 812x812 par exemple). Quand les deux n'ont pas les mêmes
+proportions, l'image est étirée.
+
 **Temps virtuel** : une horloge que Chrome fait avancer à la demande, sans
 attendre : les minuteries d'une page tombent dans leur ordre, mais trente
 secondes passent en une fraction de seconde. Un pilote s'en sert pour
@@ -35368,6 +35610,11 @@ l'image du jeu ni sur le texte.
 **Vignette (d'un changement)** : le petit dessin de 64 pixels que la ligne
 d'une commande montre pendant un « Changer », quand le grand dessin est sorti
 de l'écran : la pièce attendue et ses coins, recadrées.
+
+**Vue de mise en page (layout viewport)** : le rectangle sur lequel la
+page se pose, que `document.documentElement.clientWidth` et `clientHeight`
+mesurent. `innerWidth` peut être plus large : sur un mobile émulé, un
+élément qui déborde l'élargit, et une page qui s'y fie se pose trop large.
 
 **Web Animations (WAAPI)** : l'interface du navigateur qui anime un élément
 depuis le script (`element.animate`), sans bibliothèque.

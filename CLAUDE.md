@@ -470,6 +470,16 @@ machine".
   `content-visibility`): on 2026-11-23 the mascot's planner took a folded
   microphone button for an obstacle on the logo and refused every scene.
   Code that reads obstacles skips that content, as the probes already did.
+- **A layout model reads the rule that sizes the element.** On 2026-11-25 a
+  guard modelled the state pastille as 240 px wide and centred without limit;
+  `.n3-pastille` has `max-width: 100%`, so the guard refused the right pad
+  cluster and `salle-telephone` found no pastille at three sizes. Read the
+  stylesheet before modelling a box, and check the model on one real
+  measurement. Read the layout viewport (`documentElement.clientWidth`), not
+  `innerWidth`: an overflowing element widens it under Chrome's mobile
+  emulation, and the room then laid itself out too wide. And a cover lifted
+  early shows what it hid: the first images appeared stretched in a canvas
+  React had not sized yet. Measure the rendered box against the pixels.
   A box read too early points to a place that moves. On 2026-11-24,
   `place-suit-adresse` failed one run in five: it clicked « Autres réglages »
   as soon as a seat read, and the first picture moved it under the column's
@@ -870,7 +880,7 @@ Markdown alone does not update the site.
 | `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9, 9b1c8e8, 928bd03 (the panel over the picture held in hand, no row, no sheet entry, no label) and 672dcb6 (no panel for a pad-only page) for the later steps, must fail each step on its named defect; `reglage-navigateur` is in `local`, its control left it on 2026-11-24 |
 | `--port N` | every browser driver that serves its own page, and every `-rouge` recipe: a port from 5400 to 5999; without it, a free port picked by the system (`port.mjs`) |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
-| `just docs` | strict documentation build; also refreshes the site served by Caddy |
+| `just docs` | strict documentation build, ADR numbering, and every heading of the logbook, the ADR and the state rendered (`tools/titres-rendus.py`); also refreshes the site served by Caddy |
 | `just gpu-test` | the tests only this machine can run (no GPU on CI) |
 | `just front-build` | rebuilds the page into the worker's source tree, and stamps it; then the lobby's mascot bundle |
 | `just browser-watch` | what the page renders over a minute, without restarting anything |

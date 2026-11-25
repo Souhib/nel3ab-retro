@@ -6,10 +6,62 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 25 novembre, dans la matinée : la relecture finale, onze constats
+corrigés.** Le point d'entrée pour l'ensemble du thème rétro ; le bloc du
+matin qui suit garde l'état d'avant cette relecture.
+
+- **Où.** Sur `integration/retro` (worktree
+  `~/nel3ab-chantiers/retro-integration`, de 6e2559f à 9f22c4a pour le code, puis le commit de ce récit). `main`
+  reste sur 03b21c0. Rien n'est poussé, fusionné dans `main` ni installé ;
+  aucun worker n'est reconstruit ; aucune vraie salle n'a servi la page.
+- **Ce qui a changé.** La couverture de l'image ne se lève que sur une
+  toile qui a le format de l'image, et la toile vide prend le format
+  attendu de la console (ADR D40 amendé). La pastille tenue en main ne se
+  pose à part que si elle y tient avec sa marge. L'ouverture d'une
+  tablette couchée pose sa colonne sur l'écran noir quand aucune bande ne
+  se lit, et la salle lit la vue de mise en page, plus `innerWidth`. La
+  page « manette seule » ne relit plus son chiffre de latence. Le curseur
+  du volume du menu mesure 44 px au doigt. L'avant-salle n'annonce plus
+  rien au salon et n'entre plus au carnet commun (D44 amendé). Les choix
+  retenus du dossier de session de Dolphin s'écrivent et se lisent sans
+  suivre de lien (D36 amendé). Le menu rend le focus à ce qui l'a ouvert.
+  Vu en passant les portes : en « entier », la première image raccourcissait
+  la tête de la colonne de 30 px (le nom du jeu et l'ancre de l'annonce
+  partaient au fronton) ; la ligne garde sa place, invisible, et
+  `colonne-stable` passe dans les deux réglages.
+- **Les preuves neuves.** `ouverture-tablette`, `echec-qui-relance` et
+  l'extension de `premiere-image-coupe` et `pastille-hors-image`
+  (états) ; `ancres-start-cachees` (parcours) ; la partie
+  `manette-seule-parle`, la mesure des 44 px dans chaque rubrique du menu
+  et le nom de la salle exigé (salle-telephone). Les contrôles rouges
+  lancent les trois premières contre la page de 6e2559f, et
+  `echec-qui-relance` et `ancres-start-cachees` contre celle de 4ecbc23.
+- **Restent connus.** Les régions `role="status"` du panneau « Touches et
+  manettes », montées avec leur texte ; le nom accessible d'une place, sans
+  « 1P » ni « toi » (WCAG 2.5.3) ; la place du menu d'une page « manette
+  seule », sans essai, qui couvre la barre en paysage ; les dossiers de
+  sauvegarde que Dolphin écrit lui-même, pas relus sous l'angle de D36.
+- **Les portes.** Sur ccbeb6b, de 8 h 34 à 9 h 48, une après l'autre,
+  chaque pilote sur un port libre : `just check`, les neuf preuves du
+  navigateur de la ligne `local` (`salle-telephone` relancé sur 9f22c4a,
+  qui ne change que son pilote), les sept contrôles rouges, puis, chacune
+  après une lecture libre de la carte, `gpu-test` (81 essais),
+  `clip-audio-test`, `switch-saves-test`, `switch-capture-test`,
+  `xbox360-test` et `abri-test` sortent en 0. `deploy-check` sort en 1 pour
+  ses deux causes connues : en fichiers, seulement `deploy/Caddyfile` (K39,
+  le Caddyfile installé étant celui de `main` à l'octet), et le salon et la
+  boîte noire plus anciens que le `consoles.json` de `main`. `just docs` et
+  `stamp.mjs --check` sortent en 0 ; la page pèse 279 622 o en brotli.
+  `just docs` compte aussi les titres rendus du carnet, de l'ADR et de
+  l'état : depuis le 24 novembre, le site coupait le carnet au deuxième
+  passage du salon et l'ADR à D41 (une fin de balise de script écrite dans
+  un bout de code). Le site servi par Caddy ne le sera qu'après la fusion
+  et un `just docs` dans l'arbre principal.
+  Récit : [carnet](carnet-de-bord.md#25-novembre-dans-la-matinee-la-relecture-finale-onze-constats-et-leurs-essais-rouges).
+
 **Au 25 novembre, au matin : les quatre chantiers de fin réunis, et la
-porte `just` entière lancée sur d3f0cf8.** Le point d'entrée pour
-l'ensemble du thème rétro ; le bloc du 24 novembre qui suit garde l'état
-d'avant ces fusions.
+porte `just` entière lancée sur d3f0cf8.** Le bloc du 24 novembre qui suit
+garde l'état d'avant ces fusions.
 
 - **Où.** Sur `integration/retro` (worktree
   `~/nel3ab-chantiers/retro-integration`, voir `git log`) : les fins de la

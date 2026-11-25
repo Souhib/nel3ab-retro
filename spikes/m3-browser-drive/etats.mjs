@@ -2304,6 +2304,123 @@ const ETAPES = {
       throw new Precondition(`la mesure ne voit pas un squelette décalé de 20 px: ${JSON.stringify(decale)}`);
   },
 
+  /** L'ouverture d'une tablette couchée, au doigt (relecture finale du
+   * 25 novembre 2026). L'écran d'une fenêtre 4:3 la remplit presque, et la
+   * colonne recevait la bande qui restait : 0 px sous l'écran à 1024x768,
+   * 43,5 px à 1180x820, 0,5 px à 1366x1024. Le titre parlé et « Réessayer »
+   * sortaient de l'écran, et à 1366x1024 la colonne débordait de 32 px :
+   * Chrome élargissait `innerWidth`, et la salle gardait après l'entrée une
+   * pose trop large, où les touches R et X sortaient de 23 px.
+   *
+   * Passé la limite de 8 s, le titre, le compte et les deux gestes sont
+   * entiers dans la vue, à 44 px au moins, et le centre de chacun le
+   * reçoit ; la page ne défile pas en largeur. Puis, l'identité lâchée, la
+   * salle tient dans la vue : aucune touche de la manette à l'écran n'en
+   * sort. Le jumeau : 1440x900 à la souris garde sa colonne à droite. */
+  async "ouverture-tablette"() {
+    const fautes = [];
+    const lues = [];
+    for (const [width, height] of [
+      [1024, 768],
+      [1180, 820],
+      [1366, 1024],
+    ]) {
+      const nom = `${width}x${height}`;
+      const { page, lacher } = await ouvrirTenue({ vue: { width, height, isMobile: true, hasTouch: true } });
+      if (!(await page.waitForSelector("#ouverture", { timeout: 15000 }).catch(() => null)))
+        throw new Precondition(`${nom}: l'ouverture ne s'est pas montrée pendant que /api/me était tenu`);
+      const gestes = await page
+        .waitForFunction(() => document.querySelectorAll(".n3-ouverture-bouton").length === 2, { timeout: 12000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!gestes) throw new Precondition(`${nom}: les deux gestes ne sont pas venus après la limite`);
+      const lu = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        const voir = (el, nom) => {
+          const r = el.getBoundingClientRect();
+          const dedans = r.left >= 0 && r.top >= 0 && r.right <= vw + 0.5 && r.bottom <= vh + 0.5;
+          const centre = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return {
+            nom,
+            boite: [r.left, r.top, r.width, r.height].map(Math.round),
+            dedans,
+            recu: centre !== null && (centre === el || el.contains(centre)),
+          };
+        };
+        const boutons = [...document.querySelectorAll(".n3-ouverture-bouton")];
+        return {
+          coarse: matchMedia("(pointer: coarse)").matches,
+          vue: [vw, vh],
+          innerWidth,
+          defile: document.documentElement.scrollWidth - vw,
+          titre: voir(document.getElementById("ouvertureTitre"), "titre"),
+          compte: voir(document.getElementById("ouvertureCompte"), "compte"),
+          boutons: boutons.map((b) => ({ ...voir(b, b.textContent.trim()), h: Math.round(b.getBoundingClientRect().height) })),
+        };
+      });
+      if (!lu.coarse) throw new Precondition(`${nom}: pas de pointeur grossier, la tablette n'est pas émulée`);
+      for (const un of [lu.titre, lu.compte, ...lu.boutons]) {
+        if (!un.dedans) fautes.push(`${nom}: ${un.nom} ${un.boite} hors de la vue`);
+        else if (!un.recu) fautes.push(`${nom}: ${un.nom} ${un.boite} ne reçoit pas son centre`);
+      }
+      for (const b of lu.boutons) if (b.h < 44) fautes.push(`${nom}: « ${b.nom} » de ${b.h} px`);
+      if (lu.titre.boite[2] < 100) fautes.push(`${nom}: le titre ne tient que ${lu.titre.boite[2]} px de large`);
+      if (lu.defile > 0) fautes.push(`${nom}: la page défile de ${lu.defile} px en largeur pendant l'ouverture`);
+      await capture(page, `ouverture-tablette-${nom}`);
+      lacher();
+      if (!(await page.waitForSelector("#zone-jeu", { timeout: 15000 }).catch(() => null)))
+        throw new Precondition(`${nom}: la salle ne s'est pas montée après l'identité`);
+      const peint = await page
+        .waitForFunction(() => (globalThis.nel3abTest?.counters?.().painted ?? 0) > 30, { timeout: 20000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!peint) throw new Precondition(`${nom}: la salle n'a pas peint 30 images après l'entrée`);
+      await sleep(500);
+      const salle = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        // Toutes les touches de la manette à l'écran : `touch-R` pour la
+        // GameCube, `data-touche` sans identifiant pour la manette Pro.
+        const touches = [...document.querySelectorAll(".n3-manette-boite button")];
+        const sortent = touches
+          .map((b) => [b.id || b.dataset.touche || b.textContent.trim(), b.getBoundingClientRect()])
+          .filter(([, r]) => r.width > 0 && (r.right > vw + 0.5 || r.bottom > vh + 0.5 || r.left < -0.5))
+          .map(([id, r]) => `${id} ${Math.round(r.left)}..${Math.round(r.right)}`);
+        return {
+          vue: [vw, vh],
+          innerWidth,
+          defile: [document.documentElement.scrollWidth - vw, document.documentElement.scrollHeight - vh],
+          touches: touches.length,
+          sortent,
+        };
+      });
+      if (salle.defile[0] > 0 || salle.defile[1] > 0)
+        fautes.push(`${nom}: la salle défile de ${salle.defile.join(" et ")} px après l'entrée (innerWidth ${salle.innerWidth})`);
+      // La manette à l'écran est là : sans elle, « aucune touche ne sort »
+      // ne dirait rien.
+      if (salle.touches === 0) throw new Precondition(`${nom}: aucune touche de manette à l'écran après l'entrée`);
+      if (salle.sortent.length) fautes.push(`${nom}: touches hors de la vue après l'entrée : ${salle.sortent.join(", ")}`);
+      lues.push({ nom, ouverture: lu, salle });
+      await page.close();
+    }
+    // Le jumeau : à la souris, la colonne a sa bande à droite, entière.
+    {
+      const { page } = await ouvrirTenue({ vue: PC });
+      if (!(await page.waitForSelector("#ouvertureColonne", { timeout: 15000 }).catch(() => null)))
+        throw new Precondition("1440x900: l'ouverture n'a pas de colonne");
+      const c = await page.$eval("#ouvertureColonne", (el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.x, w: r.width, droite: r.right, vue: document.documentElement.clientWidth };
+      });
+      await page.close();
+      if (Math.abs(c.droite - c.vue) > 1 || c.w < 300)
+        throw new Precondition(`1440x900: la colonne n'est pas à droite, entière (${JSON.stringify(c)})`);
+    }
+    console.log(JSON.stringify(lues.map((l) => ({ nom: l.nom, titre: l.ouverture.titre.boite, boutons: l.ouverture.boutons.map((b) => b.boite), salle: l.salle }))));
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
+  },
+
   /** L'ouverture suit le thème (plan salon, ouverture#4) : sous un système
    * clair, son fond est clair ; sous un système sombre, sombre. L'écran reste
    * noir dans les deux. L'ancienne ouverture forçait la régie de nuit. */

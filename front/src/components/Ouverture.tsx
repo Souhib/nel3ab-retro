@@ -23,6 +23,7 @@
  */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { modeDuCadre, type Rect } from "../lib/cadre";
+import { BANDE_MIN, HAUTEUR_MIN } from "../lib/menu";
 import { storedColumn } from "../lib/column";
 import { storedFit } from "../lib/fit";
 import { OUVERTURE } from "../lib/mots";
@@ -129,16 +130,18 @@ export function Ouverture({
       </div>
     </div>
   );
-  const colonne = (contenu: { panneau: ReactNode }) => (
+  const colonne = (contenu: { panneau: ReactNode; surEcran?: boolean }) => (
     <aside
       id="ouvertureColonne"
       aria-label={OUVERTURE.salle(salle)}
       className={
-        tenu
-          ? "n3-colonne n3-ouverture-colonne min-w-0 flex-1 bg-panel px-3 pt-3"
-          : mode === "etroit"
-            ? "n3-colonne n3-ouverture-colonne min-h-0 flex-1 border-t border-rule bg-panel px-3 pt-3"
-            : "n3-colonne n3-ouverture-colonne shrink-0 border-l border-rule bg-panel px-3 pt-3"
+        contenu.surEcran
+          ? "n3-colonne n3-ouverture-colonne max-h-full w-full max-w-[22.5rem] border border-rule bg-panel p-3"
+          : tenu
+            ? "n3-colonne n3-ouverture-colonne min-w-0 flex-1 bg-panel px-3 pt-3"
+            : mode === "etroit"
+              ? "n3-colonne n3-ouverture-colonne min-h-0 flex-1 border-t border-rule bg-panel px-3 pt-3"
+              : "n3-colonne n3-ouverture-colonne shrink-0 border-l border-rule bg-panel px-3 pt-3"
       }
       style={mode === "bureau" ? { width: largeur, maxWidth: "50vw" } : undefined}
     >
@@ -174,16 +177,21 @@ export function Ouverture({
 
   if (tenu) {
     // En main, l'écran est où le cadre le posera ; la colonne prend la plus
-    // grande place libre autour de lui.
-    const libre = plusGrandLibre(geo.ecran, fenetre.width, fenetre.height);
+    // grande place libre autour de lui, ou se pose sur l'écran noir quand
+    // aucune bande ne se lit (`placeDeLaParole`).
+    const libre = placeDeLaParole(geo.ecran, fenetre.width, fenetre.height);
     return (
       <div id="ouverture" className="n3-ouverture relative h-full" data-perdue={longue}>
         <main>
           <div style={geo.ecran ? placeDe(geo.ecran) : undefined} className="flex">
             {ecran}
           </div>
-          <div style={placeDe(libre)} className="flex">
-            {colonne({ panneau: panneau() })}
+          <div
+            style={placeDe(libre.rect)}
+            className={libre.surEcran ? "flex items-center justify-center" : "flex"}
+            data-sur-ecran={libre.surEcran ? "" : undefined}
+          >
+            {colonne({ panneau: panneau(), surEcran: libre.surEcran })}
           </div>
         </main>
       </div>
@@ -266,6 +274,45 @@ function Parole({
       ) : null}
     </section>
   );
+}
+
+/** La bande la plus étroite où la colonne se lit encore : celle du menu
+ * (`BANDE_MIN`, `HAUTEUR_MIN` de `lib/menu`). */
+const LISIBLE = { w: BANDE_MIN, h: HAUTEUR_MIN };
+
+/** L'écart gardé entre la colonne posée sur l'écran et ses bords, en px. */
+const BORD_PX = 16;
+
+/**
+ * Où se pose la colonne de l'ouverture tenue en main : la plus grande bande
+ * libre autour de l'écran si elle se lit, sinon sur l'écran noir, qui ne
+ * porte encore aucune image de jeu.
+ *
+ * Une tablette couchée n'a pas de bande : l'écran d'une fenêtre 4:3 la
+ * remplit presque. La colonne y recevait 0 px de haut à 1024x768, 43,5 px
+ * de large à 1180x820 et 0,5 px à 1366x1024, où elle débordait à droite et
+ * élargissait la page jusque dans la salle (relecture finale du 25 novembre
+ * 2026).
+ */
+export function placeDeLaParole(
+  ecran: Rect | null,
+  W: number,
+  H: number,
+): { rect: Rect; surEcran: boolean } {
+  const bande = plusGrandLibre(ecran, W, H);
+  if (ecran === null || (bande.w >= LISIBLE.w && bande.h >= LISIBLE.h))
+    return { rect: bande, surEcran: false };
+  const x = Math.max(0, ecran.x) + BORD_PX;
+  const y = Math.max(0, ecran.y) + BORD_PX;
+  return {
+    rect: {
+      x,
+      y,
+      w: Math.min(ecran.x + ecran.w, W) - BORD_PX - x,
+      h: Math.min(ecran.y + ecran.h, H) - BORD_PX - y,
+    },
+    surEcran: true,
+  };
 }
 
 /** La plus grande bande libre autour de l'écran : dessous, dessus, à droite

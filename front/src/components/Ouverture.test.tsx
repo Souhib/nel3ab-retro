@@ -7,7 +7,9 @@ const mascotte = vi.hoisted(() => ({
 }));
 vi.mock("../mascotte", () => mascotte);
 
-const { OUVERTURE_LIMITE_MS, Ouverture, plusGrandLibre } = await import("./Ouverture");
+const { OUVERTURE_LIMITE_MS, Ouverture, placeDeLaParole, plusGrandLibre } =
+  await import("./Ouverture");
+const { miseEnPage, SANS_ZONES } = await import("../lib/cadre");
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -150,6 +152,63 @@ describe("plusGrandLibre", () => {
   });
   it("sans écran, toute la fenêtre", () => {
     expect(plusGrandLibre(null, 390, 844)).toEqual({ x: 0, y: 0, w: 390, h: 844 });
+  });
+});
+
+/**
+ * Tenue en main, la colonne de l'ouverture prenait la plus grande bande
+ * autour de l'écran, quelle qu'en soit la taille : 0 px de haut sous
+ * l'écran à 1024x768, 43,5 px de large à 1180x820, 0,5 px à 1366x1024, où
+ * elle débordait à droite et élargissait la page (relecture finale du
+ * 25 novembre 2026).
+ */
+describe("la place de la parole, tenue en main", () => {
+  const ecranDe = (largeur: number, hauteur: number) =>
+    miseEnPage({
+      mode: "paysage",
+      fenetre: { width: largeur, height: hauteur },
+      zonesSures: SANS_ZONES,
+      image: { width: 0, height: 0 },
+      ajustement: "remplir",
+      base: null,
+      etat: "connexion",
+      role: "joueur",
+      manette: null,
+      largeurColonne: 304,
+      largeurPanneau: null,
+      agrandie: false,
+      reglage: false,
+    }).ecran;
+  for (const [largeur, hauteur] of [
+    [1024, 768],
+    [1112, 834],
+    [1180, 820],
+    [1194, 834],
+    [1280, 800],
+    [1366, 1024],
+  ] as const) {
+    it(`${largeur}x${hauteur} : une boîte lisible, dans la fenêtre, sur l'écran noir`, () => {
+      const place = placeDeLaParole(ecranDe(largeur, hauteur), largeur, hauteur);
+      expect(place.rect.w).toBeGreaterThanOrEqual(150);
+      expect(place.rect.h).toBeGreaterThanOrEqual(200);
+      expect(place.rect.x).toBeGreaterThanOrEqual(0);
+      expect(place.rect.y).toBeGreaterThanOrEqual(0);
+      expect(place.rect.x + place.rect.w).toBeLessThanOrEqual(largeur);
+      expect(place.rect.y + place.rect.h).toBeLessThanOrEqual(hauteur);
+      expect(place.surEcran).toBe(true);
+    });
+  }
+  it("jumeau : un téléphone couché garde sa bande de droite, assez large", () => {
+    for (const [largeur, hauteur] of [
+      [844, 390],
+      [932, 430],
+    ] as const) {
+      const ecran = ecranDe(largeur, hauteur);
+      const place = placeDeLaParole(ecran, largeur, hauteur);
+      expect(place.surEcran).toBe(false);
+      expect(place.rect).toEqual(plusGrandLibre(ecran, largeur, hauteur));
+      expect(place.rect.w).toBeGreaterThanOrEqual(150);
+    }
   });
 });
 

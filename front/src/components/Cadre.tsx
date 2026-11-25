@@ -141,10 +141,22 @@ export function useGeometrie(e: EntreeDuCadre): Geometrie {
   );
 }
 
-const lireFenetre = (): Size =>
-  typeof window === "undefined"
-    ? { width: 0, height: 0 }
-    : { width: window.innerWidth, height: window.innerHeight };
+/**
+ * La vue de mise en page : `documentElement.clientWidth/clientHeight`, pas
+ * `innerWidth`. En émulation mobile de Chrome, un élément qui déborde
+ * élargit `innerWidth` (1398 pour une vue de 1366, relecture finale du
+ * 25 novembre 2026), et la salle se posait alors sur une fenêtre plus large
+ * que l'écran, dont elle ne revenait pas. `innerWidth` reste le repli d'une
+ * vue pas encore mesurée (0 dans jsdom).
+ */
+const lireFenetre = (): Size => {
+  if (typeof window === "undefined") return { width: 0, height: 0 };
+  const vue = document.documentElement;
+  return {
+    width: vue.clientWidth || window.innerWidth,
+    height: vue.clientHeight || window.innerHeight,
+  };
+};
 
 /** La taille de la fenêtre, suivie. */
 export function useFenetre(): Size {

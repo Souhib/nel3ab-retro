@@ -89,3 +89,31 @@ it("ne rejoue pas les anciennes places si on passe spectateur pendant la coupure
   expect(socket.volatile.emit).toHaveBeenCalledExactlyOnceWith("seat", { port: null, claim: null });
   hook.close();
 });
+
+/**
+ * L'avant-salle n'annonce rien (relecture finale du 25 novembre 2026). La
+ * socket du salon s'ouvre dès que l'identité est connue, sur l'avant-salle
+ * comme dans la salle, et annonçait « aucune manette » à la connexion puis
+ * chaque seconde. Le salon lit cette annonce comme un regard : la personne
+ * restée sur l'avant-salle entrait au carnet commun (« regardaient », D12)
+ * et dans « regardent » de l'accueil, sans avoir vu la partie. Elle n'a
+ * encore rien choisi : la page se tait jusqu'au premier `seat` de la salle.
+ */
+it("une page qui n'a encore rien choisi (avant-salle) n'annonce rien, même chaque seconde", () => {
+  const hook = visit();
+  hook.connect();
+  act(() => vi.advanceTimersByTime(3000));
+  expect(socket.volatile.emit).not.toHaveBeenCalled();
+  hook.close();
+});
+
+it("jumeau : « Regarder » l'annonce, à la connexion puis chaque seconde", () => {
+  const hook = visit();
+  hook.connect();
+  act(() => hook.result.current.seat(null, null));
+  expect(socket.volatile.emit).toHaveBeenLastCalledWith("seat", { port: null, claim: null });
+  socket.volatile.emit.mockClear();
+  act(() => vi.advanceTimersByTime(1000));
+  expect(socket.volatile.emit).toHaveBeenCalledExactlyOnceWith("seat", { port: null, claim: null });
+  hook.close();
+});

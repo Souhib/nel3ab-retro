@@ -181,10 +181,16 @@ export function useLobby(
 ): Lobby {
   const client = useQueryClient();
   const socket = useRef<Socket | null>(null);
-  const assignment = useRef<{ port: number | null; claim: string | null }>({
-    port: null,
-    claim: null,
-  });
+  /** Ce que la salle a dit de sa manette, `null` tant qu'elle n'a rien dit.
+   *
+   * La socket s'ouvre dès que l'identité est connue, sur l'avant-salle
+   * aussi, qui n'a ni image ni manette. Elle annonçait « aucune manette » à
+   * la connexion, et le salon le lit comme un regard : la personne restée
+   * sur l'avant-salle entrait au carnet commun des joueurs (D12) et dans
+   * « regardent » de l'accueil (relecture finale du 25 novembre 2026).
+   * Rien n'est annoncé avant le premier `seat` : le salon la tient pour
+   * quelqu'un qui arrive. */
+  const assignment = useRef<{ port: number | null; claim: string | null } | null>(null);
   const heard = useRef({
     asked: onAsked,
     answered: onAnswered,
@@ -253,7 +259,8 @@ export function useLobby(
     // anciennes mises en file pendant la coupure. Une seconde dépasse aussi
     // le garde de cadence du salon, qui peut refuser une transition rapide.
     const announce = () => {
-      if (lobby.connected) lobby.volatile.emit("seat", assignment.current);
+      if (lobby.connected && assignment.current !== null)
+        lobby.volatile.emit("seat", assignment.current);
     };
     lobby.on("connect", announce);
     const timer = window.setInterval(announce, 1000);

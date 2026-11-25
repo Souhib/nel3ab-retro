@@ -150,3 +150,39 @@ async def test_une_page_de_banc_qui_regarde_n_apparait_dans_aucun_carnet(
         await alice.disconnect()
         await banc.disconnect()
     assert app.state.parties.lire("benoit@example.com") == []
+
+
+def _regardent(app: FastAPI, numero: int) -> list[str]:
+    """Ce que l'accueil lit de la salle (`regardent` de GET /api/salles),
+    pris au contrôleur: la salle d'essai n'est pas ouverte au registre."""
+    return app.state.salons.pour(numero).regardent(app.state.people)
+
+
+async def test_une_page_sur_l_avant_salle_n_entre_ni_au_carnet_ni_dans_regardent(
+    served: tuple[str, FastAPI],
+) -> None:
+    """Relecture finale du 25 novembre 2026: l'avant-salle n'a pas d'image.
+
+    La page ouvre la socket du salon dès que l'identité est connue, avant
+    tout choix. Elle n'annonce plus rien tant que la salle n'a pas dit sa
+    manette (`useLobby`, front/src/lib/room.ts): Benoît, resté sur
+    l'avant-salle, n'a pas vu la partie d'Alice. Le jumeau: « Regarder »
+    l'annonce, et il y entre.
+    """
+    url, app = served
+    alice = await _page(url, ALICE)
+    benoit = await _page(url, BENOIT)
+    try:
+        await _seat(alice, 1)
+        await asyncio.sleep(0.6)
+        (partie,) = await _parties(url, ALICE)
+        assert partie["regardaient"] == []
+        assert _regardent(app, 2) == []
+        # Le jumeau: Benoît choisit de regarder.
+        await _seat(benoit, None)
+        (partie,) = await _parties(url, ALICE)
+        assert partie["regardaient"] == ["Benoit"]
+        assert _regardent(app, 2) == ["Benoit"]
+    finally:
+        await alice.disconnect()
+        await benoit.disconnect()

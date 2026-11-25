@@ -597,6 +597,27 @@ describe("la fermeture", () => {
     expect(document.activeElement?.id).toBe("openMenu");
   });
 
+  it("rend le focus à l'ouvreur sans partie, quel qu'il soit, même sans #openMenu", () => {
+    // Tenu en main, « La salle » ouvre le menu et #openMenu n'existe pas.
+    // L'ouvreur était lu après que le menu eut posé le focus sur sa première
+    // ligne : retenu, c'était cette ligne, détachée à la fermeture (relecture
+    // finale du 25 novembre 2026).
+    const Page = ({ ouvert }: { ouvert: boolean }) => (
+      <>
+        <button type="button" id="laSalle" />
+        {ouvert ? (
+          <Menu rubriques={rubriques()} partie={false} joue appareil="clavier" onClose={() => {}} />
+        ) : null}
+      </>
+    );
+    const { rerender } = render(<Page ouvert={false} />);
+    act(() => document.getElementById("laSalle")!.focus());
+    rerender(<Page ouvert />);
+    expect(document.activeElement?.id).toBe("item-game0");
+    rerender(<Page ouvert={false} />);
+    expect(document.activeElement?.id).toBe("laSalle");
+  });
+
   it("tenu en main, se pose hors de l'image et le dit", () => {
     const zone = document.body.appendChild(document.createElement("div"));
     zone.setAttribute("data-zone-jeu", "");

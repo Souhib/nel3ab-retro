@@ -126,6 +126,11 @@ export function Menu({
   avis?: ReactNode;
   place?: PlaceDuMenu;
 }) {
+  /** Ce qui avait le focus quand le menu s'est ouvert, lu au premier rendu :
+   * avant tout effet, donc avant que le menu ne prenne le focus. */
+  const [ouvreur] = useState(() =>
+    typeof document === "undefined" ? null : document.activeElement,
+  );
   const boite = useRef<HTMLElement | null>(null);
   const panneau = useRef<HTMLDivElement | null>(null);
   const [rubrique, setRubrique] = useState(() =>
@@ -342,9 +347,11 @@ export function Menu({
   }, [onClose]);
 
   /* À la fermeture, sans partie, le focus revient à ce qui a ouvert le menu.
-     Pendant une partie, `useFocusJeu` le rend à la zone de jeu. */
+     Pendant une partie, `useFocusJeu` le rend à la zone de jeu. L'ouvreur est
+     lu au premier rendu (`ouvreur`), avant que le menu ne pose le focus sur
+     sa première ligne : lu dans cet effet, c'était toujours cette ligne,
+     détachée à la fermeture (relecture finale du 25 novembre 2026). */
   useEffect(() => {
-    const ouvreur = document.activeElement;
     return () => {
       const ici = document.activeElement;
       if (ici !== null && ici !== document.body) return;
@@ -354,7 +361,7 @@ export function Menu({
           : document.getElementById("openMenu");
       retour?.focus({ preventScroll: true });
     };
-  }, []);
+  }, [ouvreur]);
 
   /* Le ▶ du socle, hors de la colonne : la colonne pose déjà le sien. */
   const horsColonne = place.lieu !== "colonne";

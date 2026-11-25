@@ -6,8 +6,8 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
-**Au 25 novembre, après minuit : les quatre chantiers de fin réunis,
-toutes les portes du navigateur lancées.** Le point d'entrée pour
+**Au 25 novembre, au matin : les quatre chantiers de fin réunis, et la
+porte `just` entière lancée sur d3f0cf8.** Le point d'entrée pour
 l'ensemble du thème rétro ; le bloc du 24 novembre qui suit garde l'état
 d'avant ces fusions.
 
@@ -40,6 +40,15 @@ d'avant ces fusions.
   Relancées encore sur ed0b589 au troisième tour (25 novembre, de 4 h 24
   à 5 h 27), de la même façon : toutes en 0, la page inchangée, aucun
   commit de code dans ce tour.
+  **La porte `just` entière**, sur d3f0cf8 (25 novembre, de 5 h 30 à
+  6 h 09), une recette après l'autre, chacune après une lecture libre de
+  la carte (aucune salle, aucun descripteur de Jellyfin sur `/dev/dri`,
+  aucun `ffmpeg`) : `check`, `gpu-test` (81 essais sur la vraie carte),
+  `clip-audio-test`, `switch-saves-test`, `switch-capture-test`,
+  `xbox360-test`, `abri-test` (restic présent), puis les neuf preuves du
+  navigateur de la ligne `local` sortent en 0. Les sept contrôles rouges
+  aussi (6 h 09 à 6 h 36). Seul `deploy-check` sort en 1, pour les deux
+  causes qui suivent.
   `deploy-check` est rouge, pour deux
   causes que seul le propriétaire peut lever. En fichiers, seulement
   `deploy/Caddyfile` (les treize lignes de K39, le Caddyfile installé
@@ -68,12 +77,10 @@ d'avant ces fusions.
   lance ».
 - **Poids.** 278 860 octets en brotli, 21 140 sous le plafond de
   300 000.
-- **Avant `main`.** La porte `just` entière : `gpu-test` (après avoir
-  vérifié en lecture seule que Jellyfin ne sert rien), `clip-audio-test`,
-  `switch-saves-test`, `switch-capture-test`, `xbox360-test`, `abri-test`,
-  qui n'ont pas tourné ici. `deploy/Caddyfile` à installer par le
-  propriétaire. Cette nuit, `tools/abri.sh`, la copie chiffrée des
-  sauvegardes, attendait depuis plus d'une heure une réponse NFS de
+- **Avant `main`.** La porte `just` a tourné en entier sur d3f0cf8 ;
+  seul `deploy-check` reste rouge, et seule la mise en service le lève.
+  `deploy/Caddyfile` à installer par le propriétaire. Cette nuit,
+  `tools/abri.sh`, la copie chiffrée des sauvegardes, attendait depuis plus d'une heure une réponse NFS de
   `/mnt/nas` (état D) ; rien n'y a été touché, la cause n'est pas établie.
   À 5 h 28, deux de ses passages (4 h 30 et 5 h 22) attendaient encore,
   avec 61 fils de Jellyfin et ceux de Sonarr, Radarr, Bazarr et
@@ -97,8 +104,9 @@ d'avant ces fusions.
   par l'enveloppe de l'ajout Souverain, avec son interpréteur, ce qui
   n'est pas un démarrage. Récit : carnet, « 25 novembre, après minuit :
   les quatre chantiers de fin réunis, et une même règle écrite deux
-  fois », et « 25 novembre, la nuit encore : le rouge de `deploy-check`
-  relu ».
+  fois », « 25 novembre, la nuit encore : le rouge de `deploy-check`
+  relu », et « 25 novembre, au matin : la porte entière, et une garde qui
+  listait sans lire ».
 
 **Au 24 novembre, au bout de la nuit : le thème rétro réuni, et ce qui
 reste avant `main`.** Le point d'entrée pour l'ensemble du thème rétro ;

@@ -33974,6 +33974,92 @@ Avant de l'écrire à côté d'une mesure, lire l'état des fils (`ps -eLo
 stat,wchan`) : ici, un nombre qui ressemblait à une machine saturée
 comptait des fils endormis sur un disque réseau.
 
+### 25 novembre, au matin : la porte entière, et une garde qui listait sans lire
+
+L'intégration finale demandait la porte `just` entière sur
+`integration/retro`. Six de ses recettes n'avaient encore jamais tourné sur
+la branche : `gpu-test`, `clip-audio-test`, `switch-saves-test`,
+`switch-capture-test`, `xbox360-test` et `abri-test`. Les décisions du chef
+de chantier pour les points restés ouverts étaient déjà sur la branche,
+avec les chantiers de fin fusionnés après minuit. Je les ai relues dans le
+code avant de lancer quoi que ce soit, et je n'y ai rien changé.
+
+**Avant la carte graphique.** `gpu-test` ouvre le nœud de rendu, la porte
+du processeur graphique sous Linux (`/dev/dri/renderD128`). Il ne devait
+tourner ni pendant une salle ni pendant un transcodage de Jellyfin. Les deux
+se lisent sans rien toucher. `docker ps` ne montre aucun conteneur avec
+l'étiquette `nel3ab.room-root` ni aucun nom `nel3ab-*` ; le seul nom qui
+contient « nel3ab », `souverain-nel3ab-collector`, est un collecteur de
+mesures d'un autre projet. Le processus serveur de Jellyfin a 537
+descripteurs, aucun sur `/dev/dri`, et aucun `ffmpeg` ne tourne dans son
+conteneur. Ses dix autres processus (son superviseur, un `bash`, un
+`sleep`) appartiennent à root et ne se lisent pas sans droits. Un
+transcodage serait un enfant du serveur, sous son compte, donc lisible. La
+même lecture a été refaite avant et après chaque recette, dans le script
+qui la lance : une recette ne partait que sur une lecture libre, et elles
+l'ont toutes été.
+
+**La garde qui listait sans lire.** Ma première version de cette lecture
+comptait un processus comme « lu » dès que la liste de ses descripteurs
+s'ouvrait. Elle sautait ensuite, sans rien dire, chaque lien qu'elle ne
+pouvait pas suivre. Son jumeau négatif l'a prise en défaut avant la
+première recette : un processus qui tenait le nœud de rendu, lancé par
+`sg render`, passait pour propre. `sg` donne au processus un autre groupe
+(993, `render`, au lieu de 1000), et Linux ne laisse suivre les descripteurs
+d'un processus qu'à un appelant qui a ses identifiants d'utilisateur et de
+groupe : `/proc/PID/fd` se liste, mais chaque `readlink` est refusé. Corrigée, la garde ne compte un processus
+comme lu que si chacun de ses liens se lit. Un processus qui tient
+`renderD128` ouvert directement est refusé ; le même sans le nœud passe.
+L'outil du dépôt, `spikes/switch2-room/gpu_clients.py`, n'a pas ce défaut :
+un lien illisible y fait échouer l'inventaire entier. La leçon : lister un
+dossier de `/proc` n'est pas le lire, et une lecture refusée ne vaut pas
+« rien trouvé ».
+
+**Les portes, sur d3f0cf8**, de 5 h 30 à 6 h 09, une après l'autre, chaque
+pilote sur un port libre :
+
+| Recette | Sortie | Ce qu'elle a fait |
+|---|---|---|
+| `check` | 0 | 543 essais Rust, 1 370 Python, 182 fichiers et 2 406 essais du front, la page à jour (278 860 o) |
+| `gpu-test` | 0 | 81 essais de l'encodeur sur la vraie carte |
+| `clip-audio-test` | 0 | un MP4 exporté, son audio décodé |
+| `switch-saves-test` | 0 | 57 essais, ruff propre |
+| `switch-capture-test` | 0 | 40 essais |
+| `xbox360-test` | 0 | 42 essais, ruff propre |
+| `abri-test` | 0 | 31 vérifications contre un dépôt restic jetable |
+| `deploy-check` | 1 | les deux causes dites plus bas |
+| `focus-navigateur` | 0 | 36 étapes |
+| `etats-navigateur` | 0 | 34 étapes, `colonne-stable` comprise |
+| `parcours-navigateur` | 0 | 38 étapes |
+| `salle-telephone` | 0 | 132 lignes ok |
+| `manette-garde` | 0 | 41 lignes ok |
+| `reglage-navigateur` | 0 | 14 étapes |
+| `salon-navigateur` | 0 | 30 étapes |
+| `cadre-navigateur` | 0 | 28 étapes |
+| `planche-garde` | 0 | les trois mesures et leurs jumeaux |
+
+Les sept contrôles rouges, lancés ensuite de 6 h 09 à 6 h 36, sortent en 0,
+chacun rouge sur ses défauts nommés. `colonne-stable` rougit contre la page
+de `main` sur son défaut : la colonne bouge à l'arrivée de l'image.
+
+**`deploy-check`, encore.** Il rougit pour les deux causes des tours de la
+nuit, et rien d'autre. En fichiers, la seule différence entre `deploy/` et
+la machine est `deploy/Caddyfile` : les treize lignes de K39, ajoutées,
+aucune retirée ; le Caddyfile installé est celui de `main` à l'octet
+(`cmp`). Les dix unités et la règle sudo sont identiques. Le salon et la
+boîte noire, démarrés le 22 novembre à 14 h 35 min 39 s, tournent toujours
+avec un `consoles.json` de `main` réécrit à 16 h 05 min 57 s. Ce second
+rouge est celui de `main` et de la machine, pas de la branche, et seule la
+mise en service le lève.
+
+**Ce qui n'a pas changé.** La charge reste à 80 pour la même raison qu'à
+l'aube. À 6 h 40, 79 fils attendent une réponse du NAS : 61 de Jellyfin, 6
+de Sonarr, 5 de Radarr, 4 de Bazarr, 1 de qBittorrent, et deux passages de
+`tools/abri.sh`. Le processeur est inoccupé à 98 %. La copie chiffrée de
+cette nuit n'est toujours pas prouvée faite, et rien n'y a été touché.
+Aucune vraie salle, aucun vrai téléphone, aucune vraie manette n'a tenu la
+page, et rien n'est fusionné dans `main` ni installé.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -35162,6 +35248,13 @@ qu'elle a déjà vue.
 démarrage d'un jeu à plusieurs, où chacun dit avec quel appareil il joue
 puis « Je suis prêt ». Depuis le 24 novembre dans la nuit, c'est un bloc de
 la colonne, plus un dialogue.
+
+**/proc/PID/fd** : le dossier où Linux montre les descripteurs ouverts
+d'un processus, chacun comme un lien vers ce qu'il tient (un fichier, une
+socket, `/dev/dri/renderD128`). Un autre compte, ou le même compte sous un
+autre groupe, peut lister ce dossier mais pas suivre ses liens : une garde
+qui saute ces lectures refusées prend le processus pour un processus qui ne
+tient rien.
 
 **Propagation (d'un événement)** : le trajet d'une touche ou d'un clic dans
 la page, de l'élément touché jusqu'au document puis à la fenêtre. Un

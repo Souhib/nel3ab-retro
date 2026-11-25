@@ -1896,9 +1896,10 @@ const ETAPES = {
 
   /** Le plein cadre de l'arrivée tient sur un téléphone court : le titre,
    * les étapes, le fait et les gestes dans l'écran noir et dans la fenêtre,
-   * rien de coupé, chaque geste haut de 44 px. Mesuré pendant l'arrivée (à
-   * 3 s) et quand elle est perdue (à 15 s), à 375x667, 320x568 et en
-   * travers à 844x390. Le jumeau : un titre trop long pour l'écran est vu. */
+   * rien de coupé, chaque geste haut de 44 px. Mesuré pendant l'arrivée (3 s
+   * après le plein cadre) et quand elle est perdue (dès que ses gestes
+   * paraissent, vers 15 s), à 375x667, 320x568 et en travers à 844x390. Le
+   * jumeau : un titre trop long pour l'écran est vu. */
   async "arrivee-courte"() {
     const MESURE = () => {
       const ecran = document.querySelector("#arrivee .n3-plein-ecran");
@@ -1928,16 +1929,32 @@ const ETAPES = {
       const page = await nouvelle(vue);
       banc.regler({ video: "freeze" });
       await page.click("#enter");
+      // L'horloge part du plein cadre, pas du clic, comme dans
+      // arrivee-sans-image : depuis le salon, l'entrée joue sa transition
+      // avant d'ouvrir la salle. L'étape mesurait l'arrivée perdue 15,5 s
+      // après le clic, l'instant même où la page la perd (0,5 s de transition
+      // et ARRIVEE_LIMITE_MS) : une transition plus lente et elle tombait sur
+      // « 0 gestes à 15 s » (intégration finale, 25 novembre 2026). Les gestes
+      // d'une arrivée perdue sont attendus, au plus 18 s après le plein cadre ;
+      // leur heure est l'affaire d'arrivee-sans-image, la mise en page celle
+      // de cette étape.
+      if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+        throw new Precondition(`${nom}: pas de plein cadre à l'arrivée`);
+      const debut = Date.now();
       await sleep(3000);
       const tot = await page.evaluate(MESURE);
       if (tot.erreur) throw new Precondition(`${nom}: ${tot.erreur} à 3 s`);
       if (tot.etapes !== 2) throw new Precondition(`${nom}: ${tot.etapes} étapes à 3 s`);
       fautes.push(...tot.fautes.map((f) => `${nom} à 3 s: ${f}`));
       await capture(page, "arrivee-courte-3s");
-      await sleep(12_500);
-      const tard = await page.evaluate(MESURE);
+      let tard = await page.evaluate(MESURE);
+      while (!tard.erreur && tard.gestes < 2 && Date.now() - debut < 18_000) {
+        await sleep(200);
+        tard = await page.evaluate(MESURE);
+      }
       if (tard.erreur) throw new Precondition(`${nom}: ${tard.erreur} à 15 s`);
-      if (tard.gestes < 2) throw new Precondition(`${nom}: ${tard.gestes} gestes à 15 s`);
+      if (tard.gestes < 2)
+        throw new Precondition(`${nom}: ${tard.gestes} gestes ${Math.round((Date.now() - debut) / 100) / 10} s après le plein cadre`);
       fautes.push(...tard.fautes.map((f) => `${nom} à 15 s: ${f}`));
       await capture(page, "arrivee-courte-15s");
       if (vue.width === 320) {

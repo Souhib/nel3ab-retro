@@ -33,7 +33,11 @@ d'avant ces fusions.
   `cadre-navigateur` et `etats-navigateur` sont verts en entier pour la
   première fois depuis les vagues B1 et B2. `arrivee-courte` (états)
   comptait encore depuis le clic : elle part du plein cadre, rouge d'abord
-  sur une transition ralentie. `deploy-check` est rouge, pour deux
+  sur une transition ralentie. Relancées sur 343897b au second tour de
+  réparation (25 novembre, de 3 h 17 à 4 h 20), une après l'autre, chaque
+  pilote sur un port libre : les mêmes portes, les sept contrôles rouges,
+  `just docs` et `stamp.mjs --check` sortent en 0, la page inchangée.
+  `deploy-check` est rouge, pour deux
   causes que seul le propriétaire peut lever. En fichiers, seulement
   `deploy/Caddyfile` (les treize lignes de K39, le Caddyfile installé
   étant celui de `main` à l'octet). Et le salon et la boîte noire,

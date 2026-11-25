@@ -33903,6 +33903,19 @@ ce code là où le service le prend : dans son unité, pas dans le dossier d'où
 on la lance. Ici, le même mot « dépôt » désignait deux arbres, et le message
 le répétait sans dire lequel.
 
+**Les portes, relancées sur 343897b**, de 3 h 17 à 4 h 20, une après
+l'autre, chaque pilote sur un port libre donné par le système : `just check`
+(1 370 essais Python, 182 fichiers et 2 406 essais du front, la page à jour),
+`focus-navigateur`, `etats-navigateur`, `parcours-navigateur`,
+`salle-telephone`, `manette-garde`, `cadre-navigateur`, `salon-navigateur`,
+`reglage-navigateur`, `planche-garde`, les sept contrôles rouges et
+`just docs` sortent en 0. La page n'a pas changé : 278 860 octets en
+brotli, 21 140 sous le plafond. `deploy-check` sort en 1, pour les deux
+causes dites plus haut. La charge affichée était de 65 au départ, le
+processeur inoccupé à 97 % au même instant ; la cause de cette charge n'est
+pas établie. Les portes `gpu-test`, `clip-audio-test`, `switch-saves-test`,
+`switch-capture-test`, `xbox360-test` et `abri-test` n'ont pas tourné.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

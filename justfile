@@ -924,9 +924,23 @@ etats-navigateur-rouge *args:
     # enfants de 204 px. Le panneau s'y décidait sur l'image reçue, et non
     # sur le format attendu de la console (`baseDuPanneau`, 24 novembre 2026).
     # La pastille d'une image figée n'avait pas de place sur le panneau.
+    # Un chargement perdu disait à qui choisit le jeu « Tu peux le
+    # relancer. », sans « ou choisir un autre jeu » ; l'autre moitié
+    # d'echec-qui-relance (un autre joueur ne l'entend pas) n'a qu'un
+    # contrôle mutant, dit au carnet.
     git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
+    etapes=colonne-stable,pastille-panneau,echec-qui-relance
     node etats.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
-        --etapes colonne-stable,pastille-panneau --rouge-attendu colonne-stable,pastille-panneau {{args}}
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
+    # 6e2559f, la page que la relecture finale du 25 novembre 2026 a lue :
+    # la première image se montrait dans une toile encore carrée, la
+    # pastille « Ferme dans 5 min » passait de 1 px sur l'image d'une
+    # tablette en « entier », et l'ouverture d'une tablette couchée posait
+    # sa colonne dans une bande de 0 à 43 px, puis faisait défiler la salle.
+    git show 6e2559f:core/crates/worker/src/page/index.html > "$dossier/relue-finale.html"
+    etapes=premiere-image-coupe,pastille-hors-image,ouverture-tablette
+    node etats.mjs --page "$dossier/relue-finale.html" --flux "$dossier/flux.h264" \
+        --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
         --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
         --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique {{args}}
@@ -1100,6 +1114,12 @@ parcours-navigateur-rouge *args:
     git show 77fae49:core/crates/worker/src/page/index.html > "$dossier/avant-ain.html"
     node parcours.mjs --page "$dossier/avant-ain.html" --flux "$dossier/flux.h264" \
         --etapes avant-salle-ain --rouge-attendu avant-salle-ain {{args}}
+    # 4ecbc23, la page de la vague B2 : à 667x375 au doigt, #placesToutes
+    # remplace la rangée, et les quatre places cachées portaient encore leur
+    # ancre start-N (relecture finale du 25 novembre 2026).
+    git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
+    node parcours.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
+        --etapes ancres-start-cachees --rouge-attendu ancres-start-cachees {{args}}
 
 # Le focus, le clavier et les menus de la salle, dans un vrai navigateur.
 #

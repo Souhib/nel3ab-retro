@@ -34317,6 +34317,42 @@ clavier au jeu après « Confirmer », comme la vraie salle le fait par
 lisant ce que CLAUDE.md exige : la première touche nouvelle après la fermeture
 au repos est acceptée).
 
+### 25 novembre, après la mise en service : le clavier rendu au jeu dans la page prototype Switch
+
+La refonte est en service depuis 10 h 14 UTC (salon relancé par le
+propriétaire, worker reconstruit salle fermée, CI verte sur `2673ef6`). Le
+propriétaire a demandé de corriger `switch-controls-test`.
+
+**La cause.** Le 22 novembre, le clavier du jeu est passé dans la zone de jeu
+(`front/src/lib/focus-jeu.ts`, D30) : une touche ne va au jeu que si le focus
+est dans un élément marqué `data-zone-jeu`, ou sur la page elle-même. La page
+prototype Switch (`spikes/switch-room/bridge/`) partage le module d'entrée de
+la salle, mais elle n'avait pas de zone de jeu. Son réglage est un dialogue
+natif : à sa fermeture, le navigateur rend le focus au bouton qui l'a ouvert,
+« Touches et manettes ». La touche V du profil restait donc à ce bouton. Le
+changement du 22 novembre ne touchait pas cette page, et la porte
+conditionnelle n'a pas tourné : personne ne l'a vu pendant trois jours.
+
+**La correction.** L'image de la page prototype devient sa zone de jeu
+(`data-zone-jeu`, focalisable, `role="application"`, comme dans la salle), et
+fermer le réglage rend le focus à cette zone : fermer le réglage, c'est revenir
+au jeu. C'est ce que CLAUDE.md demande, la première touche nouvelle après la
+fermeture au repos part au jeu.
+
+**La preuve.** Rouge avant (sur `main` comme sur la branche), vert après. Puis
+le défaut réintroduit seul (la zone gardée, le focus non rendu) : la recette
+retombe sur le même message, « loaded keyboard profile did not reach R », avec
+le focus sur `#configure`. `just check` reste vert.
+
+**La leçon.** Une règle posée dans un module partagé vaut pour toutes les
+pages qui l'importent, prototypes compris. Quand une règle d'entrée change,
+les portes conditionnelles des pages qui partagent `front/src/media/` tournent
+dans le même changement.
+
+**Une décision du propriétaire, le même jour.** Au téléphone couché sur un jeu
+16:9, le menu ouvert prend l'écran et cache l'image jusqu'à sa fermeture
+(addendum de D30 « after the review »). Le propriétaire l'accepte tel quel.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

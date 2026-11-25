@@ -1526,6 +1526,9 @@ what this entry says.
    fermeture »). The menu's marker is its own: the snow of a lost connection
    sets and clears `IMAGE_CACHEE` of the socle, and the end of one must not
    show a picture the other still hides.
+   **Owner decision, 2026-11-25:** accepted as is. On a phone held sideways
+   with a 16:9 game, the open menu takes the screen and hides the picture
+   until it closes.
 2. **A greyed control never keeps the focus.** A fiche aims at its checked
    choice, then its acting button, then « Revenir », only if they take the
    focus; while it reads its saves, the focus waits on its title and moves

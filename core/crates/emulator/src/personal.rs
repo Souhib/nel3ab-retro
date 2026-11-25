@@ -1,6 +1,5 @@
 //! Personal saves are written directly to persistent storage, with one writer.
 use std::io;
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 use crate::saves::Slot;
@@ -81,18 +80,20 @@ pub fn begin(directory: &Path, session: &Path, rom_file: &str) -> io::Result<Opt
 }
 
 fn new_requested(directory: &Path, session: &Path, rom_file: &str) -> io::Result<bool> {
-    let file = match std::fs::File::open(session.join(NEW_REQUEST)) {
-        Ok(file) => file,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => return Err(error),
-    };
     // A filename is at most 255 bytes and our identity folder at most 96.
     // Four KiB covers their JSON escapes and bounds a damaged local request.
-    let mut bytes = Vec::new();
-    file.take(4097).read_to_end(&mut bytes)?;
-    if bytes.len() > 4096 {
-        return Err(io::Error::from(io::ErrorKind::InvalidData));
-    }
+    //
+    // Read without following a link nor waiting on a pipe (ADR D36): the
+    // container writes this folder. Anything at this name that is not a
+    // small regular file is a damaged request, refused like broken JSON, so
+    // it never discards existing progress.
+    let Some(bytes) = crate::session_file::read_regular(session, NEW_REQUEST, 4096)? else {
+        return match std::fs::symlink_metadata(session.join(NEW_REQUEST)) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error),
+            Ok(_) => Err(io::Error::from(io::ErrorKind::InvalidData)),
+        };
+    };
     let value: serde_json::Value =
         serde_json::from_slice(&bytes).map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
     if value.get("game").and_then(serde_json::Value::as_str) != Some(rom_file)
@@ -202,6 +203,24 @@ mod tests {
             assert!(begin(&slot, &session, "game.iso").is_err());
             assert_eq!(std::fs::read(slot.join("progress"))?, b"keep this");
         }
+        // Neither a link to a valid request nor a pipe is read (ADR D36): a
+        // link is refused like a damaged request, and a pipe never blocks.
+        let elsewhere = root.path().join("elsewhere");
+        std::fs::write(
+            &elsewhere,
+            serde_json::json!({"game":"game.iso","person":slot.file_name().and_then(|n| n.to_str())}).to_string(),
+        )?;
+        std::fs::remove_file(session.join(NEW_REQUEST))?;
+        std::os::unix::fs::symlink(&elsewhere, session.join(NEW_REQUEST))?;
+        assert!(begin(&slot, &session, "game.iso").is_err());
+        assert_eq!(std::fs::read(slot.join("progress"))?, b"keep this");
+        std::fs::remove_file(session.join(NEW_REQUEST))?;
+        nix::unistd::mkfifo(
+            &session.join(NEW_REQUEST),
+            nix::sys::stat::Mode::from_bits_truncate(0o644),
+        )?;
+        assert!(begin(&slot, &session, "game.iso").is_err());
+        std::fs::remove_file(session.join(NEW_REQUEST))?;
         request(&session, Slot::Person, "a@example.com", "game.iso")?;
         assert!(begin(&slot, &session, "game.iso")?.is_some());
         Ok(())

@@ -181,10 +181,12 @@ describe("la place de la pastille, tenue en main", () => {
               if (place?.lieu !== "a-part" || g.image === null) continue;
               aPart += 1;
               const r = place.rect;
+              // Sa largeur est bornée par le rectangle (`max-width: 100%`).
+              const large = Math.min(PASTILLE_LARGE_PX, r.w);
               const boite = {
-                x: r.x + (r.w - PASTILLE_LARGE_PX) / 2 - 4,
+                x: r.x + (r.w - large) / 2 - 4,
                 y: r.y + (r.h - PASTILLE_DOIGT_PX) / 2 - 4,
-                w: PASTILLE_LARGE_PX + 8,
+                w: large + 8,
                 h: PASTILLE_DOIGT_PX + 8,
               };
               if (coupe(boite, g.image) && fautes.length < 5)

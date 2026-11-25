@@ -50,7 +50,7 @@ export const PASTILLE_DOIGT_PX = 44;
 /** La plus large pastille posée seule, en px : « La salle ne répond plus »
  * mesure 231 px en bouton dans Chrome, à 1080x810 au doigt (25 novembre
  * 2026 ; « Ferme dans 30 min » 198, « Image figée » 150), arrondi au-dessus.
- * Posée à part, rien ne la coupe : elle prend la largeur de ses mots. */
+ * Dans un rectangle plus étroit, elle en prend la largeur. */
 export const PASTILLE_LARGE_PX = 240;
 
 /** L'écart que la pastille garde avec l'image, en px (ADR D40). */
@@ -102,23 +102,21 @@ export function placeDeLaPastille(geo: Geometrie, tenu: boolean): PlacePastille 
 
 /**
  * La pastille la plus large, au doigt, centrée dans `rect` comme
- * `.n3-pastille-place` la pose, tient-elle sans toucher l'image à 4 px près
- * et sans sortir de l'écran ? Pure : les mesures sont celles de Chrome
- * (`PASTILLE_LARGE_PX`, `PASTILLE_DOIGT_PX`).
+ * `.n3-pastille-place` la pose, reste-t-elle à 4 px de l'image ? Sa largeur
+ * ne dépasse jamais celle du rectangle (`max-width: 100%` de `.n3-pastille`,
+ * mesuré : 156 px dans la grappe droite à 844x390) ; sa hauteur au doigt,
+ * si : 44 px dans un fronton de 42 débordaient sur l'image. Pure : les
+ * mesures sont celles de Chrome (`PASTILLE_LARGE_PX`, `PASTILLE_DOIGT_PX`).
  */
 function tientAPart(geo: Geometrie, rect: Rect): boolean {
-  const x = rect.x + (rect.w - PASTILLE_LARGE_PX) / 2;
-  const y = rect.y + (rect.h - PASTILLE_DOIGT_PX) / 2;
-  if (geo.ecran) {
-    const e = geo.ecran;
-    if (x < e.x || x + PASTILLE_LARGE_PX > e.x + e.w) return false;
-    if (y < e.y || y + PASTILLE_DOIGT_PX > e.y + e.h) return false;
-  }
   const im = geo.image;
   if (im === null) return true;
+  const largeur = Math.min(PASTILLE_LARGE_PX, rect.w);
+  const x = rect.x + (rect.w - largeur) / 2;
+  const y = rect.y + (rect.h - PASTILLE_DOIGT_PX) / 2;
   const gauche = x - MARGE_PX;
   const haut = y - MARGE_PX;
-  const droite = x + PASTILLE_LARGE_PX + MARGE_PX;
+  const droite = x + largeur + MARGE_PX;
   const bas = y + PASTILLE_DOIGT_PX + MARGE_PX;
   return !(gauche < im.x + im.w && droite > im.x && haut < im.y + im.h && bas > im.y);
 }

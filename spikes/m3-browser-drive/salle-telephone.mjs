@@ -177,7 +177,7 @@ const EXCEPTIONS_DU_TIROIR = [];
 
 /** Les cibles visibles d'un calque plus petites que `floor`, sauf exception
  * nommée. Une cible hors de l'écran compte aussi : sa taille ne dépend pas du
- * défilement. */
+ * défilement. Une case se mesure par son étiquette, qui reçoit le doigt. */
 function petites({ racine, floor, exceptions }) {
   const top = document.querySelector(racine);
   if (!top) return [`${racine} absent`];
@@ -189,11 +189,17 @@ function petites({ racine, floor, exceptions }) {
   };
   const label = (el) =>
     el.id || el.getAttribute("aria-label") || el.dataset.entree || el.textContent.trim().slice(0, 28) || el.tagName;
+  // Une case ou un bouton radio se touche par son étiquette : la pastille de
+  // choix du menu, pas le rond de 13 px qu'elle porte.
+  const cible = (el) => {
+    if (!el.matches("input[type='radio'], input[type='checkbox']")) return el;
+    return el.closest("label") ?? (el.id ? document.querySelector(`label[for="${el.id}"]`) : null) ?? el;
+  };
   const bad = [];
   for (const el of top.querySelectorAll("button, a[href], input:not([type='hidden']), select, summary")) {
     if (!shown(el)) continue;
     if (exceptions.some((one) => el.matches(one))) continue;
-    const r = el.getBoundingClientRect();
+    const r = cible(el).getBoundingClientRect();
     if (Math.min(r.width, r.height) < floor - 0.5)
       bad.push(`${el.tagName.toLowerCase()} « ${label(el)} » mesure ${Math.round(r.width)}x${Math.round(r.height)} px`);
   }
@@ -852,6 +858,21 @@ try {
                 if (lu.cachee && lu.lieu !== "ecran") bad.push(`l'image est cachée sous un menu posé ${lu.lieu}`);
                 if (lu.sortie < 44) bad.push(`la sortie du menu fait ${lu.sortie} px de haut`);
                 if (lu.touch === "none") bad.push("le menu bloque le défilement au doigt (touch-action: none)");
+                // Chaque rubrique du menu au doigt : 44 px pour toute cible,
+                // le curseur du volume compris. Il gardait les 16 px de
+                // Chrome dans « Réglages » (relecture finale du 25 novembre
+                // 2026) ; la sortie seule était mesurée.
+                const onglets = await page.$$eval('#menu [role="tab"]', (tous) => tous.map((t) => t.id));
+                if (onglets.length < 4) bad.push(`le menu n'a que ${onglets.length} rubriques`);
+                let curseurs = 0;
+                for (const id of onglets) {
+                  await page.evaluate((i) => document.getElementById(i)?.click(), id);
+                  await sleep(150);
+                  bad.push(...(await page.evaluate(petites, { racine: "#menu", floor: FLOOR, exceptions: [] })).map((m) => `rubrique ${id} : ${m}`));
+                  curseurs += await page.$$eval('#menu input[type="range"]', (l) => l.length);
+                }
+                // Le cas est exercé : le volume est bien dans une rubrique.
+                if (curseurs === 0) bad.push("aucun curseur dans le menu : la mesure du volume n'est pas exercée");
                 await page.evaluate(() => document.querySelector("#closeMenu")?.click());
                 await attendre(page, () => document.querySelector("#menu") === null);
               }

@@ -251,6 +251,16 @@
   width: 100%;
   accent-color: var(--signal);
 }
+/* Au doigt, le curseur du volume est une boîte de 44 px, sa piste de 4 px
+   dessinée au milieu, comme celui de la feuille (`telephone.css`). Il
+   gardait les 16 px de Chrome dans « Réglages » (relecture finale du
+   25 novembre 2026, salle-telephone, rubrique par rubrique). */
+@media (pointer: coarse) {
+  .n3-menu-glissiere {
+    height: 44px;
+    background: linear-gradient(var(--rule), var(--rule)) no-repeat center / 100% 4px;
+  }
+}
 
 /* La fiche : la conséquence et ses boutons forment une barre collée au bas
    de la zone qui défile (M15). */

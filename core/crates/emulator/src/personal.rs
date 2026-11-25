@@ -25,9 +25,13 @@ pub struct Personal {
 pub fn request(session: &Path, slot: Slot, person: &str, rom_file: &str) -> io::Result<()> {
     let path = session.join(NEW_REQUEST);
     if slot == Slot::Fresh && crate::saves::folder_for(slot, Some(person)).starts_with("joueur-") {
-        let pending = path.with_extension("pending");
-        std::fs::write(&pending, serde_json::json!({"game":rom_file,"person":crate::saves::folder_for(slot,Some(person))}).to_string())?;
-        std::fs::rename(pending, path)
+        // Sans suivre de lien (ADR D36) : un nom provisoire neuf, renommé
+        // par-dessus, comme `crate::session_file` le fait pour chaque choix.
+        crate::session_file::write_no_follow(
+            session,
+            NEW_REQUEST,
+            serde_json::json!({"game":rom_file,"person":crate::saves::folder_for(slot,Some(person))}).to_string().as_bytes(),
+        )
     } else {
         remove(&path)
     }
@@ -128,7 +132,7 @@ pub fn mount(session: &Path, local: &Path, source: &Personal) -> io::Result<()> 
         return Err(io::Error::from(io::ErrorKind::InvalidInput));
     }
     std::fs::create_dir_all(local)?;
-    std::fs::write(session.join(MOUNT), format!("{from}\n{to}\n"))
+    crate::session_file::write_no_follow(session, MOUNT, format!("{from}\n{to}\n").as_bytes())
 }
 
 /// Remove a previous mount when launching a shared or anonymous save.

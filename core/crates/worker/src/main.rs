@@ -298,6 +298,17 @@ const PAD_CHOICE: &str = "chosen-pad";
 /// choses qu'on peut effacer sans rien perdre. Une sauvegarde ne l'est pas.
 const SAVES: &str = "saves";
 
+/// Un choix retenu dans le dossier de session, s'il est un fichier ordinaire.
+///
+/// Sans suivre de lien ni attendre un tube (ADR D36) : le conteneur écrit ce
+/// dossier, et un tube laissé à `chosen-pad` bloquait le démarrage du worker
+/// alors que le salon avait déjà répondu (relecture finale du 25 novembre
+/// 2026). Quatre Kio couvrent un nom de fichier et une adresse ; au-delà, ou
+/// pour autre chose qu'un fichier, le choix retombe sur son défaut.
+fn kept(session_dir: &Path, name: &str) -> Option<String> {
+    nel3ab_emulator::session_file::read_text(session_dir, name, 4096)
+}
+
 /// Which game to boot: what a player last asked for, or the default.
 ///
 /// Remembered by FILE NAME rather than position, because a position only means
@@ -313,7 +324,7 @@ const SAVES: &str = "saves";
 /// refuses to start because a file was renamed is worse than one that starts
 /// with the usual game.
 fn chosen_rom(session_dir: &Path, usual: &Path, library: &[Rom]) -> PathBuf {
-    let Ok(remembered) = std::fs::read_to_string(session_dir.join(CHOICE)) else {
+    let Some(remembered) = kept(session_dir, CHOICE) else {
         return usual.to_path_buf();
     };
     let remembered = remembered.trim();
@@ -362,8 +373,7 @@ fn chosen_pad(session_dir: &Path, disc: &nel3ab_emulator::Disc) -> nel3ab_emulat
     if disc.console != nel3ab_emulator::Console::Wii {
         return nel3ab_emulator::PadKind::GameCube;
     }
-    let code = std::fs::read_to_string(session_dir.join(PAD_CHOICE))
-        .ok()
+    let code = kept(session_dir, PAD_CHOICE)
         .and_then(|kept| kept.trim().parse::<u8>().ok())
         .unwrap_or(0);
     nel3ab_emulator::PadKind::from_code(code)
@@ -376,14 +386,13 @@ fn chosen_pad(session_dir: &Path, disc: &nel3ab_emulator::Disc) -> nel3ab_emulat
 /// n'existe pas. Sans personne, l'emplacement personnel retombe sur la partie
 /// neuve, ce qui n'efface rien.
 fn chosen_person(session_dir: &Path) -> Option<String> {
-    let kept = std::fs::read_to_string(session_dir.join(SAVE_PERSON)).ok()?;
-    let trimmed = kept.trim();
+    let named = kept(session_dir, SAVE_PERSON)?;
+    let trimmed = named.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_owned())
 }
 
 fn chosen_slot(session_dir: &Path) -> saves::Slot {
-    std::fs::read_to_string(session_dir.join(SAVE_CHOICE))
-        .ok()
+    kept(session_dir, SAVE_CHOICE)
         .and_then(|kept| kept.trim().parse::<u8>().ok())
         .map_or(saves::Slot::Fresh, saves::Slot::from_code)
 }
@@ -2143,7 +2152,13 @@ fn remember_choice(
         tracing::error!(%error, "les manettes n’ont pas pu être retenues, lancement annulé");
         return false;
     }
-    if let Err(error) = std::fs::write(session_dir.join(CHOICE), &game.file) {
+    // Sans suivre de lien (ADR D36) : le conteneur écrit ce dossier, et un lien
+    // laissé à l'un de ces noms faisait écrire le nom du jeu ou l'adresse de
+    // la personne sur l'hôte (relecture finale du 25 novembre 2026).
+    let write = |name: &str, contents: &[u8]| {
+        nel3ab_emulator::session_file::write_no_follow(session_dir, name, contents)
+    };
+    if let Err(error) = write(CHOICE, game.file.as_bytes()) {
         tracing::error!(%error, "the choice could not be written down");
         return false;
     }
@@ -2152,15 +2167,15 @@ fn remember_choice(
     // partie neuve, ce qui n'efface rien et se corrige d'un clic.
     // La manette voyage avec le reste. Un échec ici repart sur la manette
     // GameCube, ce qui est l'état d'avant et se corrige d'un clic.
-    if let Err(error) = std::fs::write(session_dir.join(PAD_CHOICE), pads.codes()[0].to_string()) {
+    if let Err(error) = write(PAD_CHOICE, pads.codes()[0].to_string().as_bytes()) {
         tracing::warn!(%error, "la manette n'a pas pu être retenue");
     }
-    if let Err(error) = std::fs::write(session_dir.join(SAVE_CHOICE), slot.code().to_string()) {
+    if let Err(error) = write(SAVE_CHOICE, slot.code().to_string().as_bytes()) {
         tracing::warn!(%error, "l'emplacement de sauvegarde n'a pas pu être retenu");
     }
     // Écrit MÊME vide, pour effacer celle d'avant: sans ça, le lancement
     // suivant jouerait sur la sauvegarde de la personne précédente.
-    if let Err(error) = std::fs::write(session_dir.join(SAVE_PERSON), person) {
+    if let Err(error) = write(SAVE_PERSON, person.as_bytes()) {
         tracing::warn!(%error, "qui lance n'a pas pu être retenu");
     }
     if let Err(error) = nel3ab_emulator::personal::request(session_dir, slot, person, &game.file) {
@@ -2210,8 +2225,7 @@ fn open_on_order(library: &[Rom], session_dir: &Path) {
     };
     let pads = nel3ab_emulator::PadSetup::load_for(session_dir, &library[index].file)
         .unwrap_or_else(|| {
-            let code = std::fs::read_to_string(session_dir.join(PAD_CHOICE))
-                .ok()
+            let code = kept(session_dir, PAD_CHOICE)
                 .and_then(|kept| kept.trim().parse::<u8>().ok())
                 .unwrap_or(0);
             nel3ab_emulator::PadKind::from_code(code).into()
@@ -2675,6 +2689,128 @@ mod tests {
             super::starting_game(dir.path(), Path::new("/jeux/usual.rvz"), &library()).unwrap();
 
         assert_eq!(started, (true, PathBuf::from("/jeux/usual.rvz")));
+    }
+
+    /// Le dossier de session est monté en écriture dans le conteneur (ADR
+    /// D36, D45). Un lien laissé à l'un des noms que l'ouverture écrit ne doit
+    /// jamais faire écrire le worker sur l'hôte (relecture finale du
+    /// 25 novembre 2026 : `std::fs::write` suivait chacun).
+    const HOTE: &str = "contenu de l'hôte";
+
+    fn session_with_host() -> (tempfile::TempDir, PathBuf) {
+        let root = tempfile::tempdir().unwrap();
+        let session = root.path().join("session");
+        std::fs::create_dir(&session).unwrap();
+        (root, session)
+    }
+
+    /// Un lien à `name`, vers un fichier de l'hôte qui porte `HOTE`.
+    fn link_to_host(root: &Path, session: &Path, name: &str) -> PathBuf {
+        let host = root.join(format!("hote-{name}"));
+        std::fs::write(&host, HOTE).unwrap();
+        std::os::unix::fs::symlink(&host, session.join(name)).unwrap();
+        host
+    }
+
+    #[test]
+    fn opening_on_a_game_never_writes_through_a_link() {
+        let (root, session) = session_with_host();
+        std::fs::write(
+            session.join(nel3ab_emulator::OPEN_ORDER),
+            "nel3ab-ouvrir 1\nMelee.rvz\n0\nnour@example.org\n",
+        )
+        .unwrap();
+        let names = [
+            super::CHOICE,
+            super::PAD_CHOICE,
+            super::SAVE_CHOICE,
+            super::SAVE_PERSON,
+            "chosen-setup",
+            "chosen-setup.tmp",
+            "new-personal-save.pending",
+        ];
+        let hosts: Vec<_> = names
+            .iter()
+            .map(|name| link_to_host(root.path(), &session, name))
+            .collect();
+
+        super::open_on_order(&library(), &session);
+
+        for (name, host) in names.iter().zip(&hosts) {
+            assert_eq!(std::fs::read_to_string(host).unwrap(), HOTE, "{name}");
+        }
+        // Le jumeau : les fichiers du choix sont bien écrits, en fichiers
+        // ordinaires à la place des liens.
+        for (name, wanted) in [
+            (super::CHOICE, "Melee.rvz"),
+            (super::SAVE_CHOICE, "0"),
+            (super::SAVE_PERSON, "nour@example.org"),
+        ] {
+            let meta = std::fs::symlink_metadata(session.join(name)).unwrap();
+            assert!(meta.is_file(), "{name} reste un lien");
+            assert_eq!(std::fs::read_to_string(session.join(name)).unwrap(), wanted);
+        }
+    }
+
+    #[test]
+    fn staying_on_the_menu_never_writes_through_a_link() {
+        let (root, session) = session_with_host();
+        std::fs::write(session.join(super::CHOICE), "Kart.rvz").unwrap();
+        let host = link_to_host(root.path(), &session, "game-closed");
+        std::fs::write(
+            session.join(nel3ab_emulator::OPEN_ORDER),
+            "nel3ab-ouvrir 1\nParti.rvz\n0\n-\n",
+        )
+        .unwrap();
+
+        super::open_on_order(&library(), &session);
+
+        assert_eq!(std::fs::read_to_string(&host).unwrap(), HOTE);
+        assert!(
+            std::fs::symlink_metadata(session.join("game-closed"))
+                .unwrap()
+                .is_file(),
+            "le menu est retenu dans un fichier ordinaire"
+        );
+    }
+
+    /// Un tube nommé à un nom que le démarrage lit : le worker ne l'attend
+    /// pas. Le démarrage tourne dans un fil, avec une échéance : un tube qui
+    /// bloque ne fait pas échouer un `join`, il le fige.
+    #[test]
+    fn starting_never_waits_on_a_pipe() {
+        let (_root, session) = session_with_host();
+        std::fs::write(
+            session.join(nel3ab_emulator::OPEN_ORDER),
+            "nel3ab-ouvrir 1\nMelee.rvz\n0\n-\n",
+        )
+        .unwrap();
+        for name in [
+            "chosen-setup",
+            super::PAD_CHOICE,
+            super::SAVE_PERSON,
+            super::SAVE_CHOICE,
+        ] {
+            let made = std::process::Command::new("mkfifo")
+                .arg(session.join(name))
+                .status()
+                .unwrap();
+            assert!(made.success(), "mkfifo {name}");
+        }
+        let (done, started) = std::sync::mpsc::channel();
+        let dir = session.clone();
+        std::thread::spawn(move || {
+            let _ = done.send(
+                super::starting_game(&dir, Path::new("/jeux/usual.rvz"), &library())
+                    .map_err(|error| error.to_string()),
+            );
+        });
+        let started = started
+            .recv_timeout(Duration::from_secs(3))
+            .expect("le démarrage reste bloqué sur un tube");
+        assert_eq!(started.unwrap(), (false, PathBuf::from("/jeux/Melee.rvz")));
+        assert_eq!(super::chosen_person(&session), None);
+        assert_eq!(super::chosen_slot(&session), super::saves::Slot::Fresh);
     }
 
     /// Sans ordre, rien ne bouge: la salle reste sur son menu.

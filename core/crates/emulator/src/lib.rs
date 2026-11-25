@@ -72,6 +72,7 @@ pub mod playback;
 pub mod process;
 pub mod rumble;
 pub mod saves;
+pub mod session_file;
 pub mod slots;
 mod sound;
 pub mod unlocked;

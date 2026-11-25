@@ -36,10 +36,12 @@ impl Playback {
     /// # Errors
     /// L'erreur du système de fichiers si le choix ne peut pas être retenu.
     pub fn store(self, directory: &Path) -> io::Result<()> {
-        let path = directory.join(CLOSED);
         match self {
-            Self::Idle => std::fs::write(path, []),
-            Self::Playing => match std::fs::remove_file(path) {
+            // Sans suivre de lien (ADR D36) : un lien laissé à ce nom par le
+            // conteneur faisait vider sa cible sur l'hôte.
+            Self::Idle => crate::session_file::write_no_follow(directory, CLOSED, &[]),
+            // `remove_file` retire un lien sans le suivre.
+            Self::Playing => match std::fs::remove_file(directory.join(CLOSED)) {
                 Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
                 result => result,
             },

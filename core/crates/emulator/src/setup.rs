@@ -37,19 +37,24 @@ impl PadSetup {
     }
 
     /// Un fichier atomique associe le choix au jeu, jamais au lancement d'avant.
+    ///
+    /// Sans suivre de lien (ADR D36) : le dossier de session est écrit par le
+    /// conteneur (`crate::session_file`).
     /// # Errors
     /// Rend l'erreur d'écriture ou de renommage sans lancer un jeu mal configuré.
     pub fn save_for(self, directory: &std::path::Path, game: &str) -> std::io::Result<()> {
-        let path = directory.join("chosen-setup");
-        let temporary = directory.join("chosen-setup.tmp");
-        std::fs::write(&temporary, format!("{}\n{game}", self.encode()))?;
-        std::fs::rename(temporary, path)
+        crate::session_file::write_no_follow(
+            directory,
+            "chosen-setup",
+            format!("{}\n{game}", self.encode()).as_bytes(),
+        )
     }
 
     #[must_use]
-    /// Relit les choix seulement s’ils appartiennent au jeu demandé.
+    /// Relit les choix seulement s’ils appartiennent au jeu demandé, dans un
+    /// fichier ordinaire : un lien ou un tube à ce nom se lit comme une absence.
     pub fn load_for(directory: &std::path::Path, game: &str) -> Option<Self> {
-        let text = std::fs::read_to_string(directory.join("chosen-setup")).ok()?;
+        let text = crate::session_file::read_text(directory, "chosen-setup", 4096)?;
         let (codes, stored_game) = text.split_once('\n')?;
         if game != stored_game {
             return None;

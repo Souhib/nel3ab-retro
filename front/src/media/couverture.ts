@@ -95,9 +95,9 @@ const toujours = (): boolean => true;
  * partie, il n'y a rien à lever. Rend faux quand une couverture reste
  * posée faute de boîte juste (`decouvrir`).
  */
-export function lever(boiteJuste: () => boolean = toujours): boolean {
+export function lever(juste: () => boolean = toujours): boolean {
   peintes += 1;
-  return decouvrir(boiteJuste);
+  return decouvrir(juste);
 }
 
 /**
@@ -117,9 +117,9 @@ export function lever(boiteJuste: () => boolean = toujours): boolean {
  * finale du 25 novembre 2026). Elle reste donc le temps que la session
  * relise l'instantané (`VideoStream.onFormat`), une image ou deux.
  */
-export function decouvrir(boiteJuste: () => boolean): boolean {
+export function decouvrir(juste: () => boolean): boolean {
   if (poses.size === 0) return true;
-  if (!boiteJuste()) return false;
+  if (!juste()) return false;
   poses.clear();
   document.documentElement.removeAttribute(ATTRIBUT);
   return true;

@@ -84,3 +84,83 @@ describe("le nom de la zone de jeu", () => {
     expect(container.querySelector("#aideZoneJeu")).toBeNull();
   });
 });
+
+/**
+ * La boîte de la toile avant la première image (relecture finale du
+ * 25 novembre 2026). Tant que l'instantané n'avait vu aucune image, la toile
+ * était taillée en CARRÉ (`place` sur 0x0), et la couverture levée à la
+ * première image la montrait étirée dedans jusqu'au relevé suivant : 13
+ * images au mauvais format à 1440x900. Elle prend désormais le format que la
+ * console annonce, et dit pour quelle image sa boîte est taillée : la boucle
+ * de peinture ne lève la couverture que sur une boîte juste
+ * (`couverture.boiteJuste`).
+ */
+describe("la boîte de la toile", () => {
+  const place = { width: 1440, height: 810 };
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        rappel: ResizeObserverCallback;
+        constructor(rappel: ResizeObserverCallback) {
+          this.rappel = rappel;
+        }
+        observe() {
+          this.rappel(
+            [{ contentRect: place } as unknown as ResizeObserverEntry],
+            this as unknown as ResizeObserver,
+          );
+        }
+        disconnect() {}
+      },
+    );
+  });
+  const toile = (props: Partial<Parameters<typeof Screen>[0]>) => {
+    const { container } = render(
+      <Screen canvasRef={createRef()} fit="remplir" picture={{ width: 0, height: 0 }} {...props} />,
+    );
+    // Par la balise : jsdom cherche un `#screen` dans tout le document, et en
+    // trouve un d'un rendu précédent hors de ce conteneur.
+    const c = container.querySelector<HTMLCanvasElement>("canvas")!;
+    return {
+      largeur: parseFloat(c.style.width),
+      hauteur: parseFloat(c.style.height),
+      pour: c.dataset.boite,
+      proportions: c.dataset.proportions !== undefined,
+    };
+  };
+
+  it("sans image, la toile prend le format attendu de la console, pas un carré", () => {
+    const t = toile({ attendu: { width: 4, height: 3 } });
+    expect(t.largeur / t.hauteur).toBeCloseTo(4 / 3, 2);
+    expect(t.hauteur).toBe(810);
+    expect(t.pour).toBe("4x3");
+    expect(t.proportions).toBe(true);
+  });
+  it("jumeau : sans format attendu, la boîte ne se dit taillée pour aucune image", () => {
+    const t = toile({});
+    expect(t.pour).toBe("0x0");
+    expect(t.proportions).toBe(false);
+  });
+  it("une image reçue taille la boîte, et « entier » la veut au pixel près", () => {
+    const remplie = toile({
+      picture: { width: 640, height: 480 },
+      attendu: { width: 16, height: 9 },
+    });
+    expect(remplie.largeur / remplie.hauteur).toBeCloseTo(4 / 3, 2);
+    expect(remplie.pour).toBe("640x480");
+    expect(remplie.proportions).toBe(true);
+    const entiere = toile({
+      fit: "entier",
+      picture: { width: 640, height: 480 },
+    });
+    expect(entiere.pour).toBe("640x480");
+    expect(entiere.proportions).toBe(false);
+  });
+  it("en « entier » sans image, la boîte attendue n'est juste pour aucune image", () => {
+    // La taille entière dépend des pixels, que le format attendu ne dit pas.
+    const t = toile({ fit: "entier", attendu: { width: 4, height: 3 } });
+    expect(t.pour).toBe("4x3");
+    expect(t.proportions).toBe(false);
+  });
+});

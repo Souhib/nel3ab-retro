@@ -16,7 +16,7 @@ import {
   stuckAtCeiling,
 } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
-import { lever } from "./couverture";
+import { boiteJuste, decouvrir, lever } from "./couverture";
 import { under } from "../lib/base";
 
 /** How long without a byte before the connection is presumed dead.
@@ -305,6 +305,17 @@ export class VideoStream {
    * se poursuivraient — mesuré: la toile oscillait entre 608 et 1216 d'une image
    * à l'autre. */
   private decoded = { width: 0, height: 0 };
+  /** Appelé quand l'image décodée change de taille : la session relit
+   * l'instantané tout de suite, pour que React retaille la toile sans
+   * attendre le relevé de 500 ms (`couverture.decouvrir`). */
+  onFormat: (() => void) | null = null;
+  /** Une levée de la couverture attend que la toile ait la boîte de l'image
+   * peinte. Réessayée à chaque tic, et une fois juste après la relecture. */
+  private retenue = false;
+  private readonly juste = (): boolean => boiteJuste(this.canvas, this.decoded);
+  private readonly reessayer = (): void => {
+    if (this.retenue) this.retenue = !decouvrir(this.juste);
+  };
   private connected = false;
 
   private lastHeard: number | null = null;
@@ -984,6 +995,7 @@ export class VideoStream {
     this.lastRefresh = tickAt;
     this.lastPaintTick = tickAt;
     this.adjust();
+    this.reessayer();
 
     if (this.priming) {
       // One picture is enough to start: the slack lives in the SCHEDULE, in
@@ -1051,6 +1063,9 @@ export class VideoStream {
     // l'agrandissement est fait par le compositeur, en lissé. Deux temps plutôt
     // qu'un seul lissage de 2,41 fois: mesuré plus fidèle, et bien plus net.
     const times = Math.max(1, Math.round(this.prescale));
+    const neuf =
+      this.decoded.width !== next.frame.displayWidth ||
+      this.decoded.height !== next.frame.displayHeight;
     this.decoded = { width: next.frame.displayWidth, height: next.frame.displayHeight };
     const width = next.frame.displayWidth * times;
     const height = next.frame.displayHeight * times;
@@ -1066,10 +1081,17 @@ export class VideoStream {
     this.sampleDark(next.frame);
     next.frame.close();
     this.painted += 1;
+    // Un format neuf : l'instantané est relu tout de suite, et React
+    // retaille la toile (`Screen`, `data-boite`). Rare : une fois par jeu.
+    if (neuf) this.onFormat?.();
     // La couverture (plein cadre, neige, image assombrie) part dans CETTE
-    // image d'écran, pas au relevé suivant de React (`couverture.ts`, D40).
-    // Une addition et une comparaison quand rien n'est posé.
-    lever();
+    // image d'écran, pas au relevé suivant de React (`couverture.ts`, D40),
+    // pourvu que la toile ait la boîte de cette image. Sinon elle attend la
+    // relecture : une microtâche après celle que React s'est donnée pour
+    // rendre, puis chaque tic. Une addition et une comparaison quand rien
+    // n'est posé.
+    this.retenue = !lever(this.juste);
+    if (this.retenue) queueMicrotask(this.reessayer);
     this.lastPainted = now;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;

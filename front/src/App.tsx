@@ -1834,6 +1834,12 @@ function Room({
       ? DESSINS_MANETTES.pro
       : DESSINS_MANETTES.dolphin
     : null;
+  /** Le format que la console annonce, connu avant la première image : le
+   * panneau du bureau s'y décide, et la toile s'y taille tant qu'aucune
+   * image n'est décodée (`Screen`, `attendu`). */
+  const attenduDuJeu = room?.game
+    ? (formatAttendu(room.game.console) ?? PROPORTIONS_PAR_DEFAUT)
+    : null;
   const geo = useGeometrie({
     mode: modeSalle,
     fenetre,
@@ -1843,7 +1849,7 @@ function Room({
     // Le format que la console annonce, connu avant la première image : le
     // panneau du bureau s'y décide, et l'image qui arrive ne le déplace pas
     // (`baseDuPanneau`, colonne-stable d'etats.mjs).
-    formatAttendu: room?.game ? (formatAttendu(room.game.console) ?? PROPORTIONS_PAR_DEFAUT) : null,
+    formatAttendu: attenduDuJeu,
     etat: etatDuCadre({
       liaison: liaison.etat,
       chargement: booting !== null,
@@ -2867,6 +2873,7 @@ function Room({
             connected={shot?.video.connected ?? false}
             fit={fit}
             picture={shot?.video.picture ?? { width: 0, height: 0 }}
+            attendu={attenduDuJeu}
             onSpace={setSpace}
             onPrescale={(times) => session?.video.setPrescale(times)}
           />

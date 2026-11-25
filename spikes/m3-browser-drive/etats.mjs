@@ -1020,6 +1020,7 @@ const ETAPES = {
   async "premiere-image-coupe"() {
     const fautes = [];
     const exerces = [];
+    const formats = [];
     for (const [vue, reduit] of [
       [PC, false],
       [TELEPHONE, false],
@@ -1029,27 +1030,70 @@ const ETAPES = {
       const page = await nouvelle(vue);
       if (reduit) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
       await page.evaluate(() => {
-        const etat = { peintes: 0, sous: 0, vuAvant: false, fin: false };
+        const etat = {
+          peintes: 0,
+          sous: 0,
+          vuAvant: false,
+          fin: false,
+          retenues: 0,
+          premiere: null,
+          levee: null,
+          deformees: [],
+          justes: 0,
+        };
         window.__coupe = etat;
         const affiche = () => {
           const el = document.querySelector("#arrivee");
           return el !== null && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0;
+        };
+        // La boîte CSS de la toile a-t-elle le format de ses pixels, à 2 %
+        // près ? Lu sur la boîte rendue, pas sur ce que la page en dit.
+        const format = () => {
+          const c = document.getElementById("screen");
+          const r = c.getBoundingClientRect();
+          const image = c.width / c.height;
+          const boite = r.width / r.height;
+          return { juste: r.height > 0 && Math.abs(boite - image) <= 0.02 * image, intrinseque: [c.width, c.height], css: [Math.round(r.width), Math.round(r.height)] };
+        };
+        const relever = (ou) => {
+          if (affiche()) {
+            // Sous le plein cadre : permis seulement le temps que la toile
+            // prenne le format de l'image (`couverture.decouvrir`).
+            if (format().juste) return "sous";
+            etat.retenues += 1;
+            return "retenue";
+          }
+          if (etat.levee === null) etat.levee = performance.now();
+          const f = format();
+          if (f.juste) etat.justes += 1;
+          else if (etat.deformees.length < 400) etat.deformees.push({ ou, peintes: etat.peintes, ...f });
+          return "vue";
         };
         const dessiner = CanvasRenderingContext2D.prototype.drawImage;
         CanvasRenderingContext2D.prototype.drawImage = function (...a) {
           const rendu = dessiner.apply(this, a);
           if (this.canvas?.id === "screen") {
             etat.peintes += 1;
+            if (etat.premiere === null) etat.premiere = performance.now();
             queueMicrotask(() => {
-              if (affiche()) etat.sous += 1;
+              if (relever("image") === "sous") etat.sous += 1;
             });
           }
           return rendu;
         };
+        // Le tour d'animation passe AVANT la boucle de peinture dans chaque
+        // image d'écran : une levée qui attendait sa boîte part au tic de la
+        // boucle, après lui. Une couverture sur une boîte juste n'est donc une
+        // faute ici que si le tour suivant la voit encore.
+        let sousAvant = false;
         const tour = () => {
           if (etat.fin) return;
           if (etat.peintes === 0 && affiche()) etat.vuAvant = true;
-          else if (etat.peintes > 0 && affiche()) etat.sous += 1;
+          else if (etat.peintes > 0) {
+            const vu = relever("tour");
+            if (vu === "sous" && sousAvant) etat.sous += 1;
+            sousAvant = vu === "sous";
+          }
           requestAnimationFrame(tour);
         };
         requestAnimationFrame(tour);
@@ -1122,6 +1166,18 @@ const ETAPES = {
         return window.__coupe;
       });
       if (fin.sous > 0) fautes.push(`${nom}: ${fin.sous} relevés d'une image peinte sous le plein cadre`);
+      // Aucune image vue dans une boîte d'un autre format (relecture finale
+      // du 25 novembre 2026 : la toile était encore taillée en carré, 13
+      // images étirées à 1440x900), et la levée qui attend la boîte ne
+      // traîne pas : 100 ms au plus après la première image.
+      if (fin.deformees.length)
+        fautes.push(
+          `${nom}: ${fin.deformees.length} relevés d'une image vue hors de son format, le premier ${JSON.stringify(fin.deformees[0])}`,
+        );
+      if (fin.justes === 0) throw new Precondition(`${nom}: aucune image vue après la levée`);
+      if (fin.levee === null || fin.levee - fin.premiere > 100)
+        fautes.push(`${nom}: le plein cadre levé ${fin.levee === null ? "jamais" : `${Math.round(fin.levee - fin.premiere)} ms`} après la première image (${fin.retenues} relevés retenus)`);
+      formats.push({ vue: nom, retenues: fin.retenues, levee_ms: fin.levee === null ? null : Math.round(fin.levee - fin.premiere) });
       if (plateau) {
         if (fin.ainAvant !== true) throw new Precondition(`${nom}: Aïn n'était pas sur le plateau au dernier rendu sans image`);
         exerces.push(nom);
@@ -1130,6 +1186,7 @@ const ETAPES = {
       }
       await page.close();
     }
+    console.log(JSON.stringify({ formats }));
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
     console.log(JSON.stringify({ ain_exerce: exerces }));
   },

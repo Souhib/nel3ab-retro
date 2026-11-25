@@ -85,18 +85,72 @@ export function retirer(jeton: Jeton): void {
   if (poses.delete(jeton)) ecrire();
 }
 
+const toujours = (): boolean => true;
+
 /**
  * Une image vient d'être peinte. Appelé par la boucle de peinture, juste
  * après `this.painted += 1`, et par elle seule.
  *
  * Sans allocation, et le plus souvent une addition et une comparaison : en
- * partie, il n'y a rien à lever.
+ * partie, il n'y a rien à lever. Rend faux quand une couverture reste
+ * posée faute de boîte juste (`decouvrir`).
  */
-export function lever(): void {
+export function lever(boiteJuste: () => boolean = toujours): boolean {
   peintes += 1;
-  if (poses.size === 0) return;
+  return decouvrir(boiteJuste);
+}
+
+/**
+ * Lève la couverture si la toile a la boîte de l'image peinte, sans compter
+ * d'image. Rend vrai quand plus rien ne couvre l'image.
+ *
+ * La boucle de peinture l'appelle à chaque tic tant qu'une levée attend sa
+ * boîte : une image restée fixe après la première (un menu arrêté) ne doit
+ * pas garder la couverture jusqu'à l'image suivante.
+ *
+ * # Pourquoi attendre la boîte
+ *
+ * La toile est taillée par React, sur l'instantané. À la première image
+ * d'un format qu'il n'a pas encore vu, elle a encore la boîte d'avant : le
+ * format attendu de la console, ou l'image du jeu précédent. Levée là, la
+ * couverture montrait l'image étirée, 13 images à 1440x900 (relecture
+ * finale du 25 novembre 2026). Elle reste donc le temps que la session
+ * relise l'instantané (`VideoStream.onFormat`), une image ou deux.
+ */
+export function decouvrir(boiteJuste: () => boolean): boolean {
+  if (poses.size === 0) return true;
+  if (!boiteJuste()) return false;
   poses.clear();
   document.documentElement.removeAttribute(ATTRIBUT);
+  return true;
+}
+
+/** L'écart de proportions toléré entre la boîte et l'image : 2 %, moins
+ * qu'un pixel sur une boîte de 50 px, bien moins que l'écart entre 4:3 et
+ * une GameCube en 640x528 (9 %). */
+const ECART_PROPORTIONS = 0.02;
+
+/**
+ * La toile a-t-elle la boîte de cette image ?
+ *
+ * `Screen` dit pour quelle image il a taillé la toile : `data-boite`
+ * (« 640x480 », ou « 4x3 » sur le format attendu) et `data-proportions`
+ * quand la boîte ne dépend que des proportions (« remplir »). Lire deux
+ * attributs ne demande aucune mise en page. Une toile sans `data-boite`
+ * n'est taillée par personne : elle a la taille de ses pixels.
+ */
+export function boiteJuste(
+  toile: HTMLCanvasElement,
+  image: { width: number; height: number },
+): boolean {
+  const boite = toile.dataset.boite;
+  if (boite === undefined) return true;
+  const [largeur, hauteur] = boite.split("x").map(Number);
+  if (!(largeur > 0 && hauteur > 0)) return false;
+  if (toile.dataset.proportions === undefined)
+    return largeur === image.width && hauteur === image.height;
+  const voulu = image.width / image.height;
+  return Math.abs(largeur / hauteur - voulu) <= ECART_PROPORTIONS * voulu;
 }
 
 /** Les jetons posés, pour les pilotes (`nel3abTest.couverture()`). */

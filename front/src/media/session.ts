@@ -88,6 +88,10 @@ export class Session {
   ) {
     this.padOnly = padOnly;
     this.video = new VideoStream(canvas, socketUrl);
+    // Une image d'un format neuf : React doit retailler la toile avant que
+    // la couverture ne se lève (`couverture.decouvrir`). Une fois par jeu,
+    // pas à chaque image.
+    this.video.onFormat = () => this.refresh();
     this.sound = new SoundStream(socketUrl, volume, deviceRate);
     this.input = new InputStream(socketUrl, onSeat, () => this.refresh(), watching, inputSource);
     this.mic = new MicStream(socketUrl, () => this.input.attribution());
@@ -148,7 +152,8 @@ export class Session {
    * Deux fois par seconde est la bonne cadence pour LIRE des mesures, et la
    * mauvaise pour répondre à un clic: on cliquait « réassigner » et l'écran
    * mettait jusqu'à une demi-seconde à le montrer, ce qui se lit comme un bouton
-   * cassé. Appelé après une action de la personne, jamais dans une boucle.
+   * cassé. Appelé après une action de la personne, ou quand l'image change
+   * de format (une fois par jeu), jamais à chaque image.
    */
   refresh(): void {
     this.snapshot = this.read();

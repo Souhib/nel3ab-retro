@@ -27,6 +27,7 @@ export function Screen({
   aide = null,
   fit,
   picture,
+  attendu = null,
   onSpace,
   onPrescale,
 }: {
@@ -50,6 +51,10 @@ export function Screen({
   fit: Fit;
   /** La taille de l'image décodée, telle que la boucle média la publie. */
   picture: { width: number; height: number };
+  /** Le format que la console du jeu annonce (`formatAttendu`), connu avant
+   * la première image : la toile s'y taille tant qu'aucune image n'est
+   * décodée, plutôt qu'en carré. `null` sans jeu. */
+  attendu?: { width: number; height: number } | null;
   /** La place disponible, rapportée vers le haut.
    *
    * Parce que le MENU en a besoin: il annonce à côté de chaque choix la taille
@@ -128,7 +133,24 @@ export function Screen({
     };
   }, []);
 
-  const at = place(fit, picture, space);
+  /* Avant la première image, la toile se taille sur le format attendu,
+     en « remplir » : une taille entière dépend des pixels, que le format
+     ne dit pas. Et sans agrandissement préalable : 4x3 « rempli » donnerait
+     un pas de deux cents, que la boucle appliquerait à l'image réelle.
+     Avant ce choix, `place` sur 0x0 rendait un CARRÉ, et la couverture
+     levée à la première image la montrait étirée dedans jusqu'au relevé
+     suivant (relecture finale du 25 novembre 2026). */
+  const connue = picture.width > 0 && picture.height > 0;
+  const pose = connue || attendu === null ? picture : attendu;
+  const at =
+    connue || attendu === null
+      ? place(fit, picture, space)
+      : { ...place("remplir", attendu, space), prescale: 1 };
+  /* Pour quelle image la boîte est taillée : la boucle de peinture ne lève
+     la couverture que si l'image peinte est celle-là (`boiteJuste`).
+     « Remplir » ne dépend que des proportions ; « entier » et « origine »,
+     des pixels, y compris sur le format attendu. */
+  const proportions = (connue || attendu !== null) && (fit === "remplir" || fit === "remplir-net");
 
   useEffect(() => {
     onPrescale?.(at.prescale);
@@ -170,6 +192,8 @@ export function Screen({
         ref={canvasRef}
         width={1280}
         height={960}
+        data-boite={`${pose.width}x${pose.height}`}
+        data-proportions={proportions ? "" : undefined}
         style={{
           width: `${at.width}px`,
           height: `${at.height}px`,

@@ -3167,6 +3167,29 @@ red on 672dcb6). `placeDuReglage`, a rule nothing read, is gone.
 `feuille-reglage`; all four fail on their defect on 928bd03. The page
 weighs 278 234 bytes brotli (−1 413 on 928bd03).
 
+#### D42 addendum, 2026-11-25: one held place for the panel, the room's
+
+The end-of-track work of the room (dc7f232) and of the controls (29f1486)
+each wrote the held place of the panel, from the same decision and the
+same base. Two rules cannot both hold, and `lib/cadre.ts` belongs to the
+room work site (the partition of the retro theme; D39, amended at the end
+of the room's track, describes the kept rule): the final integration keeps
+`reglageTenu` and `REGLAGE_TENU`, and drops `REGLAGE_TENU_MIN` and
+`REGLAGE_TENU_LARGEUR`. The numbers in the paragraph above change
+accordingly. Upright, the picture shrinks only to leave the panel 280 px,
+not 240. Sideways, the panel takes 42 % of the width between 300 and
+520 px, not 380 px at most and half at most. A pad-only page receives the
+same place under the bar, where its pad is not mounted during the panel,
+instead of the enlarged sheet: the frame gives one rule to every held
+page, and `manette-seule` only asks that the panel be visible, which both
+rules satisfy. The controls keep what is theirs: the column row, the sheet
+entry, the label, `reglage.mjs` and its red pages. `reglage-place.test.ts`
+now reads `REGLAGE_TENU`; four mutants of `reglageTenu` (the picture keeping
+the whole width sideways, the picture not shrinking, the panel 20 px
+higher, a pad-only page without a place) each fail their test. One
+`.n3-reglage-tenu` rule remains, in `telephone.css` with the room's other
+held places: the copy in `reglage.css` loaded only with the panel's module.
+
 ### D43: The worker publishes the milestones of its start, 2026-11-23
 
 The loading screen said « the game started in the room » by guessing: the page

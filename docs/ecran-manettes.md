@@ -27,13 +27,17 @@ projet](etat-du-projet.md) relie les parcours.
 - **Sa place, jamais sur l'image.** Au bureau, il prend la place des rangs de
   la colonne, élargie (`largeurPanneau`, K24) ; en fenêtre étroite, la colonne
   est sous l'image. Tenu en main, le cadre lui donne un rectangle à lui
-  (`Geometrie.reglage`, `lib/cadre.ts`) : sous l'image tenu droit, du bas de
-  l'image au bas de la zone sûre (l'image ne rapetisse que pour lui laisser
-  240 px) ; à droite en travers, 380 px au plus, l'image rangée à gauche. La
+  (`Geometrie.reglage`, `reglageTenu` de `lib/cadre.ts`) : sous l'image tenu
+  droit, du bas de l'image au bas de la zone sûre (l'image ne rapetisse que
+  pour lui laisser `REGLAGE_TENU.hauteurMin`, 280 px) ; à droite en travers,
+  42 % de la largeur entre 300 et 520 px, l'image posée dans le reste. La
   salle le monte dans `#reglageTenu`. Un seul panneau à la fois : la colonne
   ne le monte que quand le cadre ne lui donne pas de place. Une page
-  « manette seule » n'en a pas (pas d'image à épargner) : la feuille
-  agrandie s'ouvre et sa colonne le porte (étape `manette-seule`).
+  « manette seule » reçoit la même place, sous la barre, où sa manette n'est
+  pas montée pendant le réglage (étape `manette-seule`). Les fins de la
+  salle et des manettes avaient écrit cette règle chacune avec ses nombres
+  (240 px et 380 px côté manettes) ; l'intégration du 25 novembre 2026 garde
+  celle de la salle, qui possède `lib/cadre.ts` (ADR D42, addendum).
 - **La manette à l'écran n'est pas montée** pendant le réglage
   (`couchesDeLaSalle`) : elle enverrait au jeu ce qu'on essaie. Tenu droit, sa
   place revient au panneau.

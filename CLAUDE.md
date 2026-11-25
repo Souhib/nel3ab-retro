@@ -37,6 +37,13 @@ main working tree at every room start. Work in a separate git worktree; the main
 tree changes only by `git merge --ff-only` while no room container runs. The
 external rooms share `moteurs/socle/`, which never reads `consoles.json` (D27).
 
+Work sites that run in parallel get each decision with one writer, named by
+the file that holds it. On 2026-11-25, the room's and the controls'
+end-of-track work each wrote the held place of the controls panel from the
+same decision, with different numbers; git merged most of both without a
+conflict, and the page mounted the panel twice. The other site waits for
+its rectangle.
+
 ## The rules that matter
 
 ### 1. No rule without its reason — and the reason is measured
@@ -194,6 +201,11 @@ machine".
   driver fdinfo statistics outside timed trials until their cost is qualified;
   the periodic guard uses descriptor metadata and sysfs device identity only.
   A polling guard still cannot exclude work created and closed between scans.
+  A load average is not the processor's load. On 2026-11-25 it read 63 for
+  12 cores while the processor was 98 % idle: 62 threads of other services
+  slept uninterruptibly, several waiting on an NFS mount, and three
+  end-of-track reports had blamed timing failures on a load of 62 to 83.
+  Read idle time and `/proc/pressure/cpu` before calling a machine loaded.
 - **A worker gap does not prove an empty CI queue.** On 2026-11-09, a new
   worker entered the first Zelda comparison after the previous one exited.
   Check active and waiting work that can run here for every repository registered
@@ -462,6 +474,13 @@ machine".
   one frame 4 to 12 ms after the click returned; the driver read the clock
   after the click, and a loaded machine delayed that read past the frame. A
   slow driver must not move the start of what it measures.
+  Nor may a gesture that comes before the screen being timed. On 2026-11-25,
+  `arrivee-courte` read a lost arrival 15.5 s after the click on « Entrer »,
+  the very instant the page declares it, because the lobby's transition
+  delays the room's arrival; with the document timeline slowed four and ten
+  times over CDP, it fell on its precondition both times. Start from the screen
+  the page shows, and wait for the state with a bound rather than sleep to
+  an instant.
 - **Read what was done, not what was asked.** On 2026-11-23, `jouer()`
   returned the version a caller ASKED for; the mascot's board driver reported
   every black-screen scene complete while half fell back. The logo now

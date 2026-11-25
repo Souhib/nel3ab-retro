@@ -33605,149 +33605,166 @@ de la porte et dans les trois pilotes visuels. `preparation-ui.mjs` et
 d'instabilité sont prouvées par le défaut réintroduit, sur une machine
 chargée ; aucune série n'a tourné sur une machine au repos.
 
+### 25 novembre, après minuit : les quatre chantiers de fin réunis, et une même règle écrite deux fois
+
+**Le contexte.** Quatre chantiers de fin étaient partis du même commit
+d'`integration/retro` (928bd03), chacun avec les décisions du chef de
+chantier qui le concernaient : la salle, Aïn, les manettes et le ménage.
+Cette intégration les fusionne dans cet ordre, dans le worktree
+`~/nel3ab-chantiers/retro-integration`, reconstruit la page après chaque
+fusion, puis lance toutes les portes du navigateur et leurs contrôles
+rouges. `main` reste sur 03b21c0.
+
+**Les fusions.** La salle passe sans conflit : elle partait de la tête.
+Aïn a quatre conflits de texte, et la page. Les deux côtés avaient
+ajouté un essai à la fin de `BarreSalle.test.tsx` : les deux restent. La
+salle et Aïn avaient élargi la plage de ports des bancs, chacun avec ses
+mots ; le ménage remplace ensuite cette plage par un port libre
+(`port.mjs`), et ces lignes ne comptent plus. Le seul vrai travail était
+chez les manettes.
+
+**Une règle écrite deux fois.** La décision « place tenue en main du
+panneau des manettes : sous l'image ou à droite selon `lib/cadre.ts` »
+avait été donnée à la fin de la salle, qui possède `lib/cadre.ts`, et à
+la fin des manettes, qui possède le panneau. Les deux l'ont écrite, le
+même soir, à vingt-sept minutes d'écart. La salle : `reglageTenu`, une
+fonction appliquée après le calcul du cadre, 280 px au moins sous l'image
+tenue droite, 42 % de la largeur entre 300 et 520 px en travers. Les
+manettes : deux retours anticipés dans `portrait` et `paysage`, 240 px et
+380 px au plus. Une page « manette seule » recevait la place de la salle,
+et la feuille agrandie chez les manettes. Git n'a vu de conflit que là où
+les deux textes se touchaient ; le reste des deux règles s'était fusionné
+sans un mot, et `App.tsx` montait le panneau deux fois, dans deux
+`div` différentes. La feuille de style avait aussi deux
+`.n3-reglage-tenu`, l'une dans `telephone.css`, l'autre dans
+`reglage.css`, qui ne se charge qu'avec le module du panneau.
+
+**Le choix.** Deux règles ne peuvent pas tenir ensemble, et le fichier
+est à la salle : sa règle reste. Ce qui est aux manettes reste aux
+manettes : le rang de la colonne, l'entrée de la feuille, l'étiquette
+sous « Ta manette », `reglage.mjs` et ses pages rouges. Un seul
+`#reglageTenu`, que la colonne remplace quand le cadre ne donne pas de
+place. L'essai des manettes (`reglage-place.test.ts`) lit maintenant
+`REGLAGE_TENU`, et son jumeau « manette seule » attend la place sous la
+barre. Pour qu'il prouve encore quelque chose, quatre mutants de
+`reglageTenu` ont tourné, et chacun a rougi son essai : l'image qui garde
+toute la largeur en travers, l'image qui ne rapetisse pas, le panneau
+monté de 20 px, la manette seule sans place. Un essai de la salle
+(`colonne.test.ts`) attendait une colonne sans le rang des manettes ; il
+le porte. `reglage-navigateur` a tourné juste après cette fusion : ses
+quatorze étapes passent, `manette-seule` comprise, qui demande seulement
+que le panneau se voie.
+
+La leçon : une décision confiée à deux chantiers qui travaillent en même
+temps est écrite deux fois. La partition donnait bien `lib/cadre.ts` à la
+salle, mais la décision nommait un écran, pas un fichier, et chacun s'est
+cru chargé de la poser. Une décision partagée nomme le chantier qui
+l'écrit ; l'autre attend son rectangle.
+
+**Deux remèdes pour une instabilité.** La salle et le ménage avaient aussi
+réparé tous les deux `place-suit-adresse`. Celui du ménage, qui attend la
+colonne de l'image et clique au point vérifié, reste : c'était son
+travail. L'outil de la salle (`cliquerVisible`) part, puisque plus rien ne
+l'appelle. Le commentaire de l'étape garde les deux causes : sur la page
+de la vague B2, la colonne changeait à la première image ; depuis la fin
+de la salle, « Autres réglages » est sous le coin collé d'Aïn dès
+l'arrivée.
+
+**Un titre recopié.** Les manettes et le ménage avaient chacun ajouté
+leurs mots en tête du glossaire. L'union de texte a posé toute l'entrée
+du ménage après les mots des manettes, donc sous le titre du glossaire,
+suivie d'un second « Glossaire complet ». Le vérificateur de fusion l'a
+vu (une ligne présente deux fois, une seule permise). L'entrée est
+revenue avant le glossaire.
+
+**Le glossaire.** Les mots du thème rétro étaient à quatre endroits : en
+tête, au milieu, et après le pied du document. Ils sont réunis en un bloc,
+triés sans casse ni accents, juste avant le pied. Les entrées d'avant
+n'ont pas bougé. Deux mots avaient plusieurs définitions, écrites par des
+chantiers différents : l'observateur de taille (trois) et l'observateur de
+mutations (deux). Chacun n'en a plus qu'une, qui garde ce que disaient
+les autres. Le script du tri, hors du dépôt, refusait d'écrire si une
+ligne se perdait hors de ces deux mots, ou si une entrée d'avant changeait
+de texte ou d'ordre.
+
+**L'arrivée courte.** Le ménage avait vu `arrivee-courte` (états)
+rougir une fois, et nommé la cause : comme `arrivee-sans-image`, elle
+compte depuis le clic sur « Entrer ». Elle relevait l'arrivée perdue
+15,5 s après le clic, l'instant même où la page la déclare (0,5 s de
+transition d'entrée, puis la limite de 15 s). La fin de la salle avait
+réparé `arrivee-sans-image`, pas sa voisine. Pour la voir tomber à coup
+sûr, une copie du pilote, hors du dépôt, ralentit la ligne de temps du
+document par le protocole de Chrome (`Animation.setPlaybackRate`) : la
+transition d'entrée est une animation Web, et l'arrivée part plus tard.
+Ralentie quatre fois, l'ancienne étape tombe sur « 375x667: 0 gestes à
+15 s », la précondition vue par le ménage ; dix fois, sur « 0 étapes à
+3 s ». La nouvelle étape part de l'apparition du plein cadre, et attend
+les gestes de l'arrivée perdue, au plus 18 s après lui : verte sous les
+deux ralentissements, et dans la porte. Leur heure reste l'affaire
+d'`arrivee-sans-image` ; celle-ci mesure la mise en page. La leçon rejoint
+celle du ménage sur l'horloge : un geste qui précède l'écran mesuré ne
+donne pas l'heure de cet écran.
+
+**Les portes.** Sur la tête 8f8403c, puis, pour `etats-navigateur` et
+son contrôle rouge, sur le pilote corrigé (d1b75ce), une porte après
+l'autre, chaque pilote sur un port libre :
+`just check` (1 358 essais Python, 182 fichiers et 2 406 essais de la
+page), `focus-navigateur` (36 étapes), `etats-navigateur` (34),
+`parcours-navigateur` (38), `salle-telephone` (132 lignes),
+`manette-garde` (41), `cadre-navigateur` (28), `salon-navigateur`,
+`reglage-navigateur` (14), `planche-garde`, et les sept contrôles rouges
+(focus, états, parcours, cadre, mascotte, salon, réglage) sortent en 0.
+`cadre-navigateur` est vert en entier pour la première fois depuis la
+vague B1 : `mascotte-hors-image` (129 s) et `ain-immobile` (0 appel au
+repos, 0 après une scène, 60 en 1 s pour le jumeau). `etats-navigateur`
+l'est aussi, `arrivee-sans-image`, `colonne-stable` et `pastille-panneau`
+compris. Le clic court de `salle-telephone`, rouge chez trois chantiers
+de fin (51 à 56 ms), mesure 6 à 9 ms au processeur ralenti quatre fois,
+sans tâche longue. `just docs` passe, numéros de l'ADR compris.
+
+`deploy-check` est rouge, pour deux raisons. La comparaison des fichiers
+ne trouve qu'une différence : `deploy/Caddyfile`, les treize lignes de
+K39 (le numéro de la salle dans la redirection d'une salle fermée) ; le
+Caddyfile installé est, à l'octet, celui de `main`. La seconde : le salon
+et la boîte noire tournent depuis le 22 novembre à 14 h 35 avec un code
+plus ancien que celui du worktree. C'est vrai du contenu, pas seulement
+des heures de fichiers : 51 fichiers du salon ont changé depuis `main`,
+et le redémarrage du salon est la première étape de la mise en service.
+Ce n'est pas propre au worktree non plus : dans l'arbre principal,
+`consoles/consoles.json` a changé deux fois après ce démarrage (e408fd1
+et 6b004f9, la Xbox 360 ordinaire), et le salon ne le lit qu'en
+démarrant. Rien n'a été redémarré.
+
+**Le poids.** La page pèse 278 860 octets en brotli, 21 140 sous le
+plafond de 300 000 (279 647 à la fin de la vague B2). Les reconstructions
+après chaque fusion : 280 496 (salle), 280 782 (Aïn), 279 049
+(manettes, les anciens dialogues des touches partis), 278 860 (ménage,
+Bobine partie). Une reconstruction varie de quelques centaines d'octets.
+
+**La charge qui n'était pas le processeur.** Les chantiers de fin ont
+écrit « machine chargée, charge 62 à 83 » pour expliquer des délais
+dépassés. Cette nuit, sans aucun autre chantier, la charge moyenne était
+encore de 63 pour douze cœurs, et le processeur au repos à 98 %. La
+charge moyenne compte aussi les fils en sommeil ininterruptible, qui
+attendent un disque ou le réseau sans rien calculer : il y en avait 62,
+surtout de Jellyfin, Sonarr et Radarr, et le script de copie des
+sauvegardes vers le NAS (`tools/abri.sh`), qui attendait depuis plus
+d'une heure une réponse du montage NFS `/mnt/nas`. Pendant la série des
+portes, un relevé toutes les 10 s (371 relevés) de la part du processeur au repos et
+de sa pression (PSI) a dit la vraie charge : la charge moyenne entre 63 et
+71, le processeur au repos à 94 % en médiane et jamais sous 60 % pendant
+les pilotes du navigateur ; il n'est descendu à 3 % que pendant la
+compilation et les essais de `just check`. Ce qui tournait pendant les portes des chantiers de fin n'est pas
+connu ; leurs chiffres de charge comptaient en tout cas ces fils bloqués.
+Rien n'a été touché : ni Jellyfin, ni les autres services, ni la copie.
+
+**Ce qui n'est pas prouvé.** Aucune vraie salle n'a servi la page, aucun
+téléphone ne l'a tenue, aucun worker n'est reconstruit ni installé. Les
+portes `gpu-test`, `clip-audio-test`, `switch-saves-test`,
+`switch-capture-test`, `xbox360-test` et `abri-test` n'ont pas tourné, et
+les pilotes d'une vraie salle (K40) non plus.
+
 ## 12. Glossaire complet
-
-**Classe morte** : une classe qu'une feuille de style déclare et qu'aucune
-source de la page ne pose. Elle ne se voit pas à l'écran, mais elle part dans
-la page et pèse. `classes.test.ts` les cherche dans `index.css` et dans les
-feuilles du panneau des touches.
-
-**Rang (de la colonne)** : une ligne de la colonne de la salle, sous la tête :
-Signaler, « Touches et manettes », le son, le menu, la vue de l'appareil,
-garder, agrandir, autres réglages. Un rang qui ne sert à rien disparaît au
-lieu d'être grisé (`lib/colonne.ts`).
-
-**Légende (d'un dessin)** : la ligne de texte qui titre un dessin de
-manette, « Ce que le jeu reçoit » ou « Ta manette », avec le nom de
-l'appareil dessous. Ton étiquette s'y pose, à côté du dessin.
-
-**Port libre** : un port réseau que le système choisit lui-même quand un
-serveur demande le port 0. Il est libre au moment où le système le donne,
-et deux bancs lancés ensemble en reçoivent deux différents. Sur cette
-machine, il tombe entre 32768 et 60999.
-
-**Boucle d'événements** : le fil unique qui exécute le code d'un
-processus Node, ou d'une page, une tâche après l'autre. Un événement prêt
-attend que la tâche en cours finisse : sur une machine chargée, un pilote
-reprend la main plusieurs millisecondes après le retour d'un clic.
-
-**Course (entre deux événements)** : deux choses qui arrivent presque en
-même temps, dans un ordre que rien ne fixe, quand le résultat dépend de
-celle qui passe la première. Une porte qui rougit « une fois sur cinq »
-cache souvent une course.
-
-**Instabilité (d'une porte)** : une porte qui rougit de temps en temps sans
-que le code change. Tant que sa cause n'est pas trouvée, la porte ne dit
-plus rien : on apprend à relancer au lieu de lire.
-
-**Couverture (de l'image)** : ce qui se montre à la place d'une image du
-jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image
-assombrie). Un attribut sur la racine de la page, que la boucle de peinture
-retire à la première image dessinée.
-
-**Microtâche** : un morceau de code que le navigateur exécute juste après
-la tâche en cours, avant de rendre l'image suivante. Le pilote y regarde ce
-qui se verrait, une fois l'image dessinée.
-
-**Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
-née des claviers sans lettres arabes. Le 3 y note la lettre ʿayn (ع), dont le
-nom veut dire « œil » : d'où Aïn.
-
-**Boîte serrée** : le plus petit rectangle qui contient les pixels peints
-d'un dessin, sans ses marges transparentes. C'est elle que le planificateur
-d'Aïn compare aux zones interdites.
-
-**Planificateur (d'Aïn)** : le module qui calcule les trajets d'une scène à
-partir des ancres de la page, les échantillonne, et refuse ceux qui
-toucheraient l'image du jeu, un contrôle ou un mot.
-
-**Sprite** : une petite image qu'on déplace d'un bloc au-dessus du décor,
-comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
-
-**Écran squelette** : ce qu'une page montre pendant qu'elle attend ses
-données : les rectangles de l'écran final, vides, à leur place. Quand le
-contenu arrive, rien ne saute.
-
-**Point de passage (d'Aïn)** : une marque invisible de la page par laquelle
-le planificateur peut faire passer Aïn quand le chemin direct toucherait un
-contrôle ou un mot.
-
-**Gabarit (de mot)** : un texte de `mots.ts` qui garde des trous nommés,
-comme « Salle {n}, éteinte. ». La page remplit les trous au moment de
-l'écrire ; un trou sans valeur est une erreur, pas un « undefined » à l'écran.
-
-**Temps virtuel** : une horloge que Chrome fait avancer à la demande, sans
-attendre : les minuteries d'une page tombent dans leur ordre, mais trente
-secondes passent en une fraction de seconde. Un pilote s'en sert pour
-vérifier ce qui n'arrive qu'après une longue attente, comme la démo de
-l'accueil.
-
-**Ancre (d'Aïn)** : un élément de la page marqué `data-ancre`, là où Aïn va
-se poser ou d'où part un objet : le haut d'un bouton START, la prise de la
-pastille, une marque sur un sol. Une ancre absente replie la scène en
-version courte, puis en pose clé.
-
-**Installation éditable** : une façon d'installer un paquet Python qui
-pointe vers son dossier de travail au lieu d'en copier les fichiers. Python
-le trouve alors avant un autre dossier du même nom ; `python -S` désactive ce
-mécanisme, ce qui permet d'importer une archive d'un ancien commit
-(`salon-navigateur-rouge`).
-
-**IIFE (immediately invoked function expression)** : un script dont tout le
-code tient dans une fonction appelée aussitôt définie. Ses noms restent
-dedans, rien ne fuit dans la page qui le charge. C'est la forme du paquet
-d'Aïn pour le salon.
-
-**Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
-verticales de couleurs pures (blanc, jaune, cyan, vert, magenta, rouge, bleu)
-fixées par l'Union européenne de radio-télévision (EBU en anglais). Sur
-l'accueil, elle dit « HORS ANTENNE » quand aucune salle n'est ouverte, et elle
-donne au thème rétro ses couleurs vives.
-
-**Pixel art** : un dessin fait case par case, sur une petite grille, comme les
-graphismes des consoles 8 et 16 bits. Agrandi, il doit garder ses carrés nets
-au lieu d'être lissé.
-
-**Police variable** : un seul fichier de police qui contient toute une plage
-de graisses (de 400 à 700 pour Pixelify Sans) au lieu d'un fichier par graisse.
-
-**Sous-ensemble (d'une police)** : une police réduite aux caractères qu'on
-utilise, ici ceux du français. Elle pèse beaucoup moins que l'originale.
-
-**OFL (SIL Open Font License)** : la licence libre des polices Anybody,
-Departure et Pixelify Sans. Elle permet de les modifier et de les
-redistribuer, pas de les vendre seules.
-
-**Niveau d'effets** : le réglage à trois positions de cet appareil, « sobre »,
-« conseillé » ou « tout », qui décide quels effets rétro la page montre.
-
-**Tramage** : un dégradé fait de points de deux couleurs alternés, comme sur
-une console qui n'avait pas assez de couleurs pour un vrai dégradé.
-
-**Lignes de balayage** : les fines lignes horizontales d'un vieil écran à tube,
-imitées par un motif posé sur une surface.
-
-**Mosaïque** : la transition de la Super Nintendo où l'écran se découpe en
-carrés de plus en plus gros. Ici, des filtres SVG.
-
-**Iris** : la transition où un cercle se referme sur le centre de l'écran,
-comme à la fin d'un niveau.
-
-**WebAudio** : l'interface du navigateur qui fabrique des sons sans fichier.
-Les sons de menu sont des notes carrées, comme la puce sonore d'une console.
-
-**Web Animations (WAAPI)** : l'interface du navigateur qui anime un élément
-depuis le script (`element.animate`), sans bibliothèque.
-
-**Mouvement réduit (prefers-reduced-motion)** : un réglage du système qui
-demande moins d'animations. La page le lit et ne garde alors que la pose
-finale et le texte.
-
-**Pose clé** : la dernière image d'une animation, celle qui reste quand rien ne
-doit bouger.
-
-**localStorage** : la petite mémoire qu'un site garde dans le navigateur, par
-adresse. Le salon et les salles, servis à la même adresse, la partagent.
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
 seul fichier exécutable.
@@ -33933,13 +33950,11 @@ fonction, pour savoir quel travail un échantillon de mesure représente.
 **ThinLTO** : une variante de LTO qui échange des résumés entre les fichiers
 compilés et répartit l'optimisation finale entre plusieurs tâches.
 
-
 **SMT** : la capacité d'un cœur physique à exécuter deux fils. Linux les présente
 comme deux processeurs logiques ; ici 0 et 6 partagent le même cœur physique.
 
 **Affinité CPU** : le masque des processeurs logiques sur lesquels un fil peut
 s'exécuter. Le modifier pour un fil ne réserve pas ce cœur aux autres applications.
-
 
 **Soumission GPU** : un lot de commandes préparées que le moteur remet au pilote
 pour exécution sur la carte graphique.
@@ -33990,7 +34005,6 @@ un pas du compteur et quels bits sont valides.
 **APERF et MPERF** : deux compteurs d’activité du processeur utilisés pour étudier sa fréquence effective pendant une période. Ils ne désignent pas à eux seuls le fil qui limite le jeu.
 
 **LTO** : une optimisation appliquée lorsque les morceaux compilés du programme sont assemblés. Elle permet au compilateur de travailler au-delà des limites d’un seul fichier.
-
 
 **PGO** : *Profile-Guided Optimization*, optimisation à la compilation à partir
 de profils d'exécution qui indiquent les opérations fréquentes d'un programme.
@@ -34114,7 +34128,6 @@ données peut bloquer la préparation de l'image suivante.
 
 **Firmware** : logiciel système d’un appareil. Le firmware Switch désigne ici les composants du système de la console.
 
-
 **IPC** : *Inter-Process Communication*. Les échanges entre processus. Dans un
 navigateur, un canal peut par exemple relier une page au processus qui compose
 l’affichage de la fenêtre.
@@ -34126,7 +34139,6 @@ un gestionnaire et un chemin de nettoyage pour que le programme puisse le faire.
 
 **SIGKILL** : signal qui termine immédiatement un processus. Il ne lui laisse
 pas le temps de nettoyer ses ressources ou d'écrire une sauvegarde.
-
 
 **AAC** — *Advanced Audio Coding*. Un format de son compressé. Les clips
 l’utilisent dans leur MP4 ; le son de la partie continue de voyager en PCM brut.
@@ -34526,11 +34538,544 @@ gel.
 
 **Zero-copy** — l'objectif : la donnée n'est jamais recopiée.
 
+### Les mots du thème rétro (novembre 2026), dans l'ordre alphabétique
+
+Les chantiers du thème rétro ont ajouté leurs mots chacun à sa place ;
+l'intégration finale du 25 novembre 2026 les réunit ici, triés. Les mots
+d'avant restent où ils étaient.
+
+**90e centile** : la durée sous laquelle tombent neuf démarrages sur dix.
+Au-delà, un démarrage est « plus long que d'habitude » ; la médiane, elle,
+dit la durée ordinaire.
+
+**Abri (de la maison d'Aïn)** : l'ancêtre collé ou fixe du logo, comme le
+pied de la colonne du bureau. Il passe devant ce qui défile : ce qui est
+dessous ne se voit pas, et ne gêne pas Aïn.
+
+**Âge (d'une partie)** : depuis combien de secondes le worker a démarré
+son jeu, tel que le salon le publie (`depuis_s`). Ce n'est pas une heure :
+la page le change en instant à la réception du message, sans comparer
+deux horloges.
+
+**Ancre (d'Aïn)** : un élément de la page marqué `data-ancre`, là où Aïn va
+se poser ou d'où part un objet : le haut d'un bouton START, la prise de la
+pastille, une marque sur un sol. Une ancre absente replie la scène en
+version courte, puis en pose clé.
+
+**Ancre d'une scène (`data-ancre`)** : un élément de la page qui dit à la
+mascotte où aller, par son nom (`start-2` pour le bouton START de la place
+2). Le planificateur lit sa boîte dans le rendu, et ne calcule aucun trajet
+depuis une coordonnée écrite à la main.
+
+**Ancre de l'annonce** : l'élément où le socle écrit une annonce lettre à
+lettre. La salle n'en pose qu'un à la fois, sur la ligne du titre, jamais
+sur l'image.
+
+**Appui clair** : la marque `appui: "clair"` d'une touche dans les plans de
+manette. Appuyée, elle prend la teinte claire de la place et un anneau
+sombre, même sur une coque claire : c'est la seule paire qui tranche à la
+fois sur une touche de teinte moyenne et sur un entourage sombre.
+
+**Arabizi** : l'écriture de l'arabe avec l'alphabet latin et des chiffres,
+née des claviers sans lettres arabes. Le 3 y note la lettre ʿayn (ع), dont le
+nom veut dire « œil » : d'où Aïn.
+
+**Arbitre des scènes** : le module qui décide quelle scène de la mascotte
+joue quand deux chantiers en demandent une au même endroit (`lib/scenes-salle.ts`).
+
+**Arbre d'accessibilité** : ce que le navigateur donne aux lecteurs d'écran :
+chaque élément utile de la page avec son rôle (lien, bouton, image) et son
+nom accessible. Chrome le montre à un pilote, qui peut donc lire le nom qu'un
+lecteur d'écran dirait.
+
+**Avance rapide (fast-forward)** : une fusion où la branche reçue part du
+dernier commit de celle qui la reçoit. Git n'a alors qu'à avancer le nom de
+la branche, sans commit de fusion ; `--no-ff` en crée un quand même, pour
+que la frontière reste visible dans l'historique.
+
+**Base (de la mise en page)** : ce sur quoi le cadre décide la place du
+panneau au bureau : le format attendu de la console, puis la vraie image
+au premier changement de mise en page naturel (une fenêtre redimensionnée,
+un panneau fermé, la colonne élargie, un autre réglage de l'image).
+
+**Bloc conteneur (containing block)** : la boîte par rapport à laquelle un
+élément en position absolue se place. C'est le plus proche ancêtre
+positionné ; sans lui, un ancêtre lointain, dont l'élément agrandit la zone
+qui défile même s'il est invisible.
+
+**Boîte qui défile (scroll container)** : un élément dont le contenu
+défile dans ses bords (`overflow: auto`). Il coupe tout ce qui dépasse de
+sa boîte, y compris un anneau de focus dessiné hors de l'élément : un
+contrôle collé à son bord perd le côté de son anneau.
+
+**Boîte serrée** : le plus petit rectangle qui contient les pixels peints
+d'un dessin, sans ses marges transparentes. C'est elle que le planificateur
+d'Aïn compare aux zones interdites.
+
+**Boucle d'événements** : le fil unique qui exécute le code d'un
+processus Node, ou d'une page, une tâche après l'autre. Un événement prêt
+attend que la tâche en cours finisse : sur une machine chargée, un pilote
+reprend la main plusieurs millisecondes après le retour d'un clic.
+
+**Bouton START (place)** : une place de la salle, dessinée comme le bouton rond
+d'une borne d'arcade, « 1P » à « 4P », allumée à la couleur du joueur quand
+elle est prise.
+
+**Carnet commun** : ce que chaque carnet dit des autres depuis le
+24 novembre 2026 : avec qui tu as joué, à quelle place, et qui regardait.
+Chacun ne lit que le sien.
+
+**Cartouche (dans la salle)** : un jeu debout sur l'écran éteint d'une salle
+sans jeu, son étiquette étant sa jaquette. Un clic ou Entrée ouvre sa fiche.
+À ne pas confondre avec le cartouche d'un plan technique, plus bas.
+
+**Case (du chargement)** : un carré de 22 px dessiné en pixels, un par
+étape d'un démarrage : cochée, en pointillé avec ses secondes, vide, point
+d'interrogation quand la page ne sait plus, croix quand aucune image n'est
+venue. Elle remplace la liste de « ✓ » et de « · » depuis le 24 novembre.
+
+**Charge moyenne (load average)** : le nombre moyen de tâches qui
+tournent ou attendent, sur une, cinq et quinze minutes. Sous Linux, elle
+compte aussi les tâches en sommeil ininterruptible, qui attendent un disque
+ou le réseau sans rien calculer : elle peut être haute sur un processeur au
+repos.
+
+**Classe morte** : une classe qu'une feuille de style déclare et qu'aucune
+source de la page ne pose. Elle ne se voit pas à l'écran, mais elle part dans
+la page et pèse. `classes.test.ts` les cherche dans `index.css` et dans les
+feuilles du panneau des touches.
+
+**Clé de lecture** : l'étiquette qu'une lecture du réseau porte avec sa
+réponse, pour qu'une réponse arrivée trop tard pour une autre demande ne
+soit pas prise pour la bonne. Le rayonnage en donne une à chaque fiche
+ouverte.
+
+**Code QR** : un carré de modules noirs et blancs qu'un téléphone lit avec
+son appareil photo pour ouvrir une adresse. L'invitation en dessine un pour
+le lien de la salle.
+
+**Commit de câblage** : le seul commit qu'un chantier du thème rétro peut
+faire dans `App.tsx`, selon la partition : ses imports, le montage de ses
+pièces dans les emplacements du cadre, et le retrait des blocs qu'il
+remplace. La logique vit dans les fichiers du chantier.
+
+**Conflit de fusion** : deux branches ont changé les mêmes lignes d'un
+fichier, et git ne sait pas laquelle garder. Il écrit les deux versions
+entre des marques et attend qu'on choisisse.
+
+**Conflit sémantique (de fusion)** : deux branches qui se fusionnent sans
+conflit de texte, et dont le résultat ne marche plus, parce que chacune
+supposait ce que l'autre change. Git ne peut pas le voir ; seules les
+preuves lancées sur le résultat le montrent.
+
+**Course (entre deux événements)** : deux choses qui arrivent presque en
+même temps, dans un ordre que rien ne fixe, quand le résultat dépend de
+celle qui passe la première. Une porte qui rougit « une fois sur cinq »
+cache souvent une course.
+
+**Couverture (de l'image)** : ce qui se montre à la place d'une image du
+jeu qui n'est pas là ou ne bouge plus (le plein cadre, la neige, l'image
+assombrie). Un attribut sur la racine de la page, que la boucle de peinture
+retire à la première image dessinée.
+
+**Crochet React (hook)** : une fonction dont le nom commence par `use`, que
+React appelle pendant le rendu d'un composant pour lui donner un état ou un
+effet. Son état appartient au composant qui l'appelle.
+
+**Écran squelette** : ce qu'une page montre pendant qu'elle attend ses
+données : les rectangles de l'écran final, vides, à leur place. Quand le
+contenu arrive, rien ne saute.
+
+**Élément collant (sticky)** : un élément qui défile avec la page jusqu'à
+toucher un bord de la zone visible, puis y reste collé. Dans la colonne de la
+salle, la pile des avis est collée en haut et « Plus bas » en bas.
+
+**Emplacement (du cadre)** : une place que le cadre de la salle
+(`lib/cadre.ts`) calcule et donne à un élément, hors de l'image : la barre,
+la bande, le panneau de commande, la manette tactile.
+
+**Encombrement** : la place qu'une manette tactile demande au cadre, lue
+dans sa pose réelle (`encombrement` dans `lib/faces`) : la hauteur de sa
+boîte tenue droite, la largeur de chaque grappe en travers.
+
+**Étiquette tapée** : le nom d'une personne en Pixelify, à l'encre de sa place,
+sur un ruban du creux de la régie. Elle remplace le bout de scotch écrit au
+feutre de la proposition « Scotch et feutre ».
+
+**Fente (de l'étiquette)** : le rectangle libre où ton étiquette tapée se
+pose dans le creux de la manette tactile, quand aucun panneau ne porte les
+places. Calculé dans la pose des touches (`fente`, `lib/faces.ts`), à 6 px
+au moins de chaque touche.
+
+**Feuille agrandie** : la feuille « La salle » d'un téléphone ou d'une
+tablette, montée jusqu'en haut. Elle porte la colonne entière, et couvre
+l'image du jeu : toute l'image tenue droite, sa partie gauche en travers.
+
+**Fiche (du menu)** : la vue d'une décision dans le panneau du menu :
+lancer un jeu sur une sauvegarde, fermer le jeu, fermer la salle. Elle dit
+ce que le geste arrête, au-dessus d'un bouton qui agit et d'un autre qui
+revient sans rien faire. Depuis le 24 novembre au soir, la même fiche sert
+aussi au rayonnage de l'écran éteint.
+
+**Fondu par paliers** : une apparition en quatre marches d'opacité en
+120 ms, au lieu d'un fondu continu, comme sur une console d'époque. C'est la
+transition du menu quand on change de rubrique ou qu'on ouvre une fiche.
+
+**Format attendu (d'une console)** : les proportions de l'image qu'une
+console envoie d'ordinaire, écrites dans le manifeste des consoles : 4:3
+pour la GameCube et la Wii, 16:9 pour la Switch, la Switch 2 et la Xbox 360.
+La salle s'en sert avant de recevoir la première image.
+
+**Fronton** : sur une borne d'arcade, l'enseigne lumineuse au-dessus de
+l'écran, qui porte le nom du jeu. Dans la salle, la bande noire au-dessus de
+l'image quand elle est assez haute.
+
+**Gabarit (de mot)** : un texte de `mots.ts` qui garde des trous nommés,
+comme « Salle {n}, éteinte. ». La page remplit les trous au moment de
+l'écrire ; un trou sans valeur est une erreur, pas un « undefined » à l'écran.
+
+**Garde de l'image** : la vérification de `cadre.mjs` qui touche l'image du
+jeu en des centaines de points à chaque image d'écran et exige de n'y
+trouver que l'image, sans voile ni déplacement.
+
+**Grappe** : en travers, chacune des deux colonnes de touches aux bords de
+l'écran, de part et d'autre de l'image : à gauche les gâchettes de gauche, la
+croix et le stick, à droite le reste.
+
+**Groupe de processus** : l'ensemble d'un programme et de ceux qu'il lance.
+Arrêter le groupe arrête aussi les enfants ; arrêter le parent seul peut
+laisser un enfant tourner, comme le Vite du banc.
+
+**Horodatage (d'une manette)** : le nombre que le navigateur joint à chaque
+lecture d'une manette, en millisecondes. Il avance tant qu'elle envoie
+quelque chose ; figé, elle s'est tue, même si ses autres nombres ont l'air
+justes.
+
+**Identifiant de démarrage (boot_id)** : un identifiant que Linux tire au
+hasard à chaque démarrage de la machine (`/proc/sys/kernel/random/boot_id`).
+Une horloge monotone repart à zéro au démarrage ; noter cet identifiant à côté
+d'une heure monotone permet de reconnaître une heure d'un démarrage précédent.
+
+**IIFE (immediately invoked function expression)** : un script dont tout le
+code tient dans une fonction appelée aussitôt définie. Ses noms restent
+dedans, rien ne fuit dans la page qui le charge. C'est la forme du paquet
+d'Aïn pour le salon.
+
+**Instabilité (d'une porte)** : une porte qui rougit de temps en temps sans
+que le code change. Tant que sa cause n'est pas trouvée, la porte ne dit
+plus rien : on apprend à relancer au lieu de lire.
+
+**Installation éditable** : une façon d'installer un paquet Python qui
+pointe vers son dossier de travail au lieu d'en copier les fichiers. Python
+le trouve alors avant un autre dossier du même nom ; `python -S` désactive ce
+mécanisme, ce qui permet d'importer une archive d'un ancien commit
+(`salon-navigateur-rouge`).
+
+**Instantané (de la page)** : la copie de l'état de l'image, du son et de
+la manette que la salle relit deux fois par seconde pour React. À ne pas
+confondre avec l'instantané d'une sauvegarde.
+
+**IntersectionObserver** : l'outil du navigateur qui prévient une page quand
+un élément entre dans la partie visible de l'écran ou en sort, et dit quelle
+part de lui se voit. Il tient compte des cadres qui défilent et coupent leur
+contenu, comme la colonne de la salle.
+
+**Iris** : la transition où un cercle se referme sur le centre de l'écran,
+comme à la fin d'un niveau.
+
+**Lampes (des places)** : la forme que prend la rangée des quatre places
+START quand elle a moins de 200 px : un seul bouton, quatre chiffres
+allumés ou éteints, qui ouvre la salle. Ta place ne s'y distingue pas.
+
+**Légende (d'un dessin)** : la ligne de texte qui titre un dessin de
+manette, « Ce que le jeu reçoit » ou « Ta manette », avec le nom de
+l'appareil dessous. Ton étiquette s'y pose, à côté du dessin.
+
+**Ligne de temps du document (document timeline)** : l'horloge des
+animations d'une page. Le protocole de Chrome peut la ralentir
+(`Animation.setPlaybackRate`) : les animations Web vont moins vite, les
+minuteries non.
+
+**Lignes de balayage** : les fines lignes horizontales d'un vieil écran à tube,
+imitées par un motif posé sur une surface.
+
+**Liste d'onglets** : des boutons qui choisissent quelle page d'un panneau
+on voit, annoncés comme tels aux lecteurs d'écran (`role="tablist"`). Un
+seul onglet est dans l'ordre de tabulation ; les flèches passent aux autres.
+
+**localStorage** : la petite mémoire qu'un site garde dans le navigateur, par
+adresse. Le salon et les salles, servis à la même adresse, la partagent.
+
+**Marge de défilement (scroll-padding)** : la place qu'une zone qui défile
+garde libre sur un bord quand elle amène un élément en vue, pour qu'il ne
+passe pas sous un élément collant.
+
+**Marques du pas à pas** : ce que le panneau des touches pose sur les dessins
+pendant un pas à pas. Un cadre sur la commande attendue (plus large à 4 s,
+une flèche à 8 s), puis, à l'appui, des coins sur la pièce appuyée de ta
+manette et une ligne pointillée jusqu'à la commande, 650 ms, avant de
+s'effacer.
+
+**Masque (d'un code QR)** : un motif fixe, un parmi huit, qu'on superpose aux
+données pour éviter de grandes plages d'une seule couleur, difficiles à lire.
+
+**Microtâche** : un morceau de code que le navigateur exécute juste après
+la tâche en cours, avant de rendre l'image suivante. Le pilote y regarde ce
+qui se verrait, une fois l'image dessinée.
+
+**Mire (barres EBU)** : l'image de réglage des télévisions, sept barres
+verticales de couleurs pures (blanc, jaune, cyan, vert, magenta, rouge, bleu)
+fixées par l'Union européenne de radio-télévision (EBU en anglais). Sur
+l'accueil, elle dit « HORS ANTENNE » quand aucune salle n'est ouverte, et elle
+donne au thème rétro ses couleurs vives.
+
+**Mosaïque** : la transition de la Super Nintendo où l'écran se découpe en
+carrés de plus en plus gros. Ici, des filtres SVG.
+
+**Mot de l'événement (`data-texte`)** : un mot que la page écrit pour dire
+ce qui arrive (le nom de qui prend une place, « libre », « 3P prêt ! », la
+phrase d'une panne). Il porte `data-texte`, et le planificateur d'Aïn en
+fait un mur : aucun sprite ne le touche. On ne le pose que sur ces mots-là :
+un mur de trop replie les scènes pour rien.
+
+**Mouvement réduit (prefers-reduced-motion)** : un réglage du système qui
+demande moins d'animations. La page le lit et ne garde alors que la pose
+finale et le texte.
+
+**Navigateur piloté (navigator.webdriver)** : un indicateur que le navigateur
+met à vrai quand un programme le commande, comme Puppeteer dans les pilotes
+du dépôt. La page d'un visiteur ordinaire le voit faux.
+
+**Niveau d'effets** : le réglage à trois positions de cet appareil, « sobre »,
+« conseillé » ou « tout », qui décide quels effets rétro la page montre.
+
+**Nom accessible** : le nom qu'un lecteur d'écran annonce pour un élément de
+la page, par exemple « nel3ab, les salles, lien ». Le navigateur le calcule
+depuis `aria-label`, ou à défaut depuis le texte et les images nommées que
+l'élément contient. Un contenu caché ne compte pas.
+
+**nosniff** : en-tête HTTP (`X-Content-Type-Options: nosniff`) qui interdit au
+navigateur de deviner le type d'un fichier à partir de son contenu. Une image
+annoncée PNG n'est alors jamais lue comme une page.
+
+**O_NONBLOCK** : option d'ouverture d'un fichier sous Linux. Une opération qui
+devrait attendre rend la main tout de suite. Ouvrir un tube nommé pour le lire
+n'attend donc plus un écrivain, et le programme peut alors vérifier qu'il tient
+un fichier ordinaire avant de lire.
+
+**Observateur de mutations (MutationObserver)** : une fonction du navigateur
+qui prévient quand des éléments sont ajoutés, retirés ou réécrits sous un
+élément, ou quand certains de ses attributs changent, sans que la page ait
+à les relire à chaque image. Il prévient après le changement, à la fin de
+la tâche en cours, et aussi pour une écriture qui ne change rien : la page
+n'écrit donc que ce qui change.
+
+**Observateur de taille (ResizeObserver)** : une fonction du navigateur qui
+prévient quand la boîte d'un élément change de taille, sans que la page ait
+à la mesurer à chaque image, y compris quand l'élément quitte la page (sa
+taille devient nulle). Il ne dit rien d'un élément qui bouge sans changer
+de taille. Son rappel est servi pendant la mise à jour du rendu, après les
+rappels d'animation et avant de peindre l'image d'écran. Plusieurs
+observateurs sont servis dans l'ordre où ils ont été créés : un relevé fait
+par le premier ne voit pas ce que les suivants changent encore avant la
+peinture.
+
+**OFL (SIL Open Font License)** : la licence libre des polices Anybody,
+Departure et Pixelify Sans. Elle permet de les modifier et de les
+redistribuer, pas de les vendre seules.
+
+**Onglet (role=tab)** : un bouton d'une rangée qui choisit le panneau
+affiché dessous, comme les quatre rubriques du menu. Un seul onglet est
+choisi (`aria-selected`) et seul lui est dans la tabulation ; les flèches
+passent aux voisins.
+
+**Oracle (dans un essai)** : un autre programme, déjà fiable, dont on
+compare les réponses à celles du code essayé. Il ne doit jamais dépendre du
+code qu'il juge.
+
+**Panneau de commande** : sur une borne d'arcade, la planche sous l'écran qui
+porte les manettes et les boutons START. Dans la salle, la bande sous l'image
+où se posent les places des joueurs.
+
+**Pas à pas** : le réglage d'une manette question par question (« Appuie sur
+ce que tu veux pour A »). Chaque réponse retient l'entrée qui a bougé depuis
+le repos pris au départ ; « Passer cette commande » garde son réglage
+d'avant.
+
+**Pièce affleurante** : une pièce de dessin de manette qui fait partie d'une
+plus grande, comme une branche de croix ou le viseur de la Wiimote. Elle n'a
+pas de logement ni de contour à elle ; appuyée, elle n'a donc que son aplat
+pour se distinguer, sauf si son plan lui rend son anneau.
+
+**Pilote (de navigateur)** : un script qui ouvre la page dans un vrai Chrome
+sans écran, clique, appuie et mesure ce que le navigateur affiche, là où un
+essai jsdom ne voit ni mise en page ni vrai focus. `reglage.mjs` en est un.
+
+**Pixel art** : un dessin fait case par case, sur une petite grille, comme les
+graphismes des consoles 8 et 16 bits. Agrandi, il doit garder ses carrés nets
+au lieu d'être lissé.
+
+**Planificateur (d'Aïn)** : le module qui calcule les trajets d'une scène à
+partir des ancres de la page, les échantillonne, et refuse ceux qui
+toucheraient l'image du jeu, un contrôle ou un mot.
+
+**Plateau** : dans la salle, l'écran noir quand il n'y a pas d'image (salle
+au repos, jeu qui démarre, arrivée, salle fermée), où la mascotte se tient en
+grand, posée sur le panneau de commande.
+
+**PNG** : *Portable Network Graphics*, format d'image sans perte. Tout fichier
+PNG commence par les mêmes huit octets, sa signature ; le salon la vérifie
+avant de servir une image, le décodage complet reste au worker.
+
+**Point de passage (d'Aïn)** : une marque invisible de la page par laquelle
+le planificateur peut faire passer Aïn quand le chemin direct toucherait un
+contrôle ou un mot.
+
+**Police variable** : un seul fichier de police qui contient toute une plage
+de graisses (de 400 à 700 pour Pixelify Sans) au lieu d'un fichier par graisse.
+
+**Port libre** : un port réseau que le système choisit lui-même quand un
+serveur demande le port 0. Il est libre au moment où le système le donne,
+et deux bancs lancés ensemble en reçoivent deux différents. Sur cette
+machine, il tombe entre 32768 et 60999.
+
+**Pose clé** : la dernière image d'une animation, celle qui reste quand rien ne
+doit bouger.
+
+**Précondition (d'une étape de pilote)** : ce qu'une étape doit trouver
+avant de pouvoir juger, par exemple une image peinte ou une sonde qui voit.
+Une étape qui tombe sur sa précondition ne dit ni « vert » ni « rouge »,
+seulement « je ne sais pas » ; elle ne doit donc pas faire taire une faute
+qu'elle a déjà vue.
+
+**Préparation (à plusieurs)** : le moment entre « Lancer » et le
+démarrage d'un jeu à plusieurs, où chacun dit avec quel appareil il joue
+puis « Je suis prêt ». Depuis le 24 novembre dans la nuit, c'est un bloc de
+la colonne, plus un dialogue.
+
+**Propagation (d'un événement)** : le trajet d'une touche ou d'un clic dans
+la page, de l'élément touché jusqu'au document puis à la fenêtre. Un
+écouteur placé plus bas peut l'arrêter (`stopPropagation`) : ceux du dessus
+ne le reçoivent pas.
+
+**Qui tient la place (la cible d'une reprise)** : la personne assise à la
+place qu'un autre demande. Le salon lui envoie la demande, puis la même fin
+qu'à celui qui demande.
+
+**Ralentir le processeur (CPU x4)** : un réglage des outils de Chrome qui
+fait tourner la page quatre fois plus lentement, pour approcher un téléphone
+modeste sur un ordinateur rapide. C'est une approximation : un vrai
+téléphone n'est pas un ordinateur ralenti.
+
+**Rang (de la colonne)** : une ligne de la colonne de la salle, sous la tête :
+Signaler, « Touches et manettes », le son, le menu, la vue de l'appareil,
+garder, agrandir, autres réglages. Un rang qui ne sert à rien disparaît au
+lieu d'être grisé (`lib/colonne.ts`).
+
+**Range** : l'objet du navigateur qui désigne un morceau de la page. Il
+donne les rectangles où son texte est vraiment peint, même quand ce texte
+déborde de la boîte de son élément.
+
+**Rangée collée** : une rangée de boutons qui reste au bas de ce qui se
+voit quand le reste défile (`position: sticky` en CSS). Ce qui défile passe
+dessous : un bouton posé au-dessus d'elle peut se retrouver caché, d'où les
+gestes rangés dans la rangée elle-même.
+
+**Rayonnage** : les jeux d'une salle sans jeu, une rangée par console,
+posés sur l'écran éteint (`components/Rayonnage.tsx`).
+
+**Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
+composant modifié sans recharger la page ni perdre son état. Il ne le fait
+que pour un fichier qui n'exporte que des composants.
+
+**Reed-Solomon (correction d'erreurs)** : des octets ajoutés à un message,
+calculés sur les autres, qui permettent de reconstituer ce qu'une tache ou
+une perte a effacé. Le code QR en porte, comme le flux d'image de la salle.
+
+**Regard (au journal des parties)** : la trace d'une personne qui regarde
+une salle sans tenir de manette, écrite comme une place : un début, une fin,
+une durée. Elle sert au carnet commun à dire qui regardait une partie.
+
+**Région polie (aria-live="polite", role="status")** : une région vivante
+que le lecteur d'écran lit quand elle cesse de changer, sans couper ce qu'il
+dit. Un texte remplacé aussitôt après avoir été écrit peut donc n'être
+jamais lu.
+
+**Repère d'ouverture** : le fichier `ouverte-le` que le salon pose dans le
+dossier d'une salle quand il l'ouvre. Il dit depuis quand la salle est
+ouverte, alors que systemd ne dit que depuis quand le jeu en cours tourne.
+
+**Repos (d'une commande)** : la valeur qu'un bouton ou un axe rapporte quand
+personne n'y touche. Elle n'est pas toujours zéro : un adaptateur GameCube
+pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
+
+**Salle tenue en main** : la salle au doigt ou pour une page « manette
+seule », tenue droite (portrait) ou en travers (paysage). Chaque pièce y est
+posée par le cadre en pixels, hors des zones sûres.
+
+**Sommeil ininterruptible (état D)** : l'état d'un fil qui attend une
+entrée ou une sortie et qu'aucun signal ne réveille, par exemple une
+réponse d'un montage NFS. `ps` l'écrit « D ».
+
+**Sous-ensemble (d'une police)** : une police réduite aux caractères qu'on
+utilise, ici ceux du français. Elle pèse beaucoup moins que l'originale.
+
+**Sprite** : une petite image qu'on déplace d'un bloc au-dessus du décor,
+comme les personnages des consoles 8 et 16 bits. Aïn dehors est un sprite.
+
+**sr-only** : une classe qui garde un texte pour le lecteur d'écran sans le
+peindre. La boîte fait un pixel et elle est découpée à zéro : elle ne
+couvre rien et ne reçoit aucun clic.
+
+**Style diff3 (d'un conflit)** : une façon d'écrire un conflit de fusion
+qui montre, en plus des deux côtés, le texte de la base d'où ils sont
+partis. Chaque côté y garde les lignes qu'il a en commun avec l'autre :
+c'est utile pour lire, mais une union faite sur ce style recopie ces
+lignes deux fois.
+
+**Tâche longue** : un travail du navigateur qui l'occupe plus de 50 ms
+d'affilée. Pendant ce temps, la page ne répond ni au doigt ni au clavier.
+Le navigateur les signale (`PerformanceObserver`, type `longtask`), sans
+dire de quel geste elles viennent : il faut les rapprocher du geste par
+l'heure.
+
+**Temps virtuel** : une horloge que Chrome fait avancer à la demande, sans
+attendre : les minuteries d'une page tombent dans leur ordre, mais trente
+secondes passent en une fraction de seconde. Un pilote s'en sert pour
+vérifier ce qui n'arrive qu'après une longue attente, comme la démo de
+l'accueil.
+
+**Test de touche (hit test)** : la question que le navigateur se pose pour
+savoir quel élément recevrait un clic à un point donné
+(`elementFromPoint`). Un élément à `pointer-events: none` n'y répond
+jamais, même quand il est peint au-dessus de tout.
+
+**Tramage** : un dégradé fait de points de deux couleurs alternés, comme sur
+une console qui n'avait pas assez de couleurs pour un vrai dégradé.
+
+**Trame (de manette)** : ce que la page envoie à la salle pour une place à
+chaque instant. La trame Dolphin porte les commandes d'une manette GameCube,
+la trame Pro celles d'une manette Switch Pro ou Xbox 360.
+
+**Tube (effet)** : les calques du socle qui imitent un écran cathodique sur
+un écran sans jeu : lignes de balayage, coins assombris, bande claire qui
+roule. Rien à voir avec un tube nommé (FIFO) ; ils ne passent jamais sur
+l'image du jeu ni sur le texte.
+
+**Vignette (d'un changement)** : le petit dessin de 64 pixels que la ligne
+d'une commande montre pendant un « Changer », quand le grand dessin est sorti
+de l'écran : la pièce attendue et ses coins, recadrées.
+
+**Web Animations (WAAPI)** : l'interface du navigateur qui anime un élément
+depuis le script (`element.animate`), sans bibliothèque.
+
+**WebAudio** : l'interface du navigateur qui fabrique des sons sans fichier.
+Les sons de menu sont des notes carrées, comme la puce sonore d'une console.
+
 ---
 
 *Ce document est tenu à jour au fil du projet. Si une décision change, c'est ici
 qu'on explique pourquoi — pas seulement dans l'ADR.*
-
 
 **Cartouche** : sur un plan technique, le bloc réglé, en général en bas de la
 feuille, qui dit ce que la feuille représente — son titre, son échelle, sa date
@@ -34813,8 +35358,6 @@ lgf dans `/mnt/nas`.
 comme un dossier. Un montage « hard » fait attendre un programme quand le
 NAS ne répond plus, au lieu de lui renvoyer une erreur.
 
-
-
 **Origine (`Origin`)** : le schéma, le nom et le port d'un site, par exemple
 `https://nel3ab.app`. Le navigateur l'écrit lui-même dans l'en-tête `Origin`
 d'une écriture, et une page ne peut pas le changer. Deux adresses qui
@@ -34853,8 +35396,6 @@ de jeu, une fermeture.
 
 **Planche** : page de travail qui montre toutes les poses et toutes les
 scènes d'un personnage, pour les regarder et les comparer hors de la salle.
-
-
 
 **Manifeste des consoles** : le fichier `consoles/consoles.json`, qui décrit
 une fois chaque console et chaque moteur. Le salon, la boîte noire et la
@@ -34929,11 +35470,6 @@ premier octet.
 **O_NOFOLLOW** : option d'ouverture d'un fichier sous Linux. Si le nom désigne
 un lien symbolique, l'ouverture échoue au lieu de suivre le lien vers un autre
 endroit.
-
-**O_NONBLOCK** : option d'ouverture d'un fichier sous Linux. Une opération qui
-devrait attendre rend la main tout de suite. Ouvrir un tube nommé pour le lire
-n'attend donc plus un écrivain, et le programme peut alors vérifier qu'il tient
-un fichier ordinaire avant de lire.
 
 **Lien dur** : un deuxième nom pour le même fichier sur le disque. Contrairement
 au lien symbolique, rien ne le distingue du premier nom : `O_NOFOLLOW` ne
@@ -35198,52 +35734,6 @@ qu'elle est ouverte. En HTML, un `<dialog>` ouvert par `showModal()`.
 **Inerte** : ni cliquable, ni atteignable par Tab, ni lu par un lecteur
 d'écran.
 
-**Onglet (role=tab)** : un bouton d'une rangée qui choisit le panneau
-affiché dessous, comme les quatre rubriques du menu. Un seul onglet est
-choisi (`aria-selected`) et seul lui est dans la tabulation ; les flèches
-passent aux voisins.
-
-**Fiche (du menu)** : la vue d'une décision dans le panneau du menu :
-lancer un jeu sur une sauvegarde, fermer le jeu, fermer la salle. Elle dit
-ce que le geste arrête, au-dessus d'un bouton qui agit et d'un autre qui
-revient sans rien faire. Depuis le 24 novembre au soir, la même fiche sert
-aussi au rayonnage de l'écran éteint.
-
-**Cartouche (dans la salle)** : un jeu debout sur l'écran éteint d'une salle
-sans jeu, son étiquette étant sa jaquette. Un clic ou Entrée ouvre sa fiche.
-À ne pas confondre avec le cartouche d'un plan technique, plus haut.
-
-**Rayonnage** : les jeux d'une salle sans jeu, une rangée par console,
-posés sur l'écran éteint (`components/Rayonnage.tsx`).
-
-**90e centile** : la durée sous laquelle tombent neuf démarrages sur dix.
-Au-delà, un démarrage est « plus long que d'habitude » ; la médiane, elle,
-dit la durée ordinaire.
-
-**Préparation (à plusieurs)** : le moment entre « Lancer » et le
-démarrage d'un jeu à plusieurs, où chacun dit avec quel appareil il joue
-puis « Je suis prêt ». Depuis le 24 novembre dans la nuit, c'est un bloc de
-la colonne, plus un dialogue.
-
-**Case (du chargement)** : un carré de 22 px dessiné en pixels, un par
-étape d'un démarrage : cochée, en pointillé avec ses secondes, vide, point
-d'interrogation quand la page ne sait plus, croix quand aucune image n'est
-venue. Elle remplace la liste de « ✓ » et de « · » depuis le 24 novembre.
-
-**Tube (effet)** : les calques du socle qui imitent un écran cathodique sur
-un écran sans jeu : lignes de balayage, coins assombris, bande claire qui
-roule. Rien à voir avec un tube nommé (FIFO) ; ils ne passent jamais sur
-l'image du jeu ni sur le texte.
-
-**Rangée collée** : une rangée de boutons qui reste au bas de ce qui se
-voit quand le reste défile (`position: sticky` en CSS). Ce qui défile passe
-dessous : un bouton posé au-dessus d'elle peut se retrouver caché, d'où les
-gestes rangés dans la rangée elle-même.
-
-**Fondu par paliers** : une apparition en quatre marches d'opacité en
-120 ms, au lieu d'un fondu continu, comme sur une console d'époque. C'est la
-transition du menu quand on change de rubrique ou qu'on ouvre une fiche.
-
 **Tabulation tournante (roving tabindex)** : un seul élément d'un groupe est
 dans l'ordre de Tab, et les flèches déplacent ce rôle d'un élément à l'autre.
 
@@ -35321,331 +35811,3 @@ venue d'un autre site.
 
 **Note (d'une console)** : la phrase courte du manifeste des consoles qui
 s'affiche sous le nom d'une console dans le menu des jeux.
-
-**Fronton** : sur une borne d'arcade, l'enseigne lumineuse au-dessus de
-l'écran, qui porte le nom du jeu. Dans la salle, la bande noire au-dessus de
-l'image quand elle est assez haute.
-
-**Panneau de commande** : sur une borne d'arcade, la planche sous l'écran qui
-porte les manettes et les boutons START. Dans la salle, la bande sous l'image
-où se posent les places des joueurs.
-
-**Identifiant de démarrage (boot_id)** : un identifiant que Linux tire au
-hasard à chaque démarrage de la machine (`/proc/sys/kernel/random/boot_id`).
-Une horloge monotone repart à zéro au démarrage ; noter cet identifiant à côté
-d'une heure monotone permet de reconnaître une heure d'un démarrage précédent.
-
-**Repère d'ouverture** : le fichier `ouverte-le` que le salon pose dans le
-dossier d'une salle quand il l'ouvre. Il dit depuis quand la salle est
-ouverte, alors que systemd ne dit que depuis quand le jeu en cours tourne.
-
-**PNG** : *Portable Network Graphics*, format d'image sans perte. Tout fichier
-PNG commence par les mêmes huit octets, sa signature ; le salon la vérifie
-avant de servir une image, le décodage complet reste au worker.
-
-**nosniff** : en-tête HTTP (`X-Content-Type-Options: nosniff`) qui interdit au
-navigateur de deviner le type d'un fichier à partir de son contenu. Une image
-annoncée PNG n'est alors jamais lue comme une page.
-
-**Plateau** : dans la salle, l'écran noir quand il n'y a pas d'image (salle
-au repos, jeu qui démarre, arrivée, salle fermée), où la mascotte se tient en
-grand, posée sur le panneau de commande.
-
-**Garde de l'image** : la vérification de `cadre.mjs` qui touche l'image du
-jeu en des centaines de points à chaque image d'écran et exige de n'y
-trouver que l'image, sans voile ni déplacement.
-
-**Élément collant (sticky)** : un élément qui défile avec la page jusqu'à
-toucher un bord de la zone visible, puis y reste collé. Dans la colonne de la
-salle, la pile des avis est collée en haut et « Plus bas » en bas.
-
-**Arbitre des scènes** : le module qui décide quelle scène de la mascotte
-joue quand deux chantiers en demandent une au même endroit (`lib/scenes-salle.ts`).
-
-**Ancre de l'annonce** : l'élément où le socle écrit une annonce lettre à
-lettre. La salle n'en pose qu'un à la fois, sur la ligne du titre, jamais
-sur l'image.
-
-**sr-only** : une classe qui garde un texte pour le lecteur d'écran sans le
-peindre. La boîte fait un pixel et elle est découpée à zéro : elle ne
-couvre rien et ne reçoit aucun clic.
-
-**Marge de défilement (scroll-padding)** : la place qu'une zone qui défile
-garde libre sur un bord quand elle amène un élément en vue, pour qu'il ne
-passe pas sous un élément collant.
-
-**Salle tenue en main** : la salle au doigt ou pour une page « manette
-seule », tenue droite (portrait) ou en travers (paysage). Chaque pièce y est
-posée par le cadre en pixels, hors des zones sûres.
-
-**Grappe** : en travers, chacune des deux colonnes de touches aux bords de
-l'écran, de part et d'autre de l'image : à gauche les gâchettes de gauche, la
-croix et le stick, à droite le reste.
-
-**Encombrement** : la place qu'une manette tactile demande au cadre, lue
-dans sa pose réelle (`encombrement` dans `lib/faces`) : la hauteur de sa
-boîte tenue droite, la largeur de chaque grappe en travers.
-
-**Test de touche (hit test)** : la question que le navigateur se pose pour
-savoir quel élément recevrait un clic à un point donné
-(`elementFromPoint`). Un élément à `pointer-events: none` n'y répond
-jamais, même quand il est peint au-dessus de tout.
-
-**Avance rapide (fast-forward)** : une fusion où la branche reçue part du
-dernier commit de celle qui la reçoit. Git n'a alors qu'à avancer le nom de
-la branche, sans commit de fusion ; `--no-ff` en crée un quand même, pour
-que la frontière reste visible dans l'historique.
-
-**Conflit de fusion** : deux branches ont changé les mêmes lignes d'un
-fichier, et git ne sait pas laquelle garder. Il écrit les deux versions
-entre des marques et attend qu'on choisisse.
-
-**Crochet React (hook)** : une fonction dont le nom commence par `use`, que
-React appelle pendant le rendu d'un composant pour lui donner un état ou un
-effet. Son état appartient au composant qui l'appelle.
-
-**Rechargement à chaud (fast refresh)** : en développement, Vite remplace un
-composant modifié sans recharger la page ni perdre son état. Il ne le fait
-que pour un fichier qui n'exporte que des composants.
-
-**Étiquette tapée** : le nom d'une personne en Pixelify, à l'encre de sa place,
-sur un ruban du creux de la régie. Elle remplace le bout de scotch écrit au
-feutre de la proposition « Scotch et feutre ».
-
-**Bouton START (place)** : une place de la salle, dessinée comme le bouton rond
-d'une borne d'arcade, « 1P » à « 4P », allumée à la couleur du joueur quand
-elle est prise.
-
-**Code QR** : un carré de modules noirs et blancs qu'un téléphone lit avec
-son appareil photo pour ouvrir une adresse. L'invitation en dessine un pour
-le lien de la salle.
-
-**Reed-Solomon (correction d'erreurs)** : des octets ajoutés à un message,
-calculés sur les autres, qui permettent de reconstituer ce qu'une tache ou
-une perte a effacé. Le code QR en porte, comme le flux d'image de la salle.
-
-**Masque (d'un code QR)** : un motif fixe, un parmi huit, qu'on superpose aux
-données pour éviter de grandes plages d'une seule couleur, difficiles à lire.
-
-**Oracle (dans un essai)** : un autre programme, déjà fiable, dont on
-compare les réponses à celles du code essayé. Il ne doit jamais dépendre du
-code qu'il juge.
-
-**Région polie (aria-live="polite", role="status")** : une région vivante
-que le lecteur d'écran lit quand elle cesse de changer, sans couper ce qu'il
-dit. Un texte remplacé aussitôt après avoir été écrit peut donc n'être
-jamais lu.
-
-**Propagation (d'un événement)** : le trajet d'une touche ou d'un clic dans
-la page, de l'élément touché jusqu'au document puis à la fenêtre. Un
-écouteur placé plus bas peut l'arrêter (`stopPropagation`) : ceux du dessus
-ne le reçoivent pas.
-
-**Tâche longue** : un travail du navigateur qui l'occupe plus de 50 ms
-d'affilée. Pendant ce temps, la page ne répond ni au doigt ni au clavier.
-Le navigateur les signale (`PerformanceObserver`, type `longtask`), sans
-dire de quel geste elles viennent : il faut les rapprocher du geste par
-l'heure.
-
-**Ralentir le processeur (CPU x4)** : un réglage des outils de Chrome qui
-fait tourner la page quatre fois plus lentement, pour approcher un téléphone
-modeste sur un ordinateur rapide. C'est une approximation : un vrai
-téléphone n'est pas un ordinateur ralenti.
-
-**Ancre d'une scène (`data-ancre`)** : un élément de la page qui dit à la
-mascotte où aller, par son nom (`start-2` pour le bouton START de la place
-2). Le planificateur lit sa boîte dans le rendu, et ne calcule aucun trajet
-depuis une coordonnée écrite à la main.
-
-**Instantané (de la page)** : la copie de l'état de l'image, du son et de
-la manette que la salle relit deux fois par seconde pour React. À ne pas
-confondre avec l'instantané d'une sauvegarde.
-
-**Qui tient la place (la cible d'une reprise)** : la personne assise à la
-place qu'un autre demande. Le salon lui envoie la demande, puis la même fin
-qu'à celui qui demande.
-
-**Observateur de taille (ResizeObserver)** : une fonction du navigateur qui
-prévient quand la boîte d'un élément change de taille, y compris quand
-l'élément quitte la page (sa taille devient nulle). Il ne dit rien d'un
-élément qui bouge sans changer de taille.
-
-**Observateur de mutations (MutationObserver)** : une fonction du navigateur
-qui prévient quand des éléments sont ajoutés, retirés ou réécrits sous un
-élément, ou quand certains de ses attributs changent. Il prévient après le
-changement, à la fin de la tâche en cours.
-
-**Navigateur piloté (navigator.webdriver)** : un indicateur que le navigateur
-met à vrai quand un programme le commande, comme Puppeteer dans les pilotes
-du dépôt. La page d'un visiteur ordinaire le voit faux.
-
-**Abri (de la maison d'Aïn)** : l'ancêtre collé ou fixe du logo, comme le
-pied de la colonne du bureau. Il passe devant ce qui défile : ce qui est
-dessous ne se voit pas, et ne gêne pas Aïn.
-
-**Pas à pas** : le réglage d'une manette question par question (« Appuie sur
-ce que tu veux pour A »). Chaque réponse retient l'entrée qui a bougé depuis
-le repos pris au départ ; « Passer cette commande » garde son réglage
-d'avant.
-
-**Repos (d'une commande)** : la valeur qu'un bouton ou un axe rapporte quand
-personne n'y touche. Elle n'est pas toujours zéro : un adaptateur GameCube
-pose ses gâchettes à 0,6. La page mesure la course depuis ce repos.
-
-**Horodatage (d'une manette)** : le nombre que le navigateur joint à chaque
-lecture d'une manette, en millisecondes. Il avance tant qu'elle envoie
-quelque chose ; figé, elle s'est tue, même si ses autres nombres ont l'air
-justes.
-
-**Groupe de processus** : l'ensemble d'un programme et de ceux qu'il lance.
-Arrêter le groupe arrête aussi les enfants ; arrêter le parent seul peut
-laisser un enfant tourner, comme le Vite du banc.
-
-**Liste d'onglets** : des boutons qui choisissent quelle page d'un panneau
-on voit, annoncés comme tels aux lecteurs d'écran (`role="tablist"`). Un
-seul onglet est dans l'ordre de tabulation ; les flèches passent aux autres.
-
-**ResizeObserver** : l'outil du navigateur qui prévient une page quand une
-boîte change de taille, sans qu'elle ait à la mesurer à chaque image.
-
-**MutationObserver** : l'outil du navigateur qui prévient une page quand un
-élément ou un attribut change, sans qu'elle ait à le relire à chaque image.
-Il prévient aussi pour une écriture qui ne change rien : la page n'écrit donc
-que ce qui change.
-
-**IntersectionObserver** : l'outil du navigateur qui prévient une page quand
-un élément entre dans la partie visible de l'écran ou en sort, et dit quelle
-part de lui se voit. Il tient compte des cadres qui défilent et coupent leur
-contenu, comme la colonne de la salle.
-
-**Vignette (d'un changement)** : le petit dessin de 64 pixels que la ligne
-d'une commande montre pendant un « Changer », quand le grand dessin est sorti
-de l'écran : la pièce attendue et ses coins, recadrées.
-
-**Pilote (de navigateur)** : un script qui ouvre la page dans un vrai Chrome
-sans écran, clique, appuie et mesure ce que le navigateur affiche, là où un
-essai jsdom ne voit ni mise en page ni vrai focus. `reglage.mjs` en est un.
-
-**Trame (de manette)** : ce que la page envoie à la salle pour une place à
-chaque instant. La trame Dolphin porte les commandes d'une manette GameCube,
-la trame Pro celles d'une manette Switch Pro ou Xbox 360.
-
-**Pièce affleurante** : une pièce de dessin de manette qui fait partie d'une
-plus grande, comme une branche de croix ou le viseur de la Wiimote. Elle n'a
-pas de logement ni de contour à elle ; appuyée, elle n'a donc que son aplat
-pour se distinguer, sauf si son plan lui rend son anneau.
-
-**Appui clair** : la marque `appui: "clair"` d'une touche dans les plans de
-manette. Appuyée, elle prend la teinte claire de la place et un anneau
-sombre, même sur une coque claire : c'est la seule paire qui tranche à la
-fois sur une touche de teinte moyenne et sur un entourage sombre.
-
-**Marques du pas à pas** : ce que le panneau des touches pose sur les dessins
-pendant un pas à pas. Un cadre sur la commande attendue (plus large à 4 s,
-une flèche à 8 s), puis, à l'appui, des coins sur la pièce appuyée de ta
-manette et une ligne pointillée jusqu'à la commande, 650 ms, avant de
-s'effacer.
-
-**Feuille agrandie** : la feuille « La salle » d'un téléphone ou d'une
-tablette, montée jusqu'en haut. Elle porte la colonne entière, et couvre
-l'image du jeu : toute l'image tenue droite, sa partie gauche en travers.
-
-**Emplacement (du cadre)** : une place que le cadre de la salle
-(`lib/cadre.ts`) calcule et donne à un élément, hors de l'image : la barre,
-la bande, le panneau de commande, la manette tactile.
-
-**Conflit sémantique (de fusion)** : deux branches qui se fusionnent sans
-conflit de texte, et dont le résultat ne marche plus, parce que chacune
-supposait ce que l'autre change. Git ne peut pas le voir ; seules les
-preuves lancées sur le résultat le montrent.
-
-**Observateur de taille (`ResizeObserver`)** : un rappel que le navigateur
-appelle quand un élément change de taille. Il est servi pendant la mise à
-jour du rendu, après les rappels d'animation et avant de peindre l'image
-d'écran. Plusieurs observateurs sont servis dans l'ordre où ils ont été
-créés : un relevé fait par le premier ne voit pas ce que les suivants
-changent encore avant la peinture.
-
-**Commit de câblage** : le seul commit qu'un chantier du thème rétro peut
-faire dans `App.tsx`, selon la partition : ses imports, le montage de ses
-pièces dans les emplacements du cadre, et le retrait des blocs qu'il
-remplace. La logique vit dans les fichiers du chantier.
-
-**Regard (au journal des parties)** : la trace d'une personne qui regarde
-une salle sans tenir de manette, écrite comme une place : un début, une fin,
-une durée. Elle sert au carnet commun à dire qui regardait une partie.
-
-**Carnet commun** : ce que chaque carnet dit des autres depuis le
-24 novembre 2026 : avec qui tu as joué, à quelle place, et qui regardait.
-Chacun ne lit que le sien.
-
-**Nom accessible** : le nom qu'un lecteur d'écran annonce pour un élément de
-la page, par exemple « nel3ab, les salles, lien ». Le navigateur le calcule
-depuis `aria-label`, ou à défaut depuis le texte et les images nommées que
-l'élément contient. Un contenu caché ne compte pas.
-
-**Arbre d'accessibilité** : ce que le navigateur donne aux lecteurs d'écran :
-chaque élément utile de la page avec son rôle (lien, bouton, image) et son
-nom accessible. Chrome le montre à un pilote, qui peut donc lire le nom qu'un
-lecteur d'écran dirait.
-
-**Clé de lecture** : l'étiquette qu'une lecture du réseau porte avec sa
-réponse, pour qu'une réponse arrivée trop tard pour une autre demande ne
-soit pas prise pour la bonne. Le rayonnage en donne une à chaque fiche
-ouverte.
-
-**Bloc conteneur (containing block)** : la boîte par rapport à laquelle un
-élément en position absolue se place. C'est le plus proche ancêtre
-positionné ; sans lui, un ancêtre lointain, dont l'élément agrandit la zone
-qui défile même s'il est invisible.
-
-**Boîte qui défile (scroll container)** : un élément dont le contenu
-défile dans ses bords (`overflow: auto`). Il coupe tout ce qui dépasse de
-sa boîte, y compris un anneau de focus dessiné hors de l'élément : un
-contrôle collé à son bord perd le côté de son anneau.
-
-**Fente (de l'étiquette)** : le rectangle libre où ton étiquette tapée se
-pose dans le creux de la manette tactile, quand aucun panneau ne porte les
-places. Calculé dans la pose des touches (`fente`, `lib/faces.ts`), à 6 px
-au moins de chaque touche.
-
-**Âge (d'une partie)** : depuis combien de secondes le worker a démarré
-son jeu, tel que le salon le publie (`depuis_s`). Ce n'est pas une heure :
-la page le change en instant à la réception du message, sans comparer
-deux horloges.
-
-**Lampes (des places)** : la forme que prend la rangée des quatre places
-START quand elle a moins de 200 px : un seul bouton, quatre chiffres
-allumés ou éteints, qui ouvre la salle. Ta place ne s'y distingue pas.
-
-**Range** : l'objet du navigateur qui désigne un morceau de la page. Il
-donne les rectangles où son texte est vraiment peint, même quand ce texte
-déborde de la boîte de son élément.
-
-**Format attendu (d'une console)** : les proportions de l'image qu'une
-console envoie d'ordinaire, écrites dans le manifeste des consoles : 4:3
-pour la GameCube et la Wii, 16:9 pour la Switch, la Switch 2 et la Xbox 360.
-La salle s'en sert avant de recevoir la première image.
-
-**Base (de la mise en page)** : ce sur quoi le cadre décide la place du
-panneau au bureau : le format attendu de la console, puis la vraie image
-au premier changement de mise en page naturel (une fenêtre redimensionnée,
-un panneau fermé, la colonne élargie, un autre réglage de l'image).
-
-**Style diff3 (d'un conflit)** : une façon d'écrire un conflit de fusion
-qui montre, en plus des deux côtés, le texte de la base d'où ils sont
-partis. Chaque côté y garde les lignes qu'il a en commun avec l'autre :
-c'est utile pour lire, mais une union faite sur ce style recopie ces
-lignes deux fois.
-
-**Mot de l'événement (`data-texte`)** : un mot que la page écrit pour dire
-ce qui arrive (le nom de qui prend une place, « libre », « 3P prêt ! », la
-phrase d'une panne). Il porte `data-texte`, et le planificateur d'Aïn en
-fait un mur : aucun sprite ne le touche. On ne le pose que sur ces mots-là :
-un mur de trop replie les scènes pour rien.
-
-**Précondition (d'une étape de pilote)** : ce qu'une étape doit trouver
-avant de pouvoir juger, par exemple une image peinte ou une sonde qui voit.
-Une étape qui tombe sur sa précondition ne dit ni « vert » ni « rouge »,
-seulement « je ne sais pas » ; elle ne doit donc pas faire taire une faute
-qu'elle a déjà vue.

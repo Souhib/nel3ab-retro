@@ -1,10 +1,62 @@
-# État du projet au 24 novembre 2026
+# État du projet au 25 novembre 2026
 
 Ce point de reprise conserve le travail commencé en septembre et les
 livraisons datées jusqu'au 10 novembre. Il indique où retrouver les décisions, les expériences
 et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-appris)
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
+
+**Au 25 novembre, après minuit : les quatre chantiers de fin réunis,
+toutes les portes du navigateur lancées.** Le point d'entrée pour
+l'ensemble du thème rétro ; le bloc du 24 novembre qui suit garde l'état
+d'avant ces fusions.
+
+- **Où.** Sur `integration/retro` (worktree
+  `~/nel3ab-chantiers/retro-integration`, voir `git log`) : les fins de la
+  salle, d'Aïn, des manettes et du ménage, fusionnées dans cet ordre, la
+  page reconstruite après chaque fusion. `main` reste sur 03b21c0. Rien
+  n'est poussé, fusionné dans `main` ni installé ; aucun worker n'est
+  reconstruit ; aucune vraie salle n'a servi la page.
+- **Ce qui a changé à la fusion.** La place tenue en main du panneau
+  « Touches et manettes » avait été écrite par la salle et par les
+  manettes ; la règle de la salle (`reglageTenu`, `REGLAGE_TENU` de
+  `lib/cadre.ts`) est la seule qui reste, pour une page « manette seule »
+  aussi (ADR D42, addendum du 25 novembre). `place-suit-adresse` garde le
+  remède du ménage. Les mots du thème rétro du glossaire du carnet sont
+  réunis et triés.
+- **Les portes.** Sur 8f8403c, puis d1b75ce pour les états, une après
+  l'autre, chaque pilote sur un port libre :
+  `just check`, `focus-navigateur`, `etats-navigateur`,
+  `parcours-navigateur`, `salle-telephone`, `manette-garde`,
+  `cadre-navigateur`, `salon-navigateur`, `reglage-navigateur`,
+  `planche-garde`, les sept contrôles rouges et `just docs` sortent en 0.
+  `cadre-navigateur` et `etats-navigateur` sont verts en entier pour la
+  première fois depuis les vagues B1 et B2. `arrivee-courte` (états)
+  comptait encore depuis le clic : elle part du plein cadre, rouge d'abord
+  sur une transition ralentie. `deploy-check` est rouge : en fichiers,
+  seulement `deploy/Caddyfile` (les treize lignes de K39, le Caddyfile
+  installé étant celui de `main` à l'octet) ; et le salon et la boîte
+  noire tournent depuis le 22 novembre 14 h 35 avec un code plus ancien,
+  ce qui est vrai aussi pour `main` (`consoles.json` changé après ce
+  démarrage) et que le redémarrage du salon règle.
+- **Poids.** 278 860 octets en brotli, 21 140 sous le plafond de
+  300 000.
+- **Avant `main`.** La porte `just` entière : `gpu-test` (après avoir
+  vérifié en lecture seule que Jellyfin ne sert rien), `clip-audio-test`,
+  `switch-saves-test`, `switch-capture-test`, `xbox360-test`, `abri-test`,
+  qui n'ont pas tourné ici. `deploy/Caddyfile` à installer par le
+  propriétaire. Cette nuit, `tools/abri.sh`, la copie chiffrée des
+  sauvegardes, attendait depuis plus d'une heure une réponse NFS de
+  `/mnt/nas` (état D) ; rien n'y a été touché, la cause n'est pas établie.
+- **La mise en service, dans cet ordre.** Le salon d'abord
+  (`deploy/salon-importable.sh`, puis son redémarrage), puis le worker
+  reconstruit sans salle ouverte. `deploy/Caddyfile` (K39) est au
+  propriétaire.
+- **Ce qui n'est pas prouvé.** Aucune vraie salle, aucun vrai téléphone,
+  aucun WebKit, aucune vraie manette n'a tenu la page ; Aïn n'a pas été
+  regardé par une personne ; les pilotes d'une vraie salle (K40) n'ont
+  pas tourné. Récit : carnet, « 25 novembre, après minuit : les quatre
+  chantiers de fin réunis, et une même règle écrite deux fois ».
 
 **Au 24 novembre, au bout de la nuit : le thème rétro réuni, et ce qui
 reste avant `main`.** Le point d'entrée pour l'ensemble du thème rétro ;
@@ -58,7 +110,8 @@ les blocs datés qui suivent gardent chaque chantier et chaque vague.
   seuil de 50 ms à processeur ralenti, aussi sur l'arbre de 928bd03 : à
   remesurer au repos. Récit : carnet, « 24 novembre, au bout de la nuit :
   le ménage de fin, et deux portes qui rougissaient au hasard ».
-- **Avant `main`.** Réunir les chantiers de fin sur `integration/retro`,
+- **Avant `main`.** (Fait le 25 novembre pour les chantiers de fin, la
+  page et le glossaire : voir le bloc au-dessus.) Réunir les chantiers de fin sur `integration/retro`,
   reconstruire la page, trier le glossaire du carnet (les sigles du thème
   rétro y sont ajoutés en tête, dans l'ordre d'arrivée), puis la porte
   `just` entière, dont `gpu-test` après avoir vérifié en lecture seule que
@@ -690,7 +743,10 @@ d'elle (`Geometrie.reglage`), plus jamais dans la feuille agrandie sur
 l'image (constat 4 de la relecture des manettes) ; `place-tenu` entre dans
 la porte, avec `rang`, `etiquette` et `feuille-reglage`, rouges sur 928bd03.
 Une page « manette seule », sans place tenue, garde le panneau dans la
-feuille agrandie (étape `manette-seule`). Les bancs de la salle acceptent
+feuille agrandie (étape `manette-seule`). (Remplacé à l'intégration du
+25 novembre : la règle de la salle, `reglageTenu`, est la seule qui reste,
+et une page « manette seule » reçoit la même place, sous la barre ; ADR D42,
+addendum.) Les bancs de la salle acceptent
 les ports 5400 à 5599. Page : 278 234 octets en brotli. `docs/ecran-manettes.md` est réécrite pour ce qui reste.
 Portes sur 8a485b3 : `just check`, `reglage-navigateur`, `focus-navigateur`,
 `parcours-navigateur`, `salle-telephone`, `manette-garde`, `salon-navigateur`,

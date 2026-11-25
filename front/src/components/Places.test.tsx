@@ -91,17 +91,33 @@ describe("les places START", () => {
     const lignes = vi
       .spyOn(Element.prototype, "getClientRects")
       .mockImplementation(() => boites as unknown as DOMRectList);
-    const suivis: (() => void)[] = [];
+    // Un faux aussi strict que le vrai : il ne rappelle que pour les
+    // éléments qu'on lui a fait observer. Le faux d'avant rappelait chaque
+    // observateur créé, et `useRangeeVisible` pouvait oublier
+    // `suivi.observe(el)` sans qu'aucun essai ne rougisse (relecture finale
+    // du 25 novembre 2026).
+    const suivis: { rappel: () => void; elements: Element[] }[] = [];
     vi.stubGlobal(
       "ResizeObserver",
       class {
+        suivi: { rappel: () => void; elements: Element[] };
         constructor(rappel: () => void) {
-          suivis.push(rappel);
+          this.suivi = { rappel, elements: [] };
+          suivis.push(this.suivi);
         }
-        observe() {}
-        disconnect() {}
+        observe(el: Element) {
+          this.suivi.elements.push(el);
+        }
+        disconnect() {
+          this.suivi.elements = [];
+        }
       },
     );
+    /** La rangée change de taille : seuls ceux qui l'observent l'apprennent. */
+    const changer = () => {
+      const rangee = document.getElementById("ports");
+      for (const { rappel, elements } of suivis) if (rangee && elements.includes(rangee)) rappel();
+    };
     render(
       <Places
         forme="petite"
@@ -112,11 +128,15 @@ describe("les places START", () => {
       />,
     );
     expect(document.querySelectorAll("[data-ancre]")).toHaveLength(4);
+    // La rangée #ports est bien observée : sans cela, rien ne la suivrait.
+    expect(
+      suivis.some(({ elements }) => elements.includes(document.getElementById("ports")!)),
+    ).toBe(true);
     boites = [];
-    act(() => suivis.forEach((f) => f()));
+    act(changer);
     expect(document.querySelectorAll("[data-ancre]")).toHaveLength(0);
     boites = [new DOMRect(0, 0, 200, 44)];
-    act(() => suivis.forEach((f) => f()));
+    act(changer);
     expect(document.querySelectorAll("[data-ancre]")).toHaveLength(4);
     vi.unstubAllGlobals();
     lignes.mockRestore();

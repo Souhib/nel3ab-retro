@@ -814,6 +814,42 @@ const ETAPES = {
     await page.close();
   },
 
+  /** Le jumeau d'`ancres-start` (relecture finale du 25 novembre 2026) :
+   * tenu en main à 667x375, la manette à l'écran laisse 114 px au panneau,
+   * et `#placesToutes` remplace la rangée. Les places cachées ne portent
+   * aucune ancre `start-N`, ni les lampes : une seule ancre par place
+   * VISIBLE. Seul le faux ResizeObserver de Places.test.tsx tenait cette
+   * règle, et il rappelait même un observateur qui n'observait rien. */
+  async "ancres-start-cachees"() {
+    const page = await nouvelle({ width: 667, height: 375, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, { salle: { bo: true } });
+    await page.goto(banc.url, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#enter, #screen", { timeout: 15000 });
+    if (await page.$("#enter")) await page.click("#enter");
+    await page.waitForSelector("#screen", { timeout: 15000 });
+    // La rangée cachée, le bouton de toutes les places montré.
+    const bascule = await jusqua(
+      () =>
+        page.evaluate(() => {
+          const toutes = document.querySelector("#placesToutes");
+          const rangee = document.querySelector("#ports");
+          return toutes !== null && toutes.getClientRects().length > 0 && rangee !== null && rangee.getClientRects().length === 0;
+        }),
+      8000,
+    );
+    if (!bascule) throw new Precondition("à 667x375, #placesToutes ne remplace pas la rangée des places");
+    await sleep(300);
+    const lu = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-ancre^="start-"]')].map((a) => ({
+        ancre: a.dataset.ancre,
+        boite: a.getClientRects().length > 0,
+        dans: a.closest("[id]")?.id ?? null,
+      })),
+    );
+    console.log(JSON.stringify({ ancres: lu }));
+    if (lu.length) throw new Defaut(`${lu.length} ancre(s) start- sur une rangée cachée : ${lu.map((a) => `${a.ancre} dans #${a.dans}${a.boite ? "" : " sans boîte"}`).join(", ")}`);
+    await page.close();
+  },
+
   /** L'image s'arrête : les mesures comptent zéro image peinte, puis la
    * cadence revient avec les images. Sur cc8c8a6, la cadence ne se
    * recalculait qu'au changement du compteur, et le panneau gardait la

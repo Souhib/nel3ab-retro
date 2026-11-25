@@ -12,7 +12,7 @@ dialog[open]{display:flex;flex-direction:column;overflow:hidden}.setup-head,.set
 <header><div><span class="muted">nel3ab · salle de test</span><h1>Mario Tennis Aces</h1></div><span class="badge">PROTOTYPE SWITCH</span></header>
 <p class="muted">Jusqu’à quatre joueurs. Cette partie est séparée de la salle GameCube et Wii.</p>
 <div class="toolbar"><button id="play">Jouer</button><button id="watch">Regarder</button><button id="leave" disabled>Quitter</button><span id="seat" role="status">Pas connecté</span></div>
-<div class="screen" id="screen"><canvas id="picture" aria-label="Image du jeu"></canvas><div id="placeholder">Clique sur Jouer pour prendre une place,<br>ou Regarder pour voir la partie.</div></div>
+<div class="screen" id="screen" data-zone-jeu tabindex="0" role="application" aria-label="Image du jeu, tes touches vont au jeu"><canvas id="picture" aria-hidden="true"></canvas><div id="placeholder">Clique sur Jouer pour prendre une place,<br>ou Regarder pour voir la partie.</div></div>
 <div class="status"><span id="connection">En attente</span><span id="controller"></span></div>
 <div class="toolbar"><button id="configure">Touches et manettes</button><button id="fullscreen">Plein écran</button><button id="full" aria-pressed="true">Image entière</button><button id="half" aria-pressed="false">Image réduite</button><button id="clip" disabled>Clip de 30 s</button><button id="sound" disabled>Activer le son</button><label for="volume">Volume <input id="volume" type="range" min="0" max="1" step="0.05" value="0.4"></label></div>
 <p id="notice" role="status" aria-live="polite"></p>

@@ -82,7 +82,12 @@ export function setup(source:SwitchInput, session:()=>Session|null, notice:(text
     if(frame===null)frame=requestAnimationFrame(refresh);
   }
   function close() {
-    const callback=after;after=null;source.releaseBeforePlay();session()?.input.blockGameplay(false);dialog.close();callback?.();
+    const callback=after;after=null;source.releaseBeforePlay();session()?.input.blockGameplay(false);dialog.close();
+    // Since 2026-11-22 the game keyboard lives in the game zone (front/src/lib/focus-jeu.ts).
+    // The native dialog hands focus back to the button that opened it, where the next key
+    // stays with the page, so "Reprendre" left the player unable to play until a click.
+    // Closing the setup means going back to the game: give the zone the focus.
+    el("screen").focus();callback?.();
   }
   dialog.addEventListener("cancel",event=>{event.preventDefault();if(source.capturing){source.cancel();source.message="Assignation annulée.";}else{after=null;close();}});
   // close() releases the input synchronously. The native close event runs later;

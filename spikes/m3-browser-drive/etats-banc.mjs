@@ -54,6 +54,10 @@ const DEPART = {
   // Les noms de ceux qui regardent, sans place : la colonne d'une salle
   // fermée les garde (« Ce soir dans la salle N »).
   public: [],
+  // Qui choisit le jeu : « moi » (banc, à la place 1) ou « Sami », un autre
+  // joueur à la place 2. La phrase d'un chargement perdu dépend de ce rôle
+  // (relecture finale du 25 novembre 2026, `echec-qui-relance`).
+  chef: "moi",
   // La console du jeu en cours: x360 (la manette Pro) ou gc (Dolphin). Ajouté
   // pour le banc du focus, qui doit lire START dans les deux trames.
   console: "x360",
@@ -110,13 +114,14 @@ export async function demarrerBanc({ port: demande, page, flux }) {
     library: LIBRARY,
     seats: [
       state.sieges === "vides" ? { port: 1, player: null, held: false } : { port: 1, player: "banc", held: true },
-      { port: 2, player: null, held: false },
+      state.chef === "moi" ? { port: 2, player: null, held: false } : { port: 2, player: "Sami", held: true },
       { port: 3, player: null, held: false },
       { port: 4, player: null, held: false },
     ],
-    owner: { name: "banc", id: "a", moi: true, seat: 1 },
+    owner: state.chef === "moi" ? { name: "banc", id: "a", moi: true, seat: 1 } : { name: "Sami", id: "s", moi: false, seat: 2 },
     people: [
       { name: "banc", id: "a", moi: true, seat: 1 },
+      ...(state.chef === "moi" ? [] : [{ name: "Sami", id: "s", moi: false, seat: 2 }]),
       ...state.public.map((name, i) => ({ name, id: `p${i}`, seat: null, seat_pending: false })),
     ],
     ask_lasts: 10,

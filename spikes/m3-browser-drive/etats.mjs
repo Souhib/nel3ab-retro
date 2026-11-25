@@ -126,13 +126,16 @@ async function capture(page, nom) {
   await page.screenshot({ path: `${CAPTURES}/${vue.width}x${vue.height}-${nom}.png` });
 }
 
-async function nouvelle(vue, stockage = {}, reglage = null) {
+async function nouvelle(vue, stockage = {}, reglage = null, avantPage = null) {
   banc.reinitialiser();
   // Un état du banc posé AVANT le chargement : la console du jeu décide le
   // format attendu dès la première lecture de la salle.
   if (reglage) banc.regler(reglage);
   const page = await browser.newPage();
   await page.setViewport(taille(vue));
+  // Un script posé avant ceux de la page (une horloge qu'on avance, par
+  // exemple).
+  if (avantPage) await page.evaluateOnNewDocument(avantPage);
   await page.evaluateOnNewDocument((stockage) => {
     try {
       localStorage.setItem("nel3ab:name", "banc");
@@ -1189,6 +1192,53 @@ const ETAPES = {
     console.log(JSON.stringify({ formats }));
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
     console.log(JSON.stringify({ ain_exerce: exerces }));
+  },
+
+  /** Un chargement perdu dit qui peut le relancer, et « ou choisir un autre
+   * jeu » seulement à la personne qui choisit le jeu (décision du chef de
+   * chantier, 24 novembre 2026). Seule la phrase était éprouvée : le
+   * câblage de la salle (`relance` d'App.tsx) pouvait dire « moi » à tout
+   * le monde sans qu'aucun essai ne rougisse (relecture finale du
+   * 25 novembre 2026). Deux rôles : banc choisit le jeu, puis Sami. Le
+   * plafond de 60 s est franchi en avançant `performance.now` de la page,
+   * pas en attendant. */
+  async "echec-qui-relance"() {
+    const fautes = [];
+    const lues = {};
+    for (const chef of ["moi", "autre"]) {
+      const page = await nouvelle(PC, {}, { chef }, () => {
+        const vrai = performance.now.bind(performance);
+        window.__avance = 0;
+        performance.now = () => vrai() + window.__avance;
+      });
+      await entrer(page);
+      banc.regler({ video: "freeze" });
+      banc.annoncerDemarrage();
+      const charge = await page
+        .waitForSelector("#booting", { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!charge) throw new Precondition(`${chef}: l'écran de chargement ne vient pas après l'annonce du salon`);
+      await page.evaluate(() => {
+        window.__avance = 61_000;
+      });
+      const dite = await page
+        .waitForFunction(() => document.querySelector("#ligneParlee")?.textContent.includes("Aucune image"), { timeout: 5000 })
+        .then(() => page.$eval("#ligneParlee", (p) => p.textContent.trim()))
+        .catch(() => null);
+      if (dite === null) throw new Precondition(`${chef}: la ligne parlée ne dit pas l'échec du chargement`);
+      lues[chef] = dite;
+      if (chef === "moi" && !dite.includes("Tu peux le relancer ou choisir un autre jeu."))
+        fautes.push(`qui choisit le jeu entend « ${dite} »`);
+      if (chef === "autre") {
+        if (dite.includes("choisir un autre jeu")) fautes.push(`un autre joueur entend « ${dite} »`);
+        if (!dite.includes("Sami peut le relancer.")) fautes.push(`un autre joueur n'apprend pas qui relance : « ${dite} »`);
+      }
+      banc.regler({ video: "live" });
+      await page.close();
+    }
+    console.log(JSON.stringify(lues));
+    if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
   /** La pastille d'une image figée ne touche pas l'image peinte, à + 4 px

@@ -64,6 +64,7 @@ export function TitreColonne({ children, id }: { children: ReactNode; id?: strin
 export function Colonne({
   nomSalle,
   jeu,
+  jeuAuFronton = false,
   ancre = false,
   onQuitter,
   largeur,
@@ -82,6 +83,11 @@ export function Colonne({
 }: {
   nomSalle: string;
   jeu: string | null;
+  /** Le fronton porte déjà le nom du jeu : la ligne de la colonne garde sa
+   * place, sans se lire. Retirée, elle raccourcissait la tête de 30 px à la
+   * première image d'un jeu en « entier », et toute la colonne remontait
+   * (colonne-stable, 25 novembre 2026). */
+  jeuAuFronton?: boolean;
   /** L'en-tête porte l'ancre de l'annonce (`ANCRE_ANNONCE`) : au bureau,
    * quand le fronton ne la porte pas. */
   ancre?: boolean;
@@ -223,8 +229,18 @@ export function Colonne({
             {SORTIES.quitter}
           </button>
         </div>
-        {jeu ? <p className="truncate text-corps text-muted">{jeu}</p> : null}
-        {ancre ? <span data-ancre="annonce" /> : null}
+        {jeu ? (
+          <p
+            className={cn("truncate text-corps text-muted", jeuAuFronton && "invisible")}
+            aria-hidden={jeuAuFronton || undefined}
+          >
+            {jeu}
+          </p>
+        ) : null}
+        {/* Toujours montée, l'ancre seule va et vient : retirée, sa place
+            dans la tête (l'écart de 4 px de la colonne flex) partait avec
+            elle quand le fronton la prenait, à la première image. */}
+        <span data-ancre={ancre ? "annonce" : undefined} />
       </header>
       {preparation}
       {etat}

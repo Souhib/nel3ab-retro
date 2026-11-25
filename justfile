@@ -937,8 +937,11 @@ etats-navigateur-rouge *args:
     # pastille « Ferme dans 5 min » passait de 1 px sur l'image d'une
     # tablette en « entier », et l'ouverture d'une tablette couchée posait
     # sa colonne dans une bande de 0 à 43 px, puis faisait défiler la salle.
+    # En « entier », la première image ouvrait un fronton qui prenait le nom
+    # du jeu et l'ancre de l'annonce : la tête de la colonne raccourcissait
+    # de 30 px (colonne-stable, vu en passant les portes).
     git show 6e2559f:core/crates/worker/src/page/index.html > "$dossier/relue-finale.html"
-    etapes=premiere-image-coupe,pastille-hors-image,ouverture-tablette
+    etapes=premiere-image-coupe,pastille-hors-image,ouverture-tablette,colonne-stable
     node etats.mjs --page "$dossier/relue-finale.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \

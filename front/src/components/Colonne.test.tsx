@@ -114,6 +114,69 @@ describe("la colonne", () => {
     expect(ordre(container)).toEqual(["son", "autres"]);
   });
 
+  it("le nom du jeu garde sa ligne quand le fronton le prend : la tête ne change pas de hauteur", () => {
+    // En « entier », la première image ouvre un fronton de 166 px qui porte
+    // le nom du jeu. La ligne de la colonne disparaissait alors, et tout ce
+    // qui la suit remontait de 30 px (colonne-stable, 25 novembre 2026).
+    const tete = (auFronton: boolean) => {
+      const { container, unmount } = render(
+        <Colonne
+          nomSalle="Salle 1"
+          jeu="Mario Kart"
+          jeuAuFronton={auFronton}
+          onQuitter={() => {}}
+          largeur={304}
+          role={null}
+          rangs={[]}
+          contenus={contenus}
+          vue={null}
+          coin={<Coin mesures={false} onMesures={() => {}} />}
+        />,
+      );
+      const ligne = [...container.querySelectorAll("header p")].find(
+        (p) => p.textContent === "Mario Kart",
+      );
+      const lu = {
+        la: ligne !== undefined,
+        cachee: ligne?.classList.contains("invisible") ?? false,
+        aria: ligne?.getAttribute("aria-hidden") ?? null,
+      };
+      unmount();
+      return lu;
+    };
+    expect(tete(true)).toEqual({ la: true, cachee: true, aria: "true" });
+    // Le jumeau : sans fronton, la ligne se lit.
+    expect(tete(false)).toEqual({ la: true, cachee: false, aria: null });
+  });
+
+  it("la tête garde ses enfants quand l'ancre de l'annonce part au fronton", () => {
+    // L'ancre retirée emportait l'écart de 4 px de la tête flex : la colonne
+    // remontait encore de 4 px à la première image (colonne-stable,
+    // 25 novembre 2026).
+    const tete = (ancre: boolean) => {
+      const { container, unmount } = render(
+        <Colonne
+          nomSalle="Salle 1"
+          jeu="Mario Kart"
+          ancre={ancre}
+          onQuitter={() => {}}
+          largeur={304}
+          role={null}
+          rangs={[]}
+          contenus={contenus}
+          vue={null}
+          coin={<Coin mesures={false} onMesures={() => {}} />}
+        />,
+      );
+      const enfants = container.querySelector("header")!.children.length;
+      const ancres = container.querySelectorAll('[data-ancre="annonce"]').length;
+      unmount();
+      return { enfants, ancres };
+    };
+    expect(tete(true)).toEqual({ enfants: 3, ancres: 1 });
+    expect(tete(false)).toEqual({ enfants: 3, ancres: 0 });
+  });
+
   it("ses titres de section ne sont plus en capitales espacées", () => {
     const { container } = render(<IlsRegardent people={[]} />);
     const titre = container.querySelector("h2");

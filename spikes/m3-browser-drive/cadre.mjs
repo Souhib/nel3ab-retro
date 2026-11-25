@@ -998,7 +998,11 @@ async function principal() {
           const fronton = document.querySelector("#fronton");
           const image = r(document.querySelector("#screen"));
           const zone = r(document.querySelector("#zone-jeu"));
-          const tete = document.querySelector("#side header")?.textContent ?? "";
+          // Ce qui SE LIT dans l'en-tête (`innerText` saute ce qui est
+          // `visibility: hidden`) : depuis le 25 novembre 2026, la ligne du
+          // jeu y garde sa place, invisible, quand le fronton le dit, pour
+          // que la première image ne raccourcisse pas la colonne.
+          const tete = document.querySelector("#side header")?.innerText ?? "";
           return {
             fronton: fronton ? { ...r(fronton), texte: fronton.textContent ?? "" } : null,
             image,

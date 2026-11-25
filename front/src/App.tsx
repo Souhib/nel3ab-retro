@@ -2547,9 +2547,11 @@ function Room({
   const colonne = (
     <Colonne
       nomSalle={nomSalle}
-      // Le nom du jeu une seule fois : au fronton quand il a sa bande,
-      // sinon dans l'en-tête de la colonne.
-      jeu={frontonPossible ? null : (room?.game?.name ?? null)}
+      // Le nom du jeu se lit une seule fois : au fronton quand il a sa
+      // bande, sinon dans l'en-tête de la colonne, qui lui garde sa ligne
+      // dans les deux cas (la première image ne déplace rien).
+      jeu={room?.game?.name ?? null}
+      jeuAuFronton={frontonPossible}
       ancre={!tenu && !frontonVisible}
       onQuitter={quitterLaSalle}
       // Le panneau des touches élargit la colonne : la largeur que le cadre

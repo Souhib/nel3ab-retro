@@ -1357,6 +1357,10 @@ const ETAPES = {
         fautes.push(`${nom}: la première rangée de l'image sous la pastille rend ${mesure.recoit}, pas la toile`);
       console.log(JSON.stringify({ tablette: mesure }));
       banc.annoncerFermeture(0);
+      // Le stockage est celui du navigateur entier : « entier » laissé là
+      // passait aux étapes suivantes (colonne-stable l'a vu le 25 novembre
+      // 2026).
+      await page.evaluate(() => localStorage.removeItem("nel3ab:fit"));
       await page.close();
     }
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
@@ -2232,49 +2236,21 @@ const ETAPES = {
    * diffère n'y change rien avant le prochain changement de mise en page.
    * Le jumeau : un enfant déplacé d'un pixel est vu. */
   async "colonne-stable"() {
-    const page = await nouvelle(PC);
-    banc.regler({ video: "freeze" });
-    await page.click("#enter");
-    if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
-      throw new Precondition("pas de plein cadre avant l'image");
-    await sleep(1500);
-    const boites = () =>
-      page.evaluate(() =>
-        [...(document.querySelector("#side")?.children ?? []), document.querySelector("#panneau")].map((el) => {
-          if (!el) return "pas de #panneau";
-          const r = el.getBoundingClientRect();
-          return `${el.id || el.className}:${[r.left, r.top, r.width, r.height].map(Math.round)}`;
-        }),
-      );
-    const avant = await boites();
-    if (avant.length < 2) throw new Precondition(`la colonne n'a que ${avant.length} enfants`);
-    banc.regler({ video: "live" });
-    const vu = await jusqua(page, (v) => v.peintes > 0, 8000);
-    if (vu.apres === null) throw new Precondition("aucune image peinte en 8 s");
-    await sleep(1000);
-    const apres = await boites();
-    const bouges = avant.filter((b, i) => b !== apres[i]);
-    if (bouges.length || avant.length !== apres.length)
-      throw new Defaut(`la colonne bouge à l'arrivée de l'image: ${bouges.map((b, i) => `${b} → ${apres[avant.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${avant.length} puis ${apres.length} enfants`}`);
-    // Et 3 s plus tard : la place que la salle donne arrive parfois après la
-    // première image, et le rôle qui change ne déplace rien non plus.
-    await sleep(3000);
-    const ensuite = await boites();
-    const tard = apres.filter((b, i) => b !== ensuite[i]);
-    if (tard.length || apres.length !== ensuite.length)
-      throw new Defaut(`la colonne bouge après l'image: ${tard.map((b) => `${b} → ${ensuite[apres.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${apres.length} puis ${ensuite.length} enfants`}`);
-    // Le jumeau décale le premier enfant qui a une boîte : le dernier est le
-    // curseur ▶ du socle (`rt-curseur`, posé là par la salle le 23 novembre
-    // 2026) et le premier la pile des avis vide (`empty:hidden`), sans
-    // boîte l'un et l'autre, qu'une marge ne déplace pas.
-    await page.evaluate(() => {
-      const vu = [...document.querySelector("#side").children].find((el) => el.getBoundingClientRect().height > 0);
-      if (vu) vu.style.marginTop = "1px";
-    });
-    const jumeau = await boites();
-    if (jumeau.every((b, i) => b === apres[i])) throw new Precondition("un enfant déplacé d'un pixel n'est pas vu");
-    await page.close();
+    // Aussi en « entier » : l'image 640x480 y laisse un fronton de 166 px,
+    // et le nom du jeu quittait alors la tête de la colonne à la première
+    // image, ce qui la raccourcissait de 30 px (vu le 25 novembre 2026,
+    // quand un réglage laissé par une autre étape l'a posé).
+    for (const fit of ["remplir", "entier"]) {
+      try {
+        await colonneStableEn(fit);
+      } catch (erreur) {
+        erreur.message = `${fit} : ${erreur.message}`;
+        throw erreur;
+      }
+    }
   },
+
+
 
   /** Au bureau, la pastille d'une image figée se pose sur le panneau de
    * commande sous l'image, avant « Toutes les touches », quand aucune bande
@@ -2541,6 +2517,53 @@ const ETAPES = {
     }
   },
 };
+
+/** Une passe de `colonne-stable`, sous un réglage de la pose. */
+async function colonneStableEn(fit) {
+  const page = await nouvelle(PC, { "nel3ab:fit": fit });
+  banc.regler({ video: "freeze" });
+  await page.click("#enter");
+  if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+    throw new Precondition("pas de plein cadre avant l'image");
+  await sleep(1500);
+  const boites = () =>
+    page.evaluate(() =>
+      [...(document.querySelector("#side")?.children ?? []), document.querySelector("#panneau")].map((el) => {
+        if (!el) return "pas de #panneau";
+        const r = el.getBoundingClientRect();
+        return `${el.id || el.className}:${[r.left, r.top, r.width, r.height].map(Math.round)}`;
+      }),
+    );
+  const avant = await boites();
+  if (avant.length < 2) throw new Precondition(`la colonne n'a que ${avant.length} enfants`);
+  banc.regler({ video: "live" });
+  const vu = await jusqua(page, (v) => v.peintes > 0, 8000);
+  if (vu.apres === null) throw new Precondition("aucune image peinte en 8 s");
+  await sleep(1000);
+  const apres = await boites();
+  const bouges = avant.filter((b, i) => b !== apres[i]);
+  if (bouges.length || avant.length !== apres.length)
+    throw new Defaut(`la colonne bouge à l'arrivée de l'image: ${bouges.map((b, i) => `${b} → ${apres[avant.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${avant.length} puis ${apres.length} enfants`}`);
+  // Et 3 s plus tard : la place que la salle donne arrive parfois après la
+  // première image, et le rôle qui change ne déplace rien non plus.
+  await sleep(3000);
+  const ensuite = await boites();
+  const tard = apres.filter((b, i) => b !== ensuite[i]);
+  if (tard.length || apres.length !== ensuite.length)
+    throw new Defaut(`la colonne bouge après l'image: ${tard.map((b) => `${b} → ${ensuite[apres.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${apres.length} puis ${ensuite.length} enfants`}`);
+  // Le jumeau décale le premier enfant qui a une boîte : le dernier est le
+  // curseur ▶ du socle (`rt-curseur`, posé là par la salle le 23 novembre
+  // 2026) et le premier la pile des avis vide (`empty:hidden`), sans
+  // boîte l'un et l'autre, qu'une marge ne déplace pas.
+  await page.evaluate(() => {
+    const vu = [...document.querySelector("#side").children].find((el) => el.getBoundingClientRect().height > 0);
+    if (vu) vu.style.marginTop = "1px";
+  });
+  const jumeau = await boites();
+  if (jumeau.every((b, i) => b === apres[i])) throw new Precondition("un enfant déplacé d'un pixel n'est pas vu");
+  await page.evaluate(() => localStorage.removeItem("nel3ab:fit"));
+  await page.close();
+}
 
 const choisies = option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES);
 const resultats = [];

@@ -33820,6 +33820,89 @@ n'a été redémarré. Et la garde a un angle mort qui n'est pas corrigé ici :
 un `create_app` renommé dans tout `nel3ab_control` passerait
 `salon-importable.sh` et ferait échouer le module de Souverain.
 
+(Une partie de ce récit est remplacée par l'entrée suivante : le rouge
+« pour la branche » lisait un code qu'aucun service n'exécute.)
+
+### 25 novembre, au matin : `deploy-check` lisait l'arbre d'où on le lance
+
+Le second tour de réparation a reçu la même porte rouge. Le tour d'avant
+l'avait relue à son message ; je l'ai relue à son code.
+
+**Ce que la garde disait.** « tourne avec un code plus ancien que le
+dépôt: nel3ab-control.service (démarrée 2026-11-22 14:35:39, code du
+2026-11-25 00:06:59) ». Le 25 novembre à 0 h 06, c'est l'heure de la fusion
+de la fin d'Aïn dans le worktree d'intégration. Aucun service n'exécute ce
+worktree.
+
+**Pourquoi.** La recette prenait l'heure de modification du fichier le plus
+récent sous `control/` et de `consoles/consoles.json`, dans l'arbre d'où
+on la lance, et la comparait à l'heure de démarrage du salon et de la boîte
+noire. Ces deux services exécutent le dossier de leur unité,
+`/home/souhib/nel3ab-retro/control` (son `WorkingDirectory`). Lancé par
+`python -m`, Python y cherche `nel3ab_control` avant son propre
+environnement, et `consoles.py` lit le manifeste à côté de ce dossier. Depuis
+l'arbre principal, les deux arbres sont le même ; depuis un worktree, non. Or
+la règle du dépôt dit de travailler dans un worktree. La garde rougissait donc
+par construction pour toute branche qui touche au salon : l'état du
+24 novembre l'écrivait déjà, « rouge dans un worktree par construction ». Et
+elle pouvait rester verte depuis un worktree aux fichiers anciens, pendant
+que `main` avait changé après le démarrage. Les salles avaient le même
+défaut : la garde lisait `core/target/release/nel3ab-worker` dans l'arbre
+courant, absent d'un worktree, et sautait alors le contrôle sans un mot.
+
+**Ce qui reste du tour d'avant.** Il concluait : « vrai pour la branche, et
+vrai pour `main` ». La moitié sur `main` tient. La moitié sur la branche
+lisait un code que rien n'exécute : les 51 fichiers du salon qui diffèrent de
+`main` ne tournent pas, et ne tourneront qu'après la fusion et la mise en
+service, dont `deploy-check` est la dernière étape.
+
+**La correction.** Le contrôle sort de la recette, dans
+`deploy/services-a-jour.sh`. Il lit dans chaque unité ce qu'elle exécute :
+le `WorkingDirectory` du salon et de la boîte noire (le code du salon, ses
+pages, `pyproject.toml`, `uv.lock` et le manifeste posé à côté), le chemin
+de l'`ExecStart` d'une salle. Il nomme le fichier le plus récent. Il rougit
+aussi là où il se taisait : un dossier sans le salon, un manifeste absent, un
+binaire de salle disparu, une heure de démarrage vide. Ce dernier cas a été
+vu : `date -d ""` rend minuit du jour, et l'ancien bloc écrivait alors
+« démarrée 2026-11-25 00:00:00 » pour une heure qu'il n'avait pas lue.
+Lancé depuis un autre arbre, le contrôle le dit sur une ligne qui ne rougit
+pas. Vert depuis un worktree veut dire « ce qui tourne a le code de `main` »,
+pas « cette branche tourne ».
+
+**Rouge d'abord.** Les essais (`control/tests/test_deploiement.py`) mettent
+un faux `systemctl` en tête du `PATH`. Il ne connaît que les deux appels du
+contrôle et refuse tout autre en sortant en 64. Pour une propriété absente,
+il rend ce que systemd rend pour une unité inconnue, lu sur la machine.
+Contre l'ancien bloc extrait tel quel, dix des douze essais nouveaux
+tombent, plus celui qui exige que la recette appelle le script : vert alors
+que le dossier servi avait changé, rouge alors que seul l'arbre courant avait
+changé, l'heure vide lue comme minuit, le binaire d'une salle jamais lu. Les
+deux qui passaient décrivent un comportement gardé : un service arrêté n'est
+pas lu, et rien n'est dit depuis l'arbre servi. Sept mutants du nouveau
+script tombent chacun sur au moins un essai : l'arbre courant au lieu du
+dossier de l'unité, le manifeste oublié, l'heure vide admise, le binaire de
+l'arbre courant, le rappel retiré, le rappel toujours écrit, les `.pyc`
+comptés.
+
+**Ce que dit la porte maintenant**, sur l'arbre d'intégration. D'abord
+`deploy/Caddyfile` diverge, par les treize lignes de K39 et rien d'autre.
+C'est la seule différence de fichiers entre `deploy/` et la machine, et le
+Caddyfile installé est celui de `main` à l'octet. Ensuite le salon et la
+boîte noire, démarrés le 22 novembre à 14 h 35 min 39 s sur 856fd97, tournent
+avec un code plus ancien que celui qu'ils exécutent :
+`/home/souhib/nel3ab-retro/consoles/consoles.json`, réécrit à 16 h 05 min 57 s
+par l'avance de `main` à 03b21c0. Ce rouge-là est celui de `main`, pas de la
+branche, et ce n'est pas qu'une heure : entre 856fd97 et 03b21c0,
+`consoles.json` change de contenu (la Xbox 360 passe de
+`"experimental": true` à `false`, et sa note change). Depuis l'arbre
+principal, la garde le disait déjà. Les deux causes partent avec
+`sudo bash deploy/mettre-en-service.sh`, au propriétaire, après la fusion.
+
+**La leçon.** Une garde qui compare « ce qui tourne » à « son code » doit lire
+ce code là où le service le prend : dans son unité, pas dans le dossier d'où
+on la lance. Ici, le même mot « dépôt » désignait deux arbres, et le message
+le répétait sans dire lequel.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -35867,3 +35950,13 @@ venue d'un autre site.
 
 **Note (d'une console)** : la phrase courte du manifeste des consoles qui
 s'affiche sous le nom d'une console dans le menu des jeux.
+
+**Heure de modification (mtime)** : l'heure que le système de fichiers
+garde pour la dernière écriture d'un fichier. `deploy-check` la compare à
+l'heure de démarrage d'un service pour savoir s'il tourne avec un code plus
+ancien que celui qu'il exécute.
+
+**WorkingDirectory, ExecStart** : deux lignes d'une unité systemd. La
+première est le dossier où le service démarre ; la seconde, la commande
+qu'il lance. Le salon exécute le code de son `WorkingDirectory`, une salle
+le binaire de son `ExecStart`.

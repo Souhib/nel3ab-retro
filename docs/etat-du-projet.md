@@ -33,18 +33,32 @@ d'avant ces fusions.
   `cadre-navigateur` et `etats-navigateur` sont verts en entier pour la
   première fois depuis les vagues B1 et B2. `arrivee-courte` (états)
   comptait encore depuis le clic : elle part du plein cadre, rouge d'abord
-  sur une transition ralentie. `deploy-check` est rouge : en fichiers,
-  seulement `deploy/Caddyfile` (les treize lignes de K39, le Caddyfile
-  installé étant celui de `main` à l'octet) ; et le salon et la boîte
-  noire tournent depuis le 22 novembre 14 h 35 avec un code plus ancien,
-  ce qui est vrai aussi pour `main` (`consoles.json` changé après ce
-  démarrage). Relu au tour de réparation : la garde a raison et reste
-  rouge. Le redémarrage du salon seul ne la règle pas, la boîte noire
-  importe le même code et compte à part (voir la mise en service). Pour
-  le salon en service, la Xbox 360 est encore expérimentale : il a lu le
-  manifeste avant e408fd1, et ses vues de profil et d'import portent ce
-  champ. Le worker, reconstruit à 16 h 06 après 03b21c0, a la Xbox 360
-  ordinaire. Qu'une page montre ce champ n'est pas vérifié.
+  sur une transition ralentie. `deploy-check` est rouge, pour deux
+  causes que seul le propriétaire peut lever. En fichiers, seulement
+  `deploy/Caddyfile` (les treize lignes de K39, le Caddyfile installé
+  étant celui de `main` à l'octet). Et le salon et la boîte noire,
+  démarrés le 22 novembre à 14 h 35 sur 856fd97, tournent avec un code
+  plus ancien que celui qu'ils exécutent :
+  `/home/souhib/nel3ab-retro/consoles/consoles.json`, changé en contenu
+  par l'avance de `main` à 03b21c0 (16 h 05). Ce rouge est celui de
+  `main`, pas de la branche. Le redémarrage du salon seul ne le règle
+  pas, la boîte noire importe le même code et compte à part (voir la
+  mise en service). Pour le salon en service, la Xbox 360 est encore
+  expérimentale : il a lu le manifeste avant e408fd1, et ses vues de
+  profil et d'import portent ce champ. Le worker, reconstruit à 16 h 06
+  après 03b21c0, a la Xbox 360 ordinaire. Qu'une page montre ce champ
+  n'est pas vérifié.
+- **La garde du code en service, corrigée.** Jusqu'au second tour de
+  réparation, `deploy-check` datait le code du salon dans l'arbre d'où
+  on le lance : depuis un worktree, il rougissait pour toute branche qui
+  touche au salon, sur un code qu'aucun service n'exécute, et il pouvait
+  rester vert pendant que `main` avait changé après le démarrage.
+  `deploy/services-a-jour.sh` lit maintenant le `WorkingDirectory` et
+  l'`ExecStart` de chaque unité, nomme le fichier le plus récent, et dit
+  sur une ligne qui ne rougit pas qu'il est lancé depuis un autre arbre.
+  Rouge d'abord contre l'ancien bloc extrait tel quel. Récit : carnet,
+  « 25 novembre, au matin : `deploy-check` lisait l'arbre d'où on le
+  lance ».
 - **Poids.** 278 860 octets en brotli, 21 140 sous le plafond de
   300 000.
 - **Avant `main`.** La porte `just` entière : `gpu-test` (après avoir
@@ -134,7 +148,10 @@ les blocs datés qui suivent gardent chaque chantier et chaque vague.
   construction (les services tournent avec le code de `main`) ; depuis
   l'arbre principal, il doit ne diverger que sur `deploy/Caddyfile` tant
   que le propriétaire ne l'a pas installé, ce que ce chantier n'a pas
-  vérifié.
+  vérifié. (Remplacé le 25 novembre : ce rouge « par construction » était
+  un défaut de la garde, corrigé ; et depuis l'arbre principal, le
+  Caddyfile ne diverge pas, c'est le salon qui y est périmé. Voir le bloc
+  du 25 novembre.)
 - **La mise en service, dans cet ordre.** Le salon d'abord
   (`deploy/salon-importable.sh`, puis son redémarrage), qui sait répondre
   aux pages nouvelles ; puis le worker reconstruit sans salle ouverte, qui

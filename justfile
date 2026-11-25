@@ -335,44 +335,14 @@ deploy-check:
             echo "  chargée par systemd sans fichier sur le disque: $charge"; faux=1
         fi
     done
-    # Le PÉRIMÉ: une unité qui tourne depuis AVANT la dernière modification du
-    # code qu'elle exécute. Le 22 septembre 2026, le salon tournait depuis le 14 et
-    # ignorait l'événement « qualité » ajouté le 16: une semaine de propositions de
-    # format réduit perdues sans un signal. Les trois boucles du dessus comparent
-    # des fichiers entre eux; celle-ci compare un fichier à ce qui tourne.
-    #
-    # L'heure de modification plutôt que celle du dernier commit: le code installé
-    # peut ne pas être commité, et git ne réécrit un fichier que si son contenu
-    # change, donc un changement de branche sans effet sur le code ne rougit pas.
-    # Caddy n'est pas suivi: `systemctl reload` recharge sa configuration sans
-    # changer l'heure de démarrage, et la première boucle compare déjà le fichier.
-    perime() {
-        local unite="$1" code="$2"
-        [ "$(systemctl show "$unite" -p ActiveState --value)" = active ] || return 0
-        local depuis
-        depuis=$(date -d "$(systemctl show "$unite" -p ActiveEnterTimestamp --value)" +%s)
-        if [ "$code" -gt "$depuis" ]; then
-            echo "  tourne avec un code plus ancien que le dépôt: $unite (démarrée $(date -d "@$depuis" '+%F %T'), code du $(date -d "@$code" '+%F %T'))"
-            faux=1
-        fi
-    }
-    # Les sources seules: le service écrit lui-même ses `.pyc` en tournant, et les
-    # compter le déclarerait périmé par son propre démarrage. Les pages du salon
-    # (HTML, modules, feuilles, dessins, polices) et le manifeste des consoles
-    # comptent aussi: le salon les assemble UNE fois, à son démarrage. Le
-    # 21 novembre 2026, une page de dépôt changée seule ne rougissait rien.
-    controle=$(find control/nel3ab_control control/pyproject.toml control/uv.lock consoles/consoles.json \
-        \( -name '*.py' -o -name pyproject.toml -o -name uv.lock -o -name '*.html' -o -name '*.mjs' \
-           -o -name '*.css' -o -name '*.svg' -o -name '*.woff2' -o -name consoles.json \) -printf '%T@\n' \
-        | cut -d. -f1 | sort -n | tail -1)
-    perime nel3ab-control.service "$controle"
-    perime nel3ab-boite-noire.service "$controle"
-    worker=core/target/release/nel3ab-worker
-    if [ -e "$worker" ]; then
-        for salle in $(systemctl list-units --no-legend --state=active 'nel3ab-worker@*.service' | awk '{print $1}' | sed 's/^●[[:space:]]*//'); do
-            perime "$salle" "$(stat -c %Y "$worker")"
-        done
-    fi
+    # Le PÉRIMÉ: un service qui tourne depuis AVANT la dernière modification du
+    # code qu'il exécute, lu dans son unité (le dossier du salon et de la boîte
+    # noire, le binaire d'une salle) et pas dans l'arbre d'où l'on lance ce
+    # contrôle. Le 22 septembre 2026, le salon ignorait depuis une semaine un
+    # événement ajouté après son démarrage. Le 25 novembre 2026, lu dans l'arbre
+    # courant, ce contrôle rougissait depuis chaque worktree qui touchait au
+    # salon, sur un code qu'aucun service n'exécute (deploy/services-a-jour.sh).
+    if ! bash deploy/services-a-jour.sh; then faux=1; fi
     # Les anciennes portes `.ts.net` ne font que renvoyer vers nel3ab.app, par
     # les deux sites de boucle locale du Caddyfile. Une porte qui servirait de
     # nouveau une page à côté du nom de domaine est ce que le 21 novembre 2026 a
@@ -406,7 +376,7 @@ deploy-check:
     # existe, et rouge si son fichier n'existe plus. Chaque adaptateur est importé
     # avec le python3 que le PATH de l'unité donne au worker.
     if ! bash deploy/salles-adaptateurs.sh; then faux=1; fi
-    if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et tournent avec son code"; else exit 1; fi
+    if [ "$faux" -eq 0 ]; then echo "les unités installées sont celles du dépôt, et chaque service tourne avec le code qu'il exécute"; else exit 1; fi
 
 # Vérifie les pistes du MP4 et décode réellement son audio, sans Dolphin ni salle.
 clip-audio-test:

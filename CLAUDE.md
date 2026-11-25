@@ -395,6 +395,14 @@ machine".
   effective `ExecStart` and import the app with it before restarting:
   `deploy/salon-importable.sh` does, in `deploy-check` and before every restart
   in `deploy/mettre-en-service.sh`.
+- **A freshness guard reads the code where the service takes it.** Until
+  2026-11-25, `deploy-check` dated the lobby's code in the tree it was run
+  from. From a worktree it went red for every branch that touched the lobby,
+  on code no service runs, and it could stay green there while `main` had
+  changed after the start. `deploy/services-a-jour.sh` reads each unit's
+  `WorkingDirectory` and `ExecStart`, names the newest file, and says when it
+  runs from another tree. A green gate in a worktree means the running code
+  is `main`'s, not that the branch runs.
 - **Archive a lab by inventory before deleting it, not by file extension.**
   On 2026-11-21, an extension filter kept every report but dropped four
   Dockerfiles, and their images were removed in the same hour. Only the

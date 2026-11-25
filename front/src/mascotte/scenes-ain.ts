@@ -12,7 +12,9 @@
  *
  * Les ancres que les scènes complètes demandent, et qui les pose :
  *
- * - `start-1` à `start-4` : le haut des boutons START (personnes) ;
+ * - `start-1` à `start-4` : le haut des ronds START (personnes), une seule
+ *   ancre par place visible ; le bouton de la place qui porte son rond
+ *   n'est pas un mur, ses mots (`data-texte`) en sont un ;
  * - `prise` : la prise de la pastille d'état (etats) ;
  * - `toque`, `siege`, `rattrape`, `devant`, `public`, `fiche-sol`,
  *   `branche` : des marques posées sur les sols du cadre (salle) ;
@@ -201,7 +203,10 @@ const depart: DefScene = {
     const b = P.pt(`start-${P.joueur}`);
     const e = `etiquette${P.joueur}`;
     const [w, h] = taille(e, P.d.c);
-    const ici: Point = [b[0] - w / 2, b[1] - h / 2];
+    // Posée SUR le haut du START, comme au départ de la version complète, et
+    // non à cheval : à cheval, elle couvrait le nom écrit au ras du haut de
+    // la place (« 2P libre », intégration B1, 24 novembre 2026).
+    const ici: Point = [b[0] - w / 2, b[1] - h];
     P.objet("etiquette", 0, 640, ici, ici, { dessin: e, arc: 8, efface: true });
     dansLeLogo(P, [[640, { oeil: "ouvert", rx: -1, ry: 1, prof: 2 }]]);
   },

@@ -33044,6 +33044,132 @@ deux grappes, là où l'image se pose : c'est le défaut déjà signalé à
 568 × 320, sur plus de tailles qu'on ne le disait. Il est au propriétaire.
 Aucune vraie salle n'a servi cette page.
 
+### 24 novembre, la nuit encore : l'étiquette qui se posait sur « 2P libre »
+
+**Le contexte.** Depuis la vague B1, l'étape `mascotte-hors-image` de
+`cadre-navigateur` ne rendait plus de verdict. Elle joue chaque scène
+d'Aïn dans le vrai cadre, à sept tailles, et une sonde regarde à chaque
+image d'écran si un de ses sprites touche l'image, un bouton ou un mot.
+À la fin, deux jumeaux prouvent que la sonde voit : un sprite posé exprès
+sur l'image, puis sur la phrase de l'écran éteint. Le second exigeait une
+page calme 300 ms après l'entrée. Or la page joue désormais des scènes à
+l'entrée : l'arrivée de la personne au coin (de 0,4 à 2,7 s), puis
+l'attente du plateau (de 2,8 à 4,7 s). Le jumeau levait sa précondition,
+et l'étape sortait en « précondition » sans dire les fautes qu'elle avait
+déjà relevées. Ce chantier de fin, « fin-ain », sur
+`chantier/retro-fin-ain`, partie d'`integration/retro` (928bd03), avait à
+rendre ce verdict et à corriger ce qu'il dirait.
+
+**Ce que la précondition cachait.** Le jumeau corrigé attend la fin des
+scènes, pose son sprite, et jette un essai pendant lequel une scène a
+commencé. L'étape a alors rendu cinq fautes. Trois sont réelles et
+identiques, à 1280 × 720, 1440 × 900 et 390 × 844 : « depart (etiquette)
+sur #port2 « 2P libre » ». Quand une personne quitte sa place, Aïn prend
+son étiquette sur le bouton START. La version courte posait cette
+étiquette à cheval sur le haut du bouton. Le nom de la place y est écrit
+au ras du haut : la capture montre l'étiquette « 2P » sur le mot
+« libre ». Le planificateur ne l'avait pas vu, parce que l'ancre `start-N`
+était le bouton entier, et qu'il ne fait jamais un mur de l'élément d'une
+ancre : c'est là qu'Aïn se pose. Rien dans le bouton n'était donc
+protégé. Les deux autres fautes venaient de l'étape elle-même : à 844 × 390
+et 375 × 548, elle disait « la scène joue dans #arrivee, pas dans
+#laSalleCote ». Le plein cadre d'arrivée des états joue une scène à
+l'entrée, coupée par la première image, et l'étape la comptait avec les
+siennes.
+
+**Le choix : l'ancre est le rond, les mots sont des murs.** On pouvait
+laisser l'ancre sur le bouton et marquer ses mots : Aïn, posé au milieu du
+bouton, aurait alors touché le nom, et ses scènes complètes n'y seraient
+jamais allées. L'ancre passe donc sur le rond START lui-même, qui est ce
+que le contrat d'Aïn appelle « le haut des boutons START ». Le bouton qui
+porte ce rond n'est pas plus un mur que l'ancre : le planificateur
+l'écarte, sauf quand l'ancre est celle d'une maison (la tête d'Aïn dans
+« La salle », dont les mots ne doivent pas être couverts). Ce qui est
+écrit dans la place devient un mur : le numéro, le nom ou « libre »,
+« toi », « 3P prêt ! », par `data-texte`. Les noms sous « Ils regardent »
+aussi : ce sont les mots de la scène « spectateur ». L'étiquette de
+« depart » se pose sur le haut du rond, jamais à cheval. Le chef de
+chantier avait demandé une seule ancre par place visible : au téléphone,
+quand la rangée devient le bouton des quatre lampes, une requête de
+conteneur la cache, et React ne le sait pas. Un observateur de taille lit
+si la rangée a une boîte, à la pose et à chaque changement ; une place
+cachée ne porte pas d'ancre.
+
+**Rouge d'abord, chaque fois.** Chaque correction a son essai rouge avant
+elle, et son jumeau : le bouton d'une place qui porte son rond n'est pas
+un mur mais son nom l'est (et « La salle », qui porte une maison, reste
+un mur) ; l'étiquette de la version courte chevauchait le START ; la
+rangée cachée portait ses quatre ancres ; les mots n'avaient aucune
+marque. Dans le navigateur, l'étape est rouge sur la page de
+l'intégration (4ecbc23) avec ses trois fautes, verte sur la page
+corrigée ; `just mascotte-navigateur-rouge` garde ce rouge.
+
+**Deux étapes réparées, une leçon.** Le jumeau ne peut plus cacher une
+faute : s'il tombe, l'étape rend le verdict des fautes vues, et ne parle
+de précondition que si la sonde n'a rien vu. C'est la leçon générale :
+une précondition dit « je ne sais pas », jamais « tout va bien », et elle
+ne doit pas couvrir ce qu'on sait déjà. L'autre étape, `ain-immobile`,
+compte les appels d'Aïn à l'horloge d'image pendant deux secondes au
+repos. Sa fenêtre commençait parfois au milieu de l'attente du plateau,
+et comptait la boucle d'une scène comme celle d'un Aïn au repos (103
+appels en 2 s, reproduits avec l'étape d'avant). Une fenêtre qui commence
+pendant une scène est maintenant jetée : 0 appel, deux fois, et son jumeau
+voit toujours une boucle sans fin (60 appels en 1 s).
+
+**Le reste du périmètre.** `usePlaces` passe le joueur à l'arbitre :
+l'arrivée et le départ de la place 3 vont au START 3, en couleur 3. Avant,
+toutes ces scènes jouaient la place 1. Quatre petits constats de la
+relecture d'Aïn étaient encore vrais, et sont corrigés. Un essai sautait
+en silence une scène sans plan : il compare maintenant les seules scènes
+qui ont une version courte, exige les deux plans et une courte plus
+courte. Un autre se disait « peinte » sans compter un pixel : il compte
+les traits de la tête sur sa toile. Le logo du coin ne disait plus
+« nel3ab » à un lecteur d'écran : il le dit, sans prendre le focus. Les
+teintes sombres des joueurs, la première marche du relief d'Aïn à leur
+couleur, étaient écrites dans sa palette sans jeton : elles sont dans
+`regie.css`, et un essai calcule que chacune se détache du corps jaune
+d'Aïn (3,65:1 au plus juste, contre 1,46:1 pour le jaune du joueur 3).
+Le constat des 27 phrases de la proposition est tranché par écrit (ADR
+D46) : une scène n'a pas de mots à elle, chaque écran dit son événement.
+
+**Ce que ça coûte.** Sur l'écran noir, à 1440 × 900 au repos, l'arrivée
+et la scène « fier » jouaient en entier quand aucun nom n'était marqué.
+Leur chemin passe maintenant dans la marge d'un mot marqué (à 768 et
+960 ms), et elles jouent leur version courte. Qu'elles aient couvert un
+mot avant n'est pas établi : à cette taille, les places sont sous le bas
+de la fenêtre, où la sonde ne regarde pas. Avec une image, au bureau, la ligne d'état les refusait
+déjà ; au téléphone, seules les versions courtes jouent. La version
+complète de « depart » attend toujours le sol `panneau`, que la salle doit
+poser. En poids, la page de salle passe de 279 647 à 279 823 octets en
+brotli (+176, dans le bruit d'une reconstruction), et le paquet d'Aïn du
+salon de 18 304 à 18 327.
+
+**Les portes.** Toutes ont tourné sur la page de 4088aa9 (279 823
+octets), une à une, sur les ports 5520 à 5529, d'une machine chargée
+(moyenne de charge entre 68 et 81 pour 12 cœurs : les autres chantiers de
+fin tournaient en même temps ; les durées ne sont pas des mesures).
+`cadre-navigateur` est vert en entier, `mascotte-hors-image` et
+`ain-immobile` compris. `focus-navigateur`, `parcours-navigateur`
+(`ancres-start` attend maintenant le rond), `salle-telephone`,
+`manette-garde`, `salon-navigateur`, `reglage-navigateur` et
+`planche-garde` sont verts. `etats-navigateur` reste rouge sur
+`arrivee-sans-image`, une étape des états que ce chantier ne touche pas
+(un autre chantier de fin la reprend). Les contrôles rouges de cadre,
+de la mascotte (ses deux blocs), du focus, des parcours, du salon et du
+réglage tombent sur leurs défauts nommés. `just check` a d'abord échoué
+sur deux essais de `faces.test.ts` (« Test timed out in 5000ms » sous la
+charge, un fichier que ce chantier ne touche pas), puis est passé au
+second tour : 1 358 essais Python, 183 fichiers et 2 394 essais de la
+page. Deux sorties ne sont pas des résultats : ce délai dépassé, et
+`etats-navigateur-rouge`, dont le huitième bloc n'a pas pu ouvrir le port
+5473, tenu par un autre chantier (ses sept premiers blocs étaient rouges
+comme attendu).
+
+**Ce qui n'est pas prouvé.** Personne n'a regardé Aïn sur un vrai
+téléphone. Les six marques du sol du panneau et le sol `panneau` restent à
+la salle. À 1440 × 900 au repos, les places sont sous le bas de la
+fenêtre : ce chantier l'a vu en passant, sans le mesurer davantage.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -35043,3 +35169,15 @@ qui montre, en plus des deux côtés, le texte de la base d'où ils sont
 partis. Chaque côté y garde les lignes qu'il a en commun avec l'autre :
 c'est utile pour lire, mais une union faite sur ce style recopie ces
 lignes deux fois.
+
+**Mot de l'événement (`data-texte`)** : un mot que la page écrit pour dire
+ce qui arrive (le nom de qui prend une place, « libre », « 3P prêt ! », la
+phrase d'une panne). Il porte `data-texte`, et le planificateur d'Aïn en
+fait un mur : aucun sprite ne le touche. On ne le pose que sur ces mots-là :
+un mur de trop replie les scènes pour rien.
+
+**Précondition (d'une étape de pilote)** : ce qu'une étape doit trouver
+avant de pouvoir juger, par exemple une image peinte ou une sonde qui voit.
+Une étape qui tombe sur sa précondition ne dit ni « vert » ni « rouge »,
+seulement « je ne sais pas » ; elle ne doit donc pas faire taire une faute
+qu'elle a déjà vue.

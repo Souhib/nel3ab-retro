@@ -32,7 +32,9 @@ export function IlsRegardent({ people, owner }: { people: Person[]; owner?: Pers
         <ul className="flex flex-wrap gap-1.5">
           {regardent.map((p) => (
             <li key={p.id ?? p.name} className="flex min-w-0 items-center gap-1">
-              <Etiquette nom={p.name} />
+              {/* Qui se met à regarder : un mot de l'événement « spectateur »,
+                  un mur pour Aïn (`data-texte`). */}
+              <Etiquette nom={p.name} mot />
               {couronne(p)}
             </li>
           ))}

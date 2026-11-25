@@ -1356,3 +1356,13 @@ export function aideManetteSeule(moteur: string | null | undefined): string {
 }
 
 // ==== fin menus ====
+
+// ==== chantier mascotte ====
+/** Les mots de la maison d'Aïn (ADR D46). */
+export const MASCOTTE = {
+  /** Le nom du logo du coin, maison d'Aïn, pour un lecteur d'écran : le nom
+   * du site, que le logo de l'en-tête de la colonne disait avant de
+   * descendre au pied (relecture d'Aïn, 24 novembre 2026). */
+  logo: "nel3ab",
+} as const;
+// ==== fin mascotte ====

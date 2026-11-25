@@ -23,10 +23,16 @@
  * (`places.css`) : la largeur vient du cadre, et React ne la lit pas.
  *
  * `id` et `data-state` sont lus par les pilotes de navigateur ;
- * `data-ancre="start-N"` par Aïn. En petit, les lampes de `#placesToutes`
- * n'en portent pas : le planificateur prend la première ancre d'un nom, qui
- * serait la place cachée de la rangée ; sans ancre visible, la scène se
- * replie en version courte, comme le contrat le prévoit.
+ * `data-ancre="start-N"` par Aïn, sur le rond START : il s'y pose, à côté du
+ * nom et non dessus. Le planificateur ne fait pas un mur du bouton qui porte
+ * l'ancre, mais de ses mots, qui portent `data-texte` (le numéro, le nom ou
+ * « libre », « toi », « 3P prêt ! »). Posée sur le bouton entier, l'ancre
+ * mettait Aïn au milieu de la place, sur le nom écrit au ras de son haut, et
+ * l'étiquette de « depart » couvrait « 2P libre » (intégration B1, 24
+ * novembre 2026). Une seule ancre par place VISIBLE : en petit, quand
+ * `#placesToutes` remplace la rangée, les places cachées n'en portent pas
+ * (`useRangeeVisible`), ni les lampes ; sans ancre, la scène se replie en
+ * version courte, comme le contrat le prévoit.
  */
 import type { CSSProperties } from "react";
 import { aplatDuJoueur } from "../lib/etiquette";
@@ -40,6 +46,7 @@ import {
   type FormePlaces,
   type Place,
 } from "../lib/places";
+import { useRangeeVisible } from "../lib/usePlaces";
 import { Crown } from "./Crown";
 import { Etiquette } from "./Etiquette";
 import { MicBadge } from "./MicBadge";
@@ -74,9 +81,11 @@ export function Places({
 }) {
   const places = lesPlaces(entree);
   const libres = places.filter((p) => p.etat === "free").length;
+  const toutes = forme === "petite" && onToutes !== undefined;
+  const [rangee, ancrees] = useRangeeVisible(toutes);
   return (
     <div className="n3-places" data-forme={forme}>
-      <div id="ports" className="n3-places-rangee">
+      <div id="ports" ref={rangee} className="n3-places-rangee">
         {places.map((p) => {
           const libre = p.etat === "free";
           // Une place qui vient de se libérer reste allumée le temps de
@@ -88,12 +97,6 @@ export function Places({
               key={p.port}
               type="button"
               id={`port${p.port}`}
-              // L'ancre d'Aïn (contrat de la mascotte) : son arrivée et son
-              // départ se posent sur le haut de ce bouton. Sur le bouton
-              // même, pas sur le rond : le planificateur exclut des zones
-              // interdites l'élément qui porte l'ancre, et le rond est dans
-              // un bouton qu'il refuserait de toucher.
-              data-ancre={`start-${p.port}`}
               // Ponctuel : un clic de souris rend le clavier au jeu
               // (`lib/focus-jeu`, `rendreAuJeuApresClic`).
               data-rend-le-jeu=""
@@ -111,17 +114,26 @@ export function Places({
             >
               <span
                 className="rt-bouton-start n3-place-start"
+                // L'ancre d'Aïn (contrat de la mascotte) : son arrivée et son
+                // départ se posent sur le haut de ce rond.
+                data-ancre={ancrees ? `start-${p.port}` : undefined}
                 data-libre={eteinte ? "" : undefined}
               >
-                {pastille(p.port)}
+                <span data-texte="">{pastille(p.port)}</span>
               </span>
               <span className="n3-place-texte">
                 {p.nom !== null ? (
-                  <Etiquette nom={p.nom} place={p.port} lettres={p.lettres} />
+                  <Etiquette nom={p.nom} place={p.port} lettres={p.lettres} mot />
                 ) : (
-                  <span className="n3-place-vide">{libre ? PLACES.vide : PLACES.sansNom}</span>
+                  <span className="n3-place-vide" data-texte="">
+                    {libre ? PLACES.vide : PLACES.sansNom}
+                  </span>
                 )}
-                {p.etat === "mine" ? <span className="n3-place-toi">{PLACES.toi}</span> : null}
+                {p.etat === "mine" ? (
+                  <span className="n3-place-toi" data-texte="">
+                    {PLACES.toi}
+                  </span>
+                ) : null}
               </span>
               {libre ? null : (
                 <span className="n3-place-signes">
@@ -130,7 +142,7 @@ export function Places({
                 </span>
               )}
               {vient.has(p.port) ? (
-                <span className="rt-pret" aria-hidden="true">
+                <span className="rt-pret" aria-hidden="true" data-texte="">
                   {`${pastille(p.port)} ${PLACES.pret}`}
                 </span>
               ) : null}
@@ -138,7 +150,7 @@ export function Places({
           );
         })}
       </div>
-      {forme === "petite" && onToutes ? (
+      {toutes ? (
         <button
           type="button"
           id="placesToutes"

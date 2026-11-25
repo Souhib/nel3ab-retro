@@ -741,9 +741,12 @@ const ETAPES = {
     }
   },
 
-  /** Le contrat d'Aïn : `start-1` à `start-4` sur chaque bouton START, une
-   * fois, visibles et hors de l'image. Sur cc8c8a6, aucune ancre n'existait,
-   * et l'arrivée et le départ ne pouvaient atteindre la place du joueur. */
+  /** Le contrat d'Aïn : `start-1` à `start-4` sur le rond START de chaque
+   * place, une fois, visibles et hors de l'image. Sur cc8c8a6, aucune ancre
+   * n'existait, et l'arrivée et le départ ne pouvaient atteindre la place du
+   * joueur. Depuis le 24 novembre 2026 (fin-ain), l'ancre est le rond et non
+   * le bouton entier : posée sur le bouton, elle mettait Aïn et l'étiquette
+   * de « depart » sur le nom écrit au ras du haut de la place. */
   async "ancres-start"() {
     const page = await nouvelle(PC, { salle: { bo: true } });
     await entrer(page);
@@ -757,7 +760,7 @@ const ETAPES = {
           return {
             n,
             combien: a.length,
-            surLaPlace: a[0] !== undefined && a[0] === document.querySelector(`#port${n}`),
+            surLaPlace: a[0] !== undefined && a[0] === document.querySelector(`#port${n} .rt-bouton-start`),
             visible: r !== undefined && r.width > 0 && r.height > 0,
             surLImage: r !== undefined && r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom,
           };
@@ -766,7 +769,7 @@ const ETAPES = {
     });
     for (const p of lu.places) {
       if (p.combien !== 1) throw new Defaut(`${p.combien} ancre(s) start-${p.n}`);
-      if (!p.surLaPlace) throw new Defaut(`start-${p.n} n'est pas sur #port${p.n}`);
+      if (!p.surLaPlace) throw new Defaut(`start-${p.n} n'est pas sur le rond START de #port${p.n}`);
       if (!p.visible) throw new Defaut(`start-${p.n} n'a aucune boîte`);
       if (p.surLImage) throw new Defaut(`start-${p.n} est sur l'image`);
     }

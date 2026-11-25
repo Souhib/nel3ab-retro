@@ -16,22 +16,30 @@ import type { CSSProperties } from "react";
 import { aplatDuJoueur } from "../lib/etiquette";
 import { ETAT, pastille, PLACES } from "../lib/mots";
 import { lesPlaces, type EntreePlaces, type FormePlaces, type Place } from "../lib/places";
+import { useRangeeVisible } from "../lib/usePlaces";
 import { Etiquette } from "./Etiquette";
 import "./places.css";
 import "./etat-salle.css";
 
 export function PlacesAuPasse({ forme, entree }: { forme: FormePlaces; entree: EntreePlaces }) {
   const places = lesPlaces(entree);
+  // Les mêmes ancres que les places d'une salle ouverte : sur le rond, une
+  // par place visible (`Places.tsx`, `useRangeeVisible`).
+  const [rangee, ancrees] = useRangeeVisible(forme === "petite");
   return (
     <div className="n3-places" data-forme={forme} data-passe="">
-      <div id="ports" className="n3-places-rangee" role="group" aria-label={ETAT.ontJoue}>
+      <div
+        id="ports"
+        ref={rangee}
+        className="n3-places-rangee"
+        role="group"
+        aria-label={ETAT.ontJoue}
+      >
         {places.map((p) => (
           <button
             key={p.port}
             type="button"
             id={`port${p.port}`}
-            // Les mêmes ancres d'Aïn que les places d'une salle ouverte.
-            data-ancre={`start-${p.port}`}
             data-state={p.etat}
             disabled
             aria-label={
@@ -39,14 +47,18 @@ export function PlacesAuPasse({ forme, entree }: { forme: FormePlaces; entree: E
             }
             className="n3-place"
           >
-            <span className="rt-bouton-start n3-place-start" data-libre="">
-              {pastille(p.port)}
+            <span
+              className="rt-bouton-start n3-place-start"
+              data-ancre={ancrees ? `start-${p.port}` : undefined}
+              data-libre=""
+            >
+              <span data-texte="">{pastille(p.port)}</span>
             </span>
             <span className="n3-place-texte">
               {p.nom !== null ? (
-                <Etiquette nom={p.nom} place={p.port} lettres={p.lettres} />
+                <Etiquette nom={p.nom} place={p.port} lettres={p.lettres} mot />
               ) : (
-                <span className="n3-place-vide">
+                <span className="n3-place-vide" data-texte="">
                   {p.etat === "free" ? PLACES.vide : PLACES.sansNom}
                 </span>
               )}

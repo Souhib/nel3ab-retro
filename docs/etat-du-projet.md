@@ -580,6 +580,27 @@ autre chantier de fin. Non prouvé : les téléphones ne suivent pas encore la
 base, et aucune vraie salle n'a servi la page. Récit : « 24 novembre, tard
 dans la nuit : la fin de la salle ».
 
+**Au 24 novembre, la nuit : le chantier de fin « fin-ain ».** Sur
+`chantier/retro-fin-ain`, partie d'`integration/retro` (928bd03) ; rien
+dans `main`, rien de poussé ni d'installé. La précondition de
+`mascotte-hors-image` cachait trois fautes réelles : l'étiquette de
+« depart » posée à cheval sur « 2P libre » (1280 × 720, 1440 × 900,
+390 × 844). L'ancre `start-N` est maintenant le rond START, une par place
+visible (rien sur une rangée cachée par les lampes, ni dans les places au
+passé) ; le bouton qui porte ce rond n'est pas un mur, ses mots en sont un
+(`data-texte` sur le numéro, le nom, « libre », « toi », « 3P prêt ! » et
+les noms sous « Ils regardent ») ; l'étiquette se pose sur le haut du
+rond. `usePlaces` passe `contexte: { joueur }` à l'arbitre. Dans
+`cadre.mjs`, un jumeau en défaut rend le verdict des fautes vues, le
+jumeau des mots attend la fin des scènes, et `ain-immobile` jette une
+fenêtre ouverte pendant une scène ; `mascotte-navigateur-rouge` garde la
+page 4ecbc23 rouge. Le logo du coin redit « nel3ab » ; deux essais de la
+relecture d'Aïn ne pouvaient pas échouer, ils le peuvent ; les teintes
+sombres des joueurs sont des jetons de `regie.css` (`--joueur-N-sombre`).
+ADR D46, addendum du 24 novembre au soir. Restent : les marques du sol du
+panneau et le sol `panneau` (salle). Récit : « 24 novembre, la nuit
+encore : l'étiquette qui se posait sur « 2P libre » ».
+
 **Au 24 novembre : le chantier salon, premier passage.** Sur
 `chantier/retro-salon`, partie d'`integration/retro` (87bc2b3), dans
 `~/nel3ab-chantiers/retro-salon`. Rien dans `main`, rien poussé ni installé.

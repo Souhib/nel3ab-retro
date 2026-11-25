@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { EntreePlaces } from "../lib/places";
 import { Places } from "./Places";
@@ -35,12 +35,41 @@ describe("les places START", () => {
   });
 
   /* Le contrat d'Aïn (emplacements-salle.json, mascotte) : `arrivee`,
-     `depart` et `fier` demandent `start-1` à `start-4`, posés sur chaque
-     bouton START ; une ancre absente replie la scène en version courte. Le
-     planificateur prend la première ancre de ce nom et exclut l'élément qui
-     la porte des zones interdites : il en faut une, sur le bouton lui-même
-     (relecture du 24 novembre 2026). */
-  it("pose l'ancre d'Aïn start-N sur chaque bouton START, une seule fois", () => {
+     `depart` et `fier` demandent `start-1` à `start-4`, le haut du rond
+     START de chaque place ; une ancre absente replie la scène en version
+     courte. Une seule ancre par place VISIBLE : en petit, quand
+     `#placesToutes` remplace la rangée, aucune place cachée ne la porte.
+     Posée sur le bouton entier, elle faisait atterrir Aïn au milieu de la
+     place, sur son nom, et l'étiquette de « depart » couvrait « 2P libre »
+     (intégration B1, 24 novembre 2026). */
+  it("pose l'ancre d'Aïn start-N sur le rond START de chaque place, une seule fois", () => {
+    render(<Places forme="rangee" entree={entree()} onPrendre={() => {}} onCarte={() => {}} />);
+    for (const n of [1, 2, 3, 4]) {
+      const ancres = document.querySelectorAll(`[data-ancre="start-${n}"]`);
+      expect(ancres).toHaveLength(1);
+      expect(ancres[0]).toBe(port(n).querySelector(".rt-bouton-start"));
+    }
+  });
+
+  it("en petit, la rangée cachée ne porte aucune ancre ; visible, elle les porte", () => {
+    const lignes = vi.spyOn(Element.prototype, "getClientRects");
+    // La rangée cachée par la requête de conteneur : aucune boîte.
+    lignes.mockImplementation(() => [] as unknown as DOMRectList);
+    const { unmount } = render(
+      <Places
+        forme="petite"
+        entree={entree()}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+        onToutes={() => {}}
+      />,
+    );
+    expect(document.querySelectorAll("[data-ancre]")).toHaveLength(0);
+    // Ni les lampes du bouton qui les montre toutes.
+    expect(document.querySelector("#placesToutes [data-ancre]")).toBeNull();
+    unmount();
+    // Le jumeau : en petit, la rangée qui se voit garde ses quatre ancres.
+    lignes.mockImplementation(() => [new DOMRect(0, 0, 200, 44)] as unknown as DOMRectList);
     render(
       <Places
         forme="petite"
@@ -50,11 +79,74 @@ describe("les places START", () => {
         onToutes={() => {}}
       />,
     );
-    for (const n of [1, 2, 3, 4]) {
-      const ancres = document.querySelectorAll(`[data-ancre="start-${n}"]`);
-      expect(ancres).toHaveLength(1);
-      expect(ancres[0]).toBe(port(n));
-    }
+    for (const n of [1, 2, 3, 4])
+      expect(document.querySelector(`[data-ancre="start-${n}"]`)).toBe(
+        port(n).querySelector(".rt-bouton-start"),
+      );
+    lignes.mockRestore();
+  });
+
+  it("la rangée qui se cache après coup perd ses ancres, et les retrouve en revenant", () => {
+    let boites: DOMRect[] = [new DOMRect(0, 0, 200, 44)];
+    const lignes = vi
+      .spyOn(Element.prototype, "getClientRects")
+      .mockImplementation(() => boites as unknown as DOMRectList);
+    const suivis: (() => void)[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(rappel: () => void) {
+          suivis.push(rappel);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    render(
+      <Places
+        forme="petite"
+        entree={entree()}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+        onToutes={() => {}}
+      />,
+    );
+    expect(document.querySelectorAll("[data-ancre]")).toHaveLength(4);
+    boites = [];
+    act(() => suivis.forEach((f) => f()));
+    expect(document.querySelectorAll("[data-ancre]")).toHaveLength(0);
+    boites = [new DOMRect(0, 0, 200, 44)];
+    act(() => suivis.forEach((f) => f()));
+    expect(document.querySelectorAll("[data-ancre]")).toHaveLength(4);
+    vi.unstubAllGlobals();
+    lignes.mockRestore();
+  });
+
+  /* Les mots de l'événement (`data-texte`) sont des murs pour Aïn : le
+     numéro de la place, le nom de qui la tient ou « libre », « toi », et
+     « 3P prêt ! ». La phrase du rôle n'est pas un mot d'événement. */
+  it("marque data-texte les mots de chaque place, et eux seuls", () => {
+    render(
+      <Places
+        forme="rangee"
+        entree={entree()}
+        vient={new Set([2])}
+        onPrendre={() => {}}
+        onCarte={() => {}}
+      />,
+    );
+    // L'étiquette tapée se lit par son nom affiché (`rt-nom-plein`).
+    const mots = (n: number) =>
+      [...port(n).querySelectorAll("[data-texte]")].map(
+        (e) => e.querySelector(".rt-nom-plein")?.textContent ?? e.textContent,
+      );
+    expect(mots(1)).toEqual(["1P", "libre"]);
+    expect(mots(2)).toEqual(["2P", "Bilel", "2P prêt !"]);
+    expect(mots(3)).toEqual(["3P", "Moi", "toi"]);
+    // Le jumeau : ni la phrase du rôle, ni le bouton entier, ni son rond.
+    expect(document.querySelector(".n3-places-role")?.hasAttribute("data-texte")).toBe(false);
+    expect(port(2).hasAttribute("data-texte")).toBe(false);
+    expect(port(2).querySelector(".rt-bouton-start")?.hasAttribute("data-texte")).toBe(false);
   });
 
   it("jumeau : une console à deux places n'a pas d'ancre start-3", () => {
@@ -66,7 +158,9 @@ describe("les places START", () => {
         onCarte={() => {}}
       />,
     );
-    expect(document.querySelector('[data-ancre="start-2"]')).toBe(port(2));
+    expect(document.querySelector('[data-ancre="start-2"]')).toBe(
+      port(2).querySelector(".rt-bouton-start"),
+    );
     expect(document.querySelector('[data-ancre="start-3"]')).toBeNull();
   });
 

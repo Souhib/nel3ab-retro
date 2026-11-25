@@ -172,7 +172,10 @@ function Salle() {
   return (
     <div id="planche-salle" data-cadre="" data-sans-image="non" data-etat="vit" style={SCENE}>
       <div style={{ ...boite(0, 0, 436, 40), background: "#000" }}>
-        <span data-texte="" style={{ ...MOT, ...boite(14, 12, 220, 14), color: "#f2e14b" }}>
+        <span
+          data-texte=""
+          style={{ ...MOT, ...boite(14, 12, 220, 14), color: "var(--mire-jaune)" }}
+        >
           Kart des Ruelles
         </span>
       </div>
@@ -181,7 +184,7 @@ function Salle() {
           id="screen"
           width={404}
           height={227}
-          style={{ width: "100%", height: "100%", background: "#1a3a5a" }}
+          style={{ width: "100%", height: "100%", background: "var(--marine-700)" }}
         />
       </div>
       <div style={{ ...FACE, ...boite(0, 278, 436, 122) }} />

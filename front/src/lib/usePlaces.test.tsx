@@ -215,7 +215,15 @@ describe("usePlaces", () => {
       suivi({ arbitre: a, annoncer, occupation: occ([false, false, true, false], [[3, "JO"]]) }),
     );
     expect(demander).toHaveBeenCalledTimes(1);
-    expect(demander).toHaveBeenCalledWith({ scene: "arrivee", par: "personnes", hote: "coin" });
+    // Aïn va au START de JO (`start-3`) : l'arbitre reçoit son numéro dans
+    // `contexte`. Sans lui, la scène jouait la place 1 (personnes,
+    // intégration B1 du 24 novembre 2026).
+    expect(demander).toHaveBeenCalledWith({
+      scene: "arrivee",
+      par: "personnes",
+      hote: "coin",
+      contexte: { joueur: "3" },
+    });
     expect(annoncer.mock.calls).toEqual([["JO prend la place 3.", "ordinaire"]]);
     expect([...result.current.vient]).toEqual([3]);
     // Le même état, reçu de nouveau dans des objets neufs : rien de plus.
@@ -315,12 +323,29 @@ describe("usePlaces", () => {
       initialProps: suivi({ arbitre: a, occupation: occ([false, true], [[2, "Bo"]]) }),
     });
     rerender(suivi({ arbitre: a, occupation: occ([false, false]) }));
-    expect(demander).toHaveBeenCalledWith({ scene: "depart", par: "personnes", hote: "coin" });
+    expect(demander).toHaveBeenCalledWith({
+      scene: "depart",
+      par: "personnes",
+      hote: "coin",
+      contexte: { joueur: "2" },
+    });
     expect([...result.current.part]).toEqual([2]);
     act(() => {
       vi.advanceTimersByTime(PART_MS);
     });
     expect(result.current.part.size).toBe(0);
+  });
+
+  it("jumeau : qui se met à regarder n'a pas de place, son contexte ne nomme aucun joueur", () => {
+    const { demander, arbitre: a } = arbitre();
+    const { rerender } = renderHook((p: SuiviDesPlaces) => usePlaces(p), {
+      initialProps: suivi({ arbitre: a }),
+    });
+    rerender(suivi({ arbitre: a, regardent: ["Sami"] }));
+    expect(demander).toHaveBeenCalledTimes(1);
+    const [demande] = demander.mock.calls[0];
+    expect(demande.scene).toBe("spectateur");
+    expect(demande.contexte).toEqual({});
   });
 
   it("ne joue pas quand la mascotte n'a pas d'endroit où jouer", () => {

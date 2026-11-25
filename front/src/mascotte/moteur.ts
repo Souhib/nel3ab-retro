@@ -13,7 +13,8 @@
  *   qu'une image du jeu en cours a été peinte (`data-sans-image="non"` sur
  *   la racine du cadre) ;
  * - les lignes d'état et les contrôles (`[data-interdit]`, et tout bouton,
- *   lien ou champ visible de la salle qui n'est ni une ancre ni un sol) ;
+ *   lien ou champ visible de la salle qui n'est ni une ancre ni un sol, et
+ *   qui n'en porte pas une : le bouton d'une place porte son rond START) ;
  * - les mots de l'événement (`[data-texte]`) : « PRÊT », la pastille, les
  *   noms.
  *
@@ -146,6 +147,16 @@ const elargir = (a: Ancre, m: number): Boite => [a.x - m, a.y - m, a.droite + m,
 const CONTROLES =
   'button, a[href], input, select, textarea, summary, [role="button"], [data-interdit]';
 
+/**
+ * Le contrôle porte-t-il une ancre comme une de ses parties ? Le bouton d'une
+ * place START porte son rond (`start-N`), où Aïn se pose : il n'est pas plus
+ * un mur que l'ancre elle-même, et ses mots (`data-texte`) en restent un.
+ * L'ancre d'une maison (le logo dans « La salle ») ne compte pas : le bouton
+ * qui porte la tête d'Aïn reste un mur, ses mots ne se couvrent pas.
+ */
+const porteUneAncre = (el: Element) =>
+  [...el.querySelectorAll("[data-ancre]")].some((a) => !a.closest("[data-hote]"));
+
 /** L'image du jeu, s'il y en a une de peinte dans cette racine. */
 export function imageDe(racine: ParentNode): Ancre | null {
   const cadre =
@@ -242,7 +253,11 @@ export function lireDecor(
         // « Choisir un jeu » de l'écran éteint y vit, et le planificateur
         // ne le voyait pas (relecture du 24 novembre 2026). La zone
         // elle-même n'est pas un contrôle : son image est la zone « image ».
-        if (el.matches("[data-zone-jeu]") || el.closest("[data-ancre], [data-sol], [data-hote]"))
+        if (
+          el.matches("[data-zone-jeu]") ||
+          el.closest("[data-ancre], [data-sol], [data-hote]") ||
+          porteUneAncre(el)
+        )
           continue;
         const r = visible(el);
         const nom = el.getAttribute("data-interdit") === "ligne" ? "ligne" : "controle";

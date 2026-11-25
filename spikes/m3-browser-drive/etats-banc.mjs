@@ -1,9 +1,6 @@
 // Le banc des états de la salle: la page COMMITTÉE, un salon et une salle
 // SIMULÉS, sur un seul port de 5400 à 5599. Aucune salle ni aucun salon vivant
-// n'est touché, aucun émulateur ne tourne. La plage allait jusqu'à 5499 ; le
-// 24 novembre 2026, les chantiers de fin qui tournent ensemble ont reçu
-// chacun une dizaine au-dessus de 5500 (5500 à 5509 pour la salle), loin
-// des ports vivants (8100, 8101, 8110, 8111, 8200).
+// n'est touché, aucun émulateur ne tourne.
 //
 // Écrit pour le chantier « états » du 22 novembre 2026 (l'image figée du
 // 21 novembre), et repris de l'audit des états. Le flux vidéo est un vrai flux
@@ -77,6 +74,9 @@ const DEPART = {
 };
 
 export async function demarrerBanc({ port, page, flux }) {
+  // 5400 à 5599 : loin des ports vivants (8100, 8101, 8110, 8111, 8200), et
+  // assez large pour que des chantiers parallèles prennent chacun leur
+  // dizaine au-dessus de 5500 (24 novembre 2026).
   if (!(port >= 5400 && port <= 5599)) throw new Error(`port ${port} hors de la plage du banc`);
   const PAGE = readFileSync(page);
   const BR = brotliCompressSync(PAGE);

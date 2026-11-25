@@ -20,6 +20,7 @@ export function Etiquette({
   lettres,
   className,
   id,
+  mot = false,
 }: {
   nom: string;
   /** La place de la personne, 1 à 4, pour sa couleur ; `null` pour qui regarde. */
@@ -28,6 +29,10 @@ export function Etiquette({
   lettres?: string | null;
   className?: string;
   id?: string;
+  /** Le nom est un mot de l'événement (une arrivée, un départ, qui se met à
+   * regarder) : `data-texte`, un mur pour Aïn. Faux ailleurs (un champ, une
+   * carte) : un mur de trop replie ses scènes pour rien. */
+  mot?: boolean;
 }) {
   const style =
     place === null
@@ -41,6 +46,7 @@ export function Etiquette({
       id={id}
       className={cn("n3-etiquette", className)}
       data-place={place ?? undefined}
+      data-texte={mot ? "" : undefined}
       style={style}
     >
       <span className="sr-only">{nom}</span>

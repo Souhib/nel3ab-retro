@@ -1690,6 +1690,14 @@ async function principal() {
           if (vue && !vue.dans)
             fautes.push(`${un.nom}: la maison d'Aïn est hors de vue (logo ${vue.haut} à ${vue.bas}, fenêtre ${vue.fenetre})`);
         }
+        // Ce que la sonde compte des scènes (combien, où) part d'ici : la
+        // page en joue à l'entrée, et le plein cadre d'arrivée d'etats
+        // (`#arrivee`) en jouait une, coupée par la première image. Comptée,
+        // elle faisait dire « la scène joue dans #arrivee, pas dans
+        // #laSalleCote » à des cas où aucune scène de l'étape n'avait joué
+        // (fin-ain, 24 novembre 2026). Les fautes, elles, comptent depuis le
+        // début : un sprite sur l'image ou un mot en est une à tout moment.
+        await page.evaluate(() => Object.assign(window.__mascotte, { images: 0, hors: 0, scenes: {}, lieux: {} }));
         const versions = await jouerTout(page, un.hote);
         if (Object.values(versions).includes("sans-crochet")) {
           // Une page d'avant Aïn : rien à jouer ici, mais les hôtes se
@@ -1719,46 +1727,87 @@ async function principal() {
         verdict(fautes);
         return;
       }
-      // Le jumeau rouge : l'image glisse sous le logo pendant une scène ;
-      // la sonde doit voir Aïn dessus.
-      const page = await nouvelle({ width: 1440, height: 900 });
-      await page.evaluateOnNewDocument(sonde);
-      await entrer(page);
-      await page.evaluate(() => window.nel3abAin?.jouer("fier", "coin", {}));
-      await sleep(250);
-      await page.evaluate(() => {
-        const logo = document.querySelector('[data-hote="coin"] > canvas').getBoundingClientRect();
-        const t = document.querySelector("#screen");
-        Object.assign(t.style, { position: "fixed", left: `${logo.left - 40}px`, top: `${logo.top - 120}px`, width: "400px", height: "240px" });
-      });
-      await sleep(400);
-      const essai = await lire(page);
-      await page.close();
-      if (!Object.keys(essai?.fautes ?? {}).some((f) => f.includes("sur l'image")))
-        throw new Precondition(`la sonde ne voit pas Aïn posé sur l'image (${JSON.stringify(essai)})`);
-      // Le second jumeau : hors de toute scène, un sprite posé à la main sur
-      // la phrase de l'écran éteint. La sonde regarde aussi entre deux scènes,
-      // et les mots de l'écran même sans marque.
-      const mots = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "bo", decide: false } });
-      await mots.evaluateOnNewDocument(sonde);
-      await entrerAuRepos(mots);
-      await sleep(300);
-      const pose = await mots.evaluate(() => {
-        const p = document.querySelector("#idle-room p")?.getBoundingClientRect();
-        const s = document.querySelector(".rt-ain-sprite");
-        if (!p || !s || document.querySelector("[data-scene]")) return false;
-        Object.assign(s, { hidden: false, width: 20, height: 20 });
-        s.dataset.serre = "0 0 20 20";
-        s.style.transform = `translate(${p.left + p.width / 2}px, ${p.top}px)`;
-        return true;
-      });
-      if (!pose) throw new Precondition("jumeau des mots : pas de phrase ou pas de sprite hors scène");
-      await sleep(300);
-      const vuMot = await mots.evaluate(() => window.__mascotte);
-      await mots.close();
-      if (!Object.keys(vuMot?.fautes ?? {}).some((f) => f.startsWith("(hors scène)") && f.includes(" sur p ")))
-        throw new Precondition(`la sonde ne voit pas un sprite posé sur la phrase hors scène (${JSON.stringify(vuMot?.fautes)})`);
-      verdict(fautes);
+      // Les deux jumeaux prouvent que la sonde voit. Une faute déjà vue par
+      // la sonde reste une faute même si un jumeau tombe ensuite : jusqu'au
+      // 24 novembre 2026, le jumeau des mots levait sa précondition avant le
+      // verdict, et trois fautes réelles (l'étiquette de « depart » sur
+      // « 2P libre ») sont restées cachées deux vagues d'intégration. Un
+      // jumeau en défaut rend donc le verdict des fautes vues, et n'est une
+      // précondition que si la sonde n'a rien vu.
+      const jumeaux = async () => {
+        // Le jumeau rouge : l'image glisse sous le logo pendant une scène ;
+        // la sonde doit voir Aïn dessus.
+        const page = await nouvelle({ width: 1440, height: 900 });
+        await page.evaluateOnNewDocument(sonde);
+        await entrer(page);
+        await page.evaluate(() => window.nel3abAin?.jouer("fier", "coin", {}));
+        await sleep(250);
+        await page.evaluate(() => {
+          const logo = document.querySelector('[data-hote="coin"] > canvas').getBoundingClientRect();
+          const t = document.querySelector("#screen");
+          Object.assign(t.style, { position: "fixed", left: `${logo.left - 40}px`, top: `${logo.top - 120}px`, width: "400px", height: "240px" });
+        });
+        await sleep(400);
+        const essai = await lire(page);
+        await page.close();
+        if (!Object.keys(essai?.fautes ?? {}).some((f) => f.includes("sur l'image")))
+          throw new Precondition(`la sonde ne voit pas Aïn posé sur l'image (${JSON.stringify(essai)})`);
+        // Le second jumeau : hors de toute scène, un sprite posé à la main sur
+        // la phrase de l'écran éteint. La sonde regarde aussi entre deux scènes,
+        // et les mots de l'écran même sans marque.
+        //
+        // La page joue des scènes à l'entrée : l'arrivée de la personne au coin
+        // (chantier personnes, de 0,4 à 2,7 s), puis l'attente du plateau
+        // (2,8 à 4,7 s, puis toutes les 6 s). Ce jumeau exigeait une page calme
+        // 300 ms après l'entrée et tombait sur sa précondition, ce qui cachait
+        // trois fautes réelles de l'étape (intégration B1, 24 novembre 2026).
+        // Il attend donc la fin des scènes, pose le sprite, et jette un essai
+        // pendant lequel une scène a commencé : elle reprendrait le sprite, et
+        // la sonde nommerait la faute par la scène, pas « (hors scène) ».
+        const mots = await nouvelle({ width: 1440, height: 900 }, { salle: { jeu: null, chef: "bo", decide: false } });
+        await mots.evaluateOnNewDocument(sonde);
+        await entrerAuRepos(mots);
+        let vuMot = null;
+        let essais = 0;
+        for (; essais < 6 && vuMot === null; essais += 1) {
+          const calme = await jusqua(() => mots.evaluate(() => !document.querySelector("[data-scene]")), 8000, 30);
+          if (!calme) break;
+          const pose = await mots.evaluate(() => {
+            const p = document.querySelector("#idle-room p")?.getBoundingClientRect();
+            const s = document.querySelector(".rt-ain-sprite");
+            if (!p) return { manque: "pas de phrase sur l'écran éteint" };
+            if (!s) return { manque: "pas de sprite d'Aïn dans la page" };
+            if (document.querySelector("[data-scene]")) return null;
+            // Les fautes d'avant (celles des scènes de l'entrée) ne comptent
+            // pas ici : seul le sprite posé à la main doit être vu.
+            window.__mascotte.fautes = {};
+            Object.assign(s, { hidden: false, width: 20, height: 20 });
+            s.dataset.serre = "0 0 20 20";
+            s.style.transform = `translate(${p.left + p.width / 2}px, ${p.top}px)`;
+            return { scenes: window.__mascotte.images };
+          });
+          if (pose?.manque) throw new Precondition(`jumeau des mots : ${pose.manque}`);
+          if (pose === null) continue;
+          await sleep(300);
+          const lu = await mots.evaluate(() => ({ ...window.__mascotte, joue: !!document.querySelector("[data-scene]") }));
+          // Une scène a joué pendant l'essai : il ne prouve rien, on recommence.
+          if (lu.joue || lu.images !== pose.scenes) continue;
+          vuMot = lu;
+        }
+        await mots.close();
+        if (vuMot === null) throw new Precondition(`jumeau des mots : aucune fenêtre de 300 ms hors scène en ${essais} essais`);
+        if (!Object.keys(vuMot.fautes ?? {}).some((f) => f.startsWith("(hors scène)") && f.includes(" sur p ")))
+          throw new Precondition(`la sonde ne voit pas un sprite posé sur la phrase hors scène (${JSON.stringify(vuMot.fautes)})`);
+      };
+      let manque = null;
+      try {
+        await jumeaux();
+      } catch (e) {
+        if (!(e instanceof Precondition)) throw e;
+        manque = e.message;
+      }
+      if (manque !== null && fautes.length === 0) throw new Precondition(manque);
+      verdict(manque === null ? fautes : [...fautes, `(jumeau en défaut : ${manque})`]);
     },
 
     /** Rien ne tourne entre deux scènes d'Aïn, dans la vraie page (ADR
@@ -1802,19 +1851,25 @@ async function principal() {
             .filter((a) => a.playState === "running" && a.effect?.target?.closest?.("[data-hote], .rt-ain-calque"))
             .map((a) => a.animationName ?? String(a.effect.target.className)),
         }));
-      /** Une fenêtre de deux secondes sans scène, mesurée. */
+      /** Une fenêtre de deux secondes sans scène, mesurée. Une fenêtre qui
+       * commence pendant une scène est jetée comme celle où une scène
+       * commence ou joue encore à la fin : la garde ne regardait que la fin,
+       * et une fenêtre ouverte au milieu de l'attente du plateau comptait les
+       * appels de sa boucle comme ceux d'un Aïn au repos (« 98 appels en
+       * 2 s », intégration B1, 24 novembre 2026). Le compteur se remet à zéro
+       * et se lit dans la même tâche : rien ne commence entre les deux. */
       const fenetre = async (nom) => {
         for (let essai = 0; essai < 8; essai += 1) {
           await jusqua(async () => !(await lire()).joue, 6000, 50);
           await sleep(300);
-          await page.evaluate(() => {
+          const avant = await page.evaluate(() => {
             window.__raf.appels = 0;
             window.__raf.autres = 0;
+            return { scenes: window.__raf.scenes, joue: !!document.querySelector("[data-scene]") };
           });
-          const avant = await lire();
           await sleep(2000);
           const apres = await lire();
-          if (apres.scenes !== avant.scenes || apres.joue) continue;
+          if (avant.joue || apres.scenes !== avant.scenes || apres.joue) continue;
           const autres = await page.evaluate(() => window.__raf.autres);
           console.log(JSON.stringify({ etape: "ain-immobile", fenetre: nom, appels: apres.appels, autres, css: apres.css }));
           return apres;

@@ -110,6 +110,12 @@ machine".
   without "rejects 0 and 5".
 - **Never assert behind a condition that can silently be false.** Assert the
   precondition instead of branching on it.
+- **A precondition must not silence a fault already seen.** On 2026-11-24,
+  `mascotte-hors-image` collected three real faults (Aïn's tag on « 2P
+  libre »), then a twin that required a quiet page 300 ms after entry threw
+  its precondition before the verdict, for two integration waves. Give the
+  verdict of the faults seen first; a failed twin is a precondition only
+  when nothing was seen. A twin that needs a quiet page waits for one.
 - **An extracted callback needs the same explicit dependencies and module context.**
   On 2026-11-11, a browser callback fixture omitted its `assert` dependency and
   stopped before checking activation. Its first repair runner used Node's
@@ -788,7 +794,7 @@ Markdown alone does not update the site.
 | `just ain-salon` | builds the mascot bundle for the lobby pages (`retro/ain.js` and its stamp `ain.SOURCES`); `front-build` runs it, `salon.test.ts` refuses a stale one |
 | `just cadre-navigateur` | the room frame in Chrome: nothing on the picture or over it in every state and at seven desk sizes, phones and tablets held both ways, the column, the cabinet, the play time, the label in the touch pad, the cursor in the half-height sheet, the mascot's scenes; port 5478 or `--port`, `--etapes a,b` |
 | `just cadre-navigateur-rouge` | negative control: the page of 03b21c0, then six pages of the room track and the page of 97a2318 for the later steps, must fail each step on its named defect; the guard itself must stay green on 03b21c0 |
-| `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects |
+| `just mascotte-navigateur-rouge` | negative control of the mascot's `cadre-navigateur` steps: the page before the 2026-11-24 review must fail `maison-en-vue`, `ain-mise-en-page`, `ain-pose-cle` and `mascotte-hors-image` on their named defects, and the integration page 4ecbc23 must fail `mascotte-hors-image` (the tag of `depart` on « 2P libre ») |
 | `just focus-navigateur-rouge`, `just etats-navigateur-rouge`, `just parcours-navigateur-rouge` | negative controls: the earlier pages must fail each step on its named defect, not on a precondition |
 | `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; held in hand, the panel in the frame's own place, under the picture or to its right, never on it (`place-tenu`, in the gate since 2026-11-24) |
 | `just salon-navigateur` | the lobby's three pages in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list, Enter and a pad's Start at zero rooms, the return banner, the announcement line, the credit, the logbook and upload steps |

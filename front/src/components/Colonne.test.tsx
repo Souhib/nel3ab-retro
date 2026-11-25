@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { rangsDeLaColonne, type Rang } from "../lib/colonne";
-import { COLONNE } from "../lib/mots";
+import { COLONNE, MASCOTTE } from "../lib/mots";
 import { Coin, SCENE_DU_COIN } from "./Coin";
 import { BlocRole, Colonne, HAUTEUR_DU_COIN, IlsRegardent, MARGE_BAS } from "./Colonne";
 import { PanneauCommande } from "./PanneauCommande";
@@ -195,6 +195,19 @@ describe("le coin", () => {
     const hote = container.querySelector('[data-hote="coin"]');
     expect(hote).not.toBeNull();
     expect(document.getElementById("mesures")?.contains(hote)).toBe(false);
+  });
+
+  /* Le logo de l'en-tête disait « nel3ab » à un lecteur d'écran ; descendu
+     au pied de la colonne dans une maison muette, il ne disait plus rien
+     (relecture d'Aïn, 24 novembre 2026). */
+  it("le logo du coin a un nom, celui du site, et ne prend pas le focus", () => {
+    render(<Coin mesures={false} onMesures={() => {}} />);
+    const logo = screen.getByRole("img", { name: MASCOTTE.logo });
+    expect(logo.getAttribute("data-hote")).toBe("coin");
+    expect(logo.hasAttribute("tabindex")).toBe(false);
+    // Le jumeau : ce qu'Aïn y peint reste muet, rien n'y est dit deux fois.
+    expect(screen.getAllByRole("img", { name: MASCOTTE.logo })).toHaveLength(1);
+    expect(logo.querySelector("canvas")?.getAttribute("aria-hidden") ?? "true").toBe("true");
   });
 });
 

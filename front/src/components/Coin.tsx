@@ -14,7 +14,7 @@
  */
 import { useEffect, useRef } from "react";
 
-import { COLONNE } from "../lib/mots";
+import { COLONNE, MASCOTTE } from "../lib/mots";
 import { poserMascotte } from "../mascotte";
 import { IconeRang } from "./Colonne";
 
@@ -64,11 +64,14 @@ export function Coin({
         )}
         {mesures ? <span className="text-faint">{COLONNE.revenir}</span> : null}
       </button>
+      {/* Le logo dit le nom du site, comme celui de l'en-tête avant lui ; ce
+          qu'Aïn y peint reste muet (`role="img"`), sans prendre le focus. */}
       <div
         ref={maison}
         className="n3-coin-scene"
         data-hote="coin"
-        aria-hidden="true"
+        role="img"
+        aria-label={MASCOTTE.logo}
         style={{ height: SCENE_DU_COIN }}
       />
     </div>

@@ -51,3 +51,20 @@ it("la couronne suit qui choisit le jeu", () => {
   expect(items[0].querySelector(".n3-couronne")).toBeNull();
   expect(items[1].querySelector(".n3-couronne")).not.toBeNull();
 });
+
+/* Qui se met à regarder joue la scène « spectateur » : son nom est un mot de
+   l'événement, un mur pour Aïn (`data-texte`). */
+it("le nom de chaque spectateur est un mot de l'événement ; qui arrive et « personne » non", () => {
+  render(
+    <IlsRegardent
+      people={[personne("a", "Lina"), personne("s", "Sami", { seat_pending: true })]}
+    />,
+  );
+  const marques = [...document.querySelectorAll("[data-texte]")];
+  expect(marques.map((e) => e.querySelector(".sr-only")?.textContent)).toEqual(["Lina"]);
+  // Le jumeau : l'étiquette de qui arrive n'est pas marquée.
+  const sami = [...document.querySelectorAll(".n3-etiquette")].find(
+    (e) => e.querySelector(".sr-only")?.textContent === "Sami",
+  );
+  expect(sami?.hasAttribute("data-texte")).toBe(false);
+});

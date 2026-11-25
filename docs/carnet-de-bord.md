@@ -34286,6 +34286,37 @@ la mise en service le lève. Rien n'est fusionné dans `main`, poussé ni
 installé ; aucun worker n'est reconstruit, aucune vraie salle n'a servi la
 page. La page pèse 279 622 o en brotli, 762 de plus que ce matin.
 
+### 25 novembre, avant la fusion : deux portes conditionnelles, et un rouge plus ancien que la refonte
+
+Le bilan de l'intégration notait deux portes conditionnelles pas relancées sur
+la tête : `save-options-test` (le menu des sauvegardes a changé) et
+`switch-controls-test` (la trame envoyée par `front/src/media/switch.ts` a
+changé). Elles ont tourné sur `4f570ee`, dans le worktree d'intégration.
+
+`save-options-test` sort 0 : les quatre cartes de console et le menu lisent
+les reçus d'import et la reprise personnelle.
+
+`switch-controls-test` sort 1 : « loaded keyboard profile did not reach R ».
+Après « Confirmer » dans le réglage de la page prototype Switch, la touche V du
+profil chargé n'arrive pas au périphérique du noyau. L'état relevé au moment de
+l'échec dit pourquoi : le focus est sur le bouton « Touches et manettes »
+(`#configure`), rien n'est tenu, la lecture n'attend pas le repos et le
+réglage n'est plus ouvert. La touche part donc vers un bouton, pas vers le jeu.
+
+Avant d'accuser la refonte, la même recette a tourné sur `main` (03b21c0),
+dans un worktree jetable : même sortie 1, même message, même focus sur
+`#configure`. Ce rouge est plus ancien que la refonte ; aucun commit de
+`main..integration/retro` ne touche `spikes/switch-room/`. Il n'était écrit
+nulle part : l'état du projet présentait cette porte comme verte.
+
+La leçon est celle de la règle 7 : une porte conditionnelle qu'on ne lance que
+« quand le chemin change » peut rester rouge longtemps sans que personne le
+voie. Elle reste à corriger à la cause (la page prototype doit rendre le
+clavier au jeu après « Confirmer », comme la vraie salle le fait par
+`lib/focus-jeu.ts`, ou l'essai doit cliquer l'image d'abord, à trancher en
+lisant ce que CLAUDE.md exige : la première touche nouvelle après la fermeture
+au repos est acceptée).
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

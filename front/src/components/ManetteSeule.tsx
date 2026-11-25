@@ -14,8 +14,16 @@
  * La toile reste montée ailleurs, réduite à rien : elle appartient à la
  * boucle média, qui la tient par une référence (ADR D13).
  */
+import { useEffect, useRef } from "react";
 import type { Rect } from "../lib/cadre";
-import { phraseDeLatence } from "../lib/manette-seule";
+import {
+  categorieDeLatence,
+  DIRE_LA_LATENCE,
+  LATENCE_TENUE_MS,
+  phraseDeLatence,
+  type CategorieLatence,
+} from "../lib/manette-seule";
+import type { Annoncer } from "../lib/usePlaces";
 import { MANETTE_SEULE, placeN } from "../lib/mots";
 import { placeDe } from "./Cadre";
 import "./telephone.css";
@@ -26,6 +34,7 @@ export function ManetteSeule({
   place,
   allerRetourMs,
   entenduIlYaMs,
+  annoncer = null,
 }: {
   rect: Rect;
   jeu: string | null;
@@ -33,7 +42,11 @@ export function ManetteSeule({
   place: number | null;
   allerRetourMs: number | null;
   entenduIlYaMs: number | null;
+  /** La ligne parlée de la salle (`LigneParlee`, `nouvelle`) : elle dit le
+   * changement de catégorie, une fois. `null` : rien n'est dit. */
+  annoncer?: Annoncer | null;
 }) {
+  useDireLaLatence(categorieDeLatence({ allerRetourMs, entenduIlYaMs }), annoncer);
   return (
     <section id="padOnlyNotice" className="n3-manette-seule" style={placeDe(rect)}>
       <h1 className="n3-manette-seule-titre">
@@ -44,11 +57,36 @@ export function ManetteSeule({
           ? "Ce téléphone ne tient pas de place."
           : `Ce téléphone est ta manette, ${placeN(place)}.`}
       </p>
-      <p className="n3-manette-seule-latence" aria-live="polite">
+      {/* Pas de région vivante : le chiffre bouge à chaque médiane, et un
+          lecteur d'écran la relisait jusqu'à une fois par seconde (relecture
+          finale du 25 novembre 2026). La catégorie est dite par la ligne
+          parlée (`useDireLaLatence`). */}
+      <p className="n3-manette-seule-latence">
         {phraseDeLatence({ allerRetourMs, entenduIlYaMs })}
       </p>
     </section>
   );
+}
+
+/**
+ * Dit à la ligne parlée le changement de catégorie de la latence, une fois
+ * qu'il a tenu `LATENCE_TENUE_MS`. La première catégorie se lit sur la page
+ * et n'est pas annoncée ; revenir à la dernière dite annule l'attente.
+ */
+function useDireLaLatence(categorie: CategorieLatence, annoncer: Annoncer | null): void {
+  const dite = useRef<CategorieLatence | null>(null);
+  useEffect(() => {
+    if (dite.current === null) {
+      dite.current = categorie;
+      return;
+    }
+    if (categorie === dite.current || annoncer === null) return;
+    const tenue = window.setTimeout(() => {
+      dite.current = categorie;
+      annoncer(DIRE_LA_LATENCE[categorie], "ordinaire");
+    }, LATENCE_TENUE_MS);
+    return () => window.clearTimeout(tenue);
+  }, [categorie, annoncer]);
 }
 
 /** « manette seule » en début de phrase. */

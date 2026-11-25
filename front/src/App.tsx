@@ -3151,6 +3151,7 @@ function Room({
             place={port}
             allerRetourMs={shot?.input.roundTripMs ?? null}
             entenduIlYaMs={shot?.input.sinceHeardMs ?? null}
+            annoncer={annoncer}
           />
         ) : null}
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (

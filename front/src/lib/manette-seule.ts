@@ -25,14 +25,37 @@ import { LATENCE } from "./mots";
 export const ECHO_FRAIS_MS = 2000;
 export const ARRIVENT_SOUS_MS = 60;
 
-export function phraseDeLatence(e: {
+type Mesure = {
   /** L'aller-retour médian, `null` tant qu'aucun n'est mesuré. */
   allerRetourMs: number | null;
   /** Depuis combien de millisecondes l'écho a été entendu, `null` jamais. */
   entenduIlYaMs: number | null;
-}): string {
-  if (e.allerRetourMs === null || e.entenduIlYaMs === null) return LATENCE.attend;
-  if (e.entenduIlYaMs >= ECHO_FRAIS_MS) return LATENCE.attend;
-  if (e.allerRetourMs <= ARRIVENT_SOUS_MS) return LATENCE.arrivent;
-  return LATENCE.lentes(Math.round(e.allerRetourMs));
+};
+
+/** Ce que la phrase dit, sans son chiffre. */
+export type CategorieLatence = "attend" | "arrivent" | "lentes";
+
+export function categorieDeLatence(e: Mesure): CategorieLatence {
+  if (e.allerRetourMs === null || e.entenduIlYaMs === null) return "attend";
+  if (e.entenduIlYaMs >= ECHO_FRAIS_MS) return "attend";
+  return e.allerRetourMs <= ARRIVENT_SOUS_MS ? "arrivent" : "lentes";
 }
+
+export function phraseDeLatence(e: Mesure): string {
+  const categorie = categorieDeLatence(e);
+  if (categorie === "lentes" && e.allerRetourMs !== null)
+    return LATENCE.lentes(Math.round(e.allerRetourMs));
+  return categorie === "arrivent" ? LATENCE.arrivent : LATENCE.attend;
+}
+
+/** Ce que la ligne parlée dit d'une catégorie : jamais un chiffre. */
+export const DIRE_LA_LATENCE: Readonly<Record<CategorieLatence, string>> = {
+  attend: LATENCE.attend,
+  arrivent: LATENCE.arrivent,
+  lentes: LATENCE.lentesDit,
+};
+
+/** Le temps qu'une catégorie doit tenir avant d'être dite : trois échos,
+ * qui partent chaque seconde. Une médiane qui hésite autour de 60 ms ne
+ * fait pas parler la page à chaque écho. */
+export const LATENCE_TENUE_MS = 3000;

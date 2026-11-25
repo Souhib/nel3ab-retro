@@ -376,6 +376,9 @@ export const LATENCE = {
   arrivent: "Tes touches arrivent.",
   attend: "La page attend la réponse de la salle.",
   lentes: (ms: number) => `Tes touches mettent ${ms} ms à arriver.`,
+  /** Ce que la ligne parlée dit d'un lien lent : la catégorie, jamais le
+   * chiffre, qui bouge à chaque médiane (`ManetteSeule`). */
+  lentesDit: "Tes touches arrivent lentement.",
 } as const;
 
 /** L'image agrandie par Ctrl (`lib/fullscreen`) : la seule indication qui

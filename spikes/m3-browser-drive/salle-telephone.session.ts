@@ -12,7 +12,9 @@
  * le rideau d'une arrivée qui n'aboutit pas, « figee » pour la pastille seule
  * d'un gel, « figee-fiche » pour sa fiche, « coupee » pour une connexion
  * coupée), `fermeture` (les minutes avant la fermeture faute d'activité, 0
- * par défaut).
+ * par défaut), `latence` (« lente » : un aller-retour de 70 ms plus la
+ * seconde courante modulo 25, avec un écho frais, comme un lien lent dont
+ * la médiane bouge ; relecture finale du 25 novembre 2026).
  *
  * Ce fichier ne prouve rien sur la boucle média elle-même : il remplace ce
  * qu'elle dirait par ce qu'on veut voir.
@@ -63,6 +65,9 @@ function patch(s: Snapshot): Snapshot {
       watching: q.get("place") === "aucune",
       players: 4,
       closingIn: Number(q.get("fermeture") ?? 0),
+      ...(q.get("latence") === "lente"
+        ? { roundTripMs: 70 + (Math.floor(Date.now() / 1000) % 25), sinceHeardMs: 100 }
+        : {}),
       busy: [true, true, false, false],
       mics: [false, false, false, false],
     },

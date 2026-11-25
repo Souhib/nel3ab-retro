@@ -129,7 +129,7 @@ const OUT = resolve(
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
 // SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,menu-etroit,
-// manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court,
+// manette-seule,manette-seule-parle,spectateur,demande,places-sous-image,arrivee,clic-court,
 // arrivee-telephone,pastille,menu-etiquette.
 const SEUL = process.env.SEUL?.split(",") ?? null;
 const part = (name) => SEUL === null || SEUL.includes(name);
@@ -1875,6 +1875,65 @@ try {
         if (!vu.chargement) bad.push("pas d'écran de chargement : l'annonce du faux salon n'est pas arrivée");
         if (vu.pave) bad.push("la manette reste montée sous l'écran de chargement");
       }
+    } catch (error) {
+      bad.push(`le parcours s'arrête : ${error.message}`);
+    }
+    bad.push(...errors.map((e) => `erreur de page : ${e}`));
+    say(bad.length === 0, what, bad);
+    await page.close();
+  }
+
+  // 15 bis. Ce que la page « manette seule » dit à voix haute, sur un lien
+  // lent dont la médiane bouge chaque seconde (relecture finale du
+  // 25 novembre 2026). Ses régions vivantes : la ligne parlée et l'état de
+  // la manette, pas plus ; et aucune ne change plus d'une fois en 5 s. La
+  // phrase « Tes touches mettent N ms à arriver. » était une troisième
+  // région, relue à chaque seconde. Le jumeau : la phrase se lit bien sur
+  // la page, avec son chiffre qui bouge.
+  if (part("manette-seule-parle")) {
+    const what = "manette seule sur un lien lent : deux régions parlées, aucune relue chaque seconde";
+    const { page, errors } = await ouvrir({
+      width: 390,
+      height: 844,
+      url: `${BASE}/r/1/?entrer=jouer&latence=lente`,
+      stockage: { "nel3ab:padonly": "oui" },
+    });
+    const bad = [];
+    try {
+      await page.waitForSelector(".n3-manette-seule-latence", { timeout: 20000 });
+      await sleep(1000);
+      await page.evaluate(() => {
+        const regions = [...document.querySelectorAll("[aria-live]:not([aria-live=off]), [role=status], [role=alert], [role=log]")];
+        window.__regions = regions.map((r) => ({
+          nom: `${r.tagName.toLowerCase()}#${r.id}.${[...r.classList].join(".")}`,
+          textes: [r.textContent.trim()],
+        }));
+        regions.forEach((r, i) =>
+          new MutationObserver(() => {
+            const t = r.textContent.trim();
+            const lu = window.__regions[i].textes;
+            if (lu.at(-1) !== t) lu.push(t);
+          }).observe(r, { childList: true, subtree: true, characterData: true }),
+        );
+        window.__phrases = [document.querySelector(".n3-manette-seule-latence").textContent];
+        new MutationObserver(() => {
+          const t = document.querySelector(".n3-manette-seule-latence")?.textContent;
+          if (t && window.__phrases.at(-1) !== t) window.__phrases.push(t);
+        }).observe(document.body, { childList: true, subtree: true, characterData: true });
+      });
+      await sleep(5000);
+      const lu = await page.evaluate(() => ({ regions: window.__regions, phrases: window.__phrases }));
+      console.log(`  ${JSON.stringify(lu)}`);
+      // Le jumeau : le chiffre bouge bien sur la page, sinon rien n'est exercé.
+      if (lu.phrases.length < 3 || !lu.phrases.every((p) => /mettent \d+ ms/.test(p)))
+        bad.push(`la phrase de latence ne bouge pas sur la page : ${JSON.stringify(lu.phrases)}`);
+      const attendues = ["#controller-status", "#ligneParlee"];
+      const autres = lu.regions.filter((r) => !attendues.some((id) => r.nom.includes(id)));
+      if (autres.length) bad.push(`régions parlées en plus : ${autres.map((r) => `${r.nom} « ${r.textes.at(-1)} »`).join(", ")}`);
+      for (const id of attendues)
+        if (!lu.regions.some((r) => r.nom.includes(id))) bad.push(`la région ${id} manque : la mesure ne voit pas la page`);
+      for (const r of lu.regions)
+        if (r.textes.length > 2) bad.push(`${r.nom} relue ${r.textes.length - 1} fois en 5 s : ${JSON.stringify(r.textes)}`);
     } catch (error) {
       bad.push(`le parcours s'arrête : ${error.message}`);
     }

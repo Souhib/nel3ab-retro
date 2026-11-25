@@ -415,6 +415,54 @@ describe("la base du panneau : la première image ne déplace rien", () => {
     expect(encoreNoir.base).toEqual({ image: XBOX, ajustement: "remplir" });
   });
 
+  /* Les deux gardes de `baseDuPanneau` se cachaient l'une l'autre : le seul
+     jumeau donnait à la fois une image 0x0 et l'état « connexion », et
+     retirer l'une ou l'autre ne rougissait rien (relecture finale du
+     25 novembre 2026). Chacune a maintenant son essai. */
+  it("un changement naturel pendant un démarrage ou une salle fermée garde le format attendu, même avec l'image d'avant", () => {
+    for (const etat of ["demarrage", "fermee"] as const) {
+      // L'image du jeu d'avant est encore connue (`picture`), l'état dit
+      // qu'aucune image vivante n'est là.
+      const [, apres] = suite([
+        arrivee({ image: QUATRE_TIERS, etat }),
+        arrivee({ image: QUATRE_TIERS, etat, fenetre: { width: 1400, height: 900 } }),
+      ]);
+      expect(apres.base, etat).toEqual({ image: XBOX, ajustement: "remplir" });
+    }
+  });
+
+  it("un changement naturel sans image connue garde le format attendu, même quand l'état dit « vit »", () => {
+    // Une page « manette seule » n'a pas d'image (0x0) et vit quand même :
+    // une fenêtre tournée ne doit pas poser le panneau sur une image nulle.
+    for (const etat of ["vit", "figee"] as const) {
+      const [, apres] = suite([
+        arrivee({ etat }),
+        arrivee({ etat, fenetre: { width: 1400, height: 900 } }),
+      ]);
+      expect(apres.base, etat).toEqual({ image: XBOX, ajustement: "remplir" });
+    }
+  });
+
+  it("en fenêtre étroite, ouvrir « Touches et manettes » est un changement naturel", () => {
+    // `largeurPanneau` reste nul en mode étroit quand le panneau s'ouvre :
+    // seul `reglage` en fait un changement de mise en page.
+    const etroite = (plus: Partial<EntreeDuCadre> = {}) =>
+      arrivee({ mode: "etroit", fenetre: { width: 820, height: 900 }, ...plus });
+    const [, , ouvert] = suite([
+      etroite(),
+      etroite({ image: QUATRE_TIERS, etat: "vit" }),
+      etroite({ image: QUATRE_TIERS, etat: "vit", reglage: true }),
+    ]);
+    expect(ouvert.base).toEqual({ image: QUATRE_TIERS, ajustement: "remplir" });
+    // Le jumeau : sans l'ouvrir, la base reste le format attendu.
+    const [, , ferme] = suite([
+      etroite(),
+      etroite({ image: QUATRE_TIERS, etat: "vit" }),
+      etroite({ image: QUATRE_TIERS, etat: "vit" }),
+    ]);
+    expect(ferme.base).toEqual({ image: XBOX, ajustement: "remplir" });
+  });
+
   it("repart du format attendu quand le jeu change de console", () => {
     const [, , , cube] = suite([
       arrivee(),

@@ -210,6 +210,22 @@ describe("les trois façons de finir", () => {
     expect(h.enAttente).toBe(0);
   });
 
+  it("coupée, la scène rend l'air neutre, ni celui d'avant ni celui de sa fin", () => {
+    // « couper » remettait l'air à NEUTRE sans essai : sans cette ligne, Aïn
+    // gardait l'air d'avant la scène coupée (relecture finale du 25 novembre
+    // 2026).
+    const h = horloge();
+    const th = new Theatre(logo, "logo", decor);
+    th.poseCle({ pose: { oeil: "grand" }, reste: true }, "1", () => {});
+    expect(th.air.oeil).toBe("grand");
+    const P = new Plan(th.relire(), "essai").sortir(60).aller([300, 500]).tient(1000);
+    P.airFin = { oeil: "heureux" };
+    th.lancer(P, () => {});
+    for (let i = 0; i < 20; i++) h.image(16);
+    th.terminer("couper");
+    expect(th.air).toEqual({});
+  });
+
   it("une scène qui finit dehors y laisse Aïn, immobile", () => {
     const h = horloge();
     const th = new Theatre(logo, "logo", decor);

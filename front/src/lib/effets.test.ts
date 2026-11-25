@@ -219,6 +219,20 @@ describe("le réglage sur la page", () => {
     expect(niveau()).toBe("tout");
   });
 
+  it("suit un autre onglet qui vide le stockage (clé nulle)", () => {
+    // Un autre onglet fait `localStorage.clear()` : l'événement n'a pas de
+    // clé, et le réglage revient au défaut (relecture finale du 25 novembre
+    // 2026 : la garde `key === null` n'avait pas d'essai de comportement).
+    demarrer();
+    localStorage.setItem(CLE, '{"niveau":"tout","sons":false}');
+    window.dispatchEvent(new StorageEvent("storage", { key: CLE }));
+    expect(niveau()).toBe("tout");
+    localStorage.clear();
+    window.dispatchEvent(new StorageEvent("storage", { key: null }));
+    expect(niveau()).toBe(NIVEAU_DEFAUT);
+    expect(racine.dataset.effets).toBe(NIVEAU_DEFAUT);
+  });
+
   it("lit le mouvement réduit à chaque appel", () => {
     const media = vi.fn((requete: string) => ({ matches: requete.includes("reduce") }));
     vi.stubGlobal("matchMedia", media);

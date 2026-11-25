@@ -196,6 +196,18 @@ describe("la place de la pastille, tenue en main", () => {
     expect(aPart).toBeGreaterThan(1000);
     expect(fautes).toEqual([]);
   });
+  it("une bande de 44 px la prend dans sa pile, pas une de 43", () => {
+    // La garde `geo.bande.h >= 44` n'avait pas d'essai (relecture finale du
+    // 25 novembre 2026). Sans fronton ni barre : la bande seule décide.
+    const avec = (h: number) => ({
+      ...geo(390, 844),
+      fronton: null,
+      barre: null,
+      bande: { x: 0, y: 0, w: 390, h },
+    });
+    expect(placeDeLaPastille(avec(44), true)).toEqual({ lieu: "pile" });
+    expect(placeDeLaPastille(avec(43), true)).toBeNull();
+  });
   it("jumeau : une barre trop étroite ne la prend pas", () => {
     const g = geo(375, 667);
     const etroite = { ...g, bande: null, barre: { x: 0, y: 0, w: 200, h: 52 } };

@@ -1179,6 +1179,10 @@ try {
   // dans la manette (reste du chantier, à décider avec la salle). Partout
   // ailleurs, son absence est un défaut : la mesure ne passe jamais à vide.
   const SANS_PLACE = new Set(["390x664 4:3", "375x548 4:3"]);
+  // Les tailles où la barre porte le nom : il doit y être lu au moins une
+  // fois, sinon la mesure du nom n'a rien mesuré.
+  const NOM_ATTENDU = ["375x667 4:3", "390x844 4:3", "430x932 4:3", "768x1024 4:3"];
+  const nomLu = new Set();
   for (const [width, height, pw, ph] of part("pastille")
     ? [
         [390, 844, 640, 480],
@@ -1253,6 +1257,8 @@ try {
             nomCoupe,
             nomCouvert,
             nom: nom !== null,
+            barre: document.querySelector("#barreSalle") !== null,
+            pastilleDansBarre: document.querySelector("#barreSalle[data-pastille]") !== null,
             posee: true,
             toile: t.width * t.height,
             surImage: aire(a, t),
@@ -1282,6 +1288,13 @@ try {
           if (m.surNom > 0 || m.nomCouvert)
             bad.push(`${nom} : ${Math.round(m.surNom)} px² de pastille sur le nom de la salle${m.nomCouvert ? ", ses lettres couvertes" : ""}`);
           if (m.nomCoupe) bad.push(`${nom} : le nom de la salle est coupé dans la barre`);
+          // La mesure du nom ne passe jamais à vide (relecture finale du
+          // 25 novembre 2026) : un nom introuvable dans une barre qui existe
+          // laissait l'étape verte, et un simple renommage de sa classe
+          // cachait une pastille posée sur lui.
+          if (m.barre && !m.nom) bad.push(`${nom} : la barre est là, son nom de salle introuvable`);
+          if (m.pastilleDansBarre && !m.nom) bad.push(`${nom} : la pastille est dans la barre, le nom de la salle n'y est pas lu`);
+          if (m.nom) nomLu.add(taille);
           lus.push(`${nom} posée (${m.touches} touches, ${m.tetes} tête${m.nom ? ", nom lu" : ""})`);
         }
       } catch (error) {
@@ -1291,6 +1304,10 @@ try {
       await page.close();
     }
     say(bad.length === 0, `pastille hors de l'image et des touches ${taille} : ${lus.join(", ")}`, bad);
+  }
+  if (part("pastille")) {
+    const manque = NOM_ATTENDU.filter((taille) => !nomLu.has(taille));
+    say(manque.length === 0, `le nom de la salle lu là où la barre le porte : ${[...nomLu].join(", ")}`, manque.map((t) => `${t} : nom jamais lu`));
   }
 
   // L'entrée de la salle (M9) : son haut reste dans l'écran.

@@ -552,7 +552,13 @@ l'image (constat 4 de la relecture des manettes) ; `place-tenu` entre dans
 la porte, avec `rang`, `etiquette` et `feuille-reglage`, rouges sur 928bd03.
 Une page « manette seule », sans place tenue, garde le panneau dans la
 feuille agrandie (étape `manette-seule`). Les bancs de la salle acceptent
-les ports 5400 à 5599. Page : 278 234 octets en brotli. `docs/ecran-manettes.md` est réécrite pour ce qui reste. Récit :
+les ports 5400 à 5599. Page : 278 234 octets en brotli. `docs/ecran-manettes.md` est réécrite pour ce qui reste.
+Portes sur 8a485b3 : `just check`, `reglage-navigateur`, `focus-navigateur`,
+`parcours-navigateur`, `salle-telephone`, `manette-garde`, `salon-navigateur`,
+`planche-garde`, `just docs` et sept contrôles rouges en 0 ;
+`etats-navigateur` (`arrivee-sans-image`, `colonne-stable`) et
+`cadre-navigateur` (`mascotte-hors-image`, `ain-immobile`) restent rouges sur
+leurs défauts connus, aux autres chantiers de fin. Récit :
 « 24 novembre, le soir : la fin des manettes ».
 
 **Au 24 novembre : le chantier salon, premier passage.** Sur

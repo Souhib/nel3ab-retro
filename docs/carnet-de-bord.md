@@ -33039,6 +33039,22 @@ tombe.
 règles mortes partent, le rang, l'entrée, l'étiquette et la place tenue
 arrivent.
 
+**Les portes**, sur la tête 8a485b3, pilotes sur les ports 5540 à 5549 :
+`just check`, `reglage-navigateur` (quatorze étapes), `focus-navigateur`,
+`parcours-navigateur`, `salle-telephone`, `manette-garde`, `salon-navigateur`,
+`planche-garde` et `just docs` sortent en 0 ; les sept contrôles rouges
+(`reglage`, `cadre`, `mascotte`, `focus`, `etats`, `parcours`, `salon`)
+rougissent comme attendu. `etats-navigateur` reste rouge sur ses deux défauts
+connus, `arrivee-sans-image` et `colonne-stable`, et ses 31 autres étapes
+passent ; `cadre-navigateur` sur la précondition de `mascotte-hors-image` et
+sur `ain-immobile`, ses 26 autres étapes passant par leur nom. Ces quatre
+rouges appartiennent à d'autres chantiers de fin. Une première série,
+lancée pendant que d'autres chantiers faisaient tourner leurs navigateurs,
+avait vu `salle-telephone` rougir une fois sur le clic d'une place libre au
+processeur ralenti quatre fois (une tâche de 52 ms pour 50 permises) ; la
+série finale passe. Une instabilité sous charge, pas une preuve dans un sens
+ni dans l'autre.
+
 **Ce qui n'est pas prouvé.** Les pilotes d'une vraie salle n'ont pas tourné
 (K40), et `preparation-room.mjs` et `switch-room.mjs` attendent encore les
 dialogues de préparation (`#bindingsPanel`, `.n3-switch-setup`), du chantier

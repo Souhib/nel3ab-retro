@@ -38,7 +38,13 @@ d'avant ces fusions.
   installé étant celui de `main` à l'octet) ; et le salon et la boîte
   noire tournent depuis le 22 novembre 14 h 35 avec un code plus ancien,
   ce qui est vrai aussi pour `main` (`consoles.json` changé après ce
-  démarrage) et que le redémarrage du salon règle.
+  démarrage). Relu au tour de réparation : la garde a raison et reste
+  rouge. Le redémarrage du salon seul ne la règle pas, la boîte noire
+  importe le même code et compte à part (voir la mise en service). Pour
+  le salon en service, la Xbox 360 est encore expérimentale : il a lu le
+  manifeste avant e408fd1, et ses vues de profil et d'import portent ce
+  champ. Le worker, reconstruit à 16 h 06 après 03b21c0, a la Xbox 360
+  ordinaire. Qu'une page montre ce champ n'est pas vérifié.
 - **Poids.** 278 860 octets en brotli, 21 140 sous le plafond de
   300 000.
 - **Avant `main`.** La porte `just` entière : `gpu-test` (après avoir
@@ -48,15 +54,24 @@ d'avant ces fusions.
   propriétaire. Cette nuit, `tools/abri.sh`, la copie chiffrée des
   sauvegardes, attendait depuis plus d'une heure une réponse NFS de
   `/mnt/nas` (état D) ; rien n'y a été touché, la cause n'est pas établie.
-- **La mise en service, dans cet ordre.** Le salon d'abord
-  (`deploy/salon-importable.sh`, puis son redémarrage), puis le worker
-  reconstruit sans salle ouverte. `deploy/Caddyfile` (K39) est au
-  propriétaire.
+- **La mise en service, dans cet ordre.** Après la fusion `--ff-only`
+  dans `main`, sans salle ouverte : `sudo bash deploy/mettre-en-service.sh`
+  depuis l'arbre principal. Il valide puis installe `deploy/Caddyfile`
+  (K39, au propriétaire), vérifie que le salon et la boîte noire
+  s'importent avec l'interpréteur de systemd, redémarre le salon, la
+  boîte noire et Caddy, et finit par `just deploy-check`. Le worker est
+  reconstruit ensuite, sans salle ouverte. Les deux causes du rouge de
+  `deploy-check` partent avec ce script ; redémarrer le seul salon le
+  laisserait rouge sur la boîte noire.
 - **Ce qui n'est pas prouvé.** Aucune vraie salle, aucun vrai téléphone,
   aucun WebKit, aucune vraie manette n'a tenu la page ; Aïn n'a pas été
   regardé par une personne ; les pilotes d'une vraie salle (K40) n'ont
-  pas tourné. Récit : carnet, « 25 novembre, après minuit : les quatre
-  chantiers de fin réunis, et une même règle écrite deux fois ».
+  pas tourné. Le salon de la branche n'a pas démarré : il se construit
+  par l'enveloppe de l'ajout Souverain, avec son interpréteur, ce qui
+  n'est pas un démarrage. Récit : carnet, « 25 novembre, après minuit :
+  les quatre chantiers de fin réunis, et une même règle écrite deux
+  fois », et « 25 novembre, la nuit encore : le rouge de `deploy-check`
+  relu ».
 
 **Au 24 novembre, au bout de la nuit : le thème rétro réuni, et ce qui
 reste avant `main`.** Le point d'entrée pour l'ensemble du thème rétro ;

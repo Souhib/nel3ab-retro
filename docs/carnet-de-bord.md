@@ -33764,6 +33764,62 @@ portes `gpu-test`, `clip-audio-test`, `switch-saves-test`,
 `switch-capture-test`, `xbox360-test` et `abri-test` n'ont pas tourné, et
 les pilotes d'une vraie salle (K40) non plus.
 
+### 25 novembre, la nuit encore : le rouge de `deploy-check` relu
+
+Le tour de réparation qui suit l'intégration n'a reçu qu'une porte rouge :
+`just deploy-check`. Je l'ai relancée sur 559a3a4 et relue à la cause, pas
+au message.
+
+**Les fichiers.** Une seule différence entre `deploy/` et la machine :
+`deploy/Caddyfile`, les treize lignes de K39. Le Caddyfile installé est
+celui de `main` à l'octet (`diff` ne dit rien). Les unités, la règle sudo,
+les anciennes portes `.ts.net`, l'import du salon et les adaptateurs des
+salles ne disent rien non plus.
+
+**Le code qui tourne.** Le salon et la boîte noire tournent depuis le
+22 novembre à 14 h 35 min 39 s. Dans le worktree, leur fichier le plus
+récent est `control/nel3ab_control/api/routes/regie.css`, écrit cette nuit
+à 00 h 06 par la fusion de la fin d'Aïn (0efd7c5) ; 51 fichiers du salon
+diffèrent de `main` en contenu, pas seulement en heure. L'arbre principal
+rougirait aussi, sans la branche : son `consoles/consoles.json` date de
+16 h 05 le 22 novembre (03b21c0), et le salon ne lit ce manifeste qu'une
+fois, quand il importe `nel3ab_control.consoles` (`CONSOLES = lire()`).
+Pour le salon en service, la Xbox 360 est donc encore expérimentale : ses
+vues de profil et d'import portent ce champ, lu avant e408fd1. Le worker,
+lui, a été reconstruit à 16 h 06, après 03b21c0 : il a la Xbox 360
+ordinaire. L'état du 22 novembre disait « en service » pour les deux ;
+c'est vrai du worker seulement. Je n'ai pas vérifié qu'une page montre ce
+champ.
+
+**Rien à corriger dans le code.** La garde dit vrai. La rendre verte ici
+demandait de redémarrer le salon, ce qu'un chantier ne fait pas, ou de ne
+plus comparer le worktree à ce qui tourne, ce qui la relâchait. Elle reste
+rouge, et c'est ce qu'elle doit faire.
+
+**Ce qui était faux, c'est la consigne.** L'état disait que le redémarrage
+du salon règle le second rouge. Il en faut deux : la boîte noire importe le
+même code, depuis le même dossier, et `deploy-check` la compte à part.
+Redémarrer le seul salon aurait laissé la porte rouge, et le lecteur
+suivant aurait cherché un défaut qui n'existe pas. Le geste qui règle les
+deux causes existe déjà : `sudo bash deploy/mettre-en-service.sh`, depuis
+l'arbre principal, après la fusion. Il valide puis installe
+`deploy/Caddyfile`, vérifie que le salon et la boîte noire s'importent avec
+l'interpréteur de systemd, redémarre le salon, la boîte noire et Caddy, et
+finit par `just deploy-check`. L'état le dit maintenant.
+
+**Une vérification de plus, parce que le salon ne démarre pas seul.** Un
+ajout d'unité de Souverain remplace sa commande par
+`souverain_nel3ab:create_app`, dans un environnement Python figé le
+11 novembre. `deploy/salon-importable.sh` importe `nel3ab_control.app` avec
+cet interpréteur, pas le module de Souverain. Ce module appelle
+`nel3ab_control.app.create_app` et lit `app.state.settings.worker_url` :
+les deux existent sur la branche. Sa fonction, lancée avec cet
+interpréteur depuis le dossier `control` du worktree et sans la
+télémétrie, rend l'application. Ce n'est pas un démarrage : aucun service
+n'a été redémarré. Et la garde a un angle mort qui n'est pas corrigé ici :
+un `create_app` renommé dans tout `nel3ab_control` passerait
+`salon-importable.sh` et ferait échouer le module de Souverain.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

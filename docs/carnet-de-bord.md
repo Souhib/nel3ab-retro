@@ -33915,6 +33915,64 @@ causes dites plus haut. La charge affichée était de 65 au départ, le
 processeur inoccupé à 97 % au même instant ; la cause de cette charge n'est
 pas établie. Les portes `gpu-test`, `clip-audio-test`, `switch-saves-test`,
 `switch-capture-test`, `xbox360-test` et `abri-test` n'ont pas tourné.
+(La cause de cette charge est établie dans l'entrée suivante.)
+
+### 25 novembre, à l'aube : le troisième tour, et une charge qui ne calcule pas
+
+Le troisième tour de réparation a reçu la même porte rouge, `deploy-check`,
+avec la même consigne : trouver la cause, ne pas relâcher la garde. Je l'ai
+relue une fois de plus à ce que la machine montre, pas au récit des tours
+d'avant.
+
+**Les fichiers.** `deploy/Caddyfile` est la seule différence entre
+`deploy/` et la machine. Entre `main` et la branche, il gagne treize lignes
+(K39) et n'en perd aucune, et `cmp` ne trouve aucun octet de différence
+entre le Caddyfile de `main` et celui qui est installé.
+
+**Le code qui tourne.** systemd donne au salon et à la boîte noire la même
+heure de démarrage, le 22 novembre à 14 h 35 min 39 s. Le processus du salon
+a pour dossier courant `/home/souhib/nel3ab-retro/control`, lu dans `/proc`.
+Le salon importe `nel3ab_control.consoles`, la boîte noire aussi, par
+`boite_noire/capture.py` et `boite_noire/releve.py`. Ce module lit le
+manifeste une seule fois (`CONSOLES = lire()`). Le journal des références
+de `main` date son avance à 03b21c0 de 16 h 05 min 57 s, l'heure du
+`consoles.json` réécrit. Entre les deux, la Xbox 360 passe de
+`"experimental": true` à `false`. Les deux services tournent donc bien avec
+un manifeste plus ancien que celui qu'ils exécutent. Pour rendre la porte
+verte ici, il n'y avait que deux gestes : relâcher la garde, ou redémarrer
+des services. Les deux sont exclus. Il n'y a rien à corriger dans le code, et
+aucun commit de code dans ce tour.
+
+**Les portes, relancées sur ed0b589**, de 4 h 24 à 5 h 27, une après
+l'autre, chaque pilote sur un port libre : `just check` (1 370 essais
+Python, 182 fichiers et 2 406 essais du front), `focus-navigateur` (36
+étapes), `etats-navigateur` (34), `parcours-navigateur` (38),
+`salle-telephone` (132 lignes ok), `manette-garde` (41), `cadre-navigateur`
+(28), `salon-navigateur`, `reglage-navigateur` (14) et `planche-garde`
+sortent en 0. Les sept contrôles rouges sortent en 0, chacun rouge sur ses
+défauts nommés. `just docs` sort en 0. La page n'a pas changé : 278 860
+octets en brotli. `deploy-check` sort en 1, pour les deux causes dites.
+
+**La charge.** Le tour d'avant voyait une charge de 65 avec un processeur
+inoccupé à 97 %, et n'en savait pas la cause. Cette fois, elle valait 79
+à 4 h 23 et 80 à 5 h 28, avec un processeur inoccupé à 98 % (`vmstat`).
+Linux compte dans la charge moyenne les fils qui calculent ET ceux qui
+attendent en sommeil ininterruptible (état D). À 5 h 28, 80 fils étaient en
+état D, dont 79 dans `rpc_wait_bit_killable`, c'est-à-dire dans l'attente
+d'une réponse d'un serveur NFS : 61 de Jellyfin, 6 de Sonarr, 5 de Radarr,
+4 de Bazarr, 1 de qBittorrent, et deux passages de `tools/abri.sh`, lancés
+par `nel3ab-abri-entretien.timer` à 4 h 30 et `nel3ab-abri.timer` à
+5 h 22. Le seul montage NFS de la machine est `/mnt/nas`. Le chiffre de
+charge mesurait donc des attentes du NAS, et pas un travail qui aurait
+disputé le processeur aux pilotes du navigateur. Pourquoi le NAS ne répond
+pas n'est pas établi. Rien n'y a été touché, Jellyfin compris. La copie
+chiffrée des sauvegardes de cette nuit n'est pas prouvée faite : ses deux
+passages vus attendaient encore.
+
+**La leçon.** Une charge moyenne haute ne dit pas qu'une machine calcule.
+Avant de l'écrire à côté d'une mesure, lire l'état des fils (`ps -eLo
+stat,wchan`) : ici, un nombre qui ressemblait à une machine saturée
+comptait des fils endormis sur un disque réseau.
 
 ## 12. Glossaire complet
 

@@ -37,6 +37,9 @@ d'avant ces fusions.
   réparation (25 novembre, de 3 h 17 à 4 h 20), une après l'autre, chaque
   pilote sur un port libre : les mêmes portes, les sept contrôles rouges,
   `just docs` et `stamp.mjs --check` sortent en 0, la page inchangée.
+  Relancées encore sur ed0b589 au troisième tour (25 novembre, de 4 h 24
+  à 5 h 27), de la même façon : toutes en 0, la page inchangée, aucun
+  commit de code dans ce tour.
   `deploy-check` est rouge, pour deux
   causes que seul le propriétaire peut lever. En fichiers, seulement
   `deploy/Caddyfile` (les treize lignes de K39, le Caddyfile installé
@@ -72,6 +75,12 @@ d'avant ces fusions.
   propriétaire. Cette nuit, `tools/abri.sh`, la copie chiffrée des
   sauvegardes, attendait depuis plus d'une heure une réponse NFS de
   `/mnt/nas` (état D) ; rien n'y a été touché, la cause n'est pas établie.
+  À 5 h 28, deux de ses passages (4 h 30 et 5 h 22) attendaient encore,
+  avec 61 fils de Jellyfin et ceux de Sonarr, Radarr, Bazarr et
+  qBittorrent : 79 fils en attente NFS font la charge de 80 affichée, le
+  processeur restant inoccupé à 98 %. La copie de cette nuit n'est pas
+  prouvée faite. Récit : carnet, « 25 novembre, à l'aube : le troisième
+  tour, et une charge qui ne calcule pas ».
 - **La mise en service, dans cet ordre.** Après la fusion `--ff-only`
   dans `main`, sans salle ouverte : `sudo bash deploy/mettre-en-service.sh`
   depuis l'arbre principal. Il valide puis installe `deploy/Caddyfile`

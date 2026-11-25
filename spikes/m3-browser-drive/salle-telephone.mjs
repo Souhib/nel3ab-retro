@@ -1977,6 +1977,10 @@ try {
     }
     bad.push(...errors.map((e) => `erreur de page : ${e}`));
     say(bad.length === 0, what, bad);
+    // Le stockage est celui du navigateur entier : « manette seule » laissé
+    // là passait aux parties suivantes, qui n'avaient plus ni bande ni
+    // places (vu en passant les portes, 25 novembre 2026).
+    await page.evaluate(() => localStorage.removeItem("nel3ab:padonly"));
     await page.close();
   }
 

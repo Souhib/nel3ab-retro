@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { MANETTES, miseEnPage, modeDuCadre, SANS_ZONES } from "./cadre";
 import {
+  BARRE_NOM_PX,
   BARRE_SALLE_PX,
   BARRE_TETE_PX,
   lieuDeLaFiche,
   montageDeLaPastille,
+  PASTILLE_MIN_PX,
   placeDeLaPastille,
 } from "./etat-place";
 
@@ -17,22 +19,66 @@ function geo(largeur: number, hauteur: number, image = { width: 640, height: 480
     zonesSures: SANS_ZONES,
     image,
     ajustement: "remplir",
+    base: null,
     etat: "vit",
     role: "joueur",
     manette: MANETTES.dolphin,
     largeurColonne: 304,
     largeurPanneau: null,
     agrandie: false,
+    reglage: false,
   });
 }
 
 const coupe = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-describe("la place de la pastille, tenue en main", () => {
-  it("au bureau, la pile des avis la pose", () => {
-    expect(placeDeLaPastille(geo(1440, 900), false)).toEqual({ lieu: "pile" });
+/** La géométrie d'un bureau : la base est le format attendu de la console
+ * (`baseDuPanneau`), l'image reçue peut en différer. */
+function bureau(largeur: number, hauteur: number, image: Size, attendu: Size) {
+  return miseEnPage({
+    mode: "bureau",
+    fenetre: { width: largeur, height: hauteur },
+    zonesSures: SANS_ZONES,
+    image,
+    ajustement: "remplir",
+    base: { image: attendu, ajustement: "remplir" },
+    etat: "figee",
+    role: "joueur",
+    manette: null,
+    largeurColonne: 304,
+    largeurPanneau: null,
+    agrandie: false,
+    reglage: false,
   });
+}
+type Size = { width: number; height: number };
+const XBOX = { width: 16, height: 9 };
+const CUBE = { width: 4, height: 3 };
+
+describe("la place de la pastille, au bureau", () => {
+  it("sur le panneau de commande, quand il est sous l'image sans bande noire", () => {
+    // Le banc des états : une Xbox 360 attendue, une image 4:3 reçue, à
+    // 1440×900 ; le panneau reste sous l'écran et l'image le touche.
+    expect(placeDeLaPastille(bureau(1440, 900, { width: 640, height: 480 }, XBOX), false)).toEqual({
+      lieu: "panneau",
+    });
+  });
+  it("le jumeau : une bande noire de 40 px la prend, ou la colonne quand le panneau y est", () => {
+    // 16:9 à 1440×900 : un fronton de 86 px au-dessus de l'image.
+    expect(placeDeLaPastille(bureau(1440, 900, { width: 1280, height: 720 }, XBOX), false)).toEqual(
+      {
+        lieu: "pile",
+      },
+    );
+    // 4:3 attendu à 1440×900 : le panneau est au pied de la colonne.
+    expect(placeDeLaPastille(bureau(1440, 900, { width: 640, height: 480 }, CUBE), false)).toEqual({
+      lieu: "pile",
+    });
+  });
+});
+
+describe("la place de la pastille, tenue en main", () => {
   it("aucune place rendue ne touche l'image, à toutes les tailles de téléphone", () => {
     for (const [l, h] of [
       [375, 667],
@@ -53,25 +99,15 @@ describe("la place de la pastille, tenue en main", () => {
       }
     }
   });
-  it("dans la barre, sans bande, elle laisse la place de « La salle » à droite", () => {
+  it("dans la barre, sans bande, elle a sa place, entre le nom de la salle et « La salle »", () => {
+    // Décision du chef de chantier du 24 novembre 2026 : un vrai emplacement
+    // dans la barre (`BarreSalle`), jamais par-dessus le nom de la salle.
     const g = { ...geo(375, 667), bande: null, barre: { x: 0, y: 0, w: 375, h: 52 } };
-    const place = placeDeLaPastille(g, true);
-    expect(place?.lieu).toBe("a-part");
-    if (place?.lieu !== "a-part") throw new Error("pas de place à part");
-    expect(place.rect.y).toBe(0);
-    expect(place.rect.x + place.rect.w).toBeLessThanOrEqual(375 - BARRE_SALLE_PX);
-  });
-  it("dans la barre, elle commence après la tête d'Aïn, sa maison au téléphone", () => {
-    // La tête est posée à 8 px du bord, 32 px de large, suivie de 10 px
-    // (`components/telephone.css`). Le 24 novembre 2026, la pastille partait
-    // de x + 8 et la couvrait toute à 375x667 (relecture du chantier).
-    const g = { ...geo(375, 667), bande: null, barre: { x: 12, y: 0, w: 375, h: 52 } };
-    const place = placeDeLaPastille(g, true);
-    if (place?.lieu !== "a-part") throw new Error("pas de place à part");
-    const tete = { x: 12 + 8, y: 10, w: 32, h: 32 };
-    expect(coupe(place.rect, tete)).toBe(false);
-    expect(place.rect.x).toBe(12 + BARRE_TETE_PX);
-    expect(place.rect.x + place.rect.w).toBe(12 + 375 - BARRE_SALLE_PX);
+    expect(placeDeLaPastille(g, true)).toEqual({ lieu: "barre" });
+    // Ce que la barre lui laisse à 375 px : la tête, le nom, « La salle ».
+    expect(375 - BARRE_TETE_PX - BARRE_NOM_PX - BARRE_SALLE_PX).toBeGreaterThanOrEqual(
+      PASTILLE_MIN_PX,
+    );
   });
   it("prend le fronton de la salle, hors de l'image, quand il existe", () => {
     const g = { ...geo(844, 390), fronton: { x: 162, y: 0, w: 520, h: 44 } };
@@ -84,37 +120,34 @@ describe("la place de la pastille, tenue en main", () => {
     const g = geo(375, 667);
     const etroite = { ...g, bande: null, barre: { x: 0, y: 0, w: 200, h: 52 } };
     expect(placeDeLaPastille(etroite, true)).toBeNull();
+    // Au pixel près : la tête, le nom et « La salle » gardés, 120 px de
+    // pastille tiennent, 119 non.
+    const juste = BARRE_TETE_PX + BARRE_NOM_PX + BARRE_SALLE_PX + PASTILLE_MIN_PX;
+    const barre = (w: number) => ({ ...g, bande: null, barre: { x: 0, y: 0, w, h: 52 } });
+    expect(placeDeLaPastille(barre(juste), true)).toEqual({ lieu: "barre" });
+    expect(placeDeLaPastille(barre(juste - 1), true)).toBeNull();
   });
 });
 
 describe("où la salle monte la pastille et la fiche", () => {
   const pastille = { pastille: { texte: "Image figée" } };
-  it("au bureau, dans la pile des avis", () => {
-    expect(montageDeLaPastille(pastille, geo(1440, 900), false)).toEqual({
-      pile: true,
-      aPart: null,
-    });
+  const nulle = { pile: false, panneau: false, barre: false, aPart: null };
+  it("au bureau, dans la pile des avis, ou sur le panneau sous l'image", () => {
+    expect(montageDeLaPastille(pastille, geo(1440, 900), false)).toEqual({ ...nulle, pile: true });
+    expect(
+      montageDeLaPastille(pastille, bureau(1440, 900, { width: 640, height: 480 }, XBOX), false),
+    ).toEqual({ ...nulle, panneau: true });
   });
-  it("tenue en main sans bande, à part dans la barre", () => {
+  it("tenue en main sans bande, dans sa place de la barre", () => {
     const g = { ...geo(375, 667), bande: null, barre: { x: 0, y: 0, w: 375, h: 52 } };
-    const m = montageDeLaPastille(pastille, g, true);
-    expect(m.pile).toBe(false);
-    expect(m.aPart).toEqual({
-      x: BARRE_TETE_PX,
-      y: 0,
-      w: 375 - BARRE_TETE_PX - BARRE_SALLE_PX,
-      h: 52,
-    });
+    expect(montageDeLaPastille(pastille, g, true)).toEqual({ ...nulle, barre: true });
   });
   it("jumeau : sans pastille, nulle part", () => {
-    expect(montageDeLaPastille({ pastille: null }, geo(1440, 900), false)).toEqual({
-      pile: false,
-      aPart: null,
-    });
+    expect(montageDeLaPastille({ pastille: null }, geo(1440, 900), false)).toEqual(nulle);
   });
   it("jumeau : sans place hors de l'image, nulle part plutôt que dessus", () => {
     const g = { ...geo(375, 667), bande: null, barre: { x: 0, y: 0, w: 200, h: 52 } };
-    expect(montageDeLaPastille(pastille, g, true)).toEqual({ pile: false, aPart: null });
+    expect(montageDeLaPastille(pastille, g, true)).toEqual(nulle);
   });
   it("la fiche en tête de la colonne à côté ou dessous, sinon dans la feuille", () => {
     expect(lieuDeLaFiche("a-cote")).toBe("colonne");

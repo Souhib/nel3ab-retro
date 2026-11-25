@@ -47,7 +47,7 @@ default: local
 # relecture du chantier du focus a trouvé que rien ne les lançait: une
 # régression passait la porte sans bruit. Elles demandent Chrome (puppeteer) et
 # ffmpeg, déjà exigé par `clip-audio-test`, et servent la page committée sur un
-# port de 5400 à 5499, sans rien de vivant. Leur prix, mesuré le jour même:
+# port de 5400 à 5599, sans rien de vivant. Leur prix, mesuré le jour même:
 # 1 min 25 s et 4 min 35 s, dont près de trois minutes pour les deux étapes de
 # `etats-navigateur` qui attendent une proposition de format réduit.
 #
@@ -842,7 +842,7 @@ gpu-test:
 # proposer. Chaque étape en rejoue un avec son jumeau (`etats.mjs`).
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert. Un
-# salon et une salle simulés, sur un port de 5400 à 5499: aucune salle vivante,
+# salon et une salle simulés, sur un port de 5400 à 5599: aucune salle vivante,
 # aucun émulateur. Le flux est un vrai H.264, fabriqué ici par ffmpeg plutôt
 # que committé (1,6 Mo). Hors de `check`: Chrome, ffmpeg et cinq minutes.
 #
@@ -918,6 +918,14 @@ etats-navigateur-rouge:
     node etats.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes pastille-contraste,pastille-hors-image,extinction,calques-attente \
         --rouge-attendu pastille-contraste,pastille-hors-image,extinction,calques-attente
+    # 4ecbc23, la page de la vague B2 : à 1440×900, la première image 4:3
+    # rangeait le panneau de commande dans la colonne et poussait ses
+    # enfants de 204 px. Le panneau s'y décidait sur l'image reçue, et non
+    # sur le format attendu de la console (`baseDuPanneau`, 24 novembre 2026).
+    # La pastille d'une image figée n'avait pas de place sur le panneau.
+    git show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
+    node etats.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
+        --etapes colonne-stable,pastille-panneau --rouge-attendu colonne-stable,pastille-panneau
     node etats.mjs --page "$dossier/sans-squelette.html" --flux "$dossier/flux.h264" \
         --etapes ouverture-sans-saut,ouverture-theme,ouverture-statique \
         --rouge-attendu ouverture-sans-saut,ouverture-theme,ouverture-statique
@@ -953,7 +961,7 @@ etats-navigateur-rouge:
 # ancres START d'Aïn et la cadence d'une image figée.
 #
 # Le banc sert la page COMMITTÉE et vérifie l'empreinte de ce qu'il sert: un
-# salon et une salle simulés sur un port de 5400 à 5499 (`parcours-banc.mjs`),
+# salon et une salle simulés sur un port de 5400 à 5599 (`parcours-banc.mjs`),
 # aucune salle vivante, aucun émulateur. Hors de `check`: Chrome et ffmpeg.
 #
 #   just parcours-navigateur                          toutes les étapes
@@ -1103,7 +1111,7 @@ parcours-navigateur-rouge:
 # les trames que reçoit le banc (`focus.mjs`).
 #
 # Le même banc que `etats-navigateur`: la page COMMITTÉE, un salon et une salle
-# simulés sur un port de 5400 à 5499. Hors de `check`, que la CI partage: Chrome,
+# simulés sur un port de 5400 à 5599. Hors de `check`, que la CI partage: Chrome,
 # ffmpeg et une minute et demie. Dans `local` depuis la relecture du
 # 22 novembre 2026: une preuve que rien n'appelle ne garde rien.
 #
@@ -1331,11 +1339,13 @@ cadre-navigateur-rouge port="5478":
 # fenêtre étroite), « Toutes les touches » ouvre le clavier et Échap rend le
 # focus, la vue de la manette suit la trame Pro (K34), le pas à pas tourne
 # sur une manette simulée, et la pièce attendue d'un « Changer » reste à
-# l'écran (vignette). La page COMMITTÉE, le banc des parcours, une
-# manette Xbox simulée ; rien de vivant, port 5482.
+# l'écran (vignette). Tenu en main, il a sa place du cadre, sous l'image ou
+# à sa droite, sans la recouvrir (place-tenu, dans la porte depuis le
+# 24 novembre 2026). La page COMMITTÉE, le banc des parcours, une manette
+# Xbox simulée ; rien de vivant, port 5482.
 #
-#   just reglage-navigateur                        les étapes de la porte
-#   just reglage-navigateur --etapes place-tenu    hors porte : tenu en main
+#   just reglage-navigateur                        toutes les étapes
+#   just reglage-navigateur --etapes place-tenu    une seule
 #   just reglage-navigateur --captures <dossier>   avec les captures
 reglage-navigateur *args:
     #!/usr/bin/env bash
@@ -1388,6 +1398,12 @@ reglage-navigateur-rouge:
     git -C ../.. show 9b1c8e8:core/crates/worker/src/page/index.html > "$dossier/relue.html"
     node reglage.mjs --page "$dossier/relue.html" --flux "$dossier/flux.h264" \
         --etapes marques,focus-pas --rouge-attendu marques,focus-pas
+    # La page de la vague B2 (4ecbc23) : tenu en main, le panneau vivait dans
+    # la feuille agrandie, qui couvrait l'image à 390 × 844, 844 × 390 et
+    # 1024 × 768 (place-tenu, chantier de fin de la salle, 24 novembre 2026).
+    git -C ../.. show 4ecbc23:core/crates/worker/src/page/index.html > "$dossier/b2.html"
+    node reglage.mjs --page "$dossier/b2.html" --flux "$dossier/flux.h264" \
+        --etapes place-tenu --rouge-attendu place-tenu
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming

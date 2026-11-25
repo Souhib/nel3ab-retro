@@ -300,12 +300,12 @@ export function placeDuMenu(
 
 /** Ce qu'une bande ne couvre jamais : « La salle » et ton étiquette.
  *
- * L'étiquette n'a un rectangle dans la géométrie que posée à côté de l'image
- * (`LieuEtiquette` « cote », sous « La salle ») : c'est le cas que lisait
- * `etiquetteManette` avant que le cadre décide seul où se lit ta place
- * (chantier salle, 24 novembre 2026). Dans la fente ou en tête de la bande,
- * le cadre ne donne pas son rectangle. Adapté à la fusion de la vague B2. */
+ * L'étiquette a un rectangle dans la géométrie posée à côté de l'image
+ * (`LieuEtiquette` « cote », sous « La salle ») et en tête de la bande
+ * (« bande », depuis la décision du chef de chantier du 24 novembre 2026 :
+ * le cadre expose son rectangle, le menu l'évite, `salle-telephone` le
+ * mesure). Dans la fente, elle est dans la manette, que le menu remplace. */
 function obstacles(geo: Geometrie): Rect[] {
-  const etiquette = geo.etiquette?.lieu === "cote" ? geo.etiquette.rect : null;
+  const etiquette = geo.etiquette && geo.etiquette.lieu !== "fente" ? geo.etiquette.rect : null;
   return [geo.boutonSalle, etiquette].filter((r): r is Rect => r !== null);
 }

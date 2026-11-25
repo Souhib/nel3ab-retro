@@ -403,7 +403,7 @@ describe("la ligne parlée", () => {
       "Aucune image de Chantier Royal. Sami peut le relancer.",
     );
     expect(phraseLiaison(long, { ...echec, relance: "moi" }, 1, 1)).toBe(
-      "Aucune image de Chantier Royal. Tu peux le relancer.",
+      "Aucune image de Chantier Royal. Tu peux le relancer ou choisir un autre jeu.",
     );
     expect(phraseLiaison(long, echec, 1, 1)).toBe("Aucune image de Chantier Royal.");
   });
@@ -461,8 +461,22 @@ describe("les phrases du chargement", () => {
       "Aucune image de Chantier Royal. Sami peut le relancer.",
     );
     expect(phraseDemarrage("echec", "Chantier Royal", "moi")).toBe(
-      "Aucune image de Chantier Royal. Tu peux le relancer.",
+      "Aucune image de Chantier Royal. Tu peux le relancer ou choisir un autre jeu.",
     );
+  });
+  it("ne propose un autre jeu qu'à qui choisit le jeu (24 novembre 2026)", () => {
+    // « moi » : cette page choisit le jeu (`canClose`, le même rôle que les
+    // gestes de l'écran de chargement, C7a).
+    expect(phraseDemarrage("echec", "Kart", "moi")).toMatch(/ou choisir un autre jeu\.$/);
+    expect(phraseDemarrage("echec", null, "moi")).toBe(
+      "Aucune image du jeu. Tu peux le relancer ou choisir un autre jeu.",
+    );
+    // Les jumeaux : qui ne choisit pas le jeu ne se le voit pas proposer,
+    // qu'on sache ou non qui le choisit.
+    expect(phraseDemarrage("echec", "Kart", { nom: "Sami" })).toBe(
+      "Aucune image de Kart. Sami peut le relancer.",
+    );
+    expect(phraseDemarrage("echec", "Kart", null)).toBe("Aucune image de Kart.");
   });
   it("jumeau: sans nom de jeu ni relanceur connu, la phrase reste vraie", () => {
     expect(phraseDemarrage(undefined)).toBe("Le jeu démarre.");

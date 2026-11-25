@@ -166,14 +166,23 @@ async function toucher(page, selecteur) {
 const OUVERT = "#reglage, dialog[open]";
 
 /** Ouvre le réglage comme une personne avec une manette : « Ta manette »
- * (ou « Vérifier les boutons » tenu en main, ou l'entrée « manette » de la
- * feuille « La salle » quand la bande manque), puis « Changer ». */
+ * (ou « Vérifier les boutons » tenu en main, ou, quand la bande manque,
+ * « La salle », « Toute la salle » et le rang « Ta manette » de la feuille
+ * agrandie), puis « Changer ».
+ *
+ * L'entrée « manette » de la feuille à mi-hauteur montre ou cache la manette
+ * à l'écran ; elle n'ouvre pas la vue des touches. Ce pilote la touchait
+ * jusqu'au 24 novembre 2026, et une tablette de 1024×768, sans bande, n'ouvrait
+ * jamais le réglage (« la vue de la manette n'a pas de Changer »). */
 async function ouvrirParLaManette(page) {
   const parLaFeuille = async () => {
     if (!(await toucher(page, "#laSalle")) && !(await toucher(page, "#laSalleCote"))) return false;
-    const entree = '#feuilleSalle [data-entree="manette"]';
-    if (!(await jusqua(() => page.$(entree).then(Boolean), 3000))) return false;
-    return toucher(page, entree);
+    const toute = '#feuilleSalle [data-entree="toute-la-salle"]';
+    if (!(await jusqua(() => page.$(toute).then(Boolean), 3000))) return false;
+    if (!(await toucher(page, toute))) return false;
+    const rang = "#feuilleSalle #taManette";
+    if (!(await jusqua(() => page.$(rang).then(Boolean), 3000))) return false;
+    return toucher(page, rang);
   };
   if (
     !(await toucher(page, "#verifierManette")) &&
@@ -289,12 +298,13 @@ const ETAPES = {
     ]);
   },
 
-  /** Changement 1 : tenu en main, le panneau vit dans la feuille agrandie de
-   * la salle, qui couvre l'image (`lib/cadre`, `FeuilleSalle`). La place
-   * sous l'image et à droite en travers demande la géométrie du cadre, au
-   * chantier salle : cette étape est ROUGE et hors de la porte tant qu'il
-   * ne l'a pas posée. À 1024 × 768 tactile, « Vérifier les boutons » n'ouvre
-   * aucune feuille, sur la page d'avant le chantier comme sur celle-ci. */
+  /** Changement 1 : tenu en main, le panneau a sa place du cadre
+   * (`Geometrie.reglage`, `lib/cadre`) : sous l'image tenu droit, à sa
+   * droite en travers, sans la recouvrir. Jusqu'au 24 novembre 2026, il
+   * vivait dans la feuille agrandie de la salle, qui couvrait l'image
+   * (113 880 px² à 390 × 844), et l'étape restait rouge hors de la porte.
+   * À 1024 × 768 tactile, une vraie manette branchée, il n'y a pas de bande :
+   * le réglage s'ouvre par « La salle », « Toute la salle », « Ta manette ». */
   async "place-tenu"() {
     await placer([
       { width: 390, height: 844, isMobile: true, hasTouch: true },
@@ -795,11 +805,9 @@ const ETAPES = {
   },
 };
 
-/** Hors de la porte : la place tenue en main attend la géométrie du cadre
- * (chantier salle), et se lance par `--etapes place-tenu`. */
-const HORS_PORTE = new Set(["place-tenu"]);
-const choisies =
-  option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES).filter((nom) => !HORS_PORTE.has(nom));
+/** Toutes les étapes sont dans la porte : place-tenu y est entrée le
+ * 24 novembre 2026, avec la place tenue en main du cadre. */
+const choisies = option("etapes")?.split(",").filter(Boolean) ?? Object.keys(ETAPES);
 const resultats = [];
 try {
   for (const nom of choisies) {

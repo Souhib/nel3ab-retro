@@ -21,7 +21,7 @@
 // 2026 : un voile plein écran à `pointer-events: none` passait la garde).
 //
 // Le banc est celui des parcours (`parcours-banc.mjs`): la page COMMITTÉE, un
-// salon et une salle simulés, le flux H.264 réel, un port de 5400 à 5499.
+// salon et une salle simulés, le flux H.264 réel, un port de 5400 à 5599.
 // Rien de vivant n'est touché.
 //
 //   node cadre.mjs --page <index.html> --flux <flux.h264> [--port 5478]

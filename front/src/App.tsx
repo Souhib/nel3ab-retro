@@ -191,7 +191,14 @@ import {
 } from "./lib/vitals";
 import type { Session, Snapshot } from "./media/session";
 import { clipAide, clipLabel, micAide } from "./lib/clip";
-import { CONSOLES, consoleName, moteurDe, preparable, usesProInput } from "./lib/consoles";
+import {
+  CONSOLES,
+  consoleName,
+  formatAttendu,
+  moteurDe,
+  preparable,
+  usesProInput,
+} from "./lib/consoles";
 import { rememberPad, slotLabel, storedPad, type Pad, type Slot } from "./lib/saves";
 import { useClip } from "./lib/useClip";
 import {
@@ -220,6 +227,7 @@ import {
 } from "./components/Cadre";
 import {
   MANETTES as DESSINS_MANETTES,
+  PROPORTIONS_PAR_DEFAUT,
   etatDuCadre,
   lieuDesAvis,
   modeDuCadre,
@@ -685,11 +693,13 @@ function Room({
      (`EcranEteint`, 23 novembre 2026). */
   const [menu, setMenu] = useState(false);
   /** Ouvre « Touches et manettes » sur `onglet`. Le menu modal se ferme : il
-   * rendrait la colonne inerte. Tenue en main, la colonne vit dans la feuille
-   * agrandie, qui s'ouvre avec lui. */
+   * rendrait la colonne inerte. Tenue en main, la feuille se ferme aussi : le
+   * panneau a sa place à côté de l'image (`Geometrie.reglage`), et la
+   * feuille agrandie qui le portait jusqu'au 24 novembre 2026 couvrait
+   * l'image. */
   const ouvrirLesTouches = (onglet: Onglet) => {
     setMenu(false);
-    if (tenu) setFeuille("agrandie");
+    if (tenu) setFeuille(null);
     ouvrirReglage(onglet);
   };
   pourCtrl.current = { feuille, menu, touches: reglage !== null };
@@ -1827,6 +1837,10 @@ function Room({
     zonesSures,
     image: picture,
     ajustement: fit,
+    // Le format que la console annonce, connu avant la première image : le
+    // panneau du bureau s'y décide, et l'image qui arrive ne le déplace pas
+    // (`baseDuPanneau`, colonne-stable d'etats.mjs).
+    formatAttendu: room?.game ? (formatAttendu(room.game.console) ?? PROPORTIONS_PAR_DEFAUT) : null,
     etat: etatDuCadre({
       liaison: liaison.etat,
       chargement: booting !== null,
@@ -1840,6 +1854,9 @@ function Room({
     largeurPanneau:
       reglage !== null && modeSalle === "bureau" ? largeurPanneau(fenetre.width, column) : null,
     agrandie: bare && !tenu,
+    // Tenu en main, le panneau des touches a sa place à côté de l'image
+    // (`reglageTenu`), et non plus dans la feuille qui la couvrait.
+    reglage: reglage !== null,
   });
   /* Le panneau de commande sous l'image, au bureau, quand l'image n'y perd
      rien (`panneauAuBureau`) ; sinon au pied de la colonne. Tenue en main,
@@ -2009,6 +2026,9 @@ function Room({
     // chargement qui offre ses gestes le porte aussi (C7a) : la colonne cache
     // alors le sien.
     fiche: signaleDansLaFiche(modele) || chargementParle,
+    // À l'arrivée dans une partie en cours, ses rangs sont là avant la
+    // première image : elle ne fait pas grandir la colonne (colonne-stable).
+    partie: Boolean(room?.game),
   });
   /** La vue des touches montrée : celle qu'un rang a ouverte, ou celle du
    * clavier à la première visite. Seulement tant que son rang existe : une
@@ -2210,15 +2230,6 @@ function Room({
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   /** Le bout droit du panneau de commande : « Toutes les touches », qui ouvre
    * le panneau des touches sur le clavier, puis le crédit et le temps de jeu. */
-  const finDuPanneau = (
-    <>
-      {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
-          « Touches et manettes » passe par la feuille. */}
-      {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
-      {credit}
-      <TempsDeJeu depuisS={lancement} />
-    </>
-  );
   const pastilleAgrandie =
     agrandieVue && bare && !tenu && (lieuAvis.lieu === "fronton" || lieuAvis.lieu === "pied");
   const takeHalf = () => {
@@ -2267,6 +2278,19 @@ function Room({
   /** Où se pose la pastille : dans la pile des avis, à part tenue en main,
    * ou nulle part plutôt que sur l'image (`lib/etat-place`). */
   const pastille = montageDeLaPastille(modele, geo, tenu);
+  /** Le bout droit du panneau de commande : au bureau, la pastille d'état
+   * quand le cadre l'y pose (`lib/etat-place`, « panneau »), puis « Toutes
+   * les touches », le crédit et le temps de jeu. */
+  const finDuPanneau = (
+    <>
+      {pastille.panneau ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null}
+      {/* Pas tenue en main : le panneau y garde sa place aux quatre places, et
+          « Touches et manettes » passe par la feuille. */}
+      {session && !tenu ? <ToutesLesTouches onOuvrir={() => ouvrirLesTouches("clavier")} /> : null}
+      {credit}
+      <TempsDeJeu depuisS={lancement} />
+    </>
+  );
   /** La console et l'appareil que l'écran des touches règle: ceux du jeu
    * préparé pendant une préparation (`consoleDesTouches`). */
   const consoleTouches = consoleDesTouches(
@@ -2479,6 +2503,30 @@ function Room({
   /* La colonne repliée par Ctrl se déplie quand le menu s'y ouvre, et se
      replie à sa fermeture (focus.mjs, agrandir-ctrl). */
   useColonneDuMenu({ menu, bare, dansLaColonne: placeMenu.lieu === "colonne", setBare });
+  /** Le panneau « Touches et manettes » ouvert : dans la colonne au bureau,
+   * à sa place du cadre tenu en main (`Geometrie.reglage`). */
+  const hoteReglage = (
+    <HoteReglage
+      trame={trameDuReglage}
+      autres={autresJouent}
+      vit={geo.etat === "vit"}
+      hote={ouEstLaMascotte(geo, "fier")}
+      bande={bandeDuReglage}
+      // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
+      // revient à « Changer » de la vue remontée, sinon au rang des touches,
+      // ou à celui de la manette. Tenu en main, la feuille qui portait la vue
+      // s'est fermée : à « Vérifier les boutons », sinon à « La salle ».
+      repli={() =>
+        document.getElementById("changerTouches") ??
+        document.getElementById("tesTouches") ??
+        document.getElementById("taManette") ??
+        document.getElementById("verifierManette") ??
+        document.getElementById("laSalle") ??
+        document.getElementById("laSalleCote") ??
+        document.getElementById("openMenu")
+      }
+    />
+  );
   /** La colonne de la salle, posée selon le mode (`couchesDeLaSalle`). */
   const colonne = (
     <Colonne
@@ -2693,23 +2741,8 @@ function Room({
       vue={
         menuEnColonne ? (
           menuMonte
-        ) : reglage !== null ? (
-          <HoteReglage
-            trame={trameDuReglage}
-            autres={autresJouent}
-            vit={geo.etat === "vit"}
-            hote={ouEstLaMascotte(geo, "fier")}
-            bande={bandeDuReglage}
-            // L'ouvreur a pu disparaître avec la vue qui l'a ouvert : le focus
-            // revient à « Changer » de la vue remontée, sinon au rang des
-            // touches, ou à celui de la manette.
-            repli={() =>
-              document.getElementById("changerTouches") ??
-              document.getElementById("tesTouches") ??
-              document.getElementById("taManette") ??
-              document.getElementById("openMenu")
-            }
-          />
+        ) : reglage !== null && !tenu ? (
+          hoteReglage
         ) : mode === "details" ? (
           <div id="stats">
             {shot ? (
@@ -3057,6 +3090,9 @@ function Room({
             jeu={padOnly ? null : jeuEnCours}
             sonCoupe={soundOff}
             onSalle={() => setFeuille("mi")}
+            pastille={
+              pastille.barre ? <EtatPastille modele={modele} onAller={allerAuGeste} /> : null
+            }
           />
         ) : null}
         {tenu && !geo.barre && geo.boutonSalle ? (
@@ -3131,6 +3167,11 @@ function Room({
               />
             ) : null}
           </Bande>
+        ) : null}
+        {tenu && geo.reglage && reglage !== null ? (
+          <div className="n3-reglage-tenu" style={placeDe(geo.reglage)}>
+            {hoteReglage}
+          </div>
         ) : null}
         {pastille.aPart ? (
           <div className="n3-pastille-place" style={placeDe(pastille.aPart)}>

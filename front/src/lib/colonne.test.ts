@@ -7,6 +7,7 @@ const base = {
   role: "joueur" as const,
   appareil: "clavier" as const,
   fiche: false,
+  partie: true,
 };
 
 describe("les rangs de la colonne", () => {
@@ -34,11 +35,37 @@ describe("les rangs de la colonne", () => {
     expect(rangsDeLaColonne({ ...base, etat: "repos" })).toEqual(["signaler", "menu", "autres"]);
   });
 
-  it.each(SANS_IMAGE)("n'offre ni son, ni clip, ni agrandir sans image (« %s »)", (etat) => {
-    const rangs = rangsDeLaColonne({ ...base, etat });
-    for (const absent of ["son", "garder", "agrandir", "touches"] as const) {
-      expect(rangs).not.toContain(absent);
-    }
+  it.each(SANS_IMAGE)(
+    "n'offre ni son, ni clip, ni agrandir sans image ni partie (« %s »)",
+    (etat) => {
+      const rangs = rangsDeLaColonne({ ...base, etat, partie: false });
+      for (const absent of ["son", "garder", "agrandir", "touches"] as const) {
+        expect(rangs).not.toContain(absent);
+      }
+    },
+  );
+
+  it("donne dès l'arrivée les rangs d'une partie en cours : la première image ne les change pas", () => {
+    // colonne-stable d'etats.mjs, 24 novembre 2026 : quatre rangs paraissaient
+    // à la première image, et la colonne grandissait de 196 px.
+    expect(rangsDeLaColonne({ ...base, etat: "connexion" })).toEqual(rangsDeLaColonne(base));
+    // Les jumeaux : une arrivée dans une salle sans partie, et un chargement
+    // (le clip reste caché pendant un lancement, C8), n'ont pas ces rangs.
+    expect(rangsDeLaColonne({ ...base, etat: "connexion", partie: false })).toEqual([
+      "signaler",
+      "menu",
+      "autres",
+    ]);
+    expect(rangsDeLaColonne({ ...base, etat: "demarrage" })).toEqual([
+      "signaler",
+      "menu",
+      "autres",
+    ]);
+    expect(rangsDeLaColonne({ ...base, etat: "repos", partie: false })).toEqual([
+      "signaler",
+      "menu",
+      "autres",
+    ]);
   });
 
   it("ne donne à un spectateur ni le menu ni ses touches", () => {
@@ -60,7 +87,7 @@ describe("les rangs de la colonne", () => {
     for (const etat of ETATS_DU_CADRE) {
       for (const role of ["joueur", "regarde", "seule"] as const) {
         for (const appareil of ["clavier", "manette", "tactile"] as const) {
-          const rangs = rangsDeLaColonne({ etat, role, appareil, fiche: false });
+          const rangs = rangsDeLaColonne({ etat, role, appareil, fiche: false, partie: true });
           expect(rangs.at(-1)).toBe("autres");
           for (const rang of rangs) expect(RANGS).toContain(rang);
           expect(new Set(rangs).size).toBe(rangs.length);

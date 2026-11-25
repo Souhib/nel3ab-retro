@@ -43,6 +43,7 @@ describe("la colonne", () => {
       role: "joueur",
       appareil: "clavier",
       fiche: false,
+      partie: true,
     });
     const { container } = colonne(rangs);
     expect(ordre(container)).toEqual([
@@ -62,6 +63,7 @@ describe("la colonne", () => {
       role: "regarde",
       appareil: "clavier",
       fiche: false,
+      partie: true,
     });
     const { container } = colonne(rangs);
     expect(ordre(container)).not.toContain("menu");
@@ -122,7 +124,13 @@ describe("la colonne", () => {
 
   it("aucune flèche en caractère dans ses textes visibles", () => {
     const { container } = colonne(
-      rangsDeLaColonne({ etat: "vit", role: "joueur", appareil: "clavier", fiche: false }),
+      rangsDeLaColonne({
+        etat: "vit",
+        role: "joueur",
+        appareil: "clavier",
+        fiche: false,
+        partie: true,
+      }),
     );
     expect(container.textContent).not.toMatch(/[→↓]/);
   });

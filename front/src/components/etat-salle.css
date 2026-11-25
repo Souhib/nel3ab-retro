@@ -115,8 +115,9 @@ button.n3-pastille {
 }
 
 /* La pastille posée à part, tenue en main : en haut de la grappe droite en
-   paysage (K12), ou dans la barre. Au-dessus de la boîte de la manette, qui
-   couvre tout son rectangle ; seule la pastille prend le doigt. */
+   paysage (K12), dans le fronton ou la bordure. Au-dessus de la boîte de la
+   manette, qui couvre tout son rectangle ; seule la pastille prend le doigt.
+   Dans la barre, elle a sa place (`BarreSalle`, depuis le 24 novembre 2026). */
 .n3-pastille-place {
   position: absolute;
   z-index: 31;

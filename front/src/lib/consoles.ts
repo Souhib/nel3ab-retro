@@ -76,6 +76,20 @@ export function smoothArt(code: string | undefined): boolean {
   return described(code)?.art === "sidecar";
 }
 
+/** Le format d'image que la console annonce (`format` du manifeste, « 4:3 »
+ * ou « 16:9 »), en largeur et hauteur de ses proportions : `{ width: 16,
+ * height: 9 }`. Nul pour un code inconnu, « ? » compris. La salle du bureau
+ * y décide la place du panneau de commande AVANT la première image
+ * (`lib/cadre`, `baseDuPanneau`), pour que l'image qui arrive ne déplace
+ * rien (24 novembre 2026). */
+export function formatAttendu(code: string | undefined): { width: number; height: number } | null {
+  const lu = /^(\d+):(\d+)$/.exec(described(code)?.format ?? "");
+  if (!lu) return null;
+  const width = Number(lu[1]);
+  const height = Number(lu[2]);
+  return width > 0 && height > 0 ? { width, height } : null;
+}
+
 /** Le salon sait préparer ce jeu: une console du manifeste qu'on peut lancer. */
 export function preparable(code: string | undefined): boolean {
   return described(code)?.playable === true;

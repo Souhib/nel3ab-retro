@@ -1,26 +1,37 @@
 /**
  * Où se pose la pastille d'état d'une salle tenue en main (ADR D40).
  *
- * Au bureau, la pile des avis la pose hors de l'image (`lieuDesAvis` de la
- * salle) : en tête de la colonne, dans une bande noire. Tenue en main, la
- * pile vit dans la bande du téléphone, quand elle existe. Sans bande :
+ * Au bureau, sur le panneau de commande sous l'image, avant « Toutes les
+ * touches », quand le cadre l'y pose (`emplacementPastille` rend
+ * « panneau » : pas de bande noire de 40 px) ; sinon la pile des avis la
+ * pose hors de l'image (`lieuDesAvis` de la salle) : dans une bande noire,
+ * en tête de la colonne. Tenue en main, la pile vit dans la bande du
+ * téléphone, quand elle existe. Sans bande :
  *
  * - dans la bande noire au-dessus de l'image (le fronton) ou à sa droite,
  *   ou en paysage en haut de la grappe droite de la manette, au-dessus des
  *   gâchettes (`emplacementPastille`, K12) ;
- * - tenu droit, dans la barre, à la place du nom de la salle, qui reste lu
- *   par les lecteurs d'écran : la pastille le couvre, la tête d'Aïn reste à
- *   gauche et « La salle » à droite ;
+ * - tenu droit, dans sa place de la barre (`BarreSalle`), entre le nom de
+ *   la salle et « La salle » : jamais par-dessus le nom, qui se lit entier,
+ *   ni sur la tête d'Aïn à gauche (décision du chef de chantier, 24 novembre
+ *   2026 ; jusque-là, elle se posait par-dessus le nom) ;
  * - sinon, nulle part. Jamais sur l'image : la ligne parlée dit l'état, et
  *   « La salle » ouvre la feuille où la fiche est en tête. Mesuré par
- *   `manette-garde` le 24 novembre 2026 : à 375x667 et en paysage 16:9, ni
+ *   `salle-telephone` le 24 novembre 2026 : à 390x664 et 375x548 en 4:3, ni
  *   bande, ni grappe libre, ni barre.
  */
 import { emplacementPastille, type Geometrie, type Rect } from "./cadre";
 
 /** La largeur que garde « La salle » à droite de la barre, en px : son
- * bouton fait au plus 120 px, plus les marges. */
+ * bouton mesure 111 px dans Chrome (24 novembre 2026), plus l'écart qui le
+ * précède et le bord de la barre (18), arrondi au-dessus. */
 export const BARRE_SALLE_PX = 140;
+
+/** Ce que garde le nom de la salle dans la barre, en px : « Salle 1 » mesure
+ * 48 px de lettres en police pixel à 17 px (Chrome, 24 novembre 2026), un
+ * second chiffre en ajoute 6, et l'écart qui le suit 10. Le nom ne se coupe
+ * jamais quand la pastille est là (`telephone.css`, `[data-pastille]`). */
+export const BARRE_NOM_PX = 64;
 
 /** Ce que la tête d'Aïn prend à gauche de la barre, en px : la marge de la
  * barre (8), la tête (32) et l'écart qui la suit (10), comme
@@ -35,39 +46,55 @@ export const PASTILLE_MIN_PX = 120;
 /** Les lieux de la salle où la pastille se pose seule, sans recouvrir rien. */
 const A_PART: readonly string[] = ["fronton", "bordure", "grappe-droite"];
 
-export type PlacePastille = { lieu: "pile" } | { lieu: "a-part"; rect: Rect } | null;
+/**
+ * - pile : dans la pile des avis (`#avisDuCadre`) ;
+ * - panneau : sur le panneau de commande du bureau, avant « Toutes les
+ *   touches » ;
+ * - barre : dans sa place de la barre du téléphone ;
+ * - a-part : posée seule sur un rectangle du cadre, tenue en main.
+ */
+export type PlacePastille =
+  | { lieu: "pile" }
+  | { lieu: "panneau" }
+  | { lieu: "barre" }
+  | { lieu: "a-part"; rect: Rect }
+  | null;
 
 export function placeDeLaPastille(geo: Geometrie, tenu: boolean): PlacePastille {
-  if (!tenu) return { lieu: "pile" };
+  if (!tenu)
+    return emplacementPastille(geo)?.lieu === "panneau" ? { lieu: "panneau" } : { lieu: "pile" };
   // Le fronton, la bordure droite et le haut de la grappe droite sont hors
   // de l'image par construction (`emplacementPastille` de la salle). Le
-  // panneau, lui, porte les places START : la pastille ne s'y pose pas
-  // par-dessus.
+  // panneau tenu en main, lui, n'a de place que pour les places START : la
+  // pastille ne s'y pose pas.
   const ici = emplacementPastille(geo);
   if (ici?.rect && A_PART.includes(ici.lieu)) return { lieu: "a-part", rect: ici.rect };
   if (geo.bande !== null && geo.bande.h >= 44) return { lieu: "pile" };
   if (geo.barre !== null) {
-    const largeur = geo.barre.w - BARRE_TETE_PX - BARRE_SALLE_PX;
-    if (largeur >= PASTILLE_MIN_PX)
-      return {
-        lieu: "a-part",
-        rect: { x: geo.barre.x + BARRE_TETE_PX, y: geo.barre.y, w: largeur, h: geo.barre.h },
-      };
+    const largeur = geo.barre.w - BARRE_TETE_PX - BARRE_NOM_PX - BARRE_SALLE_PX;
+    if (largeur >= PASTILLE_MIN_PX) return { lieu: "barre" };
   }
   return null;
 }
 
-/** Où la salle monte la pastille de ce modèle : dans la pile des avis, à
- * part sur un rectangle tenu en main, ou nulle part (aucune pastille, ou
- * aucune place hors de l'image). */
+/** Où la salle monte la pastille de ce modèle : dans la pile des avis, sur
+ * le panneau du bureau, dans la barre du téléphone, à part sur un rectangle
+ * tenu en main, ou nulle part (aucune pastille, ou aucune place hors de
+ * l'image). Un seul de ces lieux à la fois. */
 export function montageDeLaPastille(
   modele: { pastille: unknown },
   geo: Geometrie,
   tenu: boolean,
-): { pile: boolean; aPart: Rect | null } {
-  if (modele.pastille === null) return { pile: false, aPart: null };
+): { pile: boolean; panneau: boolean; barre: boolean; aPart: Rect | null } {
+  const rien = { pile: false, panneau: false, barre: false, aPart: null };
+  if (modele.pastille === null) return rien;
   const place = placeDeLaPastille(geo, tenu);
-  return { pile: place?.lieu === "pile", aPart: place?.lieu === "a-part" ? place.rect : null };
+  return {
+    pile: place?.lieu === "pile",
+    panneau: place?.lieu === "panneau",
+    barre: place?.lieu === "barre",
+    aPart: place?.lieu === "a-part" ? place.rect : null,
+  };
 }
 
 /** Où vit la fiche : en tête de la colonne quand elle est à côté de l'image

@@ -44,6 +44,31 @@
   font-size: var(--text-note);
   line-height: 1.3;
 }
+/* La place de la pastille d'état (`lib/etat-place`, « barre ») : le nom de la
+   salle garde sa largeur entière, le nom du jeu se coupe sous lui (il ne
+   compte plus dans la largeur des noms), la pastille prend le reste et coupe
+   son texte. Jamais par-dessus le nom (24 novembre 2026). */
+.n3-barre[data-pastille] .n3-barre-noms {
+  flex: 0 0 auto;
+}
+.n3-barre[data-pastille] .n3-barre-jeu {
+  width: 0;
+  min-width: 100%;
+}
+.n3-barre-pastille {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.n3-barre-pastille > .n3-pastille {
+  min-width: 0;
+  padding: 0 var(--espace-2);
+}
+/* À 375 px, la place fait 138 px : l'icône partie (le point dit déjà
+   l'état), le texte en garde 26 de plus avant de se couper. */
+.n3-barre-pastille .n3-pastille-icone {
+  display: none;
+}
 
 /* « La salle », dans la barre, dans la bande gauche en travers, ou parmi les
    touches (`.n3-pave-geste`, qui garde sa taille de pièce). */
@@ -425,8 +450,15 @@
   min-width: 0;
   pointer-events: none;
 }
+/* En tête de la bande, le rectangle que le cadre donne au menu pour qu'il
+   l'évite (`BANDE_BORD`, `lib/cadre.ts`) : la hauteur et la largeur la plus
+   grande de la fente (`FENTE`, 24 et 180 px), au bord haut et gauche du
+   contenu de la bande. */
 .n3-etiquette-bande {
   flex-shrink: 0;
+  align-self: flex-start;
+  height: 24px;
+  max-width: 180px;
 }
 .n3-etiquette-cote > .n3-etiquette,
 .n3-etiquette-bande > .n3-etiquette {
@@ -437,4 +469,18 @@
   font-family: var(--police-titre);
   font-size: var(--text-note);
   color: var(--etiquette-encre, var(--encre));
+}
+
+/* Le panneau « Touches et manettes » tenu en main, à la place que le cadre
+   lui donne (`Geometrie.reglage`, `lib/cadre.ts`) : sous l'image tenu droit,
+   à sa droite en travers. Il défile en lui-même, sur le fond de la salle,
+   et ne déborde jamais sur l'image (24 novembre 2026). */
+.n3-reglage-tenu {
+  box-sizing: border-box;
+  z-index: 30;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--espace-2) var(--espace-3);
+  background: var(--plaque);
+  border-top: 2px solid var(--trait);
 }

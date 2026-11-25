@@ -29,6 +29,11 @@
  * plus petite et laisse bien plus de place. On calcule donc la pose avec et
  * sans le panneau, par `place` de `lib/fit`, et on compare.
  *
+ * Cette pose est celle de la BASE (`baseDuPanneau`) : le format attendu de
+ * la console tant qu'aucun changement de mise en page n'a suivi la première
+ * image, la vraie image ensuite. La première image ne déplace donc rien
+ * (24 novembre 2026).
+ *
  * # La manette tactile se mesure dans sa propre pose
  *
  * Les dimensions des manettes (`MANETTES`) viennent de `encombrement` dans
@@ -232,9 +237,27 @@ const rangeeTient = (panneau: Rect | null): boolean =>
  *   (`fente`, `lib/faces`) ;
  * - cote : en travers, sous « La salle », au-dessus de la grappe gauche ;
  * - bande : en travers, quand le panneau n'a que ses lampes, en tête de la
- *   bande, sous « La salle ».
+ *   bande, sous « La salle ». Le cadre donne son rectangle (`BANDE_BORD`),
+ *   que le menu évite (`placeDuMenu`, décision du 24 novembre 2026).
  */
-export type LieuEtiquette = { lieu: "fente" } | { lieu: "cote"; rect: Rect } | { lieu: "bande" };
+export type LieuEtiquette =
+  | { lieu: "fente" }
+  | { lieu: "cote"; rect: Rect }
+  | { lieu: "bande"; rect: Rect };
+
+/** Les bords intérieurs de la bande du téléphone, en px : ceux de `.n3-bande`
+ * dans `components/telephone.css` (`padding: 8px 12px`), que `cadre.test.ts`
+ * relit. Ton étiquette s'y pose en tête, sur la hauteur de la fente et au
+ * plus sur sa largeur (`FENTE`, `.n3-etiquette-bande`). */
+export const BANDE_BORD = { haut: 8, cote: 12 } as const;
+
+/** Le rectangle de ton étiquette en tête de la bande. */
+const enTeteDeBande = (b: Rect): Rect => ({
+  x: b.x + BANDE_BORD.cote,
+  y: b.y + BANDE_BORD.haut,
+  w: Math.max(0, Math.min(b.w - 2 * BANDE_BORD.cote, FENTE.MAX)),
+  h: FENTE.HAUT,
+});
 
 /**
  * La hauteur la plus petite de la feuille « La salle » à mi-hauteur, tenue
@@ -252,6 +275,10 @@ export const COLONNE_ETROITE_MIN = 240;
 /** Le format supposé quand l'image n'est pas encore connue (4:3). */
 export const FORMAT_PAR_DEFAUT = 4 / 3;
 
+/** Les mêmes proportions, pour un jeu dont la console n'annonce pas de
+ * format (« ? », un disque muet) : la base de `baseDuPanneau`. */
+export const PROPORTIONS_PAR_DEFAUT: Size = { width: 4, height: 3 };
+
 /**
  * Ce que chaque manette tactile demande au cadre, lu dans sa pose
  * (`encombrement`) : la hauteur de sa boîte tenue droite pour une largeur, et
@@ -267,6 +294,14 @@ export const MANETTES: Readonly<Record<"dolphin" | "pro", DessinManette>> = {
 
 /* ── La géométrie ─────────────────────────────────────────────────────── */
 
+/**
+ * Ce sur quoi la mise en page à la souris se décide : la place du panneau de
+ * commande au bureau, la façon de la manette « toujours », la hauteur de
+ * l'image en fenêtre étroite. `null` sans jeu : le panneau se pose alors
+ * comme sous un écran noir. `baseDuPanneau` la tient.
+ */
+export type BaseDuPanneau = { image: Size; ajustement: Fit } | null;
+
 export type Entree = {
   mode: Mode;
   /** La fenêtre entière, zones sûres comprises. */
@@ -275,6 +310,10 @@ export type Entree = {
   /** La taille de l'image REÇUE, 0×0 tant qu'aucune n'est décodée. */
   image: Size;
   ajustement: Fit;
+  /** Ce sur quoi la souris se décide (`baseDuPanneau`) : le format attendu
+   * de la console, puis la vraie image après le premier changement de mise
+   * en page qui la suit. L'image reçue (`image`) reste celle qui se pose. */
+  base: BaseDuPanneau;
   etat: EtatDuCadre;
   role: Role;
   /** Le dessin de la manette tactile montrée, ou `null` sans elle. */
@@ -286,6 +325,10 @@ export type Entree = {
   largeurPanneau: number | null;
   /** L'image agrandie par Ctrl : la colonne et le panneau s'effacent. */
   agrandie: boolean;
+  /** Le panneau « Touches et manettes » est ouvert. Tenu en main, le cadre
+   * lui donne sa place (`Geometrie.reglage`) ; au bureau et en fenêtre
+   * étroite, il vit dans la colonne (`largeurPanneau`). */
+  reglage: boolean;
 };
 
 export const FORMES_PANNEAU = ["sous", "colonne", "debout", "petit", "absent"] as const;
@@ -358,6 +401,10 @@ export type Geometrie = {
   feuille: { mi: Rect; agrandie: Rect } | null;
   /** Le panneau a cédé sa place à l'état (écran court, état à réparer). */
   cedeAuxEtats: boolean;
+  /** Tenu en main, la place du panneau « Touches et manettes » ouvert : sous
+   * l'image tenu droit, à sa droite en travers (`reglageTenu`). `null`
+   * fermé, et au bureau, où il vit dans la colonne. */
+  reglage: Rect | null;
 };
 
 const rect = (x: number, y: number, w: number, h: number): Rect => ({ x, y, w, h });
@@ -409,7 +456,79 @@ const vide = (e: Entree): Omit<Geometrie, "ecran" | "image" | "pose" | "panneau"
   bordures: null,
   feuille: null,
   cedeAuxEtats: false,
+  reglage: null,
 });
+
+/** Ce que la salle donne à `useGeometrie` : l'entrée du cadre, avec le
+ * format attendu de la console au lieu de la base, que le crochet tient. */
+export type EntreeDuCadre = Omit<Entree, "base"> & {
+  /** Le format qu'annonce la console du jeu (`formatAttendu` de
+   * `lib/consoles`, 4:3 faute de mieux), `null` sans jeu. */
+  formatAttendu: Size | null;
+};
+
+const memeTaille = (a: Size | null, b: Size | null): boolean =>
+  a === b || (a !== null && b !== null && a.width === b.width && a.height === b.height);
+
+/** Un changement de mise en page « naturel » : une fenêtre redimensionnée
+ * ou tournée (taille, zones sûres, mode), un panneau qui s'ouvre ou se
+ * ferme, la colonne élargie, l'image agrandie, un autre réglage de la pose.
+ * Ni l'image reçue, ni l'état, ni le rôle, ni la manette : le rôle et la
+ * manette suivent la place, que la salle donne seule à l'entrée, souvent
+ * après la première image (une place tenue rangeait alors le panneau du
+ * bureau dans la colonne, sonde du 24 novembre 2026). */
+function changementNaturel(a: EntreeDuCadre, b: EntreeDuCadre): boolean {
+  return (
+    a.mode !== b.mode ||
+    a.fenetre.width !== b.fenetre.width ||
+    a.fenetre.height !== b.fenetre.height ||
+    a.zonesSures.haut !== b.zonesSures.haut ||
+    a.zonesSures.droite !== b.zonesSures.droite ||
+    a.zonesSures.bas !== b.zonesSures.bas ||
+    a.zonesSures.gauche !== b.zonesSures.gauche ||
+    a.ajustement !== b.ajustement ||
+    a.largeurColonne !== b.largeurColonne ||
+    a.largeurPanneau !== b.largeurPanneau ||
+    a.agrandie !== b.agrandie ||
+    a.reglage !== b.reglage
+  );
+}
+
+/**
+ * La base de la mise en page à la souris, d'un calcul au suivant
+ * (décision du chef de chantier, 24 novembre 2026).
+ *
+ * Jusque-là, le panneau de commande se décidait sur l'image reçue : à
+ * 1440×900, l'écran noir d'une arrivée le posait sous l'écran, puis la
+ * première image 4:3 le rangeait dans la colonne et poussait tout ce qui
+ * était dessous de 204 px (`colonne-stable` d'etats.mjs). Il se décide
+ * maintenant sur le FORMAT ATTENDU de la console, connu avant la première
+ * image (GameCube et Wii 4:3, Switch, Switch 2 et Xbox 360 16:9), posé en
+ * « remplir » : sa vraie taille n'est pas connue avant elle.
+ *
+ * - au premier calcul, et chaque fois que le format attendu change (un
+ *   autre jeu), la base est ce format ;
+ * - la première image, et toute autre taille d'image ou tout autre état, ne
+ *   changent rien : la place reste celle du format attendu, même si l'image
+ *   réelle diffère ;
+ * - au premier changement naturel (`changementNaturel`) qui trouve une
+ *   image, la base devient cette image et son réglage.
+ *
+ * Pure : la salle lui passe ce qu'elle a retenu du calcul d'avant.
+ */
+export function baseDuPanneau(
+  avant: { entree: EntreeDuCadre; base: BaseDuPanneau } | null,
+  e: EntreeDuCadre,
+): BaseDuPanneau {
+  const attendue: BaseDuPanneau = e.formatAttendu
+    ? { image: e.formatAttendu, ajustement: "remplir" }
+    : null;
+  if (avant === null || !memeTaille(avant.entree.formatAttendu, e.formatAttendu)) return attendue;
+  if (changementNaturel(avant.entree, e) && connue(e.image) && !sansImage(e.etat)) {
+    return { image: e.image, ajustement: e.ajustement };
+  }
+  return avant.base;
+}
 
 /** La décision du bureau : le panneau sous l'écran si l'image n'y perd rien. */
 export function panneauAuBureau(e: {
@@ -522,7 +641,9 @@ function bureau(e: Entree): Geometrie {
   const col = e.agrandie ? 0 : Math.max(0, Math.min(Math.floor(W / 2), Math.round(voulue)));
   const largeur = W - col;
   const colonne = e.agrandie ? null : rect(largeur, 0, col, H);
-  const format = formatDe(e.image);
+  // La base, pas l'image reçue : la première image ne déplace rien
+  // (`baseDuPanneau`).
+  const format = formatDe(e.base?.image ?? e.image);
   if (e.agrandie) {
     const zone = rect(0, 0, W, H);
     const pave = e.manette ? manetteALaSouris(e.manette, zone, format) : null;
@@ -543,9 +664,9 @@ function bureau(e: Entree): Geometrie {
   const boite = avant?.ecran ?? rect(0, 0, largeur, H);
   const decision = panneauAuBureau({
     ecran: { width: boite.w, height: boite.h },
-    image: e.image,
-    ajustement: e.ajustement,
-    sansImage: sansImage(e.etat),
+    image: e.base?.image ?? { width: 0, height: 0 },
+    ajustement: e.base?.ajustement ?? e.ajustement,
+    sansImage: e.base === null,
   });
   const p = decision.forme === "sous" ? decision.hauteur : 0;
   const zone = rect(0, 0, largeur, H - p);
@@ -567,7 +688,9 @@ function bureau(e: Entree): Geometrie {
 
 function etroit(e: Entree): Geometrie {
   const { width: W, height: H } = e.fenetre;
-  const format = formatDe(e.image);
+  // La hauteur de l'écran, et donc le haut de la colonne, sur la base
+  // (`baseDuPanneau`) : une image 16:9 qui arrive ne remonte pas la colonne.
+  const format = formatDe(e.base?.image ?? e.image);
   if (e.agrandie) {
     const zone = rect(0, 0, W, H);
     const pave = e.manette ? manetteALaSouris(e.manette, zone, format) : null;
@@ -936,7 +1059,7 @@ function paysage(e: Entree): Geometrie {
       const y = T + m + 44 + FENTE.ECART;
       etiquette = { lieu: "cote", rect: rect(L + m + 4, y, g.gl - 8, FENTE.HAUT) };
     } else if (bande) {
-      etiquette = { lieu: "bande" };
+      etiquette = { lieu: "bande", rect: enTeteDeBande(bande) };
     } else if (panneau.rect) {
       const y = panneau.rect.y + panneau.rect.h + m;
       if (T + H - y >= FENTE.HAUT + m) {
@@ -965,6 +1088,80 @@ function paysage(e: Entree): Geometrie {
   };
 }
 
+/**
+ * La place du panneau « Touches et manettes » tenu en main (décision du chef
+ * de chantier, 24 novembre 2026 ; L6 du chantier manettes).
+ *
+ * Jusque-là, il vivait dans la feuille agrandie de la salle, qui couvrait
+ * l'image : à 390×844, 113 880 px² de panneau sur elle (`place-tenu` de
+ * reglage.mjs). Pendant un réglage, les autres jouent.
+ *
+ * - tenu droit : l'image ne bouge pas, et le panneau prend tout ce qui est
+ *   sous elle (le panneau de commande, la bande et la place de la manette,
+ *   qui n'est pas montée pendant un réglage). S'il y reste moins de
+ *   `hauteurMin`, l'image rapetisse au-dessus de lui, jamais l'inverse ;
+ * - en travers : le panneau prend une colonne à droite, `part` de la largeur
+ *   entre `largeurMin` et `largeurMax`, et l'image se pose dans le reste,
+ *   comme au bureau quand le panneau élargit la colonne (K24). « La salle »
+ *   et la barre s'effacent : « Fermer » et Échap ferment le panneau.
+ *
+ * L'état, les places et la manette reviennent tels quels à la fermeture,
+ * qui est un changement de mise en page ordinaire.
+ */
+export const REGLAGE_TENU = {
+  /** Tenu droit : de quoi montrer l'en-tête, les onglets et la première
+   * ligne du panneau sans défiler. */
+  hauteurMin: 280,
+  /** En travers : la colonne du panneau, en px et en part de la largeur. */
+  largeurMin: 300,
+  largeurMax: 520,
+  part: 0.42,
+} as const;
+
+function reglageTenu(e: Entree, geo: Geometrie): Geometrie {
+  if (e.mode !== "portrait" && e.mode !== "paysage") return geo;
+  const sa = e.zonesSures;
+  const L = sa.gauche;
+  const T = sa.haut;
+  const W = Math.max(0, e.fenetre.width - sa.gauche - sa.droite);
+  const H = Math.max(0, e.fenetre.height - sa.haut - sa.bas);
+  const libere: Geometrie = {
+    ...geo,
+    panneau: { forme: "absent", rect: null },
+    bande: null,
+    manette: null,
+    salleDansLaManette: false,
+    etiquette: null,
+    cedeAuxEtats: false,
+  };
+  if (e.mode === "portrait" || geo.ecran === null) {
+    let ecran = geo.ecran;
+    if (ecran && T + H - (ecran.y + ecran.h) < REGLAGE_TENU.hauteurMin) {
+      const h = Math.max(0, T + H - REGLAGE_TENU.hauteurMin - ecran.y);
+      const w = Math.min(W, Math.floor(h * formatDe(e.image)));
+      ecran = h > 0 && w > 0 ? rect(L + (W - w) / 2, ecran.y, w, h) : null;
+    }
+    const haut = ecran ? ecran.y + ecran.h : geo.barre ? geo.barre.y + geo.barre.h : T;
+    return { ...libere, ecran, ...poser(e, ecran), reglage: rect(L, haut, W, T + H - haut) };
+  }
+  const P = Math.min(
+    W,
+    Math.max(
+      REGLAGE_TENU.largeurMin,
+      Math.min(REGLAGE_TENU.largeurMax, Math.round(W * REGLAGE_TENU.part)),
+    ),
+  );
+  const ecran = W - P > 0 ? rect(L, T, W - P, H) : null;
+  return {
+    ...libere,
+    barre: null,
+    boutonSalle: null,
+    ecran,
+    ...poser(e, ecran),
+    reglage: rect(L + W - P, T, P, H),
+  };
+}
+
 /** Les bandes autour de l'image : le fronton au-dessus, la borne sur les côtés. */
 function bandes(geo: Geometrie): Pick<Geometrie, "fronton" | "bordures"> {
   const { ecran, image } = geo;
@@ -984,7 +1181,7 @@ function bandes(geo: Geometrie): Pick<Geometrie, "fronton" | "bordures"> {
 
 /** La géométrie entière de la salle. */
 export function miseEnPage(e: Entree): Geometrie {
-  const geo =
+  const brute =
     e.mode === "bureau"
       ? bureau(e)
       : e.mode === "etroit"
@@ -992,6 +1189,7 @@ export function miseEnPage(e: Entree): Geometrie {
         : e.mode === "portrait"
           ? portrait(e)
           : paysage(e);
+  const geo = e.reglage ? reglageTenu(e, brute) : brute;
   return { ...geo, ...bandes(geo) };
 }
 

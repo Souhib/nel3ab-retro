@@ -1537,11 +1537,24 @@ const ETAPES = {
   /** Une salle qui répond sans jamais envoyer d'image. À 15 s, le plein
    * cadre propose de réessayer et les autres salles, et le temps depuis
    * lequel la salle répond avance. Le jumeau : à 3 s, aucun geste, la salle
-   * a encore le temps de répondre. */
+   * a encore le temps de répondre.
+   *
+   * L'horloge part de l'apparition du plein cadre, pas du clic. Depuis le
+   * salon (vague B2, 24 novembre 2026), l'entrée joue sa transition
+   * « entrer-salle » avant d'ouvrir la salle : l'arrivée commence 0,5 s
+   * après le clic, et 15 s comptées du clic n'en laissaient que 14,5 à la
+   * page (4 501 ms d'arrivée relevés 5 s après le clic). La limite de la
+   * page (`ARRIVEE_LIMITE_MS`, 15 s) se compte du début de la session :
+   * les gestes doivent paraître entre 12 et 18 s après le plein cadre. Les
+   * 3 s de chaque côté couvrent un plein cadre posé un peu avant ou après
+   * la session, et le pas du relevé. */
   async "arrivee-sans-image"() {
     const page = await nouvelle(PC);
     banc.regler({ video: "freeze" });
     await page.click("#enter");
+    if ((await page.waitForSelector("#arrivee", { visible: true, timeout: 8000 }).catch(() => null)) === null)
+      throw new Precondition("pas de plein cadre à l'arrivée");
+    const debut = Date.now();
     const gestes = () =>
       page.evaluate(() => ({
         reessayer: document.querySelector("#arrivee #reessayer") !== null,
@@ -1550,11 +1563,20 @@ const ETAPES = {
       }));
     await sleep(3000);
     const tot = await gestes();
-    if (!tot.texte) throw new Precondition("pas de plein cadre à l'arrivée");
+    if (!tot.texte) throw new Precondition("le plein cadre est parti avant 3 s");
     if (tot.reessayer || tot.salles) throw new Defaut(`à 3 s, l'arrivée parle déjà de panne: ${tot.texte}`);
-    await sleep(12_000);
-    const tard = await gestes();
-    if (!tard.reessayer || !tard.salles) throw new Defaut(`à 15 s, pas de « Réessayer » ou d'« Autres salles »: ${tard.texte}`);
+    const LIMITE_MS = 15_000;
+    const MARGE_MS = 3_000;
+    let tard = tot;
+    while (!(tard.reessayer && tard.salles) && Date.now() - debut < LIMITE_MS + MARGE_MS) {
+      await sleep(200);
+      tard = await gestes();
+    }
+    const vers = Date.now() - debut;
+    if (!tard.reessayer || !tard.salles)
+      throw new Defaut(`${Math.round(vers / 100) / 10} s après le plein cadre, pas de « Réessayer » ou d'« Autres salles »: ${tard.texte}`);
+    if (vers < LIMITE_MS - MARGE_MS)
+      throw new Defaut(`les gestes d'une panne paraissent ${Math.round(vers / 100) / 10} s après le plein cadre, avant la limite de 15 s`);
     const depuis = (t) => Number(/répond depuis (\d+) s/.exec(t)?.[1] ?? NaN);
     const un = depuis(tard.texte);
     await sleep(2000);
@@ -2022,6 +2044,14 @@ const ETAPES = {
     await page.close();
   },
 
+  /** La première image ne déplace ni la colonne ni le panneau de commande.
+   * Le banc annonce une Xbox 360 (16:9 attendu) et envoie un flux 640×480 :
+   * à 1440×900, le panneau décidé sur l'image reçue passait de sous l'écran
+   * à la colonne et poussait ses enfants de 204 px. Il se décide maintenant
+   * sur le format attendu de la console (`baseDuPanneau` de lib/cadre,
+   * décision du chef de chantier du 24 novembre 2026), et une image qui
+   * diffère n'y change rien avant le prochain changement de mise en page.
+   * Le jumeau : un enfant déplacé d'un pixel est vu. */
   async "colonne-stable"() {
     const page = await nouvelle(PC);
     banc.regler({ video: "freeze" });
@@ -2031,7 +2061,8 @@ const ETAPES = {
     await sleep(1500);
     const boites = () =>
       page.evaluate(() =>
-        [...(document.querySelector("#side")?.children ?? [])].map((el) => {
+        [...(document.querySelector("#side")?.children ?? []), document.querySelector("#panneau")].map((el) => {
+          if (!el) return "pas de #panneau";
           const r = el.getBoundingClientRect();
           return `${el.id || el.className}:${[r.left, r.top, r.width, r.height].map(Math.round)}`;
         }),
@@ -2046,12 +2077,84 @@ const ETAPES = {
     const bouges = avant.filter((b, i) => b !== apres[i]);
     if (bouges.length || avant.length !== apres.length)
       throw new Defaut(`la colonne bouge à l'arrivée de l'image: ${bouges.map((b, i) => `${b} → ${apres[avant.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${avant.length} puis ${apres.length} enfants`}`);
+    // Et 3 s plus tard : la place que la salle donne arrive parfois après la
+    // première image, et le rôle qui change ne déplace rien non plus.
+    await sleep(3000);
+    const ensuite = await boites();
+    const tard = apres.filter((b, i) => b !== ensuite[i]);
+    if (tard.length || apres.length !== ensuite.length)
+      throw new Defaut(`la colonne bouge après l'image: ${tard.map((b) => `${b} → ${ensuite[apres.indexOf(b)]}`).slice(0, 3).join(" ; ") || `${apres.length} puis ${ensuite.length} enfants`}`);
+    // Le jumeau décale le premier enfant qui a une boîte : le dernier est le
+    // curseur ▶ du socle (`rt-curseur`, posé là par la salle le 23 novembre
+    // 2026) et le premier la pile des avis vide (`empty:hidden`), sans
+    // boîte l'un et l'autre, qu'une marge ne déplace pas.
     await page.evaluate(() => {
-      document.querySelector("#side").lastElementChild.style.marginTop = "1px";
+      const vu = [...document.querySelector("#side").children].find((el) => el.getBoundingClientRect().height > 0);
+      if (vu) vu.style.marginTop = "1px";
     });
     const jumeau = await boites();
     if (jumeau.every((b, i) => b === apres[i])) throw new Precondition("un enfant déplacé d'un pixel n'est pas vu");
     await page.close();
+  },
+
+  /** Au bureau, la pastille d'une image figée se pose sur le panneau de
+   * commande sous l'image, avant « Toutes les touches », quand aucune bande
+   * noire de 40 px ne la prend (décision du chef de chantier, 24 novembre
+   * 2026 ; `lib/etat-place`, « panneau »). À 1440×900, le banc (une Xbox 360
+   * attendue, une image 4:3) garde le panneau sous l'écran, et l'image le
+   * touche. Vérifié sur ce qui se voit : la pastille dans #panneau, avant
+   * « Toutes les touches » dans la page et à l'écran, hors de l'image, et
+   * qui reçoit le point en son centre. Le jumeau : à 1920×1080, une bande
+   * de 147 px à droite de l'image la prend, et le panneau ne la porte pas. */
+  async "pastille-panneau"() {
+    const lire = (page) =>
+      page.evaluate(() => {
+        const p = document.querySelector("#pastilleEtat");
+        if (!p) return null;
+        const r = p.getBoundingClientRect();
+        const t = document.querySelector("#toutesLesTouches")?.getBoundingClientRect() ?? null;
+        const s = document.querySelector("#screen").getBoundingClientRect();
+        const centre = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const touches = document.querySelector("#toutesLesTouches");
+        return {
+          panneau: p.closest('#panneau[data-forme="sous"]') !== null,
+          avant: touches ? Boolean(p.compareDocumentPosition(touches) & Node.DOCUMENT_POSITION_FOLLOWING) : null,
+          aGauche: t ? r.right <= t.left : null,
+          surImage:
+            Math.max(0, Math.min(r.right, s.right) - Math.max(r.left, s.left)) *
+            Math.max(0, Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top)),
+          recoit: centre !== null && p.contains(centre),
+          boite: [r.left, r.top, r.width, r.height].map(Math.round),
+        };
+      });
+    const figer = async (vue) => {
+      const page = await nouvelle(vue);
+      await entrer(page);
+      await sleep(1500);
+      banc.regler({ video: "freeze" });
+      if ((await page.waitForSelector("#pastilleEtat", { timeout: 8000 }).catch(() => null)) === null)
+        throw new Precondition(`${vue.width}×${vue.height}: pas de pastille en 8 s de gel`);
+      await sleep(500);
+      return page;
+    };
+    const page = await figer(PC);
+    const vu = await lire(page);
+    await capture(page, "pastille-panneau");
+    await page.close();
+    console.log(JSON.stringify({ "1440x900": vu }));
+    if (!vu.panneau) throw new Defaut(`à 1440×900, la pastille n'est pas sur le panneau sous l'image (${vu.boite})`);
+    if (vu.avant !== true || vu.aGauche !== true)
+      throw new Defaut(`la pastille n'est pas avant « Toutes les touches » (dans la page : ${vu.avant}, à l'écran : ${vu.aGauche})`);
+    if (vu.surImage > 0) throw new Defaut(`${Math.round(vu.surImage)} px² de pastille sur l'image`);
+    if (!vu.recoit) throw new Defaut("la pastille du panneau ne reçoit pas le point en son centre");
+    // Un voyant, pas une rangée : la règle des rangées du panneau l'étirait
+    // à 75 px de haut (page construite avant cadre.css, 24 novembre 2026).
+    if (vu.boite[3] > 48) throw new Defaut(`la pastille est étirée à ${vu.boite[3]} px de haut sur le panneau`);
+    const large = await figer({ width: 1920, height: 1080 });
+    const jumeau = await lire(large);
+    await large.close();
+    console.log(JSON.stringify({ "1920x1080": jumeau }));
+    if (jumeau.panneau) throw new Precondition("jumeau : à 1920×1080, la bande de droite ne prend pas la pastille");
   },
 
   /** L'ouverture dessine la salle avant qu'elle arrive (plan salon,

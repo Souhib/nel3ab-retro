@@ -81,6 +81,12 @@
 //      travaille moins de 50 ms ; son jumeau, un clic qui tient le
 //      processeur 120 ms, est vu.
 //
+// Ajouté par le chantier de fin de la salle le 24 novembre 2026 :
+//
+//  24. couché, menu ouvert, ton étiquette posée en tête de la bande reste
+//      lisible : le menu ne couvre aucune de ses lettres ; son jumeau,
+//      l'étiquette poussée sous le menu, est vu.
+//
 // Le salon est simulé par une fausse socket (`salon: true`), qui répond à la
 // poignée de main d'engine.io et laisse la garde envoyer un événement : une
 // annonce de chargement, une demande de place, une reprise. Elle ne sort pas
@@ -119,7 +125,7 @@ const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
 // SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,menu-etroit,
 // manette-seule,spectateur,demande,places-sous-image,arrivee,clic-court,
-// arrivee-telephone,pastille.
+// arrivee-telephone,pastille,menu-etiquette.
 const SEUL = process.env.SEUL?.split(",") ?? null;
 const part = (name) => SEUL === null || SEUL.includes(name);
 
@@ -1138,7 +1144,8 @@ try {
   // l'image peinte, jamais sur une touche de la manette ([data-touche]), ni
   // sur la tête d'Aïn ([data-hote="barre"], sa maison au téléphone, qu'elle
   // couvrait toute dans la barre à 375x667 le 24 novembre 2026), en aires
-  // communes rendues en nombres. Cinq états, neuf tailles, une image
+  // communes rendues en nombres, ni sur le nom de la salle dans la barre,
+  // qui se lit entier (24 novembre 2026). Cinq états, neuf tailles, une image
   // 4:3 et deux en 16:9. Une taille où la salle n'a encore aucune place pour
   // elle est dite à part, en « non posée » : mesuré le 24 novembre 2026, le
   // téléphone tenu droit et court, sans barre ni bande, où « La salle » vit
@@ -1197,7 +1204,28 @@ try {
           const tetes = [...document.querySelectorAll('[data-hote="barre"]')]
             .map((h) => [h, h.getBoundingClientRect()])
             .filter(([, r]) => r.width > 0 && r.height > 0);
+          // Le nom de la salle dans la barre, mesuré sur ses lettres (un
+          // Range) : la pastille ne se pose jamais dessus, et il se lit
+          // entier (décision du chef de chantier, 24 novembre 2026).
+          const nom = document.querySelector("#barreSalle .n3-barre-salle");
+          let surNom = 0;
+          let nomCoupe = false;
+          let nomCouvert = false;
+          if (nom) {
+            const plage = document.createRange();
+            plage.selectNodeContents(nom);
+            for (const r of plage.getClientRects()) {
+              surNom += aire(a, r);
+              const vu = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              if (vu === null || !nom.contains(vu)) nomCouvert = true;
+            }
+            nomCoupe = nom.scrollWidth > nom.clientWidth + 1;
+          }
           return {
+            surNom,
+            nomCoupe,
+            nomCouvert,
+            nom: nom !== null,
             posee: true,
             toile: t.width * t.height,
             surImage: aire(a, t),
@@ -1224,7 +1252,10 @@ try {
           if (m.surTete > 0 || m.teteCouverte)
             bad.push(`${nom} : ${Math.round(m.surTete)} px² de pastille sur la tête d'Aïn${m.teteCouverte ? ", son centre couvert" : ""}`);
           if (!m.recoit) bad.push(`${nom} : la pastille ne reçoit pas le point en son centre`);
-          lus.push(`${nom} posée (${m.touches} touches, ${m.tetes} tête)`);
+          if (m.surNom > 0 || m.nomCouvert)
+            bad.push(`${nom} : ${Math.round(m.surNom)} px² de pastille sur le nom de la salle${m.nomCouvert ? ", ses lettres couvertes" : ""}`);
+          if (m.nomCoupe) bad.push(`${nom} : le nom de la salle est coupé dans la barre`);
+          lus.push(`${nom} posée (${m.touches} touches, ${m.tetes} tête${m.nom ? ", nom lu" : ""})`);
         }
       } catch (error) {
         bad.push(`${nom} : ${error.message}`);
@@ -1585,6 +1616,115 @@ try {
           }
         }
         if (errors.length > 0) bad.push(...errors.map((e) => `erreur de page : ${e}`));
+      } finally {
+        await page.close();
+      }
+      say(bad.length === 0, what, bad);
+    }
+  }
+
+  // Ton étiquette en tête de la bande, menu ouvert (décision du chef de
+  // chantier, 24 novembre 2026) : le cadre expose son rectangle
+  // (`LieuEtiquette` « bande », `BANDE_BORD`) et le menu l'évite. Chaque
+  // cas DÉCLARE que l'étiquette est dans la bande (le panneau n'y a que ses
+  // lampes, zones sûres d'un iPhone comprises) : son absence est un défaut,
+  // pas un cas sauté. Mesuré sur le texte même de l'étiquette (un Range :
+  // sa boîte est plus étroite que ses lettres), qui doit recevoir le point
+  // menu fermé, puis menu ouvert ; le menu ne doit couper aucun de ses
+  // rectangles. Le jumeau : la même mesure, l'étiquette poussée sous le
+  // menu, voit le recouvrement.
+  if (part("menu-etiquette")) {
+    const lireLEtiquette = (page) =>
+      page.evaluate(() => {
+        const e = document.querySelector("#etiquetteManette.n3-etiquette-bande");
+        if (!e) return { posee: false };
+        const plage = document.createRange();
+        plage.selectNodeContents(e);
+        const lettres = [...plage.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+        const menu = document.querySelector("#menu");
+        const m = menu ? menu.getBoundingClientRect() : null;
+        const coupe = (a, b) =>
+          Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+          Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+        // Le pointeur rendu le temps du test : l'étiquette n'en prend pas.
+        e.style.pointerEvents = "auto";
+        for (const enfant of e.querySelectorAll("*")) enfant.style.pointerEvents = "auto";
+        const lues = lettres.map((r) => {
+          const vu = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return vu !== null && e.contains(vu) ? null : vu ? `${vu.tagName.toLowerCase()}#${vu.id}` : "rien";
+        });
+        e.style.pointerEvents = "";
+        for (const enfant of e.querySelectorAll("*")) enfant.style.pointerEvents = "";
+        return {
+          posee: true,
+          lettres: lettres.length,
+          couvertes: lues.filter(Boolean),
+          surMenu: m ? Math.round(lettres.reduce((s, r) => s + coupe(r, m), 0)) : 0,
+          menu: m ? [m.left, m.top, m.width, m.height].map(Math.round) : null,
+          texte: e.textContent.trim(),
+        };
+      });
+    const ouvrirLeMenu = async (page) => {
+      await page.waitForSelector(OPENER, { timeout: 20000 });
+      await sleep(600);
+      await tap(page, OPENER);
+      await attendre(page, () => document.querySelector("#feuilleSalle")?.open === true);
+      await sleep(300);
+      await tap(page, '[data-entree="menu"]');
+      return attendre(page, () => document.querySelector("#menu [role=tab]") !== null);
+    };
+    for (const [width, height, game, pw, ph] of [
+      [667, 375, 0, 640, 480],
+      [640, 360, 0, 640, 480],
+      [568, 320, 0, 640, 480],
+      [667, 375, 0, 1280, 720],
+      [667, 375, 1, 640, 480],
+      [667, 375, 1, 1280, 720],
+    ]) {
+      const what = `menu ouvert à ${width}x${height} ${game === 0 ? "GameCube" : "Xbox 360"} ${pw}x${ph} : ton étiquette en tête de la bande reste lisible`;
+      const { page, errors } = await ouvrir({
+        width,
+        height,
+        game,
+        url: `${BASE}/r/1/?entrer=jouer&pw=${pw}&ph=${ph}`,
+      });
+      const bad = [];
+      try {
+        await page.waitForSelector("#screen", { timeout: 20000 });
+        await attendre(page, () => document.querySelector("#etiquetteManette") !== null, null, 4000);
+        const avant = await lireLEtiquette(page);
+        if (!avant.posee) bad.push("pas d'étiquette en tête de la bande, alors que le panneau n'a que ses lampes");
+        else if (avant.lettres === 0) bad.push("l'étiquette de la bande n'a aucune lettre à mesurer");
+        else if (avant.couvertes.length) bad.push(`menu fermé, l'étiquette est déjà couverte par ${avant.couvertes.join(", ")}`);
+        else if (!(await ouvrirLeMenu(page))) bad.push("« Menu du jeu » n'ouvre pas le menu");
+        else {
+          await sleep(400);
+          await page.screenshot({ path: join(OUT, `menu-etiquette-${width}x${height}-${game}-${pw}.png`) });
+          const ouvert = await lireLEtiquette(page);
+          if (!ouvert.posee) bad.push("l'étiquette de la bande disparaît quand le menu s'ouvre");
+          else {
+            if (ouvert.menu === null) bad.push("pas de #menu ouvert à mesurer");
+            if (ouvert.surMenu > 0) bad.push(`le menu ${ouvert.menu} couvre ${ouvert.surMenu} px² des lettres de l'étiquette`);
+            if (ouvert.couvertes.length) bad.push(`menu ouvert, les lettres de l'étiquette rendent ${ouvert.couvertes.join(", ")}`);
+            // Le jumeau, au premier cas : l'étiquette poussée sous le menu
+            // doit être vue couverte.
+            if (bad.length === 0 && width === 667 && game === 0 && pw === 640) {
+              await page.evaluate(() => {
+                const e = document.querySelector("#etiquetteManette.n3-etiquette-bande");
+                const m = document.querySelector("#menu").getBoundingClientRect();
+                const r = e.getBoundingClientRect();
+                e.style.position = "relative";
+                e.style.zIndex = "0";
+                e.style.left = `${m.left + 10 - r.left}px`;
+                e.style.top = `${m.top + 60 - r.top}px`;
+              });
+              const pousse = await lireLEtiquette(page);
+              if (pousse.surMenu === 0 || pousse.couvertes.length === 0)
+                bad.push(`jumeau : l'étiquette poussée sous le menu n'est pas vue couverte (${JSON.stringify(pousse)})`);
+            }
+          }
+        }
+        bad.push(...errors.map((e) => `erreur de page : ${e}`));
       } finally {
         await page.close();
       }

@@ -32889,6 +32889,161 @@ du salon (K39) n'est pas installée. `avertissement-fermeture.mjs` demande
 un worker construit et une ROM. Aucun worker n'est reconstruit ni
 installé, et aucune vraie salle n'a servi la page.
 
+### 24 novembre, tard dans la nuit : la fin de la salle
+
+**Le contexte.** La vague B2 avait laissé sur `integration/retro` des
+points ouverts entre la salle et les autres chantiers. Le chef de chantier
+les a tranchés, et ce chantier de fin, dans le worktree
+`~/nel3ab-chantiers/retro-fin-salle`, en applique sept : la colonne qui
+bouge à la première image, la place de la pastille d'état tenue en main et
+au bureau, la place du panneau « Touches et manettes » tenu en main,
+l'étiquette que le menu doit éviter, l'horloge d'une étape d'`etats.mjs`,
+une phrase de l'échec du chargement, et l'amendement de D29. D'autres
+chantiers de fin travaillent à côté ; chacun a reçu une dizaine de ports
+au-dessus de 5500, et les deux bancs, qui refusaient tout port au-dessus
+de 5499, acceptent maintenant jusqu'à 5599.
+
+**La colonne qui bougeait à la première image.** À 1440 × 900, le banc
+annonce une Xbox 360 et envoie une image 4:3. Pendant l'arrivée, l'écran
+est noir, et le panneau de commande (les places START, le crédit) se pose
+sous lui. À la première image, le cadre recalculait le panneau sur l'image
+reçue : avec 48 px libres sous une image 4:3, il passait au pied de la
+colonne et poussait tout ce qu'il y avait dessous de 204 px. Le chef de
+chantier a choisi : le panneau se décide sur le **format attendu** de la
+console, connu avant la première image (GameCube et Wii en 4:3, Switch,
+Switch 2 et Xbox 360 en 16:9), et la première image ne déplace plus rien.
+Le format est écrit dans le manifeste des consoles (`format`), que la page
+lit. Le cadre garde d'un calcul à l'autre une **base** : le format attendu,
+posé comme s'il remplissait l'écran (sa vraie taille n'est pas connue
+avant l'image), jusqu'au premier changement de mise en page naturel qui
+trouve une image ; la base devient alors la vraie image. Si l'image réelle
+diffère du format attendu, rien ne bouge avant ce moment.
+
+Deux autres déplacements se cachaient derrière le premier. Le panneau
+gardé à sa place, l'étape voyait encore la colonne grandir de 196 px :
+« Son », « Tes touches », « Garder 45 s » et « Agrandir » ne paraissaient
+qu'avec une image. À l'arrivée dans une partie en cours, ils sont
+maintenant là dès l'écran noir ; un lancement les garde cachés, comme le
+chantier menus l'avait décidé pour le clip. Puis une sonde a vu le panneau
+partir quand même dans la colonne, deux secondes après l'image : la salle
+donne sa place à la page après la première image, le rôle passe de
+« regarde » à « joueur », et ce changement comptait pour un changement de
+mise en page. Le rôle et la manette suivent la place, que la salle donne
+seule ; ils ne comptent plus. L'étape relit maintenant la colonne 3 s
+après l'image.
+
+**Un jumeau qui ne pouvait pas voir.** L'étape `colonne-stable` a un
+jumeau : un enfant de la colonne décalé d'un pixel doit être vu. Il
+décalait le dernier enfant. Depuis le 23 novembre, c'est le curseur ▶ du
+socle, qui n'a pas de boîte ; le premier, la pile des avis vide, n'en a
+pas non plus. Une marge posée sur eux ne déplace rien, et le jumeau
+tombait sur sa précondition dès que le reste passait. Il décale maintenant
+le premier enfant qui a une boîte. La leçon : un jumeau qui vise
+« le premier » ou « le dernier » élément vise ce que la page met là ce
+jour-là, pas ce que son auteur avait en tête.
+
+**La pastille d'état.** Au téléphone tenu droit, sans bande, elle se
+posait par-dessus le nom de la salle dans la barre : 739 à 1 009 px² de
+pastille sur « Salle 1 » à 375 × 667, mesurés sur les lettres du nom.
+La barre lui donne maintenant une vraie place, entre le nom de la salle,
+qui se lit toujours entier, et « La salle ». Le nom du jeu se coupe sous
+le nom de la salle, et la pastille prend le reste : 138 px à 375 px de
+large. Elle y perd son icône (le point dit déjà l'état) pour garder plus
+de texte : « Image fig… 8 s ». Sous 120 px de place, elle ne s'y pose
+pas, et la ligne parlée dit l'état. Au bureau, quand aucune bande noire de
+40 px ne la prend, elle se pose sur le panneau de commande, avant
+« Toutes les touches ». Elle y était d'abord étirée à toute la hauteur du
+panneau, 75 px : une règle des rangées de places visait chaque `div` du
+panneau, et la pastille en est un avant sa fiche. Une nouvelle étape,
+`pastille-panneau`, la cherche là à 1440 × 900, et vérifie son jumeau à
+1920 × 1080, où la bande de droite la prend.
+
+**Le panneau des touches tenu en main.** Au téléphone, « Touches et
+manettes » s'ouvrait dans la feuille agrandie de la salle, qui couvre
+l'image : 113 880 px² de panneau sur l'image à 390 × 844. Pendant qu'une
+personne règle ses touches, les autres jouent. Le cadre donne maintenant
+sa place au panneau : tenu droit, tout ce qui est sous l'image (le
+panneau de commande, la bande et la manette à l'écran, qui n'est pas
+montée pendant un réglage), et l'image ne bouge pas, sauf s'il restait
+moins de 280 px dessous ; en travers, une colonne à droite (42 % de la
+largeur, entre 300 et 520 px), et l'image se pose dans le reste, comme au
+bureau quand le panneau élargit la colonne. L'étape `place-tenu` du chantier
+manettes, rouge et hors de la porte depuis son écriture, y entre.
+
+En la faisant passer, on a trouvé pourquoi elle n'avait jamais pu ouvrir
+le réglage sur une tablette de 1024 × 768 : avec une vraie manette
+branchée, il n'y a pas de bande, donc pas de « Vérifier les boutons », et
+le pilote touchait alors l'entrée « manette » de la feuille. Cette entrée
+montre ou cache la manette à l'écran ; elle n'a jamais ouvert la vue des
+touches. Le chemin d'une personne sur cette tablette est « La salle »,
+« Toute la salle », puis le rang « Ta manette ». Le pilote le suit
+maintenant. La leçon : un pilote qui touche un bouton par son nom
+(`data-entree="manette"`) doit vérifier ce que ce bouton fait, pas ce que
+son nom laisse croire.
+
+**L'étiquette en tête de la bande.** Couché, quand le panneau n'a que ses
+lampes, ton étiquette tapée se pose en tête de la bande. Le cadre ne
+donnait pas son rectangle, et le menu ne pouvait pas l'éviter. Il le
+donne maintenant, calculé sur les bords de la bande que `telephone.css`
+lui met (un essai relit la feuille de style), et le menu l'évite. Un
+balayage montre que la géométrie d'aujourd'hui ne les fait jamais se
+croiser : la bande n'existe que quand l'image la couvre en largeur. Un
+cas construit prouve quand même l'évitement, et `salle-telephone` mesure
+les lettres de l'étiquette, menu ouvert, à six tailles couchées.
+
+**Deux petites choses.** `arrivee-sans-image` comptait ses 15 s depuis le
+clic sur « Entrer » ; depuis le salon, l'entrée joue une transition avant
+d'ouvrir la salle, et la page n'avait que 14,5 s d'arrivée au relevé.
+L'horloge part maintenant de l'apparition du plein cadre, et les gestes
+d'une panne doivent paraître entre 12 et 18 s après lui. L'échec du
+chargement dit à la personne qui choisit le jeu « Tu peux le relancer ou
+choisir un autre jeu. », et aux autres qui peut le relancer, comme avant.
+
+**Une instabilité trouvée en passant.** Sur la page de cette branche,
+`place-suit-adresse` (parcours) est tombée à chaque passage : « Rendre ma
+place » sans effet. Le banc des parcours joue une GameCube ; à 1440 × 900,
+le panneau de commande est maintenant au pied de la colonne dès l'arrivée,
+et « Autres réglages » passe sous le coin collé d'Aïn. Le clic au centre
+tombait sur le coin. Sur la page de la vague B2, le panneau ne descendait
+qu'à la première image : l'étape passait quand elle cliquait avant elle, et
+c'est sans doute la cause de son échec une fois sur cinq. Une personne fait
+défiler la colonne ; le pilote amène maintenant chaque cible dans la vue et
+exige qu'elle reçoive le point deux relevés de suite avant de cliquer. Six
+passages verts sur six, et deux sur la page de la vague B2. Le banc de
+`manette-garde` cherchait aussi la pastille de la barre dans un rectangle
+à part : il la pose maintenant dans la barre, comme la salle.
+
+**Les portes.** Sur la page de cette branche (280 496 octets en brotli,
+19 504 sous le plafond ; sha256 168ecb16…) : `just check` est vert (1 358
+essais Python, 183 fichiers et 2 395 essais de la page), comme
+`focus-navigateur`, `etats-navigateur` (34 étapes, `colonne-stable`,
+`arrivee-sans-image` et `pastille-panneau` comprises), `parcours-navigateur`
+(38), `salle-telephone` (132 lignes), `manette-garde` (41),
+`salon-navigateur`, `reglage-navigateur` (10 étapes, `place-tenu`
+comprise) et `planche-garde`. Les six contrôles rouges tombent sur leurs
+défauts nommés, dont les nouveaux blocs sur 4ecbc23. `cadre-navigateur`
+reste rouge sur la précondition de `mascotte-hors-image`, après 21 étapes
+vertes ; lancées à part, les cinq dernières passent et `ain-immobile` tombe
+comme avant (101 appels en 2 s). Ces deux étapes sont à un autre chantier
+de fin. Au premier tour, `salle-telephone` était rouge sur le clic d'une
+place à processeur ralenti quatre fois (une tâche de 56 ms) ; trois
+passages alternés avec la page de la vague B2, la machine à une charge
+moyenne de 66, ont rougi les deux pages de la même façon (une ou deux
+tâches de 50 à 66 ms) : la charge, pas ce changement. Au second tour, il
+est vert (0 tâche longue). C'est une tendance sur une machine chargée, pas
+une comparaison.
+
+**Ce qui n'est pas prouvé.** Le format attendu n'est pas une mesure par
+jeu : un jeu Wii en 16:9 garde la place décidée en 4:3 jusqu'au prochain
+redimensionnement. Les téléphones ne suivent pas encore la base : tenue
+en main, la première image d'une console 16:9 peut encore déplacer la
+bande et le panneau, qui ne sont pas la colonne. En travers, avec les
+zones sûres d'un iPhone et la manette Pro, une sonde de la géométrie a vu
+à 640 × 360, 740 × 360 et 780 × 360 entre 0 et 54 px de large entre les
+deux grappes, là où l'image se pose : c'est le défaut déjà signalé à
+568 × 320, sur plus de tailles qu'on ne le disait. Il est au propriétaire.
+Aucune vraie salle n'a servi cette page.
+
 ## 12. Glossaire complet
 
 **Couverture (de l'image)** : ce qui se montre à la place d'une image du
@@ -34872,6 +35027,16 @@ allumés ou éteints, qui ouvre la salle. Ta place ne s'y distingue pas.
 **Range** : l'objet du navigateur qui désigne un morceau de la page. Il
 donne les rectangles où son texte est vraiment peint, même quand ce texte
 déborde de la boîte de son élément.
+
+**Format attendu (d'une console)** : les proportions de l'image qu'une
+console envoie d'ordinaire, écrites dans le manifeste des consoles : 4:3
+pour la GameCube et la Wii, 16:9 pour la Switch, la Switch 2 et la Xbox 360.
+La salle s'en sert avant de recevoir la première image.
+
+**Base (de la mise en page)** : ce sur quoi le cadre décide la place du
+panneau au bureau : le format attendu de la console, puis la vraie image
+au premier changement de mise en page naturel (une fenêtre redimensionnée,
+un panneau fermé, la colonne élargie, un autre réglage de l'image).
 
 **Style diff3 (d'un conflit)** : une façon d'écrire un conflit de fusion
 qui montre, en plus des deux côtés, le texte de la base d'où ils sont

@@ -10,7 +10,13 @@
  * Elle se pose où le cadre la met (`geo.barre`), dans la zone sûre. Quand
  * l'écran est trop court pour elle, le cadre la retire avant de toucher à
  * l'image, et « La salle » passe parmi les touches (`salleDansLaManette`).
+ *
+ * Elle a une place pour la pastille d'état (chantier etats), entre le nom de
+ * la salle et « La salle » : le nom se lit alors entier, le nom du jeu se
+ * coupe sous lui, et la pastille prend le reste. Jusqu'au 24 novembre 2026,
+ * la pastille se posait par-dessus le nom (décision du chef de chantier).
  */
+import type { ReactNode } from "react";
 import type { Rect } from "../lib/cadre";
 import { nomDeLaSalle } from "../lib/feuille";
 import { Mascotte } from "../mascotte/Mascotte";
@@ -24,6 +30,7 @@ export function BarreSalle({
   jeu,
   sonCoupe,
   onSalle,
+  pastille = null,
 }: {
   rect: Rect;
   nomSalle: string;
@@ -34,9 +41,16 @@ export function BarreSalle({
    * rallume. */
   sonCoupe: boolean;
   onSalle: () => void;
+  /** La pastille d'état quand `montageDeLaPastille` la pose dans la barre. */
+  pastille?: ReactNode;
 }) {
   return (
-    <header id="barreSalle" className="n3-barre" style={placeDe(rect)}>
+    <header
+      id="barreSalle"
+      className="n3-barre"
+      style={placeDe(rect)}
+      data-pastille={pastille ? "" : undefined}
+    >
       {/* L'hôte de la mascotte au téléphone (`ouEstLaMascotte`) : l'arbitre
           des scènes le trouve par son attribut. */}
       <Mascotte scene={null} className="n3-barre-tete" hote="barre" />
@@ -49,6 +63,7 @@ export function BarreSalle({
         ) : null}
         <span data-ancre="annonce" />
       </div>
+      {pastille ? <div className="n3-barre-pastille">{pastille}</div> : null}
       <BoutonSalle id="laSalle" sonCoupe={sonCoupe} onSalle={onSalle} />
     </header>
   );

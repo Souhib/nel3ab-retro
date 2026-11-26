@@ -34353,6 +34353,42 @@ dans le même changement.
 16:9, le menu ouvert prend l'écran et cache l'image jusqu'à sa fermeture
 (addendum de D30 « after the review »). Le propriétaire l'accepte tel quel.
 
+### 26 novembre, le soir : le salon refusait chaque page d'une salle qui avait déjà joué
+
+Le propriétaire ouvre la salle 1 à 23 h 21 et ne peut lancer aucun jeu : la
+page dit « Pas de réponse. Réessaie dans un instant. » au premier geste.
+
+**Ce que le journal du salon disait.** À l'arrivée de la page, la connexion
+est abandonnée avec `TypeError: Object of type datetime is not JSON
+serializable`. Le salon envoie à chaque page l'état de la salle par sa
+connexion socket.io, et cet état portait depuis le 23 novembre un champ
+`dernier_jeu` : le dernier jeu lancé dans la salle, et QUAND il a été choisi,
+une date. La salle 1 avait lancé Sonic : le champ était rempli.
+
+**La cause.** Pour envoyer l'état, le salon le met à plat avec
+`model_dump()` de Pydantic. Par défaut, cette mise à plat garde une date en
+objet Python, et l'encodeur JSON de socket.io ne sait pas l'écrire. La route
+HTTP `/api/room` passe, elle, par FastAPI, qui convertit les dates en texte
+lui-même : elle répondait normalement, et c'est elle que l'essai du
+23 novembre lisait. Une page qui n'a pas sa connexion au salon ne peut rien
+lui demander, d'où « Pas de réponse ». Trois refus depuis la mise en service
+du 25 novembre : deux le 25 à 16 h 46 et 16 h 48, puis celui-ci.
+
+**Pourquoi rien ne l'a vu.** L'essai du champ lisait la salle par l'objet
+Python, jamais par la socket. Les essais de la socket servent une bibliothèque
+sans clés de jeu, où `dernier_jeu` reste vide. Et les preuves en navigateur
+jouent contre un salon simulé, qui écrit lui-même son JSON.
+
+**La correction.** La socket met l'état à plat en mode JSON
+(`model_dump(mode="json")`), comme la route HTTP. Le nouvel essai lit la route
+et la socket pour une salle qui a un dernier jeu, et demande la même date au
+caractère près. Il échouait avant la correction sur la même `TypeError` que
+la production, il passe après, avec les 140 autres essais de la socket.
+
+**La leçon.** Un champ s'essaie par chaque chemin qui le transporte, rempli.
+Le même modèle part par HTTP et par socket, et ces deux chemins ne
+l'encodent pas de la même façon.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -35745,6 +35781,10 @@ exécute du code du pilote, qui peut prendre ses verrous.
 
 **Verrou** : ce qu'un morceau de code prend pour être seul à modifier une
 structure. Un autre qui en a besoin attend qu'il soit rendu.
+
+**JSON** : *JavaScript Object Notation*, un format texte pour des données
+faites de nombres, de textes, de listes et d'objets. Il n'a pas de type date :
+une date doit d'abord être écrite en texte.
 
 **JSONL** : *JSON Lines*, un fichier texte dont chaque ligne est un objet JSON
 complet. Une ligne cassée n'empêche pas de lire les autres.

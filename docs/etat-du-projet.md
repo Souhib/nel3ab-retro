@@ -1,10 +1,31 @@
-# État du projet au 25 novembre 2026
+# État du projet au 26 novembre 2026
 
 Ce point de reprise conserve le travail commencé en septembre et les
 livraisons datées jusqu'au 10 novembre. Il indique où retrouver les décisions, les expériences
 et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-appris)
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
+
+**Au 26 novembre, le soir : la refonte en service, et le salon qui
+refusait les pages.** Le bloc du 25 novembre qui suit décrit la refonte telle
+qu'elle a été fusionnée ; il dit `main` sur 03b21c0, ce qui était vrai avant la
+fusion.
+
+- **En service.** `main` est passé de 03b21c0 à 2673ef6 par `--ff-only` le
+  25 novembre, poussé, CI verte (run 45592433146). Le salon a été relancé par
+  le propriétaire (`deploy/mettre-en-service.sh`, sept étapes) et le worker
+  reconstruit salle fermée à 10 h 14 UTC. `switch-controls-test` a été corrigé
+  le même jour (737b422, CI verte, run 45594263244).
+- **Le défaut du 26 novembre.** Le salon refusait la connexion socket.io de
+  chaque page d'une salle qui avait déjà lancé un jeu : l'état envoyé portait
+  la date de `dernier_jeu`, que `model_dump()` gardait en objet Python. La
+  page disait « Pas de réponse. Réessaie dans un instant. ». Corrigé par
+  `model_dump(mode="json")`, avec un essai rouge avant, vert après, qui lit la
+  route et la socket. Il faut relancer le salon pour que la correction serve ;
+  le worker n'est pas touché. Voir le carnet, 26 novembre.
+- **Restent connus.** La liste du bloc du 25 novembre, plus bas, et rien de
+  vu en vraie partie : ni vrai téléphone, ni Safari, ni manette, ni lecteur
+  d'écran.
 
 **Au 25 novembre, dans la matinée : la relecture finale, onze constats
 corrigés.** Le point d'entrée pour l'ensemble du thème rétro ; le bloc du

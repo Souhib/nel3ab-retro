@@ -461,6 +461,15 @@ machine".
   stopped and `activating`; a median of 16.67 ms ticks read a 45 fps game as
   60. Time the images, count only a 2xx with its body, read the state word,
   and date simulated frames from the wall clock, not from timer firings.
+- **A field is tested on every path that carries it, filled.** On
+  2026-11-23, `dernier_jeu` entered the room state with a date. Its test read
+  the Python object. FastAPI writes dates for the HTTP route, but the socket
+  sent `model_dump()`, which keeps them as objects, and socket.io's encoder
+  refused every page of a room that had launched a game, from 25 to 26
+  November. The socket tests served a library without keys, so the field
+  stayed empty, and the browser proofs play against a simulated lobby. Send
+  a model with `model_dump(mode="json")`, and read a new field through the
+  route and the socket.
 - **A box does not prove what receives the point.** A touch key had its own
   box while « cacher » lay over it. Hit-test with `elementFromPoint`, drive
   real clicks rather than `element.click()`, and return numbers, not a DOMRect,

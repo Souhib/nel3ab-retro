@@ -145,4 +145,7 @@ async def broadcast(
     # une image.
     for sid in sorted(people.live(salle)):
         vue = room.vue_par(people.repere(people.login_of(sid)))
-        await sio.emit("room", vue.model_dump(), to=sid)
+        # En mode JSON, comme la route HTTP: `dernier_jeu.quand` est une date, que
+        # l'encodeur de Socket.IO refuse. Le 26 novembre 2026, ce refus fermait la
+        # porte à chaque page d'une salle qui avait déjà lancé un jeu.
+        await sio.emit("room", vue.model_dump(mode="json"), to=sid)

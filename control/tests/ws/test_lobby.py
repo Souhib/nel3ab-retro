@@ -8,6 +8,7 @@ unit test and fails the moment it is served.
 
 import asyncio
 import json
+import os
 import re
 import shlex
 import socket
@@ -103,6 +104,41 @@ async def test_a_page_that_takes_a_pad_is_broadcast_to_everybody(
     await asyncio.sleep(0.3)
     assert rooms.seats()[1].player is None, "leaving must give the pad back"
     await watcher.disconnect()
+
+
+async def test_a_room_that_remembers_its_last_game_still_admits_a_page(
+    served: tuple[str, RoomController],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le 26 novembre 2026, la salle 1 avait déjà lancé un jeu: son
+    `dernier_jeu` porte une date, `model_dump()` la laissait en objet Python, et
+    l'encodeur JSON de Socket.IO refusait la connexion de chaque page. La route
+    HTTP, qui convertit elle-même, répondait. La page disait « Pas de réponse.
+    Réessaie dans un instant. » au premier geste. La socket doit dire ce que dit
+    la route, au caractère près."""
+    url, rooms = served
+    monkeypatch.setitem(
+        LIBRARY, "roms", [{"name": "Mario Kart", "console": "gc", "key": "Kart.rvz"}]
+    )
+    dossier = rooms.settings.salles_dir / "1"
+    dossier.mkdir(parents=True)
+    (dossier / "chosen-rom").write_text("Kart.rvz")
+    os.utime(dossier / "chosen-rom", (1_763_666_000.0, 1_763_666_000.0))
+    async with httpx.AsyncClient() as http:
+        attendu = (await http.get(f"{url}/api/room", headers=PAGE)).json()["dernier_jeu"]
+    assert attendu is not None, "la route ne voit pas le dernier jeu: l'essai ne prouverait rien"
+
+    page = socketio.AsyncClient()
+    heard: asyncio.Queue[dict] = asyncio.Queue()
+    page.on("room", heard.put_nowait)
+    try:
+        await page.connect(url, auth={"name": "Souhib"})
+        async with asyncio.timeout(2):
+            room = await heard.get()
+    finally:
+        await page.disconnect()
+    assert room["dernier_jeu"] == attendu
+    assert room["dernier_jeu"]["quand"] == "2025-11-20T19:13:20Z"
 
 
 async def test_invalid_messages_do_not_stop_another_players_broadcast(

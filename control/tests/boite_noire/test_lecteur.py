@@ -69,3 +69,31 @@ def test_deux_phases_de_part_et_d_autre_d_un_redemarrage_sont_refusees(tmp_path:
     assert fini.returncode == 2, fini.stdout
     assert "comparaison refusée" in fini.stderr
     assert "7.0.0-44-generic" in fini.stderr
+
+
+def test_la_relecture_montre_le_temps_vole_et_les_voisins(tmp_path: Path) -> None:
+    dossier = tmp_path / "bn" / "releves"
+    dossier.mkdir(parents=True)
+    neuf = {
+        "quand": "2026-11-27T00:36:05+01:00",
+        "quoi": "relevé",
+        "moteurs": [
+            {"pid": 1, "fils": [{"nom": "<MainThread>", "cpu_pct": 78, "file_ms_s": 25.0}]}
+        ],
+        "vmstat": {"compact_stall": 3, "allocstall_movable": 0},
+        "voisins_gpu": {"kfd": [{"pid": 1234, "nom": "ollama"}], "jellyfin_ffmpeg": []},
+    }
+    ancien = {
+        "quand": "2026-11-27T00:36:15+01:00",
+        "quoi": "relevé",
+        "moteurs": [{"pid": 1, "fils": [{"nom": "<MainThread>", "cpu_pct": 78}]}],
+    }
+    (dossier / "2026-11-27.jsonl").write_text(json.dumps(neuf) + "\n" + json.dumps(ancien) + "\n")
+
+    fini = _lancer(tmp_path, "2026-11-27")
+
+    assert fini.returncode == 0, fini.stderr
+    neuve, vieille = [ligne for ligne in fini.stdout.splitlines() if ligne.startswith("00:36")]
+    assert "file 25.0 ms/s" in neuve and "compact   3" in neuve and "voisins 1" in neuve
+    # Le jumeau: un relevé d'avant ces champs n'affiche ni zéro ni tiret inventé.
+    assert "file" not in vieille and "compact" not in vieille and "voisins" not in vieille

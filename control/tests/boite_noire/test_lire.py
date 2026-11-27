@@ -253,3 +253,42 @@ def test_un_changement_de_noyau_au_milieu_d_une_phase_est_refuse() -> None:
 
     with pytest.raises(NoyauxDifferentsError):
         comparer_phases(releves, [], [_plage(0, 30)])
+
+
+# --- Le temps volé et les voisins, dans la tranche -----------------------------
+#
+# Les relevés disent depuis le 27 novembre 2026 combien les fils ont attendu un
+# cœur, combien la mémoire a compacté, et qui d'autre tient la carte. La
+# relecture les range dans la tranche, et un relevé d'avant n'invente rien.
+
+
+def test_la_tranche_garde_la_pire_attente_en_file_les_compactions_et_les_voisins() -> None:
+    premier, second = _releve(1, 80.0), _releve(3, 81.0)
+    premier["moteurs"][0]["fils"] = [
+        {"nom": "<MainThread>", "cpu_pct": 80.0, "file_ms_s": 4.5},
+        {"nom": "GPU.MainThread", "cpu_pct": 30.0, "file_ms_s": 25.0},
+    ]
+    second["moteurs"][0]["fils"] = [{"nom": "<MainThread>", "cpu_pct": 81.0, "file_ms_s": 1.0}]
+    premier["vmstat"] = {"compact_stall": 3, "allocstall_movable": 1, "pswpin": 40}
+    second["vmstat"] = {"compact_stall": 2, "allocstall_normal": 0, "pswpin": 0}
+    premier["voisins_gpu"] = {"kfd": [], "jellyfin_ffmpeg": []}
+    second["voisins_gpu"] = {"kfd": [{"pid": 1234, "nom": "ollama"}], "jellyfin_ffmpeg": []}
+
+    (tranche,) = tranches([premier, second], [])
+
+    assert tranche["file_ms_s"] == 25.0
+    assert tranche["compactions"] == 6
+    assert tranche["voisins"] == 1
+
+
+def test_un_releve_d_avant_le_27_novembre_n_invente_ni_attente_ni_compaction() -> None:
+    """Le jumeau: les relevés sans ces champs, et une machine qui n'a rien compacté.
+    Zéro compaction mesurée se dit 0; pas mesurée, rien."""
+    (ancienne,) = tranches([_releve(1, 80.0)], [])
+    assert {"file_ms_s", "compactions", "voisins"}.isdisjoint(ancienne)
+
+    calme = _releve(1, 80.0)
+    calme["vmstat"] = {"compact_stall": 0, "allocstall_normal": 0, "allocstall_movable": 0}
+    calme["voisins_gpu"] = {"kfd": [], "jellyfin_ffmpeg": []}
+    (tranche,) = tranches([calme], [])
+    assert (tranche["compactions"], tranche["voisins"]) == (0, 0)

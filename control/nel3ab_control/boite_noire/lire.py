@@ -94,6 +94,31 @@ def tranches(
             objets = moteur.get("objets_gpu")
             if isinstance(objets, dict) and (nombre := _nombre(objets.get("objets"))) is not None:
                 seau["objets"].append(nombre)
+            # L'attente en file (`run_delay`), écrite depuis le 27 novembre 2026: le
+            # pire fil, car un seul fil qui attend un cœur suffit à retenir l'image.
+            attentes = [
+                attente
+                for fil in fils
+                if isinstance(fil, dict) and (attente := _nombre(fil.get("file_ms_s"))) is not None
+            ]
+            if attentes:
+                seau["file"].append(max(attentes))
+        # Les compactions et réclamations directes de la mémoire, et les voisins de
+        # la carte: absents des relevés d'avant le 27 novembre 2026.
+        vmstat = ligne.get("vmstat")
+        if isinstance(vmstat, dict):
+            directes = [
+                valeur
+                for cle in ("compact_stall", "allocstall_normal", "allocstall_movable")
+                if (valeur := _nombre(vmstat.get(cle))) is not None
+            ]
+            if directes:
+                seau["compactions"].append(sum(directes))
+        voisins = ligne.get("voisins_gpu")
+        if isinstance(voisins, dict):
+            seau["voisins"].append(
+                sum(len(liste) for liste in voisins.values() if isinstance(liste, list))
+            )
         gpu = ligne.get("gpu") or {}
         if (occupe := _nombre(gpu.get("occupe_pct"))) is not None:
             seau["gpu"].append(occupe)
@@ -159,6 +184,9 @@ def tranches(
             # liaison qui hoquette sur une seule, et le pire montre les deux.
             ("arrivee_max", seau["arrivee_max"], max),
             ("aller_retour", seau["aller_retour"], max),
+            ("file_ms_s", seau["file"], max),
+            ("compactions", seau["compactions"], sum),
+            ("voisins", seau["voisins"], max),
         ):
             if valeurs:
                 entree[nom] = round(calcul(valeurs), 1)

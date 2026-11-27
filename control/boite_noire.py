@@ -56,6 +56,10 @@ def _ligne(entree: dict[str, Any]) -> str:
         ("blocs", "blocs {:>7.0f}"),
         ("objets", "objets {:>6.0f}"),
         ("boite_noire_pct", "bn {:3.1f} %"),
+        # Le temps volé et les voisins de la carte, depuis le 27 novembre 2026.
+        ("file_ms_s", "file {:4.1f} ms/s"),
+        ("compactions", "compact {:3.0f}"),
+        ("voisins", "voisins {:1.0f}"),
     ):
         if cle in entree:
             morceaux.append(forme.format(entree[cle]))

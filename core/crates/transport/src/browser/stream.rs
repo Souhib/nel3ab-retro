@@ -301,8 +301,8 @@ pub(super) fn deliver(
     granted_key: &Arc<Mutex<Instant>>,
     packet: &Packet,
 ) -> bool {
-    // Read before the lock, so a viewer's wait does not include the time the
-    // fan-out waited for its own list.
+    // Read before the lock, so a viewer's wait also counts the time the
+    // fan-out waited for the list: the picture was already in the worker.
     let now = Instant::now();
     let Ok(mut viewers) = viewers.lock() else {
         return false;

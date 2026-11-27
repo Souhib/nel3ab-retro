@@ -686,6 +686,42 @@ def test_un_gel_de_600_ms_vingt_secondes_apres_la_premiere_image_est_pris() -> N
     assert (chute.cause, chute.gel_ms) == ("gel", 600.0)
 
 
+def test_une_seconde_page_a_aussi_son_demarrage() -> None:
+    """La seconde page reçoit sa première image après la première, et sa fenêtre porte
+    le même trou: c'est son chargement, pas un gel."""
+    lignes = [*SMASH_DEMARRE[:2], *(_avec_visite(ligne, 3, "b") for ligne in SMASH_DEMARRE[:2])]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 50)
+
+    assert [(seconde, chute.cause, chute.gel_ms) for seconde, chute in chutes] == [
+        (40.0, "démarrage", 33386.0),
+        (44.0, "démarrage", 33386.0),
+    ]
+
+
+def test_une_page_arrivee_en_pleine_partie_n_a_pas_de_demarrage() -> None:
+    """Le jumeau: une page qui arrive deux minutes après la première image n'a pas de
+    chargement à faire, et le trou de sa première fenêtre est un gel."""
+    lignes = [
+        *SMASH_DEMARRE[:2],
+        *(_fenetre(10 * rang, 60, 20) for rang in range(5, 17)),
+        _avec_visite(_fenetre(160, 60, 900), 0, "b"),
+    ]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 170)
+
+    assert [(seconde, chute.cause, chute.gel_ms) for seconde, chute in chutes] == [
+        (40.0, "démarrage", 33386.0),
+        (160.0, "gel", 900.0),
+    ]
+
+
+def _avec_visite(ligne: dict[str, Any], secondes: float, visite: str) -> dict[str, Any]:
+    """La même fenêtre, vue par une autre page, quelques secondes plus tard."""
+    quand = datetime.fromisoformat(ligne["quand"]) + timedelta(seconds=secondes)
+    return {**ligne, "visite": visite, "quand": quand.isoformat(timespec="milliseconds")}
+
+
 def test_un_jeu_relance_par_le_salon_redemarre() -> None:
     """Le même jeu relancé: le salon écrit « changement », et le trou du chargement
     qui suit est de nouveau un démarrage."""

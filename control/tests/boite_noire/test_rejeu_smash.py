@@ -48,12 +48,30 @@ class CapteurDate:
         self.captures.append((quand, raison, details))
 
 
-def _rejouer(tmp_path: Path, **autres: Any) -> tuple[CapteurDate, list[dict[str, Any]]]:
+def _avec_pages(lignes: list[dict[str, Any]], decalages: dict[str, float]) -> list[dict[str, Any]]:
+    """La même soirée vue par d'autres pages de la salle: chaque mesure recopiée sous
+    une autre visite, quelques secondes plus tard. Une page envoie ses mesures toutes
+    les dix secondes depuis son propre départ, et reçoit la première image après
+    les autres d'un instant."""
+    toutes = list(lignes)
+    for visite, secondes in decalages.items():
+        for ligne in lignes:
+            if ligne["quoi"] != "mesures":
+                continue
+            quand = datetime.fromisoformat(ligne["quand"]) + timedelta(seconds=secondes)
+            toutes.append({**ligne, "visite": visite, "quand": quand.isoformat()})
+    return sorted(toutes, key=lambda ligne: datetime.fromisoformat(ligne["quand"]))
+
+
+def _rejouer(
+    tmp_path: Path, pages: dict[str, float] | None = None, **autres: Any
+) -> tuple[CapteurDate, list[dict[str, Any]]]:
     reglages = Settings(
         journal_dir=tmp_path / "sessions", boite_noire_dir=tmp_path / "bn", **autres
     )
     reglages.journal_dir.mkdir(parents=True)
     lignes = [json.loads(brute) for brute in ECHANTILLON.read_text(encoding="utf-8").splitlines()]
+    lignes = _avec_pages(lignes, pages or {})
     # La précondition: l'échantillon couvre bien la soirée, ses trois gros trous compris.
     pires = {
         ligne["quand"][11:19]: max(ligne["vu"]["arrivées"][2], ligne["vu"]["attente"])
@@ -136,6 +154,28 @@ def test_la_pause_d_un_gel_vient_des_reglages(tmp_path: Path) -> None:
     capteur, _ = _rejouer(tmp_path, boite_noire_pause_gel_s=300.0)
 
     assert _prises(capteur) == [("00:33:24", "gel", 1488.0)]
+
+
+def test_a_trois_pages_chaque_chargement_est_un_demarrage(tmp_path: Path) -> None:
+    """Une salle a jusqu'à quatre joueurs. La première page qui voit le jeu tourner
+    finit le démarrage de la salle, mais les deux autres reçoivent leur première
+    image un instant après, et leur fenêtre porte le même trou de 33 s. Pris pour
+    un gel, il faisait une capture « gel » de salle à 00:33:20, et sa minute de
+    pause taisait le vrai trou de 1 488 ms qui suit: le défaut du 27 novembre,
+    pour une salle de plusieurs joueurs."""
+    capteur, releves = _rejouer(tmp_path, pages={"seconde": 3, "troisieme": 5})
+
+    prises = _prises(capteur)
+    # Rouge avant: ("00:33:18", "gel", 33386.0) puis ("00:33:20", "gel", 33386.0),
+    # et aucune capture de 1 488 ms.
+    assert [prise for prise in prises if prise[2] == 33386.0] == []
+    assert {gel for _, _, gel in prises} == {1488.0, 543.0}
+    demarrages = [ligne for ligne in releves if ligne["quoi"] == "démarrage"]
+    assert [(ligne["quand"][11:19], ligne["chute"]["gel_ms"]) for ligne in demarrages] == [
+        ("00:33:14", 33386.0),
+        ("00:33:18", 33386.0),
+        ("00:33:20", 33386.0),
+    ]
 
 
 def test_le_trou_de_fin_de_match_reste_sous_le_seuil(tmp_path: Path) -> None:

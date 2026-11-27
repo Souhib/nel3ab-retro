@@ -94,15 +94,25 @@ trou du chargement, compte encore comme démarrage. Un trou de démarrage au-des
 est rendu une fois, avec la cause « démarrage »: le service l'écrit sans capture,
 et il n'ouvre aucune pause.
 
-Ce que ça coûte: un vrai gel dans la première fenêtre d'images d'un jeu n'est plus
-capturé. Et une fenêtre qui commence avant un `changement` porte encore des images
-de l'ancien jeu: elle ne met pas fin au démarrage, même si elle a une cadence.
+Le démarrage se ferme aussi PAGE PAR PAGE. Une salle a jusqu'à quatre joueurs,
+et chaque page reçoit sa première image un instant après la première: sa fenêtre
+porte le même trou de chargement. Rejoué le 27 novembre 2026 sur les mesures de
+Smash recopiées pour trois pages, la deuxième et la troisième prenaient une
+capture « gel » de 33 386 ms, et la minute de pause de la salle taisait le vrai
+trou de 1 488 ms qui suivait. Chaque page reste donc en démarrage jusqu'à sa
+propre première fenêtre où elle voit le jeu tourner, comprise, pourvu qu'elle
+vienne dans les trente secondes (`fenetre`) après celle qui a fermé le démarrage
+de la salle. Une page arrivée plus tard en pleine partie n'a pas de chargement.
+
+Ce que ça coûte: un vrai gel dans la première fenêtre d'images de chaque page n'est
+plus capturé. Et une fenêtre qui commence avant un `changement` porte encore des
+images de l'ancien jeu: elle ne met pas fin au démarrage, même si elle a une cadence.
 """
 
 import json
 from collections import deque
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, tzinfo
 from pathlib import Path
 from statistics import median
@@ -165,13 +175,18 @@ class _Mesure:
 
 @dataclass
 class _Partie:
-    """Le jeu d'une salle, et s'il en est encore au démarrage."""
+    """Le jeu d'une salle, et ce qui en est encore au démarrage."""
 
     jeu: str
+    #: Vrai tant qu'aucune page de la salle n'a vu le jeu tourner.
     demarrage: bool
     #: L'instant du `changement` qui a ouvert le démarrage. Une fenêtre qui commence
     #: avant lui porte des images de l'ancien jeu et ne le ferme pas.
     depuis: datetime | None = None
+    #: La fin de la fenêtre qui a fermé le démarrage de la salle.
+    fin: datetime | None = None
+    #: Les pages qui ont vu le jeu tourner depuis: leur démarrage est fini.
+    en_jeu: set[str] = field(default_factory=set)
 
 
 def _nombre(valeur: object) -> float | None:
@@ -265,7 +280,7 @@ class Declencheur:
             numero = None
         visite = str(ligne.get("visite") or "")
         self._salle_de[visite] = numero
-        demarrage = self._demarrage(numero, str(salle["jeu"]), cadence, quand, vu)
+        demarrage = self._demarrage(numero, visite, str(salle["jeu"]), cadence, quand, vu)
         arrivees = vu.get("arrivées")
         pire = _nombre(arrivees[2]) if isinstance(arrivees, list) and len(arrivees) == 3 else None
         # L'attente de l'image suivante dit le gel PENDANT qu'il dure; les
@@ -333,20 +348,23 @@ class Declencheur:
     def _demarrage(
         self,
         numero: int | None,
+        visite: str,
         jeu: str,
         cadence: float | None,
         quand: datetime,
         vu: dict[str, Any],
     ) -> bool:
-        """Vrai si cette fenêtre tombe dans le démarrage du jeu de sa salle.
+        """Vrai si cette fenêtre tombe dans le démarrage du jeu, pour cette page.
 
-        La première fenêtre où la page voit le jeu tourner ferme le démarrage, et
+        La première fenêtre où une page voit le jeu tourner ferme son démarrage, et
         elle en fait encore partie: c'est elle qui porte le trou entre « pas
-        d'image » et la première image. La page voit le jeu tourner quand elle
-        mesure une cadence, ou quand elle attend une image EN PARTIE: elle n'écrit
-        `attente` qu'une fois le démarrage fini de son côté (`vitals.ts`). Une
-        page figée au milieu d'une partie, comme Sonic le 21 novembre 2026, n'a
-        plus de cadence mais attend: c'est un gel, pas un chargement.
+        d'image » et la première image. La première de toutes ferme celui de la
+        salle; les autres pages ont encore `fenetre` pour fermer le leur. La page
+        voit le jeu tourner quand elle mesure une cadence, ou quand elle attend une
+        image EN PARTIE: elle n'écrit `attente` qu'une fois le démarrage fini de son
+        côté (`vitals.ts`). Une page figée au milieu d'une partie, comme Sonic le
+        21 novembre 2026, n'a plus de cadence mais attend: c'est un gel, pas un
+        chargement.
         """
         en_jeu = cadence is not None or (_nombre(vu.get("attente")) or 0.0) > 0
         partie = self._parties.get(numero)
@@ -359,12 +377,17 @@ class Declencheur:
             partie = _Partie(jeu, demarrage=change or not en_jeu, depuis=quand if change else None)
             self._parties[numero] = partie
             return partie.demarrage
-        if not partie.demarrage:
+        ouvert = partie.demarrage or (
+            partie.fin is not None and quand - partie.fin <= self._fenetre
+        )
+        if not ouvert or visite in partie.en_jeu:
             return False
         duree = _nombre(vu.get("s")) or 10.0
         commence = quand - timedelta(seconds=duree)
         if en_jeu and (partie.depuis is None or commence >= partie.depuis):
-            partie.demarrage = False
+            partie.en_jeu.add(visite)
+            if partie.demarrage:
+                partie.demarrage, partie.fin = False, quand
         return True
 
     def evaluer(self, maintenant: datetime) -> list[Chute]:

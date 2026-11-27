@@ -1225,26 +1225,21 @@ mod tests {
         }
         panic!("the condition never came");
     }
+    /// Through the ingress's own accept loop, as two captures connect to
+    /// `media.sock`. The test used to rebuild that loop around `receive`, so
+    /// the release that ends a connection was its own and not the ingress's:
+    /// removed from `Ingress::bind`, it passed every test (relecture du
+    /// 2026-11-27), and a restarted capture would have fed nobody for 3 s.
     #[test]
     fn a_second_capture_feeds_nobody_while_the_first_lives() {
+        let root = tempfile::tempdir().unwrap();
         let server = room();
+        let ingress = Ingress::bind(root.path(), Arc::clone(&server)).unwrap();
         let mut viewer = watch(server.address());
         wait_for(|| server.watchers() == 1);
-        let entry = Arc::new(Entry::default());
-        let stop = Arc::new(AtomicBool::new(false));
-        let reader = |end: UnixStream, connection: u64| {
-            let (server, entry, stop) =
-                (Arc::clone(&server), Arc::clone(&entry), Arc::clone(&stop));
-            thread::spawn(move || {
-                let ended = receive(end, &server, &entry, connection, &stop);
-                entry.producers.release(connection);
-                ended
-            })
-        };
-        let (mut first, first_end) = UnixStream::pair().unwrap();
-        let (mut second, second_end) = UnixStream::pair().unwrap();
-        let first_reader = reader(first_end, 1);
-        let _second_reader = reader(second_end, 2);
+        let connect = || UnixStream::connect(root.path().join("media.sock")).unwrap();
+        let mut first = connect();
+        let mut second = connect();
         picture(&mut first, b'F', 1);
         assert_eq!(
             next_marker(&mut viewer),
@@ -1259,23 +1254,22 @@ mod tests {
             3,
             "a second capture's picture reached a viewer while the first one lived"
         );
-        assert_eq!(entry.producers.refused(), 1, "the refusal is counted");
-        // The twin: once the first has gone, the second feeds the stream.
+        assert_eq!(ingress.producers_refused(), 1, "the refusal is counted");
+        // The twin: once the first has gone, the second feeds the stream at
+        // once, long before the first's silence would have let it.
         drop(first);
-        assert_eq!(
-            first_reader.join().unwrap().unwrap_err().kind(),
-            io::ErrorKind::UnexpectedEof
-        );
+        thread::sleep(Duration::from_millis(300));
         picture(&mut second, b'F', 4);
+        thread::sleep(Duration::from_millis(100));
+        assert_eq!(
+            ingress.producers_refused(),
+            1,
+            "a closed capture kept its stream, and the second one was refused"
+        );
         assert_eq!(
             next_marker(&mut viewer),
             4,
             "the second capture took the free stream"
-        );
-        assert_eq!(
-            entry.producers.refused(),
-            1,
-            "an accepted picture is not refused"
         );
     }
     #[test]

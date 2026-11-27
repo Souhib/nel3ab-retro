@@ -14,6 +14,7 @@ receiving socket can time each packet from its write to its arrival.
 import contextlib
 import importlib.util
 import io
+import itertools
 import json
 import os
 import random
@@ -416,6 +417,126 @@ class Ending(unittest.TestCase):
         self.assertEqual(room.CaptureRestarts.NOTHING_SHOWN, capture.NOTHING_SHOWN)
         # Neither python3's own statuses nor docker exec's.
         self.assertNotIn(capture.NOTHING_SHOWN, (0, 1, 2, 120, 125, 126, 127))
+
+
+class Worker:
+    """The worker's side of « D » (ingress.rs): viewers of the half format, and
+    a key frame request handed over, then cleared, on the next « D »."""
+
+    def __init__(self, path):
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.server.bind(str(path))
+        self.server.listen()
+        self.lock = threading.Lock()
+        self.viewers = 0
+        self.key = False
+        self.asked = []
+        threading.Thread(target=self.serve, daemon=True).start()
+
+    def serve(self):
+        try:
+            connection, _ = self.server.accept()
+        except OSError:
+            return
+        with connection:
+            while True:
+                header = b""
+                while len(header) < 13:
+                    try:
+                        chunk = connection.recv(13 - len(header))
+                    except OSError:
+                        return
+                    if not chunk:
+                        return
+                    header += chunk
+                with self.lock:
+                    self.asked.append(time.monotonic())
+                    reply = struct.pack("<QBB", self.viewers, self.key, False)
+                    self.key = False
+                connection.sendall(reply)
+
+    def close(self):
+        self.server.close()
+
+
+class Demand(unittest.TestCase):
+    """WK-5: a key frame request waits for the capture's next « D »."""
+
+    def start(self, room, worker_calls, viewers=0):
+        class Recorded:
+            def __init__(self, _work):
+                pass
+
+            def update(self, wanted):
+                worker_calls.append((time.monotonic(), wanted))
+
+            def close(self):
+                return None
+
+        stop = threading.Event()
+        room.enter_context(patch.object(capture, "STOP", stop))
+        room.enter_context(patch.object(capture, "OnDemand", Recorded))
+        worker = Worker(room.root / "media.sock")
+        worker.viewers = viewers
+        room.media.close()
+        room.callback(worker.close)
+        thread = threading.Thread(target=capture.half_capture, args=(room.keys,), daemon=True)
+        room.callback(thread.join, 5)
+        room.callback(stop.set)
+        thread.start()
+        return worker
+
+    def test_a_key_frame_request_reaches_the_recorder_within_25_ms(self):
+        delays = []
+        with Room([]) as room:
+            # The test's own socket stands where the worker's media socket is.
+            (room.root / "media.sock").unlink()
+            worker = self.start(room, [])
+            for _ in range(8):
+                room.wait_for(lambda w=worker: w.asked, 2, "the capture asked")
+                with worker.lock:
+                    last = worker.asked[-1]
+                # A request raised 30 ms after a « D », as in the audit's case.
+                time.sleep(max(0.0, last + 0.03 - time.monotonic()))
+                with worker.lock:
+                    worker.key = True
+                raised = time.monotonic()
+                key = b""
+                while key != b"K":
+                    if time.monotonic() - raised > 1:
+                        raise AssertionError("no key frame request within 1 s")
+                    try:
+                        key = os.read(room.keys.fds[0], 64)
+                    except BlockingIOError:
+                        time.sleep(0.0005)
+                delays.append((time.monotonic() - raised) * 1000)
+        self.assertLess(median(delays), 25, f"{[round(d) for d in delays]} ms")
+
+    def test_the_twins_a_quiet_worker_is_still_asked_and_a_short_gap_keeps_the_half(self):
+        calls = []
+        with Room([]) as room:
+            (room.root / "media.sock").unlink()
+            worker = self.start(room, calls, viewers=1)
+            time.sleep(0.3)
+            with worker.lock:
+                worker.viewers = 0
+            time.sleep(0.04)
+            with worker.lock:
+                worker.viewers = 1
+            time.sleep(0.3)
+            with worker.lock:
+                worker.viewers = 0
+            time.sleep(0.4)
+            with worker.lock:
+                asked = list(worker.asked)
+        gaps = [b - a for a, b in itertools.pairwise(asked)]
+        # Asked at least every 110 ms, far below the capture's 1 s timeout.
+        self.assertLess(max(gaps), 0.11)
+        self.assertTrue(calls[0][1], "the first viewer starts the half format")
+        stops = [at for at, wanted in calls if not wanted]
+        # The 40 ms gap stopped nothing; the last, held 400 ms, did.
+        self.assertTrue(stops, "a half format without viewers was never stopped")
+        self.assertGreater(min(stops) - calls[0][0], 0.6, "the 40 ms gap stopped the half format")
 
 
 class Stopping(unittest.TestCase):

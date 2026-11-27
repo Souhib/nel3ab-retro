@@ -197,14 +197,27 @@ def video(half, keys, stopped=STOP, progress=None):
         stop_process(process, RECORDER_GRACE)
 
 
+# How often the capture asks the worker for half-format viewers and key frame
+# requests. The worker hands a request over only in its answer to « D »
+# (ingress.rs): at 100 ms a request waited 70 ms when raised 30 ms after a
+# « D » (test_capture_loop.py, 2026-11-27), up to 100 ms (WK-5). Each « D » is
+# 13 bytes, answered at once with 10.
+DEMAND_EVERY = 0.02
+# The half recorder stops after no viewer for this long, the former poll
+# period: asking more often never stops it on a shorter gap than before.
+HALF_HOLD = 0.1
+
+
 def half_capture(keys):
     worker = OnDemand(lambda stopped: video(True, keys, stopped))
     try:
         with connect() as control:
-            # Poll outside either picture loop. At most 100 ms is added when a
-            # viewer first requests this format; no work is spent encoding it
-            # between viewers. One second bounds a broken control connection.
+            # Poll outside either picture loop. At most DEMAND_EVERY is added
+            # when a viewer first requests this format; no work is spent
+            # encoding it between viewers. One second bounds a broken control
+            # connection.
             control.settimeout(1)
+            empty_since = None
             while not STOP.is_set():
                 send(control, b"D", b"", captured=0)
                 reply = bytearray()
@@ -216,8 +229,15 @@ def half_capture(keys):
                 count, full_key, half_key = struct.unpack("<QBB", reply)
                 keys.request(False, full_key)
                 keys.request(True, half_key)
-                worker.update(count > 0)
-                STOP.wait(0.1)
+                now = time.monotonic()
+                if count > 0:
+                    empty_since = None
+                    worker.update(True)
+                else:
+                    empty_since = now if empty_since is None else empty_since
+                    if now - empty_since >= HALF_HOLD:
+                        worker.update(False)
+                STOP.wait(DEMAND_EVERY)
     finally:
         worker.close()
 

@@ -59,6 +59,15 @@ MOTEURS = CONSOLES.processes()
 #: de l'image), donc celui que le noyau garde dans `comm`.
 ENTOURAGE = ("nel3ab-worker", "nel3ab-wf-recor", "sway", "Xwayland", "pulseaudio", "parec")
 
+#: Les voisins qui peuvent prendre la carte d'une partie, par le nom de leur
+#: processus et celui de leur parent. Jellyfin transcode en VAAPI et en Vulkan sur
+#: renderD128, la carte des salles: le 23 novembre 2026 de 19:44 à 21:33 UTC, en
+#: soirée, et les 10 et 11 novembre un transcodage avait fait passer Zelda (Switch 2)
+#: de 30 à 13-17 images par seconde. Un `ffmpeg` qui n'est pas son enfant n'est
+#: pas suivi. ollama, l'autre voisin, se lit dans `Racines.kfd`. On ne touche ni
+#: à l'un ni à l'autre: on les nomme.
+VOISINS = {"ffmpeg": "jellyfin"}
+
 #: Les interfaces réseau dont le débit se garde. Les ponts et les paires `veth`
 #: de Docker se comptent par dizaines sur cette machine et ne disent rien d'une
 #: partie qu'`enp6s0` et `tailscale0` ne disent pas déjà.
@@ -79,6 +88,9 @@ class Racines:
     dri: Path = Path("/sys/kernel/debug/dri/0")
     cgroup: Path = Path("/sys/fs/cgroup")
     docker: Path = Path("/var/lib/docker/containers")
+    #: Un dossier par processus qui tient la carte par ROCm (`/dev/kfd`), nommé par
+    #: son pid. Lisible par tous, root compris: c'est par lui qu'on voit ollama.
+    kfd: Path = Path("/sys/class/kfd/kfd/proc")
 
 
 @dataclass
@@ -200,8 +212,24 @@ class Releveur:
         for pid in pids:
             if tout_relire or pid not in self._roles:
                 nom = (_lire(self._r.proc / str(pid) / "comm") or "").strip()
-                self._roles[pid] = MOTEURS.get(nom) or (nom if nom in ENTOURAGE else None)
+                self._roles[pid] = (
+                    MOTEURS.get(nom)
+                    or (nom if nom in ENTOURAGE else None)
+                    or (self._voisin(pid, nom) if nom in VOISINS else None)
+                )
         return {pid: role for pid, role in self._roles.items() if role is not None}
+
+    def _voisin(self, pid: int, nom: str) -> str | None:
+        """« jellyfin/ffmpeg » pour un `ffmpeg` enfant de Jellyfin, sinon rien.
+
+        Une lecture de `stat` et une de `comm` de plus, pour un processus `ffmpeg`
+        nouveau seulement: le coût du relevé ne bouge pas sans transcodage.
+        """
+        pere = lecture.parent(_lire(self._r.proc / str(pid) / "stat") or "")
+        if pere is None:
+            return None
+        nom_pere = (_lire(self._r.proc / str(pere) / "comm") or "").strip()
+        return f"{nom_pere}/{nom}" if nom_pere == VOISINS[nom] else None
 
     def _instant(self, t: float) -> _Instant:
         instant = _Instant(t=t, cpu=lecture.temps_cpu(_lire(self._r.proc / "stat") or ""))
@@ -301,8 +329,11 @@ class Releveur:
             objets = lecture.objets_gpu(_lire(r.dri / "amdgpu_gem_info") or "")
         moteurs: list[dict[str, Any]] = []
         entourage: dict[str, dict[str, Any]] = {}
+        voisins = self._voisins_gpu()
         for pid, infos in instant.processus.items():
-            if infos["role"] in MOTEURS.values():
+            if infos["role"] == "jellyfin/ffmpeg":
+                voisins["jellyfin_ffmpeg"].append({"pid": pid})
+            elif infos["role"] in MOTEURS.values():
                 moteur: dict[str, Any] = {"pid": pid, "moteur": infos["role"]}
                 if "cgroup" in infos:
                     conteneur = self._conteneur(infos["cgroup"])
@@ -320,7 +351,29 @@ class Releveur:
                     role["objets_gpu"] = role.get("objets_gpu", 0) + objets[pid]["objets"]
         ligne["moteurs"] = moteurs
         ligne["entourage"] = entourage
+        ligne["voisins_gpu"] = voisins
         return ligne
+
+    def _voisins_gpu(self) -> dict[str, list[dict[str, Any]]]:
+        """Qui d'autre que nel3ab peut tenir la carte: ROCm, et les transcodages.
+
+        `kfd` liste les processus ROCm, root compris, et manque quand le dossier ne
+        se lit pas: un dossier illisible ne se dit pas vide. Les processus qui
+        tiennent renderD128 sans ROCm ne se voient qu'à la capture, par leurs
+        descripteurs, et ceux de root, comme ollama, n'y sont pas lisibles.
+        """
+        voisins: dict[str, list[dict[str, Any]]] = {}
+        try:
+            pids = sorted(int(nom) for nom in os.listdir(self._r.kfd) if nom.isdigit())
+        except OSError:
+            pids = None
+        if pids is not None:
+            voisins["kfd"] = [
+                {"pid": pid, "nom": (_lire(self._r.proc / str(pid) / "comm") or "").strip() or None}
+                for pid in pids
+            ]
+        voisins["jellyfin_ffmpeg"] = []
+        return voisins
 
     def _capteurs(self) -> dict[str, float]:
         """Les températures (°C), puissances (W) et ventilateurs (tr/min) de chaque puce."""
@@ -440,6 +493,12 @@ class Releveur:
                     round((apres.disque[pid][i] - avant.disque[pid][i]) / 1024 / duree, 1)
                     for i in (0, 1)
                 ]
+        for voisin in ligne["voisins_gpu"]["jellyfin_ffmpeg"]:
+            pid = voisin["pid"]
+            if pid in avant.processus:
+                voisin["cpu_pct"] = self._pct(
+                    apres.processus[pid]["tics"] - avant.processus[pid]["tics"], duree
+                )
         for role, infos in ligne["entourage"].items():
             total = sum(
                 apres.processus[pid]["tics"] - avant.processus[pid]["tics"]

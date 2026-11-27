@@ -13,6 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from nel3ab_control.boite_noire import releve
 from nel3ab_control.boite_noire.declencheur import Declencheur, Suiveur
 from nel3ab_control.boite_noire.releve import Racines, Releveur
 from nel3ab_control.boite_noire.service import BoiteNoire
@@ -47,7 +48,9 @@ class Machine:
             dri=racine / "dri",
             cgroup=racine / "cgroup",
             docker=racine / "docker",
+            kfd=racine / "kfd",
         )
+        self.kfd = self.r.kfd
         p = self.r.proc
         _ecrire(p / "cpuinfo", (ECHANTILLONS / "cpuinfo.txt").read_text())
         _ecrire(p / "loadavg", "3.10 3.33 3.19 3/900 12345\n")
@@ -567,6 +570,99 @@ def test_un_noyau_illisible_reste_absent(tmp_path: Path) -> None:
 
     assert "noyau" not in premier
     assert "noyau" not in second
+
+
+# --- Les voisins de la carte ---------------------------------------------------
+#
+# ollama (ROCm, /dev/kfd) et Jellyfin (VAAPI sur renderD128) peuvent prendre la
+# carte d'une partie. Le 22 novembre 2026, de 15:25 à 15:27 UTC, elle était
+# occupée à 93-98 % sans aucun moteur nel3ab, et rien ne disait par qui.
+
+JELLYFIN, FFMPEG, FFMPEG_ORPHELIN, OLLAMA = 5000, 5001, 5002, 1234
+
+
+def _stat_de(pid: int, nom: str, parent: int, tics: int = 0) -> str:
+    """Une ligne `stat` dont le parent (rang 4) est connu."""
+    champs = ["S", str(parent)] + ["0"] * 9 + [str(tics), "0"] + ["0"] * 23 + ["0"]
+    return f"{pid} ({nom}) " + " ".join(champs) + "\n"
+
+
+def _voisins(machine: Machine, avec_kfd: bool = True, tics: int = 0) -> None:
+    p = machine.r.proc
+    _ecrire(p / str(JELLYFIN) / "comm", "jellyfin\n")
+    _ecrire(p / str(JELLYFIN) / "stat", _stat_de(JELLYFIN, "jellyfin", 1))
+    _ecrire(p / str(FFMPEG) / "comm", "ffmpeg\n")
+    _ecrire(p / str(FFMPEG) / "stat", _stat_de(FFMPEG, "ffmpeg", JELLYFIN, tics))
+    # Le jumeau: un ffmpeg lancé à la main, enfant d'un shell, n'est pas Jellyfin.
+    _ecrire(p / str(FFMPEG_ORPHELIN) / "comm", "ffmpeg\n")
+    _ecrire(p / str(FFMPEG_ORPHELIN) / "stat", _stat_de(FFMPEG_ORPHELIN, "ffmpeg", TIERS, tics))
+    _ecrire(p / str(OLLAMA) / "comm", "ollama\n")
+    if avec_kfd:
+        (machine.kfd / str(OLLAMA)).mkdir(parents=True)
+
+
+def test_ollama_par_rocm_et_le_ffmpeg_de_jellyfin_apparaissent(tmp_path: Path) -> None:
+    machine = Machine(tmp_path)
+    _voisins(machine)
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    releveur.prendre()
+    _ecrire(machine.r.proc / str(FFMPEG) / "stat", _stat_de(FFMPEG, "ffmpeg", JELLYFIN, 150))
+    machine.avancer(1)
+    horloge.t += 2.0
+
+    second = releveur.prendre()
+
+    assert second["voisins_gpu"] == {
+        "kfd": [{"pid": OLLAMA, "nom": "ollama"}],
+        "jellyfin_ffmpeg": [{"pid": FFMPEG, "cpu_pct": 75.0}],
+    }
+    # Un voisin n'est pas de l'entourage d'une salle.
+    assert "jellyfin/ffmpeg" not in second["entourage"]
+    assert "ffmpeg" not in second["entourage"]
+
+
+def test_sans_voisin_les_listes_sont_vides_et_presentes(tmp_path: Path) -> None:
+    """Le jumeau: dossier KFD vide, pas de transcodage. Vide se dit `[]`."""
+    machine = Machine(tmp_path)
+    machine.kfd.mkdir()
+
+    ligne = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100).prendre()
+
+    assert ligne["voisins_gpu"] == {"kfd": [], "jellyfin_ffmpeg": []}
+
+
+def test_sans_pilote_kfd_la_liste_kfd_est_absente(tmp_path: Path) -> None:
+    """Le second jumeau: un dossier illisible ne se dit pas vide."""
+    machine = Machine(tmp_path)
+
+    ligne = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100).prendre()
+
+    assert ligne["voisins_gpu"] == {"jellyfin_ffmpeg": []}
+
+
+def test_les_voisins_ne_se_lisent_jamais_dans_fdinfo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Les statistiques du pilote par descripteur (`fdinfo`) n'ont pas de coût mesuré:
+    le relevé ne les ouvre pas, ni les descripteurs eux-mêmes, toutes les deux
+    secondes. Les détenteurs de la carte se lisent à la capture seulement."""
+    machine = Machine(tmp_path)
+    _voisins(machine)
+    lus: list[str] = []
+    vrai = releve._lire
+
+    def espion(chemin: Path) -> str | None:
+        lus.append(str(chemin))
+        return vrai(chemin)
+
+    monkeypatch.setattr(releve, "_lire", espion)
+    releveur = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100)
+    ligne = releveur.prendre()
+
+    assert ligne["voisins_gpu"]["jellyfin_ffmpeg"] == [{"pid": FFMPEG}]
+    assert lus, "l'espion voit les lectures"
+    assert not [c for c in lus if {"fd", "fdinfo"} & set(Path(c).parts)], lus
 
 
 def test_un_pid_disparu_est_oublie(tmp_path: Path) -> None:

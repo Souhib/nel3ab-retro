@@ -263,6 +263,14 @@ def fil(stat: str, status: str = "") -> dict[str, Any] | None:
     }
 
 
+def parent(stat: str) -> int | None:
+    """Le pid du parent, quatrième champ de `/proc/<pid>/stat`, après le nom."""
+    try:
+        return int(stat[stat.rindex(")") + 2 :].split()[1])
+    except (ValueError, IndexError):
+        return None
+
+
 def io_processus(texte: str) -> tuple[int, int] | None:
     """Les octets qu'un processus a lus et écrits sur le disque, d'après `/proc/<pid>/io`."""
     lus = re.search(r"^read_bytes:\s+(\d+)", texte, re.M)

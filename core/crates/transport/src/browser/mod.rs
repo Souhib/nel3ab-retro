@@ -430,6 +430,12 @@ pub struct BrowserServer {
     /// images vers LUI ou vers quelqu'un en pleine taille, et c'est toute la
     /// différence entre « sa liaison lâche » et « la nôtre ».
     half_dropped: Arc<std::sync::atomic::AtomicU64>,
+    /// Les morceaux de son refusés à un auditeur dont la file était pleine.
+    ///
+    /// Jetés sans compteur jusqu'au 27 novembre 2026 (audit SON-9): le
+    /// relevé des spectateurs ne couvre que l'image, et un trou de son côté
+    /// serveur ne se lisait nulle part.
+    sound_refused: std::sync::atomic::AtomicU64,
     joined: Arc<std::sync::atomic::AtomicBool>,
     wants_key: Arc<std::sync::atomic::AtomicBool>,
     /// Which game a player asked for, if one did, as a position in this
@@ -676,6 +682,7 @@ impl BrowserServer {
             address: bound,
             dropped,
             half_dropped,
+            sound_refused: std::sync::atomic::AtomicU64::new(0),
             joined,
             wants_key,
             wants_rom,
@@ -842,7 +849,13 @@ impl BrowserServer {
                     delivered = true;
                     true
                 }
-                Err(TrySendError::Full(_)) => true,
+                // Gardé, et compté: un auditeur en retard veut le présent, pas
+                // une file de passé, mais ce qu'il n'entend pas doit se lire.
+                Err(TrySendError::Full(_)) => {
+                    self.sound_refused
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    true
+                }
                 Err(TrySendError::Disconnected(_)) => false,
             }
         });
@@ -1339,6 +1352,13 @@ impl BrowserServer {
     #[must_use]
     pub fn half_dropped(&self) -> u64 {
         self.half_dropped.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Combien de morceaux de son un auditeur trop lent n'a pas pu prendre.
+    #[must_use]
+    pub fn sound_refused(&self) -> u64 {
+        self.sound_refused
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 }
 
@@ -3640,6 +3660,38 @@ mod tests {
             "an empty room must not look like congestion"
         );
         assert!(!server.is_watched());
+    }
+
+    /// Un auditeur dont la file ne se vide jamais perd du son, et c'est compté.
+    ///
+    /// Sa file tient deux morceaux: sur cinq offerts, trois sont refusés. Ils
+    /// étaient jetés sans compteur jusqu'au 27 novembre 2026 (audit SON-9).
+    #[test]
+    fn a_listener_that_never_reads_has_its_refused_chunks_counted() {
+        let server = detached(Vec::new());
+        let (sender, _never_read) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        server.listeners.lock().unwrap().push(Viewer::new(sender));
+        for tick in 0..5_u64 {
+            let _ = server.send_sound(tick * 10_000, &[0; 1920]);
+        }
+        assert_eq!(
+            server.sound_refused(),
+            3,
+            "the chunks a full listener could not take were not counted"
+        );
+    }
+
+    /// Le jumeau: un auditeur qui suit ne se voit rien refuser.
+    #[test]
+    fn a_listener_that_keeps_up_has_nothing_refused() {
+        let server = detached(Vec::new());
+        let (sender, read) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        server.listeners.lock().unwrap().push(Viewer::new(sender));
+        for tick in 0..5_u64 {
+            assert!(server.send_sound(tick * 10_000, &[0; 1920]));
+            assert!(read.try_recv().is_ok(), "the chunk reached the listener");
+        }
+        assert_eq!(server.sound_refused(), 0);
     }
 
     #[test]

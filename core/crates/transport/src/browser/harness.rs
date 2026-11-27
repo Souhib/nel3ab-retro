@@ -55,6 +55,7 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Queued>>) -> BrowserS
         rumbles: Arc::new(Mutex::new([0; PORTS])),
         dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         half_dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        sound_refused: std::sync::atomic::AtomicU64::new(0),
         joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         wants_rom: Arc::new(Mutex::new(None)),

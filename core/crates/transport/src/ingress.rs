@@ -1337,9 +1337,27 @@ mod tests {
         );
         stop.store(true, Ordering::Relaxed);
     }
-    /// The capture clock in microseconds, as `capture.py` stamps a packet.
+    /// The capture clock in microseconds, as the worker reads it. Good for a
+    /// gap, which needs only one clock; an age needs [`stamp_as_capture_does`].
     fn stamp_now() -> u64 {
         u64::try_from(capture_clock().unwrap().as_micros()).unwrap()
+    }
+    /// The capture clock in microseconds, as `capture.py` stamps a packet: a
+    /// fresh `python3` reading `time.monotonic_ns() // 1000`, the expression of
+    /// its `send`. Read through the worker's own function, a wrong clock would
+    /// agree with itself, and the age test could not fail (relecture du
+    /// 2026-11-27: on `CLOCK_REALTIME`, it passed).
+    fn stamp_as_capture_does() -> u64 {
+        let out = std::process::Command::new("python3")
+            .args(["-c", "import time; print(time.monotonic_ns() // 1000)"])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "python3 could not read its clock");
+        String::from_utf8(out.stdout)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap()
     }
     /// One packet of `kind`, `size` bytes, a key frame when `key`.
     fn packet(client: &mut UnixStream, kind: u8, captured: u64, size: usize, key: bool) {
@@ -1476,25 +1494,39 @@ mod tests {
     #[test]
     fn the_age_at_the_ingress_is_read_on_the_capture_clock() {
         let (_root, ingress, mut client) = capture();
+        let before = Instant::now();
+        let stamped = stamp_as_capture_does();
         for _ in 0..10 {
-            packet(&mut client, b'F', stamp_now() - 40_000, 1000, false);
+            packet(&mut client, b'F', stamped - 40_000, 1000, false);
         }
         let report = settled(&ingress);
+        // The stamp was read after `before`, and the packets arrived before
+        // now: their age lies between 40 ms and 40 ms plus all of that.
+        let bound = (before.elapsed() + Duration::from_millis(40)).as_secs_f64() * 1000.0;
         let age = report.full.age.expect("the ingress measured no age");
         assert_eq!(report.full.packets, 10);
         assert!(
-            (40.0..80.0).contains(&age.p50),
-            "a packet stamped 40 ms ago read {} ms old",
-            age.p50
+            age.p50 >= 40.0 && age.max <= bound,
+            "a packet the capture's clock stamped 40 ms ago read {} ms old, \
+             not within 40 to {bound:.0} ms",
+            age.max
         );
         // The twin: a fresh stamp is young, and a stamp from the future is no
         // age at all rather than zero.
+        let before = Instant::now();
+        let stamped = stamp_as_capture_does();
         for _ in 0..10 {
-            packet(&mut client, b'F', stamp_now(), 1000, false);
+            packet(&mut client, b'F', stamped, 1000, false);
         }
         let report = settled(&ingress);
-        assert!(report.full.age.unwrap().max < 40.0);
-        packet(&mut client, b'F', stamp_now() + 10_000_000, 1000, false);
+        assert!(report.full.age.unwrap().max <= before.elapsed().as_secs_f64() * 1000.0);
+        packet(
+            &mut client,
+            b'F',
+            stamp_as_capture_does() + 10_000_000,
+            1000,
+            false,
+        );
         let report = settled(&ingress);
         assert_eq!(report.full.packets, 1, "the packet itself was read");
         assert!(

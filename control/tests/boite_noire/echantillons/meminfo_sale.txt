@@ -1,0 +1,5 @@
+MemTotal:       65725176 kB
+MemAvailable:   57107504 kB
+Dirty:            116808 kB
+Writeback:             0 kB
+WritebackTmp:          0 kB

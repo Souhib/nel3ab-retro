@@ -397,6 +397,149 @@ def test_un_processus_qui_change_de_nom_sans_changer_de_pid_est_vu_sous_trente_s
     assert [moteur["pid"] for moteur in releveur.prendre()["moteurs"]] == [RYUJINX]
 
 
+# --- Le temps volé -------------------------------------------------------------
+#
+# Le 26 novembre 2026, rien dans un relevé ne disait si un fil de Ryujinx avait
+# attendu un cœur, ni si la machine avait compacté sa mémoire pendant un trou: un
+# gel causé par la machine ressemblait à un gel du jeu.
+
+
+def _voler(machine: Machine, file_ns: int, compact: int, pression_us: int) -> None:
+    """Les compteurs du temps volé, à une valeur connue."""
+    p = machine.r.proc
+    _ecrire(
+        p / str(RYUJINX) / "task" / str(RENDU) / "schedstat",
+        f"{93 * 10_000_000} {file_ns} 4242\n",
+    )
+    _ecrire(
+        p / "vmstat",
+        f"nr_free_pages 1423206\npswpin 488907\nallocstall_normal 300\n"
+        f"allocstall_movable 15653\npgmajfault 19387135\ncompact_stall {compact}\n"
+        "thp_fault_fallback 3966\n",
+    )
+    for genre in ("cpu", "memory", "io"):
+        _ecrire(
+            p / "pressure" / genre,
+            f"some avg10=1.95 avg60=1.40 avg300=1.25 total={pression_us}\n"
+            f"full avg10=0.00 avg60=0.00 avg300=0.00 total={pression_us // 2}\n",
+        )
+    _ecrire(
+        machine.r.cgroup / f"system.slice/docker-{DOCKER_ID}.scope" / "cpu.pressure",
+        f"some avg10=0.01 avg60=0.35 avg300=0.47 total={2 * pression_us}\n"
+        f"full avg10=0.01 avg60=0.33 avg300=0.42 total={pression_us}\n",
+    )
+
+
+def _deux_releves_voles(tmp_path: Path) -> tuple[Machine, dict, dict]:
+    """Deux relevés à deux secondes d'écart, avec le temps volé qui avance."""
+    machine = Machine(tmp_path)
+    _voler(machine, file_ns=1_000_000_000, compact=10, pression_us=4_000_000)
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    premier = releveur.prendre()
+    machine.avancer(1)
+    _voler(machine, file_ns=1_050_000_000, compact=13, pression_us=4_250_000)
+    horloge.t += 2.0
+    return machine, premier, releveur.prendre()
+
+
+def test_l_attente_en_file_d_un_fil_se_dit_en_ms_par_seconde(tmp_path: Path) -> None:
+    """50 ms d'attente en deux secondes: 25 ms par seconde."""
+    _, _, second = _deux_releves_voles(tmp_path)
+
+    rendu = next(fil for fil in second["moteurs"][0]["fils"] if fil["tid"] == RENDU)
+    assert rendu["file_ms_s"] == 25.0
+
+
+def test_un_fil_sans_schedstat_lisible_n_a_pas_d_attente_en_file(tmp_path: Path) -> None:
+    """Le jumeau: le second fil n'a pas de `schedstat`, et un champ absent n'est pas 0."""
+    machine, _, second = _deux_releves_voles(tmp_path)
+    gpu = next(fil for fil in second["moteurs"][0]["fils"] if fil["tid"] == AUTRE_FIL)
+    assert "file_ms_s" not in gpu
+
+    # Et un `schedstat` qui devient illisible ne rend pas zéro non plus.
+    _ecrire(machine.r.proc / str(RYUJINX) / "task" / str(RENDU) / "schedstat", "illisible\n")
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    releveur.prendre()
+    horloge.t += 2.0
+    rendu = next(f for f in releveur.prendre()["moteurs"][0]["fils"] if f["tid"] == RENDU)
+    assert "file_ms_s" not in rendu
+
+
+def test_les_compactions_de_la_memoire_se_comptent_par_releve(tmp_path: Path) -> None:
+    _, premier, second = _deux_releves_voles(tmp_path)
+
+    assert "vmstat" not in premier
+    assert second["vmstat"] == {
+        "compact_stall": 3,
+        "allocstall_normal": 0,
+        "allocstall_movable": 0,
+        "pgmajfault": 0,
+        "pswpin": 0,
+        "thp_fault_fallback": 0,
+    }
+
+
+def test_la_pression_se_dit_en_ms_attendues_pendant_le_releve(tmp_path: Path) -> None:
+    """`total=` compte des microsecondes depuis le démarrage: 250 000 µs de plus
+    font 250 ms d'attente pendant le relevé, pour la machine comme pour le
+    conteneur du moteur."""
+    _, _, second = _deux_releves_voles(tmp_path)
+
+    assert second["pression_ms"] == {
+        "cpu": {"some": 250.0, "full": 125.0},
+        "memory": {"some": 250.0, "full": 125.0},
+        "io": {"some": 250.0, "full": 125.0},
+    }
+    assert second["moteurs"][0]["cgroup_pression_ms"] == {"some": 500.0, "full": 250.0}
+
+
+def test_sans_ces_fichiers_le_releve_ne_dit_rien_du_temps_vole(tmp_path: Path) -> None:
+    """Le jumeau des trois précédents: la machine des autres essais n'a ni vmstat ni
+    schedstat ni `cpu.pressure` de conteneur, et sa pression n'a qu'une ligne
+    `some`, dont le total ne bouge pas. Le zéro de `some` est mesuré; `full`, qui
+    n'est pas écrit, reste absent."""
+    _, _, second = _deux_releves(tmp_path)
+
+    assert "vmstat" not in second
+    assert second["pression_ms"] == {genre: {"some": 0.0} for genre in ("cpu", "memory", "io")}
+    assert "cgroup_pression_ms" not in second["moteurs"][0]
+    assert all("file_ms_s" not in fil for fil in second["moteurs"][0]["fils"])
+
+
+def test_un_compteur_lu_seulement_au_second_releve_n_a_pas_d_ecart(tmp_path: Path) -> None:
+    """Le jumeau des écarts: un compteur que la première lecture n'a pas vu n'a pas
+    d'écart. Compter depuis zéro rendrait ici 56 369 compactions et une pression
+    de toute la vie de la machine en deux secondes."""
+    machine = Machine(tmp_path)
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    _ecrire(machine.r.proc / "vmstat", "pswpin 488907\n")
+    releveur.prendre()
+    machine.avancer(1)
+    _voler(machine, file_ns=1_050_000_000, compact=56369, pression_us=4_250_000)
+    horloge.t += 2.0
+
+    second = releveur.prendre()
+
+    assert second["vmstat"] == {"pswpin": 0}
+    # La ligne `full` n'existait pas à la première lecture: seul `some` a un écart.
+    assert second["pression_ms"] == {genre: {"some": 4250.0} for genre in ("cpu", "memory", "io")}
+    assert "cgroup_pression_ms" not in second["moteurs"][0]
+    rendu = next(fil for fil in second["moteurs"][0]["fils"] if fil["tid"] == RENDU)
+    assert "file_ms_s" not in rendu
+
+
+def test_les_pages_sales_se_relevent_a_chaque_releve(tmp_path: Path) -> None:
+    machine = Machine(tmp_path)
+    _ecrire(machine.r.proc / "meminfo", (ECHANTILLONS / "meminfo_sale.txt").read_text())
+
+    ligne = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100).prendre()
+
+    assert ligne["pages_sales_mio"] == {"sales": 114, "ecriture": 0}
+
+
 def test_un_pid_disparu_est_oublie(tmp_path: Path) -> None:
     import shutil
 

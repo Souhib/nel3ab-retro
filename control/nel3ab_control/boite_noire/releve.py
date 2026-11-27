@@ -93,13 +93,38 @@ class _Instant:
     disque: dict[int, tuple[int, int]] = field(default_factory=dict)
     reseau: dict[str, tuple[int, int]] = field(default_factory=dict)
     soi: int | None = None
+    #: Les compteurs de mémoire de `/proc/vmstat` (`lecture.VMSTAT_GARDES`).
+    vmstat: dict[str, int] = field(default_factory=dict)
+    #: Par genre, les moyennes sur dix secondes et les totaux en microsecondes.
+    pression: dict[str, dict[str, float]] = field(default_factory=dict)
+    pression_totale: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: Le `cpu.pressure` du cgroup de chaque moteur, en totaux.
+    cgroups_pression: dict[int, dict[str, int]] = field(default_factory=dict)
 
 
 def _lire(chemin: Path) -> str | None:
+    """Le texte d'un fichier, ou rien s'il ne se lit pas.
+
+    Par `os.open` et `os.read` plutôt que `Path.read_text`, pour que le
+    `schedstat` de chaque fil ne rallonge pas le relevé. Mesuré le 27 novembre
+    2026 sur lgf au repos, un processus de 123 fils pris pour moteur, en huit
+    tours alternés de vingt-cinq relevés, deux fois: médiane d'un relevé 18,9 ms
+    avant ce changement, 22,0 et 22,3 ms avec le `schedstat` lu par `read_text`,
+    18,5 et 18,4 ms ainsi. Le relevé reste sous les 30 ms qu'on s'est fixés.
+    """
     try:
-        return chemin.read_text(encoding="utf-8", errors="replace")
+        fd = os.open(chemin, os.O_RDONLY | os.O_CLOEXEC)
     except OSError:
         return None
+    try:
+        morceaux: list[bytes] = []
+        while morceau := os.read(fd, 65536):
+            morceaux.append(morceau)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+    return b"".join(morceaux).decode("utf-8", errors="replace")
 
 
 class Releveur:
@@ -187,6 +212,11 @@ class Releveur:
         }
         soi = lecture.fil(_lire(self._r.proc / str(self._soi) / "stat") or "")
         instant.soi = soi["tics"] if soi else None
+        instant.vmstat = lecture.vmstat(_lire(self._r.proc / "vmstat") or "")
+        for genre in ("cpu", "memory", "io"):
+            texte = _lire(self._r.proc / "pressure" / genre) or ""
+            instant.pression[genre] = lecture.pression(texte)
+            instant.pression_totale[genre] = lecture.pression_totale(texte)
         for pid, role in self._scanner().items():
             base = self._r.proc / str(pid)
             etat = lecture.fil(_lire(base / "stat") or "")
@@ -199,11 +229,15 @@ class Releveur:
             chemin = lecture.cgroup_du_processus(_lire(base / "cgroup") or "")
             if chemin:
                 instant.processus[pid]["cgroup"] = chemin
-                compteurs = lecture.cpu_stat(
-                    _lire(self._r.cgroup / chemin.lstrip("/") / "cpu.stat") or ""
-                )
+                dossier = self._r.cgroup / chemin.lstrip("/")
+                compteurs = lecture.cpu_stat(_lire(dossier / "cpu.stat") or "")
                 if compteurs:
                     instant.cgroups[pid] = compteurs
+                # L'attente de processeur du conteneur seul: celle de la machine
+                # mélange tous ses services.
+                pression = lecture.pression_totale(_lire(dossier / "cpu.pressure") or "")
+                if pression:
+                    instant.cgroups_pression[pid] = pression
             disque = lecture.io_processus(_lire(base / "io") or "")
             if disque:
                 instant.disque[pid] = disque
@@ -220,6 +254,9 @@ class Releveur:
                 continue
             etat = lecture.fil(_lire(tache / "stat") or "", _lire(tache / "status") or "")
             if etat:
+                file_ns = lecture.attente_en_file_ns(_lire(tache / "schedstat") or "")
+                if file_ns is not None:
+                    etat["file_ns"] = file_ns
                 fils[int(tache.name)] = etat
         return fils
 
@@ -236,19 +273,20 @@ class Releveur:
 
     def _absolus(self, instant: _Instant, avec_allocateur: bool) -> dict[str, Any]:
         r = self._r
+        meminfo = _lire(r.proc / "meminfo") or ""
         ligne: dict[str, Any] = {
             "cpu": {
                 "mhz": lecture.frequences(_lire(r.proc / "cpuinfo") or ""),
                 "charge": (_lire(r.proc / "loadavg") or "").split()[:3],
             },
-            "memoire_dispo_mio": lecture.memoire_disponible_mio(_lire(r.proc / "meminfo") or ""),
-            "pression": {
-                genre: lecture.pression(_lire(r.proc / "pressure" / genre) or "")
-                for genre in ("cpu", "memory", "io")
-            },
+            "memoire_dispo_mio": lecture.memoire_disponible_mio(meminfo),
+            "pression": instant.pression,
             "capteurs": self._capteurs(),
             "gpu": self._gpu(),
         }
+        sales = lecture.pages_sales_mio(meminfo)
+        if sales:
+            ligne["pages_sales_mio"] = sales
         objets: dict[int, dict[str, int]] = {}
         if avec_allocateur:
             allocateur = lecture.allocateur_vram(_lire(r.dri / "amdgpu_vram_mm") or "")
@@ -348,6 +386,22 @@ class Releveur:
         }
         if avant.soi is not None and apres.soi is not None:
             ligne.setdefault("boite_noire", {})["cpu_pct"] = self._pct(apres.soi - avant.soi, duree)
+        # Le temps volé, en écarts par relevé. Un compteur absent d'une des deux
+        # lectures reste absent: zéro voudrait dire « rien ne s'est passé ».
+        memoire = _ecarts_communs(avant.vmstat, apres.vmstat)
+        if memoire:
+            ligne["vmstat"] = memoire
+        pression = {
+            genre: {
+                cle: round(valeur / 1000, 1)
+                for cle, valeur in _ecarts_communs(
+                    avant.pression_totale.get(genre, {}), totaux
+                ).items()
+            }
+            for genre, totaux in apres.pression_totale.items()
+        }
+        if any(pression.values()):
+            ligne["pression_ms"] = {genre: ms for genre, ms in pression.items() if ms}
         for moteur in ligne["moteurs"]:
             pid = moteur["pid"]
             if pid in avant.processus:
@@ -368,6 +422,13 @@ class Releveur:
                         (b.get("throttled_usec", 0) - a.get("throttled_usec", 0)) / 1000, 1
                     ),
                 }
+            attendu = _ecarts_communs(
+                avant.cgroups_pression.get(pid, {}), apres.cgroups_pression.get(pid, {})
+            )
+            if attendu:
+                moteur["cgroup_pression_ms"] = {
+                    cle: round(valeur / 1000, 1) for cle, valeur in attendu.items()
+                }
             if pid in avant.disque and pid in apres.disque:
                 moteur["disque_kio_s"] = [
                     round((apres.disque[pid][i] - avant.disque[pid][i]) / 1024 / duree, 1)
@@ -387,9 +448,17 @@ class Releveur:
         apres: dict[int, dict[str, Any]],
         duree: float,
     ) -> list[dict[str, Any]]:
-        """Les fils les plus occupés, avec leur cœur et leurs préemptions par seconde."""
-        fils = [
-            {
+        """Les fils les plus occupés, avec leur cœur et leurs préemptions par seconde.
+
+        `file_ms_s` dit combien de millisecondes par seconde le fil a attendu un
+        cœur alors qu'il était prêt (`run_delay`). Une préemption forcée compte
+        les fois; ce nombre compte le temps.
+        """
+        fils: list[dict[str, Any]] = []
+        for tid, etat in apres.items():
+            if tid not in avant:
+                continue
+            un: dict[str, Any] = {
                 "nom": etat["nom"],
                 "tid": tid,
                 "cpu_pct": self._pct(etat["tics"] - avant[tid]["tics"], duree),
@@ -399,11 +468,16 @@ class Releveur:
                 ),
                 "attentes_s": round((etat["attentes"] - avant[tid]["attentes"]) / duree, 1),
             }
-            for tid, etat in apres.items()
-            if tid in avant
-        ]
+            if "file_ns" in etat and "file_ns" in avant[tid]:
+                un["file_ms_s"] = round((etat["file_ns"] - avant[tid]["file_ns"]) / 1e6 / duree, 1)
+            fils.append(un)
         fils.sort(key=lambda un: -un["cpu_pct"])
         return fils[: self._fils_gardes]
 
     def _pct(self, tics: int, duree: float) -> float:
         return round(100 * tics / self._hz / duree, 1)
+
+
+def _ecarts_communs(avant: dict[str, int], apres: dict[str, int]) -> dict[str, int]:
+    """L'écart de chaque compteur lu dans les deux relevés, et d'aucun autre."""
+    return {cle: valeur - avant[cle] for cle, valeur in apres.items() if cle in avant}

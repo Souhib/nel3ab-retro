@@ -14,6 +14,11 @@
  * plus : elle en garde 2 ms qui s'éteignent, et le suivant s'allume en 2 ms.
  * La plus petite et pas la moyenne : on ne coupe jamais ce dont la gigue a
  * besoin.
+ *
+ * La coupe ne tourne que sous `?son=rendre` depuis la relecture du
+ * 27 novembre 2026 : sur des hoquets qui reviennent avec des tailles
+ * différentes, elle fait de chaque hoquet plus long un trou
+ * (`son-hoquets.test.ts`). Ces essais la demandent donc.
  */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MORCEAU_S, doubluresSon, regulier, rejouerSon } from "../test/banc-son";
@@ -58,7 +63,7 @@ it("rend le retard d'une rafale : la file revient à son avance sans nouveau tro
   // Dix secondes régulières, un arrêt de 300 ms juste après, puis trente
   // secondes régulières : la forme d'un hoquet de liaison.
   const arrivees = retenue(regulier(0, 41_000), 10_020, 300);
-  const r = await rejouerSon(etat, arrivees);
+  const r = await rejouerSon(etat, arrivees, { rendre: true });
   const dit = resume(r);
   // La précondition : l'arrêt a bien empilé la rafale.
   expect(
@@ -80,7 +85,7 @@ it("rend le retard d'une rafale : la file revient à son avance sans nouveau tro
 it("ne coupe rien sur une liaison qui tremble de ±8 ms", async () => {
   const tirage = hasard(7);
   const arrivees = regulier(0, 60_000, () => 20 + (tirage() * 2 - 1) * 8);
-  const r = await rejouerSon(etat, arrivees);
+  const r = await rejouerSon(etat, arrivees, { rendre: true });
   const dit = resume(r);
   expect((r.stats as { renduMs?: number }).renduMs, dit).toBe(0);
   // Le réancrage du début de la gigue, une fois : l'avance monte et tient.
@@ -91,7 +96,7 @@ it("tient la file quand la carte son va un peu moins vite que la salle", async (
   // Cinq cents parties par million pendant six minutes : les 180 ms qu'une
   // dérive de cinquante prend en une heure, sans un seul trou.
   const arrivees = regulier(0, 360_000);
-  const r = await rejouerSon(etat, arrivees, { derive: -500, releveMs: 60_000 });
+  const r = await rejouerSon(etat, arrivees, { derive: -500, releveMs: 60_000, rendre: true });
   const dit = resume(r);
   expect(r.stats.gaps, dit).toBe(0);
   for (const releve of r.releves.slice(1))
@@ -107,7 +112,7 @@ it("ne coupe jamais ce qui laisserait la file sous l'avance", async () => {
   // qu'une quinzaine de millisecondes devant lui. Le couper en laisserait
   // sept, sous l'avance que la gigue a gagnée.
   const arrivees = retenue(retenue(regulier(0, 20_000), 10_020, 300), 14_045, 300);
-  const r = await rejouerSon(etat, arrivees);
+  const r = await rejouerSon(etat, arrivees, { rendre: true });
   const coupes = etat.poses.filter((p) => p.duree > 0.001 && p.duree < MORCEAU_S - 1e-6);
   expect(coupes.length, `précondition: la page a rendu: ${resume(r)}`).toBeGreaterThan(5);
   const reste = coupes.map((p) => Math.round((p.at - p.maintenant - (MORCEAU_S - p.duree)) * 1000));
@@ -119,7 +124,7 @@ it("ne coupe jamais ce qui laisserait la file sous l'avance", async () => {
 
 it("éteint le morceau coupé et allume le suivant, sans marche", async () => {
   const arrivees = retenue(regulier(0, 16_000), 10_020, 300);
-  await rejouerSon(etat, arrivees);
+  await rejouerSon(etat, arrivees, { rendre: true });
   // Le premier tampon posé est l'échantillon vide du déblocage d'iOS.
   const coupe = etat.poses.findIndex((p) => p.duree > 0.001 && p.duree < MORCEAU_S - 1e-6);
   expect(coupe, "précondition: un morceau a été coupé").toBeGreaterThan(0);
@@ -139,7 +144,7 @@ it("éteint le morceau coupé et allume le suivant, sans marche", async () => {
 
 it("rend peu à peu : une coupe au plus tous les cinq morceaux", async () => {
   const arrivees = retenue(regulier(0, 20_000), 10_020, 300);
-  await rejouerSon(etat, arrivees);
+  await rejouerSon(etat, arrivees, { rendre: true });
   const coupes = etat.poses.flatMap((p, i) =>
     p.duree > 0.001 && p.duree < MORCEAU_S - 1e-6 ? [i] : [],
   );

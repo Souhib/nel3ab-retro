@@ -150,8 +150,10 @@ export type Vitals = {
      * grande de la fenêtre, en ms. Nul sans morceau. */
     file: [number, number, number] | null;
     /** Le son coupé pendant la fenêtre pour revenir à l'avance après une
-     * rafale ou une dérive d'horloge, en ms (SON-1). */
-    rendu: number;
+     * rafale ou une dérive d'horloge, en ms (SON-1). Nul quand la coupe est
+     * éteinte, ce qu'elle est sans `?son=rendre` : le relevé dit ainsi quel
+     * bras tournait. */
+    rendu: number | null;
     /** De combien le son est derrière l'image, en ms, sortie de la carte
      * comprise. Nul quand l'un des deux n'est pas encore calé. */
     écart: number | null;
@@ -309,7 +311,8 @@ export function vitals(
       trous: since(sound.gaps, wasSound?.gaps ?? 0),
       avance: Math.round(sound.leadMs),
       file: fenetre?.sound?.fileMs ?? null,
-      rendu: Math.round(since(sound.renduMs, wasSound?.renduMs ?? 0)),
+      rendu:
+        sound.renduMs === null ? null : Math.round(since(sound.renduMs, wasSound?.renduMs ?? 0)),
       écart: now.soundGapMs === null ? null : Math.round(now.soundGapMs),
       calage: now.soundSyncOn ? Math.round(now.soundSyncMs) : null,
       état: sound.state,

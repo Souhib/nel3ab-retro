@@ -293,6 +293,17 @@ describe("le son tel qu'il est entendu (SON-4)", () => {
     expect(vitals(now, now, 10_000).son.rendu).toBe(0);
   });
 
+  // Sans `?son=rendre`, la coupe est éteinte : le relevé écrit nul, pour
+  // qu'une soirée en phases alternées sache quel bras tournait. Un zéro
+  // dirait « rien à rendre », ce qui n'a pas été mesuré.
+  it("écrit nul pour une coupe éteinte, jamais zéro", () => {
+    const eteinte = snap({}, { sound: { ...snap().sound, renduMs: null } });
+    expect(vitals(eteinte, eteinte, 10_000).son.rendu, "une coupe éteinte passe pour 0 ms").toBe(
+      null,
+    );
+    expect(vitals(eteinte, null, 10_000).son.rendu).toBe(null);
+  });
+
   it("écrit l'écart du son sur l'image, et le calage quand l'option est allumée", () => {
     const allume = vitals(
       snap({}, { soundGapMs: 41.6, soundSyncMs: 38, soundSyncOn: true }),

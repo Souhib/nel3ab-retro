@@ -147,9 +147,16 @@ export type Releve = { instant: number; fileMs: [number, number, number] | null 
 export async function rejouerSon(
   etat: ReturnType<typeof doubluresSon>,
   arrivees: { capture: number; arrivee: number }[],
-  options: { derive?: number; releveMs?: number } = {},
+  options: { derive?: number; releveMs?: number; rendre?: boolean } = {},
 ) {
-  const son = new SoundStream((p) => p, 1, false);
+  // `rendre` : la coupe de SON-1, qui ne part que sous `?son=rendre`. Absent,
+  // la page décide comme dans un vrai navigateur, d'après son adresse.
+  const son = new SoundStream(
+    (p) => p,
+    1,
+    false,
+    options.rendre === undefined ? {} : { rendre: options.rendre },
+  );
   await son.start();
   const contexte = etat.contexte;
   const socket = etat.socket;

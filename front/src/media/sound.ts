@@ -74,8 +74,10 @@ export type SoundStats = {
   playedSeconds: number;
   leadMs: number;
   /** Le son rendu depuis l'ouverture, en ms : ce que la page a coupé pour
-   * revenir à son avance après une rafale ou une dérive (SON-1). */
-  renduMs: number;
+   * revenir à son avance après une rafale ou une dérive (SON-1). Nul quand
+   * la coupe est éteinte, ce qu'elle est sans `?son=rendre` : une coupe
+   * éteinte n'est pas une coupe qui n'a rien trouvé à rendre. */
+  renduMs: number | null;
   sampleRate: number;
   outputMs: number;
   browserMs: number;
@@ -102,6 +104,28 @@ export const FONDU = 0.002;
 /** Un morceau coupé au plus tous les combien. Cinq : la page rend 8 ms sur
  * 50, soit 300 ms en deux secondes environ, et chaque coupe reste isolée. */
 export const RENDU_ESPACE = 5;
+
+/**
+ * La coupe de SON-1 est-elle demandée par l'adresse (`?son=rendre`) ?
+ *
+ * Éteinte par défaut depuis la relecture du 27 novembre 2026. La coupe rend
+ * ce que la plus petite file de deux secondes a de trop. Sur une liaison dont
+ * les hoquets reviennent avec des tailles différentes, elle rend aussi la
+ * marge que le hoquet suivant, plus long, aurait prise, et ce hoquet devient
+ * un trou. En temps simulé, dix minutes de hoquets de 100 à 160 ms toutes les
+ * 0,7 à 1,3 s donnaient 31 trous avec la coupe et 2 sans. C'est la forme vue
+ * chez le joueur distant le 26 novembre 2026, dont le son n'avait eu aucun
+ * trou. Sans la coupe, la file garde la taille du plus long hoquet : plus de
+ * retard de son, et pas de trou. Le choix revient au propriétaire, après une
+ * soirée en phases alternées qui lit `son.file` et `son.trous`.
+ */
+export function rendreDeLAdresse(search: string): boolean {
+  try {
+    return new URLSearchParams(search).get("son") === "rendre";
+  } catch {
+    return false;
+  }
+}
 
 /** Ce que devient l'ordonnancement quand un morceau arrive. */
 export type Schedule = {
@@ -193,16 +217,26 @@ export class SoundStream {
   private allumer = false;
   /** Le son rendu depuis l'ouverture, en secondes. */
   private rendu = 0;
+  /** La coupe de SON-1 tourne-t-elle ? Voir `rendreDeLAdresse`. */
+  private readonly rendre: boolean;
   private volume: number;
   private deviceRate: boolean;
   private readonly url: (path: string) => string;
   private trimmer: number | null = null;
 
-  constructor(url: (path: string) => string, volume: number, deviceRate: boolean) {
+  constructor(
+    url: (path: string) => string,
+    volume: number,
+    deviceRate: boolean,
+    /** `rendre` vient de l'adresse par défaut (`?son=rendre`) : la même page
+     * sert les deux bras d'une comparaison. */
+    options: { rendre?: boolean } = {},
+  ) {
     this.url = url;
     this.volume = volume;
     this.muted = volume <= 0;
     this.deviceRate = deviceRate;
+    this.rendre = options.rendre ?? rendreDeLAdresse(globalThis.location?.search ?? "");
   }
 
   /** Builds the context, in whichever of the two shapes is asked for.
@@ -409,7 +443,7 @@ export class SoundStream {
       gaps: this.gaps,
       playedSeconds: this.played,
       leadMs: this.lead * 1000,
-      renduMs: this.rendu * 1000,
+      renduMs: this.rendre ? this.rendu * 1000 : null,
       sampleRate: this.context?.sampleRate ?? 0,
       outputMs: (this.context?.outputLatency ?? 0) * 1000,
       browserMs: (this.context?.baseLatency ?? 0) * 1000,
@@ -500,6 +534,7 @@ export class SoundStream {
     const fondu = Math.round(FONDU * RATE);
     this.depuisCoupe += 1;
     const coupe =
+      this.rendre &&
       this.aRendre > 0 &&
       !placed.gap &&
       this.depuisCoupe >= RENDU_ESPACE &&

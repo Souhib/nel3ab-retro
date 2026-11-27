@@ -6,6 +6,7 @@
  * cheaper clock.
  */
 import { Window } from "./clock";
+import { Serie, etendue } from "./fenetre";
 
 const RATE = 48000;
 const CHANNELS = 2;
@@ -159,6 +160,11 @@ export class SoundStream {
   private gaps = 0;
   private played = 0;
   private readonly lags = new Window(240);
+  /** La file réelle à chaque morceau arrivé, sur la fenêtre de relevé : ce
+   * que le son a d'avance sur la carte, `playAt − currentTime`, en ms. La
+   * cible `lead` n'en dit rien : le 26 novembre 2026 elle disait 10 ms
+   * pendant que la file restait au moins à 33 (SON-4). */
+  private readonly file = new Serie();
   private volume: number;
   private deviceRate: boolean;
   private readonly url: (path: string) => string;
@@ -460,6 +466,7 @@ export class SoundStream {
     this.playAt = placed.playAt;
     this.lead = placed.lead;
     if (placed.gap) this.gaps += 1;
+    this.file.note((this.playAt - context.currentTime) * 1000);
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gain);
@@ -509,6 +516,14 @@ export class SoundStream {
     shape.connect(this.gain);
     tone.start(now);
     tone.stop(now + 0.24);
+  }
+
+  /** Ce que la fenêtre de relevé a vu : la file réelle, plus petite, médiane
+   * et plus grande, en ms, ou nul sans morceau joué. `prendre` la remet à
+   * zéro (`fenetre.ts`). */
+  fenetre(prendre: boolean): { fileMs: [number, number, number] | null } {
+    const file = this.file.lire(prendre);
+    return { fileMs: file === null ? null : etendue(file) };
   }
 
   /** Le volume appliqué en ce moment.

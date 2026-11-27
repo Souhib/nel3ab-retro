@@ -193,6 +193,7 @@ function toutMesure(): Snapshot {
     },
     soundGapMs: 1,
     soundSyncMs: 1,
+    soundSyncOn: true,
     mic: "off",
     liaison: { etat: "ok" },
     couvertureVue: 0,
@@ -208,6 +209,7 @@ const FENETRE_PLEINE: Fenetre = {
     sejourMs: [1, 1],
   },
   input: { retourMs: [1, 1], pompeMaxMs: 1 },
+  sound: { fileMs: [1, 1, 1] },
 };
 
 function releveAuPire() {

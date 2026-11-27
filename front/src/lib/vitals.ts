@@ -142,7 +142,19 @@ export type Vitals = {
   son: {
     morceaux: number;
     trous: number;
+    /** La CIBLE du prochain réancrage, en ms. Ce n'est pas ce que le son a
+     * en file : voir `file` (SON-4). */
     avance: number;
+    /** La file réelle à chaque morceau arrivé : ce que le son avait d'avance
+     * sur la carte (`playAt − currentTime`), plus petite, médiane et plus
+     * grande de la fenêtre, en ms. Nul sans morceau. */
+    file: [number, number, number] | null;
+    /** De combien le son est derrière l'image, en ms, sortie de la carte
+     * comprise. Nul quand l'un des deux n'est pas encore calé. */
+    écart: number | null;
+    /** Ce que « caler l'image sur le son » ajoute à l'image, en ms. Nul quand
+     * l'option est éteinte : un calage éteint n'est pas un calage de 0 ms. */
+    calage: number | null;
     état: string;
     /** Ce qu'est devenu le déblocage d'iOS, le volume appliqué, la cadence du
      * matériel et ce qu'il ajoute. Quatre chiffres qui ne servent qu'à une
@@ -293,6 +305,9 @@ export function vitals(
       morceaux: since(sound.chunks, wasSound?.chunks ?? 0),
       trous: since(sound.gaps, wasSound?.gaps ?? 0),
       avance: Math.round(sound.leadMs),
+      file: fenetre?.sound?.fileMs ?? null,
+      écart: now.soundGapMs === null ? null : Math.round(now.soundGapMs),
+      calage: now.soundSyncOn ? Math.round(now.soundSyncMs) : null,
       état: sound.state,
       débloqué: propre(sound.unlocked, DEBLOQUE_MAX),
       gain: Math.round(sound.gain * 100) / 100,
@@ -381,9 +396,16 @@ export class HiddenTime {
  * l'image de Sonic est restée figée vingt minutes; la page, qui ne recevait
  * qu'une image toutes les trente-cinq secondes, n'a écrit qu'une fenêtre sur
  * trois ou quatre, et rien ne disait le gel entre elles.
+ *
+ * Une fenêtre sans image s'écrit aussi quand le son a eu des trous : le
+ * 26 novembre 2026, ceux du démarrage se perdaient avec elle (SON-4). Pas dès
+ * que du son arrive : un onglet caché qui joue le son écrirait six lignes par
+ * minute pour ne rien dire.
  */
 export function worthWriting(sample: Vitals): boolean {
-  return sample.vues > 0 || sample.peintes > 0 || sample.attente >= FREEZE_MS;
+  return (
+    sample.vues > 0 || sample.peintes > 0 || sample.attente >= FREEZE_MS || sample.son.trous > 0
+  );
 }
 
 /** La trace fine des deux dernières minutes, telle qu'elle part avec un

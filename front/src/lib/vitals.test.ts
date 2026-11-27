@@ -116,6 +116,10 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
     },
     soundGapMs: null,
     soundSyncMs: 0,
+    soundSyncOn: false,
+    ...(rest.soundGapMs === undefined ? {} : { soundGapMs: rest.soundGapMs }),
+    ...(rest.soundSyncMs === undefined ? {} : { soundSyncMs: rest.soundSyncMs }),
+    ...(rest.soundSyncOn === undefined ? {} : { soundSyncOn: rest.soundSyncOn }),
     mic: "off",
     liaison: { etat: "ok" },
     couvertureVue: 0,
@@ -272,6 +276,43 @@ describe("le navigateur ou la liaison (chantier 2 de l'audit du 27 novembre 2026
   });
 });
 
+describe("le son tel qu'il est entendu (SON-4)", () => {
+  it("écrit la file réelle du son, et pas seulement sa cible", () => {
+    const fenetre = { video: {}, sound: { fileMs: [12, 35, 36] } } as Fenetre;
+    const sample = vitals(snap(), null, 10_000, undefined, true, fenetre);
+
+    expect(sample.son.file, "le relevé ne dit pas la file réelle du son").toEqual([12, 35, 36]);
+  });
+
+  it("écrit l'écart du son sur l'image, et le calage quand l'option est allumée", () => {
+    const allume = vitals(
+      snap({}, { soundGapMs: 41.6, soundSyncMs: 38, soundSyncOn: true }),
+      null,
+      10_000,
+    );
+    expect(allume.son.écart, "le relevé ne dit pas l'écart du son sur l'image").toBe(42);
+    expect(allume.son.calage).toBe(38);
+  });
+
+  // Nul et pas zéro : un calage éteint n'est pas un calage de 0 ms, et une
+  // fenêtre sans morceau n'a pas de file.
+  it("écrit nul pour un calage éteint, un écart inconnu et une file sans morceau", () => {
+    const fenetre = { video: {}, sound: { fileMs: null } } as Fenetre;
+    const eteint = vitals(
+      snap({}, { soundGapMs: null, soundSyncMs: 0, soundSyncOn: false }),
+      null,
+      10_000,
+      undefined,
+      true,
+      fenetre,
+    );
+    expect(eteint.son.calage).toBeNull();
+    expect(eteint.son.écart).toBeNull();
+    expect(eteint.son.file).toBeNull();
+    expect(vitals(snap(), null, 10_000).son.file).toBeNull();
+  });
+});
+
 describe("ce que la boîte noire lit dans un relevé", () => {
   const pad = (input: Partial<Snapshot["input"]>) =>
     snap({}, { input: { ...snap().input, ...input } });
@@ -390,6 +431,21 @@ describe("ce qui mérite d'être écrit", () => {
     const gelee = vitals(snap({ sinceArrivalMs: 12_000 }), null, 10_000, undefined, true);
     expect(gelee.attente).toBe(12_000);
     expect(worthWriting(gelee)).toBe(true);
+  });
+
+  // SON-4 : des trous de son sans image (un démarrage, un gel de l'image
+  // pendant que le son passe) se perdaient, la fenêtre n'étant pas écrite.
+  it("écrit une fenêtre sans image dont le son a eu des trous", () => {
+    const now = snap({}, { sound: { ...snap().sound, chunks: 1000, gaps: 3 } });
+    const before = snap({}, { sound: { ...snap().sound, chunks: 0, gaps: 0 } });
+    expect(worthWriting(vitals(now, before, 10_000)), "des trous de son perdus").toBe(true);
+  });
+
+  // Le jumeau : du son sans trou ne suffit pas, sinon un onglet caché qui joue
+  // le son écrirait six lignes par minute.
+  it("n'écrit pas une fenêtre sans image dont le son passe sans trou", () => {
+    const now = snap({}, { sound: { ...snap().sound, chunks: 1000, gaps: 0 } });
+    expect(worthWriting(vitals(now, snap(), 10_000))).toBe(false);
   });
 
   it("ne compte pas l'attente sans jeu: un onglet ouvert sur une salle au repos se tait", () => {

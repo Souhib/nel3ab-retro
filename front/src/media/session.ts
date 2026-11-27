@@ -26,6 +26,9 @@ export type Snapshot = {
   soundGapMs: number | null;
   /** Compensation réellement ajoutée à l'image, distincte de l'écart restant. */
   soundSyncMs: number;
+  /** L'option « caler l'image sur le son » est-elle allumée ? Un calage de
+   * 0 ms ne le dit pas : il peut venir d'un écart encore inconnu. */
+  soundSyncOn: boolean;
   /** L'état de la liaison, calculé ici et nulle part ailleurs (`liaison.ts`).
    *
    * Dans l'instantané, donc au rythme où React lit: deux fois par seconde.
@@ -43,6 +46,7 @@ export type Snapshot = {
 export type Fenetre = {
   video: FenetreVideo;
   input: ReturnType<InputStream["fenetre"]>;
+  sound: ReturnType<SoundStream["fenetre"]>;
 };
 
 /** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
@@ -160,7 +164,11 @@ export class Session {
    * le relevé de dix secondes repart de rien ; un signalement lit sans
    * prendre, pour ne pas voler sa fenêtre au relevé suivant. */
   fenetre(prendre: boolean): Fenetre {
-    return { video: this.video.fenetre(prendre), input: this.input.fenetre(prendre) };
+    return {
+      video: this.video.fenetre(prendre),
+      input: this.input.fenetre(prendre),
+      sound: this.sound.fenetre(prendre),
+    };
   }
 
   /** Lines the picture up with the sound, or lets it stay early. */
@@ -195,6 +203,7 @@ export class Session {
       mic: this.mic.status(),
       soundGapMs: this.sound.gapAgainst(this.video.presentationOffsetMs()),
       soundSyncMs: this.video.compensationMs(),
+      soundSyncOn: this.lipsync,
       liaison: this.veille.lire({ video, sound, input }),
       // Relevé avec l'état, pas au rendu : c'est sur ces images-là que
       // l'état a été décidé.

@@ -1,0 +1,52 @@
+2026-11-26T23:32:32.134054552Z 00:00:00.004 |N| Application PrintSplash:    ___                 __    _              
+2026-11-26T23:32:32.134103143Z 00:00:00.006 |N| Application PrintSplash:   / _ \  __ __ __ __  / /   (_)  ___   ___ _
+2026-11-26T23:32:32.134107181Z 00:00:00.006 |N| Application PrintSplash:  / , _/ / // // // / / _ \ / /  / _ \ / _ `/
+2026-11-26T23:32:32.134109605Z 00:00:00.006 |N| Application PrintSplash: /_/|_|  \_, / \_,_/ /_.__//_/  /_//_/ \_, / 
+2026-11-26T23:32:33.745656494Z 00:00:01.627 |I| Application HandlePlayerConfiguration: Player6 not configured
+2026-11-26T23:32:33.745658598Z 00:00:01.627 |I| Application HandlePlayerConfiguration: Player7 not configured
+2026-11-26T23:32:33.745660672Z 00:00:01.627 |I| Application HandlePlayerConfiguration: Player8 not configured
+2026-11-26T23:32:33.745662736Z 00:00:01.627 |I| Configuration Load: Skipping handheld configuration as there are already other players configured.
+2026-11-26T23:32:33.849229951Z 00:00:00.063 |I| Gpu : Backend Threading (Auto): True
+2026-11-26T23:32:34.196315718Z 00:00:00.410 |N| Application LoadApplication: Using Firmware Version: 4.1.0
+2026-11-26T23:32:34.196340435Z 00:00:00.410 |I| Application LoadApplication: Loading as NSP.
+2026-11-26T23:32:34.268484943Z 00:00:00.482 |N| Application : Loading update NCA from '/run-data/updates/super-smash-bros-ultimate-v2031616.nsp'.
+2026-11-26T23:32:34.312141613Z 00:00:00.526 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F001 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f001.nsp'
+2026-11-26T23:32:34.313058833Z 00:00:00.527 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F002 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f002.nsp'
+2026-11-26T23:32:34.313836473Z 00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F003 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f003.nsp'
+2026-11-26T23:32:34.314070622Z 00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F004 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f004.nsp'
+2026-11-26T23:32:34.314263023Z 00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F005 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f005.nsp'
+2026-11-26T23:32:34.314457438Z 00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F006 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f006.nsp'
+2026-11-26T23:32:34.314751509Z 00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F007 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f007.nsp'
+2026-11-26T23:32:34.314939452Z 00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F008 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f008.nsp'
+2026-11-26T23:32:34.315138976Z 00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F009 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f009.nsp'
+2026-11-26T23:32:34.315347658Z 00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F00A @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f00a.nsp'
+2026-11-26T23:32:34.315577038Z 00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F00B @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f00b.nsp'
+2026-11-26T23:32:34.315818702Z 00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F00C @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f00c.nsp'
+2026-11-26T23:32:34.316055446Z 00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F015 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f015.nsp'
+2026-11-26T23:32:34.316276911Z 00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F016 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f016.nsp'
+2026-11-26T23:32:34.316477127Z 00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F01F @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f01f.nsp'
+2026-11-26T23:32:34.316704874Z 00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F020 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f020.nsp'
+2026-11-26T23:32:34.316924857Z 00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F021 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f021.nsp'
+2026-11-26T23:32:34.317166100Z 00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F022 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f022.nsp'
+2026-11-26T23:32:34.317362238Z 00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F023 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f023.nsp'
+2026-11-26T23:32:34.317607888Z 00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F024 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f024.nsp'
+2026-11-26T23:32:34.317848059Z 00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F025 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f025.nsp'
+2026-11-26T23:32:34.318074935Z 00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F026 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f026.nsp'
+2026-11-26T23:32:34.318275852Z 00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F027 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f027.nsp'
+2026-11-26T23:32:34.318505402Z 00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F028 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f028.nsp'
+2026-11-26T23:32:34.318739321Z 00:00:00.533 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F029 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f029.nsp'
+2026-11-26T23:32:34.318976777Z 00:00:00.533 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02A @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02a.nsp'
+2026-11-26T23:32:34.319204634Z 00:00:00.533 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02B @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02b.nsp'
+2026-11-26T23:32:34.319446278Z 00:00:00.533 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02C @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02c.nsp'
+2026-11-26T23:32:34.319683272Z 00:00:00.534 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02D @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02d.nsp'
+2026-11-26T23:32:34.319881394Z 00:00:00.534 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02E @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02e.nsp'
+2026-11-26T23:32:34.320112848Z 00:00:00.534 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02F @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02f.nsp'
+2026-11-26T23:32:34.320331859Z 00:00:00.534 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F030 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f030.nsp'
+2026-11-26T23:32:34.320574064Z 00:00:00.534 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F031 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f031.nsp'
+2026-11-26T23:32:34.320822119Z 00:00:00.535 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F032 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f032.nsp'
+2026-11-26T23:32:34.321063793Z 00:00:00.535 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F033 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f033.nsp'
+2026-11-26T23:32:34.321276091Z 00:00:00.535 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F034 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f034.nsp'
+2026-11-26T23:32:34.321530739Z 00:00:00.535 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F035 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f035.nsp'
+2026-11-26T23:32:34.321761151Z 00:00:00.536 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F036 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f036.nsp'
+2026-11-26T23:32:38.535326197Z 00:00:04.749 |I| GPU.MainThread Application ProgressHandler: Shaders : 0/10682
+2026-11-26T23:32:38.535360201Z 00:00:04.749 |I| GPU.MainThread Gpu LoadShaders: Loading 10682 shaders from the cache...

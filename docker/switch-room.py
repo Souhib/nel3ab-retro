@@ -440,6 +440,14 @@ def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
     profile = ("data", "profiles", "controller", "nel3ab.json")
     with ouvrir_sans_lien(slot, *profile, mode="wb") as stream:
         stream.write((TOOLS / "ryubing-pro-controller.json").read_bytes())
+    # The room starts the executable itself, not the Ryujinx.sh shipped beside it.
+    # That launcher adds LANG=C.UTF-8 (runtime.sh sets LC_ALL=C.UTF-8, which wins
+    # over LANG) and DOTNET_EnableAlternateStackCheck=1, which the room omits.
+    # Why upstream sets the second one is not established here: on 2026-11-27 the
+    # commit that added it could not be read without the network, and no failure
+    # is linked to its absence (twenty starts and stops, all exit code 0, on
+    # 2026-09-10; exit code 0 on 2026-11-26). Adding it is a change to measure,
+    # with a case that fails without it, not a fix (RYU-13).
     command = [
         "/emulator/publish/Ryujinx",
         "--no-gui",

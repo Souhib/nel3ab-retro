@@ -48,8 +48,10 @@ class CapteurDate:
         self.captures.append((quand, raison, details))
 
 
-def _rejouer(tmp_path: Path) -> tuple[CapteurDate, list[dict[str, Any]]]:
-    reglages = Settings(journal_dir=tmp_path / "sessions", boite_noire_dir=tmp_path / "bn")
+def _rejouer(tmp_path: Path, **autres: Any) -> tuple[CapteurDate, list[dict[str, Any]]]:
+    reglages = Settings(
+        journal_dir=tmp_path / "sessions", boite_noire_dir=tmp_path / "bn", **autres
+    )
     reglages.journal_dir.mkdir(parents=True)
     lignes = [json.loads(brute) for brute in ECHANTILLON.read_text(encoding="utf-8").splitlines()]
     # La précondition: l'échantillon couvre bien la soirée, ses trois gros trous compris.
@@ -115,6 +117,25 @@ def test_le_demarrage_de_smash_est_ecrit_sans_capture_ni_pause(tmp_path: Path) -
     assert [(ligne["quand"][11:19], ligne["chute"]["gel_ms"]) for ligne in demarrages] == [
         ("00:33:14", 33386.0)
     ]
+
+
+def test_le_vrai_gel_de_00_36_14_est_pris(tmp_path: Path) -> None:
+    """La pause d'un gel ne fait pas taire un gel distinct trois minutes plus tard."""
+    capteur, _ = _rejouer(tmp_path)
+
+    # Rouge le 27 novembre 2026: [("00:33:14", "gel", 33386.0)], et rien d'autre.
+    # Rouge encore avec le seul démarrage corrigé: [("00:33:24", "gel", 1488.0)].
+    assert _prises(capteur) == [("00:33:24", "gel", 1488.0), ("00:36:16", "gel", 543.0)]
+
+
+def test_la_pause_d_un_gel_vient_des_reglages(tmp_path: Path) -> None:
+    """Le câblage, pas la règle: une pause de cinq minutes réglée pour le gel refait
+    perdre celui de 00:36:14. C'est bien la valeur des réglages que le service
+    donne au déclencheur, et la minute est son défaut."""
+    assert Settings().boite_noire_pause_gel_s == 60.0
+    capteur, _ = _rejouer(tmp_path, boite_noire_pause_gel_s=300.0)
+
+    assert _prises(capteur) == [("00:33:24", "gel", 1488.0)]
 
 
 def test_le_trou_de_fin_de_match_reste_sous_le_seuil(tmp_path: Path) -> None:

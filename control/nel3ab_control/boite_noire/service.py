@@ -306,6 +306,7 @@ def declencheur_depuis(reglages: Settings) -> Declencheur:
         seuil_gel_ms=reglages.boite_noire_seuil_gel_ms,
         plafonds=reglages.boite_noire_plafonds,
         part_plafond=reglages.boite_noire_part_plafond,
+        pause_gel=timedelta(seconds=reglages.boite_noire_pause_gel_s),
     )
 
 

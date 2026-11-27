@@ -182,16 +182,109 @@ def test_une_cadence_tombee_l_emporte_sur_un_gel() -> None:
     assert (chute.cause, chute.gel_ms, chute.mediane) == ("cadence", None, 40.0)
 
 
-def test_un_gel_signale_fait_taire_la_salle_cinq_minutes_lui_aussi() -> None:
-    """Sinon une soirée qui gèle toutes les deux minutes remplit le disque."""
+def test_un_gel_signale_fait_taire_la_salle_une_minute() -> None:
+    """Une minute, et pas cinq. Le 27 novembre 2026, la pause de cinq minutes ouverte
+    par le trou de 1 488 ms de 00:33:23 aurait couvert le gel de 543 ms de 00:36:14.
+    Une minute laisse finir la capture (dix secondes de profil), et une soirée qui
+    gèle sans arrêt prend au plus une capture par minute et par salle."""
     declencheur = _declencheur(_mesure(0, 60, gel_ms=800))
-    assert len(declencheur.evaluer(DEBUT + timedelta(seconds=5))) == 1
+    assert len(declencheur.evaluer(DEBUT + timedelta(seconds=1))) == 1
 
-    declencheur.lire(_mesure(60, 60, gel_ms=800))
-    assert declencheur.evaluer(DEBUT + timedelta(seconds=65)) == []
+    declencheur.lire(_mesure(40, 60, gel_ms=900))
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=41)) == []
 
-    declencheur.lire(_mesure(400, 60, gel_ms=800))
-    assert len(declencheur.evaluer(DEBUT + timedelta(seconds=405))) == 1
+    declencheur.lire(_mesure(70, 60, gel_ms=700))
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=71))
+    assert (chute.cause, chute.gel_ms) == ("gel", 700.0)
+
+
+def test_la_pause_d_un_gel_ne_fait_pas_taire_une_chute_de_cadence_qui_suit() -> None:
+    declencheur = _declencheur(_mesure(0, 60, gel_ms=800))
+    assert [c.cause for c in declencheur.evaluer(DEBUT + timedelta(seconds=1))] == ["gel"]
+
+    for secondes in (70, 80, 90):
+        declencheur.lire(_mesure(secondes, 40))
+    assert [c.cause for c in declencheur.evaluer(DEBUT + timedelta(seconds=91))] == ["cadence"]
+
+
+def test_une_chute_de_cadence_fait_toujours_taire_les_gels_cinq_minutes() -> None:
+    """Le jumeau: la pause courte est celle du gel. Une salle qui tourne à 40 images
+    par seconde hoquette aussi, et ses trous décrivent la même lenteur."""
+    declencheur = _declencheur(_mesure(0, 40), _mesure(10, 40), _mesure(20, 40))
+    assert [c.cause for c in declencheur.evaluer(DEBUT + timedelta(seconds=21))] == ["cadence"]
+
+    declencheur.lire(_mesure(120, 60, gel_ms=900))
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=121)) == []
+    declencheur.lire(_mesure(330, 60, gel_ms=900))
+    assert [c.cause for c in declencheur.evaluer(DEBUT + timedelta(seconds=331))] == ["gel"]
+
+
+def _rejouer_toutes_les_deux_secondes(
+    declencheur: Declencheur, lignes: list[dict[str, Any]], jusqu_a: float
+) -> list[tuple[float, Chute]]:
+    """Comme le service: les lignes arrivent à leur heure, et on juge toutes les 2 s."""
+    restantes = sorted(lignes, key=lambda ligne: ligne["quand"])
+    chutes: list[tuple[float, Chute]] = []
+    seconde = 0.0
+    while seconde <= jusqu_a:
+        maintenant = DEBUT + timedelta(seconds=seconde)
+        while restantes and datetime.fromisoformat(restantes[0]["quand"]) <= maintenant:
+            declencheur.lire(restantes.pop(0))
+        chutes.extend((seconde, chute) for chute in declencheur.evaluer(maintenant))
+        seconde += 2
+    return chutes
+
+
+def test_un_meme_trou_reste_dans_les_arrivees_et_ne_donne_qu_une_capture() -> None:
+    """La page garde ses six cents derniers écarts (`video.ts`). Quand elle reçoit peu
+    d'images, le même trou reste le pire de plusieurs fenêtres de suite: c'est un
+    gel, pas sept."""
+    lignes = [_fenetre(10 * rang, 60, 900, vues=80) for rang in range(8)]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 90)
+
+    assert [(seconde, chute.gel_ms) for seconde, chute in chutes] == [(0.0, 900.0)]
+
+
+def test_un_long_gel_qui_dure_ne_donne_qu_une_capture() -> None:
+    """Le gel de Sonic au format du 21 novembre 2026: plus une image, une attente qui
+    grandit de dix secondes à chaque fenêtre, puis l'image qui revient."""
+    lignes = [_fenetre(0, 60, 20, attente=3000, vues=420)]
+    lignes += [
+        _fenetre(10 * rang, 0, 0, attente=3000 + 10_000 * rang, vues=0)
+        for rang in (1, 2, 3, 4, 5, 6, 7, 8)
+    ]
+    lignes.append(_fenetre(90, 60, 87_000, attente=10, vues=300))
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 100)
+
+    assert [(seconde, chute.gel_ms) for seconde, chute in chutes] == [(0.0, 3000.0)]
+
+
+def test_deux_gels_distincts_a_plus_d_une_minute_font_deux_captures() -> None:
+    """Le jumeau des deux précédents: des fenêtres saines entre les deux trous, qui ne
+    se ressemblent pas, et deux captures."""
+    lignes = [
+        _fenetre(0, 60, 900),
+        *(_fenetre(10 * rang, 60, 20) for rang in range(1, 8)),
+        _fenetre(80, 60, 1300),
+    ]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 90)
+
+    assert [(seconde, chute.gel_ms) for seconde, chute in chutes] == [(0.0, 900.0), (80.0, 1300.0)]
+
+
+def test_un_meme_pire_apres_six_cents_images_est_un_autre_gel() -> None:
+    """Le jumeau de la règle des arrivées: les mêmes fenêtres, mais la dernière a reçu
+    six cents images. Elles ont remplacé tous les écarts de la page, et un pire
+    identique est alors un nouveau trou."""
+    lignes = [_fenetre(10 * rang, 60, 900, vues=80) for rang in range(7)]
+    lignes.append(_fenetre(70, 60, 900, vues=600))
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 90)
+
+    assert [(seconde, chute.gel_ms) for seconde, chute in chutes] == [(0.0, 900.0), (70.0, 900.0)]
 
 
 def test_une_page_d_avant_le_14_septembre_ne_gele_jamais() -> None:
@@ -347,9 +440,11 @@ def test_un_gel_de_salle_fait_taire_les_gels_de_page_qui_suivent() -> None:
     )
     assert [c.portee for c in declencheur.evaluer(DEBUT + timedelta(seconds=1))] == ["salle"]
 
-    declencheur.lire(_mesure(60, 60, visite="a", gel_ms=30))
-    declencheur.lire(_mesure(60, 60, visite="b", gel_ms=1500))
-    assert declencheur.evaluer(DEBUT + timedelta(seconds=61)) == []
+    # Trente secondes plus tard, dans la pause d'une minute du gel de salle, et un
+    # autre trou que le premier: ce n'est pas le même gel qui se tait ici.
+    declencheur.lire(_mesure(30, 60, visite="a", gel_ms=30))
+    declencheur.lire(_mesure(30, 60, visite="b", gel_ms=1400))
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=31)) == []
 
 
 # --- Le seuil suit le plafond du jeu -----------------------------------------

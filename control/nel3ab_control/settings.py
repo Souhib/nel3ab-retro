@@ -224,6 +224,19 @@ class Settings(BaseSettings):
             "soirée-là tenaient sous 100 ms, ce qui laisse un facteur cinq."
         ),
     )
+    boite_noire_pause_gel_s: float = Field(
+        default=60.0,
+        gt=0,
+        description=(
+            "Combien de secondes une salle se tait après la capture d'un GEL. Une "
+            "chute de cadence garde sa pause de cinq minutes. Cinq minutes aussi pour "
+            "un gel jusqu'au 27 novembre 2026: ce soir-là, la pause ouverte par le trou "
+            "de 1 488 ms de 00:33:23 aurait couvert le gel de 543 ms de 00:36:14, rejoué "
+            "sur les vraies mesures. Une minute laisse finir la capture (dix secondes de "
+            "profil) et borne une soirée qui gèle sans arrêt à une capture par minute et "
+            "par salle, de 2 à 5 Mo chacune. Un même gel, même long, n'en prend qu'une."
+        ),
+    )
     boite_noire_capture_s: int = Field(
         default=10,
         description="Combien de secondes dure le profil d'une capture.",

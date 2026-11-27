@@ -237,6 +237,13 @@ export type VideoStats = {
   addedMs: number;
 };
 
+/** À partir de combien de tics d'écran par image de la source un retard d'une
+ * période se montre au lieu d'être jeté (VID-6). Un et huit dixièmes plutôt
+ * que deux : un écran 120 Hz lu à 115 Hz, ou une source à 59 images par
+ * seconde, gardent le tic qui reste. Un écran 100 Hz pour 60 images (1,67)
+ * n'en a pas assez : y montrer une image en retard décalerait la suivante. */
+const TICK_TO_SPARE = 1.8;
+
 /** À partir de quel écart l'horaire d'affichage est REPOSÉ plutôt que corrigé,
  * en millisecondes. Voir la raison dans `adjust`. */
 const SNAP = 120;
@@ -1107,7 +1114,16 @@ export class VideoStream {
     // 16 ms alors que celle de 48 ms est prête. On montre la dernière dont
     // l'heure est venue, et on garde celles qui sont encore en avance. Cela
     // abandonne des images déjà périmées sans retirer la marge contre la gigue.
-    while (this.queue.length > 1 && this.queue[1].capturedMs + this.offset - slack <= now) {
+    //
+    // Sur un écran au moins 1,8 fois plus rapide que la source, la dernière
+    // image en retard garde sa voisine (VID-6, 27 novembre 2026) : une image
+    // en retard d'une période devient disponible quand la suivante est due, et
+    // il reste un tic pour la montrer avant elle. Le joueur voit alors chaque
+    // image, l'une huit millisecondes en retard, au lieu d'un saut. Sur un
+    // écran au rythme de la source, il ne reste pas de tic, et le rattrapage
+    // du 8 septembre reste entier.
+    const garde = this.sourcePeriodMs() >= TICK_TO_SPARE * this.refreshPeriod() ? 2 : 1;
+    while (this.queue.length > garde && this.queue[garde].capturedMs + this.offset - slack <= now) {
       this.queue.shift()?.frame.close();
       this.skipped += 1;
       this.caughtUp += 1;

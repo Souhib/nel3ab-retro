@@ -344,6 +344,33 @@ def test_la_capture_nomme_les_processus_qui_tiennent_la_carte(tmp_path: Path) ->
     assert "root" in lu["note"]
 
 
+def test_des_descripteurs_listes_mais_illisibles_sont_comptes_illisibles(tmp_path: Path) -> None:
+    """Le service tourne avec CAP_DAC_READ_SEARCH (`deploy/nel3ab-boite-noire.service`):
+    elle ouvre le dossier `fd` d'un processus de root, mais le noyau refuse de lire
+    où mène chaque lien sans droit de tracer ce processus. Un dossier qu'on liste
+    sans pouvoir y entrer donne le même refus. Sauté, ollama sortait « ni détenteur
+    ni illisible »: le fichier disait alors que personne d'autre ne tenait la carte."""
+    assert os.geteuid() != 0, "en root, le dossier fermé se lirait quand même"
+    capteur = _capteur(tmp_path, FauxLanceur())
+    proc = tmp_path / "proc"
+    _processus(proc, 3913, "ollama", {5: "/dev/kfd", 6: "/dev/dri/renderD128"})
+    _processus(proc, 5001, "ffmpeg", {3: "/dev/dri/renderD128"})
+    # Le jumeau: un descripteur fermé entre la liste et la lecture (ENOENT dans le
+    # vrai `/proc`; ici un fichier qui n'est pas un lien) se saute sans rendre son
+    # processus illisible.
+    (proc / "5001" / "fd" / "9").write_text("")
+    (proc / "3913" / "fd").chmod(0o400)
+    try:
+        assert sorted(os.listdir(proc / "3913" / "fd")) == ["5", "6"], "la liste se lit"
+        dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
+    finally:
+        (proc / "3913" / "fd").chmod(0o700)
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert [un["pid"] for un in lu["detenteurs"]] == [5001]
+    assert lu["illisibles"] == 1
+
+
 def test_sans_detenteur_la_liste_est_vide_et_le_fichier_present(tmp_path: Path) -> None:
     """Le jumeau: personne ne tient la carte, et cela se dit."""
     dossier = _capteur(tmp_path, FauxLanceur()).capturer("chute", RYUJINX, QUAND, {})

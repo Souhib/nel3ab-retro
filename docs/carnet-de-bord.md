@@ -876,6 +876,14 @@ appliqué, donc tout ce qui attend derrière est du travail déjà périmé.
 Remplacé par **une case par port** : écrire remplace. Ça ne peut pas déborder,
 ça ne peut pas vieillir, et il n'y a aucune politique à choisir sur quoi jeter.
 
+*Complété le 27 novembre 2026.* C'est juste pour un stick, pas pour un bouton
+de la Switch : un appui et son relâchement pris dans la même rafale ne
+laissaient que le relâchement. La case garde maintenant aussi deux masques de
+boutons descendus et remontés, jamais une file, et le fil des manettes Switch
+tient chaque bouton 20 ms (ADR D50 ; entrée « 27 novembre : l'audit de la
+Switch 1, et ses quatre chantiers »). Sur la branche `integration/switch1`,
+pas encore installé.
+
 ### 6.14 Une métrique qui se lit mal est une métrique fausse
 
 La page annonçait « 72,5 % des rafraîchissements n'ont rien de neuf ». Alarmant,
@@ -13166,6 +13174,12 @@ répartiteur ne dépasse pas 4,6 ms, aucun fil n'est bloqué sur le disque, il n
 aucune lecture, la pression du cgroup est plate et le GPU est entre 3 et 9 %. La
 machine n'est jamais à court de rien : les fils calculent.
 
+*Corrigé le 27 novembre 2026.* L'attente en file d'un fil (`run_delay`) se lit
+dans le deuxième champ de `/proc/<tid>/schedstat` même avec
+`kernel.sched_schedstats` à 0, vérifié sur la boîte noire elle-même. La
+boîte noire la relève maintenant à chaque relevé (entrée « 27 novembre :
+l'audit de la Switch 1, et ses quatre chantiers »).
+
 **L'étape perdue.** Le moteur a été reconstruit avec ses marqueurs, plus trois
 nouveaux. `NEL3AB_SKIP` dit pourquoi le compositeur émulé n'a rien pris ;
 `NEL3AB_DEQWAIT` encadre l'attente d'un tampon libre par le jeu ; `NEL3AB_JIT`
@@ -16248,6 +16262,12 @@ remède classique aux à-coups de compilation de shaders, et il ne sera vrai que
 mesuré en phases alternées. Et le conteneur du jeu accepte un `cpuset`, éteint par
 défaut: le fil de rendu tient 90 % d'un cœur pendant que l'encodeur travaille à
 côté, mais une salle bridée sur trop peu de cœurs irait plus mal.
+
+*Corrigé le 27 novembre 2026.* `backend_threading: On` n'a jamais été actif :
+Ryubing sans fenêtre ne lit pas Config.json, et Auto vaut déjà « avec fil de
+rendu » sur Vulkan. Il n'y a rien à mesurer entre ces deux valeurs. La salle
+passe maintenant ses réglages en ligne de commande (ADR D52 ; entrée
+« 27 novembre : l'audit de la Switch 1, et ses quatre chantiers »).
 
 **Le format réduit, mesuré chez quelqu'un.** alex a basculé quatre fois pendant la
 soirée du 16, ce qui donne une alternance exploitable:
@@ -34476,6 +34496,715 @@ ce qui la tient encore n'est pas toujours parti au même instant qu'elle. Et
 un compte se fait des deux côtés : la page disait son son fermé, le worker
 comptait deux auditeurs ; c'est le côté serveur qui avait raison.
 
+### 27 novembre : l'audit de la Switch 1, et ses quatre chantiers
+
+Le 26 novembre au soir, un joueur distant a fait sept minutes de Smash dans la
+salle Switch, depuis un Mac et Firefox 160. Il a senti des micro-gels. Le 27,
+un audit en lecture seule a relu toute la chaîne Switch 1 sur cette partie, et
+sur celle de Mario Tennis à deux du 30 octobre, qui n'avait plus ses relevés
+de page ni de boîte noire. Rien n'a été lancé pendant l'audit. Il a relevé une
+soixantaine de constats, rangés en quatorze chantiers. Voici ce qu'il a
+trouvé, en mots simples.
+
+**Le serveur tenait.** Hors chargement, la capture livrait 60,0 images par
+seconde, avec un écart maximal de 17 à 21 ms dans les fenêtres calmes. La page
+recevait autant d'images que la capture en produisait, et aucun spectateur n'a
+été jugé en retard.
+
+**La page du joueur distant ne tenait pas.** Sa marge contre la gigue est
+restée collée à son plancher de 3 ms pendant 4 min 21 s : 515 épisodes de file
+vide et 460 images jamais montrées, sur une source régulière. Le code
+l'explique : une image en retard, rattrapée, interdisait à la marge de grandir.
+La page ajoutait aussi 72 à 121 ms de retard à chaque image, contre 9 à 32 ms en
+médiane pour un client du réseau local. Ce retard couvrait un trou d'arrivée de
+117 à 166 ms, présent dans chaque fenêtre de dix secondes sur sa liaison, et
+absent de la capture. Personne ne savait dire où ce trou naissait : la liaison
+(Wi-Fi ou Tailscale), le fil principal de Firefox, ou le worker, qui n'écrivait
+aucune mesure pour une salle Switch.
+
+**Le jeu gelait par moments, pour deux raisons connues.** D'abord les
+compilations de shaders en combat : six rafales en sept minutes. Les fenêtres
+touchées avaient 34 à 95 ms de trou, contre 18 ms pour les autres. Ensuite les
+chargements du jeu, faits par son fil de décompression : 116 à 1 483 ms aux
+transitions. Aucun réglage mesuré à ce jour ne réduit ces derniers.
+
+**Plusieurs mesures mentaient.** Ryubing lancé sans fenêtre ne lit pas
+Config.json : le réglage `backend_threading: On` posé le 16 septembre n'a jamais
+été actif. Au démarrage, la sortie vide de Sway comptait comme première image :
+4,5 s écrites pour un démarrage d'environ 38 s. La garde de 30 s de la capture,
+comptée depuis cette copie, a tué une capture saine pendant le chargement de
+Smash. La pause de cinq minutes de la boîte noire, ouverte par un faux gel au
+démarrage, a fait perdre le seul vrai gel de plus de 500 ms de la partie.
+
+**Au-delà de 60 images par seconde.** L'audit répondait aussi à cette question.
+Pour Smash, la réponse est non, sauf à accélérer le jeu. En mode Switch, celui
+de la salle, Ryubing réveille le jeu 60 fois par seconde. Dans les autres
+modes, un jeu qui avance d'un pas par image tourne plus vite que le temps réel.
+Pour la chaîne, c'est sans doute possible jusqu'à 125 images par seconde avec
+deux ou trois réglages, mais rien ne l'a jamais prouvé. Sway à 120 Hz compose au
+plus 125 fois par seconde, car wlroots attend des millisecondes entières. Les
+172 fenêtres de cinq secondes des deux parties plafonnent à 60,4 images par
+seconde. Le fil principal du jeu tient 74 à 80 % d'un cœur à 60 images par
+seconde. À 120, il lui faudrait environ 37 % de travail en moins : c'est déduit,
+pas mesuré. Le décodage et la peinture à 120 images par seconde dans Firefox sur
+le Mac ne sont pas mesurés non plus. Pour la fluidité ressentie, la page, les
+compilations et les chargements pèsent bien plus que la cadence.
+
+**Ce qui a été fait.** Quatre branches ont repris ce qui se faisait sans
+l'émulateur : le worker, les observateurs (la boîte noire et un compteur de
+compilations), la salle (le moteur, la capture et les manettes), et la page.
+Chaque branche a eu sa relecture contradictoire. La relecture remettait chaque
+défaut seul, puis cherchait ce que les essais laissaient passer. Les quatre
+branches sont réunies sur `integration/switch1`. Rien n'est encore sur `main`,
+rien n'est installé, et rien n'a tourné avec le vrai émulateur ni la carte
+graphique. Les décisions sont dans l'ADR, de D48 à D53.
+
+#### Le worker : une ligne pour chaque étage, et l'appui qui se perdait
+
+Le 26 novembre, la page du joueur de Smash voyait un trou de 117 à 166 ms dans
+chaque fenêtre de dix secondes. La capture n'en montrait que 17 à 21. Le worker
+d'une salle Switch n'écrivait rien entre les deux. On ne pouvait donc pas dire
+où naissait ce trou.
+
+**Une ligne pour chaque étage.** Le worker d'une salle externe écrit
+maintenant, toutes les dix secondes, la ligne « salle externe ». Elle ne
+s'appelle pas « streaming » : le lecteur des séances et son essai lisent la
+ligne de Dolphin sous ce nom.
+
+- Elle donne l'écart d'arrivée des paquets d'image et de son à l'entrée du
+  worker, en p50, p95 et maximum. Le p95 est la valeur sous laquelle tombent
+  95 % des mesures.
+- Elle donne l'âge de chaque paquet à l'entrée : l'heure du worker moins
+  l'heure de capture. Les deux lisent CLOCK_MONOTONIC, l'horloge du noyau qui ne
+  recule jamais, que le conteneur partage avec la machine.
+- Elle donne, pour chaque spectateur, l'attente d'une image dans sa file et la
+  durée de son écriture sur la socket. Une écriture longue veut dire que la page
+  ou le réseau ne lit plus. Une écriture courte n'innocente pas la liaison : le
+  noyau et Caddy gardent des mégaoctets derrière elle.
+- Elle donne la taille des images, le nombre d'images-clés, les images jetées
+  et les morceaux de son refusés. Ces derniers étaient jetés sans compteur.
+- Elle donne, pour chaque manette, les écarts de plus de 17 ms (une image) et
+  de plus de 50 ms (trois images) entre deux trames reçues. Ils sont datés dans
+  le fil de la socket de la place, pas dans le fil qui vide les emplacements.
+- Une valeur que rien n'a mesurée est absente de la ligne, jamais un zéro.
+  `just sessions <jour> --tout` la déplie.
+
+**Un seul producteur par flux.** L'entrée acceptait n'importe quel nombre de
+connexions de capture. Deux captures vivantes auraient mélangé deux flux H.264
+dans le même décodeur. La première connexion qui envoie un type de paquet le
+garde. Elle le perd en se fermant, ou après trois secondes de silence, la garde
+de la capture elle-même.
+
+**Un chiffre qui ne mesurait pas une réaction.** `input_to_frame` se relançait à
+chaque trame envoyée aux manettes virtuelles. La page en envoie une toutes les
+4 ms depuis le 16 août, qu'elle bouge ou non. Le chiffre mesurait donc l'écart
+entre la dernière trame reçue et l'image suivante : environ 2 ms en médiane,
+jamais plus d'une image. Pour la Switch, seul un état qui change lance
+maintenant le chrono, sous un nouveau nom : `pad_change_to_frame`. Dolphin garde
+`input_to_frame` et son sens, et le lecteur des séances le dit « dernière
+trame→image ». Les soirées d'avant le 27 novembre ne se comparent pas au nouveau
+chiffre. Aucun des deux n'est la réaction du jeu : elle demande le programme de
+test.
+
+**L'appui qui se perdait.** Une manette était un niveau (§ 6.13) : chaque place
+garde son dernier état, et seul celui-là part. C'est juste pour un stick. Pour
+un bouton, un appui et son relâchement arrivés dans la même rafale, après un
+trou de liaison, ne laissaient que le relâchement. Ou bien les deux partaient à
+quelques microsecondes d'écart, et le jeu, qui lit sa manette une fois par
+image, ne voyait rien. Un essai l'a montré : l'appui tenait 27 à 31 µs sur la
+manette virtuelle. Maintenant, l'emplacement retient aussi les boutons descendus
+et remontés en route : deux masques de bits, jamais une file. Le fil des
+manettes tient chaque bouton 20 ms dans son nouvel état, puis suit la page. Il
+se réveille à l'heure du relâchement retenu. Le prix : un appui plus court que
+20 ms est allongé jusqu'à 20 ms. Un nouvel appui moins de 20 ms après un
+relâchement attend la fin de ce délai. 20 ms est choisi (une image à 60 Hz et
+une marge), pas mesuré. La ligne compte les fronts rendus (`pads_rescued`) et
+retenus (`pads_deferred`). Un front est le passage d'un bouton de relâché à
+appuyé, ou l'inverse (ADR D50).
+
+**Ce qui n'a pas changé.** Le worker envoie toujours à `pads.py` un état par
+trame, même identique. `pads.py` relâche une place restée une seconde sans
+état : les répétitions tiennent un bouton appuyé. On compte d'abord ce trafic
+(`pads_sent`, `pads_repeated`, durée de l'envoi). La file de deux images par
+spectateur reste comptée en images : aucun jeu ne dépasse 60 images par seconde.
+Une image-clé par seconde pour la Switch : à mesurer avant d'y toucher.
+
+**Deux essais qui passaient pour une mauvaise raison.**
+
+- Nagle. Le client WebSocket des essais n'active pas TCP_NODELAY. L'algorithme
+  de Nagle retient alors un petit envoi tant que le précédent n'est pas
+  acquitté, et le serveur retarde son acquittement jusqu'à 40 ms. Le premier
+  essai de la rafale est passé sur l'ancien code : l'appui et le relâchement
+  partaient à 40 ms d'écart, donc il n'y avait pas de rafale. Avec TCP_NODELAY,
+  comme un navigateur, il est rouge sur l'ancien code.
+- Lire après le geste. Le jumeau « un appui tenu 100 ms part à l'heure » lisait
+  la socket des manettes après avoir envoyé le relâchement. Chaque datagramme
+  était daté à sa lecture, donc 100 ms en retard. Il faut lire sur un fil lancé
+  avant le geste.
+
+**Ce que la relecture a trouvé.**
+
+- Un front rendu coupait le front d'avant. Le fil des manettes rendait tout de
+  suite un appui ou un relâchement perdu entre deux lectures, sans attendre que
+  le front d'avant ait tenu 20 ms. Un relâchement rendu entre deux appuis
+  laissait le premier appui 5 ms sur la manette virtuelle, assez court pour que
+  le jeu ne le voie jamais. C'est l'appui perdu que le chantier devait éviter.
+  Chaque place garde maintenant un masque de fronts dus : un front perdu attend
+  son tour comme les autres. Deux fronts perdus du même bouton, avant que le
+  premier soit dit, n'en font qu'un.
+- Un essai d'horloge jugeait l'horloge avec elle-même. L'essai de l'âge à
+  l'entrée tamponnait ses paquets avec la fonction du worker qu'il jugeait.
+  Passé sur l'horloge murale, le worker s'accordait avec lui-même et l'essai
+  restait vert. Il tamponne maintenant comme capture.py, avec un `python3` neuf
+  qui lit `time.monotonic_ns()`.
+- Trois câblages n'avaient pas d'essai. Le fil des manettes pouvait relancer le
+  chrono à chaque état, l'ancien défaut, sans qu'aucun essai ne tombe. La boucle
+  d'accueil pouvait oublier de libérer le flux d'une capture fermée : l'essai
+  refaisait cette boucle lui-même, avec sa propre libération. Les masques de
+  l'emplacement n'étaient éprouvés que par un essai qui fait la course avec le
+  réveil du fil, vert deux fois sur trois sans eux. Chacun a maintenant son
+  essai par le vrai chemin.
+- Un compteur courait devant ce qu'il annonçait. Le compte des trames reçues
+  montait avant que la trame soit datée et rangée. Un essai qui attendait ce
+  compte trouvait parfois l'emplacement vide, une fois sur huit. La trame est
+  maintenant comptée en dernier.
+- Une fenêtre jetait sans le dire. La durée d'envoi vers `pads.py` se gardait
+  sur 4 096 échantillons, dix secondes d'un seul joueur. Dès le deuxième, le p95
+  et le maximum ne couvraient que les premières secondes. La fenêtre en tient
+  maintenant 16 384.
+
+Reste connu : sur la ligne « salle externe », les essais du worker éprouvent
+l'absence des champs, pas leur valeur. Échanger `wait_max_ms` et
+`write_max_ms` dans le code ne ferait tomber aucun essai, et les tableaux
+`viewers` et `seats` n'y passent que vides.
+
+#### La boîte noire : le vrai gel capturé, le temps volé, un résumé par partie
+
+L'audit a trouvé que la boîte noire avait raté le seul vrai gel de la partie.
+Les heures de cette partie sont celles du journal du salon, à l'heure de Paris :
+la partie a commencé le 27 à 00 h 32.
+
+**Le faux gel du démarrage, et la pause qui cachait le vrai.** À 00:33:15, la
+boîte noire a pris une capture « gel » de 33 386 ms. C'était le chargement de
+Smash : la page attendait sa première image. Après une capture, la règle se
+taisait cinq minutes. Le vrai gel de 543 ms de 00:36:14 est tombé dans ce
+silence. Il n'a eu ni profil, ni image, ni journal. Le vérificateur de l'audit a
+vu plus loin. Même sans le faux gel, le vrai trou de 1 488 ms de 00:33:23 aurait
+fait taire la règle jusqu'à 00:38:23. Le défaut de fond était la pause
+elle-même.
+
+Deux corrections, chacune avec son essai. Un trou mesuré avant la première
+image d'un jeu s'écrit maintenant « démarrage » : une ligne dans les relevés,
+sans capture et sans pause. Un gel ne fait plus taire sa salle qu'une minute ;
+une chute de cadence garde ses cinq minutes. Pour que le disque reste borné, un
+même gel ne prend qu'une capture, même s'il dure ou reste visible dans
+plusieurs fenêtres de la page.
+
+La preuve rejoue les vraies lignes du journal du salon, de 00:32 à 00:40, sans
+identité, dans la vraie boucle du service. Avant : une capture à 00:33:14, puis
+plus rien. Après : une ligne « démarrage » à 00:33:14, une capture à 00:33:24
+pour 1 488 ms et une à 00:36:16 pour 543 ms. Le prix : un vrai gel dans la toute
+première fenêtre d'images de chaque page n'est plus capturé.
+
+**Le temps volé.** Un gel causé par la machine ressemblait à un gel du jeu. Le
+relevé ne disait pas si un fil avait attendu un cœur, ni si la mémoire avait été
+compactée. Chaque relevé dit maintenant :
+
+- l'attente en file de chaque fil suivi (`run_delay`), en millisecondes par
+  seconde. Elle se lit dans le deuxième champ de `/proc/<tid>/schedstat`, même
+  avec `kernel.sched_schedstats` à 0. L'entrée du 12 septembre, « d'où viennent
+  vraiment les gels de Smash », disait que cette comptabilité était éteinte sur
+  la machine. Pour ce champ, c'était faux : vérifié le 27 novembre sur la boîte
+  noire elle-même, dont le premier champ égalait son temps de calcul ;
+- les compactions et réclamations directes de la mémoire, les défauts de page
+  majeurs, les pages relues du swap et les grandes pages refusées, lus dans
+  `/proc/vmstat`, en écarts par relevé ;
+- l'attente totale de la machine pour le processeur, la mémoire et le disque,
+  en millisecondes, et celle du conteneur du moteur seul ;
+- les pages modifiées pas encore écrites (Dirty) et celles en cours d'écriture
+  (Writeback).
+
+Un compteur illisible reste absent, jamais zéro : zéro voudrait dire « rien ne
+s'est passé ». Le coût a été mesuré sur lgf au repos. Un processus de 123 fils
+servait de moteur, en huit tours alternés de vingt-cinq relevés, deux fois.
+Médiane d'un relevé : 18,9 ms avant, 18,5 et 18,4 ms après. Lire le `schedstat`
+de chaque fil avec `read_text` aurait coûté 22,0 et 22,3 ms : le relevé lit donc
+ses fichiers avec `os.read`. C'est une mesure sur un processus de remplacement,
+pas pendant une partie.
+
+**Les voisins de la carte.** ollama et Jellyfin peuvent prendre la carte
+graphique d'une partie. Le 22 novembre, elle était occupée à 93 à 98 % sans
+aucun moteur, et rien ne disait par qui. Chaque relevé nomme maintenant les
+processus ROCm, lus dans `/sys/class/kfd`, même ceux de root. Il nomme aussi
+chaque ffmpeg enfant de Jellyfin, avec son temps de calcul. Chaque capture écrit
+`gpu-detenteurs.json` : les processus qui tiennent `/dev/dri` ou `/dev/kfd`, lus
+par le nom de leurs descripteurs. Les processus de root, comme ollama, n'y sont
+pas lisibles ; le fichier le dit et les compte. Le relevé de deux secondes ne
+lit jamais les descripteurs ni les statistiques fdinfo du pilote, dont le coût
+n'est pas qualifié. Depuis un terminal, lister les détenteurs a coûté 23,5 ms
+pour 499 processus, dont 457 illisibles. Sous le service, qui lit davantage, ce
+coût n'est pas mesuré (voir la relecture).
+
+**Le noyau.** Le noyau 7.0.0-44 attend un redémarrage. Chaque relevé note
+maintenant son noyau. `just boite-noire <jour> --phases 00:33-00:36,00:36-00:39`
+compare des phases côte à côte. Il refuse deux phases de noyaux différents, et
+un relevé qui ne note pas le sien.
+
+**Un résumé par partie.** La partie de Mario Tennis du 30 octobre avait perdu
+ses relevés et les mesures de ses pages : on les garde sept jours. À la fin de
+chaque partie, la boîte noire écrit maintenant un résumé, jamais effacé. Il dit
+les images par seconde, les fenêtres de capture au-dessus de 34, 50, 100 et
+250 ms avec leur heure, les pires trous, ce que les pages ont mesuré, le jeu et
+le noyau. Il ne dit ni nom, ni adresse, ni visite. Il pèse environ 2 Kio pour
+sept minutes de Smash. Les heures des fenêtres au-dessus des seuils grandissent
+avec la partie : environ 12 Kio pour une heure et 36 Kio pour trois, aux
+proportions de Mario Tennis. C'est une estimation sur des fenêtres inventées,
+pas une mesure.
+
+Rejoué sur le vrai journal du 26 novembre, le résumé retrouve les chiffres de
+l'audit : 58,86 images par seconde, et 28, 22, 10 et 6 fenêtres sur 84. Une
+partie Dolphin n'a pas de fenêtre de capture : elle écrit « non mesuré », pas
+des zéros. Le journal est lu de deux secondes avant le moteur jusqu'au début de
+la partie suivante, pour ne pas prendre les fenêtres d'une voisine. Un premier
+essai avec une marge d'une minute avait mis onze fenêtres de Smash dans le
+résumé de Mario Party. La conservation des relevés reste à sept jours, et reste
+réglable. Le disque n'est pas la raison : sept jours de relevés pesaient 23 Mo.
+Le résumé garde ce qui compare deux soirées, et les mesures des pages partent
+elles aussi après sept jours.
+
+**Compter les compilations de shaders.** `tools/compilations-switch.py` range,
+par fenêtre de 5 s de la capture, les entrées nouvelles du cache Mesa, les
+avertissements du moteur et le travail du fil de décompression du jeu. Rejoué
+sur le 26 novembre : 120 entrées dans 8 fenêtres, dont 7 dans la fenêtre du gel
+de 545 ms (finie à 23:36:11 UTC, l'heure du journal du worker), avec « too
+slow » et « missed on draw ». La fenêtre finie à 23:39:06 est un chargement sans
+compilation, et celle de 23:35:01 n'a rien. Son essai entre dans `just check`
+par la recette `outils-test` : avant, aucune porte ne le lançait.
+
+Un écart avec le plan, gardé tel quel. Le plan attendait aussi l'étiquette
+« chargement » sur la fenêtre finie à 23:36:11. Le relevé où le fil de
+décompression prend 16,3 % finit 0,36 s avant cette fenêtre, et il étiquette la
+fenêtre d'avant. Un relevé qui ne chevauche pas une fenêtre ne la décrit pas.
+C'est au propriétaire de trancher entre la règle et le plan.
+
+L'heure du moteur a demandé un détail. Ryubing remet son chronomètre à zéro une
+fois, après sa bannière. Une copie de son journal horodatée par Docker donne
+donc deux écarts, et seul le second vaut pour la partie : 23:32:33,786. Prendre
+le premier déplaçait les deux avertissements dans la mauvaise fenêtre.
+
+**La relecture contradictoire.** Une relecture a rejoué la même soirée
+autrement, et trouvé sept défauts. Chacun a son essai rouge d'abord.
+
+- Le démarrage se fermait pour toute la salle. Une salle a jusqu'à quatre
+  joueurs. La première page qui voyait le jeu fermait le démarrage de toutes.
+  Les autres recevaient leur première image un instant après, avec le même trou
+  de chargement. Rejouées pour trois pages décalées de 3 et 5 s, les vraies
+  mesures de Smash donnaient une capture « gel » de 33 386 ms à 00:33:18, puis
+  une de salle à 00:33:20. La minute de pause taisait alors le vrai trou de
+  1 488 ms : le défaut du 26 novembre, pour une salle de plusieurs joueurs.
+  Chaque page a maintenant son propre démarrage, fermé par sa première fenêtre
+  d'images. Il doit venir dans les trente secondes après celui de la salle ;
+  une page arrivée en pleine partie n'en a pas.
+- Le trou du chargement restait dans la fenêtre suivante. La page garde ses six
+  cents derniers écarts. À 30 images par seconde, comme Zelda sur Switch 2, ils
+  couvrent vingt secondes. La fenêtre qui suit la première image a donc encore
+  le trou du chargement pour pire. Une fenêtre qui garde le même trou qu'une
+  fenêtre de démarrage reste un démarrage, écrit une seule fois.
+- Une image figée après un hoquet n'avait jamais de capture. Une fenêtre sans
+  image continuait le gel d'avant, même quand l'image était revenue entre-temps.
+  Un hoquet de 900 ms capturé, puis une image figée pour de bon : la seconde
+  était liée au premier et ne prenait rien. Le code de `main` la capturait au
+  bout de 300 s. Une fenêtre sans image ne continue maintenant que l'attente qui
+  courait déjà. L'image figée a sa capture à la fin de la minute de pause.
+- ollama passait pour absent. Le service a la capacité CAP_DAC_READ_SEARCH.
+  Elle lui ouvre le dossier des descripteurs d'un processus de root, mais le
+  noyau refuse quand même d'en lire les liens. Ce refus était sauté comme un
+  descripteur fermé, et le fichier disait que personne d'autre ne tenait la
+  carte. Les 457 processus illisibles du 27 novembre avaient été comptés depuis
+  un terminal, sans cette capacité. Un lien refusé compte maintenant le
+  processus comme illisible. Ce point est lu dans le code du noyau ; il reste à
+  voir dans une vraie capture.
+- Un nom coupé faisait perdre la capture. Le noyau coupe le nom d'un processus
+  à quinze octets, parfois au milieu d'un « é ». Lu strictement, ce nom levait
+  une erreur avant le profil.
+- Le résumé d'une partie prenait les mesures des pages de la suivante. Le
+  journal du worker s'arrêtait au début de la partie suivante, mais pas les
+  mesures des pages. Le trou du chargement du jeu suivant devenait le pire écart
+  de la partie finie.
+- Un essai de capture lisait encore le vrai `/proc` de la machine : 466
+  processus illisibles ce jour-là. Il a maintenant le sien.
+
+Restes connus. Un même gel vu par plusieurs pages prend une capture de page,
+puis une de salle deux à quatre secondes plus tard : cette règle de portée date
+d'avant ce chantier, et elle est à trancher. Un résumé qui échoue ne laisse pas
+de trace, et un résumé en attente est perdu si le service redémarre juste après
+une partie.
+
+#### La salle : le moteur, la capture et les manettes
+
+Chaque correction a d'abord eu son essai rouge. Puis le défaut a été remis
+seul, pour vérifier que l'essai retombait sur le même message.
+
+**Config.json ne règle rien.** L'entrée du 16 septembre posait
+`backend_threading: On` dans le modèle et les treize sauvegardes, « préparé et
+non mesuré ». Ce réglage n'a jamais été actif. Ryubing lancé sans fenêtre
+(`--no-gui`) ne relit Config.json que si on lui passe `--use-main-config`.
+Sinon, il bâtit sa configuration avec sa seule ligne de commande. Son journal le
+disait : « BackendThreading set to: On », puis « Backend Threading (Auto):
+True ». Sur Vulkan, Auto vaut déjà « avec fil de rendu » : les joueurs n'ont
+rien perdu. Mais une mesure qui changerait Config.json comparerait deux bras
+identiques.
+
+La salle écrit donc trois réglages sur la ligne de commande : la synchro
+(`vsync_mode`), le fil de rendu (`backend_threading`) et la mémoire
+(`memory_manager_mode`). Ils se lisent dans `switch.json`. Leurs défauts sont
+les valeurs en effet le 26 novembre : Switch, Auto, HostMapped. Une valeur
+inconnue arrête la salle avant Docker, car le moteur distingue les majuscules.
+La salle ne passe pas `--use-main-config` : les treize Config.json ont dérivé.
+La commande ne prouve pas l'effet. C'est la ligne du moteur, au prochain
+démarrage, qui le prouvera (ADR D52).
+
+**L'exemple du cpuset.** L'exemple du réglage cpuset disait « 0-3,6-9 ». Le
+Ryzen 5 3600 a deux blocs de trois cœurs, chacun avec son cache L3 de 16 Mio :
+0-2 et 6-8, puis 3-5 et 9-11. L'exemple prenait quatre cœurs à cheval sur les
+deux. Il dit maintenant « 0-2,6-8 ». L'épinglage reste éteint, et rien n'en est
+mesuré.
+
+**Une variable du lanceur.** Le lanceur livré avec Ryubing (`Ryujinx.sh`) pose
+`DOTNET_EnableAlternateStackCheck=1`. La salle lance l'exécutable sans ce
+lanceur. Le commit amont qui l'a ajoutée n'a pas pu être lu sans réseau. Aucun
+arrêt anormal n'est lié à son absence : vingt arrêts en code 0 le 10 septembre,
+code 0 le 26 novembre. Le code dit pourquoi elle reste absente, sans prétendre à
+un effet.
+
+**Le démarrage de Smash et la copie de Sway.** Le 26 novembre, la garde de 30 s a
+tué une capture saine 3 s avant la première image de Smash. La cause est une
+copie. wlroots, la bibliothèque de Sway, donne à chaque nouvel enregistreur une
+copie de ce que l'écran montre déjà. Ensuite, plus rien tant que l'écran ne
+change pas. Au démarrage, cette copie est la sortie vide de Sway. Elle arrivait
+4,5 s après le clic. Smash chargeait ensuite 10 682 shaders pendant 15,9 s.
+Trois choses fausses en découlaient. La garde comptait ses 30 s depuis cette
+copie. `demarrages.jsonl` écrivait 4,5 s pour un démarrage d'environ 38 s. La
+page et la boîte noire voyaient un « gel » de 33 386 ms.
+
+La première copie d'un enregistreur n'arme plus la garde de 30 s. Jusqu'au
+second paquet, la borne est de 90 s depuis le départ de l'enregistreur, environ
+2,7 fois le démarrage de Smash. L'état de l'enregistreur est lu à chaque
+contrôle. Un enregistreur suspendu (état T dans `/proc`, celui que donne
+SIGSTOP) est nommé en moins de 0,35 s, au lieu de 30. Un enregistreur vivant
+mais bloqué n'est vu qu'à 90 s : c'est le prix. Le son garde ses 30 s, car
+parec n'a pas de copie.
+
+Cette copie ne part plus vers le worker. La capture demande aussitôt une
+image-clé. L'envoi reprend à la première image IDR qui suit. Les images P
+d'avant sont jetées, car elles renvoient à la copie que personne n'a reçue. Un
+premier écran fixe part encore, puisque l'image-clé demandée le précède. Une
+reprise en pleine partie perd ainsi une image (ADR D53).
+
+**Une boucle de relances que personne ne voyait.** Le 21 novembre, la salle
+Xbox 360 a relancé sa capture 36 fois en 21 minutes, toutes les 35,5 s environ,
+après que Xenia a cessé de présenter. La règle « trois échecs par minute » ne
+voyait jamais plus de deux relances dans sa fenêtre. La capture sort maintenant
+avec le code 3 quand elle n'a envoyé aucune image du jeu, et avec le code 4
+quand sa panne suit une image du jeu. La salle garde la règle de la minute, pour
+une capture qui meurt aussitôt. Elle ajoute une seconde règle : une fois une
+image du jeu montrée, trois échecs de suite sans image entre eux arrêtent la
+salle. Avant la première image, seule la minute compte, car un premier
+lancement de Mario Tennis reste 4 minutes sans image. Seul le code 4 prouve une
+image. Tout autre code est un doute. Il casse la série sans armer la règle : un
+doute n'arrête jamais une salle. Rejouées dans un essai, les 36 relances du
+21 novembre arrêtent la salle à sa troisième relance. Avec la borne de 90 s,
+l'arrêt vient environ 3,5 minutes après le gel. Arrêter la salle ou garder
+l'image figée annoncée reste au choix du propriétaire.
+
+**L'arrêt de wf-recorder.** Sur une image immobile, wf-recorder ne sort pas sur
+SIGINT : il attend une copie que Sway n'envoie pas. Chaque arrêt du 8 et du
+21 novembre a pris 5,03 s, puis fini en SIGKILL. L'enregistreur écrit vers
+`/dev/null` et n'a rien à finir. Il a désormais 0,5 s. parec garde ses 5 s.
+
+**Deux petites attentes fixes.** La capture dormait 5 ms quand le tube de
+l'encodeur était vide, et la lecture du son aussi. Chaque image et chaque
+morceau de son attendaient donc jusqu'à 5 ms. Les deux attendent maintenant le
+tube avec poll, un appel du noyau qui réveille le lecteur dès qu'un octet
+arrive. Le délai de 100 ms de poll laisse passer l'ordre d'arrêt et la garde de
+silence. Un piège attendait. Quand l'écrivain a fermé le tube, poll répond
+aussitôt POLLHUP et chaque lecture rend zéro octet. Sans attente dans ce cas, la
+boucle tournait à vide : 16 295 contrôles en une demi-seconde dans l'essai.
+
+Mesuré le 27 novembre, machine au repos, en alternance A B A B, A étant le code
+d'avant. Son : médiane 1,96 et 2,28 ms contre 0,022 et 0,030 ms. Image : médiane
+2,77 et 2,56 ms contre 0,070 et 0,053 ms. C'est mesuré sur un faux encodeur,
+pas en partie. Le gain, environ 2,5 ms, est petit devant les 72 à 121 ms que la
+page ajoute.
+
+La capture relevait les demandes d'image-clé du worker toutes les 100 ms, par
+le message « D ». Une demande levée 30 ms après un « D » attendait 70 ms. La
+capture interroge maintenant toutes les 20 ms : 13,6 ms en médiane face à un
+faux worker. Le demi-format ne s'arrête plus qu'après 100 ms sans spectateur,
+pour ne pas osciller davantage qu'avant.
+
+**Le journal du moteur a ses heures.** Ryubing date ses lignes depuis un
+chronomètre remis à zéro au lancement. Dans `emulator.log`, seul le nom du
+fichier donnait l'heure, à la seconde près. La copie de fin de partie passe
+maintenant `--timestamps` à `docker logs`. Chaque ligne commence par l'heure de
+Docker.
+
+**Le régulateur de fréquence.** Depuis le noyau 7.0, le 14 septembre, le pilote
+de fréquence est amd-pstate-epp. Il n'offre que `performance` et `powersave`.
+L'unité `nel3ab-cpu-performance` écrivait `schedutil` à l'arrêt, et l'arrêt du
+14 octobre a échoué. Elle écrit maintenant `powersave`. La mesure du
+11 septembre qui justifie `performance` précède le changement de pilote, et n'a
+pas été refaite. L'unité installée reste l'ancienne tant que le propriétaire ne
+la copie pas dans `/etc/systemd/system`.
+
+**Les vibrations de Smash.** Le 26 novembre, Smash a envoyé environ 107
+vibrations par seconde à un joueur au clavier. `pads.py`, qui applique aussi
+les boutons, écrivait chacune dans sa sortie avec `flush`. Si Docker cesse de
+lire ce tuyau, l'écriture attend, et plus aucun bouton n'arrive. Les lignes
+passent maintenant par une file bornée qu'un fil à part écrit. Une file pleine
+perd la ligne et la compte. Les vibrations sont résumées par manette et par
+seconde. Dans l'essai, sous 110 vibrations par seconde et une sortie que
+personne ne lit, aucun des 20 appuis n'arrivait avant la correction. Ils
+arrivent maintenant en moins de 5 ms en médiane.
+
+Un essai a d'abord passé sur le code fautif. À 110 lignes par seconde, un tuyau
+de 64 Kio met environ 8,5 s à se remplir, et l'essai durait 4 s. Il remplit
+maintenant le tuyau avant de mesurer, et vérifie qu'une écriture d'un octet est
+refusée.
+
+**Ce qui n'a pas été fait.** La salle lance `docker inspect` environ deux fois
+par seconde pour savoir que le conteneur vit, à 17 ms de processeur chacun. Le
+remplacer par un pidfd change les fichiers dorés des trois consoles et le faux
+Docker du banc doré. Il casse aussi un essai de `moteurs/xenia`, qui repère la
+fin de partie par le dernier `docker inspect`. Ces fichiers appartiennent à
+d'autres chantiers. Aucun trou d'image n'est attribué à ces appels.
+
+**La relecture contradictoire.** Une relecture a remis chaque défaut seul, puis
+a cherché ce que les essais laissaient passer. Elle a trouvé deux défauts de
+code et trois essais faibles.
+
+Un doute armait la règle des relances. La salle lisait tout code autre que 3
+comme « des images ont été montrées ». La capture sortait alors avec 1 après une
+panne qui suivait des images. Mais `python3` sort aussi avec 1 sur une
+exception, avant toute image. `docker exec` sort avec 125 à 127 quand il échoue
+lui-même. Un tel doute au premier lancement de Mario Tennis, qui reste 4
+minutes sans image, aurait arrêté la salle vers 182 s, avant la première image
+du jeu. La capture sort maintenant avec 4 après une image. Aucun des deux
+outils n'emploie ce code. Seul 4 arme la règle.
+
+Le résumé des vibrations écrivait toujours `"seconds": 1.0`, la durée prévue.
+Or la fenêtre se ferme au tour suivant de la boucle des manettes. Si cette
+boucle cale, dix secondes d'événements se liraient comme une seule. La ligne
+porte maintenant la durée mesurée.
+
+Trois essais ne pouvaient pas échouer comme il faut. L'essai d'une image-clé de
+200 Kio passait sur l'ancienne boucle, 8 fois sur 8. Son écrivain dormait 20 ms,
+quatre fois le sommeil de 5 ms qu'il devait prendre en faute : les deux se
+réveillaient ensemble. Avec des écarts tirés au hasard, l'ancienne boucle tient
+l'écrivain 2,8 à 3,4 ms en médiane, la nouvelle 0,16 ms. L'essai de la file
+pleine du journal des manettes était rouge 4 fois sur 10 sans défaut : il
+dépendait de l'ordre de deux fils. L'essai du refus d'un réglage du moteur,
+défaut remis, attendait dix secondes des manettes virtuelles au lieu de nommer
+le conteneur lancé trop tôt.
+
+Un pilote de laboratoire est périmé. `check-capture-recovery.mjs --silent`
+attend l'annonce « interrompue », que la page ne fait qu'après 3 s. Un
+enregistreur suspendu est maintenant nommé en moins de 0,35 s, et la reprise
+prend environ 2 s : la page peut ne plus l'annoncer. Ce pilote demande le pont
+du labo ; il n'a été ni changé ni lancé.
+
+#### La page : la marge rendue, le son qui sait rendre son retard, et ce qu'elle voit
+
+Rien n'a tourné sur l'émulateur ni sur la carte graphique : tout est prouvé
+dans des bancs, en temps simulé ou dans un Chrome sans écran.
+
+**La marge.** Deux gestes jettent une image décodée. Le débordement de la file
+dit que l'horaire est trop tard pour elle. Le rattrapage d'une image arrivée
+après son heure dit que l'horaire est trop tôt. Depuis le 9 septembre, les deux
+comptaient dans le même compteur, et un seul jet interdisait à la marge de
+grandir. Le propriétaire a choisi « lisse, retard plafonné » : un rattrapage
+laisse la marge grandir, mais de 30 ms au plus au-dessus de son départ (6 ms,
+donc 36 ms). Un débordement bloque toujours, comme le 17 août. L'ancienne règle
+reste derrière l'adresse `?marge=ancienne`, pour comparer à l'aveugle avec la
+même page. Le passage automatique au demi-format se juge sur la marge que
+l'ancienne règle aurait posée (ADR D48).
+
+Ce que la marge plafonnée achète, mesuré en simulation et donc non prouvé pour
+l'œil : sur des rafales de 130 ms une fois par seconde, le plus long arrêt passe
+de 142 à 133 ms, et les jets de 126 à 78 en 30 s. Les famines restent 56 : elles
+comptent des épisodes. L'horaire passe de 81 à 113 ms. La cible de l'audit,
+moins d'une demi-famine par seconde, n'est pas atteinte : le plafond de 30 ms ne
+couvre pas un trou de 130 ms. Sur le banc des états (Chrome sans écran, rafales
+de 100 à 150 ms), la marge monte à 36 ms avec la nouvelle page et reste à 3 ou
+4 ms avec celle de b5f21f8. Le relevé de la nouvelle règle dit un arrêt de
+150 ms et 51 à 52 rattrapées par fenêtre. Sous `?marge=ancienne`, la même page
+dit 150 puis 166 ms, et 63 puis 91 rattrapées, en deux passages. La retenue la
+plus longue du banc, 150 ms, dépasse l'horaire : la marge plafonnée ne la
+couvre pas. Ce sont des tendances, pas une comparaison alternée.
+
+**Une image en retard d'une période.** Sur un écran deux fois plus rapide que la
+source (120 Hz pour 60 images par seconde), une image en retard d'une période
+était jetée alors qu'il restait un tic pour la montrer. Elle se montre
+maintenant un tic, la suivante au tic d'après. Le banc Chrome tourne à 60 Hz et
+n'exerce pas ce chemin.
+
+**Ce que le relevé dit en plus.** Le relevé de dix secondes écrit maintenant le
+plus long arrêt vu au verre (`arrêt`), les jets par rattrapage et par
+débordement à part, la règle de marge en service, le plus long intervalle entre
+deux images d'écran (`écranMax`), les écarts d'arrivée au-dessus de 100 ms avec
+l'instant du plus grand (`écarts`), l'attente d'une image dans la file
+(`séjour`), la queue des aller-retours (`manette.retour`) et le plus long tour
+de la pompe des manettes (`manette.pompe`). Ces champs valent nul quand la
+fenêtre ne les a pas mesurés, jamais zéro. Un fil principal bloqué se lit dans
+`écranMax` et `manette.pompe`. Une liaison qui hoquette se lit dans `écarts`. La
+prochaine partie ordinaire du joueur distant dira où naît le trou de 117 à
+166 ms. Le relevé le plus long possible fait 1 364 caractères, comptés comme le
+salon les compte, pour une borne de 2 048.
+
+**Le son.** Le relevé écrivait `son.avance`, qui est la cible du prochain
+réancrage. La file réelle n'était écrite nulle part, et les essais comptaient
+les trous, jamais la file. Le banc du son (`banc-son.ts`) l'a montrée : après un
+arrêt de 300 ms puis sa rafale, la file restait à 320 ms pour toute la séance,
+pendant que la cible redescendait à 10. La page sait maintenant rendre ce
+retard, mais elle ne le fait que sous l'adresse `?son=rendre`. Elle lit la plus
+petite file des deux dernières secondes. Si cette file dépasse l'avance de plus
+de 10 ms, elle coupe un morceau sur cinq au plus. Elle garde 2 ms du morceau
+coupé, qui s'éteignent, et le suivant s'allume en 2 ms. Dans le banc, la file
+revient de 320 à 24 ms en deux fenêtres de deux secondes, sans trou de plus.
+Une carte son 500 ppm plus lente que la salle reste entre 14 et 22 ms pendant
+six minutes, au lieu de monter à 190. La relecture a montré pourquoi la coupe
+reste éteinte par défaut (voir plus bas). Le relevé écrit la file réelle
+(`son.file`) et le son rendu (`son.rendu`, nul quand la coupe est éteinte). Il
+écrit aussi l'écart du son sur l'image (`son.écart`) et le calage
+(`son.calage`, nul quand l'option est éteinte). L'option « caler l'image sur le
+son » ne bouge plus l'horaire de l'image pour un écart qui tremble de moins
+d'un rafraîchissement.
+
+**Les petits chiffres qui mentaient.** Firefox arrondit son horloge à la
+milliseconde quand la page n'est pas isolée. Un écran 120 Hz y donnait 8, 8 et
+9 ms, de médiane 8 : « écran 125 Hz ». La page lit maintenant la médiane des
+durées de six intervalles d'affilée, divisées par six. L'aller-retour se dit
+« de la liaison » et non plus « pour tes touches » : l'écho ne voit ni
+`pads.py`, ni SDL, ni le jeu. Une touche du clavier ou un doigt sur la manette à
+l'écran fait partir sa trame tout de suite, sans attendre le tour suivant de la
+pompe de 4 ms. Le gain, environ 1,5 ms en moyenne, vient de l'arithmétique et
+n'est pas mesuré de bout en bout.
+
+**Un mutant dit équivalent qui ne l'était pas.** La première correction de la
+marge jugeait le demi-format sur la nouvelle marge. En simulation, elle
+l'avançait de 16 s à 6 Mbit/s. La deuxième correction juge le demi-format sur
+la marge de la règle d'avant. Un mutant qui remettait la nouvelle marge ne
+faisait tomber aucun essai, et le rapport de la branche l'a dit équivalent. La
+relecture a trouvé une suite de fenêtres qui sépare les deux. Trois fenêtres de
+rattrapages sans famine font descendre la marge en service au plancher, et
+laissent celle d'avant à 6 ms. Des famines sans aucun jet font ensuite monter
+les deux de 8 ms par fenêtre, avec le même écart. La règle d'avant touche le
+plafond une fenêtre plus tôt : le basculement tombe à la fenêtre 28 au lieu de
+la 29. Le pas de la marge est devenu une fonction pure (`pasDeMarge`), et un
+essai tombe maintenant sur ce mutant. Un mutant qui survit n'est équivalent
+qu'avec une preuve. Cette preuve se cherche d'abord comme une suite qui les
+sépare.
+
+**La coupe du son faisait des trous sur la liaison qu'elle devait aider.** Le
+jumeau négatif de la coupe était une liaison qui tremble de ±8 ms, sans aucun
+arrêt. La liaison du joueur distant, elle, s'arrête 117 à 166 ms dans chaque
+fenêtre de dix secondes. Sans la coupe, la file garde la taille du plus long
+arrêt vu, et c'est elle qui absorbe les suivants. Le 26 novembre, son son n'a eu
+aucun trou pendant six minutes. Avec la coupe, la page rend cette marge pendant
+chaque fenêtre calme de deux secondes. L'arrêt suivant, s'il est plus long,
+devient un trou. Le banc du son l'a chiffré en temps simulé, sur dix minutes.
+Des arrêts de 100 à 160 ms toutes les 0,7 à 1,3 s font 31 trous avec la coupe,
+et 2 sans. Toutes les 3 à 10 s, ils en font 37 contre 2. Toutes les 10 à 40 s,
+33 contre 1. Dans ces cas, la file médiane ne baisse que de 15 à 20 ms. Sur des
+arrêts réguliers de 130 ms, la coupe ne coûte aucun trou, et c'était la seule
+forme d'arrêt que ses essais connaissaient.
+
+Quatre variantes ont été essayées dans le même banc, et aucune n'est sûre. Lire
+la plus petite file sur 10, 30 ou 60 s laisse 4 à 16 trous. La lire sur cinq
+minutes en laisse 3 à 6, et la dérive d'horloge remonte à 171 ms. Une pause
+après un trou qui suit une coupe en laisse 5 à 11. Ne couper qu'après 30 s sans
+arrêt rend exactement la page d'avant tant que les arrêts reviennent plus
+souvent. Quand ils reviennent toutes les 30 à 90 s, cette variante fait 29 trous
+contre 1 en trente minutes. L'échange est donc entre un son en retard et un son
+qui coupe, et le choix revient au propriétaire. La coupe reste écrite, mais
+éteinte par défaut, derrière `?son=rendre` (ADR D49). Le relevé écrit
+`son.rendu` à nul quand elle est éteinte, et la colonne dit « coupe éteinte ».
+Un essai (`son-hoquets.test.ts`) tombe si la coupe repart par défaut : 8 trous
+en deux minutes, contre 2. Ces formes d'arrêt sont inventées : la forme réelle
+du son sur cette liaison n'est pas connue, et `son.file` la donnera.
+
+**Un garde de `just check` était rouge.** La branche ajoutait trois compteurs
+(`caughtUp`, `overflowed`, `renduMs`) sans les montrer, et `readouts-check`
+refusait les trois. Le rapport citait le type, le lint, le format, vitest et
+l'empreinte, mais pas ce garde, qui est pourtant dans `check`. Les mesures de
+l'image disent maintenant les jetées rattrapées et débordées. Leur aide ne
+parle plus du seul débordement. Elle le faisait depuis le 9 septembre, alors
+que le rattrapage jetait la plupart des images.
+
+**Trois gestes sans essai.** Le stick de la manette tactile et les deux gestes
+du stick du pavé Pro font partir leur trame tout de suite. Les retirer laissait
+les 2 513 essais verts. Deux essais les tiennent maintenant.
+
+**Ce qui n'a pas été fait.** Le plafond de file en millisecondes attend une
+source au-dessus de 60 images par seconde et une mesure du décodage à 120 dans
+le navigateur du propriétaire. Les deux zones mortes empilées sur les sticks
+demandent le profil de Ryubing, hors du périmètre de la page, et un essai dans
+un jeu.
+
+#### Ce qui n'est pas encore prouvé
+
+Tout ce qui précède est prouvé par des essais, des bancs et des rejeux de
+fichiers réels. Rien ne l'a été dans une vraie partie. Il reste à faire, chez le
+propriétaire :
+
+- **Fusionner et installer.** Fusionner dans `main` quand aucun conteneur de
+  salle ne tourne : le worker relit les scripts des salles dans l'arbre
+  principal. Reconstruire le worker salle fermée, relancer
+  `nel3ab-boite-noire` sans salle ouverte, et copier l'unité du régulateur dans
+  `/etc/systemd/system`. Jusque-là, `deploy-check` reste rouge sur cette unité.
+- **Les manettes.** `just switch-controls-test` sur les manettes virtuelles du
+  noyau : le fil des manettes a changé (fronts tenus 20 ms, réveil à l'heure,
+  trame comptée en dernier), et le journal de `pads.py` aussi. Puis le
+  programme de test qui dessine chaque bouton : 20 appuis de 3 ms dans un même
+  segment TCP, ancien worker contre nouveau, A B B A. La valeur de 20 ms reste
+  choisie.
+- **Le trou de 117 ms.** Une soirée depuis le Mac, en Wi-Fi puis en câble,
+  alternée, sur la même scène. Dans chaque fenêtre de dix secondes, mettre côte
+  à côte le pire écart d'arrivée de la page, `écranMax`, `manette.pompe`,
+  `écarts`, et la ligne « salle externe » (`full_gap_max_ms`, `write_max_ms`,
+  `wait_max_ms`, `pad_gap_max_ms`), avec `ss -tin`. La phase témoin doit
+  montrer le plancher de 117 ms. Vérifier aussi, sur la première vraie ligne,
+  que l'âge à l'entrée vaut quelques millisecondes.
+- **La marge et le son.** Sur la liaison du joueur distant, des phases
+  alternées entre la page par défaut et `?marge=ancienne`, puis avec et sans
+  `?son=rendre`, en lisant `arrêt`, les rattrapées, les famines, l'horaire,
+  `son.trous`, `son.file` et `son.rendu`, et ce que le joueur sent.
+- **Les démarrages.** Trois ouvertures de Smash et une de Mario Tennis : aucune
+  ligne « no complete packet », 30 à 45 s écrites pour Smash dans
+  `demarrages.jsonl`, aucun gel de 33 s pour la boîte noire, et la ligne
+  « Backend Threading » du moteur qui nomme Auto, HostMapped et Switch.
+- **La boîte noire.** Les nouveaux champs dans une vraie partie, la médiane du
+  relevé sous 30 ms avec le vrai moteur, ollama compté parmi les illisibles
+  dans un vrai `gpu-detenteurs.json`, le coût de ce fichier sous le service, le
+  premier résumé réel et sa taille, et le coût du profileur roulant sur Ryubing,
+  à lire dans une capture prise pendant un combat.
+- **Ce qui attend une décision.** Arrêter la salle après une boucle de relances
+  ou garder l'image figée annoncée. La coupe du son par défaut ou non.
+  L'étiquette « chargement » de la fenêtre de 23:36:11. La portée d'un gel vu
+  par plusieurs pages.
+
+Le reste de l'audit attend une mesure ou un autre chantier : réchauffer le cache
+de shaders en sonde, les 45 images par seconde de Mario Tennis à deux, les
+pistes du moteur en sonde, `docker inspect` remplacé par un pidfd, l'arrêt des
+trames répétées vers `pads.py`, la moitié de la capture de l'âge et de l'écart
+de lecture sur sa fenêtre de 5 s, et les liaisons faibles du worker.
+
+**La leçon.** Plusieurs essais de ces quatre branches étaient verts pour une
+mauvaise raison : un client sans TCP_NODELAY, une horloge jugée par elle-même,
+un écrivain en phase avec le sommeil qu'il devait prendre en faute, un jumeau
+négatif qui ne faisait jamais revenir l'événement. Chaque fois, c'est le défaut
+remis seul, puis cherché par un autre chemin, qui l'a montré.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -36565,3 +37294,126 @@ ancien que celui qu'il exécute.
 première est le dossier où le service démarre ; la seconde, la commande
 qu'il lance. Le salon exécute le code de son `WorkingDirectory`, une salle
 le binaire de son `ExecStart`.
+
+**Relecture contradictoire** : la relecture adverse d'une branche, faite par
+un autre agent. Elle remet chaque défaut seul, puis cherche ce que les essais
+laissent passer (27 novembre 2026).
+
+**CLOCK_MONOTONIC** : le nom, sous Linux, de l'horloge monotone. Le worker et
+`capture.py` la lisent tous les deux, ce qui permet de dater l'âge d'un paquet
+à l'entrée du worker.
+
+**Front (d'un bouton)** : le passage d'un bouton de relâché à appuyé, ou
+l'inverse. Un front rendu est un front perdu dans une rafale, que le fil des
+manettes envoie quand même.
+
+**HOLD** : la durée minimale, 20 ms, pendant laquelle le fil des manettes
+Switch tient un bouton dans son nouvel état. Elle est choisie, pas mesurée.
+
+**Nagle (algorithme de)** : une règle de TCP qui retient un petit envoi tant
+que le précédent n'est pas acquitté, pour en regrouper plusieurs.
+
+**Acquittement retardé** : le récepteur TCP attend un peu, jusqu'à 40 ms ici,
+avant d'accuser réception. Avec Nagle, il retarde le petit envoi suivant.
+
+**TCP_NODELAY** : le réglage d'une socket qui coupe Nagle. Un navigateur le
+pose sur ses WebSockets.
+
+**Segment TCP** : un morceau du flux TCP envoyé en un seul paquet. Deux
+messages dans le même segment arrivent au même instant.
+
+**Pompe (des manettes)** : la boucle de la page qui lit les manettes et envoie
+leur état toutes les 4 ms.
+
+**run_delay** : le temps qu'un fil a passé prêt à tourner, sans cœur libre. Le
+noyau l'écrit dans le deuxième champ de `/proc/<tid>/schedstat`.
+
+**Compaction directe** : un processus qui doit déplacer des pages de mémoire
+pour obtenir un bloc contigu, avant de pouvoir continuer.
+
+**Dirty, Writeback** : dans `/proc/meminfo`, les pages modifiées pas encore
+écrites sur le disque, et celles en cours d'écriture.
+
+**ROCm, KFD** : ROCm est la pile de calcul d'AMD sur la carte graphique, celle
+qu'emploie ollama. KFD est l'interface du noyau par laquelle elle utilise la
+carte ; `/sys/class/kfd` nomme les processus qui la tiennent.
+
+**shared.toc** : la table des programmes du cache de shaders de Ryubing : 32
+octets d'en-tête, puis 8 octets par programme. Elle n'a pas d'heure par
+programme.
+
+**Cache L3** : le dernier cache du processeur, partagé par un groupe de cœurs.
+Le Ryzen 5 3600 en a deux de 16 Mio, chacun pour trois cœurs et leurs jumeaux.
+
+**poll** : un appel du noyau qui attend qu'un descripteur ait des données,
+avec un délai maximal.
+
+**POLLHUP** : la réponse de poll quand l'autre bout d'un tube est fermé.
+Chaque lecture rend alors zéro octet.
+
+**Copie initiale (wlroots)** : l'image que Sway donne à un nouvel enregistreur,
+celle que l'écran montre déjà. Au démarrage d'une salle, c'est la sortie vide
+de Sway.
+
+**Image P** : une image d'un flux H.264 qui décrit seulement ce qui change
+depuis une image précédente. Sans cette image précédente, elle ne se décode
+pas.
+
+**État T** : l'état d'un processus suspendu, par exemple par le signal
+SIGSTOP. `/proc/<pid>/stat` le montre.
+
+**pidfd** : un descripteur de fichier qui désigne un processus. Il devient
+lisible quand ce processus meurt, et ne désigne jamais un autre processus.
+
+**Code de sortie** : le nombre qu'un programme rend en finissant ; 0 veut dire
+réussi. La capture Switch rend 3 quand elle n'a montré aucune image du jeu, et
+4 quand sa panne suit une image.
+
+**Verrouillage de phase** : deux attentes périodiques dont l'une est un
+multiple de l'autre se réveillent toujours au même moment l'une de l'autre. Un
+essai de délai doit tirer ses écarts au hasard.
+
+**rAF** : abréviation de `requestAnimationFrame`. L'intervalle entre deux
+appels dit si le fil principal du navigateur a été bloqué.
+
+**Marge contre la gigue** : le temps que la page ajoute avant de montrer une
+image, pour absorber les écarts d'arrivée. Elle part de 6 ms.
+
+**Horaire (de la page)** : le retard que la page ajoute à chaque image avant
+de la montrer. La marge contre la gigue en fait partie.
+
+**Famine (de la file)** : un épisode où la page doit montrer une image et n'en
+a aucune de décodée. Une famine compte un épisode, pas une durée.
+
+**Rattrapage (d'une image)** : la page jette une image arrivée après son heure,
+quand la suivante est déjà due. L'horaire était trop tôt pour elle.
+
+**Débordement (de la file)** : la file des images décodées est pleine avant
+leur tour, et la plus vieille est jetée. L'horaire était trop tard pour la
+file.
+
+**Au verre** : ce que l'œil voit à l'écran, par opposition à ce que la page a
+reçu ou décodé.
+
+**Demi-format** : le flux réduit de la salle, en plus petite image et à plus
+faible débit, que la page demande quand sa liaison ne suit plus.
+
+**File réelle du son** : l'avance du son sur la carte son quand un morceau
+arrive (`playAt − currentTime`). La cible (`avance`) n'en est que le point de
+départ.
+
+**Fondu (du son)** : quelques millisecondes où le volume monte ou descend, pour
+éviter une marche dans l'onde, qui s'entend comme un clic.
+
+**ppm** : parties par million. Une carte son 500 ppm plus lente joue 500
+échantillons de moins par million.
+
+**Bande morte** : un écart sous lequel on ne change rien, pour qu'un chiffre qui
+tremble ne fasse pas trembler ce qu'il règle.
+
+**Hoquet de liaison** : un arrêt court de la liaison, suivi de la rafale de ce
+qu'elle a retenu.
+
+**Jumeau négatif** : l'essai qui accompagne un essai positif et montre le cas
+où la règle ne doit pas agir. Le jumeau d'une correction doit faire revenir
+l'événement qu'elle corrige.

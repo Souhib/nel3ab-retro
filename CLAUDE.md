@@ -448,13 +448,20 @@ machine".
 - **A wrapper's own exit codes must not overlap the tool it wraps.** On
   2026-11-21, the backup script's "NAS missing" code 3 was restic's "file
   unreadable" code 3, and the journal named the wrong cause. Pick codes the
-  wrapped tool does not use.
+  wrapped tool does not use. Nor may a code that claims work was done. On
+  2026-11-27 the capture exited 1 after sending a picture, and python3 exits 1
+  on any uncaught exception: a crash before any picture armed the room's
+  restart rule. The capture now exits 3 or 4, and any other status is a doubt
+  that arms nothing.
 - **Run a script as its real caller does, and keep a fake as strict as the
   real thing.** On 2026-11-22, an in-process `runpy` golden test passed a
   wrapper that the worker's fresh `python3` refused; golden files kept the
   machine's `1000:1000`; a fake selector told a room that never listened that
   stdin had closed; a fake lobby answered inside `send()` and lost every event.
   `just salles-dore` runs each room fresh, under two accounts and on a copy.
+  A fake tool also writes only where the real one would: since 2026-11-27 the
+  fake `docker logs` writes its error into the log file only when the room
+  sends stderr there, so removing `stderr=subprocess.STDOUT` turns the test red.
 - **Measure the product, not a sign of it, and survive its rounding.**
   Keep-alives kept a socket open through twenty minutes of frozen picture; a
   Caddy 502 read as "the site answers"; `systemctl is-active` exits 3 both when
@@ -600,6 +607,96 @@ machine".
   each entry's detail wraps on a phone. No tried size fell in the gap, so
   no gate would have said it. Take the number from a driver's measurement
   and pin both sides of it in a test.
+- **A test socket sends the way the real client does.** On 2026-11-27, the
+  transport tests' tungstenite client left Nagle on. A press and its release
+  meant to travel in one burst left 40 ms apart, behind the server's delayed
+  acknowledgement, and the burst test passed on the code that lost the press.
+  A browser sets TCP_NODELAY. Set it on every test socket that times or
+  bunches frames, and see the test red on the old code before trusting it.
+- **A socket read after the gesture dates every event at the read.** The same
+  day, the twin "a 100 ms press is told on time" read the pads' datagram
+  socket after sending the release, and found the press 100 ms late. Read on
+  a thread started before the gesture, and date each event as it arrives.
+- **A clock is tested against its producer, not against itself.** The same
+  day, the ingress age test stamped its packets with the very function it
+  judged. Switched to CLOCK_REALTIME, the worker agreed with itself and the
+  test stayed green. Stamp the way the producer does: for `capture.py`,
+  `time.monotonic_ns() // 1000` in a fresh `python3`.
+- **A test that copies the production loop tests its copy.** The same day,
+  the two-capture test rebuilt the accept loop of `Ingress::bind` around
+  `receive`, release included. Removing the release from the real loop passed
+  every test. Connect to the real socket instead.
+- **A count across two threads follows the state it announces.** The same
+  day, the pad-frame counter rose before the frame was dated and stored, and a
+  test that waited for it found an empty slot once in eight runs: bump it last
+  with `Release`, read it with `Acquire`. A queue test that wanted 16 lines
+  after 5,000 puts was red 4 times in 10 with no defect, because the writer
+  took its first line before or after the queue filled: bring the other
+  thread to its state first, then count exactly.
+- **A timing test must not share its period with the wait it guards.** On
+  2026-11-27, a fake writer slept 20 ms, four times the 5 ms sleep under
+  test, and woke with the reader: the old capture loop passed 8 runs out of 8.
+  Draw the gaps at random, and run the old code several times before trusting
+  its red.
+- **A blocked-pipe test fills the pipe first.** The same day, a test sent 110
+  vibration lines a second to a stdout nobody read, and the old `pads.py`
+  looked fine: 64 KiB take about 8.5 s to fill at that rate, longer than the
+  test. Fill the pipe before the phase, check that a one-byte write is
+  refused, then measure.
+- **A screen recorder's first packet is what the screen already showed.** On
+  2026-11-26, wlroots handed each new wf-recorder one copy of Sway's empty
+  output. The room took it for Smash's first picture (4.5 s instead of about
+  38 s), and the 30-second guard started from it and killed a healthy capture
+  during shader loading. Count a stream, a start time and a silence guard from
+  the first picture after that copy, and keep a still first screen as the
+  negative twin.
+- **A detector's pause hides the next real event.** On 2026-11-27, the black
+  box's capture of Smash's loading silenced it for five minutes, and the
+  game's only real freeze went uncaptured. Removing the false trigger alone
+  was not enough: the next real gap would have silenced it too. Replay the
+  real evening through the real loop and require the second real event, not
+  only the absence of the false one.
+- **A room rule is replayed with several pages.** The same day, the black box
+  closed a game's start-up at the first page's first picture. Replayed for
+  three pages, Smash's measures gave two 33 s « gel » captures, and the
+  minute's pause silenced the real 1,488 ms freeze. Replay a room rule with
+  the four pages a room can hold, each on its own window phase.
+- **A fake /proc must have the service's access.** The black box service has
+  CAP_DAC_READ_SEARCH: it lists a root process's fd folder, but the kernel
+  still refuses its links. Run from a shell, the test saw that process
+  refused at the folder; the service would have counted it as holding
+  nothing. Model that access: a folder that can be listed but not searched.
+- **A label comes only from a measurement that overlaps its window.** The
+  same day, a plan expected « chargement » on a window whose black box sample
+  ended 0.36 s before it. Keep the strict rule and report the gap rather than
+  widening the rule until it reaches the expected number.
+- **A queue's target is not its content.** On 2026-11-27, the page's report
+  published `son.avance`, the target of the next re-anchoring, and every
+  sound test counted gaps. None read what was queued. After a 300 ms stop and
+  its burst, the real queue stayed at 320 ms for the whole session while the
+  target read 10. Publish and test the measured quantity (`son.file`,
+  `playAt − currentTime`), and keep the target beside it under its own name.
+- **A recovery's negative twin is the event coming back.** The same day, the
+  sound catch-up gave back the queue that a link stall had added. Its twin was
+  a link with ±8 ms of jitter and no stall, while the remote player's link
+  stalled 117 to 166 ms in every ten-second window. In simulated time, stalls
+  of 100 to 160 ms every 0.7 to 1.3 s made 31 sound gaps in ten minutes with
+  the catch-up and 2 without; regular 130 ms stalls, the only shape its tests
+  knew, made no extra gap. Test a mechanism that undoes an event's effect
+  against that event recurring, with varying sizes and intervals.
+- **A mutant called equivalent needs its proof.** The same day, judging the
+  half-format switch on the smooth margin instead of the old-rule margin
+  survived every test, and the branch report called the mutant equivalent. It
+  was not: three catch-up windows without starvation pulled the smooth margin
+  to the floor, starvation windows without drops then raised both margins with
+  that gap, and the switch fell one window later. Look for the sequence that
+  separates the two before calling a mutant equivalent, and make the decision
+  a pure function a test can drive (`pasDeMarge`).
+- **A gate's list is the `check` line, not memory.** The same day, a branch
+  reported its front half green after typecheck, lint, format, vitest and the
+  stamp. `readouts-check`, also in `check`, refused three new counters that
+  nothing displayed. Read the recipe line, and run every recipe it names that
+  reads the files you changed.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 
@@ -876,7 +973,7 @@ Markdown alone does not update the site.
 |---|---|
 | **`just`** | **the gate before a commit: `check` + `gpu-test` + `clip-audio-test` + `switch-saves-test` + `switch-capture-test` + `xbox360-test` + `abri-test` + `deploy-check` + `focus-navigateur` + `etats-navigateur` + `parcours-navigateur` + `salle-telephone` + `manette-garde` + `reglage-navigateur` + `salon-navigateur` + `cadre-navigateur` + `planche-garde`** |
 | `just abri-test` | the encrypted NAS copy of the saves, restored from a throwaway repository (needs restic) |
-| `just check` | Rust + Python + page, with `salles-dore` and `moteurs-test`: the shared code-quality recipe used by CI |
+| `just check` | Rust + Python + page, with `salles-dore`, `moteurs-test` and `outils-test` (the Switch shader-compilation counter's own test, since 2026-11-27): the shared code-quality recipe used by CI |
 | `just salles-dore` | every external room script run as the worker runs it, under the machine's account, under another account and on a copy, compared with `docker/dore/*.json` (in `check`) |
 | `just salles-dore-ecrire` | rewrites the golden files and prints each changed line; refuses while any file outside `docker/dore/` is modified |
 | `just moteurs-test` | `moteurs/` under `/usr/bin/python3`, ruff with PLC0415 (no import inside a function) and format (in `check`) |

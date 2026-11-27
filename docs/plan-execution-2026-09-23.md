@@ -122,6 +122,9 @@ alternance.
 côté capture n'a pas encore été vu en service : il faut une salle relancée. Et
 `backend_threading: On`, posé dans les treize sauvegardes Switch, attend sa mesure
 alternée. Celle-ci demande un redémarrage du jeu par phase : quatre lancements.
+*Corrigé le 27 novembre 2026* : `backend_threading: On` n'a jamais été actif,
+car Ryubing sans fenêtre ne lit pas Config.json. Auto vaut On sur Vulkan : il
+n'y a rien à mesurer entre ces deux valeurs (ADR D52).
 
 *En attente d'une soirée* : les deux points demandent une vraie partie.
 
@@ -304,6 +307,13 @@ repli HTTP/2 rend tout fiable et on revient à TCP sans le savoir ; et vérifier
 disparaît sans erreur. La WebSocket reste en repli.
 *Fini quand* : `input_to_frame` et `switch-reaction` ne se dégradent pas en local,
 et s'améliorent sur le profil « Hyde ».
+*Précisé le 27 novembre 2026* : pour la Switch, le worker de la branche
+`integration/switch1` ne rapporte plus `input_to_frame` mais
+`pad_change_to_frame`, dans la ligne « salle externe ». Ce chiffre ne part que
+d'un changement de manette. Dolphin garde `input_to_frame`, qui part de la
+dernière trame reçue. Aucun des deux n'est un temps de réaction : la
+réaction se mesure de l'appui à l'image changée, avec `switch-reaction` ou le
+programme de test.
 
 **3.2 L'image, une image par flux.** Des flux QUIC indépendants : la
 retransmission d'une image ne retarde plus la suivante, l'ordre reste garanti à
@@ -321,7 +331,9 @@ Indépendante des liaisons, et en attente de données plutôt que de code.
 
 - Au prochain vrai gel, lire `avant.perf.data` : c'est la première fois que la
   cause elle-même sera enregistrée.
-- Mesurer `backend_threading: On` en alternance (0.5).
+- Mesurer `backend_threading: On` en alternance (0.5). *Sans objet depuis le
+  27 novembre 2026* : On et Auto donnent le même fil de rendu sur Vulkan, et
+  Config.json n'était pas lu.
 - Mesurer l'épinglage de cœurs (`cpuset`, éteint par défaut) de la même façon.
 
 ## Plus tard, et seulement sous condition

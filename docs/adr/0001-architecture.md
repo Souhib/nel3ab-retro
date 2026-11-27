@@ -4489,3 +4489,289 @@ mode to show a column without pictures; its checks moved to the
 volume figure 12 px outside a 256 px column on the page in service, fixed by
 letting the slider shrink (`min-w-0`). The first overflow now comes at
 192 px, so 256 px is a choice and no longer a measured floor.
+
+### D48: The page's jitter margin grows on bursts, capped 30 ms above its start, 2026-11-27
+
+The page drops a decoded picture for two opposite reasons. A queue overflow
+says the schedule is too late for the queue: on 2026-08-17, growing the
+margin made it worse. Catching up a picture that arrived after its time says
+the schedule is too early. Since 2026-09-09 both drops went into one counter,
+and a single drop in a window stopped the margin from growing. On 2026-11-26
+a remote player's page (Firefox 160 on a Mac, through Tailscale) kept its
+margin on its 3 ms floor for 4 min 21 s, with 515 empty-queue episodes and
+460 pictures never shown, while the capture held a regular 60 pictures a
+second. These are findings VID-1 and DON-1 of the read-only audit of the
+Switch 1 chain (2026-11-27).
+
+Weighed:
+
+1. Keep the rule. The margin then depends on the luck of a window without
+   any drop.
+2. Separate the two drops, with no bound. The audit's simulation gives a
+   margin of 54 to 64 ms and a median delay at the glass of 85 to 143 ms.
+3. Separate the two drops and cap what a catch-up lets the margin add. The
+   owner chose this on 2026-11-27: « lisse, retard plafonné » (smooth, with a
+   capped delay).
+4. A « reactive or smooth » setting for each player. Postponed until an
+   evening shows that players feel the difference.
+
+Decision: option 3. A catch-up no longer blocks the margin. On starvation the
+margin grows up to 36 ms (its 6 ms start plus 30), and without starvation it
+comes down. An overflow still blocks it, as on 2026-08-17. Above 36 ms the
+margin follows the old rule, computed from the same windows. The automatic
+switch to the half format is decided on the margin the old rule would have
+set. The old rule stays behind `?marge=ancienne`, so one page can be compared
+with itself blind, and the page's ten-second report names the rule in
+service (`marge`). On a screen twice as fast as the source (120 Hz for 60
+pictures a second), a picture one period late is now shown for one tick
+instead of dropped.
+
+Consequences. On a bursty link the schedule can take up to 30 ms more. In
+simulation, with 130 ms held back once a second for 30 s, drops fall from
+126 to 78 and the longest stop from 142 to 133 ms, while starvation episodes
+stay at 56 and the schedule rises from 81 to 113 ms. The cap does not cover a
+130 ms hole, so the audit's target of fewer than 0.5 starvations a second is
+not reached. On the states bench (headless Chrome at 60 Hz, bursts of 100 to
+150 ms) the margin reaches 36 ms, and stays at 3 or 4 ms on the page of
+b5f21f8. A simulation and a bench are not an evening: the gain for the eye is
+not proven. It is judged at the owner's, on the remote player's link, in
+alternating phases between the default page and `?marge=ancienne`.
+
+The cap is one constant, `CATCHUP_SLACK_MAX` in `front/src/media/clock.ts`.
+The margin's step is a pure function in the same file, `pasDeMarge`, and a
+test checks that the half format switches in the same window as under the
+old rule. The branch report had called the opposite mutant equivalent. The
+review found a sequence of windows where that mutant switched one window
+later, at window 29 instead of 28.
+
+### D49: The page can give back the sound delay of a burst, but only under `?son=rendre`, 2026-11-27
+
+The page places each sound chunk right after the previous one. The real
+queue came back to its target only through a gap. After a stop followed by
+its burst, the delay stayed for the whole session: 320 ms in the sound bench
+after a 300 ms stop, while the report's `son.avance`, which is the target of
+the next re-anchoring, read 10. A sound card slightly slower than the room
+did the same, up to the 500 ms bound of the scheduler (audit finding SON-1).
+
+Weighed:
+
+1. Keep the rule. The sound stays late on the picture, and the lip-sync
+   option carries that delay over to the picture.
+2. Re-anchor at once when the queue exceeds its target. Each re-anchoring is
+   a sound gap.
+3. Cut gradually, with a fade, what the smallest queue of the last two
+   seconds holds above the lead.
+4. Resample the sound slightly in an AudioWorklet. Gentler to the ear, much
+   more code: postponed.
+
+Decision: option 3 is written but off by default (review of 2026-11-27). The
+cut runs only when the room's address carries `?son=rendre`, read by
+`rendreDeLAdresse` in `front/src/media/sound.ts`. It starts 10 ms above the
+lead and cuts one chunk in five at most. It keeps 2 ms of the cut chunk,
+faded out, and fades the next chunk in over 2 ms. No cut leaves the queue
+under the lead. The page reads the smallest queue rather than the mean, so it
+never cuts what the jitter needs. The report writes the real queue
+(`son.file`) and the sound given back (`son.rendu`), null while the cut is
+off. The two address flags combine: `?marge=ancienne&son=rendre`.
+
+Why off. On a link whose stalls come back with different sizes, the cut also
+gives back the margin that the next, longer stall would have used, and that
+stall becomes a gap. The first negative twin was a link with ±8 ms of jitter
+and no stall. In the sound bench, in simulated time over ten minutes, stalls
+of 100 to 160 ms every 0.7 to 1.3 s made 31 sound gaps with the cut and 2
+without it. Every 3 to 10 s they made 37 against 2, and every 10 to 40 s,
+33 against 1, while the median queue fell only by 15 to 20 ms. The remote
+player's link stalled 117 to 166 ms in every ten-second window on
+2026-11-26, and his sound had no gap for six minutes. Regular 130 ms stalls,
+the only shape the first tests knew, cost no extra gap. Three other settings
+were tried in the same bench: the smallest queue read over 10 s to 5 min, a
+pause after a gap, and 30 s of calm before any cut. Each keeps extra gaps
+somewhere, or lets the clock drift climb back to 171 ms. These shapes of
+stall are invented. The real shape of that link is not known yet; `son.file`
+will show it.
+
+Consequences. By default the sound keeps the delay of a burst, as before
+2026-11-27, and does not cut on stalls. Under `?son=rendre` it comes back
+within seconds to its lead: in the bench, from 320 to 24 ms in two
+two-second windows, and a sound card 500 ppm slower than the room stays
+between 14 and 22 ms for six minutes instead of climbing to 190. Every stall
+longer than the earlier ones then becomes a gap. What the ear hears of a cut
+is not measured. The choice is the owner's, on a real evening, in alternating
+phases with and without `?son=rendre`, reading `son.trous`, `son.file` and
+`son.rendu`, then listening. A test (`son-hoquets.test.ts`) fails if the cut
+comes back on by default: 8 gaps in two minutes, against 2.
+
+### D50: A Switch pad is a level, but a button edge holds one picture, 2026-11-27
+
+Since the 64-deep input queue became one slot per port (logbook, § 6.13),
+each seat keeps only its newest state, and the Switch pads thread hands only
+that one to `pads.py`. That is right for a stick. On 2026-11-26 the remote
+player's frames reached the worker in bursts: 18 % of picture intervals
+received no frame (audit finding ENT-1). A press and its release in one burst
+left only the release in the slot, or reached the virtual pad microseconds
+apart, and the game reads its pad once a picture (ENT-2). A test measured
+27 to 31 µs of press on the pad.
+
+Decision. The slot also keeps two masks: the buttons that went down and the
+buttons that went up in the states nobody took (`browser::Unread`). The
+Switch pads thread (`transport::edges`) tells a lost edge, and keeps every
+button in its new state for at least `HOLD`, 20 ms, before it follows the
+page. A rescued edge waits too, until the previous edge of the same button
+has held for `HOLD`; each seat keeps a mask of owed edges for that. Rescued
+at once, a release cut the press before it to 5 ms, which the game could miss
+(review of 2026-11-27). One pending state per seat and a few masks, never a
+queue: two lost edges of the same button merge into one if the first is not
+told yet, and a triple edge in one read (press, release, press) is still
+lost. The thread wakes at the due time instead of its 50 ms idle wait.
+Sticks stay last-wins. Dolphin is unchanged.
+
+Weighed. A queue of states would keep every edge, but a burst after a gap
+would become a delay that piles up. Sending both states back to back does
+not help: they reach uinput within microseconds. Lengthening presses only
+would lose a release between two presses, and a double tap would read as
+one.
+
+Cost. A press shorter than 20 ms reaches the game as 20 ms. A new press less
+than 20 ms after a release waits up to 20 ms. 20 ms is one picture at 60 Hz
+plus a margin: chosen, not measured. The worker still sends `pads.py` one
+state per received frame, identical or not: `pads.py` releases a seat left
+one second without a state, and the repeats keep a held button down. The
+worker's line « salle externe » counts the edges rescued (`pads_rescued`)
+and deferred (`pads_deferred`). Not yet run: `just switch-controls-test` on
+the kernel's virtual devices, and the probe program that draws every button,
+with 20 taps of 3 ms in one TCP segment, old worker against new, A B B A.
+
+### D51: The black box pauses briefly per freeze, gives each page its start-up, keeps a summary per game and reads only cheap files, 2026-11-27
+
+On the night of 2026-11-26, at 00:33:15 Paris time, the black box took a
+« gel » capture of 33,386 ms: Smash was loading, and the page was waiting for
+its first picture. That capture opened a five-minute pause, and the game's
+only real freeze, 543 ms at 00:36:14, was not captured. Without the false
+capture, the real 1,488 ms gap of 00:33:23 would have silenced it until
+00:38:23: the pause itself was the defect. The samples said nothing of
+thread waits, memory, the graphics card's neighbours or the kernel. The
+slowest game of six weeks, Mario Tennis for two on 2026-10-30, had lost its
+samples and page measures after seven days.
+
+Decision:
+
+1. A gap measured before a game's first picture is a start-up
+   (« démarrage »), page by page. Each page closes its own start-up with its
+   first window of pictures, within thirty seconds of the room's; a page that
+   arrives mid-game has none. The loading gap that stays among a page's last
+   six hundred intervals stays a start-up, written once. A start-up is
+   written in the samples, without capture and without pause.
+2. A freeze silences its room for one minute (`boite_noire_pause_gel_s`). A
+   cadence drop keeps its five minutes. The same freeze takes one capture
+   only, even when it lasts or stays visible in several windows of the page.
+   A window without a picture continues a freeze only if the wait was
+   already running at the end of the previous window.
+3. At the end of each game a summary is written in `parties/` and never
+   swept. What was not measured is written « non mesuré ». Samples and
+   captures stay seven days, configurable (`NEL3AB_BOITE_NOIRE_JOURS`).
+4. The two-second sample reads only files whose cost is measured. Process
+   descriptors are read at capture only (`gpu-detenteurs.json`), and the
+   driver's fdinfo statistics never.
+5. Two phases on different kernels are not compared
+   (`lire.comparer_phases`, `just boite-noire <day> --phases a-b,c-d`), and
+   neither is a phase whose samples do not name their kernel.
+6. A process whose descriptor links are refused counts as unreadable, never
+   as holding nothing.
+
+Rejected:
+
+- Keep five minutes and exclude only the start-up. Replayed on the evening,
+  the real 1,488 ms gap still silenced the freeze of 00:36:14.
+- Ignore the first sixty seconds of a game. The real 1.5 s gap of 00:33:23
+  was lost.
+- Close the start-up for the whole room at the first page. Replayed with
+  three pages, the second and third made a 33 s « gel » capture, and the
+  real 1,488 ms gap was silenced.
+- Keep samples longer. Page measures leave after seven days anyway, and the
+  summary is enough to compare two evenings.
+- Read fdinfo at every sample. Its cost is not qualified (rule 4 of
+  CLAUDE.md).
+
+Consequences. A real freeze in the first window of pictures of each page is
+no longer captured. A summary weighs about 2 KiB for seven minutes and grows
+by about 12 KiB per hour of play, estimated on invented windows. An evening
+that freezes without pause takes up to one capture per minute and per room,
+2 to 5 MB each. A freeze seen by several pages still takes a page capture,
+then a room capture 2 to 4 s later: that scope rule is older than this
+decision and is not settled. A sample costs 18.4 to 18.9 ms in median,
+measured with a 123-thread stand-in process at rest, under the 30 ms bound.
+The refusal behind item 6 is read in the kernel's code
+(`proc_pid_readlink` calls `ptrace_may_access`), not yet observed under the
+service, which holds CAP_DAC_READ_SEARCH. The summary names no person,
+address or visit. None of this runs before the owner restarts
+`nel3ab-boite-noire` with no room open.
+
+### D52: Ryubing is configured by its command line, not by Config.json, 2026-11-27
+
+Without a window, Ryubing reads Config.json only when it is given
+`--use-main-config` (HeadlessRyujinx.cs:148-151); otherwise its configuration
+comes from its command line alone. On 2026-11-26 its log said
+« BackendThreading set to: On », then « Backend Threading (Auto): True ». The
+`backend_threading: On` written on 2026-09-16 into the template and the
+thirteen Switch saves never took effect. On Vulkan, Auto already means a
+render thread, so players lost nothing. But a measurement that changed
+Config.json would have compared two identical arms.
+
+Decision. The room writes `--vsync-mode`, `--backend-threading` and
+`--memory-manager-mode`, read from `switch.json` (`vsync_mode`,
+`backend_threading`, `memory_manager_mode`). The defaults are the values in
+effect that night: Switch, Auto, HostMapped. An unknown value stops the room
+before any container starts; the names are case sensitive, as the engine's
+parser is. Custom is refused while the room does not set
+`--custom-refresh-rate`. The room does not pass `--use-main-config`.
+
+Reasons. The thirteen Config.json files have drifted (versions 70 and 73),
+and with `--use-main-config` the room would depend on each of them. A
+measurement through Config.json would compare two identical arms.
+
+Consequence. A new engine setting enters through `switch.json` and
+`ENGINE_SETTINGS` (`docker/switch-room.py`), with its test. The proof of its
+effect is the engine's own log line at the next start, not the command line.
+That line has not been read yet: it waits for the next real start.
+
+### D53: A capture's start-up and its relaunches, 2026-11-27
+
+wlroots gives each new recorder one copy of what the screen already shows,
+then nothing until the screen changes. On 2026-11-26 that copy, Sway's empty
+output 4.5 s after the click, was taken for Smash's first picture.
+`demarrages.jsonl` wrote 4.5 s for a start of about 38 s, and the 30-second
+guard, counted from that copy, killed a healthy capture 3 s before the first
+picture, while Smash loaded its shaders. On 2026-11-21, 36 relaunches of the
+Xbox 360 room's capture in 21 minutes stayed invisible to the rule « three
+failures in one minute ».
+
+Decision. A recorder's first packet is neither sent to the worker nor counted
+by the 30-second guard. The capture asks for a key frame at once and resumes
+sending at the first IDR picture. Until the second packet the bound is
+`START_LIMIT`, 90 s from the recorder's start; then 30 s without a packet
+fail, as before. The recorder's process state is read at every check, so a
+stopped recorder (state T) is named within 0.35 s. The sound keeps its 30 s
+from the start: parec has no such copy.
+
+The capture exits with 3 (`NOTHING_SHOWN`) when it sent no game picture, and
+with 4 (`SHOWN_THEN_FAILED`) after a failure that follows a game picture. The
+room stops after three failures in one minute, or, once a game picture was
+shown, after three failures in a row without a picture between them. Only 4
+arms the second rule. Any other code breaks the series without arming it.
+Code 1 is not used for this: python3 also exits with 1 on an uncaught
+exception, before any picture, and docker exec exits with 125 to 127, or 128
+plus a signal.
+
+Weighed. Starting the recorder only when Sway shows the game's window: not
+kept, it adds a dependency on Sway's tree and leaves the copy of a mid-game
+restart. Counting the first picture at 30 packets in one second: not kept, a
+still first screen never gives them. Keeping the announced frozen picture
+instead of stopping the room: left to the owner.
+
+Costs. A mid-game restart loses one picture. A recorder alive but blocked
+before its second packet is seen only at 90 s. A game that never draws
+restarts its capture every 90 s without end. With the 90 s bound, a real
+freeze stops the room about 3.5 minutes after it: the capture exits with 4,
+then twice with 3. Not yet seen in a real room: three normal starts of
+Smash and one of Mario Tennis, with no « no complete packet » line and 30 to
+45 s written for Smash.

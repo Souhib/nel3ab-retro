@@ -450,6 +450,12 @@ Les essais réels ont tué successivement les encodeurs plein et demi-format :
 son et image repartent en 2,00 et 2,47 secondes, sans perte de place ni nouvelle
 socket vidéo. Un encodeur suspendu, incapable de traiter son signal d'arrêt,
 repart en 36,96 secondes, dont les trente secondes du délai de surveillance.
+*Note du 27 novembre 2026 (branche `integration/switch1`).* Depuis cette date,
+un enregistreur suspendu (état T) est nommé au contrôle suivant, en moins de
+0,35 s : le chiffre de 36,96 secondes est celui d'avant.
+`check-capture-recovery.mjs --silent` attend encore l'annonce « interrompue »,
+que la page ne fait qu'après 3 s ; une reprise d'environ 2 s peut ne plus la
+montrer. Le pilote est à revoir avec le banc du labo.
 Suspendre le lecteur audio a d'abord bloqué l'arrêt malgré la surveillance :
 sa lecture attendait encore un morceau complet. La lecture non bloquante, qui
 reconstitue des morceaux stéréo de 1 920 octets, permet maintenant la même reprise

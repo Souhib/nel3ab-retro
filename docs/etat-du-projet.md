@@ -6,6 +6,123 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 27 novembre, le jour : l'audit de la Switch 1 et ses corrections, sur
+integration/switch1.** Ce bloc décrit du code fusionné sur la branche
+`integration/switch1` (worktree `~/nel3ab-chantiers/switch1-integration`). Il
+n'est pas encore sur `main`. Rien n'est installé : aucun worker reconstruit,
+aucune boîte noire relancée, aucune unité copiée. Rien n'a tourné avec le vrai
+émulateur ni avec la carte graphique : les preuves sont des essais, des rejeux
+de fichiers réels, des bancs en temps simulé et un Chrome sans écran. Ce bloc
+ne dit pas le résultat de la porte complète `just` sur cette branche.
+
+- **L'audit.** Un audit en lecture seule a relu la partie Smash du
+  26 novembre (sept minutes, un joueur distant sur un Mac) et Mario Tennis à
+  deux du 30 octobre. Le serveur livrait 60 images par seconde régulières. La
+  page du joueur distant gardait sa marge à 3 ms pendant 4 min 21 s, et sa
+  liaison avait un trou d'arrivée de 117 à 166 ms dans chaque fenêtre de
+  10 s. Les autres gels venaient des compilations de shaders et des
+  chargements du jeu. Plusieurs mesures mentaient. Le récit est au carnet,
+  « 27 novembre : l'audit de la Switch 1, et ses quatre chantiers » ; les
+  décisions sont dans l'ADR, de D48 à D53.
+- **Le worker** (branche `chantier/switch1-worker`). Le worker d'une salle
+  externe écrit toutes les dix secondes la ligne « salle externe » : arrivée,
+  âge, taille et clés de chaque flux à l'entrée, attente en file et écriture
+  de chaque spectateur, images jetées, son refusé, trames de chaque manette et
+  trafic vers `pads.py`. `just sessions <jour> --tout` la déplie. L'entrée
+  n'accepte plus qu'un producteur par flux. Pour la Switch,
+  `pad_change_to_frame` remplace `input_to_frame` et ne part que d'un
+  changement de manette ; aucun des deux n'est une réaction. Un appui court
+  tient 20 ms sur la manette virtuelle, et un front rendu attend que le front
+  d'avant du même bouton ait tenu ce temps (ADR D50).
+- **La boîte noire** (branche `chantier/switch1-observateurs`). Le trou du
+  démarrage d'un jeu s'écrit « démarrage » pour chaque page de la salle, sans
+  capture ni pause. Preuve : rejeu des vraies lignes du 27 novembre à une page
+  puis à trois pages ; trois lignes « démarrage », captures de 1 488 ms et de
+  543 ms. Un gel ne fait taire sa salle qu'une minute, et un même gel ne prend
+  qu'une capture par page. Chaque relevé dit l'attente en file de chaque fil,
+  six compteurs de `/proc/vmstat`, la pression de la machine et du conteneur
+  du moteur, Dirty et Writeback, le noyau, et les voisins de la carte (ROCm,
+  ffmpeg de Jellyfin) ; médiane d'un relevé 18,4 à 18,9 ms, mesurée avec un
+  processus de 123 fils. Chaque capture écrit `gpu-detenteurs.json`. Chaque
+  partie laisse un résumé dans `boite-noire/parties/`, jamais effacé : environ
+  2 Kio pour sept minutes, environ 12 Kio par heure (estimé). `just
+  boite-noire <jour> --phases` refuse deux noyaux différents.
+  `tools/compilations-switch.py` range les compilations de shaders par
+  fenêtre de capture, et son essai entre dans `just check` par la recette
+  `outils-test` (ADR D51).
+- **La salle, la capture et les manettes** (branche
+  `chantier/switch1-salle`). Ryubing se règle par sa ligne de commande :
+  synchro, fil de rendu et mémoire viennent de `switch.json`, défauts Switch,
+  Auto, HostMapped (ADR D52). La copie initiale de Sway n'est plus envoyée ni
+  comptée par la garde de 30 s ; la borne de démarrage est de 90 s. Une boucle
+  de relances sans image du jeu arrête la salle à son troisième échec. La
+  capture sort avec 3 sans image du jeu et avec 4 après une image ; seul 4
+  arme cette règle (ADR D53). wf-recorder s'arrête en 0,5 s. Les tubes de la
+  capture se lisent avec poll : médiane ramenée d'environ 2,6 ms à 0,05 ms sur
+  un faux encodeur. Les demandes d'image-clé sont relevées toutes les 20 ms.
+  `emulator.log` porte l'heure de Docker. Les vibrations de `pads.py` ne
+  passent plus par une écriture qui peut bloquer les boutons. L'unité du
+  régulateur écrit `powersave` à l'arrêt.
+- **La page** (branche `chantier/switch1-page`). Marge contre la gigue
+  « lisse, retard plafonné » : un rattrapage ne bloque plus la marge, qui
+  grandit de 30 ms au plus au-dessus de 6 ms ; l'ancienne règle reste derrière
+  `?marge=ancienne` (ADR D48). Une image en retard d'une période se montre un
+  tic sur un écran deux fois plus rapide que la source. Le relevé dit l'arrêt
+  vu au verre, les deux sortes de jets, ce qui sépare un fil principal bloqué
+  d'une liaison qui hoquette, la file réelle du son et son écart sur l'image ;
+  le plus long fait 1 364 caractères pour une borne de 2 048, et le salon n'a
+  pas à changer. Le son sait rendre peu à peu le retard pris après une rafale,
+  mais seulement sous `?son=rendre` : sans ce paramètre, des hoquets répétés y
+  devenaient des trous (ADR D49). « Écran 125 Hz » se lit 120 sur une horloge
+  à la milliseconde. L'aller-retour se dit de la liaison. Une touche ou un
+  doigt part sans attendre la pompe. « Caler l'image sur le son » ne fait plus
+  trembler l'horaire. Le banc des états a un état « rafales » (étapes
+  `rafales-marge` et `rafales-ancienne`), rouge contre la page de b5f21f8.
+- **Les relectures.** Chaque branche a eu sa relecture contradictoire, qui a
+  corrigé des défauts dans le code neuf : un front rendu qui coupait l'appui
+  d'avant, un démarrage fermé pour toute la salle, une image figée jamais
+  capturée, ollama compté « sans carte », un doute qui armait la règle des
+  relances, la coupe du son qui faisait des trous, et `readouts-check` rouge.
+  Chaque correction a son essai rouge avant elle, rouge de nouveau sur son
+  défaut remis seul. Voir le carnet.
+- **Mise en service.** Fusionner dans `main` seulement quand aucun conteneur
+  de salle ne tourne : le worker relit les scripts des salles dans l'arbre
+  principal. Reconstruire le worker salle fermée (il porte la page). Relancer
+  `nel3ab-boite-noire` sans salle ouverte. Copier
+  `deploy/nel3ab-cpu-performance.service` dans `/etc/systemd/system`, puis
+  `systemctl daemon-reload`, sans arrêter l'unité pendant une salle ; jusque-là
+  `deploy-check` reste rouge sur cette unité.
+- **Reste à prouver chez le propriétaire.** `just switch-controls-test` (le
+  fil des manettes et le journal de `pads.py` ont changé). Le programme de
+  test, 20 appuis de 3 ms dans un même segment TCP, ancien worker contre
+  nouveau, A B B A. Trois démarrages de Smash et un de Mario Tennis : aucune
+  ligne « no complete packet », 30 à 45 s écrites pour Smash, la ligne
+  « Backend Threading » du moteur qui nomme Auto, HostMapped et Switch. Une
+  soirée du joueur distant en phases alternées, entre la page par défaut et
+  `?marge=ancienne`, puis avec et sans `?son=rendre`, en lisant famines,
+  `arrêt`, horaire, `son.trous`, `son.file` et `son.rendu`, et ce que le
+  joueur sent. Une soirée depuis le Mac, Wi-Fi contre câble, alternée, pour
+  dire à quel étage naît le trou de 117 ms : la ligne « salle externe » à côté
+  de `écranMax`, `manette.pompe` et `écarts`. L'âge à l'entrée sur une vraie
+  ligne, qui suppose un CLOCK_MONOTONIC partagé avec le conteneur. Le coût CPU
+  des nouvelles mesures du worker, en phases alternées. Les nouveaux champs
+  de la boîte noire dans une vraie partie, le premier résumé réel, ollama
+  compté parmi les illisibles, le coût de `gpu-detenteurs.json` sous le
+  service, et le profileur roulant sur Ryubing pendant un combat.
+- **À trancher par le propriétaire.** Arrêter la salle après une boucle de
+  relances, ou garder l'image figée annoncée. La coupe du son par défaut ou
+  non. L'étiquette « chargement » de la fenêtre de 23:36:11, que le plan
+  attendait et que la règle stricte ne donne pas. La portée d'un gel vu par
+  plusieurs pages, qui prend encore une capture de page puis une de salle.
+- **Restes connus, non faits.** `docker inspect` deux fois par seconde
+  (à remplacer par un pidfd), les trames répétées vers `pads.py`, le plafond
+  de file en millisecondes, les deux zones mortes des sticks, la moitié de la
+  capture de l'âge et de l'écart de lecture, un résumé qui échoue sans trace,
+  `check-capture-recovery.mjs --silent` périmé, et les commentaires qui
+  nomment encore `input_to_frame` pour la Switch (`justfile`,
+  `spikes/m3-browser-drive/switch-reaction.mjs`) ou disent que l'écrivain des
+  manettes fond les états identiques (`front/src/media/input.ts`).
+
 **Au 27 novembre, la nuit : « manette seule » retirée, le son à 0 % coupé,
 et cinq « tout débloqué » rendus.** Ce bloc remplace, pour ce mode, ce que
 les blocs plus bas en disent.
@@ -3239,7 +3356,7 @@ commit ni envoi vers GitHub n'est créé par cette mise à jour documentaire.
 | Accès des amis | `nel3ab.app` sur TCP 443 montre la LISTE des salles depuis le 12 septembre, et la porte de secours `.ts.net:8443` est admise par le salon. L'autorisation Tailscale manquante pour 443 a été diagnostiquée ; Souhib confirme ensuite l'accès des amis. | Carnet du 6 septembre ; exemple d'autorisation dans `deploy/tailscale-nel3ab.grant.json`. Le domaine ne rend pas la salle publique. |
 | Switch | Manette Pro par place, préparation et profils personnels, plein/demi-format, capture récupérable, son et clips, sauvegardes distinctes par titre. Une livraison de vibration refusée laisse les quatre manettes répondre. | [Utilisation et sauvegardes Switch](switch-room.md), [étude et mesures](etude-switch-2026-09-07.md), carnet des 8 et 9 septembre. |
 | Interface | Revue complète le 12 septembre 2026 : 106 constats relevés écran par écran, triés par trois vérificateurs indépendants. Livrés : Espace qui lançait un jeu que le curseur ne désignait pas, écran noir sans aucune commande après « choisir un jeu », chargement sans porte de sortie et dont les étapes reculaient, alarme de panne affichée à chaque arrivée normale, préparation dont un non-initiateur ne pouvait plus sortir, boutons de reprise indistinguables et désormais répondables à la manette, salon au contraste AA avec sa liste mise à jour au lieu d'être refaite, opacités remplacées par des encres mesurées, rang et total écrits sur le rayon du menu XMB, sticks tactiles Switch devenus proportionnels et leurs cibles portées à 44 px de haut, préparation centrée et bornée, cartes du salon qui nomment les présents. Le 12 septembre au soir, la page d'accueil est refaite: identité de régie à trois canaux, mire EBU en écran vide, horloge de dernier relevé, et deux polices libres auto-hébergées (26 940 octets sous-ensemblés). Trois constats ont été rejetés sur mesure plutôt qu'appliqués. | Carnet, « Une revue de toute l'interface » et les quatre entrées qui suivent ; `just salon-reconciliation`, `just browser-contraste` (24 écrans, sept ambiances) ; 517 essais front, 253 essais salon. **Les paliers de texte s'appliquent enfin partout depuis le 13 septembre 2026** : `cn` rangeait `text-note` et ses voisins avec les couleurs, donc un palier accompagné d'une couleur disparaissait et le texte retombait à 16 px (19 appels sur 45). La couronne du chef quitte aussi le cadre qui tronquait le nom sous la prise. **La colonne de droite se règle depuis le 13 septembre 2026** : tirée par son bord gauche ou réglée dans le menu, entre 256 et 480 px et jamais plus de la moitié de la fenêtre, retenue par navigateur. La borne basse est mesurée (rien ne sort de la colonne à 256 px, un nombre en sort à 240) et remesurée par `just browser-colonne`, qui jouait un faux jeu en manette seule parce qu'une salle sans jeu recouvre la colonne. Depuis le 27 novembre 2026, l'étape `colonne-tiree` de `just etats-navigateur` la remesure sur de vraies images : le chiffre du volume sortait de 12 px à 256 px sur la page en service ; corrigé, le premier débordement vient à 192 px, et 256 px est un choix. Une première borne à 272 px reposait sur un relevé de nom pris quand `cn` gonflait le texte. Non vérifié sur téléphone ni avec des noms de joueurs réels. **Au 22 novembre 2026**, en service à 14 h 36 UTC, une seconde analyse sous six angles (113 constats, dont 10 critiques) a mené à une régie commune à la salle et au salon, à la manette tactile placée par le calcul, à un état de liaison qui dit l'image figée, au clavier dans la zone de jeu avec des menus modaux, à un lexique tenu par un essai et à la salle au doigt : paragraphe du 22 novembre en tête, ADR D26 et D28 à D35. |
-| Boîte noire des parties | Depuis le 14 septembre 2026, `nel3ab-boite-noire.service` relève la machine toutes les 2 s pendant une partie et toutes les 60 s au repos, suit la cadence des pages dans le journal du salon, et capture un profil `perf` quand une salle reste sous 50 images/s pendant 30 s, ainsi que toutes les 10 minutes de partie. Sept jours gardés, relus par `just boite-noire`. Coût mesuré : 0,5 à 1 % d'un cœur en partie, environ 7,5 Mo par heure hors captures. Les fichiers debugfs de l'allocateur ne sont plus lus pendant une partie : chaque lecture arrêtait l'image environ 100 ms. Au second banc, 0 trou de plus de 33 ms avec captures périodiques et chute. Non mesuré sur Dolphin ni sur une soirée entière. Premier signalement traité par elle le 16 septembre 2026 (mini-freezes Mario Tennis): l'émulateur s'arrête 0,7 à 1,2 s toutes les deux minutes et demie pendant que ses fils de chargement travaillent, la chaîne est hors de cause, et elle n'avait rien capturé parce que la médiane de cadence ne bouge pas sur un trou d'une seconde ; une règle de gel (écart reçu de plus de 500 ms) a été ajoutée et a capturé trois gels toute seule le soir même. Débrider le GPU est ÉCARTÉ par la mesure: quatre phases alternées de trois minutes le 16 septembre 2026 donnent neuf gels d'environ 1,17 s en `profile_peak` contre zéro en `auto`, pour 100 W contre 24 ; `high` ne change même pas l'horloge. Reste non expliqué: pourquoi un GPU plus rapide gèle. Depuis la nuit du 17 septembre 2026, une chute emporte le profil des secondes qui la PRÉCÈDENT (`perf` en tampon circulaire, vérifié en service: 3 669 échantillons sur 37,5 s), le journal du conteneur de l'émulateur et deux compteurs de l'ordonnanceur GPU ; la page repropose le format réduit quand une liaison s'effondre et le salon écrit proposition, acceptation et refus. Préparés mais NON mesurés: `backend_threading: On` pour Ryujinx, et un `cpuset` éteint par défaut pour le conteneur du jeu. Depuis le 14 septembre 2026 également, chaque page ajoute à son relevé de dix secondes l'écart entre images reçues, l'aller-retour et le nom de sa manette et le temps passé onglet caché, et envoie son appareil une fois à l'arrivée ; environ 136 octets de plus par relevé. Vérifié par `journal.mjs` à travers le proxy (Chrome sans écran, onglet caché 7 004 ms, 7 016 ms écrits). | ADR D21 ; carnet, « Une boîte noire pour les parties, et les lectures qui arrêtaient l'image » et « Ce que chaque page ajoute à la boîte noire » ; `control/nel3ab_control/boite_noire/`. Depuis le 14 novembre 2026, le seuil de chute suit le plafond du jeu : un jeu de la table `boite_noire_plafonds` (Zelda sur Switch 2, 30) chute sous 0,9 fois son plafond, les autres sous 50 ; rejoué sur les mesures réelles des 10 et 11 novembre, plus aucune capture à médiane 30 et la chute du 11 est prise. Le profileur roulant ne suit plus le moteur Switch 2, à qui il coûtait 2,5 à 3,0 % sur le fil qui borne sa cadence. Restent connus : le démarrage du moteur et un onglet caché comptent encore comme des gels. |
+| Boîte noire des parties | Depuis le 14 septembre 2026, `nel3ab-boite-noire.service` relève la machine toutes les 2 s pendant une partie et toutes les 60 s au repos, suit la cadence des pages dans le journal du salon, et capture un profil `perf` quand une salle reste sous 50 images/s pendant 30 s, ainsi que toutes les 10 minutes de partie. Sept jours gardés, relus par `just boite-noire`. Coût mesuré : 0,5 à 1 % d'un cœur en partie, environ 7,5 Mo par heure hors captures. Les fichiers debugfs de l'allocateur ne sont plus lus pendant une partie : chaque lecture arrêtait l'image environ 100 ms. Au second banc, 0 trou de plus de 33 ms avec captures périodiques et chute. Non mesuré sur Dolphin ni sur une soirée entière. Premier signalement traité par elle le 16 septembre 2026 (mini-freezes Mario Tennis): l'émulateur s'arrête 0,7 à 1,2 s toutes les deux minutes et demie pendant que ses fils de chargement travaillent, la chaîne est hors de cause, et elle n'avait rien capturé parce que la médiane de cadence ne bouge pas sur un trou d'une seconde ; une règle de gel (écart reçu de plus de 500 ms) a été ajoutée et a capturé trois gels toute seule le soir même. Débrider le GPU est ÉCARTÉ par la mesure: quatre phases alternées de trois minutes le 16 septembre 2026 donnent neuf gels d'environ 1,17 s en `profile_peak` contre zéro en `auto`, pour 100 W contre 24 ; `high` ne change même pas l'horloge. Reste non expliqué: pourquoi un GPU plus rapide gèle. Depuis la nuit du 17 septembre 2026, une chute emporte le profil des secondes qui la PRÉCÈDENT (`perf` en tampon circulaire, vérifié en service: 3 669 échantillons sur 37,5 s), le journal du conteneur de l'émulateur et deux compteurs de l'ordonnanceur GPU ; la page repropose le format réduit quand une liaison s'effondre et le salon écrit proposition, acceptation et refus. Préparés mais NON mesurés: `backend_threading: On` pour Ryujinx, et un `cpuset` éteint par défaut pour le conteneur du jeu. Corrigé le 27 novembre 2026 : `backend_threading: On` n'a jamais été actif, car Ryubing sans fenêtre ne lit pas Config.json, et Auto vaut On sur Vulkan ; le `cpuset`, éteint par défaut, reste non mesuré. Depuis le 14 septembre 2026 également, chaque page ajoute à son relevé de dix secondes l'écart entre images reçues, l'aller-retour et le nom de sa manette et le temps passé onglet caché, et envoie son appareil une fois à l'arrivée ; environ 136 octets de plus par relevé. Vérifié par `journal.mjs` à travers le proxy (Chrome sans écran, onglet caché 7 004 ms, 7 016 ms écrits). | ADR D21 ; carnet, « Une boîte noire pour les parties, et les lectures qui arrêtaient l'image » et « Ce que chaque page ajoute à la boîte noire » ; `control/nel3ab_control/boite_noire/`. Depuis le 14 novembre 2026, le seuil de chute suit le plafond du jeu : un jeu de la table `boite_noire_plafonds` (Zelda sur Switch 2, 30) chute sous 0,9 fois son plafond, les autres sous 50 ; rejoué sur les mesures réelles des 10 et 11 novembre, plus aucune capture à médiane 30 et la chute du 11 est prise. Le profileur roulant ne suit plus le moteur Switch 2, à qui il coûtait 2,5 à 3,0 % sur le fil qui borne sa cadence. Restent connus : le démarrage du moteur et un onglet caché comptent encore comme des gels. Sur `integration/switch1` (27 novembre 2026, pas encore installé), le démarrage d'un jeu s'écrit « démarrage » pour chaque page, sans capture ni pause, un gel ne fait taire sa salle qu'une minute, et chaque partie laisse un résumé durable (ADR D51) ; l'onglet caché reste une limite connue. |
 
 La connexion au réseau privé reste nécessaire. L'identité vient de Tailscale,
 par le proxy ou sa consultation locale ; le worker ne reçoit pas un compte
@@ -3296,7 +3413,8 @@ d'une option réfutée par une expérience.
 | Gel de Zen sous Windows | Refaire une séance sur le poste concerné, avec heure du gel et diagnostic graphique. Les essais de pilote et d'accélération proposés n'ont pas de résultat confirmé dans le suivi. |
 | Transport et liaisons faibles | Étude du 22 septembre 2026, sources en main: [étude](etude-transport-2026-09-22.md). Un joueur sur trois jette 433 images en vingt minutes pendant que les deux autres n'en jettent aucune, machine au repos. Notre débit varie d'un facteur 17 (qualité constante), une image va de 6,4 à 60 Kio pour une file de 2 images par spectateur, et le son en PCM brut coûte 1,6 Mbit/s à chacun. Moonlight et Sunshine n'ont pas non plus de contrôle de congestion: ils ont de l'UDP et 20 % de redondance (50 % sur le son, en Opus à 96 kbit/s). Écartés par les sources: rafraîchissement progressif (absent de notre encodeur), invalidation de références (NVENC seul), FEC sur TCP (inutile), GameNetworkingSockets (injoignable d'un navigateur, et sans congestion ni FEC ni échéance), WebRTC en émission (la spec interdit à un script de créer une trame). Ordre proposé et NON mesuré: plafonner la taille d'image, adapter la file par spectateur, Opus, puis WebTransport. Découpé en étapes dans le [plan d'exécution du 23 septembre](plan-execution-2026-09-23.md). Phase 0 le 23 septembre: `deploy-check` voit un service plus vieux que son code, la boîte noire sépare un gel de salle d'un gel de page, et `just banc-liaison` dégrade une vraie liaison (`tc netem` dans un espace réseau). Falsifié en alternance: 20 ms de gigue seule, zéro chaîne cassée; avec 1 % de perte, deux. 1 % de perte sans délai ne casse rien. Ligne de base relevée sur une démonstration dont le débit varie de 0,8 à 25 Mbit/s: une tendance, pas une référence. Le banc rejoue désormais un clip à travers le vrai encodeur (`just banc-liaison … <clip>`), à débit stable. La file adaptative (étape 1.2) est codée mais tenue à deux: sur ce clip, elle cassait plus de chaînes. `max_frame_size` est refusé par FFmpeg en qualité constante. Le son en Opus est une [proposition d'amendement de D10](adr/proposition-d10-opus.md), non acceptée. |
 | Demi-format à 5 Mbit/s | Le banc Wii du 7 septembre reçoit encore environ 9,66 Mbit/s sans plafond sur sa scène. Mesurer un contrôle de débit propre au réduit, sans changer le plein. WebRTC n'a pas été comparé au transport actuel. |
-| Latence et endurance Switch | `just switch-reaction` mesure l'appui jusqu'à la première image changée sur `/video`, contre des témoins sans appui. Le 10 septembre sur Looney Tunes : 110 à 118 ms médianes au curseur du menu principal selon la version, qui répond aussi vite que le jeu le peut ; la série de la version épinglée est refusée par un de ses témoins. L'écran de titre donne 218 ms, fondu compris, mais son animation fait refuser la série. Le programme de test donne 67 à 70 ms, découpés le 10 septembre (`spikes/switch-room/latence/`) : notre chaîne en prend environ 15 (entrée 0,4, lecture 1,6, compositeur 8,5, transit 4,2), le programme et l'émulation 54. Sway à 120 Hz retire l'attente du compositeur (57 ms au total) et régularise les images ; la salle y est réglée depuis le 10 septembre (`refresh_hz`). Garder l'image affichée jusqu'à la suivante, comme une console, retire une image de plus : 64,5 à 39,9 ms sur le programme de test, 16,7 ms sur Mario Tennis ; la salle l'a depuis le 10 septembre (`hold_front_buffer`). Il manque le réseau et le navigateur du joueur, une partie prolongée avec quatre appareils distants, et un marqueur à l'instant où le jeu remet son image. Le worker rapporte `input_to_frame` pour la Switch depuis son redémarrage du 10 septembre. |
+| Latence et endurance Switch | `just switch-reaction` mesure l'appui jusqu'à la première image changée sur `/video`, contre des témoins sans appui. Le 10 septembre sur Looney Tunes : 110 à 118 ms médianes au curseur du menu principal selon la version, qui répond aussi vite que le jeu le peut ; la série de la version épinglée est refusée par un de ses témoins. L'écran de titre donne 218 ms, fondu compris, mais son animation fait refuser la série. Le programme de test donne 67 à 70 ms, découpés le 10 septembre (`spikes/switch-room/latence/`) : notre chaîne en prend environ 15 (entrée 0,4, lecture 1,6, compositeur 8,5, transit 4,2), le programme et l'émulation 54. Sway à 120 Hz retire l'attente du compositeur (57 ms au total) et régularise les images ; la salle y est réglée depuis le 10 septembre (`refresh_hz`). Garder l'image affichée jusqu'à la suivante, comme une console, retire une image de plus : 64,5 à 39,9 ms sur le programme de test, 16,7 ms sur Mario Tennis ; la salle l'a depuis le 10 septembre (`hold_front_buffer`). Il manque le réseau et le navigateur du joueur, une partie prolongée avec quatre appareils distants, et un marqueur à l'instant où le jeu remet son image. Le worker rapporte `input_to_frame` pour la Switch depuis son redémarrage du 10 septembre : l'écart de la dernière trame de manette à l'image suivante, pas une réaction. Sur `integration/switch1` (27 novembre 2026, pas encore installé), il rapporte à la place `pad_change_to_frame` dans la ligne « salle externe », qui ne part que d'un changement de manette. Aucun des deux n'est la réaction du jeu. |
+| Salle Switch, étages du worker | Sur `integration/switch1` depuis le 27 novembre 2026, pas encore sur `main` ni installé. Le worker d'une salle externe écrit toutes les dix secondes la ligne « salle externe » : arrivée, âge, taille et clés de chaque flux à l'entrée, attente en file et écriture de chaque spectateur, images jetées, son refusé, trames de chaque manette et trafic vers `pads.py`. `just sessions <jour> --tout` la déplie. L'entrée n'accepte plus qu'un producteur par flux. Un appui court tient 20 ms sur la manette virtuelle (ADR D50). Reste à prouver : `just switch-controls-test`, l'essai des appuis de 3 ms avec le programme de test, et une soirée depuis le Mac en Wi-Fi puis en câble, alternée, pour dire à quel étage naît le trou de 117 ms. |
 | Émulation Switch figée | Distinguer une session bloquée d'une image volontairement immobile quand le compositeur continue de produire. La reprise de capture ne résout pas ce cas. La sieste automatique de Dolphin n'a pas d'équivalent validé ici. |
 | Manettes des places vides | Depuis le 10 septembre, seules les places occupées ont une manette branchée côté émulateur (`ryubing-seats.patch`, fichier `seats` écrit par le worker) : Mario Tennis accepte le simple à deux. La grâce de 5 s avant de débrancher une place vide est choisie, pas mesurée ; mesurer le temps qu'une page rechargée met à reprendre sa place. |
 | Commandes Switch supplémentaires | Joy-Con séparés, gyroscope, Home, Capture et fidélité HD Rumble restent hors du périmètre vérifié. Le programme de test et la lecture des périphériques ne prouvent pas chaque action de chaque jeu. |

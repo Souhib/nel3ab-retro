@@ -1,5 +1,13 @@
 # Jouer à la Switch dans la salle
 
+**Audit de la Switch 1, 27 novembre 2026.** Les sections datées de ce jour
+(ce que le worker écrit, la lecture d'une soirée côté page, l'appui court, les
+compilations d'une partie, les réglages du moteur, la capture et les manettes)
+décrivent des corrections fusionnées sur la branche `integration/switch1`.
+Elles ne sont pas encore sur `main` ni installées, et aucune n'a tourné avec
+le vrai émulateur. Le récit est au carnet, « 27 novembre : l'audit de la
+Switch 1, et ses quatre chantiers ».
+
 **Noms et lancement changés le 22 novembre 2026.** Les trois sauvegardes
 s'appellent maintenant « nouvelle partie », « tout débloqué » et « ma
 sauvegarde » (avant: « partie neuve » et « reprendre »). Les autres joueurs
@@ -329,6 +337,71 @@ contient de ligne de journal.
 Ce qu'on ne peut pas savoir ici : si une vraie Switch produirait ces images. Il
 faudrait une console pour comparer.
 
+## Ce que le worker écrit toutes les dix secondes
+
+Depuis le 27 novembre 2026, sur `integration/switch1`, le worker d'une salle
+Switch écrit la ligne « salle externe ». Elle remplace la ligne « de la
+commande aux manettes à l'image suivante ». `just sessions <jour>` montre les
+fenêtres qui méritent un regard, et `--tout` déplie chaque champ.
+
+- `full_gap_*_ms`, `half_gap_*_ms`, `sound_gap_*_ms` : l'écart entre deux
+  paquets à l'entrée du worker. Un trou ici vient de la capture ou du jeu.
+- `full_age_*_ms` : l'heure d'arrivée moins l'heure de capture, sur
+  CLOCK_MONOTONIC. Il couvre l'encodage, la FIFO et `capture.py`.
+- `full_bytes_*` et `full_keys` : la taille des images et le nombre
+  d'images-clés.
+- `wait_max_ms`, `write_max_ms`, et le tableau `viewers` : l'attente d'une
+  image dans la file d'un spectateur, et la durée de son écriture. Une écriture
+  longue veut dire que ce spectateur ne lit plus.
+- `dropped_now`, `half_dropped_now`, `sound_refused_now` : les images jetées
+  et les morceaux de son refusés dans la fenêtre.
+- `pad_gaps_over_17_ms`, `pad_gaps_over_50_ms`, `pad_gap_max_ms`, et le
+  tableau `seats` : les trous entre deux trames de manette reçues, par place.
+- `pads_sent`, `pads_repeated`, `pads_rescued`, `pads_deferred`,
+  `pads_send_*_ms` : ce que le worker envoie à `pads.py`.
+- `pad_change_to_frame_*` : d'un changement de manette à l'image suivante.
+  C'est une borne basse de notre transport, pas la réaction du jeu.
+- `producers_refused` : les paquets d'une seconde capture refusés. Un seul
+  producteur par flux ; il cède sa place en se fermant ou après 3 s de silence.
+
+Un champ absent n'a pas été mesuré. Il ne vaut pas zéro.
+
+Lecture d'une fenêtre où la page voit un trou : un écart à l'entrée désigne la
+capture ou le jeu ; une écriture longue désigne la liaison du spectateur ; une
+entrée régulière et une écriture courte renvoient au réseau ou au navigateur,
+que `ss -tin` et l'alternance Wi-Fi contre câble départagent.
+
+## Lire une soirée Switch 1 côté page (depuis le 27 novembre 2026)
+
+Le relevé de dix secondes de chaque page porte de quoi séparer le navigateur
+de la liaison :
+
+- `arrêt` : le plus long temps sans nouvelle image peinte, en ms. C'est ce que
+  l'œil a vu.
+- `rattrapées` et `débordées` : les images jetées après leur heure, et celles
+  jetées par une file pleine.
+- `marge` : la règle de marge en service, « lisse » ou « ancienne ».
+- `écranMax` et `manette.pompe` : le plus long intervalle entre deux images
+  d'écran et entre deux tours de la pompe des manettes. Grands ensemble, c'est
+  le fil principal du navigateur.
+- `écarts` : les écarts d'arrivée au-dessus de 100 ms, le plus grand et quand
+  (en ms avant le relevé). Grands avec un `écranMax` normal, c'est la liaison.
+- `séjour` : l'attente d'une image décodée dans la file, p50 et p95.
+- `manette.retour` : la queue des aller-retours, p95 et max.
+- `son.file`, `son.rendu`, `son.écart`, `son.calage`. Ce sont la file réelle du
+  son et ce que la page en a coupé pour revenir à son avance. `son.rendu` est
+  nul sans `?son=rendre`, où la coupe est éteinte. Viennent ensuite le son
+  derrière l'image, et le calage quand l'option est allumée.
+
+Un champ nul n'a pas été mesuré dans la fenêtre. Ce n'est jamais un zéro.
+
+Pour comparer les deux règles de marge à l'aveugle, ouvrir la salle avec
+`?marge=ancienne` dans une phase, sans le paramètre dans la suivante, et
+alterner. Le relevé dit quelle règle tournait. Pour comparer la coupe du son,
+ouvrir la salle avec `?son=rendre` dans une phase, sans ce paramètre dans la
+suivante, et alterner. Les deux paramètres se combinent :
+`?marge=ancienne&son=rendre`.
+
 ## X et Y
 
 Les manettes virtuelles se présentent comme des manettes Xbox 360. SDL lit
@@ -339,6 +412,19 @@ le X Switch au bouton du haut. `pads.py` envoie donc le X de la page sous
 la page arrivait au jeu comme Y : Mario Party ouvrait son panneau X sur Y.
 `just switch-controls-test` lit les codes du noyau, pas ce que le jeu reçoit :
 une modification de ces boutons se vérifie aussi dans un jeu qui affiche X.
+
+## Un appui court tient une image
+
+Depuis le 27 novembre 2026, sur `integration/switch1`, le fil des manettes tient
+chaque bouton 20 ms dans son nouvel état. Un appui et son relâchement arrivés
+dans la même rafale, après un trou de liaison, atteignent donc tous les deux la
+manette virtuelle. Un appui plus court que 20 ms est allongé jusqu'à 20 ms. Les
+sticks ne sont jamais retenus. Le worker envoie toujours un état à `pads.py`
+pour chaque trame reçue : la garde d'une seconde de `pads.py` en a besoin pour
+garder un bouton tenu. Un appui ou un relâchement rendu attend lui aussi que le
+front d'avant du même bouton ait tenu 20 ms. Deux fronts perdus du même bouton,
+avant que le premier soit dit, n'en font qu'un. `just switch-controls-test` n'a
+pas encore tourné sur ce changement.
 
 ## Caches de shaders et de traduction
 
@@ -353,6 +439,117 @@ en 2,9 s pour Smash le 11 septembre 2026.
 
 Supprimer ces dossiers ne perd aucune sauvegarde ; le jeu les refabrique en
 jouant, au prix de quelques gels le temps de recompiler.
+
+### Compter les compilations d'une partie
+
+Depuis le 27 novembre 2026, sur `integration/switch1`. Après une partie,
+`tools/compilations-switch.py` dit, pour chaque fenêtre de 5 s de la capture,
+combien d'entrées le pilote Mesa a ajoutées à son cache, si le moteur a écrit
+« GPU processing thread is too slow » ou « Background pipeline compile missed
+on draw », et si le fil de décompression du jeu travaillait. Son essai tourne
+dans `just check` (recette `outils-test`).
+
+Les entrées viennent de fichiers qu'on a déjà :
+
+- le journal du worker : `journalctl -u nel3ab-worker@1 --since … --until …
+  -o short-iso-precise` ;
+- le cache Mesa du titre : `~/.local/state/nel3ab/switch/<titre>/mesa` ;
+- le cache de programmes de Ryubing :
+  `~/.local/state/nel3ab/switch/<titre>/cache/shader/shared.toc` ;
+- le journal de Ryubing de l'emplacement, dans `home/.config/Ryujinx/Logs` ;
+- une copie horodatée par Docker, celle d'une capture de la boîte noire
+  (`emulateur.log`), pour l'heure du moteur (`--heures-docker`) ;
+- les relevés de la boîte noire du jour.
+
+Une fenêtre est « compilation » quand une entrée Mesa y tombe. Elle est
+« chargement » quand un relevé qui la chevauche voit le fil `<ResInflateThre`
+à 15 % d'un cœur ou plus ; ce seuil vient d'une seule partie. Les
+avertissements de Ryubing ne sortent qu'une fois par programme : ils ne
+comptent pas les compilations. `shared.toc` n'a pas d'heure par programme :
+l'outil en donne le nombre au départ et à la fin, et la fenêtre de sa dernière
+écriture.
+
+Le 26 novembre, pour Smash : 120 entrées dans 8 fenêtres, 7 dans la fenêtre du
+gel de 545 ms (finie à 23:36:11 UTC) avec les deux avertissements, et 69
+programmes nouveaux. Les trous de fin de match (23:39:06) sont des chargements
+sans compilation.
+
+L'outil a été écrit quand la salle copiait encore son journal sans
+`--timestamps` : l'heure du moteur venait de la copie de la boîte noire, ou du
+nom du journal à la seconde près. Depuis la même branche, `emulator.log` porte
+l'heure de Docker (voir plus bas) ; sa lecture par l'outil n'est pas encore
+essayée sur une vraie partie.
+
+## Réglages du moteur, capture et manettes (27 novembre 2026)
+
+Sur `integration/switch1`, pas encore installé.
+
+### Réglages du moteur
+
+Ryubing sans fenêtre ne lit pas Config.json. D'après le code amont lu par
+l'audit, il n'en reprend que les manettes. La salle lui passe trois réglages en
+ligne de commande, lus dans `switch.json` (ADR D52) :
+
+| Clé de switch.json | Option | Valeurs acceptées | Défaut |
+|---|---|---|---|
+| `vsync_mode` | `--vsync-mode` | Switch, Unbounded | Switch |
+| `backend_threading` | `--backend-threading` | Auto, Off, On | Auto |
+| `memory_manager_mode` | `--memory-manager-mode` | SoftwarePageTable, HostMapped, HostMappedUnsafe | HostMapped |
+
+Les majuscules comptent. Une autre valeur arrête la salle avant tout
+conteneur. Custom est refusé tant que la salle ne règle pas
+`--custom-refresh-rate`. Sur Vulkan, Auto donne déjà le fil de rendu. Pour
+vérifier un réglage, lire la ligne du moteur :
+`grep -m4 -E 'Backend Threading|Memory Manager|VSync' <emplacement>/emulator.log`.
+
+L'exemple de cpuset est « 0-2,6-8 » : trois cœurs et leurs jumeaux qui
+partagent un cache L3 sur le Ryzen 5 3600. L'épinglage reste éteint par défaut
+et n'est pas mesuré.
+
+### Démarrage de la capture
+
+Le premier paquet de chaque enregistreur est la copie de ce que Sway montre
+déjà. Il n'est pas envoyé au worker. La capture demande aussitôt une
+image-clé, et l'envoi reprend à la première image IDR. Jusqu'au second paquet,
+la capture tolère 90 s sans paquet depuis le départ de l'enregistreur.
+Ensuite, 30 s sans paquet la font échouer, comme avant. Un enregistreur
+suspendu (état T) est signalé en moins d'une seconde. Le son garde 30 s dès le
+départ (ADR D53).
+
+### Relances de la capture
+
+La salle relance une capture terminée, sauf dans deux cas :
+
+- trois échecs en une minute : « Capture failed three times in one minute » ;
+- une fois une image du jeu montrée, trois échecs de suite sans image entre
+  eux : « Capture failed three times in a row without a game picture between
+  them ».
+
+La capture sort avec le code 3 quand elle n'a envoyé aucune image du jeu, et
+avec 4 après une panne qui suit une image du jeu. Un autre code (1 pour une
+exception de `python3`, 125 à 127 pour `docker exec`, 128 et plus pour un
+signal) casse la série sans compter. Avant la première image, seule la règle de
+la minute compte : un premier lancement peut rester plusieurs minutes sans
+image.
+
+À l'arrêt, wf-recorder reçoit SIGINT, puis SIGKILL au bout de 0,5 s. parec
+garde 5 s. Les demandes d'image-clé du worker sont relevées toutes les 20 ms.
+Le demi-format s'arrête après 100 ms sans spectateur.
+
+### Journaux de l'emplacement
+
+`emulator.log` est copié avec `--timestamps` : chaque ligne commence par
+l'heure de Docker, au format `2026-11-26T23:32:32.134054552Z`.
+
+`pads.log` ne contient plus une ligne par vibration. Chaque manette qui vibre
+écrit une ligne par seconde : `rumble` (la manette), `events` (événements
+reçus), `played` (lectures), `changes` (changements du niveau envoyé), `level`
+(dernier niveau), `magnitude` (dernier effet), `seconds` (durée mesurée de la
+fenêtre, plus longue qu'une seconde si la boucle a calé ; absente quand la fin
+n'est pas connue). Pour compter les vibrations, additionner `events`, pas les
+lignes. Un champ `journal_dropped` dit combien de lignes ont été perdues parce
+que Docker ne lisait plus. La ligne `rumble_available` reste écrite à chaque
+changement.
 
 ## Vérifier une modification
 

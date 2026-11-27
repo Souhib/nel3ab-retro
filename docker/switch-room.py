@@ -699,8 +699,18 @@ def stop_engine(engine: str, slot: Path, capture, snapshot=backup) -> None:
             with ouvrir_sans_lien(slot, "exit.json") as sortie:
                 sortie.write(status)
             snapshot(slot)
+            # Docker's hour on each line: the engine dates its own from a
+            # stopwatch reset at launch (Logger.cs), and the file name gave
+            # the absolute hour only to the second (RYU-4, 2026-11-27).
             with ouvrir_sans_lien(slot, "emulator.log") as log:
-                run("docker", "logs", engine, stdout=log, stderr=subprocess.STDOUT)
+                run(
+                    "docker",
+                    "logs",
+                    "--timestamps",
+                    engine,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
         finally:
             run("docker", "rm", engine, stdout=subprocess.DEVNULL)
 

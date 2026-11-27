@@ -686,11 +686,13 @@ class Host(contextlib.ExitStack):
             stdout = "true\n"
         elif args[:2] == ("docker", "logs"):
             stream = kwargs.get("stdout")
-            if self.logs_fail:
-                # What docker logs writes on its stderr, sent to the same file.
-                stream.write(f"Error response from daemon: No such container: {args[-1]}\n")
+            if self.logs_fail and not args[-1].endswith("-pads"):
+                # docker logs writes its reason on stderr: it reaches the file
+                # only if the room sends stderr there.
+                if kwargs.get("stderr") is subprocess.STDOUT:
+                    stream.write(f"Error response from daemon: No such container: {args[-1]}\n")
                 raise subprocess.CalledProcessError(1, list(args))
-            stream.write(f"2026-11-26T23:32:33.750000000Z journal de {args[-1]}\n")
+            stream.write(f"journal de {args[-1]}\n")
         return subprocess.CompletedProcess(list(args), 0, stdout, "")
 
     def serve(self, config=None):
@@ -720,6 +722,46 @@ class ServeRestarts(unittest.TestCase):
             self.assertRaisesRegex(AssertionError, "capture number 4 was started"),
         ):
             host.serve()
+
+
+class EngineLog(unittest.TestCase):
+    """RYU-4: Ryubing dates its lines from a stopwatch reset at launch.
+
+    Only the file name gave the absolute hour, to the second; the black box's
+    copy, taken with --timestamps, placed each line (2026-11-26). The room's
+    copy at the end of a game now asks Docker for its hour too.
+    """
+
+    def engine_logs(self, host):
+        return [
+            (argv, options)
+            for kind, argv, options in host.commands
+            if kind == "run" and argv[:2] == ["docker", "logs"] and not argv[-1].endswith("-pads")
+        ]
+
+    def test_the_engine_log_is_copied_with_docker_s_hour_on_each_line(self):
+        with Host(statuses=[None], capture_life=1e9, stdin_after=1005.0) as host:
+            host.serve()
+            ((argv, options),) = self.engine_logs(host)
+            self.assertIn("--timestamps", argv)
+            self.assertEqual(argv[-1], "nel3ab-switch-room-switch-test")
+            self.assertIs(options["stderr"], subprocess.STDOUT)
+            self.assertEqual(
+                (host.slot / "emulator.log").read_text(),
+                "journal de nel3ab-switch-room-switch-test\n",
+            )
+
+    def test_the_twin_a_failed_copy_leaves_its_reason_in_the_file(self):
+        with Host(statuses=[None], capture_life=1e9, stdin_after=1005.0, logs_fail=True) as host:
+            with self.assertRaises(subprocess.CalledProcessError):
+                host.serve()
+            text = (host.slot / "emulator.log").read_text()
+            self.assertIn("No such container: nel3ab-switch-room-switch-test", text)
+            # The container is removed even so.
+            self.assertIn(
+                ["docker", "rm", "nel3ab-switch-room-switch-test"],
+                [argv for _kind, argv, _options in host.commands],
+            )
 
 
 if __name__ == "__main__":

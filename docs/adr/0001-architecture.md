@@ -4582,7 +4582,7 @@ of 100 to 160 ms every 0.7 to 1.3 s made 31 sound gaps with the cut and 2
 without it. Every 3 to 10 s they made 37 against 2, and every 10 to 40 s,
 33 against 1, while the median queue fell only by 15 to 20 ms. The remote
 player's link stalled 117 to 166 ms in every ten-second window on
-2026-11-26, and his sound had no gap for six minutes. Regular 130 ms stalls,
+2026-11-26, and that player's sound had no gap for six minutes. Regular 130 ms stalls,
 the only shape the first tests knew, cost no extra gap. Three other settings
 were tried in the same bench: the smallest queue read over 10 s to 5 min, a
 pause after a gap, and 30 s of calm before any cut. Each keeps extra gaps

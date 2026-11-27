@@ -51,7 +51,8 @@ function join(watching: boolean) {
     Number(volume.value),
     false,
     watching,
-    false,
+    // Plus de drapeau « manette seule » depuis le 27 novembre 2026 (ADR D47) :
+    // la session prend la source d'entrée juste après `watching`.
     input,
   );
   session.start();

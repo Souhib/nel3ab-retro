@@ -52,6 +52,8 @@ for step in steps:
         pipe = None
     elif "exit" in step:
         sys.exit(step["exit"])
+    elif "stop" in step:
+        os.kill(os.getpid(), signal.SIGSTOP)
     elif "packet" in step:
         payload = NAL[step["packet"]] + bytes(step.get("size", 64))
         at = time.monotonic_ns()
@@ -144,8 +146,16 @@ class Room(contextlib.ExitStack):
         )
         self.enter_context(patch.object(capture, "PROCESSES", []))
         self.stopped = threading.Event()
-        self.callback(self.stopped.set)
+        self.thread = None
+        # Last registered, first run: the loop and its recorder end before the
+        # socket closes and the folder goes.
+        self.callback(self.finish)
         return self
+
+    def finish(self):
+        self.stopped.set()
+        if self.thread is not None:
+            self.thread.join(timeout=15)
 
     def written(self):
         if not self.journal.exists():
@@ -194,6 +204,30 @@ class Loop(unittest.TestCase):
                 self.assertIn(captured, written)
             # The recorder is reaped before video() returns.
             self.assertEqual(capture.PROCESSES, [])
+
+    def test_a_recorder_stopped_before_its_first_picture_is_seen_within_a_fifth_of_a_second(self):
+        # 2026-09-08: a SIGSTOP on the encoder took 30 s to be seen. Before the
+        # guard is armed, its state is read at every check (capture_health.py).
+        steps = [{"open": 1}, {"packet": "idr"}, {"sleep": 0.3}, {"stop": 1}]
+        raised = []
+
+        class Watched(Progress):
+            def check(self):
+                try:
+                    return super().check()
+                except RuntimeError as error:
+                    raised.append((time.monotonic(), str(error)))
+                    raise
+
+        with Room(steps) as room:
+            room.run(Watched())
+            room.wait_for(lambda: room.written(), 5, "the first copy was written")
+            stopped_at = time.monotonic() + 0.3
+            room.wait_for(lambda: raised, 1.5, "the loop named a stopped recorder")
+            self.assertIn("stopped", raised[0][1])
+            self.assertLess(raised[0][0] - stopped_at, 0.35)
+            room.thread.join(timeout=10)
+            self.assertIsInstance(room.error, RuntimeError)
 
 
 if __name__ == "__main__":

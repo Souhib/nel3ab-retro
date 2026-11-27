@@ -22,7 +22,7 @@ from pathlib import Path
 from capture_audio import chunks
 from capture_control import exclusive
 from capture_demand import OnDemand
-from capture_health import Progress
+from capture_health import FAIL_AFTER, Progress
 from capture_keys import Keys
 from capture_packets import Packets
 from capture_process import stop_child
@@ -116,6 +116,7 @@ def video(half, stopped=STOP, progress=None):
             stderr=log,
         )
     PROCESSES.append(process)
+    progress.follow(process.pid)
     # Confirm /dev/null output; framed packets use the FIFO instead.
     process.stdin.write(b"y\n")
     process.stdin.close()
@@ -211,6 +212,7 @@ def audio(progress):
         stdout=subprocess.PIPE,
     )
     PROCESSES.append(process)
+    progress.follow(process.pid)
     try:
         with connect() as target:
             for data in chunks(process.stdout.fileno(), STOP):
@@ -252,7 +254,8 @@ def main(keys):
 
     signal.signal(signal.SIGTERM, stopping)
     signal.signal(signal.SIGINT, stopping)
-    sources = {"full": Progress(), "audio": Progress()}
+    # Sound has no first copy: parec's first chunk is already sound.
+    sources = {"full": Progress(), "audio": Progress(copies=0, start_limit=FAIL_AFTER)}
     threads = [
         threading.Thread(target=run, args=(video, False, STOP, sources["full"])),
         threading.Thread(target=run, args=(half_capture, keys)),

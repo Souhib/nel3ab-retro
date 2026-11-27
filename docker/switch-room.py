@@ -477,6 +477,51 @@ def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
     )
 
 
+class CaptureRestarts:
+    """Whether a room may start its capture once more.
+
+    Two rules. Three failures within a minute stop a capture that dies at once
+    (the laboratory service's StartLimitBurst=3, 2026-09-08). And once a
+    capture has sent a game picture, three failures in a row with no game
+    picture between them stop a slow loop: on 2026-11-21 the Xbox 360 room
+    restarted its capture 36 times, about 35.5 s apart, for 21 minutes after
+    Xenia stopped presenting, and no restart brought the picture back.
+    Before the first game picture only the first rule counts: a first launch
+    that rebuilds its translation cache shows nothing for 4 minutes (Mario
+    Tennis, carnet), and each capture then ends at its 90 s start limit.
+    An exit status other than NOTHING_SHOWN counts as pictures: a doubt never
+    stops a room.
+    """
+
+    #: The exit status of a capture that ended before sending any game picture
+    #: (NOTHING_SHOWN in spikes/switch-room/capture.py). python3 itself exits
+    #: 1, 2 or 120, and docker exec 125 to 127: 3 is none of them.
+    NOTHING_SHOWN = 3
+
+    def __init__(self) -> None:
+        self.starts: list[float] = []
+        self.shown = False
+        self.blank = 0
+
+    def refused(self, now: float, ended: int | None) -> str | None:
+        """Why the next capture must not start, or None if it may.
+
+        `ended` is how the previous capture ended, None before the first.
+        """
+        if ended is not None:
+            if ended != self.NOTHING_SHOWN:
+                self.shown, self.blank = True, 0
+            elif self.shown:
+                self.blank += 1
+        self.starts = [at for at in self.starts if now - at < 60]
+        if len(self.starts) >= 3:
+            return "Capture failed three times in one minute"
+        if self.blank >= 2:
+            return "Capture failed three times in a row without a game picture between them"
+        self.starts.append(now)
+        return None
+
+
 def serve(
     config: dict,
     rom: Path,
@@ -562,7 +607,7 @@ def serve(
         (slot / "display.json").unlink(missing_ok=True)
         run(*args, stdout=subprocess.DEVNULL)
         started_engine = True
-        retries: list[float] = []
+        restarts = CaptureRestarts()
         while not selector.select(0.1):
             status = run(
                 "docker",
@@ -585,11 +630,10 @@ def serve(
                     "/probe/capture_control.py",
                     "stop",
                 )
-                now = time.monotonic()
-                retries = [at for at in retries if now - at < 60]
-                if len(retries) >= 3:
-                    raise RuntimeError("Capture failed three times in one minute")
-                retries.append(now)
+                ended = None if capture is None else capture.poll()
+                refused = restarts.refused(time.monotonic(), ended)
+                if refused is not None:
+                    raise RuntimeError(refused)
                 capture = subprocess.Popen(  # noqa: S603 -- private generated container name, fixed command
                     ["/usr/bin/docker", "exec", engine, "python3", "/probe/capture.py"]
                 )

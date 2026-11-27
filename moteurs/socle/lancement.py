@@ -1,7 +1,7 @@
 """Ce qu'un moteur donne au cycle de vie: son plan, son environnement, ses manettes.
 
 Déplacé de `docker/switch-room.py` octet pour octet (`run`, `pad_command`,
-`cpu_pinning`, `engine_environment`, `EngineLaunch`), qui garde sa propre copie
+`cpu_pinning`, `engine_environment`, `EngineLaunch`, `CaptureRestarts`), qui garde sa propre copie
 jusqu'à la bascule de la Switch. `test_differentiel.py` tient les deux égales:
 même arbre syntaxique pour chaque fonction, mêmes commandes pour chaque scénario
 doré.
@@ -133,3 +133,48 @@ class EngineLaunch(NamedTuple):
     controllers: int
     #: Where the page's X and Y land on the virtual pads (see `pad_command`).
     pad_layout: str = "switch"
+
+
+class CaptureRestarts:
+    """Whether a room may start its capture once more.
+
+    Two rules. Three failures within a minute stop a capture that dies at once
+    (the laboratory service's StartLimitBurst=3, 2026-09-08). And once a
+    capture has sent a game picture, three failures in a row with no game
+    picture between them stop a slow loop: on 2026-11-21 the Xbox 360 room
+    restarted its capture 36 times, about 35.5 s apart, for 21 minutes after
+    Xenia stopped presenting, and no restart brought the picture back.
+    Before the first game picture only the first rule counts: a first launch
+    that rebuilds its translation cache shows nothing for 4 minutes (Mario
+    Tennis, carnet), and each capture then ends at its 90 s start limit.
+    An exit status other than NOTHING_SHOWN counts as pictures: a doubt never
+    stops a room.
+    """
+
+    #: The exit status of a capture that ended before sending any game picture
+    #: (NOTHING_SHOWN in spikes/switch-room/capture.py). python3 itself exits
+    #: 1, 2 or 120, and docker exec 125 to 127: 3 is none of them.
+    NOTHING_SHOWN = 3
+
+    def __init__(self) -> None:
+        self.starts: list[float] = []
+        self.shown = False
+        self.blank = 0
+
+    def refused(self, now: float, ended: int | None) -> str | None:
+        """Why the next capture must not start, or None if it may.
+
+        `ended` is how the previous capture ended, None before the first.
+        """
+        if ended is not None:
+            if ended != self.NOTHING_SHOWN:
+                self.shown, self.blank = True, 0
+            elif self.shown:
+                self.blank += 1
+        self.starts = [at for at in self.starts if now - at < 60]
+        if len(self.starts) >= 3:
+            return "Capture failed three times in one minute"
+        if self.blank >= 2:
+            return "Capture failed three times in a row without a game picture between them"
+        self.starts.append(now)
+        return None

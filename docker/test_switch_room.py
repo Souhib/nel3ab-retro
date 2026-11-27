@@ -1,9 +1,13 @@
 """No Docker or real saves: isolate the save-slot adapter's file operations."""
 
+import contextlib
 import fcntl
 import importlib.util
+import itertools
 import json
+import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -464,6 +468,258 @@ class EngineSettings(unittest.TestCase):
                 {"image": "unused", "backend_threading": "on"}, root / "game.xci", slot, root
             )
         run.assert_not_called()
+
+
+def clock(text):
+    """Seconds since midnight for an "HH:MM:SS.ffffff" of the worker's journal."""
+    hours, minutes, seconds = text.split(":")
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+
+
+#: The 36 « no complete packet for 30.0 seconds » of the Xbox 360 room on
+#: 2026-11-21 (journalctl -u nel3ab-worker@1, read on 2026-11-27), when Xenia
+#: stopped presenting. No « frames » line between them; a person stopped the
+#: room at 20:59:55. Each restart received one packet, the compositor's copy.
+FROZEN_2026_11_21 = [
+    clock(at)
+    for at in (
+        "20:38:40.602267",
+        "20:39:15.902472",
+        "20:39:51.503471",
+        "20:40:27.110992",
+        "20:41:02.725294",
+        "20:41:38.334400",
+        "20:42:13.940877",
+        "20:42:49.540648",
+        "20:43:25.159598",
+        "20:44:00.800838",
+        "20:44:36.408210",
+        "20:45:07.804758",
+        "20:45:44.498378",
+        "20:46:20.151915",
+        "20:46:55.765785",
+        "20:47:31.379910",
+        "20:48:06.989123",
+        "20:48:42.618373",
+        "20:49:18.242601",
+        "20:49:53.842745",
+        "20:50:29.460562",
+        "20:51:05.055831",
+        "20:51:40.691861",
+        "20:52:16.304077",
+        "20:52:51.907856",
+        "20:53:27.533537",
+        "20:54:03.154191",
+        "20:54:38.771606",
+        "20:55:14.394635",
+        "20:55:50.006204",
+        "20:56:25.625083",
+        "20:57:01.238105",
+        "20:57:36.861575",
+        "20:58:12.518657",
+        "20:58:48.363684",
+        "20:59:23.833567",
+    )
+]
+
+
+class CaptureRestarts(unittest.TestCase):
+    """CAP-7: the rule « three failures in one minute » never saw a slow loop."""
+
+    BLANK = module.CaptureRestarts.NOTHING_SHOWN
+
+    def replay(self, first, endings):
+        """The first start, then each (time, exit status) the room saw; the refusal."""
+        restarts = module.CaptureRestarts()
+        self.assertIsNone(restarts.refused(first, None))
+        for at, status in endings:
+            refused = restarts.refused(at, status)
+            if refused is not None:
+                return at, refused
+        return None
+
+    def test_the_loop_of_2026_11_21_is_stopped_at_its_third_restart(self):
+        self.assertEqual(len(FROZEN_2026_11_21), 36)
+        gaps = [b - a for a, b in itertools.pairwise(FROZEN_2026_11_21)]
+        self.assertTrue(all(31 < gap < 37 for gap in gaps), "two restarts a minute at most")
+        # The first capture had sent the game for a minute: it exits 1. Every
+        # later one sent nothing but the compositor's copy.
+        endings = [(FROZEN_2026_11_21[0], 1)]
+        endings += [(at, self.BLANK) for at in FROZEN_2026_11_21[1:]]
+        verdict = self.replay(clock("20:37:25"), endings)
+        self.assertIsNotNone(verdict, "36 restarts and the rule never fired")
+        self.assertEqual(verdict[0], FROZEN_2026_11_21[2])
+        self.assertIn("without a game picture", verdict[1])
+
+    def test_the_twin_a_first_launch_four_minutes_long_then_pictures_restarts_freely(self):
+        # Mario Tennis rebuilt its translation cache for 4 minutes on its first
+        # launch (carnet). Each capture then ends at its 90 s start limit.
+        endings = [(90.5, self.BLANK), (181.0, self.BLANK), (271.5, self.BLANK)]
+        # Then pictures, and much later one ordinary failure in the game.
+        endings += [(4000.0, 1)]
+        self.assertIsNone(self.replay(0.0, endings))
+
+    def test_the_twin_restarts_with_game_pictures_between_them_are_not_a_loop(self):
+        endings = [(at, 1) for at in (100.0, 200.0, 300.0, 400.0, 500.0)]
+        self.assertIsNone(self.replay(0.0, endings))
+        # Nor blank restarts each separated from the next by pictures.
+        endings = [(100.0, 1), (200.0, self.BLANK), (300.0, 1), (400.0, self.BLANK)]
+        endings += [(500.0, 1), (600.0, self.BLANK)]
+        self.assertIsNone(self.replay(0.0, endings))
+
+    def test_a_capture_that_dies_at_once_still_stops_at_its_third_failure_in_a_minute(self):
+        verdict = self.replay(0.0, [(1.0, 1), (2.0, 1), (3.0, 1)])
+        self.assertEqual(verdict, (3.0, "Capture failed three times in one minute"))
+        # The same three failures spread over more than a minute pass.
+        self.assertIsNone(self.replay(0.0, [(30.0, 1), (60.0, 1), (90.0, 1)]))
+
+    def test_an_unknown_ending_counts_as_pictures_so_the_room_is_never_stopped_by_doubt(self):
+        # docker exec's own failures (125 to 127), a signal, an older capture.
+        restarts = module.CaptureRestarts()
+        self.assertIsNone(restarts.refused(0.0, None))
+        self.assertIsNone(restarts.refused(100.0, 1))
+        for at, status in (
+            (200.0, self.BLANK),
+            (300.0, 125),
+            (400.0, self.BLANK),
+            (500.0, -9),
+            (600.0, self.BLANK),
+        ):
+            self.assertIsNone(restarts.refused(at, status), status)
+        # The twin: two blank endings in a row are still the loop.
+        self.assertIsNotNone(restarts.refused(700.0, self.BLANK))
+
+
+class Host(contextlib.ExitStack):
+    """A fake Docker and a fake clock around the real `serve`.
+
+    Every docker command is recorded with its keyword arguments. Time moves
+    only when the room waits (its selector or time.sleep). A capture lives
+    `capture_life` seconds, then ends with the next of `statuses`; a capture
+    beyond them is a failure of the test, never an endless room. `stdin_after`
+    is when the worker closes stdin, None for never.
+    """
+
+    RENDER = "/dev/dri/renderD128"
+
+    def __init__(self, statuses=(), capture_life=40.0, stdin_after=None, logs_fail=False):
+        super().__init__()
+        self.statuses = list(statuses)
+        self.capture_life = capture_life
+        self.stdin_after = stdin_after
+        self.logs_fail = logs_fail
+        self.now = 1000.0
+        self.commands = []
+
+    def __enter__(self):
+        super().__enter__()
+        root = Path(self.enter_context(tempfile.TemporaryDirectory()))
+        self.slot = root / "state/0100abcdef012000/neuve"
+        self.slot.mkdir(parents=True)
+        self.pads = root / "salles/1/room-switch-test"
+        self.pads.mkdir(parents=True)
+        self.root = root
+        real_stat = os.stat
+        host = self
+
+        def stat(path, *args, **kwargs):
+            if os.fspath(path) == self.RENDER:
+                return os.stat_result((0o20660, 0, 0, 1, 0, 44, 0, 0, 0, 0))
+            return real_stat(path, *args, **kwargs)
+
+        class Capture:
+            def __init__(self, status):
+                self.status, self.until = status, host.now + host.capture_life
+
+            def poll(self):
+                return None if host.now < self.until else self.status
+
+            def wait(self, timeout=None):
+                return self.status
+
+        def popen(argv, **_kwargs):
+            self.commands.append(("Popen", list(argv), {}))
+            if not self.statuses:
+                raise AssertionError(f"capture number {self.started()} was started")
+            return Capture(self.statuses.pop(0))
+
+        class Selector:
+            def register(self, *_args, **_kwargs):
+                return None
+
+            def select(self, timeout=None):
+                if host.stdin_after is not None and host.now >= host.stdin_after:
+                    return [("stdin", 1)]
+                host.now += timeout or 0
+                return []
+
+            def close(self):
+                return None
+
+        self.enter_context(patch.object(module, "run", self.run))
+        self.enter_context(patch.object(module.subprocess, "run", self.run_list))
+        self.enter_context(patch.object(module.subprocess, "Popen", popen))
+        self.enter_context(patch.object(module.selectors, "DefaultSelector", Selector))
+        self.enter_context(patch.object(module.time, "monotonic", lambda: self.now))
+        self.enter_context(patch.object(module.time, "sleep", self.sleep))
+        self.enter_context(patch.object(module.os, "stat", stat))
+        return self
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+    def started(self):
+        return sum(1 for kind, _argv, _options in self.commands if kind == "Popen")
+
+    def run_list(self, argv, **kwargs):
+        return self.run(*argv, **kwargs)
+
+    def run(self, *args, **kwargs):
+        self.commands.append(("run", list(args), kwargs))
+        stdout = ""
+        if args[:2] == ("docker", "run") and "/probe/pads.py" in args:
+            devices = [f"/dev/input/event{n}" for n in range(4)]
+            (self.pads / "devices.json").write_text(json.dumps(devices))
+        elif args[:2] == ("docker", "run"):
+            (self.slot / "display.json").write_text('{"display": "wayland-1"}')
+        elif args[:4] == ("docker", "inspect", "-f", "{{.State.Running}}"):
+            stdout = "true\n"
+        elif args[:2] == ("docker", "logs"):
+            stream = kwargs.get("stdout")
+            if self.logs_fail:
+                # What docker logs writes on its stderr, sent to the same file.
+                stream.write(f"Error response from daemon: No such container: {args[-1]}\n")
+                raise subprocess.CalledProcessError(1, list(args))
+            stream.write(f"2026-11-26T23:32:33.750000000Z journal de {args[-1]}\n")
+        return subprocess.CompletedProcess(list(args), 0, stdout, "")
+
+    def serve(self, config=None):
+        launch = module.EngineLaunch(environment=[], mounts=[], command=["true"], controllers=4)
+        config = {"image": "sha256:essai", "engine": str(self.root), **(config or {})}
+        rom = self.root / "jeu.xci"
+        module.serve(config, rom, self.slot, self.pads, launch, lambda _slot: None)
+
+
+class ServeRestarts(unittest.TestCase):
+    """The wiring: `serve` hands each capture's exit status to CaptureRestarts."""
+
+    BLANK = module.CaptureRestarts.NOTHING_SHOWN
+
+    def test_a_frozen_game_is_given_up_at_the_third_failure_without_a_picture(self):
+        with (
+            Host(statuses=[1, self.BLANK, self.BLANK]) as host,
+            self.assertRaisesRegex(RuntimeError, "without a game picture"),
+        ):
+            host.serve()
+        self.assertEqual(host.started(), 3)
+
+    def test_the_twin_a_long_first_start_keeps_restarting(self):
+        # Three blank captures before any picture, then the game: a fourth start.
+        with (
+            Host(statuses=[self.BLANK, self.BLANK, self.BLANK]) as host,
+            self.assertRaisesRegex(AssertionError, "capture number 4 was started"),
+        ):
+            host.serve()
 
 
 if __name__ == "__main__":

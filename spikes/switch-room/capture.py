@@ -15,8 +15,10 @@ import signal
 import socket
 import struct
 import subprocess
+import sys
 import threading
 import time
+import traceback
 from pathlib import Path
 
 from capture_audio import chunks
@@ -35,6 +37,12 @@ RECORDER = "/usr/local/bin/nel3ab-wf-recorder"
 PAREC = "/usr/bin/parec"
 STOP = threading.Event()
 PROCESSES = []
+# Set once a recorder has sent a game picture, the compositor's copy excepted.
+SHOWN = threading.Event()
+# The exit status of a capture that failed before SHOWN: the room counts such
+# failures in a row (CaptureRestarts in docker/switch-room.py, which holds the
+# same number). python3 itself exits 1, 2 or 120, docker exec 125 to 127.
+NOTHING_SHOWN = 3
 
 
 def environment():
@@ -158,6 +166,8 @@ def video(half, keys, stopped=STOP, progress=None):
                     last_frame = captured
                     if opening.admit(payload):
                         send(target, b"H" if half else b"F", payload, captured)
+                        if not SHOWN.is_set():
+                            SHOWN.set()
                     progress.saw()
                     if now >= report_at:
                         report_at = now + 5
@@ -276,6 +286,18 @@ def main(keys):
         raise RuntimeError("; ".join(failures))
 
 
+def exit_status(keys):
+    """0 after a requested stop. After a failure, its traceback, then 1 if a
+    game picture was sent, NOTHING_SHOWN if none was."""
+    try:
+        main(keys)
+    except Exception:
+        traceback.print_exc()
+        return 1 if SHOWN.is_set() else NOTHING_SHOWN
+    return 0
+
+
 if __name__ == "__main__":
     with exclusive(RUN_DATA), Keys(RUN_DATA) as keys:
-        main(keys)
+        status = exit_status(keys)
+    sys.exit(status)

@@ -12,6 +12,7 @@ receiving socket can time each packet from its write to its arrival.
 """
 
 import contextlib
+import importlib.util
 import io
 import json
 import os
@@ -161,6 +162,7 @@ class Room(contextlib.ExitStack):
             )
         )
         self.enter_context(patch.object(capture, "PROCESSES", []))
+        self.enter_context(patch.object(capture, "SHOWN", threading.Event()))
         self.keys = self.enter_context(Keys(root))
         self.stopped = threading.Event()
         self.thread = None
@@ -290,6 +292,54 @@ class Loop(unittest.TestCase):
             sent = [captured for _k, captured, _p, _at in room.media.pictures()]
             self.assertEqual(sent, [written[1]["wrote"] // 1000])
             self.assertEqual(self.key_requests(room), b"K")
+
+
+class Ending(unittest.TestCase):
+    """CAP-7: the room tells a capture that showed the game from one that did not."""
+
+    def test_only_the_compositor_copy_is_not_a_game_picture(self):
+        steps = [{"open": 1}, {"packet": "idr"}, {"sleep": 0.2}, {"packet": "p"}]
+        with Room(steps) as room:
+            room.run()
+            room.wait_for(lambda: len(room.written()) == 2, 5, "two packets were written")
+            time.sleep(0.1)
+            self.assertEqual(room.media.pictures(), [])
+            self.assertFalse(capture.SHOWN.is_set())
+
+    def test_the_twin_a_key_frame_sent_is_a_game_picture(self):
+        steps = [{"open": 1}, {"packet": "idr"}, {"sleep": 0.05}, {"packet": "idr"}]
+        with Room(steps) as room:
+            room.run()
+            room.wait_for(lambda: room.media.pictures(), 5, "the game's picture arrived")
+            self.assertTrue(capture.SHOWN.is_set())
+
+    def test_a_failure_before_any_game_picture_has_its_own_exit_status(self):
+        def fails(_keys):
+            raise RuntimeError("full: no complete packet for 90.0 seconds since it started")
+
+        for shown, expected in ((False, capture.NOTHING_SHOWN), (True, 1)):
+            with (
+                self.subTest(shown=shown),
+                patch.object(capture, "SHOWN", threading.Event()),
+                patch.object(capture, "main", fails),
+                contextlib.redirect_stderr(io.StringIO()) as err,
+            ):
+                if shown:
+                    capture.SHOWN.set()
+                self.assertEqual(capture.exit_status(None), expected)
+                # The traceback still reaches the worker's journal.
+                self.assertIn("RuntimeError: full: no complete packet", err.getvalue())
+        with patch.object(capture, "main", lambda _keys: None):
+            self.assertEqual(capture.exit_status(None), 0)
+
+    def test_the_room_reads_the_same_number(self):
+        path = Path(__file__).resolve().parents[2] / "docker/switch-room.py"
+        spec = importlib.util.spec_from_file_location("switch_room_for_capture", path)
+        room = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(room)
+        self.assertEqual(room.CaptureRestarts.NOTHING_SHOWN, capture.NOTHING_SHOWN)
+        # Neither python3's own statuses nor docker exec's.
+        self.assertNotIn(capture.NOTHING_SHOWN, (0, 1, 2, 120, 125, 126, 127))
 
 
 class Stopping(unittest.TestCase):

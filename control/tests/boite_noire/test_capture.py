@@ -209,14 +209,22 @@ def test_dolphin_n_a_pas_d_ecran_et_une_salle_inconnue_lit_tous_les_workers(tmp_
 
 def test_un_debugfs_illisible_se_note_sans_arreter_la_capture(tmp_path: Path) -> None:
     lanceur = FauxLanceur()
+    (tmp_path / "proc").mkdir()
     capteur = Capteur(
-        tmp_path / "captures", Racines(dri=tmp_path / "absent"), lanceur=lanceur, debugfs=True
+        tmp_path / "captures",
+        Racines(dri=tmp_path / "absent", proc=tmp_path / "proc"),
+        lanceur=lanceur,
+        debugfs=True,
     )
     dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
 
     codes = json.loads((dossier / "capture.json").read_text())["codes"]
     assert codes["amdgpu_vram_mm"] == -1
     assert not (dossier / "pages.jsonl").exists()
+    # La capture lit les descripteurs des processus des `Racines` qu'on lui donne,
+    # pas ceux de la machine qui fait tourner l'essai.
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert (lu["detenteurs"], lu["illisibles"]) == ([], 0)
 
 
 def test_seules_les_lignes_recentes_et_datees_sont_gardees() -> None:

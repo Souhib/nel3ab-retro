@@ -35192,6 +35192,46 @@ Ensuite 60 images par seconde, au plus 19,6 ms entre deux images, et un arrêt
 en 1,5 s sans SIGKILL. Ce n'est pas une partie : personne ne regardait,
 personne ne jouait.
 
+#### La comparaison sur le vrai Smash : A B B A
+
+Le propriétaire a demandé une preuve chiffrée. Le 27 novembre, de 14:11 à
+14:26 UTC, quatre phases ont lancé Super Smash Bros. Ultimate dans une salle
+privée, sur la carte, dans l'ordre A B B A. A est le code d'avant l'audit
+(b5f21f8), B celui d'après (fb5bcb4). Chaque phase part d'une copie du vrai
+cache de shaders de Smash, pour que les deux bras démarrent chauds, et d'un
+état jetable. Au début et à la fin de chaque phase : aucun ffmpeg (Jellyfin
+ne transcode pas), aucun processus de calcul sur la carte (ollama), aucun
+travail de CI, pression processeur sous 5,2 %. Personne ne jouait : Smash
+tournait sur son écran titre et ses démonstrations. Chaque salle s'est fermée
+seule au bout de 180 s, faute de joueur ; les quatre phases ont donc la même
+durée. On garde chaque fenêtre de 5 s de la capture après les 30 s qui
+suivent la première fenêtre à 60 images par seconde.
+
+| Phase | Capture coupée au démarrage | Âge de l'image, médiane | p95 | Images/s | Fenêtres avec un trou > 100 ms | Pire trou |
+|---|---|---|---|---|---|---|
+| A | oui | 5,44 ms | 7,41 ms | 60,25 | 1 | 133 ms |
+| B | non | 2,64 ms | 3,16 ms | 60,34 | 0 | 20 ms |
+| B | non | 2,81 ms | 3,09 ms | 59,86 | 1 | 734 ms |
+| A | oui | 4,66 ms | 7,12 ms | 57,76 | 4 | 797 ms |
+
+**Ce que ça prouve.** L'âge de l'image à la sortie de la capture baisse
+d'environ 2,3 ms en médiane et de 4 ms au p95, dans les deux paires : c'est le
+sommeil de 5 ms remplacé par une attente sur le descripteur. Le gain est réel
+et petit. La garde de 30 s a coupé la capture saine pendant le chargement de
+Smash dans les deux phases A, et dans aucune phase B. Le temps jusqu'à
+l'image régulière ne change pas à la résolution des journaux : la première
+fenêtre à 60 images par seconde tombe entre 50 et 60 s après le lancement
+dans les quatre phases.
+
+**Ce que ça ne prouve pas.** Les trous de plus de 100 ms viennent des
+chargements du jeu (écran titre, démonstrations), dans les deux bras : quatre
+phases de trois minutes ne les départagent pas, et rien de l'audit ne les
+visait. Rien ici ne dit ce que voit un joueur distant : aucune page ne
+regardait. Le worker de ces phases est construit en mode debug, pour les deux
+bras. La boîte noire profilait Ryubing dans les deux bras de la même façon.
+Les scripts, les gardes et les journaux bruts sont dans
+`spikes/switch-room/results/ab-capture-2026-11-27/`.
+
 #### Ce qui n'est pas encore prouvé
 
 Tout ce qui précède est prouvé par des essais, des bancs et des rejeux de

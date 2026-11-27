@@ -35,6 +35,13 @@ n'est pas reconstruit.
   l'entrée du worker autour de 2,2 ms en médiane. Arrêt en 1,5 s, sans
   SIGKILL, aucun conteneur restant. Ce n'est pas une partie : aucune page
   ne regardait, personne ne jouait, un seul jeu.
+- **La comparaison A B B A sur le vrai Smash, le 27 novembre de 14:11 à
+  14:26 UTC** (code d'avant l'audit contre code d'après, cache de shaders
+  copié, gardes vides). L'âge de l'image à la sortie de la capture passe de
+  5,44 et 4,66 ms à 2,64 et 2,81 ms en médiane, de 7,1 à 7,4 ms à 3,1 ms au
+  p95. La garde de 30 s coupe la capture au démarrage de Smash dans les deux
+  phases A, dans aucune B. Les trous de plus de 100 ms (chargements du jeu)
+  restent dans les deux bras. Données : `spikes/switch-room/results/ab-capture-2026-11-27/`.
 
 - **L'audit.** Un audit en lecture seule a relu la partie Smash du
   26 novembre (sept minutes, un joueur distant sur un Mac) et Mario Tennis à

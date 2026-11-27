@@ -1,0 +1,72 @@
+{"timestamp":"2026-11-27T14:11:08.183002Z","level":"INFO","fields":{"message":"nel3ab worker starting","version":"0.1.0"},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:08.201075Z","level":"INFO","fields":{"message":"the room's library","games":6,"booting":"/home/souhib/roms/switch/Super Smash Bros. Ultimate.nsp","save":"neuve"},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:08.373519Z","level":"INFO","fields":{"message":"les jeux qui ont une jaquette","with":6,"of":6},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:08.397488Z","level":"INFO","fields":{"message":"les images de la bibliothèque, pour le salon","written":6,"kept":0,"removed":0},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:08.397549Z","level":"INFO","fields":{"message":"les jeux qui sont des jeux Wii","wii":0,"of":6},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:08.399380Z","level":"INFO","fields":{"message":"browser server listening","bound":"127.0.0.1:34825"},"target":"nel3ab_transport::browser"}
+{"timestamp":"2026-11-27T14:11:08.399421Z","level":"INFO","fields":{"message":"open this in a browser","address":"127.0.0.1:34825"},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:08.399448Z","level":"INFO","fields":{"message":"control listener ready","bound":"127.0.0.1:56095"},"target":"nel3ab_transport::control"}
+{"half": false, "capture_age_ms": 46.24}
+{"capture_quiet": "full"}
+{"timestamp":"2026-11-27T14:11:18.407731Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:28.415412Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:38.422794Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:11:41.092609Z","level":"INFO","fields":{"message":"capture connection ended","error":"unexpected end of file"},"target":"nel3ab_transport::ingress"}
+{"timestamp":"2026-11-27T14:11:41.158950Z","level":"INFO","fields":{"message":"capture connection ended","error":"unexpected end of file"},"target":"nel3ab_transport::ingress"}
+{"timestamp":"2026-11-27T14:11:41.158970Z","level":"INFO","fields":{"message":"capture connection ended","error":"unexpected end of file"},"target":"nel3ab_transport::ingress"}
+Traceback (most recent call last):
+  File "/probe/capture.py", line 265, in <module>
+    main(keys)
+  File "/probe/capture.py", line 260, in main
+    raise RuntimeError("; ".join(failures))
+RuntimeError: full: no complete packet for 30.1 seconds
+{"half": false, "capture_age_ms": 21.03}
+{"timestamp":"2026-11-27T14:11:48.431841Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 6.13, "frames": 235, "gap_ms": [16.6, 35.3, 562.4]}
+{"half": false, "capture_age_ms": 11.51, "frames": 222, "gap_ms": [16.7, 18.4, 1816.7]}
+{"timestamp":"2026-11-27T14:11:58.439532Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 4.17, "frames": 294, "gap_ms": [16.5, 17.3, 151.7]}
+{"half": false, "capture_age_ms": 5.77, "frames": 301, "gap_ms": [16.5, 17.2, 18.8]}
+{"timestamp":"2026-11-27T14:12:08.446998Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 3.19, "frames": 302, "gap_ms": [16.6, 17.2, 19.6]}
+{"half": false, "capture_age_ms": 6.22, "frames": 301, "gap_ms": [16.7, 17.2, 17.3]}
+{"timestamp":"2026-11-27T14:12:18.454307Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 6.8, "frames": 301, "gap_ms": [16.6, 17.2, 18.1]}
+{"half": false, "capture_age_ms": 6.94, "frames": 301, "gap_ms": [16.7, 17.2, 17.6]}
+{"timestamp":"2026-11-27T14:12:28.461340Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 4.21, "frames": 302, "gap_ms": [16.6, 17.2, 17.4]}
+{"half": false, "capture_age_ms": 2.94, "frames": 302, "gap_ms": [16.6, 17.2, 18.0]}
+{"timestamp":"2026-11-27T14:12:38.469064Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 5.4, "frames": 302, "gap_ms": [16.6, 17.2, 17.9]}
+{"half": false, "capture_age_ms": 6.6, "frames": 301, "gap_ms": [16.6, 17.2, 18.0]}
+{"timestamp":"2026-11-27T14:12:48.475970Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 7.41, "frames": 301, "gap_ms": [16.7, 17.2, 17.6]}
+{"half": false, "capture_age_ms": 4.54, "frames": 302, "gap_ms": [16.5, 17.2, 18.0]}
+{"timestamp":"2026-11-27T14:12:58.483394Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 6.28, "frames": 302, "gap_ms": [16.6, 17.2, 17.8]}
+{"half": false, "capture_age_ms": 7.57, "frames": 301, "gap_ms": [16.6, 17.2, 18.4]}
+{"timestamp":"2026-11-27T14:13:08.490635Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 2.92, "frames": 302, "gap_ms": [16.6, 17.2, 18.6]}
+{"half": false, "capture_age_ms": 5.8, "frames": 301, "gap_ms": [16.6, 17.2, 18.1]}
+{"timestamp":"2026-11-27T14:13:18.498658Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 4.2, "frames": 302, "gap_ms": [16.6, 17.2, 17.8]}
+{"half": false, "capture_age_ms": 2.79, "frames": 302, "gap_ms": [16.6, 17.2, 18.5]}
+{"timestamp":"2026-11-27T14:13:28.506827Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 4.49, "frames": 301, "gap_ms": [16.6, 17.2, 17.8]}
+{"half": false, "capture_age_ms": 6.27, "frames": 301, "gap_ms": [16.6, 17.2, 17.6]}
+{"timestamp":"2026-11-27T14:13:38.514447Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 7.33, "frames": 302, "gap_ms": [16.6, 17.2, 18.4]}
+{"half": false, "capture_age_ms": 4.99, "frames": 302, "gap_ms": [16.6, 17.3, 18.1]}
+{"timestamp":"2026-11-27T14:13:48.521515Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 5.48, "frames": 301, "gap_ms": [16.6, 17.2, 18.4]}
+{"half": false, "capture_age_ms": 3.35, "frames": 302, "gap_ms": [16.6, 17.2, 18.9]}
+{"timestamp":"2026-11-27T14:13:58.528975Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"half": false, "capture_age_ms": 7.29, "frames": 301, "gap_ms": [16.6, 17.2, 17.7]}
+{"half": false, "capture_age_ms": 7.41, "frames": 295, "gap_ms": [16.7, 17.2, 133.2]}
+{"timestamp":"2026-11-27T14:14:08.536789Z","level":"INFO","fields":{"message":"de la commande aux manettes à l'image suivante","console":"Switch","input_to_frame_samples":0,"input_to_frame_p50_ms":0.0,"input_to_frame_p95_ms":0.0,"input_to_frame_max_ms":0.0},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:14:08.673763Z","level":"INFO","fields":{"message":"personne n'a joué: la salle se ferme","secondes":1800},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:14:08.882328Z","level":"INFO","fields":{"message":"capture connection ended","error":"unexpected end of file"},"target":"nel3ab_transport::ingress"}
+{"timestamp":"2026-11-27T14:14:08.882343Z","level":"INFO","fields":{"message":"capture connection ended","error":"unexpected end of file"},"target":"nel3ab_transport::ingress"}
+{"timestamp":"2026-11-27T14:14:08.882344Z","level":"INFO","fields":{"message":"capture connection ended","error":"unexpected end of file"},"target":"nel3ab_transport::ingress"}
+{"timestamp":"2026-11-27T14:14:10.880032Z","level":"INFO","fields":{"message":"room adapter stopped","console":"Switch","status":"exit status: 0"},"target":"nel3ab_worker"}
+{"timestamp":"2026-11-27T14:14:11.075198Z","level":"INFO","fields":{"message":"la salle est fermée, le service ne doit pas la relancer"},"target":"nel3ab_worker"}

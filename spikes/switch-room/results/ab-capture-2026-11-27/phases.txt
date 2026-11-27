@@ -1,0 +1,14 @@
+7.0.0-43-generic
+debut A /tmp/nel3ab-ab-B4rpij 2026-11-27T14:11:08.098Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.01 avg60=0.51 avg300=0.49 total=11277147144"
+fin A /tmp/nel3ab-ab-B4rpij 2026-11-27T14:14:43.169Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.68 avg60=1.13 avg300=0.68 total=11279898255"
+ECHEC phase A
+debut B /tmp/nel3ab-ab-WCY87W 2026-11-27T14:14:50.615Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.30 avg60=0.99 avg300=0.66 total=11279931405"
+fin B /tmp/nel3ab-ab-WCY87W 2026-11-27T14:18:25.689Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.04 avg60=0.45 avg300=0.74 total=11283115591"
+ECHEC phase B
+debut B /tmp/nel3ab-ab-92Sk1C 2026-11-27T14:18:32.226Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=5.12 avg60=1.59 avg300=0.99 total=11283880865"
+fin B /tmp/nel3ab-ab-92Sk1C 2026-11-27T14:22:07.300Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.08 avg60=0.56 avg300=0.77 total=11286105454"
+ECHEC phase B
+debut A /tmp/nel3ab-ab-glCgf5 2026-11-27T14:22:14.763Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.03 avg60=0.49 avg300=0.75 total=11286132222"
+fin A /tmp/nel3ab-ab-glCgf5 2026-11-27T14:25:49.839Z ffmpeg=0 kfd=0 ci=0 psi_cpu="some avg10=0.43 avg60=1.64 avg300=1.01 total=11289783015"
+ECHEC phase A
+fin campagne 2026-11-27T14:25:54.915Z

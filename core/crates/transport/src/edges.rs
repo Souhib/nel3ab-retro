@@ -13,13 +13,16 @@
 //! La règle ici: un bouton dont l'état vient de changer sur la manette
 //! virtuelle garde ce nouvel état [`HOLD`] au moins. Un appui perdu entre deux
 //! lectures est rendu, et tenu ce temps-là. Même chose pour un relâchement pris
-//! entre deux appuis. Rien n'est mis en file: une place n'a qu'un état voulu et
-//! un état dit, et un trou de liaison ne devient jamais un retard qui
-//! s'accumule. Les sticks restent au « dernier gagne ».
+//! entre deux appuis. Un front rendu attend lui aussi que le front d'avant ait
+//! tenu [`HOLD`]: dit tout de suite, il coupait ce front-là à quelques
+//! millisecondes. Rien n'est mis en file: une place n'a qu'un état voulu, un
+//! état dit et un masque de fronts dus, et un trou de liaison ne devient
+//! jamais un retard qui s'accumule. Les sticks restent au « dernier gagne ».
 //!
 //! Le prix: un appui plus court que [`HOLD`] est allongé jusqu'à [`HOLD`], et
 //! un nouvel appui moins de [`HOLD`] après un relâchement attend la fin de ce
-//! délai. Un appui tenu plus longtemps n'est ni allongé ni retardé.
+//! délai. Un appui tenu plus longtemps n'est ni allongé ni retardé. Deux
+//! fronts perdus du même bouton avant que le premier soit dit n'en font qu'un.
 
 use std::time::{Duration, Instant};
 
@@ -43,6 +46,11 @@ pub struct Edges {
     told: Option<SwitchFrame>,
     /// Le dernier état envoyé par la page, que `told` rattrape.
     wanted: Option<SwitchFrame>,
+    /// Les boutons dont un front perdu n'a pas encore été dit: chacun doit
+    /// d'abord passer à l'inverse de ce que la manette montre, puis suivre la
+    /// page. Un masque, jamais une file: deux fronts perdus du même bouton
+    /// avant que le premier soit dit n'en font qu'un.
+    owed: u32,
     /// Quand chaque bouton a changé pour la dernière fois sur la manette.
     changed: [Option<Instant>; BUTTONS as usize],
     /// Les fronts qu'un « dernier gagne » aurait perdus, depuis le dernier relevé.
@@ -77,32 +85,43 @@ impl Edges {
     ) -> SwitchFrame {
         let told = self.told.map_or(0, buttons);
         let want = buttons(latest);
-        // Appuyé puis relâché sans avoir été lu: l'appui est dit maintenant.
+        // Appuyé puis relâché sans avoir été lu: un appui est dû.
         let lost_press = went_down & !want & !told & SwitchButtons::KNOWN;
-        // Relâché puis appuyé de nouveau sans avoir été lu: le relâchement aussi.
+        // Relâché puis appuyé de nouveau sans avoir été lu: un relâchement est dû.
         let lost_release = went_up & want & told & SwitchButtons::KNOWN;
-        for bit in bits(lost_press | lost_release) {
-            self.changed[bit] = Some(now);
-        }
-        self.rescued += u64::from((lost_press | lost_release).count_ones());
+        let lost = lost_press | lost_release;
+        // Dû, et pas dit tout de suite: un front rendu attend comme les autres
+        // que le front d'avant ait tenu [`HOLD`]. Rendu sans attendre, il
+        // coupait ce front-là à quelques millisecondes, et le jeu perdait
+        // l'appui que le front d'avant portait (relecture du 2026-11-27).
+        self.rescued += u64::from((lost & !self.owed).count_ones());
+        self.owed |= lost;
         self.wanted = Some(latest);
-        self.settle((told | lost_press) & !lost_release, latest, now)
+        self.settle(latest, now)
     }
 
-    /// Dit à la manette `next`, plus chaque bouton qui peut rejoindre l'état
-    /// voulu: celui qui a tenu son état [`HOLD`], ou qui n'a jamais changé.
-    fn settle(&mut self, mut next: u32, wanted: SwitchFrame, now: Instant) -> SwitchFrame {
-        for bit in bits(next ^ buttons(wanted)) {
+    /// Ce que la manette doit montrer, bouton par bouton: l'inverse de ce
+    /// qu'elle montre pour un front dû, ce que la page veut pour les autres.
+    const fn target(&self, told: u32, want: u32) -> u32 {
+        ((want & !self.owed) | (!told & self.owed)) & SwitchButtons::KNOWN
+    }
+
+    /// Dit à la manette chaque bouton qui peut rejoindre sa cible: celui qui a
+    /// tenu son état [`HOLD`], ou qui n'a jamais changé.
+    fn settle(&mut self, wanted: SwitchFrame, now: Instant) -> SwitchFrame {
+        let mut next = self.told.map_or(0, buttons);
+        for bit in bits(next ^ self.target(next, buttons(wanted))) {
             let ready =
                 self.changed[bit].is_none_or(|at| now.saturating_duration_since(at) >= HOLD);
             if ready {
                 next ^= 1 << bit;
                 self.changed[bit] = Some(now);
+                self.owed &= !(1 << bit);
             }
         }
         let told = SwitchFrame {
-            // Toujours valide: `next` ne prend que des bits de `told` et de
-            // `wanted`. Le repli serait le « dernier gagne » d'avant.
+            // Toujours valide: `next` ne prend que des bits connus. Le repli
+            // serait le « dernier gagne » d'avant.
             buttons: SwitchButtons::from_bits(next).unwrap_or(wanted.buttons),
             ..wanted
         };
@@ -113,9 +132,8 @@ impl Edges {
     /// Quand un état retenu devra être dit, s'il y en a un.
     #[must_use]
     pub fn due(&self) -> Option<Instant> {
-        let (told, wanted) = (self.told?, self.wanted?);
-        let differ = told.buttons.bits() ^ wanted.buttons.bits();
-        bits(differ)
+        let (told, wanted) = (buttons(self.told?), buttons(self.wanted?));
+        bits(told ^ self.target(told, wanted))
             .filter_map(|bit| self.changed[bit].map(|at| at + HOLD))
             .min()
     }
@@ -125,9 +143,9 @@ impl Edges {
         if self.due()? > now {
             return None;
         }
-        let (told, wanted) = (self.told.map_or(0, buttons), self.wanted?);
+        let wanted = self.wanted?;
         self.deferred += 1;
-        Some(self.settle(told, wanted, now))
+        Some(self.settle(wanted, now))
     }
 
     /// Les fronts tenus depuis le dernier appel, puis un relevé neuf.
@@ -263,6 +281,64 @@ mod tests {
                 deferred: 1
             }
         );
+    }
+
+    /// Un front rendu tient [`HOLD`] lui aussi, et attend que le front d'avant
+    /// l'ait tenu. Un relâchement dit à la manette, puis 5 ms plus tard un
+    /// appui et son relâchement lus ensemble: rendu tout de suite, l'appui
+    /// coupait ce relâchement à 5 ms, et le jeu voyait un seul appui long.
+    #[test]
+    fn a_rescued_press_waits_for_the_release_before_it() {
+        let start = Instant::now();
+        let mut seat = Edges::default();
+        assert_eq!(seat.offer(frame(A), A, 0, start), frame(A));
+        assert_eq!(seat.offer(frame(0), 0, A, ms(start, 30)), frame(0));
+        let told = seat.offer(frame(0), A, A, ms(start, 35));
+        assert_eq!(
+            told.buttons.bits() & A,
+            0,
+            "the rescued press cut a release of 5 ms on the pad"
+        );
+        assert_eq!(seat.due(), Some(ms(start, 50)), "the press is owed at 50");
+        assert_eq!(seat.tick(ms(start, 49)), None);
+        assert_eq!(seat.tick(ms(start, 50)), Some(frame(A)), "the owed press");
+        assert_eq!(seat.due(), Some(ms(start, 70)), "then held HOLD");
+        assert_eq!(seat.tick(ms(start, 70)), Some(frame(0)));
+        assert_eq!(seat.due(), None, "nothing more is owed");
+        assert_eq!(
+            seat.take_kept(),
+            Kept {
+                rescued: 1,
+                deferred: 2
+            }
+        );
+    }
+
+    /// Le même pour un relâchement rendu: un appui dit à la manette, puis 5 ms
+    /// plus tard un relâchement et un nouvel appui lus ensemble. Rendu tout de
+    /// suite, le relâchement laissait le premier appui 5 ms sur la manette, et
+    /// le jeu pouvait ne jamais le voir: l'appui perdu que ce module évite.
+    #[test]
+    fn a_rescued_release_waits_for_the_press_before_it() {
+        let start = Instant::now();
+        let mut seat = Edges::default();
+        assert_eq!(seat.offer(frame(0), 0, A, start), frame(0));
+        assert_eq!(seat.offer(frame(A), A, 0, ms(start, 100)), frame(A));
+        let told = seat.offer(frame(A), A, A, ms(start, 105));
+        assert_eq!(
+            told.buttons.bits() & A,
+            A,
+            "the rescued release cut a press of 5 ms on the pad"
+        );
+        assert_eq!(seat.due(), Some(ms(start, 120)));
+        assert_eq!(
+            seat.tick(ms(start, 120)),
+            Some(frame(0)),
+            "the owed release"
+        );
+        assert_eq!(seat.due(), Some(ms(start, 140)), "then held HOLD");
+        assert_eq!(seat.tick(ms(start, 140)), Some(frame(A)));
+        assert_eq!(seat.due(), None);
     }
 
     /// Un seul état retenu par place, jamais une file: deux appuis courts dans

@@ -540,6 +540,35 @@ def test_les_pages_sales_se_relevent_a_chaque_releve(tmp_path: Path) -> None:
     assert ligne["pages_sales_mio"] == {"sales": 114, "ecriture": 0}
 
 
+# --- Le noyau -------------------------------------------------------------------
+#
+# Le noyau 7.0.0-44 a été installé le 26 novembre 2026 et attend un redémarrage.
+# Deux phases de part et d'autre de ce redémarrage ne se distingueraient pas: un
+# autre amdgpu et un autre ordonnanceur, et rien dans le relevé ne le disait.
+
+
+def test_chaque_releve_note_son_noyau(tmp_path: Path) -> None:
+    machine = Machine(tmp_path)
+    _ecrire(machine.r.proc / "sys/kernel/osrelease", "7.0.0-43-generic\n")
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+
+    premier = releveur.prendre()
+    machine.avancer(1)
+    horloge.t += 2.0
+    second = releveur.prendre()
+
+    assert (premier["noyau"], second["noyau"]) == ("7.0.0-43-generic", "7.0.0-43-generic")
+
+
+def test_un_noyau_illisible_reste_absent(tmp_path: Path) -> None:
+    """Le jumeau: sans `osrelease`, pas de champ, et pas un noyau inventé."""
+    _, premier, second = _deux_releves(tmp_path)
+
+    assert "noyau" not in premier
+    assert "noyau" not in second
+
+
 def test_un_pid_disparu_est_oublie(tmp_path: Path) -> None:
     import shutil
 

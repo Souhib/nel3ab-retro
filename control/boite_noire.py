@@ -8,13 +8,24 @@ jour, avec leur raison.
     just boite-noire                          aujourd'hui
     just boite-noire 2026-09-14               ce jour-là
     just boite-noire 2026-09-14 00:15-00:40   seulement cette plage
+    just boite-noire 2026-11-27 --phases 00:33-00:36,00:36-00:39
+                                              ces phases côte à côte
+
+Comparer des phases refuse celles qui n'ont pas tourné sur le même noyau
+(`lire.comparer_phases`), et sort alors avec le code 2.
 """
 
 import sys
 from datetime import date, datetime, time
 from typing import Any
 
-from nel3ab_control.boite_noire.lire import captures, charger, tranches
+from nel3ab_control.boite_noire.lire import (
+    NoyauxDifferentsError,
+    captures,
+    charger,
+    comparer_phases,
+    tranches,
+)
 from nel3ab_control.journal import _zone
 from nel3ab_control.settings import Settings
 
@@ -51,17 +62,44 @@ def _ligne(entree: dict[str, Any]) -> str:
     return "  ".join(morceaux)
 
 
+def _phases(releves: list[dict[str, Any]], pages: list[dict[str, Any]], texte: str) -> None:
+    """Les phases côte à côte, ou le refus de les comparer."""
+    try:
+        phases = comparer_phases(releves, pages, [_plage(une) for une in texte.split(",")])
+    except NoyauxDifferentsError as refus:
+        print(f"comparaison refusée: {refus}", file=sys.stderr)
+        raise SystemExit(2) from refus
+    for phase in phases:
+        fil = phase["fil_pct_mediane"]
+        cadence = phase["pages_mediane"]
+        print(
+            f"{phase['phase']}  noyau {phase['noyau']}  {phase['releves']} relevés  "
+            + (f"fil principal {fil:5.1f} %  " if fil is not None else "fil principal -  ")
+            + (f"pages {cadence:4.0f} img/s" if cadence is not None else "pages -")
+        )
+
+
 def main(arguments: list[str]) -> None:
     reglages = Settings()
     jour = datetime.now(tz=_zone(reglages.journal_zone)).date()
     debut = fin = None
-    for argument in arguments:
-        if "-" in argument and ":" in argument:
+    phases: str | None = None
+    restants = list(arguments)
+    while restants:
+        argument = restants.pop(0)
+        if argument == "--phases":
+            if not restants:
+                raise SystemExit("--phases attend une liste: 00:33-00:36,00:36-00:39")
+            phases = restants.pop(0)
+        elif "-" in argument and ":" in argument:
             debut, fin = _plage(argument)
         else:
             jour = date.fromisoformat(argument)
     releves = charger(reglages.boite_noire_dir / "releves" / f"{jour.isoformat()}.jsonl")
     pages = charger(reglages.journal_dir / f"{jour.isoformat()}.jsonl")
+    if phases is not None:
+        _phases(releves, pages, phases)
+        return
     lignes = tranches(releves, pages, debut=debut, fin=fin)
     # L'heure est celle des joueurs, pas l'UTC des journaux des salles: le
     # 21 novembre 2026, l'écart d'une heure a fait chercher une partie au mauvais

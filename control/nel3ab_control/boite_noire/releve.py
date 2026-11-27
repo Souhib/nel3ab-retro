@@ -287,6 +287,12 @@ class Releveur:
         sales = lecture.pages_sales_mio(meminfo)
         if sales:
             ligne["pages_sales_mio"] = sales
+        # Le noyau qui tourne. Le 26 novembre 2026, le 7.0.0-44 attendait un
+        # redémarrage: deux phases de part et d'autre ne se distingueraient pas
+        # sans ce champ, et `lire.comparer_phases` les refuse.
+        noyau = (_lire(r.proc / "sys/kernel/osrelease") or "").strip()
+        if noyau:
+            ligne["noyau"] = noyau
         objets: dict[int, dict[str, int]] = {}
         if avec_allocateur:
             allocateur = lecture.allocateur_vram(_lire(r.dri / "amdgpu_vram_mm") or "")

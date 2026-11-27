@@ -4,7 +4,15 @@ import json
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
-from nel3ab_control.boite_noire.lire import captures, charger, tranches
+import pytest
+
+from nel3ab_control.boite_noire.lire import (
+    NoyauxDifferentsError,
+    captures,
+    charger,
+    comparer_phases,
+    tranches,
+)
 
 PARIS = timezone(timedelta(hours=2))
 T0 = datetime(2026, 9, 14, 0, 33, 0, tzinfo=PARIS)
@@ -187,3 +195,61 @@ def test_les_captures_du_jour_se_listent_meme_incompletes(tmp_path: Path) -> Non
     assert trouvees[0]["raison"] == "chute"
     assert trouvees[1]["incomplete"] is True
     assert captures(tmp_path / "absent", date(2026, 9, 14)) == []
+
+
+# --- Comparer des phases: jamais de part et d'autre d'un changement de noyau ----
+#
+# Le 26 novembre 2026, le noyau 7.0.0-44 attendait un redémarrage. Une campagne
+# de phases alternées qui l'enjambe compare deux machines: le passage de 6.8 à
+# 7.0, le 14 septembre, avait changé le pilote de fréquence du processeur.
+
+
+def _phase(debut: float, noyau: str | None, fil_pct: float = 80.0) -> list[dict]:
+    lignes = [_releve(debut + 2 * rang, fil_pct) for rang in range(3)]
+    for ligne in lignes:
+        if noyau is not None:
+            ligne["noyau"] = noyau
+    return lignes
+
+
+def _plage(debut: float, fin: float) -> tuple[time, time]:
+    return ((T0 + timedelta(seconds=debut)).time(), (T0 + timedelta(seconds=fin)).time())
+
+
+def test_deux_phases_du_meme_noyau_se_comparent() -> None:
+    releves = _phase(0, "7.0.0-43-generic", 80.0) + _phase(60, "7.0.0-43-generic", 90.0)
+    pages = [_page(2, 60, "a"), _page(62, 45, "a")]
+
+    phases = comparer_phases(releves, pages, [_plage(0, 30), _plage(60, 90)])
+
+    assert [phase["noyau"] for phase in phases] == ["7.0.0-43-generic"] * 2
+    assert [phase["fil_pct_mediane"] for phase in phases] == [80.0, 90.0]
+    assert [phase["pages_mediane"] for phase in phases] == [60, 45]
+
+
+def test_deux_phases_de_noyaux_differents_sont_refusees() -> None:
+    """Le jumeau: les mêmes relevés, l'une des phases après le redémarrage."""
+    releves = _phase(0, "7.0.0-43-generic") + _phase(60, "7.0.0-44-generic")
+
+    with pytest.raises(NoyauxDifferentsError, match=r"7\.0\.0-43-generic.*7\.0\.0-44-generic"):
+        comparer_phases(releves, [], [_plage(0, 30), _plage(60, 90)])
+
+
+def test_une_phase_sans_noyau_note_est_refusee() -> None:
+    """Un relevé d'avant le 27 novembre 2026 ne dit pas son noyau: rien ne prouve
+    alors que les deux phases tournaient sur le même."""
+    releves = _phase(0, "7.0.0-43-generic") + _phase(60, "7.0.0-43-generic")
+    del releves[-1]["noyau"]
+
+    with pytest.raises(NoyauxDifferentsError, match="non noté"):
+        comparer_phases(releves, [], [_plage(0, 30), _plage(60, 90)])
+    # Et une phase entière sans noyau, comme une phase d'avant le 27 novembre.
+    with pytest.raises(NoyauxDifferentsError, match="non noté"):
+        comparer_phases(_phase(0, None), [], [_plage(0, 30)])
+
+
+def test_un_changement_de_noyau_au_milieu_d_une_phase_est_refuse() -> None:
+    releves = _phase(0, "7.0.0-43-generic") + _phase(6, "7.0.0-44-generic")
+
+    with pytest.raises(NoyauxDifferentsError):
+        comparer_phases(releves, [], [_plage(0, 30)])

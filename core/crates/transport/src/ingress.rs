@@ -88,6 +88,96 @@ impl Reaction {
     }
 }
 
+/// The four kinds of packet a capture sends, each on its own connection.
+///
+/// `F` and `H` are the two picture streams, `A` the sound and `D` the demand
+/// poll. `capture.py` opens one connection per kind, so a kind names a
+/// producer.
+const KINDS: [u8; 4] = *b"FHAD";
+
+/// How long a producer may stay silent before another may take its stream.
+///
+/// Three seconds, the capture's own guard (`capture_health.py`): a producer
+/// silent for that long is already declared quiet there. Chosen, not
+/// measured. Shorter would let a second producer interleave its pictures
+/// with a live one across a short stall. Without any limit, a dead
+/// connection that never closes would keep its stream for ever and the
+/// restarted capture would feed nobody.
+const YIELD_AFTER: Duration = Duration::from_secs(3);
+
+/// What the table answers for one packet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Admission {
+    /// This connection feeds this stream.
+    Owner,
+    /// It does now: the previous one had been silent for [`YIELD_AFTER`].
+    TookOver,
+    /// Another connection feeds this stream, and it is alive.
+    Refused,
+}
+
+/// Which capture connection feeds each stream.
+///
+/// The ingress used to hand every packet of every connection to the same
+/// viewers. Two captures alive at once would have sent two H.264 streams,
+/// interleaved, to one decoder: a picture nobody can read, for everybody.
+/// The capture's lock (`capture_control.py`) was the only guard (audit WK-7,
+/// 2026-11-27). The first connection that sends a kind keeps it until it
+/// closes, or until it has been silent for [`YIELD_AFTER`].
+#[derive(Debug, Default)]
+struct Producers {
+    held: Mutex<[Option<(u64, Instant)>; KINDS.len()]>,
+    refused: std::sync::atomic::AtomicU64,
+}
+impl Producers {
+    /// Whether `connection` may feed `kind` at `now`.
+    fn admit(&self, kind: u8, connection: u64, now: Instant) -> Admission {
+        let Some(index) = KINDS.iter().position(|known| *known == kind) else {
+            return Admission::Owner;
+        };
+        let Ok(mut held) = self.held.lock() else {
+            // A poisoned table refuses nothing: the lock is what failed, and
+            // the capture's own lock still stands behind it.
+            return Admission::Owner;
+        };
+        let admission = match held[index] {
+            None => Admission::Owner,
+            Some((owner, _)) if owner == connection => Admission::Owner,
+            Some((_, last)) if now.saturating_duration_since(last) >= YIELD_AFTER => {
+                Admission::TookOver
+            }
+            Some(_) => Admission::Refused,
+        };
+        if admission == Admission::Refused {
+            self.refused.fetch_add(1, Ordering::Relaxed);
+        } else {
+            held[index] = Some((connection, now));
+        }
+        admission
+    }
+    /// A connection ended: the streams it fed are free.
+    fn release(&self, connection: u64) {
+        if let Ok(mut held) = self.held.lock() {
+            for place in held.iter_mut() {
+                if place.is_some_and(|(owner, _)| owner == connection) {
+                    *place = None;
+                }
+            }
+        }
+    }
+    /// Packets refused since the start, from a second producer.
+    fn refused(&self) -> u64 {
+        self.refused.load(Ordering::Relaxed)
+    }
+}
+
+/// What every capture connection of one ingress shares.
+#[derive(Debug, Default)]
+struct Entry {
+    reaction: Reaction,
+    producers: Producers,
+}
+
 /// The seats the emulator connects a controller for, from who sits where.
 ///
 /// A Switch game counts every connected controller as a player. Mario Tennis
@@ -165,7 +255,7 @@ const SEAT_GRACE: Duration = Duration::from_secs(5);
 /// emulator lifecycle remains the caller's responsibility.
 pub struct Ingress {
     stopping: Arc<AtomicBool>,
-    reaction: Arc<Reaction>,
+    entry: Arc<Entry>,
 }
 impl Drop for Ingress {
     fn drop(&mut self) {
@@ -176,7 +266,12 @@ impl Ingress {
     /// What the pads-to-picture window holds since the last report.
     #[must_use]
     pub fn reaction(&self) -> Summary {
-        self.reaction.summary()
+        self.entry.reaction.summary()
+    }
+    /// Packets refused since the start because another capture fed their stream.
+    #[must_use]
+    pub fn producers_refused(&self) -> u64 {
+        self.entry.producers.refused()
     }
     /// Bind only a fresh private directory, never unlink another worker's sockets.
     pub fn bind(root: &Path, server: Arc<BrowserServer>) -> io::Result<Self> {
@@ -192,10 +287,10 @@ impl Ingress {
         let input = UnixDatagram::unbound()?;
         let pad_address = root.join("pads.sock");
         let stopping = Arc::new(AtomicBool::new(false));
-        let reaction = Arc::new(Reaction::new());
+        let entry = Arc::new(Entry::default());
         let stopped = Arc::clone(&stopping);
         let output = Arc::clone(&server);
-        let pressed = Arc::clone(&reaction);
+        let pressed = Arc::clone(&entry);
         thread::spawn(move || {
             while !stopped.load(Ordering::Relaxed) {
                 for frame in output.wait_controller_input(Duration::from_millis(50)) {
@@ -205,7 +300,7 @@ impl Ingress {
                             // Counted from the moment the pads could have read
                             // it. A command refused before the helper listens
                             // reached nothing, and no picture answers it.
-                            Ok(_) => pressed.pressed(),
+                            Ok(_) => pressed.reaction.pressed(),
                             Err(error) => {
                                 tracing::debug!(%error, "Switch virtual pads not yet available");
                             }
@@ -245,16 +340,23 @@ impl Ingress {
             }
         });
         let stopped = Arc::clone(&stopping);
-        let pictured = Arc::clone(&reaction);
+        let shared = Arc::clone(&entry);
         thread::spawn(move || {
+            let mut connections = 0_u64;
             while !stopped.load(Ordering::Relaxed) {
                 match listener.accept() {
                     Ok((stream, _)) => {
+                        connections += 1;
+                        let connection = connections;
                         let output = Arc::clone(&server);
                         let stop = Arc::clone(&stopped);
-                        let reaction = Arc::clone(&pictured);
+                        let entry = Arc::clone(&shared);
                         thread::spawn(move || {
-                            if let Err(error) = receive(stream, &output, &reaction, &stop) {
+                            let ended = receive(stream, &output, &entry, connection, &stop);
+                            // Released whatever ended it: a stream must not stay
+                            // held by a connection that no longer exists.
+                            entry.producers.release(connection);
+                            if let Err(error) = ended {
                                 tracing::info!(%error, "capture connection ended");
                             }
                         });
@@ -269,7 +371,7 @@ impl Ingress {
                 }
             }
         });
-        Ok(Self { stopping, reaction })
+        Ok(Self { stopping, entry })
     }
 }
 fn read(stream: &mut UnixStream, mut bytes: &mut [u8], stop: &AtomicBool) -> io::Result<()> {
@@ -293,11 +395,15 @@ fn read(stream: &mut UnixStream, mut bytes: &mut [u8], stop: &AtomicBool) -> io:
 fn receive(
     mut stream: UnixStream,
     output: &BrowserServer,
-    reaction: &Reaction,
+    entry: &Entry,
+    connection: u64,
     stop: &AtomicBool,
 ) -> io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_millis(100)))?;
     stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+    // Said once per connection and kind, not once per packet: a second
+    // capture sends sixty pictures a second.
+    let mut warned = [false; KINDS.len()];
     loop {
         let mut header = [0u8; 13];
         read(&mut stream, &mut header, stop)?;
@@ -319,6 +425,14 @@ fn receive(
             if length != 0 || captured != 0 {
                 return Err(io::ErrorKind::InvalidData.into());
             }
+            if admitted(entry, b'D', connection, &mut warned) == Admission::Refused {
+                // Answered, so the second capture does not block on its read,
+                // and answered empty: the demand belongs to the capture that
+                // feeds the pictures, and taking it here would rob that one of
+                // the key frame a viewer is waiting for.
+                stream.write_all(&[0; 10])?;
+                continue;
+            }
             let full = output.take_joined() | output.take_key_frame_request();
             let half = output.take_half_joined() | output.take_half_key_frame_request();
             stream.write_all(&(output.half_watchers() as u64).to_le_bytes())?;
@@ -331,6 +445,12 @@ fn receive(
             captured_micros: captured,
             annex_b: &payload,
         };
+        if KINDS.contains(&header[0])
+            && admitted(entry, header[0], connection, &mut warned) == Admission::Refused
+        {
+            continue;
+        }
+        let reaction = &entry.reaction;
         match header[0] {
             b'F' => {
                 reaction.pictured();
@@ -346,6 +466,38 @@ fn receive(
             _ => return Err(io::ErrorKind::InvalidData.into()),
         }
     }
+}
+
+/// Asks the producer table, and says so in the journal the first time.
+fn admitted(
+    entry: &Entry,
+    kind: u8,
+    connection: u64,
+    warned: &mut [bool; KINDS.len()],
+) -> Admission {
+    let admission = entry.producers.admit(kind, connection, Instant::now());
+    let Some(index) = KINDS.iter().position(|known| *known == kind) else {
+        return admission;
+    };
+    match admission {
+        Admission::Refused if !warned[index] => {
+            warned[index] = true;
+            tracing::warn!(
+                kind = char::from(kind).to_string(),
+                connection,
+                "a second capture producer was refused for a stream another one feeds"
+            );
+        }
+        Admission::TookOver => {
+            tracing::warn!(
+                kind = char::from(kind).to_string(),
+                connection,
+                "a capture producer took over a stream left silent"
+            );
+        }
+        _ => {}
+    }
+    admission
 }
 
 /// Translate the room state to the four private Linux pads.
@@ -418,7 +570,13 @@ mod tests {
         .unwrap();
         let (mut client, receiver) = UnixStream::pair().unwrap();
         let reader = thread::spawn(move || {
-            receive(receiver, &server, &Reaction::new(), &AtomicBool::new(false))
+            receive(
+                receiver,
+                &server,
+                &Entry::default(),
+                1,
+                &AtomicBool::new(false),
+            )
         });
         let mut header = [0; 13];
         header[0] = b'D';
@@ -575,11 +733,12 @@ mod tests {
             &owner,
         )
         .unwrap();
-        let reaction = Arc::new(Reaction::new());
+        let entry = Arc::new(Entry::default());
         let (mut client, receiver) = UnixStream::pair().unwrap();
-        let read_by = Arc::clone(&reaction);
+        let read_by = Arc::clone(&entry);
         let reader =
-            thread::spawn(move || receive(receiver, &server, &read_by, &AtomicBool::new(false)));
+            thread::spawn(move || receive(receiver, &server, &read_by, 1, &AtomicBool::new(false)));
+        let reaction = &entry.reaction;
         let packet = |client: &mut UnixStream, kind: u8| {
             let mut header = [0; 13];
             header[0] = kind;
@@ -612,6 +771,179 @@ mod tests {
             reader.join().unwrap().unwrap_err().kind(),
             io::ErrorKind::UnexpectedEof
         );
+    }
+    /// A real `/video` viewer, as a page opens it.
+    fn watch(address: std::net::SocketAddr) -> tungstenite::WebSocket<std::net::TcpStream> {
+        use tungstenite::client::IntoClientRequest as _;
+        let stream = std::net::TcpStream::connect(address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        tungstenite::client(
+            format!("ws://{address}/video")
+                .as_str()
+                .into_client_request()
+                .unwrap(),
+            stream,
+        )
+        .unwrap()
+        .0
+    }
+    /// The next picture a viewer reads, by the marker its producer put in it.
+    fn next_marker(viewer: &mut tungstenite::WebSocket<std::net::TcpStream>) -> u8 {
+        loop {
+            let message = viewer.read().unwrap().into_data();
+            // An empty message is the server's keep-alive, not a picture.
+            if let Some(marker) = message.last()
+                && message.len() > 8
+            {
+                return *marker;
+            }
+        }
+    }
+    /// A key frame (NAL type 5) whose last byte names who sent it.
+    fn picture(client: &mut UnixStream, kind: u8, marker: u8) {
+        let payload = [0, 0, 0, 1, 0x65, marker];
+        let mut header = [0; 13];
+        header[0] = kind;
+        header[9..13].copy_from_slice(&6_u32.to_le_bytes());
+        client.write_all(&header).unwrap();
+        client.write_all(&payload).unwrap();
+    }
+    fn room() -> Arc<BrowserServer> {
+        let owner = Arc::new(std::sync::Mutex::new(None));
+        Arc::new(
+            BrowserServer::start(
+                ([127, 0, 0, 1], 0).into(),
+                "",
+                Arc::from("[]"),
+                Arc::from([]),
+                PlayerSlot::new(4).unwrap(),
+                &owner,
+            )
+            .unwrap(),
+        )
+    }
+    fn wait_for(mut what: impl FnMut() -> bool) {
+        for _ in 0..300 {
+            if what() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        panic!("the condition never came");
+    }
+    #[test]
+    fn a_second_capture_feeds_nobody_while_the_first_lives() {
+        let server = room();
+        let mut viewer = watch(server.address());
+        wait_for(|| server.watchers() == 1);
+        let entry = Arc::new(Entry::default());
+        let stop = Arc::new(AtomicBool::new(false));
+        let reader = |end: UnixStream, connection: u64| {
+            let (server, entry, stop) =
+                (Arc::clone(&server), Arc::clone(&entry), Arc::clone(&stop));
+            thread::spawn(move || {
+                let ended = receive(end, &server, &entry, connection, &stop);
+                entry.producers.release(connection);
+                ended
+            })
+        };
+        let (mut first, first_end) = UnixStream::pair().unwrap();
+        let (mut second, second_end) = UnixStream::pair().unwrap();
+        let first_reader = reader(first_end, 1);
+        let _second_reader = reader(second_end, 2);
+        picture(&mut first, b'F', 1);
+        assert_eq!(
+            next_marker(&mut viewer),
+            1,
+            "the first capture feeds the stream"
+        );
+        picture(&mut second, b'F', 2);
+        thread::sleep(Duration::from_millis(100));
+        picture(&mut first, b'F', 3);
+        assert_eq!(
+            next_marker(&mut viewer),
+            3,
+            "a second capture's picture reached a viewer while the first one lived"
+        );
+        assert_eq!(entry.producers.refused(), 1, "the refusal is counted");
+        // The twin: once the first has gone, the second feeds the stream.
+        drop(first);
+        assert_eq!(
+            first_reader.join().unwrap().unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
+        picture(&mut second, b'F', 4);
+        assert_eq!(
+            next_marker(&mut viewer),
+            4,
+            "the second capture took the free stream"
+        );
+        assert_eq!(
+            entry.producers.refused(),
+            1,
+            "an accepted picture is not refused"
+        );
+    }
+    #[test]
+    fn a_silent_producer_yields_its_stream_and_only_then() {
+        let producers = Producers::default();
+        let start = Instant::now();
+        let at = |ms| start + Duration::from_millis(ms);
+        assert_eq!(producers.admit(b'F', 1, at(0)), Admission::Owner);
+        assert_eq!(producers.admit(b'F', 2, at(1000)), Admission::Refused);
+        assert_eq!(producers.admit(b'F', 1, at(2000)), Admission::Owner);
+        // Each kind is its own stream: the sound is free.
+        assert_eq!(producers.admit(b'A', 2, at(2000)), Admission::Owner);
+        // Silent for 2.9 s: still the first one's.
+        assert_eq!(producers.admit(b'F', 2, at(4900)), Admission::Refused);
+        // Silent for 3.1 s: the stream yields, and the old producer is refused.
+        assert_eq!(producers.admit(b'F', 2, at(5100)), Admission::TookOver);
+        assert_eq!(producers.admit(b'F', 1, at(5200)), Admission::Refused);
+        assert_eq!(producers.refused(), 3);
+        // A closed connection frees what it fed, and nothing else.
+        producers.release(2);
+        assert_eq!(producers.admit(b'F', 1, at(5300)), Admission::Owner);
+        assert_eq!(producers.admit(b'A', 1, at(5300)), Admission::Owner);
+    }
+    #[test]
+    fn a_refused_demand_is_answered_empty_and_leaves_the_key_frame_owed() {
+        let server = room();
+        let entry = Arc::new(Entry::default());
+        let stop = Arc::new(AtomicBool::new(false));
+        let mut ends = Vec::new();
+        for connection in [1, 2] {
+            let (client, end) = UnixStream::pair().unwrap();
+            let (server, entry, stop) =
+                (Arc::clone(&server), Arc::clone(&entry), Arc::clone(&stop));
+            thread::spawn(move || receive(end, &server, &entry, connection, &stop));
+            ends.push(client);
+        }
+        let demand = |client: &mut UnixStream| {
+            let mut header = [0; 13];
+            header[0] = b'D';
+            client.write_all(&header).unwrap();
+            let mut answer = [0; 10];
+            client.read_exact(&mut answer).unwrap();
+            answer
+        };
+        let _one = watch(server.address());
+        wait_for(|| server.watchers() == 1);
+        assert_eq!(demand(&mut ends[0])[8], 1, "a newcomer is owed a key frame");
+        let _two = watch(server.address());
+        wait_for(|| server.watchers() == 2);
+        assert_eq!(
+            demand(&mut ends[1]),
+            [0; 10],
+            "a second capture was handed the demand of the live one"
+        );
+        assert_eq!(
+            demand(&mut ends[0])[8],
+            1,
+            "the key frame is still owed to the capture that feeds the pictures"
+        );
+        stop.store(true, Ordering::Relaxed);
     }
     #[test]
     fn partial_headers_survive_timeouts_and_silent_readers_stop() {

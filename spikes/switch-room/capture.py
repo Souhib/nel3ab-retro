@@ -27,21 +27,30 @@ from capture_keys import Keys
 from capture_packets import Packets
 from capture_process import stop_child
 
-ENV = dict(
-    os.environ,
-    XDG_RUNTIME_DIR="/tmp/nel3ab-runtime",
-    WAYLAND_DISPLAY=json.loads(Path("/run-data/display.json").read_text())["display"],
-    PULSE_SERVER="unix:/tmp/nel3ab-runtime/pulse/native",
-)
+# The container's paths. Tests point them at a temporary folder, a fake
+# recorder and a local media socket (test_capture_loop.py): nothing else changes.
+RUN_DATA = Path("/run-data")
+MEDIA_SOCKET = "/pads/media.sock"
+RECORDER = "/usr/local/bin/nel3ab-wf-recorder"
 STOP = threading.Event()
 PROCESSES = []
+
+
+def environment():
+    """The recorders' environment, read when one starts rather than at import."""
+    return dict(
+        os.environ,
+        XDG_RUNTIME_DIR="/tmp/nel3ab-runtime",
+        WAYLAND_DISPLAY=json.loads((RUN_DATA / "display.json").read_text())["display"],
+        PULSE_SERVER="unix:/tmp/nel3ab-runtime/pulse/native",
+    )
 
 
 def connect():
     stream = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     # A dead bridge must not leave a producer blocked on a full socket.
     stream.settimeout(2)
-    stream.connect("/pads/media.sock")
+    stream.connect(MEDIA_SOCKET)
     return stream
 
 
@@ -59,7 +68,8 @@ def stop_process(process):
 
 def video(half, stopped=STOP, progress=None):
     progress = progress or Progress()
-    fifo = "/run-data/half.h264" if half else "/run-data/full.h264"
+    name = "half" if half else "full"
+    fifo = str(RUN_DATA / f"{name}.h264")
     if os.path.exists(fifo):
         os.unlink(fifo)
     os.mkfifo(fifo, 0o600)
@@ -67,7 +77,7 @@ def video(half, stopped=STOP, progress=None):
     # The packet clock comes from the compositor; FIFO reads can arrive grouped
     # without pretending those images were captured a few microseconds apart.
     command = [
-        "/usr/local/bin/nel3ab-wf-recorder",
+        RECORDER,
         "-m",
         "h264",
         "-f",
@@ -93,13 +103,13 @@ def video(half, stopped=STOP, progress=None):
     ]
     if half:
         command += ["-F", "scale_vaapi=w=640:h=360:format=nv12:out_range=full"]
-    with open("/run-data/half-capture.log" if half else "/run-data/full-capture.log", "w") as log:
+    with open(RUN_DATA / f"{name}-capture.log", "w") as log:
         process = subprocess.Popen(
             command,
             env=dict(
-                ENV,
+                environment(),
                 NEL3AB_PACKET_PIPE=fifo,
-                NEL3AB_KEY_PIPE="/run-data/half.key" if half else "/run-data/full.key",
+                NEL3AB_KEY_PIPE=str(RUN_DATA / f"{name}.key"),
             ),
             stdin=subprocess.PIPE,
             stdout=log,
@@ -197,7 +207,7 @@ def audio(progress):
             "--channels=2",
             "--latency-msec=10",
         ],
-        env=ENV,
+        env=environment(),
         stdout=subprocess.PIPE,
     )
     PROCESSES.append(process)
@@ -261,5 +271,5 @@ def main(keys):
 
 
 if __name__ == "__main__":
-    with exclusive("/run-data"), Keys("/run-data") as keys:
+    with exclusive(RUN_DATA), Keys(RUN_DATA) as keys:
         main(keys)

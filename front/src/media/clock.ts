@@ -14,6 +14,29 @@ export function percentile(values: readonly number[], quantile: number): number 
   return sorted[Math.min(sorted.length - 1, Math.round((sorted.length - 1) * quantile))];
 }
 
+/** Sur combien d'intervalles d'affilée la période de l'écran se lit. */
+export const PAS_ECRAN = 6;
+
+/**
+ * La période de l'écran d'après les instants de ses images, en ms, ou nul
+ * avec moins de huit intervalles.
+ *
+ * La médiane des durées de `pas` intervalles d'affilée, divisées par `pas`,
+ * et non la médiane des intervalles. Firefox arrondit son horloge à la
+ * milliseconde quand la page n'est pas isolée : un écran à 120 Hz y donne 8,
+ * 8 et 9 ms, de médiane 8, et le relevé du 26 novembre 2026 disait « écran
+ * 125 Hz » (VID-7). Six intervalles font 50 ms, soit 8,33. Une médiane et pas
+ * une moyenne : un seul tic bloqué de 130 ms parmi cent vingt ferait lire
+ * 107 Hz à une moyenne.
+ */
+export function periodeDesInstants(instants: readonly number[], pas = PAS_ECRAN): number | null {
+  if (instants.length < Math.max(9, pas + 1)) return null;
+  const durees: number[] = [];
+  for (let i = 0; i + pas < instants.length; i++)
+    durees.push((instants[i + pas] - instants[i]) / pas);
+  return percentile(durees, 0.5);
+}
+
 /** A bounded window of samples, oldest dropped first. */
 export class Window {
   private readonly samples: number[] = [];

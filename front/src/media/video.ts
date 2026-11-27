@@ -11,6 +11,7 @@ import {
   Window,
   isStarved,
   margeDeLAdresse,
+  periodeDesInstants,
   nextSlack,
   slackLisse,
   pacingGaveUp,
@@ -274,6 +275,10 @@ const ECART_LONG = 100;
  * n'en a pas assez : y montrer une image en retard décalerait la suivante. */
 const TICK_TO_SPARE = 1.8;
 
+/** Combien d'instants d'écran la page garde pour lire sa période : cent
+ * vingt intervalles, comme la fenêtre d'avant (VID-7). */
+const TICS_LUS = 121;
+
 /** À partir de quel écart l'horaire d'affichage est REPOSÉ plutôt que corrigé,
  * en millisecondes. Voir la raison dans `adjust`. */
 const SNAP = 120;
@@ -329,7 +334,10 @@ export class VideoStream {
   /** Sonde-t-on en ce moment ? Faux pendant une partie, et c'est TOUT le sujet. */
   private probing = false;
   private readonly waits = new Window(240);
-  private readonly refreshes = new Window(120);
+  /** Les instants des dernières images d'écran, pour lire sa période
+   * (`periodeDesInstants`), et cette période, relue une fois par tic. */
+  private readonly ticsEcran: number[] = [];
+  private periodeEcran: number | null = null;
 
   private offset: number | null = null;
   private slackMs = SLACK_START;
@@ -374,7 +382,6 @@ export class VideoStream {
   private lastOutput: number | null = null;
   private lastFed: number | null = null;
   private lastPaintTick: number | null = null;
-  private lastRefresh: number | null = null;
   private decoderGoneSince: number | null = null;
   private shownAt: number | null = null;
   private lastArrival: number | null = null;
@@ -565,7 +572,8 @@ export class VideoStream {
     this.sourceGaps.clear();
     this.lastArrival = null;
     this.lastCaptured = null;
-    this.lastRefresh = null;
+    this.ticsEcran.length = 0;
+    this.periodeEcran = null;
     this.deniedHalf = false;
     cancelAnimationFrame(this.frame);
     if (this.reconnectIn !== null) window.clearTimeout(this.reconnectIn);
@@ -887,7 +895,7 @@ export class VideoStream {
   }
 
   private refreshPeriod(): number {
-    return this.refreshes.length < 8 ? SOURCE_FRAME : this.refreshes.at(0.5);
+    return this.periodeEcran ?? SOURCE_FRAME;
   }
 
   private connect(): void {
@@ -1146,8 +1154,9 @@ export class VideoStream {
     this.frame = requestAnimationFrame(this.paint);
     this.ticks += 1;
     const tickAt = performance.now();
-    if (this.lastRefresh !== null) this.refreshes.push(tickAt - this.lastRefresh);
-    this.lastRefresh = tickAt;
+    this.ticsEcran.push(tickAt);
+    if (this.ticsEcran.length > TICS_LUS) this.ticsEcran.shift();
+    this.periodeEcran = periodeDesInstants(this.ticsEcran);
     this.lastPaintTick = tickAt;
     if (this.ticBase !== null) this.ecranMax.note(tickAt - this.ticBase, tickAt);
     this.ticBase = document.visibilityState === "hidden" ? null : tickAt;

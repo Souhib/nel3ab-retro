@@ -35151,6 +35151,47 @@ le navigateur du propriétaire. Les deux zones mortes empilées sur les sticks
 demandent le profil de Ryubing, hors du périmètre de la page, et un essai dans
 un jeu.
 
+#### L'intégration : deux pièges, et le premier lancement réel
+
+Les quatre branches se sont réunies sans un conflit. La porte complète a
+pourtant trouvé deux défauts que personne n'avait vus, et aucun ne venait des
+chantiers de l'audit.
+
+**Une page de prototype oubliée par le retrait de « manette seule ».** Le
+26 novembre, j'avais retiré le drapeau `padOnly` du constructeur de la
+session (b5f21f8), et cherché ses appelants dans `front/src`, les pilotes de
+navigateur, le salon et le justfile. La page prototype de la Switch
+(`spikes/switch-room/bridge/client.ts`) le passait encore. Sa construction
+échouait (TS2554, sept arguments pour quatre à six), donc
+`just switch-controls-test` s'arrêtait avant tout essai, sur `main` aussi. Ce
+test n'est pas dans `just` : il ne tourne que quand le chemin des manettes
+Switch change, et c'était justement le cas ici. La règle existait déjà
+(chercher dans tout le dépôt) ; je l'avais appliquée à une liste de dossiers.
+
+**Un pilote de salle réelle qui demandait la salle installée.** Le pilote de
+`just switch-room-test` lançait le salon tel quel. Depuis que le salon tient
+plusieurs salles, il déduit 8110/8111 pour la salle 1 et jette l'adresse
+qu'on lui donne. Le pilote a donc interrogé le port de la vraie salle 1 :
+« the worker at http://127.0.0.1:8110 is not answering ». La vraie salle était
+fermée, rien n'a répondu, rien n'a été touché. Le pilote de la Switch 2 avait
+déjà le bon module (`spikes/switch2-room/lobby.py`), qui fige le registre et
+coupe tout geste sur les unités systemd ; celui de la Switch 1 le prend
+maintenant. Il reste en retard sur la refonte rétro : il attend une phrase
+que l'écran d'une salle sans jeu ne dit plus.
+
+**Le premier lancement réel.** Faute de ce pilote, le worker de la branche a
+lancé Mario Tennis Aces seul, par le vrai adaptateur, sur la carte, pendant
+150 s, sans salon ni navigateur. Ryubing accepte les trois réglages passés en
+ligne de commande, et son journal dit « Backend Threading (Auto): True ». Les
+lignes « LogValueChange » qui disent On et HostMappedUnsafe viennent du
+Config.json chargé sans servir : elles étaient les mêmes le 26 novembre, et
+le code sans fenêtre prend ses valeurs de la ligne de commande. Aucune garde
+de 30 s n'a coupé la capture ; la copie vide de Sway n'est pas arrivée au
+worker ; la couche du jeu est venue 10,76 s après le lancement du moteur.
+Ensuite 60 images par seconde, au plus 19,6 ms entre deux images, et un arrêt
+en 1,5 s sans SIGKILL. Ce n'est pas une partie : personne ne regardait,
+personne ne jouait.
+
 #### Ce qui n'est pas encore prouvé
 
 Tout ce qui précède est prouvé par des essais, des bancs et des rejeux de

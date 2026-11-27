@@ -15,7 +15,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
@@ -24,6 +24,7 @@ from nel3ab_control.boite_noire.capture import Capteur
 from nel3ab_control.boite_noire.conservation import balayer_captures
 from nel3ab_control.boite_noire.declencheur import Chute, Declencheur, Suiveur
 from nel3ab_control.boite_noire.releve import Racines, Releveur
+from nel3ab_control.boite_noire.resume import DELAI, Partie, Resumeur
 from nel3ab_control.boite_noire.roulant import Roulant
 from nel3ab_control.journal import Journal, _zone
 from nel3ab_control.settings import Settings
@@ -58,6 +59,17 @@ class _Capture(Protocol):
     ) -> Any: ...
 
 
+@dataclass
+class _Vue:
+    """Une partie en cours, ou finie et pas encore résumée."""
+
+    salle: int
+    moteur: str
+    debut: datetime
+    dernier: datetime
+    noyau: str | None
+
+
 class BoiteNoire:
     """Un tour de boucle à la fois; `tour` rend combien de secondes attendre."""
 
@@ -73,6 +85,7 @@ class BoiteNoire:
         horloge: Callable[[], float] = time.monotonic,
         murale: Callable[[], datetime] | None = None,
         roulant: Roulant | None = None,
+        resumeur: Resumeur | None = None,
     ) -> None:
         self._reglages = reglages
         self._releveur = releveur
@@ -93,6 +106,10 @@ class BoiteNoire:
         self._attente: tuple[Chute, dict[str, Any] | None, datetime] | None = None
         self._jour_balaye: str | None = None
         self._en_cours: Future[Any] | None = None
+        self._resumeur = resumeur
+        #: Les parties en cours, par pid du moteur, et celles finies à résumer.
+        self._vues: dict[int, _Vue] = {}
+        self._finies: list[_Vue] = []
 
     def tour(self) -> float:
         maintenant = self._murale()
@@ -115,6 +132,7 @@ class BoiteNoire:
         for lue in self._suiveur.nouvelles(maintenant):
             self._declencheur.lire(lue)
         moteurs = [moteur for moteur in ligne.get("moteurs") or [] if isinstance(moteur, dict)]
+        self._suivre_parties(maintenant, ligne.get("noyau"), moteurs)
         # Le `perf` roulant suit la partie en cours et s'arrête avec elle: une
         # machine au repos n'a rien à profiler, et un `perf` oublié écrit un jour.
         if self._roulant is not None:
@@ -172,6 +190,50 @@ class BoiteNoire:
             )
         pas = self._reglages
         return pas.boite_noire_pas_partie_s if moteurs else pas.boite_noire_pas_repos_s
+
+    def _suivre_parties(
+        self, maintenant: datetime, noyau: object, moteurs: list[dict[str, Any]]
+    ) -> None:
+        """Note le début et la fin de chaque partie, et en fait résumer les finies.
+
+        Une partie est la vie d'un moteur d'une salle, d'un relevé à l'autre: elle
+        commence au premier relevé qui le voit, et finit au dernier. Son résumé
+        attend `DELAI` après la fin, et part sur l'exécuteur des captures: lire le
+        journal du worker ne doit pas retenir la boucle. Une boîte noire qui
+        redémarre en pleine partie la voit commencer à son redémarrage.
+        """
+        vivants: dict[int, dict[str, Any]] = {}
+        for moteur in moteurs:
+            pid, salle = moteur.get("pid"), moteur.get("salle")
+            if isinstance(pid, int) and isinstance(salle, int) and not isinstance(salle, bool):
+                vivants[pid] = moteur
+        lu = noyau if isinstance(noyau, str) and noyau else None
+        for pid, moteur in vivants.items():
+            vue = self._vues.get(pid)
+            if vue is None:
+                self._vues[pid] = _Vue(
+                    moteur["salle"], str(moteur.get("moteur")), maintenant, maintenant, lu
+                )
+            else:
+                vue.dernier = maintenant
+                vue.noyau = vue.noyau or lu
+        for pid in [pid for pid in self._vues if pid not in vivants]:
+            self._finies.append(self._vues.pop(pid))
+        if self._resumeur is None:
+            self._finies.clear()
+            return
+        for vue in [vue for vue in self._finies if maintenant - vue.dernier >= DELAI]:
+            self._finies.remove(vue)
+            suivante = min(
+                (
+                    autre.debut
+                    for autre in [*self._vues.values(), *self._finies]
+                    if autre.salle == vue.salle and autre.debut > vue.dernier
+                ),
+                default=None,
+            )
+            partie = Partie(vue.salle, vue.moteur, vue.debut, vue.dernier, vue.noyau, suivante)
+            self._executeur.submit(self._resumeur.resumer, partie)
 
     def moteur_en_cours(self) -> bool:
         """Un émulateur tourne-t-il? Ce que la veille regarde au repos."""
@@ -334,6 +396,8 @@ def main() -> None:  # pragma: no cover - la boucle réelle, prouvée par son un
         roulant=Roulant(reglages.boite_noire_dir / "roulant", lanceur=_lancer_roulant)
         if reglages.boite_noire_roulant
         else None,
+        # Un résumé par partie, gardé sans limite: voir `resume`.
+        resumeur=Resumeur(reglages.boite_noire_dir / "parties", reglages.journal_dir, zone),
     )
     arret = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: arret.set())

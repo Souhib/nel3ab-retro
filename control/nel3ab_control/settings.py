@@ -147,7 +147,13 @@ class Settings(BaseSettings):
         default=7,
         description=(
             "Combien de jours de relevés et de captures on garde. Une semaine, fixée "
-            "par Souhib le 14 septembre 2026: il revient le soir même ou le lendemain."
+            "par Souhib le 14 septembre 2026: il revient le soir même ou le lendemain. "
+            "Gardée à sept le 27 novembre 2026, quand la partie de Mario Tennis du "
+            "30 octobre s'est révélée sans relevés: ce qui manquait pour comparer deux "
+            "soirées tient dans le résumé de chaque partie (`parties/`, environ 2 Kio, "
+            "jamais effacé), et les mesures des pages partent elles aussi après sept "
+            "jours (`journal_days`). Le disque n'est pas la raison: ce jour-là, sept "
+            "jours de relevés pesaient 23 Mo et 28 captures 48 Mo."
         ),
     )
     boite_noire_pas_partie_s: float = Field(

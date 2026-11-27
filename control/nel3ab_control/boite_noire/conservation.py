@@ -4,6 +4,10 @@ Une semaine, et pas deux: c'est Souhib qui l'a fixée le 14 septembre 2026, parc
 qu'il revient vers moi le soir même ou le lendemain quand une partie s'est mal
 passée. Les relevés quotidiens sont balayés par `Journal`, comme ceux du salon;
 ce module balaie les dossiers de capture, qui sont des dossiers et non des lignes.
+
+Le résumé de chaque partie (`parties/`, voir `resume`) n'est jamais balayé: il
+pèse environ 2 Kio, et c'est lui qui compare une soirée à une autre quand les
+relevés sont partis.
 """
 
 import shutil

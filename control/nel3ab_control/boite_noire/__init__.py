@@ -16,7 +16,9 @@ suite, et la cause n'est apparue que dans un profil pris PENDANT une chute.
   des joueurs, pour qu'une ligne se recolle à leurs mesures par l'heure seule;
 - quand la cadence des pages reste sous un seuil, un profil `perf` du fil de
   rendu et le journal du worker autour, rangés dans un dossier daté;
-- rien de plus vieux qu'une semaine.
+- à la fin de chaque partie, un résumé d'environ 2 Kio (`resume`): les images
+  par seconde, les trous de la capture et ce que les pages ont vu;
+- rien de plus vieux qu'une semaine, sauf ces résumés, gardés sans limite.
 
 # Ce qu'elle ne doit jamais faire
 

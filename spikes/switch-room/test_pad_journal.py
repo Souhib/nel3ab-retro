@@ -96,6 +96,36 @@ class Rumbles(unittest.TestCase):
         self.assertEqual(lines[1]["rumble"], 3)
         self.assertEqual(len(lines), 2)
 
+    def test_a_window_stretched_by_a_stalled_loop_says_its_real_length(self):
+        # The loop that ticks is the one this journal must not stall; when it
+        # stalls anyway, a window written as « one second » would make 10 s of
+        # events read as a rate ten times too high.
+        for end, seconds in ((10.0, 10.0), (1.0, 1.0)):
+            with self.subTest(end=end):
+                stream = io.StringIO()
+                journal = Journal(stream)
+                journal.rumble(1, 1, None, 5, 0.0)
+                journal.tick(end)
+                journal.close()
+                (line,) = [json.loads(text) for text in stream.getvalue().splitlines()]
+                self.assertEqual(line["seconds"], seconds)
+
+    def test_the_twin_a_window_cut_by_close_has_no_length_unless_told_the_hour(self):
+        stream = io.StringIO()
+        journal = Journal(stream)
+        journal.rumble(1, 1, None, 5, 0.0)
+        journal.close()
+        stream_told = io.StringIO()
+        told = Journal(stream_told)
+        told.rumble(1, 1, None, 5, 0.0)
+        told.close(0.4)
+        self.assertNotIn("seconds", json.loads(stream.getvalue()))
+        self.assertEqual(json.loads(stream_told.getvalue())["seconds"], 0.4)
+        # A pad helper that never vibrated closes as pads.py does, told the hour.
+        quiet = io.StringIO()
+        Journal(quiet).close(12.0)
+        self.assertEqual(quiet.getvalue(), "")
+
     def test_the_twin_a_repeated_level_is_not_a_change_and_the_return_to_zero_is(self):
         stream = io.StringIO()
         journal = Journal(stream)

@@ -137,7 +137,7 @@ def main():
         for pad in pads:
             pad.close()
         address.unlink(missing_ok=True)
-        journal.close()
+        journal.close(time.monotonic())
 
 
 def serve(sock, pads, buttons, journal, stopping, rumble_address):

@@ -29,6 +29,8 @@ class Journal:
         # Lines dropped since the last one queued, and since the start.
         self.dropped = 0
         self.lost = 0
+        # When the current window opened, and when it is due to close.
+        self.opened = None
         self.window = None
         self.rumbles = {}
         # The last level forwarded per pad, kept across windows.
@@ -54,7 +56,7 @@ class Journal:
         """One vibration event from the emulator, summed into its pad's window."""
         self.tick(now)
         if self.window is None:
-            self.window = now + self.every
+            self.opened, self.window = now, now + self.every
         total = self.rumbles.setdefault(
             player, {"rumble": player, "events": 0, "played": 0, "changes": 0}
         )
@@ -69,17 +71,23 @@ class Journal:
     def tick(self, now):
         """Write each pad's window once it is over."""
         if self.window is not None and now >= self.window:
-            self.flush()
-            self.window = now + self.every
+            self.flush(now)
+            self.opened, self.window = now, now + self.every
 
-    def flush(self):
+    def flush(self, now=None):
+        """Each pad's sums. `seconds` is the window's measured length: a loop
+        that stalled stretches it past `every`. Absent when the end is unknown."""
+        if now is None or self.opened is None:
+            length = {}
+        else:
+            length = {"seconds": round(now - self.opened, 3)}
         for player in sorted(self.rumbles):
-            self.line({**self.rumbles[player], "seconds": self.every})
+            self.line({**self.rumbles[player], **length})
         self.rumbles = {}
 
-    def close(self, timeout=1.0):
+    def close(self, now=None, timeout=1.0):
         """Write what is left, and give the writer `timeout` to finish."""
-        self.flush()
+        self.flush(now)
         try:
             self.queue.put(_END, timeout=timeout)
         except queue.Full:

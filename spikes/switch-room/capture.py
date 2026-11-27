@@ -23,7 +23,7 @@ from capture_audio import chunks
 from capture_control import exclusive
 from capture_demand import OnDemand
 from capture_health import FAIL_AFTER, Progress
-from capture_keys import Keys
+from capture_keys import Keys, Opening
 from capture_packets import Packets
 from capture_process import RECORDER_GRACE, stop_child
 
@@ -67,7 +67,7 @@ def stop_process(process, grace=5):
     PROCESSES.remove(process)
 
 
-def video(half, stopped=STOP, progress=None):
+def video(half, keys, stopped=STOP, progress=None):
     progress = progress or Progress()
     name = "half" if half else "full"
     fifo = str(RUN_DATA / f"{name}.h264")
@@ -122,6 +122,7 @@ def video(half, stopped=STOP, progress=None):
     process.stdin.write(b"y\n")
     process.stdin.close()
     packets = Packets()
+    opening = Opening(lambda: keys.request(half, True))
     report_at = 0.0
     # Les écarts entre deux images REÇUES du compositeur, sur la fenêtre de
     # rapport. Le 16 septembre 2026, un gel d'une seconde a été vu par les pages
@@ -155,7 +156,8 @@ def video(half, stopped=STOP, progress=None):
                     if last_frame is not None:
                         gaps.append((captured - last_frame) / 1000)
                     last_frame = captured
-                    send(target, b"H" if half else b"F", payload, captured)
+                    if opening.admit(payload):
+                        send(target, b"H" if half else b"F", payload, captured)
                     progress.saw()
                     if now >= report_at:
                         report_at = now + 5
@@ -175,7 +177,7 @@ def video(half, stopped=STOP, progress=None):
 
 
 def half_capture(keys):
-    worker = OnDemand(lambda stopped: video(True, stopped))
+    worker = OnDemand(lambda stopped: video(True, keys, stopped))
     try:
         with connect() as control:
             # Poll outside either picture loop. At most 100 ms is added when a
@@ -258,7 +260,7 @@ def main(keys):
     # Sound has no first copy: parec's first chunk is already sound.
     sources = {"full": Progress(), "audio": Progress(copies=0, start_limit=FAIL_AFTER)}
     threads = [
-        threading.Thread(target=run, args=(video, False, STOP, sources["full"])),
+        threading.Thread(target=run, args=(video, False, keys, STOP, sources["full"])),
         threading.Thread(target=run, args=(half_capture, keys)),
         threading.Thread(target=run, args=(audio, sources["audio"])),
         threading.Thread(target=run, args=(watch_progress, sources)),

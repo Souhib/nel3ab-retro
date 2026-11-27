@@ -27,6 +27,7 @@ from unittest.mock import patch
 
 import capture
 from capture_health import FAIL_AFTER, Progress
+from capture_keys import Keys
 
 FAKE = """
 import json, os, signal, struct, sys, time
@@ -160,6 +161,7 @@ class Room(contextlib.ExitStack):
             )
         )
         self.enter_context(patch.object(capture, "PROCESSES", []))
+        self.keys = self.enter_context(Keys(root))
         self.stopped = threading.Event()
         self.thread = None
         # Last registered, first run: the loop and its recorder end before the
@@ -185,7 +187,7 @@ class Room(contextlib.ExitStack):
 
         def target():
             try:
-                capture.video(False, self.stopped, progress or Progress(), **arguments)
+                capture.video(False, self.keys, self.stopped, progress or Progress(), **arguments)
             except Exception as error:
                 self.error = error
             finally:
@@ -205,7 +207,9 @@ class Room(contextlib.ExitStack):
 
 class Loop(unittest.TestCase):
     def test_a_packet_reaches_the_worker_with_its_compositor_time(self):
-        steps = [{"open": 1}, {"packet": "idr"}, {"packet": "p"}, {"packet": "p"}]
+        # The first packet is the compositor's copy, never sent (CAP-4): the
+        # stream starts at the key frame that follows it.
+        steps = [{"open": 1}, {"packet": "idr"}, {"packet": "idr"}, {"packet": "p"}]
         with Room(steps) as room:
             room.run()
             room.wait_for(lambda: len(room.media.pictures()) >= 2, 5, "two pictures arrived")
@@ -243,6 +247,49 @@ class Loop(unittest.TestCase):
             self.assertLess(raised[0][0] - stopped_at, 0.35)
             room.thread.join(timeout=10)
             self.assertIsInstance(room.error, RuntimeError)
+
+    def key_requests(self, room):
+        try:
+            return os.read(room.keys.fds[0], 64)
+        except BlockingIOError:
+            return b""
+
+    def test_nothing_reaches_the_worker_before_the_first_key_frame_after_the_first_copy(self):
+        # CAP-4: on 2026-11-26 the empty Sway output was the room's « image »,
+        # 4.5 s after the click, and Smash's real start (about 38 s) was lost.
+        steps = [
+            {"open": 1},
+            {"packet": "idr"},
+            {"sleep": 0.2},
+            {"packet": "p"},
+            {"sleep": 0.05},
+            {"packet": "idr"},
+            {"sleep": 0.05},
+            {"packet": "p"},
+        ]
+        with Room(steps) as room:
+            room.run()
+            room.wait_for(lambda: len(room.written()) == 4, 5, "four packets were written")
+            room.wait_for(lambda: len(room.media.pictures()) >= 2, 5, "two pictures arrived")
+            time.sleep(0.1)
+            written = room.written()
+            sent = [captured for _k, captured, _p, _at in room.media.pictures()]
+            self.assertEqual(sent, [written[2]["wrote"] // 1000, written[3]["wrote"] // 1000])
+            self.assertEqual(self.key_requests(room), b"K", "one key frame asked, once")
+
+    def test_the_twin_a_still_first_game_screen_is_still_sent(self):
+        # wf-recorder copies only on damage: a game whose first screen stays
+        # still gives one packet after the copy. The asked key makes it an IDR.
+        steps = [{"open": 1}, {"packet": "idr"}, {"sleep": 0.1}, {"packet": "idr"}]
+        with Room(steps) as room:
+            room.run()
+            room.wait_for(lambda: len(room.written()) == 2, 5, "two packets were written")
+            room.wait_for(lambda: room.media.pictures(), 5, "the game's screen arrived")
+            time.sleep(0.1)
+            written = room.written()
+            sent = [captured for _k, captured, _p, _at in room.media.pictures()]
+            self.assertEqual(sent, [written[1]["wrote"] // 1000])
+            self.assertEqual(self.key_requests(room), b"K")
 
 
 class Stopping(unittest.TestCase):

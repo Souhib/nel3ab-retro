@@ -107,6 +107,9 @@ class Docker:
         self.consigne = consigne
         self.journal = journal
         self.inspections = 0
+        #: Tours de la salle vus par son `docker wait`, et s'il a rendu la main.
+        self.attentes = 0
+        self.arrete = False
 
     def run(self, args, **arguments):
         argv = [str(valeur) for valeur in args]
@@ -126,8 +129,7 @@ class Docker:
             )
         elif argv[:4] == ["docker", "inspect", "-f", "{{.State.Running}}"]:
             self.inspections += 1
-            arret = self.consigne["arret_apres"]
-            sortie = "false\n" if arret is not None and self.inspections > arret else "true\n"
+            sortie = "false\n" if self.arrete else "true\n"
         elif argv[:4] == ["docker", "inspect", "-f", "{{json .State}}"]:
             sortie = '{"Status":"exited","ExitCode":0}\n'
         elif argv[:2] == ["docker", "logs"]:
@@ -140,7 +142,34 @@ class Docker:
     def popen(self, args, **arguments):
         argv = [str(valeur) for valeur in args]
         self.journal.append({"appel": "Popen", "options": options(arguments), "argv": argv})
+        if argv[:2] == ["/usr/bin/docker", "wait"]:
+            return Attente(self)
         return Capture(self.consigne["capture_meurt"])
+
+
+class Attente:
+    """Le `docker wait` de la salle: il rend la main quand le moteur s'arrête.
+
+    `arret_apres` compte les tours de la salle où le moteur tourne encore; au
+    suivant, le moteur s'arrête et `docker inspect` le dit.
+    """
+
+    def __init__(self, docker: Docker) -> None:
+        self.docker = docker
+
+    def poll(self):
+        arret = self.docker.consigne["arret_apres"]
+        self.docker.attentes += 1
+        if arret is not None and self.docker.attentes > arret:
+            self.docker.arrete = True
+            return 0
+        return None
+
+    def kill(self):
+        return None
+
+    def wait(self, timeout=None):
+        return 0
 
 
 class Capture:

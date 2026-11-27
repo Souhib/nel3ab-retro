@@ -215,9 +215,15 @@ class C5Cycle(unittest.TestCase):
         return f"{argv[1]} {cible}"
 
     def ordre_d_arret(self, commandes: list[dict]) -> list[str]:
+        """Tout ce qui suit la boucle: `stop_engine` commence par arrêter la capture.
+
+        La boucle de la salle ne demande plus `docker inspect` à chaque tour
+        depuis le 27 novembre 2026 (MACH-2, un seul `docker wait`): le dernier
+        arrêt de capture ouvre donc la séquence d'arrêt.
+        """
         etapes = [self.etape(c["argv"]) for c in commandes if c["appel"] == "run"]
-        dernier = max(i for i, e in enumerate(etapes) if e == "inspect marche")
-        return etapes[dernier + 1 :]
+        dernier = max(i for i, e in enumerate(etapes) if e == "exec capture_control.py stop")
+        return etapes[dernier:]
 
     def test_confinement_et_ordre_d_arret(self):
         ancien = os.umask(0o022)
@@ -240,11 +246,17 @@ class C5Cycle(unittest.TestCase):
 
     def test_des_manettes_arretees_avant_le_moteur_sont_vues(self):
         commandes = [
-            {"appel": "run", "argv": ["docker", "inspect", "-f", "{{.State.Running}}", "m"]},
+            {
+                "appel": "run",
+                "argv": ["docker", "exec", "m", "python3", "/probe/capture_control.py", "stop"],
+            },
             {"appel": "run", "argv": ["docker", "stop", "--timeout", "5", "m-pads"]},
             {"appel": "run", "argv": ["docker", "stop", "--timeout", "40", "m"]},
         ]
-        self.assertEqual(self.ordre_d_arret(commandes), ["stop manettes", "stop moteur"])
+        self.assertEqual(
+            self.ordre_d_arret(commandes),
+            ["exec capture_control.py stop", "stop manettes", "stop moteur"],
+        )
 
 
 class C6Copie(unittest.TestCase):

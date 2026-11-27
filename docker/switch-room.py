@@ -477,6 +477,52 @@ def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
     )
 
 
+class EngineWatch:
+    """Whether the engine container still runs, asked of one `docker wait`.
+
+    Until 2026-11-27 the room asked `docker inspect` at each turn of its loop,
+    about twice a second for a whole game: two docker clients a second, about
+    7 % of one core (MACH-2). `docker wait` blocks until the container stops,
+    so the room only looks at its own child between turns. When it returns,
+    one `docker inspect` tells a stopped engine from a client that failed while
+    the engine runs; the room then starts a new client and goes on.
+    """
+
+    def __init__(self, engine: str) -> None:
+        self.engine = engine
+        self.client = self.start()
+
+    def start(self):
+        return subprocess.Popen(  # noqa: S603 -- private generated container name, fixed command
+            ["/usr/bin/docker", "wait", self.engine],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def running(self) -> bool:
+        if self.client.poll() is None:
+            return True
+        status = run(
+            "docker",
+            "inspect",
+            "-f",
+            "{{.State.Running}}",
+            self.engine,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        if status != "true":
+            return False
+        self.client = self.start()
+        return True
+
+    def close(self) -> None:
+        # The client only waits: stopping it never touches the container.
+        if self.client.poll() is None:
+            self.client.kill()
+        self.client.wait()
+
+
 class CaptureRestarts:
     """Whether a room may start its capture once more.
 
@@ -549,6 +595,7 @@ def serve(
     # Helper has no DAC override: share this one directory with the host group.
     pads.chmod(0o770)
     capture = None
+    watch = None
     started_engine = started_helper = False
     selector = selectors.DefaultSelector()
     selector.register(sys.stdin, selectors.EVENT_READ)
@@ -614,17 +661,9 @@ def serve(
         run(*args, stdout=subprocess.DEVNULL)
         started_engine = True
         restarts = CaptureRestarts()
+        watch = EngineWatch(engine)
         while not selector.select(0.1):
-            status = run(
-                "docker",
-                "inspect",
-                "-f",
-                "{{.State.Running}}",
-                engine,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
-            if status != "true":
+            if not watch.running():
                 raise RuntimeError("Switch emulator exited; see lifecycle.json")
             if (slot / "display.json").exists() and (capture is None or capture.poll() is not None):
                 # Killing docker exec alone leaves capture inside the container.
@@ -646,6 +685,8 @@ def serve(
             time.sleep(0.4)
     finally:
         selector.close()
+        if watch is not None:
+            watch.close()
         try:
             if started_engine:
                 stop_engine(engine, slot, capture, snapshot)

@@ -622,12 +622,25 @@ class Host(contextlib.ExitStack):
 
     RENDER = "/dev/dri/renderD128"
 
-    def __init__(self, statuses=(), capture_life=40.0, stdin_after=None, logs_fail=False):
+    def __init__(
+        self,
+        statuses=(),
+        capture_life=40.0,
+        stdin_after=None,
+        logs_fail=False,
+        engine_stops_at=None,
+        wait_fails_at=None,
+    ):
         super().__init__()
         self.statuses = list(statuses)
         self.capture_life = capture_life
         self.stdin_after = stdin_after
         self.logs_fail = logs_fail
+        # When the engine container stops, and when the first `docker wait`
+        # client fails on its own while the engine still runs (None: never).
+        self.engine_stops_at = engine_stops_at
+        self.wait_fails_at = wait_fails_at
+        self.wait_clients = []
         self.now = 1000.0
         self.commands = []
 
@@ -657,8 +670,35 @@ class Host(contextlib.ExitStack):
             def wait(self, timeout=None):
                 return self.status
 
+        class WaitClient:
+            """`docker wait`: returns when the engine stops, or fails on its own."""
+
+            def __init__(self):
+                self.killed = self.reaped = False
+
+            def poll(self):
+                if self.killed:
+                    return -9
+                if host.engine_stopped():
+                    return 0
+                first = host.wait_clients and host.wait_clients[0] is self
+                if first and host.wait_fails_at is not None and host.now >= host.wait_fails_at:
+                    return 1
+                return None
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, timeout=None):
+                self.reaped = True
+                return self.poll()
+
         def popen(argv, **_kwargs):
             self.commands.append(("Popen", list(argv), {}))
+            if list(argv[:2]) == ["/usr/bin/docker", "wait"]:
+                client = WaitClient()
+                self.wait_clients.append(client)
+                return client
             if not self.statuses:
                 raise AssertionError(f"capture number {self.started()} was started")
             return Capture(self.statuses.pop(0))
@@ -689,7 +729,23 @@ class Host(contextlib.ExitStack):
         self.now += seconds
 
     def started(self):
-        return sum(1 for kind, _argv, _options in self.commands if kind == "Popen")
+        """The captures started, `docker wait` clients left out."""
+        return sum(
+            1
+            for kind, argv, _options in self.commands
+            if kind == "Popen" and argv[:2] != ["/usr/bin/docker", "wait"]
+        )
+
+    def engine_stopped(self):
+        return self.engine_stops_at is not None and self.now >= self.engine_stops_at
+
+    def running_checks(self):
+        """Every `docker inspect` that asked whether the engine runs."""
+        return [
+            argv
+            for kind, argv, _options in self.commands
+            if kind == "run" and argv[:4] == ["docker", "inspect", "-f", "{{.State.Running}}"]
+        ]
 
     def run_list(self, argv, **kwargs):
         return self.run(*argv, **kwargs)
@@ -703,7 +759,7 @@ class Host(contextlib.ExitStack):
         elif args[:2] == ("docker", "run"):
             (self.slot / "display.json").write_text('{"display": "wayland-1"}')
         elif args[:4] == ("docker", "inspect", "-f", "{{.State.Running}}"):
-            stdout = "true\n"
+            stdout = "false\n" if self.engine_stopped() else "true\n"
         elif args[:2] == ("docker", "logs"):
             stream = kwargs.get("stdout")
             if self.logs_fail and not args[-1].endswith("-pads"):
@@ -743,6 +799,48 @@ class ServeRestarts(unittest.TestCase):
             self.assertRaisesRegex(AssertionError, "capture number 4 was started"),
         ):
             host.serve()
+
+
+class EngineWatchCost(unittest.TestCase):
+    """MACH-2: the room learns that its engine stopped from one `docker wait`.
+
+    Until 2026-11-27 it asked `docker inspect` at each turn of its loop, about
+    twice a second for a whole game: two docker clients a second, about 7 % of
+    one core measured during a game.
+    """
+
+    def test_a_minute_of_play_asks_docker_inspect_nothing(self):
+        with Host(statuses=[None], capture_life=1e9, stdin_after=1060.0) as host:
+            host.serve()
+        self.assertGreaterEqual(host.now, 1060.0)
+        self.assertEqual(host.running_checks(), [])
+        self.assertEqual(len(host.wait_clients), 1)
+
+    def test_the_twin_a_stopped_engine_still_ends_the_room_within_a_turn(self):
+        with (
+            Host(statuses=[None], capture_life=1e9, engine_stops_at=1010.0) as host,
+            self.assertRaisesRegex(RuntimeError, "Switch emulator exited"),
+        ):
+            host.serve()
+        # One turn of the loop is 0.5 s: the stop is seen at the next turn.
+        self.assertLessEqual(host.now - 1010.0, 0.5)
+        self.assertEqual(len(host.running_checks()), 1)
+
+    def test_a_wait_client_that_fails_alone_is_replaced_and_the_game_goes_on(self):
+        with Host(
+            statuses=[None], capture_life=1e9, stdin_after=1030.0, wait_fails_at=1005.0
+        ) as host:
+            host.serve()
+        self.assertGreaterEqual(host.now, 1030.0)
+        self.assertEqual(len(host.wait_clients), 2)
+        self.assertEqual(len(host.running_checks()), 1)
+
+    def test_the_wait_client_ends_with_the_room(self):
+        with Host(statuses=[None], capture_life=1e9, stdin_after=1005.0) as host:
+            host.serve()
+        (client,) = host.wait_clients
+        self.assertTrue(client.killed)
+        self.assertTrue(client.reaped)
 
 
 class EngineLog(unittest.TestCase):

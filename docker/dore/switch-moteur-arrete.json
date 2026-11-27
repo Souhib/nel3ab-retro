@@ -135,17 +135,14 @@
    ]
   },
   {
-   "appel": "run",
+   "appel": "Popen",
    "options": {
-    "capture_output": "True",
-    "check": "True",
-    "text": "True"
+    "stderr": "DEVNULL",
+    "stdout": "DEVNULL"
    },
    "argv": [
-    "docker",
-    "inspect",
-    "-f",
-    "{{.State.Running}}",
+    "/usr/bin/docker",
+    "wait",
     "nel3ab-switch-room-switch-k3y9q2xw"
    ]
   },

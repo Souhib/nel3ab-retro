@@ -45,6 +45,7 @@ from moteurs.socle.lancement import (
     TOOLS,
     CaptureRestarts,
     EngineLaunch,
+    EngineWatch,
     cpu_pinning,
     pad_command,
     run,
@@ -152,6 +153,7 @@ def serve(
     # Helper has no DAC override: share this one directory with the host group.
     pads.chmod(0o770)
     capture = None
+    watch = None
     started_engine = started_helper = False
     selector = selectors.DefaultSelector()
     selector.register(sys.stdin, selectors.EVENT_READ)
@@ -217,17 +219,9 @@ def serve(
         run(*args, stdout=subprocess.DEVNULL)
         started_engine = True
         restarts = CaptureRestarts()
+        watch = EngineWatch(engine)
         while not selector.select(0.1):
-            status = run(
-                "docker",
-                "inspect",
-                "-f",
-                "{{.State.Running}}",
-                engine,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
-            if status != "true":
+            if not watch.running():
                 raise RuntimeError("Switch emulator exited; see lifecycle.json")
             if (slot / "display.json").exists() and (capture is None or capture.poll() is not None):
                 # Killing docker exec alone leaves capture inside the container.
@@ -249,6 +243,8 @@ def serve(
             time.sleep(0.4)
     finally:
         selector.close()
+        if watch is not None:
+            watch.close()
         try:
             if started_engine:
                 stop_engine(engine, slot, capture, snapshot)

@@ -270,8 +270,13 @@ def _worker(day: str, zone: ZoneInfo) -> list[tuple[datetime, dict[str, Any]]]:
         # manque et on le dit plus bas, plutôt que de faire comme si de rien.
         return []
 
+    return _parse_worker(found.stdout.splitlines(), zone)
+
+
+def _parse_worker(raw_lines: list[str], zone: ZoneInfo) -> list[tuple[datetime, dict[str, Any]]]:
+    """Les lignes de dix secondes du worker, parmi tout ce que son journal dit."""
     kept: list[tuple[datetime, dict[str, Any]]] = []
-    for raw in found.stdout.splitlines():
+    for raw in raw_lines:
         brace = raw.find("{")
         if brace < 0:
             continue
@@ -280,7 +285,7 @@ def _worker(day: str, zone: ZoneInfo) -> list[tuple[datetime, dict[str, Any]]]:
         except ValueError:
             continue
         fields = entry.get("fields") or {}
-        if fields.get("message") != "streaming":
+        if fields.get("message") not in WORKER_LINES:
             continue
         try:
             when = datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
@@ -288,6 +293,200 @@ def _worker(day: str, zone: ZoneInfo) -> list[tuple[datetime, dict[str, Any]]]:
             continue
         kept.append((when.astimezone(zone), fields))
     return kept
+
+
+#: L'ancienne ligne d'une salle Switch, écrite jusqu'au 27 novembre 2026.
+#:
+#: Elle ne portait que `input_to_frame`, avec le sens du chiffre de Dolphin:
+#: l'écart de la dernière trame de manette à l'image suivante. Relue pour ce
+#: qu'elle mesurait, pas pour ce que son texte laissait croire.
+OLD_SWITCH_LINE = "de la commande aux manettes à l'image suivante"
+
+#: La ligne de dix secondes d'une salle externe (la Switch), depuis le
+#: 27 novembre 2026. Voir `report_external` dans le code du worker.
+EXTERNE_LINE = "salle externe"
+
+#: Les lignes du worker que ce lecteur relit.
+WORKER_LINES = frozenset({"streaming", EXTERNE_LINE, OLD_SWITCH_LINE})
+
+
+def _stream_labels(key: str, name: str, bytes_too: bool) -> dict[str, tuple[str, str]]:
+    """Les champs d'un flux à l'entrée: paquets, écart, âge, et taille."""
+    said = {
+        f"{key}_packets": (f"{name}: paquets reçus", "{:.0f}"),
+        f"{key}_gap_p50_ms": (f"{name}: écart d'arrivée p50", "{:.2f} ms"),
+        f"{key}_gap_p95_ms": (f"{name}: écart d'arrivée p95", "{:.2f} ms"),
+        f"{key}_gap_max_ms": (f"{name}: écart d'arrivée max", "{:.2f} ms"),
+        f"{key}_age_p50_ms": (f"{name}: âge à l'entrée p50", "{:.2f} ms"),
+        f"{key}_age_p95_ms": (f"{name}: âge à l'entrée p95", "{:.2f} ms"),
+        f"{key}_age_max_ms": (f"{name}: âge à l'entrée max", "{:.2f} ms"),
+    }
+    if bytes_too:
+        said |= {
+            f"{key}_bytes_p50": (f"{name}: poids d'une image p50", "{:.0f} o"),
+            f"{key}_bytes_p95": (f"{name}: poids d'une image p95", "{:.0f} o"),
+            f"{key}_bytes_max": (f"{name}: poids d'une image max", "{:.0f} o"),
+            f"{key}_keys": (f"{name}: images-clés", "{:.0f}"),
+        }
+    return said
+
+
+#: Comment chaque mesure de la ligne « salle externe » se dit.
+#:
+#: La même règle que `TRANCHE`, et le même garde: `tests/test_sessions.py` lit
+#: la liste des champs dans le code du worker. Une forme « {} » se recopie
+#: telle quelle; les autres sont des nombres.
+EXTERNE: dict[str, tuple[str, str]] = {
+    "console": ("console", "{}"),
+    "ingress_read": ("fenêtres d'entrée lues", "{}"),
+    **_stream_labels("full", "grand format", bytes_too=True),
+    **_stream_labels("half", "format réduit", bytes_too=True),
+    **_stream_labels("sound", "son", bytes_too=False),
+    "watchers": ("public grand format", "{:.0f}"),
+    "half_watchers": ("public format réduit", "{:.0f}"),
+    "dropped": ("jetées depuis le démarrage, grand format", "{:.0f}"),
+    "dropped_now": ("jetées ici, grand format", "{:.0f}"),
+    "half_dropped": ("jetées depuis le démarrage, format réduit", "{:.0f}"),
+    "half_dropped_now": ("jetées ici, format réduit", "{:.0f}"),
+    "sound_refused": ("son refusé depuis le démarrage, morceaux", "{:.0f}"),
+    "sound_refused_now": ("morceaux de son refusés ici", "{:.0f}"),
+    "producers_refused": ("paquets d'une seconde capture refusés", "{:.0f}"),
+    "wait_max_ms": ("pire attente en file d'un spectateur", "{:.2f} ms"),
+    "write_max_ms": ("pire écriture vers un spectateur", "{:.2f} ms"),
+    "pad_gaps_over_17_ms": ("trous de manette de plus de 17 ms", "{:.0f}"),
+    "pad_gaps_over_50_ms": ("trous de manette de plus de 50 ms", "{:.0f}"),
+    "pad_gap_max_ms": ("plus long trou de manette", "{:.1f} ms"),
+    "pads_sent": ("états envoyés aux manettes virtuelles", "{:.0f}"),
+    "pads_repeated": ("dont identiques au précédent", "{:.0f}"),
+    "pads_rescued": ("appuis ou relâchements rendus", "{:.0f}"),
+    "pads_deferred": ("états retenus pour tenir un bouton", "{:.0f}"),
+    "pads_send_p95_ms": ("envoi aux manettes virtuelles p95", "{:.3f} ms"),
+    "pads_send_max_ms": ("envoi aux manettes virtuelles max", "{:.3f} ms"),
+    "pad_change_to_frame_samples": ("changements de manette mesurés", "{:.0f}"),
+    "pad_change_to_frame_p50_ms": ("changement de manette → image p50", "{:.2f} ms"),
+    "pad_change_to_frame_p95_ms": ("changement de manette → image p95", "{:.2f} ms"),
+    "pad_change_to_frame_max_ms": ("changement de manette → image max", "{:.2f} ms"),
+    "viewers": ("spectateurs", "{}"),
+    "seats": ("places", "{}"),
+}
+
+#: Au-delà, un étage mérite un regard: six images à 60 Hz. Le seuil de
+#: l'attente de l'émulateur dans `_worried`, pour que les deux se lisent pareil.
+TROP_MS = 100.0
+
+
+def _measured(fields: dict[str, Any], name: str) -> float | None:
+    """Un nombre que le worker a écrit, ou rien s'il ne l'a pas mesuré."""
+    value = fields.get(name)
+    return float(value) if isinstance(value, int | float) else None
+
+
+def _externe_worried(fields: dict[str, Any], before: dict[str, Any] | None) -> str | None:
+    """Ce qui, dans une ligne de la salle externe, mérite qu'on la montre.
+
+    Un étage chacun, parce que c'est toute la question de cette ligne: où le
+    retard naît-il? À l'entrée (la capture a laissé un trou), dans la file
+    d'un spectateur, dans son écriture (sa socket ne se vidait pas), dans les
+    trames de manette qui arrivent par paquets, ou dans le son refusé.
+    """
+    said = []
+    lost = _lost(fields, before)
+    if lost is not None and sum(lost) > 0:
+        said.append(f"{lost[0]} jetées en grand format, {lost[1]} en réduit")
+    gap = _measured(fields, "full_gap_max_ms")
+    if gap is not None and gap > TROP_MS:
+        said.append(f"trou de {gap:.0f} ms entre deux images à l'entrée du worker")
+    wait = _measured(fields, "wait_max_ms")
+    if wait is not None and wait > TROP_MS:
+        said.append(f"une image a attendu {wait:.0f} ms dans la file d'un spectateur")
+    write = _measured(fields, "write_max_ms")
+    if write is not None and write > TROP_MS:
+        said.append(f"une écriture vers un spectateur a duré {write:.0f} ms")
+    holes = int(fields.get("pad_gaps_over_50_ms") or 0)
+    if holes:
+        longest = _measured(fields, "pad_gap_max_ms")
+        worst = f", le plus long {longest:.0f} ms" if longest is not None else ""
+        said.append(f"{holes} trous de plus de 50 ms dans les trames de manette{worst}")
+    refused = int(fields.get("sound_refused_now") or 0)
+    if refused:
+        said.append(f"{refused} morceaux de son refusés")
+    return "; ".join(said) or None
+
+
+def _externe_said(fields: dict[str, Any]) -> str:
+    """Une ligne de la salle externe, en clair.
+
+    Ce qui n'a pas été mesuré ne s'écrit pas: une fenêtre sans image ne dit pas
+    « entrée max 0 ms ».
+    """
+    said = f"{int(fields.get('full_packets') or 0)} images"
+    for name, label in (
+        ("full_gap_max_ms", "entrée max"),
+        ("full_age_p95_ms", "âge p95"),
+        ("write_max_ms", "écriture max"),
+        ("pad_gap_max_ms", "manettes max"),
+    ):
+        value = _measured(fields, name)
+        if value is not None:
+            said += f"  {label} {value:.0f} ms"
+    if "watchers" in fields:
+        seen = int(fields.get("watchers") or 0), int(fields.get("half_watchers") or 0)
+        said += f"  ({seen[0]} en grand, {seen[1]} en réduit)"
+    return said
+
+
+def _old_switch_said(fields: dict[str, Any]) -> str:
+    """L'ancienne ligne Switch, pour ce qu'elle mesurait."""
+    samples = int(fields.get("input_to_frame_samples") or 0)
+    if not samples:
+        return "aucune trame de manette (ligne Switch d'avant le 27 novembre 2026)"
+    return (
+        f"dernière trame→image p50 {float(fields.get('input_to_frame_p50_ms') or 0):.1f} ms"
+        f" sur {samples} images (ligne Switch d'avant le 27 novembre 2026)"
+    )
+
+
+def _details(fields: dict[str, Any], name: str) -> list[dict[str, Any]]:
+    """Un tableau JSON que le worker a écrit dans un champ, ou rien."""
+    try:
+        found = json.loads(fields.get(name) or "[]")
+    except ValueError:
+        return []
+    return [one for one in found if isinstance(one, dict)] if isinstance(found, list) else []
+
+
+def _ms(value: Any) -> str:
+    return f"{float(value):.1f} ms" if isinstance(value, int | float) else "non mesuré"
+
+
+def _externe_tranche(fields: dict[str, Any]) -> list[str]:
+    """Tout ce qu'une ligne de la salle externe a mesuré, une ligne par mesure.
+
+    Puis chaque spectateur et chaque place, lus dans leurs tableaux. Une mesure
+    absente ne s'affiche pas, et une valeur nulle d'un tableau se dit « non
+    mesuré ».
+    """
+    said = []
+    for name, (label, shape) in EXTERNE.items():
+        if name not in fields or name in ("viewers", "seats"):
+            continue
+        value = fields[name]
+        shown = shape.format(value) if shape == "{}" else shape.format(float(value or 0))
+        said.append(f"{label:<42} {shown}")
+    for one in _details(fields, "viewers"):
+        said.append(
+            f"spectateur {one.get('viewer')} ({one.get('stream')}): "
+            f"{one.get('frames', 0)} images, file max {_ms(one.get('wait_max_ms'))}, "
+            f"écriture p95 {_ms(one.get('write_p95_ms'))} max {_ms(one.get('write_max_ms'))}"
+        )
+    for one in _details(fields, "seats"):
+        said.append(
+            f"place {one.get('seat')}: {one.get('frames', 0)} trames, "
+            f"{one.get('over_17_ms', 0)} trous > 17 ms, {one.get('over_50_ms', 0)} trous > 50 ms, "
+            f"écart max {_ms(one.get('gap_max_ms'))}; {one.get('sent', 0)} envoyées "
+            f"dont {one.get('repeated', 0)} répétées, {one.get('rescued', 0)} fronts rendus"
+        )
+    return said
 
 
 def _lost(fields: dict[str, Any], before: dict[str, Any] | None) -> tuple[int, int] | None:
@@ -356,13 +555,16 @@ def _worker_said(fields: dict[str, Any]) -> str:
     else:
         seen = int(fields.get("watchers") or 0), int(fields.get("half_watchers") or 0)
         who = f"{seen[0]} en grand, {seen[1]} en réduit" if sum(seen) else "personne ne regardait"
-    # La latence des commandes seulement quand elle a été MESURÉE. Zéro
-    # échantillon veut dire « personne n'a appuyé », et l'afficher comme
-    # « 0,0 ms » serait annoncer une latence parfaite là où il n'y a rien.
+    # L'écart de la DERNIÈRE trame de manette à l'image suivante, seulement
+    # quand il a été mesuré. Ce n'est pas un délai de réaction: la page envoie
+    # une trame toutes les 4 ms, bouge ou non, et chacune relance ce chrono
+    # (audits WK-4, ENT-5 et DON-6, 2026-11-27). Zéro échantillon veut dire
+    # qu'aucune trame n'est arrivée; l'afficher « 0,0 ms » annoncerait un
+    # résultat là où il n'y a rien.
     pressed = int(fields.get("input_to_frame_samples", 0) or 0)
     lag = ""
     if pressed:
-        lag = f"  commandes {float(fields.get('input_to_frame_p50_ms', 0) or 0):.1f} ms"
+        lag = f"  dernière trame→image {float(fields.get('input_to_frame_p50_ms', 0) or 0):.1f} ms"
     # La sieste, quand il y en a eu une. Le worker la retranche déjà de
     # l'attente, donc elle n'est plus prise pour une panne; la dire quand même
     # évite l'autre lecture fausse, celle d'un trou dans la soirée que personne
@@ -426,9 +628,12 @@ TRANCHE: dict[str, tuple[str, str]] = {
     "frame_bytes_p99": ("poids d'une image p99", "{:.0f} o"),
     "frame_bytes_max": ("poids d'une image max", "{:.0f} o"),
     "megabits_per_second": ("débit", "{:.2f} Mb/s"),
-    "input_to_frame_samples": ("commandes mesurées", "{:.0f}"),
-    "input_to_frame_p50_ms": ("commande vers image p50", "{:.2f} ms"),
-    "input_to_frame_p95_ms": ("commande vers image p95", "{:.2f} ms"),
+    # La dernière trame de manette reçue, jusqu'à l'image suivante: pas une
+    # réaction (audits WK-4 et ENT-5). Le nom du champ reste, son sens aussi;
+    # c'est le libellé qui disait autre chose.
+    "input_to_frame_samples": ("images précédées d'une trame de manette", "{:.0f}"),
+    "input_to_frame_p50_ms": ("dernière trame de manette → image p50", "{:.2f} ms"),
+    "input_to_frame_p95_ms": ("dernière trame de manette → image p95", "{:.2f} ms"),
     "inputs_received": ("commandes reçues depuis le démarrage", "{:.0f}"),
     "inputs_applied": ("commandes appliquées depuis le démarrage", "{:.0f}"),
     "sound_starved": ("son affamé depuis le démarrage", "{:.0f}"),
@@ -571,17 +776,28 @@ def _tell_worker(day: str, complaints: list[dict[str, Any]], everything: bool = 
 
     print(f"\n  le worker ({len(reported)} tranches de dix secondes)")
     shown = 0
-    before: dict[str, Any] | None = None
+    # Une ligne précédente par sorte: les cumuls d'une salle Dolphin ne se
+    # soustraient pas de ceux d'une salle externe.
+    previous: dict[str, dict[str, Any]] = {}
     for when, fields in reported:
         near = any(abs((when - mark).total_seconds()) <= AROUND for mark in marks)
-        wrong = _worried(fields, before)
-        before = fields
+        kind = str(fields.get("message") or "")
+        before = previous.get(kind)
+        previous[kind] = fields
+        if kind == EXTERNE_LINE:
+            wrong = _externe_worried(fields, before)
+            said, unfolded = _externe_said(fields), _externe_tranche(fields)
+        elif kind == OLD_SWITCH_LINE:
+            wrong, said, unfolded = None, _old_switch_said(fields), []
+        else:
+            wrong = _worried(fields, before)
+            said, unfolded = _worker_said(fields), _tranche(fields)
         if not near and wrong is None:
             continue
         flag = "  <<< " + wrong if wrong else ""
-        print(f"    {when.strftime('%H:%M:%S')}  {_worker_said(fields)}{flag}")
+        print(f"    {when.strftime('%H:%M:%S')}  {said}{flag}")
         if everything:
-            for measure in _tranche(fields):
+            for measure in unfolded:
                 print(f"              {measure}")
         shown += 1
     if shown == 0:

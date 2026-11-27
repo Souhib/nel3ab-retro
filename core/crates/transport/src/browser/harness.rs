@@ -50,11 +50,13 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Queued>>) -> BrowserS
         listeners: Arc::new(Mutex::new(Vec::new())),
         arrived: Arc::new(Condvar::new()),
         incoming: Arc::new(Mutex::new([None; PORTS])),
+        arrivals: Arc::new(Mutex::new(Default::default())),
         received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         address: "127.0.0.1:0".parse().unwrap(),
         rumbles: Arc::new(Mutex::new([0; PORTS])),
         dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         half_dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+        sound_refused: std::sync::atomic::AtomicU64::new(0),
         joined: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         wants_key: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         wants_rom: Arc::new(Mutex::new(None)),
@@ -130,9 +132,9 @@ pub(in crate::browser) fn eventually(mut what: impl FnMut() -> bool) -> bool {
 }
 
 /// Takes a controller and returns the socket with the port it was given.
-pub(in crate::browser) fn hold(
-    address: SocketAddr,
-) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
+///
+/// The Switch ingress takes it too: its pads are fed by a real seat.
+pub fn hold(address: SocketAddr) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
     use tungstenite::client::IntoClientRequest as _;
     let stream = TcpStream::connect(address).unwrap();
     stream

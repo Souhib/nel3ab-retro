@@ -7,10 +7,13 @@
 //! qu'elle prétende.
 
 use std::net::TcpStream;
+use std::time::{Duration, Instant};
 
 use nel3ab_protocol::{Command, Echo, PlayerSlot, Reste};
 
-use super::{AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Seats, Shared, socket_limits};
+use super::{
+    AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Seats, Shared, Unread, socket_limits,
+};
 
 /// Takes a port for this connection and tells the page about the room.
 ///
@@ -63,6 +66,77 @@ pub(super) fn claim_a_port(
     Some((seat, claim, told))
 }
 
+/// Un écart plus long qu'une image à 60 Hz: une trame au moins a manqué.
+const ONE_FRAME: Duration = Duration::from_millis(17);
+
+/// Trois images à 60 Hz: un trou que le jeu peut voir.
+const THREE_FRAMES: Duration = Duration::from_millis(50);
+
+/// Les arrivées de trames d'une place, datées dans le fil de sa socket.
+///
+/// La page en envoie une toutes les 4 ms, immobile ou non. Le 26 novembre
+/// 2026, 18 % des intervalles d'image n'en avaient reçu aucune au worker
+/// (audit ENT-1), sans que rien dise si elles arrivaient en paquets ou pas du
+/// tout. Les seuils viennent de l'audit et ne sont pas mesurés: une image à
+/// 60 Hz, et trois.
+#[derive(Debug, Default, Clone, Copy)]
+pub(super) struct Arrivals {
+    /// La dernière trame, gardée d'un relevé à l'autre et oubliée quand la
+    /// place change de main: l'écart avec la trame d'un autre ne dit rien.
+    last: Option<Instant>,
+    frames: u64,
+    over_one: u64,
+    over_three: u64,
+    longest: Option<Duration>,
+}
+
+impl Arrivals {
+    /// Une trame de cette place est arrivée à `at`.
+    pub(super) fn arrived(&mut self, at: Instant) {
+        self.frames += 1;
+        let Some(last) = self.last.replace(at) else {
+            return;
+        };
+        let gap = at.saturating_duration_since(last);
+        self.over_one += u64::from(gap > ONE_FRAME);
+        self.over_three += u64::from(gap > THREE_FRAMES);
+        self.longest = Some(self.longest.map_or(gap, |longest| longest.max(gap)));
+    }
+
+    /// La place a été rendue: la prochaine trame n'est pas un écart.
+    pub(super) const fn forget(&mut self) {
+        self.last = None;
+    }
+
+    /// Le relevé depuis le dernier appel, puis un relevé neuf.
+    pub(super) fn take(&mut self) -> PadArrivals {
+        let taken = PadArrivals {
+            frames: self.frames,
+            over_17_ms: self.over_one,
+            over_50_ms: self.over_three,
+            gap_max_ms: self.longest.map(|longest| longest.as_secs_f64() * 1000.0),
+        };
+        *self = Self {
+            last: self.last,
+            ..Self::default()
+        };
+        taken
+    }
+}
+
+/// Ce qu'une place a reçu depuis le dernier relevé.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct PadArrivals {
+    /// Les trames reçues.
+    pub frames: u64,
+    /// Les écarts de plus de 17 ms.
+    pub over_17_ms: u64,
+    /// Les écarts de plus de 50 ms.
+    pub over_50_ms: u64,
+    /// Le plus long écart, absent tant que deux trames ne sont pas arrivées.
+    pub gap_max_ms: Option<f64>,
+}
+
 /// Receives pad frames until the client goes away.
 ///
 /// A malformed frame closes the connection rather than being skipped. On a
@@ -76,15 +150,20 @@ pub(super) fn claim_a_port(
 /// une page qui envoie autre chose n'est pas notre page, et continuer à
 /// l'écouter serait accepter n'importe quoi.
 pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bool {
+    // Read once and before any lock: the arrival is the instant the frame
+    // was read off the socket, not the instant a lock was free.
+    let now = Instant::now();
     // The room fixes the format; the connection fixes the seat. Neither comes
     // from a client claim, including a valid frame naming somebody else's port.
     let Some(frame) = shared.input_kind.decode(payload, seat) else {
         tracing::warn!("a client sent an invalid controller frame for this room");
         return false;
     };
-    shared
-        .received
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if let Ok(mut arrivals) = shared.arrivals.lock()
+        && let Some(place) = arrivals.get_mut(seat.index())
+    {
+        place.arrived(now);
+    }
     // Une trame NEUTRE ne compte pas comme une présence. La page en envoie une à
     // chaque tour, même quand personne ne touche à rien: prendre « une trame est
     // arrivée » pour « quelqu'un joue » rendrait tout le monde éternellement
@@ -93,15 +172,24 @@ pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bo
         && let Ok(mut acted) = shared.acted.lock()
         && let Some(when) = acted.get_mut(seat.index())
     {
-        *when = Some(std::time::Instant::now());
+        *when = Some(now);
     }
     if let Ok(mut slots) = shared.inputs.lock() {
-        // Replaces rather than queues. Overwriting a state the emulator has not
-        // read yet is not a loss: it could only ever have applied the newer one.
+        // Replaces rather than queues: an emulator can only ever apply the
+        // newest state. The buttons that went down or up on the way are kept
+        // as two masks, because a press and its release both unread used to
+        // leave only the release (audit ENT-2). See `Unread`.
         if let Some(place) = slots.get_mut(seat.index()) {
-            *place = Some(frame);
+            *place = Some(place.map_or_else(|| Unread::new(frame), |unread| unread.then(frame)));
         }
     }
+    // Counted once dated and stored, with `Release`: whoever reads this count
+    // with `Acquire` then finds the frame in its slot and in its arrivals.
+    // Counted first, the count could run ahead of the slot (relecture du
+    // 2026-11-27).
+    shared
+        .received
+        .fetch_add(1, std::sync::atomic::Ordering::Release);
     // Woken after the lock is released, so the waiter does not wake straight
     // into a lock it cannot take.
     shared.arrived.notify_one();
@@ -341,10 +429,16 @@ pub(super) fn input_thread(
     // applying whatever its last holder left pressed, and a stuck direction is
     // exactly the bug a player would blame the network for.
     release_seat(seats, seat, claim);
+    if let Ok(mut arrivals) = shared.arrivals.lock()
+        && let Some(place) = arrivals.get_mut(seat.index())
+    {
+        place.forget();
+    }
     if let Ok(mut slots) = slots.lock()
         && let Some(place) = slots.get_mut(seat.index())
     {
-        *place = Some(shared.input_kind.neutral(seat));
+        let neutral = shared.input_kind.neutral(seat);
+        *place = Some(place.map_or_else(|| Unread::new(neutral), |unread| unread.then(neutral)));
     }
     arrived.notify_one();
     let _ = socket.close(None);
@@ -741,4 +835,60 @@ pub(super) fn still_ours(seats: &Seats, seat: PlayerSlot, claim: u64) -> bool {
 pub(super) fn next_claim() -> u64 {
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "a panic IS the failure signal in a test"
+)]
+mod tests {
+    use super::*;
+
+    /// Des trames à 4 ms, puis un trou de 20 ms et un de 60: deux écarts de
+    /// plus d'une image, un de plus de trois, et le plus long dit 60.
+    #[test]
+    fn the_gaps_between_a_seats_frames_are_counted_by_their_length() {
+        let start = Instant::now();
+        let mut seat = Arrivals::default();
+        for ms in [0, 4, 8, 28, 88] {
+            seat.arrived(start + Duration::from_millis(ms));
+        }
+        let taken = seat.take();
+        assert_eq!(
+            (taken.over_17_ms, taken.over_50_ms),
+            (2, 1),
+            "the gaps were not counted by their length"
+        );
+        assert_eq!(taken.frames, 5);
+        assert!((taken.gap_max_ms.unwrap() - 60.0).abs() < 1e-6);
+        // Le relevé se vide, et la dernière trame reste: le premier écart du
+        // relevé suivant se compte depuis elle.
+        seat.arrived(start + Duration::from_millis(92));
+        let next = seat.take();
+        assert_eq!(next.frames, 1);
+        assert!((next.gap_max_ms.unwrap() - 4.0).abs() < 1e-6);
+    }
+
+    /// Le jumeau: une cadence de 4 ms ne compte aucun écart, et un écart
+    /// d'exactement 17 ms n'est pas « au-dessus ».
+    #[test]
+    fn a_steady_cadence_counts_no_gap() {
+        let start = Instant::now();
+        let mut seat = Arrivals::default();
+        for ms in [0, 4, 8, 12, 29] {
+            seat.arrived(start + Duration::from_millis(ms));
+        }
+        let taken = seat.take();
+        assert_eq!(
+            (taken.frames, taken.over_17_ms, taken.over_50_ms),
+            (5, 0, 0)
+        );
+        // Rien d'arrivé: aucun écart, et pas un écart de zéro.
+        assert!(Arrivals::default().take().gap_max_ms.is_none());
+        // Une place rendue puis reprise ne compte pas l'écart entre deux mains.
+        seat.forget();
+        seat.arrived(start + Duration::from_mins(1));
+        assert!(seat.take().gap_max_ms.is_none());
+    }
 }

@@ -26,6 +26,13 @@ nel3ab-protocol = { path = "../protocol" }
 # De la commande à l'image sur le chemin Switch: la même fenêtre de percentiles
 # que le worker tient pour Dolphin, pour que les deux chiffres se comparent.
 nel3ab-telemetry = { path = "../telemetry" }
+# L'âge d'un paquet à l'entrée de la salle externe: CLOCK_MONOTONIC moins
+# l'instant de capture, que `capture.py` prend sur la même horloge
+# (`time.monotonic_ns`, et le conteneur la partage avec l'hôte). `Instant` est
+# cette horloge sur Linux mais ne rend pas sa valeur, et ce crate interdit
+# `unsafe`. `nix` est déjà dans l'arbre pour l'émulateur et l'encodeur; seule
+# sa partie `time` est prise ici.
+nix = { version = "0.30", default-features = false, features = ["time"] }
 # Fichiers privés du multiplexeur, retirés aussi lorsqu'il échoue.
 tempfile = "3"
 serde_json = "1" # Private virtual-pad commands, shared with the Switch adapter.

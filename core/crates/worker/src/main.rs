@@ -656,6 +656,130 @@ fn report_viewers(
         .collect();
 }
 
+/// Ce que les relevés de dix secondes d'une salle externe gardent d'un appel
+/// au suivant: les cumuls dont la ligne donne aussi l'écart.
+#[derive(Debug, Default, Clone, Copy)]
+struct ExternalBefore {
+    dropped: u64,
+    half_dropped: u64,
+    sound_refused: u64,
+}
+
+/// La ligne de dix secondes d'une salle externe (la Switch): « salle externe ».
+///
+/// Jusqu'au 27 novembre 2026, une salle Switch n'écrivait que son chiffre de
+/// manettes et, au besoin, « ce spectateur ne suit pas ». La page voyait un
+/// trou de 117 à 166 ms dans chaque fenêtre de dix secondes quand la capture
+/// n'en montrait que 17 à 21, et rien ne disait où il naissait (audit WK-1,
+/// CAP-2). Cette ligne donne chaque étage du worker: l'arrivée et l'âge des
+/// paquets à l'entrée, l'attente en file et l'écriture de chaque spectateur,
+/// les pertes, et l'arrivée des trames de chaque manette.
+///
+/// Un autre nom que « streaming »: le lecteur des séances et son contrat lisent
+/// la ligne de la salle Dolphin, et deux lignes du même nom qui ne portent pas
+/// les mêmes champs ont déjà cassé ce contrat (ligne « banc: débit »).
+///
+/// Une valeur que rien n'a mesurée est ABSENTE de la ligne, jamais un zéro.
+fn report_external(
+    server: &BrowserServer,
+    ingress: &nel3ab_transport::ingress::Ingress,
+    console: nel3ab_emulator::Console,
+    before: &mut ExternalBefore,
+) {
+    use nel3ab_transport::external::{seats_json, viewers_json, worst_seat, worst_viewer};
+    // Une fenêtre vide si son verrou était empoisonné, et la ligne le dit.
+    let (flows, flows_read) = ingress.report().map_or_else(
+        || (nel3ab_transport::ingress::IngressReport::default(), false),
+        |report| (report, true),
+    );
+    let (full, half, sound) = (flows.full, flows.half, flows.sound);
+    let pads = ingress.pads_report();
+    let writes = server.take_writes();
+    let arrivals = server.take_pad_arrivals();
+    let (wait_max, write_max) = worst_viewer(&writes);
+    let (over_17, over_50, pad_gap_max) = worst_seat(&arrivals);
+    let pressed = ingress.reaction();
+    let measured =
+        |summary: Option<nel3ab_telemetry::Summary>,
+         pick: fn(&nel3ab_telemetry::Summary) -> f64| { summary.as_ref().map(pick) };
+    let p50 = |s: &nel3ab_telemetry::Summary| s.p50;
+    let p95 = |s: &nel3ab_telemetry::Summary| s.p95;
+    let max = |s: &nel3ab_telemetry::Summary| s.max;
+    let changes = (pressed.samples > 0).then_some(pressed);
+    let send = pads.and_then(|pads| pads.send);
+    let total = |pick: fn(&nel3ab_transport::ingress::SeatPads) -> u64| {
+        pads.map(|pads| pads.seats.iter().map(pick).sum::<u64>())
+    };
+    let now = ExternalBefore {
+        dropped: server.dropped(),
+        half_dropped: server.half_dropped(),
+        sound_refused: server.sound_refused(),
+    };
+    tracing::info!(
+        console = ?console,
+        // Faux seulement si le verrou des fenêtres d'entrée était empoisonné:
+        // la ligne le dit plutôt que de publier une fenêtre vide pour calme.
+        ingress_read = flows_read,
+        full_packets = full.packets,
+        full_gap_p50_ms = measured(full.gap, p50),
+        full_gap_p95_ms = measured(full.gap, p95),
+        full_gap_max_ms = measured(full.gap, max),
+        full_age_p50_ms = measured(full.age, p50),
+        full_age_p95_ms = measured(full.age, p95),
+        full_age_max_ms = measured(full.age, max),
+        full_bytes_p50 = full.bytes.map(|s| s.p50),
+        full_bytes_p95 = full.bytes.map(|s| s.p95),
+        full_bytes_max = full.bytes.map(|s| s.max),
+        full_keys = full.keys,
+        half_packets = half.packets,
+        half_gap_p50_ms = measured(half.gap, p50),
+        half_gap_p95_ms = measured(half.gap, p95),
+        half_gap_max_ms = measured(half.gap, max),
+        half_age_p50_ms = measured(half.age, p50),
+        half_age_p95_ms = measured(half.age, p95),
+        half_age_max_ms = measured(half.age, max),
+        half_bytes_p50 = half.bytes.map(|s| s.p50),
+        half_bytes_p95 = half.bytes.map(|s| s.p95),
+        half_bytes_max = half.bytes.map(|s| s.max),
+        half_keys = half.keys,
+        sound_packets = sound.packets,
+        sound_gap_p50_ms = measured(sound.gap, p50),
+        sound_gap_p95_ms = measured(sound.gap, p95),
+        sound_gap_max_ms = measured(sound.gap, max),
+        sound_age_p50_ms = measured(sound.age, p50),
+        sound_age_p95_ms = measured(sound.age, p95),
+        sound_age_max_ms = measured(sound.age, max),
+        watchers = server.watchers(),
+        half_watchers = server.half_watchers(),
+        dropped = now.dropped,
+        dropped_now = now.dropped.saturating_sub(before.dropped),
+        half_dropped = now.half_dropped,
+        half_dropped_now = now.half_dropped.saturating_sub(before.half_dropped),
+        sound_refused = now.sound_refused,
+        sound_refused_now = now.sound_refused.saturating_sub(before.sound_refused),
+        producers_refused = ingress.producers_refused(),
+        wait_max_ms = wait_max,
+        write_max_ms = write_max,
+        pad_gaps_over_17_ms = over_17,
+        pad_gaps_over_50_ms = over_50,
+        pad_gap_max_ms = pad_gap_max,
+        pads_sent = total(|seat| seat.sent),
+        pads_repeated = total(|seat| seat.repeated),
+        pads_rescued = total(|seat| seat.kept.rescued),
+        pads_deferred = total(|seat| seat.kept.deferred),
+        pads_send_p95_ms = measured(send, p95),
+        pads_send_max_ms = measured(send, max),
+        pad_change_to_frame_samples = pressed.samples,
+        pad_change_to_frame_p50_ms = measured(changes, p50),
+        pad_change_to_frame_p95_ms = measured(changes, p95),
+        pad_change_to_frame_max_ms = measured(changes, max),
+        viewers = %viewers_json(&writes),
+        seats = %pads.map_or_else(String::new, |pads| seats_json(&arrivals, &pads)),
+        "salle externe"
+    );
+    *before = now;
+}
+
 /// Le fil qui envoie le son du clip, ou rien quand le banc le coupe.
 fn rejouer_le_son(
     server: &Arc<BrowserServer>,
@@ -1175,28 +1299,21 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         )?;
         // Le jalon « moteur » de `/roms`, comme pour Dolphin (ADR D43).
         server.moteur_lance();
-        // The same field names as the Dolphin report, at the same ten seconds,
-        // so one grep reads both consoles. Only this one number: the rest of
-        // the Dolphin report is the encoder's, and the Switch encodes elsewhere.
+        // At the same ten seconds as the Dolphin report, under its own line:
+        // see `report_external`. Its pads figure starts only on a change, and
+        // Dolphin's `input_to_frame` still starts on every pad batch.
         let mut reported = Instant::now();
         // Les chaînes cassées de chaque spectateur, comme pour Dolphin. Les images
         // de la Switch passent par la même livraison et y sont comptées, mais la
         // salle ne les écrivait pas: le 25 septembre 2026, une soirée entière sur
         // Smash Ultimate n'a laissé aucune trace de qui suivait ou non.
         let mut health_before = std::collections::HashMap::new();
+        let mut external_before = ExternalBefore::default();
         while !stopping.load(std::sync::atomic::Ordering::Relaxed) {
             if reported.elapsed() >= Duration::from_secs(10) {
                 reported = Instant::now();
                 report_viewers(&server, &mut health_before);
-                let pressed = ingress.reaction();
-                tracing::info!(
-                    console = ?disc.console,
-                    input_to_frame_samples = pressed.samples,
-                    input_to_frame_p50_ms = pressed.p50,
-                    input_to_frame_p95_ms = pressed.p95,
-                    input_to_frame_max_ms = pressed.max,
-                    "de la commande aux manettes à l'image suivante"
-                );
+                report_external(&server, &ingress, disc.console, &mut external_before);
             }
             if server.stop_requested() {
                 nel3ab_emulator::playback::Playback::Idle.store(&settings.session_dir)?;
@@ -2510,6 +2627,97 @@ mod tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
+
+    /// What `tracing` writes, kept for the test to read.
+    #[derive(Clone, Default)]
+    struct Written(Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Written {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// The line of an external room, read as the journal gets it: in JSON,
+    /// through the worker's own formatter (audit WK-1, 2026-11-27).
+    ///
+    /// Three pictures reach a real ingress, nobody watches and nobody plays.
+    /// The line must carry the stream it measured, and leave out what nothing
+    /// measured rather than write a zero: no half stream, no pads change.
+    #[test]
+    fn the_external_room_line_says_what_it_measured_and_omits_the_rest() {
+        use std::io::Write as _;
+        let root = tempfile::tempdir().unwrap();
+        let server = Arc::new(
+            nel3ab_transport::BrowserServer::start_with_input(
+                "127.0.0.1:0".parse().unwrap(),
+                "",
+                "[]".into(),
+                Arc::from(Vec::new()),
+                nel3ab_protocol::PlayerSlot::new(4).unwrap(),
+                &Arc::new(std::sync::Mutex::new(None)),
+                nel3ab_transport::browser::InputKind::Switch,
+            )
+            .unwrap(),
+        );
+        let ingress =
+            nel3ab_transport::ingress::Ingress::bind(root.path(), Arc::clone(&server)).unwrap();
+        let mut capture =
+            std::os::unix::net::UnixStream::connect(root.path().join("media.sock")).unwrap();
+        for _ in 0..3 {
+            let mut header = [0_u8; 13];
+            header[0] = b'F';
+            header[9..13].copy_from_slice(&5_u32.to_le_bytes());
+            capture.write_all(&header).unwrap();
+            capture.write_all(&[0, 0, 0, 1, 0x65]).unwrap();
+            std::thread::sleep(Duration::from_millis(17));
+        }
+        std::thread::sleep(Duration::from_millis(200));
+        let written = Written::default();
+        let into = written.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .json()
+            .with_writer(move || into.clone())
+            .finish();
+        let mut before = super::ExternalBefore::default();
+        tracing::subscriber::with_default(subscriber, || {
+            super::report_external(
+                &server,
+                &ingress,
+                nel3ab_emulator::Console::Switch,
+                &mut before,
+            );
+        });
+        let bytes = written.0.lock().unwrap().clone();
+        let line: serde_json::Value =
+            serde_json::from_slice(bytes.split(|byte| *byte == b'\n').next().unwrap()).unwrap();
+        let fields = &line["fields"];
+        assert_eq!(fields["message"], "salle externe");
+        assert_eq!(fields["full_packets"], 3);
+        assert_eq!(fields["full_keys"], 3);
+        let gap = fields["full_gap_max_ms"].as_f64().unwrap();
+        assert!(gap >= 15.0, "two pictures 17 ms apart read {gap} ms apart");
+        // The twins: what nothing measured is absent, never zero.
+        for absent in [
+            "half_gap_max_ms",
+            "sound_gap_max_ms",
+            "write_max_ms",
+            "pad_gap_max_ms",
+            "pad_change_to_frame_p50_ms",
+            "pads_send_max_ms",
+        ] {
+            assert!(
+                fields.get(absent).is_none(),
+                "{absent} was written although nothing measured it: {fields}"
+            );
+        }
+        assert_eq!(fields["pad_change_to_frame_samples"], 0);
+        assert_eq!(fields["viewers"], "[]");
+        assert_eq!(fields["seats"], "[]");
+    }
 
     /// Two background threads must BOTH stop when the session ends.
     ///

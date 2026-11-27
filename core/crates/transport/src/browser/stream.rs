@@ -10,6 +10,8 @@ use std::sync::mpsc::{RecvTimeoutError, SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use nel3ab_telemetry::{Summary, Timings};
+
 use super::{
     CALM_FOR, Framed, GONE_AFTER, KEEP_ALIVE, KEY_FRAME_EVERY, KEY_FRAME_PLEASE, MAX_DEPTH,
     OUTGOING_DEPTH, PORTS, Packet, Shared, Viewers, WRITE_TIMEOUT, socket_limits,
@@ -27,21 +29,28 @@ use super::{
 pub(super) struct Queued {
     frame: Framed,
     slot: Option<Arc<std::sync::atomic::AtomicUsize>>,
+    /// Quand elle est entrée dans la file, pour dire combien elle y a attendu.
+    entered: Option<Instant>,
 }
 
 impl Queued {
-    /// Une image comptée dans la file de son spectateur.
-    fn tracked(frame: Framed, slot: &Arc<std::sync::atomic::AtomicUsize>) -> Self {
+    /// Une image comptée dans la file de son spectateur, entrée à `at`.
+    fn tracked(frame: Framed, slot: &Arc<std::sync::atomic::AtomicUsize>, at: Instant) -> Self {
         slot.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Self {
             frame,
             slot: Some(Arc::clone(slot)),
+            entered: Some(at),
         }
     }
 
     /// Un morceau hors compte: le son garde sa file fixe.
     pub(super) const fn untracked(frame: Framed) -> Self {
-        Self { frame, slot: None }
+        Self {
+            frame,
+            slot: None,
+            entered: None,
+        }
     }
 
     /// Ce qui part sur la socket. Une copie de `Bytes` est un compteur de plus.
@@ -113,10 +122,60 @@ impl Depth {
     }
 }
 
+/// Ce que le fil d'un spectateur a mesuré de ses images, depuis le dernier relevé.
+///
+/// L'attente en file, de l'entrée dans la file à la prise par le fil, et la
+/// durée de l'écriture sur la socket. Les deux manquaient: aucune ligne ne
+/// disait si une image arrivée à l'heure à l'entrée était restée dans le
+/// worker ou dans les tampons de la socket (audit WK-1, 2026-11-27). Une
+/// écriture courte innocente le worker, pas la liaison: le noyau et Caddy
+/// gardent des mégaoctets derrière elle.
+#[derive(Debug)]
+pub(super) struct Writes {
+    wait: Timings,
+    write: Timings,
+}
+
+impl Default for Writes {
+    fn default() -> Self {
+        // Deux mille: dix secondes à soixante images, trois fois.
+        Self {
+            wait: Timings::new(2048),
+            write: Timings::new(2048),
+        }
+    }
+}
+
+impl Writes {
+    fn wrote(&mut self, waited: Option<Duration>, wrote: Duration) {
+        if let Some(waited) = waited {
+            self.wait.observe(waited);
+        }
+        self.write.observe(wrote);
+    }
+}
+
+/// Ce qu'un spectateur a vécu depuis le dernier relevé.
+///
+/// Une distribution que rien n'a nourrie vaut `None`, jamais zéro.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ViewerWrites {
+    /// Son numéro, le même que [`ViewerHealth::tag`].
+    pub tag: u64,
+    /// Les images écrites dans la fenêtre.
+    pub frames: usize,
+    /// Millisecondes passées dans sa file.
+    pub wait: Option<Summary>,
+    /// Millisecondes passées à écrire sur sa socket.
+    pub write: Option<Summary>,
+}
+
 /// One connected viewer: its queue, and whether its stream is currently broken.
 #[derive(Debug)]
 pub(super) struct Viewer {
     pub(super) pipe: SyncSender<Queued>,
+    /// Ses attentes et ses écritures, que son fil remplit et que le relevé vide.
+    pub(super) writes: Arc<Mutex<Writes>>,
     /// Combien d'images attendent dans `pipe`, tenu par [`Queued`].
     pub(super) queued: Arc<std::sync::atomic::AtomicUsize>,
     /// Combien peuvent y attendre en ce moment.
@@ -170,6 +229,7 @@ impl Viewer {
     pub(super) fn new(pipe: SyncSender<Queued>) -> Self {
         Self {
             pipe,
+            writes: Arc::new(Mutex::new(Writes::default())),
             queued: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             depth: Depth::new(MAX_DEPTH),
             resyncing: false,
@@ -179,6 +239,30 @@ impl Viewer {
             delivered: 0,
             starved: 0,
         }
+    }
+
+    /// Ses attentes et ses écritures depuis le dernier appel, puis une fenêtre neuve.
+    pub(super) fn take_writes(&self) -> ViewerWrites {
+        let measured = |window: &mut Timings| (!window.is_empty()).then(|| window.summary());
+        self.writes.lock().map_or(
+            ViewerWrites {
+                tag: self.tag,
+                frames: 0,
+                wait: None,
+                write: None,
+            },
+            |mut held| {
+                let taken = ViewerWrites {
+                    tag: self.tag,
+                    frames: held.write.len(),
+                    wait: measured(&mut held.wait),
+                    write: measured(&mut held.write),
+                };
+                held.wait.clear();
+                held.write.clear();
+                taken
+            },
+        )
     }
 }
 
@@ -217,6 +301,9 @@ pub(super) fn deliver(
     granted_key: &Arc<Mutex<Instant>>,
     packet: &Packet,
 ) -> bool {
+    // Read before the lock, so a viewer's wait also counts the time the
+    // fan-out waited for the list: the picture was already in the worker.
+    let now = Instant::now();
     let Ok(mut viewers) = viewers.lock() else {
         return false;
     };
@@ -237,7 +324,6 @@ pub(super) fn deliver(
     let message = Framed::from(message);
 
     let key = carries_key_frame(packet.annex_b);
-    let now = Instant::now();
     let mut delivered = false;
     let mut broke = false;
     viewers.retain_mut(|viewer| {
@@ -264,7 +350,7 @@ pub(super) fn deliver(
         } else {
             viewer
                 .pipe
-                .try_send(Queued::tracked(message.clone(), &viewer.queued))
+                .try_send(Queued::tracked(message.clone(), &viewer.queued, now))
                 .map_err(|refused| match refused {
                     TrySendError::Full(_) => TrySendError::Full(()),
                     TrySendError::Disconnected(_) => TrySendError::Disconnected(()),
@@ -356,7 +442,7 @@ pub(super) fn ask_for_key_frame(
 ///
 /// Écrit ici plutôt que déduit de « on vient de demander une clé »: le worker
 /// demande, l'encodeur décide, et les deux ne sont pas au même moment.
-pub(super) fn carries_key_frame(annex_b: &[u8]) -> bool {
+pub fn carries_key_frame(annex_b: &[u8]) -> bool {
     let mut zeros = 0_usize;
     let mut at_start = false;
     for byte in annex_b {
@@ -419,8 +505,10 @@ pub(super) fn video_thread(
     // La capacité la plus grande qu'une file puisse prendre: la limite de ce
     // spectateur, qui part de deux, vit dans `Viewer::depth`.
     let (sender, frames) = sync_channel::<Queued>(MAX_DEPTH);
+    let viewer = Viewer::new(sender);
+    let writes = Arc::clone(&viewer.writes);
     match viewers.lock() {
-        Ok(mut viewers) => viewers.push(Viewer::new(sender)),
+        Ok(mut viewers) => viewers.push(viewer),
         Err(_) => return,
     }
     joined.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -429,17 +517,26 @@ pub(super) fn video_thread(
     loop {
         // L'image rend sa place dès qu'elle sort de la file, comme le faisait
         // le canal fixe: celle qu'on écrit n'est pas comptée dans la file.
-        let outgoing = match frames.recv_timeout(KEEP_ALIVE) {
-            Ok(message) => message.frame(),
+        let (outgoing, entered) = match frames.recv_timeout(KEEP_ALIVE) {
+            Ok(message) => (message.frame(), message.entered),
             // Nothing for half a second: say "still here" and nothing else.
-            Err(RecvTimeoutError::Timeout) => Framed::new(),
+            Err(RecvTimeoutError::Timeout) => (Framed::new(), None),
             Err(RecvTimeoutError::Disconnected) => break,
         };
+        let taken = Instant::now();
         if let Err(error) = socket.send(tungstenite::Message::binary(outgoing)) {
             // Including a write timeout: a viewer this far behind is better
             // dropped than carried, and the page reconnects.
             tracing::info!(%error, "the viewer's connection gave up");
             break;
+        }
+        // A picture only: a keep-alive measures no queue and says nothing of
+        // what a picture costs to write.
+        if let Some(at) = entered {
+            let wrote = taken.elapsed();
+            if let Ok(mut held) = writes.lock() {
+                held.wrote(Some(taken.saturating_duration_since(at)), wrote);
+            }
         }
 
         // Then listen, briefly. Anything a viewer sends is either a goodbye or a
@@ -701,6 +798,7 @@ mod tests {
             half_granted_key: Arc::new(Mutex::new(Instant::now())),
             listeners: Arc::new(Mutex::new(Vec::new())),
             inputs: Arc::new(Mutex::new([None; PORTS])),
+            arrivals: Arc::new(Mutex::new(Default::default())),
             rumbles: Arc::new(Mutex::new([0; PORTS])),
             arrived: Arc::new(Condvar::new()),
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),

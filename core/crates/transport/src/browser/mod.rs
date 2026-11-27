@@ -50,10 +50,10 @@ use nel3ab_protocol::{InputFrame, PlayerSlot};
 use thiserror::Error;
 
 mod controller;
-pub use controller::{ControllerFrame, InputKind};
+pub use controller::{ControllerFrame, InputKind, Unread};
 
 #[cfg(test)]
-mod harness;
+pub(crate) mod harness;
 mod head;
 mod jalons;
 mod pad;
@@ -66,11 +66,13 @@ use page::{
     Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_see_other, serve_unready,
 };
 use route::{Route, classify};
-use stream::{
-    MicSeats, Queued, Viewer, carries_key_frame, deliver, mic_thread, sound_thread, video_thread,
-};
+use stream::{MicSeats, Queued, Viewer, deliver, mic_thread, sound_thread, video_thread};
 
-pub use stream::ViewerHealth;
+/// L'entrée de la salle externe compte les clés de ce qu'elle reçoit.
+pub(crate) use stream::carries_key_frame;
+
+pub use pad::PadArrivals;
+pub use stream::{ViewerHealth, ViewerWrites};
 
 /// Relève l'état de chaque spectateur d'une liste.
 ///
@@ -127,7 +129,7 @@ const MAX_DEPTH: usize = OUTGOING_DEPTH;
 const CALM_FOR: Duration = Duration::from_secs(20);
 
 /// The four ports a room can hold.
-const PORTS: usize = 4;
+pub(crate) const PORTS: usize = 4;
 
 /// One framed WebSocket payload, shared by every viewer rather than copied per
 /// viewer: four players should not cost four copies of the same picture.
@@ -162,8 +164,11 @@ type Seats = Arc<Mutex<[Option<u64>; PORTS]>>;
 /// par place, « au moins un micro ouvert ici ».
 type Mics = Arc<MicSeats>;
 
-/// The latest pad state per port.
-type Pads = Arc<Mutex<[Option<ControllerFrame>; PORTS]>>;
+/// The latest pad state per port, with the buttons that moved on the way.
+type Pads = Arc<Mutex<[Option<Unread>; PORTS]>>;
+
+/// Quand les trames de chaque place arrivent, datées dans le fil de sa socket.
+type Arrivals = Arc<Mutex<[pad::Arrivals; PORTS]>>;
 #[derive(Clone)]
 struct SaveCatalogueSource(Arc<dyn Fn() -> Vec<bool> + Send + Sync>);
 
@@ -412,6 +417,8 @@ pub struct BrowserServer {
     /// A slot per port cannot overflow, cannot go stale, and needs no policy for
     /// what to discard: writing simply replaces.
     incoming: Pads,
+    /// Les écarts entre les trames de chaque place. Voir [`pad::Arrivals`].
+    arrivals: Arrivals,
     /// Quand chaque place a touché à quelque chose. Voir `decides`.
     acted: Acted,
     /// La place qui décide, telle que le plan de contrôle l'a dite.
@@ -430,6 +437,12 @@ pub struct BrowserServer {
     /// images vers LUI ou vers quelqu'un en pleine taille, et c'est toute la
     /// différence entre « sa liaison lâche » et « la nôtre ».
     half_dropped: Arc<std::sync::atomic::AtomicU64>,
+    /// Les morceaux de son refusés à un auditeur dont la file était pleine.
+    ///
+    /// Jetés sans compteur jusqu'au 27 novembre 2026 (audit SON-9): le
+    /// relevé des spectateurs ne couvre que l'image, et un trou de son côté
+    /// serveur ne se lisait nulle part.
+    sound_refused: std::sync::atomic::AtomicU64,
     joined: Arc<std::sync::atomic::AtomicBool>,
     wants_key: Arc<std::sync::atomic::AtomicBool>,
     /// Which game a player asked for, if one did, as a position in this
@@ -555,6 +568,7 @@ impl BrowserServer {
         let listeners: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
         let acted: Acted = Arc::new(Mutex::new([None; PORTS]));
+        let arrivals: Arrivals = Arc::new(Mutex::new(Default::default()));
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let arrived = Arc::new(Condvar::new());
         let rumbles: Rumbles = Arc::new(Mutex::new([0; PORTS]));
@@ -590,6 +604,7 @@ impl BrowserServer {
                 let wants_key = Arc::clone(&wants_key);
                 let granted_key = Arc::clone(&granted_key);
                 let inputs = Arc::clone(&incoming);
+                let arrivals = Arc::clone(&arrivals);
                 let acted = Arc::clone(&acted);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
@@ -621,6 +636,7 @@ impl BrowserServer {
                             viewers,
                             listeners,
                             inputs,
+                            arrivals,
                             input_kind,
                             acted,
                             arrived,
@@ -670,12 +686,14 @@ impl BrowserServer {
             listeners,
             arrived,
             incoming,
+            arrivals,
             acted,
             received,
             rumbles,
             address: bound,
             dropped,
             half_dropped,
+            sound_refused: std::sync::atomic::AtomicU64::new(0),
             joined,
             wants_key,
             wants_rom,
@@ -842,7 +860,13 @@ impl BrowserServer {
                     delivered = true;
                     true
                 }
-                Err(TrySendError::Full(_)) => true,
+                // Gardé, et compté: un auditeur en retard veut le présent, pas
+                // une file de passé, mais ce qu'il n'entend pas doit se lire.
+                Err(TrySendError::Full(_)) => {
+                    self.sound_refused
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    true
+                }
                 Err(TrySendError::Disconnected(_)) => false,
             }
         });
@@ -1195,6 +1219,28 @@ impl BrowserServer {
         health_of(&self.half_viewers)
     }
 
+    /// Par spectateur des deux flux, l'attente en file et la durée d'écriture
+    /// depuis le dernier appel, chacun avec le nom de son flux.
+    ///
+    /// Se CONSOMME: chaque appel ouvre une fenêtre neuve, comme les autres
+    /// relevés de dix secondes.
+    #[must_use]
+    pub fn take_writes(&self) -> Vec<(&'static str, stream::ViewerWrites)> {
+        let of = |viewers: &Viewers, name: &'static str| {
+            viewers.lock().map_or_else(
+                |_| Vec::new(),
+                |held| {
+                    held.iter()
+                        .map(|one| (name, one.take_writes()))
+                        .collect::<Vec<_>>()
+                },
+            )
+        };
+        let mut all = of(&self.viewers, "plein");
+        all.extend(of(&self.half_viewers, "demi"));
+        all
+    }
+
     /// Ce que des places ont demandé de brancher depuis la dernière fois.
     ///
     /// Se CONSOMME, contrairement à `pad_wanted`: une demande d'extension est
@@ -1273,7 +1319,7 @@ impl BrowserServer {
         slots
             .iter_mut()
             .filter_map(Option::take)
-            .filter_map(ControllerFrame::dolphin)
+            .filter_map(|unread| unread.latest.dolphin())
             .collect()
     }
 
@@ -1297,6 +1343,16 @@ impl BrowserServer {
     /// Receive the newest state per seat using the room's chosen input format.
     #[must_use]
     pub fn wait_controller_input(&self, timeout: Duration) -> Vec<ControllerFrame> {
+        self.wait_unread(timeout)
+            .into_iter()
+            .map(|unread| unread.latest)
+            .collect()
+    }
+
+    /// Like [`Self::wait_controller_input`], with the buttons each seat
+    /// pressed and released since the last take. See [`Unread`].
+    #[must_use]
+    pub fn wait_unread(&self, timeout: Duration) -> Vec<Unread> {
         let Ok(slots) = self.incoming.lock() else {
             return Vec::new();
         };
@@ -1309,10 +1365,23 @@ impl BrowserServer {
         slots.iter_mut().filter_map(Option::take).collect()
     }
 
+    /// Par place, les écarts entre ses trames depuis le dernier appel.
+    ///
+    /// Se CONSOMME, comme les autres relevés de dix secondes.
+    #[must_use]
+    pub fn take_pad_arrivals(&self) -> [PadArrivals; PORTS] {
+        self.arrivals.lock().map_or_else(
+            |_| [PadArrivals::default(); PORTS],
+            |mut held| held.each_mut().map(pad::Arrivals::take),
+        )
+    }
+
     /// How many pad frames have arrived in total.
     #[must_use]
     pub fn inputs_received(&self) -> u64 {
-        self.received.load(std::sync::atomic::Ordering::Relaxed)
+        // `Acquire`, against the `Release` of `apply_pad`: a frame counted
+        // here is already in its slot.
+        self.received.load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// How many frames a connected client was too slow to take.
@@ -1340,6 +1409,13 @@ impl BrowserServer {
     pub fn half_dropped(&self) -> u64 {
         self.half_dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
+
+    /// Combien de morceaux de son un auditeur trop lent n'a pas pu prendre.
+    #[must_use]
+    pub fn sound_refused(&self) -> u64 {
+        self.sound_refused
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
 }
 
 /// What the connection threads share with the server.
@@ -1357,6 +1433,8 @@ struct Shared {
     viewers: Viewers,
     listeners: Viewers,
     inputs: Pads,
+    /// Voir le champ du même nom sur [`BrowserServer`].
+    arrivals: Arrivals,
     input_kind: InputKind,
     /// Quand chaque place a touché à quelque chose. Voir `decides`.
     acted: Acted,
@@ -3528,6 +3606,113 @@ mod tests {
         );
     }
 
+    /// Des images de 256 Kio, toutes des clés pour qu'aucune resynchronisation
+    /// ne les retienne, à soixante par seconde pendant `pour`.
+    fn big_pictures(server: &BrowserServer, pour: Duration) {
+        let mut picture = vec![0x11_u8; 256 * 1024];
+        picture[..5].copy_from_slice(&[0, 0, 0, 1, 0x65]);
+        let start = std::time::Instant::now();
+        let mut sent = 0_u32;
+        while start.elapsed() < pour {
+            let _ = server.send(&Packet {
+                captured_micros: 0,
+                annex_b: &picture,
+            });
+            sent += 1;
+            let next = start + Duration::from_micros(16_700) * sent;
+            std::thread::sleep(next.saturating_duration_since(std::time::Instant::now()));
+        }
+    }
+
+    /// Lit jusqu'au premier signe de vie vide: la file est alors vide depuis
+    /// une demi-seconde, et tout ce qui était en route est arrivé.
+    fn read_until_quiet(socket: &mut tungstenite::WebSocket<TcpStream>) {
+        while !socket.read().unwrap().is_empty() {}
+    }
+
+    /// Une page qui cesse de lire bloque l'écriture de son fil, et le relevé de
+    /// CE spectateur le dit (audit WK-1, 2026-11-27).
+    #[test]
+    fn a_write_that_blocks_is_measured_for_the_viewer_it_blocked() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let mut socket = watch(server.address());
+        assert!(eventually(|| server.watchers() == 1));
+        // La page ne lit rien pendant une seconde et demie: les tampons du
+        // noyau (quelques mégaoctets) se remplissent, puis l'écriture bloque.
+        big_pictures(&server, Duration::from_millis(1500));
+        // La précondition, lue ailleurs que dans la mesure: une image refusée
+        // veut dire que la file de deux était pleine, donc que le fil ne
+        // l'écrivait plus. Sans elle, une écriture qui n'a jamais bloqué
+        // rendrait l'essai rouge pour une mauvaise raison.
+        assert!(
+            server.dropped() > 0,
+            "no write blocked: the kernel buffers took everything"
+        );
+        read_until_quiet(&mut socket);
+        let writes = server.take_writes();
+        let (stream, one) = writes.first().copied().unwrap();
+        assert_eq!(stream, "plein");
+        let write = one.write.expect("no write duration was measured");
+        assert!(
+            write.max >= 100.0,
+            "a page that stopped reading for 1.5 s cost a write of {} ms",
+            write.max
+        );
+        let wait = one.wait.expect("no queue wait was measured");
+        assert!(
+            wait.max >= 50.0,
+            "a picture queued behind a blocked write waited {} ms",
+            wait.max
+        );
+        // Une fenêtre se vide quand on la lit.
+        assert!(server.take_writes()[0].1.write.is_none());
+    }
+
+    /// Le jumeau: une page qui lit au fil de l'eau n'attend pas et n'écrit pas
+    /// longtemps, et rien n'est refusé.
+    #[test]
+    fn a_viewer_that_keeps_reading_writes_quickly() {
+        let server = Arc::new(
+            BrowserServer::start(
+                "127.0.0.1:0".parse().unwrap(),
+                "page",
+                "[]".into(),
+                no_art(),
+                four(),
+                &nobody(),
+            )
+            .unwrap(),
+        );
+        let mut socket = watch(server.address());
+        assert!(eventually(|| server.watchers() == 1));
+        let reader = std::thread::spawn(move || read_until_quiet(&mut socket));
+        big_pictures(&server, Duration::from_millis(500));
+        reader.join().unwrap();
+        assert_eq!(server.dropped(), 0, "the reading page lost a picture");
+        let writes = server.take_writes();
+        let one = writes[0].1;
+        assert!(
+            one.frames >= 25,
+            "only {} pictures were written",
+            one.frames
+        );
+        let write = one.write.expect("no write duration was measured");
+        assert!(
+            write.max < 50.0,
+            "a reading page cost a write of {} ms",
+            write.max
+        );
+        assert!(one.wait.unwrap().max < 50.0);
+    }
+
     /// A viewer whose thread has ended is forgotten, so the list does not grow
     /// across a session's reconnections.
     #[test]
@@ -3640,6 +3825,38 @@ mod tests {
             "an empty room must not look like congestion"
         );
         assert!(!server.is_watched());
+    }
+
+    /// Un auditeur dont la file ne se vide jamais perd du son, et c'est compté.
+    ///
+    /// Sa file tient deux morceaux: sur cinq offerts, trois sont refusés. Ils
+    /// étaient jetés sans compteur jusqu'au 27 novembre 2026 (audit SON-9).
+    #[test]
+    fn a_listener_that_never_reads_has_its_refused_chunks_counted() {
+        let server = detached(Vec::new());
+        let (sender, _never_read) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        server.listeners.lock().unwrap().push(Viewer::new(sender));
+        for tick in 0..5_u64 {
+            let _ = server.send_sound(tick * 10_000, &[0; 1920]);
+        }
+        assert_eq!(
+            server.sound_refused(),
+            3,
+            "the chunks a full listener could not take were not counted"
+        );
+    }
+
+    /// Le jumeau: un auditeur qui suit ne se voit rien refuser.
+    #[test]
+    fn a_listener_that_keeps_up_has_nothing_refused() {
+        let server = detached(Vec::new());
+        let (sender, read) = sync_channel::<Queued>(OUTGOING_DEPTH);
+        server.listeners.lock().unwrap().push(Viewer::new(sender));
+        for tick in 0..5_u64 {
+            assert!(server.send_sound(tick * 10_000, &[0; 1920]));
+            assert!(read.try_recv().is_ok(), "the chunk reached the listener");
+        }
+        assert_eq!(server.sound_refused(), 0);
     }
 
     #[test]

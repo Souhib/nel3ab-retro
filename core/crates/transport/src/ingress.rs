@@ -1,7 +1,7 @@
 //! Translation to the private virtual controllers. No browser device names or
 //! physical event numbers cross the room's controller protocol.
 use crate::browser::{BrowserServer, ControllerFrame, Packet};
-use crate::edges::Edges;
+use crate::edges::{Edges, Kept};
 use nel3ab_protocol::switch::SwitchFrame;
 use nel3ab_telemetry::{Summary, Timings};
 use std::{
@@ -309,7 +309,76 @@ struct Entry {
     /// `F`, `H` and `A`, in that order. Its own lock, never one of the
     /// server's: dating a packet must not wait on a viewer.
     flows: Mutex<[Flow; 3]>,
+    /// What the pads thread handed to `pads.py`. See [`PadsReport`].
+    pads: Mutex<PadsWindow>,
 }
+
+/// What the pads thread did for one seat since the last report.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SeatPads {
+    /// States handed to `pads.py`, one datagram each.
+    pub sent: u64,
+    /// Of those, the ones identical to the state before for this seat.
+    pub repeated: u64,
+    /// The edges [`Edges`] kept for this seat.
+    pub kept: Kept,
+}
+
+/// What the pads thread handed to `pads.py` since the last report.
+///
+/// Counted before anybody changes the traffic (audit WK-6, ENT-8, 2026-11-27).
+/// The page sends a state every 4 ms, moving or not, and each one goes on to
+/// `pads.py` as JSON. Whether that costs anything was never measured: here is
+/// how many there are, how many repeat the one before, and how long the send
+/// takes. `pads.py` lets a seat go after one second without a state, so the
+/// repeats are not removed until a measure says they cost something.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PadsReport {
+    /// Per seat, in seat order.
+    pub seats: [SeatPads; crate::browser::PORTS],
+    /// Milliseconds spent in `send_to`, every seat together. `None` when
+    /// nothing was sent.
+    pub send: Option<Summary>,
+}
+
+/// The pads window, filled by the pads thread and drained by the report.
+#[derive(Debug)]
+struct PadsWindow {
+    seats: [SeatPads; crate::browser::PORTS],
+    send: Timings,
+}
+impl Default for PadsWindow {
+    fn default() -> Self {
+        // Four thousand: ten seconds of one seat at the page's 4 ms, and room.
+        Self {
+            seats: [SeatPads::default(); crate::browser::PORTS],
+            send: Timings::new(4096),
+        }
+    }
+}
+impl PadsWindow {
+    /// One state handed to `pads.py` for `seat`, in `took`.
+    fn sent(&mut self, seat: usize, repeated: bool, kept: Kept, took: Duration) {
+        if let Some(seat) = self.seats.get_mut(seat) {
+            seat.sent += 1;
+            seat.repeated += u64::from(repeated);
+            seat.kept.rescued += kept.rescued;
+            seat.kept.deferred += kept.deferred;
+        }
+        self.send.observe(took);
+    }
+    /// The window so far, then a new one.
+    fn take(&mut self) -> PadsReport {
+        let report = PadsReport {
+            seats: self.seats,
+            send: (!self.send.is_empty()).then(|| self.send.summary()),
+        };
+        self.seats = [SeatPads::default(); crate::browser::PORTS];
+        self.send.clear();
+        report
+    }
+}
+
 impl Entry {
     /// Dates one packet of `kind`, read in full at `at`.
     fn arrived(&self, kind: u8, at: Instant, captured: u64, payload: &[u8]) {
@@ -325,6 +394,10 @@ impl Entry {
         {
             flow.arrived(at, age, payload.len(), key);
         }
+    }
+    /// The pads window, then a new one.
+    fn pads_report(&self) -> Option<PadsReport> {
+        Some(self.pads.lock().ok()?.take())
     }
     /// The three windows, then new ones.
     fn report(&self) -> Option<IngressReport> {
@@ -441,6 +514,13 @@ impl Ingress {
     pub fn report(&self) -> Option<IngressReport> {
         self.entry.report()
     }
+    /// What the pads thread handed to `pads.py` since the last call.
+    ///
+    /// `None` only when the window's lock was poisoned.
+    #[must_use]
+    pub fn pads_report(&self) -> Option<PadsReport> {
+        self.entry.pads_report()
+    }
     /// Packets refused since the start because another capture fed their stream.
     #[must_use]
     pub fn producers_refused(&self) -> u64 {
@@ -548,13 +628,27 @@ fn pads_thread(
     stopped: Arc<AtomicBool>,
 ) {
     thread::spawn(move || {
-        let tell = |frame: SwitchFrame| {
+        let mut last: [Option<SwitchFrame>; crate::browser::PORTS] = [None; crate::browser::PORTS];
+        let mut tell = |frame: SwitchFrame, kept: Kept| {
             let bytes = command(frame).to_string();
-            match input.send_to(bytes.as_bytes(), &pad_address) {
+            // Read around the send only, outside every lock.
+            let started = Instant::now();
+            let delivered = input.send_to(bytes.as_bytes(), &pad_address);
+            let took = started.elapsed();
+            match delivered {
                 // Counted from the moment the pads could have read
                 // it. A command refused before the helper listens
                 // reached nothing, and no picture answers it.
-                Ok(_) => pressed.reaction.told(frame),
+                Ok(_) => {
+                    pressed.reaction.told(frame);
+                    let seat = frame.slot.index();
+                    let repeated = last
+                        .get_mut(seat)
+                        .is_some_and(|before| before.replace(frame) == Some(frame));
+                    if let Ok(mut window) = pressed.pads.lock() {
+                        window.sent(seat, repeated, kept, took);
+                    }
+                }
                 Err(error) => {
                     tracing::debug!(%error, "Switch virtual pads not yet available");
                 }
@@ -575,13 +669,15 @@ fn pads_thread(
                 if let ControllerFrame::Switch(latest) = unread.latest
                     && let Some(seat) = seats.get_mut(latest.slot.index())
                 {
-                    tell(seat.offer(latest, unread.went_down, unread.went_up, Instant::now()));
+                    let frame =
+                        seat.offer(latest, unread.went_down, unread.went_up, Instant::now());
+                    tell(frame, seat.take_kept());
                 }
             }
             let now = Instant::now();
             for seat in &mut seats {
                 if let Some(frame) = seat.tick(now) {
-                    tell(frame);
+                    tell(frame, seat.take_kept());
                 }
             }
         }
@@ -1538,7 +1634,7 @@ mod tests {
     /// the pads hold A for one picture before they let it go (audit ENT-2).
     #[test]
     fn a_tap_in_one_burst_holds_on_the_pads_for_one_picture() {
-        let (_root, server, _ingress, pads) = switch_room();
+        let (_root, server, ingress, pads) = switch_room();
         let (mut socket, seat) = crate::browser::harness::hold(server.address());
         // As a browser does: without it, Nagle held the second frame behind
         // a delayed acknowledgement, and the two never left together.
@@ -1571,6 +1667,60 @@ mod tests {
             "the held release waited {held:?}, past its time"
         );
         assert!(said.last().is_some_and(|(_, a)| !*a), "A stayed down");
+        // The report says the release was held, whichever way the race went:
+        // both states read together (rescued), or the press read alone first.
+        let kept = ingress.pads_report().unwrap().seats[seat.index()].kept;
+        assert!(kept.deferred >= 1, "the held release was not counted");
+    }
+    /// Every state the page sends goes on to the pads, repeated or not, and
+    /// the report counts both (audit WK-6): what a change of that traffic
+    /// would save is measured before anybody changes it.
+    #[test]
+    fn the_report_counts_what_the_pads_were_sent() {
+        let (_root, server, ingress, pads) = switch_room();
+        let (mut socket, seat) = crate::browser::harness::hold(server.address());
+        socket.get_ref().set_nodelay(true).unwrap();
+        let seat = PlayerSlot::new(seat).unwrap();
+        socket.send(tap(seat, false)).unwrap();
+        let _ = commands(&pads);
+        let _ = ingress.pads_report();
+        let listening = thread::spawn(move || commands(&pads));
+        for _ in 0..10 {
+            socket.send(tap(seat, false)).unwrap();
+            thread::sleep(Duration::from_millis(5));
+        }
+        socket.send(tap(seat, true)).unwrap();
+        thread::sleep(Duration::from_millis(50));
+        socket.send(tap(seat, false)).unwrap();
+        let said = listening.join().unwrap();
+        let report = ingress.pads_report().unwrap();
+        let mine = report.seats[seat.index()];
+        assert_eq!(
+            mine.sent,
+            u64::try_from(said.len()).unwrap(),
+            "the pads were sent {} states and the report counted {}",
+            said.len(),
+            mine.sent
+        );
+        assert!(mine.sent >= 12, "only {} states were sent", mine.sent);
+        assert_eq!(
+            mine.repeated,
+            mine.sent - 2,
+            "only the press and its release changed anything"
+        );
+        assert!(report.send.is_some_and(|send| send.samples >= 12));
+        // The twin: the other seats were sent nothing, and the next window
+        // starts empty rather than at zero milliseconds.
+        assert!(
+            report
+                .seats
+                .iter()
+                .enumerate()
+                .all(|(index, other)| index == seat.index() || other.sent == 0)
+        );
+        let next = ingress.pads_report().unwrap();
+        assert_eq!(next.seats[seat.index()].sent, 0);
+        assert!(next.send.is_none(), "an empty window read as a measure");
     }
     /// The twin: a press held 100 ms is told at once, and let go at its time.
     #[test]

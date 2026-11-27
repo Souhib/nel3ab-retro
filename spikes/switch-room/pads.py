@@ -11,11 +11,13 @@ import os
 import selectors
 import signal
 import socket
+import threading
 import time
 from pathlib import Path
 
 from evdev import AbsInfo, UInput
 from evdev import ecodes as e
+from pad_journal import Journal
 from pad_rumble import send_rumble
 
 ROOT = Path("/run-data")
@@ -121,23 +123,40 @@ def main():
     sock.bind(str(address))
     os.chmod(address, 0o600)
     os.chown(address, uid, uid)
+    stopping = threading.Event()
+
+    def stop(*_):
+        stopping.set()
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    journal = Journal()
+    try:
+        serve(sock, pads, buttons, journal, stopping, str(ROOT / "rumble.sock"))
+    finally:
+        for pad in pads:
+            pad.close()
+        address.unlink(missing_ok=True)
+        journal.close()
+
+
+def serve(sock, pads, buttons, journal, stopping, rumble_address):
+    """Commands from the worker and effects from the emulator, until `stopping`.
+
+    Nothing here waits on Docker: every line goes through `journal`, whose own
+    thread writes it. On 2026-11-26 Smash sent about 107 vibrations a second,
+    each printed with flush=True by this loop, which also applies the buttons
+    (ENT-3, DON-14; test_pads_loop.py).
+    """
     selector = selectors.DefaultSelector()
     selector.register(sock, selectors.EVENT_READ, None)
     for i, pad in enumerate(pads):
         selector.register(pad.fd, selectors.EVENT_READ, i)
     effects = [{} for _ in pads]
-    last = [0.0] * 4
-    active = [False] * 4
+    last = [0.0] * len(pads)
+    active = [False] * len(pads)
     current = [{} for _ in pads]
     rumble_available = True
-    running = True
-
-    def stop(*_):
-        nonlocal running
-        running = False
-
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGINT, stop)
 
     def empty():
         return {
@@ -160,16 +179,16 @@ def main():
         active[i] = False
 
     try:
-        for i in range(4):
+        for i in range(len(pads)):
             neutral(i)
-        while running:
+        while not stopping.is_set():
             for key, _ in selector.select(0.05):
                 if key.data is None:
                     raw = sock.recv(4096)
                     try:
                         command = json.loads(raw)
                         i = command["player"] - 1
-                        if not 0 <= i < 4:
+                        if not 0 <= i < len(pads):
                             raise ValueError("player must be 1..4")
                         desired = empty()
                         for name in command.get("buttons", []):
@@ -196,7 +215,7 @@ def main():
                         active[i] = True
                         last[i] = time.monotonic()
                     except (ValueError, KeyError, TypeError) as error:
-                        print(json.dumps({"invalid": str(error)}), flush=True)
+                        journal.line({"invalid": str(error)})
                 else:
                     i = key.data
                     for event in pads[i].read():
@@ -214,39 +233,36 @@ def main():
                             erase.retval = 0
                             pads[i].end_erase(erase)
                         elif event.type == e.EV_FF:
-                            print(
-                                json.dumps(
-                                    {
-                                        "rumble": i + 1,
-                                        "id": event.code,
-                                        "play": event.value,
-                                        "magnitude": effects[i].get(event.code),
-                                    }
-                                ),
-                                flush=True,
-                            )
                             magnitude = (
                                 max(effects[i].get(event.code, (0, 0))) if event.value else 0
+                            )
+                            # Summed per second, never printed here (pad_journal.py).
+                            journal.rumble(
+                                i + 1,
+                                event.value,
+                                effects[i].get(event.code),
+                                magnitude // 256,
+                                time.monotonic(),
                             )
                             delivered = send_rumble(
                                 sock,
                                 bytes((i + 1, magnitude // 256)),
-                                str(ROOT / "rumble.sock"),
+                                rumble_address,
                             )
                             if delivered != rumble_available:
-                                print(json.dumps({"rumble_available": delivered}), flush=True)
+                                journal.line({"rumble_available": delivered})
                                 rumble_available = delivered
+            journal.tick(time.monotonic())
             # Prototype heartbeat guard, deliberately short enough for scripted
             # tests: measured expiry is checked before this can serve a room.
-            for i in range(4):
+            for i in range(len(pads)):
                 if active[i] and time.monotonic() - last[i] > 1:
                     neutral(i)
-                    print(json.dumps({"neutral": i + 1}), flush=True)
+                    journal.line({"neutral": i + 1})
     finally:
-        for i, pad in enumerate(pads):
+        for i in range(len(pads)):
             neutral(i)
-            pad.close()
-        address.unlink(missing_ok=True)
+        selector.close()
 
 
 if __name__ == "__main__":

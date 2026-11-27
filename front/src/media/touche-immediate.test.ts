@@ -103,6 +103,15 @@ describe("la manette à l'écran", () => {
     expect(boutons()! & BUTTON.A).toBe(0);
   });
 
+  it("envoie la trame d'un stick tactile poussé, puis rendu, sans attendre la pompe", () => {
+    stream.touch.push(1, 0);
+    expect(sent.length, "le stick attend le tour suivant de la pompe").toBe(1);
+    stream.touch.push(0, 0);
+    expect(sent.length, "le stick rendu attend le tour suivant de la pompe").toBe(2);
+    // Le jumeau : le stick poussé et le stick rendu ne partent pas pareil.
+    expect(sent[0]).not.toEqual(sent[1]);
+  });
+
   it("envoie la trame Pro d'un doigt posé sans attendre la pompe", () => {
     Object.assign(stream, { source: stream.switch });
     // Ce que fait le pavé Pro (`SwitchTouchPad`) : il pose la touche, puis

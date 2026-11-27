@@ -216,3 +216,20 @@ it("dit chaque appui et chaque relâché à la boucle d'entrée", () => {
   fireEvent.pointerUp(a, { pointerId: 1 });
   expect(dit).toHaveBeenCalledTimes(2);
 });
+
+// Le jumeau du stick : un pouce posé dans le puits, puis levé, se dit aussi à
+// la boucle. Sans quoi le stick attend le tour suivant de la pompe, et son
+// retour au centre aussi.
+it("dit le stick poussé et le stick rendu à la boucle d'entrée", () => {
+  const source = new SwitchInput();
+  const dit = vi.fn();
+  source.quandChange = dit;
+  const puits = poser(source);
+  fireEvent.pointerDown(puits, { clientX: 75, clientY: 50, pointerId: 1 });
+  expect(source.pushed.get("lx"), "précondition: le stick est poussé").toBeCloseTo(0.5);
+  expect(dit, "le stick poussé n'est pas dit à la boucle").toHaveBeenCalled();
+  const poussé = dit.mock.calls.length;
+  fireEvent.pointerUp(puits, { pointerId: 1 });
+  expect(source.pushed.has("lx"), "précondition: le stick est rendu").toBe(false);
+  expect(dit.mock.calls.length, "le stick rendu n'est pas dit à la boucle").toBeGreaterThan(poussé);
+});

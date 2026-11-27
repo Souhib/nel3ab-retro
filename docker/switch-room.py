@@ -489,14 +489,18 @@ class CaptureRestarts:
     Before the first game picture only the first rule counts: a first launch
     that rebuilds its translation cache shows nothing for 4 minutes (Mario
     Tennis, carnet), and each capture then ends at its 90 s start limit.
-    An exit status other than NOTHING_SHOWN counts as pictures: a doubt never
-    stops a room.
+    Only SHOWN_THEN_FAILED proves a game picture. Any other status is a doubt
+    (docker exec's own failure, a signal, python3's own crash): it breaks a
+    series without arming the second rule, so a doubt never stops a room.
     """
 
-    #: The exit status of a capture that ended before sending any game picture
-    #: (NOTHING_SHOWN in spikes/switch-room/capture.py). python3 itself exits
-    #: 1, 2 or 120, and docker exec 125 to 127: 3 is none of them.
+    #: The exit statuses of a capture that failed before sending any game
+    #: picture, and after sending one (spikes/switch-room/capture.py, which
+    #: holds the same numbers). python3 itself exits 1 on an uncaught exception,
+    #: before any picture too, then 2 or 120; docker exec exits 125 to 127, or
+    #: 128 and a signal number: 3 and 4 are none of them.
     NOTHING_SHOWN = 3
+    SHOWN_THEN_FAILED = 4
 
     def __init__(self) -> None:
         self.starts: list[float] = []
@@ -508,11 +512,13 @@ class CaptureRestarts:
 
         `ended` is how the previous capture ended, None before the first.
         """
-        if ended is not None:
-            if ended != self.NOTHING_SHOWN:
-                self.shown, self.blank = True, 0
-            elif self.shown:
+        if ended == self.SHOWN_THEN_FAILED:
+            self.shown, self.blank = True, 0
+        elif ended == self.NOTHING_SHOWN:
+            if self.shown:
                 self.blank += 1
+        elif ended is not None:
+            self.blank = 0
         self.starts = [at for at in self.starts if now - at < 60]
         if len(self.starts) >= 3:
             return "Capture failed three times in one minute"

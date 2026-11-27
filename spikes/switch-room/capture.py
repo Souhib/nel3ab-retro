@@ -40,10 +40,13 @@ STOP = threading.Event()
 PROCESSES = []
 # Set once a recorder has sent a game picture, the compositor's copy excepted.
 SHOWN = threading.Event()
-# The exit status of a capture that failed before SHOWN: the room counts such
-# failures in a row (CaptureRestarts in docker/switch-room.py, which holds the
-# same number). python3 itself exits 1, 2 or 120, docker exec 125 to 127.
+# The exit statuses of a capture that failed before SHOWN, and after it: the
+# room counts the first in a row once the second was seen (CaptureRestarts in
+# docker/switch-room.py, which holds the same numbers). Not 1: python3 exits 1
+# on an uncaught exception too, before any picture; then 2 or 120. docker exec
+# exits 125 to 127, or 128 and a signal number.
 NOTHING_SHOWN = 3
+SHOWN_THEN_FAILED = 4
 
 
 def environment():
@@ -318,13 +321,13 @@ def main(keys):
 
 
 def exit_status(keys):
-    """0 after a requested stop. After a failure, its traceback, then 1 if a
-    game picture was sent, NOTHING_SHOWN if none was."""
+    """0 after a requested stop. After a failure, its traceback, then
+    SHOWN_THEN_FAILED if a game picture was sent, NOTHING_SHOWN if none was."""
     try:
         main(keys)
     except Exception:
         traceback.print_exc()
-        return 1 if SHOWN.is_set() else NOTHING_SHOWN
+        return SHOWN_THEN_FAILED if SHOWN.is_set() else NOTHING_SHOWN
     return 0
 
 

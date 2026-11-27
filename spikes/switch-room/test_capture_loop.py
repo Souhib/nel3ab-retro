@@ -401,7 +401,7 @@ class Ending(unittest.TestCase):
         def fails(_keys):
             raise RuntimeError("full: no complete packet for 90.0 seconds since it started")
 
-        for shown, expected in ((False, capture.NOTHING_SHOWN), (True, 1)):
+        for shown, expected in ((False, capture.NOTHING_SHOWN), (True, capture.SHOWN_THEN_FAILED)):
             with (
                 self.subTest(shown=shown),
                 patch.object(capture, "SHOWN", threading.Event()),
@@ -422,8 +422,12 @@ class Ending(unittest.TestCase):
         room = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(room)
         self.assertEqual(room.CaptureRestarts.NOTHING_SHOWN, capture.NOTHING_SHOWN)
-        # Neither python3's own statuses nor docker exec's.
-        self.assertNotIn(capture.NOTHING_SHOWN, (0, 1, 2, 120, 125, 126, 127))
+        self.assertEqual(room.CaptureRestarts.SHOWN_THEN_FAILED, capture.SHOWN_THEN_FAILED)
+        # Neither python3's own statuses nor docker exec's, nor each other.
+        for status in (capture.NOTHING_SHOWN, capture.SHOWN_THEN_FAILED):
+            self.assertNotIn(status, (0, 1, 2, 120, 125, 126, 127))
+            self.assertLess(status, 128)
+        self.assertNotEqual(capture.NOTHING_SHOWN, capture.SHOWN_THEN_FAILED)
 
 
 class Worker:

@@ -533,6 +533,7 @@ class CaptureRestarts(unittest.TestCase):
     """CAP-7: the rule « three failures in one minute » never saw a slow loop."""
 
     BLANK = module.CaptureRestarts.NOTHING_SHOWN
+    SHOWN = module.CaptureRestarts.SHOWN_THEN_FAILED
 
     def replay(self, first, endings):
         """The first start, then each (time, exit status) the room saw; the refusal."""
@@ -548,9 +549,9 @@ class CaptureRestarts(unittest.TestCase):
         self.assertEqual(len(FROZEN_2026_11_21), 36)
         gaps = [b - a for a, b in itertools.pairwise(FROZEN_2026_11_21)]
         self.assertTrue(all(31 < gap < 37 for gap in gaps), "two restarts a minute at most")
-        # The first capture had sent the game for a minute: it exits 1. Every
-        # later one sent nothing but the compositor's copy.
-        endings = [(FROZEN_2026_11_21[0], 1)]
+        # The first capture had sent the game for a minute: it exits
+        # SHOWN_THEN_FAILED. Every later one sent nothing but the compositor's copy.
+        endings = [(FROZEN_2026_11_21[0], self.SHOWN)]
         endings += [(at, self.BLANK) for at in FROZEN_2026_11_21[1:]]
         verdict = self.replay(clock("20:37:25"), endings)
         self.assertIsNotNone(verdict, "36 restarts and the rule never fired")
@@ -562,15 +563,15 @@ class CaptureRestarts(unittest.TestCase):
         # launch (carnet). Each capture then ends at its 90 s start limit.
         endings = [(90.5, self.BLANK), (181.0, self.BLANK), (271.5, self.BLANK)]
         # Then pictures, and much later one ordinary failure in the game.
-        endings += [(4000.0, 1)]
+        endings += [(4000.0, self.SHOWN)]
         self.assertIsNone(self.replay(0.0, endings))
 
     def test_the_twin_restarts_with_game_pictures_between_them_are_not_a_loop(self):
-        endings = [(at, 1) for at in (100.0, 200.0, 300.0, 400.0, 500.0)]
+        endings = [(at, self.SHOWN) for at in (100.0, 200.0, 300.0, 400.0, 500.0)]
         self.assertIsNone(self.replay(0.0, endings))
         # Nor blank restarts each separated from the next by pictures.
-        endings = [(100.0, 1), (200.0, self.BLANK), (300.0, 1), (400.0, self.BLANK)]
-        endings += [(500.0, 1), (600.0, self.BLANK)]
+        endings = [(100.0, self.SHOWN), (200.0, self.BLANK), (300.0, self.SHOWN)]
+        endings += [(400.0, self.BLANK), (500.0, self.SHOWN), (600.0, self.BLANK)]
         self.assertIsNone(self.replay(0.0, endings))
 
     def test_a_capture_that_dies_at_once_still_stops_at_its_third_failure_in_a_minute(self):
@@ -579,21 +580,34 @@ class CaptureRestarts(unittest.TestCase):
         # The same three failures spread over more than a minute pass.
         self.assertIsNone(self.replay(0.0, [(30.0, 1), (60.0, 1), (90.0, 1)]))
 
-    def test_an_unknown_ending_counts_as_pictures_so_the_room_is_never_stopped_by_doubt(self):
-        # docker exec's own failures (125 to 127), a signal, an older capture.
+    def test_an_unknown_ending_breaks_a_series_so_the_room_is_never_stopped_by_doubt(self):
+        # docker exec's own failures (125 to 127), a signal, python3's own crash.
         restarts = module.CaptureRestarts()
         self.assertIsNone(restarts.refused(0.0, None))
-        self.assertIsNone(restarts.refused(100.0, 1))
+        self.assertIsNone(restarts.refused(100.0, self.SHOWN))
         for at, status in (
             (200.0, self.BLANK),
             (300.0, 125),
             (400.0, self.BLANK),
             (500.0, -9),
             (600.0, self.BLANK),
+            (700.0, 1),
+            (800.0, self.BLANK),
         ):
             self.assertIsNone(restarts.refused(at, status), status)
         # The twin: two blank endings in a row are still the loop.
-        self.assertIsNotNone(restarts.refused(700.0, self.BLANK))
+        self.assertIsNotNone(restarts.refused(900.0, self.BLANK))
+
+    def test_a_doubt_before_the_first_picture_never_arms_the_loop(self):
+        # A first launch of 4 minutes without a picture (Mario Tennis), whose
+        # first capture ended on a doubt: docker exec's own failure (125), a
+        # signal (137, -9), or python3's own crash before any picture (1).
+        # None of them proves a game picture, so the 90 s restarts go on.
+        for doubt in (1, 125, 137, -9):
+            with self.subTest(doubt=doubt):
+                endings = [(1.0, doubt), (91.5, self.BLANK), (182.0, self.BLANK)]
+                endings += [(272.5, self.BLANK)]
+                self.assertIsNone(self.replay(0.0, endings))
 
 
 class Host(contextlib.ExitStack):
@@ -712,10 +726,11 @@ class ServeRestarts(unittest.TestCase):
     """The wiring: `serve` hands each capture's exit status to CaptureRestarts."""
 
     BLANK = module.CaptureRestarts.NOTHING_SHOWN
+    SHOWN = module.CaptureRestarts.SHOWN_THEN_FAILED
 
     def test_a_frozen_game_is_given_up_at_the_third_failure_without_a_picture(self):
         with (
-            Host(statuses=[1, self.BLANK, self.BLANK]) as host,
+            Host(statuses=[self.SHOWN, self.BLANK, self.BLANK]) as host,
             self.assertRaisesRegex(RuntimeError, "without a game picture"),
         ):
             host.serve()

@@ -730,7 +730,16 @@ boite-noire *args:
 # propriétaire: les adaptateurs des salles externes n'étaient éprouvés par
 # aucune recette de `check`, donc par aucune CI. Ils demandent `/usr/bin/python3`,
 # ni Docker ni carte.
-check: fmt-check lint test control salles-dore moteurs-test front readouts-check contract-check front-check
+check: fmt-check lint test control salles-dore moteurs-test outils-test front readouts-check contract-check front-check
+
+# Les outils de lecture hors ligne qui ont leurs propres essais. Le compteur
+# des compilations d'une partie Switch (`tools/compilations-switch.py`, audit
+# du 27 novembre 2026) lit des fichiers figés : aucun vrai dossier de la salle,
+# donc rien qui manque à la CI. Avant cette recette, aucune porte ne le lançait.
+outils-test:
+    python3 tools/test_compilations_switch.py
+    cd control && uv run ruff check --config pyproject.toml ../tools/compilations-switch.py ../tools/test_compilations_switch.py
+    cd control && uv run ruff format --check --config pyproject.toml ../tools/compilations-switch.py ../tools/test_compilations_switch.py
 
 # Le socle des salles externes et ses modules de moteur (moteurs/README.md).
 #

@@ -12,7 +12,7 @@ import {
   isStarved,
   margeDeLAdresse,
   nextSlack,
-  nextSlackLisse,
+  slackLisse,
   pacingGaveUp,
   roomFor,
   steer,
@@ -367,7 +367,7 @@ export class VideoStream {
    * les mêmes famines et les mêmes jets. C'est elle qui décide le demi-format
    * automatique (`overloaded`) : le propriétaire a demandé que ce basculement
    * garde son comportement sur une liaison lente. La marge en service peut
-   * dépasser celle-ci de trente millisecondes au plus (`nextSlackLisse`) ;
+   * dépasser celle-ci jusqu'à `CATCHUP_SLACK_MAX` au plus (`slackLisse`) ;
    * juger le plafond sur elle avançait le basculement de 16 s à 6 Mbit/s,
    * en simulation (`marge.test.ts`). */
   private slackAvant = SLACK_START;
@@ -1249,10 +1249,16 @@ export class VideoStream {
     const caughtUp = this.caughtUp - this.caughtUpSeen;
     this.overflowedSeen = this.overflowed;
     this.caughtUpSeen = this.caughtUp;
+    // La règle d'avant, d'après les mêmes famines et les mêmes jets. Elle
+    // décide le demi-format (`slackAvant`), et la nouvelle ne la dépasse que
+    // jusqu'à `CATCHUP_SLACK_MAX` (`slackLisse`). Sous `?marge=ancienne`, les
+    // deux marges restent égales : elles partent du même départ et suivent la
+    // même règle.
+    const avant = nextSlack(this.slackAvant, this.starvedRecent, overflowed + caughtUp);
     const grown =
       this.marge === "ancienne"
         ? nextSlack(this.slackMs, this.starvedRecent, overflowed + caughtUp)
-        : nextSlackLisse(this.slackMs, this.starvedRecent, overflowed, caughtUp);
+        : slackLisse(this.slackMs, avant, this.starvedRecent, overflowed, caughtUp);
     if (grown > this.slackMs) {
       // Appliquée d'un coup à l'horaire: la faire gagner cinq millisecondes
       // toutes les deux secondes laisserait la page affamée pendant la montée.
@@ -1262,10 +1268,7 @@ export class VideoStream {
     // pouvait. Compté APRÈS l'avoir posée: on juge ce qu'on vient de décider,
     // pas ce qu'on avait décidé la fois d'avant. Sur la règle d'avant, voir
     // `slackAvant`.
-    this.slackAvant =
-      this.marge === "ancienne"
-        ? grown
-        : nextSlack(this.slackAvant, this.starvedRecent, overflowed + caughtUp);
+    this.slackAvant = avant;
     this.atCeiling = stuckAtCeiling(this.atCeiling, this.slackAvant);
     this.slackMs = grown;
     this.starvedRecent = 0;

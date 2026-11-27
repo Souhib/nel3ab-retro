@@ -156,6 +156,32 @@ export function nextSlackLisse(
   return current;
 }
 
+/**
+ * La marge en service sous la nouvelle règle : `nextSlackLisse`, bornée par
+ * ce que la règle d'avant aurait posé d'après les mêmes fenêtres (`avant`),
+ * plus le plafond du rattrapage.
+ *
+ * Sans cette borne, la correction dépassait son plafond par un détour : une
+ * marge montée à 36 ms absorbe une rafale, la fenêtre suivante n'a plus aucun
+ * jet, et la règle d'avant y ajoutait 8 ms. La simulation des rafales de
+ * `marge.test.ts` montait ainsi à 44 ms une fois les images en retard montrées
+ * (VID-6). La marge en service ne dépasse donc jamais la plus grande des deux :
+ * ce que la règle d'avant aurait posé, ou trente millisecondes au-dessus du
+ * départ.
+ */
+export function slackLisse(
+  current: number,
+  avant: number,
+  starved: number,
+  overflowed: number,
+  caughtUp: number,
+): number {
+  return Math.min(
+    nextSlackLisse(current, starved, overflowed, caughtUp),
+    Math.max(avant, CATCHUP_SLACK_MAX),
+  );
+}
+
 /** Le moins d'images que la file garde, quoi qu'il arrive. */
 export const QUEUE_FLOOR = 8;
 /** Le plus. Vingt-quatre images décodées de 1216x896 tiennent dans une

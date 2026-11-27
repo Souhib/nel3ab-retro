@@ -12,6 +12,7 @@ import {
   margeDeLAdresse,
   nextSlack,
   nextSlackLisse,
+  slackLisse,
   pacingGaveUp,
   percentile,
   roomFor,
@@ -243,5 +244,36 @@ describe("la marge que l'adresse demande", () => {
     expect(margeDeLAdresse("?marge=Ancienne")).toBe("lisse");
     expect(margeDeLAdresse("?marge=lisse")).toBe("lisse");
     expect(margeDeLAdresse("?entrer=jouer")).toBe("lisse");
+  });
+});
+
+describe("la marge lisse, bornée par la règle d'avant", () => {
+  it("ne prend pas les 8 ms de la règle d'avant au-dessus du plafond du rattrapage", () => {
+    // Une fenêtre sans aucun jet, affamée, à 36 ms : la règle d'avant
+    // ajouterait 8 ms, alors qu'elle-même n'aurait posé que 12 ms.
+    expect(slackLisse(CATCHUP_SLACK_MAX, 12, 9, 0, 0)).toBe(CATCHUP_SLACK_MAX);
+  });
+
+  // Le jumeau : quand la règle d'avant monte d'elle-même, sur un lien trop
+  // étroit, la nouvelle la suit jusqu'au plafond `SLACK_CEILING`.
+  it("suit la règle d'avant quand elle-même dépasse ce plafond", () => {
+    expect(slackLisse(100, 108, 9, 0, 0)).toBe(108);
+    expect(slackLisse(SLACK_CEILING - 2, SLACK_CEILING, 9, 0, 0)).toBe(SLACK_CEILING);
+  });
+
+  it("ne dépasse jamais la plus grande de la règle d'avant et du plafond du rattrapage", () => {
+    for (let current = SLACK_FLOOR; current <= SLACK_CEILING; current += 1)
+      for (let avant = SLACK_FLOOR; avant <= SLACK_CEILING; avant += 7)
+        for (const starved of [0, 1, 2, 9])
+          for (const [overflowed, caughtUp] of [
+            [0, 0],
+            [0, 4],
+            [1, 0],
+            [1, 4],
+          ])
+            expect(
+              slackLisse(current, avant, starved, overflowed, caughtUp),
+              `${current} ${avant} ${starved} ${overflowed} ${caughtUp}`,
+            ).toBeLessThanOrEqual(Math.max(avant, CATCHUP_SLACK_MAX));
   });
 });

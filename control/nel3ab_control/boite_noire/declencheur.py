@@ -104,6 +104,12 @@ propre première fenêtre où elle voit le jeu tourner, comprise, pourvu qu'elle
 vienne dans les trente secondes (`fenetre`) après celle qui a fermé le démarrage
 de la salle. Une page arrivée plus tard en pleine partie n'a pas de chargement.
 
+Le trou du chargement reste aussi parmi les six cents derniers écarts de la page:
+à 30 images par seconde, comme Zelda sur Switch 2, ils couvrent vingt secondes, et
+la fenêtre qui suit la première image a encore ce trou pour pire. Elle reste donc
+un démarrage quand son pire est le même trou (`_meme_trou`), et ce démarrage n'est
+écrit qu'une fois.
+
 Ce que ça coûte: un vrai gel dans la première fenêtre d'images de chaque page n'est
 plus capturé. Et une fenêtre qui commence avant un `changement` porte encore des
 images de l'ancien jeu: elle ne met pas fin au démarrage, même si elle a une cadence.
@@ -252,7 +258,8 @@ class Declencheur:
         #: de la vie du service, quelques dizaines par soirée: rien à balayer.
         self._salle_de: dict[str, int | None] = {}
         self._rang = 0
-        #: Les mesures de démarrage déjà rendues, pour ne les écrire qu'une fois.
+        #: Les trous de démarrage déjà rendus, par le rang qui les a commencés, pour
+        #: n'écrire qu'une fois celui qui reste dans plusieurs fenêtres.
         self._demarrages_dits: set[int] = set()
         #: La dernière mesure de chaque visite, que la suivante peut continuer.
         self._derniere_de: dict[str, _Mesure] = {}
@@ -306,6 +313,10 @@ class Declencheur:
         precedente = self._derniere_de.get(visite)
         if precedente is not None and self._meme_gel(precedente, mesure):
             mesure = replace(mesure, suite=precedente.suite)
+            # Le trou du chargement, encore parmi les six cents derniers écarts de la
+            # page: un jeu à 30 images par seconde le garde vingt secondes.
+            if precedente.demarrage and self._meme_trou(precedente, mesure):
+                mesure = replace(mesure, demarrage=True)
         self._derniere_de[visite] = mesure
         self._mesures.setdefault(numero, deque()).append(mesure)
 
@@ -328,10 +339,14 @@ class Declencheur:
             and (apres.pire or 0) >= avant.attente
         ):
             return True
-        # Le même trou, encore parmi les six cents derniers écarts de la page.
+        return self._meme_trou(avant, apres)
+
+    def _meme_trou(self, avant: _Mesure, apres: _Mesure) -> bool:
+        """Vrai si le pire de `apres` est le même trou, encore parmi les six cents
+        derniers écarts de la page."""
         return (
             avant.pire is not None
-            and avant.pire >= seuil
+            and avant.pire >= self._seuil_gel
             and apres.pire == avant.pire
             and (apres.vues is None or apres.vues < ECARTS_GARDES)
         )
@@ -456,8 +471,9 @@ class Declencheur:
             if derniere.quand < limite:
                 del self._derniere_de[visite]
         vivantes = [m for mesures in self._mesures.values() for m in mesures]
-        self._demarrages_dits &= {m.rang for m in vivantes}
-        self._gels_pris &= {m.suite for m in [*vivantes, *self._derniere_de.values()]}
+        suites = {m.suite for m in [*vivantes, *self._derniere_de.values()]}
+        self._demarrages_dits &= suites
+        self._gels_pris &= suites
         return chutes
 
     def _demarrage_a_dire(self, numero: int | None, mesures: deque[_Mesure]) -> Chute | None:
@@ -468,11 +484,11 @@ class Declencheur:
         nouvelles = [
             m
             for m in mesures
-            if m.demarrage and m.gel_ms >= self._seuil_gel and m.rang not in self._demarrages_dits
+            if m.demarrage and m.gel_ms >= self._seuil_gel and m.suite not in self._demarrages_dits
         ]
         if not nouvelles:
             return None
-        self._demarrages_dits.update(m.rang for m in nouvelles)
+        self._demarrages_dits.update(m.suite for m in nouvelles)
         return Chute(
             salle=numero,
             mediane=_mediane(nouvelles),

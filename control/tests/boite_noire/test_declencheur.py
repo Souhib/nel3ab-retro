@@ -716,6 +716,47 @@ def test_une_page_arrivee_en_pleine_partie_n_a_pas_de_demarrage() -> None:
     ]
 
 
+def test_un_chargement_qui_reste_dans_les_arrivees_reste_un_demarrage() -> None:
+    """Un jeu à 30 images par seconde, comme Zelda sur Switch 2: six cents écarts
+    couvrent vingt secondes, et le trou du chargement reste le pire de la fenêtre
+    suivante. Pris pour un gel, il faisait une capture de 33 s et ouvrait la pause
+    d'une minute, qui taisait le vrai gel de 700 ms de la quatrième fenêtre."""
+    lignes = [
+        _fenetre(0, 0, 0, vues=1, jeu=ZELDA),
+        _fenetre(40, 30, 33386, attente=20, vues=150, jeu=ZELDA),
+        _fenetre(50, 30, 33386, attente=20, vues=300, jeu=ZELDA),
+        _fenetre(60, 30, 40, attente=20, vues=300, jeu=ZELDA),
+        _fenetre(70, 30, 700, attente=20, vues=300, jeu=ZELDA),
+    ]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(plafonds={ZELDA: 30.0}), lignes, 80)
+
+    assert [(seconde, chute.cause, chute.gel_ms) for seconde, chute in chutes] == [
+        (40.0, "démarrage", 33386.0),
+        (70.0, "gel", 700.0),
+    ]
+
+
+def test_un_meme_pire_apres_six_cents_images_n_est_plus_le_chargement() -> None:
+    """Le jumeau: la fenêtre suivante a reçu six cents images, qui ont remplacé tous
+    les écarts de la page. Le même pire est alors un nouveau trou, et un gel: c'est
+    le nombre d'images qui fait le lien, pas la valeur seule."""
+    # L'attente de 691 ms de la fenêtre de 00:33:13 lie aussi les deux fenêtres: c'est
+    # bien la règle des six cents écarts qui dit que le trou n'est plus le même.
+    lignes = [
+        _fenetre(0, 0, 0, vues=1),
+        _fenetre(40, 60, 33386, attente=691, vues=150),
+        _fenetre(50, 60, 33386, attente=20, vues=600),
+    ]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 60)
+
+    assert [(seconde, chute.cause, chute.gel_ms) for seconde, chute in chutes] == [
+        (40.0, "démarrage", 33386.0),
+        (50.0, "gel", 33386.0),
+    ]
+
+
 def _avec_visite(ligne: dict[str, Any], secondes: float, visite: str) -> dict[str, Any]:
     """La même fenêtre, vue par une autre page, quelques secondes plus tard."""
     quand = datetime.fromisoformat(ligne["quand"]) + timedelta(seconds=secondes)

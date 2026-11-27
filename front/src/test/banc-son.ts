@@ -22,7 +22,14 @@ const RATE = 48_000;
 
 /** Un morceau posé : quand il commence, combien il dure, et ses premiers
  * échantillons du canal gauche (pour voir un fondu). */
-export type Pose = { at: number; duree: number; debut: number[]; fin: number[] };
+export type Pose = {
+  at: number;
+  /** L'horloge de la carte quand le morceau a été posé. */
+  maintenant: number;
+  duree: number;
+  debut: number[];
+  fin: number[];
+};
 
 export function doubluresSon() {
   const etat: {
@@ -61,6 +68,7 @@ export function doubluresSon() {
             const gauche = source.buffer?.getChannelData(0) ?? new Float32Array(0);
             etat.poses.push({
               at,
+              maintenant: etat.contexte?.currentTime ?? 0,
               duree: source.buffer?.duration ?? 0,
               debut: [...gauche.slice(0, 4)],
               fin: [...gauche.slice(-4)],

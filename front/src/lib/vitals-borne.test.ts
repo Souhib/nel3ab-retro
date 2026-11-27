@@ -156,6 +156,7 @@ function toutMesure(): Snapshot {
       gaps: 1,
       playedSeconds: 1,
       leadMs: 1,
+      renduMs: 1,
       sampleRate: 1,
       outputMs: 1,
       browserMs: 1,

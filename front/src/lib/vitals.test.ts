@@ -74,6 +74,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       gaps: 0,
       playedSeconds: 0,
       leadMs: 90,
+      renduMs: 0,
       sampleRate: 48000,
       outputMs: 10,
       browserMs: 20,
@@ -282,6 +283,14 @@ describe("le son tel qu'il est entendu (SON-4)", () => {
     const sample = vitals(snap(), null, 10_000, undefined, true, fenetre);
 
     expect(sample.son.file, "le relevé ne dit pas la file réelle du son").toEqual([12, 35, 36]);
+  });
+
+  it("écrit le son rendu pendant la fenêtre, en millisecondes (SON-1)", () => {
+    const before = snap({}, { sound: { ...snap().sound, renduMs: 1200.4 } });
+    const now = snap({}, { sound: { ...snap().sound, renduMs: 1504.6 } });
+    expect(vitals(now, before, 10_000).son.rendu, "le relevé ne dit pas le son rendu").toBe(304);
+    // Le jumeau : rien de rendu, zéro (un compteur, mesuré à chaque morceau).
+    expect(vitals(now, now, 10_000).son.rendu).toBe(0);
   });
 
   it("écrit l'écart du son sur l'image, et le calage quand l'option est allumée", () => {

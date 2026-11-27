@@ -11,6 +11,7 @@ This is still after the emulator renders, not a controller-to-pixel clock.
 import contextlib
 import json
 import os
+import select
 import signal
 import socket
 import struct
@@ -21,7 +22,7 @@ import time
 import traceback
 from pathlib import Path
 
-from capture_audio import chunks
+from capture_audio import WAKE, chunks
 from capture_control import exclusive
 from capture_demand import OnDemand
 from capture_health import FAIL_AFTER, Progress
@@ -139,17 +140,27 @@ def video(half, keys, stopped=STOP, progress=None):
     gaps = []
     last_frame = None
     fd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+    ready = select.poll()
+    ready.register(fd, select.POLLIN)
     try:
         with os.fdopen(fd, "rb", buffering=0) as source, connect() as target:
             while not STOP.is_set() and not stopped.is_set():
-                data = source.read(65536)
+                # Woken as soon as the recorder writes: the 5 ms sleep this
+                # replaces made each picture wait 2.6 ms in median (CAP-5,
+                # test_capture_loop.py). Before the recorder opens the FIFO,
+                # poll waits WAKE, so a stop and the checks below still come.
+                data = source.read(65536) if ready.poll(WAKE * 1000) else None
                 if not data:
                     if progress.check():
                         print(json.dumps({"capture_quiet": "half" if half else "full"}), flush=True)
                     if process.poll() is not None:
                         packets.finish()
                         raise RuntimeError(f"encoder exited: {process.returncode}")
-                    stopped.wait(0.005)
+                    if data == b"":
+                        # The writer has closed the FIFO: poll now returns at once
+                        # (POLLHUP) and every read gives b"". Wait for its exit
+                        # here rather than turn without end.
+                        stopped.wait(WAKE)
                     continue
                 for captured, payload in packets.feed(data):
                     now = time.monotonic()

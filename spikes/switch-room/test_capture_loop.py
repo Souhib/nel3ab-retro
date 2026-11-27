@@ -16,6 +16,7 @@ import importlib.util
 import io
 import json
 import os
+import random
 import socket
 import struct
 import sys
@@ -292,6 +293,81 @@ class Loop(unittest.TestCase):
             sent = [captured for _k, captured, _p, _at in room.media.pictures()]
             self.assertEqual(sent, [written[1]["wrote"] // 1000])
             self.assertEqual(self.key_requests(room), b"K")
+
+
+def median(values):
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2]
+
+
+class Waking(unittest.TestCase):
+    """CAP-5: the loop slept 5 ms on an empty FIFO, so a packet waited up to 5 ms.
+
+    Measured on 2026-11-27 by the audit with the sound module, A B A B on an
+    idle machine: median 2.17 to 2.64 ms with the sleep, 0.01 to 0.07 ms with
+    select. The median is judged, not a high percentile, so that a loaded
+    machine does not make the test lie.
+    """
+
+    def test_a_packet_reaches_the_worker_within_half_a_millisecond_in_median(self):
+        rng = random.Random(20261127)  # noqa: S311 -- packet timing, not a secret
+        steps = [{"open": 1}, {"packet": "idr"}, {"packet": "idr"}]
+        for _ in range(80):
+            steps += [{"sleep": rng.uniform(0.004, 0.016)}, {"packet": "p"}]
+        with Room(steps) as room:
+            room.run()
+            room.wait_for(lambda: len(room.media.pictures()) == 81, 10, "81 pictures arrived")
+            wrote = {line["wrote"] // 1000: line["wrote"] for line in room.written()}
+            delays = [
+                (arrived - wrote[captured]) / 1e6
+                for _kind, captured, _payload, arrived in room.media.pictures()
+            ]
+        self.assertLess(median(delays), 0.5, f"median {median(delays):.2f} ms")
+
+    def test_a_key_frame_larger_than_the_pipe_does_not_hold_the_recorder(self):
+        # wf-recorder writes with a blocking ofstream: a packet above the 64 KiB
+        # of the pipe waits for the reader (wf-recorder-packets.patch).
+        steps = [{"open": 1}, {"packet": "idr"}, {"packet": "idr"}]
+        for _ in range(10):
+            steps += [{"sleep": 0.02}, {"packet": "idr", "size": 200 * 1024}]
+        with Room(steps) as room:
+            room.run()
+            room.wait_for(lambda: len(room.media.pictures()) == 11, 10, "11 pictures arrived")
+            held = [(line["done"] - line["wrote"]) / 1e6 for line in room.written()[2:]]
+        self.assertLess(median(held), 5.0, f"held {[round(h, 2) for h in held]} ms")
+
+    def counted(self):
+        class Counted(Progress):
+            calls = 0
+
+            def check(self):
+                Counted.calls += 1
+                return super().check() or Counted.calls == 1
+
+        return Counted
+
+    def test_a_writer_gone_ends_the_loop_on_its_exit_without_turning_in_place(self):
+        # After close, poll returns at once (POLLHUP) and every read gives b"".
+        steps = [{"open": 1}, {"packet": "idr"}, {"close": 1}, {"sleep": 0.5}, {"exit": 1}]
+        counted = self.counted()
+        with Room(steps) as room, contextlib.redirect_stdout(io.StringIO()):
+            room.run(counted())
+            room.thread.join(timeout=5)
+            self.assertIsInstance(room.error, RuntimeError)
+            self.assertIn("encoder exited: 1", str(room.error))
+        self.assertLess(counted.calls, 30, "checks while the writer was gone")
+
+    def test_the_twin_a_fifo_never_opened_is_still_announced_quiet(self):
+        counted = self.counted()
+        with Room([{"sleep": 30}]) as room, contextlib.redirect_stdout(io.StringIO()) as out:
+            room.run(counted())
+            time.sleep(0.5)
+            room.stopped.set()
+            room.thread.join(timeout=5)
+            self.assertIsNone(room.error)
+        self.assertIn('{"capture_quiet": "full"}', out.getvalue())
+        self.assertGreaterEqual(counted.calls, 3, "the loop kept checking without a writer")
+        self.assertLess(counted.calls, 30)
 
 
 class Ending(unittest.TestCase):

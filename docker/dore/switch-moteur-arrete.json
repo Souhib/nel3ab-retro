@@ -242,6 +242,7 @@
    "argv": [
     "docker",
     "logs",
+    "--timestamps",
     "nel3ab-switch-room-switch-k3y9q2xw"
    ]
   },

@@ -656,32 +656,44 @@ fn pads_thread(
         };
         let mut seats: [Edges; crate::browser::PORTS] = Default::default();
         while !stopped.load(Ordering::Relaxed) {
-            // Woken for a held edge at its time, not at the next frame:
-            // the page may have nothing more to send (audit ENT-2).
-            let now = Instant::now();
-            let wait = seats
-                .iter()
-                .filter_map(Edges::due)
-                .min()
-                .map_or(IDLE_WAIT, |due| due.saturating_duration_since(now))
-                .min(IDLE_WAIT);
-            for unread in output.wait_unread(wait) {
-                if let ControllerFrame::Switch(latest) = unread.latest
-                    && let Some(seat) = seats.get_mut(latest.slot.index())
-                {
-                    let frame =
-                        seat.offer(latest, unread.went_down, unread.went_up, Instant::now());
-                    tell(frame, seat.take_kept());
-                }
-            }
-            let now = Instant::now();
-            for seat in &mut seats {
-                if let Some(frame) = seat.tick(now) {
-                    tell(frame, seat.take_kept());
-                }
-            }
+            pads_step(&output, &mut seats, &mut tell);
         }
     });
+}
+/// One turn of the pads thread: wait for a state or a held edge's time, hand
+/// each seat's newest state to [`Edges`] with the buttons its slot saw move,
+/// then tell what a held edge owes.
+///
+/// Apart from the thread so a test can turn it once, with states already in
+/// the slots: the thread itself races the page for them.
+fn pads_step(
+    output: &BrowserServer,
+    seats: &mut [Edges; crate::browser::PORTS],
+    tell: &mut impl FnMut(SwitchFrame, Kept),
+) {
+    // Woken for a held edge at its time, not at the next frame:
+    // the page may have nothing more to send (audit ENT-2).
+    let now = Instant::now();
+    let wait = seats
+        .iter()
+        .filter_map(Edges::due)
+        .min()
+        .map_or(IDLE_WAIT, |due| due.saturating_duration_since(now))
+        .min(IDLE_WAIT);
+    for unread in output.wait_unread(wait) {
+        if let ControllerFrame::Switch(latest) = unread.latest
+            && let Some(seat) = seats.get_mut(latest.slot.index())
+        {
+            let frame = seat.offer(latest, unread.went_down, unread.went_up, Instant::now());
+            tell(frame, seat.take_kept());
+        }
+    }
+    let now = Instant::now();
+    for seat in seats.iter_mut() {
+        if let Some(frame) = seat.tick(now) {
+            tell(frame, seat.take_kept());
+        }
+    }
 }
 fn read(stream: &mut UnixStream, mut bytes: &mut [u8], stop: &AtomicBool) -> io::Result<()> {
     while !bytes.is_empty() {
@@ -1747,6 +1759,49 @@ mod tests {
         let next = ingress.pads_report().unwrap();
         assert_eq!(next.seats[seat.index()].sent, 0);
         assert!(next.send.is_none(), "an empty window read as a measure");
+    }
+    /// A press and its release both in the slot before the pads thread takes
+    /// them: one turn tells the press, and holds the release (audit ENT-2).
+    /// The burst test above races the thread's wake-up and mostly reads the
+    /// press alone: with the slot's masks dropped from this call, it passed
+    /// two runs in three (relecture du 2026-11-27).
+    #[test]
+    fn one_turn_tells_a_press_its_release_hid_in_the_slot() {
+        let server = BrowserServer::start_with_input(
+            ([127, 0, 0, 1], 0).into(),
+            "",
+            Arc::from("[]"),
+            Arc::from([]),
+            PlayerSlot::new(4).unwrap(),
+            &Arc::new(std::sync::Mutex::new(None)),
+            crate::browser::InputKind::Switch,
+        )
+        .unwrap();
+        let (mut socket, seat) = crate::browser::harness::hold(server.address());
+        let seat = PlayerSlot::new(seat).unwrap();
+        // Nobody takes the slots here: no ingress, no thread. The arrival's
+        // own state is taken first, so the burst is all that is left.
+        let _ = server.wait_unread(Duration::from_millis(100));
+        let before = server.inputs_received();
+        socket.send(tap(seat, true)).unwrap();
+        socket.send(tap(seat, false)).unwrap();
+        wait_for(|| server.inputs_received() == before + 2);
+        let mut seats: [Edges; crate::browser::PORTS] = Default::default();
+        let mut said = Vec::new();
+        pads_step(&server, &mut seats, &mut |frame, kept| {
+            said.push((frame, kept));
+        });
+        assert_eq!(said.len(), 1, "one state per seat and turn: {said:?}");
+        assert_eq!(
+            said[0].0.buttons.bits() & 1,
+            1,
+            "the press hidden behind its release never reached the pads"
+        );
+        assert_eq!(said[0].1.rescued, 1, "the rescued press was not counted");
+        assert!(
+            seats[seat.index()].due().is_some(),
+            "the release is not held for its time"
+        );
     }
     /// The twin: a press held 100 ms is told at once, and let go at its time.
     #[test]

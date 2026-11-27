@@ -56,8 +56,12 @@ cents derniers écarts (`video.ts`): quand elle reçoit peu d'images, le même t
 reste le pire de plusieurs fenêtres. Et pendant un gel qui dure, la page écrit
 une attente qui grandit de dix secondes par fenêtre. Une fenêtre continue donc le
 gel de la fenêtre d'avant de la même page, à trente secondes au plus, quand elle
-n'a reçu aucune image, quand son pire couvre l'attente qui courait, ou quand son
-pire est le même avec moins de six cents images reçues.
+n'a reçu aucune image alors que l'attente courait déjà, quand son pire couvre
+l'attente qui courait, ou quand son pire est le même avec moins de six cents
+images reçues. Une image qui fige après un trou fini est un autre gel: liée au
+trou, elle n'avait jamais de capture, là où la pause de cinq minutes d'avant lui
+en donnait une à la sixième (rejoué le 27 novembre 2026 sur le déclencheur de
+`main`).
 
 # La portée d'un gel: la salle, ou une page
 
@@ -329,8 +333,10 @@ class Declencheur:
             or apres.quand - avant.quand > self._fenetre
         ):
             return False
-        # Aucune image depuis: c'est la même attente qui continue.
-        if apres.vues == 0:
+        # Aucune image depuis une attente qui courait déjà: elle continue. Une
+        # attente courte à la fin de `avant` dit que l'image était revenue après
+        # son trou: une fenêtre sans image est alors un AUTRE gel.
+        if apres.vues == 0 and avant.attente is not None and avant.attente >= seuil:
             return True
         # L'attente qui courait a fini dans cette fenêtre, par un trou au moins aussi long.
         if (

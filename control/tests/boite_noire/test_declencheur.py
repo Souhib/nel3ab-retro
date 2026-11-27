@@ -261,6 +261,23 @@ def test_un_long_gel_qui_dure_ne_donne_qu_une_capture() -> None:
     assert [(seconde, chute.gel_ms) for seconde, chute in chutes] == [(0.0, 3000.0)]
 
 
+def test_une_image_qui_fige_apres_un_trou_capture_est_un_autre_gel() -> None:
+    """Un trou de 900 ms, l'image qui revient, puis plus aucune image: le gel de Sonic
+    du 21 novembre 2026, précédé d'un hoquet. La fenêtre sans image ne continue pas le
+    trou d'avant, puisque l'image était revenue (attente de 10 ms). Liée au hoquet
+    déjà capturé, l'image figée n'avait jamais de capture; avec la pause de cinq
+    minutes d'avant, elle en avait une à la sixième. Elle a la sienne quand la
+    minute de pause du hoquet finit, et une seule."""
+    lignes = [_fenetre(0, 60, 900, attente=10, vues=590)]
+    lignes += [
+        _fenetre(10 * rang, 0, 0, attente=10_000 * rang - 1_000, vues=0) for rang in range(1, 33)
+    ]
+
+    chutes = _rejouer_toutes_les_deux_secondes(Declencheur(), lignes, 320)
+
+    assert [(seconde, chute.gel_ms) for seconde, chute in chutes] == [(0.0, 900.0), (60.0, 59000.0)]
+
+
 def test_deux_gels_distincts_a_plus_d_une_minute_font_deux_captures() -> None:
     """Le jumeau des deux précédents: des fenêtres saines entre les deux trous, qui ne
     se ressemblent pas, et deux captures."""

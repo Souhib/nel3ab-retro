@@ -107,6 +107,17 @@ export type Vitals = {
   /** La règle de marge en service : la nouvelle (« lisse »), ou l'ancienne
    * demandée par `?marge=ancienne` pour une comparaison à l'aveugle. */
   marge: Marge;
+  /** Le plus long intervalle entre deux images d'écran, onglet visible, en
+   * millisecondes : un fil principal bloqué se lit ici. Nul sans mesure. */
+  écranMax: number | null;
+  /** Les écarts d'arrivée de la fenêtre : combien dépassent 100 ms, le plus
+   * grand, et quand il s'est fini, en millisecondes AVANT le relevé (négatif).
+   * Le salon date la ligne à sa réception : la boîte noire et le journal du
+   * worker se recoupent par là. Nul sans deux arrivées. */
+  écarts: { plus100: number; pire: number; à: number } | null;
+  /** L'attente d'une image décodée dans la file avant d'être peinte : p50,
+   * p95, en millisecondes. Nul sans image peinte. */
+  séjour: [number, number] | null;
   /** Fois où la file s'est vidée, et où il a fallu redemander une image clé. */
   affamées: number;
   clés: number;
@@ -164,6 +175,14 @@ export type Vitals = {
     /** L'aller-retour d'une trame jusqu'à la salle, médiane des trente
      * derniers. Nul veut dire « pas encore mesuré », jamais « zéro ». */
     allerRetour: number | null;
+    /** La queue des aller-retours de la fenêtre : p95 et max, en ms. La
+     * médiane ci-dessus ne voit pas deux retours lents sur vingt. Nul sans
+     * retour. */
+    retour: [number, number] | null;
+    /** Le plus long écart entre deux tours de la pompe des manettes, onglet
+     * visible, en ms. Elle tourne toutes les 4 ms sur le fil principal : un
+     * fil bloqué se lit ici. Nul sans mesure. */
+    pompe: number | null;
     /** Le nom que le navigateur donne à la manette qui joue, coupé à
      * `PAD_NAME_MAX`. Nul sans manette: clavier ou écran tactile. */
     modèle: string | null;
@@ -215,6 +234,16 @@ function since(now: number, before: number): number {
   return Math.max(0, now - before);
 }
 
+/** Les écarts d'arrivée de la fenêtre, l'instant du pire compté AVANT le
+ * relevé. Un `0 - x` plutôt que `-x` : `-0` traverserait le JSON en zéro
+ * négatif (`touch.ts`). */
+function ecartsDe(fenetre: Fenetre | null | undefined): Vitals["écarts"] {
+  const ecarts = fenetre?.video.ecarts ?? null;
+  return ecarts === null
+    ? null
+    : { plus100: ecarts.plus100, pire: ecarts.pireMs, à: 0 - ecarts.ilYaMs };
+}
+
 /**
  * Le relevé d'une fenêtre.
  *
@@ -245,6 +274,9 @@ export function vitals(
     débordées: since(video.overflowed, was?.overflowed ?? 0),
     arrêt: fenetre?.video.arretMs ?? null,
     marge: video.marge,
+    écranMax: fenetre?.video.ecranMaxMs ?? null,
+    écarts: ecartsDe(fenetre),
+    séjour: fenetre?.video.sejourMs ?? null,
     affamées: since(video.starved, was?.starved ?? 0),
     clés: since(video.keyFramesAsked, was?.keyFramesAsked ?? 0),
     rouvertes: since(video.reconnects, was?.reconnects ?? 0),
@@ -277,6 +309,8 @@ export function vitals(
       place: input.port,
       envoyées: since(input.sent, wasInput?.sent ?? 0),
       allerRetour: input.roundTripMs,
+      retour: fenetre?.input?.retourMs ?? null,
+      pompe: fenetre?.input?.pompeMaxMs ?? null,
       modèle: input.padId === null ? null : propre(input.padId, PAD_NAME_MAX),
     },
   };

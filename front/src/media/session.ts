@@ -42,6 +42,7 @@ export type Snapshot = {
  * pris à chaque lecture ne couvrirait qu'une demi-seconde. */
 export type Fenetre = {
   video: FenetreVideo;
+  input: ReturnType<InputStream["fenetre"]>;
 };
 
 /** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
@@ -159,7 +160,7 @@ export class Session {
    * le relevé de dix secondes repart de rien ; un signalement lit sans
    * prendre, pour ne pas voler sa fenêtre au relevé suivant. */
   fenetre(prendre: boolean): Fenetre {
-    return { video: this.video.fenetre(prendre) };
+    return { video: this.video.fenetre(prendre), input: this.input.fenetre(prendre) };
   }
 
   /** Lines the picture up with the sound, or lets it stay early. */

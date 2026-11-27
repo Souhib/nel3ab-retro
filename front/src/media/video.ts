@@ -20,7 +20,7 @@ import {
 } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 import { boiteJuste, decouvrir, lever } from "./couverture";
-import { Pic, arrondi } from "./fenetre";
+import { Pic, Serie, arrondi, rang } from "./fenetre";
 import { under } from "../lib/base";
 import type { Marge } from "./clock";
 
@@ -247,7 +247,25 @@ export type FenetreVideo = {
    * compte un épisode, qu'il dure 30 ou 130 ms. Un gel de la salle y entre
    * aussi, une fois fini ; `attente` le dit pendant qu'il dure. */
   arretMs: number | null;
+  /** Le plus long intervalle entre deux images d'écran (`requestAnimationFrame`),
+   * onglet visible, en millisecondes. Un fil principal bloqué se lit ici ; la
+   * liaison, elle, se lit dans `ecarts`. Le 26 novembre 2026, rien ne séparait
+   * les deux (chantier 2 de l'audit du 27 novembre, VID-5). */
+  ecranMaxMs: number | null;
+  /** Les écarts entre deux messages portant une image, datés à leur arrivée
+   * sur le fil principal : combien dépassent 100 ms, le plus grand, et il y a
+   * combien de millisecondes il s'est fini. Nul sans deux arrivées. */
+  ecarts: { plus100: number; pireMs: number; ilYaMs: number } | null;
+  /** Combien une image décodée attend dans la file avant d'être peinte, p50 et
+   * p95, en millisecondes. Nul sans image peinte. */
+  sejourMs: [number, number] | null;
 };
+
+/** À partir de quel écart d'arrivée une fenêtre le compte, en millisecondes.
+ * Cent : six images à 60 par seconde. Le 26 novembre 2026, chaque fenêtre de
+ * dix secondes d'un joueur distant avait un trou de 117 à 166 ms, absent de la
+ * capture ; une page du réseau local restait sous 40 ms. */
+const ECART_LONG = 100;
 
 /** À partir de combien de tics d'écran par image de la source un retard d'une
  * période se montre au lieu d'être jeté (VID-6). Un et huit dixièmes plutôt
@@ -372,6 +390,17 @@ export class VideoStream {
   /** La dernière image peinte, pour `arret` : remis à nul quand l'onglet se
    * cache, parce que personne n'a vu le temps passé caché. */
   private peintBase: number | null = null;
+  /** Le plus long intervalle entre deux images d'écran de la fenêtre. */
+  private readonly ecranMax = new Pic();
+  private ticBase: number | null = null;
+  /** Les écarts d'arrivée de la fenêtre : vus, au-dessus de `ECART_LONG`,
+   * le plus grand. Datés au message, avant toute décision de décoder. */
+  private ecartBase: number | null = null;
+  private ecartsVus = 0;
+  private ecartsLongs = 0;
+  private readonly pireEcart = new Pic();
+  /** L'attente de chaque image peinte dans la file, sur la fenêtre. */
+  private readonly sejours = new Serie();
   private openedAt: number | null = null;
   private downSince: number | null = null;
   private startedAt: number | null = null;
@@ -529,6 +558,8 @@ export class VideoStream {
     this.active = false;
     document.removeEventListener("visibilitychange", this.cachee);
     this.peintBase = null;
+    this.ticBase = null;
+    this.ecartBase = null;
     this.lags.clear();
     this.gaps.clear();
     this.sourceGaps.clear();
@@ -646,14 +677,36 @@ export class VideoStream {
   /** Ce que la fenêtre a vu de pire. `prendre` la remet à zéro : le relevé de
    * dix secondes prend, un signalement lit sans prendre (`fenetre.ts`). */
   fenetre(prendre: boolean): FenetreVideo {
-    return { arretMs: arrondi(this.arret.lire(prendre).max) };
+    const pire = this.pireEcart.lire(prendre);
+    const ecarts =
+      this.ecartsVus === 0 || pire.max === null || pire.at === null
+        ? null
+        : {
+            plus100: this.ecartsLongs,
+            pireMs: Math.round(pire.max),
+            ilYaMs: Math.round(performance.now() - pire.at),
+          };
+    if (prendre) {
+      this.ecartsVus = 0;
+      this.ecartsLongs = 0;
+    }
+    const sejours = this.sejours.lire(prendre);
+    return {
+      arretMs: arrondi(this.arret.lire(prendre).max),
+      ecranMaxMs: arrondi(this.ecranMax.lire(prendre).max),
+      ecarts,
+      sejourMs:
+        sejours === null ? null : [Math.round(rang(sejours, 0.5)), Math.round(rang(sejours, 0.95))],
+    };
   }
 
   /** L'onglet se cache : le temps qui vient ne se voit pas, donc ne compte
    * pas comme un arrêt au verre. Sans ça, une page revenue après une minute
    * cachée publiait un arrêt d'une minute. */
   private readonly cachee = (): void => {
-    if (document.visibilityState === "hidden") this.peintBase = null;
+    if (document.visibilityState !== "hidden") return;
+    this.peintBase = null;
+    this.ticBase = null;
   };
 
   /** The display's own interval, measured rather than assumed: 60, 120 and 240 Hz
@@ -967,6 +1020,13 @@ export class VideoStream {
     // ou un décodeur qui attend son image-clé n'en font pas un gel de la salle.
     this.lastUnit = this.lastHeard;
     this.units += 1;
+    if (this.ecartBase !== null) {
+      const ecart = this.lastHeard - this.ecartBase;
+      this.ecartsVus += 1;
+      if (ecart > ECART_LONG) this.ecartsLongs += 1;
+      this.pireEcart.note(ecart, this.lastHeard);
+    }
+    this.ecartBase = this.lastHeard;
 
     const capturedMicros = Number(new DataView(event.data).getBigUint64(0, true));
     const unit = message.subarray(8);
@@ -1089,6 +1149,8 @@ export class VideoStream {
     if (this.lastRefresh !== null) this.refreshes.push(tickAt - this.lastRefresh);
     this.lastRefresh = tickAt;
     this.lastPaintTick = tickAt;
+    if (this.ticBase !== null) this.ecranMax.note(tickAt - this.ticBase, tickAt);
+    this.ticBase = document.visibilityState === "hidden" ? null : tickAt;
     this.adjust();
     this.reessayer();
 
@@ -1203,6 +1265,7 @@ export class VideoStream {
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;
     this.waits.push(now - next.decodedAt);
+    this.sejours.note(now - next.decodedAt);
   };
 
   /**

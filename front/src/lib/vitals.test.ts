@@ -223,6 +223,55 @@ describe("ce que l'œil voit d'une fenêtre (VID-4)", () => {
   });
 });
 
+describe("le navigateur ou la liaison (chantier 2 de l'audit du 27 novembre 2026)", () => {
+  const pleine = {
+    video: {
+      arretMs: 140,
+      ecranMaxMs: 130,
+      ecarts: { plus100: 3, pireMs: 147, ilYaMs: 4200 },
+      sejourMs: [5, 12],
+    },
+    input: { retourMs: [40, 180], pompeMaxMs: 150 },
+  } as Fenetre;
+
+  it("écrit l'intervalle d'écran, les écarts d'arrivée et l'attente dans la file", () => {
+    const sample = vitals(snap(), null, 10_000, undefined, true, pleine);
+
+    expect(sample.écranMax, "le relevé ne dit pas l'intervalle d'écran le plus long").toBe(130);
+    // L'instant du plus grand écart, en millisecondes AVANT le relevé : le
+    // salon date la ligne à sa réception, la boîte noire la recoupe.
+    expect(sample.écarts).toEqual({ plus100: 3, pire: 147, à: -4200 });
+    expect(sample.séjour).toEqual([5, 12]);
+  });
+
+  it("écrit la queue des aller-retours et le plus long tour de la pompe", () => {
+    const sample = vitals(snap(), null, 10_000, undefined, true, pleine);
+
+    expect(sample.manette.retour, "le relevé ne dit pas la queue des aller-retours").toEqual([
+      40, 180,
+    ]);
+    expect(sample.manette.pompe).toBe(150);
+  });
+
+  // Nul et pas zéro : une fenêtre qu'on ne donne pas, ou qui n'a rien mesuré.
+  it("écrit nul pour tout ce que la fenêtre n'a pas mesuré", () => {
+    const vide = {
+      video: { arretMs: null, ecranMaxMs: null, ecarts: null, sejourMs: null },
+      input: { retourMs: null, pompeMaxMs: null },
+    } as Fenetre;
+    for (const sample of [
+      vitals(snap(), null, 10_000, undefined, true, vide),
+      vitals(snap(), null, 10_000),
+    ]) {
+      expect(sample.écranMax).toBeNull();
+      expect(sample.écarts).toBeNull();
+      expect(sample.séjour).toBeNull();
+      expect(sample.manette.retour).toBeNull();
+      expect(sample.manette.pompe).toBeNull();
+    }
+  });
+});
+
 describe("ce que la boîte noire lit dans un relevé", () => {
   const pad = (input: Partial<Snapshot["input"]>) =>
     snap({}, { input: { ...snap().input, ...input } });

@@ -201,7 +201,13 @@ function toutMesure(): Snapshot {
 
 /** Une fenêtre où tout a été mesuré. */
 const FENETRE_PLEINE: Fenetre = {
-  video: { arretMs: 1 },
+  video: {
+    arretMs: 1,
+    ecranMaxMs: 1,
+    ecarts: { plus100: 1, pireMs: 1, ilYaMs: 1 },
+    sejourMs: [1, 1],
+  },
+  input: { retourMs: [1, 1], pompeMaxMs: 1 },
 };
 
 function releveAuPire() {

@@ -456,9 +456,15 @@ class EngineSettings(unittest.TestCase):
         ):
             with self.subTest(key=key, bad=bad), self.assertRaisesRegex(ValueError, key):
                 self.launch(**{key: bad})
+
+        def started(*args, **_kwargs):
+            # Fails at the first command, by name: a mock that answered would
+            # leave serve waiting ten seconds for virtual controllers instead.
+            raise AssertionError(f"{' '.join(map(str, args[:5]))} ran before the refusal")
+
         with (
             tempfile.TemporaryDirectory() as temp,
-            patch.object(module, "run") as run,
+            patch.object(module, "run", side_effect=started) as run,
             self.assertRaisesRegex(ValueError, "backend_threading"),
         ):
             root = Path(temp)

@@ -9,14 +9,21 @@ maltraiter une vraie machine, et que ce qu'on vérifie est un rendu, pas une
 mesure. Le pilote, lui, prouve que la trace arrive; celui-ci prouve qu'on la lit.
 """
 
+import json
 import re
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from sessions import (
     BAND,
+    EXTERNE,
     TRANCHE,
     _band,
+    _externe_said,
+    _externe_tranche,
+    _externe_worried,
     _lost,
+    _parse_worker,
     _state,
     _tamed,
     _worker_said,
@@ -27,17 +34,21 @@ from sessions import (
 WORKER = Path(__file__).resolve().parents[2] / "core" / "crates" / "worker" / "src" / "main.rs"
 
 
-def published() -> set[str]:
-    """Les champs de la tranche de dix secondes, lus dans le code du worker.
+def published(message: str = "streaming") -> set[str]:
+    """Les champs d'une ligne de dix secondes, lus dans le code du worker.
 
     Lus plutôt que recopiés: une copie serait une deuxième définition à tenir
     d'accord avec la première, et c'est exactement la paire qui a divergé.
+    L'indentation est celle du premier champ du bloc: la ligne « streaming »
+    vit dans une boucle, celle de la salle externe dans sa propre fonction.
     """
     assert WORKER.is_file(), f"le code du worker est introuvable en {WORKER}"
     rust = WORKER.read_text(encoding="utf-8")
-    at = rust.index('"streaming"')
+    at = rust.index(f'"{message}"')
     block = rust[rust.rindex("tracing::info!(", 0, at) : at]
-    found = set(re.findall(r"^\s{16}(\w+)\s*[=,]", block, re.M))
+    indent = re.match(r"tracing::info!\(\n(\s+)", block)
+    assert indent is not None, f"le bloc de {message!r} n'a pas la forme attendue"
+    found = set(re.findall(rf"^{indent.group(1)}(\w+)\s*[=,]", block, re.M))
     assert len(found) > 20, f"la lecture du code du worker n'a trouvé que {found}"
     return found
 
@@ -327,3 +338,122 @@ def test_a_slice_from_before_naps_were_measured_does_not_claim_the_room_stayed_a
 
     assert "dormi" not in _worker_said(old)
     assert "dormi" not in _worker_said({**WELL, "slept_ms": 0})
+
+
+#: Une ligne « salle externe » saine, telle que le worker l'écrit.
+CALME = {
+    "message": "salle externe",
+    "console": "Switch",
+    "full_packets": 600,
+    "full_gap_max_ms": 18.2,
+    "full_age_p95_ms": 9.0,
+    "watchers": 1,
+    "half_watchers": 0,
+    "dropped_now": 0,
+    "half_dropped_now": 0,
+    "sound_refused_now": 0,
+    "wait_max_ms": 1.2,
+    "write_max_ms": 0.4,
+    "pad_gaps_over_50_ms": 0,
+    "viewers": "[]",
+    "seats": "[]",
+}
+
+
+def test_every_measurement_of_the_external_room_can_be_read() -> None:
+    """La règle de la ligne « streaming », pour la ligne de la salle externe.
+
+    Née le 27 novembre 2026 (audit WK-1): une salle Switch ne publiait aucune
+    mesure du worker, et une ligne qui en publie cinquante sans lecteur ne vaut
+    guère mieux.
+    """
+    missing = published("salle externe") - set(EXTERNE)
+
+    assert not missing, f"le worker publie {sorted(missing)} et le lecteur ne sait pas les dire"
+
+
+def test_the_reader_claims_no_external_measurement_the_worker_never_sends() -> None:
+    """Le jumeau, pour la même raison que celui de la ligne « streaming »."""
+    invented = set(EXTERNE) - published("salle externe")
+
+    assert not invented, f"le lecteur annonce {sorted(invented)}, que le worker n'envoie pas"
+
+
+def test_a_quiet_external_window_says_nothing_and_each_stage_is_named() -> None:
+    """Chaque étage a son mot: l'entrée, la file, l'écriture, les manettes, le son.
+
+    C'est ce qui dira où naissent les 117 ms que la page voyait dans chaque
+    fenêtre le 26 novembre 2026, quand la capture n'en montrait que 18.
+    """
+    assert _externe_worried(CALME, None) is None
+
+    entree = _externe_worried({**CALME, "full_gap_max_ms": 210.0}, None)
+    ecrit = _externe_worried({**CALME, "write_max_ms": 140.0}, None)
+    file = _externe_worried({**CALME, "wait_max_ms": 120.0}, None)
+    manettes = _externe_worried({**CALME, "pad_gaps_over_50_ms": 12, "pad_gap_max_ms": 131.0}, None)
+    son = _externe_worried({**CALME, "sound_refused_now": 3}, None)
+    jetees = _externe_worried({**CALME, "half_dropped_now": 4}, None)
+
+    assert entree is not None and "210 ms" in entree and "entrée" in entree
+    assert ecrit is not None and "écriture" in ecrit and "140 ms" in ecrit
+    assert file is not None and "file" in file
+    assert manettes is not None and "12 trous" in manettes and "131 ms" in manettes
+    assert son is not None and "3 morceaux de son" in son
+    assert jetees is not None and "4 en réduit" in jetees
+
+
+def test_an_external_window_that_measured_nothing_claims_nothing() -> None:
+    """Le jumeau: un champ absent n'est pas un zéro, ni une alerte, ni un calme.
+
+    Le worker n'écrit pas une valeur que rien n'a mesurée. Une fenêtre sans
+    image ne doit donc pas se lire « entrée max 0 ms ».
+    """
+    vide = {"message": "salle externe", "console": "Switch", "full_packets": 0}
+
+    assert _externe_worried(vide, None) is None
+    said = _externe_said(vide)
+    assert "entrée" not in said
+    assert "écriture" not in said
+    assert "0 images" in said
+
+
+def test_the_external_line_unfolds_each_viewer_and_each_seat() -> None:
+    """Le détail de chaque spectateur et de chaque place, lu dans ses tableaux."""
+    window = {
+        **CALME,
+        "viewers": '[{"viewer": 3, "stream": "plein", "frames": 600, "wait_p50_ms": 0.1,'
+        ' "wait_p95_ms": 0.3, "wait_max_ms": 1.2, "write_p50_ms": 0.1,'
+        ' "write_p95_ms": 0.2, "write_max_ms": 130.0}]',
+        "seats": '[{"seat": 2, "frames": 2500, "over_17_ms": 40, "over_50_ms": 3,'
+        ' "gap_max_ms": null, "sent": 2400, "repeated": 2350, "rescued": 2,'
+        ' "deferred": 5}]',
+    }
+
+    said = "\n".join(_externe_tranche(window))
+
+    assert "spectateur 3 (plein)" in said and "130.0 ms" in said
+    assert "place 2" in said and "3 trous > 50 ms" in said
+    # Un écart que rien n'a mesuré se dit, il ne s'écrit pas zéro.
+    assert "écart max non mesuré" in said
+
+
+def test_the_dolphin_and_the_external_lines_are_both_read() -> None:
+    """« streaming » (Dolphin) et « salle externe » (la Switch, depuis le
+    27 novembre 2026). Une ligne étrangère est écartée."""
+    zone = ZoneInfo("Europe/Paris")
+    raw = [
+        _line("streaming", input_to_frame_samples=3),
+        _line("salle externe", full_packets=600),
+        _line("ce spectateur ne suit pas", viewer=3),
+        "pas du json",
+    ]
+
+    kept = _parse_worker(raw, zone)
+
+    assert [fields["message"] for _, fields in kept] == ["streaming", "salle externe"]
+
+
+def _line(message: str, **fields: object) -> str:
+    return "nel3ab-worker[1]: " + json.dumps(
+        {"timestamp": "2026-11-26T23:35:20.388Z", "fields": {"message": message, **fields}}
+    )

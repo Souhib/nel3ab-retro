@@ -565,6 +565,7 @@ dependencies = [
  "nel3ab-protocol",
  "nel3ab-telemetry",
  "nel3ab-transport",
+ "serde_json",
  "tempfile",
  "tracing",
  "tracing-subscriber",

@@ -23,6 +23,7 @@ pub mod browser;
 pub mod clip;
 pub mod control;
 pub mod edges;
+pub mod external;
 
 pub use browser::{BrowserServer, Packet, PadArrivals, TransportError, ViewerHealth, ViewerWrites};
 pub use control::OwnerSeat;

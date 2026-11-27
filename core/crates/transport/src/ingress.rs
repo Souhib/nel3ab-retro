@@ -276,7 +276,7 @@ impl Flow {
 ///
 /// A distribution nobody measured is `None`, never zeros: a window without a
 /// picture must not read as a window of perfect pictures.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct FlowSummary {
     /// Packets that reached the ingress and were offered to the viewers.
     pub packets: u64,
@@ -291,7 +291,7 @@ pub struct FlowSummary {
 }
 
 /// The three streams at the ingress since the last report.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct IngressReport {
     /// The full-size pictures, `F`.
     pub full: FlowSummary,

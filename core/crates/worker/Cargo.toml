@@ -23,5 +23,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # depends on it.
 anyhow = "1"
 
+[dev-dependencies]
+# Lit la ligne « salle externe » telle que le journal la reçoit, en JSON. Déjà
+# dans l'arbre par le transport.
+serde_json = "1"
+
 [lints]
 workspace = true

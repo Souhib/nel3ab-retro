@@ -310,6 +310,64 @@ def test_le_journal_s_arrete_au_debut_de_la_partie_suivante(tmp_path: Path) -> N
     assert capture["au_dessus_ms"]["250"]["fenetres"] == 0
 
 
+def _mesure_de_page(quand: datetime, jeu: str, pire: int) -> dict[str, Any]:
+    """Une mesure de page de la salle 1, au format du 21 novembre 2026."""
+    return {
+        "quand": quand.isoformat(timespec="milliseconds"),
+        "quoi": "mesures",
+        "visite": "8f852a84",
+        "banc": False,
+        "salle": {"numéro": 1, "jeu": jeu},
+        "vu": {"s": 10, "vues": 600, "jeuHz": 60, "arrivées": [16, 30, pire], "attente": 5},
+    }
+
+
+def _pages_de_deux_parties(tmp_path: Path, suivante: datetime | None) -> dict[str, Any]:
+    """Smash finie à 00:40:10, ses pages encore là, et Mario Party qui charge juste
+    après dans la même salle: la page écrit le trou de son chargement 6 s après la
+    fin de Smash, dans les 15 s d'attente du résumé."""
+    fin = datetime(2026, 11, 27, 0, 40, 10, tzinfo=PARIS)
+    lignes = [
+        _mesure_de_page(fin - timedelta(seconds=10 * rang), "Super Smash Bros. Ultimate", 120)
+        for rang in (3, 2, 1, 0)
+    ]
+    lignes.append(_mesure_de_page(fin + timedelta(seconds=6), "Mario Party 4", 30000))
+    (tmp_path / "sessions").mkdir()
+    (tmp_path / "sessions" / "2026-11-27.jsonl").write_text(
+        "".join(json.dumps(ligne, ensure_ascii=False) + "\n" for ligne in lignes)
+    )
+    resumeur = Resumeur(tmp_path / "parties", tmp_path / "sessions", PARIS, FauxJournalctl(""))
+    partie = resume.Partie(
+        1, "switch", fin - timedelta(seconds=62), fin, "7.0.0-43-generic", suivante
+    )
+
+    chemin = resumeur.resumer(partie)
+
+    assert chemin is not None
+    return json.loads(chemin.read_text(encoding="utf-8"))
+
+
+def test_les_pages_s_arretent_au_debut_de_la_partie_suivante(tmp_path: Path) -> None:
+    """Le trou du chargement de Mario Party n'est pas le pire de Smash. Rouge avant:
+    `pire_arrivee_ms` valait 30 000 et `mesures` 5."""
+    suivante = datetime(2026, 11, 27, 0, 40, 14, tzinfo=PARIS)
+
+    resume_smash = _pages_de_deux_parties(tmp_path, suivante)
+
+    assert resume_smash["jeu"] == "Super Smash Bros. Ultimate"
+    assert (resume_smash["pages"]["mesures"], resume_smash["pages"]["pire_arrivee_ms"]) == (4, 120)
+
+
+def test_sans_partie_suivante_les_pages_courent_jusqu_au_delai(tmp_path: Path) -> None:
+    """Le jumeau: sans partie suivante connue, la mesure des 15 s compte."""
+    resume_smash = _pages_de_deux_parties(tmp_path, None)
+
+    assert (resume_smash["pages"]["mesures"], resume_smash["pages"]["pire_arrivee_ms"]) == (
+        5,
+        30000,
+    )
+
+
 def test_sans_partie_suivante_le_journal_court_jusqu_au_delai(tmp_path: Path) -> None:
     """Le jumeau: sans partie suivante connue, les fenêtres des 15 s comptent, ici
     celles qu'on a posées pour la prouver."""

@@ -172,12 +172,15 @@ def _entier_ou_reel(valeur: float) -> float | int:
 
 
 def resume_pages(
-    lignes: list[dict[str, Any]], salle: int, debut: datetime, fin: datetime
+    lignes: list[dict[str, Any]], salle: int, debut: datetime, jusqu_a: datetime
 ) -> tuple[dict[str, Any] | str, str]:
     """Ce que les pages de la salle ont mesuré pendant la partie, et son jeu.
 
     Une mesure couvre les dix secondes qui la précèdent: celles finies après le
-    premier relevé qui voit le moteur, et jusqu'à `DELAI` après le dernier.
+    premier relevé qui voit le moteur, et jusqu'à `jusqu_a`, la borne du journal du
+    worker: `DELAI` après le dernier relevé, ou le début de la partie suivante dans
+    la même salle. Sans cette borne, le trou du chargement du jeu suivant devenait
+    le pire écart de celui-ci.
     """
     mesures: list[dict[str, Any]] = []
     for ligne in lignes:
@@ -194,7 +197,7 @@ def resume_pages(
             quand = datetime.fromisoformat(str(ligne.get("quand")))
         except ValueError:
             continue
-        if quand.tzinfo is not None and debut < quand <= fin + DELAI:
+        if quand.tzinfo is not None and debut < quand <= jusqu_a:
             mesures.append(ligne)
     if not mesures:
         return NON_MESURE, NON_MESURE
@@ -297,7 +300,7 @@ class Resumeur:
         else:
             capture = resume_capture(fenetres_capture(sortie), self._zone)
         pages, jeu = resume_pages(
-            _lignes(self._journal_salon, debut, fin, self._zone), partie.salle, debut, fin
+            _lignes(self._journal_salon, debut, fin, self._zone), partie.salle, debut, jusqu_a
         )
         resume = {
             "salle": partie.salle,

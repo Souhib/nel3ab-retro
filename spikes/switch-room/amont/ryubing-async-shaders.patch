@@ -1,0 +1,209 @@
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawCommand.cs
+index 8acf12ca..fdf5225e 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawCommand.cs
+@@ -20,6 +20,13 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+ 
+         public static void Run(ref DrawIndexedCommand command, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            if (threaded.SkipDraws)
++            {
++                threaded.SkippedDraws++;
++
++                return;
++            }
++
+             renderer.Pipeline.DrawIndexed(command._indexCount, command._instanceCount, command._firstIndex, command._firstVertex, command._firstInstance);
+         }
+     }
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedCommand.cs
+index 8d43d456..8a13553c 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedCommand.cs
+@@ -18,6 +18,13 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+ 
+         public static void Run(ref DrawCommand command, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            if (threaded.SkipDraws)
++            {
++                threaded.SkippedDraws++;
++
++                return;
++            }
++
+             renderer.Pipeline.Draw(command._vertexCount, command._instanceCount, command._firstVertex, command._firstInstance);
+         }
+     }
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCommand.cs
+index e4156e2b..bd4ff8d3 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCommand.cs
+@@ -12,6 +12,13 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+ 
+         public static void Run(ref DrawIndexedIndirectCommand command, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            if (threaded.SkipDraws)
++            {
++                threaded.SkippedDraws++;
++
++                return;
++            }
++
+             renderer.Pipeline.DrawIndexedIndirect(threaded.Buffers.MapBufferRange(command._indirectBuffer));
+         }
+     }
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCountCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCountCommand.cs
+index 2be81fbe..8ca2fb53 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCountCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndexedIndirectCountCommand.cs
+@@ -18,6 +18,13 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+ 
+         public static void Run(ref DrawIndexedIndirectCountCommand command, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            if (threaded.SkipDraws)
++            {
++                threaded.SkippedDraws++;
++
++                return;
++            }
++
+             renderer.Pipeline.DrawIndexedIndirectCount(
+                 threaded.Buffers.MapBufferRange(command._indirectBuffer),
+                 threaded.Buffers.MapBufferRange(command._parameterBuffer),
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCommand.cs
+index e2e93d3c..7813d89c 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCommand.cs
+@@ -12,6 +12,13 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+ 
+         public static void Run(ref DrawIndirectCommand command, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            if (threaded.SkipDraws)
++            {
++                threaded.SkippedDraws++;
++
++                return;
++            }
++
+             renderer.Pipeline.DrawIndirect(threaded.Buffers.MapBufferRange(command._indirectBuffer));
+         }
+     }
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCountCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCountCommand.cs
+index 0247aa29..a356d93c 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCountCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/DrawIndirectCountCommand.cs
+@@ -18,6 +18,13 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+ 
+         public static void Run(ref DrawIndirectCountCommand command, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            if (threaded.SkipDraws)
++            {
++                threaded.SkippedDraws++;
++
++                return;
++            }
++
+             renderer.Pipeline.DrawIndirectCount(
+                 threaded.Buffers.MapBufferRange(command._indirectBuffer),
+                 threaded.Buffers.MapBufferRange(command._parameterBuffer),
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/SetProgramCommand.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/SetProgramCommand.cs
+index 7f1d845b..1ea68ad0 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Commands/SetProgramCommand.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Commands/SetProgramCommand.cs
+@@ -17,6 +17,28 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Commands
+         {
+             ThreadedProgram program = command._program.GetAs<ThreadedProgram>(threaded);
+ 
++            if (ThreadedRenderer.AsyncShaders && program.IsGraphics)
++            {
++                if (!program.Compiled)
++                {
++                    // Start or advance the compilation, without waiting for it.
++                    threaded.Programs.ProcessQueue();
++                }
++
++                if (!program.Compiled)
++                {
++                    // The backend keeps its previous program; the draws that
++                    // follow are skipped until a compiled graphics program is set.
++                    threaded.SkipDraws = true;
++                    threaded.SkippedPrograms++;
++                    threaded.ReportSkips();
++
++                    return;
++                }
++
++                threaded.SkipDraws = false;
++            }
++
+             threaded.Programs.WaitForProgram(program);
+ 
+             renderer.Pipeline.SetProgram(program.Base);
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ThreadedProgram.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ThreadedProgram.cs
+index 9573bbaa..3f093fb4 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ThreadedProgram.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ThreadedProgram.cs
+@@ -11,6 +11,12 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Resources
+ 
+         internal bool Compiled;
+ 
++        /// <summary>
++        /// nel3ab: true only for a program built from graphics stages. A compute
++        /// program, or one loaded from a binary, is always waited for.
++        /// </summary>
++        internal bool IsGraphics;
++
+         public ThreadedProgram(ThreadedRenderer renderer)
+         {
+             _renderer = renderer;
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs b/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs
+index 42a0bd9a..9d7136dc 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/ThreadedRenderer.cs
+@@ -67,6 +67,34 @@ namespace Ryujinx.Graphics.GAL.Multithreading
+         internal CircularSpanPool SpanPool { get; }
+         internal ProgramQueue Programs { get; }
+ 
++        /// <summary>
++        /// nel3ab: when NEL3AB_ASYNC_SHADERS=1, a graphics program that is still
++        /// compiling no longer stops the render thread. Its draws are skipped
++        /// until a compiled graphics program is set again. Off by default.
++        /// </summary>
++        internal static readonly bool AsyncShaders = Environment.GetEnvironmentVariable("NEL3AB_ASYNC_SHADERS") == "1";
++
++        internal bool SkipDraws;
++        internal long SkippedDraws;
++        internal long SkippedPrograms;
++        private long _asyncReportAt;
++
++        /// <summary>
++        /// nel3ab: one line a second at most, only when something was skipped.
++        /// </summary>
++        internal void ReportSkips()
++        {
++            long now = Stopwatch.GetTimestamp();
++            if (now < _asyncReportAt || (SkippedDraws == 0 && SkippedPrograms == 0))
++            {
++                return;
++            }
++            _asyncReportAt = now + Stopwatch.Frequency;
++            Console.Error.WriteLine($"NEL3AB_ASYNC t_ns={now} programs={SkippedPrograms} draws={SkippedDraws}");
++            SkippedDraws = 0;
++            SkippedPrograms = 0;
++        }
++
+         public IPipeline Pipeline { get; }
+         public IWindow Window { get; }
+ 
+@@ -307,7 +335,10 @@ namespace Ryujinx.Graphics.GAL.Multithreading
+ 
+         public unsafe IProgram CreateProgram(ShaderSource[] shaders, ShaderInfo info)
+         {
+-            ThreadedProgram program = new(this);
++            ThreadedProgram program = new(this)
++            {
++                IsGraphics = shaders.Length > 0 && shaders[0].Stage != Ryujinx.Graphics.Shader.ShaderStage.Compute,
++            };
+ 
+             SourceProgramRequest request = new(program, shaders, info);
+ 

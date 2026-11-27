@@ -1,0 +1,286 @@
+diff --git a/src/Ryujinx.Common/Nel3abCallProbe.cs b/src/Ryujinx.Common/Nel3abCallProbe.cs
+new file mode 100644
+index 00000000..c50242eb
+--- /dev/null
++++ b/src/Ryujinx.Common/Nel3abCallProbe.cs
+@@ -0,0 +1,75 @@
++using System;
++using System.Collections.Concurrent;
++using System.Diagnostics;
++using System.Linq;
++using System.Threading;
++
++namespace Ryujinx.Common
++{
++    /// <summary>
++    /// nel3ab: time spent per named call, one line a second on stderr when
++    /// NEL3AB_CALL_PROBE=1, the sixteen costliest calls of that second. Off by default.
++    /// </summary>
++    public static class Nel3abCallProbe
++    {
++        public static readonly bool Enabled = Environment.GetEnvironmentVariable("NEL3AB_CALL_PROBE") == "1";
++
++        private sealed class Slot
++        {
++            public long Count;
++            public long Ticks;
++            public long Max;
++        }
++
++        private static readonly ConcurrentDictionary<string, Slot> _slots = new();
++        private static Timer _timer;
++
++        public static long Start() => Enabled ? Stopwatch.GetTimestamp() : 0;
++
++        public static void Stop(string name, long start)
++        {
++            if (!Enabled)
++            {
++                return;
++            }
++
++            long duration = Stopwatch.GetTimestamp() - start;
++            Slot slot = _slots.GetOrAdd(name, _ => new Slot());
++            Interlocked.Increment(ref slot.Count);
++            Interlocked.Add(ref slot.Ticks, duration);
++
++            long max;
++            while (duration > (max = Volatile.Read(ref slot.Max)) && Interlocked.CompareExchange(ref slot.Max, duration, max) != max)
++            {
++            }
++
++            if (Volatile.Read(ref _timer) == null)
++            {
++                Timer timer = new(Report, null, 1000, 1000);
++                if (Interlocked.CompareExchange(ref _timer, timer, null) != null)
++                {
++                    timer.Dispose();
++                }
++            }
++        }
++
++        private static void Report(object state)
++        {
++            var seen = _slots
++                .Select(kv => (kv.Key, Count: Interlocked.Exchange(ref kv.Value.Count, 0), Ticks: Interlocked.Exchange(ref kv.Value.Ticks, 0), Max: Interlocked.Exchange(ref kv.Value.Max, 0)))
++                .Where(x => x.Count != 0)
++                .OrderByDescending(x => x.Ticks)
++                .Take(16)
++                .ToList();
++
++            if (seen.Count == 0)
++            {
++                return;
++            }
++
++            double ms(long ticks) => ticks * 1000.0 / Stopwatch.Frequency;
++            string line = string.Join(" ", seen.Select(x => $"{x.Key}={x.Count}/{ms(x.Ticks):F1}/{ms(x.Max):F1}"));
++            Console.Error.WriteLine($"NEL3AB_CALLS t_ns={Stopwatch.GetTimestamp()} {line}");
++        }
++    }
++}
+diff --git a/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs b/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs
+index 390d7c5c..8a2d99ae 100644
+--- a/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs
++++ b/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs
+@@ -78,6 +78,30 @@ namespace Ryujinx.Graphics.Gpu.Image
+             _cache.Initialize(_context, cpuMemorySize);
+         }
+ 
++        private static long _nel3abGaugeAt;
++        private static int _nel3abGaugeMax;
++
++        /// <summary>
++        /// nel3ab: the size of the partially mapped set, at most one line a second,
++        /// when NEL3AB_CALL_PROBE=1.
++        /// </summary>
++        private static void Nel3abPartialGauge(int count)
++        {
++            if (!Ryujinx.Common.Nel3abCallProbe.Enabled)
++            {
++                return;
++            }
++
++            _nel3abGaugeMax = Math.Max(_nel3abGaugeMax, count);
++            long now = System.Diagnostics.Stopwatch.GetTimestamp();
++            if (now >= _nel3abGaugeAt)
++            {
++                _nel3abGaugeAt = now + System.Diagnostics.Stopwatch.Frequency;
++                Console.Error.WriteLine($"NEL3AB_PARTIAL t_ns={now} max={_nel3abGaugeMax}");
++                _nel3abGaugeMax = 0;
++            }
++        }
++
+         /// <summary>
+         /// Handles marking of textures written to a memory region being (partially) remapped.
+         /// </summary>
+@@ -132,6 +156,8 @@ namespace Ryujinx.Graphics.Gpu.Image
+                             {
+                                 texture.UpdatePoolMappings();
+                             }
++
++                            Nel3abPartialGauge(_partiallyMappedTextures.Count);
+                         }
+                     });
+                 }
+diff --git a/src/Ryujinx.Graphics.Gpu/Memory/MemoryManager.cs b/src/Ryujinx.Graphics.Gpu/Memory/MemoryManager.cs
+index 9e1972f8..150cccc7 100644
+--- a/src/Ryujinx.Graphics.Gpu/Memory/MemoryManager.cs
++++ b/src/Ryujinx.Graphics.Gpu/Memory/MemoryManager.cs
+@@ -370,14 +370,37 @@ namespace Ryujinx.Graphics.Gpu.Memory
+             lock (_pageTable)
+             {
+                 UnmapEventArgs e = new(va, size);
+-                MemoryUnmapped?.Invoke(this, e);
++                InvokeUnmappedProbed(e, "map");
+ 
++                long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                 for (ulong offset = 0; offset < size; offset += PageSize)
+                 {
+                     SetPte(va + offset, PackPte(pa + offset, kind));
+                 }
++                Ryujinx.Common.Nel3abCallProbe.Stop("gmm.map.pte", probeStart);
+ 
++                probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                 RunRemapActions(e);
++                Ryujinx.Common.Nel3abCallProbe.Stop("gmm.map.remap", probeStart);
++            }
++        }
++
++        /// <summary>
++        /// nel3ab: the unmap handlers, each timed when NEL3AB_CALL_PROBE=1.
++        /// </summary>
++        private void InvokeUnmappedProbed(UnmapEventArgs e, string kind)
++        {
++            if (!Ryujinx.Common.Nel3abCallProbe.Enabled || MemoryUnmapped == null)
++            {
++                MemoryUnmapped?.Invoke(this, e);
++                return;
++            }
++
++            foreach (EventHandler<UnmapEventArgs> handler in MemoryUnmapped.GetInvocationList())
++            {
++                long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
++                handler(this, e);
++                Ryujinx.Common.Nel3abCallProbe.Stop($"gmm.{kind}.{handler.Method.DeclaringType?.Name}", probeStart);
+             }
+         }
+ 
+@@ -392,14 +415,18 @@ namespace Ryujinx.Graphics.Gpu.Memory
+             {
+                 // Event handlers are not expected to be thread safe.
+                 UnmapEventArgs e = new(va, size);
+-                MemoryUnmapped?.Invoke(this, e);
++                InvokeUnmappedProbed(e, "unmap");
+ 
++                long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                 for (ulong offset = 0; offset < size; offset += PageSize)
+                 {
+                     SetPte(va + offset, PteUnmapped);
+                 }
++                Ryujinx.Common.Nel3abCallProbe.Stop("gmm.unmap.pte", probeStart);
+ 
++                probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                 RunRemapActions(e);
++                Ryujinx.Common.Nel3abCallProbe.Stop("gmm.unmap.remap", probeStart);
+             }
+         }
+ 
+diff --git a/src/Ryujinx.HLE/HOS/Services/Nv/INvDrvServices.cs b/src/Ryujinx.HLE/HOS/Services/Nv/INvDrvServices.cs
+index ed14b3e1..b88fa7c1 100644
+--- a/src/Ryujinx.HLE/HOS/Services/Nv/INvDrvServices.cs
++++ b/src/Ryujinx.HLE/HOS/Services/Nv/INvDrvServices.cs
+@@ -274,7 +274,12 @@ namespace Ryujinx.HLE.HOS.Services.Nv
+ 
+                     if (errorCode == NvResult.Success)
+                     {
++                        long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                         NvInternalResult internalResult = deviceFile.Ioctl(ioctlCommand, arguments);
++                        if (Ryujinx.Common.Nel3abCallProbe.Enabled)
++                        {
++                            Ryujinx.Common.Nel3abCallProbe.Stop($"nv.{deviceFile.GetType().Name}.{ioctlCommand.Type:x}.{ioctlCommand.Number:x}", probeStart);
++                        }
+ 
+                         if (internalResult == NvInternalResult.NotImplemented)
+                         {
+@@ -506,7 +511,12 @@ namespace Ryujinx.HLE.HOS.Services.Nv
+ 
+                     if (errorCode == NvResult.Success)
+                     {
++                        long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                         NvInternalResult internalResult = deviceFile.Ioctl2(ioctlCommand, arguments, inlineInBufferSpan);
++                        if (Ryujinx.Common.Nel3abCallProbe.Enabled)
++                        {
++                            Ryujinx.Common.Nel3abCallProbe.Stop($"nv.{deviceFile.GetType().Name}.{ioctlCommand.Type:x}.{ioctlCommand.Number:x}", probeStart);
++                        }
+ 
+                         if (internalResult == NvInternalResult.NotImplemented)
+                         {
+@@ -560,7 +570,12 @@ namespace Ryujinx.HLE.HOS.Services.Nv
+ 
+                     if (errorCode == NvResult.Success)
+                     {
++                        long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                         NvInternalResult internalResult = deviceFile.Ioctl3(ioctlCommand, arguments, inlineOutBufferSpan);
++                        if (Ryujinx.Common.Nel3abCallProbe.Enabled)
++                        {
++                            Ryujinx.Common.Nel3abCallProbe.Stop($"nv.{deviceFile.GetType().Name}.{ioctlCommand.Type:x}.{ioctlCommand.Number:x}", probeStart);
++                        }
+ 
+                         if (internalResult == NvInternalResult.NotImplemented)
+                         {
+diff --git a/src/Ryujinx.HLE/HOS/Services/Nv/NvDrvServices/NvHostAsGpu/NvHostAsGpuDeviceFile.cs b/src/Ryujinx.HLE/HOS/Services/Nv/NvDrvServices/NvHostAsGpu/NvHostAsGpuDeviceFile.cs
+index f21efcea..0f33142c 100644
+--- a/src/Ryujinx.HLE/HOS/Services/Nv/NvDrvServices/NvHostAsGpu/NvHostAsGpuDeviceFile.cs
++++ b/src/Ryujinx.HLE/HOS/Services/Nv/NvDrvServices/NvHostAsGpu/NvHostAsGpuDeviceFile.cs
+@@ -200,12 +200,19 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostAsGpu
+         {
+             lock (_asContext)
+             {
+-                if (_asContext.RemoveMap(arguments.Offset, out ulong size))
++                long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
++                bool removed = _asContext.RemoveMap(arguments.Offset, out ulong size);
++                Ryujinx.Common.Nel3abCallProbe.Stop("as.RemoveMap", probeStart);
++                if (removed)
+                 {
+                     if (size != 0)
+                     {
++                        probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                         _memoryAllocator.DeallocateRange(arguments.Offset, size);
++                        Ryujinx.Common.Nel3abCallProbe.Stop("as.DeallocateRange", probeStart);
++                        probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                         _asContext.Gmm.Unmap(arguments.Offset, size);
++                        Ryujinx.Common.Nel3abCallProbe.Stop("as.Gmm.Unmap", probeStart);
+                     }
+                 }
+                 else
+@@ -295,13 +302,19 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostAsGpu
+                 }
+                 else
+                 {
++                    long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                     ulong va = _memoryAllocator.GetFreeAddress(size, out ulong freeAddressStartPosition, pageSize);
++                    Ryujinx.Common.Nel3abCallProbe.Stop("as.GetFreeAddress", probeStart);
+                     if (va != NvMemoryAllocator.PteUnmapped)
+                     {
++                        probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                         _memoryAllocator.AllocateRange(va, size, freeAddressStartPosition);
++                        Ryujinx.Common.Nel3abCallProbe.Stop("as.AllocateRange", probeStart);
+                     }
+ 
++                    probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                     _asContext.Gmm.Map(physicalAddress, va, size, (PteKind)arguments.Kind);
++                    Ryujinx.Common.Nel3abCallProbe.Stop("as.Gmm.Map", probeStart);
+                     arguments.Offset = va;
+                 }
+ 
+@@ -315,7 +328,9 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices.NvHostAsGpu
+                 }
+                 else
+                 {
++                    long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
+                     _asContext.AddMap(arguments.Offset, size, physicalAddress, virtualAddressAllocated);
++                    Ryujinx.Common.Nel3abCallProbe.Stop("as.AddMap", probeStart);
+                 }
+             }
+ 

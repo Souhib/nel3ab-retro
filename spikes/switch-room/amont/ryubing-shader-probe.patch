@@ -1,0 +1,184 @@
+diff --git a/src/Ryujinx.Common/Nel3abShaderProbe.cs b/src/Ryujinx.Common/Nel3abShaderProbe.cs
+new file mode 100644
+index 00000000..6d599866
+--- /dev/null
++++ b/src/Ryujinx.Common/Nel3abShaderProbe.cs
+@@ -0,0 +1,88 @@
++using System;
++using System.Diagnostics;
++using System.Text;
++using System.Threading;
++
++namespace Ryujinx.Common
++{
++    /// <summary>
++    /// nel3ab: where the time of a new shader goes, one line a second on stderr
++    /// when NEL3AB_SHADER_PROBE=1. Off by default: Start returns 0 and Stop returns
++    /// at once.
++    /// </summary>
++    public static class Nel3abShaderProbe
++    {
++        public static readonly bool Enabled = Environment.GetEnvironmentVariable("NEL3AB_SHADER_PROBE") == "1";
++
++        public enum Kind
++        {
++            /// <summary>A new graphics program translated on the GPU thread.</summary>
++            TranslateGraphics,
++            /// <summary>A new compute program translated on the GPU thread.</summary>
++            TranslateCompute,
++            /// <summary>The render thread waiting for a program to compile.</summary>
++            WaitProgram,
++            /// <summary>A graphics pipeline created for a draw, on the render thread.</summary>
++            PipelineDraw,
++            /// <summary>A graphics pipeline created ahead, on a pool thread.</summary>
++            PipelineBackground,
++            Count,
++        }
++
++        private static readonly long[] _ticks = new long[(int)Kind.Count];
++        private static readonly long[] _counts = new long[(int)Kind.Count];
++        private static readonly long[] _max = new long[(int)Kind.Count];
++        private static Timer _timer;
++
++        public static long Start() => Enabled ? Stopwatch.GetTimestamp() : 0;
++
++        public static void Stop(Kind kind, long start)
++        {
++            if (!Enabled)
++            {
++                return;
++            }
++
++            long duration = Stopwatch.GetTimestamp() - start;
++            int i = (int)kind;
++            Interlocked.Add(ref _ticks[i], duration);
++            Interlocked.Increment(ref _counts[i]);
++
++            long max;
++            while (duration > (max = Volatile.Read(ref _max[i])) && Interlocked.CompareExchange(ref _max[i], duration, max) != max)
++            {
++            }
++
++            if (Volatile.Read(ref _timer) == null)
++            {
++                Timer timer = new(Report, null, 1000, 1000);
++                if (Interlocked.CompareExchange(ref _timer, timer, null) != null)
++                {
++                    timer.Dispose();
++                }
++            }
++        }
++
++        private static void Report(object state)
++        {
++            StringBuilder line = new();
++            for (int i = 0; i < (int)Kind.Count; i++)
++            {
++                long count = Interlocked.Exchange(ref _counts[i], 0);
++                long ticks = Interlocked.Exchange(ref _ticks[i], 0);
++                long max = Interlocked.Exchange(ref _max[i], 0);
++                if (count != 0)
++                {
++                    double ms = ticks * 1000.0 / Stopwatch.Frequency;
++                    double maxMs = max * 1000.0 / Stopwatch.Frequency;
++                    line.Append($" {(Kind)i}={count}/{ms:F1}/{maxMs:F1}");
++                }
++            }
++
++            if (line.Length != 0)
++            {
++                Console.Error.WriteLine($"NEL3AB_SHADERS t_ns={Stopwatch.GetTimestamp()}{line}");
++            }
++        }
++    }
++}
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ProgramQueue.cs b/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ProgramQueue.cs
+index 902527b5..a82e5e4b 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ProgramQueue.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/Resources/ProgramQueue.cs
+@@ -93,6 +93,9 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Resources
+         {
+             Span<SpinWait> spinWait = stackalloc SpinWait[1];
+ 
++            long probeStart = program.Compiled ? 0 : Ryujinx.Common.Nel3abShaderProbe.Start();
++            bool waited = !program.Compiled;
++
+             while (!program.Compiled)
+             {
+                 ProcessQueue();
+@@ -102,6 +105,11 @@ namespace Ryujinx.Graphics.GAL.Multithreading.Resources
+                     spinWait[0].SpinOnce(-1);
+                 }
+             }
++
++            if (waited)
++            {
++                Ryujinx.Common.Nel3abShaderProbe.Stop(Ryujinx.Common.Nel3abShaderProbe.Kind.WaitProgram, probeStart);
++            }
+         }
+     }
+ }
+diff --git a/src/Ryujinx.Graphics.Gpu/Shader/ShaderCache.cs b/src/Ryujinx.Graphics.Gpu/Shader/ShaderCache.cs
+index f4a2fac1..0ecbf1c5 100644
+--- a/src/Ryujinx.Graphics.Gpu/Shader/ShaderCache.cs
++++ b/src/Ryujinx.Graphics.Gpu/Shader/ShaderCache.cs
+@@ -216,6 +216,8 @@ namespace Ryujinx.Graphics.Gpu.Shader
+                 return cpShader;
+             }
+ 
++            long probeStart = Ryujinx.Common.Nel3abShaderProbe.Start();
++
+             ShaderSpecializationState specState = new(ref computeState);
+             GpuAccessorState gpuAccessorState = new(samplerPoolMaximumId, poolState, computeState, default, specState);
+             GpuAccessor gpuAccessor = new(_context, channel, gpuAccessorState);
+@@ -234,6 +236,8 @@ namespace Ryujinx.Graphics.Gpu.Shader
+             EnqueueProgramToSave(cpShader, hostProgram, shaderSourcesArray);
+             _cpPrograms[gpuVa] = cpShader;
+ 
++            Ryujinx.Common.Nel3abShaderProbe.Stop(Ryujinx.Common.Nel3abShaderProbe.Kind.TranslateCompute, probeStart);
++
+             return cpShader;
+         }
+ 
+@@ -323,6 +327,8 @@ namespace Ryujinx.Graphics.Gpu.Shader
+                 return gpShaders;
+             }
+ 
++            long probeStart = Ryujinx.Common.Nel3abShaderProbe.Start();
++
+             TransformFeedbackDescriptor[] transformFeedbackDescriptors = GetTransformFeedbackDescriptors(ref state);
+ 
+             UpdatePipelineInfo(ref state, ref pipeline, graphicsState, channel);
+@@ -475,6 +481,8 @@ namespace Ryujinx.Graphics.Gpu.Shader
+ 
+             _gpPrograms[addresses] = gpShaders;
+ 
++            Ryujinx.Common.Nel3abShaderProbe.Stop(Ryujinx.Common.Nel3abShaderProbe.Kind.TranslateGraphics, probeStart);
++
+             return gpShaders;
+         }
+ 
+diff --git a/src/Ryujinx.Graphics.Vulkan/PipelineState.cs b/src/Ryujinx.Graphics.Vulkan/PipelineState.cs
+index 0c779b69..2fdf32c3 100644
+--- a/src/Ryujinx.Graphics.Vulkan/PipelineState.cs
++++ b/src/Ryujinx.Graphics.Vulkan/PipelineState.cs
+@@ -391,6 +391,8 @@ namespace Ryujinx.Graphics.Vulkan
+                 return pipeline;
+             }
+ 
++            long probeStart = Ryujinx.Common.Nel3abShaderProbe.Start();
++
+             Pipeline pipelineHandle = default;
+ 
+             bool isMoltenVk = gd.IsMoltenVk;
+@@ -670,6 +672,10 @@ namespace Ryujinx.Graphics.Vulkan
+ 
+             program.AddGraphicsPipeline(ref Internal, pipeline);
+ 
++            Ryujinx.Common.Nel3abShaderProbe.Stop(
++                throwOnError ? Ryujinx.Common.Nel3abShaderProbe.Kind.PipelineBackground : Ryujinx.Common.Nel3abShaderProbe.Kind.PipelineDraw,
++                probeStart);
++
+             return pipeline;
+         }
+ 

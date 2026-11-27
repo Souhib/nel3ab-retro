@@ -1,0 +1,49 @@
+diff --git a/docker/switch-room.py b/docker/switch-room.py
+index 6286c3c..a603d64 100644
+--- a/docker/switch-room.py
++++ b/docker/switch-room.py
+@@ -382,6 +382,9 @@ def engine_environment(config: dict) -> list[str]:
+         "-e",
+         "NEL3AB_SEATS_FILE=/pads/seats",
+         *(["-e", "NEL3AB_HOLD_FRONT_BUFFER=1"] if hold else []),
++        # BANC DE STABILITÉ (chantier/switch1-stabilite), jamais en salle :
++        # des variables d'essai pour le conteneur du moteur.
++        *[a for k, v in sorted(config.get("banc_env", {}).items()) for a in ("-e", f"{k}={v}")],
+     ]
+ 
+ 
+diff --git a/spikes/switch-room/capture.py b/spikes/switch-room/capture.py
+index 267ceed..425e689 100644
+--- a/spikes/switch-room/capture.py
++++ b/spikes/switch-room/capture.py
+@@ -142,6 +142,12 @@ def video(half, keys, stopped=STOP, progress=None):
+     # capture avait cessé de lire. Ces trois chiffres tranchent.
+     gaps = []
+     last_frame = None
++    # BANC DE STABILITÉ : chaque image datée par le compositeur, une par ligne.
++    trace = (
++        open(RUN_DATA / f"{name}-trace.txt", "a", buffering=1 << 16)
++        if os.environ.get("NEL3AB_CAPTURE_TRACE") == "1"
++        else None
++    )
+     fd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+     ready = select.poll()
+     ready.register(fd, select.POLLIN)
+@@ -178,6 +184,8 @@ def video(half, keys, stopped=STOP, progress=None):
+                     if last_frame is not None:
+                         gaps.append((captured - last_frame) / 1000)
+                     last_frame = captured
++                    if trace is not None:
++                        trace.write(f"{captured}\n")
+                     if opening.admit(payload):
+                         send(target, b"H" if half else b"F", payload, captured)
+                         if not SHOWN.is_set():
+@@ -197,6 +205,8 @@ def video(half, keys, stopped=STOP, progress=None):
+                         gaps = []
+                         print(json.dumps(report), flush=True)
+     finally:
++        if trace is not None:
++            trace.close()
+         stop_process(process, RECORDER_GRACE)
+ 
+ 

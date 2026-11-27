@@ -4,6 +4,9 @@ Ryubing `475615f` (26 août 2026), 328 commits après la version épinglée
 `e2143d4`. Le son et les manettes y passent par SDL3, et la construction exige
 le SDK .NET 10. `./build.sh <dossier>` le construit avec les correctifs de la
 salle.
+`NEL3AB_STABILITE_BUILD=1 ./build.sh <dossier>` y ajoute les sondes et les deux
+essais classés du banc de stabilité (`../banc-stabilite/`), éteints par défaut :
+pour un banc, jamais pour la salle.
 
 | Correctif | Rôle | Ce qui le prouve |
 |---|---|---|
@@ -12,6 +15,10 @@ salle.
 | `ryubing-latency-probe.patch` | marqueurs de latence (manette, remise, prise, rendu, présentation), pour les sondes seulement | `../latence/` |
 | `ryubing-seats.patch` | ne brancher que les manettes des places occupées : Ryubing relit quatre fois par seconde le fichier que le worker écrit (`NEL3AB_SEATS_FILE`) ; sans fichier, toutes les manettes comme avant | Mario Tennis, Free Play à deux : le jeu demandait 2 joueurs, l'émulateur répondait 4, et le jeu imposait le double |
 | `ryubing-hold-front-buffer.patch` | garder l'image affichée jusqu'à la présentation de la suivante, quand `NEL3AB_HOLD_FRONT_BUFFER=1` (réglage `hold_front_buffer` de la salle) ; toujours construit, sans effet sinon | carnet de bord, 10 septembre : 64,5 à 39,9 ms sur le programme de test |
+| `ryubing-async-shaders.patch` | essai **classé** : ne plus attendre un programme graphique en compilation et sauter ses dessins (`NEL3AB_ASYNC_SHADERS=1`) | banc de stabilité, 27 novembre : une course de démo entière restée noire (~30 s), et 40 « pipeline compile missed on draw » contre 0 ; voir `../banc-stabilite/README.md` |
+| `ryubing-shader-probe.patch` | sonde : par seconde, traduction des programmes neufs, attente du fil de rendu, pipelines créés au dessin et en arrière-plan (`NEL3AB_SHADER_PROBE=1`) | Mario Kart à froid : 5,2 ms de traduction et 11,5 ms de pilote par programme |
+| `ryubing-pipeline-noopt.patch` | essai **classé** : pipelines compilés sans optimisation (`NEL3AB_PIPELINE_NOOPT=1`) | 9,9 ms au lieu de 11,5 par programme, pas moins d'images perdues, et le cache garderait des shaders moins efficaces |
+| `ryubing-call-probe.patch` | sonde : temps par appel `nvdrv` et par étape de map/unmap mémoire GPU, et taille de l'ensemble des textures partiellement mappées (`NEL3AB_CALL_PROBE=1`) | 33 à 36 µs sur ~40 par map/unmap passent dans `RunRemapActions` |
 
 Le correctif des sources de paquets de la version épinglée est inutile ici :
 les paquets de mise à jour sont sur nuget.org. Chaque fichier a été produit par

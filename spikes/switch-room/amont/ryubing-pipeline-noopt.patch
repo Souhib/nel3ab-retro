@@ -1,0 +1,24 @@
+diff --git a/src/Ryujinx.Graphics.Vulkan/PipelineState.cs b/src/Ryujinx.Graphics.Vulkan/PipelineState.cs
+index 2fdf32c3..cdd16420 100644
+--- a/src/Ryujinx.Graphics.Vulkan/PipelineState.cs
++++ b/src/Ryujinx.Graphics.Vulkan/PipelineState.cs
+@@ -306,6 +306,8 @@ namespace Ryujinx.Graphics.Vulkan
+             set => Internal.Id8 = (Internal.Id8 & 0xFFFFFFFFFFFFFE7F) | (((ulong)value) << 7);
+         }
+ 
++        private static readonly bool _nel3abNoOpt = System.Environment.GetEnvironmentVariable("NEL3AB_PIPELINE_NOOPT") == "1";
++
+         public bool HasTessellationControlShader;
+         public NativeArray<PipelineShaderStageCreateInfo> Stages;
+         public PipelineLayout PipelineLayout;
+@@ -609,7 +611,9 @@ namespace Ryujinx.Graphics.Vulkan
+                     PDynamicStates = dynamicStates,
+                 };
+ 
+-                PipelineCreateFlags flags = 0;
++                // nel3ab: NEL3AB_PIPELINE_NOOPT=1 asks the driver for a quicker,
++                // less optimised compile of each graphics pipeline. Off by default.
++                PipelineCreateFlags flags = _nel3abNoOpt ? PipelineCreateFlags.CreateDisableOptimizationBit : 0;
+ 
+                 if (gd.Capabilities.SupportsAttachmentFeedbackLoop)
+                 {

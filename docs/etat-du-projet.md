@@ -8,12 +8,33 @@ qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
 **Au 27 novembre, le jour : l'audit de la Switch 1 et ses corrections, sur
 integration/switch1.** Ce bloc décrit du code fusionné sur la branche
-`integration/switch1` (worktree `~/nel3ab-chantiers/switch1-integration`). Il
-n'est pas encore sur `main`. Rien n'est installé : aucun worker reconstruit,
-aucune boîte noire relancée, aucune unité copiée. Rien n'a tourné avec le vrai
-émulateur ni avec la carte graphique : les preuves sont des essais, des rejeux
-de fichiers réels, des bancs en temps simulé et un Chrome sans écran. Ce bloc
-ne dit pas le résultat de la porte complète `just` sur cette branche.
+`integration/switch1` (worktree `~/nel3ab-chantiers/switch1-integration`),
+puis fusionné dans `main` quand ce bloc le dit plus bas. Rien n'est installé
+tant que le propriétaire n'a pas lancé la mise en service et que le worker
+n'est pas reconstruit.
+
+- **La porte, le 27 novembre.** `just` passe jusqu'à `deploy-check`, qui ne
+  signale qu'une différence voulue : l'unité `nel3ab-cpu-performance.service`
+  du dépôt (arrêt sur `powersave`) n'est pas encore installée. Les neuf
+  preuves en navigateur qui suivent ont tourné une par une, toutes vertes ;
+  `just etats-navigateur-rouge` rend ses treize contrôles rouges comme
+  attendu ; `just switch-controls-test` passe (quatre manettes, seize
+  boutons, vibration refusée puis rendue, boutons qui répondent toujours).
+- **Le vrai émulateur, le 27 novembre à 13:56 UTC.** Le worker de la branche
+  a lancé Mario Tennis Aces par le vrai adaptateur, sur la carte, dans une
+  salle privée (ports libres, session et état jetables, copie de
+  `switch.json`), pendant 150 s. Ryubing accepte `--vsync-mode Switch
+  --backend-threading Auto --memory-manager-mode HostMapped` ; son journal
+  dit « Backend Threading (Auto): True ». Les lignes « LogValueChange » qui
+  disent On et HostMappedUnsafe viennent du Config.json chargé sans servir :
+  elles étaient identiques le 26 novembre, et le code headless prend
+  `options.MemoryManagerMode` (HeadlessRyujinx.Init.cs:222-252). Aucune
+  « no complete packet » ; la copie vide de Sway n'est pas arrivée au worker
+  (0 paquet à 13:56:57) ; la couche du jeu à 10,76 s du lancement du moteur.
+  Ensuite 600 à 602 images par 10 s, écart max 18,4 à 19,6 ms, âge à
+  l'entrée du worker autour de 2,2 ms en médiane. Arrêt en 1,5 s, sans
+  SIGKILL, aucun conteneur restant. Ce n'est pas une partie : aucune page
+  ne regardait, personne ne jouait, un seul jeu.
 
 - **L'audit.** Un audit en lecture seule a relu la partie Smash du
   26 novembre (sept minutes, un joueur distant sur un Mac) et Mario Tennis à

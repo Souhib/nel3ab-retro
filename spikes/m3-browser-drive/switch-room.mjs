@@ -224,7 +224,14 @@ http://localhost:${door} {
   await Promise.all(reservations.map((s) => new Promise((done) => s.close(done))));
   console.log(`Salle temporaire : ${url}\nTraces et sauvegardes de test : ${root}`);
   start("caddy", ["run", "--config", join(root, "Caddyfile"), "--adapter", "caddyfile"], "proxy");
-  const startLobby = () => start(join(repo, "control/.venv/bin/python"), ["-m", "uvicorn", "nel3ab_control.app:app",
+  // Le salon isolé de spikes/switch2-room/lobby.py, et pas l'application telle
+  // quelle : depuis le registre des salles, le salon déduit 8110/8111 pour la
+  // salle 1 et jette NEL3AB_WORKER_URL. Le 27 novembre 2026, ce pilote a ainsi
+  // demandé la salle installée (« the worker at http://127.0.0.1:8110 is not
+  // answering ») et ne démarrait plus. Le même module coupe tout geste sur les
+  // unités systemd installées.
+  const startLobby = () => start(join(repo, "control/.venv/bin/python"), ["-m", "uvicorn", "lobby:app",
+    "--app-dir", join(repo, "spikes/switch2-room"),
     "--host", "127.0.0.1", "--port", String(lobby)], "lobby", join(repo, "control"));
   let salon = startLobby();
   boot();

@@ -31,9 +31,10 @@ class OnDemand:
     def close(self):
         if self.thread is not None:
             self.stop.set()
-            # The recorder gets five seconds to exit; leave three extra seconds
-            # for its pipe reader and the two-second bridge timeout. A timeout
-            # is a failure, never a second worker.
+            # The recorder gets half a second, then up to five after SIGKILL
+            # (capture_process.py); the rest covers its pipe reader and the
+            # two-second bridge timeout. A timeout is a failure, never a
+            # second worker.
             self.thread.join(timeout=8)
             if self.thread.is_alive():
                 raise RuntimeError("half capture did not stop")

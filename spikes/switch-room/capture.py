@@ -25,13 +25,14 @@ from capture_demand import OnDemand
 from capture_health import FAIL_AFTER, Progress
 from capture_keys import Keys
 from capture_packets import Packets
-from capture_process import stop_child
+from capture_process import RECORDER_GRACE, stop_child
 
 # The container's paths. Tests point them at a temporary folder, a fake
 # recorder and a local media socket (test_capture_loop.py): nothing else changes.
 RUN_DATA = Path("/run-data")
 MEDIA_SOCKET = "/pads/media.sock"
 RECORDER = "/usr/local/bin/nel3ab-wf-recorder"
+PAREC = "/usr/bin/parec"
 STOP = threading.Event()
 PROCESSES = []
 
@@ -60,8 +61,8 @@ def send(stream, kind, payload, captured=None):
     stream.sendall(struct.pack("<cQI", kind, captured, len(payload)) + payload)
 
 
-def stop_process(process):
-    if stop_child(process):
+def stop_process(process, grace=5):
+    if stop_child(process, grace):
         print(json.dumps({"capture_child_forced": process.pid}), flush=True)
     PROCESSES.remove(process)
 
@@ -170,7 +171,7 @@ def video(half, stopped=STOP, progress=None):
                         gaps = []
                         print(json.dumps(report), flush=True)
     finally:
-        stop_process(process)
+        stop_process(process, RECORDER_GRACE)
 
 
 def half_capture(keys):
@@ -201,7 +202,7 @@ def half_capture(keys):
 def audio(progress):
     process = subprocess.Popen(
         [
-            "/usr/bin/parec",
+            PAREC,
             "--device=nel3ab.monitor",
             "--format=s16le",
             "--rate=48000",

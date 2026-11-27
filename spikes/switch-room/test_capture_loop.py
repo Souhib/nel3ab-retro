@@ -12,6 +12,7 @@ receiving socket can time each packet from its write to its arrival.
 """
 
 import contextlib
+import io
 import json
 import os
 import socket
@@ -25,7 +26,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import capture
-from capture_health import Progress
+from capture_health import FAIL_AFTER, Progress
 
 FAKE = """
 import json, os, signal, struct, sys, time
@@ -62,6 +63,20 @@ for step in steps:
                                   "packet": step["packet"]}) + "\\n")
 while True:
     time.sleep(3600)
+"""
+
+FAKE_PAREC = """
+import os, signal, sys, time
+
+def finish(*_):
+    # A sound reader that takes its time to close, as parec may.
+    time.sleep(1.0)
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, finish)
+while True:
+    os.write(1, bytes(1920))
+    time.sleep(0.01)
 """
 
 
@@ -228,6 +243,77 @@ class Loop(unittest.TestCase):
             self.assertLess(raised[0][0] - stopped_at, 0.35)
             room.thread.join(timeout=10)
             self.assertIsInstance(room.error, RuntimeError)
+
+
+class Stopping(unittest.TestCase):
+    """CAP-6: on a still picture wf-recorder waits for a copy Sway never sends.
+
+    On 2026-11-08 (4 times) and 2026-11-21 (36 times) each stop took 5.03 s and
+    ended in SIGKILL. The recorder writes to /dev/null and has nothing to
+    finish, so it gets half a second; parec keeps its five.
+    """
+
+    def test_a_recorder_that_resumes_its_wait_after_sigint_is_killed_within_a_second(self):
+        with (
+            Room([{"open": 1}, {"packet": "idr"}], sigint="ignore") as room,
+            contextlib.redirect_stdout(io.StringIO()) as out,
+        ):
+            room.run()
+            room.wait_for(lambda: room.written(), 5, "the first copy was written")
+            asked = time.monotonic()
+            room.stopped.set()
+            room.thread.join(timeout=10)
+            self.assertLess(room.ended - asked, 1.0)
+            self.assertIn("capture_child_forced", out.getvalue())
+            lines = room.journal.read_text().splitlines()
+            self.assertIn('{"sigint": 1}', lines, "SIGINT came first")
+
+    def test_the_twin_a_recorder_that_exits_on_sigint_is_not_killed(self):
+        with (
+            Room([{"open": 1}, {"packet": "idr"}]) as room,
+            contextlib.redirect_stdout(io.StringIO()) as out,
+        ):
+            room.run()
+            room.wait_for(lambda: room.written(), 5, "the first copy was written")
+            asked = time.monotonic()
+            room.stopped.set()
+            room.thread.join(timeout=10)
+            self.assertLess(room.ended - asked, 1.0)
+            self.assertNotIn("capture_child_forced", out.getvalue())
+
+    def test_parec_keeps_its_longer_grace(self):
+        with (
+            Room([]) as room,
+            contextlib.redirect_stdout(io.StringIO()) as out,
+        ):
+            parec = room.root / "fake-parec"
+            parec.write_text(f"#!{sys.executable}\n{FAKE_PAREC}")
+            parec.chmod(0o700)
+            stop = threading.Event()
+            room.enter_context(patch.object(capture, "PAREC", str(parec)))
+            room.enter_context(patch.object(capture, "STOP", stop))
+            failures = []
+
+            def sound():
+                try:
+                    capture.audio(Progress(copies=0, start_limit=FAIL_AFTER))
+                except Exception as error:
+                    failures.append(error)
+
+            thread = threading.Thread(target=sound)
+            thread.start()
+            room.wait_for(
+                lambda: sum(1 for m in room.media.received if m[0] == b"A") >= 5,
+                5,
+                "sound arrived",
+            )
+            asked = time.monotonic()
+            stop.set()
+            thread.join(timeout=10)
+            took = time.monotonic() - asked
+            self.assertEqual(failures, [])
+            self.assertNotIn("capture_child_forced", out.getvalue())
+            self.assertGreaterEqual(took, 0.9, "parec finished on its own after 1 s")
 
 
 if __name__ == "__main__":

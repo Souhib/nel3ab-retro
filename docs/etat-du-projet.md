@@ -142,8 +142,7 @@ n'est pas reconstruit.
   non. L'étiquette « chargement » de la fenêtre de 23:36:11, que le plan
   attendait et que la règle stricte ne donne pas. La portée d'un gel vu par
   plusieurs pages, qui prend encore une capture de page puis une de salle.
-- **Restes connus, non faits.** `docker inspect` deux fois par seconde
-  (à remplacer par un pidfd), les trames répétées vers `pads.py`, le plafond
+- **Restes connus, non faits.** Les trames répétées vers `pads.py`, le plafond
   de file en millisecondes, les deux zones mortes des sticks, la moitié de la
   capture de l'âge et de l'écart de lecture, un résumé qui échoue sans trace,
   `check-capture-recovery.mjs --silent` périmé, et les commentaires qui

@@ -34972,8 +34972,10 @@ de 64 Kio met environ 8,5 s à se remplir, et l'essai durait 4 s. Il remplit
 maintenant le tuyau avant de mesurer, et vérifie qu'une écriture d'un octet est
 refusée.
 
-**Ce qui n'a pas été fait.** La salle lance `docker inspect` environ deux fois
-par seconde pour savoir que le conteneur vit, à 17 ms de processeur chacun. Le
+**Ce qui n'a pas été fait.** (Fait le soir même, voir « la salle ne demande
+plus à Docker deux fois par seconde si le moteur vit ».) La salle lance
+`docker inspect` environ deux fois par seconde pour savoir que le conteneur
+vit, à 17 ms de processeur chacun. Le
 remplacer par un pidfd change les fichiers dorés des trois consoles et le faux
 Docker du banc doré. Il casse aussi un essai de `moteurs/xenia`, qui repère la
 fin de partie par le dernier `docker inspect`. Ces fichiers appartiennent à
@@ -35276,7 +35278,7 @@ propriétaire :
 
 Le reste de l'audit attend une mesure ou un autre chantier : réchauffer le cache
 de shaders en sonde, les 45 images par seconde de Mario Tennis à deux, les
-pistes du moteur en sonde, `docker inspect` remplacé par un pidfd, l'arrêt des
+pistes du moteur en sonde, l'arrêt des
 trames répétées vers `pads.py`, la moitié de la capture de l'âge et de l'écart
 de lecture sur sa fenêtre de 5 s, et les liaisons faibles du worker.
 
@@ -35285,6 +35287,50 @@ mauvaise raison : un client sans TCP_NODELAY, une horloge jugée par elle-même,
 un écrivain en phase avec le sommeil qu'il devait prendre en faute, un jumeau
 négatif qui ne faisait jamais revenir l'événement. Chaque fois, c'est le défaut
 remis seul, puis cherché par un autre chemin, qui l'a montré.
+
+### 27 novembre, le soir : la salle ne demande plus à Docker deux fois par seconde si le moteur vit
+
+L'audit l'avait laissé de côté (MACH-2). Pour savoir si l'émulateur tournait
+encore, la boucle de la salle lançait `docker inspect` à chaque tour, soit
+environ deux fois par seconde pendant toute une partie. Chaque appel démarre
+un client docker (un petit programme écrit en Go) qui interroge le démon, puis
+s'arrête.
+
+La salle lance maintenant un seul `docker wait` au départ du moteur. Ce client
+reste bloqué sans rien faire, et rend la main quand le conteneur s'arrête. La
+boucle regarde seulement si son propre enfant est encore là. Quand il rend la
+main, un seul `docker inspect` dit si le moteur s'est vraiment arrêté ou si
+c'est le client qui est tombé seul ; dans le second cas, la salle en relance
+un et la partie continue. Le socle de la salle Xbox 360 fait la même chose. Le
+pidfd, que l'audit envisageait, aurait demandé de lire le numéro de processus
+du conteneur puis de s'assurer qu'il n'avait pas été réattribué : `docker wait`
+évite ces deux questions.
+
+La mesure, sur de vraies salles Smash privées, en phases alternées A B B A
+(A : `main`, B : la branche), le temps processeur relevé pendant 120 s :
+
+| | A | B | B | A |
+|---|---|---|---|---|
+| Clients docker attendus par la salle | 4,41 s | 0,00 s | 0,00 s | 4,44 s |
+| Script de salle | 0,15 s | 0,03 s | 0,04 s | 0,16 s |
+| Démon docker | 1,15 s | 0,97 s | 0,82 s | 1,30 s |
+
+Le gain est d'environ 4,1 % d'un cœur, en continu, pour chaque salle ouverte.
+L'audit l'estimait à 7 %. Le démon sert aussi les autres conteneurs de la
+machine : son chiffre est bruité, mais il baisse dans les deux phases B.
+
+Les essais tiennent quatre choses : une minute de jeu sans aucun
+`docker inspect`, un moteur arrêté vu au tour suivant, un client tombé seul
+remplacé sans arrêter la partie, et le client arrêté avec la salle. Sur
+l'ancienne boucle, trois échouent et le quatrième plante (21 `docker inspect`
+en 10 s, aucun client `docker wait`). Deux mutants de la nouvelle boucle, sans
+la relance du client puis sans son arrêt, échouent chacun sur l'essai qui le
+vise. Les 22 fichiers dorés des trois consoles ont changé : chacun perd ses
+`docker inspect` de boucle et gagne un `docker wait`, et rien d'autre ; les
+scénarios « moteur arrêté » gardent exactement un `docker inspect`, celui qui
+suit le retour du client. Un essai de `moteurs/xenia` repérait la fin de
+partie au dernier `docker inspect` ; il part désormais du dernier arrêt de
+capture, qui ouvre toujours `stop_engine`.
 
 ## 12. Glossaire complet
 

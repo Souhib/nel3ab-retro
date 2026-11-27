@@ -764,5 +764,53 @@ class EngineLog(unittest.TestCase):
             )
 
 
+UNIT = Path(__file__).resolve().parents[1] / "deploy/nel3ab-cpu-performance.service"
+
+
+def governors_written(unit_text):
+    """Each governor that an Exec line of the unit echoes into scaling_governor."""
+    written = []
+    for line in unit_text.splitlines():
+        if line.startswith(("ExecStart=", "ExecStop=")) and "scaling_governor" in line:
+            written += re.findall(r"echo ([a-z]+) > ", line)
+    return written
+
+
+def governors_refused(unit_text, available):
+    return [governor for governor in governors_written(unit_text) if governor not in available]
+
+
+class CpuGovernorUnit(unittest.TestCase):
+    """MACH-13: amd-pstate-epp offers performance and powersave only.
+
+    Since the 7.0 kernel (2026-09-14) the driver refused the schedutil written
+    by ExecStop, and the stop failed (« echo: I/O error », 2026-10-14 12:40).
+    """
+
+    def available(self):
+        cpus = Path("/sys/devices/system/cpu")
+        nodes = sorted(cpus.glob("cpu*/cpufreq/scaling_available_governors"))
+        # A precondition, not a branch: without cpufreq nothing here is checked.
+        self.assertTrue(nodes, "no cpufreq on this machine: the unit cannot be checked")
+        sets = [set(node.read_text().split()) for node in nodes]
+        return set.intersection(*sets)
+
+    def test_every_governor_the_unit_writes_is_one_this_machine_accepts(self):
+        text = UNIT.read_text()
+        self.assertIn("performance", governors_written(text))
+        self.assertEqual(governors_refused(text, self.available()), [])
+
+    def test_the_twins_schedutil_is_seen_and_performance_alone_passes(self):
+        stop = (
+            "ExecStop=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/"
+            'scaling_governor; do echo schedutil > "$g"; done\''
+        )
+        start = stop.replace("ExecStop", "ExecStart").replace("schedutil", "performance")
+        accepted = {"performance", "powersave"}
+        self.assertEqual(governors_refused(f"{start}\n{stop}\n", accepted), ["schedutil"])
+        self.assertEqual(governors_refused(f"{start}\n", accepted), [])
+        self.assertEqual(governors_written(f"{start}\n{stop}\n"), ["performance", "schedutil"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@
  * et à la première fenêtre. Les deux ont leur test.
  */
 import { describe, expect, it } from "vitest";
-import type { Snapshot } from "../media/session";
+import type { Fenetre, Snapshot } from "../media/session";
 import {
   HiddenTime,
   COLLAPSE_MS,
@@ -187,6 +187,39 @@ describe("le relevé d'une fenêtre", () => {
     // celle du navigateur est décalée. Une séance saine s'écrivait
     // « horaire -15268 ms », ce qui n'a jamais voulu dire quoi que ce soit.
     expect(vitals(snap({ addedMs: 0 }), null, 10_000).horaire).toBe(0);
+  });
+});
+
+describe("ce que l'œil voit d'une fenêtre (VID-4)", () => {
+  it("sépare les images jetées par rattrapage de celles jetées par débordement", () => {
+    // Les deux disent le contraire l'une de l'autre (VID-1) : le 26 novembre
+    // 2026, le relevé ne permettait pas de savoir laquelle bloquait la marge.
+    const before = snap({ skipped: 10, caughtUp: 7, overflowed: 3 });
+    const now = snap({ skipped: 27, caughtUp: 21, overflowed: 6 });
+    const sample = vitals(now, before, 10_000);
+
+    expect(sample.rattrapées, "le relevé ne sépare pas les rattrapages").toBe(14);
+    expect(sample.débordées).toBe(3);
+    expect(sample.jetées).toBe(sample.rattrapées + sample.débordées);
+  });
+
+  it("écrit le plus long arrêt vu au verre, en millisecondes", () => {
+    const fenetre = { video: { arretMs: 130 } } as Fenetre;
+    const sample = vitals(snap(), null, 10_000, undefined, true, fenetre);
+
+    expect(sample.arrêt, "le relevé ne dit pas l'arrêt vu au verre").toBe(130);
+  });
+
+  // Le jumeau : sans mesure, nul. Un zéro dirait une image parfaitement fluide.
+  it("écrit nul quand la fenêtre n'a rien peint, ou quand on ne la donne pas", () => {
+    const vide = { video: { arretMs: null } } as Fenetre;
+    expect(vitals(snap(), null, 10_000, undefined, true, vide).arrêt).toBeNull();
+    expect(vitals(snap(), null, 10_000).arrêt).toBeNull();
+  });
+
+  it("dit la règle de marge en service, pour lire une comparaison à l'aveugle", () => {
+    expect(vitals(snap({ marge: "ancienne" }), null, 10_000).marge).toBe("ancienne");
+    expect(vitals(snap({ marge: "lisse" }), null, 10_000).marge).toBe("lisse");
   });
 });
 

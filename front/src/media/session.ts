@@ -10,7 +10,7 @@ import type { InputSource } from "./input-source";
 import { InputStream, type InputState } from "./input";
 import { MicStream, type MicState } from "./mic";
 import { SoundStream, type SoundStats } from "./sound";
-import { VideoStream, type VideoStats } from "./video";
+import { VideoStream, type FenetreVideo, type VideoStats } from "./video";
 import { jetons, vues } from "./couverture";
 import type { Liaison } from "./liaison";
 import { VeilleLiaison, type Contexte } from "./veille";
@@ -35,6 +35,13 @@ export type Snapshot = {
    * été décidé (`couverture.vues`). Une couverture armée sur cet état est
    * refusée si une image plus neuve a été peinte depuis (ADR D40). */
   couvertureVue: number;
+};
+
+/** Ce que la fenêtre de relevé a vu de pire, flux par flux (`fenetre.ts`).
+ * Hors de l'instantané : React le lit deux fois par seconde, et un maximum
+ * pris à chaque lecture ne couvrirait qu'une demi-seconde. */
+export type Fenetre = {
+  video: FenetreVideo;
 };
 
 /** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
@@ -147,6 +154,13 @@ export class Session {
   };
 
   getSnapshot = (): Snapshot => this.snapshot;
+
+  /** Ce que chaque flux a vu de pire depuis le dernier relevé. `prendre` :
+   * le relevé de dix secondes repart de rien ; un signalement lit sans
+   * prendre, pour ne pas voler sa fenêtre au relevé suivant. */
+  fenetre(prendre: boolean): Fenetre {
+    return { video: this.video.fenetre(prendre) };
+  }
 
   /** Lines the picture up with the sound, or lets it stay early. */
   setLipsync(on: boolean): void {

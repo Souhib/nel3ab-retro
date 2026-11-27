@@ -35,7 +35,8 @@
  * fois par seconde. Elle tourne toutes les dix secondes, sur le fil des
  * événements, et ne connaît ni la toile ni le décodeur.
  */
-import type { Snapshot } from "../media/session";
+import type { Fenetre, Snapshot } from "../media/session";
+import type { Marge } from "../media/video";
 import { FIGEE_MS } from "../media/liaison";
 
 /** Combien de temps la trace fine remonte, en millisecondes.
@@ -84,10 +85,28 @@ export const TRAIL_COLUMNS = [
 export type Vitals = {
   /** Combien de secondes la fenêtre couvre. */
   s: number;
-  /** Images arrivées, peintes, et jetées avant leur tour. */
+  /** Images DÉCODÉES, et non arrivées : une image arrivée pendant qu'un
+   * onglet est caché ou qu'un décodeur attend son image-clé n'est pas
+   * décodée, et ne compte pas ici (audit du 27 novembre 2026, VID-4). */
   vues: number;
   peintes: number;
+  /** Images décodées jamais peintes : la file était pleine, ou l'image a été
+   * rattrapée après son heure. Les deux sortes, à part, juste en dessous. */
   jetées: number;
+  /** Jetées par RATTRAPAGE : arrivées après leur heure, quand la suivante
+   * était déjà due. L'horaire était trop tôt pour elles (VID-1). */
+  rattrapées: number;
+  /** Jetées par DÉBORDEMENT : la file était pleine avant leur tour.
+   * L'horaire était trop tard pour la file (le 17 août 2026). */
+  débordées: number;
+  /** Le plus long temps sans nouvelle image peinte, onglet visible, en
+   * millisecondes, ou nul quand la fenêtre n'a rien peint. « affamées »
+   * compte des épisodes : un trou de 30 ms et un de 130 ms comptent un, et
+   * seul ce chiffre dit ce que l'œil a vu (VID-4). */
+  arrêt: number | null;
+  /** La règle de marge en service : la nouvelle (« lisse »), ou l'ancienne
+   * demandée par `?marge=ancienne` pour une comparaison à l'aveugle. */
+  marge: Marge;
   /** Fois où la file s'est vidée, et où il a fallu redemander une image clé. */
   affamées: number;
   clés: number;
@@ -162,6 +181,27 @@ export type Vitals = {
  * le nom qu'un pilote invente. */
 export const PAD_NAME_MAX = 64;
 
+/** Combien de caractères de l'état du déblocage du son on garde : « refusé : »
+ * suivi des cinquante premiers caractères du refus (`sound.ts`). */
+export const DEBLOQUE_MAX = 64;
+
+/** Une chaîne venue du navigateur, sans caractère de contrôle et coupée à
+ * `max`. Un caractère de contrôle s'écrit en six caractères une fois remis en
+ * JSON : soixante-quatre d'entre eux auraient pesé 384 caractères sur les
+ * 2 048 que le salon accepte (`vitals-borne.test.ts`). */
+export function propre(texte: string, max: number): string {
+  return [...texte]
+    .filter((c) => !controle(c))
+    .join("")
+    .slice(0, max);
+}
+
+/** Un caractère de contrôle : sous l'espace, ou « suppression ». */
+export function controle(c: string): boolean {
+  const code = c.charCodeAt(0);
+  return code < 0x20 || code === 0x7f;
+}
+
 /**
  * Un écart qui ne peut pas être négatif.
  *
@@ -187,6 +227,9 @@ export function vitals(
   elapsedMs: number,
   page?: { visible: boolean; cachéeMs: number },
   enJeu = false,
+  /** Ce que la fenêtre a vu de pire (`Session.fenetre`). Absente, chaque
+   * champ qu'elle porte vaut nul : pas mesuré, jamais zéro. */
+  fenetre?: Fenetre | null,
 ): Vitals {
   const was = before?.video;
   const wasSound = before?.sound;
@@ -198,6 +241,10 @@ export function vitals(
     vues: since(video.shown, was?.shown ?? 0),
     peintes: since(video.painted, was?.painted ?? 0),
     jetées: since(video.skipped, was?.skipped ?? 0),
+    rattrapées: since(video.caughtUp, was?.caughtUp ?? 0),
+    débordées: since(video.overflowed, was?.overflowed ?? 0),
+    arrêt: fenetre?.video.arretMs ?? null,
+    marge: video.marge,
     affamées: since(video.starved, was?.starved ?? 0),
     clés: since(video.keyFramesAsked, was?.keyFramesAsked ?? 0),
     rouvertes: since(video.reconnects, was?.reconnects ?? 0),
@@ -215,7 +262,7 @@ export function vitals(
       trous: since(sound.gaps, wasSound?.gaps ?? 0),
       avance: Math.round(sound.leadMs),
       état: sound.state,
-      débloqué: sound.unlocked,
+      débloqué: propre(sound.unlocked, DEBLOQUE_MAX),
       gain: Math.round(sound.gain * 100) / 100,
       cadence: sound.sampleRate,
       sortie: Math.round(sound.output),
@@ -230,7 +277,7 @@ export function vitals(
       place: input.port,
       envoyées: since(input.sent, wasInput?.sent ?? 0),
       allerRetour: input.roundTripMs,
-      modèle: input.padId === null ? null : input.padId.slice(0, PAD_NAME_MAX),
+      modèle: input.padId === null ? null : propre(input.padId, PAD_NAME_MAX),
     },
   };
 }

@@ -18,7 +18,7 @@
  * donne sont ceux de l'arithmétique de la page, pas ceux d'un navigateur.
  */
 import { vi } from "vitest";
-import { VideoStream, type Marge, type VideoStats } from "../media/video";
+import { VideoStream, type FenetreVideo, type Marge, type VideoStats } from "../media/video";
 
 /** La période d'une source à 60 images par seconde, en millisecondes. */
 export const SOURCE_MS = 1000 / 60;
@@ -40,8 +40,10 @@ export type Scenario = {
   marge?: Marge;
 };
 
-/** Ce que le banc relève à la fin de chaque fenêtre de deux secondes. */
-export type Releve = { instant: number; stats: VideoStats };
+/** Ce que le banc relève à la fin de chaque fenêtre de deux secondes : les
+ * compteurs, et ce que la fenêtre a vu de pire, PRIS comme le relevé de la
+ * page le prend (`Session.fenetre`). */
+export type Releve = { instant: number; stats: VideoStats; fenetre: FenetreVideo | null };
 
 export type Resultat = {
   releves: Releve[];
@@ -138,7 +140,7 @@ export function rejouer(etat: ReturnType<typeof doublures>, scenario: Scenario):
     marge: scenario.marge ?? "lisse",
   });
   video.start();
-  const socket = etat.socket;
+  let socket = etat.socket;
   if (socket === null) throw new Error("la doublure de socket n'a pas été construite");
   socket.onopen();
   const t0 = performance.now();
@@ -168,12 +170,22 @@ export function rejouer(etat: ReturnType<typeof doublures>, scenario: Scenario):
     if (pas > 0) vi.advanceTimersByTime(pas);
     ici = evenement.instant;
     if (evenement.genre === "image") {
+      // Après plus de deux secondes sans un octet, le chien de garde de la
+      // page ferme sa socket et en rouvre une : les images suivantes passent
+      // par la nouvelle, comme chez le worker.
+      if (etat.socket !== null && etat.socket !== socket) {
+        socket = etat.socket;
+        socket.onopen();
+      }
       socket.onmessage({ data: message(ORIGINE_MS + (evenement.capture ?? 0)) });
       continue;
     }
     if (evenement.genre === "releve") {
       const stats = video.stats();
-      releves.push({ instant: evenement.instant, stats });
+      // Une page d'avant la fenêtre n'a pas `fenetre` : le banc la rejoue
+      // quand même, et l'essai dit ce qui manque au lieu de tomber ici.
+      const fenetre = typeof video.fenetre === "function" ? video.fenetre(true) : null;
+      releves.push({ instant: evenement.instant, stats, fenetre });
       margeMax = Math.max(margeMax, stats.slackMs);
       if (renonce === null && stats.overloaded) renonce = evenement.instant;
       continue;
@@ -202,6 +214,14 @@ export function reguliere(secondes: number, base = 20): Arrivee[] {
     images.push({ capture, arrivee: capture + base });
   }
   return images;
+}
+
+/** Les images qui arrivent pendant `[debut, debut + ms[` sont retenues et
+ * livrées ensemble à `debut + ms`, dans l'ordre : un arrêt de la liaison. */
+export function retenue(images: Arrivee[], debut: number, ms: number): Arrivee[] {
+  return images.map((une) =>
+    une.arrivee >= debut && une.arrivee < debut + ms ? { ...une, arrivee: debut + ms } : une,
+  );
 }
 
 /**

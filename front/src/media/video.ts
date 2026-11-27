@@ -20,6 +20,7 @@ import {
 } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 import { boiteJuste, decouvrir, lever } from "./couverture";
+import { Pic, arrondi } from "./fenetre";
 import { under } from "../lib/base";
 import type { Marge } from "./clock";
 
@@ -237,6 +238,17 @@ export type VideoStats = {
   addedMs: number;
 };
 
+/** Ce qu'une fenêtre de relevé a vu de pire, PRIS par le relevé de dix
+ * secondes et lu sans être pris par un signalement (`fenetre.ts`). Nul veut
+ * dire « pas mesuré dans cette fenêtre », jamais zéro. */
+export type FenetreVideo = {
+  /** Le plus long temps sans nouvelle image peinte, onglet visible, en
+   * millisecondes (VID-4). C'est ce que l'œil voit d'un arrêt : une famine
+   * compte un épisode, qu'il dure 30 ou 130 ms. Un gel de la salle y entre
+   * aussi, une fois fini ; `attente` le dit pendant qu'il dure. */
+  arretMs: number | null;
+};
+
 /** À partir de combien de tics d'écran par image de la source un retard d'une
  * période se montre au lieu d'être jeté (VID-6). Un et huit dixièmes plutôt
  * que deux : un écran 120 Hz lu à 115 Hz, ou une source à 59 images par
@@ -355,6 +367,11 @@ export class VideoStream {
   private lastUnit: number | null = null;
   private units = 0;
   private lastPainted: number | null = null;
+  /** Le plus long temps entre deux images peintes de la fenêtre (VID-4). */
+  private readonly arret = new Pic();
+  /** La dernière image peinte, pour `arret` : remis à nul quand l'onglet se
+   * cache, parce que personne n'a vu le temps passé caché. */
+  private peintBase: number | null = null;
   private openedAt: number | null = null;
   private downSince: number | null = null;
   private startedAt: number | null = null;
@@ -432,6 +449,7 @@ export class VideoStream {
     if (this.half) void this.checkFormat();
     this.connect();
     this.frame = requestAnimationFrame(this.paint);
+    document.addEventListener("visibilitychange", this.cachee);
     this.timers.push(
       window.setInterval(this.watchSilence, 500),
       window.setInterval(this.watchDecoder, 500),
@@ -509,6 +527,8 @@ export class VideoStream {
   stop(): void {
     this.formatGeneration += 1;
     this.active = false;
+    document.removeEventListener("visibilitychange", this.cachee);
+    this.peintBase = null;
     this.lags.clear();
     this.gaps.clear();
     this.sourceGaps.clear();
@@ -622,6 +642,19 @@ export class VideoStream {
       addedMs: Math.round(this.boughtMs()),
     };
   }
+
+  /** Ce que la fenêtre a vu de pire. `prendre` la remet à zéro : le relevé de
+   * dix secondes prend, un signalement lit sans prendre (`fenetre.ts`). */
+  fenetre(prendre: boolean): FenetreVideo {
+    return { arretMs: arrondi(this.arret.lire(prendre).max) };
+  }
+
+  /** L'onglet se cache : le temps qui vient ne se voit pas, donc ne compte
+   * pas comme un arrêt au verre. Sans ça, une page revenue après une minute
+   * cachée publiait un arrêt d'une minute. */
+  private readonly cachee = (): void => {
+    if (document.visibilityState === "hidden") this.peintBase = null;
+  };
 
   /** The display's own interval, measured rather than assumed: 60, 120 and 240 Hz
    * screens are all in use here and a page that assumes one is wrong on two. */
@@ -1165,6 +1198,8 @@ export class VideoStream {
     this.retenue = !lever(this.juste);
     if (this.retenue) queueMicrotask(this.reessayer);
     this.lastPainted = now;
+    if (this.peintBase !== null) this.arret.note(now - this.peintBase, now);
+    this.peintBase = document.visibilityState === "hidden" ? null : now;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;
     this.waits.push(now - next.decodedAt);

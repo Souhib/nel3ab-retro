@@ -775,6 +775,11 @@ export class VideoStream {
     return this.lipsync;
   }
 
+  /** La période de l'écran, en millisecondes (`periodeDesInstants`). */
+  periodeEcranMs(): number {
+    return this.refreshPeriod();
+  }
+
   private wantedOffset(): number {
     return (this.lags.fastest() ?? 0) + this.boughtMs() + this.lipsync;
   }

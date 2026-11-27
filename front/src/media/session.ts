@@ -66,6 +66,9 @@ export class Session {
   private snapshot: Snapshot;
   private ticker: number | null = null;
   private lipsync = false;
+  /** Le premier calage d'une option allumée est-il posé ? Lui s'applique
+   * d'un coup ; les suivants passent la bande morte (`setLipsync`). */
+  private calePose = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -175,6 +178,7 @@ export class Session {
   setLipsync(on: boolean): void {
     this.lipsync = on;
     if (!on) {
+      this.calePose = false;
       this.video.setLipsync(0);
       return;
     }
@@ -182,7 +186,23 @@ export class Session {
     // Soustraire la compensation précédente évite de l'appliquer deux fois.
     const base = picture === null ? null : picture - this.video.compensationMs();
     const gap = this.sound.gapAgainst(base);
-    if (gap !== null) this.video.setLipsync(Math.max(0, gap));
+    if (gap === null) return;
+    const voulu = Math.max(0, gap);
+    // Une bande morte d'un rafraîchissement (SON-8). Relancé toutes les
+    // 500 ms avec l'écart du dernier morceau, qui tremble de quelques
+    // millisecondes, le calage faisait bouger l'horaire de l'image deux fois
+    // par seconde, et une image pouvait être tenue une fois de trop ou jetée.
+    // Un écart qui bouge de moins d'un rafraîchissement ne change pas l'image
+    // montrée ; au-delà, il s'applique d'un coup, comme avant. Le premier
+    // calage s'applique toujours : la personne qui allume l'option doit le
+    // voir.
+    if (
+      this.calePose &&
+      Math.abs(voulu - this.video.compensationMs()) <= this.video.periodeEcranMs()
+    )
+      return;
+    this.video.setLipsync(voulu);
+    this.calePose = true;
   }
 
   get lipsyncOn(): boolean {

@@ -356,7 +356,7 @@ pub(super) fn ask_for_key_frame(
 ///
 /// Écrit ici plutôt que déduit de « on vient de demander une clé »: le worker
 /// demande, l'encodeur décide, et les deux ne sont pas au même moment.
-pub(super) fn carries_key_frame(annex_b: &[u8]) -> bool {
+pub fn carries_key_frame(annex_b: &[u8]) -> bool {
     let mut zeros = 0_usize;
     let mut at_start = false;
     for byte in annex_b {

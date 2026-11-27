@@ -171,11 +171,147 @@ impl Producers {
     }
 }
 
+/// The capture clock, read as a number: `CLOCK_MONOTONIC`.
+///
+/// `capture.py` stamps each packet with `time.monotonic_ns()`, and the engine
+/// container shares this clock with the host: Docker gives it no time
+/// namespace. `Instant` reads the same clock but does not give its value.
+fn capture_clock() -> Option<Duration> {
+    nix::time::clock_gettime(nix::time::ClockId::CLOCK_MONOTONIC)
+        .ok()
+        .map(Duration::from)
+}
+
+/// One stream at the ingress, over one report window.
+///
+/// Dated where the packet has been read in full and before it is offered to
+/// anybody: what is measured here is the capture and its socket, and nothing
+/// of the viewers' queues or of the network behind them (audit WK-1).
+#[derive(Debug)]
+struct Flow {
+    /// The last arrival, kept across windows: a gap that straddles a report
+    /// is still a gap the viewers saw.
+    last: Option<Instant>,
+    packets: u64,
+    gaps: Timings,
+    ages: Timings,
+    bytes: Timings,
+    keys: u64,
+}
+impl Default for Flow {
+    fn default() -> Self {
+        // Two thousand samples: ten seconds of sound at a hundred chunks a
+        // second, twice over. A fuller window says so in `Timings::dropped`.
+        Self {
+            last: None,
+            packets: 0,
+            gaps: Timings::new(2048),
+            ages: Timings::new(2048),
+            bytes: Timings::new(2048),
+            keys: 0,
+        }
+    }
+}
+impl Flow {
+    /// One packet arrived at `at`, `age` after its capture when that is known.
+    fn arrived(&mut self, at: Instant, age: Option<Duration>, size: usize, key: bool) {
+        if let Some(last) = self.last.replace(at) {
+            self.gaps.observe(at.saturating_duration_since(last));
+        }
+        if let Some(age) = age {
+            self.ages.observe(age);
+        }
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a packet is at most 4 MiB, checked before it is read: f64 is \
+                      exact for every size this can hold"
+        )]
+        self.bytes.record(size as f64);
+        self.packets += 1;
+        self.keys += u64::from(key);
+    }
+    /// The window so far, then a new one.
+    fn summary(&mut self) -> FlowSummary {
+        let measured = |window: &mut Timings| (!window.is_empty()).then(|| window.summary());
+        let summary = FlowSummary {
+            packets: self.packets,
+            gap: measured(&mut self.gaps),
+            age: measured(&mut self.ages),
+            bytes: measured(&mut self.bytes),
+            keys: self.keys,
+        };
+        self.packets = 0;
+        self.keys = 0;
+        self.gaps.clear();
+        self.ages.clear();
+        self.bytes.clear();
+        summary
+    }
+}
+
+/// What one stream looked like at the ingress since the last report.
+///
+/// A distribution nobody measured is `None`, never zeros: a window without a
+/// picture must not read as a window of perfect pictures.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FlowSummary {
+    /// Packets that reached the ingress and were offered to the viewers.
+    pub packets: u64,
+    /// Milliseconds between two arrivals.
+    pub gap: Option<Summary>,
+    /// Milliseconds from the capture stamp to the arrival.
+    pub age: Option<Summary>,
+    /// Bytes per packet.
+    pub bytes: Option<Summary>,
+    /// Pictures that carried a key frame.
+    pub keys: u64,
+}
+
+/// The three streams at the ingress since the last report.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IngressReport {
+    /// The full-size pictures, `F`.
+    pub full: FlowSummary,
+    /// The reduced pictures, `H`.
+    pub half: FlowSummary,
+    /// The sound, `A`.
+    pub sound: FlowSummary,
+}
+
 /// What every capture connection of one ingress shares.
 #[derive(Debug, Default)]
 struct Entry {
     reaction: Reaction,
     producers: Producers,
+    /// `F`, `H` and `A`, in that order. Its own lock, never one of the
+    /// server's: dating a packet must not wait on a viewer.
+    flows: Mutex<[Flow; 3]>,
+}
+impl Entry {
+    /// Dates one packet of `kind`, read in full at `at`.
+    fn arrived(&self, kind: u8, at: Instant, captured: u64, payload: &[u8]) {
+        let Some(index) = KINDS[..3].iter().position(|known| *known == kind) else {
+            return;
+        };
+        // A stamp ahead of this clock is no age at all, and it is left out
+        // rather than counted as zero.
+        let age = capture_clock().and_then(|now| now.checked_sub(Duration::from_micros(captured)));
+        let key = kind != b'A' && crate::browser::carries_key_frame(payload);
+        if let Ok(mut flows) = self.flows.lock()
+            && let Some(flow) = flows.get_mut(index)
+        {
+            flow.arrived(at, age, payload.len(), key);
+        }
+    }
+    /// The three windows, then new ones.
+    fn report(&self) -> Option<IngressReport> {
+        let [full, half, sound] = &mut *self.flows.lock().ok()?;
+        Some(IngressReport {
+            full: full.summary(),
+            half: half.summary(),
+            sound: sound.summary(),
+        })
+    }
 }
 
 /// The seats the emulator connects a controller for, from who sits where.
@@ -267,6 +403,14 @@ impl Ingress {
     #[must_use]
     pub fn reaction(&self) -> Summary {
         self.entry.reaction.summary()
+    }
+    /// What the three streams looked like at the ingress since the last call.
+    ///
+    /// `None` only when the window's lock was poisoned, which a caller says
+    /// rather than reporting an empty window as a quiet one.
+    #[must_use]
+    pub fn report(&self) -> Option<IngressReport> {
+        self.entry.report()
     }
     /// Packets refused since the start because another capture fed their stream.
     #[must_use]
@@ -425,7 +569,8 @@ fn receive(
             if length != 0 || captured != 0 {
                 return Err(io::ErrorKind::InvalidData.into());
             }
-            if admitted(entry, b'D', connection, &mut warned) == Admission::Refused {
+            if admitted(entry, b'D', connection, Instant::now(), &mut warned) == Admission::Refused
+            {
                 // Answered, so the second capture does not block on its read,
                 // and answered empty: the demand belongs to the capture that
                 // feeds the pictures, and taking it here would rob that one of
@@ -441,15 +586,19 @@ fn receive(
         }
         let mut payload = vec![0; length];
         read(&mut stream, &mut payload, stop)?;
+        // Read once, here, and never under one of the server's locks: the
+        // instant the whole packet is in, before anybody is offered it.
+        let arrived = Instant::now();
         let packet = Packet {
             captured_micros: captured,
             annex_b: &payload,
         };
         if KINDS.contains(&header[0])
-            && admitted(entry, header[0], connection, &mut warned) == Admission::Refused
+            && admitted(entry, header[0], connection, arrived, &mut warned) == Admission::Refused
         {
             continue;
         }
+        entry.arrived(header[0], arrived, captured, &payload);
         let reaction = &entry.reaction;
         match header[0] {
             b'F' => {
@@ -473,9 +622,10 @@ fn admitted(
     entry: &Entry,
     kind: u8,
     connection: u64,
+    now: Instant,
     warned: &mut [bool; KINDS.len()],
 ) -> Admission {
-    let admission = entry.producers.admit(kind, connection, Instant::now());
+    let admission = entry.producers.admit(kind, connection, now);
     let Some(index) = KINDS.iter().position(|known| *known == kind) else {
         return admission;
     };
@@ -529,7 +679,11 @@ pub fn command(frame: SwitchFrame) -> serde_json::Value {
         "dx":down(15)-down(14),"dy":down(13)-down(12)}})
 }
 #[cfg(test)]
-#[allow(clippy::unwrap_used, reason = "invalid fixtures must fail")]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "invalid fixtures must fail, and a missing measurement fails by its name"
+)]
 mod tests {
     use super::*;
     use nel3ab_protocol::{PlayerSlot, Stick, switch::SwitchButtons};
@@ -944,6 +1098,171 @@ mod tests {
             "the key frame is still owed to the capture that feeds the pictures"
         );
         stop.store(true, Ordering::Relaxed);
+    }
+    /// The capture clock in microseconds, as `capture.py` stamps a packet.
+    fn stamp_now() -> u64 {
+        u64::try_from(capture_clock().unwrap().as_micros()).unwrap()
+    }
+    /// One packet of `kind`, `size` bytes, a key frame when `key`.
+    fn packet(client: &mut UnixStream, kind: u8, captured: u64, size: usize, key: bool) {
+        let mut payload = vec![0x11; size.max(5)];
+        payload[..5].copy_from_slice(&[0, 0, 0, 1, if key { 0x65 } else { 0x41 }]);
+        let mut header = [0; 13];
+        header[0] = kind;
+        header[1..9].copy_from_slice(&captured.to_le_bytes());
+        header[9..13].copy_from_slice(&u32::try_from(payload.len()).unwrap().to_le_bytes());
+        client.write_all(&header).unwrap();
+        client.write_all(&payload).unwrap();
+    }
+    /// `count` packets on absolute deadlines `every` apart, so a late wake
+    /// does not push every later one: `late` names one held back by `delay`.
+    ///
+    /// Stamped on the NOMINAL schedule, as the compositor stamps them: the
+    /// late one carries the stamp it would have had. That is the night of
+    /// 2026-11-26, where the capture's own gaps stayed near 17 ms while the
+    /// page saw 117. A gap read from the stamps would miss it.
+    fn pace(
+        client: &mut UnixStream,
+        kind: u8,
+        count: usize,
+        every: Duration,
+        late: Option<(usize, Duration)>,
+    ) {
+        let start = Instant::now();
+        let stamped = stamp_now();
+        let mut owed = Duration::ZERO;
+        for index in 0..count {
+            if let Some((at, delay)) = late
+                && at == index
+            {
+                owed = delay;
+            }
+            let nominal = every * u32::try_from(index).unwrap();
+            thread::sleep((start + nominal + owed).saturating_duration_since(Instant::now()));
+            let captured = stamped + u64::try_from(nominal.as_micros()).unwrap();
+            packet(client, kind, captured, 1000, index % 10 == 0);
+        }
+    }
+    /// An ingress on a fresh folder, and a capture connected to it.
+    fn capture() -> (tempfile::TempDir, Ingress, UnixStream) {
+        let root = tempfile::tempdir().unwrap();
+        let ingress = Ingress::bind(root.path(), room()).unwrap();
+        let client = UnixStream::connect(root.path().join("media.sock")).unwrap();
+        (root, ingress, client)
+    }
+    /// Long enough for the reader to have read what was written: it reads
+    /// as soon as a byte is there, and a report drains its window. The count
+    /// is checked by each test AFTER its named assertion, because it comes
+    /// from the window under test.
+    fn settled(ingress: &Ingress) -> IngressReport {
+        thread::sleep(Duration::from_millis(200));
+        ingress.report().unwrap()
+    }
+    #[test]
+    fn the_ingress_sees_a_picture_two_hundred_milliseconds_late() {
+        let (_root, ingress, mut client) = capture();
+        let frame = Duration::from_micros(16_700);
+        pace(
+            &mut client,
+            b'F',
+            60,
+            frame,
+            Some((30, Duration::from_millis(200))),
+        );
+        pace(
+            &mut client,
+            b'A',
+            20,
+            Duration::from_millis(10),
+            Some((10, Duration::from_millis(100))),
+        );
+        let report = settled(&ingress);
+        let gap = report
+            .full
+            .gap
+            .expect("the ingress measured no arrival gap");
+        assert!(
+            gap.max >= 200.0,
+            "a picture 200 ms late read {} ms at the ingress",
+            gap.max
+        );
+        let sound = report.sound.gap.expect("the ingress measured no sound gap");
+        assert!(
+            sound.max >= 100.0,
+            "a chunk 100 ms late read {} ms",
+            sound.max
+        );
+        assert_eq!(report.full.keys, 6, "one key frame in ten pictures");
+        assert_eq!(report.sound.keys, 0, "sound carries no key frame");
+        assert!(
+            report
+                .full
+                .bytes
+                .is_some_and(|bytes| (bytes.max - 1000.0).abs() < 0.5)
+        );
+        assert_eq!((report.full.packets, report.sound.packets), (60, 20));
+        // The window drains: the next report has measured nothing.
+        let empty = ingress.report().unwrap();
+        assert_eq!(empty.full.packets, 0);
+        assert!(
+            empty.full.gap.is_none(),
+            "an empty window is absent, not zero"
+        );
+    }
+    #[test]
+    fn a_regular_capture_reads_regular_at_the_ingress() {
+        let (_root, ingress, mut client) = capture();
+        pace(&mut client, b'F', 60, Duration::from_micros(16_700), None);
+        pace(&mut client, b'A', 20, Duration::from_millis(10), None);
+        let report = settled(&ingress);
+        let gap = report
+            .full
+            .gap
+            .expect("the ingress measured no arrival gap");
+        assert_eq!((report.full.packets, report.sound.packets), (60, 20));
+        assert!(
+            gap.max < 25.0,
+            "a regular capture read {} ms at the ingress",
+            gap.max
+        );
+        assert!(
+            gap.p50 >= 15.0,
+            "the median gap {} ms is not the cadence",
+            gap.p50
+        );
+        let sound = report.sound.gap.expect("the ingress measured no sound gap");
+        assert!(sound.max < 25.0, "regular sound read {} ms", sound.max);
+        assert_eq!(report.half.packets, 0);
+        assert!(report.half.gap.is_none(), "a stream nobody sent is absent");
+    }
+    #[test]
+    fn the_age_at_the_ingress_is_read_on_the_capture_clock() {
+        let (_root, ingress, mut client) = capture();
+        for _ in 0..10 {
+            packet(&mut client, b'F', stamp_now() - 40_000, 1000, false);
+        }
+        let report = settled(&ingress);
+        let age = report.full.age.expect("the ingress measured no age");
+        assert_eq!(report.full.packets, 10);
+        assert!(
+            (40.0..80.0).contains(&age.p50),
+            "a packet stamped 40 ms ago read {} ms old",
+            age.p50
+        );
+        // The twin: a fresh stamp is young, and a stamp from the future is no
+        // age at all rather than zero.
+        for _ in 0..10 {
+            packet(&mut client, b'F', stamp_now(), 1000, false);
+        }
+        let report = settled(&ingress);
+        assert!(report.full.age.unwrap().max < 40.0);
+        packet(&mut client, b'F', stamp_now() + 10_000_000, 1000, false);
+        let report = settled(&ingress);
+        assert_eq!(report.full.packets, 1, "the packet itself was read");
+        assert!(
+            report.full.age.is_none(),
+            "a stamp ahead of the clock was counted"
+        );
     }
     #[test]
     fn partial_headers_survive_timeouts_and_silent_readers_stop() {

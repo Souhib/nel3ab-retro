@@ -66,9 +66,10 @@ use page::{
     Packing, serve_body, serve_bytes, serve_missing, serve_page, serve_see_other, serve_unready,
 };
 use route::{Route, classify};
-use stream::{
-    MicSeats, Queued, Viewer, carries_key_frame, deliver, mic_thread, sound_thread, video_thread,
-};
+use stream::{MicSeats, Queued, Viewer, deliver, mic_thread, sound_thread, video_thread};
+
+/// L'entrée de la salle externe compte les clés de ce qu'elle reçoit.
+pub(crate) use stream::carries_key_frame;
 
 pub use stream::ViewerHealth;
 

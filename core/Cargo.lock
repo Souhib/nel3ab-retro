@@ -545,6 +545,7 @@ dependencies = [
  "flate2",
  "nel3ab-protocol",
  "nel3ab-telemetry",
+ "nix",
  "proptest",
  "serde_json",
  "sha2",

@@ -71,7 +71,7 @@ use stream::{MicSeats, Queued, Viewer, deliver, mic_thread, sound_thread, video_
 /// L'entrée de la salle externe compte les clés de ce qu'elle reçoit.
 pub(crate) use stream::carries_key_frame;
 
-pub use stream::ViewerHealth;
+pub use stream::{ViewerHealth, ViewerWrites};
 
 /// Relève l'état de chaque spectateur d'une liste.
 ///
@@ -1207,6 +1207,28 @@ impl BrowserServer {
     #[must_use]
     pub fn half_viewer_health(&self) -> Vec<stream::ViewerHealth> {
         health_of(&self.half_viewers)
+    }
+
+    /// Par spectateur des deux flux, l'attente en file et la durée d'écriture
+    /// depuis le dernier appel, chacun avec le nom de son flux.
+    ///
+    /// Se CONSOMME: chaque appel ouvre une fenêtre neuve, comme les autres
+    /// relevés de dix secondes.
+    #[must_use]
+    pub fn take_writes(&self) -> Vec<(&'static str, stream::ViewerWrites)> {
+        let of = |viewers: &Viewers, name: &'static str| {
+            viewers.lock().map_or_else(
+                |_| Vec::new(),
+                |held| {
+                    held.iter()
+                        .map(|one| (name, one.take_writes()))
+                        .collect::<Vec<_>>()
+                },
+            )
+        };
+        let mut all = of(&self.viewers, "plein");
+        all.extend(of(&self.half_viewers, "demi"));
+        all
     }
 
     /// Ce que des places ont demandé de brancher depuis la dernière fois.
@@ -3547,6 +3569,113 @@ mod tests {
             two.as_ptr(),
             "the picture was framed twice: the fan-out is copying per viewer"
         );
+    }
+
+    /// Des images de 256 Kio, toutes des clés pour qu'aucune resynchronisation
+    /// ne les retienne, à soixante par seconde pendant `pour`.
+    fn big_pictures(server: &BrowserServer, pour: Duration) {
+        let mut picture = vec![0x11_u8; 256 * 1024];
+        picture[..5].copy_from_slice(&[0, 0, 0, 1, 0x65]);
+        let start = std::time::Instant::now();
+        let mut sent = 0_u32;
+        while start.elapsed() < pour {
+            let _ = server.send(&Packet {
+                captured_micros: 0,
+                annex_b: &picture,
+            });
+            sent += 1;
+            let next = start + Duration::from_micros(16_700) * sent;
+            std::thread::sleep(next.saturating_duration_since(std::time::Instant::now()));
+        }
+    }
+
+    /// Lit jusqu'au premier signe de vie vide: la file est alors vide depuis
+    /// une demi-seconde, et tout ce qui était en route est arrivé.
+    fn read_until_quiet(socket: &mut tungstenite::WebSocket<TcpStream>) {
+        while !socket.read().unwrap().is_empty() {}
+    }
+
+    /// Une page qui cesse de lire bloque l'écriture de son fil, et le relevé de
+    /// CE spectateur le dit (audit WK-1, 2026-11-27).
+    #[test]
+    fn a_write_that_blocks_is_measured_for_the_viewer_it_blocked() {
+        let server = BrowserServer::start(
+            "127.0.0.1:0".parse().unwrap(),
+            "page",
+            "[]".into(),
+            no_art(),
+            four(),
+            &nobody(),
+        )
+        .unwrap();
+        let mut socket = watch(server.address());
+        assert!(eventually(|| server.watchers() == 1));
+        // La page ne lit rien pendant une seconde et demie: les tampons du
+        // noyau (quelques mégaoctets) se remplissent, puis l'écriture bloque.
+        big_pictures(&server, Duration::from_millis(1500));
+        // La précondition, lue ailleurs que dans la mesure: une image refusée
+        // veut dire que la file de deux était pleine, donc que le fil ne
+        // l'écrivait plus. Sans elle, une écriture qui n'a jamais bloqué
+        // rendrait l'essai rouge pour une mauvaise raison.
+        assert!(
+            server.dropped() > 0,
+            "no write blocked: the kernel buffers took everything"
+        );
+        read_until_quiet(&mut socket);
+        let writes = server.take_writes();
+        let (stream, one) = writes.first().copied().unwrap();
+        assert_eq!(stream, "plein");
+        let write = one.write.expect("no write duration was measured");
+        assert!(
+            write.max >= 100.0,
+            "a page that stopped reading for 1.5 s cost a write of {} ms",
+            write.max
+        );
+        let wait = one.wait.expect("no queue wait was measured");
+        assert!(
+            wait.max >= 50.0,
+            "a picture queued behind a blocked write waited {} ms",
+            wait.max
+        );
+        // Une fenêtre se vide quand on la lit.
+        assert!(server.take_writes()[0].1.write.is_none());
+    }
+
+    /// Le jumeau: une page qui lit au fil de l'eau n'attend pas et n'écrit pas
+    /// longtemps, et rien n'est refusé.
+    #[test]
+    fn a_viewer_that_keeps_reading_writes_quickly() {
+        let server = Arc::new(
+            BrowserServer::start(
+                "127.0.0.1:0".parse().unwrap(),
+                "page",
+                "[]".into(),
+                no_art(),
+                four(),
+                &nobody(),
+            )
+            .unwrap(),
+        );
+        let mut socket = watch(server.address());
+        assert!(eventually(|| server.watchers() == 1));
+        let reader = std::thread::spawn(move || read_until_quiet(&mut socket));
+        big_pictures(&server, Duration::from_millis(500));
+        reader.join().unwrap();
+        assert_eq!(server.dropped(), 0, "the reading page lost a picture");
+        let writes = server.take_writes();
+        let one = writes[0].1;
+        assert!(
+            one.frames >= 25,
+            "only {} pictures were written",
+            one.frames
+        );
+        let write = one.write.expect("no write duration was measured");
+        assert!(
+            write.max < 50.0,
+            "a reading page cost a write of {} ms",
+            write.max
+        );
+        assert!(one.wait.unwrap().max < 50.0);
     }
 
     /// A viewer whose thread has ended is forgotten, so the list does not grow

@@ -968,6 +968,14 @@ etats-navigateur-rouge *args:
     git show 6ad0415:core/crates/worker/src/page/index.html > "$dossier/manette-seule.html"
     node etats.mjs --page "$dossier/manette-seule.html" --flux "$dossier/flux.h264" \
         --etapes sourdine-une-session,colonne-tiree --rouge-attendu sourdine-une-session,colonne-tiree {{args}}
+    # b5f21f8, la page du 26 novembre 2026 : un rattrapage d'image en retard
+    # comptait comme un débordement de file et interdisait à la marge de
+    # grandir. Sous des rafales de 100 à 150 ms, elle restait au plancher
+    # pendant que la page avait faim (VID-1), et le relevé ne disait ni
+    # l'arrêt vu au verre ni les deux sortes de jets (VID-4).
+    git show b5f21f8:core/crates/worker/src/page/index.html > "$dossier/marge-collee.html"
+    node etats.mjs --page "$dossier/marge-collee.html" --flux "$dossier/flux.h264" \
+        --etapes rafales-marge --rouge-attendu rafales-marge {{args}}
 
 # Les parcours de la salle, dans un vrai navigateur.
 #

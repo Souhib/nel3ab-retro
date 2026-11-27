@@ -17,12 +17,14 @@ from zoneinfo import ZoneInfo
 from sessions import (
     BAND,
     EXTERNE,
+    OLD_SWITCH_LINE,
     TRANCHE,
     _band,
     _externe_said,
     _externe_tranche,
     _externe_worried,
     _lost,
+    _old_switch_said,
     _parse_worker,
     _state,
     _tamed,
@@ -242,18 +244,25 @@ def test_a_stalled_emulator_and_a_slow_encoder_do_not_read_the_same() -> None:
     assert slow is not None and "encodage lent" in slow
 
 
-def test_the_command_latency_shows_only_when_somebody_pressed_something() -> None:
-    """Zéro échantillon veut dire « personne n'a appuyé », pas « zéro milliseconde ».
+def test_the_pad_figure_says_it_measures_the_last_frame_and_not_a_press() -> None:
+    """`input_to_frame` part de la DERNIÈRE trame reçue, pas d'un appui.
 
-    Sur trente heures de journal, 5 936 tranches sur 10 694 annonçaient
-    « 0.0 ms » comme s'il s'agissait d'un résultat. C'est le quatrième défaut de
-    cette forme trouvé cette semaine, et le lecteur ne doit pas le refaire.
+    La page envoie une trame toutes les 4 ms depuis le 16 août 2026, qu'elle
+    bouge ou non. Le chiffre de Dolphin dit donc l'écart entre la dernière trame
+    et l'image suivante, et le lecteur l'affichait « commandes » (audits WK-4,
+    ENT-5 et DON-6, 2026-11-27). Zéro échantillon veut dire qu'aucune trame
+    n'est arrivée, et un zéro ne s'affiche toujours pas comme un résultat: sur
+    trente heures de journal, 5 936 tranches sur 10 694 annonçaient « 0.0 ms ».
     """
     quiet = _worker_said({**WELL, "input_to_frame_samples": 0, "input_to_frame_p50_ms": 0.0})
     played = _worker_said({**WELL, "input_to_frame_samples": 431, "input_to_frame_p50_ms": 0.53})
 
-    assert "commandes" not in quiet
-    assert "commandes 0.5 ms" in played
+    assert "trame" not in quiet
+    assert "dernière trame→image 0.5 ms" in played
+    assert "commande" not in played
+    for name in ("input_to_frame_samples", "input_to_frame_p50_ms", "input_to_frame_p95_ms"):
+        assert "commande" not in TRANCHE[name][0], f"{name} se lit encore comme une commande"
+        assert "trame" in TRANCHE[name][0]
 
 
 def test_a_terminal_escape_never_reaches_the_terminal() -> None:
@@ -437,20 +446,42 @@ def test_the_external_line_unfolds_each_viewer_and_each_seat() -> None:
     assert "écart max non mesuré" in said
 
 
-def test_the_dolphin_and_the_external_lines_are_both_read() -> None:
-    """« streaming » (Dolphin) et « salle externe » (la Switch, depuis le
-    27 novembre 2026). Une ligne étrangère est écartée."""
+def test_old_and_new_worker_lines_are_all_read() -> None:
+    """Les lignes d'avant le 27 novembre 2026 se relisent encore.
+
+    Trois lignes du worker comptent: « streaming » (Dolphin), « salle externe »
+    (la Switch depuis ce jour), et l'ancienne ligne Switch, dont le chiffre se
+    lit maintenant pour ce qu'il mesurait. Une ligne étrangère est écartée.
+    """
     zone = ZoneInfo("Europe/Paris")
     raw = [
         _line("streaming", input_to_frame_samples=3),
         _line("salle externe", full_packets=600),
+        _line(OLD_SWITCH_LINE, input_to_frame_samples=495, input_to_frame_p50_ms=1.95),
         _line("ce spectateur ne suit pas", viewer=3),
         "pas du json",
     ]
 
     kept = _parse_worker(raw, zone)
 
-    assert [fields["message"] for _, fields in kept] == ["streaming", "salle externe"]
+    assert [fields["message"] for _, fields in kept] == [
+        "streaming",
+        "salle externe",
+        OLD_SWITCH_LINE,
+    ]
+
+
+def test_an_old_switch_line_reads_for_what_it_measured() -> None:
+    """L'ancienne ligne Switch disait « de la commande aux manettes à l'image
+    suivante ». Son chiffre était l'écart de la dernière trame à l'image
+    suivante, et c'est ce que le lecteur en dit maintenant."""
+    said = _old_switch_said({"input_to_frame_samples": 495, "input_to_frame_p50_ms": 2.34})
+    quiet = _old_switch_said({"input_to_frame_samples": 0, "input_to_frame_p50_ms": 0.0})
+
+    assert "dernière trame→image p50 2.3 ms sur 495 images" in said
+    assert "commande" not in said
+    # Le jumeau: zéro échantillon n'est pas « 0.0 ms ».
+    assert "ms" not in quiet and "aucune trame" in quiet
 
 
 def _line(message: str, **fields: object) -> str:

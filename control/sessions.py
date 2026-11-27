@@ -295,12 +295,19 @@ def _parse_worker(raw_lines: list[str], zone: ZoneInfo) -> list[tuple[datetime, 
     return kept
 
 
+#: L'ancienne ligne d'une salle Switch, écrite jusqu'au 27 novembre 2026.
+#:
+#: Elle ne portait que `input_to_frame`, avec le sens du chiffre de Dolphin:
+#: l'écart de la dernière trame de manette à l'image suivante. Relue pour ce
+#: qu'elle mesurait, pas pour ce que son texte laissait croire.
+OLD_SWITCH_LINE = "de la commande aux manettes à l'image suivante"
+
 #: La ligne de dix secondes d'une salle externe (la Switch), depuis le
 #: 27 novembre 2026. Voir `report_external` dans le code du worker.
 EXTERNE_LINE = "salle externe"
 
 #: Les lignes du worker que ce lecteur relit.
-WORKER_LINES = frozenset({"streaming", EXTERNE_LINE})
+WORKER_LINES = frozenset({"streaming", EXTERNE_LINE, OLD_SWITCH_LINE})
 
 
 def _stream_labels(key: str, name: str, bytes_too: bool) -> dict[str, tuple[str, str]]:
@@ -428,6 +435,17 @@ def _externe_said(fields: dict[str, Any]) -> str:
     return said
 
 
+def _old_switch_said(fields: dict[str, Any]) -> str:
+    """L'ancienne ligne Switch, pour ce qu'elle mesurait."""
+    samples = int(fields.get("input_to_frame_samples") or 0)
+    if not samples:
+        return "aucune trame de manette (ligne Switch d'avant le 27 novembre 2026)"
+    return (
+        f"dernière trame→image p50 {float(fields.get('input_to_frame_p50_ms') or 0):.1f} ms"
+        f" sur {samples} images (ligne Switch d'avant le 27 novembre 2026)"
+    )
+
+
 def _details(fields: dict[str, Any], name: str) -> list[dict[str, Any]]:
     """Un tableau JSON que le worker a écrit dans un champ, ou rien."""
     try:
@@ -537,13 +555,16 @@ def _worker_said(fields: dict[str, Any]) -> str:
     else:
         seen = int(fields.get("watchers") or 0), int(fields.get("half_watchers") or 0)
         who = f"{seen[0]} en grand, {seen[1]} en réduit" if sum(seen) else "personne ne regardait"
-    # La latence des commandes seulement quand elle a été MESURÉE. Zéro
-    # échantillon veut dire « personne n'a appuyé », et l'afficher comme
-    # « 0,0 ms » serait annoncer une latence parfaite là où il n'y a rien.
+    # L'écart de la DERNIÈRE trame de manette à l'image suivante, seulement
+    # quand il a été mesuré. Ce n'est pas un délai de réaction: la page envoie
+    # une trame toutes les 4 ms, bouge ou non, et chacune relance ce chrono
+    # (audits WK-4, ENT-5 et DON-6, 2026-11-27). Zéro échantillon veut dire
+    # qu'aucune trame n'est arrivée; l'afficher « 0,0 ms » annoncerait un
+    # résultat là où il n'y a rien.
     pressed = int(fields.get("input_to_frame_samples", 0) or 0)
     lag = ""
     if pressed:
-        lag = f"  commandes {float(fields.get('input_to_frame_p50_ms', 0) or 0):.1f} ms"
+        lag = f"  dernière trame→image {float(fields.get('input_to_frame_p50_ms', 0) or 0):.1f} ms"
     # La sieste, quand il y en a eu une. Le worker la retranche déjà de
     # l'attente, donc elle n'est plus prise pour une panne; la dire quand même
     # évite l'autre lecture fausse, celle d'un trou dans la soirée que personne
@@ -607,9 +628,12 @@ TRANCHE: dict[str, tuple[str, str]] = {
     "frame_bytes_p99": ("poids d'une image p99", "{:.0f} o"),
     "frame_bytes_max": ("poids d'une image max", "{:.0f} o"),
     "megabits_per_second": ("débit", "{:.2f} Mb/s"),
-    "input_to_frame_samples": ("commandes mesurées", "{:.0f}"),
-    "input_to_frame_p50_ms": ("commande vers image p50", "{:.2f} ms"),
-    "input_to_frame_p95_ms": ("commande vers image p95", "{:.2f} ms"),
+    # La dernière trame de manette reçue, jusqu'à l'image suivante: pas une
+    # réaction (audits WK-4 et ENT-5). Le nom du champ reste, son sens aussi;
+    # c'est le libellé qui disait autre chose.
+    "input_to_frame_samples": ("images précédées d'une trame de manette", "{:.0f}"),
+    "input_to_frame_p50_ms": ("dernière trame de manette → image p50", "{:.2f} ms"),
+    "input_to_frame_p95_ms": ("dernière trame de manette → image p95", "{:.2f} ms"),
     "inputs_received": ("commandes reçues depuis le démarrage", "{:.0f}"),
     "inputs_applied": ("commandes appliquées depuis le démarrage", "{:.0f}"),
     "sound_starved": ("son affamé depuis le démarrage", "{:.0f}"),
@@ -763,6 +787,8 @@ def _tell_worker(day: str, complaints: list[dict[str, Any]], everything: bool = 
         if kind == EXTERNE_LINE:
             wrong = _externe_worried(fields, before)
             said, unfolded = _externe_said(fields), _externe_tranche(fields)
+        elif kind == OLD_SWITCH_LINE:
+            wrong, said, unfolded = None, _old_switch_said(fields), []
         else:
             wrong = _worried(fields, before)
             said, unfolded = _worker_said(fields), _tranche(fields)

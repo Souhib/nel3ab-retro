@@ -70,6 +70,75 @@ def pression(texte: str) -> dict[str, float]:
     return resultat
 
 
+def pression_totale(texte: str) -> dict[str, int]:
+    """Le temps passé à attendre depuis le démarrage, `some` et `full`, en microsecondes.
+
+    Les moyennes sur dix secondes de `pression` lissent un trou de 200 ms au point de
+    le cacher; l'écart de `total=` entre deux relevés dit combien de millisecondes
+    la machine, ou le conteneur, a attendu pendant le relevé.
+    """
+    resultat: dict[str, int] = {}
+    for ligne in texte.splitlines():
+        trouve = re.match(r"^(some|full)\s.*\btotal=(\d+)\b", ligne)
+        if trouve:
+            resultat[trouve.group(1)] = int(trouve.group(2))
+    return resultat
+
+
+#: Ce que `/proc/vmstat` dit de la mémoire qui fait attendre un processus: les
+#: compactions et les réclamations DIRECTES (faites par le processus qui alloue,
+#: pas par le noyau en arrière-plan), les défauts de page lus sur le disque, les
+#: pages relues du swap, et les grandes pages refusées. Entre le démarrage du
+#: 17 novembre 2026 et le 27, la machine avait fait 56 369 compactions directes,
+#: 15 953 réclamations directes et relu 488 907 pages du swap, et aucun relevé
+#: ne disait si l'une d'elles était tombée pendant un trou (constat MACH-6).
+VMSTAT_GARDES = (
+    "compact_stall",
+    "allocstall_normal",
+    "allocstall_movable",
+    "pgmajfault",
+    "pswpin",
+    "thp_fault_fallback",
+)
+
+
+def vmstat(texte: str) -> dict[str, int]:
+    """Les compteurs de `VMSTAT_GARDES` présents dans `/proc/vmstat`."""
+    resultat: dict[str, int] = {}
+    for ligne in texte.splitlines():
+        champs = ligne.split()
+        if len(champs) == 2 and champs[0] in VMSTAT_GARDES and champs[1].isdigit():
+            resultat[champs[0]] = int(champs[1])
+    return resultat
+
+
+def pages_sales_mio(meminfo: str) -> dict[str, int]:
+    """Les pages modifiées pas encore écrites (`Dirty`), et celles en écriture.
+
+    Une écriture NFS bloquée retient aussi les écritures locales: le 25 novembre
+    2026, 62 fils dormaient sur un montage NFS. Ces deux nombres le disent.
+    """
+    sales = re.search(r"^Dirty:\s+(\d+)\s+kB", meminfo, re.M)
+    ecriture = re.search(r"^Writeback:\s+(\d+)\s+kB", meminfo, re.M)
+    if not sales or not ecriture:
+        return {}
+    return {"sales": int(sales.group(1)) // 1024, "ecriture": int(ecriture.group(1)) // 1024}
+
+
+def attente_en_file_ns(schedstat: str) -> int | None:
+    """Le temps qu'un fil a passé prêt à tourner sans cœur, en nanosecondes.
+
+    C'est le second champ de `/proc/<tid>/schedstat` (`run_delay`), et il se lit
+    avec `kernel.sched_schedstats` à 0: vérifié le 27 novembre 2026 sur la boîte
+    noire elle-même, dont le premier champ égalait utime + stime et le second
+    avançait. Le carnet disait le contraire le 12 septembre.
+    """
+    champs = schedstat.split()
+    if len(champs) < 3 or not champs[1].isdigit():
+        return None
+    return int(champs[1])
+
+
 def memoire_disponible_mio(meminfo: str) -> int | None:
     """Ce que le noyau peut encore donner sans évincer, en Mio."""
     trouve = re.search(r"^MemAvailable:\s+(\d+)\s+kB", meminfo, re.M)
@@ -192,6 +261,14 @@ def fil(stat: str, status: str = "") -> dict[str, Any] | None:
         "preemptions": int(forcees.group(1)) if forcees else 0,
         "attentes": int(rendues.group(1)) if rendues else 0,
     }
+
+
+def parent(stat: str) -> int | None:
+    """Le pid du parent, quatrième champ de `/proc/<pid>/stat`, après le nom."""
+    try:
+        return int(stat[stat.rindex(")") + 2 :].split()[1])
+    except (ValueError, IndexError):
+        return None
 
 
 def io_processus(texte: str) -> tuple[int, int] | None:

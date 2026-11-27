@@ -1,0 +1,11 @@
+nr_free_pages 1423206
+pswpin 488907
+pswpout 843292
+allocstall_dma 0
+allocstall_dma32 0
+allocstall_normal 300
+allocstall_movable 15653
+pgmajfault 19387135
+compact_stall 56369
+compact_fail 33375
+thp_fault_fallback 3966

@@ -13,6 +13,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from nel3ab_control.boite_noire import releve
 from nel3ab_control.boite_noire.declencheur import Declencheur, Suiveur
 from nel3ab_control.boite_noire.releve import Racines, Releveur
 from nel3ab_control.boite_noire.service import BoiteNoire
@@ -47,7 +48,9 @@ class Machine:
             dri=racine / "dri",
             cgroup=racine / "cgroup",
             docker=racine / "docker",
+            kfd=racine / "kfd",
         )
+        self.kfd = self.r.kfd
         p = self.r.proc
         _ecrire(p / "cpuinfo", (ECHANTILLONS / "cpuinfo.txt").read_text())
         _ecrire(p / "loadavg", "3.10 3.33 3.19 3/900 12345\n")
@@ -395,6 +398,271 @@ def test_un_processus_qui_change_de_nom_sans_changer_de_pid_est_vu_sous_trente_s
     assert releveur.prendre()["moteurs"] == []
     horloge.t += 30.0
     assert [moteur["pid"] for moteur in releveur.prendre()["moteurs"]] == [RYUJINX]
+
+
+# --- Le temps volé -------------------------------------------------------------
+#
+# Le 26 novembre 2026, rien dans un relevé ne disait si un fil de Ryujinx avait
+# attendu un cœur, ni si la machine avait compacté sa mémoire pendant un trou: un
+# gel causé par la machine ressemblait à un gel du jeu.
+
+
+def _voler(machine: Machine, file_ns: int, compact: int, pression_us: int) -> None:
+    """Les compteurs du temps volé, à une valeur connue."""
+    p = machine.r.proc
+    _ecrire(
+        p / str(RYUJINX) / "task" / str(RENDU) / "schedstat",
+        f"{93 * 10_000_000} {file_ns} 4242\n",
+    )
+    _ecrire(
+        p / "vmstat",
+        f"nr_free_pages 1423206\npswpin 488907\nallocstall_normal 300\n"
+        f"allocstall_movable 15653\npgmajfault 19387135\ncompact_stall {compact}\n"
+        "thp_fault_fallback 3966\n",
+    )
+    for genre in ("cpu", "memory", "io"):
+        _ecrire(
+            p / "pressure" / genre,
+            f"some avg10=1.95 avg60=1.40 avg300=1.25 total={pression_us}\n"
+            f"full avg10=0.00 avg60=0.00 avg300=0.00 total={pression_us // 2}\n",
+        )
+    _ecrire(
+        machine.r.cgroup / f"system.slice/docker-{DOCKER_ID}.scope" / "cpu.pressure",
+        f"some avg10=0.01 avg60=0.35 avg300=0.47 total={2 * pression_us}\n"
+        f"full avg10=0.01 avg60=0.33 avg300=0.42 total={pression_us}\n",
+    )
+
+
+def _deux_releves_voles(tmp_path: Path) -> tuple[Machine, dict, dict]:
+    """Deux relevés à deux secondes d'écart, avec le temps volé qui avance."""
+    machine = Machine(tmp_path)
+    _voler(machine, file_ns=1_000_000_000, compact=10, pression_us=4_000_000)
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    premier = releveur.prendre()
+    machine.avancer(1)
+    _voler(machine, file_ns=1_050_000_000, compact=13, pression_us=4_250_000)
+    horloge.t += 2.0
+    return machine, premier, releveur.prendre()
+
+
+def test_l_attente_en_file_d_un_fil_se_dit_en_ms_par_seconde(tmp_path: Path) -> None:
+    """50 ms d'attente en deux secondes: 25 ms par seconde."""
+    _, _, second = _deux_releves_voles(tmp_path)
+
+    rendu = next(fil for fil in second["moteurs"][0]["fils"] if fil["tid"] == RENDU)
+    assert rendu["file_ms_s"] == 25.0
+
+
+def test_un_fil_sans_schedstat_lisible_n_a_pas_d_attente_en_file(tmp_path: Path) -> None:
+    """Le jumeau: le second fil n'a pas de `schedstat`, et un champ absent n'est pas 0."""
+    machine, _, second = _deux_releves_voles(tmp_path)
+    gpu = next(fil for fil in second["moteurs"][0]["fils"] if fil["tid"] == AUTRE_FIL)
+    assert "file_ms_s" not in gpu
+
+    # Et un `schedstat` qui devient illisible ne rend pas zéro non plus.
+    _ecrire(machine.r.proc / str(RYUJINX) / "task" / str(RENDU) / "schedstat", "illisible\n")
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    releveur.prendre()
+    horloge.t += 2.0
+    rendu = next(f for f in releveur.prendre()["moteurs"][0]["fils"] if f["tid"] == RENDU)
+    assert "file_ms_s" not in rendu
+
+
+def test_les_compactions_de_la_memoire_se_comptent_par_releve(tmp_path: Path) -> None:
+    _, premier, second = _deux_releves_voles(tmp_path)
+
+    assert "vmstat" not in premier
+    assert second["vmstat"] == {
+        "compact_stall": 3,
+        "allocstall_normal": 0,
+        "allocstall_movable": 0,
+        "pgmajfault": 0,
+        "pswpin": 0,
+        "thp_fault_fallback": 0,
+    }
+
+
+def test_la_pression_se_dit_en_ms_attendues_pendant_le_releve(tmp_path: Path) -> None:
+    """`total=` compte des microsecondes depuis le démarrage: 250 000 µs de plus
+    font 250 ms d'attente pendant le relevé, pour la machine comme pour le
+    conteneur du moteur."""
+    _, _, second = _deux_releves_voles(tmp_path)
+
+    assert second["pression_ms"] == {
+        "cpu": {"some": 250.0, "full": 125.0},
+        "memory": {"some": 250.0, "full": 125.0},
+        "io": {"some": 250.0, "full": 125.0},
+    }
+    assert second["moteurs"][0]["cgroup_pression_ms"] == {"some": 500.0, "full": 250.0}
+
+
+def test_sans_ces_fichiers_le_releve_ne_dit_rien_du_temps_vole(tmp_path: Path) -> None:
+    """Le jumeau des trois précédents: la machine des autres essais n'a ni vmstat ni
+    schedstat ni `cpu.pressure` de conteneur, et sa pression n'a qu'une ligne
+    `some`, dont le total ne bouge pas. Le zéro de `some` est mesuré; `full`, qui
+    n'est pas écrit, reste absent."""
+    _, _, second = _deux_releves(tmp_path)
+
+    assert "vmstat" not in second
+    assert second["pression_ms"] == {genre: {"some": 0.0} for genre in ("cpu", "memory", "io")}
+    assert "cgroup_pression_ms" not in second["moteurs"][0]
+    assert all("file_ms_s" not in fil for fil in second["moteurs"][0]["fils"])
+
+
+def test_un_compteur_lu_seulement_au_second_releve_n_a_pas_d_ecart(tmp_path: Path) -> None:
+    """Le jumeau des écarts: un compteur que la première lecture n'a pas vu n'a pas
+    d'écart. Compter depuis zéro rendrait ici 56 369 compactions et une pression
+    de toute la vie de la machine en deux secondes."""
+    machine = Machine(tmp_path)
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    _ecrire(machine.r.proc / "vmstat", "pswpin 488907\n")
+    releveur.prendre()
+    machine.avancer(1)
+    _voler(machine, file_ns=1_050_000_000, compact=56369, pression_us=4_250_000)
+    horloge.t += 2.0
+
+    second = releveur.prendre()
+
+    assert second["vmstat"] == {"pswpin": 0}
+    # La ligne `full` n'existait pas à la première lecture: seul `some` a un écart.
+    assert second["pression_ms"] == {genre: {"some": 4250.0} for genre in ("cpu", "memory", "io")}
+    assert "cgroup_pression_ms" not in second["moteurs"][0]
+    rendu = next(fil for fil in second["moteurs"][0]["fils"] if fil["tid"] == RENDU)
+    assert "file_ms_s" not in rendu
+
+
+def test_les_pages_sales_se_relevent_a_chaque_releve(tmp_path: Path) -> None:
+    machine = Machine(tmp_path)
+    _ecrire(machine.r.proc / "meminfo", (ECHANTILLONS / "meminfo_sale.txt").read_text())
+
+    ligne = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100).prendre()
+
+    assert ligne["pages_sales_mio"] == {"sales": 114, "ecriture": 0}
+
+
+# --- Le noyau -------------------------------------------------------------------
+#
+# Le noyau 7.0.0-44 a été installé le 26 novembre 2026 et attend un redémarrage.
+# Deux phases de part et d'autre de ce redémarrage ne se distingueraient pas: un
+# autre amdgpu et un autre ordonnanceur, et rien dans le relevé ne le disait.
+
+
+def test_chaque_releve_note_son_noyau(tmp_path: Path) -> None:
+    machine = Machine(tmp_path)
+    _ecrire(machine.r.proc / "sys/kernel/osrelease", "7.0.0-43-generic\n")
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+
+    premier = releveur.prendre()
+    machine.avancer(1)
+    horloge.t += 2.0
+    second = releveur.prendre()
+
+    assert (premier["noyau"], second["noyau"]) == ("7.0.0-43-generic", "7.0.0-43-generic")
+
+
+def test_un_noyau_illisible_reste_absent(tmp_path: Path) -> None:
+    """Le jumeau: sans `osrelease`, pas de champ, et pas un noyau inventé."""
+    _, premier, second = _deux_releves(tmp_path)
+
+    assert "noyau" not in premier
+    assert "noyau" not in second
+
+
+# --- Les voisins de la carte ---------------------------------------------------
+#
+# ollama (ROCm, /dev/kfd) et Jellyfin (VAAPI sur renderD128) peuvent prendre la
+# carte d'une partie. Le 22 novembre 2026, de 15:25 à 15:27 UTC, elle était
+# occupée à 93-98 % sans aucun moteur nel3ab, et rien ne disait par qui.
+
+JELLYFIN, FFMPEG, FFMPEG_ORPHELIN, OLLAMA = 5000, 5001, 5002, 1234
+
+
+def _stat_de(pid: int, nom: str, parent: int, tics: int = 0) -> str:
+    """Une ligne `stat` dont le parent (rang 4) est connu."""
+    champs = ["S", str(parent)] + ["0"] * 9 + [str(tics), "0"] + ["0"] * 23 + ["0"]
+    return f"{pid} ({nom}) " + " ".join(champs) + "\n"
+
+
+def _voisins(machine: Machine, avec_kfd: bool = True, tics: int = 0) -> None:
+    p = machine.r.proc
+    _ecrire(p / str(JELLYFIN) / "comm", "jellyfin\n")
+    _ecrire(p / str(JELLYFIN) / "stat", _stat_de(JELLYFIN, "jellyfin", 1))
+    _ecrire(p / str(FFMPEG) / "comm", "ffmpeg\n")
+    _ecrire(p / str(FFMPEG) / "stat", _stat_de(FFMPEG, "ffmpeg", JELLYFIN, tics))
+    # Le jumeau: un ffmpeg lancé à la main, enfant d'un shell, n'est pas Jellyfin.
+    _ecrire(p / str(FFMPEG_ORPHELIN) / "comm", "ffmpeg\n")
+    _ecrire(p / str(FFMPEG_ORPHELIN) / "stat", _stat_de(FFMPEG_ORPHELIN, "ffmpeg", TIERS, tics))
+    _ecrire(p / str(OLLAMA) / "comm", "ollama\n")
+    if avec_kfd:
+        (machine.kfd / str(OLLAMA)).mkdir(parents=True)
+
+
+def test_ollama_par_rocm_et_le_ffmpeg_de_jellyfin_apparaissent(tmp_path: Path) -> None:
+    machine = Machine(tmp_path)
+    _voisins(machine)
+    horloge = Horloge()
+    releveur = Releveur(machine.r, horloge=horloge, soi=SOI, tics_par_seconde=100)
+    releveur.prendre()
+    _ecrire(machine.r.proc / str(FFMPEG) / "stat", _stat_de(FFMPEG, "ffmpeg", JELLYFIN, 150))
+    machine.avancer(1)
+    horloge.t += 2.0
+
+    second = releveur.prendre()
+
+    assert second["voisins_gpu"] == {
+        "kfd": [{"pid": OLLAMA, "nom": "ollama"}],
+        "jellyfin_ffmpeg": [{"pid": FFMPEG, "cpu_pct": 75.0}],
+    }
+    # Un voisin n'est pas de l'entourage d'une salle.
+    assert "jellyfin/ffmpeg" not in second["entourage"]
+    assert "ffmpeg" not in second["entourage"]
+
+
+def test_sans_voisin_les_listes_sont_vides_et_presentes(tmp_path: Path) -> None:
+    """Le jumeau: dossier KFD vide, pas de transcodage. Vide se dit `[]`."""
+    machine = Machine(tmp_path)
+    machine.kfd.mkdir()
+
+    ligne = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100).prendre()
+
+    assert ligne["voisins_gpu"] == {"kfd": [], "jellyfin_ffmpeg": []}
+
+
+def test_sans_pilote_kfd_la_liste_kfd_est_absente(tmp_path: Path) -> None:
+    """Le second jumeau: un dossier illisible ne se dit pas vide."""
+    machine = Machine(tmp_path)
+
+    ligne = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100).prendre()
+
+    assert ligne["voisins_gpu"] == {"jellyfin_ffmpeg": []}
+
+
+def test_les_voisins_ne_se_lisent_jamais_dans_fdinfo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Les statistiques du pilote par descripteur (`fdinfo`) n'ont pas de coût mesuré:
+    le relevé ne les ouvre pas, ni les descripteurs eux-mêmes, toutes les deux
+    secondes. Les détenteurs de la carte se lisent à la capture seulement."""
+    machine = Machine(tmp_path)
+    _voisins(machine)
+    lus: list[str] = []
+    vrai = releve._lire
+
+    def espion(chemin: Path) -> str | None:
+        lus.append(str(chemin))
+        return vrai(chemin)
+
+    monkeypatch.setattr(releve, "_lire", espion)
+    releveur = Releveur(machine.r, horloge=Horloge(), soi=SOI, tics_par_seconde=100)
+    ligne = releveur.prendre()
+
+    assert ligne["voisins_gpu"]["jellyfin_ffmpeg"] == [{"pid": FFMPEG}]
+    assert lus, "l'espion voit les lectures"
+    assert not [c for c in lus if {"fd", "fdinfo"} & set(Path(c).parts)], lus
 
 
 def test_un_pid_disparu_est_oublie(tmp_path: Path) -> None:

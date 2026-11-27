@@ -74,6 +74,10 @@ def isolate_personal_state(
     # Et les durées de démarrage (D05): un essai qui lance un jeu y écrirait
     # une ligne, et l'habitude de la machine apprendrait des jeux inventés.
     monkeypatch.setenv("NEL3AB_DEMARRAGES_FILE", str(racine / "demarrages.jsonl"))
+    # Et la boîte noire: depuis le 27 novembre 2026, elle écrit un résumé par
+    # partie dans `parties/`, gardé sans limite. Un essai qui construit sa boucle
+    # avec `Settings()` l'écrirait sinon pour toujours dans le vrai dossier.
+    monkeypatch.setenv("NEL3AB_BOITE_NOIRE_DIR", str(racine / "boite-noire"))
 
 
 @pytest.fixture(autouse=True)

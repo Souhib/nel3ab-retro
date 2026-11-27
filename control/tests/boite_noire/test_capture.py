@@ -1,13 +1,16 @@
 """Une capture, avec un faux lanceur: les commandes et les fichiers, sans `perf` ni GPU."""
 
 import json
+import os
 import threading
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from nel3ab_control.boite_noire import capture
 from nel3ab_control.boite_noire.capture import Capteur, lignes_recentes
 from nel3ab_control.boite_noire.releve import Racines
 
@@ -81,9 +84,11 @@ def _capteur(tmp_path: Path, lanceur: FauxLanceur, debugfs: bool = False) -> Cap
     (salon / "2026-09-14.jsonl").write_text(
         "".join(json.dumps(ligne, ensure_ascii=False) + "\n" for ligne in lignes) + "pas du json\n"
     )
+    # Un faux `/proc` vide: la capture lit les descripteurs de chaque processus.
+    (tmp_path / "proc").mkdir()
     return Capteur(
         tmp_path / "captures",
-        Racines(dri=dri),
+        Racines(dri=dri, proc=tmp_path / "proc"),
         journal_salon=salon,
         lanceur=lanceur,
         debugfs=debugfs,
@@ -204,14 +209,22 @@ def test_dolphin_n_a_pas_d_ecran_et_une_salle_inconnue_lit_tous_les_workers(tmp_
 
 def test_un_debugfs_illisible_se_note_sans_arreter_la_capture(tmp_path: Path) -> None:
     lanceur = FauxLanceur()
+    (tmp_path / "proc").mkdir()
     capteur = Capteur(
-        tmp_path / "captures", Racines(dri=tmp_path / "absent"), lanceur=lanceur, debugfs=True
+        tmp_path / "captures",
+        Racines(dri=tmp_path / "absent", proc=tmp_path / "proc"),
+        lanceur=lanceur,
+        debugfs=True,
     )
     dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
 
     codes = json.loads((dossier / "capture.json").read_text())["codes"]
     assert codes["amdgpu_vram_mm"] == -1
     assert not (dossier / "pages.jsonl").exists()
+    # La capture lit les descripteurs des processus des `Racines` qu'on lui donne,
+    # pas ceux de la machine qui fait tourner l'essai.
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert (lu["detenteurs"], lu["illisibles"]) == ([], 0)
 
 
 def test_seules_les_lignes_recentes_et_datees_sont_gardees() -> None:
@@ -298,3 +311,127 @@ def test_sans_affichage_lisible_l_ecran_n_est_pas_pris_et_la_capture_continue(
     assert codes["affichage"] != 0
     assert "ecran" not in codes
     assert (dossier / "worker.log").exists(), "le reste de la capture est pris"
+
+
+# --- Qui tient la carte au moment d'une capture ----------------------------------
+#
+# Le 22 novembre 2026, de 15:25 à 15:27 UTC, la carte était occupée à 93-98 %
+# sans aucun moteur nel3ab, et rien ne disait par qui. Jellyfin (même
+# utilisateur) se lit par ses descripteurs; ollama tourne en root et ne se lit
+# pas: la capture le compte, et le relevé le voit par `/sys/class/kfd`.
+
+
+def _processus(proc: Path, pid: int, nom: str, liens: dict[int, str]) -> None:
+    (proc / str(pid) / "fd").mkdir(parents=True)
+    (proc / str(pid) / "comm").write_text(f"{nom}\n")
+    for fd, cible in liens.items():
+        (proc / str(pid) / "fd" / str(fd)).symlink_to(cible)
+
+
+def test_la_capture_nomme_les_processus_qui_tiennent_la_carte(tmp_path: Path) -> None:
+    assert os.geteuid() != 0, "en root, le dossier fermé se lirait quand même"
+    lanceur = FauxLanceur()
+    capteur = _capteur(tmp_path, lanceur)
+    proc = tmp_path / "proc"
+    _processus(proc, 4242, "Ryujinx", {7: "/dev/dri/renderD128", 8: "/dev/null"})
+    _processus(proc, 5001, "ffmpeg", {3: "/dev/dri/renderD128", 4: "/dev/dri/card0"})
+    _processus(proc, 5002, "bash", {0: "/dev/pts/3"})
+    _processus(proc, 3913, "ollama", {})
+    (proc / "3913" / "fd").chmod(0)
+    try:
+        dossier = capteur.capturer("chute", RYUJINX, QUAND, {"cause": "gel"})
+    finally:
+        (proc / "3913" / "fd").chmod(0o700)
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert lu["detenteurs"] == [
+        {"pid": 4242, "nom": "Ryujinx", "noeuds": ["/dev/dri/renderD128"]},
+        {"pid": 5001, "nom": "ffmpeg", "noeuds": ["/dev/dri/card0", "/dev/dri/renderD128"]},
+    ]
+    assert lu["illisibles"] == 1
+    assert "root" in lu["note"]
+
+
+def test_des_descripteurs_listes_mais_illisibles_sont_comptes_illisibles(tmp_path: Path) -> None:
+    """Le service tourne avec CAP_DAC_READ_SEARCH (`deploy/nel3ab-boite-noire.service`):
+    elle ouvre le dossier `fd` d'un processus de root, mais le noyau refuse de lire
+    où mène chaque lien sans droit de tracer ce processus. Un dossier qu'on liste
+    sans pouvoir y entrer donne le même refus. Sauté, ollama sortait « ni détenteur
+    ni illisible »: le fichier disait alors que personne d'autre ne tenait la carte."""
+    assert os.geteuid() != 0, "en root, le dossier fermé se lirait quand même"
+    capteur = _capteur(tmp_path, FauxLanceur())
+    proc = tmp_path / "proc"
+    _processus(proc, 3913, "ollama", {5: "/dev/kfd", 6: "/dev/dri/renderD128"})
+    _processus(proc, 5001, "ffmpeg", {3: "/dev/dri/renderD128"})
+    # Le jumeau: un descripteur fermé entre la liste et la lecture (ENOENT dans le
+    # vrai `/proc`; ici un fichier qui n'est pas un lien) se saute sans rendre son
+    # processus illisible.
+    (proc / "5001" / "fd" / "9").write_text("")
+    (proc / "3913" / "fd").chmod(0o400)
+    try:
+        assert sorted(os.listdir(proc / "3913" / "fd")) == ["5", "6"], "la liste se lit"
+        dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
+    finally:
+        (proc / "3913" / "fd").chmod(0o700)
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert [un["pid"] for un in lu["detenteurs"]] == [5001]
+    assert lu["illisibles"] == 1
+
+
+def test_un_nom_de_processus_coupe_au_milieu_d_un_accent_ne_perd_pas_la_capture(
+    tmp_path: Path,
+) -> None:
+    """Le noyau coupe `comm` à quinze octets, au milieu d'un caractère s'il le faut:
+    « Enregistreurs-écran » s'y arrête sur le premier octet du « é ». Lu en UTF-8
+    strict, ce nom levait une erreur avant le profil, et toute la capture était
+    perdue pour un détenteur au nom accentué."""
+    capteur = _capteur(tmp_path, FauxLanceur())
+    proc = tmp_path / "proc"
+    _processus(proc, 5003, "x", {3: "/dev/dri/renderD128"})
+    (proc / "5003" / "comm").write_bytes("Enregistreurs-écran".encode()[:15] + b"\n")
+    assert (proc / "5003" / "comm").read_bytes().endswith(b"\xc3\n"), "un octet seul à la fin"
+
+    dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert [un["pid"] for un in lu["detenteurs"]] == [5003]
+    assert lu["detenteurs"][0]["nom"].startswith("Enregistreurs-")
+    assert (dossier / "worker.log").exists(), "le reste de la capture est pris"
+
+
+def test_sans_detenteur_la_liste_est_vide_et_le_fichier_present(tmp_path: Path) -> None:
+    """Le jumeau: personne ne tient la carte, et cela se dit."""
+    dossier = _capteur(tmp_path, FauxLanceur()).capturer("chute", RYUJINX, QUAND, {})
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert (lu["detenteurs"], lu["illisibles"]) == ([], 0)
+
+
+def test_les_detenteurs_ne_se_lisent_jamais_dans_fdinfo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le nom du descripteur, pas les statistiques du pilote, dont le coût n'est pas
+    qualifié (CLAUDE.md, règle 4)."""
+    capteur = _capteur(tmp_path, FauxLanceur())
+    _processus(tmp_path / "proc", 5001, "ffmpeg", {3: "/dev/dri/renderD128"})
+    (tmp_path / "proc" / "5001" / "fdinfo").mkdir()
+    (tmp_path / "proc" / "5001" / "fdinfo" / "3").write_text("drm-engine-gfx: 1 ns\n")
+    ouverts: list[str] = []
+    vrais = (os.listdir, Path.read_text, Path.open)
+
+    def liste(chemin: Any) -> list[str]:
+        ouverts.append(str(chemin))
+        return vrais[0](chemin)
+
+    def lit(chemin: Path, *args: Any, **kwargs: Any) -> str:
+        ouverts.append(str(chemin))
+        return vrais[1](chemin, *args, **kwargs)
+
+    monkeypatch.setattr(capture.os, "listdir", liste)
+    monkeypatch.setattr(Path, "read_text", lit)
+    dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert [un["pid"] for un in lu["detenteurs"]] == [5001]
+    assert not [chemin for chemin in ouverts if "fdinfo" in Path(chemin).parts], ouverts

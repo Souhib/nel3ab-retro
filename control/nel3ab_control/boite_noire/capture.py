@@ -5,6 +5,8 @@
 - un profil `perf` des fils les plus occupés de l'émulateur, pendant dix secondes;
 - le compte des objets GPU créés pendant ces mêmes dix secondes;
 - le journal du worker et les mesures des pages des trois dernières minutes;
+- les processus qui tiennent la carte graphique (`gpu-detenteurs.json`), lus par
+  le nom de leurs descripteurs, jamais par les statistiques du pilote;
 - pour une chute dans une salle servie par un adaptateur (Switch, Switch 2,
   Xbox 360), l'image affichée à cet instant, sur l'affichage que la salle a
   écrit dans `display.json`;
@@ -32,6 +34,7 @@ qu'une boîte noire arrêtée.
 """
 
 import json
+import os
 import re
 import subprocess  # lancer perf, journalctl et docker est le travail de ce module
 from collections.abc import Callable, Sequence
@@ -95,6 +98,75 @@ def lancer(argv: Sequence[str], sortie: Path, delai: float) -> int:
     return fini.returncode
 
 
+#: Ce qu'un descripteur doit viser pour tenir la carte: ses nœuds DRM, ou ROCm.
+NOEUDS_GPU = ("/dev/dri/", "/dev/kfd")
+
+#: Ce que `gpu-detenteurs.json` ne peut pas dire, écrit à côté de ce qu'il dit.
+NOTE_DETENTEURS = (
+    "Lus par le nom des descripteurs de chaque processus, jamais par fdinfo. Les "
+    "processus d'un autre utilisateur, root compris (ollama), ne sont pas lisibles: "
+    "ils sont comptés dans « illisibles ». Ceux qui passent par ROCm se voient dans "
+    "« voisins_gpu.kfd » des relevés."
+)
+
+
+def detenteurs_gpu(proc: Path) -> dict[str, Any]:
+    """Les processus qui tiennent un nœud de la carte, et combien n'ont pas pu se lire.
+
+    Une capture seulement, jamais un relevé: parcourir les descripteurs de toute la
+    machine n'a pas sa place toutes les deux secondes. Un processus qui disparaît
+    pendant la lecture est sauté.
+
+    Illisible veut dire: le dossier `fd` refusé, ou ses liens refusés. Le service
+    a CAP_DAC_READ_SEARCH, qui ouvre le dossier d'un processus de root; lire où
+    mène un lien demande en plus le droit de le tracer, qu'il n'a pas. Compter ce
+    processus comme « sans carte » dirait que personne d'autre ne la tient.
+    """
+    detenteurs: list[dict[str, Any]] = []
+    illisibles = 0
+    try:
+        pids = sorted(int(nom) for nom in os.listdir(proc) if nom.isdigit())
+    except OSError:
+        pids = []
+    for pid in pids:
+        dossier = proc / str(pid) / "fd"
+        try:
+            descripteurs = os.listdir(dossier)
+        except PermissionError:
+            illisibles += 1
+            continue
+        except OSError:
+            continue
+        noeuds: set[str] = set()
+        refuse = False
+        for fd in descripteurs:
+            try:
+                cible = os.readlink(dossier / fd)
+            except PermissionError:
+                # Le dossier se liste (CAP_DAC_READ_SEARCH du service), mais le
+                # noyau refuse les liens d'un processus qu'on n'a pas le droit de
+                # tracer: le même refus pour chacun, inutile de les essayer tous.
+                refuse = True
+                break
+            except OSError:
+                continue
+            if cible.startswith(NOEUDS_GPU):
+                noeuds.add(cible)
+        if refuse:
+            illisibles += 1
+        elif noeuds:
+            try:
+                # Le noyau coupe `comm` à quinze octets, parfois au milieu d'un
+                # caractère: lu strictement, il ferait perdre toute la capture.
+                nom = (
+                    (proc / str(pid) / "comm").read_text(encoding="utf-8", errors="replace").strip()
+                )
+            except OSError:
+                nom = ""
+            detenteurs.append({"pid": pid, "nom": nom or None, "noeuds": sorted(noeuds)})
+    return {"detenteurs": detenteurs, "illisibles": illisibles, "note": NOTE_DETENTEURS}
+
+
 def lignes_recentes(texte: str, depuis: datetime) -> list[str]:
     """Les lignes d'un journal JSONL écrites depuis `depuis`, telles quelles."""
     gardees: list[str] = []
@@ -153,6 +225,11 @@ class Capteur:
         if avant is not None:
             avant(dossier)
         codes: dict[str, int] = {}
+        # Qui tient la carte, au plus près du gel: juste après le tampon.
+        (dossier / "gpu-detenteurs.json").write_text(
+            json.dumps(detenteurs_gpu(self._r.proc), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
         # Les fils les plus occupés du dernier relevé, pas des noms écrits en dur:
         # Ryujinx et Dolphin n'appellent pas leur fil de rendu pareil.

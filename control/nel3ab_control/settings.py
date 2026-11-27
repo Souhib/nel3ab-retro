@@ -147,7 +147,13 @@ class Settings(BaseSettings):
         default=7,
         description=(
             "Combien de jours de relevés et de captures on garde. Une semaine, fixée "
-            "par Souhib le 14 septembre 2026: il revient le soir même ou le lendemain."
+            "par Souhib le 14 septembre 2026: il revient le soir même ou le lendemain. "
+            "Gardée à sept le 27 novembre 2026, quand la partie de Mario Tennis du "
+            "30 octobre s'est révélée sans relevés: ce qui manquait pour comparer deux "
+            "soirées tient dans le résumé de chaque partie (`parties/`, environ 2 Kio, "
+            "jamais effacé), et les mesures des pages partent elles aussi après sept "
+            "jours (`journal_days`). Le disque n'est pas la raison: ce jour-là, sept "
+            "jours de relevés pesaient 23 Mo et 28 captures 48 Mo."
         ),
     )
     boite_noire_pas_partie_s: float = Field(
@@ -222,6 +228,19 @@ class Settings(BaseSettings):
             "0,7 à 1,2 s d'images toutes les deux minutes et demie, sans que la "
             "médiane bouge de 60 images par seconde. Les fenêtres saines de cette "
             "soirée-là tenaient sous 100 ms, ce qui laisse un facteur cinq."
+        ),
+    )
+    boite_noire_pause_gel_s: float = Field(
+        default=60.0,
+        gt=0,
+        description=(
+            "Combien de secondes une salle se tait après la capture d'un GEL. Une "
+            "chute de cadence garde sa pause de cinq minutes. Cinq minutes aussi pour "
+            "un gel jusqu'au 27 novembre 2026: ce soir-là, la pause ouverte par le trou "
+            "de 1 488 ms de 00:33:23 aurait couvert le gel de 543 ms de 00:36:14, rejoué "
+            "sur les vraies mesures. Une minute laisse finir la capture (dix secondes de "
+            "profil) et borne une soirée qui gèle sans arrêt à une capture par minute et "
+            "par salle, de 2 à 5 Mo chacune. Un même gel, même long, n'en prend qu'une."
         ),
     )
     boite_noire_capture_s: int = Field(

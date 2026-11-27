@@ -209,3 +209,58 @@ def test_un_conteneur_hors_salle_n_a_pas_de_salle() -> None:
     }
     assert lecture.conteneur("pas du json") is None
     assert lecture.conteneur("[1, 2]") is None
+
+
+# --- Le temps volé (relevés du 27 novembre 2026, noyau 7.0.0-43) --------------
+#
+# `schedstat`, `vmstat`, `meminfo` et `cpu.pressure` ont été recopiés sur lgf ce
+# jour-là, avec `kernel.sched_schedstats` à 0.
+
+
+def test_l_attente_en_file_est_le_second_champ_de_schedstat() -> None:
+    """Le temps passé prêt à tourner sans cœur, en nanosecondes. Il se lit avec
+    `kernel.sched_schedstats` à 0: le premier champ, le temps de calcul, égalait
+    utime + stime sur la boîte noire elle-même (vérification du 27 novembre)."""
+    assert lecture.attente_en_file_ns(_texte("schedstat.txt")) == 10678445468
+
+
+def test_un_schedstat_illisible_ne_dit_rien() -> None:
+    """Le jumeau: absent, jamais zéro. Un zéro dirait « aucune attente »."""
+    assert lecture.attente_en_file_ns("") is None
+    assert lecture.attente_en_file_ns("487261858066\n") is None
+    assert lecture.attente_en_file_ns("487261858066 pas-un-nombre 1\n") is None
+
+
+def test_vmstat_garde_les_compactions_et_les_reclamations_directes() -> None:
+    assert lecture.vmstat(_texte("vmstat.txt")) == {
+        "compact_stall": 56369,
+        "allocstall_normal": 300,
+        "allocstall_movable": 15653,
+        "pgmajfault": 19387135,
+        "pswpin": 488907,
+        "thp_fault_fallback": 3966,
+    }
+
+
+def test_un_compteur_de_vmstat_absent_reste_absent() -> None:
+    assert lecture.vmstat("compact_stall 12\nallocstall_normal deux\n") == {"compact_stall": 12}
+    assert lecture.vmstat("") == {}
+
+
+def test_la_pression_totale_se_lit_en_microsecondes() -> None:
+    assert lecture.pression_totale(_section("pressure.txt", "io")) == {
+        "some": 129110371,
+        "full": 123624872,
+    }
+    assert lecture.pression_totale(_texte("cgroup_cpu_pressure.txt")) == {
+        "some": 5627010364,
+        "full": 4718169562,
+    }
+    assert lecture.pression_totale("some avg10=0.00 avg60=0.00 avg300=0.00\n") == {}
+
+
+def test_les_pages_sales_et_en_ecriture_se_lisent_en_mio() -> None:
+    """Une écriture NFS bloquée retient les écritures locales: `Dirty` qui monte et
+    `Writeback` qui ne baisse pas le disent."""
+    assert lecture.pages_sales_mio(_texte("meminfo_sale.txt")) == {"sales": 114, "ecriture": 0}
+    assert lecture.pages_sales_mio(_texte("meminfo.txt")) == {}

@@ -94,6 +94,31 @@ def tranches(
             objets = moteur.get("objets_gpu")
             if isinstance(objets, dict) and (nombre := _nombre(objets.get("objets"))) is not None:
                 seau["objets"].append(nombre)
+            # L'attente en file (`run_delay`), écrite depuis le 27 novembre 2026: le
+            # pire fil, car un seul fil qui attend un cœur suffit à retenir l'image.
+            attentes = [
+                attente
+                for fil in fils
+                if isinstance(fil, dict) and (attente := _nombre(fil.get("file_ms_s"))) is not None
+            ]
+            if attentes:
+                seau["file"].append(max(attentes))
+        # Les compactions et réclamations directes de la mémoire, et les voisins de
+        # la carte: absents des relevés d'avant le 27 novembre 2026.
+        vmstat = ligne.get("vmstat")
+        if isinstance(vmstat, dict):
+            directes = [
+                valeur
+                for cle in ("compact_stall", "allocstall_normal", "allocstall_movable")
+                if (valeur := _nombre(vmstat.get(cle))) is not None
+            ]
+            if directes:
+                seau["compactions"].append(sum(directes))
+        voisins = ligne.get("voisins_gpu")
+        if isinstance(voisins, dict):
+            seau["voisins"].append(
+                sum(len(liste) for liste in voisins.values() if isinstance(liste, list))
+            )
         gpu = ligne.get("gpu") or {}
         if (occupe := _nombre(gpu.get("occupe_pct"))) is not None:
             seau["gpu"].append(occupe)
@@ -159,6 +184,9 @@ def tranches(
             # liaison qui hoquette sur une seule, et le pire montre les deux.
             ("arrivee_max", seau["arrivee_max"], max),
             ("aller_retour", seau["aller_retour"], max),
+            ("file_ms_s", seau["file"], max),
+            ("compactions", seau["compactions"], sum),
+            ("voisins", seau["voisins"], max),
         ):
             if valeurs:
                 entree[nom] = round(calcul(valeurs), 1)
@@ -171,6 +199,80 @@ def tranches(
                 entree[nom] = valeurs[-1]
         resultat.append(entree)
     return resultat
+
+
+class NoyauxDifferentsError(ValueError):
+    """Deux phases qu'on voulait comparer n'ont pas tourné sur le même noyau."""
+
+
+def _dans(quand: datetime, plage: tuple[time, time]) -> bool:
+    return plage[0] <= quand.time() <= plage[1]
+
+
+def comparer_phases(
+    releves: list[dict[str, Any]],
+    pages: list[dict[str, Any]],
+    plages: list[tuple[time, time]],
+) -> list[dict[str, Any]]:
+    """Une entrée par phase, si toutes ont tourné sur le même noyau.
+
+    Refuse, par `NoyauxDifferentsError`, deux phases de noyaux différents, un noyau qui
+    change au milieu d'une phase, et une phase dont un relevé ne note pas son
+    noyau: les relevés d'avant le 27 novembre 2026 ne le disent pas, et rien ne
+    prouve alors qu'ils comparent la même machine. Le 14 septembre 2026, le
+    passage de 6.8 à 7.0 avait changé le pilote de fréquence du processeur.
+    """
+    phases: list[dict[str, Any]] = []
+    for plage in plages:
+        dedans = [
+            ligne
+            for ligne in releves
+            if ligne.get("quoi") == "relevé"
+            and (quand := _instant(ligne)) is not None
+            and _dans(quand, plage)
+        ]
+        noyaux = {ligne.get("noyau") for ligne in dedans}
+        nom = f"{plage[0].isoformat()}-{plage[1].isoformat()}"
+        if not dedans:
+            raise NoyauxDifferentsError(f"phase {nom}: aucun relevé, noyau non noté")
+        if None in noyaux:
+            raise NoyauxDifferentsError(f"phase {nom}: noyau non noté dans un relevé au moins")
+        if len(noyaux) > 1:
+            raise NoyauxDifferentsError(
+                f"phase {nom}: noyaux {', '.join(sorted(map(str, noyaux)))}"
+            )
+        fils = [
+            pct
+            for ligne in dedans
+            for moteur in ligne.get("moteurs") or []
+            if isinstance(moteur, dict) and moteur.get("fils")
+            if (pct := _nombre(moteur["fils"][0].get("cpu_pct"))) is not None
+        ]
+        cadences = [
+            cadence
+            for ligne in pages
+            if ligne.get("quoi") == "mesures"
+            and not ligne.get("banc")
+            and (quand := _instant(ligne)) is not None
+            and _dans(quand, plage)
+            if (cadence := _recues_par_seconde(ligne.get("vu") or {})) is not None
+        ]
+        phases.append(
+            {
+                "phase": nom,
+                "noyau": noyaux.pop(),
+                "releves": len(dedans),
+                "fil_pct_mediane": median(fils) if fils else None,
+                "pages_mediane": median(cadences) if cadences else None,
+            }
+        )
+    noyaux_des_phases = {phase["noyau"] for phase in phases}
+    if len(noyaux_des_phases) > 1:
+        raise NoyauxDifferentsError(
+            "des phases sur des noyaux différents: "
+            + ", ".join(f"{phase['phase']} {phase['noyau']}" for phase in phases)
+        )
+    return phases
 
 
 def captures(dossier: Path, jour: date) -> list[dict[str, Any]]:

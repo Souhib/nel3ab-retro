@@ -1,0 +1,43 @@
+00:00:00.063 |I| Gpu : Backend Threading (Auto): True
+00:00:00.410 |N| Application LoadApplication: Using Firmware Version: 4.1.0
+00:00:00.410 |I| Application LoadApplication: Loading as NSP.
+00:00:00.482 |N| Application : Loading update NCA from '/run-data/updates/super-smash-bros-ultimate-v2031616.nsp'.
+00:00:00.526 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F001 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f001.nsp'
+00:00:00.527 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F002 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f002.nsp'
+00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F003 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f003.nsp'
+00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F004 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f004.nsp'
+00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F005 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f005.nsp'
+00:00:00.528 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F006 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f006.nsp'
+00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F007 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f007.nsp'
+00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F008 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f008.nsp'
+00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F009 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f009.nsp'
+00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F00A @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f00a.nsp'
+00:00:00.529 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F00B @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f00b.nsp'
+00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F00C @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f00c.nsp'
+00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F015 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f015.nsp'
+00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F016 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f016.nsp'
+00:00:00.530 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F01F @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f01f.nsp'
+00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F020 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f020.nsp'
+00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F021 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f021.nsp'
+00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F022 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f022.nsp'
+00:00:00.531 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F023 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f023.nsp'
+00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F024 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f024.nsp'
+00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F025 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f025.nsp'
+00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F026 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f026.nsp'
+00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F027 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f027.nsp'
+00:00:00.532 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F028 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f028.nsp'
+00:00:00.533 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F029 @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f029.nsp'
+00:00:00.533 |N| Application AddAocItem: Found AddOnContent with TitleId 01006A800016F02A @ '/run-data/updates/super-smash-bros-ultimate-dlc/01006a800016f02a.nsp'
+00:00:04.457 |I| Hid RefreshSeats: nel3ab seats: players 1 connected
+00:00:04.480 |I| Hid SetupNpad: Connected Controller ProController to Player1
+00:00:04.720 |N| GUI.RenderLoop Gpu PrintGpuInformation: AMD Radeon RX 6650 XT (RADV NAVI23) (Vulkan v1.4.318, Driver: RADV Mesa 25.2.8-0ubuntu0.24.04.2)
+00:00:04.720 |N| GUI.RenderLoop Gpu PrintGpuInformation: GPU Memory: 8176 MiB
+00:00:04.749 |I| GPU.MainThread Application ProgressHandler: Shaders : 0/10682
+00:00:04.749 |I| GPU.MainThread Gpu LoadShaders: Loading 10682 shaders from the cache...
+00:00:04.835 |I| GPU.MainThread Application ProgressHandler: Shaders : 1/10682
+00:00:04.838 |I| GPU.MainThread Application ProgressHandler: Shaders : 2/10682
+00:02:22.880 |I| Ptc.DiskWriter Ptc Save: Saved Profiling Info (pid: 109, title: 01006a800016e000, version: '13.0.5', kind: Application, selector: 'default', key: '13.0.5-default', path: '/run-data/data/games/01006a800016e000/cache/cpu/0/13.0.5-default.info', size: 320124 bytes, profiled functions: 74354).
+00:03:30.731 |S| {Common} ServiceAm SetScreenShotPermission: Stubbed. {screenShotPermission: True}
+00:03:33.346 |W| {Nv} ServiceNv Wait: GPU processing thread is too slow, waiting on CPU...
+00:03:33.686 |W| GUI.RenderLoop Gpu TryGetGraphicsPipeline: Background pipeline compile missed on draw - incorrect pipeline state?
+00:03:52.880 |I| Ptc.DiskWriter Ptc Save: Saved Profiling Info (pid: 109, title: 01006a800016e000, version: '13.0.5', kind: Application, selector: 'default', key: '13.0.5-default', path: '/run-data/data/games/01006a800016e000/cache/cpu/0/13.0.5-default.info', size: 320943 bytes, profiled functions: 74561).

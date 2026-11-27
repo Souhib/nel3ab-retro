@@ -373,5 +373,73 @@ class EngineEnvironment(unittest.TestCase):
         run.assert_not_called()
 
 
+def option(command, name):
+    """The value that follows `name` in an argument list, which must hold it once."""
+    positions = [position for position, value in enumerate(command) if value == name]
+    if len(positions) != 1:
+        raise AssertionError(f"{name} appears {len(positions)} times in {command}")
+    return command[positions[0] + 1]
+
+
+class EngineSettings(unittest.TestCase):
+    """Ryubing without a window reads only its command line (RYU-5, 2026-11-27).
+
+    HeadlessRyujinx.cs:148-151 calls InheritMainConfig only with
+    --use-main-config, so Config.json never set vsync, threading or memory.
+    The defaults below are what the engine logged on 2026-11-26.
+    """
+
+    def launch(self, **config):
+        with tempfile.TemporaryDirectory() as temp:
+            slot = Path(temp) / "state/0100abcdef012000/neuve"
+            slot.mkdir(parents=True)
+            return module.ryubing_launch(config, Path("/roms/jeu.xci"), slot).command
+
+    def test_the_engine_settings_in_effect_today_are_written_on_its_command_line(self):
+        command = self.launch()
+        self.assertEqual(option(command, "--vsync-mode"), "Switch")
+        # Auto, which Vulkan turns into threaded (VulkanRenderer.cs:111).
+        self.assertEqual(option(command, "--backend-threading"), "Auto")
+        self.assertEqual(option(command, "--memory-manager-mode"), "HostMapped")
+        # Thirteen saved Config.json files have drifted (versions 70 and 73).
+        self.assertNotIn("--use-main-config", command)
+
+    def test_each_setting_comes_from_the_room_configuration(self):
+        command = self.launch(
+            vsync_mode="Unbounded", backend_threading="On", memory_manager_mode="SoftwarePageTable"
+        )
+        self.assertEqual(option(command, "--vsync-mode"), "Unbounded")
+        self.assertEqual(option(command, "--backend-threading"), "On")
+        self.assertEqual(option(command, "--memory-manager-mode"), "SoftwarePageTable")
+
+    def test_an_unknown_value_stops_the_room_before_any_container_starts(self):
+        # The engine's parser is case sensitive (Parser.Default): "on" would be
+        # refused by Ryubing after Docker started, or worse, read as another mode.
+        for key, bad in (
+            ("vsync_mode", "switch"),
+            ("vsync_mode", 60),
+            # A real engine value, refused until the room owns its refresh rate.
+            ("vsync_mode", "Custom"),
+            ("backend_threading", "on"),
+            ("backend_threading", True),
+            ("memory_manager_mode", "HostMappedSafe"),
+            ("memory_manager_mode", None),
+        ):
+            with self.subTest(key=key, bad=bad), self.assertRaisesRegex(ValueError, key):
+                self.launch(**{key: bad})
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            patch.object(module, "run") as run,
+            self.assertRaisesRegex(ValueError, "backend_threading"),
+        ):
+            root = Path(temp)
+            slot = root / "0100abcdef012000/neuve"
+            slot.mkdir(parents=True)
+            module.serve(
+                {"image": "unused", "backend_threading": "on"}, root / "game.xci", slot, root
+            )
+        run.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

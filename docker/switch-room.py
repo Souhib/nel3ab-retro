@@ -393,7 +393,47 @@ class EngineLaunch(NamedTuple):
     pad_layout: str = "switch"
 
 
+#: The engine settings the room owns, with the values Ryubing 475615f accepts.
+#:
+#: Ryubing without a window never reads Config.json: HeadlessRyujinx.cs:148-151
+#: calls InheritMainConfig only with --use-main-config, and the configuration is
+#: built from the command line (HeadlessRyujinx.Init.cs:216-252). On 2026-11-26
+#: the log said « BackendThreading set to: On » (Config.json read) then
+#: « Backend Threading (Auto): True » (value used): the 16 September change to
+#: Config.json never took effect. Each default is the value in effect that night:
+#: Switch (Options.cs:309), Auto, which Vulkan turns into threaded
+#: (VulkanRenderer.cs:111), and HostMapped, which the room already passed.
+#: --use-main-config stays off: thirteen saved Config.json files have drifted
+#: (versions 70 and 73), and the room would then depend on each of them.
+#: The names are case sensitive, as the engine's parser is (Parser.Default).
+ENGINE_SETTINGS = (
+    # Custom is left out: it needs --custom-refresh-rate, which the room does not
+    # own yet, and the engine would then run at its own default of 90 Hz.
+    ("vsync_mode", "--vsync-mode", "Switch", ("Switch", "Unbounded")),
+    ("backend_threading", "--backend-threading", "Auto", ("Auto", "Off", "On")),
+    (
+        "memory_manager_mode",
+        "--memory-manager-mode",
+        "HostMapped",
+        ("SoftwarePageTable", "HostMapped", "HostMappedUnsafe"),
+    ),
+)
+
+
+def engine_settings(config: dict) -> list[str]:
+    """Each engine setting on the command line, refused before Docker when unknown."""
+    arguments = []
+    for key, flag, default, accepted in ENGINE_SETTINGS:
+        value = config.get(key, default)
+        if type(value) is not str or value not in accepted:
+            raise ValueError(f"{key} must be one of {', '.join(accepted)}, not {value!r}")
+        arguments += [flag, value]
+    return arguments
+
+
 def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
+    # Checked before the profile is written and before any container starts.
+    settings = engine_settings(config)
     profile = ("data", "profiles", "controller", "nel3ab.json")
     with ouvrir_sans_lien(slot, *profile, mode="wb") as stream:
         stream.write((TOOLS / "ryubing-pro-controller.json").read_bytes())
@@ -403,8 +443,7 @@ def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
         "--root-data-dir",
         "/run-data/data",
         "--fullscreen",
-        "--memory-manager-mode",
-        "HostMapped",
+        *settings,
         "--graphics-backend",
         "Vulkan",
         "--ignore-controller-applet",

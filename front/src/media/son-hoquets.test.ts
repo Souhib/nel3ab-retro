@@ -80,10 +80,19 @@ it("par défaut, des hoquets qui reviennent ne font pas de trous de plus", async
   expect(r.stats.renduMs, `la page coupe sans qu'on le lui demande: ${dit}`).toBeNull();
 });
 
-// Le jumeau : la coupe reste derrière `?son=rendre`, et elle coupe.
-it("coupe encore sous ?son=rendre", async () => {
-  const r = await rejouerSon(etat, hoquets(), { rendre: true });
-  expect(r.stats.renduMs, resume(r)).toBeGreaterThan(0);
+// Le jumeau : la coupe reste derrière `?son=rendre`, et elle coupe. La page
+// la lit dans sa propre adresse, comme `?marge=ancienne` : le flux est
+// construit sans option, comme `Session` le construit.
+it("coupe encore sous ?son=rendre, lu dans l'adresse de la page", async () => {
+  const avant = window.location.href;
+  window.history.replaceState(null, "", "/r/1/?son=rendre");
+  try {
+    const r = await rejouerSon(etat, hoquets());
+    expect(typeof r.stats.renduMs, `la page ne lit pas ?son=rendre: ${resume(r)}`).toBe("number");
+    expect(r.stats.renduMs, `la coupe ne coupe rien: ${resume(r)}`).toBeGreaterThan(0);
+  } finally {
+    window.history.replaceState(null, "", avant);
+  }
 });
 
 it("lit ?son=rendre dans l'adresse, et rien d'autre", () => {

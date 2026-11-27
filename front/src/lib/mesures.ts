@@ -11,7 +11,7 @@
  *   relevés datés à l'horloge murale, sur une seconde au moins. Ce sont des
  *   événements comptés, pas une allure supposée ;
  * - la cadence du jeu (`sourceHz`), absente sous trente écarts (`video.ts`) ;
- * - l'aller-retour des touches (`roundTripMs`), absent avant le premier écho ;
+ * - l'aller-retour de la liaison (`roundTripMs`), absent avant le premier écho ;
  * - l'écart au pire entre deux images, une fois sur vingt (`gapMs.p95`),
  *   absent tant que le flux n'a pas trente images : un p95 de deux images ne
  *   dit rien, et un zéro d'une page qui n'a reçu qu'une image se lisait

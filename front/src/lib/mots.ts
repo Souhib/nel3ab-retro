@@ -607,12 +607,15 @@ export const MESURES = {
     n < 2 ? `${n} image peinte par seconde` : `${n} images peintes par seconde`,
   jeu: (n: number) => `le jeu en fait ${n}`,
   sousLeJeu: "moins que le jeu",
-  allerRetour: (ms: number) => `${ms} ms d'aller-retour pour tes touches`,
+  /** L'écho part une fois par seconde et revient tel quel : il mesure la
+   * liaison, chargée par la vidéo au retour, pas ce que deviennent les
+   * touches après la salle (ENT-7, 27 novembre 2026). */
+  allerRetour: (ms: number) => `${ms} ms d'aller-retour de la liaison`,
   pire: (ms: number) => `${ms} ms au pire entre deux images, une fois sur vingt`,
   pasEncore: "pas encore mesuré",
   peintesSans: "Images peintes par seconde",
   jeuSans: "Le jeu",
-  allerRetourSans: "Aller-retour de tes touches",
+  allerRetourSans: "Aller-retour de la liaison",
   pireSans: "Écart au pire entre deux images",
   direct: "Trajet direct jusqu'à la salle.",
   relais: "Trajet par un relais : souvent plus lent, rarement la seule cause d'une saccade.",

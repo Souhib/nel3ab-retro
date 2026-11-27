@@ -102,7 +102,7 @@ export function Mesures({
   horloge = parDefaut,
 }: {
   video: VideoStats;
-  /** L'aller-retour des touches (`InputState.roundTripMs`), `null` sans écho. */
+  /** L'aller-retour de la liaison (`InputState.roundTripMs`), `null` sans écho. */
   allerRetourMs: number | null;
   liaison: Liaison;
   salle: number;

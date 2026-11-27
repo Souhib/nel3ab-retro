@@ -798,6 +798,7 @@ mod tests {
             half_granted_key: Arc::new(Mutex::new(Instant::now())),
             listeners: Arc::new(Mutex::new(Vec::new())),
             inputs: Arc::new(Mutex::new([None; PORTS])),
+            arrivals: Arc::new(Mutex::new(Default::default())),
             rumbles: Arc::new(Mutex::new([0; PORTS])),
             arrived: Arc::new(Condvar::new()),
             received: Arc::new(std::sync::atomic::AtomicU64::new(0)),

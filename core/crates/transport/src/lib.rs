@@ -23,7 +23,7 @@ pub mod browser;
 pub mod clip;
 pub mod control;
 
-pub use browser::{BrowserServer, Packet, TransportError, ViewerHealth, ViewerWrites};
+pub use browser::{BrowserServer, Packet, PadArrivals, TransportError, ViewerHealth, ViewerWrites};
 pub use control::OwnerSeat;
 
 pub mod ingress;

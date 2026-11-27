@@ -61,6 +61,7 @@ impl From<InputFrame> for ControllerFrame {
 #[allow(clippy::unwrap_used, reason = "invalid fixtures must fail the test")]
 mod tests {
     use super::*;
+    use crate::browser::PadArrivals;
     use crate::browser::{
         BrowserServer,
         harness::{eventually, four, hold, no_art, nobody},
@@ -113,6 +114,94 @@ mod tests {
         );
         let (_, seat) = hold(server.address());
         assert_eq!(seat, 2);
+    }
+    /// Le fil de la socket date les trames: un trou de 120 ms entre deux
+    /// trames d'une place se lit dans le relevé de CETTE place.
+    #[test]
+    fn a_seat_that_goes_quiet_shows_its_gap_and_no_other_seat_does() {
+        let server = BrowserServer::start_with_input(
+            ([127, 0, 0, 1], 0).into(),
+            "",
+            Arc::from("[]"),
+            no_art(),
+            four(),
+            &nobody(),
+            InputKind::Switch,
+        )
+        .unwrap();
+        let (mut socket, seat) = hold(server.address());
+        // As a browser does. Without it, Nagle held the frames sent before the
+        // pause behind a delayed acknowledgement, and the 120 ms silence read
+        // 91.5 ms at the server (first run, 2026-11-27).
+        socket.get_ref().set_nodelay(true).unwrap();
+        let frame = SwitchFrame::neutral(PlayerSlot::new(seat).unwrap())
+            .encode()
+            .to_vec();
+        for pause in [4, 4, 4, 120, 0] {
+            socket.send(Message::Binary(frame.clone().into())).unwrap();
+            std::thread::sleep(Duration::from_millis(pause));
+        }
+        assert!(eventually(|| server.inputs_received() == 5));
+        let all = server.take_pad_arrivals();
+        let mine = all[usize::from(seat - 1)];
+        let Some(gap) = mine.gap_max_ms else {
+            panic!("the socket thread dated no gap");
+        };
+        assert!(gap >= 120.0, "a 120 ms silence read {gap} ms");
+        assert_eq!((mine.frames, mine.over_50_ms), (5, 1));
+        // Le jumeau: une place que personne ne tient n'a rien reçu.
+        for (index, other) in all.iter().enumerate() {
+            if index != usize::from(seat - 1) {
+                assert_eq!(*other, PadArrivals::default());
+            }
+        }
+    }
+    /// Le jumeau de la main qui change: le silence entre le départ d'un joueur
+    /// et l'arrivée du suivant sur la même place n'est pas un trou de liaison.
+    #[test]
+    fn the_silence_between_two_holders_of_a_seat_is_not_a_gap() {
+        let server = BrowserServer::start_with_input(
+            ([127, 0, 0, 1], 0).into(),
+            "",
+            Arc::from("[]"),
+            no_art(),
+            four(),
+            &nobody(),
+            InputKind::Switch,
+        )
+        .unwrap();
+        let send_three = |socket: &mut tungstenite::WebSocket<std::net::TcpStream>, seat| {
+            socket.get_ref().set_nodelay(true).unwrap();
+            let frame = SwitchFrame::neutral(PlayerSlot::new(seat).unwrap())
+                .encode()
+                .to_vec();
+            for _ in 0..3 {
+                socket.send(Message::Binary(frame.clone().into())).unwrap();
+                std::thread::sleep(Duration::from_millis(4));
+            }
+        };
+        let (mut first, seat) = hold(server.address());
+        send_three(&mut first, seat);
+        assert!(eventually(|| server.inputs_received() == 3));
+        first.close(None).unwrap();
+        // La place est rendue quand le serveur y a remis l'état neutre.
+        assert!(eventually(|| {
+            server
+                .wait_controller_input(Duration::from_millis(50))
+                .contains(&InputKind::Switch.neutral(PlayerSlot::new(seat).unwrap()))
+        }));
+        std::thread::sleep(Duration::from_millis(120));
+        let (mut second, again) = hold(server.address());
+        assert_eq!(again, seat, "the next holder took the same seat");
+        send_three(&mut second, again);
+        assert!(eventually(|| server.inputs_received() == 6));
+        let mine = server.take_pad_arrivals()[usize::from(seat - 1)];
+        assert_eq!(mine.frames, 6);
+        assert_eq!(
+            mine.over_50_ms, 0,
+            "the {:?} ms between two holders counted as a gap",
+            mine.gap_max_ms
+        );
     }
     #[test]
     fn each_room_rejects_the_other_format_and_releases_its_own() {

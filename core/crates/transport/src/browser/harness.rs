@@ -50,6 +50,7 @@ pub(in crate::browser) fn detached(viewers: Vec<SyncSender<Queued>>) -> BrowserS
         listeners: Arc::new(Mutex::new(Vec::new())),
         arrived: Arc::new(Condvar::new()),
         incoming: Arc::new(Mutex::new([None; PORTS])),
+        arrivals: Arc::new(Mutex::new(Default::default())),
         received: Arc::new(std::sync::atomic::AtomicU64::new(0)),
         address: "127.0.0.1:0".parse().unwrap(),
         rumbles: Arc::new(Mutex::new([0; PORTS])),

@@ -71,6 +71,7 @@ use stream::{MicSeats, Queued, Viewer, deliver, mic_thread, sound_thread, video_
 /// L'entrée de la salle externe compte les clés de ce qu'elle reçoit.
 pub(crate) use stream::carries_key_frame;
 
+pub use pad::PadArrivals;
 pub use stream::{ViewerHealth, ViewerWrites};
 
 /// Relève l'état de chaque spectateur d'une liste.
@@ -165,6 +166,9 @@ type Mics = Arc<MicSeats>;
 
 /// The latest pad state per port.
 type Pads = Arc<Mutex<[Option<ControllerFrame>; PORTS]>>;
+
+/// Quand les trames de chaque place arrivent, datées dans le fil de sa socket.
+type Arrivals = Arc<Mutex<[pad::Arrivals; PORTS]>>;
 #[derive(Clone)]
 struct SaveCatalogueSource(Arc<dyn Fn() -> Vec<bool> + Send + Sync>);
 
@@ -413,6 +417,8 @@ pub struct BrowserServer {
     /// A slot per port cannot overflow, cannot go stale, and needs no policy for
     /// what to discard: writing simply replaces.
     incoming: Pads,
+    /// Les écarts entre les trames de chaque place. Voir [`pad::Arrivals`].
+    arrivals: Arrivals,
     /// Quand chaque place a touché à quelque chose. Voir `decides`.
     acted: Acted,
     /// La place qui décide, telle que le plan de contrôle l'a dite.
@@ -562,6 +568,7 @@ impl BrowserServer {
         let listeners: Viewers = Arc::new(Mutex::new(Vec::new()));
         let incoming: Pads = Arc::new(Mutex::new([None; PORTS]));
         let acted: Acted = Arc::new(Mutex::new([None; PORTS]));
+        let arrivals: Arrivals = Arc::new(Mutex::new(Default::default()));
         let received = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let arrived = Arc::new(Condvar::new());
         let rumbles: Rumbles = Arc::new(Mutex::new([0; PORTS]));
@@ -597,6 +604,7 @@ impl BrowserServer {
                 let wants_key = Arc::clone(&wants_key);
                 let granted_key = Arc::clone(&granted_key);
                 let inputs = Arc::clone(&incoming);
+                let arrivals = Arc::clone(&arrivals);
                 let acted = Arc::clone(&acted);
                 let received = Arc::clone(&received);
                 let viewers = Arc::clone(&viewers);
@@ -628,6 +636,7 @@ impl BrowserServer {
                             viewers,
                             listeners,
                             inputs,
+                            arrivals,
                             input_kind,
                             acted,
                             arrived,
@@ -677,6 +686,7 @@ impl BrowserServer {
             listeners,
             arrived,
             incoming,
+            arrivals,
             acted,
             received,
             rumbles,
@@ -1345,6 +1355,17 @@ impl BrowserServer {
         slots.iter_mut().filter_map(Option::take).collect()
     }
 
+    /// Par place, les écarts entre ses trames depuis le dernier appel.
+    ///
+    /// Se CONSOMME, comme les autres relevés de dix secondes.
+    #[must_use]
+    pub fn take_pad_arrivals(&self) -> [PadArrivals; PORTS] {
+        self.arrivals.lock().map_or_else(
+            |_| [PadArrivals::default(); PORTS],
+            |mut held| held.each_mut().map(pad::Arrivals::take),
+        )
+    }
+
     /// How many pad frames have arrived in total.
     #[must_use]
     pub fn inputs_received(&self) -> u64 {
@@ -1400,6 +1421,8 @@ struct Shared {
     viewers: Viewers,
     listeners: Viewers,
     inputs: Pads,
+    /// Voir le champ du même nom sur [`BrowserServer`].
+    arrivals: Arrivals,
     input_kind: InputKind,
     /// Quand chaque place a touché à quelque chose. Voir `decides`.
     acted: Acted,

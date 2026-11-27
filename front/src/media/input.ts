@@ -464,6 +464,10 @@ export class InputStream {
     addEventListener("keyup", this.onKeyUp);
     addEventListener("blur", this.onBlur);
     addEventListener("focusin", this.onFocusIn);
+    // Un doigt sur la manette à l'écran fait partir sa trame tout de suite,
+    // comme une touche du clavier (ENT-9).
+    this.touch.quandChange = this.pump;
+    this.switch.quandChange = this.pump;
     this.timers.push(window.setInterval(this.pump, PAD_PERIOD_MS));
     this.timers.push(window.setInterval(this.ping, ECHO_EVERY_MS));
     this.animation = requestAnimationFrame(this.pumpOnRefresh);
@@ -517,6 +521,8 @@ export class InputStream {
     this.cancelCapture();
     this.held.clear();
     this.pompeBase = null;
+    this.touch.quandChange = null;
+    this.switch.quandChange = null;
     for (const timer of this.timers) window.clearInterval(timer);
     this.timers = [];
     removeEventListener("keydown", this.onKeyDown);
@@ -1317,14 +1323,20 @@ export class InputStream {
       event.code.startsWith("Arrow")
     )
       event.preventDefault();
+    // La trame part tout de suite, sans attendre le tour suivant de la pompe
+    // (ENT-9) : 1,5 ms gagnée en moyenne, 5 ms quand le navigateur espace ses
+    // minuteurs. Une touche déjà tenue (la répétition du clavier) ne change
+    // rien et n'envoie rien de plus.
+    if (this.held.has(event.code)) return;
     this.held.add(event.code);
+    this.pump();
   };
 
   // PAS de garde ici, et l'asymétrie est voulue: relâcher ne fait jamais que
   // libérer. Une touche enfoncée dans le jeu puis relâchée après un clic dans un
   // champ doit sortir de la liste, sinon elle y reste appuyée pour toujours.
   private onKeyUp = (event: KeyboardEvent): void => {
-    this.held.delete(event.code);
+    if (this.held.delete(event.code)) this.pump();
   };
 
   private onBlur = (): void => {

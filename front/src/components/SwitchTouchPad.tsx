@@ -68,8 +68,15 @@ export function SwitchTouchPad({
     <Pave<SwitchButton>
       face={face}
       bar={bar}
-      press={(key) => source.touched.add(key)}
-      release={(key) => source.touched.delete(key)}
+      // Chaque appui et chaque relâché part tout de suite (ENT-9).
+      press={(key) => {
+        source.touched.add(key);
+        source.signaler();
+      }}
+      release={(key) => {
+        source.touched.delete(key);
+        source.signaler();
+      }}
       soundOff={soundOff}
       onFeuille={onFeuille}
       cadre={cadre}
@@ -84,10 +91,12 @@ export function SwitchTouchPad({
           onPush: (px, py) => {
             source.pushed.set(x, px);
             source.pushed.set(y, py);
+            source.signaler();
           },
           onRest: () => {
             source.pushed.delete(x);
             source.pushed.delete(y);
+            source.signaler();
           },
         };
       }}

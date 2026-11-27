@@ -67,20 +67,27 @@ export class Touch {
   /** Vrai dès qu'un doigt a touché quelque chose. Sert à la page pour savoir
    * si cette manette sert vraiment, plutôt qu'à deviner d'après l'appareil. */
   private used = false;
+  /** Appelé à chaque changement, pour que la trame parte tout de suite au
+   * lieu d'attendre le tour suivant de la pompe (ENT-9). Posé par la boucle
+   * d'entrée. */
+  quandChange: (() => void) | null = null;
 
   press(button: keyof typeof BUTTON): void {
     this.buttons |= BUTTON[button];
     this.used = true;
+    this.quandChange?.();
   }
 
   release(button: keyof typeof BUTTON): void {
     this.buttons &= ~BUTTON[button];
+    this.quandChange?.();
   }
 
   /** Le stick, en coordonnées de manette. */
   push(x: number, y: number): void {
     this.stick = { x, y };
     if (x !== 0 || y !== 0) this.used = true;
+    this.quandChange?.();
   }
 
   /** Tout lâcher.

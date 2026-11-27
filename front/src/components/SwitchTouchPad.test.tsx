@@ -195,3 +195,24 @@ it("« La salle » de la manette Pro dit le libellé qu'on lui passe, et rien sa
   expect(nu.textContent).toBe("");
   expect(nu.getAttribute("aria-label")).toBe("La salle : son, menu, places");
 });
+
+// ENT-9 : un doigt posé sur une touche fait partir la trame tout de suite.
+// La boucle d'entrée écoute `quandChange` ; le pavé doit le dire à chaque
+// appui et à chaque relâché, sans quoi la touche attend le tour suivant de
+// la pompe.
+it("dit chaque appui et chaque relâché à la boucle d'entrée", () => {
+  const source = new SwitchInput();
+  const dit = vi.fn();
+  source.quandChange = dit;
+  const { container } = render(
+    <SwitchTouchPad source={source} console="switch" bar={0} onFeuille={vi.fn()} />,
+  );
+  const a = container.querySelector('[data-touche="A"]') as HTMLElement;
+  a.setPointerCapture = vi.fn();
+  a.releasePointerCapture = vi.fn();
+  fireEvent.pointerDown(a, { pointerId: 1 });
+  expect(source.touched.has("A"), "précondition: la touche A est tenue").toBe(true);
+  expect(dit, "l'appui n'est pas dit à la boucle").toHaveBeenCalledTimes(1);
+  fireEvent.pointerUp(a, { pointerId: 1 });
+  expect(dit).toHaveBeenCalledTimes(2);
+});

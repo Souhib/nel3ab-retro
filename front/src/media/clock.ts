@@ -205,6 +205,47 @@ export function slackLisse(
   );
 }
 
+/** Ce que la marge porte d'une fenêtre à la suivante. */
+export type EtatMarge = {
+  /** La marge en service, en millisecondes. */
+  slackMs: number;
+  /** La marge que la règle d'avant le 27 novembre 2026 aurait posée, d'après
+   * les mêmes fenêtres. */
+  slackAvant: number;
+  /** Depuis combien de fenêtres `slackAvant` est collée au plafond. */
+  atCeiling: number;
+};
+
+/**
+ * Une fenêtre de plus pour la marge : la marge en service, celle de la règle
+ * d'avant, et le compte qui décide le demi-format automatique.
+ *
+ * Le demi-format se juge sur la marge de la règle d'avant, pas sur celle en
+ * service : le propriétaire a demandé que ce basculement garde son
+ * comportement. Les deux ne sont pas toujours égales au-dessus de 36 ms. Des
+ * rattrapages sans famine font redescendre la marge en service sous celle
+ * d'avant, que les rattrapages bloquent ; des famines sans jet les font
+ * ensuite monter ensemble, avec cet écart, jusqu'au plafond. Juger sur la
+ * marge en service retarderait alors le basculement d'une fenêtre ou plus
+ * (`clock.test.ts`).
+ */
+export function pasDeMarge(
+  etat: EtatMarge,
+  marge: Marge,
+  starved: number,
+  overflowed: number,
+  caughtUp: number,
+): EtatMarge {
+  const avant = nextSlack(etat.slackAvant, starved, overflowed + caughtUp);
+  const slackMs =
+    marge === "ancienne"
+      ? nextSlack(etat.slackMs, starved, overflowed + caughtUp)
+      : slackLisse(etat.slackMs, avant, starved, overflowed, caughtUp);
+  // Compté APRÈS l'avoir posée : on juge ce qu'on vient de décider, pas ce
+  // qu'on avait décidé la fois d'avant.
+  return { slackMs, slackAvant: avant, atCeiling: stuckAtCeiling(etat.atCeiling, avant) };
+}
+
 /** Le moins d'images que la file garde, quoi qu'il arrive. */
 export const QUEUE_FLOOR = 8;
 /** Le plus. Vingt-quatre images décodées de 1216x896 tiennent dans une

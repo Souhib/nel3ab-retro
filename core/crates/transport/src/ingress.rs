@@ -19,25 +19,36 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// From the command handed to the private pads to the first picture captured
-/// after it: the Switch path's own `input_to_frame`, with the Dolphin meaning.
+/// From a CHANGE handed to the private pads to the first picture captured
+/// after it, published as `pad_change_to_frame`.
 ///
-/// The same rule as the Dolphin loop, so the two numbers compare: the latest
-/// command wins, and only the first picture after it is measured. A player
-/// holding a stick sends a command a frame, and then this measures the capture
-/// cadence and nothing more, which is exactly what the Dolphin number does.
+/// Until 2026-11-27 every state handed to the pads restarted the clock, and the
+/// figure was published as `input_to_frame`. The page sends a state every 4 ms
+/// since 2026-08-16 (`input.ts`, `PAD_PERIOD_MS`), moving or not, so the clock
+/// restarted at nearly every frame: the figure read the gap between the LAST
+/// frame received and the next picture, about 2 ms at p50 and never more than
+/// one picture apart (audit WK-4 and ENT-5). Only a state that differs from the
+/// one this seat had before starts the clock now, buttons or sticks. A new name,
+/// so the evenings before it are not read with the new meaning.
 ///
-/// Both streams take the pending press. The adapter captures the half stream
-/// alone when nobody watches the full one, and a press taken only by a full
+/// What it still is: a lower bound of our transport, from the pads to the next
+/// picture the capture sends. It is never the game's reaction: the picture that
+/// closes it was almost always drawn before the game read the change. The real
+/// figure takes the test program that draws every button (`switch-reaction`).
+///
+/// The latest change wins, and only the first picture after it is measured.
+/// Both streams take the pending change. The adapter captures the half stream
+/// alone when nobody watches the full one, and a change taken only by a full
 /// picture would wait for the next full watcher and be counted minutes late.
 ///
 /// Measured on 2026-09-09 from outside, on the Looney Tunes title screen:
 /// 51 ms from the pad command to the first heavy picture on `/video`, three
-/// stable trials. That number was read by a script that no longer exists; this
-/// window is what makes it a figure the room reports about itself.
+/// stable trials. That number was read by a script that no longer exists.
 #[derive(Debug)]
 pub struct Reaction {
     pending: Mutex<Option<Instant>>,
+    /// The last state told to each seat, to tell a change from a repeat.
+    last: Mutex<[Option<SwitchFrame>; crate::browser::PORTS]>,
     window: Mutex<Timings>,
 }
 impl Default for Reaction {
@@ -47,12 +58,23 @@ impl Default for Reaction {
 }
 impl Reaction {
     /// An empty window. Two thousand samples is a full ten-second window at
-    /// sixty commands a second, plus room; a fuller one says so in `dropped`.
+    /// sixty changes a second, plus room; a fuller one says so in `dropped`.
     #[must_use]
     pub fn new() -> Self {
         Self {
             pending: Mutex::new(None),
+            last: Mutex::new([None; crate::browser::PORTS]),
             window: Mutex::new(Timings::new(2048)),
+        }
+    }
+    /// A state was handed to the pads now. Only a change starts the clock.
+    pub fn told(&self, frame: SwitchFrame) {
+        let changed = self.last.lock().is_ok_and(|mut last| {
+            last.get_mut(frame.slot.index())
+                .is_some_and(|seat| seat.replace(frame) != Some(frame))
+        });
+        if changed {
+            self.pressed();
         }
     }
     /// A command left for the pads now.
@@ -532,7 +554,7 @@ fn pads_thread(
                 // Counted from the moment the pads could have read
                 // it. A command refused before the helper listens
                 // reached nothing, and no picture answers it.
-                Ok(_) => pressed.reaction.pressed(),
+                Ok(_) => pressed.reaction.told(frame),
                 Err(error) => {
                     tracing::debug!(%error, "Switch virtual pads not yet available");
                 }
@@ -921,6 +943,79 @@ mod tests {
         reaction.pressed();
         reaction.pictured();
         assert!(reaction.summary().p50 < 30.0);
+    }
+    /// A known state, closed by a picture, so what follows starts from it.
+    fn settled_on(reaction: &Reaction, frame: SwitchFrame) {
+        reaction.told(frame);
+        reaction.pictured();
+        assert_eq!(reaction.summary().samples, 1, "the first state is a change");
+    }
+    /// Five identical frames 3 ms apart, then a picture: nothing changed, and
+    /// nothing is measured. The page sends a frame every 4 ms whether anything
+    /// moves or not, and every one of them used to restart the clock (audit
+    /// WK-4 and ENT-5, 2026-11-27).
+    #[test]
+    fn identical_frames_start_no_clock() {
+        let reaction = Reaction::new();
+        let rest = SwitchFrame::neutral(PlayerSlot::new(1).unwrap());
+        settled_on(&reaction, rest);
+        for _ in 0..5 {
+            reaction.told(rest);
+            thread::sleep(Duration::from_millis(3));
+        }
+        reaction.pictured();
+        assert_eq!(
+            reaction.summary().samples,
+            0,
+            "five identical frames were measured as a change"
+        );
+    }
+    /// The twins: a change 12 ms before the picture reads at least 12 ms, and
+    /// the identical frames after it do not restart its clock; a stick that
+    /// moves at every frame stays measured, from its latest move.
+    #[test]
+    fn a_change_is_measured_to_the_next_picture() {
+        let reaction = Reaction::new();
+        let one = PlayerSlot::new(1).unwrap();
+        let rest = SwitchFrame::neutral(one);
+        settled_on(&reaction, rest);
+        let pressed = SwitchFrame {
+            buttons: SwitchButtons::from_bits(1).unwrap(),
+            ..rest
+        };
+        reaction.told(pressed);
+        for _ in 0..3 {
+            thread::sleep(Duration::from_millis(4));
+            reaction.told(pressed);
+        }
+        reaction.pictured();
+        let summary = reaction.summary();
+        assert_eq!(summary.samples, 1);
+        assert!(
+            summary.p50 >= 12.0,
+            "a change 12 ms old read {} ms: a repeat restarted the clock",
+            summary.p50
+        );
+        for x in 1..=5 {
+            reaction.told(SwitchFrame {
+                left: Stick::new(x * 1000, 0),
+                ..pressed
+            });
+            thread::sleep(Duration::from_millis(3));
+        }
+        reaction.pictured();
+        let summary = reaction.summary();
+        assert_eq!(summary.samples, 1, "a moving stick was not measured");
+        assert!(summary.p50 < 10.0, "measured from its first move");
+        // Each seat is compared with itself: another seat's repeat is no change.
+        let two = SwitchFrame::neutral(PlayerSlot::new(2).unwrap());
+        settled_on(&reaction, two);
+        reaction.told(rest);
+        reaction.pictured();
+        assert_eq!(reaction.summary().samples, 1, "seat 1 went back to rest");
+        reaction.told(two);
+        reaction.pictured();
+        assert_eq!(reaction.summary().samples, 0);
     }
     #[test]
     fn only_pictures_close_a_press_on_the_wire() {

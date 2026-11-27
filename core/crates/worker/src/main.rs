@@ -1175,9 +1175,9 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
         )?;
         // Le jalon « moteur » de `/roms`, comme pour Dolphin (ADR D43).
         server.moteur_lance();
-        // The same field names as the Dolphin report, at the same ten seconds,
-        // so one grep reads both consoles. Only this one number: the rest of
-        // the Dolphin report is the encoder's, and the Switch encodes elsewhere.
+        // At the same ten seconds as the Dolphin report, but no longer under
+        // its field name: the Switch number now starts only on a change, and
+        // Dolphin's `input_to_frame` still starts on every pad batch.
         let mut reported = Instant::now();
         // Les chaînes cassées de chaque spectateur, comme pour Dolphin. Les images
         // de la Switch passent par la même livraison et y sont comptées, mais la
@@ -1191,11 +1191,15 @@ fn run(settings: &Settings, stopping: &Arc<std::sync::atomic::AtomicBool>) -> Re
                 let pressed = ingress.reaction();
                 tracing::info!(
                     console = ?disc.console,
-                    input_to_frame_samples = pressed.samples,
-                    input_to_frame_p50_ms = pressed.p50,
-                    input_to_frame_p95_ms = pressed.p95,
-                    input_to_frame_max_ms = pressed.max,
-                    "de la commande aux manettes à l'image suivante"
+                    // Un nouveau nom pour un nouveau sens: seul un état qui
+                    // change lance le chrono depuis le 27 novembre 2026. Avant,
+                    // `input_to_frame` mesurait l'écart entre la dernière trame
+                    // et l'image suivante (audit WK-4).
+                    pad_change_to_frame_samples = pressed.samples,
+                    pad_change_to_frame_p50_ms = pressed.p50,
+                    pad_change_to_frame_p95_ms = pressed.p95,
+                    pad_change_to_frame_max_ms = pressed.max,
+                    "d'un changement de manette à l'image suivante"
                 );
             }
             if server.stop_requested() {

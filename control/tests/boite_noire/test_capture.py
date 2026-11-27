@@ -371,6 +371,27 @@ def test_des_descripteurs_listes_mais_illisibles_sont_comptes_illisibles(tmp_pat
     assert lu["illisibles"] == 1
 
 
+def test_un_nom_de_processus_coupe_au_milieu_d_un_accent_ne_perd_pas_la_capture(
+    tmp_path: Path,
+) -> None:
+    """Le noyau coupe `comm` à quinze octets, au milieu d'un caractère s'il le faut:
+    « Enregistreurs-écran » s'y arrête sur le premier octet du « é ». Lu en UTF-8
+    strict, ce nom levait une erreur avant le profil, et toute la capture était
+    perdue pour un détenteur au nom accentué."""
+    capteur = _capteur(tmp_path, FauxLanceur())
+    proc = tmp_path / "proc"
+    _processus(proc, 5003, "x", {3: "/dev/dri/renderD128"})
+    (proc / "5003" / "comm").write_bytes("Enregistreurs-écran".encode()[:15] + b"\n")
+    assert (proc / "5003" / "comm").read_bytes().endswith(b"\xc3\n"), "un octet seul à la fin"
+
+    dossier = capteur.capturer("chute", RYUJINX, QUAND, {})
+
+    lu = json.loads((dossier / "gpu-detenteurs.json").read_text(encoding="utf-8"))
+    assert [un["pid"] for un in lu["detenteurs"]] == [5003]
+    assert lu["detenteurs"][0]["nom"].startswith("Enregistreurs-")
+    assert (dossier / "worker.log").exists(), "le reste de la capture est pris"
+
+
 def test_sans_detenteur_la_liste_est_vide_et_le_fichier_present(tmp_path: Path) -> None:
     """Le jumeau: personne ne tient la carte, et cela se dit."""
     dossier = _capteur(tmp_path, FauxLanceur()).capturer("chute", RYUJINX, QUAND, {})

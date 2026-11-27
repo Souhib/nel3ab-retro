@@ -156,7 +156,11 @@ def detenteurs_gpu(proc: Path) -> dict[str, Any]:
             illisibles += 1
         elif noeuds:
             try:
-                nom = (proc / str(pid) / "comm").read_text(encoding="utf-8").strip()
+                # Le noyau coupe `comm` à quinze octets, parfois au milieu d'un
+                # caractère: lu strictement, il ferait perdre toute la capture.
+                nom = (
+                    (proc / str(pid) / "comm").read_text(encoding="utf-8", errors="replace").strip()
+                )
             except OSError:
                 nom = ""
             detenteurs.append({"pid": pid, "nom": nom or None, "noeuds": sorted(noeuds)})

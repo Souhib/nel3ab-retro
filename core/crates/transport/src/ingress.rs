@@ -349,10 +349,13 @@ struct PadsWindow {
 }
 impl Default for PadsWindow {
     fn default() -> Self {
-        // Four thousand: ten seconds of one seat at the page's 4 ms, and room.
+        // Ten seconds of four seats: one page sent up to 3,453 states in ten
+        // seconds on 2026-11-26 (audit ENT-1), so 13,812 for four, and room.
+        // Sized for one seat, the window dropped the sends of a second player
+        // without saying so (relecture du 2026-11-27). 128 KiB of samples.
         Self {
             seats: [SeatPads::default(); crate::browser::PORTS],
-            send: Timings::new(4096),
+            send: Timings::new(16_384),
         }
     }
 }
@@ -1283,6 +1286,27 @@ mod tests {
             4,
             "the second capture took the free stream"
         );
+    }
+    /// Four seats at the page's cadence for ten seconds: every send is in the
+    /// window. 3,453 states in ten seconds is the most one page sent on
+    /// 2026-11-26 (audit ENT-1). A window sized for one seat kept the first
+    /// ones and dropped the rest without a word, and its p95 and max then
+    /// covered the first seconds only (relecture du 2026-11-27).
+    #[test]
+    fn the_pads_window_holds_four_seats_for_ten_seconds() {
+        let mut window = PadsWindow::default();
+        for seat in 0..crate::browser::PORTS {
+            for _ in 0..3453 {
+                window.sent(seat, true, Kept::default(), Duration::from_micros(30));
+            }
+        }
+        let report = window.take();
+        assert_eq!(
+            report.send.map(|send| send.samples),
+            Some(4 * 3453),
+            "the send window dropped what it could not hold"
+        );
+        assert!(report.seats.iter().all(|seat| seat.sent == 3453));
     }
     #[test]
     fn a_silent_producer_yields_its_stream_and_only_then() {

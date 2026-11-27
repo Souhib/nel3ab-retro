@@ -44,6 +44,14 @@ impl ControllerFrame {
             Self::Switch(f) => f.is_neutral(),
         }
     }
+    /// The digital buttons held, as the wire numbers them.
+    #[must_use]
+    pub fn buttons(self) -> u32 {
+        match self {
+            Self::Dolphin(f) => u32::from(f.buttons.bits()),
+            Self::Switch(f) => f.buttons.bits(),
+        }
+    }
     pub(super) const fn dolphin(self) -> Option<InputFrame> {
         match self {
             Self::Dolphin(f) => Some(f),
@@ -54,6 +62,57 @@ impl ControllerFrame {
 impl From<InputFrame> for ControllerFrame {
     fn from(frame: InputFrame) -> Self {
         Self::Dolphin(frame)
+    }
+}
+
+/// What a seat sent since its slot was last taken.
+///
+/// The newest state wins, because only the newest can still be applied. The
+/// buttons do not quite follow that rule: a press and its release written
+/// between two takes used to leave only the release, and the game never saw
+/// the press (audit ENT-2, 2026-11-27). The slot now also remembers which
+/// buttons went down and up on the way, and the Switch input thread keeps
+/// those edges ([`crate::edges`]). Two masks, never a queue: a burst after a
+/// gap must not become a delay that piles up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Unread {
+    /// The newest state, the only one an emulator can still apply.
+    pub latest: ControllerFrame,
+    /// Every button held in at least one state written since the last take.
+    pub went_down: u32,
+    /// Every button released in at least one of them.
+    pub went_up: u32,
+}
+impl Unread {
+    /// The first state written since the last take.
+    #[must_use]
+    pub fn new(frame: ControllerFrame) -> Self {
+        let held = frame.buttons();
+        Self {
+            latest: frame,
+            went_down: held,
+            went_up: !held,
+        }
+    }
+    /// A newer state written before anybody took this one.
+    #[must_use]
+    pub fn then(self, frame: ControllerFrame) -> Self {
+        let newer = Self::new(frame);
+        Self {
+            latest: frame,
+            went_down: self.went_down | newer.went_down,
+            went_up: self.went_up | newer.went_up,
+        }
+    }
+}
+impl From<ControllerFrame> for Unread {
+    fn from(frame: ControllerFrame) -> Self {
+        Self::new(frame)
+    }
+}
+impl From<InputFrame> for Unread {
+    fn from(frame: InputFrame) -> Self {
+        Self::new(ControllerFrame::Dolphin(frame))
     }
 }
 
@@ -155,6 +214,53 @@ mod tests {
                 assert_eq!(*other, PadArrivals::default());
             }
         }
+    }
+    /// Un appui et son relâchement écrits avant toute lecture: l'emplacement
+    /// garde le dernier état, et se souvient que le bouton est descendu
+    /// (audit ENT-2).
+    #[test]
+    fn a_press_written_before_its_release_is_remembered_by_the_slot() {
+        let server = BrowserServer::start_with_input(
+            ([127, 0, 0, 1], 0).into(),
+            "",
+            Arc::from("[]"),
+            no_art(),
+            four(),
+            &nobody(),
+            InputKind::Switch,
+        )
+        .unwrap();
+        let (mut socket, seat) = hold(server.address());
+        let slot = PlayerSlot::new(seat).unwrap();
+        // Whatever the seat's arrival left in its slot is not under test.
+        let _ = server.wait_unread(Duration::from_millis(100));
+        let neutral = SwitchFrame::neutral(slot);
+        let pressed = SwitchFrame {
+            buttons: SwitchButtons::from_bits(1).unwrap(),
+            ..neutral
+        };
+        let send = |socket: &mut tungstenite::WebSocket<std::net::TcpStream>,
+                    frame: SwitchFrame| {
+            socket
+                .send(Message::Binary(frame.encode().to_vec().into()))
+                .unwrap();
+        };
+        send(&mut socket, pressed);
+        send(&mut socket, neutral);
+        assert!(eventually(|| server.inputs_received() == 2));
+        let taken = server.wait_unread(Duration::ZERO);
+        assert_eq!(taken.len(), 1, "one state per seat, not one per arrival");
+        assert_eq!(taken[0].latest, ControllerFrame::Switch(neutral));
+        assert_eq!(
+            taken[0].went_down & 1,
+            1,
+            "the press written before the release was forgotten by the slot"
+        );
+        // The twin: a take starts afresh, and a release alone went nowhere down.
+        send(&mut socket, neutral);
+        assert!(eventually(|| server.inputs_received() == 3));
+        let taken = server.wait_unread(Duration::ZERO);
+        assert_eq!((taken[0].went_down & 1, taken[0].went_up & 1), (0, 1));
     }
     /// Le jumeau de la main qui change: le silence entre le départ d'un joueur
     /// et l'arrivée du suivant sur la même place n'est pas un trou de liaison.

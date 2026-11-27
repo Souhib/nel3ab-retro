@@ -1,6 +1,7 @@
 //! Translation to the private virtual controllers. No browser device names or
 //! physical event numbers cross the room's controller protocol.
 use crate::browser::{BrowserServer, ControllerFrame, Packet};
+use crate::edges::Edges;
 use nel3ab_protocol::switch::SwitchFrame;
 use nel3ab_telemetry::{Summary, Timings};
 use std::{
@@ -9,7 +10,7 @@ use std::{
         fs::PermissionsExt,
         net::{UnixDatagram, UnixListener, UnixStream},
     },
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -314,6 +315,12 @@ impl Entry {
     }
 }
 
+/// How long the pads thread waits for a frame when no held edge is due.
+///
+/// Only how often it looks at its stop flag: a frame or a due edge wakes it
+/// sooner.
+const IDLE_WAIT: Duration = Duration::from_millis(50);
+
 /// The seats the emulator connects a controller for, from who sits where.
 ///
 /// A Switch game counts every connected controller as a player. Mario Tennis
@@ -432,27 +439,13 @@ impl Ingress {
         let pad_address = root.join("pads.sock");
         let stopping = Arc::new(AtomicBool::new(false));
         let entry = Arc::new(Entry::default());
-        let stopped = Arc::clone(&stopping);
-        let output = Arc::clone(&server);
-        let pressed = Arc::clone(&entry);
-        thread::spawn(move || {
-            while !stopped.load(Ordering::Relaxed) {
-                for frame in output.wait_controller_input(Duration::from_millis(50)) {
-                    if let ControllerFrame::Switch(frame) = frame {
-                        let bytes = command(frame).to_string();
-                        match input.send_to(bytes.as_bytes(), &pad_address) {
-                            // Counted from the moment the pads could have read
-                            // it. A command refused before the helper listens
-                            // reached nothing, and no picture answers it.
-                            Ok(_) => pressed.reaction.pressed(),
-                            Err(error) => {
-                                tracing::debug!(%error, "Switch virtual pads not yet available");
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        pads_thread(
+            Arc::clone(&server),
+            input,
+            pad_address,
+            Arc::clone(&entry),
+            Arc::clone(&stopping),
+        );
         let stopped = Arc::clone(&stopping);
         let output = Arc::clone(&server);
         thread::spawn(move || {
@@ -517,6 +510,60 @@ impl Ingress {
         });
         Ok(Self { stopping, entry })
     }
+}
+/// Hands each seat's newest state to the private pads, keeping short edges.
+///
+/// One datagram per state taken, as before: `pads.py` lets a seat go after a
+/// second without one, so a held button needs the repeated frames the page
+/// sends (audit ENT-8, not changed). What is new is [`Edges`]: a press and its
+/// release read together reach the pads one after the other, [`crate::edges::HOLD`]
+/// apart, and the thread wakes for that release at its time.
+fn pads_thread(
+    output: Arc<BrowserServer>,
+    input: UnixDatagram,
+    pad_address: PathBuf,
+    pressed: Arc<Entry>,
+    stopped: Arc<AtomicBool>,
+) {
+    thread::spawn(move || {
+        let tell = |frame: SwitchFrame| {
+            let bytes = command(frame).to_string();
+            match input.send_to(bytes.as_bytes(), &pad_address) {
+                // Counted from the moment the pads could have read
+                // it. A command refused before the helper listens
+                // reached nothing, and no picture answers it.
+                Ok(_) => pressed.reaction.pressed(),
+                Err(error) => {
+                    tracing::debug!(%error, "Switch virtual pads not yet available");
+                }
+            }
+        };
+        let mut seats: [Edges; crate::browser::PORTS] = Default::default();
+        while !stopped.load(Ordering::Relaxed) {
+            // Woken for a held edge at its time, not at the next frame:
+            // the page may have nothing more to send (audit ENT-2).
+            let now = Instant::now();
+            let wait = seats
+                .iter()
+                .filter_map(Edges::due)
+                .min()
+                .map_or(IDLE_WAIT, |due| due.saturating_duration_since(now))
+                .min(IDLE_WAIT);
+            for unread in output.wait_unread(wait) {
+                if let ControllerFrame::Switch(latest) = unread.latest
+                    && let Some(seat) = seats.get_mut(latest.slot.index())
+                {
+                    tell(seat.offer(latest, unread.went_down, unread.went_up, Instant::now()));
+                }
+            }
+            let now = Instant::now();
+            for seat in &mut seats {
+                if let Some(frame) = seat.tick(now) {
+                    tell(frame);
+                }
+            }
+        }
+    });
 }
 fn read(stream: &mut UnixStream, mut bytes: &mut [u8], stop: &AtomicBool) -> io::Result<()> {
     while !bytes.is_empty() {
@@ -1344,5 +1391,120 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A Switch room, its ingress on a fresh folder, and the pads' socket as
+    /// `pads.py` binds it.
+    fn switch_room() -> (tempfile::TempDir, Arc<BrowserServer>, Ingress, UnixDatagram) {
+        let root = tempfile::tempdir().unwrap();
+        let server = Arc::new(
+            BrowserServer::start_with_input(
+                ([127, 0, 0, 1], 0).into(),
+                "",
+                Arc::from("[]"),
+                Arc::from([]),
+                PlayerSlot::new(4).unwrap(),
+                &Arc::new(std::sync::Mutex::new(None)),
+                crate::browser::InputKind::Switch,
+            )
+            .unwrap(),
+        );
+        let pads = UnixDatagram::bind(root.path().join("pads.sock")).unwrap();
+        pads.set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        let ingress = Ingress::bind(root.path(), Arc::clone(&server)).unwrap();
+        (root, server, ingress, pads)
+    }
+    /// Every command the pads received until they stay quiet, with the instant
+    /// each one arrived and whether it holds A. Read as they come, so call it
+    /// on its own thread before sending: a datagram read late is dated late.
+    fn commands(pads: &UnixDatagram) -> Vec<(Instant, bool)> {
+        let mut said = Vec::new();
+        let mut bytes = [0; 4096];
+        while let Ok(size) = pads.recv(&mut bytes) {
+            let at = Instant::now();
+            let command: serde_json::Value = serde_json::from_slice(&bytes[..size]).unwrap();
+            let a = command["buttons"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("a"));
+            said.push((at, a));
+        }
+        said
+    }
+    fn tap(seat: PlayerSlot, a: bool) -> tungstenite::Message {
+        let frame = SwitchFrame {
+            buttons: SwitchButtons::from_bits(u32::from(a)).unwrap(),
+            ..SwitchFrame::neutral(seat)
+        };
+        tungstenite::Message::Binary(frame.encode().to_vec().into())
+    }
+    /// A press and its release in the same burst, as after a gap on the link:
+    /// the pads hold A for one picture before they let it go (audit ENT-2).
+    #[test]
+    fn a_tap_in_one_burst_holds_on_the_pads_for_one_picture() {
+        let (_root, server, _ingress, pads) = switch_room();
+        let (mut socket, seat) = crate::browser::harness::hold(server.address());
+        // As a browser does: without it, Nagle held the second frame behind
+        // a delayed acknowledgement, and the two never left together.
+        socket.get_ref().set_nodelay(true).unwrap();
+        let seat = PlayerSlot::new(seat).unwrap();
+        // The seat's arrival, then quiet, so the burst is all that is read.
+        let _ = commands(&pads);
+        let listening = thread::spawn(move || commands(&pads));
+        socket.send(tap(seat, true)).unwrap();
+        socket.send(tap(seat, false)).unwrap();
+        let said = listening.join().unwrap();
+        let pressed = said.iter().position(|(_, a)| *a);
+        let Some(pressed) = pressed else {
+            panic!("the press never reached the pads: {said:?}");
+        };
+        let released = said[pressed..]
+            .iter()
+            .find(|(_, a)| !*a)
+            .map(|(at, _)| at.saturating_duration_since(said[pressed].0));
+        let Some(held) = released else {
+            panic!("the release never reached the pads: {said:?}");
+        };
+        assert!(
+            held >= Duration::from_millis(15),
+            "a tap held {held:?} on the pads, less than a picture"
+        );
+        // Let go at its time, not at the thread's next idle wake-up.
+        assert!(
+            held < Duration::from_millis(40),
+            "the held release waited {held:?}, past its time"
+        );
+        assert!(said.last().is_some_and(|(_, a)| !*a), "A stayed down");
+    }
+    /// The twin: a press held 100 ms is told at once, and let go at its time.
+    #[test]
+    fn a_long_press_reaches_the_pads_on_time_and_unchanged() {
+        let (_root, server, _ingress, pads) = switch_room();
+        let (mut socket, seat) = crate::browser::harness::hold(server.address());
+        // As a browser does: without it, Nagle held the second frame behind
+        // a delayed acknowledgement, and the two never left together.
+        socket.get_ref().set_nodelay(true).unwrap();
+        let seat = PlayerSlot::new(seat).unwrap();
+        let _ = commands(&pads);
+        let listening = thread::spawn(move || commands(&pads));
+        let pressed_at = Instant::now();
+        socket.send(tap(seat, true)).unwrap();
+        thread::sleep(Duration::from_millis(100));
+        let let_go = Instant::now();
+        socket.send(tap(seat, false)).unwrap();
+        let said = listening.join().unwrap();
+        let pressed = said.iter().find(|(_, a)| *a).unwrap().0;
+        let released = said.iter().rev().find(|(_, a)| !*a).unwrap().0;
+        assert!(
+            pressed.saturating_duration_since(pressed_at) < Duration::from_millis(15),
+            "a long press waited {:?}",
+            pressed.saturating_duration_since(pressed_at)
+        );
+        assert!(
+            released.saturating_duration_since(let_go) < Duration::from_millis(15),
+            "a long press was let go {:?} late",
+            released.saturating_duration_since(let_go)
+        );
     }
 }

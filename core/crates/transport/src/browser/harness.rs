@@ -132,9 +132,9 @@ pub(in crate::browser) fn eventually(mut what: impl FnMut() -> bool) -> bool {
 }
 
 /// Takes a controller and returns the socket with the port it was given.
-pub(in crate::browser) fn hold(
-    address: SocketAddr,
-) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
+///
+/// The Switch ingress takes it too: its pads are fed by a real seat.
+pub fn hold(address: SocketAddr) -> (tungstenite::WebSocket<std::net::TcpStream>, u8) {
     use tungstenite::client::IntoClientRequest as _;
     let stream = TcpStream::connect(address).unwrap();
     stream

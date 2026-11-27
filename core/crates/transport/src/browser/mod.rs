@@ -50,10 +50,10 @@ use nel3ab_protocol::{InputFrame, PlayerSlot};
 use thiserror::Error;
 
 mod controller;
-pub use controller::{ControllerFrame, InputKind};
+pub use controller::{ControllerFrame, InputKind, Unread};
 
 #[cfg(test)]
-mod harness;
+pub(crate) mod harness;
 mod head;
 mod jalons;
 mod pad;
@@ -129,7 +129,7 @@ const MAX_DEPTH: usize = OUTGOING_DEPTH;
 const CALM_FOR: Duration = Duration::from_secs(20);
 
 /// The four ports a room can hold.
-const PORTS: usize = 4;
+pub(crate) const PORTS: usize = 4;
 
 /// One framed WebSocket payload, shared by every viewer rather than copied per
 /// viewer: four players should not cost four copies of the same picture.
@@ -164,8 +164,8 @@ type Seats = Arc<Mutex<[Option<u64>; PORTS]>>;
 /// par place, « au moins un micro ouvert ici ».
 type Mics = Arc<MicSeats>;
 
-/// The latest pad state per port.
-type Pads = Arc<Mutex<[Option<ControllerFrame>; PORTS]>>;
+/// The latest pad state per port, with the buttons that moved on the way.
+type Pads = Arc<Mutex<[Option<Unread>; PORTS]>>;
 
 /// Quand les trames de chaque place arrivent, datées dans le fil de sa socket.
 type Arrivals = Arc<Mutex<[pad::Arrivals; PORTS]>>;
@@ -1319,7 +1319,7 @@ impl BrowserServer {
         slots
             .iter_mut()
             .filter_map(Option::take)
-            .filter_map(ControllerFrame::dolphin)
+            .filter_map(|unread| unread.latest.dolphin())
             .collect()
     }
 
@@ -1343,6 +1343,16 @@ impl BrowserServer {
     /// Receive the newest state per seat using the room's chosen input format.
     #[must_use]
     pub fn wait_controller_input(&self, timeout: Duration) -> Vec<ControllerFrame> {
+        self.wait_unread(timeout)
+            .into_iter()
+            .map(|unread| unread.latest)
+            .collect()
+    }
+
+    /// Like [`Self::wait_controller_input`], with the buttons each seat
+    /// pressed and released since the last take. See [`Unread`].
+    #[must_use]
+    pub fn wait_unread(&self, timeout: Duration) -> Vec<Unread> {
         let Ok(slots) = self.incoming.lock() else {
             return Vec::new();
         };

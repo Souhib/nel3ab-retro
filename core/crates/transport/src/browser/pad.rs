@@ -11,7 +11,9 @@ use std::time::{Duration, Instant};
 
 use nel3ab_protocol::{Command, Echo, PlayerSlot, Reste};
 
-use super::{AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Seats, Shared, socket_limits};
+use super::{
+    AWAY_AFTER, Acted, GONE_AFTER, PING_EVERY, PORTS, Seats, Shared, Unread, socket_limits,
+};
 
 /// Takes a port for this connection and tells the page about the room.
 ///
@@ -176,10 +178,12 @@ pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bo
         *when = Some(now);
     }
     if let Ok(mut slots) = shared.inputs.lock() {
-        // Replaces rather than queues. Overwriting a state the emulator has not
-        // read yet is not a loss: it could only ever have applied the newer one.
+        // Replaces rather than queues: an emulator can only ever apply the
+        // newest state. The buttons that went down or up on the way are kept
+        // as two masks, because a press and its release both unread used to
+        // leave only the release (audit ENT-2). See `Unread`.
         if let Some(place) = slots.get_mut(seat.index()) {
-            *place = Some(frame);
+            *place = Some(place.map_or_else(|| Unread::new(frame), |unread| unread.then(frame)));
         }
     }
     // Woken after the lock is released, so the waiter does not wake straight
@@ -429,7 +433,8 @@ pub(super) fn input_thread(
     if let Ok(mut slots) = slots.lock()
         && let Some(place) = slots.get_mut(seat.index())
     {
-        *place = Some(shared.input_kind.neutral(seat));
+        let neutral = shared.input_kind.neutral(seat);
+        *place = Some(place.map_or_else(|| Unread::new(neutral), |unread| unread.then(neutral)));
     }
     arrived.notify_one();
     let _ = socket.close(None);

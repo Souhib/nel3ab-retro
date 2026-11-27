@@ -27,6 +27,14 @@ class Lines(unittest.TestCase):
         read, stream = full_pipe()
         journal = Journal(stream, size=16)
         try:
+            # The writer first takes one line and stays stuck on it. Without
+            # this, it took its line before or after the 5,000 filled the queue,
+            # and the queue held 16 or 15: red 4 times out of 10 (2026-11-27).
+            journal.line({"bouchon": 1})
+            deadline = time.monotonic() + 2
+            while not journal.queue.empty():
+                self.assertLess(time.monotonic(), deadline, "the writer never took a line")
+                time.sleep(0.001)
             started = time.monotonic()
             # In a thread of its own, so that a waiting line fails this test
             # instead of hanging it.
@@ -38,9 +46,9 @@ class Lines(unittest.TestCase):
             self.assertFalse(lines.is_alive(), "a line waited for a stream nobody reads")
             took = time.monotonic() - started
             self.assertLess(took, 0.5, f"{took:.3f} s for 5,000 lines")
-            # The writer holds a line or two, the queue sixteen; the rest is counted.
-            self.assertGreaterEqual(journal.lost, 5000 - 18)
+            # The queue holds sixteen; every other line is counted, none vanishes.
             self.assertEqual(journal.queue.qsize(), 16)
+            self.assertEqual(journal.lost, 5000 - 16)
             started = time.monotonic()
             journal.close(timeout=0.2)
             self.assertLess(time.monotonic() - started, 1.0)

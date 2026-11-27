@@ -1784,4 +1784,49 @@ mod tests {
             released.saturating_duration_since(let_go)
         );
     }
+    /// Through the real pads thread: identical states handed to the pads start
+    /// no clock, and a change does (audit WK-4). `Reaction::told` alone proved
+    /// the rule while the thread could still call `pressed` on every state:
+    /// that mutant passed every test (relecture du 2026-11-27).
+    #[test]
+    fn the_pads_thread_starts_the_clock_on_a_change_only() {
+        let (root, server, ingress, pads) = switch_room();
+        let mut capture = UnixStream::connect(root.path().join("media.sock")).unwrap();
+        let (mut socket, seat) = crate::browser::harness::hold(server.address());
+        socket.get_ref().set_nodelay(true).unwrap();
+        let seat = PlayerSlot::new(seat).unwrap();
+        // A known state, told to the pads and closed by a picture. Reading the
+        // pads until they stay quiet means the thread has told every state.
+        socket.send(tap(seat, false)).unwrap();
+        let _ = commands(&pads);
+        picture(&mut capture, b'F', 1);
+        thread::sleep(Duration::from_millis(100));
+        let _ = ingress.reaction();
+        for _ in 0..5 {
+            socket.send(tap(seat, false)).unwrap();
+            thread::sleep(Duration::from_millis(4));
+        }
+        let repeats = commands(&pads);
+        assert!(
+            !repeats.is_empty(),
+            "the repeated states never reached the pads"
+        );
+        picture(&mut capture, b'F', 2);
+        thread::sleep(Duration::from_millis(100));
+        assert_eq!(
+            ingress.reaction().samples,
+            0,
+            "identical states through the pads thread started the clock"
+        );
+        // The twin: a press is a change, and the next picture closes it.
+        socket.send(tap(seat, true)).unwrap();
+        let _ = commands(&pads);
+        picture(&mut capture, b'F', 3);
+        thread::sleep(Duration::from_millis(100));
+        assert_eq!(
+            ingress.reaction().samples,
+            1,
+            "a press through the pads thread started no clock"
+        );
+    }
 }

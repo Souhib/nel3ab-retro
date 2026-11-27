@@ -132,6 +132,11 @@ class BoiteNoire:
                 self._roulant.suivre(premier)
         self._reprendre(maintenant, moteurs)
         for chute in self._declencheur.evaluer(maintenant):
+            if chute.cause == "démarrage":
+                # Le chargement d'un jeu: écrit, sans capture. Le 27 novembre 2026,
+                # sa capture « gel » de 33 s a fait taire le vrai gel de 00:36:14.
+                self._journal.write("démarrage", when=maintenant, chute=asdict(chute))
+                continue
             moteur = self._moteur_de(chute.salle, moteurs)
             if moteur is None and self._tourne(chute.salle, moteurs):
                 # Le moteur de la salle est là mais pas encore mesuré: le premier

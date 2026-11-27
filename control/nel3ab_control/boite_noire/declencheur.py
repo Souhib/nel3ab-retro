@@ -60,6 +60,26 @@ gels de page qui la suivent.
 
 Les pilotes d'essai (`banc`) et les pages sans jeu sont ignorés: le premier
 remplirait la boîte de ses propres essais, le second mesure un menu.
+
+# Le démarrage d'un jeu n'est pas un gel
+
+Le 27 novembre 2026 à 00:33:15, la boîte noire a pris une capture « gel » de
+33 386 ms. La page attendait la première image de Smash depuis 33 s: c'était le
+chargement du jeu. La pause qu'elle a ouverte a fait taire le vrai gel de 543 ms
+de 00:36:14, qui n'a eu ni profil, ni image, ni journal.
+
+Une salle est donc « en démarrage » quand elle change de jeu, quand le salon écrit
+qu'une de ses pages en lance un (`changement`, même jeu compris), ou quand la
+première fenêtre qu'on voit de son jeu dit que la page ne le voit pas encore
+tourner. Elle le reste jusqu'à la première fenêtre où la page le voit tourner
+(une cadence, ou une attente d'image en partie), et cette fenêtre-là, qui porte le
+trou du chargement, compte encore comme démarrage. Un trou de démarrage au-dessus du seuil
+est rendu une fois, avec la cause « démarrage »: le service l'écrit sans capture,
+et il n'ouvre aucune pause.
+
+Ce que ça coûte: un vrai gel dans la première fenêtre d'images d'un jeu n'est plus
+capturé. Et une fenêtre qui commence avant un `changement` porte encore des images
+de l'ancien jeu: elle ne met pas fin au démarrage, même si elle a une cadence.
 """
 
 import json
@@ -108,12 +128,36 @@ class _Mesure:
     #: Le pire écart entre deux images reçues, ou l'attente de la suivante quand
     #: elle est plus longue, tel que la page le rapporte.
     gel_ms: float = 0.0
+    #: Prise pendant le démarrage du jeu: voir l'en-tête du module.
+    demarrage: bool = False
+    #: Le rang de la mesure dans la vie du déclencheur, qui l'identifie.
+    rang: int = 0
+
+
+@dataclass
+class _Partie:
+    """Le jeu d'une salle, et s'il en est encore au démarrage."""
+
+    jeu: str
+    demarrage: bool
+    #: L'instant du `changement` qui a ouvert le démarrage. Une fenêtre qui commence
+    #: avant lui porte des images de l'ancien jeu et ne le ferme pas.
+    depuis: datetime | None = None
 
 
 def _nombre(valeur: object) -> float | None:
     if isinstance(valeur, bool) or not isinstance(valeur, int | float):
         return None
     return float(valeur)
+
+
+def _quand(ligne: dict[str, Any]) -> datetime | None:
+    """L'heure d'une ligne du salon, ou rien si elle n'a pas de fuseau."""
+    try:
+        quand = datetime.fromisoformat(str(ligne.get("quand")))
+    except ValueError:
+        return None
+    return quand if quand.tzinfo is not None else None
 
 
 def _cadence(vu: dict[str, Any]) -> float | None:
@@ -154,24 +198,36 @@ class Declencheur:
         self._minimum = minimum
         self._mesures: dict[int | None, deque[_Mesure]] = {}
         self._derniere: dict[tuple[int | None, str], datetime] = {}
+        self._parties: dict[int | None, _Partie] = {}
+        #: La salle de chaque visite, d'après ses mesures: la ligne `changement`
+        #: du salon ne porte pas le numéro de la salle.
+        self._salle_de: dict[str, int | None] = {}
+        self._rang = 0
+        #: Les mesures de démarrage déjà rendues, pour ne les écrire qu'une fois.
+        self._demarrages_dits: set[int] = set()
 
     def lire(self, ligne: dict[str, Any]) -> None:
         """Retient une ligne du journal du salon si c'est une mesure utile."""
-        if ligne.get("quoi") != "mesures" or ligne.get("banc"):
+        if ligne.get("banc"):
+            return
+        if ligne.get("quoi") == "changement":
+            self._changement(ligne)
+            return
+        if ligne.get("quoi") != "mesures":
             return
         vu, salle = ligne.get("vu"), ligne.get("salle")
         if not isinstance(vu, dict) or not isinstance(salle, dict) or not salle.get("jeu"):
             return
         cadence = _cadence(vu)
-        try:
-            quand = datetime.fromisoformat(str(ligne.get("quand")))
-        except ValueError:
-            return
-        if quand.tzinfo is None:
+        quand = _quand(ligne)
+        if quand is None:
             return
         numero = salle.get("numéro")
         if isinstance(numero, bool) or not isinstance(numero, int):
             numero = None
+        visite = str(ligne.get("visite") or "")
+        self._salle_de[visite] = numero
+        demarrage = self._demarrage(numero, str(salle["jeu"]), cadence, quand, vu)
         arrivees = vu.get("arrivées")
         pire = _nombre(arrivees[2]) if isinstance(arrivees, list) and len(arrivees) == 3 else None
         # L'attente de l'image suivante dit le gel PENDANT qu'il dure; les
@@ -179,9 +235,56 @@ class Declencheur:
         gel = max(pire or 0.0, _nombre(vu.get("attente")) or 0.0)
         if cadence is None and gel <= 0:
             return
+        self._rang += 1
         self._mesures.setdefault(numero, deque()).append(
-            _Mesure(quand, str(ligne.get("visite") or ""), cadence, str(salle["jeu"]), gel)
+            _Mesure(quand, visite, cadence, str(salle["jeu"]), gel, demarrage, self._rang)
         )
+
+    def _changement(self, ligne: dict[str, Any]) -> None:
+        """Une page lance un jeu: sa salle repart en démarrage, même jeu compris."""
+        quand = _quand(ligne)
+        visite = str(ligne.get("visite") or "")
+        jeu = ligne.get("jeu")
+        if quand is None or visite not in self._salle_de or not isinstance(jeu, str) or not jeu:
+            return
+        self._parties[self._salle_de[visite]] = _Partie(jeu, demarrage=True, depuis=quand)
+
+    def _demarrage(
+        self,
+        numero: int | None,
+        jeu: str,
+        cadence: float | None,
+        quand: datetime,
+        vu: dict[str, Any],
+    ) -> bool:
+        """Vrai si cette fenêtre tombe dans le démarrage du jeu de sa salle.
+
+        La première fenêtre où la page voit le jeu tourner ferme le démarrage, et
+        elle en fait encore partie: c'est elle qui porte le trou entre « pas
+        d'image » et la première image. La page voit le jeu tourner quand elle
+        mesure une cadence, ou quand elle attend une image EN PARTIE: elle n'écrit
+        `attente` qu'une fois le démarrage fini de son côté (`vitals.ts`). Une
+        page figée au milieu d'une partie, comme Sonic le 21 novembre 2026, n'a
+        plus de cadence mais attend: c'est un gel, pas un chargement.
+        """
+        en_jeu = cadence is not None or (_nombre(vu.get("attente")) or 0.0) > 0
+        partie = self._parties.get(numero)
+        if partie is None or partie.jeu != jeu:
+            # Un jeu qu'on voit pour la première fois. Si la salle en avait un
+            # autre, cette fenêtre porte encore ses images: elle ouvre le
+            # démarrage sans le fermer. Sinon, la page dit si le jeu charge
+            # encore ou si la boîte noire arrive en pleine partie.
+            change = partie is not None
+            partie = _Partie(jeu, demarrage=change or not en_jeu, depuis=quand if change else None)
+            self._parties[numero] = partie
+            return partie.demarrage
+        if not partie.demarrage:
+            return False
+        duree = _nombre(vu.get("s")) or 10.0
+        commence = quand - timedelta(seconds=duree)
+        if en_jeu and (partie.depuis is None or commence >= partie.depuis):
+            partie.demarrage = False
+        return True
 
     def evaluer(self, maintenant: datetime) -> list[Chute]:
         """Les salles qui chutent à cet instant, et qui n'ont pas déjà été signalées."""
@@ -193,9 +296,14 @@ class Declencheur:
             if not mesures:
                 continue
             jeu = mesures[-1].jeu
+            demarrage = self._demarrage_a_dire(numero, mesures)
+            if demarrage is not None:
+                chutes.append(demarrage)
             du_jeu = [m for m in mesures if m.jeu == jeu and m.cadence is not None]
             cadence = median(m.cadence for m in du_jeu if m.cadence is not None) if du_jeu else None
-            pire = max(mesure.gel_ms for mesure in mesures)
+            # Le trou d'un démarrage n'est pas un gel: il est rendu à part, ci-dessus.
+            en_partie = [m for m in mesures if not m.demarrage]
+            pire = max((mesure.gel_ms for mesure in en_partie), default=0.0)
             # La cadence d'abord: quand les deux règles parlent, « le jeu tourne
             # à 40 images par seconde » explique mieux qu'un trou isolé.
             page: str | None = None
@@ -209,7 +317,8 @@ class Declencheur:
                 jugees = du_jeu
             elif pire >= self._seuil_gel:
                 cause, gel = "gel", pire
-                gelees = {m.visite for m in mesures if m.gel_ms >= self._seuil_gel}
+                jugees = en_partie
+                gelees = {m.visite for m in en_partie if m.gel_ms >= self._seuil_gel}
                 if len(gelees) == 1 and len({m.visite for m in mesures}) > 1:
                     portee, page = "page", next(iter(gelees))
                 else:
@@ -232,7 +341,32 @@ class Declencheur:
                     page=page,
                 )
             )
+        # Oublier ce qui est sorti des fenêtres: le service tourne des semaines.
+        self._demarrages_dits &= {m.rang for mesures in self._mesures.values() for m in mesures}
         return chutes
+
+    def _demarrage_a_dire(self, numero: int | None, mesures: deque[_Mesure]) -> Chute | None:
+        """Le trou de démarrage pas encore rendu, s'il dépasse le seuil d'un gel.
+
+        Sans pause: un démarrage n'est pas une capture, et il ne fait taire rien.
+        """
+        nouvelles = [
+            m
+            for m in mesures
+            if m.demarrage and m.gel_ms >= self._seuil_gel and m.rang not in self._demarrages_dits
+        ]
+        if not nouvelles:
+            return None
+        self._demarrages_dits.update(m.rang for m in nouvelles)
+        return Chute(
+            salle=numero,
+            mediane=_mediane(nouvelles),
+            mesures=len(nouvelles),
+            pages=len({m.visite for m in nouvelles}),
+            jeu=nouvelles[-1].jeu,
+            cause="démarrage",
+            gel_ms=max(m.gel_ms for m in nouvelles),
+        )
 
     def _seuil_de(self, jeu: str) -> float:
         """Sous quelle médiane ce jeu chute: une part de son plafond s'il en a un."""

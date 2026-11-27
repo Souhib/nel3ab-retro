@@ -495,3 +495,135 @@ def test_une_page_figee_ne_fait_pas_tomber_la_mediane_des_autres() -> None:
         *(_figee(s, 300, [16, 17, 20]) for s in (1, 11, 21)),
     )
     assert declencheur.evaluer(DEBUT + timedelta(seconds=25)) == []
+
+
+# --- Le démarrage d'un jeu n'est pas un gel -----------------------------------
+#
+# Le 27 novembre 2026 à 00:33:15, la boîte noire a pris une capture « gel » de
+# 33 386 ms: la page attendait la première image de Smash depuis 33 s. Ce trou
+# est le chargement du jeu, pas un arrêt de la partie, et la pause qu'il a
+# ouverte a fait taire le vrai gel de 543 ms de 00:36:14.
+
+
+def _fenetre(
+    secondes: float,
+    cadence: float,
+    pire: float,
+    attente: float = 0,
+    vues: int = 600,
+    visite: str = "8f852a84",
+    jeu: str = "Super Smash Bros. Ultimate",
+) -> dict[str, Any]:
+    """Une fenêtre de page au format du 21 novembre 2026: vues, arrivées, attente."""
+    ligne = _mesure(secondes, cadence, visite=visite, jeu=jeu)
+    ligne["vu"] = {
+        "s": 10,
+        "vues": vues,
+        "jeuHz": cadence,
+        "arrivées": [16 if vues else 0, 30 if vues else 0, pire],
+        "attente": attente,
+    }
+    return ligne
+
+
+def _changement(secondes: float, jeu: str, visite: str = "8f852a84") -> dict[str, Any]:
+    """La ligne que le salon écrit quand une page lance un jeu."""
+    return {
+        "quand": (DEBUT + timedelta(seconds=secondes)).isoformat(timespec="milliseconds"),
+        "quoi": "changement",
+        "visite": visite,
+        "banc": False,
+        "jeu": jeu,
+        "salle": {"jeu": jeu, "présents": 1, "places": {}},
+    }
+
+
+#: Le début de la partie du 27 novembre 2026, réduit à ce que la règle lit: une
+#: fenêtre sans cadence pendant le chargement, puis celle de la première image,
+#: qui porte le trou du chargement, puis la partie.
+SMASH_DEMARRE = [
+    _fenetre(0, 0, 0, vues=1),
+    _fenetre(40, 60, 33386, attente=691, vues=329),
+    _fenetre(50, 60, 1488, attente=5, vues=548),
+]
+
+
+def test_le_trou_avant_la_premiere_image_est_un_demarrage() -> None:
+    declencheur = _declencheur(*SMASH_DEMARRE[:2])
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=41))
+    assert (chute.cause, chute.gel_ms, chute.salle) == ("démarrage", 33386.0, 1)
+
+
+def test_un_demarrage_n_ouvre_pas_de_pause() -> None:
+    """Le trou de 1 488 ms qui suit de dix secondes est un vrai gel, et il est pris."""
+    declencheur = _declencheur(*SMASH_DEMARRE[:2])
+    declencheur.evaluer(DEBUT + timedelta(seconds=41))
+
+    declencheur.lire(SMASH_DEMARRE[2])
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=51))
+    assert (chute.cause, chute.gel_ms) == ("gel", 1488.0)
+
+
+def test_un_demarrage_n_est_ecrit_qu_une_fois() -> None:
+    declencheur = _declencheur(*SMASH_DEMARRE[:2])
+
+    assert [c.cause for c in declencheur.evaluer(DEBUT + timedelta(seconds=41))] == ["démarrage"]
+    assert declencheur.evaluer(DEBUT + timedelta(seconds=43)) == []
+
+
+def test_le_meme_trou_en_pleine_partie_reste_un_gel() -> None:
+    """Le jumeau: c'est l'absence d'image d'avant qui fait le démarrage, pas la taille du
+    trou. Après une fenêtre qui a une cadence, 33 s sans image sont un gel."""
+    declencheur = _declencheur(_fenetre(0, 60, 18), _fenetre(40, 60, 33386, vues=329))
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=41))
+    assert (chute.cause, chute.gel_ms) == ("gel", 33386.0)
+
+
+def test_un_gel_de_600_ms_vingt_secondes_apres_la_premiere_image_est_pris() -> None:
+    declencheur = _declencheur(*SMASH_DEMARRE[:2])
+    declencheur.evaluer(DEBUT + timedelta(seconds=41))
+
+    for secondes, pire in ((50, 20), (60, 600)):
+        declencheur.lire(_fenetre(secondes, 60, pire))
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=61))
+    assert (chute.cause, chute.gel_ms) == ("gel", 600.0)
+
+
+def test_un_jeu_relance_par_le_salon_redemarre() -> None:
+    """Le même jeu relancé: le salon écrit « changement », et le trou du chargement
+    qui suit est de nouveau un démarrage."""
+    declencheur = _declencheur(_fenetre(0, 60, 18), _changement(5, "Super Smash Bros. Ultimate"))
+    for ligne in (_fenetre(10, 60, 20), _fenetre(20, 0, 0, vues=0), _fenetre(50, 60, 30000)):
+        declencheur.lire(ligne)
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=51))
+    assert (chute.cause, chute.gel_ms) == ("démarrage", 30000.0)
+
+
+def test_sans_ligne_de_changement_le_meme_trou_est_un_gel() -> None:
+    """Le jumeau: les mêmes fenêtres sans la ligne du salon. Une fenêtre sans image
+    au milieu d'une partie qui en avait est un gel, pas un chargement."""
+    declencheur = _declencheur(
+        _fenetre(0, 60, 18),
+        _fenetre(10, 60, 20),
+        _fenetre(20, 0, 0, vues=0),
+        _fenetre(50, 60, 30000),
+    )
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=51))
+    assert (chute.cause, chute.gel_ms) == ("gel", 30000.0)
+
+
+def test_un_changement_de_jeu_vu_dans_les_mesures_redemarre_aussi() -> None:
+    """La fenêtre qui annonce le nouveau jeu porte encore des images de l'ancien: elle ne
+    met pas fin au démarrage, et le trou du chargement qui suit n'est pas un gel."""
+    declencheur = _declencheur(
+        _fenetre(0, 60, 18, jeu="Mario Party 4"),
+        _fenetre(10, 60, 20),
+        _fenetre(40, 60, 28000, vues=200),
+    )
+
+    (chute,) = declencheur.evaluer(DEBUT + timedelta(seconds=41))
+    assert (chute.cause, chute.gel_ms) == ("démarrage", 28000.0)

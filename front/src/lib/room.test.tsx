@@ -29,7 +29,6 @@ function visit() {
       useLobby(
         "alice",
         "Alice",
-        false,
         () => {},
         () => {},
         () => {},

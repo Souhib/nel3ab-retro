@@ -50,9 +50,9 @@
 //  14. tenue en main, Ctrl sous le menu agrandit la feuille SANS l'empiler
 //      sur le menu ; étroite à la souris, la colonne est sous l'image et Ctrl
 //      agrandit l'image ;
-//  15. une page « manette seule » garde sa manette pendant un chargement
-//      annoncé par le salon, et son jumeau (avec l'image) montre l'écran de
-//      chargement ;
+//  15. un chargement annoncé par le salon montre son écran et démonte la
+//      manette, aussi sur un appareil qui avait gardé « manette seule »,
+//      retirée le 27 novembre 2026 ;
 //  16. la demande de place et la reprise de la salle ne passent ni sous « La
 //      salle » ni sous l'encoche ;
 //  17. le fond du menu va jusqu'aux bords ;
@@ -129,7 +129,7 @@ const OUT = resolve(
 const FAKE = join(HERE, "salle-telephone.session.ts");
 // Une partie seulement, pour travailler :
 // SEUL=salle,plein-ecran,liaison,voile,entree,touches,theme,pc,toujours,ctrl,menu-etroit,
-// manette-seule,manette-seule-parle,spectateur,demande,places-sous-image,arrivee,clic-court,
+// chargement,spectateur,demande,places-sous-image,arrivee,clic-court,
 // arrivee-telephone,pastille,menu-etiquette.
 const SEUL = process.env.SEUL?.split(",") ?? null;
 const part = (name) => SEUL === null || SEUL.includes(name);
@@ -1874,18 +1874,21 @@ try {
     }
   }
 
-  // 15. Une page « manette seule » pendant un chargement annoncé par le salon.
-  // Sans image, l'écran de chargement attendait une image peinte qui ne vient
-  // jamais : la manette restait démontée après chaque lancement. Le jumeau,
-  // avec l'image, montre l'écran de chargement et pas la manette.
-  for (const padonly of part("manette-seule") ? ["oui", "non"] : []) {
-    const what = padonly === "oui" ? "manette seule pendant un chargement : la manette reste" : "avec l'image pendant un chargement : l'écran de chargement";
+  // 15. Un chargement annoncé par le salon : l'écran de chargement, et la
+  // manette démontée dessous. « Manette seule » est retirée depuis le
+  // 27 novembre 2026 : un appareil qui avait gardé « oui » reçoit la même
+  // page que les autres, et la clé quitte son navigateur.
+  for (const garde of part("chargement") ? [null, "oui"] : []) {
+    const what =
+      garde === null
+        ? "pendant un chargement : l'écran de chargement, sans la manette"
+        : "« manette seule » gardée : le même chargement, et la clé effacée";
     const { page, errors } = await ouvrir({
       width: 390,
       height: 844,
       url: `${BASE}/r/1/?entrer=jouer`,
       salon: true,
-      stockage: { "nel3ab:padonly": padonly },
+      stockage: garde === null ? {} : { "nel3ab:padonly": garde },
     });
     const bad = [];
     try {
@@ -1894,93 +1897,21 @@ try {
       await sleep(500);
       await page.evaluate(() => window.__salon.emit("booting", { game: "Sonic Generations", save: "partie neuve" }));
       await sleep(1500);
-      await page.screenshot({ path: join(OUT, `chargement-padonly-${padonly}-390x844.png`) });
-      const vu = await page.evaluate(() => {
-        const a = document.querySelector('[data-touche="A"]');
-        let touchee = false;
-        if (a) {
-          const r = a.getBoundingClientRect();
-          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          touchee = hit === a || a.contains(hit);
-        }
-        return { pave: document.querySelector(".n3-pave") !== null, chargement: document.querySelector("#booting") !== null, touchee };
-      });
-      if (padonly === "oui") {
-        if (!vu.pave) bad.push("la manette est démontée pendant le chargement");
-        else if (!vu.touchee) bad.push("la touche A ne reçoit pas son appui");
-        if (vu.chargement) bad.push("un écran de chargement couvre une page sans image");
-      } else {
-        if (!vu.chargement) bad.push("pas d'écran de chargement : l'annonce du faux salon n'est pas arrivée");
-        if (vu.pave) bad.push("la manette reste montée sous l'écran de chargement");
-      }
+      await page.screenshot({ path: join(OUT, `chargement-${garde ?? "neuf"}-390x844.png`) });
+      const vu = await page.evaluate(() => ({
+        pave: document.querySelector(".n3-pave") !== null,
+        chargement: document.querySelector("#booting") !== null,
+        cle: localStorage.getItem("nel3ab:padonly"),
+      }));
+      if (!vu.chargement) bad.push("pas d'écran de chargement : l'annonce du faux salon n'est pas arrivée");
+      if (vu.pave) bad.push("la manette reste montée sous l'écran de chargement");
+      if (vu.cle !== null) bad.push(`la clé de « manette seule » reste : ${vu.cle}`);
     } catch (error) {
       bad.push(`le parcours s'arrête : ${error.message}`);
     }
     bad.push(...errors.map((e) => `erreur de page : ${e}`));
     say(bad.length === 0, what, bad);
-    await page.close();
-  }
-
-  // 15 bis. Ce que la page « manette seule » dit à voix haute, sur un lien
-  // lent dont la médiane bouge chaque seconde (relecture finale du
-  // 25 novembre 2026). Ses régions vivantes : la ligne parlée et l'état de
-  // la manette, pas plus ; et aucune ne change plus d'une fois en 5 s. La
-  // phrase « Tes touches mettent N ms à arriver. » était une troisième
-  // région, relue à chaque seconde. Le jumeau : la phrase se lit bien sur
-  // la page, avec son chiffre qui bouge.
-  if (part("manette-seule-parle")) {
-    const what = "manette seule sur un lien lent : deux régions parlées, aucune relue chaque seconde";
-    const { page, errors } = await ouvrir({
-      width: 390,
-      height: 844,
-      url: `${BASE}/r/1/?entrer=jouer&latence=lente`,
-      stockage: { "nel3ab:padonly": "oui" },
-    });
-    const bad = [];
-    try {
-      await page.waitForSelector(".n3-manette-seule-latence", { timeout: 20000 });
-      await sleep(1000);
-      await page.evaluate(() => {
-        const regions = [...document.querySelectorAll("[aria-live]:not([aria-live=off]), [role=status], [role=alert], [role=log]")];
-        window.__regions = regions.map((r) => ({
-          nom: `${r.tagName.toLowerCase()}#${r.id}.${[...r.classList].join(".")}`,
-          textes: [r.textContent.trim()],
-        }));
-        regions.forEach((r, i) =>
-          new MutationObserver(() => {
-            const t = r.textContent.trim();
-            const lu = window.__regions[i].textes;
-            if (lu.at(-1) !== t) lu.push(t);
-          }).observe(r, { childList: true, subtree: true, characterData: true }),
-        );
-        window.__phrases = [document.querySelector(".n3-manette-seule-latence").textContent];
-        new MutationObserver(() => {
-          const t = document.querySelector(".n3-manette-seule-latence")?.textContent;
-          if (t && window.__phrases.at(-1) !== t) window.__phrases.push(t);
-        }).observe(document.body, { childList: true, subtree: true, characterData: true });
-      });
-      await sleep(5000);
-      const lu = await page.evaluate(() => ({ regions: window.__regions, phrases: window.__phrases }));
-      console.log(`  ${JSON.stringify(lu)}`);
-      // Le jumeau : le chiffre bouge bien sur la page, sinon rien n'est exercé.
-      if (lu.phrases.length < 3 || !lu.phrases.every((p) => /mettent \d+ ms/.test(p)))
-        bad.push(`la phrase de latence ne bouge pas sur la page : ${JSON.stringify(lu.phrases)}`);
-      const attendues = ["#controller-status", "#ligneParlee"];
-      const autres = lu.regions.filter((r) => !attendues.some((id) => r.nom.includes(id)));
-      if (autres.length) bad.push(`régions parlées en plus : ${autres.map((r) => `${r.nom} « ${r.textes.at(-1)} »`).join(", ")}`);
-      for (const id of attendues)
-        if (!lu.regions.some((r) => r.nom.includes(id))) bad.push(`la région ${id} manque : la mesure ne voit pas la page`);
-      for (const r of lu.regions)
-        if (r.textes.length > 2) bad.push(`${r.nom} relue ${r.textes.length - 1} fois en 5 s : ${JSON.stringify(r.textes)}`);
-    } catch (error) {
-      bad.push(`le parcours s'arrête : ${error.message}`);
-    }
-    bad.push(...errors.map((e) => `erreur de page : ${e}`));
-    say(bad.length === 0, what, bad);
-    // Le stockage est celui du navigateur entier : « manette seule » laissé
-    // là passait aux parties suivantes, qui n'avaient plus ni bande ni
-    // places (vu en passant les portes, 25 novembre 2026).
-    await page.evaluate(() => localStorage.removeItem("nel3ab:padonly"));
+    await page.evaluate(() => localStorage.removeItem("nel3ab:padonly")).catch(() => {});
     await page.close();
   }
 

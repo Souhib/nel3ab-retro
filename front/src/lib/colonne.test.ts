@@ -108,7 +108,7 @@ describe("les rangs de la colonne", () => {
 
   it("garde Autres réglages dans chaque état, rôle et appareil, et rend des rangs connus", () => {
     for (const etat of ETATS_DU_CADRE) {
-      for (const role of ["joueur", "regarde", "seule"] as const) {
+      for (const role of ["joueur", "regarde"] as const) {
         for (const appareil of ["clavier", "manette", "tactile"] as const) {
           const rangs = rangsDeLaColonne({ etat, role, appareil, fiche: false, partie: true });
           expect(rangs.at(-1)).toBe("autres");

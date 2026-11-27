@@ -17,10 +17,6 @@ export function useSession(
   /** Vrai quand la personne a choisi de regarder. Lu une seule fois, à la
    * construction: changer d'avis ensuite passe par la session elle-même. */
   watching: boolean,
-  /** Vrai quand cette page ne sert que de manette. Contrairement au volume, ce
-   * réglage change QUELS canaux la page ouvre, donc en changer reconstruit la
-   * session: il n'y a pas de moyen d'arrêter une vidéo à moitié. */
-  padOnly: boolean,
 ): { ref: React.RefObject<HTMLCanvasElement | null>; session: Session | null } {
   const ref = useRef<HTMLCanvasElement>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -40,7 +36,6 @@ export function useSession(
       volume,
       deviceRate,
       watching,
-      padOnly,
     );
     made.start();
     exposeForTests(made);
@@ -49,12 +44,13 @@ export function useSession(
       made.stop();
       setSession(null);
     };
-    // Une seule dépendance, délibérément. Le volume et la fréquence
-    // s'appliquent À TRAVERS la session par leurs propres effets, jamais en en
-    // construisant une seconde. `padOnly` est différent: il décide quels canaux
-    // s'ouvrent, ce qui ne se change pas sur une session déjà partie.
+    // Aucune dépendance, délibérément : une session par page. Le volume et la
+    // fréquence s'appliquent À TRAVERS la session par leurs propres effets,
+    // jamais en en construisant une seconde. Le 26 novembre 2026, la seule
+    // reconstruction qui restait (« manette seule », retirée depuis) laissait
+    // l'ancienne session rouvrir son image et son son (`session-fin.test.ts`).
     // oxlint-disable-next-line exhaustive-deps
-  }, [padOnly]);
+  }, []);
 
   return { ref, session };
 }

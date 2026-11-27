@@ -80,9 +80,6 @@ describe("ce que devient un chargement", () => {
   const NOIR: Live = { connected: true, awaitingRestart: true, paintedSince: 0, dark: true };
   const PEINT: Live = { connected: true, awaitingRestart: false, paintedSince: 60, dark: false };
   const SUR_MARIO = {
-    padOnly: false,
-    demande: "Mario Kart",
-    enCours: "Mario Kart",
     depuisMs: 2_000,
     cale: false,
     image: NOIR,
@@ -95,27 +92,10 @@ describe("ce que devient un chargement", () => {
     expect(suiteDuChargement(SUR_MARIO)).toBe("attendre");
   });
 
-  it("s'efface pour une page « manette seule » dès que la salle fait tourner ce jeu", () => {
-    // Sans image, rien ne peint jamais: le chargement attendait sans fin, et
-    // seul « abandonner », après soixante secondes, rendait les touches.
-    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true, image: null })).toBe("effacer");
-    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true })).toBe("effacer");
-  });
-
-  it("attend encore, manette seule, tant que la salle fait tourner l'ancien jeu", () => {
-    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true, enCours: "Zelda" })).toBe("attendre");
-    // Au repos pendant le premier lancement d'une salle vide: le worker
-    // redémarre, et ce n'est pas encore le jeu demandé.
-    expect(suiteDuChargement({ ...SUR_MARIO, padOnly: true, enCours: null })).toBe("attendre");
-  });
-
-  it("cesse d'attendre au plafond, une seule fois, et s'efface en manette seule", () => {
-    const tard = { ...SUR_MARIO, enCours: "Zelda", depuisMs: PLAFOND_CHARGEMENT_MS + 1 };
+  it("cesse d'attendre au plafond, une seule fois", () => {
+    const tard = { ...SUR_MARIO, depuisMs: PLAFOND_CHARGEMENT_MS + 1 };
     expect(suiteDuChargement(tard)).toBe("caler");
     expect(suiteDuChargement({ ...tard, cale: true })).toBe("attendre");
-    // Sans image, il n'y a pas d'écran pour proposer une sortie: les touches
-    // reviennent, et c'est la sortie.
-    expect(suiteDuChargement({ ...tard, padOnly: true })).toBe("effacer");
     expect(suiteDuChargement({ ...tard, depuisMs: PLAFOND_CHARGEMENT_MS - 1 })).toBe("attendre");
   });
 });

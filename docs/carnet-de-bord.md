@@ -34389,6 +34389,93 @@ la production, il passe après, avec les 140 autres essais de la socket.
 Le même modèle part par HTTP et par socket, et ces deux chemins ne
 l'encodent pas de la même façon.
 
+### 27 novembre, la nuit : un écran noir, un son qui ne se coupait pas, et des sauvegardes sans reçu
+
+Le soir du 26, le propriétaire signale trois choses à la suite : un écran noir
+en changeant de jeu, un son qui continue à 0 %, et « tout débloqué » absent
+de jeux qui l'avaient.
+
+**L'écran noir.** Mario Party 4 tournait sur la machine, environ 50 images
+par seconde, et le worker écrivait `watchers: 0` : aucune page ne recevait
+l'image. Le journal du salon montrait l'arrivée de la page avec
+`"manette": true` à 23 h 39 m 27 s UTC. C'est le mode « manette seule », livré
+le 19 août pour un téléphone posé à côté d'une télévision : la page n'ouvre ni
+l'image ni le son. Seule la ligne du menu l'active, et le navigateur garde le
+choix. Le propriétaire ne l'avait pas voulu. Une piste, lue dans le code et
+non reproduite : la ligne était un groupe de boutons radio, qu'une flèche
+gauche ou droite change aussitôt, au clavier comme à la manette. Au bureau,
+rien ne disait pourquoi l'écran était noir.
+
+**Le son à 0 %.** Les relevés de la page disaient pourtant le contraire :
+volume 0 et aucun morceau de son reçu à partir de 23 h 49 m 30 s. Le journal
+du worker a donné la réponse : depuis 23 h 44 m 33 s, deux pages écoutaient
+le son et deux regardaient l'image, alors que le salon ne voyait qu'une
+visite, et les deux se sont arrêtées au même instant, quand la page est
+partie. C'était donc une seule page qui ouvrait tout deux fois. 23 h 44, c'est
+le retour de « manette seule » à l'image.
+
+Ce retour reconstruit la session média, l'objet qui tient l'image, le son et
+la manette. React arrête l'ancienne et en monte une neuve. Mais un effet de
+`App.tsx`, qui tourne dans le même rendu, tient encore l'ancienne : il lui
+demande `video.start()` et de sortir du repos. Et l'écoute qui réveille le son
+au premier geste lui appartient encore quand le clic arrive : elle relance son
+son. L'ancienne session revit, et le volume ne règle que la neuve. Sur le banc
+d'`etats-navigateur`, l'aller-retour laissait deux sockets d'image ouvertes ;
+le son n'y doublait pas avec un clic de souris, et c'est un essai unitaire
+qui a montré les deux chemins, l'image par `video.start()`, le son par le
+clic, sur une session arrêtée.
+
+**Ce qui a été décidé.** Le propriétaire a demandé de retirer l'option
+entièrement (ADR D47). J'avais proposé de la garder au téléphone seulement,
+avec un choix à confirmer et un bouton « Remettre l'image ». Ce qu'on perd :
+environ 13,6 Mbit/s par téléphone posé à côté d'une télévision. La page
+efface la clé gardée par le navigateur, et le salon n'écrit plus la marque
+`manette` qu'un onglet d'avant envoie encore. Et quoi que reconstruise une
+session à l'avenir, une session arrêtée ne rouvre plus rien : l'image a un
+arrêt définitif (`fermer`), distinct de la pause du repos, et l'arrêt du son
+est définitif.
+
+**Les preuves.** L'essai `session-fin.test.ts` est rouge avant la correction ;
+chacune des deux gardes, retirée seule, le refait échouer sur sa propre ligne
+(l'image ligne 125, le son ligne 126), et son jumeau vérifie qu'une session en
+marche reprend après une pause. Dans le navigateur, l'étape
+`sourdine-une-session` : un appareil qui avait gardé « oui » reçoit une image
+et un son, une fois chacun, côté banc ; la ligne n'est plus au menu ; la
+glissière tirée à 0 ferme le seul son, l'image reste ; remontée, le son
+revient. Elle échoue sur la page en service (6ad0415), sur son défaut : aucune
+image. Le salon a son essai rouge aussi : un onglet qui envoie encore
+`manette: true` n'est plus marqué.
+
+**Un pilote qui dépendait du mode.** `just browser-colonne` faisait jouer un
+faux jeu sans image et passait la page en « manette seule », le seul mode qui
+n'attendait pas d'image. Ses vérifications passent sur le banc, qui envoie de
+vraies images (étape `colonne-tiree`). Elle a trouvé un défaut que plus rien
+ne voyait, ce pilote n'étant dans aucune porte : sur la page en service, le
+chiffre du volume sortait de 12 px d'une colonne de 256 px. Une glissière
+garde sa largeur propre dans une rangée flexible tant qu'on ne lui permet pas
+de rétrécir ; `min-w-0` le permet. Le jumeau, qui demandait un débordement
+16 px sous la borne, n'en trouvait plus : il cherche maintenant le premier,
+qui vient à 192 px. La borne de 256 px reste, mais comme un choix, plus comme
+une mesure.
+
+**« Tout débloqué ».** Les sauvegardes complètes posées fin août pour Mario
+Power Tennis et Mario Party 4 à 7 étaient toujours sur le disque. Depuis le
+10 novembre, la salle ne propose cette sauvegarde qu'avec un reçu d'import, et
+ce jour-là les reçus n'ont été écrits que pour neuf jeux. Rien au carnet ne dit
+pourquoi ces cinq-là sont restés dehors. Sur la confirmation du propriétaire,
+`tools/save-unlocked.py` a écrit leurs reçus ; la liste de la salle est passée
+de 9 à 14 jeux sans redémarrage, et le propriétaire voit l'option sur ces
+jeux. Super Mario Strikers et Melee avaient aussi un fichier dans leur
+emplacement ; je n'ai écrit leurs reçus qu'après que le propriétaire a dit
+que ces sauvegardes étaient complètes. La salle était fermée à ce moment-là :
+leur proposition reste à voir à sa prochaine ouverture. Mario Party 9,
+Jamboree et Looney Tunes restent sans reçu.
+
+**La leçon.** Une session qu'on remplace doit refuser de revivre, parce que
+ce qui la tient encore n'est pas toujours parti au même instant qu'elle. Et
+un compte se fait des deux côtés : la page disait son son fermé, le worker
+comptait deux auditeurs ; c'est le côté serveur qui avait raison.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

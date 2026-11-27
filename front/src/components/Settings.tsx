@@ -54,7 +54,10 @@ export function Volume({ value, onChange }: { value: number; onChange: (value: n
         max={100}
         value={Math.round(value * 100)}
         onChange={(event) => onChange(Number(event.target.value) / 100)}
-        className="h-1 flex-1 cursor-pointer appearance-none bg-rule accent-indigo"
+        // `min-w-0` : une glissière garde sinon sa largeur propre (129 px dans
+        // Chrome), et le chiffre sortait de 12 px d'une colonne de 256 px
+        // (`etats-navigateur`, étape `colonne-tiree`, 27 novembre 2026).
+        className="h-1 min-w-0 flex-1 cursor-pointer appearance-none bg-rule accent-indigo"
       />
       <span className="w-8 text-right font-mono text-corps tabular-nums text-text">
         {Math.round(value * 100)}

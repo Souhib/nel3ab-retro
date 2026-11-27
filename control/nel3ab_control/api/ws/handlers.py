@@ -136,11 +136,6 @@ def _who(sid: str, session: dict[str, Any]) -> dict[str, Any]:
         "login": session.get("login"),
         "pseudo": session.get("name"),
         "banc": bool(session.get("banc")),
-        # Écrit seulement quand c'est vrai. Un `false` sur chaque ligne de
-        # chaque événement serait trois cents kilo-octets par soirée pour dire
-        # « normal », et un journal qu'on lit mal est un journal qu'on n'ouvre
-        # pas.
-        **({"manette": True} if session.get("manette") else {}),
     }
 
 
@@ -363,11 +358,9 @@ async def connect(sid: str, environ: dict[str, Any], auth: object) -> None:
         "login": login,
         "visite": str((auth or {}).get("visite") or "")[:16] or None,
         "banc": bool((auth or {}).get("banc")),
-        # Vrai quand cette page ne sert que de manette: elle n'ouvre ni la vidéo
-        # ni le son. Sans ce drapeau, une page-manette et une page dont l'image
-        # est cassée se ressemblent exactement dans le journal, puisque ni l'une
-        # ni l'autre n'envoie de relevé.
-        "manette": bool((auth or {}).get("manette")),
+        # « manette » n'est plus lu : le mode « manette seule » est retiré
+        # depuis le 27 novembre 2026, et un onglet d'avant qui l'envoie encore
+        # reçoit l'image comme les autres.
         # L'appareil, gardé pour la ligne d'arrivée seulement. Un appareil qui n'a pas
         # la forme ou la taille d'un appareil est laissé de côté sans refuser la page:
         # jouer ne dépend pas de ce que le journal sait de la machine.

@@ -553,8 +553,8 @@ manette-garde *args:
 # avant sa première image. Écrite après l'audit du 22 novembre 2026 (P5, M6,
 # M8, M9, M10, M11, E2). Depuis sa relecture, le même jour: toutes les cibles
 # du tiroir à 44 px, le bouton qui le referme une fois défilé, le focus rendu,
-# la manette « toujours » sur un grand écran, Ctrl sous le menu, une page
-# « manette seule » pendant un chargement, la demande de place et la reprise
+# la manette « toujours » sur un grand écran, Ctrl sous le menu, un
+# chargement, la demande de place et la reprise
 # hors du « ••• » et de l'encoche, le fond du menu jusqu'aux bords, le
 # configurateur Pro et la préparation en paysage, et la page construite servie
 # avec la politique du worker. Un faux salon (une socket qui répond à la
@@ -960,6 +960,14 @@ etats-navigateur-rouge *args:
     git show 03b21c0:core/crates/worker/src/page/index.html > "$dossier/main.html"
     node etats.mjs --page "$dossier/main.html" --flux "$dossier/flux.h264" \
         --etapes chargement-paysage --rouge-attendu chargement-paysage {{args}}
+    # 6ad0415, la page en service le 26 novembre 2026 : un appareil qui
+    # avait gardé « manette seule » ne recevait aucune image, et la sortie de
+    # ce mode laissait une seconde session ouvrir image et son, hors du
+    # volume (sourdine-une-session). Le chiffre du volume sortait de 12 px
+    # d'une colonne de 256 px (colonne-tiree).
+    git show 6ad0415:core/crates/worker/src/page/index.html > "$dossier/manette-seule.html"
+    node etats.mjs --page "$dossier/manette-seule.html" --flux "$dossier/flux.h264" \
+        --etapes sourdine-une-session,colonne-tiree --rouge-attendu sourdine-une-session,colonne-tiree {{args}}
 
 # Les parcours de la salle, dans un vrai navigateur.
 #
@@ -1434,12 +1442,6 @@ reglage-navigateur-rouge *args:
     etapes=place-tenu,rang,etiquette,feuille-reglage
     node reglage.mjs --page "$dossier/integration.html" --flux "$dossier/flux.h264" \
         --etapes "$etapes" --rouge-attendu "$etapes" {{args}}
-    # La page du premier câblage de la place tenue (672dcb6) : une page
-    # « manette seule » n'a pas de place tenue, et le panneau ouvert par le
-    # menu ne se montrait nulle part.
-    git -C ../.. show 672dcb6:core/crates/worker/src/page/index.html > "$dossier/tenue.html"
-    node reglage.mjs --page "$dossier/tenue.html" --flux "$dossier/flux.h264" \
-        --etapes manette-seule --rouge-attendu manette-seule {{args}}
 # ==== fin manettes ====
 
 # Does the page survive its decoder dying? Needs the worker RUNNING and streaming
@@ -1919,15 +1921,6 @@ browser-debordement url="http://127.0.0.1:8110/":
 # actually use? Needs the worker RUNNING.
 browser-layout:
     cd spikes/m3-browser-drive && node layout.mjs http://127.0.0.1:8110/
-
-# La colonne de droite se tire-t-elle entre ses bornes, et l'image suit-elle ?
-#
-# Contre un worker JETABLE ouvert sans jeu: aucun conteneur, aucune carte
-# graphique, aucune salle réelle touchée. Le worker de développement est
-# reconstruit d'abord, sinon il servirait la page d'hier.
-browser-colonne:
-    cd core && cargo build -p nel3ab-worker
-    cd spikes/m3-browser-drive && node colonne.mjs
 
 # Does the library show the names a person reads, and none of the file clutter?
 # Needs the worker RUNNING.

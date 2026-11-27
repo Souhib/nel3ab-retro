@@ -154,34 +154,6 @@ describe("le réglage tenu en main", () => {
         .reglage,
     ).toBeNull();
   });
-
-  it("une manette seule : le panneau prend la place de la manette à l'écran, sous la barre", () => {
-    // Elle n'a pas d'image à épargner. Le cadre lui donne la même place
-    // qu'aux autres : la manette n'est pas montée pendant le réglage
-    // (`couchesDeLaSalle`), et le panneau prend ce qu'elle occupait.
-    for (const [mode, width, height] of [
-      ["portrait", 390, 844],
-      ["paysage", 844, 390],
-    ] as const) {
-      const ici = `${mode} ${width}×${height}`;
-      // La page « manette seule » dessine sa manette (`manetteDuCadre`).
-      const seule = tenu({ mode, fenetre: { width, height }, role: "seule" });
-      const avant = miseEnPage(seule);
-      const pendant = miseEnPage({ ...seule, reglage: true });
-      // Le jumeau : fermé, la manette seule a son panneau, et aucun réglage.
-      expect(avant.reglage, ici).toBeNull();
-      expect(avant.panneau.rect, ici).not.toBeNull();
-      const r = pendant.reglage;
-      expect(r, ici).not.toBeNull();
-      expect(r!.w * r!.h, ici).toBeGreaterThan(0);
-      // La page « manette seule » monte sa manette dans `panneau.rect` : il
-      // s'efface, et rien ne se pose sur le panneau des touches.
-      expect(pendant.panneau.rect, ici).toBeNull();
-      expect(pendant.manette, ici).toBeNull();
-      if (pendant.barre)
-        expect(r!.y, ici).toBeGreaterThanOrEqual(pendant.barre.y + pendant.barre.h);
-    }
-  });
 });
 
 describe("largeurPanneau", () => {

@@ -1619,7 +1619,7 @@ Measured figures are shown only where they were measured. The light picture's
 engines read "moins de débit" (`prixImageLegere(moteurDe(console))`).
 
 Amended 2026-11-22 (final review). The measurement column still wrote « 2,6 »
-for every console and the pad-only hint « 13,6 Mbit/s » (a Dolphin p95 from
+for every console and the pad-only hint (mode removed by D47) « 13,6 Mbit/s » (a Dolphin p95 from
 three days of logs, commit 6e0fd98): both now go through `mots.ts`
 (`prixManetteSeule`), and a test refuses these figures anywhere else. One name
 per thing joined the lexicon: `IMAGE.passer`, `SORTIES_MENU` and `sortieDuMenu`
@@ -1759,7 +1759,7 @@ Decision:
   because the keyboard-paused notice used to appear under the pointer and
   swallow the click. Without a pad, or under a full-picture overlay, a
   standalone `•••` sits top right in the safe area.
-- A pad-only page is never veiled by loading: its loading clears when the lobby
+- (Removed by D47, 2026-11-27.) A pad-only page is never veiled by loading: its loading clears when the lobby
   announces the requested game (`suiteDuChargement`).
 - Fullscreen is offered wherever the API exists; home-screen advice only to
   Apple devices without it. The page sets `viewport-fit=cover` and exposes
@@ -2183,7 +2183,7 @@ Decision:
   snapshot), a setting or a state, never per frame. Four modes: desk (fine
   pointer, 900 px and wider, the threshold of D35 kept rather than the
   mock-up's 760), narrow (fine pointer below 900: picture on top, column
-  below, no drawer), portrait and landscape (coarse pointer or pad-only).
+  below, no drawer), portrait and landscape (coarse pointer, or pad-only until D47).
 - **The control panel goes under the picture only if the real pose is
   unchanged.** The panel (START places, credit, play time) is 64 to 88 px
   high. It sits under the picture when `lib/fit.place` gives the same size,
@@ -2273,7 +2273,7 @@ Decision:
   frozen picture (`premiereImage` in `lib/cadre.ts`).
 
 Delivered in pass 1: the pure layout and its sweeps, the arbiter, the column
-rows, the idle attention loop, the pad-only latency sentence, the root
+rows, the idle attention loop, the pad-only latency sentence (removed by D47), the root
 attributes and variables, the notice stack off the picture, the corner
 buttons removed, and the browser guard (`cadre.mjs`, `just
 cadre-navigateur`, red against 03b21c0). Delivered in pass 2 (step 3, desk):
@@ -2316,7 +2316,7 @@ of the safe area (the pad keeps its own 12 px margin). `FeuilleDuBas` and
 `Tiroir` merge into one `FeuilleSalle`: at half height the game gestures
 (no darkened backdrop, never on the picture; at least 276 px, measured), and
 enlarged the whole column. A fine pointer below 900 px puts the column under
-the picture. A pad-only page shows `ManetteSeule` (its seat, and whether keys
+the picture. Until D47, a pad-only page showed `ManetteSeule` (its seat, and whether keys
 arrive). Proofs: `faces.test.ts` and `cadre.test.ts` place the real pad in
 the frame's box at every sampled size with and without iPhone safe areas,
 with a twin replaying the mock-up's boxes; `salle-telephone.mjs` and
@@ -3208,7 +3208,7 @@ in the whole room). Held in hand, the panel no longer lives in the enlarged
 sheet over the picture (review finding 4): the frame sets
 `Geometrie.reglage`, below the picture held upright down to the safe-area
 bottom, at the right held sideways (380 px at most, half at most), and the
-room mounts it there; a pad-only page has no picture to spare and no such
+room mounts it there; a pad-only page (removed by D47) has no picture to spare and no such
 rectangle, so the enlarged sheet still carries it there (`manette-seule`,
 red on 672dcb6). `placeDuReglage`, a rule nothing read, is gone.
 `place-tenu` enters the gate with `rang`, `etiquette` and
@@ -3226,7 +3226,7 @@ of the room's track, describes the kept rule): the final integration keeps
 `REGLAGE_TENU_LARGEUR`. The numbers in the paragraph above change
 accordingly. Upright, the picture shrinks only to leave the panel 280 px,
 not 240. Sideways, the panel takes 42 % of the width between 300 and
-520 px, not 380 px at most and half at most. A pad-only page receives the
+520 px, not 380 px at most and half at most. A pad-only page (removed by D47) receives the
 same place under the bar, where its pad is not mounted during the panel,
 instead of the enlarged sheet: the frame gives one rule to every held
 page, and `manette-seule` only asks that the panel be visible, which both
@@ -3234,7 +3234,7 @@ rules satisfy. The controls keep what is theirs: the column row, the sheet
 entry, the label, `reglage.mjs` and its red pages. `reglage-place.test.ts`
 now reads `REGLAGE_TENU`; four mutants of `reglageTenu` (the picture keeping
 the whole width sideways, the picture not shrinking, the panel 20 px
-higher, a pad-only page without a place) each fail their test. One
+higher, a pad-only page without a place, until D47) each fail their test. One
 `.n3-reglage-tenu` rule remains, in `telephone.css` with the room's other
 held places: the copy in `reglage.css` loaded only with the panel's module.
 
@@ -4445,3 +4445,47 @@ cut to 41 characters (« gâchettes tout ou rien, à-coups possibles »): at
 Unchanged: no lock; two Xbox 360 rooms together, or one beside a Switch room,
 have not been measured. Weighed: keeping the mark until a four-player evening.
 The owner chose one game; `docs/xbox360.md` lists what that game does not prove.
+
+### D47: The pad-only mode is removed, and a stopped session stays stopped, 2026-11-27
+
+On 2026-11-26 the owner's room page switched to « manette seule », which the
+owner had not meant to choose. One path, read in the code and not
+reproduced: the menu row was a radio group, which changes on a left or right
+arrow, from the keyboard or from the controller. The browser kept the choice
+(`nel3ab:padonly`). On a desk nothing said why the picture was black:
+the notice needed the held-in-hand panel. Coming back to the picture rebuilt
+the media session, and the old one, already stopped, was restarted in the
+same instant: an `App` effect still called `video.start()` and
+`sound.setIdle(false)` on it, and its sound wake-up listener, still attached,
+restarted its sound on the click. The volume set only the new session, so at
+0 % the old one kept playing. Evidence: the worker's journal counted two
+pages listening and two watching for one page, from 23:44:33 to 23:53:53 UTC,
+while the lobby saw one visit and the page reported its own sound closed from
+23:49:30. On the `etats-navigateur` bench, the round trip left two picture
+sockets open. `media/session-fin.test.ts` reopens the picture through
+`video.start()` and the sound through a click on a stopped session.
+
+Decision (the owner, 2026-11-27): the mode is removed entirely. Weighed:
+keeping it on touch devices only, changed by an explicit confirmation, with a
+« Remettre l'image » button. What is given up: 13.6 Mbit/s per device beside
+a television (a Dolphin p95 of 2026-08-19). The page stops reading the key and
+erases it at boot (`oublierManetteSeule`). The lobby no longer records the
+`manette` flag an older tab still sends. Gone with it: the menu row,
+`ManetteSeule` and its latency sentence, the `seule` role and geometry of
+`lib/cadre`, the loading and veil exceptions, the link state's `manetteSeule`
+signal and `Session.padOnly`. `useSession` builds one session per page.
+
+Whatever rebuilds a session later, a stopped one stays stopped.
+`Session.stop()` calls `VideoStream.fermer()`, after which `start` does
+nothing; `stop` stays a pause, used when the room is idle. `SoundStream.stop()`
+is final for `start` and `connect`. Each guard has its own failing line in
+`session-fin.test.ts`, and its twin pauses and resumes a live session. The
+browser proof is the `sourdine-une-session` step: a device that kept « oui »
+gets one picture socket and one sound socket, the menu has no such row, and
+the column's mute closes the only sound socket while the picture stays. It is
+red on the page of 6ad0415. `colonne.mjs` (`just browser-colonne`) needed the
+mode to show a column without pictures; its checks moved to the
+`colonne-tiree` step on the bench, which sends pictures. That step found the
+volume figure 12 px outside a 256 px column on the page in service, fixed by
+letting the slider shrink (`min-w-0`). The first overflow now comes at
+192 px, so 256 px is a choice and no longer a measured floor.

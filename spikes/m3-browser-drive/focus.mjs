@@ -938,7 +938,7 @@ const ETAPES = {
     if (reglages.length > 12) throw new Defaut(`« réglages » montre encore ${reglages.length} entrées à plat`);
     if (
       reglages.some((id) =>
-        ["item-bindings", "item-touches-clavier", "item-pad", "item-touchpad", "item-padonly"].includes(id),
+        ["item-bindings", "item-touches-clavier", "item-pad", "item-touchpad"].includes(id),
       )
     )
       throw new Defaut(`des réglages de manette restent dans « réglages »: ${reglages}`);

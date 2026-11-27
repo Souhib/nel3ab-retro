@@ -93,15 +93,6 @@ describe("le mode de la fenêtre", () => {
       "bureau",
     );
   });
-
-  it("donne à une manette seule le mode tenu, même à la souris", () => {
-    expect(modeDuCadre({ largeur: 1440, hauteur: 900, grossier: false, role: "seule" })).toBe(
-      "paysage",
-    );
-    expect(modeDuCadre({ largeur: 390, hauteur: 844, grossier: false, role: "seule" })).toBe(
-      "portrait",
-    );
-  });
 });
 
 describe("l'état du cadre", () => {
@@ -432,8 +423,8 @@ describe("la base du panneau : la première image ne déplace rien", () => {
   });
 
   it("un changement naturel sans image connue garde le format attendu, même quand l'état dit « vit »", () => {
-    // Une page « manette seule » n'a pas d'image (0x0) et vit quand même :
-    // une fenêtre tournée ne doit pas poser le panneau sur une image nulle.
+    // Une page sans image connue (0x0) peut vivre quand même : une fenêtre
+    // tournée ne doit pas poser le panneau sur une image nulle.
     for (const etat of ["vit", "figee"] as const) {
       const [, apres] = suite([
         arrivee({ etat }),
@@ -1375,20 +1366,6 @@ describe("où joue la mascotte", () => {
     );
     expect(ouEstLaMascotte(tel)).toBe("barre");
     expect(ouEstLaMascotte(miseEnPage(entree({ agrandie: true })))).toBeNull();
-  });
-
-  it("garde la tête dans la barre d'une manette seule, jamais sur un plateau", () => {
-    const seule = miseEnPage(
-      entree({
-        mode: "portrait",
-        role: "seule",
-        etat: "repos",
-        fenetre: { width: 390, height: 844 },
-        manette: pad("pro"),
-      }),
-    );
-    expect(seule.ecran).toBeNull();
-    expect(ouEstLaMascotte(seule)).toBe("barre");
   });
 });
 

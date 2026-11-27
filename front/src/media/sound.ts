@@ -220,6 +220,10 @@ export class SoundStream {
    * fait jouer y reste parfois suspendu.
    */
   async start(): Promise<void> {
+    // Une session finie ne refait pas de son : l'écoute du geste qui réveille
+    // le son lui appartenait encore le 26 novembre 2026, et un clic rouvrait
+    // sa socket à côté de celle de la nouvelle session, hors du volume.
+    if (this.fini) return;
     if (this.context === null) {
       this.build();
       this.connect();
@@ -313,7 +317,11 @@ export class SoundStream {
       });
   }
 
+  /** Vrai après `stop`, qui est définitif : voir `start`. */
+  private fini = false;
+
   stop(): void {
+    this.fini = true;
     this.silence?.pause();
     this.silence = null;
     if (this.trimmer !== null) window.clearInterval(this.trimmer);
@@ -412,7 +420,7 @@ export class SoundStream {
   }
 
   private connect(): void {
-    if (!this.wanted() || this.context === null) return;
+    if (this.fini || !this.wanted() || this.context === null) return;
     const socket = new WebSocket(this.url("/sound"));
     socket.binaryType = "arraybuffer";
     this.socket = socket;

@@ -32,9 +32,9 @@ projet](etat-du-projet.md) relie les parcours.
   pour lui laisser `REGLAGE_TENU.hauteurMin`, 280 px) ; à droite en travers,
   42 % de la largeur entre 300 et 520 px, l'image posée dans le reste. La
   salle le monte dans `#reglageTenu`. Un seul panneau à la fois : la colonne
-  ne le monte que quand le cadre ne lui donne pas de place. Une page
-  « manette seule » reçoit la même place, sous la barre, où sa manette n'est
-  pas montée pendant le réglage (étape `manette-seule`). Les fins de la
+  ne le monte que quand le cadre ne lui donne pas de place. La page
+  « manette seule », qui recevait la même place sous la barre, est retirée
+  depuis le 27 novembre 2026 (ADR D47). Les fins de la
   salle et des manettes avaient écrit cette règle chacune avec ses nombres
   (240 px et 380 px côté manettes) ; l'intégration du 25 novembre 2026 garde
   celle de la salle, qui possède `lib/cadre.ts` (ADR D42, addendum).
@@ -72,8 +72,7 @@ projet](etat-du-projet.md) relie les parcours.
 
 **Les preuves.** `just reglage-navigateur` sur le banc des parcours : place au
 bureau et tenu en main (`place`, `place-tenu`), le rang (`rang`), l'entrée de
-la feuille (`feuille-reglage`), la page « manette seule » (`manette-seule`),
-l'étiquette (`etiquette`), les entrées et le
+la feuille (`feuille-reglage`), l'étiquette (`etiquette`), les entrées et le
 focus, l'activité de la trame Pro, les zones de clic, la vignette d'un
 changement, les nombres, les marques, le focus du pas à pas et le pas à pas.
 `just reglage-navigateur-rouge` les fait rougir sur les pages de 9fb659e,
@@ -726,7 +725,8 @@ Ce qui n'est pas lisible dans le code :
 - **Une page « manette seule » ne voile pas sa manette pendant un
   chargement** (`voileSurImage`) : sans image, rien ne peint, et l'écran de
   chargement attendait sans fin. Son chargement s'efface quand la salle
-  annonce le jeu demandé (`suiteDuChargement`, `lib/booting.ts`).
+  annonce le jeu demandé (`suiteDuChargement`, `lib/booting.ts`). Retiré
+  avec le mode le 27 novembre 2026 (ADR D47).
 - **`manette-garde.mjs` attend un geste de page, et non trois**, et deux
   inscriptions de moins par thème. Rejouée sur le code d'avant, elle y trouve
   trois gestes et le dit.
@@ -738,8 +738,8 @@ Ce qui n'est pas lisible dans le code :
   relecture du même jour, elle mesure aussi TOUTES les cibles du tiroir à
   44 px, le bouton qui le referme une fois défilé jusqu'en bas, le focus rendu
   à la fermeture, la manette « toujours » sur un grand écran, Ctrl sous le
-  menu, une page « manette seule » pendant un chargement annoncé par un faux
-  salon, la demande de place sous le « ••• », le configurateur Pro en
+  menu, un chargement annoncé par un faux salon (une page « manette seule »
+  jusqu'au 27 novembre 2026), la demande de place sous le « ••• », le configurateur Pro en
   paysage, et la page construite servie avec la politique du worker. Chaque
   nouveau cas a été vu rouge sur fbb3bcc.
 
@@ -974,8 +974,7 @@ Récit au carnet, entrée « 24 novembre, le soir : la fin des manettes » ;
 décision à l'ADR D42 et D35. Ce qui n'est pas lisible dans le code :
 
 - **Le cadre décide la place tenue en main, App la monte.** `Entree.reglage`
-  fait poser `Geometrie.reglage` à `portrait` et `paysage` ; une manette seule
-  (`seule`) n'en a pas. `useGeometrie` liste le champ dans ses dépendances :
+  fait poser `Geometrie.reglage` à `portrait` et `paysage`. `useGeometrie` liste le champ dans ses dépendances :
   sans lui, le rectangle resterait celui du calcul d'avant. Le panneau, la
   bande, la manette et l'étiquette de la bande sont absents de cette
   géométrie ; la barre reste, avec « La salle ».

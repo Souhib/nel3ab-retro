@@ -10,17 +10,7 @@
  */
 import type { ReactNode } from "react";
 import type { Ligne } from "./menu";
-import {
-  aideManetteSeule,
-  chefAbsent,
-  enMenu,
-  FICHE,
-  MANETTE_SEULE,
-  MENU,
-  PLACE,
-  SORTIES,
-  TACTILE,
-} from "./mots";
+import { chefAbsent, enMenu, FICHE, MENU, PLACE, SORTIES, TACTILE } from "./mots";
 import { PADS, type Pad } from "./saves";
 import { arrange, MANETTES } from "./settings";
 import { TOUCHPADS, type TouchPref } from "./theme";
@@ -33,21 +23,16 @@ export type EntreeManettes = {
   profilClavier: string;
   /** La console du jeu en cours, `undefined` au repos. */
   console: string | undefined;
-  /** Le moteur de cette console (`moteurDe`), pour ne dire un chiffre
-   * mesuré que là où il l'a été. */
-  moteur: string | null;
   pad: Pad;
   touchPref: TouchPref;
-  padOnly: boolean;
   /** Ouvre « Touches et manettes » (`ouvrirReglage`) sur un onglet. */
   ouvrirTouches: (onglet: "manette" | "clavier") => void;
   switchPad: (pad: Pad) => void;
   setTouchPref: (pref: TouchPref) => void;
-  onPadOnly: (sansImage: boolean) => void;
 };
 
 /** La rubrique Manettes (M9) : tes touches, toutes les touches du clavier,
- * l'appareil des jeux Wii, les commandes tactiles et la manette seule, dans
+ * l'appareil des jeux Wii et les commandes tactiles, dans
  * l'ordre de `MANETTES`. Les deux premières ouvrent le réglage du chantier
  * des manettes ; elles n'en copient rien. */
 export function lignesManettes(e: EntreeManettes): Ligne[] {
@@ -107,19 +92,6 @@ export function lignesManettes(e: EntreeManettes): Ligne[] {
           const voulu = TOUCHPADS.find((choice) => choice.id === id)?.id;
           if (voulu !== undefined) e.setTouchPref(voulu);
         },
-      },
-      {
-        id: "padonly",
-        label: MANETTE_SEULE,
-        hint: aideManetteSeule(e.moteur),
-        picks: [
-          { id: "avec", label: MENU.avecImage },
-          { id: "sans", label: MENU.sansImage },
-        ],
-        picked: e.padOnly ? "sans" : "avec",
-        // Changer de mode reconstruit la session : la place tenue est rendue
-        // puis reprise.
-        onPick: (id) => e.onPadOnly(id === "sans"),
       },
     ],
     MANETTES,

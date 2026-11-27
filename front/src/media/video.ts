@@ -373,10 +373,12 @@ export class VideoStream {
   }
 
   private active = false;
+  /** Vrai après `fermer` : la session qui tenait ce flux est finie. */
+  private ferme = false;
   private frame = 0;
 
   start(): void {
-    if (this.active) return;
+    if (this.active || this.ferme) return;
     this.active = true;
     this.awaiting = false;
     this.startedAt = performance.now();
@@ -446,6 +448,18 @@ export class VideoStream {
     this.awaiting = true;
     this.formatGeneration += 1;
     this.deniedHalf = false;
+  }
+
+  /** L'arrêt définitif, celui de la fin d'une session.
+   *
+   * `stop` reste une pause : la page l'appelle quand la salle passe au repos,
+   * et `start` la défait. Le 26 novembre 2026, une session reconstruite en
+   * quittant « manette seule » recevait encore `start` dans le même instant,
+   * et sa socket rouvrait à côté de celle de la nouvelle. Après `fermer`, plus
+   * rien ne rouvre ce flux. */
+  fermer(): void {
+    this.ferme = true;
+    this.stop();
   }
 
   stop(): void {

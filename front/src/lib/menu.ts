@@ -260,7 +260,7 @@ export function placeDuMenu(
   const droiteZone = fenetre.width - zones.droite;
   const ecran = geo.ecran;
   if (ecran === null) {
-    // Sans écran (une manette seule) : rien à cacher, la moitié gauche.
+    // Sans écran posé : rien à cacher, la moitié gauche.
     const w = Math.min(380, Math.round((droiteZone - gaucheZone) / 2));
     return {
       lieu: "cote",

@@ -57,7 +57,6 @@ export type Flux = {
   };
   sound: { sinceChunkMs: number | null };
   input: { sinceHeardMs: number | null };
-  padOnly: boolean;
 };
 
 /** Ce que la page sait et que les flux ignorent. */
@@ -178,7 +177,7 @@ export class VeilleLiaison {
     const now = this.monde.now();
     const v = flux.video;
     const muette = !v.connected || v.sinceHeardMs === null || v.sinceHeardMs >= FRAIS_MS;
-    const attend = !flux.padOnly && this.contexte.jeu !== false && this.visibleA !== null;
+    const attend = this.contexte.jeu !== false && this.visibleA !== null;
     if (muette && attend) this.sonder(now);
     // La vidéo parle: une série de « fermée » d'avant ne compte plus pour la
     // prochaine chute.
@@ -190,7 +189,6 @@ export class VeilleLiaison {
     const lu = lireLiaison(
       {
         jeu: this.contexte.jeu,
-        manetteSeule: flux.padOnly,
         enLigne: this.monde.enLigne(),
         visible: this.visibleA !== null,
         visibleDepuisMs: this.visibleA === null ? 0 : now - this.visibleA,

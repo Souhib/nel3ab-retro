@@ -143,6 +143,9 @@ async function nouvelle(vue, stockage = {}, reglage = null, avantPage = null) {
       // La vue des touches de la première visite prend la place des rangs de
       // la colonne (chantier salle, étape 6); ces étapes partent d'une vue lue.
       localStorage.setItem("nel3ab:aide-clavier", "vue");
+      // Le profil du navigateur est partagé entre les étapes : une page
+      // d'avant laissait « manette seule » posée pour l'étape suivante.
+      localStorage.removeItem("nel3ab:padonly");
       for (const [cle, valeur] of Object.entries(stockage)) localStorage.setItem(cle, valeur);
     } catch {}
   }, stockage);
@@ -484,6 +487,211 @@ async function mesurerSaut(mutant) {
 }
 
 const ETAPES = {
+  /** Le 26 novembre 2026, à 0 % la salle jouait encore. La page tenait deux
+   * sessions depuis qu'elle avait quitté « manette seule » : l'ancienne avait
+   * rouvert son image et son son, et le volume ne réglait que la nouvelle.
+   * Sur ce banc, l'aller-retour laissait deux sockets d'image ouvertes. Le
+   * mode est retiré le 27 novembre : un appareil qui avait gardé « oui »
+   * reçoit l'image et le son, une fois chacun, la ligne n'est plus au menu,
+   * et la sourdine de la colonne ferme le seul son ouvert, image gardée. Le
+   * nombre de sockets est celui du banc, côté salle, comme le journal du
+   * worker les compte. */
+  async "sourdine-une-session"() {
+    const page = await nouvelle(PC, { "nel3ab:padonly": "oui" });
+    await page.click("#enter");
+    const vu = await jusqua(page, (v) => v.peintes > 30, 20000);
+    if (vu.apres === null) throw new Defaut("une page qui avait gardé « manette seule » ne reçoit aucune image");
+    await page.evaluate(() => window.dispatchEvent(new Event("pointerup")));
+    const debut = Date.now();
+    while (banc.ouvertes().son < 1 && Date.now() - debut < 5000) await sleep(100);
+    const avant = banc.ouvertes();
+    if (avant.son < 1) throw new Precondition(`le son ne s'ouvre pas après un geste: ${JSON.stringify(avant)}`);
+    if (avant.video !== 1 || avant.son !== 1)
+      throw new Defaut(`une page tient ${avant.video} sockets d'image et ${avant.son} de son`);
+    if ((await page.evaluate(() => localStorage.getItem("nel3ab:padonly"))) !== null)
+      throw new Defaut("la clé de « manette seule » reste dans le navigateur");
+    // La glissière ne paraît qu'une fois le son joué : « activer le son »,
+    // par un vrai clic, comme une personne.
+    if (await page.$("#sound")) await page.click("#sound");
+    if ((await page.waitForSelector("#volume", { timeout: 5000 }).catch(() => null)) === null)
+      throw new Precondition("le son ne joue pas après « activer le son »: pas de glissière");
+    // La ligne n'est plus au menu, rubrique des manettes ouverte.
+    await page.click("#openMenu");
+    await page.waitForSelector("#menu", { timeout: 5000 });
+    const onglet = await page.evaluateHandle(() =>
+      [...document.querySelectorAll("#menu [role=tab]")].find((t) => /manette/i.test(t.textContent)),
+    );
+    if (!(await onglet.evaluate((t) => t instanceof HTMLElement))) throw new Precondition("pas de rubrique des manettes au menu");
+    await onglet.click();
+    await page.waitForSelector("#item-touchpad, #item-pad, #item-bindings", { timeout: 5000 });
+    if (await page.$("#item-padonly, [id^=pick-padonly]")) throw new Defaut("« manette seule » est encore au menu");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.getElementById("menu"), { timeout: 5000 });
+    // La sourdine, par un vrai geste sur la glissière de la colonne.
+    const glisser = async (dx) => {
+      const r = await page.evaluate(() => {
+        const g = document.querySelector("#volume");
+        g?.scrollIntoView({ block: "center" });
+        const b = g?.getBoundingClientRect();
+        return b ? { x: b.left + b.width / 2, y: b.top + b.height / 2 } : null;
+      });
+      if (r === null) throw new Precondition(`pas de glissière #volume dans la colonne: ${await page.evaluate(() => [...document.querySelectorAll("#side button, #side input, #side [id]")].map((e) => e.id || e.textContent.trim().slice(0, 20)).slice(0, 30).join(" | "))}`);
+      await page.mouse.move(r.x, r.y);
+      await page.mouse.down();
+      await page.mouse.move(r.x + dx, r.y, { steps: 10 });
+      await page.mouse.up();
+      await sleep(1500);
+      return { valeur: await page.evaluate(() => document.querySelector("#volume").value), ...banc.ouvertes() };
+    };
+    const zero = await glisser(-400);
+    if (zero.valeur !== "0") throw new Precondition(`la glissière tirée à gauche lit ${zero.valeur}, pas 0`);
+    if (zero.son !== 0) throw new Defaut(`à 0 %, ${zero.son} socket de son reste ouverte`);
+    if (zero.video !== 1) throw new Defaut(`la sourdine a changé l'image: ${zero.video} sockets`);
+    // Le jumeau : remonté, le son rouvre, et le banc le voit.
+    const remonte = await glisser(400);
+    if (remonte.son !== 1) throw new Precondition(`le volume remonté (${remonte.valeur}) ne rouvre pas le son: la mesure ne voit rien`);
+    await page.close();
+  },
+
+  /** La colonne se tire entre ses bornes, l'image suit, la largeur est
+   * retenue. Repris de `colonne.mjs` (`just browser-colonne`) le 27 novembre
+   * 2026 : ce pilote jouait un faux jeu sans image et passait la page en
+   * « manette seule », seul mode qui n'attendait pas d'image. Le banc envoie
+   * de vraies images, et la colonne sert pendant une partie. */
+  async "colonne-tiree"() {
+    const MIN = 256;
+    const STEP = 16;
+    const NORMAL = 304;
+    const MAX = 480;
+    const lire = (page) =>
+      page.evaluate(() => {
+        const side = document.getElementById("side").getBoundingClientRect();
+        const place = document.getElementById("screen").parentElement.getBoundingClientRect();
+        const grip = document.querySelector("#columnHandle > span").getBoundingClientRect();
+        const x = grip.left + grip.width / 2;
+        const y = grip.top + grip.height / 2;
+        const dessus = document.elementFromPoint(x, y);
+        return {
+          colonne: Math.round(side.width),
+          image: Math.round(place.width),
+          aria: Number(document.getElementById("columnHandle").getAttribute("aria-valuenow")),
+          x,
+          y,
+          touchee: Boolean(dessus?.closest("#columnHandle")),
+          dessus: dessus ? `${dessus.tagName.toLowerCase()}${dessus.id ? `#${dessus.id}` : ""}` : "rien",
+          focus: Boolean(document.activeElement?.closest?.("#columnHandle")),
+        };
+      });
+    const tirer = async (page, dx) => {
+      const avant = await lire(page);
+      if (!avant.touchee) throw new Defaut(`la prise est recouverte par ${avant.dessus}`);
+      await page.mouse.move(avant.x, avant.y);
+      await page.mouse.down();
+      await page.mouse.move(avant.x + dx, avant.y, { steps: 12 });
+      await page.mouse.up();
+      await sleep(150);
+      return lire(page);
+    };
+    // Rechargée, la page rentre seule dans la salle (l'entrée est dans
+    // l'adresse) : « Entrer » n'y est que si elle le propose.
+    const rouvrir = async (page) => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector("#enter, #columnHandle", { timeout: 15000 });
+      if (await page.$("#enter")) await entrer(page);
+      else if ((await jusqua(page, (v) => v.peintes > 30, 20000)).apres === null)
+        throw new Precondition("rechargée, la page n'a pas peint 30 images en 20 s");
+      await page.waitForSelector("#columnHandle", { timeout: 5000 });
+    };
+    const page = await nouvelle(PC);
+    await entrer(page);
+    await page.waitForSelector("#columnHandle", { timeout: 5000 });
+    const depart = await lire(page);
+    if (depart.colonne !== NORMAL || depart.aria !== NORMAL)
+      throw new Precondition(`la colonne ne part pas de ${NORMAL} px: ${JSON.stringify(depart)}`);
+    const large = await tirer(page, -96);
+    if (large.colonne !== NORMAL + 96) throw new Defaut(`tirer de 96 px à gauche donne ${large.colonne} px`);
+    if (depart.image - large.image !== 96) throw new Defaut(`l'image rend ${depart.image - large.image} px, pas 96`);
+    if (large.aria !== large.colonne) throw new Defaut(`la poignée annonce ${large.aria} pour ${large.colonne} vus`);
+    if (large.focus) throw new Defaut("la poignée garde le focus: elle volerait les flèches du jeu");
+    const haut = await tirer(page, -900);
+    if (haut.colonne !== MAX) throw new Defaut(`la borne haute donne ${haut.colonne} px`);
+    const bas = await tirer(page, 900);
+    if (bas.colonne !== MIN) throw new Defaut(`la borne basse donne ${bas.colonne} px`);
+    // À MIN, rien ne sort de la colonne, mesures ouvertes ou non. Le jumeau :
+    // 16 px de moins, et quelque chose sort.
+    const sorties = (largeur) =>
+      page.evaluate((w) => {
+        const side = document.getElementById("side");
+        const avant = side.style.width;
+        side.style.width = `${w}px`;
+        const bord = side.getBoundingClientRect().right;
+        const dehors = [...side.querySelectorAll("*")]
+          .filter((el) => el.getClientRects().length > 0 && el.getBoundingClientRect().right > bord + 0.5)
+          .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${el.className ? `.${String(el.className).split(" ")[0]}` : ""} « ${(el.textContent || "").trim().slice(0, 30)} » +${Math.round(el.getBoundingClientRect().right - bord)}px`);
+        const defile = side.scrollWidth > side.clientWidth;
+        side.style.width = avant;
+        return { dehors, defile };
+      }, largeur);
+    for (const mode of ["details", "normal"]) {
+      const ouvertes = await page.evaluate(() => {
+        const ligne = document.querySelector("#mesures");
+        return (ligne?.getAttribute("aria-expanded") ?? ligne?.getAttribute("aria-pressed")) === "true";
+      });
+      if (ouvertes !== (mode === "details")) await page.click("#mesures");
+      await page.evaluate(() => {
+        const autres = document.querySelector("#autresReglages");
+        if (autres) autres.open = true;
+      });
+      await sleep(300);
+      const juste = await sorties(MIN);
+      if (juste.dehors.length || juste.defile)
+        throw new Defaut(`à ${MIN} px en mode ${mode}, sort de la colonne: ${juste.dehors.slice(0, 4).join(", ")}`);
+    }
+    // Le jumeau : la mesure voit un débordement quand il y en a un. Jusqu'au
+    // 27 novembre 2026, il venait à MIN - 16 (le chiffre du volume, +12 px à
+    // 256) ; la glissière qui rétrécit le repousse plus bas : on cherche le
+    // premier, de 16 en 16, et la borne reste un choix, plus une mesure.
+    let sous = null;
+    for (let w = MIN - STEP; w >= 128 && sous === null; w -= STEP) {
+      const vu = await sorties(w);
+      if (vu.dehors.length > 0 && vu.defile) sous = { w, ...vu };
+    }
+    if (sous === null) throw new Precondition("de 240 à 128 px rien ne sort: la mesure ne voit rien");
+    console.log(JSON.stringify({ colonne: "premier débordement", largeur: sous.w, dehors: sous.dehors.slice(0, 2) }));
+    await tirer(page, -80);
+    await rouvrir(page);
+    const relue = await lire(page);
+    if (relue.colonne !== MIN + 80) throw new Defaut(`après rechargement, ${relue.colonne} px au lieu de ${MIN + 80}`);
+    await page.mouse.move(relue.x, relue.y);
+    await page.mouse.down({ clickCount: 1 });
+    await page.mouse.up({ clickCount: 1 });
+    await page.mouse.down({ clickCount: 2 });
+    await page.mouse.up({ clickCount: 2 });
+    await sleep(150);
+    if ((await lire(page)).colonne !== NORMAL) throw new Defaut("le double-clic ne rend pas la largeur d'origine");
+    await rouvrir(page);
+    if ((await lire(page)).colonne !== NORMAL) throw new Defaut("le double-clic n'est pas retenu");
+    // Une largeur retenue sur un grand écran, relue dans une fenêtre plus
+    // petite où la colonne reste à côté de l'image (900 px et plus) : la
+    // moitié de la fenêtre au plus.
+    await tirer(page, -900);
+    await page.setViewport({ width: 920, height: 800 });
+    await rouvrir(page);
+    const etroite = await lire(page);
+    if (etroite.colonne !== 460) throw new Defaut(`dans 920 px, la colonne fait ${etroite.colonne} px, pas 460`);
+    await page.setViewport({ width: 1100, height: 800 });
+    await rouvrir(page);
+    const cote = await page.evaluate(() => {
+      const screen = document.getElementById("screen").getBoundingClientRect();
+      const side = document.getElementById("side").getBoundingClientRect();
+      return { beside: side.left >= screen.right - 1, width: Math.round(side.width) };
+    });
+    if (cote.width !== MAX) throw new Defaut(`à 1100 px, la colonne fait ${cote.width} px, pas ${MAX}`);
+    if (!cote.beside) throw new Defaut(`à 1100 px et ${MAX} px de colonne, l'image passe dessous`);
+    await page.evaluate(() => localStorage.removeItem("nel3ab:colonne"));
+    await page.close();
+  },
+
   /** Le thème rétro (ADR D37): au niveau « tout », aucun effet ne passe sur
    * l'image du jeu. Le point au centre et sur une grille de l'image doit
    * tomber sur le canevas lui-même. Le jumeau: un calque d'interface posé par

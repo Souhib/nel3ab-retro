@@ -26,13 +26,6 @@ export type Snapshot = {
   soundGapMs: number | null;
   /** Compensation réellement ajoutée à l'image, distincte de l'écart restant. */
   soundSyncMs: number;
-  /** Vrai quand cette page ne sert que de manette.
-   *
-   * Porté dans l'instantané parce que sans lui, les mesures d'image d'une page
-   * qui n'en reçoit aucune se lisent comme une page qui n'arrive pas à en
-   * peindre. C'est la même faute que l'absence affichée comme un zéro, et ce
-   * projet l'a déjà commise quatre fois. */
-  padOnly: boolean;
   /** L'état de la liaison, calculé ici et nulle part ailleurs (`liaison.ts`).
    *
    * Dans l'instantané, donc au rythme où React lit: deux fois par seconde.
@@ -50,8 +43,6 @@ export type Snapshot = {
 const socketUrl = socketUnder;
 
 export class Session {
-  /** Vrai quand cette page ne sert que de manette. Voir le constructeur. */
-  readonly padOnly: boolean;
   readonly video: VideoStream;
   readonly sound: SoundStream;
   readonly input: InputStream;
@@ -73,20 +64,8 @@ export class Session {
      * qu'appliqué après coup: une session construite en joueur prendrait une
      * manette le temps d'un aller-retour avant de la rendre. */
     watching = false,
-    /** Vrai quand cette page ne sert que de manette.
-     *
-     * Un téléphone posé à côté d'une télévision décode aujourd'hui la même
-     * vidéo que la télévision, pour personne. Mesuré sur trois jours de journal:
-     * le flux tient un p95 de 13,6 Mb/s, donc quatre téléphones autour d'un
-     * écran demandent au wifi cinquante mégabits d'images que personne ne
-     * regarde, et vident quatre batteries pour ça.
-     *
-     * Le son part avec l'image, et pour la même raison: un haut-parleur de
-     * téléphone à côté de celui de la télévision fait un écho, pas du son. */
-    padOnly = false,
     inputSource: InputSource | null = null,
   ) {
-    this.padOnly = padOnly;
     this.video = new VideoStream(canvas, socketUrl);
     // Une image d'un format neuf : React doit retailler la toile avant que
     // la couverture ne se lève (`couverture.decouvrir`). Une fois par jeu,
@@ -128,7 +107,7 @@ export class Session {
   }
 
   start(): void {
-    if (!this.padOnly) this.video.start();
+    this.video.start();
     this.input.start();
     document.addEventListener("visibilitychange", this.regarder);
     this.ticker = window.setInterval(() => {
@@ -140,7 +119,9 @@ export class Session {
   stop(): void {
     document.removeEventListener("visibilitychange", this.regarder);
     if (this.ticker !== null) window.clearInterval(this.ticker);
-    this.video.stop();
+    // `fermer` et pas `stop` : une session arrêtée ne rouvre plus rien,
+    // quoi qu'un effet encore attaché à elle lui demande (voir `fermer`).
+    this.video.fermer();
     this.sound.stop();
     this.mic.stop();
     this.input.stop();
@@ -199,8 +180,7 @@ export class Session {
       mic: this.mic.status(),
       soundGapMs: this.sound.gapAgainst(this.video.presentationOffsetMs()),
       soundSyncMs: this.video.compensationMs(),
-      padOnly: this.padOnly,
-      liaison: this.veille.lire({ video, sound, input, padOnly: this.padOnly }),
+      liaison: this.veille.lire({ video, sound, input }),
       // Relevé avec l'état, pas au rendu : c'est sur ces images-là que
       // l'état a été décidé.
       couvertureVue: vues(),
@@ -231,7 +211,6 @@ export function exposeNothingYet(): void {
     soundPlayed: 0,
     soundGaps: 0,
     roundTripMs: null as number | null,
-    padOnly: false,
     port: null as number | null,
   });
   anyWindow.nel3abTest = {
@@ -313,7 +292,6 @@ export function exposeForTests(session: Session): void {
         // L'aller-retour, pour qu'un pilote puisse vérifier qu'il est MESURÉ et
         // pas seulement affiché. Nul veut dire « pas encore », jamais zéro.
         roundTripMs: shot.input.roundTripMs,
-        padOnly: shot.padOnly,
         // La place tenue, parce que la règle du worker est par PLACE: seul le
         // siège propriétaire change le jeu. Un pilote qui ne peut pas la lire
         // compare des identités à la place, dit « je peux » à un deuxième onglet

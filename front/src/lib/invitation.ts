@@ -1,10 +1,9 @@
 /**
  * Inviter quelqu'un : un lien vers cette salle, envoyé ou copié.
  *
- * Aucun parcours ne permettait d'inviter (audit P11, 22 novembre 2026). Le mode
- * « manette seule » suppose un téléphone posé près d'un écran, et ce téléphone
- * devait retrouver la salle à la main : l'accueil, la carte, l'avant-salle,
- * puis entrer. Le lien entre directement, pour jouer ou pour regarder
+ * Aucun parcours ne permettait d'inviter (audit P11, 22 novembre 2026). Un
+ * téléphone posé près d'un écran devait retrouver la salle à la main :
+ * l'accueil, la carte, l'avant-salle, puis entrer. Le lien entre directement, pour jouer ou pour regarder
  * (`lienDInvitation`).
  *
  * Deux gestes depuis le 23 novembre 2026, au lieu d'un bouton qui choisissait

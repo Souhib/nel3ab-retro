@@ -38,8 +38,6 @@
 export type Signaux = {
   /** Un jeu tourne-t-il ? `null` tant que la salle n'est pas décrite. */
   jeu: boolean | null;
-  /** Cette page ne sert que de manette: elle n'attend aucune image. */
-  manetteSeule: boolean;
   /** `navigator.onLine`: faux veut dire que l'appareil n'a plus de réseau. */
   enLigne: boolean;
   /** L'onglet est-il visible ? */
@@ -327,7 +325,6 @@ export function lireLiaison(
       // dira que l'image est revenue.
       { figee: memoire.figee, tombee: { depuis: tombeeDepuis } },
     );
-  if (s.manetteSeule) return rend({ etat: "ok" });
   if (s.demarrageDepuisMs !== null || v.attendRedemarrage)
     return rend({ etat: "demarrage", depuisMs: s.demarrageDepuisMs ?? 0 });
   if (s.jeu === false) return rend({ etat: "ok" });

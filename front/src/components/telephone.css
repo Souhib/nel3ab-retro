@@ -1,5 +1,5 @@
 /* La salle tenue en main : la barre, « La salle », la bande, la boîte de la
- * manette, la feuille à deux hauteurs et la page manette seule.
+ * manette et la feuille à deux hauteurs.
  *
  * Chaque pièce se pose où le cadre la met (`lib/cadre`, `placeDe`), en
  * pixels de la fenêtre et déjà hors des zones sûres : aucune règle ici ne
@@ -125,7 +125,7 @@
   z-index: 45;
 }
 
-/* ── La bande, le panneau et la page manette seule ─────────────────────── */
+/* ── La bande et le panneau ─────────────────────────────────────────────── */
 .n3-bande {
   box-sizing: border-box;
   display: flex;
@@ -184,28 +184,6 @@
 /* Les places START règlent elles-mêmes leur rangée, debout comprise
    (`places.css`, chantier personnes) : les règles des prises dessinées de
    `Seats` sont parties avec elles le 23 novembre 2026. */
-.n3-manette-seule {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  padding: 12px 16px;
-  text-align: center;
-}
-.n3-manette-seule-titre {
-  font-family: var(--police-pixel);
-  font-size: var(--text-fort);
-}
-.n3-manette-seule-place,
-.n3-manette-seule-latence {
-  font-size: var(--text-corps);
-  line-height: 1.5;
-}
-.n3-manette-seule-latence {
-  color: var(--legende);
-}
-
 /* ── La boîte de la manette ────────────────────────────────────────────────
    La pose (`placePad`) mesure sa boîte, ici celle du cadre : la manette ne
    reprend pas les zones sûres, déjà retranchées. Sous les calques de la salle

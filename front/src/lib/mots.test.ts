@@ -29,7 +29,6 @@ import {
   placeN,
   placesLibres,
   prixImageLegere,
-  prixManetteSeule,
   REGLAGE,
   SAUVEGARDES,
 } from "./mots";
@@ -322,7 +321,8 @@ describe("un geste du lexique ne s'écrit qu'à travers lui", () => {
 
 describe("un chiffre mesuré ne s'écrit qu'à côté de sa mesure", () => {
   // Les deux prix de l'image ont été mesurés dans une salle GameCube et Wii.
-  // `prixImageLegere` et `prixManetteSeule` les disent là seulement; la
+  // `prixImageLegere` le dit là seulement (`prixManetteSeule` est partie avec
+  // « manette seule », le 27 novembre 2026); la
   // colonne des mesures écrivait encore « 2,6 » pour toutes les consoles, et
   // le menu « 13,6 Mbit/s » (vérification finale du 22 novembre 2026).
   const CHIFFRES = /\b2,6 fois\b|\b13,6 Mbit/u;
@@ -344,9 +344,9 @@ describe("un chiffre mesuré ne s'écrit qu'à côté de sa mesure", () => {
   });
 
   it("le dit dans une salle GameCube et Wii, et sans chiffre ailleurs", () => {
-    expect(prixManetteSeule("dolphin")).toContain("13,6 Mbit/s");
+    expect(prixImageLegere("dolphin")).toContain("2,6 fois");
     for (const moteur of ["ryubing", "eden", "xenia", null, undefined])
-      expect(prixManetteSeule(moteur), String(moteur)).not.toMatch(/[0-9]/);
+      expect(prixImageLegere(moteur), String(moteur)).not.toMatch(/[0-9]/);
   });
 });
 

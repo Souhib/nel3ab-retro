@@ -150,28 +150,16 @@ export type TouchPref = (typeof TOUCHPADS)[number]["id"];
 
 const TOUCH_KEY = "nel3ab:touchpad";
 
-const PAD_ONLY_KEY = "nel3ab:padonly";
+/** La clé de « manette seule », retirée le 27 novembre 2026. Plus rien ne
+ * la lit : un appareil qui l'avait posée à « oui » recevait encore l'image
+ * et le son, mais la clé restait dans son navigateur. La page l'efface. */
+const PAD_ONLY_RETIREE = "nel3ab:padonly";
 
-/** Vrai quand cette page ne doit servir que de manette.
- *
- * Gardé dans le navigateur, comme les autres réglages: un téléphone qui sert de
- * manette le soir sert de manette le lendemain, et le redemander à chaque
- * ouverture serait un geste de plus à faire à quatre.
- */
-export function storedPadOnly(): boolean {
+export function oublierManetteSeule(): void {
   try {
-    return localStorage.getItem(PAD_ONLY_KEY) === "oui";
+    localStorage.removeItem(PAD_ONLY_RETIREE);
   } catch {
-    return false;
-  }
-}
-
-export function rememberPadOnly(only: boolean): void {
-  try {
-    localStorage.setItem(PAD_ONLY_KEY, only ? "oui" : "non");
-  } catch {
-    // Un navigateur en navigation privée refuse d'écrire. Le réglage vaut alors
-    // pour cette séance et pas au-delà, ce qui est mieux que de ne pas marcher.
+    // Un navigateur qui refuse le stockage n'a rien gardé à effacer.
   }
 }
 

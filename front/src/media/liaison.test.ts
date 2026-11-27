@@ -20,7 +20,6 @@ function signaux(
   const { video, ...rest } = changes;
   return {
     jeu: true,
-    manetteSeule: false,
     enLigne: true,
     visible: true,
     visibleDepuisMs: 600_000,
@@ -393,18 +392,10 @@ describe("la liaison irrégulière", () => {
   });
 });
 
-describe("l'onglet caché, la page-manette et la salle sans jeu", () => {
+describe("l'onglet caché et la salle sans jeu", () => {
   it("un onglet caché n'a rien à dire", () => {
     expect(etat(signaux({ visible: false }))).toBe("cachee");
     expect(etat(signaux({ visible: true }))).not.toBe("cachee");
-  });
-  it("une page-manette n'attend pas d'image", () => {
-    const sansImage = signaux({
-      manetteSeule: true,
-      video: { connectee: false, coupeeDepuisMs: 60_000, peintes: 0 },
-    });
-    expect(etat(sansImage)).toBe("ok");
-    expect(etat({ ...sansImage, enLigne: false })).toBe("coupee");
   });
   it("une salle sans jeu n'envoie pas d'image, et ce n'est pas une panne", () => {
     const repos = signaux({ jeu: false, video: { connectee: false, coupeeDepuisMs: 60_000 } });

@@ -166,13 +166,6 @@ export type RecoveryNotice = {
 export function useLobby(
   key: string,
   name: string,
-  /** Vrai quand cette page ne sert que de manette.
-   *
-   * Voyage à l'arrivée, avec la visite et le drapeau de banc. Le salon l'écrit
-   * au journal, et sans lui une page-manette et une page dont la vidéo est
-   * cassée se ressemblent exactement: ni l'une ni l'autre n'envoie de relevé,
-   * puisqu'il n'y a rien à mesurer. */
-  padOnly: boolean,
   onAsked: (asked: Asked) => void,
   onAnswered: (answered: Answered) => void,
   /** La salle change de jeu, et ce n'est pas nous qui l'avons demandé. */
@@ -229,7 +222,6 @@ export function useLobby(
         name,
         visite: VISIT,
         banc: onBench(),
-        manette: padOnly,
         salle: salle(),
         appareil: device(window),
       },
@@ -272,14 +264,8 @@ export function useLobby(
       lobby.removeAllListeners();
       lobby.close();
     };
-    // Et quand le mode de la page change. Passer en manette seule reconstruit
-    // déjà la session média, donc la place est rendue puis reprise de toute
-    // façon: rouvrir la socket du salon au même moment ne coûte rien de plus et
-    // garde le journal vrai. Sans ça, une page qui a basculé resterait inscrite
-    // sous son mode d'arrivée, et le journal dirait « manette » d'un appareil
-    // qui montre l'image.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, client, padOnly]);
+  }, [key, client]);
 
   const request = async (event: string, data: Record<string, unknown>) => {
     if (!socket.current?.connected) throw new Error(SANS_REPONSE);

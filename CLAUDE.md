@@ -546,6 +546,14 @@ machine".
   so the states one would have said « 20 s » to a player whose screen
   waited 35. At the merge, keep the owner's form, carry in what the other
   side measures, and run both sides' tests on the merged body.
+- **The end of a media session is final.** On 2026-11-26, leaving
+  « manette seule » rebuilt the session. An effect of the same render still
+  called `video.start()` on the old one, and its sound wake-up listener
+  restarted its sound on the click. The volume reached only the new session,
+  so at 0 % the room still played, and the worker counted two pages for one.
+  `Session.stop()` now closes for good (`VideoStream.fermer`, a final
+  `SoundStream.stop`). Test a stopped object against every call that can
+  still reach it, and count sockets on the server side, as the worker does.
 - **Mutate the wiring, not only the pure functions.** On 2026-11-22, `App.tsx`
   mutants passed over a thousand unit tests and every browser step. Assert the
   state the wiring creates (`document.activeElement`, the URL). Two guards that
@@ -873,7 +881,7 @@ Markdown alone does not update the site.
 | `just salles-dore-ecrire` | rewrites the golden files and prints each changed line; refuses while any file outside `docker/dore/` is modified |
 | `just moteurs-test` | `moteurs/` under `/usr/bin/python3`, ruff with PLC0415 (no import inside a function) and format (in `check`) |
 | `just focus-navigateur` | focus, keyboard ownership and modal menus of the committed page in a real browser, against a simulated room and lobby (needs Chrome and ffmpeg) |
-| `just etats-navigateur` | the room's link states (frozen picture, silent socket, 502, restart, stalling link) against a simulated room and lobby with a real H.264 stream |
+| `just etats-navigateur` | the room's link states (frozen picture, silent socket, 502, restart, stalling link) against a simulated room and lobby with a real H.264 stream; one picture and one sound socket per page, closed by the mute (`sourdine-une-session`); the column dragged between its bounds (`colonne-tiree`, `browser-colonne` until 2026-11-27) |
 | `just parcours-navigateur` | the room's routes: entry in the URL, reload, invite, exit, closing by the owner, preparation names |
 | `just salle-telephone` | the room on phones and tablets: drawer, bottom sheet, 44 px targets, safe areas, the built page under the worker's CSP |
 | `just manette-garde` | touch pad hit-tests, closing-notice stacking and label contrast in both régies, in four rooms at seven sizes, served by Vite without relays |
@@ -886,7 +894,7 @@ Markdown alone does not update the site.
 | `just reglage-navigateur` | « Touches et manettes » in the column: never on the picture at desk and narrow sizes, its entries and focus, the Pro frame in the controller view (K34), a step-by-step run on a simulated pad, the corners and dotted line of an answer painted while the next step is framed, the focus kept in the panel through the step-by-step with Escape going back one level at a time, the part being changed kept on screen (thumbnail), the controller's numbers moving with it; held in hand, the panel below or beside the picture (`place-tenu`), the column row and the sheet entry that open it, your typed label under « Ta manette » |
 | `just salon-navigateur` | the lobby's three pages in Chrome, assembled by the lobby's own modules and served by a bench with simulated APIs (no lobby, no room): header targets, Aïn in the logo, the test card at zero rooms, one filled button in both colour schemes, places hit-tested, 44 px targets, no scroll at 320 px, opening without leaving, the frozen list, Enter and a pad's Start at zero rooms, the return banner, the announcement line, the credit, the logbook and upload steps |
 | `just salon-navigateur-rouge` | the pages of a32de82 (no Aïn), 2a98279 (old home), 84b969f (before the two browser fixes), cb0909b and 5fae6b0, assembled from an archive of `control/`, must fail each step on its named defect |
-| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9, 9b1c8e8, 928bd03 (the panel over the picture held in hand, no row, no sheet entry, no label) and 672dcb6 (no panel for a pad-only page) for the later steps, must fail each step on its named defect; `reglage-navigateur` is in `local`, its control left it on 2026-11-24 |
+| `just reglage-navigateur-rouge` | the page of 9fb659e (old modal dialog), then those of bc72ba9, e62f583, 842e4c9, 9b1c8e8, 928bd03 (the panel over the picture held in hand, no row, no sheet entry, no label) for the later steps, must fail each step on its named defect; `reglage-navigateur` is in `local`, its control left it on 2026-11-24 |
 | `--port N` | every browser driver that serves its own page, and every `-rouge` recipe: a port from 5400 to 5999; without it, a free port picked by the system (`port.mjs`) |
 | `just regie-visuel` | the régie's layout fixes (Switch dialog, lobby gauge, preparation, black picture area) measured in Chrome, with its own Vite and no live room |
 | `just docs` | strict documentation build, ADR numbering, and every heading of the logbook, the ADR and the state rendered (`tools/titres-rendus.py`); also refreshes the site served by Caddy |

@@ -148,18 +148,6 @@ export function prixImageLegere(moteur: string | null | undefined): string {
   return moteur === "dolphin" ? "environ 2,6 fois moins de débit" : "moins de débit";
 }
 
-/** Ce que la manette seule rend au wifi, dit seulement là où on l'a mesuré.
- *
- * 13,6 Mbit/s est le p95 d'un flux par appareil, lu sur trois jours de journal
- * d'une salle GameCube et Wii (commit 6e0fd98, 19 août 2026). Aucune salle
- * Switch ni Xbox 360 n'a ce relevé: ailleurs, l'effet sans le chiffre
- * (CLAUDE.md, règle 1, vérification finale du 22 novembre 2026). */
-export function prixManetteSeule(moteur: string | null | undefined): string {
-  return moteur === "dolphin"
-    ? "mesuré à 13,6 Mbit/s par appareil, c'est autant de wifi et de batterie rendus"
-    : "c'est autant de wifi et de batterie rendus";
-}
-
 /** Les commandes dessinées à l'écran d'un téléphone, sous un seul nom.
  *
  * Le menu disait « commandes tactiles », la feuille du bas « Cacher la manette »
@@ -167,10 +155,6 @@ export function prixManetteSeule(moteur: string | null | undefined): string {
  * tactile » (vérification finale du 22 novembre 2026). « Manette » est l'objet
  * qu'on tient. */
 export const TACTILE = "commandes tactiles";
-
-/** Le mode où un téléphone sert seulement de manette, sans image ni son. Le
- * menu l'appelait aussi « télécommande sans vidéo ». */
-export const MANETTE_SEULE = "manette seule";
 
 /** Les sorties, chacune sous un seul nom (audit P8). */
 export const SORTIES = {
@@ -225,7 +209,6 @@ export const LEXIQUE: readonly string[] = [
   ...Object.values(SAUVEGARDES),
   ...Object.values(SORTIES_MENU),
   TACTILE,
-  MANETTE_SEULE,
   IMAGE.complete,
   IMAGE.legere,
   IMAGE.passer,
@@ -369,17 +352,6 @@ export function fautes(texte: string, technique = false): Faute[] {
 }
 
 // ==== chantier salle ====
-
-/** Ce que la page « manette seule » dit de ses touches (`lib/manette-seule`).
- * Rien n'est affirmé tant que rien n'est mesuré. */
-export const LATENCE = {
-  arrivent: "Tes touches arrivent.",
-  attend: "La page attend la réponse de la salle.",
-  lentes: (ms: number) => `Tes touches mettent ${ms} ms à arriver.`,
-  /** Ce que la ligne parlée dit d'un lien lent : la catégorie, jamais le
-   * chiffre, qui bouge à chaque médiane (`ManetteSeule`). */
-  lentesDit: "Tes touches arrivent lentement.",
-} as const;
 
 /** L'image agrandie par Ctrl (`lib/fullscreen`) : la seule indication qui
  * reste, posée trois secondes dans une bande noire, jamais sur l'image. */
@@ -1243,8 +1215,6 @@ export const MENU = {
   wiiSansRelance: "Entre Nunchuk et guitare, rien ne relance.",
   wiiProchain: "Appareil du prochain jeu Wii.",
   aideTactile: "Pour jouer au téléphone, avec ou sans clavier et manettes.",
-  avecImage: "non, avec l'image",
-  sansImage: "oui, sans image",
 } as const;
 
 /** La fiche d'une décision, dans le menu (M10, M15) : elle dit ce que le
@@ -1349,16 +1319,6 @@ export const CHARGEMENT = {
   saSauvegarde: "l'a lancé sur sa sauvegarde.",
   sur: (save: string) => `Sur « ${save} ».`,
 } as const;
-
-/** « Manette seule » en une aide du menu, sous 70 caractères (M8) : la
- * phrase de `prixManetteSeule` (salle), et son chiffre seulement là où il a
- * été mesuré. Posée ici, dans le bloc du chantier qui la lit (relecture du
- * 24 novembre 2026 : elle était entrée dans la section de la salle). */
-export function aideManetteSeule(moteur: string | null | undefined): string {
-  return moteur === "dolphin"
-    ? "Sans image ni son : 13,6 Mbit/s de wifi rendus par appareil."
-    : "Sans image ni son : du wifi et de la batterie rendus.";
-}
 
 // ==== fin menus ====
 

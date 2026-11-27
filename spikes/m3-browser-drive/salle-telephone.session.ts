@@ -99,7 +99,6 @@ export function useSession(
   deviceRate: boolean,
   onSeat: (port: number | null, claim: string | null) => void,
   watching: boolean,
-  padOnly: boolean,
 ): { ref: React.RefObject<HTMLCanvasElement | null>; session: Session | null } {
   const ref = useRef<HTMLCanvasElement>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -115,7 +114,6 @@ export function useSession(
       volume,
       deviceRate,
       watching,
-      padOnly,
     );
     made.start();
     const real = made.getSnapshot;
@@ -139,7 +137,7 @@ export function useSession(
       setSession(null);
     };
     // oxlint-disable-next-line exhaustive-deps
-  }, [padOnly]);
+  }, []);
 
   return { ref, session };
 }

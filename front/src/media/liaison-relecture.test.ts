@@ -23,7 +23,6 @@ function signaux(changes: Partial<Omit<Signaux, "video">> & { video?: Video } = 
   const { video, ...rest } = changes;
   return {
     jeu: true,
-    manetteSeule: false,
     enLigne: true,
     visible: true,
     visibleDepuisMs: 600_000,

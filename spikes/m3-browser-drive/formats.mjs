@@ -86,10 +86,6 @@ say(seen.painted > 100, `l'image arrive (${seen.painted} images peintes)`);
 
 if (said.half === false) {
   say(seen.kept === "0", "et la page a lâché un format que la salle ne produit pas");
-  say(
-    await page.evaluate(() => window.nel3abTest?.counters?.().padOnly === false),
-    "sans devenir une page-manette au passage",
-  );
 } else {
   // Le jumeau, sur un jeu dont la moitié tombe juste: la page GARDE son choix.
   // Sans cette moitié, une page qui basculerait toujours en plein format

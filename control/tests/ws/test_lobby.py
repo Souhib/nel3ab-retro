@@ -633,14 +633,16 @@ async def test_a_seat_that_is_not_a_seat_is_ignored_rather_than_recorded(
     assert rooms.seats() == [seat for seat in rooms.seats() if seat.player is None]
 
 
-async def test_a_pad_only_page_says_so_when_it_arrives(
+async def test_an_old_pad_only_page_is_not_marked_any_more(
     served: tuple[str, RoomController], tmp_path: Path
 ) -> None:
-    """Un téléphone qui ne sert que de manette ne décode ni image ni son.
+    """« Manette seule » est retirée depuis le 27 novembre 2026.
 
-    Il n'envoie donc AUCUN relevé, puisqu'il n'y a rien à mesurer. Sans ce
-    drapeau, il se lit exactement comme une page dont la vidéo est cassée, ce
-    qui est la question la plus fréquente devant un journal.
+    Un onglet ouvert avant la mise à jour envoie encore `manette: True` à son
+    arrivée. Le salon ne l'écrit plus : la page qu'il sert ouvre toujours
+    l'image et le son, et un journal qui dirait « manette » d'une page qui
+    regarde l'image mentirait. Le jumeau est chaque autre arrivée de ces
+    essais, qui n'a jamais porté la marque.
     """
     url, _rooms = served
 
@@ -656,31 +658,7 @@ async def test_a_pad_only_page_says_so_when_it_arrives(
     lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
     arrival = next(line for line in lines if line["quoi"] == "arrivée")
 
-    assert arrival["manette"] is True
-
-
-async def test_an_ordinary_page_carries_no_pad_only_mark(
-    served: tuple[str, RoomController], tmp_path: Path
-) -> None:
-    """Le jumeau, et il porte sur la TAILLE autant que sur la vérité.
-
-    Un `false` sur chaque ligne de chaque événement ferait trois cents
-    kilo-octets par soirée pour dire « normal ».
-    """
-    url, _rooms = served
-
-    page = socketio.AsyncClient()
-    await page.connect(url, socketio_path="/socket.io", auth={"visite": "dddd4444"})
-    await asyncio.sleep(0.3)
-    await page.disconnect()
-    await asyncio.sleep(0.2)
-
-    written = sorted((tmp_path / "sessions").glob("*.jsonl"))[0]
-    lines = [json.loads(line) for line in written.read_text(encoding="utf-8").splitlines()]
-    arrival = next(
-        line for line in lines if line["quoi"] == "arrivée" and line["visite"] == "dddd4444"
-    )
-
+    assert arrival["visite"] == "cccc3333", "l'arrivée lue n'est pas celle de la page"
     assert "manette" not in arrival
 
 

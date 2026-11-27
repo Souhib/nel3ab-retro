@@ -20,7 +20,6 @@ function flux(video: Partial<Flux["video"]> = {}, rest: Partial<Omit<Flux, "vide
     },
     sound: { sinceChunkMs: 20 },
     input: { sinceHeardMs: 300 },
-    padOnly: false,
     ...rest,
   };
 }

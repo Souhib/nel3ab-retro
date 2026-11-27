@@ -34,8 +34,7 @@ export function BarreSalle({
 }: {
   rect: Rect;
   nomSalle: string;
-  /** Le jeu en cours, `null` sans jeu ou pour une manette seule qui le dit
-   * ailleurs. */
+  /** Le jeu en cours, `null` sans jeu. */
   jeu: string | null;
   /** Le son ne joue pas : « La salle » le montre, sa première entrée le
    * rallume. */

@@ -123,10 +123,8 @@ import {
   rememberTheme,
   storedMode,
   looksLikeAPhone,
-  rememberPadOnly,
   rememberTouch,
   showsTouchPad,
-  storedPadOnly,
   storedTheme,
   storedTouch,
   oublierLaCoque,
@@ -147,7 +145,6 @@ import { armerReveilDuSon } from "./media/reveil-son";
 import { Bande } from "./components/Bande";
 import { BarreSalle, BoutonSalle } from "./components/BarreSalle";
 import { FeuilleSalle } from "./components/FeuilleSalle";
-import { ManetteSeule } from "./components/ManetteSeule";
 import { largeurPanneau, rememberColumn, storedColumn } from "./lib/column";
 import {
   enAttente,
@@ -340,8 +337,8 @@ export default function App() {
   );
 }
 
-/** L'écran d'une manette seule : réduit à rien, mais monté, parce que la
- * toile appartient à la boucle média (ADR D13). */
+/** L'écran quand le cadre n'en pose pas : réduit à rien, mais monté, parce
+ * que la toile appartient à la boucle média (ADR D13). */
 const SANS_ECRAN: React.CSSProperties = {
   position: "absolute",
   width: 0,
@@ -390,19 +387,9 @@ function Named({
    * la carte se remonte en passant dans le menu ouvert (`Surcouche`). */
   const [recoveryBusy, setRecoveryBusy] = useState(false);
 
-  /** Cette page ne sert-elle que de manette.
-   *
-   * Ici plutôt que dans la salle, parce que DEUX choses en dépendent et
-   * qu'elles doivent être d'accord: les canaux que la salle ouvre, et ce que le
-   * salon inscrit au journal en voyant arriver quelqu'un. Un réglage rangé plus
-   * bas ne pourrait pas atteindre la socket, qui est ouverte ici. */
-  const [padOnly, setPadOnly] = useState(storedPadOnly);
-  useEffect(() => rememberPadOnly(padOnly), [padOnly]);
-
   const lobby = useLobby(
     login ?? name,
     name,
-    padOnly,
     (heard) => setAsked(heard),
     () => {},
     // Quelqu'un d'autre a changé de jeu. La salle vit à l'étage du dessous, avec
@@ -457,8 +444,6 @@ function Named({
           publishes={publishes}
           room={room}
           watching={entered === "watch"}
-          padOnly={padOnly}
-          onPadOnly={setPadOnly}
           onLeave={() => {
             if (recovery?.asking && !recovery.reason)
               void recover({ action: "cancel", id: recovery.id });
@@ -538,8 +523,6 @@ function Room({
   publishes,
   room,
   watching,
-  padOnly,
-  onPadOnly,
   onLeave,
   announceSeat,
   asked,
@@ -566,9 +549,6 @@ function Room({
   /** Vrai quand on est entré pour regarder. Lu une fois, à la construction de la
    * session; changer d'avis ensuite passe par la session. */
   watching: boolean;
-  /** Vrai quand cette page ne sert que de manette: ni image, ni son. */
-  padOnly: boolean;
-  onPadOnly: (only: boolean) => void;
   /** Quitter la salle: vers les autres salles, ou vers l'avant-salle quand la
    * page est servie seule (`lib/entree`, `sortieVers`). */
   onLeave: () => void;
@@ -625,7 +605,7 @@ function Room({
     largeur: fenetre.width,
     hauteur: fenetre.height,
     grossier: coarse,
-    role: padOnly ? "seule" : "joueur",
+    role: "joueur",
   });
   const tenu = modeSalle === "portrait" || modeSalle === "paysage";
   /** La feuille « La salle » et sa hauteur, ou `null`. Jamais retenue :
@@ -697,9 +677,7 @@ function Room({
    * rendrait la colonne inerte. Tenue en main, la feuille se ferme aussi : le
    * panneau a sa place sous l'image ou à droite d'elle (`Geometrie.reglage`),
    * et la feuille agrandie qui le portait jusqu'au 24 novembre 2026 couvrait
-   * l'image (constat 4 de la relecture des manettes). Une manette seule
-   * reçoit la même place : le cadre lui donne ce qui est sous la barre, où
-   * la manette à l'écran n'est pas montée pendant le réglage. */
+   * l'image (constat 4 de la relecture des manettes). */
   const ouvrirLesTouches = (onglet: Onglet) => {
     setMenu(false);
     if (tenu) setFeuille(null);
@@ -794,11 +772,11 @@ function Room({
    */
   const [ranWith, setRanWith] = useState<Slot | null>(null);
 
-  const { ref, session } = useSession(volume, deviceRate, announceSeat, watching, padOnly);
+  const { ref, session } = useSession(volume, deviceRate, announceSeat, watching);
   useEffect(() => {
     if (!session) return;
-    session.sound.setIdle(idle || padOnly);
-    if (idle || padOnly) session.video.stop();
+    session.sound.setIdle(idle);
+    if (idle) session.video.stop();
     else session.video.start();
     if (!idle) setMenu(false);
     if (idle) {
@@ -817,7 +795,7 @@ function Room({
       // Le menu ne s'ouvre plus d'office au repos : l'écran éteint le
       // propose (`EcranEteint`). Il n'y a plus de dossier où remonter.
     }
-  }, [idle, padOnly, session]);
+  }, [idle, session]);
 
   /** Ce que la salle propose, relu pendant la visite.
    *
@@ -1035,14 +1013,13 @@ function Room({
     : undefined;
   /** Où en est l'attente du chargement montré, comme l'écran et la ligne
    * parlée la lisent : normale, longue ou perdue. */
-  const attenteDuChargement =
-    booting && !padOnly
-      ? attenteDemarrage(
-          (performance.now() - booting.at) / 1000,
-          booting.stalled ?? false,
-          seuilLong(habitudeDuChargement),
-        )
-      : undefined;
+  const attenteDuChargement = booting
+    ? attenteDemarrage(
+        (performance.now() - booting.at) / 1000,
+        booting.stalled ?? false,
+        seuilLong(habitudeDuChargement),
+      )
+    : undefined;
   /** L'écran de chargement offre ses gestes, Signaler compris (C7a). */
   const chargementParle = attenteDuChargement !== undefined;
   useEffect(() => {
@@ -1083,21 +1060,14 @@ function Room({
     // Le plafond de soixante secondes ne fait plus DISPARAÎTRE l'écran: il
     // s'effaçait sur du noir, sans un mot. C'est le seul endroit où la page
     // SAIT qu'elle a échoué, donc c'est là que la sortie est proposée.
-    //
-    // Une page « manette seule » n'a pas d'image: son chargement s'efface quand
-    // la salle annonce le jeu demandé, et ne retenait plus ses touches sans fin
-    // (relecture du 22 novembre 2026).
     const suite = suiteDuChargement({
-      padOnly,
-      demande: booting.game,
-      enCours: jeuEnCours,
       depuisMs: performance.now() - booting.at,
       cale: booting.stalled === true,
       image: live,
     });
     if (suite === "effacer") setBooting(null);
     else if (suite === "caler") setBooting({ ...booting, stalled: true });
-  }, [booting, shot, session, padOnly, jeuEnCours]);
+  }, [booting, shot, session, jeuEnCours]);
   useEffect(() => {
     applyTheme(theme);
     rememberTheme(theme);
@@ -1351,16 +1321,11 @@ function Room({
    * recouvraient la manette à l'écran et son « ••• » : sur un téléphone, la
    * salle (places, signaler, quitter) devenait introuvable pendant une panne
    * (audit P4, E7). La manette n'est donc pas montée, et « La salle » reste
-   * dans la barre, hors de ces écrans (23 novembre 2026).
-   *
-   * Pas pour une page « manette seule »: elle n'a ni image ni écran de
-   * chargement, et c'est elle qu'on tient pendant que le jeu démarre
-   * (`voileSurImage`). */
+   * dans la barre, hors de ces écrans (23 novembre 2026). */
   const voile = voileSurImage({
     repos: idle && !menu && !configuring,
     chargement: booting !== null,
     rideau: dire(liaison, salle(), contexteEtat).niveau === "plein",
-    padOnly,
   });
   /** La page a choisi de regarder (`input.watching`), et ne tient pas de
    * place. */
@@ -1375,7 +1340,7 @@ function Room({
     tenu,
     etroit: modeSalle === "etroit",
     feuille,
-    manette: session !== null && onTouch && (!regardeParChoix || padOnly),
+    manette: session !== null && onTouch && !regardeParChoix,
     voile,
     bare,
     reglage: reglage !== null,
@@ -1523,7 +1488,7 @@ function Room({
    * pas d'image, et un chargement a son propre écran : seule la fermeture
    * proche leur reste. */
   const modele = useModeleDeLEtat({
-    liaison: booting === null && !padOnly ? liaison : { etat: "ok" },
+    liaison: booting === null ? liaison : { etat: "ok" },
     salle: salle(),
     contexte: contexteEtat,
     fermeDans: closingIn,
@@ -1651,14 +1616,11 @@ function Room({
         aConfigurer: shot ? manetteAConfigurer(shot.input) : false,
         profilClavier: shot?.input.keyProfile ?? "défaut",
         console: room?.game?.console,
-        moteur: moteurDe(room?.game?.console),
         pad,
         touchPref,
-        padOnly,
         ouvrirTouches: ouvrirLesTouches,
         switchPad,
         setTouchPref,
-        onPadOnly,
       }),
     },
     {
@@ -1824,7 +1786,7 @@ function Room({
   /* Le cadre de la salle (`lib/cadre`) : l'état, le rôle et la géométrie,
      posés sur la racine en attributs et en variables CSS que les feuilles de
      chaque chantier lisent. */
-  const roleDuCadre: RoleDuCadre = padOnly ? "seule" : port === null ? "regarde" : "joueur";
+  const roleDuCadre: RoleDuCadre = port === null ? "regarde" : "joueur";
   /** La manette tactile : sa PLACE est réservée qu'elle soit montée ou non
    * (sous la feuille, pendant un chargement), pour que l'image ne bouge pas
    * quand elle se démonte. À la souris aussi, réglée sur « toujours » : le
@@ -2190,7 +2152,7 @@ function Room({
    * la rangée, elle est sur ta place START, et nulle part ailleurs. */
   const maPlace = port === null ? null : (lesPlaces(entreeDesPlaces)[port - 1] ?? null);
   const tonEtiquette =
-    tenu && !padOnly && maPlace !== null && geo.etiquette !== null ? (
+    tenu && maPlace !== null && geo.etiquette !== null ? (
       <>
         <span
           className="n3-etiquette-numero"
@@ -2230,11 +2192,11 @@ function Room({
   const cartesDansLaBande =
     avisDansLaBande && couches.colonne !== "feuille" && modeSalle === "portrait";
   /** Le panneau de commande d'une salle tenue en main : où le cadre le pose
-   * (sous l'image, debout dans la bande gauche), pas pour une manette seule.
+   * (sous l'image, debout dans la bande gauche).
    * La feuille agrandie le couvre : il passe alors dans sa colonne, pour que
    * les places ne soient jamais montées deux fois (leurs identifiants sont
    * lus par les pilotes et par les lecteurs d'écran). */
-  const panneauTenu = tenu && !padOnly && couches.colonne !== "feuille" ? geo.panneau.rect : null;
+  const panneauTenu = tenu && couches.colonne !== "feuille" ? geo.panneau.rect : null;
   /** Le crédit de la borne : les places libres, compté comme les places. */
   const credit = <Credit libres={occupied.filter((tenue) => !tenue).length} fermee={salleFermee} />;
   /** Le bout droit du panneau de commande : « Toutes les touches », qui ouvre
@@ -2844,9 +2806,9 @@ function Room({
             écran éteint posé sur `inset-0` le couvrait. */}
         <div
           className="relative flex min-h-0 flex-1 flex-col"
-          // Tenue en main, l'écran est où le cadre le pose. Une manette seule
-          // n'en a pas : la toile reste montée (la boucle média la tient par
-          // une référence), réduite à rien.
+          // Tenue en main, l'écran est où le cadre le pose. Sans écran posé,
+          // la toile reste montée (la boucle média la tient par une
+          // référence), réduite à rien.
           // À la souris, la manette « toujours » prend ses marges autour de
           // l'écran : l'image se pose dans ce qui reste.
           style={
@@ -2922,7 +2884,7 @@ function Room({
             deux ne se montrent que sous leur jeton de couverture, levé par la
             première image peinte (ADR D40). La pastille et la fiche vivent
             hors de l'image. Rien pour une page-manette. */}
-          {booting === null && !padOnly ? <PleinCadre modele={modele} rappels={rappels} /> : null}
+          {booting === null ? <PleinCadre modele={modele} rappels={rappels} /> : null}
           {modele.couverture === "neige" && cadre ? <Neige cadre={cadre} /> : null}
 
           {/* L'écran de chargement d'un changement de jeu, dans la zone de
@@ -2933,7 +2895,7 @@ function Room({
             premier lancement d'une salle vide, le jeu n'est pas encore chargé
             côté worker, donc la salle est encore « au repos » pendant qu'il
             redémarre. */}
-          {booting && !padOnly ? (
+          {booting ? (
             <Booting
               game={booting.game}
               habitude={habitudeDuChargement}
@@ -3021,7 +2983,7 @@ function Room({
             change (audit A11Y-03, A11Y-07, A11Y-09). */}
           <LigneParlee
             liaison={
-              booting && !padOnly
+              booting
                 ? {
                     etat: "demarrage",
                     depuisMs: performance.now() - booting.at,
@@ -3054,7 +3016,7 @@ function Room({
               plateau du plein cadre, sinon là où la salle la pose. */}
           <ScenesDesEtats
             moment={{
-              liaison: booting === null && !padOnly ? liaison : { etat: "ok" },
+              liaison: booting === null ? liaison : { etat: "ok" },
               fermeDans: closingIn,
             }}
             hote={(scene) => (modele.niveau === "plein" ? "plateau" : ouEstLaMascotte(geo, scene))}
@@ -3108,7 +3070,7 @@ function Room({
           <BarreSalle
             rect={geo.barre}
             nomSalle={nomSalle}
-            jeu={padOnly ? null : jeuEnCours}
+            jeu={jeuEnCours}
             sonCoupe={soundOff}
             onSalle={() => setFeuille("mi")}
             pastille={
@@ -3146,16 +3108,6 @@ function Room({
             </PanneauCommande>
           </div>
         ) : null}
-        {padOnly && geo.panneau.rect ? (
-          <ManetteSeule
-            rect={geo.panneau.rect}
-            jeu={jeuEnCours}
-            place={port}
-            allerRetourMs={shot?.input.roundTripMs ?? null}
-            entenduIlYaMs={shot?.input.sinceHeardMs ?? null}
-            annoncer={annoncer}
-          />
-        ) : null}
         {avisDansLaBande && geo.bande && couches.colonne !== "feuille" ? (
           <Bande rect={geo.bande} ancre={!geo.barre}>
             {tonEtiquette && geo.etiquette?.lieu === "bande" ? (
@@ -3174,7 +3126,7 @@ function Room({
                 onOuvrir={() => setFeuille("agrandie")}
               />
             ) : null}
-            {shot?.input.padId && port !== null && !padOnly ? (
+            {shot?.input.padId && port !== null ? (
               <ManetteDansLaBande
                 nom={identify(shot.input.padId, shot.input.padLayout ?? "").name}
                 place={port}
@@ -3218,10 +3170,10 @@ function Room({
               plein,
               pleinActif: fullscreen,
               // Le clip, pendant une partie seulement : rien à garder sans image.
-              clip: room?.game && !padOnly ? clip.state : null,
+              clip: room?.game ? clip.state : null,
               travers: modeSalle === "paysage",
               // « Touches et manettes », quand sa rangée tient (`lib/feuille`).
-              reglage: session !== null && port !== null && !padOnly,
+              reglage: session !== null && port !== null,
               hauteurMi: geo.feuille?.mi.h,
             })}
             onEntree={(id) => {

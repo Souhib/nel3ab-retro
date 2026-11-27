@@ -84,7 +84,6 @@ export const MANETTES: readonly Arranged[] = [
   { id: "touches-clavier", group: MENU.groupes.manette },
   { id: "pad", group: MENU.groupes.wii },
   { id: "touchpad", group: MENU.groupes.telephone },
-  { id: "padonly", group: MENU.groupes.telephone },
 ] as const;
 
 /**

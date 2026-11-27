@@ -65,8 +65,8 @@ export type Mode = (typeof MODES)[number];
  */
 export const BUREAU_DES = 900;
 
-export const ROLES = ["joueur", "regarde", "seule"] as const;
-/** Qui tient cette page : une place, un spectateur, ou une manette seule. */
+export const ROLES = ["joueur", "regarde"] as const;
+/** Qui tient cette page : une place ou un spectateur. */
 export type Role = (typeof ROLES)[number];
 
 /**
@@ -76,8 +76,8 @@ export type Role = (typeof ROLES)[number];
  *   colonne à droite ;
  * - étroit : pointeur fin, moins de 900 px ; l'image en haut sur toute la
  *   largeur, la colonne dessous, qui défile en elle-même. Plus de tiroir ;
- * - portrait et paysage : au doigt, ou pour une manette seule, selon que la
- *   fenêtre est plus haute que large ou non.
+ * - portrait et paysage : au doigt, selon que la fenêtre est plus haute que
+ *   large ou non.
  */
 export function modeDuCadre(e: {
   largeur: number;
@@ -86,7 +86,7 @@ export function modeDuCadre(e: {
   grossier: boolean;
   role: Role;
 }): Mode {
-  if (e.grossier || e.role === "seule") return e.largeur > e.hauteur ? "paysage" : "portrait";
+  if (e.grossier) return e.largeur > e.hauteur ? "paysage" : "portrait";
   return e.largeur >= BUREAU_DES ? "bureau" : "etroit";
 }
 
@@ -361,8 +361,8 @@ export type Geometrie = {
   etat: EtatDuCadre;
   role: Role;
   agrandie: boolean;
-  /** L'écran noir : la boîte où l'image est posée, centrée. `null` pour une
-   * manette seule, qui n'a pas d'image. */
+  /** L'écran noir : la boîte où l'image est posée, centrée. `null` quand le
+   * cadre n'en pose pas. */
   ecran: Rect | null;
   /** Le rectangle de l'image posée, `null` sans image. */
   image: Rect | null;
@@ -390,8 +390,8 @@ export type Geometrie = {
    * « toujours » à la souris (il déplie la colonne repliée). */
   salleDansLaManette: boolean;
   /** Où se lit ta place hors de la rangée du panneau : `null` quand la
-   * rangée la porte, ou sans place (spectateur, manette seule, sans manette
-   * tactile, à la souris). */
+   * rangée la porte, ou sans place (spectateur, sans manette tactile, à la
+   * souris). */
   etiquette: LieuEtiquette | null;
   /** La bande noire au-dessus de l'image, quand elle fait 40 px ou plus. */
   fronton: Rect | null;
@@ -759,16 +759,7 @@ function portrait(e: Entree): Geometrie {
   type G = { barre: number; image: number; chant: number; bande: number; m: number; iw: number };
   let g: G;
   let cede = false;
-  if (e.role === "seule" && besoin !== null) {
-    g = {
-      barre: BARRE,
-      image: 0,
-      chant: Math.max(0, H - BARRE - besoin - 8),
-      bande: 0,
-      m: besoin,
-      iw: 0,
-    };
-  } else if (besoin === null) {
+  if (besoin === null) {
     // Pas de manette tactile : spectateur, vraie manette, salle sans jeu.
     const voulu = sans ? Math.max(ih, Math.min(H - BARRE - C0 - 170, Math.round(W * 1.05))) : ih;
     const imgH = Math.max(0, Math.min(voulu, H - BARRE - C0));
@@ -890,7 +881,7 @@ function paysage(e: Entree): Geometrie {
   // « La salle » (44 px) à 20 px au moins de la première épaule : 72 px
   // au-dessus de la grappe, ou 100 avec ton étiquette entre les deux.
   const PLUS = { nu: 0, "tete-etiquette": 100, tete: 72 } as const;
-  type Variante = "seule" | "nu" | "tete-etiquette" | "tete" | "bas";
+  type Variante = "nu" | "tete-etiquette" | "tete" | "bas";
   type Choix = {
     /** La hauteur des grappes, et la largeur de chacune (`encombrement`). */
     gh: number;
@@ -911,11 +902,7 @@ function paysage(e: Entree): Geometrie {
   // iPhone 12 mini en travers (375 px, barre d'accueil de 21) laissait 346 px
   // à la manette Pro, qui en demande 348 pour tenir dans sa bande de 140 px ;
   // sinon il lui en faut 308 (sonde du 23 novembre 2026).
-  if (e.role === "seule" && D) {
-    const gh = H - m;
-    const gl = grappeDe(gh) ?? 0;
-    best = { gh, gl, cote: gl + 2 * m, variante: "seule", iw: 0, ih: 0, score: 0 };
-  } else if (!D) {
+  if (!D) {
     const b = remplir(W, H, format);
     best = { gh: 0, gl: 0, cote: (W - b.w) / 2, variante: "nu", iw: b.w, ih: b.h, score: 0 };
   } else {
@@ -967,10 +954,7 @@ function paysage(e: Entree): Geometrie {
     d: rect(W0 - sa.droite - m - g.gl, T + H - g.gh, g.gl, g.gh),
   });
 
-  if (g.variante === "seule") {
-    barre = rect(xg, T, C, BARRE);
-    panneau = { forme: "sous", rect: rect(xg, T + 60, C, H - 60) };
-  } else if (g.variante === "bas" && D) {
+  if (g.variante === "bas" && D) {
     // Barre, image, puis en bas la manette du portrait, pouces aux bords ; le
     // panneau et la bande entre l'image et elle.
     barre = rect(L, T, W, BARRE);
@@ -1255,7 +1239,7 @@ export function emplacementPastille(
  */
 export function ouEstLaMascotte(geo: Geometrie, scene?: string): Hote | null {
   if (geo.agrandie) return null;
-  if (sansImage(geo.etat) && geo.ecran !== null && geo.role !== "seule") return "plateau";
+  if (sansImage(geo.etat) && geo.ecran !== null) return "plateau";
   if (geo.mode === "bureau" || geo.mode === "etroit") {
     if ((scene === "arrivee" || scene === "depart") && geo.panneau.forme === "sous") {
       return "bord-panneau";

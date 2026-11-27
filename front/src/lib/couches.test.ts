@@ -83,22 +83,14 @@ describe("Ctrl seule, dans une salle tenue en main", () => {
 });
 
 describe("le voile sur l'image", () => {
-  const RIEN = { repos: false, chargement: false, rideau: false, padOnly: false };
+  const RIEN = { repos: false, chargement: false, rideau: false };
 
   it("couvre l'image d'un chargement quand elle est montrée", () => {
     expect(voileSurImage({ ...RIEN, chargement: true })).toBe(true);
   });
 
-  it("ne couvre pas la manette d'une page « manette seule » qui charge", () => {
-    // Sans image, le chargement ne s'efface jamais (il attend une image
-    // peinte): la manette restait démontée après chaque lancement.
-    expect(voileSurImage({ ...RIEN, chargement: true, padOnly: true })).toBe(false);
-    expect(voileSurImage({ ...RIEN, rideau: true, padOnly: true })).toBe(false);
-  });
-
   it("couvre toujours la salle au repos, image ou pas", () => {
     expect(voileSurImage({ ...RIEN, repos: true })).toBe(true);
-    expect(voileSurImage({ ...RIEN, repos: true, padOnly: true })).toBe(true);
     expect(voileSurImage(RIEN)).toBe(false);
   });
 });

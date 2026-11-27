@@ -454,47 +454,6 @@ const ETAPES = {
     if (fautes.length) throw new Defaut(fautes.join(" ; "));
   },
 
-  /** Une page « manette seule » n'a pas d'image à épargner. Le cadre lui
-   * donne la même place qu'aux autres, sous la barre, où sa manette n'est pas
-   * montée pendant le réglage (`reglageTenu`, `lib/cadre.ts` ; règle de la
-   * salle gardée à l'intégration du 25 novembre 2026). Ouvert par le menu
-   * (rubrique Manettes), le panneau doit se voir. */
-  async "manette-seule"() {
-    const page = await nouvelle({ width: 390, height: 844, isMobile: true, hasTouch: true });
-    await page.evaluateOnNewDocument(() => {
-      try {
-        localStorage.setItem("nel3ab:padonly", "oui");
-      } catch {
-        // Sans stockage, la page n'est pas « manette seule » : la
-        // précondition plus bas le dira.
-      }
-    });
-    // Une manette seule ne peint aucune image : pas d'`entrer`, qui les compte.
-    await page.goto(banc.url, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#enter, #screen", { timeout: 15000 }).catch(() => null);
-    if (await page.$("#enter")) await page.click("#enter");
-    if (!(await jusqua(() => page.$('[data-cadre][data-role="seule"]').then(Boolean), 15000)))
-      throw new Precondition("la page n'est pas « manette seule »");
-    await sleep(500);
-    if (!(await toucher(page, "#laSalle")) && !(await toucher(page, '[data-geste="feuille"]')))
-      throw new Precondition("pas de « La salle »");
-    const entree = '#feuilleSalle [data-entree="menu"]';
-    if (!(await jusqua(() => page.$(entree).then(Boolean), 3000))) throw new Precondition("la feuille n'a pas le menu");
-    await toucher(page, entree);
-    if (!(await jusqua(() => page.$("#ray-manettes").then(Boolean), 3000))) throw new Precondition("le menu n'a pas sa rubrique Manettes");
-    await toucher(page, "#ray-manettes");
-    if (!(await jusqua(() => page.$("#item-bindings").then(Boolean), 3000))) throw new Precondition("pas de « Touches et manettes » au menu");
-    await toucher(page, "#item-bindings");
-    const vu = () =>
-      page.evaluate(() => {
-        const r = document.querySelector("[data-reglage]")?.getBoundingClientRect();
-        return r ? r.width > 0 && r.height > 0 : false;
-      });
-    if (!(await jusqua(vu, 3000))) throw new Defaut("le menu d'une page « manette seule » n'ouvre aucun panneau visible");
-    await capture(page, "manette-seule");
-    await page.close();
-  },
-
   /** Changement 3 : « Toutes les touches » ouvre l'onglet Clavier, le focus
    * entre dans le panneau, Échap ferme et rend le focus à l'ouvreur. Une
    * seconde ouverture change l'onglet sans monter un second panneau. */

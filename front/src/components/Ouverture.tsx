@@ -27,7 +27,7 @@ import { BANDE_MIN, HAUTEUR_MIN } from "../lib/menu";
 import { storedColumn } from "../lib/column";
 import { storedFit } from "../lib/fit";
 import { OUVERTURE } from "../lib/mots";
-import { looksLikeAPhone, storedPadOnly } from "../lib/theme";
+import { looksLikeAPhone } from "../lib/theme";
 import { jouer, poserMascotte } from "../mascotte";
 import { placeDe, useFenetre, useGeometrie, useZonesSures } from "./Cadre";
 import { SCENE_DU_COIN } from "./Coin";
@@ -87,7 +87,7 @@ export function Ouverture({
     largeur: fenetre.width,
     hauteur: fenetre.height,
     grossier: looksLikeAPhone(),
-    role: storedPadOnly() ? "seule" : "joueur",
+    role: "joueur",
   });
   const [largeur] = useState(storedColumn);
   const geo = useGeometrie({

@@ -4,9 +4,8 @@ import {
   THEMES,
   applyTheme,
   rememberTheme,
-  rememberPadOnly,
+  oublierManetteSeule,
   showsTouchPad,
-  storedPadOnly,
   storedTheme,
   storedTouch,
   oublierLaCoque,
@@ -129,20 +128,18 @@ describe("la manette à l'écran", () => {
   });
 });
 
-describe("la manette seule", () => {
-  it("est absente par défaut", () => {
-    // Quelqu'un qui ouvre la salle veut voir le jeu. Le mode manette est un
-    // choix, pas un état où on se retrouve sans l'avoir demandé.
-    localStorage.clear();
-    expect(storedPadOnly()).toBe(false);
+describe("la manette seule, retirée le 27 novembre 2026", () => {
+  it("efface la clé qu'un appareil avait posée", () => {
+    localStorage.setItem("nel3ab:padonly", "oui");
+    oublierManetteSeule();
+    expect(localStorage.getItem("nel3ab:padonly")).toBeNull();
   });
 
-  it("se garde dans les deux sens", () => {
-    // Le jumeau du test au-dessus: sans lui, une fonction qui rendrait toujours
-    // faux le satisferait sans rien garder du tout.
-    rememberPadOnly(true);
-    expect(storedPadOnly()).toBe(true);
-    rememberPadOnly(false);
-    expect(storedPadOnly()).toBe(false);
+  it("le jumeau : laisse les autres réglages de l'appareil", () => {
+    localStorage.setItem("nel3ab:touchpad", "on");
+    localStorage.setItem("nel3ab:padonly", "non");
+    oublierManetteSeule();
+    expect(localStorage.getItem("nel3ab:touchpad")).toBe("on");
+    localStorage.removeItem("nel3ab:touchpad");
   });
 });

@@ -99,13 +99,8 @@ export function voileSurImage(e: {
   chargement: boolean;
   /** Le rideau d'une arrivée sans image. */
   rideau: boolean;
-  padOnly: boolean;
 }): boolean {
-  // Une page « manette seule » n'a pas d'image: son chargement ne s'efface
-  // jamais tout seul (il attend une image peinte), et le compter ici
-  // démontait la manette après chaque lancement (relecture du 22 novembre
-  // 2026). Le rideau d'une arrivée, de même, ne parle que de l'image.
-  return e.repos || (!e.padOnly && (e.chargement || e.rideau));
+  return e.repos || e.chargement || e.rideau;
 }
 
 /** Où rendre le focus quand la feuille se ferme. */

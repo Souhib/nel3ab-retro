@@ -262,6 +262,43 @@ mod tests {
         let taken = server.wait_unread(Duration::ZERO);
         assert_eq!((taken[0].went_down & 1, taken[0].went_up & 1), (0, 1));
     }
+    /// Une trame est comptée une fois rangée dans son emplacement et datée,
+    /// pas avant. Les essais attendent le compte puis lisent l'emplacement ou
+    /// les arrivées; compté avant, le compte pouvait précéder l'écriture, et
+    /// l'emplacement se lisait vide une fois sur huit (relecture du
+    /// 2026-11-27, `a_press_written_before_its_release_is_remembered_by_the_slot`).
+    #[test]
+    fn a_frame_is_counted_once_it_is_in_its_slot() {
+        let server = BrowserServer::start_with_input(
+            ([127, 0, 0, 1], 0).into(),
+            "",
+            Arc::from("[]"),
+            no_art(),
+            four(),
+            &nobody(),
+            InputKind::Switch,
+        )
+        .unwrap();
+        let (mut socket, seat) = hold(server.address());
+        let _ = server.wait_unread(Duration::from_millis(100));
+        let before = server.inputs_received();
+        let frame = SwitchFrame::neutral(PlayerSlot::new(seat).unwrap());
+        // The slots are held: the frame waits for them, read but not stored.
+        let slots = server.incoming.lock().unwrap();
+        socket
+            .send(Message::Binary(frame.encode().to_vec().into()))
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+        let counted = server.inputs_received() - before;
+        drop(slots);
+        assert_eq!(
+            counted, 0,
+            "a frame was counted while it waited for its slot"
+        );
+        // The twin: once stored, it is counted, and the slot holds it.
+        assert!(eventually(|| server.inputs_received() == before + 1));
+        assert_eq!(server.wait_unread(Duration::ZERO).len(), 1);
+    }
     /// Le jumeau de la main qui change: le silence entre le départ d'un joueur
     /// et l'arrivée du suivant sur la même place n'est pas un trou de liaison.
     #[test]

@@ -1379,7 +1379,9 @@ impl BrowserServer {
     /// How many pad frames have arrived in total.
     #[must_use]
     pub fn inputs_received(&self) -> u64 {
-        self.received.load(std::sync::atomic::Ordering::Relaxed)
+        // `Acquire`, against the `Release` of `apply_pad`: a frame counted
+        // here is already in its slot.
+        self.received.load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// How many frames a connected client was too slow to take.

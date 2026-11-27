@@ -159,9 +159,6 @@ pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bo
         tracing::warn!("a client sent an invalid controller frame for this room");
         return false;
     };
-    shared
-        .received
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     if let Ok(mut arrivals) = shared.arrivals.lock()
         && let Some(place) = arrivals.get_mut(seat.index())
     {
@@ -186,6 +183,13 @@ pub(super) fn apply_pad(payload: &[u8], seat: PlayerSlot, shared: &Shared) -> bo
             *place = Some(place.map_or_else(|| Unread::new(frame), |unread| unread.then(frame)));
         }
     }
+    // Counted once dated and stored, with `Release`: whoever reads this count
+    // with `Acquire` then finds the frame in its slot and in its arrivals.
+    // Counted first, the count could run ahead of the slot (relecture du
+    // 2026-11-27).
+    shared
+        .received
+        .fetch_add(1, std::sync::atomic::Ordering::Release);
     // Woken after the lock is released, so the waiter does not wake straight
     // into a lock it cannot take.
     shared.arrived.notify_one();

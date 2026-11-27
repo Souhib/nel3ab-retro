@@ -82,14 +82,17 @@ def cpu_pinning(config: dict) -> list[str]:
     aide, et une salle bridée sur trop peu de cœurs irait plus mal. Le réglage
     existe donc pour être MESURÉ, en phases alternées, avant d'être un défaut.
 
-    `cpuset` est la liste que Docker attend, par exemple "0-3,6-9" sur un six
-    cœurs avec jumeaux logiques. Absent, l'émulateur voit toute la machine.
+    `cpuset` est la liste que Docker attend, par exemple "0-2,6-8" sur le Ryzen 5
+    3600 de lgf: ses trois premiers cœurs et leurs jumeaux, qui partagent un même
+    cache L3 (lu dans /sys le 27 novembre 2026: 0-2,6-8 et 3-5,9-11). L'ancien
+    exemple, 0-3,6-9, prenait quatre cœurs à cheval sur les deux caches. Absent,
+    l'émulateur voit toute la machine.
     """
     cpuset = config.get("cpuset")
     if cpuset is None:
         return []
     if not isinstance(cpuset, str) or not cpuset.strip():
-        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-3,6-9", pas {cpuset!r}')
+        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-2,6-8", pas {cpuset!r}')
     return ["--cpuset-cpus", cpuset.strip()]
 
 

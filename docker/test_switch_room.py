@@ -3,6 +3,7 @@
 import fcntl
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -322,8 +323,32 @@ class CpuPinning(unittest.TestCase):
         self.assertEqual(module.cpu_pinning({"cpuset": None}), [])
 
     def test_the_asked_cores_reach_docker(self):
-        self.assertEqual(module.cpu_pinning({"cpuset": "0-3,6-9"}), ["--cpuset-cpus", "0-3,6-9"])
+        self.assertEqual(module.cpu_pinning({"cpuset": "0-2,6-8"}), ["--cpuset-cpus", "0-2,6-8"])
         self.assertEqual(module.cpu_pinning({"cpuset": " 0-3 "}), ["--cpuset-cpus", "0-3"])
+
+    def test_the_example_it_gives_keeps_one_level_three_cache(self):
+        # /sys/devices/system/cpu/cpu*/cache/index3/shared_cpu_list, read on
+        # 2026-11-27 on this Ryzen 5 3600: two blocks of three cores and their
+        # twins, 16 MiB of L3 each. "0-3,6-9" took four cores across both.
+        caches = ({0, 1, 2, 6, 7, 8}, {3, 4, 5, 9, 10, 11})
+
+        def cores(text):
+            chosen = set()
+            for part in text.split(","):
+                first, _, last = part.partition("-")
+                chosen.update(range(int(first), int(last or first) + 1))
+            return chosen
+
+        with self.assertRaises(ValueError) as refused:
+            module.cpu_pinning({"cpuset": ""})
+        examples = re.findall(r'"([0-9][0-9,-]*)"', str(refused.exception))
+        examples += re.findall(r'"([0-9][0-9,-]*)"', module.cpu_pinning.__doc__)
+        self.assertEqual(len(examples), 2, examples)
+        for example in examples:
+            with self.subTest(example=example):
+                self.assertTrue(any(cores(example) <= cache for cache in caches), example)
+        # The twin: the guard sees an example that crosses both caches.
+        self.assertFalse(any(cores("0-3,6-9") <= cache for cache in caches))
 
     def test_a_cpuset_that_is_not_one_names_the_mistake(self):
         # Sans ce refus, `true` ou une liste deviendraient un conteneur lancé

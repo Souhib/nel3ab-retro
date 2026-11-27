@@ -343,14 +343,17 @@ def cpu_pinning(config: dict) -> list[str]:
     aide, et une salle bridée sur trop peu de cœurs irait plus mal. Le réglage
     existe donc pour être MESURÉ, en phases alternées, avant d'être un défaut.
 
-    `cpuset` est la liste que Docker attend, par exemple "0-3,6-9" sur un six
-    cœurs avec jumeaux logiques. Absent, l'émulateur voit toute la machine.
+    `cpuset` est la liste que Docker attend, par exemple "0-2,6-8" sur le Ryzen 5
+    3600 de lgf: ses trois premiers cœurs et leurs jumeaux, qui partagent un même
+    cache L3 (lu dans /sys le 27 novembre 2026: 0-2,6-8 et 3-5,9-11). L'ancien
+    exemple, 0-3,6-9, prenait quatre cœurs à cheval sur les deux caches. Absent,
+    l'émulateur voit toute la machine.
     """
     cpuset = config.get("cpuset")
     if cpuset is None:
         return []
     if not isinstance(cpuset, str) or not cpuset.strip():
-        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-3,6-9", pas {cpuset!r}')
+        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-2,6-8", pas {cpuset!r}')
     return ["--cpuset-cpus", cpuset.strip()]
 
 
@@ -393,18 +396,65 @@ class EngineLaunch(NamedTuple):
     pad_layout: str = "switch"
 
 
+#: The engine settings the room owns, with the values Ryubing 475615f accepts.
+#:
+#: Ryubing without a window never reads Config.json: HeadlessRyujinx.cs:148-151
+#: calls InheritMainConfig only with --use-main-config, and the configuration is
+#: built from the command line (HeadlessRyujinx.Init.cs:216-252). On 2026-11-26
+#: the log said « BackendThreading set to: On » (Config.json read) then
+#: « Backend Threading (Auto): True » (value used): the 16 September change to
+#: Config.json never took effect. Each default is the value in effect that night:
+#: Switch (Options.cs:309), Auto, which Vulkan turns into threaded
+#: (VulkanRenderer.cs:111), and HostMapped, which the room already passed.
+#: --use-main-config stays off: thirteen saved Config.json files have drifted
+#: (versions 70 and 73), and the room would then depend on each of them.
+#: The names are case sensitive, as the engine's parser is (Parser.Default).
+ENGINE_SETTINGS = (
+    # Custom is left out: it needs --custom-refresh-rate, which the room does not
+    # own yet, and the engine would then run at its own default of 90 Hz.
+    ("vsync_mode", "--vsync-mode", "Switch", ("Switch", "Unbounded")),
+    ("backend_threading", "--backend-threading", "Auto", ("Auto", "Off", "On")),
+    (
+        "memory_manager_mode",
+        "--memory-manager-mode",
+        "HostMapped",
+        ("SoftwarePageTable", "HostMapped", "HostMappedUnsafe"),
+    ),
+)
+
+
+def engine_settings(config: dict) -> list[str]:
+    """Each engine setting on the command line, refused before Docker when unknown."""
+    arguments = []
+    for key, flag, default, accepted in ENGINE_SETTINGS:
+        value = config.get(key, default)
+        if type(value) is not str or value not in accepted:
+            raise ValueError(f"{key} must be one of {', '.join(accepted)}, not {value!r}")
+        arguments += [flag, value]
+    return arguments
+
+
 def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
+    # Checked before the profile is written and before any container starts.
+    settings = engine_settings(config)
     profile = ("data", "profiles", "controller", "nel3ab.json")
     with ouvrir_sans_lien(slot, *profile, mode="wb") as stream:
         stream.write((TOOLS / "ryubing-pro-controller.json").read_bytes())
+    # The room starts the executable itself, not the Ryujinx.sh shipped beside it.
+    # That launcher adds LANG=C.UTF-8 (runtime.sh sets LC_ALL=C.UTF-8, which wins
+    # over LANG) and DOTNET_EnableAlternateStackCheck=1, which the room omits.
+    # Why upstream sets the second one is not established here: on 2026-11-27 the
+    # commit that added it could not be read without the network, and no failure
+    # is linked to its absence (twenty starts and stops, all exit code 0, on
+    # 2026-09-10; exit code 0 on 2026-11-26). Adding it is a change to measure,
+    # with a case that fails without it, not a fix (RYU-13).
     command = [
         "/emulator/publish/Ryujinx",
         "--no-gui",
         "--root-data-dir",
         "/run-data/data",
         "--fullscreen",
-        "--memory-manager-mode",
-        "HostMapped",
+        *settings,
         "--graphics-backend",
         "Vulkan",
         "--ignore-controller-applet",
@@ -425,6 +475,57 @@ def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
         command,
         4,
     )
+
+
+class CaptureRestarts:
+    """Whether a room may start its capture once more.
+
+    Two rules. Three failures within a minute stop a capture that dies at once
+    (the laboratory service's StartLimitBurst=3, 2026-09-08). And once a
+    capture has sent a game picture, three failures in a row with no game
+    picture between them stop a slow loop: on 2026-11-21 the Xbox 360 room
+    restarted its capture 36 times, about 35.5 s apart, for 21 minutes after
+    Xenia stopped presenting, and no restart brought the picture back.
+    Before the first game picture only the first rule counts: a first launch
+    that rebuilds its translation cache shows nothing for 4 minutes (Mario
+    Tennis, carnet), and each capture then ends at its 90 s start limit.
+    Only SHOWN_THEN_FAILED proves a game picture. Any other status is a doubt
+    (docker exec's own failure, a signal, python3's own crash): it breaks a
+    series without arming the second rule, so a doubt never stops a room.
+    """
+
+    #: The exit statuses of a capture that failed before sending any game
+    #: picture, and after sending one (spikes/switch-room/capture.py, which
+    #: holds the same numbers). python3 itself exits 1 on an uncaught exception,
+    #: before any picture too, then 2 or 120; docker exec exits 125 to 127, or
+    #: 128 and a signal number: 3 and 4 are none of them.
+    NOTHING_SHOWN = 3
+    SHOWN_THEN_FAILED = 4
+
+    def __init__(self) -> None:
+        self.starts: list[float] = []
+        self.shown = False
+        self.blank = 0
+
+    def refused(self, now: float, ended: int | None) -> str | None:
+        """Why the next capture must not start, or None if it may.
+
+        `ended` is how the previous capture ended, None before the first.
+        """
+        if ended == self.SHOWN_THEN_FAILED:
+            self.shown, self.blank = True, 0
+        elif ended == self.NOTHING_SHOWN:
+            if self.shown:
+                self.blank += 1
+        elif ended is not None:
+            self.blank = 0
+        self.starts = [at for at in self.starts if now - at < 60]
+        if len(self.starts) >= 3:
+            return "Capture failed three times in one minute"
+        if self.blank >= 2:
+            return "Capture failed three times in a row without a game picture between them"
+        self.starts.append(now)
+        return None
 
 
 def serve(
@@ -512,7 +613,7 @@ def serve(
         (slot / "display.json").unlink(missing_ok=True)
         run(*args, stdout=subprocess.DEVNULL)
         started_engine = True
-        retries: list[float] = []
+        restarts = CaptureRestarts()
         while not selector.select(0.1):
             status = run(
                 "docker",
@@ -535,11 +636,10 @@ def serve(
                     "/probe/capture_control.py",
                     "stop",
                 )
-                now = time.monotonic()
-                retries = [at for at in retries if now - at < 60]
-                if len(retries) >= 3:
-                    raise RuntimeError("Capture failed three times in one minute")
-                retries.append(now)
+                ended = None if capture is None else capture.poll()
+                refused = restarts.refused(time.monotonic(), ended)
+                if refused is not None:
+                    raise RuntimeError(refused)
                 capture = subprocess.Popen(  # noqa: S603 -- private generated container name, fixed command
                     ["/usr/bin/docker", "exec", engine, "python3", "/probe/capture.py"]
                 )
@@ -605,8 +705,18 @@ def stop_engine(engine: str, slot: Path, capture, snapshot=backup) -> None:
             with ouvrir_sans_lien(slot, "exit.json") as sortie:
                 sortie.write(status)
             snapshot(slot)
+            # Docker's hour on each line: the engine dates its own from a
+            # stopwatch reset at launch (Logger.cs), and the file name gave
+            # the absolute hour only to the second (RYU-4, 2026-11-27).
             with ouvrir_sans_lien(slot, "emulator.log") as log:
-                run("docker", "logs", engine, stdout=log, stderr=subprocess.STDOUT)
+                run(
+                    "docker",
+                    "logs",
+                    "--timestamps",
+                    engine,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
         finally:
             run("docker", "rm", engine, stdout=subprocess.DEVNULL)
 

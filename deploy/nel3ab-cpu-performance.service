@@ -6,10 +6,15 @@ After=multi-user.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-# Mesure du 11 septembre 2026 : le meme combat Switch perd 1,2 s par minute en
-# performance contre 1,6 s en schedutil, caches chauds, deux essais de chaque.
+# Mesure du 11 septembre 2026, sous acpi-cpufreq : le meme combat Switch perd
+# 1,2 s par minute en performance contre 1,6 s en schedutil, caches chauds,
+# deux essais de chaque. Depuis le noyau 7.0 (14 septembre 2026), le pilote est
+# amd-pstate-epp : la mesure le precede et n'a pas ete refaite.
 ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "$g"; done'
-ExecStop=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo schedutil > "$g"; done'
+# amd-pstate-epp n'offre que performance et powersave (scaling_available_governors,
+# lu le 27 novembre 2026). L'arret ecrivait schedutil, que le pilote refuse : il
+# a echoue le 14 octobre 2026 ("echo: I/O error"). powersave est l'autre choix.
+ExecStop=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo powersave > "$g"; done'
 
 [Install]
 WantedBy=multi-user.target

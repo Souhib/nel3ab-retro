@@ -91,7 +91,7 @@
     "-v",
     "@TMP@/state/0100abcdef012000/mesa:/run-data/home/.cache/mesa_shader_cache",
     "--cpuset-cpus",
-    "0-3,6-9",
+    "0-2,6-8",
     "--device",
     "/dev/input/event0",
     "--device",
@@ -108,6 +108,10 @@
     "--root-data-dir",
     "/run-data/data",
     "--fullscreen",
+    "--vsync-mode",
+    "Switch",
+    "--backend-threading",
+    "Auto",
     "--memory-manager-mode",
     "HostMapped",
     "--graphics-backend",
@@ -255,6 +259,7 @@
    "argv": [
     "docker",
     "logs",
+    "--timestamps",
     "nel3ab-switch-room-switch-k3y9q2xw"
    ]
   },
@@ -317,7 +322,7 @@
   "stderr": ""
  },
  "arbre": [
-  "f 644 c76b013a3629c59c config.json",
+  "f 644 71cad48925fa818b config.json",
   "d 755 cwd/",
   "d 755 gabarit/",
   "f 644 44136fa355b3678a gabarit/Config.json",

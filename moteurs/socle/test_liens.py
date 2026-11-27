@@ -164,7 +164,8 @@ class Arret(unittest.TestCase):
                 (pads / "devices.json").write_text(json.dumps(["/dev/null"] * 4))
             sortie = options.get("stdout")
             if args[:2] == ("docker", "logs") and hasattr(sortie, "write"):
-                sortie.write(f"journal de {args[2]}\n")
+                # Le conteneur est le dernier argument (--timestamps le précède).
+                sortie.write(f"journal de {args[-1]}\n")
             return SimpleNamespace(stdout='{"ExitCode":0}', returncode=0)
 
         vrai_stat = os.stat

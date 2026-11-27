@@ -106,6 +106,10 @@
     "--root-data-dir",
     "/run-data/data",
     "--fullscreen",
+    "--vsync-mode",
+    "Switch",
+    "--backend-threading",
+    "Auto",
     "--memory-manager-mode",
     "HostMapped",
     "--graphics-backend",
@@ -253,6 +257,7 @@
    "argv": [
     "docker",
     "logs",
+    "--timestamps",
     "nel3ab-switch-room-switch-k3y9q2xw"
    ]
   },

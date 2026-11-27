@@ -1,7 +1,7 @@
 """Ce qu'un moteur donne au cycle de vie: son plan, son environnement, ses manettes.
 
 Déplacé de `docker/switch-room.py` octet pour octet (`run`, `pad_command`,
-`cpu_pinning`, `engine_environment`, `EngineLaunch`), qui garde sa propre copie
+`cpu_pinning`, `engine_environment`, `EngineLaunch`, `CaptureRestarts`), qui garde sa propre copie
 jusqu'à la bascule de la Switch. `test_differentiel.py` tient les deux égales:
 même arbre syntaxique pour chaque fonction, mêmes commandes pour chaque scénario
 doré.
@@ -82,14 +82,17 @@ def cpu_pinning(config: dict) -> list[str]:
     aide, et une salle bridée sur trop peu de cœurs irait plus mal. Le réglage
     existe donc pour être MESURÉ, en phases alternées, avant d'être un défaut.
 
-    `cpuset` est la liste que Docker attend, par exemple "0-3,6-9" sur un six
-    cœurs avec jumeaux logiques. Absent, l'émulateur voit toute la machine.
+    `cpuset` est la liste que Docker attend, par exemple "0-2,6-8" sur le Ryzen 5
+    3600 de lgf: ses trois premiers cœurs et leurs jumeaux, qui partagent un même
+    cache L3 (lu dans /sys le 27 novembre 2026: 0-2,6-8 et 3-5,9-11). L'ancien
+    exemple, 0-3,6-9, prenait quatre cœurs à cheval sur les deux caches. Absent,
+    l'émulateur voit toute la machine.
     """
     cpuset = config.get("cpuset")
     if cpuset is None:
         return []
     if not isinstance(cpuset, str) or not cpuset.strip():
-        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-3,6-9", pas {cpuset!r}')
+        raise ValueError(f'cpuset doit être une liste de cœurs comme "0-2,6-8", pas {cpuset!r}')
     return ["--cpuset-cpus", cpuset.strip()]
 
 
@@ -130,3 +133,54 @@ class EngineLaunch(NamedTuple):
     controllers: int
     #: Where the page's X and Y land on the virtual pads (see `pad_command`).
     pad_layout: str = "switch"
+
+
+class CaptureRestarts:
+    """Whether a room may start its capture once more.
+
+    Two rules. Three failures within a minute stop a capture that dies at once
+    (the laboratory service's StartLimitBurst=3, 2026-09-08). And once a
+    capture has sent a game picture, three failures in a row with no game
+    picture between them stop a slow loop: on 2026-11-21 the Xbox 360 room
+    restarted its capture 36 times, about 35.5 s apart, for 21 minutes after
+    Xenia stopped presenting, and no restart brought the picture back.
+    Before the first game picture only the first rule counts: a first launch
+    that rebuilds its translation cache shows nothing for 4 minutes (Mario
+    Tennis, carnet), and each capture then ends at its 90 s start limit.
+    Only SHOWN_THEN_FAILED proves a game picture. Any other status is a doubt
+    (docker exec's own failure, a signal, python3's own crash): it breaks a
+    series without arming the second rule, so a doubt never stops a room.
+    """
+
+    #: The exit statuses of a capture that failed before sending any game
+    #: picture, and after sending one (spikes/switch-room/capture.py, which
+    #: holds the same numbers). python3 itself exits 1 on an uncaught exception,
+    #: before any picture too, then 2 or 120; docker exec exits 125 to 127, or
+    #: 128 and a signal number: 3 and 4 are none of them.
+    NOTHING_SHOWN = 3
+    SHOWN_THEN_FAILED = 4
+
+    def __init__(self) -> None:
+        self.starts: list[float] = []
+        self.shown = False
+        self.blank = 0
+
+    def refused(self, now: float, ended: int | None) -> str | None:
+        """Why the next capture must not start, or None if it may.
+
+        `ended` is how the previous capture ended, None before the first.
+        """
+        if ended == self.SHOWN_THEN_FAILED:
+            self.shown, self.blank = True, 0
+        elif ended == self.NOTHING_SHOWN:
+            if self.shown:
+                self.blank += 1
+        elif ended is not None:
+            self.blank = 0
+        self.starts = [at for at in self.starts if now - at < 60]
+        if len(self.starts) >= 3:
+            return "Capture failed three times in one minute"
+        if self.blank >= 2:
+            return "Capture failed three times in a row without a game picture between them"
+        self.starts.append(now)
+        return None

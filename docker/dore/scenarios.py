@@ -207,7 +207,7 @@ SCENARIOS_SWITCH = [
         preparer=lambda r: switch(r, refresh_hz=ABSENT, hold_front_buffer=ABSENT),
     ),
     replace(SW, nom="switch-mises-a-jour", preparer=switch_mises_a_jour),
-    replace(SW, nom="switch-cpuset", preparer=lambda r: switch(r, cpuset=" 0-3,6-9 ")),
+    replace(SW, nom="switch-cpuset", preparer=lambda r: switch(r, cpuset=" 0-2,6-8 ")),
     replace(SW, nom="switch-joueur", preparer=switch_joueur, emplacement="joueur-ami"),
     replace(SW, nom="switch-image-absente", preparer=lambda r: switch(r, image=ABSENT)),
     *communs(SW),

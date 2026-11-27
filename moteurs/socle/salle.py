@@ -40,7 +40,15 @@ from types import ModuleType
 
 from moteurs.socle import consoles, emplacement, fiche
 from moteurs.socle.emplacement import ouvrir_sans_lien
-from moteurs.socle.lancement import DEPOT, TOOLS, EngineLaunch, cpu_pinning, pad_command, run
+from moteurs.socle.lancement import (
+    DEPOT,
+    TOOLS,
+    CaptureRestarts,
+    EngineLaunch,
+    cpu_pinning,
+    pad_command,
+    run,
+)
 
 #: Ce qu'un module de moteur fournit au socle (moteurs/<moteur>/adaptateur.py).
 INTERFACE = ("TITRE", "choisir", "preparer", "backup")
@@ -208,7 +216,7 @@ def serve(
         (slot / "display.json").unlink(missing_ok=True)
         run(*args, stdout=subprocess.DEVNULL)
         started_engine = True
-        retries: list[float] = []
+        restarts = CaptureRestarts()
         while not selector.select(0.1):
             status = run(
                 "docker",
@@ -231,11 +239,10 @@ def serve(
                     "/probe/capture_control.py",
                     "stop",
                 )
-                now = time.monotonic()
-                retries = [at for at in retries if now - at < 60]
-                if len(retries) >= 3:
-                    raise RuntimeError("Capture failed three times in one minute")
-                retries.append(now)
+                ended = None if capture is None else capture.poll()
+                refused = restarts.refused(time.monotonic(), ended)
+                if refused is not None:
+                    raise RuntimeError(refused)
                 capture = subprocess.Popen(  # noqa: S603 -- private generated container name, fixed command
                     ["/usr/bin/docker", "exec", engine, "python3", "/probe/capture.py"]
                 )
@@ -301,7 +308,17 @@ def stop_engine(engine: str, slot: Path, capture, snapshot) -> None:
             with ouvrir_sans_lien(slot, "exit.json") as sortie:
                 sortie.write(status)
             snapshot(slot)
+            # Docker's hour on each line: the engine dates its own from a
+            # stopwatch reset at launch (Logger.cs), and the file name gave
+            # the absolute hour only to the second (RYU-4, 2026-11-27).
             with ouvrir_sans_lien(slot, "emulator.log") as log:
-                run("docker", "logs", engine, stdout=log, stderr=subprocess.STDOUT)
+                run(
+                    "docker",
+                    "logs",
+                    "--timestamps",
+                    engine,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
         finally:
             run("docker", "rm", engine, stdout=subprocess.DEVNULL)

@@ -170,6 +170,8 @@ class MemeTexte(unittest.TestCase):
             "cpu_pinning",
             "engine_environment",
             "EngineLaunch",
+            # Le 27 novembre 2026: la règle des relances de capture (CAP-7).
+            "CaptureRestarts",
             # Le 22 novembre 2026: l'hôte ne suit aucun lien de l'emplacement.
             "descendre",
             "ouvrir_sans_lien",
@@ -204,7 +206,11 @@ class MemeTexte(unittest.TestCase):
         origine = (DEPOT / SWITCH).read_text(encoding="utf-8")
         for nom, avant, apres in (
             ("délai des manettes", "time.monotonic() + 10\n", "time.monotonic() + 5\n"),
-            ("fenêtre des relances", "now - at < 60]", "now - at < 20]"),
+            (
+                "relance refusée sans arrêt",
+                "                    raise RuntimeError(refused)\n",
+                "                    pass\n",
+            ),
             ("écran d'hier gardé", '(slot / "display.json").unlink(missing_ok=True)\n', "\n"),
             # Le masque ne couvre qu'UNE affectation de launch, à sa place.
             (
@@ -218,15 +224,19 @@ class MemeTexte(unittest.TestCase):
                 self.assertNotEqual(ecarts_de_serve(socle.replace(avant, apres), origine), [])
 
     def test_une_fonction_qui_derive_est_nommee(self):
-        """Le jumeau: le même garde sur un `pad_command` changé d'un seul côté."""
-        origine = definitions(DEPOT / SWITCH)["pad_command"]
+        """Le jumeau: le même garde sur un `pad_command` changé d'un seul côté, et
+        sur la fenêtre des relances, sortie de `serve` le 27 novembre 2026."""
         texte = (DEPOT / "moteurs/socle/lancement.py").read_text(encoding="utf-8")
-        derive = texte.replace('"--pids-limit=32"', '"--pids-limit=64"')
-        self.assertNotEqual(derive, texte)
-        change = {n.name: n for n in ast.parse(derive).body if isinstance(n, ast.FunctionDef)}[
-            "pad_command"
-        ]
-        self.assertNotEqual(ast.dump(change), ast.dump(origine))
+        for nom, avant, apres in (
+            ("pad_command", '"--pids-limit=32"', '"--pids-limit=64"'),
+            ("CaptureRestarts", "now - at < 60]", "now - at < 20]"),
+            ("CaptureRestarts", "self.blank >= 2", "self.blank >= 3"),
+        ):
+            with self.subTest(fonction=nom, avant=avant):
+                self.assertEqual(texte.count(avant), 1)
+                derive = texte.replace(avant, apres)
+                origine = definitions(DEPOT / SWITCH)[nom]
+                self.assertNotEqual(ast.dump(definitions_du_texte(derive)[nom]), ast.dump(origine))
 
 
 if __name__ == "__main__":

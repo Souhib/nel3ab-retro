@@ -35,7 +35,8 @@
  * fois par seconde. Elle tourne toutes les dix secondes, sur le fil des
  * événements, et ne connaît ni la toile ni le décodeur.
  */
-import type { Snapshot } from "../media/session";
+import type { Fenetre, Snapshot } from "../media/session";
+import type { Marge } from "../media/video";
 import { FIGEE_MS } from "../media/liaison";
 
 /** Combien de temps la trace fine remonte, en millisecondes.
@@ -84,10 +85,39 @@ export const TRAIL_COLUMNS = [
 export type Vitals = {
   /** Combien de secondes la fenêtre couvre. */
   s: number;
-  /** Images arrivées, peintes, et jetées avant leur tour. */
+  /** Images DÉCODÉES, et non arrivées : une image arrivée pendant qu'un
+   * onglet est caché ou qu'un décodeur attend son image-clé n'est pas
+   * décodée, et ne compte pas ici (audit du 27 novembre 2026, VID-4). */
   vues: number;
   peintes: number;
+  /** Images décodées jamais peintes : la file était pleine, ou l'image a été
+   * rattrapée après son heure. Les deux sortes, à part, juste en dessous. */
   jetées: number;
+  /** Jetées par RATTRAPAGE : arrivées après leur heure, quand la suivante
+   * était déjà due. L'horaire était trop tôt pour elles (VID-1). */
+  rattrapées: number;
+  /** Jetées par DÉBORDEMENT : la file était pleine avant leur tour.
+   * L'horaire était trop tard pour la file (le 17 août 2026). */
+  débordées: number;
+  /** Le plus long temps sans nouvelle image peinte, onglet visible, en
+   * millisecondes, ou nul quand la fenêtre n'a rien peint. « affamées »
+   * compte des épisodes : un trou de 30 ms et un de 130 ms comptent un, et
+   * seul ce chiffre dit ce que l'œil a vu (VID-4). */
+  arrêt: number | null;
+  /** La règle de marge en service : la nouvelle (« lisse »), ou l'ancienne
+   * demandée par `?marge=ancienne` pour une comparaison à l'aveugle. */
+  marge: Marge;
+  /** Le plus long intervalle entre deux images d'écran, onglet visible, en
+   * millisecondes : un fil principal bloqué se lit ici. Nul sans mesure. */
+  écranMax: number | null;
+  /** Les écarts d'arrivée de la fenêtre : combien dépassent 100 ms, le plus
+   * grand, et quand il s'est fini, en millisecondes AVANT le relevé (négatif).
+   * Le salon date la ligne à sa réception : la boîte noire et le journal du
+   * worker se recoupent par là. Nul sans deux arrivées. */
+  écarts: { plus100: number; pire: number; à: number } | null;
+  /** L'attente d'une image décodée dans la file avant d'être peinte : p50,
+   * p95, en millisecondes. Nul sans image peinte. */
+  séjour: [number, number] | null;
   /** Fois où la file s'est vidée, et où il a fallu redemander une image clé. */
   affamées: number;
   clés: number;
@@ -112,7 +142,24 @@ export type Vitals = {
   son: {
     morceaux: number;
     trous: number;
+    /** La CIBLE du prochain réancrage, en ms. Ce n'est pas ce que le son a
+     * en file : voir `file` (SON-4). */
     avance: number;
+    /** La file réelle à chaque morceau arrivé : ce que le son avait d'avance
+     * sur la carte (`playAt − currentTime`), plus petite, médiane et plus
+     * grande de la fenêtre, en ms. Nul sans morceau. */
+    file: [number, number, number] | null;
+    /** Le son coupé pendant la fenêtre pour revenir à l'avance après une
+     * rafale ou une dérive d'horloge, en ms (SON-1). Nul quand la coupe est
+     * éteinte, ce qu'elle est sans `?son=rendre` : le relevé dit ainsi quel
+     * bras tournait. */
+    rendu: number | null;
+    /** De combien le son est derrière l'image, en ms, sortie de la carte
+     * comprise. Nul quand l'un des deux n'est pas encore calé. */
+    écart: number | null;
+    /** Ce que « caler l'image sur le son » ajoute à l'image, en ms. Nul quand
+     * l'option est éteinte : un calage éteint n'est pas un calage de 0 ms. */
+    calage: number | null;
     état: string;
     /** Ce qu'est devenu le déblocage d'iOS, le volume appliqué, la cadence du
      * matériel et ce qu'il ajoute. Quatre chiffres qui ne servent qu'à une
@@ -145,6 +192,14 @@ export type Vitals = {
     /** L'aller-retour d'une trame jusqu'à la salle, médiane des trente
      * derniers. Nul veut dire « pas encore mesuré », jamais « zéro ». */
     allerRetour: number | null;
+    /** La queue des aller-retours de la fenêtre : p95 et max, en ms. La
+     * médiane ci-dessus ne voit pas deux retours lents sur vingt. Nul sans
+     * retour. */
+    retour: [number, number] | null;
+    /** Le plus long écart entre deux tours de la pompe des manettes, onglet
+     * visible, en ms. Elle tourne toutes les 4 ms sur le fil principal : un
+     * fil bloqué se lit ici. Nul sans mesure. */
+    pompe: number | null;
     /** Le nom que le navigateur donne à la manette qui joue, coupé à
      * `PAD_NAME_MAX`. Nul sans manette: clavier ou écran tactile. */
     modèle: string | null;
@@ -162,6 +217,27 @@ export type Vitals = {
  * le nom qu'un pilote invente. */
 export const PAD_NAME_MAX = 64;
 
+/** Combien de caractères de l'état du déblocage du son on garde : « refusé : »
+ * suivi des cinquante premiers caractères du refus (`sound.ts`). */
+export const DEBLOQUE_MAX = 64;
+
+/** Une chaîne venue du navigateur, sans caractère de contrôle et coupée à
+ * `max`. Un caractère de contrôle s'écrit en six caractères une fois remis en
+ * JSON : soixante-quatre d'entre eux auraient pesé 384 caractères sur les
+ * 2 048 que le salon accepte (`vitals-borne.test.ts`). */
+export function propre(texte: string, max: number): string {
+  return [...texte]
+    .filter((c) => !controle(c))
+    .join("")
+    .slice(0, max);
+}
+
+/** Un caractère de contrôle : sous l'espace, ou « suppression ». */
+export function controle(c: string): boolean {
+  const code = c.charCodeAt(0);
+  return code < 0x20 || code === 0x7f;
+}
+
 /**
  * Un écart qui ne peut pas être négatif.
  *
@@ -173,6 +249,16 @@ export const PAD_NAME_MAX = 64;
  */
 function since(now: number, before: number): number {
   return Math.max(0, now - before);
+}
+
+/** Les écarts d'arrivée de la fenêtre, l'instant du pire compté AVANT le
+ * relevé. Un `0 - x` plutôt que `-x` : `-0` traverserait le JSON en zéro
+ * négatif (`touch.ts`). */
+function ecartsDe(fenetre: Fenetre | null | undefined): Vitals["écarts"] {
+  const ecarts = fenetre?.video.ecarts ?? null;
+  return ecarts === null
+    ? null
+    : { plus100: ecarts.plus100, pire: ecarts.pireMs, à: 0 - ecarts.ilYaMs };
 }
 
 /**
@@ -187,6 +273,9 @@ export function vitals(
   elapsedMs: number,
   page?: { visible: boolean; cachéeMs: number },
   enJeu = false,
+  /** Ce que la fenêtre a vu de pire (`Session.fenetre`). Absente, chaque
+   * champ qu'elle porte vaut nul : pas mesuré, jamais zéro. */
+  fenetre?: Fenetre | null,
 ): Vitals {
   const was = before?.video;
   const wasSound = before?.sound;
@@ -198,6 +287,13 @@ export function vitals(
     vues: since(video.shown, was?.shown ?? 0),
     peintes: since(video.painted, was?.painted ?? 0),
     jetées: since(video.skipped, was?.skipped ?? 0),
+    rattrapées: since(video.caughtUp, was?.caughtUp ?? 0),
+    débordées: since(video.overflowed, was?.overflowed ?? 0),
+    arrêt: fenetre?.video.arretMs ?? null,
+    marge: video.marge,
+    écranMax: fenetre?.video.ecranMaxMs ?? null,
+    écarts: ecartsDe(fenetre),
+    séjour: fenetre?.video.sejourMs ?? null,
     affamées: since(video.starved, was?.starved ?? 0),
     clés: since(video.keyFramesAsked, was?.keyFramesAsked ?? 0),
     rouvertes: since(video.reconnects, was?.reconnects ?? 0),
@@ -214,8 +310,13 @@ export function vitals(
       morceaux: since(sound.chunks, wasSound?.chunks ?? 0),
       trous: since(sound.gaps, wasSound?.gaps ?? 0),
       avance: Math.round(sound.leadMs),
+      file: fenetre?.sound?.fileMs ?? null,
+      rendu:
+        sound.renduMs === null ? null : Math.round(since(sound.renduMs, wasSound?.renduMs ?? 0)),
+      écart: now.soundGapMs === null ? null : Math.round(now.soundGapMs),
+      calage: now.soundSyncOn ? Math.round(now.soundSyncMs) : null,
       état: sound.state,
-      débloqué: sound.unlocked,
+      débloqué: propre(sound.unlocked, DEBLOQUE_MAX),
       gain: Math.round(sound.gain * 100) / 100,
       cadence: sound.sampleRate,
       sortie: Math.round(sound.output),
@@ -230,7 +331,9 @@ export function vitals(
       place: input.port,
       envoyées: since(input.sent, wasInput?.sent ?? 0),
       allerRetour: input.roundTripMs,
-      modèle: input.padId === null ? null : input.padId.slice(0, PAD_NAME_MAX),
+      retour: fenetre?.input?.retourMs ?? null,
+      pompe: fenetre?.input?.pompeMaxMs ?? null,
+      modèle: input.padId === null ? null : propre(input.padId, PAD_NAME_MAX),
     },
   };
 }
@@ -300,9 +403,16 @@ export class HiddenTime {
  * l'image de Sonic est restée figée vingt minutes; la page, qui ne recevait
  * qu'une image toutes les trente-cinq secondes, n'a écrit qu'une fenêtre sur
  * trois ou quatre, et rien ne disait le gel entre elles.
+ *
+ * Une fenêtre sans image s'écrit aussi quand le son a eu des trous : le
+ * 26 novembre 2026, ceux du démarrage se perdaient avec elle (SON-4). Pas dès
+ * que du son arrive : un onglet caché qui joue le son écrirait six lignes par
+ * minute pour ne rien dire.
  */
 export function worthWriting(sample: Vitals): boolean {
-  return sample.vues > 0 || sample.peintes > 0 || sample.attente >= FREEZE_MS;
+  return (
+    sample.vues > 0 || sample.peintes > 0 || sample.attente >= FREEZE_MS || sample.son.trous > 0
+  );
 }
 
 /** La trace fine des deux dernières minutes, telle qu'elle part avec un

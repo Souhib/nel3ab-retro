@@ -14,6 +14,29 @@ export function percentile(values: readonly number[], quantile: number): number 
   return sorted[Math.min(sorted.length - 1, Math.round((sorted.length - 1) * quantile))];
 }
 
+/** Sur combien d'intervalles d'affilée la période de l'écran se lit. */
+export const PAS_ECRAN = 6;
+
+/**
+ * La période de l'écran d'après les instants de ses images, en ms, ou nul
+ * avec moins de huit intervalles.
+ *
+ * La médiane des durées de `pas` intervalles d'affilée, divisées par `pas`,
+ * et non la médiane des intervalles. Firefox arrondit son horloge à la
+ * milliseconde quand la page n'est pas isolée : un écran à 120 Hz y donne 8,
+ * 8 et 9 ms, de médiane 8, et le relevé du 26 novembre 2026 disait « écran
+ * 125 Hz » (VID-7). Six intervalles font 50 ms, soit 8,33. Une médiane et pas
+ * une moyenne : un seul tic bloqué de 130 ms parmi cent vingt ferait lire
+ * 107 Hz à une moyenne.
+ */
+export function periodeDesInstants(instants: readonly number[], pas = PAS_ECRAN): number | null {
+  if (instants.length < Math.max(9, pas + 1)) return null;
+  const durees: number[] = [];
+  for (let i = 0; i + pas < instants.length; i++)
+    durees.push((instants[i + pas] - instants[i]) / pas);
+  return percentile(durees, 0.5);
+}
+
 /** A bounded window of samples, oldest dropped first. */
 export class Window {
   private readonly samples: number[] = [];
@@ -73,6 +96,19 @@ export const SLACK_CEILING = 180;
  * image arrivée une milliseconde en retard serait déjà périmée. */
 export const SLACK_FLOOR = 3;
 
+/** La marge d'un flux qui démarre, en millisecondes. */
+export const SLACK_START = 6;
+
+/** Jusqu'où un RATTRAPAGE laisse grandir la marge, en millisecondes : trente
+ * au-dessus de la marge de départ.
+ *
+ * Décision du propriétaire, le 27 novembre 2026 : « lisse, retard plafonné ».
+ * Grandir sur des rafales coûte du retard à la manette. Une simulation sur une
+ * copie de la page donnait, sans borne, une marge de 54 à 64 ms et un retard au
+ * verre passé de 85 à 143 ms au p50. Trente millisecondes au plus achètent une
+ * partie des rafales sans que la manette devienne molle. */
+export const CATCHUP_SLACK_MAX = SLACK_START + 30;
+
 /**
  * La marge suivante, d'après les famines de la fenêtre qui vient de s'écouler.
  *
@@ -95,6 +131,119 @@ export function nextSlack(current: number, starved: number, evicted = 0): number
   if (starved > 1) return Math.min(SLACK_CEILING, current + 8);
   if (starved === 0) return Math.max(SLACK_FLOOR, current - 2);
   return current;
+}
+
+/** Comment la page fait grandir sa marge : la règle du 27 novembre 2026, ou
+ * celle d'avant, gardée pour une comparaison à l'aveugle. */
+export type Marge = "lisse" | "ancienne";
+
+/** La règle que l'adresse demande. `?marge=ancienne` rend l'ancienne ; tout le
+ * reste, une faute de frappe comprise, garde la nouvelle. */
+export function margeDeLAdresse(search: string): Marge {
+  try {
+    return new URLSearchParams(search).get("marge") === "ancienne" ? "ancienne" : "lisse";
+  } catch {
+    return "lisse";
+  }
+}
+
+/**
+ * La marge suivante, quand la page sait POURQUOI elle a jeté (VID-1).
+ *
+ * Deux gestes jettent une image, et ils disent le contraire l'un de l'autre.
+ * La file qui DÉBORDE dit que l'horaire est trop tard pour elle : c'est le cas
+ * du 17 août 2026, et grandir l'aggraverait (`nextSlack`). Le RATTRAPAGE d'une
+ * image arrivée après son heure dit que l'horaire est trop tôt : grandir est
+ * justement la réponse. Jusqu'au 27 novembre 2026, les deux incrémentaient le
+ * même compteur, et le rattrapage (ajouté le 9 septembre) bloquait la marge.
+ * Le 26 novembre, chez un joueur distant, elle est restée au plancher quatre
+ * minutes et vingt et une secondes, avec près de deux famines par seconde.
+ *
+ * La règle d'avant reste ENTIÈRE dans trois cas : une fenêtre qui a débordé,
+ * une fenêtre sans aucun jet, et toute marge au-dessus de `CATCHUP_SLACK_MAX`.
+ * Seule une fenêtre de rattrapages, sous ce plafond, change : elle grandit sur
+ * des famines, et redescend sans famine. Ce qui en découle : la correction ne
+ * peut jamais porter la marge au plafond `SLACK_CEILING` à elle seule, donc
+ * elle ne déclenche pas le demi-format automatique (`overloaded`).
+ */
+export function nextSlackLisse(
+  current: number,
+  starved: number,
+  overflowed: number,
+  caughtUp: number,
+): number {
+  if (overflowed > 0 || caughtUp === 0 || current > CATCHUP_SLACK_MAX)
+    return nextSlack(current, starved, overflowed + caughtUp);
+  if (starved > 1) return Math.min(CATCHUP_SLACK_MAX, current + 8);
+  if (starved === 0) return Math.max(SLACK_FLOOR, current - 2);
+  return current;
+}
+
+/**
+ * La marge en service sous la nouvelle règle : `nextSlackLisse`, bornée par
+ * ce que la règle d'avant aurait posé d'après les mêmes fenêtres (`avant`),
+ * plus le plafond du rattrapage.
+ *
+ * Sans cette borne, la correction dépassait son plafond par un détour : une
+ * marge montée à 36 ms absorbe une rafale, la fenêtre suivante n'a plus aucun
+ * jet, et la règle d'avant y ajoutait 8 ms. La simulation des rafales de
+ * `marge.test.ts` montait ainsi à 44 ms une fois les images en retard montrées
+ * (VID-6). La marge en service ne dépasse donc jamais la plus grande des deux :
+ * ce que la règle d'avant aurait posé, ou trente millisecondes au-dessus du
+ * départ.
+ */
+export function slackLisse(
+  current: number,
+  avant: number,
+  starved: number,
+  overflowed: number,
+  caughtUp: number,
+): number {
+  return Math.min(
+    nextSlackLisse(current, starved, overflowed, caughtUp),
+    Math.max(avant, CATCHUP_SLACK_MAX),
+  );
+}
+
+/** Ce que la marge porte d'une fenêtre à la suivante. */
+export type EtatMarge = {
+  /** La marge en service, en millisecondes. */
+  slackMs: number;
+  /** La marge que la règle d'avant le 27 novembre 2026 aurait posée, d'après
+   * les mêmes fenêtres. */
+  slackAvant: number;
+  /** Depuis combien de fenêtres `slackAvant` est collée au plafond. */
+  atCeiling: number;
+};
+
+/**
+ * Une fenêtre de plus pour la marge : la marge en service, celle de la règle
+ * d'avant, et le compte qui décide le demi-format automatique.
+ *
+ * Le demi-format se juge sur la marge de la règle d'avant, pas sur celle en
+ * service : le propriétaire a demandé que ce basculement garde son
+ * comportement. Les deux ne sont pas toujours égales au-dessus de 36 ms. Des
+ * rattrapages sans famine font redescendre la marge en service sous celle
+ * d'avant, que les rattrapages bloquent ; des famines sans jet les font
+ * ensuite monter ensemble, avec cet écart, jusqu'au plafond. Juger sur la
+ * marge en service retarderait alors le basculement d'une fenêtre ou plus
+ * (`clock.test.ts`).
+ */
+export function pasDeMarge(
+  etat: EtatMarge,
+  marge: Marge,
+  starved: number,
+  overflowed: number,
+  caughtUp: number,
+): EtatMarge {
+  const avant = nextSlack(etat.slackAvant, starved, overflowed + caughtUp);
+  const slackMs =
+    marge === "ancienne"
+      ? nextSlack(etat.slackMs, starved, overflowed + caughtUp)
+      : slackLisse(etat.slackMs, avant, starved, overflowed, caughtUp);
+  // Compté APRÈS l'avoir posée : on juge ce qu'on vient de décider, pas ce
+  // qu'on avait décidé la fois d'avant.
+  return { slackMs, slackAvant: avant, atCeiling: stuckAtCeiling(etat.atCeiling, avant) };
 }
 
 /** Le moins d'images que la file garde, quoi qu'il arrive. */

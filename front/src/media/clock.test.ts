@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  CATCHUP_SLACK_MAX,
   GIVE_UP_WINDOWS,
   QUEUE_CEILING,
   QUEUE_FLOOR,
   SLACK_CEILING,
   SLACK_FLOOR,
+  SLACK_START,
   Window,
   isStarved,
+  margeDeLAdresse,
   nextSlack,
+  nextSlackLisse,
+  pasDeMarge,
+  slackLisse,
   pacingGaveUp,
   percentile,
   roomFor,
@@ -182,5 +188,148 @@ describe("quand l'allure a renoncé", () => {
     for (const slack of [40, 90, 150, 170, 179]) held = stuckAtCeiling(held, slack);
     expect(held).toBe(0);
     expect(pacingGaveUp(held)).toBe(false);
+  });
+});
+
+describe("la marge qui sait pourquoi elle a jeté (VID-1, 27 novembre 2026)", () => {
+  it("grandit sur des famines quand les jets sont des rattrapages", () => {
+    expect(nextSlackLisse(SLACK_START, 2, 0, 5)).toBe(SLACK_START + 8);
+  });
+
+  it("ne dépasse pas trente millisecondes au-dessus du départ par ce chemin", () => {
+    expect(CATCHUP_SLACK_MAX).toBe(SLACK_START + 30);
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX - 2, 9, 0, 5)).toBe(CATCHUP_SLACK_MAX);
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX, 9, 0, 5)).toBe(CATCHUP_SLACK_MAX);
+  });
+
+  it("redescend sans famine, même avec des rattrapages", () => {
+    expect(nextSlackLisse(20, 0, 0, 5)).toBe(18);
+    expect(nextSlackLisse(SLACK_FLOOR, 0, 0, 5)).toBe(SLACK_FLOOR);
+  });
+
+  // Les jumeaux : là où la règle d'avant s'applique, elle s'applique ENTIÈRE.
+  it("ne grandit pas quand la file a débordé, rattrapages ou non", () => {
+    expect(nextSlackLisse(20, 9, 1, 0)).toBe(20);
+    expect(nextSlackLisse(20, 9, 1, 5)).toBe(20);
+  });
+
+  it("garde la règle d'avant au-dessus du plafond du rattrapage", () => {
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX + 8, 9, 0, 5)).toBe(CATCHUP_SLACK_MAX + 8);
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX + 8, 0, 0, 5)).toBe(CATCHUP_SLACK_MAX + 8);
+  });
+
+  it("rend la règle d'avant partout où elle s'applique, et jamais plus haut que son plafond ailleurs", () => {
+    // Une grille plutôt que des exemples : la correction seule ne porte
+    // jamais la marge au plafond `SLACK_CEILING`.
+    for (let current = SLACK_FLOOR; current <= SLACK_CEILING; current += 1)
+      for (const starved of [0, 1, 2, 9])
+        for (const overflowed of [0, 1, 3])
+          for (const caughtUp of [0, 1, 4]) {
+            const lisse = nextSlackLisse(current, starved, overflowed, caughtUp);
+            const avant = nextSlack(current, starved, overflowed + caughtUp);
+            if (overflowed > 0 || caughtUp === 0 || current > CATCHUP_SLACK_MAX)
+              expect(lisse, `${current} ${starved} ${overflowed} ${caughtUp}`).toBe(avant);
+            else expect(lisse).toBeLessThanOrEqual(Math.max(avant, CATCHUP_SLACK_MAX));
+          }
+  });
+});
+
+describe("la marge que l'adresse demande", () => {
+  it("rend l'ancienne règle sur `?marge=ancienne`", () => {
+    expect(margeDeLAdresse("?marge=ancienne")).toBe("ancienne");
+    expect(margeDeLAdresse("?entrer=jouer&marge=ancienne")).toBe("ancienne");
+  });
+
+  it("garde la nouvelle partout ailleurs, faute de frappe comprise", () => {
+    expect(margeDeLAdresse("")).toBe("lisse");
+    expect(margeDeLAdresse("?marge=Ancienne")).toBe("lisse");
+    expect(margeDeLAdresse("?marge=lisse")).toBe("lisse");
+    expect(margeDeLAdresse("?entrer=jouer")).toBe("lisse");
+  });
+});
+
+describe("la marge lisse, bornée par la règle d'avant", () => {
+  it("ne prend pas les 8 ms de la règle d'avant au-dessus du plafond du rattrapage", () => {
+    // Une fenêtre sans aucun jet, affamée, à 36 ms : la règle d'avant
+    // ajouterait 8 ms, alors qu'elle-même n'aurait posé que 12 ms.
+    expect(slackLisse(CATCHUP_SLACK_MAX, 12, 9, 0, 0)).toBe(CATCHUP_SLACK_MAX);
+  });
+
+  // Le jumeau : quand la règle d'avant monte d'elle-même, sur un lien trop
+  // étroit, la nouvelle la suit jusqu'au plafond `SLACK_CEILING`.
+  it("suit la règle d'avant quand elle-même dépasse ce plafond", () => {
+    expect(slackLisse(100, 108, 9, 0, 0)).toBe(108);
+    expect(slackLisse(SLACK_CEILING - 2, SLACK_CEILING, 9, 0, 0)).toBe(SLACK_CEILING);
+  });
+
+  it("ne dépasse jamais la plus grande de la règle d'avant et du plafond du rattrapage", () => {
+    for (let current = SLACK_FLOOR; current <= SLACK_CEILING; current += 1)
+      for (let avant = SLACK_FLOOR; avant <= SLACK_CEILING; avant += 7)
+        for (const starved of [0, 1, 2, 9])
+          for (const [overflowed, caughtUp] of [
+            [0, 0],
+            [0, 4],
+            [1, 0],
+            [1, 4],
+          ])
+            expect(
+              slackLisse(current, avant, starved, overflowed, caughtUp),
+              `${current} ${avant} ${starved} ${overflowed} ${caughtUp}`,
+            ).toBeLessThanOrEqual(Math.max(avant, CATCHUP_SLACK_MAX));
+  });
+});
+
+describe("le demi-format se juge sur la règle d'avant (`pasDeMarge`)", () => {
+  /** Rejoue des fenêtres [famines, débordées, rattrapées] et rend la fenêtre
+   * où l'allure renonce, ou nul. */
+  function renonce(fenetres: [number, number, number][], marge: "lisse" | "ancienne") {
+    let etat = { slackMs: SLACK_START, slackAvant: SLACK_START, atCeiling: 0 };
+    const vues: number[] = [];
+    for (const [k, [starved, overflowed, caughtUp]] of fenetres.entries()) {
+      etat = pasDeMarge(etat, marge, starved, overflowed, caughtUp);
+      vues.push(etat.slackMs);
+      if (etat.atCeiling >= GIVE_UP_WINDOWS) return { k, etat, vues };
+    }
+    return { k: null, etat, vues };
+  }
+
+  // Trois fenêtres de rattrapages sans famine : la marge en service descend
+  // au plancher, celle d'avant reste à son départ. Puis des famines sans
+  // aucun jet : les deux montent de 8 ms par fenêtre, avec cet écart, jusqu'au
+  // plafond. Le basculement doit tomber là où la règle d'avant le mettait.
+  const fenetres: [number, number, number][] = [
+    ...Array.from({ length: 3 }, (): [number, number, number] => [0, 0, 2]),
+    ...Array.from({ length: 40 }, (): [number, number, number] => [3, 0, 0]),
+  ];
+
+  it("bascule à la même fenêtre que la règle d'avant", () => {
+    const ancienne = renonce(fenetres, "ancienne");
+    const lisse = renonce(fenetres, "lisse");
+    expect(ancienne.k, "précondition: la règle d'avant renonce").not.toBeNull();
+    // La précondition de l'écart : la marge en service est restée sous celle
+    // d'avant pendant la montée.
+    expect(lisse.vues[2], "précondition: les rattrapages ont fait descendre la marge").toBe(
+      SLACK_FLOOR,
+    );
+    expect(
+      lisse.k,
+      `le demi-format se juge sur la marge en service, pas sur celle d'avant: ${JSON.stringify(lisse.vues)}`,
+    ).toBe(ancienne.k);
+  });
+
+  // Le jumeau : sous la règle d'avant, les deux marges restent égales.
+  it("garde les deux marges égales sous ?marge=ancienne", () => {
+    let etat = { slackMs: SLACK_START, slackAvant: SLACK_START, atCeiling: 0 };
+    for (const [starved, overflowed, caughtUp] of fenetres) {
+      etat = pasDeMarge(etat, "ancienne", starved, overflowed, caughtUp);
+      expect(etat.slackMs).toBe(etat.slackAvant);
+    }
+  });
+
+  it("ne bascule pas sur des rattrapages seuls, même affamés", () => {
+    const rafales = Array.from({ length: 60 }, (): [number, number, number] => [9, 0, 4]);
+    const { k, etat } = renonce(rafales, "lisse");
+    expect(k).toBeNull();
+    expect(etat.slackMs).toBe(CATCHUP_SLACK_MAX);
   });
 });

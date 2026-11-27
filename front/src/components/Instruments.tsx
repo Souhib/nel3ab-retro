@@ -75,8 +75,8 @@ export function Instruments({
         <Readout
           label="latence ajoutée"
           value={video.slackMs.toFixed(0)}
-          unit="ms de marge"
-          hint="Ce que l'horaire d'affichage ajoute. Il grandit quand l'image manque, et se rogne quand elle ne manque pas."
+          unit={video.marge === "ancienne" ? "ms de marge · ancienne règle" : "ms de marge"}
+          hint="Ce que l'horaire d'affichage ajoute. Il grandit quand l'image manque, de 30 ms au plus après des images en retard, et se rogne quand elle ne manque pas. L'adresse ?marge=ancienne rend la règle d'avant le 27 novembre 2026."
         />
         <Readout
           label="écarts d'arrivée"
@@ -94,12 +94,16 @@ export function Instruments({
           tone="faint"
           hint={`Le worker encode la même image deux fois et chacun choisit. L'image légère demande ${prixImageLegere(moteur)}.`}
         />
+        {/* Deux sortes de jets, qui disent le contraire l'une de l'autre
+            (VID-1, 27 novembre 2026). L'aide ne parlait que du débordement,
+            alors que le rattrapage jetait la plupart des images depuis le
+            9 septembre. */}
         <Readout
-          label="jetées avant leur tour"
+          label="jetées sans être peintes"
           value={video.skipped}
-          unit="images"
+          unit={`images · ${video.caughtUp} rattrapées · ${video.overflowed} débordées`}
           tone={video.skipped > 0 ? "alert" : "good"}
-          hint="Des images arrivées, décodées, puis jetées parce que la file a débordé avant leur tour. Ce n'est pas le réseau: c'est l'horaire d'affichage qui les fait attendre plus longtemps que la file ne peut tenir."
+          hint="Des images décodées et jamais peintes, de deux sortes. Rattrapées : arrivées après leur heure, quand la suivante était déjà due, donc après un hoquet de la liaison. Débordées : la file était pleine avant leur tour, parce que l'horaire les faisait attendre plus longtemps qu'elle ne peut tenir."
         />
         <Readout
           label="places dans la file"
@@ -168,6 +172,13 @@ export function Instruments({
         />
         <Readout label="joué" value={sound.playedSeconds.toFixed(1)} unit="s" />
         <Readout label="coupures" value={sound.gaps} tone={sound.gaps > 0 ? "alert" : "faint"} />
+        <Readout
+          label="retard rendu"
+          value={sound.renduMs === null ? RIEN : sound.renduMs.toFixed(0)}
+          unit={sound.renduMs === null ? "coupe éteinte" : "ms"}
+          tone="faint"
+          hint="Le son que la page a coupé pour revenir à son avance après une rafale. La coupe ne tourne que sous ?son=rendre : sur une liaison dont les hoquets reviennent, elle faisait de chaque hoquet plus long une coupure."
+        />
         <Readout label="morceaux reçus" value={sound.chunks} tone="faint" />
         <Readout
           label="dernier morceau"

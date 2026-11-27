@@ -55,6 +55,31 @@ describe("les chiffres", () => {
     expect(screen.getByText(MESURES.allerRetour(32))).toBeVisible();
   });
 
+  // ENT-7 : l'écho part une fois par seconde, le worker le renvoie tel quel,
+  // et la page le date sur son fil principal. Il mesure la liaison, chargée
+  // par la vidéo au retour, et rien de ce que pads.py, SDL ou le jeu font
+  // d'une touche. Le 26 novembre 2026, la colonne le disait « pour tes
+  // touches ».
+  it("dit l'aller-retour de la liaison, et ne le prête pas aux touches", () => {
+    monter(sample(), { allerRetourMs: 13 });
+    const ligne = screen
+      .getAllByText(/aller-retour/i)
+      .map((el) => el.textContent)
+      .join(" | ");
+    expect(ligne, "l'aller-retour se dit encore « pour tes touches »").not.toMatch(/touches/);
+    expect(ligne).toMatch(/liaison/);
+  });
+
+  it("le dit aussi sans mesure", () => {
+    monter(sample(), { allerRetourMs: null });
+    const ligne = screen
+      .getAllByText(/aller-retour/i)
+      .map((el) => el.textContent)
+      .join(" | ");
+    expect(ligne).not.toMatch(/touches/);
+    expect(ligne).toMatch(/liaison/);
+  });
+
   it("jumeau : un jeu pas encore mesuré se dit, jamais une cadence de repli ni un zéro", async () => {
     monter(sample({ sourceHz: 0, refreshHz: 250 }), { allerRetourMs: null });
     expect(screen.getByText(`${MESURES.jeuSans} : ${MESURES.pasEncore}`)).toBeVisible();

@@ -10,7 +10,7 @@ import type { InputSource } from "./input-source";
 import { InputStream, type InputState } from "./input";
 import { MicStream, type MicState } from "./mic";
 import { SoundStream, type SoundStats } from "./sound";
-import { VideoStream, type VideoStats } from "./video";
+import { VideoStream, type FenetreVideo, type VideoStats } from "./video";
 import { jetons, vues } from "./couverture";
 import type { Liaison } from "./liaison";
 import { VeilleLiaison, type Contexte } from "./veille";
@@ -26,6 +26,9 @@ export type Snapshot = {
   soundGapMs: number | null;
   /** Compensation réellement ajoutée à l'image, distincte de l'écart restant. */
   soundSyncMs: number;
+  /** L'option « caler l'image sur le son » est-elle allumée ? Un calage de
+   * 0 ms ne le dit pas : il peut venir d'un écart encore inconnu. */
+  soundSyncOn: boolean;
   /** L'état de la liaison, calculé ici et nulle part ailleurs (`liaison.ts`).
    *
    * Dans l'instantané, donc au rythme où React lit: deux fois par seconde.
@@ -35,6 +38,15 @@ export type Snapshot = {
    * été décidé (`couverture.vues`). Une couverture armée sur cet état est
    * refusée si une image plus neuve a été peinte depuis (ADR D40). */
   couvertureVue: number;
+};
+
+/** Ce que la fenêtre de relevé a vu de pire, flux par flux (`fenetre.ts`).
+ * Hors de l'instantané : React le lit deux fois par seconde, et un maximum
+ * pris à chaque lecture ne couvrirait qu'une demi-seconde. */
+export type Fenetre = {
+  video: FenetreVideo;
+  input: ReturnType<InputStream["fenetre"]>;
+  sound: ReturnType<SoundStream["fenetre"]>;
 };
 
 /** Même origine, toujours, et sous le préfixe de CETTE salle: une salle est
@@ -54,6 +66,9 @@ export class Session {
   private snapshot: Snapshot;
   private ticker: number | null = null;
   private lipsync = false;
+  /** Le premier calage d'une option allumée est-il posé ? Lui s'applique
+   * d'un coup ; les suivants passent la bande morte (`setLipsync`). */
+  private calePose = false;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -148,10 +163,22 @@ export class Session {
 
   getSnapshot = (): Snapshot => this.snapshot;
 
+  /** Ce que chaque flux a vu de pire depuis le dernier relevé. `prendre` :
+   * le relevé de dix secondes repart de rien ; un signalement lit sans
+   * prendre, pour ne pas voler sa fenêtre au relevé suivant. */
+  fenetre(prendre: boolean): Fenetre {
+    return {
+      video: this.video.fenetre(prendre),
+      input: this.input.fenetre(prendre),
+      sound: this.sound.fenetre(prendre),
+    };
+  }
+
   /** Lines the picture up with the sound, or lets it stay early. */
   setLipsync(on: boolean): void {
     this.lipsync = on;
     if (!on) {
+      this.calePose = false;
       this.video.setLipsync(0);
       return;
     }
@@ -159,7 +186,23 @@ export class Session {
     // Soustraire la compensation précédente évite de l'appliquer deux fois.
     const base = picture === null ? null : picture - this.video.compensationMs();
     const gap = this.sound.gapAgainst(base);
-    if (gap !== null) this.video.setLipsync(Math.max(0, gap));
+    if (gap === null) return;
+    const voulu = Math.max(0, gap);
+    // Une bande morte d'un rafraîchissement (SON-8). Relancé toutes les
+    // 500 ms avec l'écart du dernier morceau, qui tremble de quelques
+    // millisecondes, le calage faisait bouger l'horaire de l'image deux fois
+    // par seconde, et une image pouvait être tenue une fois de trop ou jetée.
+    // Un écart qui bouge de moins d'un rafraîchissement ne change pas l'image
+    // montrée ; au-delà, il s'applique d'un coup, comme avant. Le premier
+    // calage s'applique toujours : la personne qui allume l'option doit le
+    // voir.
+    if (
+      this.calePose &&
+      Math.abs(voulu - this.video.compensationMs()) <= this.video.periodeEcranMs()
+    )
+      return;
+    this.video.setLipsync(voulu);
+    this.calePose = true;
   }
 
   get lipsyncOn(): boolean {
@@ -180,6 +223,7 @@ export class Session {
       mic: this.mic.status(),
       soundGapMs: this.sound.gapAgainst(this.video.presentationOffsetMs()),
       soundSyncMs: this.video.compensationMs(),
+      soundSyncOn: this.lipsync,
       liaison: this.veille.lire({ video, sound, input }),
       // Relevé avec l'état, pas au rendu : c'est sur ces images-là que
       // l'état a été décidé.
@@ -237,6 +281,9 @@ export function exposeNothingYet(): void {
       probeP95: 0,
       probeMax: 0,
       skipped: 0,
+      caughtUp: 0,
+      overflowed: 0,
+      marge: "lisse",
       room: 0,
     }),
     audio: () => ({
@@ -327,6 +374,11 @@ export function exposeForTests(session: Session): void {
         probeP95: shot.video.probeMs.p95,
         probeMax: shot.video.probeMs.max,
         skipped: shot.video.skipped,
+        // Les deux sortes de jets, et la règle de marge en service (VID-1) : un
+        // banc qui compare les deux bras lit ce que la page a FAIT.
+        caughtUp: shot.video.caughtUp,
+        overflowed: shot.video.overflowed,
+        marge: shot.video.marge,
         room: shot.video.room,
       };
     },

@@ -41,9 +41,11 @@ it("suit l'horaire du son lorsqu'il redescend, sans avancer artificiellement la 
   );
   session.setLipsync(true);
   expect(session.video.anchorMs()).toBe(1480);
-  audio = 1090;
+  // Des descentes plus grandes qu'un rafraîchissement : en dessous, la
+  // bande morte de SON-8 garde l'horaire.
+  audio = 1110;
   session.refresh();
-  expect(session.video.anchorMs()).toBe(1090);
+  expect(session.video.anchorMs()).toBe(1110);
   expect(session.getSnapshot().soundGapMs).toBe(0);
   audio = 1060;
   session.refresh();
@@ -115,4 +117,57 @@ it("mesure l'instant demandé à Web Audio et oublie cet horaire quand la salle 
   expect(sound.gapAgainst(1080)).toBeCloseTo(40);
   sound.setIdle(true);
   expect(sound.gapAgainst(1080)).toBeNull();
+});
+
+// SON-8 : l'option relance le calage toutes les 500 ms avec l'écart du
+// dernier morceau. Cet écart tremble de quelques millisecondes (l'instant de
+// capture du son varie de 0 à 5 ms) : appliqué d'un coup à chaque fois, il
+// faisait bouger l'horaire de l'image deux fois par seconde, et une image
+// pouvait être tenue une fois de trop ou jetée.
+it("ne fait pas trembler l'horaire de l'image avec l'écart du son", () => {
+  const session = sessionAt(1080);
+  const gigue = [3, -4, 1, 4, -2, -4, 2, 0, -3, 4];
+  let lecture = 0;
+  vi.spyOn(session.sound, "gapAgainst").mockImplementation((picture) =>
+    picture === null ? null : 1120 + gigue[lecture++ % gigue.length] - picture,
+  );
+  session.setLipsync(true);
+  const ancres = new Set([session.video.anchorMs()]);
+  for (let fois = 0; fois < 40; fois++) {
+    session.refresh();
+    ancres.add(session.video.anchorMs());
+  }
+  expect(ancres.size, `l'horaire de l'image a bougé ${ancres.size - 1} fois`).toBe(1);
+});
+
+// Le jumeau : un vrai changement du son s'applique au relevé suivant.
+it("applique un vrai saut de l'écart dès la lecture suivante", () => {
+  const session = sessionAt(1080);
+  let audio = 1120;
+  vi.spyOn(session.sound, "gapAgainst").mockImplementation((picture) =>
+    picture === null ? null : audio - picture,
+  );
+  session.setLipsync(true);
+  expect(session.video.anchorMs()).toBe(1120);
+  audio = 1160;
+  session.refresh();
+  expect(session.video.anchorMs()).toBe(1160);
+});
+
+// Le premier calage d'une option allumée s'applique, même plus petit qu'un
+// rafraîchissement : la personne qui l'allume doit le voir. Et l'éteindre
+// puis la rallumer repart d'un premier calage.
+it("applique le premier calage, même petit, à chaque fois qu'on allume l'option", () => {
+  const session = sessionAt(1080);
+  let audio = 1090;
+  vi.spyOn(session.sound, "gapAgainst").mockImplementation((picture) =>
+    picture === null ? null : audio - picture,
+  );
+  session.setLipsync(true);
+  expect(session.video.anchorMs(), "le premier calage de 10 ms n'est pas posé").toBe(1090);
+  session.setLipsync(false);
+  expect(session.video.anchorMs()).toBe(1080);
+  audio = 1085;
+  session.setLipsync(true);
+  expect(session.video.anchorMs(), "rallumée, l'option ne pose pas son calage").toBe(1085);
 });

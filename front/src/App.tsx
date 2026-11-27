@@ -898,6 +898,8 @@ function Room({
       at - opened.current,
       { visible: document.visibilityState === "visible", cachéeMs },
       inGame.current,
+      // Les pics de la fenêtre : pris par le relevé, lus par un signalement.
+      alive.current?.fenetre(take) ?? null,
     );
   };
   useEffect(() => {

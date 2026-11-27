@@ -309,6 +309,15 @@ export class SwitchInput implements InputSource {
    * déjà des valeurs continues: `encodeSwitch` écrit un entier 16 bits par
    * axe. Il ne manquait qu'une façon de les produire. */
   readonly pushed = new Map<SwitchAxis, number>();
+  /** Appelé quand le pavé Pro change `touched` ou `pushed`, pour que la trame
+   * parte tout de suite au lieu d'attendre le tour suivant de la pompe
+   * (ENT-9). Posé par la boucle d'entrée. */
+  quandChange: (() => void) | null = null;
+
+  /** Le pavé Pro vient de changer ce qu'un doigt tient. */
+  signaler(): void {
+    this.quandChange?.();
+  }
   private releasing: { id: string; machine: Capture } | null = null;
   private waitingForRest = false;
   /** Le pas à pas en cours, et la manette qui l'a commencé. */

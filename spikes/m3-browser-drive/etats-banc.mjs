@@ -33,7 +33,9 @@ export function unitesDe(flux) {
 /** L'état de départ: une salle qui joue, un salon qui répond. */
 const DEPART = {
   // live | freeze (messages vides) | silent (rien, socket ouverte) | slow
-  // (un tic sur `skip` sauté) | drop (connexion refusée)
+  // (un tic sur `skip` sauté) | drop (connexion refusée) | rafales (chaque
+  // seconde, les images de 100 à 150 ms retenues puis livrées ensemble,
+  // instants de capture gardés : la forme du 26 novembre 2026)
   video: "live",
   skip: 4,
   // live | off. En `silent`, le son et l'écho se taisent aussi: une liaison
@@ -95,6 +97,9 @@ export async function demarrerBanc({ port: demande, page, flux }) {
   const lobbies = new Set();
   /** Les « je reste » reçus sur `/input` : un octet, `Reste::TAG` (0xE1). */
   const restes = [];
+  /** Les relevés de dix secondes que la page envoie au salon (`mesures`),
+   * entiers : le journal n'en garde que trois cents caractères. */
+  const releves = [];
   /** Les minutes avant la fermeture que le message de salle annonce. */
   let fermeDans = 0;
   const note = (texte) => log.push({ a: Date.now(), texte });
@@ -217,7 +222,9 @@ export async function demarrerBanc({ port: demande, page, flux }) {
       // Une image-clé demandée: on saute à la prochaine du flux.
       if (m.length === 1 && m[0] === 1) at = (Math.ceil(at / 60) * 60) % AUS.length;
     });
-    const envoyer = (tic) => {
+    /** Les images retenues par l'état « rafales », dans l'ordre. */
+    const retenues = [];
+    const message = (tic) => {
       const header = Buffer.alloc(8);
       // Des instants de capture alignés sur les tics de 16,667 ms d'un
       // compositeur, comme sous Sway: c'est ce qui rend la cadence médiane
@@ -228,8 +235,12 @@ export async function demarrerBanc({ port: demande, page, flux }) {
       // secondes au bout de six, sur l'ancienne page comme sur la nouvelle
       // (mesuré le 22 novembre 2026): un défaut du banc, pas de la page.
       header.writeBigUInt64LE(BigInt(Math.round(tic * 16666.667) + 1_000_000));
-      ws.send(Buffer.concat([header, AUS[at]]));
+      const une = Buffer.concat([header, AUS[at]]);
       at = (at + 1) % AUS.length;
+      return une;
+    };
+    const envoyer = (tic) => {
+      ws.send(message(tic));
       sentAt = Date.now();
     };
     const timer = setInterval(() => {
@@ -237,7 +248,24 @@ export async function demarrerBanc({ port: demande, page, flux }) {
       const tic = Math.floor((Date.now() - t0) / (1000 / 60));
       if (tic === dernierTic) return;
       dernierTic = tic;
-      if (state.video === "live") return envoyer(tic);
+      // Les rafales : chaque seconde, de 500 ms à 500 ms plus la retenue,
+      // les images sont gardées avec leur instant de capture, puis livrées
+      // ensemble. La retenue va de 100 à 150 ms, une seconde après l'autre.
+      // C'est la liaison qui retient, pas la source : le worker du
+      // 26 novembre 2026 capturait à 17-21 ms d'écart.
+      if (state.video === "rafales") {
+        const ecoule = Date.now() - t0;
+        const retenue = 100 + 10 * (Math.floor(ecoule / 1000) % 6);
+        if (ecoule % 1000 >= 500 && ecoule % 1000 < 500 + retenue) {
+          retenues.push(message(tic));
+          return;
+        }
+      }
+      if (retenues.length > 0) {
+        for (const une of retenues.splice(0)) ws.send(une);
+        sentAt = Date.now();
+      }
+      if (state.video === "live" || state.video === "rafales") return envoyer(tic);
       if (state.video === "slow") {
         if (tic % state.skip !== 0) envoyer(tic);
         return;
@@ -324,6 +352,10 @@ export async function demarrerBanc({ port: demande, page, flux }) {
     ws.on("message", (m) => {
       const text = String(m);
       if (text.startsWith("42") && !text.includes('"seat"')) note(`salon ${text.slice(0, 300)}`);
+      if (text.startsWith('42["mesures",'))
+        try {
+          releves.push({ a: Date.now(), releve: JSON.parse(text.slice(2))[1] });
+        } catch {}
       if (text.startsWith("40")) {
         ws.send(`40{"sid":"n${Math.random()}"}`);
         ws.send(`42["room",${JSON.stringify(room())}]`);
@@ -382,6 +414,8 @@ export async function demarrerBanc({ port: demande, page, flux }) {
     journal: (depuis = 0) => log.filter((ligne) => ligne.a >= depuis),
     /** Les boutons reçus depuis `depuis`, dans l'ordre d'arrivée. */
     trames: (depuis = 0) => trames.filter((une) => une.a >= depuis),
+    /** Les relevés reçus par le salon depuis `depuis`, entiers. */
+    releves: (depuis = 0) => releves.filter((un) => un.a >= depuis),
     fermer: () =>
       new Promise((fini) => {
         for (const ws of [...videos, ...sounds, ...inputs, ...lobbies]) ws.terminate();

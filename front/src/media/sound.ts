@@ -6,6 +6,7 @@
  * cheaper clock.
  */
 import { Window } from "./clock";
+import { Serie, etendue } from "./fenetre";
 
 const RATE = 48000;
 const CHANNELS = 2;
@@ -72,6 +73,11 @@ export type SoundStats = {
   gaps: number;
   playedSeconds: number;
   leadMs: number;
+  /** Le son rendu depuis l'ouverture, en ms : ce que la page a coupé pour
+   * revenir à son avance après une rafale ou une dérive (SON-1). Nul quand
+   * la coupe est éteinte, ce qu'elle est sans `?son=rendre` : une coupe
+   * éteinte n'est pas une coupe qui n'a rien trouvé à rendre. */
+  renduMs: number | null;
   sampleRate: number;
   outputMs: number;
   browserMs: number;
@@ -84,6 +90,42 @@ export type SoundStats = {
  * marge de confort, c'est la limite au-delà de laquelle poser le morceau ne veut
  * plus rien dire. */
 export const FLOOR = 0.002;
+
+/** De combien la plus petite file de deux secondes doit dépasser l'avance
+ * avant que la page en rende, en secondes. Dix millisecondes : sous ce seuil,
+ * l'écart tient aux blocs de l'horloge de la carte, pas à un retard pris. */
+export const RENDU_SEUIL = 0.01;
+
+/** Combien d'un morceau coupé on garde pour l'éteindre, et combien du
+ * suivant pour l'allumer, en secondes. Deux millisecondes : une coupe sans
+ * fondu met une marche dans l'onde, qui s'entend comme un clic. */
+export const FONDU = 0.002;
+
+/** Un morceau coupé au plus tous les combien. Cinq : la page rend 8 ms sur
+ * 50, soit 300 ms en deux secondes environ, et chaque coupe reste isolée. */
+export const RENDU_ESPACE = 5;
+
+/**
+ * La coupe de SON-1 est-elle demandée par l'adresse (`?son=rendre`) ?
+ *
+ * Éteinte par défaut depuis la relecture du 27 novembre 2026. La coupe rend
+ * ce que la plus petite file de deux secondes a de trop. Sur une liaison dont
+ * les hoquets reviennent avec des tailles différentes, elle rend aussi la
+ * marge que le hoquet suivant, plus long, aurait prise, et ce hoquet devient
+ * un trou. En temps simulé, dix minutes de hoquets de 100 à 160 ms toutes les
+ * 0,7 à 1,3 s donnaient 31 trous avec la coupe et 2 sans. C'est la forme vue
+ * chez le joueur distant le 26 novembre 2026, dont le son n'avait eu aucun
+ * trou. Sans la coupe, la file garde la taille du plus long hoquet : plus de
+ * retard de son, et pas de trou. Le choix revient au propriétaire, après une
+ * soirée en phases alternées qui lit `son.file` et `son.trous`.
+ */
+export function rendreDeLAdresse(search: string): boolean {
+  try {
+    return new URLSearchParams(search).get("son") === "rendre";
+  } catch {
+    return false;
+  }
+}
 
 /** Ce que devient l'ordonnancement quand un morceau arrive. */
 export type Schedule = {
@@ -159,16 +201,42 @@ export class SoundStream {
   private gaps = 0;
   private played = 0;
   private readonly lags = new Window(240);
+  /** La file réelle à chaque morceau arrivé, sur la fenêtre de relevé : ce
+   * que le son a d'avance sur la carte, `playAt − currentTime`, en ms. La
+   * cible `lead` n'en dit rien : le 26 novembre 2026 elle disait 10 ms
+   * pendant que la file restait au moins à 33 (SON-4). */
+  private readonly file = new Serie();
+  /** La plus petite file vue depuis le dernier regard de `trim`, en secondes,
+   * ou nul. C'est elle qui dit ce que la page peut rendre (SON-1). */
+  private fileMin: number | null = null;
+  /** Ce qu'il reste à rendre, en secondes, et les morceaux posés depuis la
+   * dernière coupe. */
+  private aRendre = 0;
+  private depuisCoupe = RENDU_ESPACE;
+  /** Le morceau d'après une coupe s'allume en `FONDU`. */
+  private allumer = false;
+  /** Le son rendu depuis l'ouverture, en secondes. */
+  private rendu = 0;
+  /** La coupe de SON-1 tourne-t-elle ? Voir `rendreDeLAdresse`. */
+  private readonly rendre: boolean;
   private volume: number;
   private deviceRate: boolean;
   private readonly url: (path: string) => string;
   private trimmer: number | null = null;
 
-  constructor(url: (path: string) => string, volume: number, deviceRate: boolean) {
+  constructor(
+    url: (path: string) => string,
+    volume: number,
+    deviceRate: boolean,
+    /** `rendre` vient de l'adresse par défaut (`?son=rendre`) : la même page
+     * sert les deux bras d'une comparaison. */
+    options: { rendre?: boolean } = {},
+  ) {
     this.url = url;
     this.volume = volume;
     this.muted = volume <= 0;
     this.deviceRate = deviceRate;
+    this.rendre = options.rendre ?? rendreDeLAdresse(globalThis.location?.search ?? "");
   }
 
   /** Builds the context, in whichever of the two shapes is asked for.
@@ -194,6 +262,7 @@ export class SoundStream {
     this.gapsSeen = 0;
     this.lead = LEAD_MIN;
     this.lags.clear();
+    this.rendreRien();
     void previous?.close();
   }
 
@@ -374,6 +443,7 @@ export class SoundStream {
       gaps: this.gaps,
       playedSeconds: this.played,
       leadMs: this.lead * 1000,
+      renduMs: this.rendre ? this.rendu * 1000 : null,
       sampleRate: this.context?.sampleRate ?? 0,
       outputMs: (this.context?.outputLatency ?? 0) * 1000,
       browserMs: (this.context?.baseLatency ?? 0) * 1000,
@@ -412,6 +482,7 @@ export class SoundStream {
     this.scheduledOffset = null;
     this.lags.clear();
     this.scheduledOffset = null;
+    this.rendreRien();
     if (this.wanted() && this.context !== null) this.connect();
   }
 
@@ -448,29 +519,58 @@ export class SoundStream {
 
     const pcm = new Int16Array(event.data, 8);
     const frames = pcm.length / CHANNELS;
-    const buffer = context.createBuffer(CHANNELS, frames, RATE);
-    for (let channel = 0; channel < CHANNELS; channel++) {
-      const target = buffer.getChannelData(channel);
-      for (let frame = 0; frame < frames; frame++) {
-        target[frame] = pcm[frame * CHANNELS + channel] / 32768;
-      }
-    }
 
     const placed = scheduleAt(context.currentTime, this.playAt, this.lead);
     this.playAt = placed.playAt;
     this.lead = placed.lead;
     if (placed.gap) this.gaps += 1;
+    const enFile = this.playAt - context.currentTime;
+    this.file.note(enFile * 1000);
+    this.fileMin = this.fileMin === null ? enFile : Math.min(this.fileMin, enFile);
+
+    // Rendre le retard pris (SON-1) : garder `FONDU` de ce morceau, qui
+    // s'éteint, et allumer le suivant. Seulement quand la file qui RESTE
+    // après la coupe garde l'avance : la coupe ne crée jamais de trou.
+    const fondu = Math.round(FONDU * RATE);
+    this.depuisCoupe += 1;
+    const coupe =
+      this.rendre &&
+      this.aRendre > 0 &&
+      !placed.gap &&
+      this.depuisCoupe >= RENDU_ESPACE &&
+      frames > 2 * fondu &&
+      enFile - (frames - fondu) / RATE >= this.lead + FLOOR;
+    const gardees = coupe ? fondu : frames;
+    const buffer = context.createBuffer(CHANNELS, gardees, RATE);
+    for (let channel = 0; channel < CHANNELS; channel++) {
+      const target = buffer.getChannelData(channel);
+      for (let frame = 0; frame < gardees; frame++) {
+        target[frame] = pcm[frame * CHANNELS + channel] / 32768;
+      }
+      if (coupe)
+        for (let frame = 0; frame < gardees; frame++) target[frame] *= 1 - (frame + 1) / gardees;
+      else if (this.allumer)
+        for (let frame = 0; frame < Math.min(fondu, gardees); frame++)
+          target[frame] *= frame / fondu;
+    }
+    this.allumer = coupe;
+    if (coupe) {
+      const rendu = (frames - gardees) / RATE;
+      this.aRendre = Math.max(0, this.aRendre - rendu);
+      this.rendu += rendu;
+      this.depuisCoupe = 0;
+    }
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gain);
     source.start(this.playAt);
     this.scheduledOffset =
       performance.now() + (this.playAt - context.currentTime) * 1000 - capturedMs;
-    this.playAt += frames / RATE;
+    this.playAt += gardees / RATE;
     // Counted in SECONDS rather than chunks: the length of a chunk is an
     // implementation detail, and a test that counted them broke the day they
     // were halved while the behaviour it checked never changed.
-    this.played += frames / RATE;
+    this.played += gardees / RATE;
     this.chunks += 1;
   }
 
@@ -511,6 +611,14 @@ export class SoundStream {
     tone.stop(now + 0.24);
   }
 
+  /** Ce que la fenêtre de relevé a vu : la file réelle, plus petite, médiane
+   * et plus grande, en ms, ou nul sans morceau joué. `prendre` la remet à
+   * zéro (`fenetre.ts`). */
+  fenetre(prendre: boolean): { fileMs: [number, number, number] | null } {
+    const file = this.file.lire(prendre);
+    return { fileMs: file === null ? null : etendue(file) };
+  }
+
   /** Le volume appliqué en ce moment.
    *
    * Lu sur le noeud de gain et non sur ce qu'on lui a demandé: c'est ce que
@@ -527,5 +635,22 @@ export class SoundStream {
   private trim(): void {
     this.lead = trimmed(this.lead, this.gaps, this.gapsSeen);
     this.gapsSeen = this.gaps;
+    // Ce que la page peut rendre : ce que la plus petite file des deux
+    // dernières secondes avait de trop sur l'avance (SON-1). La plus petite
+    // et pas la moyenne : la gigue a besoin de tout ce qu'elle a pris, et
+    // seule la marge qu'elle n'a jamais touchée est du retard. Une fenêtre
+    // qui a eu un trou n'a rien à rendre : le morceau du réancrage y est
+    // posé à l'avance tout juste, et c'est son minimum.
+    const surplus = this.fileMin === null ? 0 : this.fileMin - this.lead;
+    this.aRendre = surplus > RENDU_SEUIL ? surplus : 0;
+    this.fileMin = null;
+  }
+
+  /** Une file neuve n'a rien à rendre. */
+  private rendreRien(): void {
+    this.fileMin = null;
+    this.aRendre = 0;
+    this.depuisCoupe = RENDU_ESPACE;
+    this.allumer = false;
   }
 }

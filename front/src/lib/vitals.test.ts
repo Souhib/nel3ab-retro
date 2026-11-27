@@ -6,7 +6,7 @@
  * et à la première fenêtre. Les deux ont leur test.
  */
 import { describe, expect, it } from "vitest";
-import type { Snapshot } from "../media/session";
+import type { Fenetre, Snapshot } from "../media/session";
 import {
   HiddenTime,
   COLLAPSE_MS,
@@ -36,6 +36,9 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       slackMs: 0,
       starved: 0,
       skipped: 0,
+      caughtUp: 0,
+      overflowed: 0,
+      marge: "lisse",
       connected: true,
       reconnects: 0,
       paintedSince: 0,
@@ -71,6 +74,7 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
       gaps: 0,
       playedSeconds: 0,
       leadMs: 90,
+      renduMs: 0,
       sampleRate: 48000,
       outputMs: 10,
       browserMs: 20,
@@ -113,6 +117,10 @@ function snap(video: Partial<Snapshot["video"]> = {}, rest: Partial<Snapshot> = 
     },
     soundGapMs: null,
     soundSyncMs: 0,
+    soundSyncOn: false,
+    ...(rest.soundGapMs === undefined ? {} : { soundGapMs: rest.soundGapMs }),
+    ...(rest.soundSyncMs === undefined ? {} : { soundSyncMs: rest.soundSyncMs }),
+    ...(rest.soundSyncOn === undefined ? {} : { soundSyncOn: rest.soundSyncOn }),
     mic: "off",
     liaison: { etat: "ok" },
     couvertureVue: 0,
@@ -184,6 +192,144 @@ describe("le relevé d'une fenêtre", () => {
     // celle du navigateur est décalée. Une séance saine s'écrivait
     // « horaire -15268 ms », ce qui n'a jamais voulu dire quoi que ce soit.
     expect(vitals(snap({ addedMs: 0 }), null, 10_000).horaire).toBe(0);
+  });
+});
+
+describe("ce que l'œil voit d'une fenêtre (VID-4)", () => {
+  it("sépare les images jetées par rattrapage de celles jetées par débordement", () => {
+    // Les deux disent le contraire l'une de l'autre (VID-1) : le 26 novembre
+    // 2026, le relevé ne permettait pas de savoir laquelle bloquait la marge.
+    const before = snap({ skipped: 10, caughtUp: 7, overflowed: 3 });
+    const now = snap({ skipped: 27, caughtUp: 21, overflowed: 6 });
+    const sample = vitals(now, before, 10_000);
+
+    expect(sample.rattrapées, "le relevé ne sépare pas les rattrapages").toBe(14);
+    expect(sample.débordées).toBe(3);
+    expect(sample.jetées).toBe(sample.rattrapées + sample.débordées);
+  });
+
+  it("écrit le plus long arrêt vu au verre, en millisecondes", () => {
+    const fenetre = { video: { arretMs: 130 } } as Fenetre;
+    const sample = vitals(snap(), null, 10_000, undefined, true, fenetre);
+
+    expect(sample.arrêt, "le relevé ne dit pas l'arrêt vu au verre").toBe(130);
+  });
+
+  // Le jumeau : sans mesure, nul. Un zéro dirait une image parfaitement fluide.
+  it("écrit nul quand la fenêtre n'a rien peint, ou quand on ne la donne pas", () => {
+    const vide = { video: { arretMs: null } } as Fenetre;
+    expect(vitals(snap(), null, 10_000, undefined, true, vide).arrêt).toBeNull();
+    expect(vitals(snap(), null, 10_000).arrêt).toBeNull();
+  });
+
+  it("dit la règle de marge en service, pour lire une comparaison à l'aveugle", () => {
+    expect(vitals(snap({ marge: "ancienne" }), null, 10_000).marge).toBe("ancienne");
+    expect(vitals(snap({ marge: "lisse" }), null, 10_000).marge).toBe("lisse");
+  });
+});
+
+describe("le navigateur ou la liaison (chantier 2 de l'audit du 27 novembre 2026)", () => {
+  const pleine = {
+    video: {
+      arretMs: 140,
+      ecranMaxMs: 130,
+      ecarts: { plus100: 3, pireMs: 147, ilYaMs: 4200 },
+      sejourMs: [5, 12],
+    },
+    input: { retourMs: [40, 180], pompeMaxMs: 150 },
+  } as Fenetre;
+
+  it("écrit l'intervalle d'écran, les écarts d'arrivée et l'attente dans la file", () => {
+    const sample = vitals(snap(), null, 10_000, undefined, true, pleine);
+
+    expect(sample.écranMax, "le relevé ne dit pas l'intervalle d'écran le plus long").toBe(130);
+    // L'instant du plus grand écart, en millisecondes AVANT le relevé : le
+    // salon date la ligne à sa réception, la boîte noire la recoupe.
+    expect(sample.écarts).toEqual({ plus100: 3, pire: 147, à: -4200 });
+    expect(sample.séjour).toEqual([5, 12]);
+  });
+
+  it("écrit la queue des aller-retours et le plus long tour de la pompe", () => {
+    const sample = vitals(snap(), null, 10_000, undefined, true, pleine);
+
+    expect(sample.manette.retour, "le relevé ne dit pas la queue des aller-retours").toEqual([
+      40, 180,
+    ]);
+    expect(sample.manette.pompe).toBe(150);
+  });
+
+  // Nul et pas zéro : une fenêtre qu'on ne donne pas, ou qui n'a rien mesuré.
+  it("écrit nul pour tout ce que la fenêtre n'a pas mesuré", () => {
+    const vide = {
+      video: { arretMs: null, ecranMaxMs: null, ecarts: null, sejourMs: null },
+      input: { retourMs: null, pompeMaxMs: null },
+    } as Fenetre;
+    for (const sample of [
+      vitals(snap(), null, 10_000, undefined, true, vide),
+      vitals(snap(), null, 10_000),
+    ]) {
+      expect(sample.écranMax).toBeNull();
+      expect(sample.écarts).toBeNull();
+      expect(sample.séjour).toBeNull();
+      expect(sample.manette.retour).toBeNull();
+      expect(sample.manette.pompe).toBeNull();
+    }
+  });
+});
+
+describe("le son tel qu'il est entendu (SON-4)", () => {
+  it("écrit la file réelle du son, et pas seulement sa cible", () => {
+    const fenetre = { video: {}, sound: { fileMs: [12, 35, 36] } } as Fenetre;
+    const sample = vitals(snap(), null, 10_000, undefined, true, fenetre);
+
+    expect(sample.son.file, "le relevé ne dit pas la file réelle du son").toEqual([12, 35, 36]);
+  });
+
+  it("écrit le son rendu pendant la fenêtre, en millisecondes (SON-1)", () => {
+    const before = snap({}, { sound: { ...snap().sound, renduMs: 1200.4 } });
+    const now = snap({}, { sound: { ...snap().sound, renduMs: 1504.6 } });
+    expect(vitals(now, before, 10_000).son.rendu, "le relevé ne dit pas le son rendu").toBe(304);
+    // Le jumeau : rien de rendu, zéro (un compteur, mesuré à chaque morceau).
+    expect(vitals(now, now, 10_000).son.rendu).toBe(0);
+  });
+
+  // Sans `?son=rendre`, la coupe est éteinte : le relevé écrit nul, pour
+  // qu'une soirée en phases alternées sache quel bras tournait. Un zéro
+  // dirait « rien à rendre », ce qui n'a pas été mesuré.
+  it("écrit nul pour une coupe éteinte, jamais zéro", () => {
+    const eteinte = snap({}, { sound: { ...snap().sound, renduMs: null } });
+    expect(vitals(eteinte, eteinte, 10_000).son.rendu, "une coupe éteinte passe pour 0 ms").toBe(
+      null,
+    );
+    expect(vitals(eteinte, null, 10_000).son.rendu).toBe(null);
+  });
+
+  it("écrit l'écart du son sur l'image, et le calage quand l'option est allumée", () => {
+    const allume = vitals(
+      snap({}, { soundGapMs: 41.6, soundSyncMs: 38, soundSyncOn: true }),
+      null,
+      10_000,
+    );
+    expect(allume.son.écart, "le relevé ne dit pas l'écart du son sur l'image").toBe(42);
+    expect(allume.son.calage).toBe(38);
+  });
+
+  // Nul et pas zéro : un calage éteint n'est pas un calage de 0 ms, et une
+  // fenêtre sans morceau n'a pas de file.
+  it("écrit nul pour un calage éteint, un écart inconnu et une file sans morceau", () => {
+    const fenetre = { video: {}, sound: { fileMs: null } } as Fenetre;
+    const eteint = vitals(
+      snap({}, { soundGapMs: null, soundSyncMs: 0, soundSyncOn: false }),
+      null,
+      10_000,
+      undefined,
+      true,
+      fenetre,
+    );
+    expect(eteint.son.calage).toBeNull();
+    expect(eteint.son.écart).toBeNull();
+    expect(eteint.son.file).toBeNull();
+    expect(vitals(snap(), null, 10_000).son.file).toBeNull();
   });
 });
 
@@ -305,6 +451,21 @@ describe("ce qui mérite d'être écrit", () => {
     const gelee = vitals(snap({ sinceArrivalMs: 12_000 }), null, 10_000, undefined, true);
     expect(gelee.attente).toBe(12_000);
     expect(worthWriting(gelee)).toBe(true);
+  });
+
+  // SON-4 : des trous de son sans image (un démarrage, un gel de l'image
+  // pendant que le son passe) se perdaient, la fenêtre n'étant pas écrite.
+  it("écrit une fenêtre sans image dont le son a eu des trous", () => {
+    const now = snap({}, { sound: { ...snap().sound, chunks: 1000, gaps: 3 } });
+    const before = snap({}, { sound: { ...snap().sound, chunks: 0, gaps: 0 } });
+    expect(worthWriting(vitals(now, before, 10_000)), "des trous de son perdus").toBe(true);
+  });
+
+  // Le jumeau : du son sans trou ne suffit pas, sinon un onglet caché qui joue
+  // le son écrirait six lignes par minute.
+  it("n'écrit pas une fenêtre sans image dont le son passe sans trou", () => {
+    const now = snap({}, { sound: { ...snap().sound, chunks: 1000, gaps: 0 } });
+    expect(worthWriting(vitals(now, snap(), 10_000))).toBe(false);
   });
 
   it("ne compte pas l'attente sans jeu: un onglet ouvert sur une salle au repos se tait", () => {

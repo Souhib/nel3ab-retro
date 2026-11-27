@@ -9,6 +9,7 @@ import type { InputSource } from "./input-source";
  * and it says so in one byte as soon as the socket opens. Zero means no seat.
  */
 import { Window } from "./clock";
+import { Pic, Serie, arrondi, rang } from "./fenetre";
 import { Touch } from "./touch";
 import {
   Annonces,
@@ -330,6 +331,15 @@ export class InputStream {
    * une demi-minute: assez pour que la médiane ne suive pas un hoquet, assez
    * court pour qu'elle suive un vrai changement de liaison. */
   private readonly trips = new Window(30);
+  /** Les aller-retours de la fenêtre de relevé, pour leur queue (p95, max) :
+   * la médiane de trente ne voit pas deux retours lents sur vingt. */
+  private readonly retours = new Serie();
+  /** Le plus long écart entre deux tours de la pompe, sur la fenêtre. La
+   * pompe tourne sur le fil principal, comme la réception des images : un
+   * fil bloqué se lit ici, une liaison qui hoquette non (chantier 2 de
+   * l'audit du 27 novembre 2026). */
+  private readonly pompeMax = new Pic();
+  private pompeBase: number | null = null;
   /** Le numéro du prochain aller-retour, et l'instant de ceux qui sont partis.
    *
    * Par NUMÉRO et pas par un simple « le dernier »: sur une liaison lente, deux
@@ -454,6 +464,10 @@ export class InputStream {
     addEventListener("keyup", this.onKeyUp);
     addEventListener("blur", this.onBlur);
     addEventListener("focusin", this.onFocusIn);
+    // Un doigt sur la manette à l'écran fait partir sa trame tout de suite,
+    // comme une touche du clavier (ENT-9).
+    this.touch.quandChange = this.pump;
+    this.switch.quandChange = this.pump;
     this.timers.push(window.setInterval(this.pump, PAD_PERIOD_MS));
     this.timers.push(window.setInterval(this.ping, ECHO_EVERY_MS));
     this.animation = requestAnimationFrame(this.pumpOnRefresh);
@@ -506,6 +520,9 @@ export class InputStream {
     this.retry = null;
     this.cancelCapture();
     this.held.clear();
+    this.pompeBase = null;
+    this.touch.quandChange = null;
+    this.switch.quandChange = null;
     for (const timer of this.timers) window.clearInterval(timer);
     this.timers = [];
     removeEventListener("keydown", this.onKeyDown);
@@ -1186,6 +1203,7 @@ export class InputStream {
         if (at !== undefined) {
           this.sentAt.delete(ticket);
           this.trips.push(performance.now() - at);
+          this.retours.note(performance.now() - at);
         }
         return;
       }
@@ -1305,14 +1323,20 @@ export class InputStream {
       event.code.startsWith("Arrow")
     )
       event.preventDefault();
+    // La trame part tout de suite, sans attendre le tour suivant de la pompe
+    // (ENT-9) : 1,5 ms gagnée en moyenne, 5 ms quand le navigateur espace ses
+    // minuteurs. Une touche déjà tenue (la répétition du clavier) ne change
+    // rien et n'envoie rien de plus.
+    if (this.held.has(event.code)) return;
     this.held.add(event.code);
+    this.pump();
   };
 
   // PAS de garde ici, et l'asymétrie est voulue: relâcher ne fait jamais que
   // libérer. Une touche enfoncée dans le jeu puis relâchée après un clic dans un
   // champ doit sortir de la liste, sinon elle y reste appuyée pour toujours.
   private onKeyUp = (event: KeyboardEvent): void => {
-    this.held.delete(event.code);
+    if (this.held.delete(event.code)) this.pump();
   };
 
   private onBlur = (): void => {
@@ -1333,7 +1357,33 @@ export class InputStream {
     this.pump();
   };
 
+  /** Ce que la fenêtre a vu de pire : la queue des aller-retours, et le plus
+   * long tour de la pompe. `prendre` la remet à zéro (`fenetre.ts`). */
+  fenetre(prendre: boolean): {
+    /** p95 et max des aller-retours de la fenêtre, en ms, ou nul sans retour. */
+    retourMs: [number, number] | null;
+    /** Le plus long écart entre deux tours de la pompe, onglet visible, en ms. */
+    pompeMaxMs: number | null;
+  } {
+    const retours = this.retours.lire(prendre);
+    return {
+      retourMs:
+        retours === null
+          ? null
+          : [Math.round(rang(retours, 0.95)), Math.round(retours[retours.length - 1])],
+      pompeMaxMs: arrondi(this.pompeMax.lire(prendre).max),
+    };
+  }
+
   private pump = (): void => {
+    // Le tour d'avant, et celui-ci. Un onglet caché ne tourne qu'une fois par
+    // seconde, ce que le navigateur décide : ce temps-là ne compte pas.
+    const tour = performance.now();
+    if (document.visibilityState === "hidden") this.pompeBase = null;
+    else {
+      if (this.pompeBase !== null) this.pompeMax.note(tour - this.pompeBase, tour);
+      this.pompeBase = tour;
+    }
     const found = navigator.getGamepads?.() ?? [];
     // Une entrée par MODÈLE et non par branchement. Un adaptateur GameCube en
     // expose quatre, toutes du même nom, et elles partagent forcément une seule

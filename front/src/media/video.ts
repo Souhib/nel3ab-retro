@@ -7,17 +7,23 @@
  */
 import {
   SLACK_CEILING,
+  SLACK_START,
   Window,
   isStarved,
-  nextSlack,
+  margeDeLAdresse,
+  periodeDesInstants,
+  pasDeMarge,
   pacingGaveUp,
   roomFor,
   steer,
-  stuckAtCeiling,
 } from "./clock";
 import { codecOf, hasIdr } from "./annexb";
 import { boiteJuste, decouvrir, lever } from "./couverture";
+import { Pic, Serie, arrondi, rang } from "./fenetre";
 import { under } from "../lib/base";
+import type { Marge } from "./clock";
+
+export type { Marge };
 
 /** How long without a byte before the connection is presumed dead.
  *
@@ -123,7 +129,16 @@ export type VideoStats = {
   starved: number;
   /** L'allure a renoncé: le lien ne porte pas ce flux. */
   overloaded: boolean;
+  /** Images décodées jamais peintes, des deux sortes ci-dessous. */
   skipped: number;
+  /** Jetées par RATTRAPAGE : arrivées après leur heure, quand la suivante
+   * était déjà due. L'horaire était trop tôt pour elles. */
+  caughtUp: number;
+  /** Jetées par DÉBORDEMENT : la file était pleine avant leur tour.
+   * L'horaire était trop tard pour la file (le 17 août 2026). */
+  overflowed: number;
+  /** La règle de marge en service : la nouvelle, ou `?marge=ancienne`. */
+  marge: Marge;
   connected: boolean;
   reconnects: number;
   /** Images peintes DEPUIS la dernière reconnexion.
@@ -222,6 +237,46 @@ export type VideoStats = {
   addedMs: number;
 };
 
+/** Ce qu'une fenêtre de relevé a vu de pire, PRIS par le relevé de dix
+ * secondes et lu sans être pris par un signalement (`fenetre.ts`). Nul veut
+ * dire « pas mesuré dans cette fenêtre », jamais zéro. */
+export type FenetreVideo = {
+  /** Le plus long temps sans nouvelle image peinte, onglet visible, en
+   * millisecondes (VID-4). C'est ce que l'œil voit d'un arrêt : une famine
+   * compte un épisode, qu'il dure 30 ou 130 ms. Un gel de la salle y entre
+   * aussi, une fois fini ; `attente` le dit pendant qu'il dure. */
+  arretMs: number | null;
+  /** Le plus long intervalle entre deux images d'écran (`requestAnimationFrame`),
+   * onglet visible, en millisecondes. Un fil principal bloqué se lit ici ; la
+   * liaison, elle, se lit dans `ecarts`. Le 26 novembre 2026, rien ne séparait
+   * les deux (chantier 2 de l'audit du 27 novembre, VID-5). */
+  ecranMaxMs: number | null;
+  /** Les écarts entre deux messages portant une image, datés à leur arrivée
+   * sur le fil principal : combien dépassent 100 ms, le plus grand, et il y a
+   * combien de millisecondes il s'est fini. Nul sans deux arrivées. */
+  ecarts: { plus100: number; pireMs: number; ilYaMs: number } | null;
+  /** Combien une image décodée attend dans la file avant d'être peinte, p50 et
+   * p95, en millisecondes. Nul sans image peinte. */
+  sejourMs: [number, number] | null;
+};
+
+/** À partir de quel écart d'arrivée une fenêtre le compte, en millisecondes.
+ * Cent : six images à 60 par seconde. Le 26 novembre 2026, chaque fenêtre de
+ * dix secondes d'un joueur distant avait un trou de 117 à 166 ms, absent de la
+ * capture ; une page du réseau local restait sous 40 ms. */
+const ECART_LONG = 100;
+
+/** À partir de combien de tics d'écran par image de la source un retard d'une
+ * période se montre au lieu d'être jeté (VID-6). Un et huit dixièmes plutôt
+ * que deux : un écran 120 Hz lu à 115 Hz, ou une source à 59 images par
+ * seconde, gardent le tic qui reste. Un écran 100 Hz pour 60 images (1,67)
+ * n'en a pas assez : y montrer une image en retard décalerait la suivante. */
+const TICK_TO_SPARE = 1.8;
+
+/** Combien d'instants d'écran la page garde pour lire sa période : cent
+ * vingt intervalles, comme la fenêtre d'avant (VID-7). */
+const TICS_LUS = 121;
+
 /** À partir de quel écart l'horaire d'affichage est REPOSÉ plutôt que corrigé,
  * en millisecondes. Voir la raison dans `adjust`. */
 const SNAP = 120;
@@ -277,10 +332,13 @@ export class VideoStream {
   /** Sonde-t-on en ce moment ? Faux pendant une partie, et c'est TOUT le sujet. */
   private probing = false;
   private readonly waits = new Window(240);
-  private readonly refreshes = new Window(120);
+  /** Les instants des dernières images d'écran, pour lire sa période
+   * (`periodeDesInstants`), et cette période, relue une fois par tic. */
+  private readonly ticsEcran: number[] = [];
+  private periodeEcran: number | null = null;
 
   private offset: number | null = null;
-  private slackMs = 6;
+  private slackMs = SLACK_START;
   private lipsync = 0;
   private awaitingKey = false;
   private priming = true;
@@ -322,7 +380,6 @@ export class VideoStream {
   private lastOutput: number | null = null;
   private lastFed: number | null = null;
   private lastPaintTick: number | null = null;
-  private lastRefresh: number | null = null;
   private decoderGoneSince: number | null = null;
   private shownAt: number | null = null;
   private lastArrival: number | null = null;
@@ -333,6 +390,22 @@ export class VideoStream {
   private lastUnit: number | null = null;
   private units = 0;
   private lastPainted: number | null = null;
+  /** Le plus long temps entre deux images peintes de la fenêtre (VID-4). */
+  private readonly arret = new Pic();
+  /** La dernière image peinte, pour `arret` : remis à nul quand l'onglet se
+   * cache, parce que personne n'a vu le temps passé caché. */
+  private peintBase: number | null = null;
+  /** Le plus long intervalle entre deux images d'écran de la fenêtre. */
+  private readonly ecranMax = new Pic();
+  private ticBase: number | null = null;
+  /** Les écarts d'arrivée de la fenêtre : vus, au-dessus de `ECART_LONG`,
+   * le plus grand. Datés au message, avant toute décision de décoder. */
+  private ecartBase: number | null = null;
+  private ecartsVus = 0;
+  private ecartsLongs = 0;
+  private readonly pireEcart = new Pic();
+  /** L'attente de chaque image peinte dans la file, sur la fenêtre. */
+  private readonly sejours = new Serie();
   private openedAt: number | null = null;
   private downSince: number | null = null;
   private startedAt: number | null = null;
@@ -348,9 +421,24 @@ export class VideoStream {
   private starvedRecent = 0;
   /** Depuis combien de fenêtres la marge est collée au plafond. */
   private atCeiling = 0;
+  /** La marge que la règle d'AVANT le 27 novembre 2026 aurait posée, d'après
+   * les mêmes famines et les mêmes jets. C'est elle qui décide le demi-format
+   * automatique (`overloaded`) : le propriétaire a demandé que ce basculement
+   * garde son comportement sur une liaison lente. La marge en service peut
+   * dépasser celle-ci jusqu'à `CATCHUP_SLACK_MAX` au plus (`slackLisse`) ;
+   * juger le plafond sur elle avançait le basculement de 16 s à 6 Mbit/s,
+   * en simulation (`marge.test.ts`). */
+  private slackAvant = SLACK_START;
   private skipped = 0;
-  /** Ce qui avait été jeté à la fin de la fenêtre précédente. */
-  private skippedSeen = 0;
+  /** Les deux sortes de jets, comptées à part depuis le 27 novembre 2026 :
+   * elles disent le contraire l'une de l'autre (`nextSlackLisse`). */
+  private caughtUp = 0;
+  private overflowed = 0;
+  /** Ce qui avait été jeté, de chaque sorte, à la fin de la fenêtre précédente. */
+  private caughtUpSeen = 0;
+  private overflowedSeen = 0;
+  /** La règle de marge : voir `nextSlackLisse`. */
+  private readonly marge: Marge;
   private undecoded = 0;
   private stalls = 0;
   private restarts = 0;
@@ -367,9 +455,16 @@ export class VideoStream {
   private readonly canvas: HTMLCanvasElement;
   private readonly url: (path: string) => string;
 
-  constructor(canvas: HTMLCanvasElement, url: (path: string) => string) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    url: (path: string) => string,
+    /** `marge` vient de l'adresse par défaut (`?marge=ancienne`) : la même
+     * construction de la page sert les deux bras d'une comparaison. */
+    options: { marge?: Marge } = {},
+  ) {
     this.canvas = canvas;
     this.url = url;
+    this.marge = options.marge ?? margeDeLAdresse(globalThis.location?.search ?? "");
   }
 
   private active = false;
@@ -388,6 +483,7 @@ export class VideoStream {
     if (this.half) void this.checkFormat();
     this.connect();
     this.frame = requestAnimationFrame(this.paint);
+    document.addEventListener("visibilitychange", this.cachee);
     this.timers.push(
       window.setInterval(this.watchSilence, 500),
       window.setInterval(this.watchDecoder, 500),
@@ -465,12 +561,17 @@ export class VideoStream {
   stop(): void {
     this.formatGeneration += 1;
     this.active = false;
+    document.removeEventListener("visibilitychange", this.cachee);
+    this.peintBase = null;
+    this.ticBase = null;
+    this.ecartBase = null;
     this.lags.clear();
     this.gaps.clear();
     this.sourceGaps.clear();
     this.lastArrival = null;
     this.lastCaptured = null;
-    this.lastRefresh = null;
+    this.ticsEcran.length = 0;
+    this.periodeEcran = null;
     this.deniedHalf = false;
     cancelAnimationFrame(this.frame);
     if (this.reconnectIn !== null) window.clearTimeout(this.reconnectIn);
@@ -535,6 +636,9 @@ export class VideoStream {
       starved: this.starved,
       overloaded: pacingGaveUp(this.atCeiling),
       skipped: this.skipped,
+      caughtUp: this.caughtUp,
+      overflowed: this.overflowed,
+      marge: this.marge,
       connected: this.connected,
       reconnects: this.reconnects,
       awaitingRestart: this.awaiting,
@@ -575,6 +679,41 @@ export class VideoStream {
       addedMs: Math.round(this.boughtMs()),
     };
   }
+
+  /** Ce que la fenêtre a vu de pire. `prendre` la remet à zéro : le relevé de
+   * dix secondes prend, un signalement lit sans prendre (`fenetre.ts`). */
+  fenetre(prendre: boolean): FenetreVideo {
+    const pire = this.pireEcart.lire(prendre);
+    const ecarts =
+      this.ecartsVus === 0 || pire.max === null || pire.at === null
+        ? null
+        : {
+            plus100: this.ecartsLongs,
+            pireMs: Math.round(pire.max),
+            ilYaMs: Math.round(performance.now() - pire.at),
+          };
+    if (prendre) {
+      this.ecartsVus = 0;
+      this.ecartsLongs = 0;
+    }
+    const sejours = this.sejours.lire(prendre);
+    return {
+      arretMs: arrondi(this.arret.lire(prendre).max),
+      ecranMaxMs: arrondi(this.ecranMax.lire(prendre).max),
+      ecarts,
+      sejourMs:
+        sejours === null ? null : [Math.round(rang(sejours, 0.5)), Math.round(rang(sejours, 0.95))],
+    };
+  }
+
+  /** L'onglet se cache : le temps qui vient ne se voit pas, donc ne compte
+   * pas comme un arrêt au verre. Sans ça, une page revenue après une minute
+   * cachée publiait un arrêt d'une minute. */
+  private readonly cachee = (): void => {
+    if (document.visibilityState !== "hidden") return;
+    this.peintBase = null;
+    this.ticBase = null;
+  };
 
   /** The display's own interval, measured rather than assumed: 60, 120 and 240 Hz
    * screens are all in use here and a page that assumes one is wrong on two. */
@@ -632,6 +771,11 @@ export class VideoStream {
 
   compensationMs(): number {
     return this.lipsync;
+  }
+
+  /** La période de l'écran, en millisecondes (`periodeDesInstants`). */
+  periodeEcranMs(): number {
+    return this.refreshPeriod();
   }
 
   private wantedOffset(): number {
@@ -754,7 +898,7 @@ export class VideoStream {
   }
 
   private refreshPeriod(): number {
-    return this.refreshes.length < 8 ? SOURCE_FRAME : this.refreshes.at(0.5);
+    return this.periodeEcran ?? SOURCE_FRAME;
   }
 
   private connect(): void {
@@ -887,6 +1031,13 @@ export class VideoStream {
     // ou un décodeur qui attend son image-clé n'en font pas un gel de la salle.
     this.lastUnit = this.lastHeard;
     this.units += 1;
+    if (this.ecartBase !== null) {
+      const ecart = this.lastHeard - this.ecartBase;
+      this.ecartsVus += 1;
+      if (ecart > ECART_LONG) this.ecartsLongs += 1;
+      this.pireEcart.note(ecart, this.lastHeard);
+    }
+    this.ecartBase = this.lastHeard;
 
     const capturedMicros = Number(new DataView(event.data).getBigUint64(0, true));
     const unit = message.subarray(8);
@@ -979,6 +1130,7 @@ export class VideoStream {
     while (this.queue.length > this.queueRoom()) {
       this.queue.shift()?.frame.close();
       this.skipped += 1;
+      this.overflowed += 1;
     }
     this.shown += 1;
   }
@@ -1005,9 +1157,12 @@ export class VideoStream {
     this.frame = requestAnimationFrame(this.paint);
     this.ticks += 1;
     const tickAt = performance.now();
-    if (this.lastRefresh !== null) this.refreshes.push(tickAt - this.lastRefresh);
-    this.lastRefresh = tickAt;
+    this.ticsEcran.push(tickAt);
+    if (this.ticsEcran.length > TICS_LUS) this.ticsEcran.shift();
+    this.periodeEcran = periodeDesInstants(this.ticsEcran);
     this.lastPaintTick = tickAt;
+    if (this.ticBase !== null) this.ecranMax.note(tickAt - this.ticBase, tickAt);
+    this.ticBase = document.visibilityState === "hidden" ? null : tickAt;
     this.adjust();
     this.reessayer();
 
@@ -1066,9 +1221,19 @@ export class VideoStream {
     // 16 ms alors que celle de 48 ms est prête. On montre la dernière dont
     // l'heure est venue, et on garde celles qui sont encore en avance. Cela
     // abandonne des images déjà périmées sans retirer la marge contre la gigue.
-    while (this.queue.length > 1 && this.queue[1].capturedMs + this.offset - slack <= now) {
+    //
+    // Sur un écran au moins 1,8 fois plus rapide que la source, la dernière
+    // image en retard garde sa voisine (VID-6, 27 novembre 2026) : une image
+    // en retard d'une période devient disponible quand la suivante est due, et
+    // il reste un tic pour la montrer avant elle. Le joueur voit alors chaque
+    // image, l'une huit millisecondes en retard, au lieu d'un saut. Sur un
+    // écran au rythme de la source, il ne reste pas de tic, et le rattrapage
+    // du 8 septembre reste entier.
+    const garde = this.sourcePeriodMs() >= TICK_TO_SPARE * this.refreshPeriod() ? 2 : 1;
+    while (this.queue.length > garde && this.queue[garde].capturedMs + this.offset - slack <= now) {
       this.queue.shift()?.frame.close();
       this.skipped += 1;
+      this.caughtUp += 1;
     }
 
     const next = this.queue.shift();
@@ -1107,9 +1272,12 @@ export class VideoStream {
     this.retenue = !lever(this.juste);
     if (this.retenue) queueMicrotask(this.reessayer);
     this.lastPainted = now;
+    if (this.peintBase !== null) this.arret.note(now - this.peintBase, now);
+    this.peintBase = document.visibilityState === "hidden" ? null : now;
     if (this.shownAt !== null) this.holds.push(this.ticks - this.shownAt);
     this.shownAt = this.ticks;
     this.waits.push(now - next.decodedAt);
+    this.sejours.note(now - next.decodedAt);
   };
 
   /**
@@ -1199,21 +1367,36 @@ export class VideoStream {
       this.offset = Math.abs(this.offset - want) > SNAP ? want : steer(this.offset, want, 5);
     }
 
-    // Ce qui a été jeté depuis la dernière fenêtre. Une éviction interdit
-    // d'agrandir la marge: voir `nextSlack`.
-    const evicted = this.skipped - this.skippedSeen;
-    this.skippedSeen = this.skipped;
-    const grown = nextSlack(this.slackMs, this.starvedRecent, evicted);
-    if (grown > this.slackMs) {
+    // Ce qui a été jeté depuis la dernière fenêtre, de chaque sorte. Un
+    // débordement interdit d'agrandir la marge (`nextSlack`) ; un rattrapage
+    // non, sous un plafond (`nextSlackLisse`). `?marge=ancienne` rend la règle
+    // d'avant le 27 novembre 2026, qui comptait les deux ensemble.
+    const overflowed = this.overflowed - this.overflowedSeen;
+    const caughtUp = this.caughtUp - this.caughtUpSeen;
+    this.overflowedSeen = this.overflowed;
+    this.caughtUpSeen = this.caughtUp;
+    // La règle d'avant, d'après les mêmes famines et les mêmes jets. Elle
+    // décide le demi-format (`slackAvant`), et la nouvelle ne la dépasse que
+    // jusqu'à `CATCHUP_SLACK_MAX` (`slackLisse`). Sous `?marge=ancienne`, les
+    // deux marges restent égales : elles partent du même départ et suivent la
+    // même règle.
+    const pas = pasDeMarge(
+      { slackMs: this.slackMs, slackAvant: this.slackAvant, atCeiling: this.atCeiling },
+      this.marge,
+      this.starvedRecent,
+      overflowed,
+      caughtUp,
+    );
+    if (pas.slackMs > this.slackMs) {
       // Appliquée d'un coup à l'horaire: la faire gagner cinq millisecondes
       // toutes les deux secondes laisserait la page affamée pendant la montée.
-      if (this.offset !== null) this.offset += grown - this.slackMs;
+      if (this.offset !== null) this.offset += pas.slackMs - this.slackMs;
     }
     // La marge collée au plafond dit que l'allure a fait tout ce qu'elle
-    // pouvait. Compté APRÈS l'avoir posée: on juge ce qu'on vient de décider,
-    // pas ce qu'on avait décidé la fois d'avant.
-    this.atCeiling = stuckAtCeiling(this.atCeiling, grown);
-    this.slackMs = grown;
+    // pouvait : `atCeiling`, compté sur la règle d'avant (`pasDeMarge`).
+    this.slackAvant = pas.slackAvant;
+    this.atCeiling = pas.atCeiling;
+    this.slackMs = pas.slackMs;
     this.starvedRecent = 0;
   }
 

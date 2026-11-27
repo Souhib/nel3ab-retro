@@ -2266,6 +2266,98 @@ const ETAPES = {
     await page.close();
   },
 
+  /** Le 26 novembre 2026, chez un joueur distant, la marge de la page est
+   * restée au plancher quatre minutes et vingt et une secondes : chaque
+   * rafale faisait rattraper une image en retard, et le rattrapage comptait
+   * comme un débordement de file, qui interdit à la marge de grandir (VID-1).
+   * Le banc retient les images de 100 à 150 ms une fois par seconde, instants
+   * de capture gardés. La marge doit grandir au-dessus de son départ (6 ms)
+   * sans passer son plafond (36 ms), le demi-format ne doit pas se déclencher,
+   * et le relevé envoyé au salon doit dire l'arrêt vu au verre et les deux
+   * sortes de jets (VID-4). Le jumeau : l'écran n'est pas bloqué, et le
+   * relevé le dit (`écranMax`), pendant que les écarts d'arrivée montent. */
+  async "rafales-marge"() {
+    const DEPART = 6;
+    const PLAFOND = 36;
+    const page = await nouvelle(PC);
+    await entrer(page);
+    if ((await page.evaluate(() => globalThis.nel3abTest.pacing().marge)) === "ancienne")
+      throw new Precondition("la page sert l'ancienne marge sans qu'on la demande");
+    await sleep(3000);
+    const lirePacing = () => page.evaluate(() => globalThis.nel3abTest.pacing());
+    const avant = await lirePacing();
+    banc.regler({ video: "rafales" });
+    const debut = Date.now();
+    let margeMax = 0;
+    let vu = avant;
+    while (Date.now() - debut < 24_000) {
+      vu = await lirePacing();
+      margeMax = Math.max(margeMax, vu.slackMs);
+      await sleep(250);
+    }
+    const releves = banc.releves(debut + 10_000);
+    banc.regler({ video: "live" });
+    const famines = vu.starved - avant.starved;
+    const resume = JSON.stringify({ margeMax, famines, jetees: vu.skipped - avant.skipped, rattrapees: vu.caughtUp, debordees: vu.overflowed, gigue: Math.round(vu.jitter), largeur: [avant.pictureW, vu.pictureW] });
+    if (vu.painted - avant.painted < 600) throw new Precondition(`la page a peint ${vu.painted - avant.painted} images en 24 s: ${resume}`);
+    if (famines < 5) throw new Precondition(`les rafales n'affament pas la page (${famines} famines): ${resume}`);
+    if (margeMax <= DEPART)
+      throw new Defaut(`la marge reste à ${margeMax} ms pendant ${famines} famines : un rattrapage la bloque (VID-1): ${resume}`);
+    if (margeMax > PLAFOND) throw new Defaut(`la marge monte à ${margeMax} ms, au-dessus de son plafond de ${PLAFOND}: ${resume}`);
+    if (vu.pictureW !== avant.pictureW) throw new Defaut(`le demi-format s'est déclenché sur des rafales: ${resume}`);
+    const releve = releves.at(-1)?.releve;
+    if (!releve) throw new Precondition(`aucun relevé au salon en 24 s de rafales: ${resume}`);
+    const lu = JSON.stringify(releve).slice(0, 400);
+    if (typeof releve.arrêt !== "number") throw new Defaut(`le relevé ne dit pas l'arrêt vu au verre (VID-4): ${lu}`);
+    if (typeof releve.rattrapées !== "number" || typeof releve.débordées !== "number")
+      throw new Defaut(`le relevé ne sépare pas les deux sortes de jets: ${lu}`);
+    if (releve.arrêt < 90) throw new Defaut(`le relevé dit un arrêt de ${releve.arrêt} ms pour des retenues de 100 à 150 ms: ${lu}`);
+    if (!(releve.écarts?.plus100 >= 5)) throw new Defaut(`le relevé ne voit pas les écarts d'arrivée au-dessus de 100 ms: ${lu}`);
+    if (!(releve.écranMax < 60)) throw new Defaut(`le relevé prête les rafales à l'écran (écranMax ${releve.écranMax} ms): ${lu}`);
+    console.log(
+      JSON.stringify({
+        mesure: "rafales-marge",
+        ...JSON.parse(resume),
+        releve: { arrêt: releve.arrêt, rattrapées: releve.rattrapées, débordées: releve.débordées, écarts: releve.écarts, écranMax: releve.écranMax, horaire: releve.horaire, marge: releve.marge },
+      }),
+    );
+    await page.close();
+  },
+
+  /** Le jumeau de `rafales-marge` : l'ancienne règle reste derrière
+   * `?marge=ancienne`, sur la même page, pour une comparaison à l'aveugle
+   * chez le propriétaire. Sous elle, les mêmes rafales gardent la marge au
+   * départ, et le relevé dit quelle règle tournait. Sans ce bras témoin, une
+   * soirée de comparaison ne comparerait rien. */
+  async "rafales-ancienne"() {
+    const page = await nouvelle(PC);
+    await page.goto(`${banc.url}?marge=ancienne`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#enter", { timeout: 15000 });
+    await entrer(page);
+    const lirePacing = () => page.evaluate(() => globalThis.nel3abTest.pacing());
+    const avant = await lirePacing();
+    if (avant.marge !== "ancienne") throw new Defaut(`?marge=ancienne ne rend pas l'ancienne règle: ${avant.marge}`);
+    await sleep(3000);
+    banc.regler({ video: "rafales" });
+    const debut = Date.now();
+    let margeMax = 0;
+    let vu = avant;
+    while (Date.now() - debut < 24_000) {
+      vu = await lirePacing();
+      margeMax = Math.max(margeMax, vu.slackMs);
+      await sleep(250);
+    }
+    const releve = banc.releves(debut + 10_000).at(-1)?.releve;
+    banc.regler({ video: "live" });
+    const famines = vu.starved - avant.starved;
+    if (famines < 5) throw new Precondition(`les rafales n'affament pas la page (${famines} famines)`);
+    if (margeMax > 6) throw new Defaut(`l'ancienne règle fait grandir la marge à ${margeMax} ms`);
+    if (!releve) throw new Precondition("aucun relevé au salon en 24 s de rafales");
+    if (releve.marge !== "ancienne") throw new Defaut(`le relevé ne dit pas la règle en service: ${releve.marge}`);
+    console.log(JSON.stringify({ mesure: "rafales-ancienne", margeMax, famines, arrêt: releve.arrêt, rattrapées: releve.rattrapées }));
+    await page.close();
+  },
+
   /** Le plein cadre de l'arrivée tient sur un téléphone court : le titre,
    * les étapes, le fait et les gestes dans l'écran noir et dans la fenêtre,
    * rien de coupé, chaque geste haut de 44 px. Mesuré pendant l'arrivée (3 s

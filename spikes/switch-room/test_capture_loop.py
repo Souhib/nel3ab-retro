@@ -328,14 +328,21 @@ class Waking(unittest.TestCase):
     def test_a_key_frame_larger_than_the_pipe_does_not_hold_the_recorder(self):
         # wf-recorder writes with a blocking ofstream: a packet above the 64 KiB
         # of the pipe waits for the reader (wf-recorder-packets.patch).
+        # The gaps are drawn at random. With a fixed 20 ms, four times the old
+        # 5 ms sleep, the writer woke just as the reader did: the sleeping loop
+        # held it 0.6 to 1.0 ms in median and passed 8 runs out of 8 under the
+        # former 5 ms bound (2026-11-27). With these gaps it held it 2.8 to
+        # 3.4 ms in median, red 6 times out of 6; the loop that polls, about
+        # 0.16 ms, green 6 times out of 6 (idle machine, same day).
+        rng = random.Random(20261128)  # noqa: S311 -- packet timing, not a secret
         steps = [{"open": 1}, {"packet": "idr"}, {"packet": "idr"}]
-        for _ in range(10):
-            steps += [{"sleep": 0.02}, {"packet": "idr", "size": 200 * 1024}]
+        for _ in range(30):
+            steps += [{"sleep": rng.uniform(0.01, 0.03)}, {"packet": "idr", "size": 200 * 1024}]
         with Room(steps) as room:
             room.run()
-            room.wait_for(lambda: len(room.media.pictures()) == 11, 10, "11 pictures arrived")
+            room.wait_for(lambda: len(room.media.pictures()) == 31, 10, "31 pictures arrived")
             held = [(line["done"] - line["wrote"]) / 1e6 for line in room.written()[2:]]
-        self.assertLess(median(held), 5.0, f"held {[round(h, 2) for h in held]} ms")
+        self.assertLess(median(held), 1.0, f"held {[round(h, 2) for h in held]} ms")
 
     def counted(self):
         class Counted(Progress):

@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  CATCHUP_SLACK_MAX,
   GIVE_UP_WINDOWS,
   QUEUE_CEILING,
   QUEUE_FLOOR,
   SLACK_CEILING,
   SLACK_FLOOR,
+  SLACK_START,
   Window,
   isStarved,
+  margeDeLAdresse,
   nextSlack,
+  nextSlackLisse,
   pacingGaveUp,
   percentile,
   roomFor,
@@ -182,5 +186,62 @@ describe("quand l'allure a renoncé", () => {
     for (const slack of [40, 90, 150, 170, 179]) held = stuckAtCeiling(held, slack);
     expect(held).toBe(0);
     expect(pacingGaveUp(held)).toBe(false);
+  });
+});
+
+describe("la marge qui sait pourquoi elle a jeté (VID-1, 27 novembre 2026)", () => {
+  it("grandit sur des famines quand les jets sont des rattrapages", () => {
+    expect(nextSlackLisse(SLACK_START, 2, 0, 5)).toBe(SLACK_START + 8);
+  });
+
+  it("ne dépasse pas trente millisecondes au-dessus du départ par ce chemin", () => {
+    expect(CATCHUP_SLACK_MAX).toBe(SLACK_START + 30);
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX - 2, 9, 0, 5)).toBe(CATCHUP_SLACK_MAX);
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX, 9, 0, 5)).toBe(CATCHUP_SLACK_MAX);
+  });
+
+  it("redescend sans famine, même avec des rattrapages", () => {
+    expect(nextSlackLisse(20, 0, 0, 5)).toBe(18);
+    expect(nextSlackLisse(SLACK_FLOOR, 0, 0, 5)).toBe(SLACK_FLOOR);
+  });
+
+  // Les jumeaux : là où la règle d'avant s'applique, elle s'applique ENTIÈRE.
+  it("ne grandit pas quand la file a débordé, rattrapages ou non", () => {
+    expect(nextSlackLisse(20, 9, 1, 0)).toBe(20);
+    expect(nextSlackLisse(20, 9, 1, 5)).toBe(20);
+  });
+
+  it("garde la règle d'avant au-dessus du plafond du rattrapage", () => {
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX + 8, 9, 0, 5)).toBe(CATCHUP_SLACK_MAX + 8);
+    expect(nextSlackLisse(CATCHUP_SLACK_MAX + 8, 0, 0, 5)).toBe(CATCHUP_SLACK_MAX + 8);
+  });
+
+  it("rend la règle d'avant partout où elle s'applique, et jamais plus haut que son plafond ailleurs", () => {
+    // Une grille plutôt que des exemples : la correction seule ne porte
+    // jamais la marge au plafond `SLACK_CEILING`.
+    for (let current = SLACK_FLOOR; current <= SLACK_CEILING; current += 1)
+      for (const starved of [0, 1, 2, 9])
+        for (const overflowed of [0, 1, 3])
+          for (const caughtUp of [0, 1, 4]) {
+            const lisse = nextSlackLisse(current, starved, overflowed, caughtUp);
+            const avant = nextSlack(current, starved, overflowed + caughtUp);
+            if (overflowed > 0 || caughtUp === 0 || current > CATCHUP_SLACK_MAX)
+              expect(lisse, `${current} ${starved} ${overflowed} ${caughtUp}`).toBe(avant);
+            else expect(lisse).toBeLessThanOrEqual(Math.max(avant, CATCHUP_SLACK_MAX));
+          }
+  });
+});
+
+describe("la marge que l'adresse demande", () => {
+  it("rend l'ancienne règle sur `?marge=ancienne`", () => {
+    expect(margeDeLAdresse("?marge=ancienne")).toBe("ancienne");
+    expect(margeDeLAdresse("?entrer=jouer&marge=ancienne")).toBe("ancienne");
+  });
+
+  it("garde la nouvelle partout ailleurs, faute de frappe comprise", () => {
+    expect(margeDeLAdresse("")).toBe("lisse");
+    expect(margeDeLAdresse("?marge=Ancienne")).toBe("lisse");
+    expect(margeDeLAdresse("?marge=lisse")).toBe("lisse");
+    expect(margeDeLAdresse("?entrer=jouer")).toBe("lisse");
   });
 });

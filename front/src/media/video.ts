@@ -7,9 +7,12 @@
  */
 import {
   SLACK_CEILING,
+  SLACK_START,
   Window,
   isStarved,
+  margeDeLAdresse,
   nextSlack,
+  nextSlackLisse,
   pacingGaveUp,
   roomFor,
   steer,
@@ -18,6 +21,9 @@ import {
 import { codecOf, hasIdr } from "./annexb";
 import { boiteJuste, decouvrir, lever } from "./couverture";
 import { under } from "../lib/base";
+import type { Marge } from "./clock";
+
+export type { Marge };
 
 /** How long without a byte before the connection is presumed dead.
  *
@@ -123,7 +129,16 @@ export type VideoStats = {
   starved: number;
   /** L'allure a renoncé: le lien ne porte pas ce flux. */
   overloaded: boolean;
+  /** Images décodées jamais peintes, des deux sortes ci-dessous. */
   skipped: number;
+  /** Jetées par RATTRAPAGE : arrivées après leur heure, quand la suivante
+   * était déjà due. L'horaire était trop tôt pour elles. */
+  caughtUp: number;
+  /** Jetées par DÉBORDEMENT : la file était pleine avant leur tour.
+   * L'horaire était trop tard pour la file (le 17 août 2026). */
+  overflowed: number;
+  /** La règle de marge en service : la nouvelle, ou `?marge=ancienne`. */
+  marge: Marge;
   connected: boolean;
   reconnects: number;
   /** Images peintes DEPUIS la dernière reconnexion.
@@ -280,7 +295,7 @@ export class VideoStream {
   private readonly refreshes = new Window(120);
 
   private offset: number | null = null;
-  private slackMs = 6;
+  private slackMs = SLACK_START;
   private lipsync = 0;
   private awaitingKey = false;
   private priming = true;
@@ -348,9 +363,24 @@ export class VideoStream {
   private starvedRecent = 0;
   /** Depuis combien de fenêtres la marge est collée au plafond. */
   private atCeiling = 0;
+  /** La marge que la règle d'AVANT le 27 novembre 2026 aurait posée, d'après
+   * les mêmes famines et les mêmes jets. C'est elle qui décide le demi-format
+   * automatique (`overloaded`) : le propriétaire a demandé que ce basculement
+   * garde son comportement sur une liaison lente. La marge en service peut
+   * dépasser celle-ci de trente millisecondes au plus (`nextSlackLisse`) ;
+   * juger le plafond sur elle avançait le basculement de 16 s à 6 Mbit/s,
+   * en simulation (`marge.test.ts`). */
+  private slackAvant = SLACK_START;
   private skipped = 0;
-  /** Ce qui avait été jeté à la fin de la fenêtre précédente. */
-  private skippedSeen = 0;
+  /** Les deux sortes de jets, comptées à part depuis le 27 novembre 2026 :
+   * elles disent le contraire l'une de l'autre (`nextSlackLisse`). */
+  private caughtUp = 0;
+  private overflowed = 0;
+  /** Ce qui avait été jeté, de chaque sorte, à la fin de la fenêtre précédente. */
+  private caughtUpSeen = 0;
+  private overflowedSeen = 0;
+  /** La règle de marge : voir `nextSlackLisse`. */
+  private readonly marge: Marge;
   private undecoded = 0;
   private stalls = 0;
   private restarts = 0;
@@ -367,9 +397,16 @@ export class VideoStream {
   private readonly canvas: HTMLCanvasElement;
   private readonly url: (path: string) => string;
 
-  constructor(canvas: HTMLCanvasElement, url: (path: string) => string) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    url: (path: string) => string,
+    /** `marge` vient de l'adresse par défaut (`?marge=ancienne`) : la même
+     * construction de la page sert les deux bras d'une comparaison. */
+    options: { marge?: Marge } = {},
+  ) {
     this.canvas = canvas;
     this.url = url;
+    this.marge = options.marge ?? margeDeLAdresse(globalThis.location?.search ?? "");
   }
 
   private active = false;
@@ -535,6 +572,9 @@ export class VideoStream {
       starved: this.starved,
       overloaded: pacingGaveUp(this.atCeiling),
       skipped: this.skipped,
+      caughtUp: this.caughtUp,
+      overflowed: this.overflowed,
+      marge: this.marge,
       connected: this.connected,
       reconnects: this.reconnects,
       awaitingRestart: this.awaiting,
@@ -979,6 +1019,7 @@ export class VideoStream {
     while (this.queue.length > this.queueRoom()) {
       this.queue.shift()?.frame.close();
       this.skipped += 1;
+      this.overflowed += 1;
     }
     this.shown += 1;
   }
@@ -1069,6 +1110,7 @@ export class VideoStream {
     while (this.queue.length > 1 && this.queue[1].capturedMs + this.offset - slack <= now) {
       this.queue.shift()?.frame.close();
       this.skipped += 1;
+      this.caughtUp += 1;
     }
 
     const next = this.queue.shift();
@@ -1199,11 +1241,18 @@ export class VideoStream {
       this.offset = Math.abs(this.offset - want) > SNAP ? want : steer(this.offset, want, 5);
     }
 
-    // Ce qui a été jeté depuis la dernière fenêtre. Une éviction interdit
-    // d'agrandir la marge: voir `nextSlack`.
-    const evicted = this.skipped - this.skippedSeen;
-    this.skippedSeen = this.skipped;
-    const grown = nextSlack(this.slackMs, this.starvedRecent, evicted);
+    // Ce qui a été jeté depuis la dernière fenêtre, de chaque sorte. Un
+    // débordement interdit d'agrandir la marge (`nextSlack`) ; un rattrapage
+    // non, sous un plafond (`nextSlackLisse`). `?marge=ancienne` rend la règle
+    // d'avant le 27 novembre 2026, qui comptait les deux ensemble.
+    const overflowed = this.overflowed - this.overflowedSeen;
+    const caughtUp = this.caughtUp - this.caughtUpSeen;
+    this.overflowedSeen = this.overflowed;
+    this.caughtUpSeen = this.caughtUp;
+    const grown =
+      this.marge === "ancienne"
+        ? nextSlack(this.slackMs, this.starvedRecent, overflowed + caughtUp)
+        : nextSlackLisse(this.slackMs, this.starvedRecent, overflowed, caughtUp);
     if (grown > this.slackMs) {
       // Appliquée d'un coup à l'horaire: la faire gagner cinq millisecondes
       // toutes les deux secondes laisserait la page affamée pendant la montée.
@@ -1211,8 +1260,13 @@ export class VideoStream {
     }
     // La marge collée au plafond dit que l'allure a fait tout ce qu'elle
     // pouvait. Compté APRÈS l'avoir posée: on juge ce qu'on vient de décider,
-    // pas ce qu'on avait décidé la fois d'avant.
-    this.atCeiling = stuckAtCeiling(this.atCeiling, grown);
+    // pas ce qu'on avait décidé la fois d'avant. Sur la règle d'avant, voir
+    // `slackAvant`.
+    this.slackAvant =
+      this.marge === "ancienne"
+        ? grown
+        : nextSlack(this.slackAvant, this.starvedRecent, overflowed + caughtUp);
+    this.atCeiling = stuckAtCeiling(this.atCeiling, this.slackAvant);
     this.slackMs = grown;
     this.starvedRecent = 0;
   }

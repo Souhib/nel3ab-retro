@@ -73,6 +73,19 @@ export const SLACK_CEILING = 180;
  * image arrivée une milliseconde en retard serait déjà périmée. */
 export const SLACK_FLOOR = 3;
 
+/** La marge d'un flux qui démarre, en millisecondes. */
+export const SLACK_START = 6;
+
+/** Jusqu'où un RATTRAPAGE laisse grandir la marge, en millisecondes : trente
+ * au-dessus de la marge de départ.
+ *
+ * Décision du propriétaire, le 27 novembre 2026 : « lisse, retard plafonné ».
+ * Grandir sur des rafales coûte du retard à la manette. Une simulation sur une
+ * copie de la page donnait, sans borne, une marge de 54 à 64 ms et un retard au
+ * verre passé de 85 à 143 ms au p50. Trente millisecondes au plus achètent une
+ * partie des rafales sans que la manette devienne molle. */
+export const CATCHUP_SLACK_MAX = SLACK_START + 30;
+
 /**
  * La marge suivante, d'après les famines de la fenêtre qui vient de s'écouler.
  *
@@ -93,6 +106,52 @@ export function nextSlack(current: number, starved: number, evicted = 0): number
   // 16,3 ms d'écart — soit exactement la cadence de la source.
   if (evicted > 0) return current;
   if (starved > 1) return Math.min(SLACK_CEILING, current + 8);
+  if (starved === 0) return Math.max(SLACK_FLOOR, current - 2);
+  return current;
+}
+
+/** Comment la page fait grandir sa marge : la règle du 27 novembre 2026, ou
+ * celle d'avant, gardée pour une comparaison à l'aveugle. */
+export type Marge = "lisse" | "ancienne";
+
+/** La règle que l'adresse demande. `?marge=ancienne` rend l'ancienne ; tout le
+ * reste, une faute de frappe comprise, garde la nouvelle. */
+export function margeDeLAdresse(search: string): Marge {
+  try {
+    return new URLSearchParams(search).get("marge") === "ancienne" ? "ancienne" : "lisse";
+  } catch {
+    return "lisse";
+  }
+}
+
+/**
+ * La marge suivante, quand la page sait POURQUOI elle a jeté (VID-1).
+ *
+ * Deux gestes jettent une image, et ils disent le contraire l'un de l'autre.
+ * La file qui DÉBORDE dit que l'horaire est trop tard pour elle : c'est le cas
+ * du 17 août 2026, et grandir l'aggraverait (`nextSlack`). Le RATTRAPAGE d'une
+ * image arrivée après son heure dit que l'horaire est trop tôt : grandir est
+ * justement la réponse. Jusqu'au 27 novembre 2026, les deux incrémentaient le
+ * même compteur, et le rattrapage (ajouté le 9 septembre) bloquait la marge.
+ * Le 26 novembre, chez un joueur distant, elle est restée au plancher quatre
+ * minutes et vingt et une secondes, avec près de deux famines par seconde.
+ *
+ * La règle d'avant reste ENTIÈRE dans trois cas : une fenêtre qui a débordé,
+ * une fenêtre sans aucun jet, et toute marge au-dessus de `CATCHUP_SLACK_MAX`.
+ * Seule une fenêtre de rattrapages, sous ce plafond, change : elle grandit sur
+ * des famines, et redescend sans famine. Ce qui en découle : la correction ne
+ * peut jamais porter la marge au plafond `SLACK_CEILING` à elle seule, donc
+ * elle ne déclenche pas le demi-format automatique (`overloaded`).
+ */
+export function nextSlackLisse(
+  current: number,
+  starved: number,
+  overflowed: number,
+  caughtUp: number,
+): number {
+  if (overflowed > 0 || caughtUp === 0 || current > CATCHUP_SLACK_MAX)
+    return nextSlack(current, starved, overflowed + caughtUp);
+  if (starved > 1) return Math.min(CATCHUP_SLACK_MAX, current + 8);
   if (starved === 0) return Math.max(SLACK_FLOOR, current - 2);
   return current;
 }

@@ -237,6 +237,9 @@ export function exposeNothingYet(): void {
       probeP95: 0,
       probeMax: 0,
       skipped: 0,
+      caughtUp: 0,
+      overflowed: 0,
+      marge: "lisse",
       room: 0,
     }),
     audio: () => ({
@@ -327,6 +330,11 @@ export function exposeForTests(session: Session): void {
         probeP95: shot.video.probeMs.p95,
         probeMax: shot.video.probeMs.max,
         skipped: shot.video.skipped,
+        // Les deux sortes de jets, et la règle de marge en service (VID-1) : un
+        // banc qui compare les deux bras lit ce que la page a FAIT.
+        caughtUp: shot.video.caughtUp,
+        overflowed: shot.video.overflowed,
+        marge: shot.video.marge,
         room: shot.video.room,
       };
     },

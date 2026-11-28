@@ -35488,6 +35488,102 @@ faux Docker filtre les étiquettes comme le vrai, clé seule comprise.
 Le même soir, Souhib a décidé de ne pas réchauffer les caches de shaders avant
 les joueurs : ils se remplissent en jouant (ADR D54).
 
+### 28 novembre, le matin : l'accroc de Smash était le ramasse-miettes
+
+Le propriétaire a refusé le matin les trois chantiers du moteur proposés la
+veille (indexer les remappages, envoyer les textures hors du fil de rendu,
+sauter des relectures) : trop gros, à refaire à chaque mise à jour de Ryubing,
+trop risqués. Les chargements ne comptent pas pour lui, seul compte ce qui se
+passe pendant qu'il joue. Puis il a lancé Smash, et signalé un seul accroc en
+jeu.
+
+**Ce que c'était.** La boîte noire l'a capturé : 837 ms sans image, vus par la
+capture dans le conteneur, donc ni le réseau ni l'encodeur. Aucun shader n'a été
+compilé à ce moment-là. Le profil roulant de la boîte noire (les dernières
+secondes avant le signal) montre que, pendant 800 ms, un seul fil tournait,
+GPU.MainThread, et que tous les autres étaient arrêtés net, son et horloge
+compris. Ce fil n'exécutait pas l'émulation mais du code natif du runtime. Les
+symboles publics de Microsoft pour le même identifiant de build (c36ad71424f1)
+l'ont nommé : les 167 échantillons étaient tous dans
+`GarbageCollectGeneration`, appelé par une allocation. C'était un nettoyage
+complet et bloquant du ramasse-miettes .NET, qui marque, déplace et compacte la
+mémoire, le tas des gros objets compris, sur un seul fil pendant que tout le
+reste attend. Une console ne fait jamais cette pause.
+
+Deux autres trous de 1,3 s de la même partie avaient une autre cause : le jeu
+lisait un fichier puis démarrait une vidéo, et l'émulateur attendait sans rien
+faire. Ce sont des transitions du jeu, de longueur identique à la milliseconde.
+
+**Ce qui ne pouvait pas servir.** Ryubing a une option `GCLowLatency`, mais
+seul l'hôte avec fenêtre la lit (`AppHost.cs`), et la salle lance Ryubing sans
+fenêtre (`--no-gui`). La variable `DOTNET_GCLatencyMode` n'est lue que par les
+versions de développement du runtime (`gc_mechanisms::first_init`, dans
+`gc.cpp`). Un « startup hook » (du code chargé au démarrage du programme) est
+désactivé dans une publication rognée, et Ryubing est rogné. Restait le mode
+« serveur » du ramasse-miettes, réglable par variables d'environnement, sans
+toucher au code de l'émulateur.
+
+**L'outil.** `spikes/switch-room/gcmon` tourne dans le conteneur et lit les
+événements du ramasse-miettes par EventPipe : chaque arrêt du processus avec sa
+durée, chaque nettoyage avec sa génération, son type et sa raison. Il peut
+aussi en provoquer un complet, en ouvrant une session avec le mot-clé
+ManagedHeapCollect, ce que le code de .NET 10 transforme en nettoyage bloquant
+sans parcours du tas. Il a été éprouvé sur un programme témoin qui note
+lui-même les trous de son horloge : les pauses mesurées collent à 1 ms près
+(1 060,97 ms contre 1 061,7 ms), quatre demandes donnent quatre nettoyages
+provoqués, et le jumeau sans demande n'en donne aucun.
+
+**Les mesures.** Deux campagnes A B B A de 7 minutes sur Smash, avec le cache
+réel copié : A avec les réglages actuels, B avec `DOTNET_gcServer=1` et 4 tas
+dans la première, 8 tas dans la seconde. Un nettoyage complet était provoqué
+toutes les 30 s à partir de 2 minutes, et chacun a laissé dans la trace des
+images un trou de sa durée (628 ms d'écran figé pour une pause de 615 ms).
+
+| | réglages actuels | serveur, 4 tas | serveur, 8 tas |
+|---|---|---|---|
+| nettoyages par phase | 896 à 958 | 47 à 59 | 11 à 16 |
+| temps total en pause | 9,3 à 9,8 s | 0,69 s | 0,52 à 0,57 s |
+| premier compactage complet | 597 à 627 ms | 386 et 401 ms | 238 et 317 ms |
+| coût d'un compactage par Mo gardé | 0,81 à 0,84 ms | 0,12 à 0,35 ms | 0,08 à 0,27 ms |
+| pire pause après la première minute | 47 à 68 ms | 27 et 28 ms | 134 et 135 ms |
+| mémoire du conteneur au plus haut | 6,4 à 6,9 Go | 7,5 et 7,9 Go | 8,6 à 8,9 Go |
+
+Le temps processeur de l'émulateur n'a pas bougé : 126 à 141 % d'un cœur dans
+tous les bras. Avec 8 tas, le compactage est plus court, mais chaque tas reçoit
+une plus grosse part de mémoire neuve avant d'être nettoyé, et un nettoyage de
+la génération 0 a duré 135 ms après la première minute : 8 images perdues.
+Quatre tas est le meilleur compromis mesuré.
+
+**Décision (ADR D56).** La salle Switch passe à Ryubing `DOTNET_gcServer=1`,
+`DOTNET_GCHeapCount=4` et `DOTNET_GCNoAffinitize=1` (les fils du ramasse-miettes
+ne sont pas attachés à des cœurs, que la salle partage avec sa capture). Fixer
+le nombre de tas coupe aussi le mode adaptatif de .NET 10, qui démarre avec un
+seul tas et serre la mémoire au point de compacter plus souvent. Pour revenir
+en arrière sans changer le code : `"garbage_collector": "workstation"` dans
+`switch.json`.
+
+**Ce qui n'est pas prouvé.** La scène du banc est l'écran titre et ses démos :
+aucun nettoyage complet naturel n'y est arrivé, dans aucun bras. Un compactage
+du même genre que celui du matin durerait, aux vitesses mesurées, entre un tiers
+et la moitié de ses 837 ms : il reste visible. Combien de fois il arrive en
+vrai jeu, et combien il dure, ce sont les parties du propriétaire qui le diront,
+`gcmon` tournant à côté.
+
+**Ce qui a coûté du temps.**
+
+- J'ai d'abord écrit que 8 tas ne faisaient pas mieux que 4, d'après la
+  première phase à 8 tas. La seconde a dit l'inverse pour le compactage. Une
+  phase seule n'est pas un classement, même au milieu d'une alternance.
+- J'ai supposé que la part fixe d'environ 180 ms des nettoyages suivants était
+  le temps d'arrêter les fils de l'émulateur. Les heures des événements disaient
+  0,1 à 0,4 ms : c'était le nettoyage lui-même, un balayage sans compactage.
+- Le réglage a d'abord été mis dans `engine_environment`, que les salles Switch 2
+  (Eden) et Xbox 360 (Xenia) appellent aussi. Les fichiers de référence de ces
+  deux salles ont échoué tout de suite : la variable va dans `ryubing_launch`, et
+  un test jumeau vérifie qu'Eden et Xenia n'en reçoivent aucune.
+- Une prise Unix a un chemin de 108 octets au plus. Avec un dossier temporaire
+  trop profond, le runtime n'a créé aucune prise de diagnostic, sans un mot.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -36278,6 +36374,25 @@ correspond à une plage d'adresses du processeur graphique, ou retire ce lien
 **Texture partiellement mappée** : une texture dont une partie des adresses
 n'est plus reliée à de la mémoire. Ryubing les garde dans un ensemble et les
 réévalue toutes à chaque remappage.
+
+**Ramasse-miettes** : la partie d'un runtime (ici celui de .NET) qui libère la
+mémoire que le programme n'utilise plus. Pour la déplacer et la tasser sans
+qu'un fil lise un objet en cours de déplacement, il arrête tous les fils du
+programme : c'est la pause qu'un joueur voit. « Workstation » fait ce travail
+sur un seul fil ; « serveur » le partage entre plusieurs tas et plusieurs fils.
+
+**Tas** : la mémoire où le ramasse-miettes range les objets du programme.
+Ils y sont classés par âge, en générations : 0 pour les tout neufs, 1, puis 2
+pour ceux qui ont survécu à plusieurs nettoyages. Les gros objets ont leur
+propre tas. Un nettoyage complet visite la génération 2 et les gros objets.
+
+**Compactage** : le nettoyage qui déplace les objets encore vivants pour les
+tasser et refermer les trous. Il coûte bien plus qu'un simple balayage, qui
+note seulement les trous comme libres.
+
+**EventPipe** : le canal par lequel le runtime .NET envoie ses événements
+(nettoyages, pauses) à un outil qui se branche sur sa prise de diagnostic, sans
+redémarrer le programme.
 
 ### Les mots du thème rétro (novembre 2026), dans l'ordre alphabétique
 

@@ -706,6 +706,16 @@ machine".
 - **Never edit a shell script while bash runs it.** Bash rereads a script by
   byte offset: the same evening, a line inserted above a running `sleep` would
   have made it resume in the middle of earlier lines. Run a frozen copy.
+- **A setting works only where its code reads it.** On 2026-11-28, Ryubing's
+  `GCLowLatency` turned out to be read by the windowed host alone, and the room
+  runs `--no-gui`; .NET reads `DOTNET_GCLatencyMode` only in debug runtimes.
+  Find the line that reads a knob, in the exact version the room runs, before
+  measuring it (ADR D56).
+- **A function the rooms share changes every room.** The same day, a .NET
+  setting first went into `engine_environment`, which the Switch 2 and Xbox 360
+  adapters call too. Their golden files went red at once. An engine's own
+  setting goes in its own launch (`ryubing_launch`), with a twin proving the
+  other engines do not get it.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 

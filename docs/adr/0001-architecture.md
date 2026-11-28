@@ -4848,3 +4848,45 @@ played this very slot, that copy may miss its last seconds, which the
 orphan's own stop then writes into the slot. Proved on a real Mario Tennis
 room killed with SIGKILL: both containers survived, and the relaunch stopped
 and removed them before starting its own.
+
+### D56: Ryubing runs the server garbage collector, four heaps, 2026-11-28
+
+On 2026-11-28 the owner's only hitch during a Smash game was 837 ms without a
+picture. The capture inside the container saw the gap, so neither the network
+nor the encoder. The black box's rolling profile, named with Microsoft's
+public symbols for the same build (c36ad71424f1), showed every thread stopped
+for 800 ms but GPU.MainThread, and its 167 samples all inside
+`WKS::GCHeap::GarbageCollectGeneration`, called from an allocation: a blocking,
+compacting .NET collection on one thread, LOH compaction included. The owner
+had refused engine code changes the same morning (too large, rewritten at each
+update, too risky).
+
+What could not be used. Ryubing's `GCLowLatency` option is read only by the
+windowed host (`AppHost.cs`), and the room runs `--no-gui`. The runtime reads
+`DOTNET_GCLatencyMode` only in debug builds (`gc_mechanisms::first_init`).
+Startup hooks are off in a trimmed publish, and Ryubing is trimmed.
+
+What was measured. `spikes/switch-room/gcmon` traces every pause from inside
+the container and forces a full blocking collection every 30 s. Two campaigns
+A B B A of 7 minutes on Smash, real cache copied. Workstation: 896 to 958
+collections a phase, 9.3 to 9.8 s of pauses, the first compacting full
+collection 597 to 627 ms (0.81 to 0.84 ms per promoted MB), at most 68 ms
+after the first minute. Server, four heaps: 47 to 59 collections, 0.69 s of
+pauses, that compaction 386 and 401 ms (0.32 and 0.35 ms/MB, later ones 0.12
+to 0.23), at most 28 ms after the first minute. Eight heaps compacted faster
+(238 and 317 ms) but made gen0 collections last 134 and 135 ms. Processor
+time did not change (126 to 141 % of a core in both).
+
+Decision. `ryubing_launch` gives the engine `DOTNET_gcServer=1`,
+`DOTNET_GCHeapCount=4` and `DOTNET_GCNoAffinitize=1`. A fixed heap count also
+turns off .NET 10's adaptive mode, which starts with one heap and sets
+`ConserveMemory=5`. `"garbage_collector": "workstation"` in `switch.json`
+returns to the old collector without a code change. Eden and Xenia share
+`engine_environment` and get nothing.
+
+Costs and limits. The container takes 1.2 to 1.6 GB more (7.5 to 7.9 GB at
+its peak against 6.4 to 6.9). The collection that stopped Smash would last,
+at the measured rates, about a third to a half as long, not zero: a full
+compacting collection remains a visible pause. The bench scene is the title
+screen and its demos, where no natural full blocking collection happened in
+either arm; the owner's games are the test of how often one comes.

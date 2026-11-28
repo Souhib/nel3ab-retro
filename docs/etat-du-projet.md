@@ -44,6 +44,11 @@ deux fois par seconde si le moteur vit ». ADR D54.)
   conteneurs que son script tué a laissés, sous un verrou de salle
   (`salles/N/salle-externe.lock`, ADR D55), prouvé sur une vraie salle tuée
   par SIGKILL ; en service au prochain lancement de salle après la fusion.
+  Ryubing tourne avec le ramasse-miettes serveur .NET à quatre tas (ADR D56) :
+  l'accroc de 837 ms de Smash en jeu était un nettoyage bloquant sur un seul
+  fil ; mesuré A B B A, le premier compactage passe de 597-627 ms à 386-401 ms,
+  et aucune pause ne dépasse 28 ms après la première minute, pour 1,2 à 1,6 Go
+  de plus. Pas de correctif du moteur (décision du propriétaire, le même jour).
 
 **Au 27 novembre, le jour : l'audit de la Switch 1 et ses corrections, sur
 integration/switch1.** Ce bloc décrit du code fusionné sur la branche

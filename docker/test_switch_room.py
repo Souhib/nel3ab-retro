@@ -362,6 +362,48 @@ class CpuPinning(unittest.TestCase):
                 module.cpu_pinning({"cpuset": bad})
 
 
+class RyubingCollector(unittest.TestCase):
+    """ADR D56: a workstation collection stopped Smash 837 ms on 2026-11-28."""
+
+    def launch_environment(self, config: dict) -> list[str]:
+        with tempfile.TemporaryDirectory() as temp:
+            slot = Path(temp)
+            return module.ryubing_launch(config, slot / "game.nsp", slot).environment
+
+    def test_ryubing_runs_the_server_collector_with_four_unpinned_heaps_by_default(self):
+        environment = self.launch_environment({})
+        for value in ("DOTNET_gcServer=1", "DOTNET_GCHeapCount=4", "DOTNET_GCNoAffinitize=1"):
+            with self.subTest(value=value):
+                self.assertIn(value, environment)
+                self.assertEqual(environment[environment.index(value) - 1], "-e")
+        self.assertEqual(self.launch_environment({"garbage_collector": "server"}), environment)
+
+    def test_the_twin_the_workstation_collector_sets_no_dotnet_variable(self):
+        # The way back without a code change: "garbage_collector": "workstation".
+        environment = self.launch_environment({"garbage_collector": "workstation"})
+        self.assertFalse([value for value in environment if value.startswith("DOTNET_")])
+        self.assertIn("NEL3AB_SEATS_FILE=/pads/seats", environment)
+
+    def test_the_twin_eden_and_xenia_share_no_dotnet_variable(self):
+        # switch2-room.py and xbox360-room.py build their engines from
+        # engine_environment: neither emulator runs on .NET.
+        environment = module.engine_environment({"garbage_collector": "server"})
+        self.assertFalse([value for value in environment if value.startswith("DOTNET_")])
+
+    def test_the_collector_accepts_only_its_two_names_before_any_file_is_written(self):
+        for bad in ("Server", "WORKSTATION", "", True, 1, None, ["server"]):
+            with (
+                self.subTest(bad=bad),
+                tempfile.TemporaryDirectory() as temp,
+                self.assertRaises(ValueError),
+            ):
+                slot = Path(temp)
+                try:
+                    module.ryubing_launch({"garbage_collector": bad}, slot / "game.nsp", slot)
+                finally:
+                    self.assertFalse((slot / "data").exists())
+
+
 class EngineEnvironment(unittest.TestCase):
     def test_the_room_rate_reaches_the_engine_and_sixty_is_the_default(self):
         self.assertIn("SWITCH_REFRESH_HZ=60", module.engine_environment({}))

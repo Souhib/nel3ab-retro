@@ -458,6 +458,39 @@ def engine_environment(config: dict) -> list[str]:
     ]
 
 
+def ryubing_collector(config: dict) -> list[str]:
+    """Ryubing's .NET garbage collector, checked before any container starts.
+
+    Only Ryubing runs on .NET: Eden and Xenia share `engine_environment`, not
+    this. The default one, workstation, does a blocking collection on one
+    thread: on 2026-11-28 a compacting one stopped Smash for 837 ms during
+    play (ADR D56). Server GC shares that work between heaps.
+    """
+    # Four heaps, measured on Smash A B B A: the first compacting collection
+    # took 386 and 401 ms against 597 to 627, and after the first minute no
+    # pause passed 28 ms (68 ms in workstation). Eight heaps compacted faster
+    # (238 and 317 ms) but made gen0 collections last 134 and 135 ms. A fixed
+    # count also turns off .NET 10's adaptive mode, which starts with one heap
+    # and sets ConserveMemory=5 (gc.cpp). Not pinned to cores, which the room
+    # shares with its capture. Cost: 1.2 to 1.6 GB more for the container.
+    # The values are hexadecimal for the runtime: 4 is 4.
+    collectors = {
+        "workstation": [],
+        "server": [
+            "-e",
+            "DOTNET_gcServer=1",
+            "-e",
+            "DOTNET_GCHeapCount=4",
+            "-e",
+            "DOTNET_GCNoAffinitize=1",
+        ],
+    }
+    collector = config.get("garbage_collector", "server")
+    if type(collector) is not str or collector not in collectors:
+        raise ValueError(f"garbage_collector must be workstation or server, not {collector!r}")
+    return collectors[collector]
+
+
 class EngineLaunch(NamedTuple):
     """Only the engine-specific arguments; the room owns the shared lifecycle."""
 
@@ -510,6 +543,7 @@ def engine_settings(config: dict) -> list[str]:
 def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
     # Checked before the profile is written and before any container starts.
     settings = engine_settings(config)
+    collector = ryubing_collector(config)
     profile = ("data", "profiles", "controller", "nel3ab.json")
     with ouvrir_sans_lien(slot, *profile, mode="wb") as stream:
         stream.write((TOOLS / "ryubing-pro-controller.json").read_bytes())
@@ -543,7 +577,7 @@ def ryubing_launch(config: dict, rom: Path, slot: Path) -> EngineLaunch:
         )
     command.append(f"/game/input{rom.suffix}")
     return EngineLaunch(
-        engine_environment(config),
+        [*engine_environment(config), *collector],
         [*update_mount(config, slot), *cache_mounts(slot)],
         command,
         4,

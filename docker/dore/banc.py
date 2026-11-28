@@ -83,6 +83,9 @@ class Scenario:
     #: Tours de boucle avant que le worker ferme stdin.
     tours: int = 3
     echec_moteur: bool = False
+    #: Conteneurs que Docker connaît déjà au départ : (nom, salle de leur
+    #: étiquette `nel3ab.room-root`, relative à la racine jetable).
+    orphelins: tuple[tuple[str, str], ...] = ()
     environnement: Mapping[str, str] = field(default_factory=dict)
     #: False pour un script que le worker ne lance pas (la sonde de latence).
     par_le_worker: bool = True
@@ -149,6 +152,9 @@ def lancer(
                     "capture_meurt": scenario.capture_meurt,
                     "tours": scenario.tours,
                     "echec_moteur": scenario.echec_moteur,
+                    "orphelins": [
+                        [nom, str((racine / salle).resolve())] for nom, salle in scenario.orphelins
+                    ],
                     "identite": identite,
                 }
             )

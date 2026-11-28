@@ -180,6 +180,79 @@ def sans_lien(racine: Path, *parties: str) -> Path:
     return racine.joinpath(*parties)
 
 
+#: The room's own lock, beside the worker's session files. Its adapter holds it
+#: for its whole life; the kernel frees it even when the adapter is killed.
+ROOM_LOCK = "salle-externe.lock"
+#: The label each room container carries (`pad_command` and `serve`).
+ROOM_LABEL = "nel3ab.room-root"
+
+
+def stop_orphans(root: Path) -> list[str]:
+    """Stop and remove the containers a dead adapter of this room left running.
+
+    Docker filters on the room's own label, so another room's containers are
+    never listed. Engines stop first, capture first, as `stop_engine` does,
+    then the virtual controllers. Each name stopped is returned.
+    """
+    listed = run(
+        "docker",
+        "ps",
+        "--all",
+        "--filter",
+        f"label={ROOM_LABEL}={root}",
+        "--format",
+        "{{.Names}}",
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    engines = [name for name in listed if not name.endswith("-pads")]
+    helpers = [name for name in listed if name.endswith("-pads")]
+    for engine in engines:
+        # The capture may be gone already: its stop is asked, never required.
+        subprocess.run(  # noqa: S603 -- names listed by Docker under this room's label, fixed command
+            ["/usr/bin/docker", "exec", engine, "python3", "/probe/capture_control.py", "stop"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        run("docker", "stop", "--timeout", "40", engine, stdout=subprocess.DEVNULL)
+    for helper in helpers:
+        run("docker", "stop", "--timeout", "5", helper, stdout=subprocess.DEVNULL)
+    for name in [*engines, *helpers]:
+        run("docker", "rm", name, stdout=subprocess.DEVNULL)
+    if listed:
+        sys.stderr.write(json.dumps({"orphelins_arretes": [*engines, *helpers]}) + "\n")
+        sys.stderr.flush()
+    return [*engines, *helpers]
+
+
+@contextmanager
+def room_held(pads: Path) -> Iterator[None]:
+    """The whole room for this adapter's life, its orphans stopped first.
+
+    The worker runs one adapter per room at a time (external.rs waits for the
+    previous one). The slot lock dies with its adapter, but the containers live
+    under dockerd: on 2026-11-27 a bench room whose adapter was killed kept its
+    emulator running six hours, and a new game on the same slot would have
+    started beside an emulator still writing its saves. Under this lock, any
+    container with the room's label is such an orphan, stopped before the
+    room's first container. `serve` takes it after every check of the plan, so
+    a refused start still runs no Docker command. The first copy of the slot
+    comes before, in `main`: if the orphan played this very slot, that copy may
+    miss its last seconds, which its own stop then writes into the slot. A live
+    adapter holding the lock refuses the start instead: stopping its game
+    would be the worse error.
+    """
+    root = pads.parent
+    with ouvrir_sans_lien(root, ROOM_LOCK) as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(f"Another adapter still runs room {root}") from None
+        stop_orphans(root)
+        yield
+
+
 def main() -> None:
     rom, title, choice, pads = sys.argv[1:]
     if (
@@ -304,7 +377,7 @@ def pad_command(
         "--name",
         helper,
         "--label",
-        f"nel3ab.room-root={pads.parent}",
+        f"{ROOM_LABEL}={pads.parent}",
         "--network",
         "none",
         "--cap-drop=ALL",
@@ -599,7 +672,12 @@ def serve(
     started_engine = started_helper = False
     selector = selectors.DefaultSelector()
     selector.register(sys.stdin, selectors.EVENT_READ)
+    held = contextlib.ExitStack()
     try:
+        # The room's lock, its orphans stopped (room_held): after every check of
+        # the plan, which may refuse the start without any Docker command, and
+        # before the room's first container.
+        held.enter_context(room_held(pads))
         run(
             *pad_command(image, pads, helper, f"nel3ab {token}", launch.pad_layout),
             stdout=subprocess.DEVNULL,
@@ -620,7 +698,7 @@ def serve(
             "--name",
             engine,
             "--label",
-            f"nel3ab.room-root={pads.parent}",
+            f"{ROOM_LABEL}={pads.parent}",
             "--network",
             "none",
             "--cap-drop=ALL",
@@ -712,6 +790,9 @@ def serve(
                         )
                 finally:
                     run("docker", "rm", helper, stdout=subprocess.DEVNULL)
+            # The room's lock goes last, once its containers are stopped. If a stop
+            # above fails, the kernel frees it when the adapter exits.
+            held.close()
 
 
 def stop_engine(engine: str, slot: Path, capture, snapshot=backup) -> None:

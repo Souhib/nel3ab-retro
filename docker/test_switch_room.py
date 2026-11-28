@@ -641,6 +641,8 @@ class Host(contextlib.ExitStack):
         self.engine_stops_at = engine_stops_at
         self.wait_fails_at = wait_fails_at
         self.wait_clients = []
+        #: Containers Docker already knows, and the value of their room label.
+        self.known = {}
         self.now = 1000.0
         self.commands = []
 
@@ -760,6 +762,13 @@ class Host(contextlib.ExitStack):
             (self.slot / "display.json").write_text('{"display": "wayland-1"}')
         elif args[:4] == ("docker", "inspect", "-f", "{{.State.Running}}"):
             stdout = "false\n" if self.engine_stopped() else "true\n"
+        elif args[:2] == ("docker", "ps"):
+            wanted = args[args.index("--filter") + 1]
+            stdout = "".join(
+                f"{name}\n"
+                for name, root in self.known.items()
+                if wanted in (f"label=nel3ab.room-root={root}", "label=nel3ab.room-root")
+            )
         elif args[:2] == ("docker", "logs"):
             stream = kwargs.get("stdout")
             if self.logs_fail and not args[-1].endswith("-pads"):
@@ -841,6 +850,122 @@ class EngineWatchCost(unittest.TestCase):
         (client,) = host.wait_clients
         self.assertTrue(client.killed)
         self.assertTrue(client.reaped)
+
+
+class RoomOrphans(unittest.TestCase):
+    """A killed adapter's containers stop before a new game touches any slot.
+
+    On 2026-11-27 a bench room whose adapter died with its session kept its
+    emulator running six hours: the containers live under dockerd, and the
+    slot lock died with the adapter. A new game on that slot would have
+    started beside an emulator still writing its saves.
+    """
+
+    OLD = "nel3ab-switch-room-switch-ancien"
+    NEIGHBOUR = "nel3ab-switch-room-switch-voisin"
+
+    def setUp(self):
+        self.tmp = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.root = self.tmp / "salles/1"
+        self.pads = self.root / "room-switch-neuf"
+        self.pads.mkdir(parents=True)
+        self.other = self.tmp / "salles/2"
+        self.commands = []
+        #: The containers Docker knows, and the value of their room label.
+        self.known = {}
+
+    def docker(self, argv, **_kwargs):
+        argv = [str(a) for a in argv]
+        self.commands.append(argv)
+        out = ""
+        if argv[:2] == ["docker", "ps"]:
+            # As strict as the real one: only the label value asked for.
+            # `label=key` lists every container carrying the key, as Docker does.
+            wanted = argv[argv.index("--filter") + 1]
+            out = "".join(
+                f"{name}\n"
+                for name, root in self.known.items()
+                if wanted in (f"label=nel3ab.room-root={root}", "label=nel3ab.room-root")
+            )
+        return subprocess.CompletedProcess(argv, 0, out, "")
+
+    def held(self):
+        with (
+            patch.object(module, "run", lambda *a, **k: self.docker(a, **k)),
+            patch.object(module.subprocess, "run", lambda argv, **k: self.docker(argv, **k)),
+            module.room_held(self.pads),
+        ):
+            pass
+
+    def named(self, name):
+        return [argv for argv in self.commands if name in argv or f"{name}-pads" in argv]
+
+    def test_a_killed_adapter_s_engine_stops_first_then_its_pads(self):
+        self.known = {
+            self.OLD: self.root,
+            f"{self.OLD}-pads": self.root,
+            self.NEIGHBOUR: self.other,
+            f"{self.NEIGHBOUR}-pads": self.other,
+        }
+        self.held()
+        self.assertEqual(
+            [argv for argv in self.commands if argv[:2] != ["docker", "ps"]],
+            [
+                [
+                    "/usr/bin/docker",
+                    "exec",
+                    self.OLD,
+                    "python3",
+                    "/probe/capture_control.py",
+                    "stop",
+                ],
+                ["docker", "stop", "--timeout", "40", self.OLD],
+                ["docker", "stop", "--timeout", "5", f"{self.OLD}-pads"],
+                ["docker", "rm", self.OLD],
+                ["docker", "rm", f"{self.OLD}-pads"],
+            ],
+        )
+
+    def test_the_twin_another_room_s_containers_are_never_touched(self):
+        self.known = {self.NEIGHBOUR: self.other, f"{self.NEIGHBOUR}-pads": self.other}
+        self.held()
+        self.assertEqual(self.named(self.NEIGHBOUR), [])
+        self.assertEqual([argv[:2] for argv in self.commands], [["docker", "ps"]])
+
+    def test_a_live_adapter_keeps_its_room_and_the_new_one_refuses(self):
+        self.known = {self.OLD: self.root, f"{self.OLD}-pads": self.root}
+        with open(self.root / module.ROOM_LOCK, "w") as other:
+            fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with self.assertRaisesRegex(RuntimeError, "Another adapter still runs room"):
+                self.held()
+        self.assertEqual(self.commands, [])
+
+    def test_the_room_lock_frees_when_its_adapter_ends(self):
+        self.held()
+        self.held()
+        self.assertEqual(len(self.commands), 2)
+
+    def test_serve_stops_the_orphans_before_its_first_container(self):
+        old = "nel3ab-switch-room-switch-ancien"
+        with Host(statuses=[None], capture_life=1e9, stdin_after=1001.0) as host:
+            host.known = {old: host.pads.parent, f"{old}-pads": host.pads.parent}
+            host.serve()
+        argv = [a for kind, a, _o in host.commands if kind == "run"]
+        self.assertIn(["docker", "rm", f"{old}-pads"], argv)
+        removed = argv.index(["docker", "rm", f"{old}-pads"])
+        first_run = next(i for i, a in enumerate(argv) if a[:2] == ["docker", "run"])
+        self.assertLess(removed, first_run)
+
+    def test_the_twin_a_refused_plan_runs_no_docker_command(self):
+        launch = module.EngineLaunch(environment=[], mounts=[], command=["true"], controllers=2)
+        with Host() as host:
+            host.known = {"nel3ab-switch-room-switch-ancien": host.pads.parent}
+            config = {"image": "sha256:essai", "engine": str(host.root)}
+            with self.assertRaisesRegex(ValueError, "one or four controllers"):
+                module.serve(
+                    config, host.root / "jeu.xci", host.slot, host.pads, launch, lambda _s: None
+                )
+        self.assertEqual(host.commands, [])
 
 
 class EngineLog(unittest.TestCase):

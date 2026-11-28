@@ -583,6 +583,7 @@ def consigne_neutre(dossier: Path) -> Path:
                 "capture_meurt": False,
                 "tours": 3,
                 "echec_moteur": False,
+                "orphelins": [],
                 "identite": None,
             }
         )

@@ -192,6 +192,18 @@ def communs(modele: Scenario) -> list[Scenario]:
         replace(modele, nom=f"{console}-manettes-absentes", manettes=None),
         replace(modele, nom=f"{console}-capture-relancee", capture_meurt=True, tours=10),
         replace(modele, nom=f"{console}-conteneur-refuse", echec_moteur=True),
+        # Une partie tuée avec son script a laissé ses deux conteneurs ; une
+        # autre salle en a deux à elle, que celle-ci ne doit pas toucher.
+        replace(
+            modele,
+            nom=f"{console}-orphelins",
+            orphelins=(
+                ("nel3ab-switch-room-switch-ancien", "salles/1"),
+                ("nel3ab-switch-room-switch-ancien-pads", "salles/1"),
+                ("nel3ab-switch-room-switch-voisin", "salles/2"),
+                ("nel3ab-switch-room-switch-voisin-pads", "salles/2"),
+            ),
+        ),
     ]
 
 

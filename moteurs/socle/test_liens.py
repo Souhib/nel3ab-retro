@@ -182,7 +182,17 @@ class Arret(unittest.TestCase):
         with (
             os.fdopen(lecture) as entree,
             patch.object(salle, "run", faux_run),
-            patch.object(salle.subprocess, "run", lambda *a, **k: None),
+            # `docker ps` de la salle (room_held) : aucun orphelin, comme Docker
+            # le répondrait sur une machine propre.
+            patch.object(
+                salle.subprocess,
+                "run",
+                lambda argv, **k: (
+                    SimpleNamespace(stdout="", returncode=0)
+                    if list(argv[:2]) == ["docker", "ps"]
+                    else None
+                ),
+            ),
             patch.object(salle.os, "stat", faux_stat),
             patch.object(sys, "stdin", entree),
         ):

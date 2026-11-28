@@ -1,7 +1,8 @@
 """Ce qu'un moteur donne au cycle de vie: son plan, son environnement, ses manettes.
 
 Déplacé de `docker/switch-room.py` octet pour octet (`run`, `pad_command`,
-`cpu_pinning`, `engine_environment`, `EngineLaunch`, `CaptureRestarts`), qui garde sa propre copie
+`cpu_pinning`, `engine_environment`, `EngineLaunch`, `CaptureRestarts`, `EngineWatch`,
+`stop_orphans`, `room_held`), qui garde sa propre copie
 jusqu'à la bascule de la Switch. `test_differentiel.py` tient les deux égales:
 même arbre syntaxique pour chaque fonction, mêmes commandes pour chaque scénario
 doré.
@@ -9,10 +10,17 @@ doré.
 
 from __future__ import annotations
 
+import fcntl
+import json
 import os
 import subprocess
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import NamedTuple
+
+from moteurs.socle.emplacement import ouvrir_sans_lien
 
 #: Le dépôt, d'où le conteneur monte ses outils.
 DEPOT = Path(__file__).resolve().parents[2]
@@ -23,6 +31,79 @@ TOOLS = DEPOT / "spikes/switch-room"
 
 def run(*args: str, **kwargs):
     return subprocess.run(args, check=True, **kwargs)  # noqa: S603 -- fixed programs, argument arrays, no shell
+
+
+#: The room's own lock, beside the worker's session files. Its adapter holds it
+#: for its whole life; the kernel frees it even when the adapter is killed.
+ROOM_LOCK = "salle-externe.lock"
+#: The label each room container carries (`pad_command` and `serve`).
+ROOM_LABEL = "nel3ab.room-root"
+
+
+def stop_orphans(root: Path) -> list[str]:
+    """Stop and remove the containers a dead adapter of this room left running.
+
+    Docker filters on the room's own label, so another room's containers are
+    never listed. Engines stop first, capture first, as `stop_engine` does,
+    then the virtual controllers. Each name stopped is returned.
+    """
+    listed = run(
+        "docker",
+        "ps",
+        "--all",
+        "--filter",
+        f"label={ROOM_LABEL}={root}",
+        "--format",
+        "{{.Names}}",
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    engines = [name for name in listed if not name.endswith("-pads")]
+    helpers = [name for name in listed if name.endswith("-pads")]
+    for engine in engines:
+        # The capture may be gone already: its stop is asked, never required.
+        subprocess.run(  # noqa: S603 -- names listed by Docker under this room's label, fixed command
+            ["/usr/bin/docker", "exec", engine, "python3", "/probe/capture_control.py", "stop"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        run("docker", "stop", "--timeout", "40", engine, stdout=subprocess.DEVNULL)
+    for helper in helpers:
+        run("docker", "stop", "--timeout", "5", helper, stdout=subprocess.DEVNULL)
+    for name in [*engines, *helpers]:
+        run("docker", "rm", name, stdout=subprocess.DEVNULL)
+    if listed:
+        sys.stderr.write(json.dumps({"orphelins_arretes": [*engines, *helpers]}) + "\n")
+        sys.stderr.flush()
+    return [*engines, *helpers]
+
+
+@contextmanager
+def room_held(pads: Path) -> Iterator[None]:
+    """The whole room for this adapter's life, its orphans stopped first.
+
+    The worker runs one adapter per room at a time (external.rs waits for the
+    previous one). The slot lock dies with its adapter, but the containers live
+    under dockerd: on 2026-11-27 a bench room whose adapter was killed kept its
+    emulator running six hours, and a new game on the same slot would have
+    started beside an emulator still writing its saves. Under this lock, any
+    container with the room's label is such an orphan, stopped before the
+    room's first container. `serve` takes it after every check of the plan, so
+    a refused start still runs no Docker command. The first copy of the slot
+    comes before, in `main`: if the orphan played this very slot, that copy may
+    miss its last seconds, which its own stop then writes into the slot. A live
+    adapter holding the lock refuses the start instead: stopping its game
+    would be the worse error.
+    """
+    root = pads.parent
+    with ouvrir_sans_lien(root, ROOM_LOCK) as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(f"Another adapter still runs room {root}") from None
+        stop_orphans(root)
+        yield
 
 
 def pad_command(
@@ -43,7 +124,7 @@ def pad_command(
         "--name",
         helper,
         "--label",
-        f"nel3ab.room-root={pads.parent}",
+        f"{ROOM_LABEL}={pads.parent}",
         "--network",
         "none",
         "--cap-drop=ALL",

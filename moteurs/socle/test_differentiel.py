@@ -170,8 +170,13 @@ class MemeTexte(unittest.TestCase):
             "cpu_pinning",
             "engine_environment",
             "EngineLaunch",
-            # Le 27 novembre 2026: la règle des relances de capture (CAP-7).
+            # Le 27 novembre 2026: la règle des relances de capture (CAP-7), le
+            # `docker wait` du moteur (MACH-2), et les orphelins de la salle
+            # arrêtés sous son verrou.
             "CaptureRestarts",
+            "EngineWatch",
+            "stop_orphans",
+            "room_held",
             # Le 22 novembre 2026: l'hôte ne suit aucun lien de l'emplacement.
             "descendre",
             "ouvrir_sans_lien",

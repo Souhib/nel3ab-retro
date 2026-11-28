@@ -127,6 +127,14 @@ class Docker:
             (monte(argv, "/run-data") / "display.json").write_text(
                 '{"WAYLAND_DISPLAY": "wayland-1"}'
             )
+        elif argv[:2] == ["docker", "ps"]:
+            # Comme le vrai: seuls les conteneurs dont l'étiquette vaut le filtre.
+            filtre = argv[argv.index("--filter") + 1]
+            sortie = "".join(
+                f"{nom}\n"
+                for nom, salle in self.consigne["orphelins"]
+                if filtre == f"label=nel3ab.room-root={salle}"
+            )
         elif argv[:4] == ["docker", "inspect", "-f", "{{.State.Running}}"]:
             self.inspections += 1
             sortie = "false\n" if self.arrete else "true\n"

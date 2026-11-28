@@ -26,6 +26,7 @@ de l'arrêt une version plus récente de l'arbre principal.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import json
 import os
@@ -42,12 +43,14 @@ from moteurs.socle import consoles, emplacement, fiche
 from moteurs.socle.emplacement import ouvrir_sans_lien
 from moteurs.socle.lancement import (
     DEPOT,
+    ROOM_LABEL,
     TOOLS,
     CaptureRestarts,
     EngineLaunch,
     EngineWatch,
     cpu_pinning,
     pad_command,
+    room_held,
     run,
 )
 
@@ -157,7 +160,12 @@ def serve(
     started_engine = started_helper = False
     selector = selectors.DefaultSelector()
     selector.register(sys.stdin, selectors.EVENT_READ)
+    held = contextlib.ExitStack()
     try:
+        # The room's lock, its orphans stopped (room_held): after every check of
+        # the plan, which may refuse the start without any Docker command, and
+        # before the room's first container.
+        held.enter_context(room_held(pads))
         run(
             *pad_command(image, pads, helper, f"nel3ab {token}", launch.pad_layout),
             stdout=subprocess.DEVNULL,
@@ -178,7 +186,7 @@ def serve(
             "--name",
             engine,
             "--label",
-            f"nel3ab.room-root={pads.parent}",
+            f"{ROOM_LABEL}={pads.parent}",
             "--network",
             "none",
             "--cap-drop=ALL",
@@ -270,6 +278,9 @@ def serve(
                         )
                 finally:
                     run("docker", "rm", helper, stdout=subprocess.DEVNULL)
+            # The room's lock goes last, once its containers are stopped. If a stop
+            # above fails, the kernel frees it when the adapter exits.
+            held.close()
 
 
 def stop_engine(engine: str, slot: Path, capture, snapshot) -> None:

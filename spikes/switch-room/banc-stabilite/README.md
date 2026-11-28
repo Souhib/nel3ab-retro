@@ -77,4 +77,6 @@ sans les crochets.
 - Le jeu sans sa mise à jour, sans le savoir : `MAJ=1`.
 
 Les résultats et leur lecture sont dans le carnet de bord, au 27 novembre au
-soir.
+soir. Les données brutes de ces phases (traces, échantillons, journaux, photos,
+graines de cache) sont archivées dans
+`~/.local/share/nel3ab/archives/switch1-banc-2026-11-27/`, avec leur inventaire.

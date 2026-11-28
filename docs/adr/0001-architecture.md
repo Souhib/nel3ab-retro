@@ -4816,4 +4816,35 @@ Consequence. What steadies a game is a cache that has already seen its
 content: each game's shader and driver caches are shared by its slots and
 kept between games (`cache_mounts`), so each first encounter is paid once on
 this machine. Warming a cache before players meet the content is the lever
-left, and it writes production caches: the owner's decision.
+left, and it writes production caches: the owner's decision. On 2026-11-28 the
+owner decided against it: caches fill as people play, and nothing warms them
+ahead.
+
+### D55: A room stops the containers its killed adapter left, 2026-11-28
+
+The engine and controller containers of a room live under dockerd, not in the
+worker's process group. When the worker dies alone, its adapter sees stdin
+close and stops them. When the adapter dies too, nothing does: the unit sends
+SIGTERM, then kills the worker's whole group 90 s later (`KillMode=mixed`,
+`TimeoutStopSec=90`), and an adapter can also be killed for memory. On
+2026-11-27 a bench room whose session was cut ran its emulator six hours. The
+slot lock dies with the adapter, so the next game could have started on the
+same slot beside an emulator still writing its saves.
+
+Decision. Each adapter holds a room lock (`salles/N/salle-externe.lock`) for
+its whole life, which the kernel frees even on SIGKILL. `serve` takes it after
+every check of the plan, then stops and removes, engine first then
+controllers, every container carrying the room's `nel3ab.room-root` label:
+under that lock, such a container can only be an orphan. A live adapter
+holding the lock makes the new start refuse instead.
+
+Reasons. The label already names the room (the black box reads it), and
+Docker filters on it, so another room is never listed. Taking the lock in
+`serve` rather than in `main` keeps the rule that a refused start runs no
+Docker command (the golden refusal scenarios run none).
+
+Costs. The first copy of the slot is taken before, in `main`: if the orphan
+played this very slot, that copy may miss its last seconds, which the
+orphan's own stop then writes into the slot. Proved on a real Mario Tennis
+room killed with SIGKILL: both containers survived, and the relaunch stopped
+and removed them before starting its own.

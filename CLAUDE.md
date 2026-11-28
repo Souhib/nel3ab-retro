@@ -697,6 +697,15 @@ machine".
   stamp. `readouts-check`, also in `check`, refused three new counters that
   nothing displayed. Read the recipe line, and run every recipe it names that
   reads the files you changed.
+- **A container outlives the process that started it.** On 2026-11-27 a
+  session cut killed a bench worker and its room script, and the emulator ran
+  six hours under dockerd. A room now holds `salles/N/salle-externe.lock` and
+  stops its labelled orphans before its first container (ADR D55). A bench
+  phase runs detached (`setsid`) and refuses to start beside a bench room
+  still running (`banc-stabilite/nettoyer.sh`).
+- **Never edit a shell script while bash runs it.** Bash rereads a script by
+  byte offset: the same evening, a line inserted above a running `sleep` would
+  have made it resume in the middle of earlier lines. Run a frozen copy.
 - A test that cannot fail is worse than no test: it advertises coverage that does
   not exist.
 

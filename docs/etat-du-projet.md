@@ -39,11 +39,11 @@ deux fois par seconde si le moteur vit ». ADR D54.)
 - **Les sondes et essais du moteur** sont dans `spikes/switch-room/amont/`,
   construits par `NEL3AB_STABILITE_BUILD=1 ./build.sh`, éteints par défaut ;
   aucun n'est dans le moteur de la salle.
-- **À décider par le propriétaire.** Réchauffer les caches d'un jeu avant les
-  joueurs (la démo de Mario Kart le fait sans manette, et cela écrit dans les
-  caches de production). Les conteneurs d'une salle dont le worker est tué
-  net restent ouverts : rien ne les arrête au démarrage suivant (vu sur une
-  salle de banc, six heures, le 27 novembre).
+- **Décidé le 28 novembre.** Pas de préchauffage des caches : ils se
+  remplissent en jouant (ADR D54). Une salle arrête au démarrage les
+  conteneurs que son script tué a laissés, sous un verrou de salle
+  (`salles/N/salle-externe.lock`, ADR D55), prouvé sur une vraie salle tuée
+  par SIGKILL ; en service au prochain lancement de salle après la fusion.
 
 **Au 27 novembre, le jour : l'audit de la Switch 1 et ses corrections, sur
 integration/switch1.** Ce bloc décrit du code fusionné sur la branche

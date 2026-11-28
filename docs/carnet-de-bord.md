@@ -35449,6 +35449,45 @@ tourne, et `nettoyer.sh` les arrête. La même chose arriverait à une salle de
 production dont le worker serait tué net : rien n'arrête ses conteneurs au
 démarrage suivant.
 
+### 28 novembre, la nuit : une salle arrête l'émulateur que son script tué a laissé
+
+La veille, une coupure de session a tué le worker et le script d'une salle de
+banc, mais pas son émulateur : il a tourné six heures. Ce n'est pas propre au
+banc. Les conteneurs d'une salle (l'émulateur et ses manettes virtuelles)
+vivent sous dockerd, pas avec le worker. Si le worker meurt seul, le script de
+salle voit son entrée se fermer et arrête tout proprement. Mais l'unité systemd
+tue tout le groupe du worker 90 s après lui avoir demandé de s'arrêter, et un
+script peut aussi être tué faute de mémoire. L'émulateur reste alors seul, et
+le verrou de son emplacement, tenu par le script mort, est libre : une
+nouvelle partie pouvait démarrer sur le même emplacement pendant que l'ancien
+émulateur y écrivait encore ses sauvegardes.
+
+Chaque script de salle tient désormais un verrou de salle pendant toute sa
+vie, `salles/N/salle-externe.lock`, que le noyau libère même quand le script
+est tué net. Sous ce verrou, tout conteneur qui porte l'étiquette de la salle
+est forcément un orphelin : il est arrêté, capture d'abord, émulateur puis
+manettes, et retiré, avant le premier conteneur de la nouvelle partie. Un
+script vivant qui tient encore la salle fait refuser le départ, plutôt que
+d'arrêter sa partie. Le verrou est pris après tous les contrôles du lancement :
+le dépôt tient pour règle qu'une salle qui refuse de démarrer ne lance aucune
+commande Docker, et une première version, qui le prenait en tête de `main`,
+a été refusée par ces essais-là. Le prix : la première copie de l'emplacement
+se fait avant l'arrêt de l'orphelin, et peut manquer ses dernières secondes
+s'il jouait ce même emplacement ; son arrêt les écrit ensuite dans
+l'emplacement.
+
+La preuve, sur une vraie salle Mario Tennis privée : worker et script tués
+net, plus aucun processus, les deux conteneurs toujours là ; la même salle
+relancée écrit « orphelins_arretes » avec leurs deux noms, puis démarre les
+siens ; son arrêt normal ne laisse rien. Les essais tiennent l'ordre d'arrêt,
+la salle voisine jamais touchée, le refus devant un script vivant, le verrou
+libéré, l'arrêt avant le premier conteneur et aucune commande pour un plan
+refusé ; six défauts réintroduits un par un font chacun échouer le sien. Le
+faux Docker filtre les étiquettes comme le vrai, clé seule comprise.
+
+Le même soir, Souhib a décidé de ne pas réchauffer les caches de shaders avant
+les joueurs : ils se remplissent en jouant (ADR D54).
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un

@@ -35332,6 +35332,123 @@ suit le retour du client. Un essai de `moteurs/xenia` repérait la fin de
 partie au dernier `docker inspect` ; il part désormais du dernier arrêt de
 capture, qui ouvre toujours `stop_engine`.
 
+### 27 novembre, le soir : un banc de stabilité, et d'où viennent les accrocs de la Switch 1
+
+Souhib demande une partie stable, avec ou sans chargement de shaders (les
+petits programmes que la carte graphique exécute, compilés par l'émulateur à
+leur première rencontre), au rythme d'une console : sans accélérer le jeu.
+
+**Le banc.** Une salle Switch privée, lancée par le vrai worker, sur des ports
+libres et avec des copies des caches (`spikes/switch-room/banc-stabilite/`).
+Il date chaque image capturée et relève 20 fois par seconde le temps de
+processeur de chaque fil de Ryubing, la croissance de son cache de programmes
+et les écritures du cache du pilote Mesa. Chaque accroc reçoit ainsi une
+cause : un programme neuf, une compilation du pilote sans programme neuf, ou
+autre chose. La scène est la démo de l'écran titre de Mario Kart 8 Deluxe :
+des courses jouées seules, sans manette, sur un circuit tiré au hasard. Les
+deux crochets dont le banc a besoin ne vont jamais dans la salle : ils se
+posent dans une copie de travail (`crochets.patch`).
+
+**Ce que la partie réelle du 26 novembre disait déjà.** Sur les 84 fenêtres de
+5 s du Smash de Souhib, 31 avaient un écart de 25 ms ou plus : 12 pendant un
+chargement du jeu, 8 pendant une compilation de shaders, 11 sans cause lisible.
+
+**Sans shader neuf, la démo est stable.** Dans les tranches de 10 s où aucun
+programme neuf n'apparaît, environ six sur dix ne perdent aucune image, et les
+pertes restantes tombent sur un chargement de circuit, un accroc de 200 à
+280 ms environ.
+
+**Les shaders neufs font la plus grande part.** À froid, la démo perd environ
+900 images en moins de cinq minutes. Une sonde ajoutée au moteur de labo
+(`amont/ryubing-shader-probe.patch`) dit où va le temps de chaque programme
+neuf : 5,2 ms de traduction sur le fil GPU, puis 11,5 ms de compilation par le
+pilote, pendant lesquelles le fil de rendu attend. Rien ne sort à l'écran
+pendant ce temps.
+
+**Ce qui a été essayé et écarté, chaque fois sur mesure.**
+
+- Ne plus attendre un programme en compilation, et sauter ses dessins
+  (`amont/ryubing-async-shaders.patch`). Les accrocs de plus de 25 ms passent
+  de 151 à 70 sur un départ à froid, mais la première course de démo de cet
+  essai est restée noire une trentaine de secondes : le logo était dessiné,
+  l'icône de chargement absente, et la course suivante s'affichait. Un dessin
+  fait une seule fois avait été sauté. Une seconde paire, avec une photo toutes
+  les 3 s, n'a pas reproduit le défaut : il est intermittent. Une console ne
+  montre jamais une scène noire. Écarté (ADR D54).
+- Les réglages du compilateur .NET qui fait tourner Ryubing :
+  `DOTNET_TieredCompilation=0` (5,9 ms de traduction contre 5,2) et
+  `DOTNET_TieredPGO=0` (5,35 ms). Aucun effet.
+- Des pipelines compilés sans optimisation (`amont/ryubing-pipeline-noopt.patch`) :
+  9,9 ms au lieu de 11,5, pas moins d'images perdues, et le cache garderait
+  des shaders moins efficaces. Écarté.
+- Épingler l'émulateur sur des cœurs : pas essayé, parce que l'émulateur
+  utilisait 1,6 cœur pendant la démo et que ses fils attendaient un cœur moins
+  de 1 % du temps. Le processeur ne manque pas.
+
+**Ce qui marche : un cache qui a déjà vu le contenu.** Chaque jeu garde ses
+caches entre les parties et les partage entre ses emplacements depuis le
+11 septembre. Une campagne alternée l'a chiffré : quatre phases de 5 minutes,
+A partant à froid, B partant du cache laissé par 14 minutes de démo.
+
+| | A froid | B chaud | B chaud | A froid |
+|---|---|---|---|---|
+| Programmes neufs | 570 | 128 | 126 | 700 |
+| Images perdues | 913 | 508 | 610 | 968 |
+| Accrocs de plus de 25 ms | 132 | 50 | 49 | 151 |
+| Attente du fil de rendu sur les compilations | 2,6 s | 0,4 s | 0,5 s | 2,7 s |
+
+Quatorze minutes de démo n'ont vu qu'une partie des circuits : la démo en tire
+un au hasard, et le jeu en a 96 avec ses contenus additionnels. Le gain vient
+donc des circuits déjà vus, et il grandit avec les parties. Réchauffer un cache
+avant que les joueurs n'arrivent écrit dans les caches de production : c'est à
+Souhib d'en décider.
+
+**Les accrocs de chargement.** Une seconde sonde (`amont/ryubing-call-probe.patch`)
+chronomètre chaque appel du service graphique du système émulé ({Nv}). À chaque
+changement de circuit, le jeu démappe et remappe environ 2 000 zones de mémoire
+graphique en 200 ms, et chaque appel coûte environ 41 µs. Sur ces 41 µs, 33 à
+36 passent dans une seule action : à chaque remappage, où qu'il tombe, Ryubing
+repasse sur toutes les textures « partiellement mappées », 1 000 à 2 300
+pendant la démo, et force la réévaluation de chacune au dessin suivant. Le
+reste de l'appel (caches de textures et de tampons, table des pages) coûte 1 à
+3 µs.
+
+L'idée suivante semblait évidente : ne réévaluer que les textures dont une
+adresse croise la plage remappée (`amont/ryubing-remap-cible.patch`). Mesurée en
+A B B A sur le même exécutable et le même cache, elle ne met plus à jour que
+0,1 % des textures, mais chaque remappage coûte 50,7 et 49,5 µs contre 41,6 et
+40,1 sans elle, et les images perdues ne bougent pas (430 à 557 dans les quatre
+phases). Le coût n'était pas la mise à jour : c'est le parcours lui-même, plus
+d'un millier de textures et un verrou chacune, à chaque appel. Ces textures
+restent dans l'ensemble jusqu'à leur éviction du cache, parce que seule une
+texture relue depuis un pool en sort. Le gain possible, autour de 65 ms par
+changement de circuit, demanderait de les ranger par adresse GPU ou de grouper
+les mises à jour : un changement plus profond du moteur, laissé en piste.
+
+**Et au début d'un circuit déjà vu.** Sur cache chaud, des gels de 0,8 à 1,6 s
+restent au départ de certaines courses, sans traduction ni attente de
+programme, et la création de pipelines n'y prend que 5 à 39 ms. Une dernière
+sonde chronomètre chaque commande du fil de rendu (`amont/ryubing-render-probe.patch`).
+Dans la seconde du pire gel : 2 218 créations de texture (248 ms), 2 214
+envois de données de texture (288 ms), puis jusqu'à 1 031 relectures d'une
+texture vers le processeur en une seconde (`TextureGetData`, 273 ms), chacune
+attendant que la carte ait fini. Une console partage sa mémoire entre le
+processeur et la carte et n'a rien de tout cela : c'est le prix de
+l'émulation au chargement d'un circuit. Le réduire voudrait dire envoyer les
+textures à côté du fil de rendu, ou éviter ces relectures : un chantier du
+moteur, mesuré ici et laissé en piste.
+
+**Deux pièges du banc.** Retoucher le script d'une phase pendant que bash
+l'exécute : bash relit un script par position d'octet, et aurait exécuté des
+lignes décalées ; le fichier a été remis à l'identique avant la fin de
+l'attente, et les campagnes exécutent désormais une copie figée. Puis une
+coupure de session a tué le worker et le script d'une phase, mais pas
+l'émulateur : la salle de banc est restée ouverte six heures, sans joueur ce
+soir-là. Le banc refuse maintenant de démarrer tant qu'une salle de banc
+tourne, et `nettoyer.sh` les arrête. La même chose arriverait à une salle de
+production dont le worker serait tué net : rien n'arrête ses conteneurs au
+démarrage suivant.
+
 ## 12. Glossaire complet
 
 **AppImage** : format qui range un programme Linux et ses bibliothèques en un
@@ -36105,6 +36222,23 @@ option « ignorer les XFB identiques » a été notre premier suspect pendant le
 gel.
 
 **Zero-copy** — l'objectif : la donnée n'est jamais recopiée.
+
+**docker wait** : une commande Docker qui reste bloquée jusqu'à l'arrêt d'un
+conteneur, puis rend son code de sortie. La salle s'en sert depuis le
+27 novembre 2026 pour savoir que son émulateur s'est arrêté, au lieu de le
+demander deux fois par seconde.
+
+**Démo d'écran titre** : la séquence qu'un jeu joue seul quand personne ne
+touche la manette. Celle de Mario Kart 8 Deluxe court sur un circuit tiré au
+hasard : le banc de stabilité s'en sert comme scène sans manette.
+
+**Remappage (mémoire graphique)** : le jeu dit au système quelle mémoire
+correspond à une plage d'adresses du processeur graphique, ou retire ce lien
+(démappage). Mario Kart en fait environ 2 000 à chaque changement de circuit.
+
+**Texture partiellement mappée** : une texture dont une partie des adresses
+n'est plus reliée à de la mémoire. Ryubing les garde dans un ensemble et les
+réévalue toutes à chaque remappage.
 
 ### Les mots du thème rétro (novembre 2026), dans l'ordre alphabétique
 

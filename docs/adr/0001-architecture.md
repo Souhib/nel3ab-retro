@@ -4775,3 +4775,45 @@ freeze stops the room about 3.5 minutes after it: the capture exits with 4,
 then twice with 3. Not yet seen in a real room: three normal starts of
 Smash and one of Mario Tennis, with no « no complete packet » line and 30 to
 45 s written for Smash.
+
+### D54: A new shader is waited for, never skipped, 2026-11-27
+
+The owner asked for a game that stays steady with or without shaders being
+compiled, at the pace of a console, without speeding the game up. The bench
+of 27 November (`spikes/switch-room/banc-stabilite/`) dated every captured
+picture and what Ryubing was doing at that moment, on the attract demo of
+Mario Kart 8 Deluxe, which plays races on random tracks without a controller.
+
+Without a new shader, the demo is steady: about six 10-second windows in ten
+lose no picture, and what is lost falls on a track load (about 200 to 280 ms). With new shaders, a cold start loses about 900 pictures in under
+five minutes. Each new program costs about 5 ms of translation on the GPU
+thread and about 11.5 ms of driver compilation, and the render thread waits
+for it (`ryubing-shader-probe.patch`, 564 programs measured).
+
+Decision. Ryubing keeps waiting for a program that is being compiled. The
+room does not skip the draws of a program that is not ready.
+
+Reasons. Skipping them (`ryubing-async-shaders.patch`, `NEL3AB_ASYNC_SHADERS`)
+cut the stalls of more than 25 ms from 151 to 70 on a cold start, but the
+first demo race of that run stayed black for about 30 s, logo drawn, loading
+icon absent, while the next race drew normally: a draw made once was skipped,
+and what it set up stayed wrong. A second pair, with a picture every 3 s,
+drew both races of the skipping arm, so the fault is intermittent. The
+skipping arm also logged 40 « Background pipeline compile missed on draw »
+against 0, because a later first draw comes in another state, and that
+pipeline is then compiled on the render thread anyway. A console never shows
+a missing or black scene; a stall at a first encounter is the lesser harm.
+
+Rejected by measurement on the same bench, cold, Mario Kart 8 Deluxe:
+`DOTNET_TieredCompilation=0` (translation 5.9 ms per program against 5.2) and
+`DOTNET_TieredPGO=0` (5.35 ms); pipelines compiled without optimisation
+(`ryubing-pipeline-noopt.patch`, 9.9 ms against 11.5, no fewer lost pictures,
+and the cache would keep the less efficient shaders). Pinning the emulator to
+cores was not tried: the whole engine used 1.6 cores during the demo, and its
+threads waited less than 1 % of the time for a core.
+
+Consequence. What steadies a game is a cache that has already seen its
+content: each game's shader and driver caches are shared by its slots and
+kept between games (`cache_mounts`), so each first encounter is paid once on
+this machine. Warming a cache before players meet the content is the lever
+left, and it writes production caches: the owner's decision.

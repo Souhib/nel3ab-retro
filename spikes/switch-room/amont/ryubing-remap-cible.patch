@@ -1,0 +1,104 @@
+diff --git a/src/Ryujinx.Graphics.Gpu/Image/Texture.cs b/src/Ryujinx.Graphics.Gpu/Image/Texture.cs
+index 05a316c4..4dc61143 100644
+--- a/src/Ryujinx.Graphics.Gpu/Image/Texture.cs
++++ b/src/Ryujinx.Graphics.Gpu/Image/Texture.cs
+@@ -1680,6 +1680,35 @@ namespace Ryujinx.Graphics.Gpu.Image
+         /// <summary>
+         /// Queue updating texture mappings on the pool. Happens from another thread.
+         /// </summary>
++        /// <summary>
++        /// nel3ab: whether remapping [address, address + size) in GPU virtual memory can
++        /// change this texture's mapping: its creation address or one of its pool
++        /// references lies in that range. A texture outside it keeps the same pages.
++        /// </summary>
++        public bool OverlapsGpuRange(ulong address, ulong size)
++        {
++            ulong end = address + size;
++            ulong length = Size;
++
++            if (Info.GpuAddress < end && address < Info.GpuAddress + length)
++            {
++                return true;
++            }
++
++            lock (_poolOwners)
++            {
++                foreach (TexturePoolOwner owner in _poolOwners)
++                {
++                    if (owner.GpuAddress < end && address < owner.GpuAddress + length)
++                    {
++                        return true;
++                    }
++                }
++            }
++
++            return false;
++        }
++
+         public void UpdatePoolMappings()
+         {
+             ChangedMapping = true;
+diff --git a/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs b/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs
+index 8a2d99ae..6fdb8cdd 100644
+--- a/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs
++++ b/src/Ryujinx.Graphics.Gpu/Image/TextureCache.cs
+@@ -78,14 +78,17 @@ namespace Ryujinx.Graphics.Gpu.Image
+             _cache.Initialize(_context, cpuMemorySize);
+         }
+ 
++        private static readonly bool _nel3abRemapCible = Environment.GetEnvironmentVariable("NEL3AB_REMAP_CIBLE") == "1";
+         private static long _nel3abGaugeAt;
+         private static int _nel3abGaugeMax;
++        private static long _nel3abGaugeUpdated;
++        private static long _nel3abGaugeOffered;
+ 
+         /// <summary>
+         /// nel3ab: the size of the partially mapped set, at most one line a second,
+         /// when NEL3AB_CALL_PROBE=1.
+         /// </summary>
+-        private static void Nel3abPartialGauge(int count)
++        private static void Nel3abPartialGauge(int count, int updated)
+         {
+             if (!Ryujinx.Common.Nel3abCallProbe.Enabled)
+             {
+@@ -93,12 +96,16 @@ namespace Ryujinx.Graphics.Gpu.Image
+             }
+ 
+             _nel3abGaugeMax = Math.Max(_nel3abGaugeMax, count);
++            _nel3abGaugeOffered += count;
++            _nel3abGaugeUpdated += updated;
+             long now = System.Diagnostics.Stopwatch.GetTimestamp();
+             if (now >= _nel3abGaugeAt)
+             {
+                 _nel3abGaugeAt = now + System.Diagnostics.Stopwatch.Frequency;
+-                Console.Error.WriteLine($"NEL3AB_PARTIAL t_ns={now} max={_nel3abGaugeMax}");
++                Console.Error.WriteLine($"NEL3AB_PARTIAL t_ns={now} max={_nel3abGaugeMax} offertes={_nel3abGaugeOffered} mises_a_jour={_nel3abGaugeUpdated}");
+                 _nel3abGaugeMax = 0;
++                _nel3abGaugeOffered = 0;
++                _nel3abGaugeUpdated = 0;
+             }
+         }
+ 
+@@ -152,12 +159,20 @@ namespace Ryujinx.Graphics.Gpu.Image
+                             // Any texture that has been unmapped at any point or is partially unmapped
+                             // should update their pool references after the remap completes.
+ 
++                            int updated = 0;
++
+                             foreach (Texture texture in _partiallyMappedTextures)
+                             {
+-                                texture.UpdatePoolMappings();
++                                // nel3ab (NEL3AB_REMAP_CIBLE=1): only the textures this remap
++                                // can change, its own overlaps included. Off by default.
++                                if (!_nel3abRemapCible || texture.OverlapsGpuRange(e.Address, e.Size) || Array.IndexOf(overlaps, texture, 0, overlapCount) >= 0)
++                                {
++                                    texture.UpdatePoolMappings();
++                                    updated++;
++                                }
+                             }
+ 
+-                            Nel3abPartialGauge(_partiallyMappedTextures.Count);
++                            Nel3abPartialGauge(_partiallyMappedTextures.Count, updated);
+                         }
+                     });
+                 }

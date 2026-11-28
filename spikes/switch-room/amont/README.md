@@ -4,7 +4,7 @@ Ryubing `475615f` (26 août 2026), 328 commits après la version épinglée
 `e2143d4`. Le son et les manettes y passent par SDL3, et la construction exige
 le SDK .NET 10. `./build.sh <dossier>` le construit avec les correctifs de la
 salle.
-`NEL3AB_STABILITE_BUILD=1 ./build.sh <dossier>` y ajoute les sondes et les deux
+`NEL3AB_STABILITE_BUILD=1 ./build.sh <dossier>` y ajoute les sondes et les trois
 essais classés du banc de stabilité (`../banc-stabilite/`), éteints par défaut :
 pour un banc, jamais pour la salle.
 
@@ -19,6 +19,8 @@ pour un banc, jamais pour la salle.
 | `ryubing-shader-probe.patch` | sonde : par seconde, traduction des programmes neufs, attente du fil de rendu, pipelines créés au dessin et en arrière-plan (`NEL3AB_SHADER_PROBE=1`) | Mario Kart à froid : 5,2 ms de traduction et 11,5 ms de pilote par programme |
 | `ryubing-pipeline-noopt.patch` | essai **classé** : pipelines compilés sans optimisation (`NEL3AB_PIPELINE_NOOPT=1`) | 9,9 ms au lieu de 11,5 par programme, pas moins d'images perdues, et le cache garderait des shaders moins efficaces |
 | `ryubing-call-probe.patch` | sonde : temps par appel `nvdrv` et par étape de map/unmap mémoire GPU, et taille de l'ensemble des textures partiellement mappées (`NEL3AB_CALL_PROBE=1`) | 33 à 36 µs sur ~40 par map/unmap passent dans `RunRemapActions` |
+| `ryubing-remap-cible.patch` | essai **classé** : à chaque remappage, ne mettre à jour que les textures partiellement mappées dont une adresse GPU croise la plage (`NEL3AB_REMAP_CIBLE=1`) | 0,1 % des textures mises à jour, mais 50,7 µs par remappage contre 41,6 : le coût est le parcours de l'ensemble, pas la mise à jour |
+| `ryubing-render-probe.patch` | sonde : temps du fil de rendu par type de commande (avec `NEL3AB_CALL_PROBE=1`) | au début d'un circuit déjà vu : ~2 200 créations et envois de textures, jusqu'à 1 000 relectures `TextureGetData` par seconde |
 
 Le correctif des sources de paquets de la version épinglée est inutile ici :
 les paquets de mise à jour sont sur nuget.org. Chaque fichier a été produit par

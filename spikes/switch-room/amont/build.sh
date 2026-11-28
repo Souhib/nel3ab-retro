@@ -33,11 +33,11 @@ if [ "${NEL3AB_LATENCY_PROBE_BUILD:-}" = 1 ]; then patches+=(ryubing-latency-pro
 # NEL3AB_STABILITE_BUILD=1 : les sondes et les deux essais du banc de stabilité
 # (27 novembre 2026), dans cet ordre, chacun éteint tant que sa variable ne vaut
 # pas 1 : NEL3AB_ASYNC_SHADERS, NEL3AB_SHADER_PROBE, NEL3AB_PIPELINE_NOOPT,
-# NEL3AB_CALL_PROBE. Pour un banc, jamais pour la salle ; ni avec la sonde de
+# NEL3AB_CALL_PROBE, NEL3AB_REMAP_CIBLE. Pour un banc, jamais pour la salle ; ni avec la sonde de
 # latence, la combinaison n'a pas été construite.
 if [ "${NEL3AB_STABILITE_BUILD:-}" = 1 ]; then
   [ "${NEL3AB_LATENCY_PROBE_BUILD:-}" = 1 ] && { echo 'NEL3AB_STABILITE_BUILD et NEL3AB_LATENCY_PROBE_BUILD : une seule à la fois.' >&2; exit 1; }
-  patches+=(ryubing-async-shaders.patch ryubing-shader-probe.patch ryubing-pipeline-noopt.patch ryubing-call-probe.patch)
+  patches+=(ryubing-async-shaders.patch ryubing-shader-probe.patch ryubing-pipeline-noopt.patch ryubing-call-probe.patch ryubing-remap-cible.patch ryubing-render-probe.patch)
 fi
 for patch in "${patches[@]}"; do git -C "$source_dir" apply "$here/$patch"; done
 NUGET_PACKAGES="$lab/nuget" DOTNET_CLI_TELEMETRY_OPTOUT=1 "$dotnet_bin" publish \

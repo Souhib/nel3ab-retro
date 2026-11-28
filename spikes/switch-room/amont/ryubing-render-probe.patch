@@ -1,0 +1,37 @@
+diff --git a/src/Ryujinx.Graphics.GAL/Multithreading/CommandHelper.cs b/src/Ryujinx.Graphics.GAL/Multithreading/CommandHelper.cs
+index a1e6db97..bb9e0784 100644
+--- a/src/Ryujinx.Graphics.GAL/Multithreading/CommandHelper.cs
++++ b/src/Ryujinx.Graphics.GAL/Multithreading/CommandHelper.cs
+@@ -156,9 +156,32 @@ namespace Ryujinx.Graphics.GAL.Multithreading
+             return maxCommandSize;
+         }
+ 
++        private static readonly string[] _nel3abNames = BuildNel3abNames();
++
++        private static string[] BuildNel3abNames()
++        {
++            string[] names = new string[256];
++            for (int i = 0; i < names.Length; i++)
++            {
++                names[i] = $"gal.{(CommandType)i}";
++            }
++
++            return names;
++        }
++
+         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+         public static void RunCommand(Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer)
+         {
++            // nel3ab (NEL3AB_CALL_PROBE=1): time spent by the render thread per command type.
++            if (Ryujinx.Common.Nel3abCallProbe.Enabled)
++            {
++                byte type = memory[^1];
++                long probeStart = Ryujinx.Common.Nel3abCallProbe.Start();
++                _lookup[type](memory, threaded, renderer);
++                Ryujinx.Common.Nel3abCallProbe.Stop(_nel3abNames[type], probeStart);
++                return;
++            }
++
+             _lookup[memory[^1]](memory, threaded, renderer);
+         }
+     }

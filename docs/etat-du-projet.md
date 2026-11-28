@@ -6,6 +6,45 @@ et leurs limites. Le [carnet](carnet-de-bord.md#11-septembre-ce-que-le-mois-a-ap
 conserve leur déroulement ; l'[ADR](adr/0001-architecture.md) conserve les règles
 qui en résultent. Les anciens plans M1 à M3 sont des archives de conception.
 
+**Au 27 novembre, le soir : la stabilité de la Switch 1, mesurée, et MACH-2,
+sur `chantier/switch1-fluidite`.** (Carnet : « un banc de stabilité, et d'où
+viennent les accrocs de la Switch 1 », et « la salle ne demande plus à Docker
+deux fois par seconde si le moteur vit ». ADR D54.)
+
+- **MACH-2, fait.** La salle Switch et le socle Xbox 360 lancent un seul
+  `docker wait` au lieu de deux `docker inspect` par seconde : environ 4,1 %
+  d'un cœur rendus par salle ouverte, mesuré en A B B A sur de vraies salles.
+  Les 22 fichiers dorés changent seulement de ces appels. Entre en service au
+  prochain lancement de salle après la fusion, sans redémarrage.
+- **Le banc de stabilité** (`spikes/switch-room/banc-stabilite/`) : une salle
+  privée qui date chaque image et ce que faisait chaque fil de Ryubing. Ses
+  crochets se posent dans une copie de travail, jamais dans l'arbre principal.
+- **Ce qu'il établit.** Sans shader neuf, la démo de Mario Kart est stable
+  (environ six tranches de 10 s sur dix sans perte) ; les pertes restantes
+  tombent sur les changements de circuit. Les shaders neufs font la plus
+  grande part : 5,2 ms de traduction et 11,5 ms de pilote par programme, le
+  fil de rendu attendant. Un cache qui a déjà vu le contenu divise par trois
+  les accrocs de plus de 25 ms (A B B A : 132 et 151 contre 50 et 49).
+- **Écarté sur mesure.** Sauter les dessins d'un programme en compilation (une
+  course de démo restée noire, ADR D54), `DOTNET_TieredCompilation=0`,
+  `DOTNET_TieredPGO=0`, les pipelines sans optimisation, et la réévaluation
+  ciblée des textures partiellement mappées (plus lente de 20 % par
+  remappage). Le coût d'un remappage est le parcours de 1 000 à 2 300
+  textures périmées à chaque appel : une piste plus profonde, non faite.
+- **Pistes mesurées, non faites (moteur).** Au début d'un circuit déjà vu,
+  le fil de rendu crée et remplit environ 2 200 textures et en relit jusqu'à
+  1 000 vers le processeur en une seconde : des gels de 0,8 à 1,6 s sans
+  shader en cause. Envois de textures hors du fil de rendu, relectures
+  évitées, remappages indexés par adresse : chacun est un chantier du moteur.
+- **Les sondes et essais du moteur** sont dans `spikes/switch-room/amont/`,
+  construits par `NEL3AB_STABILITE_BUILD=1 ./build.sh`, éteints par défaut ;
+  aucun n'est dans le moteur de la salle.
+- **À décider par le propriétaire.** Réchauffer les caches d'un jeu avant les
+  joueurs (la démo de Mario Kart le fait sans manette, et cela écrit dans les
+  caches de production). Les conteneurs d'une salle dont le worker est tué
+  net restent ouverts : rien ne les arrête au démarrage suivant (vu sur une
+  salle de banc, six heures, le 27 novembre).
+
 **Au 27 novembre, le jour : l'audit de la Switch 1 et ses corrections, sur
 integration/switch1.** Ce bloc décrit du code fusionné sur la branche
 `integration/switch1` (worktree `~/nel3ab-chantiers/switch1-integration`),
